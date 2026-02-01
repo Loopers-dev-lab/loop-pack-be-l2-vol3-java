@@ -33,9 +33,23 @@ public class MemberModel extends BaseEntity {
                                       String name, LocalDate birthDate,
                                       String email, PasswordEncoder encoder) {
         validateLoginId(loginId);
+        validatePassword(rawPassword, birthDate);
 
         String encodedPassword = encoder.encode(rawPassword);
         return new MemberModel(loginId, encodedPassword, name, birthDate, email);
+    }
+
+    private static void validatePassword(String password, LocalDate birthDate) {
+        if (password.length() < 8 || password.length() > 16) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호는 8~16자여야 합니다.");
+        }
+        if (!password.matches("^[a-zA-Z0-9!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?]+$")) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호는 영문 대소문자, 숫자, 특수문자만 허용됩니다.");
+        }
+        String birthDateStr = birthDate.toString().replace("-", ""); // 19900115
+        if (password.contains(birthDateStr)) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호에 생년월일을 포함할 수 없습니다.");
+        }
     }
 
     private static void validateLoginId(String loginId) {

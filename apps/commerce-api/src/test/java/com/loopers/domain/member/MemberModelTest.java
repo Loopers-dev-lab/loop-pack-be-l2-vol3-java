@@ -79,4 +79,82 @@ class MemberModelTest {
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
+
+    @DisplayName("비밀번호 검증 시, ")
+    @Nested
+    class ValidatePassword {
+
+        @DisplayName("8자 미만이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenPasswordIsTooShort() {
+            // Arrange
+            String shortPassword = "Test12!"; // 7자
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                MemberModel.create(
+                    "testuser1", shortPassword, "홍길동",
+                    LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder
+                );
+            });
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("16자 초과이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenPasswordIsTooLong() {
+            // Arrange
+            String longPassword = "Test1234!Test1234"; // 17자
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                MemberModel.create(
+                    "testuser1", longPassword, "홍길동",
+                    LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder
+                );
+            });
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("허용되지 않은 문자(한글)가 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenPasswordContainsInvalidCharacters() {
+            // Arrange
+            String invalidPassword = "Test123한글!"; // 한글 포함
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                MemberModel.create(
+                    "testuser1", invalidPassword, "홍길동",
+                    LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder
+                );
+            });
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("생년월일이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenPasswordContainsBirthDate() {
+            // Arrange
+            LocalDate birthDate = LocalDate.of(1990, 1, 15);
+            String passwordWithBirthDate = "Test19900115!"; // 생년월일 포함
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                MemberModel.create(
+                    "testuser1", passwordWithBirthDate, "홍길동",
+                    birthDate, "test@example.com", stubEncoder
+                );
+            });
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+    }
 }
