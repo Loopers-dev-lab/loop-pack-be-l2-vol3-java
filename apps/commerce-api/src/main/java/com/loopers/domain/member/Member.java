@@ -10,7 +10,7 @@ import java.time.LocalDate;
 
 @Entity
 @Table(name = "member")
-public class MemberModel extends BaseEntity {
+public class Member extends BaseEntity {
 
     private String loginId;
     private String password;
@@ -18,10 +18,10 @@ public class MemberModel extends BaseEntity {
     private LocalDate birthDate;
     private String email;
 
-    protected MemberModel() {}
+    protected Member() {}
 
-    private MemberModel(String loginId, String password, String name,
-                        LocalDate birthDate, String email) {
+    private Member(String loginId, String password, String name,
+                   LocalDate birthDate, String email) {
         this.loginId = loginId;
         this.password = password;
         this.name = name;
@@ -29,14 +29,14 @@ public class MemberModel extends BaseEntity {
         this.email = email;
     }
 
-    public static MemberModel create(String loginId, String rawPassword,
-                                      String name, LocalDate birthDate,
-                                      String email, PasswordEncoder encoder) {
+    public static Member create(String loginId, String rawPassword,
+                                String name, LocalDate birthDate,
+                                String email, PasswordEncoder encoder) {
         validateLoginId(loginId);
         validatePassword(rawPassword, birthDate);
 
         String encodedPassword = encoder.encode(rawPassword);
-        return new MemberModel(loginId, encodedPassword, name, birthDate, email);
+        return new Member(loginId, encodedPassword, name, birthDate, email);
     }
 
     private static void validatePassword(String password, LocalDate birthDate) {

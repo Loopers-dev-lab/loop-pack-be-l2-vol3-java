@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class MemberModelTest {
+class MemberTest {
 
     private final PasswordEncoder stubEncoder = new PasswordEncoder() {
         @Override
@@ -42,7 +42,7 @@ class MemberModelTest {
             String email = "test@example.com";
 
             // Act
-            MemberModel member = MemberModel.create(
+            Member member = Member.create(
                 loginId, password, name, birthDate, email, stubEncoder
             );
 
@@ -69,7 +69,7 @@ class MemberModelTest {
 
             // Act & Assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                MemberModel.create(
+                Member.create(
                     invalidLoginId, "Test1234!", "홍길동",
                     LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder
                 );
@@ -92,7 +92,7 @@ class MemberModelTest {
 
             // Act & Assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                MemberModel.create(
+                Member.create(
                     "testuser1", shortPassword, "홍길동",
                     LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder
                 );
@@ -110,7 +110,7 @@ class MemberModelTest {
 
             // Act & Assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                MemberModel.create(
+                Member.create(
                     "testuser1", longPassword, "홍길동",
                     LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder
                 );
@@ -128,7 +128,7 @@ class MemberModelTest {
 
             // Act & Assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                MemberModel.create(
+                Member.create(
                     "testuser1", invalidPassword, "홍길동",
                     LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder
                 );
@@ -147,7 +147,7 @@ class MemberModelTest {
 
             // Act & Assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                MemberModel.create(
+                Member.create(
                     "testuser1", passwordWithBirthDate, "홍길동",
                     birthDate, "test@example.com", stubEncoder
                 );
