@@ -1,6 +1,8 @@
 package com.loopers.domain.member;
 
 import com.loopers.domain.BaseEntity;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
@@ -30,8 +32,16 @@ public class MemberModel extends BaseEntity {
     public static MemberModel create(String loginId, String rawPassword,
                                       String name, LocalDate birthDate,
                                       String email, PasswordEncoder encoder) {
+        validateLoginId(loginId);
+
         String encodedPassword = encoder.encode(rawPassword);
         return new MemberModel(loginId, encodedPassword, name, birthDate, email);
+    }
+
+    private static void validateLoginId(String loginId) {
+        if (!loginId.matches("^[a-zA-Z0-9]+$")) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "로그인ID는 영문과 숫자만 허용됩니다.");
+        }
     }
 
     // Getter

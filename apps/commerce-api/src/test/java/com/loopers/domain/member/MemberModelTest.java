@@ -6,8 +6,12 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MemberModelTest {
 
@@ -50,6 +54,29 @@ class MemberModelTest {
                 () -> assertThat(member.getBirthDate()).isEqualTo(birthDate),
                 () -> assertThat(member.getEmail()).isEqualTo(email)
             );
+        }
+    }
+
+    @DisplayName("로그인ID 검증 시, ")
+    @Nested
+    class ValidateLoginId {
+
+        @DisplayName("영문과 숫자 외 문자가 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenLoginIdContainsSpecialCharacters() {
+            // Arrange
+            String invalidLoginId = "test@user";
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                MemberModel.create(
+                    invalidLoginId, "Test1234!", "홍길동",
+                    LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder
+                );
+            });
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
 }
