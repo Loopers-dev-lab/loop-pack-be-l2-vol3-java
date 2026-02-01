@@ -29,4 +29,16 @@ public class PasswordValidatorTest {
         //then
         assertThat(result).isFalse();
     }
+
+    @Test
+    public void 허용되지_않은_문자_포함시_실패() {
+        //given
+        String password = "abcd1234한글";
+
+        //when
+        boolean result = PasswordValidator.validate(password);
+
+        //then
+        assertThat(result).isFalse();
+    }
 }
