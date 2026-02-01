@@ -127,9 +127,11 @@ docker-compose -f ./docker/infra-compose.yml up
     4. Commit messages clearly state whether the commit contains structural or behavioral changes
 - Use small, frequent commits rather than large, infrequent ones
 - Commit message prefix:
-  - `[STRUCTURAL]` for structural changes (refactoring)
-  - `[BEHAVIORAL]` for behavioral changes (features, bug fixes)
-  - `[TEST]` for test additions/modifications
+  - `refactor:` for structural changes (refactoring)
+  - `feat:` for new features
+  - `fix:` for bug fixes
+  - `test:` for test additions/modifications
+  - `docs:` for documentation changes
 
 # CODE QUALITY STANDARDS
 
@@ -158,9 +160,9 @@ When approaching a new feature:
 2. Implement the bare minimum to make it pass
 3. Run tests to confirm they pass (Green): `./gradlew :apps:commerce-api:test`
 4. Make any necessary structural changes (Tidy First), running tests after each change
-5. Commit structural changes separately with `[STRUCTURAL]` prefix
+5. Commit structural changes separately with `refactor:` prefix
 6. Add another test for the next small increment of functionality
-7. Repeat until the feature is complete, committing behavioral changes separately with `[BEHAVIORAL]` prefix
+7. Repeat until the feature is complete, committing behavioral changes separately with `feat:` or `fix:` prefix
 
 Follow this process precisely, always prioritizing clean, well-tested code over quick implementation.
 
