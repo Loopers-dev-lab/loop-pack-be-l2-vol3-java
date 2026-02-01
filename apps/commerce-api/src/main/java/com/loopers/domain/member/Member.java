@@ -34,6 +34,8 @@ public class Member extends BaseEntity {
                                 String email, PasswordEncoder encoder) {
         validateLoginId(loginId);
         validatePassword(rawPassword, birthDate);
+        validateName(name);
+        validateEmail(email);
 
         String encodedPassword = encoder.encode(rawPassword);
         return new Member(loginId, encodedPassword, name, birthDate, email);
@@ -55,6 +57,21 @@ public class Member extends BaseEntity {
     private static void validateLoginId(String loginId) {
         if (!loginId.matches("^[a-zA-Z0-9]+$")) {
             throw new CoreException(ErrorType.BAD_REQUEST, "로그인ID는 영문과 숫자만 허용됩니다.");
+        }
+    }
+
+    private static void validateName(String name) {
+        boolean isKorean = name.matches("^[가-힣]+$");
+        boolean isEnglish = name.matches("^[a-zA-Z]+( [a-zA-Z]+)*$");
+
+        if (!isKorean && !isEnglish) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "이름은 한글만 또는 영문만 허용됩니다.");
+        }
+    }
+
+    private static void validateEmail(String email) {
+        if (!email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "올바른 이메일 형식이 아닙니다.");
         }
     }
 

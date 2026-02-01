@@ -157,4 +157,86 @@ class MemberTest {
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
+
+    @DisplayName("이름 검증 시, ")
+    @Nested
+    class ValidateName {
+
+        @DisplayName("한글과 영문이 혼합되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNameContainsMixedLanguages() {
+            // Arrange
+            String mixedName = "Hong길동";
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                Member.create(
+                    "testuser1", "Test1234!", mixedName,
+                    LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder
+                );
+            });
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("한글 이름에 공백이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenKoreanNameContainsSpace() {
+            // Arrange
+            String koreanNameWithSpace = "홍 길동";
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                Member.create(
+                    "testuser1", "Test1234!", koreanNameWithSpace,
+                    LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder
+                );
+            });
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("영문 이름에 연속 공백이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenEnglishNameContainsConsecutiveSpaces() {
+            // Arrange
+            String nameWithConsecutiveSpaces = "John  Doe";
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                Member.create(
+                    "testuser1", "Test1234!", nameWithConsecutiveSpaces,
+                    LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder
+                );
+            });
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+    }
+
+    @DisplayName("이메일 검증 시, ")
+    @Nested
+    class ValidateEmail {
+
+        @DisplayName("올바르지 않은 형식이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenEmailFormatIsInvalid() {
+            // Arrange
+            String invalidEmail = "invalid-email";
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                Member.create(
+                    "testuser1", "Test1234!", "홍길동",
+                    LocalDate.of(1990, 1, 15), invalidEmail, stubEncoder
+                );
+            });
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+    }
 }
