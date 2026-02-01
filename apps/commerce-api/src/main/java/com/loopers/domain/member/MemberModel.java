@@ -5,6 +5,7 @@ import com.loopers.domain.BaseEntity;
 import com.loopers.infrastructure.jpa.converter.BirthDateConverter;
 import com.loopers.infrastructure.jpa.converter.EmailConverter;
 import com.loopers.infrastructure.jpa.converter.MemberIdConverter;
+import com.loopers.infrastructure.jpa.converter.NameConverter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -31,8 +32,13 @@ public class MemberModel extends BaseEntity {
 
     @Getter
     @Convert(converter = BirthDateConverter.class)
-    @Column(nullable = false, length = 10)
+    @Column(length = 10)
     private BirthDate birthDate;
+
+    @Getter
+    @Convert(converter = NameConverter.class)
+    @Column(length = 50)
+    private Name name;
 
     protected MemberModel() {}
     public MemberModel(String memberId, String password) {
@@ -48,5 +54,10 @@ public class MemberModel extends BaseEntity {
     public MemberModel(String memberId, String password, String email, String birthDate) {
         this(memberId, password, email);
         this.birthDate = BirthDate.fromString(birthDate);
+    }
+
+    public MemberModel(String memberId, String password, String email, String birthDate, String name) {
+        this(memberId, password, email, birthDate);
+        this.name = new Name(name);
     }
 }

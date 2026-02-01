@@ -64,5 +64,19 @@ class MemberModelUnitTest {
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
+
+        @DisplayName("이름은 비어있다면, User 객체 생성에 실패한다.")
+        @Test
+        void createdMemberModel_whenNameIsEmpty() {
+            // arrange
+            String name = "";
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                    new MemberModel("validID1", "password123", "valid@email.com", "2023-01-01", name));
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
     }
 }
