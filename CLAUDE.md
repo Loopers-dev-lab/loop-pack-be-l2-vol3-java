@@ -71,8 +71,10 @@ class MethodName {
 ```
 
 ### Test Utilities
-- **AssertJ**: Use `assertThat()` for assertions
-- **assertAll**: Group multiple assertions
+- **AssertJ only**: Use AssertJ for all assertions (do not mix with JUnit Assertions)
+  - `assertThat()` for value assertions
+  - `assertThatThrownBy()` for exception assertions
+  - `assertThatCode()` for no-exception assertions
 - **DatabaseCleanUp**: Call `truncateAllTables()` in `@AfterEach`
 - **RedisCleanUp**: Clean up after Redis tests
 - **Testcontainers**: For MySQL, Redis, Kafka integration tests
