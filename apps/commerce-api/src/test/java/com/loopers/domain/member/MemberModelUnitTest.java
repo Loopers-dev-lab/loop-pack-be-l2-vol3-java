@@ -36,5 +36,19 @@ class MemberModelUnitTest {
             // second assert
             assertThat(secondResult.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
+
+        @DisplayName("이메일 형식이 xx@yy.zz 형식에 맞지 않으면, User 객체 생성에 실패한다.")
+        @Test
+        void createsMemberModel_whenEmailIsInvalid() {
+            // arrange
+            String invalidEmail = "invalid_email";
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                    new MemberModel("validID1", "password123", invalidEmail));
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
     }
 }
