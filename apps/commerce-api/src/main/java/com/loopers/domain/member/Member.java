@@ -34,11 +34,12 @@ public class Member extends BaseEntity {
                                 String email, PasswordEncoder encoder) {
         validateLoginId(loginId);
         validatePassword(rawPassword, birthDate);
-        validateName(name);
+        String normalizedName = normalizeName(name);
+        validateName(normalizedName);
         validateEmail(email);
 
         String encodedPassword = encoder.encode(rawPassword);
-        return new Member(loginId, encodedPassword, name, birthDate, email);
+        return new Member(loginId, encodedPassword, normalizedName, birthDate, email);
     }
 
     private static void validatePassword(String password, LocalDate birthDate) {
@@ -58,6 +59,10 @@ public class Member extends BaseEntity {
         if (!loginId.matches("^[a-zA-Z0-9]+$")) {
             throw new CoreException(ErrorType.BAD_REQUEST, "로그인ID는 영문과 숫자만 허용됩니다.");
         }
+    }
+
+    private static String normalizeName(String name) {
+        return name.trim().replaceAll("\\s+", " ");
     }
 
     private static void validateName(String name) {

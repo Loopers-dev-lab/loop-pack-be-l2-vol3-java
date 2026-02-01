@@ -198,22 +198,20 @@ class MemberTest {
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
-        @DisplayName("영문 이름에 연속 공백이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("영문 이름의 연속 공백은 하나로 정규화된다.")
         @Test
-        void throwsBadRequest_whenEnglishNameContainsConsecutiveSpaces() {
+        void normalizesConsecutiveSpaces_whenEnglishNameHasMultipleSpaces() {
             // Arrange
             String nameWithConsecutiveSpaces = "John  Doe";
 
-            // Act & Assert
-            CoreException exception = assertThrows(CoreException.class, () -> {
-                Member.create(
-                    "testuser1", "Test1234!", nameWithConsecutiveSpaces,
-                    LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder
-                );
-            });
+            // Act
+            Member member = Member.create(
+                "testuser1", "Test1234!", nameWithConsecutiveSpaces,
+                LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder
+            );
 
             // Assert
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(member.getName()).isEqualTo("John Doe");
         }
     }
 
