@@ -26,4 +26,16 @@ public class MemberService {
 		member.applyEncodedPassword(PasswordEncoder.encode(password));
 		return memberRepository.save(member);
 	}
+
+	@Transactional(readOnly = true)
+	public MemberModel getMyInfo(String loginId, String password) {
+		MemberModel member = memberRepository.findByLoginId(loginId)
+				.orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 회원입니다."));
+
+		if (!PasswordEncoder.matches(password, member.getPassword())) {
+			throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호가 일치하지 않습니다.");
+		}
+
+		return member;
+	}
 }

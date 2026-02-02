@@ -11,4 +11,11 @@ public class MemberV1Dto {
 			LocalDate birthDate,
 			String email
 	) {}
+
+	public record MyInfoResponse(
+			String loginId,
+			String maskedName,
+			LocalDate birthDate,
+			String email
+	) {}
 }

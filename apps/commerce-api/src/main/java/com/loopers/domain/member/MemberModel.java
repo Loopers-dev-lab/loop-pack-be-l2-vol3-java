@@ -48,6 +48,10 @@ public class MemberModel extends BaseEntity {
 		this.email = email;
 	}
 
+	public String getMaskedName() {
+		return name.substring(0, name.length() - 1) + "*";
+	}
+
 	public void applyEncodedPassword(String encodedPassword) {
 		this.password = encodedPassword;
 	}

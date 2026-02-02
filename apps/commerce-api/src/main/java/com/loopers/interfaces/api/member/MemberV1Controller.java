@@ -1,10 +1,13 @@
 package com.loopers.interfaces.api.member;
 
 import com.loopers.application.member.MemberFacade;
+import com.loopers.application.member.MemberInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -26,5 +29,21 @@ public class MemberV1Controller implements MemberV1ApiSpec {
 				request.email()
 		);
 		return ApiResponse.success(null);
+	}
+
+	@GetMapping("/me")
+	@Override
+	public ApiResponse<MemberV1Dto.MyInfoResponse> getMyInfo(
+			@RequestHeader("X-Loopers-LoginId") String loginId,
+			@RequestHeader("X-Loopers-LoginPw") String loginPw
+	) {
+		MemberInfo info = memberFacade.getMyInfo(loginId, loginPw);
+		MemberV1Dto.MyInfoResponse response = new MemberV1Dto.MyInfoResponse(
+				info.loginId(),
+				info.maskedName(),
+				info.birthDate(),
+				info.email()
+		);
+		return ApiResponse.success(response);
 	}
 }
