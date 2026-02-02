@@ -15,7 +15,7 @@ datasource:
   mysql-jpa:
     main:
       driver-class-name: com.mysql.cj.jdbc.Driver
-      jdbc-url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}
+      jdbc-url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}
       username: ${MYSQL_USER}
       password: "${MYSQL_PWD}"
       pool-name: mysql-main-pool
@@ -86,7 +86,13 @@ datasource:
       password: application
 
 ---
-spring.config.activate.on-profile: prd
+spring.config.activate.on-profile: test
+
+spring:
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: create
 
 datasource:
   mysql-jpa:
@@ -94,3 +100,6 @@ datasource:
       jdbc-url: jdbc:mysql://localhost:3306/loopers
       username: application
       password: application
+      maximum-pool-size: 10
+      minimum-idle: 5
+

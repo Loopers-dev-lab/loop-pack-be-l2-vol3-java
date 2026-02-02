@@ -1,8 +1,6 @@
 package com.loopers.job.demo;
 
 import com.loopers.batch.job.demo.DemoJobConfig;
-import lombok.RequiredArgsConstructor;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.ExitStatus;
@@ -34,14 +32,9 @@ class DemoJobE2ETest {
     @Qualifier(DemoJobConfig.JOB_NAME)
     private Job job;
 
-    @BeforeEach
-    void beforeEach() {
-
-    }
-
     @DisplayName("jobParameter 중 requestDate 인자가 주어지지 않았을 때, demoJob 배치는 실패한다.")
     @Test
-    void shouldNotSaveCategories_whenApiError() throws Exception {
+    void shouldFail_whenRequestDateMissing() throws Exception {
         // arrange
         jobLauncherTestUtils.setJob(job);
 
@@ -50,8 +43,8 @@ class DemoJobE2ETest {
 
         // assert
         assertAll(
-            () -> assertThat(jobExecution).isNotNull(),
-            () -> assertThat(jobExecution.getExitStatus().getExitCode()).isEqualTo(ExitStatus.FAILED.getExitCode())
+                () -> assertThat(jobExecution).isNotNull(),
+                () -> assertThat(jobExecution.getExitStatus().getExitCode()).isEqualTo(ExitStatus.FAILED.getExitCode())
         );
     }
 
@@ -63,8 +56,10 @@ class DemoJobE2ETest {
 
         // act
         var jobParameters = new JobParametersBuilder()
-            .addLocalDate("requestDate", LocalDate.now())
-            .toJobParameters();
+                .addLocalDate("requestDate", LocalDate.now())
+                .addLong("run.id", System.currentTimeMillis())
+                .toJobParameters();
+
         var jobExecution = jobLauncherTestUtils.launchJob(jobParameters);
 
         // assert
