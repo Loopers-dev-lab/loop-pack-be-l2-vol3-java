@@ -62,10 +62,22 @@ public class SignUpRequestValidationTest {
     @Test
     public void 이메일_형식_불일치시_실패() {
         //given
+        SignUpRequest request = new SignUpRequest(
+                "testId",
+                "password123!",
+                "김준영",
+                "19900427",
+                "12345"
+        );
 
         //when
+        Set<ConstraintViolation<SignUpRequest>> violations = validator.validate(request);
 
         //then
+        assertThat(violations).hasSize(1);
+        //실패한 필드 체크
+        assertThat(violations.iterator().next().getPropertyPath().toString())
+                .isEqualTo("email");
     }
 
     @Test
