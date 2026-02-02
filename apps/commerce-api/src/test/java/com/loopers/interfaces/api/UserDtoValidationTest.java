@@ -124,9 +124,245 @@ public class UserDtoValidationTest {
                 "yk@google.com"
             );
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);;
+            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);
 
             assertThat(violations).isNotEmpty();
+        }
+    }
+
+    @DisplayName("이름 검증")
+    @Nested
+    class NameValidation {
+
+        @Test
+        @DisplayName("올바른 한글 이름이면 검증에 통과한다")
+        void validKoreanSuccessTest() {
+            UserSignUpRequestDto dto = new UserSignUpRequestDto(
+                "kim",
+                "pw111",
+                LocalDate.of(1991, 12, 3),
+                "김용권",
+                "yk@google.com"
+            );
+
+            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);
+
+            assertThat(violations).isEmpty();
+        }
+
+        @Test
+        @DisplayName("올바른 영문 이름이면 검증에 통과한다")
+        void validEnglishSuccessTest() {
+            UserSignUpRequestDto dto = new UserSignUpRequestDto(
+                "kim",
+                "pw111",
+                LocalDate.of(1991, 12, 3),
+                "John",
+                "yk@google.com"
+            );
+
+            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);
+
+            assertThat(violations).isEmpty();
+        }
+
+        @Test
+        @DisplayName("한글과 영문이 섞인 이름이면 검증에 통과한다")
+        void mixedKoreanAndEnglishSuccessTest() {
+            UserSignUpRequestDto dto = new UserSignUpRequestDto(
+                "kim",
+                "pw111",
+                LocalDate.of(1991, 12, 3),
+                "김John",
+                "yk@google.com"
+            );
+
+            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);
+
+            assertThat(violations).isEmpty();
+        }
+
+        @Test
+        @DisplayName("공백이 포함된 이름이면 검증에 통과한다")
+        void nameContainsSpaceSuccessTest() {
+            UserSignUpRequestDto dto = new UserSignUpRequestDto(
+                "kim",
+                "pw111",
+                LocalDate.of(1991, 12, 3),
+                "홍 길동",
+                "yk@google.com"
+            );
+
+            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);
+
+            assertThat(violations).isEmpty();
+        }
+
+        @Test
+        @DisplayName("이름이 2자이면 검증에 통과한다")
+        void nameIsMinLengthSuccessTest() {
+            UserSignUpRequestDto dto = new UserSignUpRequestDto(
+                "kim",
+                "pw111",
+                LocalDate.of(1991, 12, 3),
+                "김용",
+                "yk@google.com"
+            );
+
+            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);
+
+            assertThat(violations).isEmpty();
+        }
+
+        @Test
+        @DisplayName("이름이 null이면 검증에 실패한다")
+        void nameIsNullSuccessTest() {
+            UserSignUpRequestDto dto = new UserSignUpRequestDto(
+                "kim",
+                "pw111",
+                LocalDate.of(1991, 12, 3),
+                null,
+                "yk@google.com"
+            );
+
+            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);
+
+            assertThat(violations).isNotEmpty();
+            assertThat(violations.iterator().next().getMessage()).isEqualTo("이름은 필수입니다.");
+        }
+
+        @Test
+        @DisplayName("이름이 빈 문자열이면 검증에 실패한다")
+        void nameIsEmptySuccessTest() {
+            UserSignUpRequestDto dto = new UserSignUpRequestDto(
+                "kim",
+                "pw111",
+                LocalDate.of(1991, 12, 3),
+                "",
+                "yk@google.com"
+            );
+
+            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);
+
+            assertThat(violations).isNotEmpty();
+        }
+
+        @Test
+        @DisplayName("이름이 공백만 있으면 검증에 실패한다")
+        void nameFormatBlankTest() {
+            UserSignUpRequestDto dto = new UserSignUpRequestDto(
+                "kim",
+                "pw111",
+                LocalDate.of(1991, 12, 3),
+                "   ",
+                "yk@google.com"
+            );
+
+            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);
+
+            assertThat(violations).isNotEmpty();
+        }
+
+        @Test
+        @DisplayName("이름이 1자이면 검증에 실패한다")
+        void nameFormatTooShortTest() {
+            UserSignUpRequestDto dto = new UserSignUpRequestDto(
+                "kim",
+                "pw111",
+                LocalDate.of(1991, 12, 3),
+                "김",
+                "yk@google.com"
+            );
+
+            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);
+
+            assertThat(violations).isNotEmpty();
+            assertThat(violations.iterator().next().getMessage()).isEqualTo("이름은 2자 이상 30자 이하여야 합니다.");
+        }
+
+        @Test
+        @DisplayName("이름이 11자 이상이면 검증에 실패한다")
+        void nameFormatTooLongTest() {
+            UserSignUpRequestDto dto = new UserSignUpRequestDto(
+                "kim",
+                "pw111",
+                LocalDate.of(1991, 12, 3),
+                "가나다라마바사아자차카",
+                "yk@google.com"
+            );
+
+            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);
+
+            assertThat(violations).isNotEmpty();
+            assertThat(violations.iterator().next().getMessage()).isEqualTo("이름은 2자 이상 30자 이하여야 합니다.");
+        }
+
+        @Test
+        @DisplayName("이름에 숫자가 포함되면 검증에 실패한다")
+        void nameFormatContainsNumberTest() {
+            UserSignUpRequestDto dto = new UserSignUpRequestDto(
+                "kim",
+                "pw111",
+                LocalDate.of(1991, 12, 3),
+                "김용권1",
+                "yk@google.com"
+            );
+
+            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);
+
+            assertThat(violations).isNotEmpty();
+            assertThat(violations.iterator().next().getMessage()).isEqualTo("이름은 한글, 영문, 공백만 입력 가능합니다.");
+        }
+
+        @Test
+        @DisplayName("이름에 특수문자가 포함되면 검증에 실패한다")
+        void nameFormatContainsSpecialCharacterTest() {
+            UserSignUpRequestDto dto = new UserSignUpRequestDto(
+                "kim",
+                "pw111",
+                LocalDate.of(1991, 12, 3),
+                "김용권!",
+                "yk@google.com"
+            );
+
+            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);
+
+            assertThat(violations).isNotEmpty();
+            assertThat(violations.iterator().next().getMessage()).isEqualTo("이름은 한글, 영문, 공백만 입력 가능합니다.");
+        }
+
+        @Test
+        @DisplayName("이름에 하이픈이 포함되면 검증에 실패한다")
+        void nameFormatContainsHyphenTest() {
+            UserSignUpRequestDto dto = new UserSignUpRequestDto(
+                "kim",
+                "pw111",
+                LocalDate.of(1991, 12, 3),
+                "김-용권",
+                "yk@google.com"
+            );
+
+            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);
+
+            assertThat(violations).isNotEmpty();
+            assertThat(violations.iterator().next().getMessage()).isEqualTo("이름은 한글, 영문, 공백만 입력 가능합니다.");
+        }
+
+        @Test
+        @DisplayName("이름에 점이 포함되면 검증에 실패한다")
+        void nameFormatContainsDotTest() {
+            UserSignUpRequestDto dto = new UserSignUpRequestDto(
+                "kim",
+                "pw111",
+                LocalDate.of(1991, 12, 3),
+                "김.용권",
+                "yk@google.com"
+            );
+
+            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validator.validate(dto);
+
+            assertThat(violations).isNotEmpty();
+            assertThat(violations.iterator().next().getMessage()).isEqualTo("이름은 한글, 영문, 공백만 입력 가능합니다.");
         }
     }
 }
