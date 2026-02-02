@@ -12,6 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class MemberV1ApiE2ETest {
 
 	private static final String ENDPOINT_REGISTER = "/api/v1/members";
+	private static final String ENDPOINT_ME = "/api/v1/members/me";
 
 	private final TestRestTemplate testRestTemplate;
 	private final MemberService memberService;
@@ -44,6 +46,13 @@ class MemberV1ApiE2ETest {
 	@AfterEach
 	void tearDown() {
 		databaseCleanUp.truncateAllTables();
+	}
+
+	private HttpHeaders authHeaders(String loginId, String loginPw) {
+		HttpHeaders headers = new HttpHeaders();
+		headers.set("X-Loopers-LoginId", loginId);
+		headers.set("X-Loopers-LoginPw", loginPw);
+		return headers;
 	}
 
 	@DisplayName("POST /api/v1/members")
@@ -89,6 +98,69 @@ class MemberV1ApiE2ETest {
 
 			// then
 			assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+		}
+	}
+
+	@DisplayName("GET /api/v1/members/me")
+	@Nested
+	class GetMyInfo {
+
+		@DisplayName("유효한 인증 정보로 조회하면, 마스킹된 이름이 포함된 200 응답을 받는다.")
+		@Test
+		void getMyInfoSuccess() {
+			// given
+			String loginId = "testuser";
+			String password = "password1!@";
+			memberService.register(loginId, password, "홍길동", LocalDate.of(2000, 6, 5), "test@example.com");
+
+			HttpHeaders headers = authHeaders(loginId, password);
+
+			// when
+			ParameterizedTypeReference<ApiResponse<MemberV1Dto.MyInfoResponse>> responseType = new ParameterizedTypeReference<>() {};
+			ResponseEntity<ApiResponse<MemberV1Dto.MyInfoResponse>> response = testRestTemplate.exchange(
+					ENDPOINT_ME, HttpMethod.GET, new HttpEntity<>(headers), responseType
+			);
+
+			// then
+			assertAll(
+					() -> assertThat(response.getStatusCode().is2xxSuccessful()).isTrue(),
+					() -> assertThat(response.getBody().data().loginId()).isEqualTo(loginId),
+					() -> assertThat(response.getBody().data().maskedName()).isEqualTo("홍길*"),
+					() -> assertThat(response.getBody().data().birthDate()).isEqualTo(LocalDate.of(2000, 6, 5)),
+					() -> assertThat(response.getBody().data().email()).isEqualTo("test@example.com")
+			);
+		}
+
+		@DisplayName("잘못된 비밀번호로 조회하면, 400 BAD_REQUEST 응답을 받는다.")
+		@Test
+		void failWithWrongPassword() {
+			// given
+			String loginId = "testuser";
+			memberService.register(loginId, "password1!@", "홍길동", LocalDate.of(2000, 6, 5), "test@example.com");
+
+			HttpHeaders headers = authHeaders(loginId, "wrongpass1!@");
+
+			// when
+			ParameterizedTypeReference<ApiResponse<MemberV1Dto.MyInfoResponse>> responseType = new ParameterizedTypeReference<>() {};
+			ResponseEntity<ApiResponse<MemberV1Dto.MyInfoResponse>> response = testRestTemplate.exchange(
+					ENDPOINT_ME, HttpMethod.GET, new HttpEntity<>(headers), responseType
+			);
+
+			// then
+			assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		}
+
+		@DisplayName("인증 헤더 없이 조회하면, 400 BAD_REQUEST 응답을 받는다.")
+		@Test
+		void failWithoutAuthHeaders() {
+			// given & when
+			ParameterizedTypeReference<ApiResponse<MemberV1Dto.MyInfoResponse>> responseType = new ParameterizedTypeReference<>() {};
+			ResponseEntity<ApiResponse<MemberV1Dto.MyInfoResponse>> response = testRestTemplate.exchange(
+					ENDPOINT_ME, HttpMethod.GET, new HttpEntity<>(null), responseType
+			);
+
+			// then
+			assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 		}
 	}
 }

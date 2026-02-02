@@ -197,4 +197,35 @@ class MemberModelTest {
 			assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
 		}
 	}
+
+	@DisplayName("이름을 마스킹할 때,")
+	@Nested
+	class MaskedName {
+
+		@DisplayName("마지막 글자가 *로 마스킹된다.")
+		@Test
+		void maskedLastCharacter() {
+			// given
+			MemberModel member = new MemberModel("testuser", "password1!@", "홍길동", LocalDate.of(2000, 6, 5), "test@example.com");
+
+			// when
+			String result = member.getMaskedName();
+
+			// then
+			assertThat(result).isEqualTo("홍길*");
+		}
+
+		@DisplayName("한 글자 이름이면, *로 마스킹된다.")
+		@Test
+		void maskedSingleCharacterName() {
+			// given
+			MemberModel member = new MemberModel("testuser", "password1!@", "홍", LocalDate.of(2000, 6, 5), "test@example.com");
+
+			// when
+			String result = member.getMaskedName();
+
+			// then
+			assertThat(result).isEqualTo("*");
+		}
+	}
 }
