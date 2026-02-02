@@ -1,16 +1,41 @@
 package com.loopers.user;
 
+import com.loopers.user.dto.SignUpRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
 public class SignUpRequestValidationTest {
+
+    private Validator validator;
+
+    @BeforeEach
+    void setUp() {
+        validator = Validation.buildDefaultValidatorFactory().getValidator();
+    }
 
     @Test
     public void 필수값_누락시_실패() {
         //given
+        SignUpRequest request = new SignUpRequest(
+                null, //id
+                null, //비밀번호
+                null, //이름
+                null, //생년월일
+                null //이메일
+        );
 
         //when
+        Set<ConstraintViolation<SignUpRequest>> violations = validator.validate(request);
 
         //then
+        assertThat(violations).hasSize(5);
     }
 
     @Test
