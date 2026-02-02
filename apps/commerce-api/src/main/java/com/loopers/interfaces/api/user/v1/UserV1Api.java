@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.user.v1;
 
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
@@ -11,8 +10,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-
-import com.loopers.interfaces.api.interceptor.AuthInterceptor;
 
 import com.loopers.application.user.UserFacade;
 import com.loopers.application.user.UserResult;
@@ -47,5 +44,15 @@ public class UserV1Api implements UserV1ApiSpec {
     public ApiResponse<UserV1Dto.MeResponse> getMe(@RequestAttribute("userId") Long userId) {
         UserResult userResult = userFacade.getMe(userId);
         return ApiResponse.success(UserV1Dto.MeResponse.from(userResult));
+    }
+
+    @PostMapping("/me/password")
+    @Override
+    public ApiResponse<Object> updatePassword(
+            @RequestAttribute("userId") Long userId,
+            @Valid @RequestBody UserV1Dto.UpdatePasswordRequest request
+    ) {
+        userFacade.updatePassword(userId, request.oldPassword(), request.newPassword());
+        return ApiResponse.success();
     }
 }

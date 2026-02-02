@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import com.loopers.infrastructure.user.persistence.UserJpaRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
@@ -23,7 +22,7 @@ class UserServiceIntegrationTest {
     private UserService userService;
 
     @Autowired
-    private UserJpaRepository userJpaRepository;
+    private PasswordEncoder passwordEncoder;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -100,6 +99,41 @@ class UserServiceIntegrationTest {
 
             // act & assert
             assertThatThrownBy(() -> userService.getUser(nonExistentUserId))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+    }
+
+    @DisplayName("비밀번호를 수정할 때,")
+    @Nested
+    class UpdatePassword {
+
+        @DisplayName("기존 비밀번호가 일치하면, 비밀번호가 정상적으로 수정된다.")
+        @Test
+        void updatesPassword_whenOldPasswordMatches() {
+            // arrange
+            User user = userService.signUp("user123", "Password1!", "홍길동", "1990-01-01", "test@email.com");
+            String oldPassword = "Password1!";
+            String newPassword = "NewPassword2@";
+
+            // act
+            userService.updatePassword(user.getId(), oldPassword, newPassword);
+
+            // assert
+            User updatedUser = userService.getUser(user.getId());
+            assertThat(updatedUser.matchesPassword(newPassword, passwordEncoder)).isTrue();
+        }
+
+        @DisplayName("존재하지 않는 사용자 ID를 입력하면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsNotFoundException_whenUserIdDoesNotExist() {
+            // arrange
+            String oldPassword = "Password1!";
+            String newPassword = "NewPassword2@";
+            Long nonExistentUserId = 999L;
+
+            // act & assert
+            assertThatThrownBy(() -> userService.updatePassword(nonExistentUserId, oldPassword, newPassword))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
         }

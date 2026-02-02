@@ -7,6 +7,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -282,6 +284,117 @@ class UserV1ApiE2ETest {
                     () -> assertThat(response.getBody().data().birthDate()).isEqualTo(signUpRequest.birthDate()),
                     () -> assertThat(response.getBody().data().email()).isEqualTo(signUpRequest.email())
             );
+        }
+    }
+
+    @DisplayName("POST /api/v1/users/me/password")
+    @Nested
+    class UpdatePassword {
+
+        private static final String UPDATE_PASSWORD_ENDPOINT = "/api/v1/users/me/password";
+
+        @DisplayName("올바른 기존 비밀번호와 새 비밀번호를 입력하면, 비밀번호가 수정된다.")
+        @Test
+        void updatePassword_success_whenValidInput() {
+            // arrange
+            UserV1Dto.SignUpRequest signUpRequest = new UserV1Dto.SignUpRequest(
+                    "testuser1",
+                    "Password1!",
+                    "홍길동",
+                    "1990-01-15",
+                    "test@example.com"
+            );
+            ParameterizedTypeReference<ApiResponse<SignUpResponse>> signUpResponseType = new ParameterizedTypeReference<>() {
+            };
+            testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), signUpResponseType);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", signUpRequest.loginId());
+            headers.set("X-Loopers-LoginPw", signUpRequest.password());
+
+            UserV1Dto.UpdatePasswordRequest updatePasswordRequest = new UserV1Dto.UpdatePasswordRequest(
+                    "Password1!",
+                    "NewPassword2@"
+            );
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {
+            };
+            ResponseEntity<ApiResponse<Void>> response =
+                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.POST, new HttpEntity<>(updatePasswordRequest, headers), responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @DisplayName("기존 비밀번호가 빈 값이거나 null이면, 400 BAD_REQUEST 응답을 받는다.")
+        @ParameterizedTest
+        @NullAndEmptySource
+        void updatePassword_badRequest_whenOldPasswordIsBlankOrNull(String oldPassword) {
+            // arrange
+            UserV1Dto.SignUpRequest signUpRequest = new UserV1Dto.SignUpRequest(
+                    "testuser1",
+                    "Password1!",
+                    "홍길동",
+                    "1990-01-15",
+                    "test@example.com"
+            );
+            ParameterizedTypeReference<ApiResponse<SignUpResponse>> signUpResponseType = new ParameterizedTypeReference<>() {
+            };
+            testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), signUpResponseType);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", signUpRequest.loginId());
+            headers.set("X-Loopers-LoginPw", signUpRequest.password());
+
+            UserV1Dto.UpdatePasswordRequest updatePasswordRequest = new UserV1Dto.UpdatePasswordRequest(
+                    oldPassword,
+                    "NewPassword2@"
+            );
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {
+            };
+            ResponseEntity<ApiResponse<Void>> response =
+                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.POST, new HttpEntity<>(updatePasswordRequest, headers), responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("새 비밀번호가 빈 값이거나 null이면, 400 BAD_REQUEST 응답을 받는다.")
+        @ParameterizedTest
+        @NullAndEmptySource
+        void updatePassword_badRequest_whenNewPasswordIsBlankOrNull(String newPassword) {
+            // arrange
+            UserV1Dto.SignUpRequest signUpRequest = new UserV1Dto.SignUpRequest(
+                    "testuser1",
+                    "Password1!",
+                    "홍길동",
+                    "1990-01-15",
+                    "test@example.com"
+            );
+            ParameterizedTypeReference<ApiResponse<SignUpResponse>> signUpResponseType = new ParameterizedTypeReference<>() {
+            };
+            testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), signUpResponseType);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", signUpRequest.loginId());
+            headers.set("X-Loopers-LoginPw", signUpRequest.password());
+
+            UserV1Dto.UpdatePasswordRequest updatePasswordRequest = new UserV1Dto.UpdatePasswordRequest(
+                    "Password1!",
+                    newPassword
+            );
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {
+            };
+            ResponseEntity<ApiResponse<Void>> response =
+                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.POST, new HttpEntity<>(updatePasswordRequest, headers), responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
     }
 }

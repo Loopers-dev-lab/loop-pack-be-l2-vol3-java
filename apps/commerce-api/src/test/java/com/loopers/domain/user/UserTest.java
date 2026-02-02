@@ -57,4 +57,52 @@ class UserTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
     }
+
+    @DisplayName("비밀번호를 수정할 때,")
+    @Nested
+    class UpdatePassword {
+
+        @DisplayName("새 비밀번호가 기존 비밀번호와 다르면, 정상적으로 수정된다.")
+        @Test
+        void updatesPassword_whenNewPasswordIsDifferent() {
+            // arrange
+            PasswordEncoder encoder = new FakePasswordEncoder();
+            String oldPassword = "Password1!";
+            User user = new User("user123", oldPassword, "홍길동", "1990-01-01", "test@email.com", encoder);
+            String newPassword = "NewPassword2@";
+
+            // act & assert
+            assertThatCode(() -> user.updatePassword(oldPassword, newPassword, encoder))
+                    .doesNotThrowAnyException();
+        }
+
+        @DisplayName("기존 비밀번호가 일치하지 않으면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequestException_whenOldPasswordDoesNotMatch() {
+            // arrange
+            PasswordEncoder encoder = new FakePasswordEncoder();
+            User user = new User("user123", "Password1!", "홍길동", "1990-01-01", "test@email.com", encoder);
+            String wrongOldPassword = "WrongPassword1!";
+            String newPassword = "NewPassword2@";
+
+            // act & assert
+            assertThatThrownBy(() -> user.updatePassword(wrongOldPassword, newPassword, encoder))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+
+        @DisplayName("새 비밀번호가 기존 비밀번호와 같으면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequestException_whenNewPasswordIsSameAsOld() {
+            // arrange
+            PasswordEncoder encoder = new FakePasswordEncoder();
+            String oldPassword = "Password1!";
+            User user = new User("user123", oldPassword, "홍길동", "1990-01-01", "test@email.com", encoder);
+
+            // act & assert
+            assertThatThrownBy(() -> user.updatePassword(oldPassword, oldPassword, encoder))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+    }
 }

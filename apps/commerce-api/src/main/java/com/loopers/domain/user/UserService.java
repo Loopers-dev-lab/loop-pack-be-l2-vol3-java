@@ -30,4 +30,11 @@ public class UserService {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다."));
     }
+
+    @Transactional
+    public void updatePassword(Long userId, String oldPassword, String newPassword) {
+        User user = getUser(userId);
+        user.updatePassword(oldPassword, newPassword, passwordEncoder);
+        userRepository.save(user);
+    }
 }

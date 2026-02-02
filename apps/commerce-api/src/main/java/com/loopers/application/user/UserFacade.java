@@ -22,4 +22,8 @@ public class UserFacade {
         User user = userService.getUser(userId);
         return UserResult.from(user);
     }
+
+    public void updatePassword(Long userId, String oldPassword, String newPassword) {
+        userService.updatePassword(userId, oldPassword, newPassword);
+    }
 }
