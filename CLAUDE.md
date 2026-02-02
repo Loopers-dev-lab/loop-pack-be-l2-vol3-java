@@ -75,6 +75,7 @@ class MethodName {
   - `assertThat()` for value assertions
   - `assertThatThrownBy()` for exception assertions
   - `assertThatCode()` for no-exception assertions
+  - `assertAll()` to group multiple assertions (use JUnit 5's assertAll with AssertJ assertions inside)
 - **DatabaseCleanUp**: Call `truncateAllTables()` in `@AfterEach`
 - **RedisCleanUp**: Clean up after Redis tests
 - **Testcontainers**: For MySQL, Redis, Kafka integration tests

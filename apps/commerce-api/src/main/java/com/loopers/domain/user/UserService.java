@@ -1,0 +1,27 @@
+package com.loopers.domain.user;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
+
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class UserService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @Transactional
+    public User signUp(String loginId, String password, String name, String birthDate, String email) {
+        if (userRepository.existsByLoginId(new LoginId(loginId))) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "이미 가입된 로그인 ID입니다.");
+        }
+
+        User user = new User(loginId, password, name, birthDate, email, passwordEncoder);
+        return userRepository.save(user);
+    }
+}
