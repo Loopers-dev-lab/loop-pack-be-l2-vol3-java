@@ -21,7 +21,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -149,5 +151,35 @@ class MemberV1ControllerTest {
             .andExpect(jsonPath("$.data.loginId").value("testuser1"))
             .andExpect(jsonPath("$.data.name").value("홍길*"))
             .andExpect(jsonPath("$.data.email").value("test@example.com"));
+    }
+
+    @DisplayName("올바른 인증 헤더로 비밀번호 변경하면 200 OK 응답을 받는다")
+    @Test
+    void changePassword_withValidAuth_returnsOk() throws Exception {
+        // arrange
+        MemberModel member = new MemberModel(
+            "testuser1",
+            "encodedPassword",
+            "홍길동",
+            LocalDate.of(1990, 1, 15),
+            "test@example.com"
+        );
+
+        MemberV1Dto.ChangePasswordRequest request = new MemberV1Dto.ChangePasswordRequest(
+            "OldPassword1!",
+            "NewPassword1!"
+        );
+
+        when(memberRepository.findByLoginId("testuser1")).thenReturn(Optional.of(member));
+        when(passwordEncoder.matches("OldPassword1!", "encodedPassword")).thenReturn(true);
+        doNothing().when(memberService).changePassword(any(MemberModel.class), anyString(), anyString());
+
+        // act & assert
+        mockMvc.perform(patch("/api/v1/members/me/password")
+                .header("X-Loopers-LoginId", "testuser1")
+                .header("X-Loopers-LoginPw", "OldPassword1!")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk());
     }
 }

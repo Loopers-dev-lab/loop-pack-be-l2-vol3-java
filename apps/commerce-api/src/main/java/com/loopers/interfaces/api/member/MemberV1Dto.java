@@ -50,4 +50,9 @@ public class MemberV1Dto {
             return name.substring(0, name.length() - 1) + "*";
         }
     }
+
+    public record ChangePasswordRequest(
+        @NotBlank String currentPassword,
+        @NotBlank @Size(min = 8, max = 16) String newPassword
+    ) {}
 }
