@@ -35,7 +35,7 @@ public class Member {
         this.email = email;
     }
 
-    Member(Long id, String loginId, String password, String name, LocalDate birthday, String email) {
+    public Member(Long id, String loginId, String password, String name, LocalDate birthday, String email) {
         this.id = id;
         this.loginId = loginId;
         this.password = password;
