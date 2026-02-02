@@ -42,4 +42,17 @@ public class PasswordValidatorTest {
         //then
         assertThat(result).isFalse();
     }
+
+    @Test
+    public void 비밀번호에_생년월일_포함시_실패() {
+        //given
+        String password = "12319900427";
+        String birthDate = "19900427";
+
+        //when
+        boolean result = PasswordValidator.validate(password, birthDate);
+
+        //then
+        assertThat(result).isFalse();
+    }
 }
