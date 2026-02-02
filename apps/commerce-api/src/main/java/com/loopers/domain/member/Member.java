@@ -19,6 +19,7 @@ import java.util.regex.Pattern;
 @Getter
 public class Member extends BaseEntity {
 
+    private static final Pattern LOGIN_ID_PATTERN = Pattern.compile("^[a-zA-Z0-9]{1,10}$");
     private static final Pattern NAME_PATTERN = Pattern.compile("^[a-zA-Z가-힣]+$");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$");
     private static final Pattern BIRTHDAY_PATTERN = Pattern.compile("^\\d{8}$");
@@ -68,9 +69,16 @@ public class Member extends BaseEntity {
         }
     }
 
+    public void changePassword(String newEncryptedPassword) {
+        this.password = newEncryptedPassword;
+    }
+
     private void validateLoginId(String loginId) {
         if (loginId == null || loginId.isBlank()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 비어있을 수 없습니다.");
+        }
+        if (!LOGIN_ID_PATTERN.matcher(loginId).matches()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 영문과 숫자 10자 이내여야 합니다.");
         }
     }
 

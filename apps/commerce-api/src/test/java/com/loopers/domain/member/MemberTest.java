@@ -39,6 +39,42 @@ class MemberTest {
             );
         }
 
+        @DisplayName("로그인 ID에 특수문자가 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenLoginIdContainsSpecialChars() {
+            // Arrange & Act
+            CoreException exception = assertThrows(CoreException.class, () ->
+                new Member("test!!!", "encrypted", "홍길동", "19900101", "test@example.com")
+            );
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("로그인 ID가 10자를 초과하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenLoginIdExceedsTenChars() {
+            // Arrange & Act
+            CoreException exception = assertThrows(CoreException.class, () ->
+                new Member("abcdefghijk", "encrypted", "홍길동", "19900101", "test@example.com")
+            );
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("로그인 ID에 한글이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenLoginIdContainsKorean() {
+            // Arrange & Act
+            CoreException exception = assertThrows(CoreException.class, () ->
+                new Member("테스트user", "encrypted", "홍길동", "19900101", "test@example.com")
+            );
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
         @DisplayName("로그인 ID가 비어있으면, BAD_REQUEST 예외가 발생한다.")
         @Test
         void throwsBadRequest_whenLoginIdIsBlank() {
@@ -112,7 +148,7 @@ class MemberTest {
         }
     }
 
-    @DisplayName("비밀번호를 검증할 때,")
+    @DisplayName("비밀번호를 검증")
     @Nested
     class ValidatePassword {
 
@@ -181,6 +217,25 @@ class MemberTest {
         void doesNotThrow_whenPasswordIsValid() {
             // Arrange & Act & Assert
             Member.validateRawPassword("Test1234!", "19900101");
+        }
+    }
+
+    @DisplayName("비밀번호 변경")
+    @Nested
+    class ChangePassword {
+
+        @DisplayName("새 비밀번호로 변경하면, 비밀번호가 업데이트된다.")
+        @Test
+        void updatesPassword_whenNewPasswordIsProvided() {
+            // Arrange
+            Member member = new Member("testuser", "oldEncrypted", "홍길동", "19900101", "test@example.com");
+            String newEncryptedPassword = "newEncrypted";
+
+            // Act
+            member.changePassword(newEncryptedPassword);
+
+            // Assert
+            assertThat(member.getPassword()).isEqualTo(newEncryptedPassword);
         }
     }
 }
