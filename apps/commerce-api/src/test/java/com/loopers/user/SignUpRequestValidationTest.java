@@ -54,6 +54,9 @@ public class SignUpRequestValidationTest {
 
         //then
         assertThat(violations).hasSize(1);
+        //실패한 필드 체크
+        assertThat(violations.iterator().next().getPropertyPath().toString())
+                .isEqualTo("name");
     }
 
     @Test
