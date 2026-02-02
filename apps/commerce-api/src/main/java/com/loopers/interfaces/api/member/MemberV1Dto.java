@@ -18,4 +18,8 @@ public class MemberV1Dto {
 			LocalDate birthDate,
 			String email
 	) {}
+
+	public record ChangePasswordRequest(
+			String newPassword
+	) {}
 }

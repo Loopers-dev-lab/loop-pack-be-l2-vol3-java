@@ -21,4 +21,8 @@ public class MemberFacade {
 		MemberModel member = memberService.getMyInfo(loginId, password);
 		return MemberInfo.from(member);
 	}
+
+	public void changePassword(String loginId, String currentPassword, String newPassword) {
+		memberService.changePassword(loginId, currentPassword, newPassword);
+	}
 }

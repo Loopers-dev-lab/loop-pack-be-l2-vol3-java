@@ -38,4 +38,14 @@ public class MemberService {
 
 		return member;
 	}
+
+	@Transactional
+	public void changePassword(String loginId, String currentPassword, String newPassword) {
+		if (currentPassword.equals(newPassword)) {
+			throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.");
+		}
+		MemberModel member = getMyInfo(loginId, currentPassword);
+		member.changePassword(newPassword);
+		member.applyEncodedPassword(PasswordEncoder.encode(newPassword));
+	}
 }

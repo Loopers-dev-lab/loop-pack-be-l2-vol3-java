@@ -5,6 +5,7 @@ import com.loopers.application.member.MemberInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -45,5 +46,16 @@ public class MemberV1Controller implements MemberV1ApiSpec {
 				info.email()
 		);
 		return ApiResponse.success(response);
+	}
+
+	@PatchMapping("/me/password")
+	@Override
+	public ApiResponse<Void> changePassword(
+			@RequestHeader("X-Loopers-LoginId") String loginId,
+			@RequestHeader("X-Loopers-LoginPw") String loginPw,
+			@RequestBody MemberV1Dto.ChangePasswordRequest request
+	) {
+		memberFacade.changePassword(loginId, loginPw, request.newPassword());
+		return ApiResponse.success(null);
 	}
 }

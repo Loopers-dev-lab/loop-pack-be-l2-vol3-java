@@ -52,11 +52,16 @@ public class MemberModel extends BaseEntity {
 		return name.substring(0, name.length() - 1) + "*";
 	}
 
+	public void changePassword(String newPassword) {
+		validatePassword(newPassword, this.birthDate);
+		this.password = newPassword;
+	}
+
 	public void applyEncodedPassword(String encodedPassword) {
 		this.password = encodedPassword;
 	}
 
-	static void validatePassword(String password, LocalDate birthDate) {
+	private static void validatePassword(String password, LocalDate birthDate) {
 		if (password == null || password.length() < 8 || password.length() > 16) {
 			throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호는 8~16자여야 합니다.");
 		}

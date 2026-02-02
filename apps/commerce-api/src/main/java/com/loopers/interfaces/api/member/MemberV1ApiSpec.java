@@ -16,4 +16,11 @@ public interface MemberV1ApiSpec {
 			@Parameter(description = "로그인 ID") String loginId,
 			@Parameter(description = "로그인 비밀번호") String loginPw
 	);
+
+	@Operation(summary = "비밀번호 변경", description = "비밀번호를 변경합니다.")
+	ApiResponse<Void> changePassword(
+			@Parameter(description = "로그인 ID") String loginId,
+			@Parameter(description = "로그인 비밀번호") String loginPw,
+			MemberV1Dto.ChangePasswordRequest request
+	);
 }
