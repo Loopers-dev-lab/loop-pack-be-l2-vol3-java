@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.v1;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -11,12 +12,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import com.loopers.domain.user.UserName;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.user.v1.UserV1Dto;
+import com.loopers.interfaces.api.user.v1.UserV1Dto.MeResponse;
 import com.loopers.interfaces.api.user.v1.UserV1Dto.SignUpResponse;
 import com.loopers.utils.DatabaseCleanUp;
 
@@ -65,11 +69,13 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-            assertThat(response.getBody()).isNotNull();
-            assertThat(response.getBody().data().loginId()).isEqualTo("testuser1");
-            assertThat(response.getBody().data().name()).isEqualTo("홍길동");
-            assertThat(response.getBody().data().email()).isEqualTo("test@example.com");
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().loginId()).isEqualTo(request.loginId()),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo(new UserName(request.name()).masked()),
+                    () -> assertThat(response.getBody().data().email()).isEqualTo(request.email())
+            );
         }
 
         @DisplayName("이미 가입된 로그인 ID로 가입하면, 400 BAD_REQUEST 응답을 받는다.")
@@ -233,6 +239,49 @@ class UserV1ApiE2ETest {
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @DisplayName("GET /api/v1/users/me")
+    @Nested
+    class GetMe {
+
+        private static final String ME_ENDPOINT = "/api/v1/users/me";
+
+        @DisplayName("인증된 사용자 정보를 조회하면, 마스킹된 이름과 함께 사용자 정보를 반환한다.")
+        @Test
+        void getMe_returnsMaskedName_whenAuthenticated() {
+            // arrange
+            UserV1Dto.SignUpRequest signUpRequest = new UserV1Dto.SignUpRequest(
+                    "testuser1",
+                    "Password1!",
+                    "홍길동",
+                    "1990-01-15",
+                    "test@example.com"
+            );
+            ParameterizedTypeReference<ApiResponse<SignUpResponse>> signUpResponseType = new ParameterizedTypeReference<>() {
+            };
+            testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), signUpResponseType);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", signUpRequest.loginId());
+            headers.set("X-Loopers-LoginPw", signUpRequest.password());
+
+            // act
+            ParameterizedTypeReference<ApiResponse<MeResponse>> responseType = new ParameterizedTypeReference<>() {
+            };
+            ResponseEntity<ApiResponse<MeResponse>> response =
+                    testRestTemplate.exchange(ME_ENDPOINT, HttpMethod.GET, new HttpEntity<>(headers), responseType);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().loginId()).isEqualTo(signUpRequest.loginId()),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo(new UserName(signUpRequest.name()).masked()),
+                    () -> assertThat(response.getBody().data().birthDate()).isEqualTo(signUpRequest.birthDate()),
+                    () -> assertThat(response.getBody().data().email()).isEqualTo(signUpRequest.email())
+            );
         }
     }
 }

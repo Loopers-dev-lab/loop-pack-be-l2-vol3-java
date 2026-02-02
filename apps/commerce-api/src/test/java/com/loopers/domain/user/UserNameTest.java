@@ -64,4 +64,35 @@ class UserNameTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
     }
+
+    @DisplayName("마스킹된 이름을 반환할 때,")
+    @Nested
+    class Masked {
+
+        @DisplayName("마지막 글자를 *로 마스킹한다.")
+        @Test
+        void returnsNameWithLastCharacterMasked() {
+            // arrange
+            UserName userName = new UserName("홍길동");
+
+            // act
+            String masked = userName.masked();
+
+            // assert
+            assertThat(masked).isEqualTo("홍길*");
+        }
+
+        @DisplayName("한 글자인 경우, *로 반환한다.")
+        @Test
+        void returnsAsterisk_whenNameHasSingleCharacter() {
+            // arrange
+            UserName userName = new UserName("홍");
+
+            // act
+            String masked = userName.masked();
+
+            // assert
+            assertThat(masked).isEqualTo("*");
+        }
+    }
 }

@@ -17,4 +17,9 @@ public class UserFacade {
         User user = userService.signUp(loginId, password, name, birthDate, email);
         return UserResult.from(user);
     }
+
+    public UserResult getMe(Long userId) {
+        User user = userService.getUser(userId);
+        return UserResult.from(user);
+    }
 }

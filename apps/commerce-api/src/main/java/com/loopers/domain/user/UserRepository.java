@@ -6,6 +6,8 @@ public interface UserRepository {
 
     User save(User user);
 
+    Optional<User> findById(Long id);
+
     Optional<User> findByLoginId(LoginId loginId);
 
     boolean existsByLoginId(LoginId loginId);

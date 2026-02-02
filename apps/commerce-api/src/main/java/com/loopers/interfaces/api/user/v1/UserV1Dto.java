@@ -39,4 +39,21 @@ public class UserV1Dto {
             );
         }
     }
+
+    public record MeResponse(
+            String loginId,
+            String name,
+            String birthDate,
+            String email
+    ) {
+
+        public static MeResponse from(UserResult result) {
+            return new MeResponse(
+                    result.loginId(),
+                    result.name(),
+                    result.birthDate(),
+                    result.email()
+            );
+        }
+    }
 }

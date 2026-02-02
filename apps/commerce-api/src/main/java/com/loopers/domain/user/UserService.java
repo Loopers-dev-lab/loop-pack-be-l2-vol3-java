@@ -24,4 +24,10 @@ public class UserService {
         User user = new User(loginId, password, name, birthDate, email, passwordEncoder);
         return userRepository.save(user);
     }
+
+    @Transactional(readOnly = true)
+    public User getUser(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+    }
 }

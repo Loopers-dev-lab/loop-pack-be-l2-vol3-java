@@ -9,7 +9,7 @@ import com.loopers.domain.user.User;
 
 public interface UserJpaRepository extends JpaRepository<User, Long> {
 
-    boolean existsByLoginId(LoginId loginId);
-
     Optional<User> findByLoginId(LoginId loginId);
+
+    boolean existsByLoginId(LoginId loginId);
 }

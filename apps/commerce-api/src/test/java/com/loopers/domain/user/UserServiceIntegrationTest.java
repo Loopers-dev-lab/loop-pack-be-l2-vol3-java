@@ -74,4 +74,34 @@ class UserServiceIntegrationTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
     }
+
+    @DisplayName("사용자 정보를 조회할 때,")
+    @Nested
+    class GetUser {
+
+        @DisplayName("존재하는 사용자 ID를 입력하면, 해당 사용자의 정보를 반환한다.")
+        @Test
+        void returnsUserInfo_whenUserIdExists() {
+            // arrange
+            User savedUser = userService.signUp("user123", "Password1!", "홍길동", "1990-01-01", "test@email.com");
+
+            // act
+            User user = userService.getUser(savedUser.getId());
+
+            // assert
+            assertThat(user.getId()).isEqualTo(savedUser.getId());
+        }
+
+        @DisplayName("존재하지 않는 사용자 ID를 입력하면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsNotFoundException_whenUserIdDoesNotExist() {
+            // arrange
+            Long nonExistentUserId = 999L;
+
+            // act & assert
+            assertThatThrownBy(() -> userService.getUser(nonExistentUserId))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+    }
 }

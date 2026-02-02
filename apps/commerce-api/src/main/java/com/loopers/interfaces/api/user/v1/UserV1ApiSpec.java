@@ -17,4 +17,10 @@ public interface UserV1ApiSpec {
             @Schema(description = "회원가입 요청 정보")
             UserV1Dto.SignUpRequest request
     );
+
+    @Operation(
+            summary = "내 정보 조회",
+            description = "로그인한 사용자의 정보를 조회합니다."
+    )
+    ApiResponse<UserV1Dto.MeResponse> getMe(Long userId);
 }

@@ -25,6 +25,20 @@ public class UserName {
         this.value = value;
     }
 
+    /**
+     * 마지막 글자가 마스킹된 이름을 반환한다.
+     *
+     * <p>예: "홍길동" → "홍길*", "홍" → "*"</p>
+     *
+     * @return 마스킹된 이름
+     */
+    public String masked() {
+        if (value.length() == 1) {
+            return "*";
+        }
+        return value.substring(0, value.length() - 1) + "*";
+    }
+
     private void validate(String value) {
         if (value == null || value.isBlank()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "이름은 빈 값일 수 없습니다.");
