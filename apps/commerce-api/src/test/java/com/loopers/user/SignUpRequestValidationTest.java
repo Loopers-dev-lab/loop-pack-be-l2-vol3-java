@@ -83,9 +83,21 @@ public class SignUpRequestValidationTest {
     @Test
     public void 생년월일_형식_불일치시_실패() {
         //given
+        SignUpRequest request = new SignUpRequest(
+                "testId",
+                "password123!",
+                "김준영",
+                "1990042",
+                "test@test.com"
+        );
 
         //when
+        Set<ConstraintViolation<SignUpRequest>> violations = validator.validate(request);
 
         //then
+        assertThat(violations).hasSize(1);
+        assertThat(violations.iterator().next().getPropertyPath().toString())
+                .isEqualTo("birthDate");
+
     }
 }
