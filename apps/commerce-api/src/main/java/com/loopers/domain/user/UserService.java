@@ -13,7 +13,7 @@ public class UserService {
 
     public void signUp(CreateUserRequestV1 request) {
         String encodedPassword = passwordEncoder.encode(request.getPassword());
-        User user = new User(request.getEmail(), encodedPassword);
+        User user = new User(); // TODO 통합테스트시 구현
         userRepository.save(user);
     }
 }
