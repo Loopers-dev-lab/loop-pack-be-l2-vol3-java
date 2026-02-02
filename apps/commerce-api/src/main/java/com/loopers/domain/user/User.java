@@ -33,18 +33,18 @@ public class User extends BaseEntity {
     @Embedded
     private Email email;
 
-    public User(String loginId, String password, String name, String birthDate, String email) {
+    public User(String loginId, String password, String name, String birthDate, String email, PasswordEncoder passwordEncoder) {
         this.loginId = new LoginId(loginId);
-        this.password = new Password(password);
         this.name = new UserName(name);
         this.birthDate = new BirthDate(birthDate);
         this.email = new Email(email);
 
-        validatePasswordNotContainsBirthDate();
+        validatePasswordNotContainsBirthDate(password);
+        this.password = new Password(password, passwordEncoder);
     }
 
-    private void validatePasswordNotContainsBirthDate() {
-        if (password.contains(birthDate.getValueWithoutHyphen())) {
+    private void validatePasswordNotContainsBirthDate(String rawPassword) {
+        if (rawPassword.contains(birthDate.getValueWithoutHyphen())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호에 생년월일을 포함할 수 없습니다.");
         }
     }

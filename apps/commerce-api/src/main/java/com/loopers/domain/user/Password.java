@@ -24,9 +24,9 @@ public class Password {
     @Column(name = "password", nullable = false)
     private String value;
 
-    public Password(String value) {
+    public Password(String value, PasswordEncoder passwordEncoder) {
         validate(value);
-        this.value = value;
+        this.value = passwordEncoder.encode(value);
     }
 
     private void validate(String value) {
@@ -36,9 +36,5 @@ public class Password {
         if (!PASSWORD_PATTERN.matcher(value).matches()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호는 영문 대소문자, 숫자, 특수문자만 허용됩니다.");
         }
-    }
-
-    public boolean contains(String text) {
-        return value.contains(text);
     }
 }

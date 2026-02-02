@@ -13,6 +13,8 @@ import com.loopers.support.error.ErrorType;
 
 class PasswordTest {
 
+    private final PasswordEncoder passwordEncoder = new FakePasswordEncoder();
+
     @DisplayName("Password를 생성할 때,")
     @Nested
     class Create {
@@ -24,7 +26,7 @@ class PasswordTest {
             String value = "Passw1!a";
 
             // act & assert
-            assertThatCode(() -> new Password(value))
+            assertThatCode(() -> new Password(value, passwordEncoder))
                     .doesNotThrowAnyException();
         }
 
@@ -35,7 +37,7 @@ class PasswordTest {
             String value = "Pass1!a";
 
             // act & assert
-            assertThatThrownBy(() -> new Password(value))
+            assertThatThrownBy(() -> new Password(value, passwordEncoder))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
@@ -47,7 +49,7 @@ class PasswordTest {
             String value = "Password1!abcdefg";
 
             // act & assert
-            assertThatThrownBy(() -> new Password(value))
+            assertThatThrownBy(() -> new Password(value, passwordEncoder))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
@@ -59,7 +61,7 @@ class PasswordTest {
             String value = "Pass한글1!";
 
             // act & assert
-            assertThatThrownBy(() -> new Password(value))
+            assertThatThrownBy(() -> new Password(value, passwordEncoder))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
@@ -71,34 +73,9 @@ class PasswordTest {
             String value = "Pass 1!ab";
 
             // act & assert
-            assertThatThrownBy(() -> new Password(value))
+            assertThatThrownBy(() -> new Password(value, passwordEncoder))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
-        }
-    }
-
-    @DisplayName("contains를 호출할 때,")
-    @Nested
-    class Contains {
-
-        @DisplayName("포함된 문자열이면 true를 반환한다.")
-        @Test
-        void returnsTrue_whenContains() {
-            // arrange
-            Password password = new Password("Pass19900101!");
-
-            // act & assert
-            assertThat(password.contains("19900101")).isTrue();
-        }
-
-        @DisplayName("포함되지 않은 문자열이면 false를 반환한다.")
-        @Test
-        void returnsFalse_whenNotContains() {
-            // arrange
-            Password password = new Password("Password1!");
-
-            // act & assert
-            assertThat(password.contains("19900101")).isFalse();
         }
     }
 }
