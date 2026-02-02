@@ -103,6 +103,10 @@ docker compose -f docker/monitoring-compose.yml up -d
 - **Kafka 배치 소비**: 3000건 배치, 수동 커밋 (Manual ACK)
 - **Redis 읽기 분산**: Master 쓰기, Replica 읽기 분리
 
+## 문서 작성
+### 다이어그램 작성
+- ERD, 시퀀스 다이어그램, 클래스 다이어그램 등 작성 시 mermaid를 이용한 마크다운으로 작성.
+
 ## 개발 규칙
 ### 진행 Workflow - 증강 코딩
 - **대원칙** : 방향성 및 주요 의사 결정은 개발자에게 제안만 할 수 있으며, 최종 승인된 사항을 기반으로 작업을 수행.
@@ -132,8 +136,9 @@ docker compose -f docker/monitoring-compose.yml up -d
 ### 2. Recommendation
 - 실제 API 를 호출해 확인하는 E2E 테스트 코드 작성
 - 재사용 가능한 객체 설계
-- 성능 최적화에 대한 대 안 및 제안
+- 성능 최적화에 대한 대안 및 제안
 - 개발 완료된 API 의 경우, `.http/**.http` 에 분류해 작성
+- Domain Entity와 Persistence Entity는 구분하여 구현
 
 ### 3. Priority
 1. 실제 동작하는 해결책만 고려
