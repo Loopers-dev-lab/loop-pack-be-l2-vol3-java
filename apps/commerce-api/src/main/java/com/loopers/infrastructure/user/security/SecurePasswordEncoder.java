@@ -5,6 +5,9 @@ import org.springframework.stereotype.Component;
 
 import com.loopers.domain.user.PasswordEncoder;
 
+/**
+ * BCrypt 알고리즘을 사용한 PasswordEncoder 구현체.
+ */
 @Component
 public class SecurePasswordEncoder implements PasswordEncoder {
 

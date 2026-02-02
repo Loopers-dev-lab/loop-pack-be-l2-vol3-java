@@ -1,5 +1,8 @@
 package com.loopers.domain.user;
 
+/**
+ * 테스트용 PasswordEncoder 구현체.
+ */
 public class FakePasswordEncoder implements PasswordEncoder {
 
     private static final String ENCODED_PREFIX = "encoded:";
