@@ -1,6 +1,8 @@
 package com.loopers.user;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -30,10 +32,9 @@ public class PasswordValidatorTest {
         assertThat(result).isFalse();
     }
 
-    @Test
-    public void 허용되지_않은_문자_포함시_실패() {
-        //given
-        String password = "abcd1234한글";
+    @ParameterizedTest
+    @ValueSource(strings = {"abcd1234한글", "abcd1234 ", "abcd1234💬"})
+    public void 허용되지_않는_문자_포함시_실패(String password) {
 
         //when
         boolean result = PasswordValidator.validate(password);
