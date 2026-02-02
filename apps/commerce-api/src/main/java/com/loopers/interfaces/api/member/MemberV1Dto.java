@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import com.loopers.domain.member.MemberModel;
+
 import java.time.LocalDate;
 
 public class MemberV1Dto {
@@ -25,4 +27,27 @@ public class MemberV1Dto {
         String name,
         String email
     ) {}
+
+    public record MyInfoResponse(
+        String loginId,
+        String name,
+        LocalDate birthDate,
+        String email
+    ) {
+        public static MyInfoResponse from(MemberModel member) {
+            return new MyInfoResponse(
+                member.getLoginId(),
+                maskName(member.getName()),
+                member.getBirthDate(),
+                member.getEmail()
+            );
+        }
+
+        private static String maskName(String name) {
+            if (name == null || name.length() < 2) {
+                return name;
+            }
+            return name.substring(0, name.length() - 1) + "*";
+        }
+    }
 }

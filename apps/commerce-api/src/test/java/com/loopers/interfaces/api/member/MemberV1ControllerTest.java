@@ -2,7 +2,9 @@ package com.loopers.interfaces.api.member;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.member.MemberModel;
+import com.loopers.domain.member.MemberRepository;
 import com.loopers.domain.member.MemberService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,9 +15,13 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 
+import java.util.Optional;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -31,6 +37,12 @@ class MemberV1ControllerTest {
 
     @MockBean
     private MemberService memberService;
+
+    @MockBean
+    private MemberRepository memberRepository;
+
+    @MockBean
+    private PasswordEncoder passwordEncoder;
 
     @DisplayName("유효한 요청으로 회원가입하면 201 Created 응답을 받는다")
     @Test
@@ -82,5 +94,60 @@ class MemberV1ControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isBadRequest());
+    }
+
+    @DisplayName("인증 헤더 없이 내 정보 조회하면 401 Unauthorized 응답을 받는다")
+    @Test
+    void getMyInfo_withoutAuthHeaders_returnsUnauthorized() throws Exception {
+        // act & assert
+        mockMvc.perform(get("/api/v1/members/me"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @DisplayName("잘못된 비밀번호로 내 정보 조회하면 401 Unauthorized 응답을 받는다")
+    @Test
+    void getMyInfo_withWrongPassword_returnsUnauthorized() throws Exception {
+        // arrange
+        MemberModel member = new MemberModel(
+            "testuser1",
+            "encodedPassword",
+            "홍길동",
+            LocalDate.of(1990, 1, 15),
+            "test@example.com"
+        );
+
+        when(memberRepository.findByLoginId("testuser1")).thenReturn(Optional.of(member));
+        when(passwordEncoder.matches("wrongPassword", "encodedPassword")).thenReturn(false);
+
+        // act & assert
+        mockMvc.perform(get("/api/v1/members/me")
+                .header("X-Loopers-LoginId", "testuser1")
+                .header("X-Loopers-LoginPw", "wrongPassword"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @DisplayName("올바른 인증 헤더로 내 정보 조회하면 200 OK와 마스킹된 이름을 받는다")
+    @Test
+    void getMyInfo_withValidAuth_returnsOkWithMaskedName() throws Exception {
+        // arrange
+        MemberModel member = new MemberModel(
+            "testuser1",
+            "encodedPassword",
+            "홍길동",
+            LocalDate.of(1990, 1, 15),
+            "test@example.com"
+        );
+
+        when(memberRepository.findByLoginId("testuser1")).thenReturn(Optional.of(member));
+        when(passwordEncoder.matches("Password1!", "encodedPassword")).thenReturn(true);
+
+        // act & assert
+        mockMvc.perform(get("/api/v1/members/me")
+                .header("X-Loopers-LoginId", "testuser1")
+                .header("X-Loopers-LoginPw", "Password1!"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.loginId").value("testuser1"))
+            .andExpect(jsonPath("$.data.name").value("홍길*"))
+            .andExpect(jsonPath("$.data.email").value("test@example.com"));
     }
 }

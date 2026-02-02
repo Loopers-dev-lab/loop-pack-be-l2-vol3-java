@@ -3,9 +3,11 @@ package com.loopers.interfaces.api.member;
 import com.loopers.domain.member.MemberModel;
 import com.loopers.domain.member.MemberService;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.support.auth.AuthMember;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,5 +40,10 @@ public class MemberV1Controller {
         );
 
         return ApiResponse.success(response);
+    }
+
+    @GetMapping("/me")
+    public ApiResponse<MemberV1Dto.MyInfoResponse> getMyInfo(@AuthMember MemberModel member) {
+        return ApiResponse.success(MemberV1Dto.MyInfoResponse.from(member));
     }
 }
