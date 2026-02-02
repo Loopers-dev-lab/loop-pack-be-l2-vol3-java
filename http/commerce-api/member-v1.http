@@ -1,0 +1,49 @@
+@baseUrl = http://localhost:8080
+
+### 회원가입 (정상)
+POST {{baseUrl}}/api/v1/members
+Content-Type: application/json
+
+{
+  "loginId": "testUser1",
+  "password": "Test1234!",
+  "name": "홍길동",
+  "birthDate": "1990-01-15",
+  "email": "test@example.com"
+}
+
+### 회원가입 (중복 ID 테스트 - 위 요청 먼저 실행 후)
+POST {{baseUrl}}/api/v1/members
+Content-Type: application/json
+
+{
+  "loginId": "testUser1",
+  "password": "Test5678!",
+  "name": "김철수",
+  "birthDate": "1985-05-20",
+  "email": "second@example.com"
+}
+
+### 회원가입 (잘못된 이메일)
+POST {{baseUrl}}/api/v1/members
+Content-Type: application/json
+
+{
+  "loginId": "testUser2",
+  "password": "Test1234!",
+  "name": "홍길동",
+  "birthDate": "1990-01-15",
+  "email": "invalid-email"
+}
+
+### 회원가입 (잘못된 비밀번호 - 너무 짧음)
+POST {{baseUrl}}/api/v1/members
+Content-Type: application/json
+
+{
+  "loginId": "testUser3",
+  "password": "short",
+  "name": "홍길동",
+  "birthDate": "1990-01-15",
+  "email": "test3@example.com"
+}
