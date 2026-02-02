@@ -132,6 +132,7 @@ docker compose -f docker/monitoring-compose.yml up -d
 - 실제 동작하지 않는 코드, 불필요한 Mock 데이터를 이용한 구현을 하지 말 것
 - null-safety 하지 않게 코드 작성하지 말 것 (Java 의 경우, Optional 을 활용할 것)
 - println 코드 남기지 말 것
+- 객체지향 5원칙을 어기지 말 것
 
 ### 2. Recommendation
 - 실제 API 를 호출해 확인하는 E2E 테스트 코드 작성
@@ -139,9 +140,21 @@ docker compose -f docker/monitoring-compose.yml up -d
 - 성능 최적화에 대한 대안 및 제안
 - 개발 완료된 API 의 경우, `.http/**.http` 에 분류해 작성
 - Domain Entity와 Persistence Entity는 구분하여 구현
+- 필요한 의존성은 적절히 관리하여 최소화
+- 통합 테스트는 테스트 컨테이너를 이용해 진행
 
 ### 3. Priority
 1. 실제 동작하는 해결책만 고려
 2. null-safety, thread-safety 고려
 3. 테스트 가능한 구조로 설계
 4. 기존 코드 패턴 분석 후 일관성 유지
+
+## 깃 커밋 컨벤션
+- feat: 새로운 기능 추가
+- fix: 버그 수정
+- docs: 문서만 수정 (예: README, 주석은 아님)
+- style: 코드 포맷팅 (공백, 세미콜론 등 기능 변화 없음)
+- refactor: 기능 변화 없이 코드 개선
+- test: 테스트 코드 추가/수정
+- chore: 빌드/패키지 설정 등 기능과 직접 관련 없는 작업
+- 커밋 메세지는 한국어로 작성할 것

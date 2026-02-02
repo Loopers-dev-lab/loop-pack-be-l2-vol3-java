@@ -95,6 +95,40 @@ class MemberV1ApiE2ETest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
 
+        @DisplayName("생년월일이 누락되면, 400 Bad Request를 반환한다.")
+        @Test
+        void returnsBadRequest_whenBirthdayMissing() {
+            // arrange
+            MemberV1Dto.SignUpRequest request = new MemberV1Dto.SignUpRequest(
+                "testuser1", "Test1234!", "홍길동", null, "test@example.com"
+            );
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Object>> response =
+                testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("생년월일 형식이 잘못되면, 400 Bad Request를 반환한다.")
+        @Test
+        void returnsBadRequest_whenBirthdayFormatInvalid() {
+            // arrange
+            MemberV1Dto.SignUpRequest request = new MemberV1Dto.SignUpRequest(
+                "testuser1", "Test1234!", "홍길동", "19950315", "test@example.com"
+            );
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Object>> response =
+                testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
         @DisplayName("이미 존재하는 loginId로 가입하면, 409 Conflict를 반환한다.")
         @Test
         void returnsConflict_whenDuplicateLoginId() {

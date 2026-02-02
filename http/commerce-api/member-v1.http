@@ -1,0 +1,11 @@
+### 회원가입
+POST {{commerce-api}}/api/v1/members
+Content-Type: application/json
+
+{
+  "loginId": "testuser1",
+  "password": "Test1234!",
+  "name": "홍길동",
+  "birthday": "1995-03-15",
+  "email": "test@example.com"
+}
