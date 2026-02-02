@@ -36,6 +36,27 @@ public class MemberService {
         return memberRepository.save(member);
     }
 
+    public void changePassword(MemberModel member, String currentPassword, String newPassword) {
+        if (!passwordEncoder.matches(currentPassword, member.getPassword())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");
+        }
+
+        if (currentPassword.equals(newPassword)) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다.");
+        }
+
+        if (!newPassword.matches(PASSWORD_PATTERN)) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호는 8~16자의 영문 대소문자, 숫자, 특수문자만 허용됩니다.");
+        }
+
+        if (containsBirthDate(newPassword, member.getBirthDate())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호에 생년월일을 포함할 수 없습니다.");
+        }
+
+        String encodedNewPassword = passwordEncoder.encode(newPassword);
+        member.changePassword(encodedNewPassword);
+    }
+
     private boolean containsBirthDate(String password, LocalDate birthDate) {
         String yyyyMMdd = birthDate.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String yyMMdd = birthDate.format(DateTimeFormatter.ofPattern("yyMMdd"));

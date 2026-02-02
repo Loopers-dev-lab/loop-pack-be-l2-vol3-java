@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -45,5 +46,14 @@ public class MemberV1Controller {
     @GetMapping("/me")
     public ApiResponse<MemberV1Dto.MyInfoResponse> getMyInfo(@AuthMember MemberModel member) {
         return ApiResponse.success(MemberV1Dto.MyInfoResponse.from(member));
+    }
+
+    @PatchMapping("/me/password")
+    public ApiResponse<Object> changePassword(
+        @AuthMember MemberModel member,
+        @Valid @RequestBody MemberV1Dto.ChangePasswordRequest request
+    ) {
+        memberService.changePassword(member, request.currentPassword(), request.newPassword());
+        return ApiResponse.success();
     }
 }

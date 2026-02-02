@@ -55,4 +55,8 @@ public class MemberModel extends BaseEntity {
     public String getEmail() {
         return email;
     }
+
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
 }
