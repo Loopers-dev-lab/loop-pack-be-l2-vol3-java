@@ -55,4 +55,17 @@ public class PasswordValidatorTest {
         //then
         assertThat(result).isFalse();
     }
+
+    @Test
+    public void 유효한_비밀번호는_통과한다() {
+        //given
+        String birthDate = "1990427";
+        String password = "Valid123!";
+
+        //when
+        boolean result = PasswordValidator.validate(password, birthDate);
+
+        //then
+        assertThat(result).isTrue();
+    }
 }
