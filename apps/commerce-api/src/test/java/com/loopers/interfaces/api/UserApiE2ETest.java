@@ -1,22 +1,42 @@
 package com.loopers.interfaces.api;
 
-import org.assertj.core.api.Assertions;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.web.servlet.MockMvc;
 
-public class UserApiE2ETest {
+@WebMvcTest(UsersController.class)
+class UserApiE2ETest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Test
     @DisplayName("회원가입 API 호출 테스트")
-    void userSignupApiTest() {
-        TestRestTemplate rest = new TestRestTemplate();
+    void userSignupApiTest() throws Exception {
+        UserSignUpRequestDto requestBody = new UserSignUpRequestDto(
+            "kim",
+            "pw111",
+            LocalDate.of(1991, 12, 3),
+            "김용권",
+            "yk@google.com"
+        );
 
-        ResponseEntity<String> res =
-            rest.postForEntity("http://localhost:8080/users",null, String.class);
+        String json = objectMapper.writeValueAsString(requestBody);
 
-        Assertions.assertThat(res.getStatusCode()).isEqualTo(HttpStatus.OK);
+        mockMvc.perform(post("/users")
+                .contentType(APPLICATION_JSON)
+                .content(json))
+            .andExpect(status().isOk());
     }
 }
