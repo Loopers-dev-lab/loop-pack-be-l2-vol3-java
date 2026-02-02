@@ -41,10 +41,19 @@ public class SignUpRequestValidationTest {
     @Test
     public void 이름이_비어있으면_실패() {
         //given
+        SignUpRequest request = new SignUpRequest(
+          "testId",
+          "password123!",
+          "    ",
+          "19900427",
+          "test@test.com"
+        );
 
         //when
+        Set<ConstraintViolation<SignUpRequest>> violations = validator.validate(request);
 
         //then
+        assertThat(violations).hasSize(1);
     }
 
     @Test
