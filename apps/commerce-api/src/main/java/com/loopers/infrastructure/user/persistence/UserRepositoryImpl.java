@@ -1,5 +1,7 @@
 package com.loopers.infrastructure.user.persistence;
 
+import java.util.Optional;
+
 import org.springframework.stereotype.Component;
 
 import com.loopers.domain.user.LoginId;
@@ -17,6 +19,11 @@ public class UserRepositoryImpl implements UserRepository {
     @Override
     public User save(User user) {
         return userJpaRepository.save(user);
+    }
+
+    @Override
+    public Optional<User> findByLoginId(LoginId loginId) {
+        return userJpaRepository.findByLoginId(loginId);
     }
 
     @Override
