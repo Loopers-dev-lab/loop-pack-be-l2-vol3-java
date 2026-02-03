@@ -17,4 +17,15 @@ public class MemberV1Dto {
             );
         }
     }
+
+    public record MyInfoResponse(String loginId, String name, String birthday, String email) {
+        public static MyInfoResponse from(MemberInfo info) {
+            return new MyInfoResponse(
+                info.loginId(),
+                info.name(),
+                info.birthday().toString(),
+                info.email()
+            );
+        }
+    }
 }

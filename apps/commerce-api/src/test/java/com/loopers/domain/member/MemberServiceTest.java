@@ -20,17 +20,23 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 @SpringBootTest
 class MemberServiceTest {
 
-    @Autowired
-    private MemberService memberService;
+    private final MemberService memberService;
+    private final MemberRepository memberRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final DatabaseCleanUp databaseCleanUp;
 
     @Autowired
-    private MemberRepository memberRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
-    private DatabaseCleanUp databaseCleanUp;
+    public MemberServiceTest(
+        MemberService memberService,
+        MemberRepository memberRepository,
+        PasswordEncoder passwordEncoder,
+        DatabaseCleanUp databaseCleanUp
+    ) {
+        this.memberService = memberService;
+        this.memberRepository = memberRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.databaseCleanUp = databaseCleanUp;
+    }
 
     @AfterEach
     void tearDown() {

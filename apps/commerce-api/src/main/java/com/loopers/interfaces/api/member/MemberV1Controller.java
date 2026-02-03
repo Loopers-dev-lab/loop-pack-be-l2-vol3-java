@@ -7,8 +7,10 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,6 +40,17 @@ public class MemberV1Controller implements MemberV1ApiSpec {
             request.email()
         );
         MemberV1Dto.SignUpResponse response = MemberV1Dto.SignUpResponse.from(info);
+        return ApiResponse.success(response);
+    }
+
+    @GetMapping("/me")
+    @Override
+    public ApiResponse<MemberV1Dto.MyInfoResponse> getMyInfo(
+        @RequestHeader("X-Loopers-LoginId") String loginId,
+        @RequestHeader("X-Loopers-LoginPw") String password
+    ) {
+        MemberInfo info = memberFacade.getMyInfo(loginId, password);
+        MemberV1Dto.MyInfoResponse response = MemberV1Dto.MyInfoResponse.from(info);
         return ApiResponse.success(response);
     }
 

@@ -19,11 +19,17 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 @SpringBootTest
 class MemberRepositoryImplIntegrationTest {
 
-    @Autowired
-    private MemberRepository memberRepository;
+    private final MemberRepository memberRepository;
+    private final DatabaseCleanUp databaseCleanUp;
 
     @Autowired
-    private DatabaseCleanUp databaseCleanUp;
+    public MemberRepositoryImplIntegrationTest(
+        MemberRepository memberRepository,
+        DatabaseCleanUp databaseCleanUp
+    ) {
+        this.memberRepository = memberRepository;
+        this.databaseCleanUp = databaseCleanUp;
+    }
 
     @AfterEach
     void tearDown() {
