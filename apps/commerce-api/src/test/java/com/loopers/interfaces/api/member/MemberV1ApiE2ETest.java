@@ -13,6 +13,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -148,6 +149,84 @@ class MemberV1ApiE2ETest {
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        }
+    }
+
+    @DisplayName("GET /api/v1/members/me")
+    @Nested
+    class GetMyInfo {
+
+        private Member saveMember(String loginId, String rawPassword) {
+            Member member = new Member(loginId, rawPassword, "홍길동", LocalDate.of(1995, 3, 15), "test@example.com");
+            member.encryptPassword(passwordEncoder.encode(rawPassword));
+            return memberRepository.save(member);
+        }
+
+        private HttpEntity<Void> createAuthHeaders(String loginId, String password) {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", loginId);
+            headers.set("X-Loopers-LoginPw", password);
+            return new HttpEntity<>(headers);
+        }
+
+        @DisplayName("올바른 인증 정보로 조회하면, 200 OK와 회원 정보를 반환한다.")
+        @Test
+        void returnsOk_whenValidCredentials() {
+            // arrange
+            saveMember("testuser1", "Test1234!");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<MemberV1Dto.MyInfoResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<MemberV1Dto.MyInfoResponse>> response =
+                testRestTemplate.exchange(ENDPOINT + "/me", HttpMethod.GET, createAuthHeaders("testuser1", "Test1234!"), responseType);
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().data().loginId()).isEqualTo("testuser1"),
+                () -> assertThat(response.getBody().data().name()).isEqualTo("홍길동"),
+                () -> assertThat(response.getBody().data().birthday()).isEqualTo("1995-03-15"),
+                () -> assertThat(response.getBody().data().email()).isEqualTo("test@example.com")
+            );
+        }
+
+        @DisplayName("존재하지 않는 loginId로 조회하면, 401 Unauthorized를 반환한다.")
+        @Test
+        void returnsUnauthorized_whenLoginIdNotFound() {
+            // act
+            ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Object>> response =
+                testRestTemplate.exchange(ENDPOINT + "/me", HttpMethod.GET, createAuthHeaders("nonexistent", "Test1234!"), responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @DisplayName("비밀번호가 일치하지 않으면, 401 Unauthorized를 반환한다.")
+        @Test
+        void returnsUnauthorized_whenPasswordWrong() {
+            // arrange
+            saveMember("testuser1", "Test1234!");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Object>> response =
+                testRestTemplate.exchange(ENDPOINT + "/me", HttpMethod.GET, createAuthHeaders("testuser1", "Wrong1234!"), responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @DisplayName("인증 헤더가 누락되면, 400 Bad Request를 반환한다.")
+        @Test
+        void returnsBadRequest_whenHeaderMissing() {
+            // act
+            ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Object>> response =
+                testRestTemplate.exchange(ENDPOINT + "/me", HttpMethod.GET, null, responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
     }
 }

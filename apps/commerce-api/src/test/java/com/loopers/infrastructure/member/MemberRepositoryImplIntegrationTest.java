@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -18,11 +19,17 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 @SpringBootTest
 class MemberRepositoryImplIntegrationTest {
 
-    @Autowired
-    private MemberRepository memberRepository;
+    private final MemberRepository memberRepository;
+    private final DatabaseCleanUp databaseCleanUp;
 
     @Autowired
-    private DatabaseCleanUp databaseCleanUp;
+    public MemberRepositoryImplIntegrationTest(
+        MemberRepository memberRepository,
+        DatabaseCleanUp databaseCleanUp
+    ) {
+        this.memberRepository = memberRepository;
+        this.databaseCleanUp = databaseCleanUp;
+    }
 
     @AfterEach
     void tearDown() {
@@ -85,6 +92,40 @@ class MemberRepositoryImplIntegrationTest {
 
             // assert
             assertThat(result).isFalse();
+        }
+    }
+
+    @DisplayName("로그인 ID로 회원을 조회할 때,")
+    @Nested
+    class FindByLoginId {
+
+        @DisplayName("존재하는 loginId이면, 회원을 반환한다.")
+        @Test
+        void returnsMember_whenLoginIdExists() {
+            // arrange
+            memberRepository.save(createMember("testuser1", "test@example.com"));
+
+            // act
+            Optional<Member> result = memberRepository.findByLoginId("testuser1");
+
+            // assert
+            assertAll(
+                () -> assertThat(result).isPresent(),
+                () -> assertThat(result.get().getLoginId()).isEqualTo("testuser1"),
+                () -> assertThat(result.get().getName()).isEqualTo("홍길동"),
+                () -> assertThat(result.get().getBirthday()).isEqualTo(LocalDate.of(1995, 3, 15)),
+                () -> assertThat(result.get().getEmail()).isEqualTo("test@example.com")
+            );
+        }
+
+        @DisplayName("존재하지 않는 loginId이면, 빈 Optional을 반환한다.")
+        @Test
+        void returnsEmpty_whenLoginIdDoesNotExist() {
+            // act
+            Optional<Member> result = memberRepository.findByLoginId("nonexistent");
+
+            // assert
+            assertThat(result).isEmpty();
         }
     }
 

@@ -73,10 +73,12 @@ sequenceDiagram
     Repository->>RepoImpl: save(member)
     Note over RepoImpl: Domain → Persistence 변환
     RepoImpl->>Entity: MemberEntity.from(member)
+    Entity-->>RepoImpl: MemberEntity
     RepoImpl->>JpaRepo: save(memberEntity)
     JpaRepo-->>RepoImpl: MemberEntity
     Note over RepoImpl: Persistence → Domain 변환
     RepoImpl->>Entity: toDomain()
+    Entity-->>RepoImpl: Member
     RepoImpl-->>Service: Member
 
     Service-->>Facade: Member

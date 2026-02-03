@@ -9,3 +9,8 @@ Content-Type: application/json
   "birthday": "1995-03-15",
   "email": "test@example.com"
 }
+
+### 내 정보 조회
+GET {{commerce-api}}/api/v1/members/me
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Test1234!
