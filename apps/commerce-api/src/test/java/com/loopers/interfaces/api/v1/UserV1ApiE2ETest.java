@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,9 @@ class UserV1ApiE2ETest {
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
 
+    private UserV1Dto.SignUpRequest signUpRequest;
+    private HttpHeaders headers;
+
     @Autowired
     public UserV1ApiE2ETest(
             TestRestTemplate testRestTemplate,
@@ -41,6 +45,24 @@ class UserV1ApiE2ETest {
     ) {
         this.testRestTemplate = testRestTemplate;
         this.databaseCleanUp = databaseCleanUp;
+    }
+
+    @BeforeEach
+    void setUp() {
+        signUpRequest = new UserV1Dto.SignUpRequest(
+                "testuser1",
+                "Password1!",
+                "홍길동",
+                "1990-01-15",
+                "test@example.com"
+        );
+        ParameterizedTypeReference<ApiResponse<SignUpResponse>> signUpResponseType = new ParameterizedTypeReference<>() {
+        };
+        testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), signUpResponseType);
+
+        headers = new HttpHeaders();
+        headers.set("X-Loopers-LoginId", signUpRequest.loginId());
+        headers.set("X-Loopers-LoginPw", signUpRequest.password());
     }
 
     @AfterEach
@@ -57,11 +79,11 @@ class UserV1ApiE2ETest {
         void signUp_success_whenValidInput() {
             // arrange
             UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
-                    "testuser1",
-                    "Password1!",
-                    "홍길동",
-                    "1990-01-15",
-                    "test@example.com"
+                    "newuser99",
+                    "SecurePass9!",
+                    "박신규",
+                    "1995-06-20",
+                    "newuser@example.com"
             );
 
             // act
@@ -84,17 +106,6 @@ class UserV1ApiE2ETest {
         @Test
         void signUp_badRequest_whenDuplicateLoginId() {
             // arrange
-            UserV1Dto.SignUpRequest firstRequest = new UserV1Dto.SignUpRequest(
-                    "testuser1",
-                    "Password1!",
-                    "홍길동",
-                    "1990-01-15",
-                    "test@example.com"
-            );
-            ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>> responseType = new ParameterizedTypeReference<>() {
-            };
-            testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(firstRequest), responseType);
-
             UserV1Dto.SignUpRequest duplicateRequest = new UserV1Dto.SignUpRequest(
                     "testuser1",
                     "Password2@",
@@ -104,6 +115,8 @@ class UserV1ApiE2ETest {
             );
 
             // act
+            ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>> responseType = new ParameterizedTypeReference<>() {
+            };
             ResponseEntity<ApiResponse<UserV1Dto.SignUpResponse>> response =
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(duplicateRequest), responseType);
 
@@ -138,7 +151,7 @@ class UserV1ApiE2ETest {
         void signUp_badRequest_whenInvalidEmailFormat() {
             // arrange
             UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
-                    "testuser1",
+                    "testuser2",
                     "Password1!",
                     "홍길동",
                     "1990-01-15",
@@ -160,11 +173,11 @@ class UserV1ApiE2ETest {
         void signUp_badRequest_whenInvalidPasswordFormat() {
             // arrange
             UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
-                    "testuser1",
+                    "testuser2",
                     "short",
                     "홍길동",
                     "1990-01-15",
-                    "test@example.com"
+                    "test2@example.com"
             );
 
             // act
@@ -182,11 +195,11 @@ class UserV1ApiE2ETest {
         void signUp_badRequest_whenPasswordContainsBirthDate() {
             // arrange
             UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
-                    "testuser1",
+                    "testuser2",
                     "Pass19900115!",
                     "홍길동",
                     "1990-01-15",
-                    "test@example.com"
+                    "test2@example.com"
             );
 
             // act
@@ -204,11 +217,11 @@ class UserV1ApiE2ETest {
         void signUp_badRequest_whenNameIsEmpty() {
             // arrange
             UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
-                    "testuser1",
+                    "testuser2",
                     "Password1!",
                     "",
                     "1990-01-15",
-                    "test@example.com"
+                    "test2@example.com"
             );
 
             // act
@@ -226,11 +239,11 @@ class UserV1ApiE2ETest {
         void signUp_badRequest_whenInvalidBirthDateFormat() {
             // arrange
             UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
-                    "testuser1",
+                    "testuser2",
                     "Password1!",
                     "홍길동",
                     "19900115",
-                    "test@example.com"
+                    "test2@example.com"
             );
 
             // act
@@ -253,22 +266,6 @@ class UserV1ApiE2ETest {
         @DisplayName("인증된 사용자 정보를 조회하면, 마스킹된 이름과 함께 사용자 정보를 반환한다.")
         @Test
         void getMe_returnsMaskedName_whenAuthenticated() {
-            // arrange
-            UserV1Dto.SignUpRequest signUpRequest = new UserV1Dto.SignUpRequest(
-                    "testuser1",
-                    "Password1!",
-                    "홍길동",
-                    "1990-01-15",
-                    "test@example.com"
-            );
-            ParameterizedTypeReference<ApiResponse<SignUpResponse>> signUpResponseType = new ParameterizedTypeReference<>() {
-            };
-            testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), signUpResponseType);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("X-Loopers-LoginId", signUpRequest.loginId());
-            headers.set("X-Loopers-LoginPw", signUpRequest.password());
-
             // act
             ParameterizedTypeReference<ApiResponse<MeResponse>> responseType = new ParameterizedTypeReference<>() {
             };
@@ -297,21 +294,6 @@ class UserV1ApiE2ETest {
         @Test
         void updatePassword_success_whenValidInput() {
             // arrange
-            UserV1Dto.SignUpRequest signUpRequest = new UserV1Dto.SignUpRequest(
-                    "testuser1",
-                    "Password1!",
-                    "홍길동",
-                    "1990-01-15",
-                    "test@example.com"
-            );
-            ParameterizedTypeReference<ApiResponse<SignUpResponse>> signUpResponseType = new ParameterizedTypeReference<>() {
-            };
-            testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), signUpResponseType);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("X-Loopers-LoginId", signUpRequest.loginId());
-            headers.set("X-Loopers-LoginPw", signUpRequest.password());
-
             UserV1Dto.UpdatePasswordRequest updatePasswordRequest = new UserV1Dto.UpdatePasswordRequest(
                     "Password1!",
                     "NewPassword2@"
@@ -332,21 +314,6 @@ class UserV1ApiE2ETest {
         @NullAndEmptySource
         void updatePassword_badRequest_whenOldPasswordIsBlankOrNull(String oldPassword) {
             // arrange
-            UserV1Dto.SignUpRequest signUpRequest = new UserV1Dto.SignUpRequest(
-                    "testuser1",
-                    "Password1!",
-                    "홍길동",
-                    "1990-01-15",
-                    "test@example.com"
-            );
-            ParameterizedTypeReference<ApiResponse<SignUpResponse>> signUpResponseType = new ParameterizedTypeReference<>() {
-            };
-            testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), signUpResponseType);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("X-Loopers-LoginId", signUpRequest.loginId());
-            headers.set("X-Loopers-LoginPw", signUpRequest.password());
-
             UserV1Dto.UpdatePasswordRequest updatePasswordRequest = new UserV1Dto.UpdatePasswordRequest(
                     oldPassword,
                     "NewPassword2@"
@@ -367,21 +334,6 @@ class UserV1ApiE2ETest {
         @NullAndEmptySource
         void updatePassword_badRequest_whenNewPasswordIsBlankOrNull(String newPassword) {
             // arrange
-            UserV1Dto.SignUpRequest signUpRequest = new UserV1Dto.SignUpRequest(
-                    "testuser1",
-                    "Password1!",
-                    "홍길동",
-                    "1990-01-15",
-                    "test@example.com"
-            );
-            ParameterizedTypeReference<ApiResponse<SignUpResponse>> signUpResponseType = new ParameterizedTypeReference<>() {
-            };
-            testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), signUpResponseType);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("X-Loopers-LoginId", signUpRequest.loginId());
-            headers.set("X-Loopers-LoginPw", signUpRequest.password());
-
             UserV1Dto.UpdatePasswordRequest updatePasswordRequest = new UserV1Dto.UpdatePasswordRequest(
                     "Password1!",
                     newPassword
