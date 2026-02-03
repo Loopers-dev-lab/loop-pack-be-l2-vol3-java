@@ -1,8 +1,9 @@
-package com.loopers.interfaces.api;
+package com.loopers.interfaces.dto;
 
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.loopers.interfaces.api.UsersSignUpRequestDto;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -28,23 +29,23 @@ public class UserDtoValidationTest {
         validator = factory.getValidator();
     }
 
-    private UserSignUpRequestDto defaultDto() {
-        return new UserSignUpRequestDto(DEFAULT_BIRTH_DATE, DEFAULT_NAME, DEFAULT_EMAIL);
+    private UsersSignUpRequestDto defaultDto() {
+        return new UsersSignUpRequestDto(DEFAULT_BIRTH_DATE, DEFAULT_NAME, DEFAULT_EMAIL);
     }
 
-    private UserSignUpRequestDto dtoWithEmail(String email) {
-        return new UserSignUpRequestDto(DEFAULT_BIRTH_DATE, DEFAULT_NAME, email);
+    private UsersSignUpRequestDto dtoWithEmail(String email) {
+        return new UsersSignUpRequestDto(DEFAULT_BIRTH_DATE, DEFAULT_NAME, email);
     }
 
-    private UserSignUpRequestDto dtoWithBirthDate(LocalDate birthDate) {
-        return new UserSignUpRequestDto(birthDate, DEFAULT_NAME, DEFAULT_EMAIL);
+    private UsersSignUpRequestDto dtoWithBirthDate(LocalDate birthDate) {
+        return new UsersSignUpRequestDto(birthDate, DEFAULT_NAME, DEFAULT_EMAIL);
     }
 
-    private UserSignUpRequestDto dtoWithName(String name) {
-        return new UserSignUpRequestDto(DEFAULT_BIRTH_DATE, name, DEFAULT_EMAIL);
+    private UsersSignUpRequestDto dtoWithName(String name) {
+        return new UsersSignUpRequestDto(DEFAULT_BIRTH_DATE, name, DEFAULT_EMAIL);
     }
 
-    private Set<ConstraintViolation<UserSignUpRequestDto>> validate(UserSignUpRequestDto dto) {
+    private Set<ConstraintViolation<UsersSignUpRequestDto>> validate(UsersSignUpRequestDto dto) {
         return validator.validate(dto);
     }
 
@@ -55,9 +56,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("이메일 포맷이 맞으면 성공하는 테스트")
         void emailFormatSuccessTest() {
-            UserSignUpRequestDto dto = defaultDto();
+            UsersSignUpRequestDto dto = defaultDto();
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isEmpty();
         }
@@ -65,9 +66,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("이메일 포맷이 안맞으면 실패하는 테스트")
         void emailFormatFailTest() {
-            UserSignUpRequestDto dto = dtoWithEmail("ykadasdad");
+            UsersSignUpRequestDto dto = dtoWithEmail("ykadasdad");
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).hasSize(1);
         }
@@ -75,9 +76,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("이메일에 null이 들어오면 실패하는 테스트")
         void emailFormatNullTest() {
-            UserSignUpRequestDto dto = dtoWithEmail(null);
+            UsersSignUpRequestDto dto = dtoWithEmail(null);
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).hasSize(1);
         }
@@ -90,9 +91,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("포맷이 맞으면 성공하는 테스트")
         void birthFormatSuccessTest() {
-            UserSignUpRequestDto dto = defaultDto();
+            UsersSignUpRequestDto dto = defaultDto();
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isEmpty();
         }
@@ -100,9 +101,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("미래 날짜면 실패하는 테스트")
         void birthFormatDateIsFutureFailTest() {
-            UserSignUpRequestDto dto = dtoWithBirthDate(LocalDate.now().plusDays(1));
+            UsersSignUpRequestDto dto = dtoWithBirthDate(LocalDate.now().plusDays(1));
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isNotEmpty();
         }
@@ -110,9 +111,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("null이면 실패하는 테스트")
         void birthFormatDateIsNullFailTest() {
-            UserSignUpRequestDto dto = dtoWithBirthDate(null);
+            UsersSignUpRequestDto dto = dtoWithBirthDate(null);
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isNotEmpty();
         }
@@ -125,9 +126,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("올바른 한글 이름이면 검증에 통과한다")
         void validKoreanSuccessTest() {
-            UserSignUpRequestDto dto = defaultDto();
+            UsersSignUpRequestDto dto = defaultDto();
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isEmpty();
         }
@@ -135,9 +136,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("올바른 영문 이름이면 검증에 통과한다")
         void validEnglishSuccessTest() {
-            UserSignUpRequestDto dto = dtoWithName("John");
+            UsersSignUpRequestDto dto = dtoWithName("John");
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isEmpty();
         }
@@ -145,9 +146,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("한글과 영문이 섞인 이름이면 검증에 통과한다")
         void mixedKoreanAndEnglishSuccessTest() {
-            UserSignUpRequestDto dto = dtoWithName("김John");
+            UsersSignUpRequestDto dto = dtoWithName("김John");
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isEmpty();
         }
@@ -155,9 +156,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("공백이 포함된 이름이면 검증에 통과한다")
         void nameContainsSpaceSuccessTest() {
-            UserSignUpRequestDto dto = dtoWithName("홍 길동");
+            UsersSignUpRequestDto dto = dtoWithName("홍 길동");
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isEmpty();
         }
@@ -165,9 +166,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("이름이 2자이면 검증에 통과한다")
         void nameIsMinLengthSuccessTest() {
-            UserSignUpRequestDto dto = dtoWithName("김용");
+            UsersSignUpRequestDto dto = dtoWithName("김용");
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isEmpty();
         }
@@ -175,9 +176,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("이름이 null이면 검증에 실패한다")
         void nameIsNullFailTest() {
-            UserSignUpRequestDto dto = dtoWithName(null);
+            UsersSignUpRequestDto dto = dtoWithName(null);
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isNotEmpty();
             assertThat(violations.iterator().next().getMessage()).isEqualTo("이름은 필수입니다.");
@@ -186,9 +187,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("이름이 빈 문자열이면 검증에 실패한다")
         void nameIsEmptyFailTest() {
-            UserSignUpRequestDto dto = dtoWithName("");
+            UsersSignUpRequestDto dto = dtoWithName("");
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isNotEmpty();
         }
@@ -196,9 +197,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("이름이 공백만 있으면 검증에 실패한다")
         void nameFormatBlankFailTest() {
-            UserSignUpRequestDto dto = dtoWithName("   ");
+            UsersSignUpRequestDto dto = dtoWithName("   ");
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isNotEmpty();
             // NotBlank 또는 Pattern 위반 가능 (구현/순서에 따라 메시지 상이)
@@ -209,9 +210,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("이름이 1자이면 검증에 실패한다")
         void nameFormatTooShortFailTest() {
-            UserSignUpRequestDto dto = dtoWithName("김");
+            UsersSignUpRequestDto dto = dtoWithName("김");
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isNotEmpty();
             assertThat(violations.iterator().next().getMessage()).isEqualTo("이름은 2자 이상 30자 이하여야 합니다.");
@@ -220,9 +221,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("이름이 11자 이상이면 검증에 실패한다")
         void nameFormatTooLongFailTest() {
-            UserSignUpRequestDto dto = dtoWithName("가나다라마바사아자차카");
+            UsersSignUpRequestDto dto = dtoWithName("가나다라마바사아자차카");
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isNotEmpty();
             assertThat(violations.iterator().next().getMessage()).isEqualTo("이름은 2자 이상 30자 이하여야 합니다.");
@@ -231,9 +232,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("이름에 숫자가 포함되면 검증에 실패한다")
         void nameFormatContainsNumberFailTest() {
-            UserSignUpRequestDto dto = dtoWithName("김용권1");
+            UsersSignUpRequestDto dto = dtoWithName("김용권1");
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isNotEmpty();
             assertThat(violations.iterator().next().getMessage()).isEqualTo("이름은 한글, 영문, 공백만 입력 가능합니다.");
@@ -242,9 +243,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("이름에 특수문자가 포함되면 검증에 실패한다")
         void nameFormatContainsSpecialCharacterFailTest() {
-            UserSignUpRequestDto dto = dtoWithName("김용권!");
+            UsersSignUpRequestDto dto = dtoWithName("김용권!");
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isNotEmpty();
             assertThat(violations.iterator().next().getMessage()).isEqualTo("이름은 한글, 영문, 공백만 입력 가능합니다.");
@@ -253,9 +254,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("이름에 하이픈이 포함되면 검증에 실패한다")
         void nameFormatContainsHyphenFailTest() {
-            UserSignUpRequestDto dto = dtoWithName("김-용권");
+            UsersSignUpRequestDto dto = dtoWithName("김-용권");
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isNotEmpty();
             assertThat(violations.iterator().next().getMessage()).isEqualTo("이름은 한글, 영문, 공백만 입력 가능합니다.");
@@ -264,9 +265,9 @@ public class UserDtoValidationTest {
         @Test
         @DisplayName("이름에 점이 포함되면 검증에 실패한다")
         void nameFormatContainsDotFailTest() {
-            UserSignUpRequestDto dto = dtoWithName("김.용권");
+            UsersSignUpRequestDto dto = dtoWithName("김.용권");
 
-            Set<ConstraintViolation<UserSignUpRequestDto>> violations = validate(dto);
+            Set<ConstraintViolation<UsersSignUpRequestDto>> violations = validate(dto);
 
             assertThat(violations).isNotEmpty();
             assertThat(violations.iterator().next().getMessage()).isEqualTo("이름은 한글, 영문, 공백만 입력 가능합니다.");

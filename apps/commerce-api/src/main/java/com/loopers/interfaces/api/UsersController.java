@@ -30,7 +30,7 @@ public class UsersController {
             message = "영문 대소문자, 숫자, 특수문자만 사용 가능합니다."
         )
         String loginPw,
-        @Valid @RequestBody UserSignUpRequestDto requestDto
+        @Valid @RequestBody UsersSignUpRequestDto requestDto
     ) {
         userService.signup(loginId, loginPw, requestDto);
         return ApiResponse.success("ok");

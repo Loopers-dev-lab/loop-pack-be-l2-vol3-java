@@ -1,6 +1,6 @@
 package com.loopers.application;
 
-import com.loopers.interfaces.api.UserSignUpRequestDto;
+import com.loopers.interfaces.api.UsersSignUpRequestDto;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import java.time.LocalDate;
@@ -14,7 +14,7 @@ public class UserService {
 
     private final PasswordEncoder passwordEncoder;
 
-    public void signup(String loginId, String loginPw, UserSignUpRequestDto requestDto) {
+    public void signup(String loginId, String loginPw, UsersSignUpRequestDto requestDto) {
         validatePasswordContent(loginPw, requestDto.getBirthDate());
 
         String encodedPw = passwordEncoder.encode(loginPw);

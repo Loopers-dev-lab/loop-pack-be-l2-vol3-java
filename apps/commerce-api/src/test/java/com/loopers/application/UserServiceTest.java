@@ -5,7 +5,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import com.loopers.interfaces.api.UserSignUpRequestDto;
+import com.loopers.interfaces.api.UsersSignUpRequestDto;
 import com.loopers.support.error.CoreException;
 import java.time.LocalDate;
 import org.junit.jupiter.api.DisplayName;
@@ -25,8 +25,8 @@ public class UserServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
-    private UserSignUpRequestDto createDto(LocalDate birthDate) {
-        return new UserSignUpRequestDto(birthDate, "email@test.com", "kkk@gmail.com");
+    private UsersSignUpRequestDto createDto(LocalDate birthDate) {
+        return new UsersSignUpRequestDto(birthDate, "email@test.com", "kkk@gmail.com");
     }
 
     @Test
@@ -35,7 +35,7 @@ public class UserServiceTest {
 
         String rawPw = "securePassword!@";
         String encodedPw = "encoded_hash";
-        UserSignUpRequestDto dto = createDto(LocalDate.of(1995, 1, 1));
+        UsersSignUpRequestDto dto = createDto(LocalDate.of(1995, 1, 1));
 
         given(passwordEncoder.encode(rawPw)).willReturn(encodedPw);
 
@@ -49,7 +49,7 @@ public class UserServiceTest {
     void fail_with_birthDate() {
 
         String rawPw = "pw19911203!!"; // 생일 포함
-        UserSignUpRequestDto dto = createDto(LocalDate.of(1991,12, 3));
+        UsersSignUpRequestDto dto = createDto(LocalDate.of(1991,12, 3));
 
         assertThatThrownBy(() -> userService.signup("user123", rawPw, dto))
             .isInstanceOf(CoreException.class)
