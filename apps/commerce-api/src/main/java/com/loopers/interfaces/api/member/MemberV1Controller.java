@@ -1,7 +1,8 @@
 package com.loopers.interfaces.api.member;
 
-import com.loopers.application.member.MemberFacade;
 import com.loopers.application.member.MemberInfo;
+import com.loopers.domain.member.Member;
+import com.loopers.domain.member.MemberService;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,19 +18,20 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/members")
 public class MemberV1Controller {
 
-    private final MemberFacade memberFacade;
+    private final MemberService memberService;
 
     @PostMapping
     public ApiResponse<MemberV1Dto.MemberResponse> register(
         @RequestBody MemberV1Dto.RegisterRequest request
     ) {
-        MemberInfo info = memberFacade.register(
+        Member member = memberService.register(
             request.loginId(),
             request.password(),
             request.name(),
             request.birthday(),
             request.email()
         );
+        MemberInfo info = MemberInfo.from(member);
         return ApiResponse.success(MemberV1Dto.MemberResponse.from(info));
     }
 
@@ -38,7 +40,7 @@ public class MemberV1Controller {
         @RequestHeader("X-Loopers-LoginId") String loginId,
         @RequestHeader("X-Loopers-LoginPw") String loginPw
     ) {
-        MemberInfo info = memberFacade.getMyInfo(loginId, loginPw);
+        MemberInfo info = memberService.getMyInfo(loginId, loginPw);
         return ApiResponse.success(MemberV1Dto.MemberResponse.from(info));
     }
 
@@ -48,7 +50,7 @@ public class MemberV1Controller {
         @RequestHeader("X-Loopers-LoginPw") String loginPw,
         @RequestBody MemberV1Dto.ChangePasswordRequest request
     ) {
-        memberFacade.changePassword(loginId, loginPw, request.newPassword());
+        memberService.changePassword(loginId, loginPw, request.newPassword());
         return ApiResponse.success();
     }
 }

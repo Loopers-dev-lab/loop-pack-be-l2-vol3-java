@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.member;
 
-import com.loopers.application.member.MemberFacade;
 import com.loopers.domain.member.FakeMemberRepository;
 import com.loopers.domain.member.MemberService;
 import com.loopers.interfaces.api.ApiControllerAdvice;
@@ -26,9 +25,8 @@ class MemberV1ControllerStandaloneTest {
     @BeforeEach
     void setUp() {
         FakeMemberRepository fakeRepository = new FakeMemberRepository();
-        MemberService memberService = new MemberService(fakeRepository);
-        MemberFacade memberFacade = new MemberFacade(memberService, new BCryptPasswordEncoder());
-        MemberV1Controller controller = new MemberV1Controller(memberFacade);
+        MemberService memberService = new MemberService(fakeRepository, new BCryptPasswordEncoder());
+        MemberV1Controller controller = new MemberV1Controller(memberService);
 
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new ApiControllerAdvice())
