@@ -60,9 +60,9 @@ class UserServiceIntegrationTest {
             );
         }
 
-        @DisplayName("이미 가입된 로그인 ID로 가입하면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("이미 가입된 로그인 ID로 가입하면, DUPLICATE_LOGIN_ID 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenLoginIdAlreadyExists() {
+        void throwsDuplicateLoginIdException_whenLoginIdAlreadyExists() {
             // arrange
             String loginId = "user123";
             userService.signUp(loginId, "Password1!", "홍길동", "1990-01-01", "test@email.com");
@@ -70,7 +70,7 @@ class UserServiceIntegrationTest {
             // act & assert
             assertThatThrownBy(() -> userService.signUp(loginId, "Password2!", "김철수", "1995-05-05", "other@email.com"))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.DUPLICATE_LOGIN_ID));
         }
     }
 
@@ -91,16 +91,16 @@ class UserServiceIntegrationTest {
             assertThat(user.getId()).isEqualTo(savedUser.getId());
         }
 
-        @DisplayName("존재하지 않는 사용자 ID를 입력하면, NOT_FOUND 예외가 발생한다.")
+        @DisplayName("존재하지 않는 사용자 ID를 입력하면, USER_NOT_FOUND 예외가 발생한다.")
         @Test
-        void throwsNotFoundException_whenUserIdDoesNotExist() {
+        void throwsUserNotFoundException_whenUserIdDoesNotExist() {
             // arrange
             Long nonExistentUserId = 999L;
 
             // act & assert
             assertThatThrownBy(() -> userService.getUser(nonExistentUserId))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.USER_NOT_FOUND));
         }
     }
 
@@ -124,9 +124,9 @@ class UserServiceIntegrationTest {
             assertThat(updatedUser.matchesPassword(newPassword, passwordEncoder)).isTrue();
         }
 
-        @DisplayName("존재하지 않는 사용자 ID를 입력하면, NOT_FOUND 예외가 발생한다.")
+        @DisplayName("존재하지 않는 사용자 ID를 입력하면, USER_NOT_FOUND 예외가 발생한다.")
         @Test
-        void throwsNotFoundException_whenUserIdDoesNotExist() {
+        void throwsUserNotFoundException_whenUserIdDoesNotExist() {
             // arrange
             String oldPassword = "Password1!";
             String newPassword = "NewPassword2@";
@@ -135,7 +135,7 @@ class UserServiceIntegrationTest {
             // act & assert
             assertThatThrownBy(() -> userService.updatePassword(nonExistentUserId, oldPassword, newPassword))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.USER_NOT_FOUND));
         }
     }
 }

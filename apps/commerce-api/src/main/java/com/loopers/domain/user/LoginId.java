@@ -31,7 +31,7 @@ public class LoginId {
 
     private void validate(String value) {
         if (!LOGIN_ID_PATTERN.matcher(value).matches()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 영문과 숫자만 허용됩니다.");
+            throw new CoreException(ErrorType.INVALID_LOGIN_ID_FORMAT);
         }
     }
 }

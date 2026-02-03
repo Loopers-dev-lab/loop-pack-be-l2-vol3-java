@@ -31,10 +31,10 @@ public class Password {
 
     private void validate(String value) {
         if (value.length() < 8 || value.length() > 16) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호는 8~16자여야 합니다.");
+            throw new CoreException(ErrorType.INVALID_PASSWORD_LENGTH);
         }
         if (!PASSWORD_PATTERN.matcher(value).matches()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호는 영문 대소문자, 숫자, 특수문자만 허용됩니다.");
+            throw new CoreException(ErrorType.INVALID_PASSWORD_FORMAT);
         }
     }
 }

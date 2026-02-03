@@ -28,28 +28,28 @@ class EmailTest {
                     .doesNotThrowAnyException();
         }
 
-        @DisplayName("이메일에 @가 없으면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("이메일에 @가 없으면, INVALID_EMAIL_FORMAT 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenMissingAtSign() {
+        void throwsInvalidEmailFormatException_whenMissingAtSign() {
             // arrange
             String value = "userdomain.com";
 
             // act & assert
             assertThatThrownBy(() -> new Email(value))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_EMAIL_FORMAT));
         }
 
-        @DisplayName("이메일 도메인에 점이 없으면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("이메일 도메인에 점이 없으면, INVALID_EMAIL_FORMAT 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenMissingDotInDomain() {
+        void throwsInvalidEmailFormatException_whenMissingDotInDomain() {
             // arrange
             String value = "user@domaincom";
 
             // act & assert
             assertThatThrownBy(() -> new Email(value))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_EMAIL_FORMAT));
         }
     }
 }

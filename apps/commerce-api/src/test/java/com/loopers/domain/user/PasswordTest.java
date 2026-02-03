@@ -37,52 +37,52 @@ class PasswordTest {
                     .doesNotThrowAnyException();
         }
 
-        @DisplayName("8자 미만이면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("8자 미만이면, INVALID_PASSWORD_LENGTH 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenTooShort() {
+        void throwsInvalidPasswordLengthException_whenTooShort() {
             // arrange
             String value = "Pass1!a";
 
             // act & assert
             assertThatThrownBy(() -> new Password(value, passwordEncoder))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_PASSWORD_LENGTH));
         }
 
-        @DisplayName("16자 초과이면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("16자 초과이면, INVALID_PASSWORD_LENGTH 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenTooLong() {
+        void throwsInvalidPasswordLengthException_whenTooLong() {
             // arrange
             String value = "Password1!abcdefg";
 
             // act & assert
             assertThatThrownBy(() -> new Password(value, passwordEncoder))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_PASSWORD_LENGTH));
         }
 
-        @DisplayName("한글이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("한글이 포함되면, INVALID_PASSWORD_FORMAT 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenContainsKorean() {
+        void throwsInvalidPasswordFormatException_whenContainsKorean() {
             // arrange
             String value = "Pass한글1!";
 
             // act & assert
             assertThatThrownBy(() -> new Password(value, passwordEncoder))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT));
         }
 
-        @DisplayName("공백이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("공백이 포함되면, INVALID_PASSWORD_FORMAT 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenContainsSpace() {
+        void throwsInvalidPasswordFormatException_whenContainsSpace() {
             // arrange
             String value = "Pass 1!ab";
 
             // act & assert
             assertThatThrownBy(() -> new Password(value, passwordEncoder))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT));
         }
     }
 }

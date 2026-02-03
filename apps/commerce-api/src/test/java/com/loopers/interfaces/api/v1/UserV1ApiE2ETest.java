@@ -25,6 +25,7 @@ import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.user.v1.UserV1Dto;
 import com.loopers.interfaces.api.user.v1.UserV1Dto.MeResponse;
 import com.loopers.interfaces.api.user.v1.UserV1Dto.SignUpResponse;
+import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -102,9 +103,9 @@ class UserV1ApiE2ETest {
             );
         }
 
-        @DisplayName("이미 가입된 로그인 ID로 가입하면, 400 BAD_REQUEST 응답을 받는다.")
+        @DisplayName("이미 가입된 로그인 ID로 가입하면, DUPLICATE_LOGIN_ID 에러 응답을 받는다.")
         @Test
-        void signUp_badRequest_whenDuplicateLoginId() {
+        void signUp_duplicateLoginId_whenLoginIdAlreadyExists() {
             // arrange
             UserV1Dto.SignUpRequest duplicateRequest = new UserV1Dto.SignUpRequest(
                     "testuser1",
@@ -121,12 +122,16 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(duplicateRequest), responseType);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.DUPLICATE_LOGIN_ID.getCode())
+            );
         }
 
-        @DisplayName("유효하지 않은 로그인 ID 형식이면, 400 BAD_REQUEST 응답을 받는다.")
+        @DisplayName("유효하지 않은 로그인 ID 형식이면, INVALID_LOGIN_ID_FORMAT 에러 응답을 받는다.")
         @Test
-        void signUp_badRequest_whenInvalidLoginIdFormat() {
+        void signUp_invalidLoginIdFormat_whenContainsSpecialCharacter() {
             // arrange
             UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
                     "test-user!",
@@ -143,12 +148,16 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT.getCode())
+            );
         }
 
-        @DisplayName("유효하지 않은 이메일 형식이면, 400 BAD_REQUEST 응답을 받는다.")
+        @DisplayName("유효하지 않은 이메일 형식이면, INVALID_EMAIL_FORMAT 에러 응답을 받는다.")
         @Test
-        void signUp_badRequest_whenInvalidEmailFormat() {
+        void signUp_invalidEmailFormat_whenFormatIsInvalid() {
             // arrange
             UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
                     "testuser2",
@@ -165,12 +174,16 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.INVALID_EMAIL_FORMAT.getCode())
+            );
         }
 
-        @DisplayName("유효하지 않은 비밀번호 형식이면, 400 BAD_REQUEST 응답을 받는다.")
+        @DisplayName("비밀번호 길이가 유효하지 않으면, INVALID_PASSWORD_LENGTH 에러 응답을 받는다.")
         @Test
-        void signUp_badRequest_whenInvalidPasswordFormat() {
+        void signUp_invalidPasswordLength_whenTooShort() {
             // arrange
             UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
                     "testuser2",
@@ -187,12 +200,16 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.INVALID_PASSWORD_LENGTH.getCode())
+            );
         }
 
-        @DisplayName("비밀번호에 생년월일이 포함되면, 400 BAD_REQUEST 응답을 받는다.")
+        @DisplayName("비밀번호에 생년월일이 포함되면, BIRTH_DATE_IN_PASSWORD_NOT_ALLOWED 에러 응답을 받는다.")
         @Test
-        void signUp_badRequest_whenPasswordContainsBirthDate() {
+        void signUp_birthDateInPasswordNotAllowed_whenPasswordContainsBirthDate() {
             // arrange
             UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
                     "testuser2",
@@ -209,10 +226,14 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.BIRTH_DATE_IN_PASSWORD_NOT_ALLOWED.getCode())
+            );
         }
 
-        @DisplayName("이름이 빈 값이면, 400 BAD_REQUEST 응답을 받는다.")
+        @DisplayName("이름이 빈 값이면, BAD_REQUEST 에러 응답을 받는다.")
         @Test
         void signUp_badRequest_whenNameIsEmpty() {
             // arrange
@@ -231,12 +252,16 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.BAD_REQUEST.getCode())
+            );
         }
 
-        @DisplayName("유효하지 않은 생년월일 형식이면, 400 BAD_REQUEST 응답을 받는다.")
+        @DisplayName("유효하지 않은 생년월일 형식이면, INVALID_BIRTH_DATE_FORMAT 에러 응답을 받는다.")
         @Test
-        void signUp_badRequest_whenInvalidBirthDateFormat() {
+        void signUp_invalidBirthDateFormat_whenFormatIsInvalid() {
             // arrange
             UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
                     "testuser2",
@@ -253,7 +278,11 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.INVALID_BIRTH_DATE_FORMAT.getCode())
+            );
         }
     }
 
@@ -326,7 +355,11 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.POST, new HttpEntity<>(updatePasswordRequest, headers), responseType);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.BAD_REQUEST.getCode())
+            );
         }
 
         @DisplayName("새 비밀번호가 빈 값이거나 null이면, 400 BAD_REQUEST 응답을 받는다.")
@@ -346,7 +379,11 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.POST, new HttpEntity<>(updatePasswordRequest, headers), responseType);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.BAD_REQUEST.getCode())
+            );
         }
     }
 }

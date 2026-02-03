@@ -28,40 +28,40 @@ class LoginIdTest {
                     .doesNotThrowAnyException();
         }
 
-        @DisplayName("특수문자가 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("특수문자가 포함되면, INVALID_LOGIN_ID_FORMAT 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenContainsSpecialCharacter() {
+        void throwsInvalidLoginIdFormatException_whenContainsSpecialCharacter() {
             // arrange
             String value = "user@123";
 
             // act & assert
             assertThatThrownBy(() -> new LoginId(value))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT));
         }
 
-        @DisplayName("한글이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("한글이 포함되면, INVALID_LOGIN_ID_FORMAT 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenContainsKorean() {
+        void throwsInvalidLoginIdFormatException_whenContainsKorean() {
             // arrange
             String value = "user한글";
 
             // act & assert
             assertThatThrownBy(() -> new LoginId(value))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT));
         }
 
-        @DisplayName("공백이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("공백이 포함되면, INVALID_LOGIN_ID_FORMAT 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenContainsSpace() {
+        void throwsInvalidLoginIdFormatException_whenContainsSpace() {
             // arrange
             String value = "user 123";
 
             // act & assert
             assertThatThrownBy(() -> new LoginId(value))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT));
         }
     }
 }

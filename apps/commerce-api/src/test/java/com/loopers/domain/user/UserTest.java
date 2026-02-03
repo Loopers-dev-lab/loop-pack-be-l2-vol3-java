@@ -48,9 +48,9 @@ class UserTest {
             assertThat(user.matchesPassword(rawPassword, passwordEncoder)).isTrue();
         }
 
-        @DisplayName("비밀번호에 생년월일이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("비밀번호에 생년월일이 포함되면, PASSWORD_CONTAINS_BIRTH_DATE 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenPasswordContainsBirthDate() {
+        void throwsPasswordContainsBirthDateException_whenPasswordContainsBirthDate() {
             // arrange
             String password = "Pass19900101!";
             String birthDate = "1990-01-01";
@@ -58,7 +58,7 @@ class UserTest {
             // act & assert
             assertThatThrownBy(() -> User.signUp("user123", password, "홍길동", birthDate, "test@email.com", passwordEncoder))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BIRTH_DATE_IN_PASSWORD_NOT_ALLOWED));
         }
     }
 
@@ -78,9 +78,9 @@ class UserTest {
                     .doesNotThrowAnyException();
         }
 
-        @DisplayName("기존 비밀번호가 일치하지 않으면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("기존 비밀번호가 일치하지 않으면, PASSWORD_MISMATCH 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenOldPasswordDoesNotMatch() {
+        void throwsPasswordMismatchException_whenOldPasswordDoesNotMatch() {
             // arrange
             User user = createUser(passwordEncoder);
             String wrongOldPassword = "WrongPassword1!";
@@ -89,19 +89,19 @@ class UserTest {
             // act & assert
             assertThatThrownBy(() -> user.updatePassword(wrongOldPassword, newPassword, passwordEncoder))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PASSWORD_MISMATCH));
         }
 
-        @DisplayName("새 비밀번호가 기존 비밀번호와 같으면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("새 비밀번호가 기존 비밀번호와 같으면, PASSWORD_REUSE_NOT_ALLOWED 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenNewPasswordIsSameAsOld() {
+        void throwsPasswordReuseNotAllowedException_whenNewPasswordIsSameAsOld() {
             // arrange
             User user = createUser(passwordEncoder);
 
             // act & assert
             assertThatThrownBy(() -> user.updatePassword(DEFAULT_PASSWORD, DEFAULT_PASSWORD, passwordEncoder))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PASSWORD_REUSE_NOT_ALLOWED));
         }
     }
 }

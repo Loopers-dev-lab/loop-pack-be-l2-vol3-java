@@ -18,7 +18,7 @@ public class UserService {
     @Transactional
     public User signUp(String loginId, String password, String name, String birthDate, String email) {
         if (userRepository.existsByLoginId(new LoginId(loginId))) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "이미 가입된 로그인 ID입니다.");
+            throw new CoreException(ErrorType.DUPLICATE_LOGIN_ID);
         }
 
         User user = User.signUp(loginId, password, name, birthDate, email, passwordEncoder);
@@ -28,7 +28,7 @@ public class UserService {
     @Transactional(readOnly = true)
     public User getUser(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
     }
 
     @Transactional

@@ -28,40 +28,40 @@ class BirthDateTest {
                     .doesNotThrowAnyException();
         }
 
-        @DisplayName("yyyy-MM-dd 형식이 아니면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("yyyy-MM-dd 형식이 아니면, INVALID_BIRTH_DATE_FORMAT 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenFormatIsInvalid() {
+        void throwsInvalidBirthDateFormatException_whenFormatIsInvalid() {
             // arrange
             String value = "19900115";
 
             // act & assert
             assertThatThrownBy(() -> new BirthDate(value))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_BIRTH_DATE_FORMAT));
         }
 
-        @DisplayName("월이 12를 초과하면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("월이 12를 초과하면, INVALID_BIRTH_DATE_FORMAT 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenMonthExceeds12() {
+        void throwsInvalidBirthDateFormatException_whenMonthExceeds12() {
             // arrange
             String value = "1990-13-01";
 
             // act & assert
             assertThatThrownBy(() -> new BirthDate(value))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_BIRTH_DATE_FORMAT));
         }
 
-        @DisplayName("일이 31을 초과하면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("일이 31을 초과하면, INVALID_BIRTH_DATE_FORMAT 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenDayExceeds31() {
+        void throwsInvalidBirthDateFormatException_whenDayExceeds31() {
             // arrange
             String value = "1990-01-32";
 
             // act & assert
             assertThatThrownBy(() -> new BirthDate(value))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_BIRTH_DATE_FORMAT));
         }
     }
 

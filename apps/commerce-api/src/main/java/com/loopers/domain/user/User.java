@@ -49,10 +49,10 @@ public class User extends BaseEntity {
 
     public void updatePassword(String oldPassword, String newPassword, PasswordEncoder passwordEncoder) {
         if (!matchesPassword(oldPassword, passwordEncoder)) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "기존 비밀번호가 일치하지 않습니다.");
+            throw new CoreException(ErrorType.PASSWORD_MISMATCH);
         }
         if (matchesPassword(newPassword, passwordEncoder)) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "기존 비밀번호와 동일한 비밀번호로 수정할 수 없습니다.");
+            throw new CoreException(ErrorType.PASSWORD_REUSE_NOT_ALLOWED);
         }
         validatePasswordNotContainsBirthDate(newPassword);
         this.password = new Password(newPassword, passwordEncoder);
@@ -64,7 +64,7 @@ public class User extends BaseEntity {
 
     private void validatePasswordNotContainsBirthDate(String rawPassword) {
         if (rawPassword.contains(birthDate.getValueWithoutHyphen())) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호에 생년월일을 포함할 수 없습니다.");
+            throw new CoreException(ErrorType.BIRTH_DATE_IN_PASSWORD_NOT_ALLOWED);
         }
     }
 }

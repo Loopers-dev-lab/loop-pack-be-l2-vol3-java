@@ -31,7 +31,7 @@ public class Email {
 
     private void validate(String value) {
         if (!EMAIL_PATTERN.matcher(value).matches()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "이메일은 xx@yy.zz 형식이어야 합니다.");
+            throw new CoreException(ErrorType.INVALID_EMAIL_FORMAT);
         }
     }
 }

@@ -28,40 +28,40 @@ class UserNameTest {
                     .doesNotThrowAnyException();
         }
 
-        @DisplayName("빈 값이면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("빈 값이면, INVALID_USER_NAME 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenValueIsEmpty() {
+        void throwsInvalidUserNameException_whenValueIsEmpty() {
             // arrange
             String value = "";
 
             // act & assert
             assertThatThrownBy(() -> new UserName(value))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_USER_NAME));
         }
 
-        @DisplayName("공백만 있으면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("공백만 있으면, INVALID_USER_NAME 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenValueIsBlank() {
+        void throwsInvalidUserNameException_whenValueIsBlank() {
             // arrange
             String value = "   ";
 
             // act & assert
             assertThatThrownBy(() -> new UserName(value))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_USER_NAME));
         }
 
-        @DisplayName("null이면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("null이면, INVALID_USER_NAME 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenValueIsNull() {
+        void throwsInvalidUserNameException_whenValueIsNull() {
             // arrange
             String value = null;
 
             // act & assert
             assertThatThrownBy(() -> new UserName(value))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_USER_NAME));
         }
     }
 

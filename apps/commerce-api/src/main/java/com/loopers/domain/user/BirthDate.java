@@ -35,7 +35,7 @@ public class BirthDate {
         try {
             LocalDate.parse(value, BIRTH_DATE_FORMATTER);
         } catch (DateTimeParseException e) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "생년월일은 yyyy-MM-dd 형식이어야 합니다.");
+            throw new CoreException(ErrorType.INVALID_BIRTH_DATE_FORMAT);
         }
     }
 

@@ -41,7 +41,7 @@ public class UserName {
 
     private void validate(String value) {
         if (value == null || value.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "이름은 빈 값일 수 없습니다.");
+            throw new CoreException(ErrorType.INVALID_USER_NAME);
         }
     }
 }
