@@ -74,6 +74,26 @@ class MemberTest {
     @Nested
     class ValidatePassword {
 
+        @DisplayName("8자(MIN)이면, 정상적으로 생성된다.")
+        @Test
+        void createsSuccessfully_whenPasswordIsMinLength() {
+            // act
+            Member member = new Member(VALID_LOGIN_ID, "Test123!", VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+            // assert
+            assertThat(member.getPassword()).isEqualTo("Test123!");
+        }
+
+        @DisplayName("16자(MAX)이면, 정상적으로 생성된다.")
+        @Test
+        void createsSuccessfully_whenPasswordIsMaxLength() {
+            // act
+            Member member = new Member(VALID_LOGIN_ID, "Test12345678901!", VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+            // assert
+            assertThat(member.getPassword()).isEqualTo("Test12345678901!");
+        }
+
         @DisplayName("8자 미만이면, BAD_REQUEST 예외가 발생한다.")
         @Test
         void throwsBadRequest_whenPasswordIsTooShort() {
@@ -130,6 +150,29 @@ class MemberTest {
     @Nested
     class ValidateName {
 
+        @DisplayName("한글 2자(MIN)이면, 정상적으로 생성된다.")
+        @Test
+        void createsSuccessfully_whenNameIsMinLength() {
+            // act
+            Member member = new Member(VALID_LOGIN_ID, VALID_PASSWORD, "홍길", VALID_BIRTHDAY, VALID_EMAIL);
+
+            // assert
+            assertThat(member.getName()).isEqualTo("홍길");
+        }
+
+        @DisplayName("한글 20자(MAX)이면, 정상적으로 생성된다.")
+        @Test
+        void createsSuccessfully_whenNameIsMaxLength() {
+            // arrange
+            String maxName = "가나다라마바사아자차카타파하가나다라마바";
+
+            // act
+            Member member = new Member(VALID_LOGIN_ID, VALID_PASSWORD, maxName, VALID_BIRTHDAY, VALID_EMAIL);
+
+            // assert
+            assertThat(member.getName()).isEqualTo(maxName);
+        }
+
         @DisplayName("한글 1자이면, BAD_REQUEST 예외가 발생한다.")
         @Test
         void throwsBadRequest_whenNameIsTooShort() {
@@ -173,6 +216,19 @@ class MemberTest {
     @DisplayName("생년월일을 검증할 때,")
     @Nested
     class ValidateBirthday {
+
+        @DisplayName("오늘 날짜(경계값)이면, 정상적으로 생성된다.")
+        @Test
+        void createsSuccessfully_whenBirthdayIsToday() {
+            // arrange
+            LocalDate today = LocalDate.now();
+
+            // act
+            Member member = new Member(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, today, VALID_EMAIL);
+
+            // assert
+            assertThat(member.getBirthday()).isEqualTo(today);
+        }
 
         @DisplayName("null이면, BAD_REQUEST 예외가 발생한다.")
         @Test
