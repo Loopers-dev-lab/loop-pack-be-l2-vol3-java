@@ -1,9 +1,11 @@
 package com.loopers.domain.user;
 
+import static com.loopers.domain.user.UserFixture.createPasswordEncoder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -13,7 +15,12 @@ import com.loopers.support.error.ErrorType;
 
 class PasswordTest {
 
-    private final PasswordEncoder passwordEncoder = new FakePasswordEncoder();
+    private PasswordEncoder passwordEncoder;
+
+    @BeforeEach
+    void setUp() {
+        passwordEncoder = createPasswordEncoder();
+    }
 
     @DisplayName("Password를 생성할 때,")
     @Nested

@@ -1,9 +1,13 @@
 package com.loopers.domain.user;
 
+import static com.loopers.domain.user.UserFixture.DEFAULT_PASSWORD;
+import static com.loopers.domain.user.UserFixture.createPasswordEncoder;
+import static com.loopers.domain.user.UserFixture.createUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -13,6 +17,13 @@ import com.loopers.support.error.ErrorType;
 
 class UserTest {
 
+    private PasswordEncoder passwordEncoder;
+
+    @BeforeEach
+    void setUp() {
+        passwordEncoder = createPasswordEncoder();
+    }
+
     @DisplayName("User를 생성할 때,")
     @Nested
     class Create {
@@ -20,11 +31,7 @@ class UserTest {
         @DisplayName("모든 값이 유효하면, 정상적으로 생성된다.")
         @Test
         void createsUser_whenAllValuesAreValid() {
-            // arrange
-            PasswordEncoder encoder = new FakePasswordEncoder();
-
-            // act & assert
-            assertThatCode(() -> new User("user123", "Password1!", "홍길동", "1990-01-01", "test@email.com", encoder))
+            assertThatCode(() -> new User("user123", "Password1!", "홍길동", "1990-01-01", "test@email.com", passwordEncoder))
                     .doesNotThrowAnyException();
         }
 
@@ -32,27 +39,24 @@ class UserTest {
         @Test
         void encodesPassword_whenCreatingUser() {
             // arrange
-            PasswordEncoder encoder = new FakePasswordEncoder();
             String rawPassword = "Password1!";
 
             // act
-            User user = new User("user123", rawPassword, "홍길동", "1990-01-01", "test@email.com", encoder);
+            User user = new User("user123", rawPassword, "홍길동", "1990-01-01", "test@email.com", passwordEncoder);
 
             // assert
-            assertThat(user.getPassword().getValue()).isNotEqualTo(rawPassword);
-            assertThat(encoder.matches(rawPassword, user.getPassword().getValue())).isTrue();
+            assertThat(user.matchesPassword(rawPassword, passwordEncoder)).isTrue();
         }
 
         @DisplayName("비밀번호에 생년월일이 포함되면, BAD_REQUEST 예외가 발생한다.")
         @Test
         void throwsBadRequestException_whenPasswordContainsBirthDate() {
             // arrange
-            PasswordEncoder encoder = new FakePasswordEncoder();
             String password = "Pass19900101!";
             String birthDate = "1990-01-01";
 
             // act & assert
-            assertThatThrownBy(() -> new User("user123", password, "홍길동", birthDate, "test@email.com", encoder))
+            assertThatThrownBy(() -> new User("user123", password, "홍길동", birthDate, "test@email.com", passwordEncoder))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
@@ -66,13 +70,11 @@ class UserTest {
         @Test
         void updatesPassword_whenNewPasswordIsDifferent() {
             // arrange
-            PasswordEncoder encoder = new FakePasswordEncoder();
-            String oldPassword = "Password1!";
-            User user = new User("user123", oldPassword, "홍길동", "1990-01-01", "test@email.com", encoder);
+            User user = createUser(passwordEncoder);
             String newPassword = "NewPassword2@";
 
             // act & assert
-            assertThatCode(() -> user.updatePassword(oldPassword, newPassword, encoder))
+            assertThatCode(() -> user.updatePassword(DEFAULT_PASSWORD, newPassword, passwordEncoder))
                     .doesNotThrowAnyException();
         }
 
@@ -80,13 +82,12 @@ class UserTest {
         @Test
         void throwsBadRequestException_whenOldPasswordDoesNotMatch() {
             // arrange
-            PasswordEncoder encoder = new FakePasswordEncoder();
-            User user = new User("user123", "Password1!", "홍길동", "1990-01-01", "test@email.com", encoder);
+            User user = createUser(passwordEncoder);
             String wrongOldPassword = "WrongPassword1!";
             String newPassword = "NewPassword2@";
 
             // act & assert
-            assertThatThrownBy(() -> user.updatePassword(wrongOldPassword, newPassword, encoder))
+            assertThatThrownBy(() -> user.updatePassword(wrongOldPassword, newPassword, passwordEncoder))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
@@ -95,12 +96,10 @@ class UserTest {
         @Test
         void throwsBadRequestException_whenNewPasswordIsSameAsOld() {
             // arrange
-            PasswordEncoder encoder = new FakePasswordEncoder();
-            String oldPassword = "Password1!";
-            User user = new User("user123", oldPassword, "홍길동", "1990-01-01", "test@email.com", encoder);
+            User user = createUser(passwordEncoder);
 
             // act & assert
-            assertThatThrownBy(() -> user.updatePassword(oldPassword, oldPassword, encoder))
+            assertThatThrownBy(() -> user.updatePassword(DEFAULT_PASSWORD, DEFAULT_PASSWORD, passwordEncoder))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
