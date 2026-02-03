@@ -9,4 +9,7 @@ public interface MemberV1ApiSpec {
 
     @Operation(summary = "회원가입")
     ApiResponse<MemberV1Dto.RegisterResponse> register(MemberV1Dto.RegisterRequest request);
+
+    @Operation(summary = "내 정보 조회")
+    ApiResponse<MemberV1Dto.MemberResponse> getMyInfo(String loginId, String password);
 }

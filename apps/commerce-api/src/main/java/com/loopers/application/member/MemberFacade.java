@@ -16,4 +16,9 @@ public class MemberFacade {
         MemberModel member = memberService.register(loginId, password, name, birthDate, email);
         return MemberInfo.from(member);
     }
+
+    public MemberInfo getMyInfo(String loginId, String password) {
+        MemberModel member = memberService.authenticate(loginId, password);
+        return MemberInfo.fromWithMaskedName(member);
+    }
 }

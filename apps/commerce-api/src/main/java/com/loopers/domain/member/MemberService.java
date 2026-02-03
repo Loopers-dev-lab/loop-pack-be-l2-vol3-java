@@ -39,6 +39,24 @@ public class MemberService {
         return memberRepository.save(member);
     }
 
+    @Transactional(readOnly = true)
+    public MemberModel authenticate(String loginId, String password) {
+        MemberModel member = memberRepository.findByLoginId(loginId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다."));
+
+        if (!passwordEncoder.matches(password, member.getPassword())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호가 일치하지 않습니다.");
+        }
+
+        return member;
+    }
+
+    @Transactional(readOnly = true)
+    public MemberModel getMember(String loginId) {
+        return memberRepository.findByLoginId(loginId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다."));
+    }
+
     private void validateLoginId(String loginId) {
         if (loginId == null || !LOGIN_ID_PATTERN.matcher(loginId).matches()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 영문과 숫자만 허용됩니다.");

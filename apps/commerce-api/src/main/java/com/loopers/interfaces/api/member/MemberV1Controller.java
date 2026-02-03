@@ -5,8 +5,10 @@ import com.loopers.application.member.MemberInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,5 +30,15 @@ public class MemberV1Controller implements MemberV1ApiSpec {
             request.email()
         );
         return ApiResponse.success(MemberV1Dto.RegisterResponse.from(info));
+    }
+
+    @GetMapping("/me")
+    @Override
+    public ApiResponse<MemberV1Dto.MemberResponse> getMyInfo(
+        @RequestHeader("X-Loopers-LoginId") String loginId,
+        @RequestHeader("X-Loopers-LoginPw") String password
+    ) {
+        MemberInfo info = memberFacade.getMyInfo(loginId, password);
+        return ApiResponse.success(MemberV1Dto.MemberResponse.from(info));
     }
 }
