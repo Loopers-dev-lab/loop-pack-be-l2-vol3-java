@@ -41,8 +41,8 @@ public class UserV1Api implements UserV1ApiSpec {
 
     @GetMapping("/me")
     @Override
-    public ApiResponse<UserV1Dto.MeResponse> getMe(@RequestAttribute("userId") Long userId) {
-        UserResult userResult = userFacade.getMe(userId);
+    public ApiResponse<UserV1Dto.MeResponse> getMyInfo(@RequestAttribute("userId") Long userId) {
+        UserResult userResult = userFacade.getMyInfo(userId);
         return ApiResponse.success(UserV1Dto.MeResponse.from(userResult));
     }
 

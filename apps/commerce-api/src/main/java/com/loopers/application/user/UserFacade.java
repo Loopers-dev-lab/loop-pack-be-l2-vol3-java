@@ -18,7 +18,7 @@ public class UserFacade {
         return UserResult.from(user);
     }
 
-    public UserResult getMe(Long userId) {
+    public UserResult getMyInfo(Long userId) {
         User user = userService.getUser(userId);
         return UserResult.from(user);
     }

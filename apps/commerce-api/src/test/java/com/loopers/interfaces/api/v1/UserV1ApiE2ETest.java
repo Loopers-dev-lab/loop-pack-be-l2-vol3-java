@@ -259,13 +259,13 @@ class UserV1ApiE2ETest {
 
     @DisplayName("GET /api/v1/users/me")
     @Nested
-    class GetMe {
+    class GetMyInfo {
 
         private static final String ME_ENDPOINT = "/api/v1/users/me";
 
         @DisplayName("인증된 사용자 정보를 조회하면, 마스킹된 이름과 함께 사용자 정보를 반환한다.")
         @Test
-        void getMe_returnsMaskedName_whenAuthenticated() {
+        void getMyInfo_returnsMaskedName_whenAuthenticated() {
             // act
             ParameterizedTypeReference<ApiResponse<MeResponse>> responseType = new ParameterizedTypeReference<>() {
             };
