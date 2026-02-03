@@ -37,14 +37,6 @@ public class User extends BaseEntity {
             throw new CoreException(ErrorType.BAD_REQUEST, "생년월일은 YYYYMMDD 형식이어야 합니다.");
         }
 
-        if (password == null || !password.matches("^[a-zA-Z0-9!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?~`]{8,16}$")) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호는 8~16자의 영문/숫자/특수문자만 가능합니다.");
-        }
-
-        if (password.contains(birthDate)) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호에 생년월일을 포함할 수 없습니다.");
-        }
-
         this.loginId = loginId;
         this.password = password;
         this.name = name;
