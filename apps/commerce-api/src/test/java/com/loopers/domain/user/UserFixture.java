@@ -5,7 +5,7 @@ public class UserFixture {
     public static final String DEFAULT_PASSWORD = "Password1!";
 
     public static User createUser(PasswordEncoder passwordEncoder) {
-        return new User("user123", DEFAULT_PASSWORD, "홍길동", "1990-01-01", "test@email.com", passwordEncoder);
+        return User.signUp("user123", DEFAULT_PASSWORD, "홍길동", "1990-01-01", "test@email.com", passwordEncoder);
     }
 
     public static PasswordEncoder createPasswordEncoder() {

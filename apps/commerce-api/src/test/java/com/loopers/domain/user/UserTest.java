@@ -24,14 +24,14 @@ class UserTest {
         passwordEncoder = createPasswordEncoder();
     }
 
-    @DisplayName("User를 생성할 때,")
+    @DisplayName("회원가입을 할 때,")
     @Nested
-    class Create {
+    class SignUp {
 
         @DisplayName("모든 값이 유효하면, 정상적으로 생성된다.")
         @Test
         void createsUser_whenAllValuesAreValid() {
-            assertThatCode(() -> new User("user123", "Password1!", "홍길동", "1990-01-01", "test@email.com", passwordEncoder))
+            assertThatCode(() -> User.signUp("user123", "Password1!", "홍길동", "1990-01-01", "test@email.com", passwordEncoder))
                     .doesNotThrowAnyException();
         }
 
@@ -42,7 +42,7 @@ class UserTest {
             String rawPassword = "Password1!";
 
             // act
-            User user = new User("user123", rawPassword, "홍길동", "1990-01-01", "test@email.com", passwordEncoder);
+            User user = User.signUp("user123", rawPassword, "홍길동", "1990-01-01", "test@email.com", passwordEncoder);
 
             // assert
             assertThat(user.matchesPassword(rawPassword, passwordEncoder)).isTrue();
@@ -56,7 +56,7 @@ class UserTest {
             String birthDate = "1990-01-01";
 
             // act & assert
-            assertThatThrownBy(() -> new User("user123", password, "홍길동", birthDate, "test@email.com", passwordEncoder))
+            assertThatThrownBy(() -> User.signUp("user123", password, "홍길동", birthDate, "test@email.com", passwordEncoder))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }

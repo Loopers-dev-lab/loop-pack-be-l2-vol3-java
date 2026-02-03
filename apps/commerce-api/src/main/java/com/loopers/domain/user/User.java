@@ -33,14 +33,18 @@ public class User extends BaseEntity {
     @Embedded
     private Email email;
 
-    public User(String loginId, String password, String name, String birthDate, String email, PasswordEncoder passwordEncoder) {
-        this.loginId = new LoginId(loginId);
-        this.name = new UserName(name);
-        this.birthDate = new BirthDate(birthDate);
-        this.email = new Email(email);
+    public static User signUp(String loginId, String password, String name, String birthDate, String email, PasswordEncoder passwordEncoder) {
+        User user = new User();
 
-        validatePasswordNotContainsBirthDate(password);
-        this.password = new Password(password, passwordEncoder);
+        user.loginId = new LoginId(loginId);
+        user.name = new UserName(name);
+        user.birthDate = new BirthDate(birthDate);
+        user.email = new Email(email);
+
+        user.validatePasswordNotContainsBirthDate(password);
+        user.password = new Password(password, passwordEncoder);
+
+        return user;
     }
 
     public void updatePassword(String oldPassword, String newPassword, PasswordEncoder passwordEncoder) {

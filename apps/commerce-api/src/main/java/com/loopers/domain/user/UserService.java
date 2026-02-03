@@ -21,7 +21,7 @@ public class UserService {
             throw new CoreException(ErrorType.BAD_REQUEST, "이미 가입된 로그인 ID입니다.");
         }
 
-        User user = new User(loginId, password, name, birthDate, email, passwordEncoder);
+        User user = User.signUp(loginId, password, name, birthDate, email, passwordEncoder);
         return userRepository.save(user);
     }
 
