@@ -94,4 +94,52 @@ class MemberServiceTest {
                 .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.CONFLICT));
         }
     }
+
+    @DisplayName("인증을 할 때,")
+    @Nested
+    class Authenticate {
+
+        @DisplayName("올바른 loginId와 password로 인증하면, 회원을 반환한다.")
+        @Test
+        void authenticate_withValidCredentials_returnsMember() {
+            // arrange
+            String rawPassword = "Test1234!";
+            Member existing = new Member("testuser1", rawPassword, "홍길동", LocalDate.of(1995, 3, 15), "test@example.com");
+            existing.encryptPassword(passwordEncoder.encode(rawPassword));
+            memberRepository.save(existing);
+
+            // act
+            Member result = memberService.authenticate("testuser1", rawPassword);
+
+            // assert
+            assertAll(
+                () -> assertThat(result.getLoginId()).isEqualTo("testuser1"),
+                () -> assertThat(result.getName()).isEqualTo("홍길동"),
+                () -> assertThat(result.getEmail()).isEqualTo("test@example.com")
+            );
+        }
+
+        @DisplayName("존재하지 않는 loginId로 인증하면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        void authenticate_withNonExistentLoginId_throwsUnauthorized() {
+            // act & assert
+            assertThatThrownBy(() -> memberService.authenticate("nonexistent", "Test1234!"))
+                .isInstanceOf(CoreException.class)
+                .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED));
+        }
+
+        @DisplayName("비밀번호가 일치하지 않으면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        void authenticate_withWrongPassword_throwsUnauthorized() {
+            // arrange
+            Member existing = new Member("testuser1", "Test1234!", "홍길동", LocalDate.of(1995, 3, 15), "test@example.com");
+            existing.encryptPassword(passwordEncoder.encode("Test1234!"));
+            memberRepository.save(existing);
+
+            // act & assert
+            assertThatThrownBy(() -> memberService.authenticate("testuser1", "Wrong1234!"))
+                .isInstanceOf(CoreException.class)
+                .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED));
+        }
+    }
 }

@@ -16,6 +16,18 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Transactional(readOnly = true)
+    public Member authenticate(String loginId, String rawPassword) {
+        Member member = memberRepository.findByLoginId(loginId)
+            .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED));
+
+        if (!passwordEncoder.matches(rawPassword, member.getPassword())) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+
+        return member;
+    }
+
     @Transactional
     public Member signUp(String loginId, String password, String name, LocalDate birthday, String email) {
         if (memberRepository.existsByLoginId(loginId)) {
