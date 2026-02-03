@@ -1,40 +1,47 @@
-# Loopers Template (Spring + Java)
-Loopers 에서 제공하는 스프링 자바 템플릿 프로젝트입니다.
-
-## Getting Started
-현재 프로젝트 안정성 및 유지보수성 등을 위해 아래와 같은 장치를 운용하고 있습니다. 이에 아래 명령어를 통해 프로젝트의 기반을 설치해주세요.
-### Environment
-`local` 프로필로 동작할 수 있도록, 필요 인프라를 `docker-compose` 로 제공합니다.
-```shell
-docker-compose -f ./docker/infra-compose.yml up
+# Round-1  목표
 ```
-### Monitoring
-`local` 환경에서 모니터링을 할 수 있도록, `docker-compose` 를 통해 `prometheus` 와 `grafana` 를 제공합니다.
-
-애플리케이션 실행 이후, **http://localhost:3000** 로 접속해, admin/admin 계정으로 로그인하여 확인하실 수 있습니다.
-```shell
-docker-compose -f ./docker/monitoring-compose.yml up
+- 나의 의도를 테스트 코드로 작성한다.
+- TDD 방식으로 AI와 함께 기능 구현해본다. 
+- TDD로 요구사항을 먼저 정리하는 장점을 느껴본다.
+- 작게 쪼개고 점진적으로 설계하는 과정을 느껴본다.
+- 리팩토링이 가능하다는것을 느껴본다. 
 ```
 
-## About Multi-Module Project
-본 프로젝트는 멀티 모듈 프로젝트로 구성되어 있습니다. 각 모듈의 위계 및 역할을 분명히 하고, 아래와 같은 규칙을 적용합니다.
+##  1. 시작전, 궁금증들 
 
-- apps : 각 모듈은 실행가능한 **SpringBootApplication** 을 의미합니다.
-- modules : 특정 구현이나 도메인에 의존적이지 않고, reusable 한 configuration 을 원칙으로 합니다.
-- supports : logging, monitoring 과 같이 부가적인 기능을 지원하는 add-on 모듈입니다.
+### 1. 목표를 세우며
+- 이 과정에서 나는 테스트 가능한 구조가 무엇인지 체감할 수 있을까?
+    - 어느 과정에서 테스트 가능한 구조라고 느꼈을까?
 
-```
-Root
-├── apps ( spring-applications )
-│   ├── 📦 commerce-api
-│   ├── 📦 commerce-batch
-│   └── 📦 commerce-streamer
-├── modules ( reusable-configurations )
-│   ├── 📦 jpa
-│   ├── 📦 redis
-│   └── 📦 kafka
-└── supports ( add-ons )
-    ├── 📦 jackson
-    ├── 📦 monitoring
-    └── 📦 logging
-```
+### 2. 멀티모듈 
+- 멀티모듈? 이게 뭐지? 왜 이 구조로 나눴어야 했지?
+- 각 모듈의 네이밍에는 -api , -batch, - streamer 라고 붙여져 있는데 왜 이렇게 붙인거지?
+
+
+### 3. 모듈 아키텍처(commerce-api)
+- 왜 Controller 패키지명이 아닌, interfaces라고 하지? 지금은 컨트롤러 하나 뿐인데? 확장성을 위해 먼저 이렇게 네이밍 짓는게 유리한가?
+- 계층간 DTO의 네이밍은 어떻게 지어야할까?
+- DTO를 내부클래스로 관리하고 있네? 파일 수를 줄이기 위함인가? 왜 이렇게 한거지? 이게 현업 방식인가?
+- 왜 온보딩 프로젝트에 JPA를 사용한거지? 쉽고 다들 사용하니까?
+
+
+## 2. Round1 문서를 읽으며,  알게된 부분
+
+### 1. 테스트 코드 및 더블 
+- 나는 테스트 레이어별 어떤 기술들을 사용해야하는지 잘 모른다.
+- 테스트 작성 시, 레이어별 테스트 기술들에 익숙해지도록한다.
+- Mock(대역 객체)를 의미한다. 이 기술을 잘 모른다.
+
+
+### 2. 테스트 더블
+- Mock(대역 객체)를 의미한다. 이 기술을 잘 모른다.
+- 테스트 더블 사용 원칙 및 익숙해지도록 집중한다.
+
+### 3. TDD 가능한 구조의 특징
+- 가장 걱정되는건 비즈니스 로직 분리에서 어떤 기준으로 도메인 엔티티쪽에 로직을 둘지, 서비스에 둘지 판단하는 기준
+
+---
+
+## 📋 기능 요구 사항
+
+기능 요구 사항 정리 [ToDoList.md](./ToDoList.md)
