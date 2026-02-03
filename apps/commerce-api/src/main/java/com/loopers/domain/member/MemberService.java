@@ -57,6 +57,22 @@ public class MemberService {
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다."));
     }
 
+    @Transactional
+    public void changePassword(String loginId, String currentPassword, String newPassword) {
+        MemberModel member = authenticate(loginId, currentPassword);
+
+        // 새 비밀번호가 현재 비밀번호와 같은지 확인
+        if (passwordEncoder.matches(newPassword, member.getPassword())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.");
+        }
+
+        // 새 비밀번호 유효성 검사
+        validatePassword(newPassword, member.getBirthDate());
+
+        String encodedNewPassword = passwordEncoder.encode(newPassword);
+        member.changePassword(encodedNewPassword);
+    }
+
     private void validateLoginId(String loginId) {
         if (loginId == null || !LOGIN_ID_PATTERN.matcher(loginId).matches()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 영문과 숫자만 허용됩니다.");

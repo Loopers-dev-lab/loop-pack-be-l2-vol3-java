@@ -12,4 +12,7 @@ public interface MemberV1ApiSpec {
 
     @Operation(summary = "내 정보 조회")
     ApiResponse<MemberV1Dto.MemberResponse> getMyInfo(String loginId, String password);
+
+    @Operation(summary = "비밀번호 수정")
+    ApiResponse<Object> changePassword(String loginId, String currentPassword, MemberV1Dto.ChangePasswordRequest request);
 }

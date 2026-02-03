@@ -38,4 +38,8 @@ public class MemberV1Dto {
             );
         }
     }
+
+    public record ChangePasswordRequest(
+        @NotBlank String newPassword
+    ) {}
 }

@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,5 +41,16 @@ public class MemberV1Controller implements MemberV1ApiSpec {
     ) {
         MemberInfo info = memberFacade.getMyInfo(loginId, password);
         return ApiResponse.success(MemberV1Dto.MemberResponse.from(info));
+    }
+
+    @PutMapping("/password")
+    @Override
+    public ApiResponse<Object> changePassword(
+        @RequestHeader("X-Loopers-LoginId") String loginId,
+        @RequestHeader("X-Loopers-LoginPw") String currentPassword,
+        @Valid @RequestBody MemberV1Dto.ChangePasswordRequest request
+    ) {
+        memberFacade.changePassword(loginId, currentPassword, request.newPassword());
+        return ApiResponse.success();
     }
 }
