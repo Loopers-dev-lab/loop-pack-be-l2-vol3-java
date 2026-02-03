@@ -15,11 +15,6 @@ public class InMemoryUserRepository implements UserRepository {
     }
 
     @Override
-    public User findByEmail(String email) {
-        return storeByEmail.get(email);
-    }
-
-    @Override
     public Optional<User> findByLoginId(String loginId) {
         return Optional.ofNullable(storeByLoginId.get(loginId));
     }
