@@ -51,7 +51,7 @@ public class LoginIdTest {
 
         // ========== 정상 케이스 ==========
 
-        @DisplayName("L-S01: 최소 길이(4자) 영문이면, 정상적으로 생성된다.")
+        @DisplayName("최소 길이(4자) 영문이면, 정상적으로 생성된다.")
         @Test
         void createsLoginId_whenMinLength() {
             // arrange
@@ -64,7 +64,7 @@ public class LoginIdTest {
             assertThat(loginId.getValue()).isEqualTo(value);
         }
 
-        @DisplayName("L-S02: 최대 길이(20자)이면, 정상적으로 생성된다.")
+        @DisplayName("최대 길이(20자)이면, 정상적으로 생성된다.")
         @Test
         void createsLoginId_whenMaxLength() {
             // arrange
@@ -77,7 +77,7 @@ public class LoginIdTest {
             assertThat(loginId.getValue()).isEqualTo(value);
         }
 
-        @DisplayName("L-S03: 영문 대소문자 + 숫자 조합이면, 정상적으로 생성된다.")
+        @DisplayName("영문 대소문자 + 숫자 조합이면, 정상적으로 생성된다.")
         @Test
         void createsLoginId_whenAlphanumeric() {
             // arrange
@@ -92,7 +92,7 @@ public class LoginIdTest {
 
         // ========== 엣지 케이스 ==========
 
-        @DisplayName("L-E01: null이면, 예외가 발생한다.")
+        @DisplayName("null이면, 예외가 발생한다.")
         @Test
         void throwsException_whenNull() {
             // act & assert
@@ -103,7 +103,7 @@ public class LoginIdTest {
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
-        @DisplayName("L-E02: 빈 문자열이면, 예외가 발생한다.")
+        @DisplayName("빈 문자열이면, 예외가 발생한다.")
         @Test
         void throwsException_whenEmpty() {
             // act & assert
@@ -114,7 +114,7 @@ public class LoginIdTest {
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
-        @DisplayName("L-E03: 공백만 있으면, 예외가 발생한다.")
+        @DisplayName("공백만 있으면, 예외가 발생한다.")
         @Test
         void throwsException_whenBlank() {
             // act & assert
@@ -125,7 +125,7 @@ public class LoginIdTest {
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
-        @DisplayName("L-E04: 3자(최소 미만)이면, 예외가 발생한다.")
+        @DisplayName("3자(최소 미만)이면, 예외가 발생한다.")
         @Test
         void throwsException_whenLessThanMinLength() {
             // act & assert
@@ -136,7 +136,7 @@ public class LoginIdTest {
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
-        @DisplayName("L-E05: 21자(최대 초과)이면, 예외가 발생한다.")
+        @DisplayName("21자(최대 초과)이면, 예외가 발생한다.")
         @Test
         void throwsException_whenExceedsMaxLength() {
             // arrange
@@ -150,7 +150,7 @@ public class LoginIdTest {
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
-        @DisplayName("L-E06: 특수문자가 포함되면, 예외가 발생한다.")
+        @DisplayName("특수문자가 포함되면, 예외가 발생한다.")
         @Test
         void throwsException_whenContainsSpecialCharacter() {
             // act & assert
@@ -161,7 +161,7 @@ public class LoginIdTest {
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
-        @DisplayName("L-E07: 한글이 포함되면, 예외가 발생한다.")
+        @DisplayName("한글이 포함되면, 예외가 발생한다.")
         @Test
         void throwsException_whenContainsKorean() {
             // act & assert
@@ -172,7 +172,7 @@ public class LoginIdTest {
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
-        @DisplayName("L-E08: 숫자로 시작하면, 예외가 발생한다.")
+        @DisplayName("숫자로 시작하면, 예외가 발생한다.")
         @Test
         void throwsException_whenStartsWithNumber() {
             // act & assert
@@ -183,7 +183,7 @@ public class LoginIdTest {
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
-        @DisplayName("L-E09: 공백이 포함되면, 예외가 발생한다.")
+        @DisplayName("공백이 포함되면, 예외가 발생한다.")
         @Test
         void throwsException_whenContainsSpace() {
             // act & assert
