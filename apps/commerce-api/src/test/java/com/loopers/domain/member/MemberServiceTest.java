@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -88,6 +89,11 @@ class MemberServiceTest {
         @Override
         public boolean existsByLoginId(String loginId) {
             return existingLoginIds.containsKey(loginId);
+        }
+
+        @Override
+        public Optional<Member> findByLoginId(String loginId) {
+            return Optional.empty();
         }
     }
 

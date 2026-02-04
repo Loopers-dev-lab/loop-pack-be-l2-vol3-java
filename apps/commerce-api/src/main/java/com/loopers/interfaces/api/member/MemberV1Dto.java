@@ -14,14 +14,14 @@ public class MemberV1Dto {
         String email
     ) {}
 
-    public record RegisterResponse(
+    public record MemberResponse(
         String loginId,
         String name,
         LocalDate birthDate,
         String email
     ) {
-        public static RegisterResponse from(MemberInfo info) {
-            return new RegisterResponse(
+        public static MemberResponse from(MemberInfo info) {
+            return new MemberResponse(
                 info.loginId(),
                 info.name(),
                 info.birthDate(),

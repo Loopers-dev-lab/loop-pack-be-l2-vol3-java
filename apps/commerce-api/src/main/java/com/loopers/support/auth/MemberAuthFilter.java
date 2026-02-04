@@ -1,0 +1,76 @@
+package com.loopers.support.auth;
+
+import com.loopers.domain.member.Member;
+import com.loopers.domain.member.MemberReader;
+import com.loopers.domain.member.PasswordEncoder;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.Optional;
+
+@RequiredArgsConstructor
+@Component
+public class MemberAuthFilter extends OncePerRequestFilter {
+
+    private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
+    private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
+
+    private final MemberReader memberReader;
+    private final PasswordEncoder passwordEncoder;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
+        // 인증이 필요 없는 경로는 통과
+        if (!requiresAuthentication(request)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        String loginId = request.getHeader(HEADER_LOGIN_ID);
+        String loginPw = request.getHeader(HEADER_LOGIN_PW);
+
+        // 헤더가 없으면 401
+        if (loginId == null || loginPw == null) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+
+        // 회원 조회
+        Optional<Member> memberOpt = memberReader.findByLoginId(loginId);
+        if (memberOpt.isEmpty()) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+
+        // 비밀번호 검증
+        Member member = memberOpt.get();
+        if (!passwordEncoder.matches(loginPw, member.getPassword())) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+
+        // 인증 성공 - 회원 정보를 request에 저장
+        request.setAttribute("authenticatedMember", member);
+        filterChain.doFilter(request, response);
+    }
+
+    private boolean requiresAuthentication(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        String method = request.getMethod();
+
+        // POST /api/v1/members (회원가입)는 인증 불필요
+        if ("POST".equals(method) && "/api/v1/members".equals(path)) {
+            return false;
+        }
+
+        // /api/v1/members/** 경로는 인증 필요
+        return path.startsWith("/api/v1/members/");
+    }
+}

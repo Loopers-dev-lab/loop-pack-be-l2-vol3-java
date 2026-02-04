@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api;
 
 import com.loopers.infrastructure.member.MemberJpaRepository;
+import com.loopers.interfaces.api.member.MemberV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -11,6 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class MemberV1ApiE2ETest {
 
     private static final String ENDPOINT_REGISTER = "/api/v1/members";
+    private static final String ENDPOINT_ME = "/api/v1/members/me";
+    private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
+    private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
 
     private final TestRestTemplate testRestTemplate;
     private final MemberJpaRepository memberJpaRepository;
@@ -53,7 +58,7 @@ class MemberV1ApiE2ETest {
         @Test
         void returnsCreated_whenValidRequest() {
             // arrange
-            RegisterRequest request = new RegisterRequest(
+            MemberV1Dto.RegisterRequest request = new MemberV1Dto.RegisterRequest(
                 "testUser1",
                 "Test1234!",
                 "홍길동",
@@ -62,8 +67,8 @@ class MemberV1ApiE2ETest {
             );
 
             // act
-            ParameterizedTypeReference<ApiResponse<RegisterResponse>> responseType = new ParameterizedTypeReference<>() {};
-            ResponseEntity<ApiResponse<RegisterResponse>> response = testRestTemplate.exchange(
+            ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<MemberV1Dto.MemberResponse>> response = testRestTemplate.exchange(
                 ENDPOINT_REGISTER,
                 HttpMethod.POST,
                 new HttpEntity<>(request),
@@ -82,7 +87,7 @@ class MemberV1ApiE2ETest {
         @Test
         void returnsBadRequest_whenLoginIdAlreadyExists() {
             // arrange - 먼저 회원가입
-            RegisterRequest firstRequest = new RegisterRequest(
+            MemberV1Dto.RegisterRequest firstRequest = new MemberV1Dto.RegisterRequest(
                 "existingUser",
                 "Test1234!",
                 "홍길동",
@@ -93,11 +98,11 @@ class MemberV1ApiE2ETest {
                 ENDPOINT_REGISTER,
                 HttpMethod.POST,
                 new HttpEntity<>(firstRequest),
-                new ParameterizedTypeReference<ApiResponse<RegisterResponse>>() {}
+                new ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>>() {}
             );
 
             // arrange - 같은 로그인ID로 다시 가입 시도
-            RegisterRequest duplicateRequest = new RegisterRequest(
+            MemberV1Dto.RegisterRequest duplicateRequest = new MemberV1Dto.RegisterRequest(
                 "existingUser",
                 "Test5678!",
                 "김철수",
@@ -106,8 +111,8 @@ class MemberV1ApiE2ETest {
             );
 
             // act
-            ParameterizedTypeReference<ApiResponse<RegisterResponse>> responseType = new ParameterizedTypeReference<>() {};
-            ResponseEntity<ApiResponse<RegisterResponse>> response = testRestTemplate.exchange(
+            ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<MemberV1Dto.MemberResponse>> response = testRestTemplate.exchange(
                 ENDPOINT_REGISTER,
                 HttpMethod.POST,
                 new HttpEntity<>(duplicateRequest),
@@ -122,7 +127,7 @@ class MemberV1ApiE2ETest {
         @Test
         void returnsBadRequest_whenInvalidEmail() {
             // arrange
-            RegisterRequest request = new RegisterRequest(
+            MemberV1Dto.RegisterRequest request = new MemberV1Dto.RegisterRequest(
                 "testUser2",
                 "Test1234!",
                 "홍길동",
@@ -131,8 +136,8 @@ class MemberV1ApiE2ETest {
             );
 
             // act
-            ParameterizedTypeReference<ApiResponse<RegisterResponse>> responseType = new ParameterizedTypeReference<>() {};
-            ResponseEntity<ApiResponse<RegisterResponse>> response = testRestTemplate.exchange(
+            ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<MemberV1Dto.MemberResponse>> response = testRestTemplate.exchange(
                 ENDPOINT_REGISTER,
                 HttpMethod.POST,
                 new HttpEntity<>(request),
@@ -144,7 +149,105 @@ class MemberV1ApiE2ETest {
         }
     }
 
-    // 테스트용 Request/Response record (실제 DTO가 없으므로 임시 정의)
-    record RegisterRequest(String loginId, String password, String name, LocalDate birthDate, String email) {}
-    record RegisterResponse(String loginId, String name, LocalDate birthDate, String email) {}
+    @DisplayName("GET /api/v1/members/me (내 정보 조회)")
+    @Nested
+    class GetMe {
+
+        @DisplayName("유효한 인증 헤더로 조회하면, 200 OK와 마스킹된 이름을 반환한다.")
+        @Test
+        void returnsOk_whenValidAuth() {
+            // arrange - 먼저 회원가입
+            String loginId = "testUser1";
+            String password = "Test1234!";
+            MemberV1Dto.RegisterRequest registerRequest = new MemberV1Dto.RegisterRequest(
+                loginId,
+                password,
+                "홍길동",
+                LocalDate.of(1990, 1, 15),
+                "test@example.com"
+            );
+            testRestTemplate.exchange(
+                ENDPOINT_REGISTER,
+                HttpMethod.POST,
+                new HttpEntity<>(registerRequest),
+                new ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>>() {}
+            );
+
+            // arrange - 인증 헤더 설정
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HEADER_LOGIN_ID, loginId);
+            headers.set(HEADER_LOGIN_PW, password);
+
+            // act
+            ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<MemberV1Dto.MemberResponse>> response = testRestTemplate.exchange(
+                ENDPOINT_ME,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                responseType
+            );
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().data().loginId()).isEqualTo(loginId),
+                () -> assertThat(response.getBody().data().name()).isEqualTo("홍길*"),  // 마스킹 확인
+                () -> assertThat(response.getBody().data().email()).isEqualTo("test@example.com")
+            );
+        }
+
+        @DisplayName("인증 헤더가 없으면, 401 Unauthorized 응답을 받는다.")
+        @Test
+        void returnsUnauthorized_whenNoAuthHeader() {
+            // act
+            ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<MemberV1Dto.MemberResponse>> response = testRestTemplate.exchange(
+                ENDPOINT_ME,
+                HttpMethod.GET,
+                new HttpEntity<>(null),
+                responseType
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @DisplayName("잘못된 비밀번호로 조회하면, 401 Unauthorized 응답을 받는다.")
+        @Test
+        void returnsUnauthorized_whenWrongPassword() {
+            // arrange - 먼저 회원가입
+            String loginId = "testUser2";
+            MemberV1Dto.RegisterRequest registerRequest = new MemberV1Dto.RegisterRequest(
+                loginId,
+                "Test1234!",
+                "홍길동",
+                LocalDate.of(1990, 1, 15),
+                "test2@example.com"
+            );
+            testRestTemplate.exchange(
+                ENDPOINT_REGISTER,
+                HttpMethod.POST,
+                new HttpEntity<>(registerRequest),
+                new ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>>() {}
+            );
+
+            // arrange - 잘못된 비밀번호로 인증 헤더 설정
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HEADER_LOGIN_ID, loginId);
+            headers.set(HEADER_LOGIN_PW, "WrongPassword1!");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<MemberV1Dto.MemberResponse>> response = testRestTemplate.exchange(
+                ENDPOINT_ME,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                responseType
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+    }
+
 }

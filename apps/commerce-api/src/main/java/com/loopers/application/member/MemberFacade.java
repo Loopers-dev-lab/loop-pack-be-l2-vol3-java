@@ -18,4 +18,8 @@ public class MemberFacade {
         Member member = memberService.register(loginId, rawPassword, name, birthDate, email);
         return MemberInfo.from(member);
     }
+
+    public MemberInfo getMe(Member authenticatedMember) {
+        return MemberInfo.fromWithMaskedName(authenticatedMember);
+    }
 }

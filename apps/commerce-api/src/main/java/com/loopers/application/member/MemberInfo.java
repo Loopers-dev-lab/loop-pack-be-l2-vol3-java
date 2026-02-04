@@ -13,4 +13,23 @@ public record MemberInfo(String loginId, String name, LocalDate birthDate, Strin
             member.getEmail()
         );
     }
+
+    public static MemberInfo fromWithMaskedName(Member member) {
+        return new MemberInfo(
+            member.getLoginId(),
+            maskName(member.getName()),
+            member.getBirthDate(),
+            member.getEmail()
+        );
+    }
+
+    private static String maskName(String name) {
+        if (name == null || name.isEmpty()) {
+            return name;
+        }
+        if (name.length() == 1) {
+            return "*";
+        }
+        return name.substring(0, name.length() - 1) + "*";
+    }
 }

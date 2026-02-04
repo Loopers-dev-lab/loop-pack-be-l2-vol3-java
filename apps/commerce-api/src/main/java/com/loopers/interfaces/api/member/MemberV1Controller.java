@@ -2,9 +2,12 @@ package com.loopers.interfaces.api.member;
 
 import com.loopers.application.member.MemberFacade;
 import com.loopers.application.member.MemberInfo;
+import com.loopers.domain.member.Member;
 import com.loopers.interfaces.api.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,7 +23,7 @@ public class MemberV1Controller {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<MemberV1Dto.RegisterResponse> register(
+    public ApiResponse<MemberV1Dto.MemberResponse> register(
         @RequestBody MemberV1Dto.RegisterRequest request
     ) {
         MemberInfo info = memberFacade.register(
@@ -30,7 +33,13 @@ public class MemberV1Controller {
             request.birthDate(),
             request.email()
         );
-        MemberV1Dto.RegisterResponse response = MemberV1Dto.RegisterResponse.from(info);
-        return ApiResponse.success(response);
+        return ApiResponse.success(MemberV1Dto.MemberResponse.from(info));
+    }
+
+    @GetMapping("/me")
+    public ApiResponse<MemberV1Dto.MemberResponse> getMe(HttpServletRequest request) {
+        Member authenticatedMember = (Member) request.getAttribute("authenticatedMember");
+        MemberInfo info = memberFacade.getMe(authenticatedMember);
+        return ApiResponse.success(MemberV1Dto.MemberResponse.from(info));
     }
 }

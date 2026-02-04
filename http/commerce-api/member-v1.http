@@ -47,3 +47,20 @@ Content-Type: application/json
   "birthDate": "1990-01-15",
   "email": "test3@example.com"
 }
+
+###############################################
+# 내 정보 조회 API
+###############################################
+
+### 내 정보 조회 (정상 - 회원가입 먼저 실행 후)
+GET {{baseUrl}}/api/v1/members/me
+X-Loopers-LoginId: testUser1
+X-Loopers-LoginPw: Test1234!
+
+### 내 정보 조회 (인증 헤더 없음 - 401)
+GET {{baseUrl}}/api/v1/members/me
+
+### 내 정보 조회 (잘못된 비밀번호 - 401)
+GET {{baseUrl}}/api/v1/members/me
+X-Loopers-LoginId: testUser1
+X-Loopers-LoginPw: WrongPassword1!
