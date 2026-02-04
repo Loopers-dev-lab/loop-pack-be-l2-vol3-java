@@ -18,6 +18,18 @@ public class UserService {
     private final BirthDateValidator birthDateValidator;
     private final PasswordPolicyValidator passwordPolicyValidator;
 
+    @Transactional(readOnly = true)
+    public User authenticate(String loginId, String rawPassword) {
+        User user = userRepository.findByLoginId(loginId)
+            .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "아이디 또는 비밀번호가 일치하지 않습니다."));
+
+        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "아이디 또는 비밀번호가 일치하지 않습니다.");
+        }
+
+        return user;
+    }
+
     @Transactional
     public User register(String loginId, String rawPassword, String name, String email, String birthDate) {
         loginIdValidator.validate(loginId);
