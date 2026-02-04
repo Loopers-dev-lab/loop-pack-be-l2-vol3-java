@@ -65,7 +65,7 @@ subprojects {
         testImplementation("org.instancio:instancio-junit:${project.properties["instancioJUnitVersion"]}")
         // Testcontainers
         testImplementation("org.springframework.boot:spring-boot-testcontainers")
-        testImplementation("org.testcontainers:testcontainers")
+        testImplementation("org.testcontainers:testcontainers:1.21.4")
         testImplementation("org.testcontainers:junit-jupiter")
     }
 
