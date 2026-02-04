@@ -18,4 +18,10 @@ public interface MemberV1ApiSpec {
         description = "인증된 회원의 정보를 조회합니다."
     )
     ApiResponse<MemberV1Dto.MyInfoResponse> getMyInfo(String loginId, String password);
+
+    @Operation(
+        summary = "비밀번호 변경",
+        description = "인증된 회원의 비밀번호를 변경합니다."
+    )
+    ApiResponse<Object> updatePassword(String loginId, String password, MemberV1Dto.UpdatePasswordRequest request);
 }

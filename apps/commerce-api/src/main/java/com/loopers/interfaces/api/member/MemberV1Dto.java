@@ -18,6 +18,9 @@ public class MemberV1Dto {
         }
     }
 
+    public record UpdatePasswordRequest(String currentPassword, String newPassword) {
+    }
+
     public record MyInfoResponse(String loginId, String name, String birthday, String email) {
         public static MyInfoResponse from(MemberInfo info) {
             return new MyInfoResponse(
