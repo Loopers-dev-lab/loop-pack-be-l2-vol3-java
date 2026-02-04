@@ -1,6 +1,9 @@
-package com.loopers.user;
+package com.loopers.user.domain;
 
 
+import lombok.Getter;
+
+@Getter
 public class User {
     private String loginId;
     private String password;
@@ -33,4 +36,5 @@ public class User {
         }
 
     }
+
 }

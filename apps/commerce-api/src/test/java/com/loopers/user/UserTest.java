@@ -1,5 +1,6 @@
 package com.loopers.user;
 
+import com.loopers.user.domain.User;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
