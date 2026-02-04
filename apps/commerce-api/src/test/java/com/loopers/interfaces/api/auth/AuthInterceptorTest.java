@@ -1,4 +1,4 @@
-package com.loopers.interfaces.api.interceptor;
+package com.loopers.interfaces.api.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

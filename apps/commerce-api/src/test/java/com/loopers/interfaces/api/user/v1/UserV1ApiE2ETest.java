@@ -1,4 +1,4 @@
-package com.loopers.interfaces.api.v1;
+package com.loopers.interfaces.api.user.v1;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -22,7 +22,6 @@ import org.springframework.http.ResponseEntity;
 
 import com.loopers.domain.user.UserName;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.api.user.v1.UserV1Dto;
 import com.loopers.interfaces.api.user.v1.UserV1Dto.MeResponse;
 import com.loopers.interfaces.api.user.v1.UserV1Dto.SignUpResponse;
 import com.loopers.support.error.ErrorType;

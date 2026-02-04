@@ -1,4 +1,4 @@
-package com.loopers.interfaces.api.interceptor;
+package com.loopers.interfaces.api.auth;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
