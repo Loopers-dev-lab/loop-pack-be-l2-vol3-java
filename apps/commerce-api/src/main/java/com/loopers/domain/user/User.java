@@ -1,23 +1,41 @@
 package com.loopers.domain.user;
 
+import com.loopers.domain.BaseEntity;
+import com.loopers.support.security.PasswordEncryptor;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import lombok.Getter;
 
 import java.time.LocalDate;
 import java.util.regex.Pattern;
 
+@Entity
+@Table(name = "users")
 @Getter
-public class User {
+public class User extends BaseEntity {
 
     private static final Pattern ID_PATTERN = Pattern.compile("^[a-zA-Z0-9]{1,10}$");
     private static final Pattern PASSWORD_PATTERN = Pattern.compile("^[a-zA-Z0-9!@#$%^&*(),.?\":{}|<>]{8,16}$");
     private static final Pattern NAME_PATTERN = Pattern.compile("^[가-힣a-zA-Z]+$");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9][a-zA-Z0-9-]*\\.[a-zA-Z]{2,}$");
 
-    private final String loginId;
-    private final String password;
-    private final String name;
-    private final LocalDate birthDate;
-    private final String email;
+    @Column(name = "login_id", unique = true, nullable = false, length = 10)
+    private String loginId;
+
+    @Column(name = "password", nullable = false, length = 100)
+    private String password;
+
+    @Column(name = "name", nullable = false, length = 50)
+    private String name;
+
+    @Column(name = "birth_date", nullable = false)
+    private LocalDate birthDate;
+
+    @Column(name = "email", unique = true, nullable = false, length = 100)
+    private String email;
+
+    protected User() {}
 
     private User(String loginId, String password, String name, LocalDate birthDate, String email) {
         this.loginId = loginId;
@@ -27,14 +45,15 @@ public class User {
         this.email = email;
     }
 
-    public static User register(String loginId, String password, String name, LocalDate birthDate, String email) {
+    public static User register(String loginId, String password, String name, LocalDate birthDate, String email, PasswordEncryptor encryptor) {
         validateLoginId(loginId);
         validateName(name);
         validateBirthDate(birthDate);
         validatePassword(password, birthDate);
         validateEmail(email);
 
-        return new User(loginId, password, name, birthDate, email);
+        String encryptedPassword = encryptor.encode(password);
+        return new User(loginId, encryptedPassword, name, birthDate, email);
     }
 
     private static void validateBirthDate(LocalDate birthDate) {

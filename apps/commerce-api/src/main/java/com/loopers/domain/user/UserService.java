@@ -1,0 +1,30 @@
+package com.loopers.domain.user;
+
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
+import com.loopers.support.security.PasswordEncryptor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+
+@RequiredArgsConstructor
+@Component
+public class UserService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncryptor passwordEncryptor;
+
+    @Transactional
+    public User register(String loginId, String password, String name, LocalDate birthDate, String email) {
+        // 중복 ID 체크
+        if (userRepository.existsByLoginId(loginId)) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "이미 가입된 ID입니다");
+        }
+
+        // User 생성 및 저장
+        User user = User.register(loginId, password, name, birthDate, email, passwordEncryptor);
+        return userRepository.save(user);
+    }
+}
