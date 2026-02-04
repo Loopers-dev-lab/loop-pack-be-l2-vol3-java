@@ -41,4 +41,12 @@ public class MemberService {
         member.encryptPassword(passwordEncoder.encode(password));
         return memberRepository.save(member);
     }
+
+    @Transactional
+    public void updatePassword(String loginId, String currentPassword, String newPassword) {
+        Member member = memberRepository.findByLoginId(loginId)
+            .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED));
+        member.changePassword(currentPassword, newPassword, passwordEncoder);
+        memberRepository.updatePassword(loginId, member.getPassword());
+    }
 }

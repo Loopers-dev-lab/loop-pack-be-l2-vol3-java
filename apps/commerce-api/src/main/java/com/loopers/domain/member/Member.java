@@ -2,6 +2,7 @@ package com.loopers.domain.member;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -46,6 +47,17 @@ public class Member {
 
     public void encryptPassword(String encodedPassword) {
         this.password = encodedPassword;
+    }
+
+    public void changePassword(String currentPassword, String newPassword, PasswordEncoder passwordEncoder) {
+        if (!passwordEncoder.matches(currentPassword, this.password)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "현재 비밀번호가 일치하지 않습니다.");
+        }
+        if (passwordEncoder.matches(newPassword, this.password)) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다.");
+        }
+        validatePassword(newPassword, this.birthday);
+        this.password = passwordEncoder.encode(newPassword);
     }
 
     private void validateLoginId(String loginId) {

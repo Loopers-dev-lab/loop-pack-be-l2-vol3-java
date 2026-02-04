@@ -5,6 +5,8 @@ import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
 
@@ -303,6 +305,123 @@ class MemberTest {
 
             // assert
             assertThat(member.getPassword()).isEqualTo(encodedPassword);
+        }
+    }
+
+    @DisplayName("비밀번호를 변경할 때,")
+    @Nested
+    class ChangePassword {
+
+        private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+        private Member createMemberWithEncryptedPassword() {
+            Member member = new Member(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+            member.encryptPassword(passwordEncoder.encode(VALID_PASSWORD));
+            return member;
+        }
+
+        @DisplayName("유효한 새 비밀번호로 변경하면, 비밀번호가 변경된다.")
+        @Test
+        void changesPassword_whenNewPasswordIsValid() {
+            // arrange
+            Member member = createMemberWithEncryptedPassword();
+            String newPassword = "NewPass123!";
+
+            // act
+            member.changePassword(VALID_PASSWORD, newPassword, passwordEncoder);
+
+            // assert
+            assertThat(passwordEncoder.matches(newPassword, member.getPassword())).isTrue();
+        }
+
+        @DisplayName("현재 비밀번호가 일치하지 않으면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        void throwsUnauthorized_whenCurrentPasswordIsWrong() {
+            // arrange
+            Member member = createMemberWithEncryptedPassword();
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                member.changePassword("WrongPass1!", "NewPass123!", passwordEncoder)
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("새 비밀번호가 현재 비밀번호와 동일하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNewPasswordIsSameAsCurrent() {
+            // arrange
+            Member member = createMemberWithEncryptedPassword();
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                member.changePassword(VALID_PASSWORD, VALID_PASSWORD, passwordEncoder)
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("새 비밀번호가 8자 미만이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNewPasswordIsTooShort() {
+            // arrange
+            Member member = createMemberWithEncryptedPassword();
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                member.changePassword(VALID_PASSWORD, "New12!", passwordEncoder)
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("새 비밀번호가 16자 초과이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNewPasswordIsTooLong() {
+            // arrange
+            Member member = createMemberWithEncryptedPassword();
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                member.changePassword(VALID_PASSWORD, "NewPass12345678!!", passwordEncoder)
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("새 비밀번호에 생년월일이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNewPasswordContainsBirthday() {
+            // arrange
+            Member member = createMemberWithEncryptedPassword();
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                member.changePassword(VALID_PASSWORD, "A19950315!", passwordEncoder)
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("새 비밀번호에 허용되지 않는 문자가 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNewPasswordContainsInvalidCharacters() {
+            // arrange
+            Member member = createMemberWithEncryptedPassword();
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                member.changePassword(VALID_PASSWORD, "New한글1234!", passwordEncoder)
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
 }
