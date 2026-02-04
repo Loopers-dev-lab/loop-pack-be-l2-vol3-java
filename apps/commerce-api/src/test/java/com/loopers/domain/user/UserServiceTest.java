@@ -15,13 +15,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class UserServiceTest {
     private InMemoryUserRepository userRepository;
     private PasswordEncoder passwordEncoder;
+    private SignUpValidator signUpValidator;
     private UserService userService;
 
     @BeforeEach
     void setUp() {
         userRepository = new InMemoryUserRepository();
         passwordEncoder = rawPassword -> "encoded_" + rawPassword;
-        userService = new UserService(userRepository, passwordEncoder);
+        signUpValidator = new SignUpValidator(userRepository);
+        userService = new UserService(signUpValidator, passwordEncoder, userRepository);
     }
 
     @Test

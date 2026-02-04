@@ -45,6 +45,6 @@ public class UserFixture {
     }
 
     public User build() {
-        return new User(loginId, password, name, birthDate, email);
+        return User.create(loginId, password, name, birthDate, email);
     }
 }
