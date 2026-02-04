@@ -1,5 +1,6 @@
 package com.loopers.domain.user;
 
+import com.loopers.application.user.SignUpCommand;
 import com.loopers.domain.BaseEntity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -39,6 +40,11 @@ public class User extends BaseEntity {
 
     public static User create(String loginId, String encodedPassword, String name, LocalDate birthDate, String email) {
         return new User(loginId, encodedPassword, name, birthDate, email);
+    }
+
+    public static User create(SignUpCommand command, String encodedPassword) {
+        return new User(command.loginId(), encodedPassword, command.name(), command.birthDate(), command.email());
+
     }
 
     private void validateLoginId(String loginId) {

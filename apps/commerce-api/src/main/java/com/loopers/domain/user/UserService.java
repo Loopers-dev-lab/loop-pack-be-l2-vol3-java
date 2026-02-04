@@ -13,15 +13,8 @@ public class UserService {
 
     public void signUp(SignUpCommand command) {
         signUpValidator.validate(command);
-
         String encodedPassword = passwordEncoder.encode(command.password());
-        User user = User.create(
-                command.loginId(),
-                encodedPassword,
-                command.name(),
-                command.birthDate(),
-                command.email()
-        );
+        User user = User.create(command, encodedPassword);
 
         userRepository.save(user);
     }
