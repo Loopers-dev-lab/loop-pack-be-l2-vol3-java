@@ -1,6 +1,6 @@
 package com.loopers.domain.user;
 
-import com.loopers.interfaces.api.user.dto.CreateUserRequestV1;
+import com.loopers.application.user.SignUpCommand;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -18,22 +18,22 @@ public class UserService {
 
     private static final String PASSWORD_PATTERN = "^[a-zA-Z0-9!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?~`]{8,16}$";
 
-    public void signUp(CreateUserRequestV1 request) {
-        if (userRepository.findByLoginId(request.getLoginId()).isPresent()) {
+    public void signUp(SignUpCommand command) {
+        if (userRepository.findByLoginId(command.loginId()).isPresent()) {
             throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.");
         }
 
-        String birthDateString = request.getBirthDate().format(BIRTH_DATE_FORMATTER);
-        validatePassword(request.getPassword(), birthDateString);
+        String birthDateString = command.birthDate().format(BIRTH_DATE_FORMATTER);
+        validatePassword(command.password(), birthDateString);
 
-        String encodedPassword = passwordEncoder.encode(request.getPassword());
+        String encodedPassword = passwordEncoder.encode(command.password());
 
         User user = new User(
-                request.getLoginId(),
+                command.loginId(),
                 encodedPassword,
-                request.getName(),
+                command.name(),
                 birthDateString,
-                request.getEmail()
+                command.email()
         );
         userRepository.save(user);
     }

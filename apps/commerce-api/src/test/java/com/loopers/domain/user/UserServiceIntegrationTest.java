@@ -1,6 +1,6 @@
 package com.loopers.domain.user;
 
-import com.loopers.interfaces.api.user.dto.CreateUserRequestV1;
+import com.loopers.application.user.SignUpCommand;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,16 +35,16 @@ public class UserServiceIntegrationTest {
     @DisplayName("회원가입하면 DB에 저장된다.")
     void signUp_savesUser() {
         // arrange
-        CreateUserRequestV1 request = CreateUserRequestV1.builder()
-                                                         .loginId("testUser123")
-                                                         .password("ValidPass1!")
-                                                         .name("박자바")
-                                                         .birthDate(LocalDate.of(1990, 1, 15))
-                                                         .email("test@example.com")
-                                                         .build();
+        SignUpCommand command = new SignUpCommand(
+                "testUser123",
+                "ValidPass1!",
+                "박자바",
+                LocalDate.of(1990, 1, 15),
+                "test@example.com"
+        );
 
         // act
-        userService.signUp(request);
+        userService.signUp(command);
 
         // assert
         User savedUser = userJpaRepository.findByLoginId("testUser123")
