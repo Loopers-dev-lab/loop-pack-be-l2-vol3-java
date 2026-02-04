@@ -1,8 +1,7 @@
 package com.loopers.domain.user;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
@@ -21,25 +20,28 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class BirthDate {
 
-    private static final DateTimeFormatter BIRTH_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-
     @Column(name = "birth_date", nullable = false)
     private String value;
 
     public BirthDate(String value) {
-        validate(value);
-        this.value = value;
-    }
-
-    private void validate(String value) {
-        try {
-            LocalDate.parse(value, BIRTH_DATE_FORMATTER);
-        } catch (DateTimeParseException e) {
+        if (!isValidDateFormat(value)) {
             throw new CoreException(ErrorType.INVALID_BIRTH_DATE_FORMAT);
         }
+        this.value = value;
     }
 
     public String getValueWithoutHyphen() {
         return value.replace("-", "");
+    }
+
+    static boolean isValidDateFormat(String value) {
+        try {
+            SimpleDateFormat dateFormatParser = new SimpleDateFormat("yyyy-MM-dd");
+            dateFormatParser.setLenient(false);
+            dateFormatParser.parse(value);
+            return true;
+        } catch (ParseException e) {
+            return false;
+        }
     }
 }
