@@ -1,4 +1,4 @@
-package com.loopers.infrastructure.config;
+package com.loopers.config;
 
 import com.loopers.domain.user.PasswordEncryptor;
 import com.loopers.domain.user.UserRepository;
