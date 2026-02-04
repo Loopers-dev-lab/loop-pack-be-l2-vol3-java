@@ -26,7 +26,6 @@ public class MemberModel extends BaseEntity {
     @Column(nullable = false, unique = true, length = 10)
     private MemberId memberId;
 
-    @Getter
     @Column(nullable = false)
     private String password;
 
@@ -52,27 +51,27 @@ public class MemberModel extends BaseEntity {
 
     protected MemberModel() {}
 
-    public MemberModel(String memberId, String password) {
+    MemberModel(String memberId, String password) {
         this.memberId = new MemberId(memberId);
         this.password = password;
     }
 
-    public MemberModel(String memberId, String password, String email) {
+    MemberModel(String memberId, String password, String email) {
         this(memberId, password);
         this.email = new Email(email);
     }
 
-    public MemberModel(String memberId, String password, String email, String birthDate) {
+    MemberModel(String memberId, String password, String email, String birthDate) {
         this(memberId, password, email);
         this.birthDate = BirthDate.fromString(birthDate);
     }
 
-    public MemberModel(String memberId, String password, String email, String birthDate, String name) {
+    MemberModel(String memberId, String password, String email, String birthDate, String name) {
         this(memberId, password, email, birthDate);
         this.name = new Name(name);
     }
 
-    public MemberModel(String memberId, String password, String email, String birthDate, String name, Gender gender) {
+    MemberModel(String memberId, String password, String email, String birthDate, String name, Gender gender) {
         this(memberId, password, email, birthDate, name);
         this.gender = gender;
     }
@@ -88,8 +87,12 @@ public class MemberModel extends BaseEntity {
         return new MemberModel(memberId, hashedPassword, email, birthDate, name, gender);
     }
 
+    public boolean verifyPassword(PasswordHasher passwordHasher, String rawPassword) {
+        return passwordHasher.matches(rawPassword, this.password);
+    }
+
     public void matchesPassword(PasswordHasher passwordHasher, String rawPassword) {
-        if (!passwordHasher.matches(rawPassword, this.password)) {
+        if (!verifyPassword(passwordHasher, rawPassword)) {
             throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호가 일치하지 않습니다.");
         }
     }

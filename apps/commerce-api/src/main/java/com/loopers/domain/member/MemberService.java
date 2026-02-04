@@ -17,7 +17,7 @@ public class MemberService {
     @Transactional
     public MemberModel register(String memberId, String rawPassword, String email, String birthDate, String name, Gender gender) {
         if (memberReader.existsByMemberId(memberId)) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "이미 가입된 ID 입니다.");
+            throw new CoreException(ErrorType.CONFLICT, "이미 가입된 ID 입니다.");
         }
 
         MemberModel member = MemberModel.create(memberId, rawPassword, email, birthDate, name, gender, passwordHasher);
@@ -27,7 +27,9 @@ public class MemberService {
     @Transactional(readOnly = true)
     public MemberModel authenticate(String loginId, String loginPw) {
         MemberModel member = memberReader.getOrThrow(loginId);
-        member.matchesPassword(passwordHasher, loginPw);
+        if (!member.verifyPassword(passwordHasher, loginPw)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "비밀번호가 일치하지 않습니다.");
+        }
         return member;
     }
 
@@ -35,7 +37,10 @@ public class MemberService {
     public void changePassword(String loginId, String loginPw,
                                String currentPassword, String newPassword) {
         MemberModel member = memberReader.getOrThrow(loginId);
-        member.matchesPassword(passwordHasher, loginPw);
+        if (!member.verifyPassword(passwordHasher, loginPw)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "비밀번호가 일치하지 않습니다.");
+        }
         member.changePassword(currentPassword, newPassword, passwordHasher);
+        memberRepository.save(member);
     }
 }

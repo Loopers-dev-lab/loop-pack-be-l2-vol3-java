@@ -167,8 +167,7 @@ class MemberServiceIntegrationTest {
                 () -> assertThat(savedMember.getName().value()).isEqualTo(VALID_NAME),
                 () -> assertThat(savedMember.getGender()).isEqualTo(VALID_GENDER),
                 // 비밀번호가 암호화되어 저장되었는지 검증
-                () -> assertThat(savedMember.getPassword()).isNotEqualTo(VALID_PASSWORD),
-                () -> assertThat(passwordHasher.matches(VALID_PASSWORD, savedMember.getPassword())).isTrue()
+                () -> assertThat(savedMember.verifyPassword(passwordHasher, VALID_PASSWORD)).isTrue()
             );
 
             // DB에서 직접 조회하여 검증
@@ -176,7 +175,7 @@ class MemberServiceIntegrationTest {
             assertAll(
                 () -> assertThat(foundMember.getMemberId().value()).isEqualTo(VALID_MEMBER_ID),
                 () -> assertThat(foundMember.getEmail().address()).isEqualTo(VALID_EMAIL),
-                () -> assertThat(passwordHasher.matches(VALID_PASSWORD, foundMember.getPassword())).isTrue()
+                () -> assertThat(foundMember.verifyPassword(passwordHasher, VALID_PASSWORD)).isTrue()
             );
         }
 
@@ -190,7 +189,7 @@ class MemberServiceIntegrationTest {
             CoreException exception = assertThrows(CoreException.class,
                 () -> memberService.register(VALID_MEMBER_ID, VALID_PASSWORD, VALID_EMAIL, VALID_BIRTH_DATE, VALID_NAME, VALID_GENDER));
             assertAll(
-                () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST),
+                () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.CONFLICT),
                 () -> assertThat(exception.getMessage()).isEqualTo("이미 가입된 ID 입니다.")
             );
         }
@@ -243,7 +242,7 @@ class MemberServiceIntegrationTest {
 
             // assert
             MemberModel member = memberReader.getOrThrow(VALID_MEMBER_ID);
-            assertThat(passwordHasher.matches(newPassword, member.getPassword())).isTrue();
+            assertThat(member.verifyPassword(passwordHasher, newPassword)).isTrue();
         }
 
         @DisplayName("기존 비밀번호가 일치하지 않으면, 실패한다.")
