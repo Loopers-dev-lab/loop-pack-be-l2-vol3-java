@@ -1,7 +1,7 @@
 package com.loopers.domain.user;
 
 import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
+import com.loopers.support.error.UserErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -103,7 +103,7 @@ public class UserNameTest {
                 new UserName(null);
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_NAME);
         }
 
         @DisplayName("빈 문자열이면, 예외가 발생한다.")
@@ -114,7 +114,7 @@ public class UserNameTest {
                 new UserName("");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_NAME);
         }
 
         @DisplayName("1자(최소 미만)이면, 예외가 발생한다.")
@@ -125,7 +125,7 @@ public class UserNameTest {
                 new UserName("홍");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_NAME);
         }
 
         @DisplayName("51자(최대 초과)이면, 예외가 발생한다.")
@@ -139,7 +139,7 @@ public class UserNameTest {
                 new UserName(value);
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_NAME);
         }
 
         @DisplayName("숫자가 포함되면, 예외가 발생한다.")
@@ -150,7 +150,7 @@ public class UserNameTest {
                 new UserName("홍길동123");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_NAME);
         }
 
         @DisplayName("특수문자가 포함되면, 예외가 발생한다.")
@@ -161,7 +161,7 @@ public class UserNameTest {
                 new UserName("홍길동!");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_NAME);
         }
 
         @DisplayName("공백이 포함되면, 예외가 발생한다.")
@@ -172,7 +172,7 @@ public class UserNameTest {
                 new UserName("홍 길동");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_NAME);
         }
     }
 

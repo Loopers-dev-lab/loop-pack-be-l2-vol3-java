@@ -1,7 +1,7 @@
 package com.loopers.domain.user;
 
 import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
+import com.loopers.support.error.UserErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 
@@ -41,16 +41,16 @@ public class Email {
 
     private void validate(String value) {
         if (value == null || value.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "이메일은 필수입니다.");
+            throw new CoreException(UserErrorType.INVALID_EMAIL, "이메일은 필수입니다.");
         }
 
         if (value.length() > MAX_LENGTH) {
-            throw new CoreException(ErrorType.BAD_REQUEST,
+            throw new CoreException(UserErrorType.INVALID_EMAIL,
                     "이메일은 최대 " + MAX_LENGTH + "자까지 가능합니다.");
         }
 
         if (!EMAIL_PATTERN.matcher(value).matches()) {
-            throw new CoreException(ErrorType.BAD_REQUEST,
+            throw new CoreException(UserErrorType.INVALID_EMAIL,
                     "이메일 형식이 올바르지 않습니다.");
         }
 
@@ -60,7 +60,7 @@ public class Email {
     private void validateNoConsecutiveDots(String value) {
         String localPart = value.substring(0, value.indexOf('@'));
         if (localPart.contains("..")) {
-            throw new CoreException(ErrorType.BAD_REQUEST,
+            throw new CoreException(UserErrorType.INVALID_EMAIL,
                     "이메일 로컬 파트에 연속된 점(.)을 사용할 수 없습니다.");
         }
     }

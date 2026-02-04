@@ -1,7 +1,7 @@
 package com.loopers.domain.user;
 
 import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
+import com.loopers.support.error.UserErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 
@@ -41,7 +41,7 @@ public class BirthDate {
 
     private static void validateNotBlank(String rawValue) {
         if (rawValue == null || rawValue.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "생년월일은 필수입니다.");
+            throw new CoreException(UserErrorType.INVALID_BIRTH_DATE, "생년월일은 필수입니다.");
         }
     }
 
@@ -49,24 +49,24 @@ public class BirthDate {
         try {
             return LocalDate.parse(rawValue);
         } catch (DateTimeParseException e) {
-            throw new CoreException(ErrorType.BAD_REQUEST,
+            throw new CoreException(UserErrorType.INVALID_BIRTH_DATE,
                     "생년월일은 YYYY-MM-DD 형식이어야 합니다.");
         }
     }
 
     private static void validateRange(LocalDate date) {
         if (date.isBefore(MIN_DATE)) {
-            throw new CoreException(ErrorType.BAD_REQUEST,
+            throw new CoreException(UserErrorType.INVALID_BIRTH_DATE,
                     "생년월일은 " + MIN_DATE + " 이후여야 합니다.");
         }
 
         if (date.isAfter(LocalDate.now())) {
-            throw new CoreException(ErrorType.BAD_REQUEST,
+            throw new CoreException(UserErrorType.INVALID_BIRTH_DATE,
                     "생년월일은 미래 날짜일 수 없습니다.");
         }
 
         if (Period.between(date, LocalDate.now()).getYears() < MIN_AGE) {
-            throw new CoreException(ErrorType.BAD_REQUEST,
+            throw new CoreException(UserErrorType.INVALID_BIRTH_DATE,
                     "만 " + MIN_AGE + "세 이상만 가입할 수 있습니다.");
         }
     }

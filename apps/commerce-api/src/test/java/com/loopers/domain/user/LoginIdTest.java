@@ -1,7 +1,7 @@
 package com.loopers.domain.user;
 
 import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
+import com.loopers.support.error.UserErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -100,7 +100,7 @@ public class LoginIdTest {
                 new LoginId(null);
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_LOGIN_ID);
         }
 
         @DisplayName("빈 문자열이면, 예외가 발생한다.")
@@ -111,7 +111,7 @@ public class LoginIdTest {
                 new LoginId("");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_LOGIN_ID);
         }
 
         @DisplayName("공백만 있으면, 예외가 발생한다.")
@@ -122,7 +122,7 @@ public class LoginIdTest {
                 new LoginId("   ");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_LOGIN_ID);
         }
 
         @DisplayName("3자(최소 미만)이면, 예외가 발생한다.")
@@ -133,7 +133,7 @@ public class LoginIdTest {
                 new LoginId("abc");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_LOGIN_ID);
         }
 
         @DisplayName("21자(최대 초과)이면, 예외가 발생한다.")
@@ -147,7 +147,7 @@ public class LoginIdTest {
                 new LoginId(value);
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_LOGIN_ID);
         }
 
         @DisplayName("특수문자가 포함되면, 예외가 발생한다.")
@@ -158,7 +158,7 @@ public class LoginIdTest {
                 new LoginId("nahyeon@123");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_LOGIN_ID);
         }
 
         @DisplayName("한글이 포함되면, 예외가 발생한다.")
@@ -169,7 +169,7 @@ public class LoginIdTest {
                 new LoginId("nahyeon홍");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_LOGIN_ID);
         }
 
         @DisplayName("숫자로 시작하면, 예외가 발생한다.")
@@ -180,7 +180,7 @@ public class LoginIdTest {
                 new LoginId("123nahyeon");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_LOGIN_ID);
         }
 
         @DisplayName("공백이 포함되면, 예외가 발생한다.")
@@ -191,7 +191,7 @@ public class LoginIdTest {
                 new LoginId("nahyeon Lim");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_LOGIN_ID);
         }
     }
 }

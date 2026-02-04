@@ -1,7 +1,7 @@
 package com.loopers.domain.user;
 
 import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
+import com.loopers.support.error.UserErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 
@@ -45,16 +45,16 @@ public class UserName {
 
     private void validate(String value) {
         if (value == null || value.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "이름은 필수입니다.");
+            throw new CoreException(UserErrorType.INVALID_NAME, "이름은 필수입니다.");
         }
 
         if (value.length() < MIN_LENGTH || value.length() > MAX_LENGTH) {
-            throw new CoreException(ErrorType.BAD_REQUEST,
+            throw new CoreException(UserErrorType.INVALID_NAME,
                     "이름은 " + MIN_LENGTH + "~" + MAX_LENGTH + "자여야 합니다.");
         }
 
         if (!PATTERN.matcher(value).matches()) {
-            throw new CoreException(ErrorType.BAD_REQUEST,
+            throw new CoreException(UserErrorType.INVALID_NAME,
                     "이름은 한글과 영문만 사용할 수 있습니다.");
         }
     }

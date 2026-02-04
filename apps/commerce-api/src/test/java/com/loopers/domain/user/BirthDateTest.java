@@ -1,7 +1,7 @@
 package com.loopers.domain.user;
 
 import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
+import com.loopers.support.error.UserErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -91,7 +91,7 @@ public class BirthDateTest {
                 new BirthDate(null);
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
 
         @DisplayName("잘못된 형식(슬래시)이면, 예외가 발생한다.")
@@ -102,7 +102,7 @@ public class BirthDateTest {
                 new BirthDate("1994/11/15");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
 
         @DisplayName("잘못된 형식(구분자 없음)이면, 예외가 발생한다.")
@@ -113,7 +113,7 @@ public class BirthDateTest {
                 new BirthDate("19941115");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
 
         @DisplayName("존재하지 않는 날짜(2월 30일)이면, 예외가 발생한다.")
@@ -124,7 +124,7 @@ public class BirthDateTest {
                 new BirthDate("1994-02-30");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
 
         @DisplayName("미래 날짜이면, 예외가 발생한다.")
@@ -135,7 +135,7 @@ public class BirthDateTest {
                 new BirthDate("2030-01-01");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
 
         @DisplayName("1900년 이전이면, 예외가 발생한다.")
@@ -146,7 +146,7 @@ public class BirthDateTest {
                 new BirthDate("1899-12-31");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
 
         @DisplayName("만 14세 미만이면, 예외가 발생한다.")
@@ -160,7 +160,7 @@ public class BirthDateTest {
                 new BirthDate(value);
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
 
         @DisplayName("비윤년 2월 29일이면, 예외가 발생한다.")
@@ -171,7 +171,7 @@ public class BirthDateTest {
                 new BirthDate("1999-02-29");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
     }
 }

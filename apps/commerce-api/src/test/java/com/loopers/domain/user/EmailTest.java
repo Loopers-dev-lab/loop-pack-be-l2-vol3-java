@@ -1,7 +1,7 @@
 package com.loopers.domain.user;
 
 import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
+import com.loopers.support.error.UserErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -76,7 +76,7 @@ public class EmailTest {
                 new Email(null);
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
         @DisplayName("빈 문자열이면, 예외가 발생한다.")
@@ -87,7 +87,7 @@ public class EmailTest {
                 new Email("");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
         @DisplayName("@가 없으면, 예외가 발생한다.")
@@ -98,7 +98,7 @@ public class EmailTest {
                 new Email("nahyeonexample.com");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
         @DisplayName("도메인이 없으면, 예외가 발생한다.")
@@ -109,7 +109,7 @@ public class EmailTest {
                 new Email("nahyeon@");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
         @DisplayName("로컬 파트가 없으면, 예외가 발생한다.")
@@ -120,7 +120,7 @@ public class EmailTest {
                 new Email("@example.com");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
         @DisplayName("연속 점이 포함되면, 예외가 발생한다.")
@@ -131,7 +131,7 @@ public class EmailTest {
                 new Email("nahyeon..lim@example.com");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
         @DisplayName("공백이 포함되면, 예외가 발생한다.")
@@ -142,7 +142,7 @@ public class EmailTest {
                 new Email("nahyeon lim@example.com");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
         @DisplayName("256자를 초과하면, 예외가 발생한다.")
@@ -156,7 +156,7 @@ public class EmailTest {
                 new Email(value);
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
         @DisplayName("한글이 포함되면, 예외가 발생한다.")
@@ -167,7 +167,7 @@ public class EmailTest {
                 new Email("홍길동@example.com");
             });
 
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
     }
 }
