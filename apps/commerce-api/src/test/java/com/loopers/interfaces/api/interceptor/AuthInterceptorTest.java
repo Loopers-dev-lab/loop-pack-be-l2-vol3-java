@@ -1,12 +1,9 @@
 package com.loopers.interfaces.api.interceptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.util.Optional;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,12 +15,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
 
-import com.loopers.domain.user.LoginId;
-import com.loopers.domain.user.PasswordEncoder;
-import com.loopers.domain.user.User;
-import com.loopers.domain.user.UserRepository;
+import com.loopers.domain.user.UserService;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 @ExtendWith(MockitoExtension.class)
 class AuthInterceptorTest {
@@ -34,10 +29,7 @@ class AuthInterceptorTest {
     private AuthInterceptor authInterceptor;
 
     @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private PasswordEncoder passwordEncoder;
+    private UserService userService;
 
     @Mock
     private HttpServletRequest request;
@@ -45,12 +37,9 @@ class AuthInterceptorTest {
     @Mock
     private HttpServletResponse response;
 
-    @Mock
-    private User user;
-
     @BeforeEach
     void setUp() {
-        authInterceptor = new AuthInterceptor(userRepository, passwordEncoder);
+        authInterceptor = new AuthInterceptor(userService);
     }
 
     @DisplayName("preHandle을 수행할 때,")
@@ -61,81 +50,31 @@ class AuthInterceptorTest {
         @Test
         void returnsTrue_whenAuthenticationSucceeds() throws Exception {
             // arrange
-            when(request.getHeader(HEADER_LOGIN_ID)).thenReturn("testuser");
-            when(request.getHeader(HEADER_LOGIN_PW)).thenReturn("Password1!");
-            when(userRepository.findByLoginId(any(LoginId.class))).thenReturn(Optional.of(user));
-            when(user.getId()).thenReturn(1L);
-            when(user.matchesPassword("Password1!", passwordEncoder)).thenReturn(true);
+            given(request.getHeader(HEADER_LOGIN_ID)).willReturn("testuser");
+            given(request.getHeader(HEADER_LOGIN_PW)).willReturn("Password1!");
+            given(userService.login("testuser", "Password1!")).willReturn(1L);
 
             // act
             boolean result = authInterceptor.preHandle(request, response, new Object());
 
             // assert
             assertThat(result).isTrue();
-            verify(request).setAttribute(eq("userId"), eq(1L));
+            verify(request).setAttribute("userId", 1L);
         }
 
-        @DisplayName("X-Loopers-LoginId 헤더가 없으면, 401을 반환하고 false를 반환한다.")
+        @DisplayName("인증에 실패하면, UNAUTHORIZED 예외가 발생한다.")
         @Test
-        void returns401_whenLoginIdHeaderMissing() throws Exception {
+        void throwsUnauthorizedException_whenAuthenticationFails() {
             // arrange
-            when(request.getHeader(HEADER_LOGIN_ID)).thenReturn(null);
-            when(request.getHeader(HEADER_LOGIN_PW)).thenReturn("password123");
+            given(request.getHeader(HEADER_LOGIN_ID)).willReturn("testuser");
+            given(request.getHeader(HEADER_LOGIN_PW)).willReturn("wrongpassword");
+            given(userService.login("testuser", "wrongpassword"))
+                    .willThrow(new CoreException(ErrorType.UNAUTHORIZED));
 
-            // act
-            boolean result = authInterceptor.preHandle(request, response, new Object());
-
-            // assert
-            assertThat(result).isFalse();
-            verify(response).setStatus(HttpStatus.UNAUTHORIZED.value());
-        }
-
-        @DisplayName("X-Loopers-LoginPw 헤더가 없으면, 401을 반환하고 false를 반환한다.")
-        @Test
-        void returns401_whenLoginPwHeaderMissing() throws Exception {
-            // arrange
-            when(request.getHeader(HEADER_LOGIN_ID)).thenReturn("testuser");
-            when(request.getHeader(HEADER_LOGIN_PW)).thenReturn(null);
-
-            // act
-            boolean result = authInterceptor.preHandle(request, response, new Object());
-
-            // assert
-            assertThat(result).isFalse();
-            verify(response).setStatus(HttpStatus.UNAUTHORIZED.value());
-        }
-
-        @DisplayName("로그인 ID가 존재하지 않으면, 401을 반환하고 false를 반환한다.")
-        @Test
-        void returns401_whenLoginIdNotFound() throws Exception {
-            // arrange
-            when(request.getHeader(HEADER_LOGIN_ID)).thenReturn("nonexistent");
-            when(request.getHeader(HEADER_LOGIN_PW)).thenReturn("Password1!");
-            when(userRepository.findByLoginId(any(LoginId.class))).thenReturn(Optional.empty());
-
-            // act
-            boolean result = authInterceptor.preHandle(request, response, new Object());
-
-            // assert
-            assertThat(result).isFalse();
-            verify(response).setStatus(HttpStatus.UNAUTHORIZED.value());
-        }
-
-        @DisplayName("비밀번호가 일치하지 않으면, 401을 반환하고 false를 반환한다.")
-        @Test
-        void returns401_whenPasswordNotMatches() throws Exception {
-            // arrange
-            when(request.getHeader(HEADER_LOGIN_ID)).thenReturn("testuser");
-            when(request.getHeader(HEADER_LOGIN_PW)).thenReturn("wrongpassword");
-            when(userRepository.findByLoginId(any(LoginId.class))).thenReturn(Optional.of(user));
-            when(user.matchesPassword("wrongpassword", passwordEncoder)).thenReturn(false);
-
-            // act
-            boolean result = authInterceptor.preHandle(request, response, new Object());
-
-            // assert
-            assertThat(result).isFalse();
-            verify(response).setStatus(HttpStatus.UNAUTHORIZED.value());
+            // act & assert
+            assertThatThrownBy(() -> authInterceptor.preHandle(request, response, new Object()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED));
         }
     }
 }

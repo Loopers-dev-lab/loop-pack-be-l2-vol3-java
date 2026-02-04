@@ -138,4 +138,76 @@ class UserServiceIntegrationTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.USER_NOT_FOUND));
         }
     }
+
+    @DisplayName("로그인을 할 때,")
+    @Nested
+    class Login {
+
+        @DisplayName("유효한 로그인 정보를 입력하면, 사용자 ID를 반환한다.")
+        @Test
+        void returnsUserId_whenValidCredentialsProvided() {
+            // arrange
+            String loginId = "user123";
+            String password = "Password1!";
+            User savedUser = userService.signUp(loginId, password, "홍길동", "1990-01-01", "test@email.com");
+
+            // act
+            Long userId = userService.login(loginId, password);
+
+            // assert
+            assertThat(userId).isEqualTo(savedUser.getId());
+        }
+
+        @DisplayName("loginId가 null이면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        void throwsUnauthorizedException_whenLoginIdIsNull() {
+            // arrange
+            String loginId = null;
+            String password = "Password1!";
+
+            // act & assert
+            assertThatThrownBy(() -> userService.login(loginId, password))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED));
+        }
+
+        @DisplayName("loginPw가 null이면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        void throwsUnauthorizedException_whenLoginPwIsNull() {
+            // arrange
+            String loginId = "user123";
+            String password = null;
+
+            // act & assert
+            assertThatThrownBy(() -> userService.login(loginId, password))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED));
+        }
+
+        @DisplayName("존재하지 않는 loginId를 입력하면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        void throwsUnauthorizedException_whenLoginIdDoesNotExist() {
+            // arrange
+            String loginId = "nonexistent";
+            String password = "Password1!";
+
+            // act & assert
+            assertThatThrownBy(() -> userService.login(loginId, password))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED));
+        }
+
+        @DisplayName("비밀번호가 일치하지 않으면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        void throwsUnauthorizedException_whenPasswordDoesNotMatch() {
+            // arrange
+            String loginId = "user123";
+            userService.signUp(loginId, "Password1!", "홍길동", "1990-01-01", "test@email.com");
+
+            // act & assert
+            assertThatThrownBy(() -> userService.login(loginId, "WrongPassword1!"))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED));
+        }
+    }
 }

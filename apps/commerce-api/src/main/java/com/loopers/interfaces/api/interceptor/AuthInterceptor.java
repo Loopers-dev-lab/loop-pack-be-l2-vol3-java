@@ -1,18 +1,12 @@
 package com.loopers.interfaces.api.interceptor;
 
-import java.util.Optional;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import com.loopers.domain.user.LoginId;
-import com.loopers.domain.user.PasswordEncoder;
-import com.loopers.domain.user.User;
-import com.loopers.domain.user.UserRepository;
+import com.loopers.domain.user.UserService;
 import com.loopers.interfaces.api.config.WebMvcConfig;
 
 import lombok.RequiredArgsConstructor;
@@ -39,10 +33,9 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
     private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
-    public static final String USER_ID_ATTRIBUTE = "userId";
+    private static final String USER_ID_ATTRIBUTE = "userId";
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final UserService userService;
 
     /**
      * 요청 처리 전 인증을 수행한다.
@@ -58,25 +51,8 @@ public class AuthInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String loginId = request.getHeader(HEADER_LOGIN_ID);
         String loginPw = request.getHeader(HEADER_LOGIN_PW);
-
-        if (loginId == null || loginPw == null) {
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            return false;
-        }
-
-        Optional<User> userOptional = userRepository.findByLoginId(new LoginId(loginId));
-        if (userOptional.isEmpty()) {
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            return false;
-        }
-
-        User user = userOptional.get();
-        if (!user.matchesPassword(loginPw, passwordEncoder)) {
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            return false;
-        }
-
-        request.setAttribute(USER_ID_ATTRIBUTE, user.getId());
+        Long loginUserId = userService.login(loginId, loginPw);
+        request.setAttribute(USER_ID_ATTRIBUTE, loginUserId);
         return true;
     }
 }

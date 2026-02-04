@@ -58,7 +58,13 @@ public class User extends BaseEntity {
         this.password = new Password(newPassword, passwordEncoder);
     }
 
-    public boolean matchesPassword(String rawPassword, PasswordEncoder passwordEncoder) {
+    public void verifyPassword(String rawPassword, PasswordEncoder passwordEncoder) {
+        if (!matchesPassword(rawPassword, passwordEncoder)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED);
+        }
+    }
+
+    boolean matchesPassword(String rawPassword, PasswordEncoder passwordEncoder) {
         return passwordEncoder.matches(rawPassword, password.getValue());
     }
 
