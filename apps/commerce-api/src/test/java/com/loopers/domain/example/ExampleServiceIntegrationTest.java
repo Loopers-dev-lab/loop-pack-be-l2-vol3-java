@@ -1,8 +1,8 @@
 package com.loopers.domain.example;
 
 import com.loopers.infrastructure.example.ExampleJpaRepository;
+import com.loopers.support.error.CommonErrorType;
 import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -66,7 +66,7 @@ class ExampleServiceIntegrationTest {
             });
 
             // assert
-            assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+            assertThat(exception.getErrorType()).isEqualTo(CommonErrorType.NOT_FOUND);
         }
     }
 }

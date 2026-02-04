@@ -10,10 +10,10 @@ class CoreExceptionTest {
     @Test
     void messageShouldBeErrorTypeMessage_whenCustomMessageIsNull() {
         // arrange
-        ErrorType[] errorTypes = ErrorType.values();
+        CommonErrorType[] errorTypes = CommonErrorType.values();
 
         // act & assert
-        for (ErrorType errorType : errorTypes) {
+        for (CommonErrorType errorType : errorTypes) {
             CoreException exception = new CoreException(errorType);
             assertThat(exception.getMessage()).isEqualTo(errorType.getMessage());
         }
@@ -26,7 +26,7 @@ class CoreExceptionTest {
         String customMessage = "custom message";
 
         // act
-        CoreException exception = new CoreException(ErrorType.INTERNAL_ERROR, customMessage);
+        CoreException exception = new CoreException(CommonErrorType.INTERNAL_ERROR, customMessage);
 
         // assert
         assertThat(exception.getMessage()).isEqualTo(customMessage);
