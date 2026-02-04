@@ -9,6 +9,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -27,62 +30,46 @@ class PasswordTest {
     class Create {
 
         @DisplayName("8자 이상 16자 이하이면, 정상적으로 생성된다.")
-        @Test
-        void createsPassword_whenLengthIsValid() {
-            // arrange
-            String value = "Passw1!a";
-
-            // act & assert
+        @ParameterizedTest
+        @ValueSource(strings = {"Pass1!ab", "Password1!ab", "Password1!abcdef"})
+        void createsPassword_whenLengthIsValid(String value) {
             assertThatCode(() -> new Password(value, passwordEncoder))
                     .doesNotThrowAnyException();
         }
 
-        @DisplayName("8자 미만이면, INVALID_PASSWORD_LENGTH 예외가 발생한다.")
-        @Test
-        void throwsInvalidPasswordLengthException_whenTooShort() {
-            // arrange
-            String value = "Pass1!a";
-
-            // act & assert
-            assertThatThrownBy(() -> new Password(value, passwordEncoder))
+        @DisplayName("길이가 유효하지 않으면, INVALID_PASSWORD_LENGTH 예외가 발생한다.")
+        @ParameterizedTest
+        @CsvSource({
+                "Pass1!a",
+                "Password1!abcdefg",
+                "''"
+        })
+        void throwsInvalidPasswordLengthException_whenLengthIsInvalid(String password) {
+            assertThatThrownBy(() -> new Password(password, passwordEncoder))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_PASSWORD_LENGTH));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
+                            .isEqualTo(ErrorType.INVALID_PASSWORD_LENGTH));
         }
 
-        @DisplayName("16자 초과이면, INVALID_PASSWORD_LENGTH 예외가 발생한다.")
-        @Test
-        void throwsInvalidPasswordLengthException_whenTooLong() {
-            // arrange
-            String value = "Password1!abcdefg";
-
-            // act & assert
-            assertThatThrownBy(() -> new Password(value, passwordEncoder))
+        @DisplayName("허용되지 않은 문자가 포함되면, INVALID_PASSWORD_FORMAT 예외가 발생한다.")
+        @ParameterizedTest
+        @CsvSource({
+                "Pass한글1!",
+                "Pass 1!ab",
+                "Pass(1!ab"
+        })
+        void throwsInvalidPasswordFormatException_whenContainsInvalidCharacter(String password) {
+            assertThatThrownBy(() -> new Password(password, passwordEncoder))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_PASSWORD_LENGTH));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
+                            .isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT));
         }
 
-        @DisplayName("한글이 포함되면, INVALID_PASSWORD_FORMAT 예외가 발생한다.")
+        @DisplayName("null이면, 예외가 발생한다.")
         @Test
-        void throwsInvalidPasswordFormatException_whenContainsKorean() {
-            // arrange
-            String value = "Pass한글1!";
-
-            // act & assert
-            assertThatThrownBy(() -> new Password(value, passwordEncoder))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT));
-        }
-
-        @DisplayName("공백이 포함되면, INVALID_PASSWORD_FORMAT 예외가 발생한다.")
-        @Test
-        void throwsInvalidPasswordFormatException_whenContainsSpace() {
-            // arrange
-            String value = "Pass 1!ab";
-
-            // act & assert
-            assertThatThrownBy(() -> new Password(value, passwordEncoder))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT));
+        void throwsException_whenValueIsNull() {
+            assertThatThrownBy(() -> new Password(null, passwordEncoder))
+                    .isInstanceOf(Exception.class);
         }
     }
 }

@@ -103,5 +103,18 @@ class UserTest {
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PASSWORD_REUSE_NOT_ALLOWED));
         }
+
+        @DisplayName("새 비밀번호에 생년월일이 포함되면, BIRTH_DATE_IN_PASSWORD_NOT_ALLOWED 예외가 발생한다.")
+        @Test
+        void throwsBirthDateInPasswordNotAllowedException_whenNewPasswordContainsBirthDate() {
+            // arrange
+            User user = createUser(passwordEncoder);
+            String newPasswordWithBirthDate = "Pass19900101!";
+
+            // act & assert
+            assertThatThrownBy(() -> user.updatePassword(DEFAULT_PASSWORD, newPasswordWithBirthDate, passwordEncoder))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BIRTH_DATE_IN_PASSWORD_NOT_ALLOWED));
+        }
     }
 }

@@ -2,12 +2,16 @@ package com.loopers.domain.user;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 class BirthDateTest {
 
@@ -24,6 +28,21 @@ class BirthDateTest {
             // act & assert
             assertThatCode(() -> new BirthDate(value))
                     .doesNotThrowAnyException();
+        }
+
+        @DisplayName("유효하지 않은 형식이면, INVALID_BIRTH_DATE_FORMAT 예외가 발생한다.")
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "20260115",
+                "2026-13-01",
+                "2026-02-29",
+                ""
+        })
+        void throwsInvalidBirthDateFormatException_whenFormatIsInvalid(String value) {
+            assertThatThrownBy(() -> new BirthDate(value))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
+                            .isEqualTo(ErrorType.INVALID_BIRTH_DATE_FORMAT));
         }
     }
 

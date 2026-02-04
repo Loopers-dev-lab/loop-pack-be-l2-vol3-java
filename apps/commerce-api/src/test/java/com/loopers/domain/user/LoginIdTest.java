@@ -7,6 +7,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -28,40 +30,48 @@ class LoginIdTest {
                     .doesNotThrowAnyException();
         }
 
-        @DisplayName("특수문자가 포함되면, INVALID_LOGIN_ID_FORMAT 예외가 발생한다.")
+        @DisplayName("단일 문자여도, 정상적으로 생성된다.")
         @Test
-        void throwsInvalidLoginIdFormatException_whenContainsSpecialCharacter() {
+        void createsLoginId_whenSingleCharacter() {
             // arrange
-            String value = "user@123";
+            String value = "a";
 
             // act & assert
-            assertThatThrownBy(() -> new LoginId(value))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT));
+            assertThatCode(() -> new LoginId(value))
+                    .doesNotThrowAnyException();
         }
 
-        @DisplayName("한글이 포함되면, INVALID_LOGIN_ID_FORMAT 예외가 발생한다.")
+        @DisplayName("숫자만으로 이루어져 있어도, 정상적으로 생성된다.")
         @Test
-        void throwsInvalidLoginIdFormatException_whenContainsKorean() {
+        void createsLoginId_whenOnlyDigits() {
             // arrange
-            String value = "user한글";
+            String value = "123456";
 
             // act & assert
-            assertThatThrownBy(() -> new LoginId(value))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT));
+            assertThatCode(() -> new LoginId(value))
+                    .doesNotThrowAnyException();
         }
 
-        @DisplayName("공백이 포함되면, INVALID_LOGIN_ID_FORMAT 예외가 발생한다.")
-        @Test
-        void throwsInvalidLoginIdFormatException_whenContainsSpace() {
-            // arrange
-            String value = "user 123";
-
-            // act & assert
-            assertThatThrownBy(() -> new LoginId(value))
+        @DisplayName("영문과 숫자 외의 문자가 포함되면, INVALID_LOGIN_ID_FORMAT 예외가 발생한다.")
+        @ParameterizedTest(name = "[{index}] {1}")
+        @CsvSource({
+                "user@123, 특수문자(@)",
+                "user한글, 한글",
+                "'user 123', 공백",
+                "'', 빈 문자열"
+        })
+        void throwsInvalidLoginIdFormatException_whenContainsInvalidCharacter(String loginId, String description) {
+            assertThatThrownBy(() -> new LoginId(loginId))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
+                            .isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT));
+        }
+
+        @DisplayName("null이면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenValueIsNull() {
+            assertThatThrownBy(() -> new LoginId(null))
+                    .isInstanceOf(Exception.class);
         }
     }
 }
