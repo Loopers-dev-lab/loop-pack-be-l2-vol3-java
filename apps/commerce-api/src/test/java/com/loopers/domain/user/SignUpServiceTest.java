@@ -9,18 +9,18 @@ import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class UserServiceTest {
+public class SignUpServiceTest {
     private InMemoryUserRepository userRepository;
     private PasswordEncoder passwordEncoder;
     private SignUpValidator signUpValidator;
-    private UserService userService;
+    private SignUpService signUpService;
 
     @BeforeEach
     void setUp() {
         userRepository = new InMemoryUserRepository();
         passwordEncoder = rawPassword -> "encoded_" + rawPassword;
         signUpValidator = new SignUpValidator(userRepository);
-        userService = new UserService(signUpValidator, passwordEncoder, userRepository);
+        signUpService = new SignUpService(signUpValidator, passwordEncoder, userRepository);
     }
 
     @Test
@@ -36,7 +36,7 @@ public class UserServiceTest {
         );
 
         // act
-        userService.signUp(command);
+        signUpService.signUp(command);
 
         // assert
         User savedUser = userRepository.findByLoginId("testUser123").orElse(null);

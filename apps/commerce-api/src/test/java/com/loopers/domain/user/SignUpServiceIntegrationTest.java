@@ -16,9 +16,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @ActiveProfiles("local")
-public class UserServiceIntegrationTest {
+public class SignUpServiceIntegrationTest {
     @Autowired
-    private UserService userService;
+    private SignUpService signUpService;
 
     @Autowired
     private UserJpaRepository userJpaRepository;
@@ -44,7 +44,7 @@ public class UserServiceIntegrationTest {
         );
 
         // act
-        userService.signUp(command);
+        signUpService.signUp(command);
 
         // assert
         User savedUser = userJpaRepository.findByLoginId("testUser123")

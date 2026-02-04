@@ -16,14 +16,14 @@ public class SignUpValidatorTest {
     private InMemoryUserRepository userRepository;
     private PasswordEncoder passwordEncoder;
     private SignUpValidator signUpValidator;
-    private UserService userService;
+    private SignUpService signUpService;
 
     @BeforeEach
     void setUp() {
         userRepository = new InMemoryUserRepository();
         passwordEncoder = rawPassword -> "encoded_" + rawPassword;
         signUpValidator = new SignUpValidator(userRepository);
-        userService = new UserService(signUpValidator, passwordEncoder, userRepository);
+        signUpService = new SignUpService(signUpValidator, passwordEncoder, userRepository);
     }
 
     @Test
@@ -37,7 +37,7 @@ public class SignUpValidatorTest {
                 LocalDate.of(1990, 1, 15),
                 "first@example.com"
         );
-        userService.signUp(firstCommand);
+        signUpService.signUp(firstCommand);
 
         SignUpCommand secondCommand = new SignUpCommand(
                 "duplicateId",

@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class UserService {
+public class SignUpService {
     private final SignUpValidator signUpValidator;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;

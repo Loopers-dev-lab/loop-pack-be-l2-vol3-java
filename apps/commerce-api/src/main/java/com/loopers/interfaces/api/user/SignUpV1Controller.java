@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.user;
 
 import com.loopers.application.user.SignUpCommand;
-import com.loopers.domain.user.UserService;
+import com.loopers.domain.user.SignUpService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.user.dto.CreateUserRequestV1;
 import jakarta.validation.Valid;
@@ -18,13 +18,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/users")
 public class SignUpV1Controller {
 
-    private final UserService userService;
+    private final SignUpService signUpService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Void> signUp(@Valid @RequestBody CreateUserRequestV1 request) {
         SignUpCommand command = SignUpCommand.from(request);
-        userService.signUp(command);
+        signUpService.signUp(command);
 
         return ApiResponse.success(null);
     }
