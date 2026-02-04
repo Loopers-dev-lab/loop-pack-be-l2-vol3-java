@@ -33,7 +33,14 @@ public class User extends BaseEntity {
     @Embedded
     private Email email;
 
-    public static User signUp(String loginId, String password, String name, String birthDate, String email, PasswordEncoder passwordEncoder) {
+    public static User signUp(
+            String loginId,
+            String password,
+            String name,
+            String birthDate,
+            String email,
+            PasswordEncoder passwordEncoder
+    ) {
         User user = new User();
 
         user.loginId = new LoginId(loginId);
