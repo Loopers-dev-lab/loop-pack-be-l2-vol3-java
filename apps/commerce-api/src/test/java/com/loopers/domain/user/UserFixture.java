@@ -4,13 +4,13 @@ import java.time.LocalDate;
 
 public class UserFixture {
     public static final String VALID_LOGIN_ID = "testUser123";
-    public static final String VALID_PASSWORD = "ValidPass1!";
-    public static final String VALID_NAME = "홍길동";
+    public static final String VALID_ENCODED_PASSWORD = "ValidEncodedPass1!";
+    public static final String VALID_NAME = "박코틀린";
     public static final LocalDate VALID_BIRTH_DATE = LocalDate.of(1990, 1, 15);
     public static final String VALID_EMAIL = "test@example.com";
 
     private String loginId = VALID_LOGIN_ID;
-    private String password = VALID_PASSWORD;
+    private String password = VALID_ENCODED_PASSWORD;
     private String name = VALID_NAME;
     private LocalDate birthDate = VALID_BIRTH_DATE;
     private String email = VALID_EMAIL;
