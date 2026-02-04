@@ -2,8 +2,11 @@ package com.loopers.infrastructure.member;
 
 import com.loopers.domain.member.Member;
 import com.loopers.domain.member.MemberRepository;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -34,5 +37,13 @@ public class MemberRepositoryImpl implements MemberRepository {
     public Optional<Member> findByLoginId(String loginId) {
         return memberJpaRepository.findByLoginId(loginId)
             .map(MemberEntity::toDomain);
+    }
+
+    @Override
+    @Transactional
+    public void updatePassword(String loginId, String encodedPassword) {
+        MemberEntity entity = memberJpaRepository.findByLoginId(loginId)
+            .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED));
+        entity.updatePassword(encodedPassword);
     }
 }
