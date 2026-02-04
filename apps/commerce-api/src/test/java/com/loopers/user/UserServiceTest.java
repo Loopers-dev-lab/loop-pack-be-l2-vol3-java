@@ -10,6 +10,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -42,4 +43,18 @@ public class UserServiceTest {
         assertThat(user.getLoginId()).isEqualTo(loginId);
         verify(userRepository).save(any(User.class));
     }
+
+    @Test
+    void 중복_가입된_ID_입력_시_예외_발생() {
+        //given
+        String loginId = "existingId";
+        given(userRepository.existsByLoginId(loginId)).willReturn(true);
+
+        //when
+        Throwable thrown = catchThrowable(() -> userService.signUp(loginId, "password123!", "김준영", "19900427", "test@test.com"));
+
+        //then
+        assertThat(thrown).isInstanceOf(IllegalArgumentException.class);
+    }
+
 }
