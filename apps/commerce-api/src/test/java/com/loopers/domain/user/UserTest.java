@@ -6,6 +6,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -60,23 +62,6 @@ public class UserTest {
 
             // assert
             assertThat(user.getName()).isEqualTo(name);
-        }
-
-        @DisplayName("name이 null이면 BAD_REQUEST 예외가 발생한다.")
-        @Test
-        void throwsBadRequestException_whenNameIsNull() {
-            // arrange
-            String name = null;
-
-            // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                UserFixture.builder()
-                           .name(name)
-                           .build();
-            });
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
         @DisplayName("name이 빈 문자열이면 BAD_REQUEST 예외가 발생한다.")
@@ -162,11 +147,11 @@ public class UserTest {
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
-        @DisplayName("birthDate가 YYYYMMDD 형식이면 정상적으로 생성된다.")
+        @DisplayName("birthDate가 유효한 LocalDate이면 정상적으로 생성된다.")
         @Test
         void createsUser_whenBirthDateIsValid() {
             // arrange
-            String birthDate = "19900115";
+            LocalDate birthDate = LocalDate.of(1990, 1, 15);
 
             // act
             User user = UserFixture.builder()
@@ -175,40 +160,6 @@ public class UserTest {
 
             // assert
             assertThat(user.getBirthDate()).isEqualTo(birthDate);
-        }
-
-        @DisplayName("birthDate가 8자리가 아니면 BAD_REQUEST 예외가 발생한다.")
-        @Test
-        void throwsBadRequestException_whenBirthDateIsNot8Digits() {
-            // arrange
-            String birthDate = "1990011";
-
-            // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                UserFixture.builder()
-                           .birthDate(birthDate)
-                           .build();
-            });
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
-        }
-
-        @DisplayName("birthDate에 숫자가 아닌 문자가 포함되면 BAD_REQUEST 예외가 발생한다.")
-        @Test
-        void throwsBadRequestException_whenBirthDateContainsNonDigit() {
-            // arrange
-            String birthDate = "1990-01-15";
-
-            // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                UserFixture.builder()
-                           .birthDate(birthDate)
-                           .build();
-            });
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
 }

@@ -7,6 +7,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.Getter;
 
+import java.time.LocalDate;
+
 @Getter
 @Entity
 @Table(name = "user")
@@ -15,26 +17,22 @@ public class User extends BaseEntity {
     private String loginId;
     private String password;
     private String name;
-    private String birthDate;
+    private LocalDate birthDate;
     private String email;
 
     protected User() {}
 
-    public User(String loginId, String password, String name, String birthDate, String email) {
-        if (loginId == null || !loginId.matches("^[a-zA-Z0-9]+$")) {
+    public User(String loginId, String password, String name, LocalDate birthDate, String email) {
+        if (!loginId.matches("^[a-zA-Z0-9]+$")) {
             throw new CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 영문/숫자만 가능합니다.");
         }
-        
-        if (name == null || !name.matches("^\\S+$")) {
+
+        if (!name.matches("^\\S+$")) {
             throw new CoreException(ErrorType.BAD_REQUEST, "이름은 빈 값이거나 공백을 포함할 수 없습니다.");
         }
 
-        if (email == null || !email.contains("@") || !email.contains(".")) {
+        if (!email.contains("@") || !email.contains(".")) {
             throw new CoreException(ErrorType.BAD_REQUEST, "이메일 형식이 올바르지 않습니다.");
-        }
-
-        if (birthDate == null || !birthDate.matches("^\\d{8}$")) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "생년월일은 YYYYMMDD 형식이어야 합니다.");
         }
 
         this.loginId = loginId;
