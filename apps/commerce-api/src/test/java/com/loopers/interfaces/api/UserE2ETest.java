@@ -1,8 +1,7 @@
 package com.loopers.interfaces.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.domain.user.UserRepository;
-import com.loopers.utils.DatabaseCleanUp; // 기존에 있던 DB 정리 유틸 활용
+import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -55,9 +54,11 @@ class UserE2ETest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestMap)))
                 .andDo(print()) // 테스트 실행 로그 출력
-                .andExpect(status().isOk()) // 200 OK 확인 (생성 시 201 Created일 수도 있음)
-                .andExpect(jsonPath("$.loginId").value("tester01"))
-                .andExpect(jsonPath("$.email").value("test@example.com"));
+                .andExpect(status().isOk()) // 200 OK 확인
+                .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.loginId").value("tester01"))
+                .andExpect(jsonPath("$.data.email").value("test@example.com"))
+                .andExpect(jsonPath("$.data.gender").value("MALE"));
     }
 
     @DisplayName("회원 가입 시에 성별이 없을 경우, 400 Bad Request 응답을 반환한다")

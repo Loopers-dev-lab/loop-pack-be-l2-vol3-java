@@ -39,7 +39,7 @@ class UserTest {
 
         // when (실행)
         // 그렇다면 실제 register 메서드가 있다고 치고?(상상?)
-        User user = User.register(loginId, password, name, birthDate, email, fakeEncryptor);
+        User user = User.register(loginId, password, name, birthDate, email, Gender.FEMALE, fakeEncryptor);
 
         // then (검증)
         // 첫번째 검증 user 객체가 null 이 아니여야 함
@@ -64,7 +64,7 @@ class UserTest {
     @ParameterizedTest
     @ValueSource(strings = {"김@윤선", "test!", "1234"})
     void createUserFailByInvalidName(String invalidName) {
-        assertThatThrownBy(() -> User.register("id", "Password1!", invalidName, LocalDate.now(), "a@b.com", fakeEncryptor))
+        assertThatThrownBy(() -> User.register("id", "Password1!", invalidName, LocalDate.now(), "a@b.com", Gender.MALE, fakeEncryptor))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("이름 형식이 올바르지 않습니다");
     }
@@ -77,7 +77,7 @@ class UserTest {
         String invalidPassword = "Password19971008!"; // 생년월일 포함
 
         // when & then
-        assertThatThrownBy(() -> User.register("validid", invalidPassword, "김윤선", birthDate, "valid@email.com", fakeEncryptor))
+        assertThatThrownBy(() -> User.register("validid", invalidPassword, "김윤선", birthDate, "valid@email.com", Gender.MALE, fakeEncryptor))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("생년월일은 비밀번호 내에 포함될 수 없습니다");
     }
@@ -86,7 +86,7 @@ class UserTest {
     @ParameterizedTest
     @ValueSource(strings = {"idWithSpecial!", "toolongideeeee", "한글아이디"}) // 특수문자, 길이초과, 한글
     void createUserFailByInvalidId(String invalidId) {
-        assertThatThrownBy(() -> User.register(invalidId, "Password1!", "김윤선", LocalDate.now(), "valid@email.com", fakeEncryptor))
+        assertThatThrownBy(() -> User.register(invalidId, "Password1!", "김윤선", LocalDate.now(), "valid@email.com", Gender.MALE, fakeEncryptor))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("ID 형식이 올바르지 않습니다");
     }
@@ -95,7 +95,7 @@ class UserTest {
     @ParameterizedTest
     @ValueSource(strings = {"invalid-email", "abc@def", "abc.def", "abc@.com"})
     void createUserFailByInvalidEmail(String invalidEmail) {
-        assertThatThrownBy(() -> User.register("validid", "Password1!", "김윤선", LocalDate.now(), invalidEmail, fakeEncryptor))
+        assertThatThrownBy(() -> User.register("validid", "Password1!", "김윤선", LocalDate.now(), invalidEmail, Gender.MALE, fakeEncryptor))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("이메일 형식이 올바르지 않습니다");
     }
@@ -110,7 +110,7 @@ class UserTest {
             "공백 포함pw1"                 // 공백 포함
     })
     void createUserFailByInvalidPasswordPattern(String invalidPassword) {
-        assertThatThrownBy(() -> User.register("validid", invalidPassword, "김윤선", LocalDate.now(), "valid@email.com", fakeEncryptor))
+        assertThatThrownBy(() -> User.register("validid", invalidPassword, "김윤선", LocalDate.now(), "valid@email.com", Gender.MALE, fakeEncryptor))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("비밀번호 형식이 올바르지 않습니다");
     }
@@ -120,7 +120,7 @@ class UserTest {
     void createUserFailByFutureBirthDate() {
         LocalDate futureBirthDate = LocalDate.now().plusDays(1);
 
-        assertThatThrownBy(() -> User.register("validid", "Password1!", "김윤선", futureBirthDate, "valid@email.com", fakeEncryptor))
+        assertThatThrownBy(() -> User.register("validid", "Password1!", "김윤선", futureBirthDate, "valid@email.com", Gender.MALE, fakeEncryptor))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("생년월일 형식이 올바르지 않습니다");
     }
@@ -130,9 +130,17 @@ class UserTest {
     void createUserFailByTooOldBirthDate() {
         LocalDate tooOldBirthDate = LocalDate.of(1899, 12, 31);
 
-        assertThatThrownBy(() -> User.register("validid", "Password1!", "김윤선", tooOldBirthDate, "valid@email.com", fakeEncryptor))
+        assertThatThrownBy(() -> User.register("validid", "Password1!", "김윤선", tooOldBirthDate, "valid@email.com", Gender.MALE, fakeEncryptor))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("생년월일 형식이 올바르지 않습니다");
+    }
+
+    @DisplayName("회원가입 실패: 성별이 null이면 예외 발생")
+    @Test
+    void createUserFailByNullGender() {
+        assertThatThrownBy(() -> User.register("validid", "Password1!", "김윤선", LocalDate.now(), "valid@email.com", null, fakeEncryptor))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("성별은 필수입니다");
     }
 
 }

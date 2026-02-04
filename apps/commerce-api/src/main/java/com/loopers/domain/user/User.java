@@ -35,25 +35,36 @@ public class User extends BaseEntity {
     @Column(name = "email", unique = true, nullable = false, length = 100)
     private String email;
 
+    @Column(name = "gender", nullable = false, length = 10)
+    private Gender gender;
+
     protected User() {}
 
-    private User(String loginId, String password, String name, LocalDate birthDate, String email) {
+    private User(String loginId, String password, String name, LocalDate birthDate, String email, Gender gender) {
         this.loginId = loginId;
         this.password = password;
         this.name = name;
         this.birthDate = birthDate;
         this.email = email;
+        this.gender = gender;
     }
 
-    public static User register(String loginId, String password, String name, LocalDate birthDate, String email, PasswordEncryptor encryptor) {
+    public static User register(String loginId, String password, String name, LocalDate birthDate, String email, Gender gender, PasswordEncryptor encryptor) {
         validateLoginId(loginId);
         validateName(name);
         validateBirthDate(birthDate);
         validatePassword(password, birthDate);
         validateEmail(email);
+        validateGender(gender);
 
         String encryptedPassword = encryptor.encode(password);
-        return new User(loginId, encryptedPassword, name, birthDate, email);
+        return new User(loginId, encryptedPassword, name, birthDate, email, gender);
+    }
+
+    private static void validateGender(Gender gender) {
+        if (gender == null) {
+            throw new IllegalArgumentException("성별은 필수입니다");
+        }
     }
 
     private static void validateBirthDate(LocalDate birthDate) {

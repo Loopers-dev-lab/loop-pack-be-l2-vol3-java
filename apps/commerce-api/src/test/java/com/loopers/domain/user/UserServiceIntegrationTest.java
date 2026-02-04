@@ -52,9 +52,10 @@ class UserServiceIntegrationTest {
             String name = "김윤선";
             LocalDate birthDate = LocalDate.of(1997, 10, 8);
             String email = "test@example.com";
+            Gender gender = Gender.FEMALE;
 
             // when
-            User savedUser = userService.register(loginId, password, name, birthDate, email);
+            User savedUser = userService.register(loginId, password, name, birthDate, email, gender);
 
             // then
             verify(userRepositorySpy, times(1)).save(any(User.class));
@@ -70,11 +71,11 @@ class UserServiceIntegrationTest {
         void fail_whenDuplicateLoginId() {
             // given - 먼저 사용자 등록 (서비스 통해 정상 가입)
             String duplicateId = "duplicate";
-            userService.register(duplicateId, "password1", "기존유저", LocalDate.of(1990, 1, 1), "existing@example.com");
+            userService.register(duplicateId, "password1", "기존유저", LocalDate.of(1990, 1, 1), "existing@example.com", Gender.MALE);
 
             // when & then - 같은 ID로 다시 가입 시도
             assertThatThrownBy(() -> {
-                userService.register(duplicateId, "newpass12", "새유저", LocalDate.of(1995, 5, 5), "new@example.com");
+                userService.register(duplicateId, "newpass12", "새유저", LocalDate.of(1995, 5, 5), "new@example.com", Gender.FEMALE);
             })
                 .isInstanceOf(CoreException.class)
                 .satisfies(e -> {
