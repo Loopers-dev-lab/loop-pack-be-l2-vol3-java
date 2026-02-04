@@ -12,6 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.SpyBean;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -83,6 +84,44 @@ class UserServiceIntegrationTest {
                     assertThat(ce.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
                     assertThat(ce.getMessage()).contains("이미 가입된 ID입니다");
                 });
+        }
+    }
+
+    @DisplayName("내 정보 조회 할 때")
+    @Nested
+    class GetUserInfo {
+
+        @DisplayName("해당 ID의 회원이 존재할 경우, 회원 정보가 반환된다")
+        @Test
+        void getUserInfo_success() {
+            // given - 회원 등록
+            String loginId = "testuser";
+            String password = "password1";
+            String name = "김윤선";
+            LocalDate birthDate = LocalDate.of(1997, 10, 8);
+            String email = "test@example.com";
+            Gender gender = Gender.FEMALE;
+
+            User savedUser = userService.register(loginId, password, name, birthDate, email, gender);
+
+            // when - 조회
+            Optional<User> result = userService.getUserInfo(savedUser.getId());
+
+            // then - 존재 확인
+            assertThat(result).isPresent();
+            assertThat(result.get().getLoginId()).isEqualTo(loginId);
+            assertThat(result.get().getName()).isEqualTo(name);
+            assertThat(result.get().getEmail()).isEqualTo(email);
+        }
+
+        @DisplayName("해당 ID의 회원이 존재하지 않을 경우, Optional.empty()가 반환된다")
+        @Test
+        void getUserInfo_notFound() {
+            // when - 존재하지 않는 ID로 조회
+            Optional<User> result = userService.getUserInfo(999999L);
+
+            // then - empty 확인
+            assertThat(result).isEmpty();
         }
     }
 }

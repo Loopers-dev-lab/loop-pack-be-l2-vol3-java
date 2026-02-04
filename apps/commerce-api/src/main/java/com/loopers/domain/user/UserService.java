@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 @Component
@@ -26,5 +27,10 @@ public class UserService {
         // User 생성 및 저장
         User user = User.register(loginId, password, name, birthDate, email, gender, passwordEncryptor);
         return userRepository.save(user);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<User> getUserInfo(Long id) {
+        return userRepository.findById(id);
     }
 }

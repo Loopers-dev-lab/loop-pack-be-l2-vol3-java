@@ -11,12 +11,6 @@ import java.time.LocalDate;
 public class UserV1Dto {
 
     public record RegisterRequest(
-        @NotBlank(message = "로그인 ID는 필수입니다")
-        String loginId,
-
-        @NotBlank(message = "비밀번호는 필수입니다")
-        String password,
-
         @NotBlank(message = "이름은 필수입니다")
         String name,
 
@@ -42,6 +36,26 @@ public class UserV1Dto {
     ) {
         public static RegisterResponse from(User user) {
             return new RegisterResponse(
+                user.getId(),
+                user.getLoginId(),
+                user.getName(),
+                user.getBirthDate(),
+                user.getEmail(),
+                user.getGender()
+            );
+        }
+    }
+
+    public record UserInfoResponse(
+        Long id,
+        String loginId,
+        String name,
+        LocalDate birthDate,
+        String email,
+        Gender gender
+    ) {
+        public static UserInfoResponse from(User user) {
+            return new UserInfoResponse(
                 user.getId(),
                 user.getLoginId(),
                 user.getName(),
