@@ -67,4 +67,45 @@ class UserServiceIntegrationTest {
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.CONFLICT);
         }
     }
+
+    @DisplayName("내 정보 조회 시,")
+    @Nested
+    class GetMyInfo {
+
+        @Test
+        void 정상_인증이면_UserInfo를_반환한다() {
+            // Arrange
+            userService.signup("loopers123", "loopers123!@", "루퍼스", LocalDate.of(1996, 11, 22), "test@loopers.im");
+
+            // Act
+            UserInfo result = userService.getMyInfo("loopers123", "loopers123!@");
+
+            // Assert
+            assertThat(result.loginId()).isEqualTo("loopers123");
+            assertThat(result.maskedName()).isEqualTo("루퍼*");
+            assertThat(result.birthDate()).isEqualTo(LocalDate.of(1996, 11, 22));
+            assertThat(result.email()).isEqualTo("test@loopers.im");
+        }
+
+        @Test
+        void 존재하지_않는_loginId면_NOT_FOUND를_던진다() {
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                userService.getMyInfo("nonexist12", "loopers123!@");
+            });
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+        }
+
+        @Test
+        void 비밀번호가_불일치하면_UNAUTHORIZED를_던진다() {
+            // Arrange
+            userService.signup("loopers123", "loopers123!@", "루퍼스", LocalDate.of(1996, 11, 22), "test@loopers.im");
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                userService.getMyInfo("loopers123", "wrongPass123!");
+            });
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+    }
 }
