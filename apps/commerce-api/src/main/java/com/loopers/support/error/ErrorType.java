@@ -13,7 +13,8 @@ public enum ErrorType {
     NOT_FOUND(HttpStatus.NOT_FOUND, HttpStatus.NOT_FOUND.getReasonPhrase(), "존재하지 않는 요청입니다."),
     CONFLICT(HttpStatus.CONFLICT, HttpStatus.CONFLICT.getReasonPhrase(), "이미 존재하는 리소스입니다."),
 
-    NOT_INCLUDE_BIRTH_IN_PASSWORD(HttpStatus.BAD_REQUEST, HttpStatus.BAD_REQUEST.getReasonPhrase(), "비밀번호에 생년월일을 포함할 수 없습니다.")
+    NOT_INCLUDE_BIRTH_IN_PASSWORD(HttpStatus.BAD_REQUEST, HttpStatus.BAD_REQUEST.getReasonPhrase(), "비밀번호에 생년월일을 포함할 수 없습니다."),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, HttpStatus.UNAUTHORIZED.getReasonPhrase(), "인증이 필요합니다.")
     ;
 
     private final HttpStatus status;
