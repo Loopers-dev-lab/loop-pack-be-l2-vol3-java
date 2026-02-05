@@ -38,7 +38,7 @@ class UserApiE2ETest {
     class Signup {
 
         @Test
-        void 정상_요청이면_200_OK와_loginId를_반환한다() {
+        void 정상_요청이면_201_CREATED와_loginId를_반환한다() {
             // Arrange
             UserDto.SignupRequest request = new UserDto.SignupRequest(
                     "loopers123", "loopers123!@", "루퍼스",
@@ -53,7 +53,7 @@ class UserApiE2ETest {
 
             // Assert
             assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED),
                     () -> assertThat(response.getBody().meta().result()).isEqualTo(ApiResponse.Metadata.Result.SUCCESS),
                     () -> assertThat(response.getBody().data().loginId()).isEqualTo("loopers123")
             );

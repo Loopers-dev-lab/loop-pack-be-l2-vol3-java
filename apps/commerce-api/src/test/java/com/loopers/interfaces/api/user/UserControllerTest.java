@@ -39,7 +39,7 @@ class UserControllerTest {
     class Signup {
 
         @Test
-        void 성공하면_200_OK() throws Exception {
+        void 성공하면_201_CREATED() throws Exception {
             // given
             UserDto.SignupRequest request = new UserDto.SignupRequest(
                     "looper123",
@@ -58,7 +58,7 @@ class UserControllerTest {
             mockMvc.perform(post("/api/users")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(content))
-                    .andExpect(status().isOk())
+                    .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.data.loginId").value("looper123"));
        }
     }

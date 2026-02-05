@@ -5,6 +5,7 @@ import com.loopers.domain.user.UserService;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import com.loopers.domain.user.UserInfo;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -14,6 +15,7 @@ public class UserController implements UserApiSpec {
 
     private final UserService userService;
 
+    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     @Override
     public ApiResponse<UserDto.SignupResponse> signup(@RequestBody UserDto.SignupRequest signRequest) {
