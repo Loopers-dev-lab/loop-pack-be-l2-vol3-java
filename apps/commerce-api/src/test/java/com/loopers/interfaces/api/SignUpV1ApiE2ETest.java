@@ -49,7 +49,7 @@ class SignUpV1ApiE2ETest {
     @DisplayName("POST /api/v1/users (회원가입)")
     @Nested
     class SignUp {
-        @DisplayName("유효한 회원가입 요청이면, 201 Created 응답을 받는다.")
+        @DisplayName("유효한 회원가입 요청이면, 201 Created 응답을 반환한다.")
         @Test
         void returnsCreated_whenValidRequest() {
             // arrange
@@ -73,7 +73,7 @@ class SignUpV1ApiE2ETest {
             );
         }
 
-        @DisplayName("loginId가 누락되면, 400 Bad Request 응답을 받는다.")
+        @DisplayName("loginId가 누락되면, 400 Bad Request 응답을 반환한다.")
         @Test
         void returnsBadRequest_whenLoginIdIsMissing() {
             // arrange
@@ -93,7 +93,7 @@ class SignUpV1ApiE2ETest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
 
-        @DisplayName("이미 존재하는 loginId로 요청하면, 409 Conflict 응답을 받는다.")
+        @DisplayName("이미 존재하는 loginId로 요청하면, 409 Conflict 응답을 반환한다.")
         @Test
         void returnsConflict_whenLoginIdAlreadyExists() {
             // arrange

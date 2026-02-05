@@ -15,7 +15,6 @@ import java.time.LocalDate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@ActiveProfiles("local")
 public class SignUpServiceIntegrationTest {
     @Autowired
     private SignUpService signUpService;
