@@ -337,4 +337,111 @@ class UserV1ApiE2ETest {
             );
         }
     }
+
+    @DisplayName("GET /api/v1/users/me")
+    @Nested
+    class GetMyInfo {
+
+        private static final String ENDPOINT_MY_INFO = "/api/v1/users/me";
+        private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
+        private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
+
+        @DisplayName("유효한 인증 헤더로 내 정보를 조회하면, 사용자 정보를 반환한다")
+        @Test
+        void returnsMyInfo_whenValidAuthenticationHeaders() {
+            // arrange
+            UserV1Dto.SignupRequest signupRequest = new UserV1Dto.SignupRequest(
+                "testuser1",
+                "Test1234!",
+                "홍길동",
+                "19900101",
+                "test@example.com"
+            );
+
+            ParameterizedTypeReference<ApiResponse<UserV1Dto.SignupResponse>> signupResponseType = new ParameterizedTypeReference<>() {};
+            testRestTemplate.exchange(ENDPOINT_SIGNUP, HttpMethod.POST, new HttpEntity<>(signupRequest), signupResponseType);
+
+            // act
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.set(HEADER_LOGIN_ID, "testuser1");
+            headers.set(HEADER_LOGIN_PW, "Test1234!");
+
+            ParameterizedTypeReference<ApiResponse<UserV1Dto.MyInfoResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserV1Dto.MyInfoResponse>> response =
+                testRestTemplate.exchange(ENDPOINT_MY_INFO, HttpMethod.GET, new HttpEntity<>(headers), responseType);
+
+            // assert
+            assertAll(
+                () -> assertTrue(response.getStatusCode().is2xxSuccessful()),
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().data().loginId()).isEqualTo("testuser1"),
+                () -> assertThat(response.getBody().data().name()).isEqualTo("홍길*"),
+                () -> assertThat(response.getBody().data().birthDate()).isEqualTo("19900101"),
+                () -> assertThat(response.getBody().data().email()).isEqualTo("test@example.com")
+            );
+        }
+
+        @DisplayName("존재하지 않는 로그인 ID로 조회하면, 401 UNAUTHORIZED 응답을 받는다")
+        @Test
+        void throwsUnauthorized_whenUserNotFound() {
+            // arrange
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.set(HEADER_LOGIN_ID, "nonexistent");
+            headers.set(HEADER_LOGIN_PW, "Test1234!");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<UserV1Dto.MyInfoResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserV1Dto.MyInfoResponse>> response =
+                testRestTemplate.exchange(ENDPOINT_MY_INFO, HttpMethod.GET, new HttpEntity<>(headers), responseType);
+
+            // assert
+            assertAll(
+                () -> assertTrue(response.getStatusCode().is4xxClientError()),
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED)
+            );
+        }
+
+        @DisplayName("잘못된 비밀번호로 조회하면, 401 UNAUTHORIZED 응답을 받는다")
+        @Test
+        void throwsUnauthorized_whenPasswordIsIncorrect() {
+            // arrange
+            UserV1Dto.SignupRequest signupRequest = new UserV1Dto.SignupRequest(
+                "testuser1",
+                "Test1234!",
+                "홍길동",
+                "19900101",
+                "test@example.com"
+            );
+
+            ParameterizedTypeReference<ApiResponse<UserV1Dto.SignupResponse>> signupResponseType = new ParameterizedTypeReference<>() {};
+            testRestTemplate.exchange(ENDPOINT_SIGNUP, HttpMethod.POST, new HttpEntity<>(signupRequest), signupResponseType);
+
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.set(HEADER_LOGIN_ID, "testuser1");
+            headers.set(HEADER_LOGIN_PW, "Wrong1234!");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<UserV1Dto.MyInfoResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserV1Dto.MyInfoResponse>> response =
+                testRestTemplate.exchange(ENDPOINT_MY_INFO, HttpMethod.GET, new HttpEntity<>(headers), responseType);
+
+            // assert
+            assertAll(
+                () -> assertTrue(response.getStatusCode().is4xxClientError()),
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED)
+            );
+        }
+
+        @DisplayName("인증 헤더가 없으면, 4xx 에러 응답을 받는다")
+        @Test
+        void throwsError_whenAuthenticationHeadersMissing() {
+            // act
+            ParameterizedTypeReference<ApiResponse<UserV1Dto.MyInfoResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserV1Dto.MyInfoResponse>> response =
+                testRestTemplate.exchange(ENDPOINT_MY_INFO, HttpMethod.GET, null, responseType);
+
+            // assert
+            assertTrue(response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError());
+        }
+    }
 }

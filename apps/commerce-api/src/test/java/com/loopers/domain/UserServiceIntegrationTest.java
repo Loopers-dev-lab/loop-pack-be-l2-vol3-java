@@ -1,9 +1,12 @@
 package com.loopers.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import com.loopers.infrastructure.UserJpaRepository;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
 import java.time.LocalDate;
 import org.junit.jupiter.api.AfterEach;
@@ -64,5 +67,41 @@ public class UserServiceIntegrationTest {
                         () -> assertThat(result.getEmail()).isEqualTo(validEmail)
                 );
             }
+    }
+
+    @DisplayName("유저가 내 정보를 조회할 때")
+    @Nested
+    class GetMyInfo {
+        @DisplayName("로그인 ID로 내 정보를 조회한다")
+        @Test
+        void getMyInfo_whenValidLoginId() {
+            // arrange
+            userService.signup(validLoginId, validPassword, validName, validBirthDate, validEmail);
+
+            // act
+            UserModel result = userService.getMyInfo(validLoginId);
+
+            // assert
+            assertAll(
+                () -> assertThat(result).isNotNull(),
+                () -> assertThat(result.getLoginId()).isEqualTo(validLoginId),
+                () -> assertThat(result.getName()).isEqualTo(validName),
+                () -> assertThat(result.getBirthDate()).isEqualTo(validBirthDate),
+                () -> assertThat(result.getEmail()).isEqualTo(validEmail)
+            );
+        }
+
+        @DisplayName("존재하지 않는 로그인 ID로 조회하면 예외가 발생한다")
+        @Test
+        void getMyInfo_whenInvalidLoginId() {
+            // arrange
+            LoginId invalidLoginId = new LoginId("invalid123");
+
+            // act & assert
+            assertThatThrownBy(() -> userService.getMyInfo(invalidLoginId))
+                .isInstanceOf(CoreException.class)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.NOT_FOUND)
+                .hasMessageContaining("사용자를 찾을 수 없습니다.");
+        }
     }
 }
