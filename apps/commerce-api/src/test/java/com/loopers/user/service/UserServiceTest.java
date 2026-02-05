@@ -34,6 +34,7 @@ public class UserServiceTest {
                 "testId", "password123!", "김준영", "1990-04-27", "test@test.com"
         );
 
+        given(passwordEncoder.encode(request.password())).willReturn("encodedPassword");
         given(userRepository.save(any(User.class)))
                 .willAnswer(invocation -> invocation.getArgument(0));
 

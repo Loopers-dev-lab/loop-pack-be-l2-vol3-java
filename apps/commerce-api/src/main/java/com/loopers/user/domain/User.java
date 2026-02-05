@@ -2,6 +2,7 @@ package com.loopers.user.domain;
 
 import com.loopers.domain.BaseEntity;
 import jakarta.persistence.*;
+import org.springframework.util.Assert;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -30,11 +31,21 @@ public class User extends BaseEntity {
 
     @Builder
     public User(String loginId, String password, String name, String birthDate, String email) {
+        validateRequired(loginId, password, name, birthDate, email);
+
         this.loginId = loginId;
         this.password = password;
         this.name = name;
         this.birthDate = birthDate;
         this.email = email;
+    }
+
+    private void validateRequired(String loginId, String password, String name, String birthDate, String email) {
+        Assert.hasText(loginId, "loginId는 필수입니다");
+        Assert.hasText(password, "password는 필수입니다");
+        Assert.hasText(name, "name은 필수입니다");
+        Assert.hasText(birthDate, "birthDate는 필수입니다");
+        Assert.hasText(email, "email은 필수입니다");
     }
 }
 
