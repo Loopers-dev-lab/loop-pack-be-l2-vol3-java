@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,5 +29,15 @@ public class MemberV1Controller {
     public ApiResponse<MemberV1Dto.MeResponse> me(HttpServletRequest request) {
         Member member = (Member) request.getAttribute("authenticatedMember");
         return ApiResponse.success(MemberV1Dto.MeResponse.from(member));
+    }
+
+    @PutMapping("/me/password")
+    public ApiResponse<Object> changePassword(
+            HttpServletRequest request,
+            @RequestBody MemberV1Dto.ChangePasswordRequest body
+    ) {
+        Member member = (Member) request.getAttribute("authenticatedMember");
+        memberService.changePassword(member, body.currentPassword(), body.newPassword());
+        return ApiResponse.success();
     }
 }

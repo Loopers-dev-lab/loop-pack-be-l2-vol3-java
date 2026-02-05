@@ -33,6 +33,7 @@ class MemberV1ApiE2ETest {
 
     private static final String SIGNUP_ENDPOINT = "/api/v1/members/signup";
     private static final String ME_ENDPOINT = "/api/v1/members/me";
+    private static final String CHANGE_PASSWORD_ENDPOINT = "/api/v1/members/me/password";
 
     private final TestRestTemplate testRestTemplate;
     private final MemberRepository memberRepository;
@@ -258,6 +259,123 @@ class MemberV1ApiE2ETest {
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().name()).isEqualTo("*")
             );
+        }
+    }
+
+    @DisplayName("PUT /api/v1/members/me/password")
+    @Nested
+    class ChangePassword {
+
+        private Member createMember(String memberId, String rawPassword) {
+            String encodedPassword = passwordEncoder.encode(rawPassword);
+            Member member = new Member(
+                    new MemberId(memberId),
+                    Password.ofEncoded(encodedPassword),
+                    new Name("홍길동"),
+                    new Email(memberId + "@test.com"),
+                    new BirthDate("1997-01-01")
+            );
+            return memberRepository.save(member);
+        }
+
+        @DisplayName("현재 비밀번호가 일치하면 비밀번호 변경에 성공한다.")
+        @Test
+        void change_password_success() {
+            // arrange
+            String currentPassword = "Password1!";
+            String newPassword = "NewPass456!";
+            createMember("testuser", currentPassword);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("X-Loopers-LoginId", "testuser");
+            headers.set("X-Loopers-LoginPw", currentPassword);
+
+            MemberV1Dto.ChangePasswordRequest request =
+                    new MemberV1Dto.ChangePasswordRequest(currentPassword, newPassword);
+            HttpEntity<MemberV1Dto.ChangePasswordRequest> httpEntity = new HttpEntity<>(request, headers);
+
+            // act
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    CHANGE_PASSWORD_ENDPOINT, HttpMethod.PUT, httpEntity,
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @DisplayName("현재 비밀번호가 틀리면 400 BAD_REQUEST 응답을 받는다.")
+        @Test
+        void change_password_fail_wrong_current() {
+            // arrange
+            String currentPassword = "Password1!";
+            createMember("testuser", currentPassword);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("X-Loopers-LoginId", "testuser");
+            headers.set("X-Loopers-LoginPw", currentPassword);
+
+            MemberV1Dto.ChangePasswordRequest request =
+                    new MemberV1Dto.ChangePasswordRequest("WrongPass1!", "NewPass456!");
+            HttpEntity<MemberV1Dto.ChangePasswordRequest> httpEntity = new HttpEntity<>(request, headers);
+
+            // act
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    CHANGE_PASSWORD_ENDPOINT, HttpMethod.PUT, httpEntity,
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("새 비밀번호가 기존과 동일하면 400 BAD_REQUEST 응답을 받는다.")
+        @Test
+        void change_password_fail_same_password() {
+            // arrange
+            String currentPassword = "Password1!";
+            createMember("testuser", currentPassword);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("X-Loopers-LoginId", "testuser");
+            headers.set("X-Loopers-LoginPw", currentPassword);
+
+            MemberV1Dto.ChangePasswordRequest request =
+                    new MemberV1Dto.ChangePasswordRequest(currentPassword, currentPassword);
+            HttpEntity<MemberV1Dto.ChangePasswordRequest> httpEntity = new HttpEntity<>(request, headers);
+
+            // act
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    CHANGE_PASSWORD_ENDPOINT, HttpMethod.PUT, httpEntity,
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("인증 없이 비밀번호 변경을 시도하면 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        void change_password_fail_unauthorized() {
+            // arrange
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            MemberV1Dto.ChangePasswordRequest request =
+                    new MemberV1Dto.ChangePasswordRequest("Password1!", "NewPass456!");
+            HttpEntity<MemberV1Dto.ChangePasswordRequest> httpEntity = new HttpEntity<>(request, headers);
+
+            // act
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    CHANGE_PASSWORD_ENDPOINT, HttpMethod.PUT, httpEntity,
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
     }
 }

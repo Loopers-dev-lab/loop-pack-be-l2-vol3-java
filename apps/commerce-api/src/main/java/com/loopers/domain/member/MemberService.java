@@ -41,6 +41,11 @@ public class MemberService {
         return memberRepository.save(member);
     }
 
+    @Transactional
+    public void changePassword(Member member, String currentPassword, String newPassword) {
+        member.updatePassword(currentPassword, newPassword, passwordEncoder);
+    }
+
     public record SignupCommand(
             String memberId,
             String password,
