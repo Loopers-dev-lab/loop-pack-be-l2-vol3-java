@@ -1,0 +1,116 @@
+package com.loopers.domain.user;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+class PasswordTest {
+
+    @DisplayName("비밀번호를 생성할 때, ")
+    @Nested
+    class Create {
+
+        @DisplayName("8자 미만이면, IllegalArgumentException이 발생한다.")
+        @Test
+        void create_withLessThan8Characters_shouldFail() {
+            // given
+            String shortPassword = "Pass12!";
+            BirthDate birthDate = new BirthDate("1990-01-15");
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                Password.of(shortPassword, birthDate);
+            });
+        }
+
+        @DisplayName("16자를 초과하면, IllegalArgumentException이 발생한다.")
+        @Test
+        void create_withMoreThan16Characters_shouldFail() {
+            // given
+            String longPassword = "Pass1234567890123!";
+            BirthDate birthDate = new BirthDate("1990-01-15");
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                Password.of(longPassword, birthDate);
+            });
+        }
+
+        @DisplayName("생년월일(yyyyMMdd)이 포함되면, IllegalArgumentException이 발생한다.")
+        @Test
+        void create_withBirthDateYyyyMMdd_shouldFail() {
+            // given
+            String password = "Pass19900115!";
+            BirthDate birthDate = new BirthDate("1990-01-15");
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                Password.of(password, birthDate);
+            });
+        }
+
+        @DisplayName("생년월일(yyMMdd)이 포함되면, IllegalArgumentException이 발생한다.")
+        @Test
+        void create_withBirthDateYyMMdd_shouldFail() {
+            // given
+            String password = "Pass900115!";
+            BirthDate birthDate = new BirthDate("1990-01-15");
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                Password.of(password, birthDate);
+            });
+        }
+
+        @DisplayName("생년월일(yyyy-MM-dd)이 포함되면, IllegalArgumentException이 발생한다.")
+        @Test
+        void create_withBirthDateWithHyphen_shouldFail() {
+            // given
+            String password = "Pass1990-01-15!";
+            BirthDate birthDate = new BirthDate("1990-01-15");
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                Password.of(password, birthDate);
+            });
+        }
+
+        @DisplayName("8-16자이고 생년월일이 포함되지 않으면, 정상적으로 생성된다.")
+        @Test
+        void create_withValidPasswordWithoutBirthDate_shouldSuccess() {
+            // given
+            String validPassword = "SecurePass1!";
+            BirthDate birthDate = new BirthDate("1990-01-15");
+
+            // when
+            Password password = Password.of(validPassword, birthDate);
+
+            // then
+            assertThat(password).isNotNull();
+        }
+    }
+
+    @DisplayName("비밀번호를 암호화할 때, ")
+    @Nested
+    class Encrypt {
+
+        @DisplayName("암호화된 값이 원본과 달라야 한다.")
+        @Test
+        void encrypt_shouldReturnDifferentValue() {
+            // given
+            String rawPassword = "SecurePass1!";
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            Password password = Password.of(rawPassword, birthDate);
+
+            // when
+            String encrypted = password.encrypt();
+
+            // then
+            assertThat(encrypted).isNotEqualTo(rawPassword);
+            assertThat(encrypted).isNotBlank();
+        }
+    }
+}
