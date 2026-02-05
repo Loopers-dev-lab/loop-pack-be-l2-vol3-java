@@ -8,11 +8,16 @@ import static org.mockito.Mockito.verify;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -75,6 +80,32 @@ class AuthInterceptorTest {
             assertThatThrownBy(() -> authInterceptor.preHandle(request, response, new Object()))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED));
+        }
+
+        @DisplayName("인증 헤더가 누락되거나 빈 문자열이면, UNAUTHORIZED 예외가 발생한다.")
+        @ParameterizedTest(name = "{2}")
+        @MethodSource("invalidHeaderCases")
+        void throwsUnauthorizedException_whenHeaderIsMissingOrEmpty(String loginId, String loginPw, String description) {
+            // arrange
+            given(request.getHeader(HEADER_LOGIN_ID)).willReturn(loginId);
+            given(request.getHeader(HEADER_LOGIN_PW)).willReturn(loginPw);
+            given(userService.login(loginId, loginPw))
+                    .willThrow(new CoreException(ErrorType.UNAUTHORIZED));
+
+            // act & assert
+            assertThatThrownBy(() -> authInterceptor.preHandle(request, response, new Object()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED));
+        }
+
+        static Stream<Arguments> invalidHeaderCases() {
+            return Stream.of(
+                    Arguments.of(null, "Password1!", "LoginId 헤더 누락"),
+                    Arguments.of("testuser", null, "LoginPw 헤더 누락"),
+                    Arguments.of(null, null, "두 헤더 모두 누락"),
+                    Arguments.of("", "Password1!", "LoginId 빈 문자열"),
+                    Arguments.of("testuser", "", "LoginPw 빈 문자열")
+            );
         }
     }
 }

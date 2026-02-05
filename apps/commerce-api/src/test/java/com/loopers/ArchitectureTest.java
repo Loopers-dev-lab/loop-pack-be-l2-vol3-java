@@ -3,8 +3,6 @@ package com.loopers;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
-import org.junit.jupiter.api.DisplayName;
-
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
@@ -42,7 +40,7 @@ class ArchitectureTest {
     }
 
     /**
-     * application 패키지는 application, interface 패키지에만 존재해야 한다.
+     * application 패키지를 의존하는 클래스는 application, interfaces 패키지에만 존재해야 한다.
      */
     @ArchTest
     void application(JavaClasses classes) {
