@@ -1,5 +1,5 @@
 ### 회원가입
-POST {{commerce-api}}/api/users
+POST {{commerce-api}}/api/v1/users
 Content-Type: application/json
 
 {
@@ -11,12 +11,12 @@ Content-Type: application/json
 }
 
 ### 내 정보 조회
-GET {{commerce-api}}/api/users/me
+GET {{commerce-api}}/api/v1/users/me
 X-Loopers-LoginId: testuser
 X-Loopers-LoginPw: Test1234!
 
 ### 비밀번호 변경
-PATCH {{commerce-api}}/api/users/me/password
+PATCH {{commerce-api}}/api/v1/users/me/password
 Content-Type: application/json
 X-Loopers-LoginId: testuser
 X-Loopers-LoginPw: Test1234!

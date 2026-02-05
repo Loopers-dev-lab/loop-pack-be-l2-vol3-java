@@ -26,9 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class UserApiE2ETest {
 
-    private static final String SIGNUP_ENDPOINT = "/api/users";
-    private static final String MY_INFO_ENDPOINT = "/api/users/me";
-    private static final String CHANGE_PASSWORD_ENDPOINT = "/api/users/me/password";
+    private static final String SIGNUP_ENDPOINT = "/api/v1/users";
+    private static final String MY_INFO_ENDPOINT = "/api/v1/users/me";
+    private static final String CHANGE_PASSWORD_ENDPOINT = "/api/v1/users/me/password";
 
     @Autowired
     private TestRestTemplate testRestTemplate;

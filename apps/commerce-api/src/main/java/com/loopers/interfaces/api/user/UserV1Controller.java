@@ -6,6 +6,7 @@ import com.loopers.interfaces.api.ApiHeaders;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -16,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 public class UserV1Controller implements UserApiV1Spec {
 
@@ -24,7 +25,7 @@ public class UserV1Controller implements UserApiV1Spec {
 
     @PostMapping
     @Override
-    public ApiResponse<UserV1Dto.UserResponse> signUp(@RequestBody UserV1Dto.SignUpRequest request) {
+    public ApiResponse<UserV1Dto.UserResponse> signUp(@Valid @RequestBody UserV1Dto.SignUpRequest request) {
         UserInfo info = userFacade.signUp(
                 request.loginId(),
                 request.password(),
@@ -51,7 +52,7 @@ public class UserV1Controller implements UserApiV1Spec {
     public ApiResponse<Object> changePassword(
             @RequestHeader(value = ApiHeaders.LOGIN_ID, required = false) String loginId,
             @RequestHeader(value = ApiHeaders.LOGIN_PW, required = false) String password,
-            @RequestBody UserV1Dto.ChangePasswordRequest request
+            @Valid @RequestBody UserV1Dto.ChangePasswordRequest request
     ) {
         validateAuthHeaders(loginId, password);
         userFacade.changePassword(loginId, password, request.newPassword());
