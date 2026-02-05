@@ -1,6 +1,7 @@
 package com.loopers.user.service;
 
 import com.loopers.user.domain.User;
+import com.loopers.user.dto.CreateUserRequest;
 import com.loopers.user.repository.UserRepository;
 import com.loopers.user.validator.PasswordValidator;
 import lombok.RequiredArgsConstructor;
@@ -16,19 +17,25 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public User createUser(String loginId, String password, String name, String birthDate, String email) {
+    public User createUser(CreateUserRequest request) {
 
-        if(userRepository.existsByLoginId(loginId)){
+        if(userRepository.existsByLoginId(request.loginId())){
             throw new IllegalArgumentException("이미 가입된 ID 입니다.");
         }
 
         //비밀번호 검증
-        PasswordValidator.validate(password, birthDate);
+        PasswordValidator.validate(request.password(), request.birthDate());
 
         //비밀번호 암호화
-        String encodedPassword = passwordEncoder.encode(password);
+        String encodedPassword = passwordEncoder.encode(request.password());
 
-        User user = new User(loginId, encodedPassword, name, birthDate, email);
+        User user = new User(
+                request.loginId(),
+                encodedPassword,
+                request.name(),
+                request.birthDate(),
+                request.email()
+        );
 
         return userRepository.save(user);
     }

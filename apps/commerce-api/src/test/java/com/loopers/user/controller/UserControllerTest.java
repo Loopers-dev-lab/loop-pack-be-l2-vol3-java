@@ -17,7 +17,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import java.util.stream.Stream;
 
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -48,7 +48,7 @@ public class UserControllerTest {
                 .email("test@test.com")
                 .build();
 
-        given(userService.createUser(anyString(), anyString(), anyString(), anyString(), anyString()))
+        given(userService.createUser(any(CreateUserRequest.class)))
                 .willReturn(user);
 
         //when

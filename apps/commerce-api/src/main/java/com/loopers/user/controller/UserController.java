@@ -22,13 +22,7 @@ public class UserController {
 
     @PostMapping
     public ResponseEntity<CreateUserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
-        User user = userService.createUser(
-                request.loginId(),
-                request.password(),
-                request.name(),
-                request.birthDate(),
-                request.email()
-        );
+        User user = userService.createUser(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(CreateUserResponse.from(user));
     }
 }

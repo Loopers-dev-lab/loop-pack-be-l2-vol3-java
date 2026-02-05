@@ -1,6 +1,7 @@
 package com.loopers.user.service;
 
 import com.loopers.user.domain.User;
+import com.loopers.user.dto.CreateUserRequest;
 import com.loopers.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,20 +30,18 @@ public class UserServiceTest {
     @Test
     void 정상_입력시_회원가입_성공() {
         //given
-        String loginId = "testId";
-        String password = "password123!";
-        String name = "김준영";
-        String birthDate = "1990-04-27";
-        String email = "test@test.com";
+        CreateUserRequest request = new CreateUserRequest(
+                "testId", "password123!", "김준영", "1990-04-27", "test@test.com"
+        );
 
         given(userRepository.save(any(User.class)))
                 .willAnswer(invocation -> invocation.getArgument(0));
 
         //when
-        User user = userService.createUser(loginId, password, name, birthDate, email);
+        User user = userService.createUser(request);
 
         //then
-        assertThat(user.getLoginId()).isEqualTo(loginId);
+        assertThat(user.getLoginId()).isEqualTo(request.loginId());
         verify(userRepository).save(any(User.class));
     }
 
@@ -51,6 +50,9 @@ public class UserServiceTest {
         //given
         String rawPassword = "password123!";
         String encodedPassword = "encoded_password_hash";
+        CreateUserRequest request = new CreateUserRequest(
+                "testId", rawPassword, "test", "1990-04-27", "test@test.com"
+        );
 
         //password를 암호화한다.
         given(passwordEncoder.encode(rawPassword)).willReturn(encodedPassword);
@@ -60,7 +62,7 @@ public class UserServiceTest {
 
         //when
         //회원가입을 진행했을 때
-        User user = userService.createUser("testId", rawPassword, "test", "1990-04-27", "test@test.com");
+        User user = userService.createUser(request);
 
         //then
         //비밀번호가 암호화되었는지 확인한다.
