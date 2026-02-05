@@ -124,7 +124,7 @@ class AuthV1ApiE2ETest {
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    CHANGE_PW_URL, HttpMethod.PATCH, new HttpEntity<>(body, headers), ApiResponse.class);
+                    CHANGE_PW_URL, HttpMethod.PUT, new HttpEntity<>(body, headers), ApiResponse.class);
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -138,7 +138,7 @@ class AuthV1ApiE2ETest {
             HttpHeaders headers = authHeaders("nahyeon", "Hx7!mK2@");
             headers.setContentType(MediaType.APPLICATION_JSON);
             AuthV1Dto.ChangePasswordRequest body = new AuthV1Dto.ChangePasswordRequest("Hx7!mK2@", "Nw8@pL3#");
-            testRestTemplate.exchange(CHANGE_PW_URL, HttpMethod.PATCH, new HttpEntity<>(body, headers), ApiResponse.class);
+            testRestTemplate.exchange(CHANGE_PW_URL, HttpMethod.PUT, new HttpEntity<>(body, headers), ApiResponse.class);
 
             // act - 새 비밀번호로 조회
             HttpHeaders newHeaders = authHeaders("nahyeon", "Nw8@pL3#");
@@ -168,7 +168,7 @@ class AuthV1ApiE2ETest {
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    CHANGE_PW_URL, HttpMethod.PATCH, new HttpEntity<>(body, headers), ApiResponse.class);
+                    CHANGE_PW_URL, HttpMethod.PUT, new HttpEntity<>(body, headers), ApiResponse.class);
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
