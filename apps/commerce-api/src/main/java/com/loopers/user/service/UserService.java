@@ -2,6 +2,7 @@ package com.loopers.user.service;
 
 import com.loopers.user.domain.User;
 import com.loopers.user.dto.CreateUserRequest;
+import com.loopers.user.exception.DuplicateLoginIdException;
 import com.loopers.user.repository.UserRepository;
 import com.loopers.user.validator.PasswordValidator;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,7 @@ public class UserService {
     public User createUser(CreateUserRequest request) {
 
         if(userRepository.existsByLoginId(request.loginId())){
-            throw new IllegalArgumentException("이미 가입된 ID 입니다.");
+            throw new DuplicateLoginIdException();
         }
 
         //비밀번호 검증
