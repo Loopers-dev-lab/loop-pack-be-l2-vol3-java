@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Pattern;
 
 public record CreateUserRequest(
         @NotBlank
+        @Pattern(regexp = "^[a-zA-Z0-9]+$")
         String loginId,
         @NotBlank
         String password,
