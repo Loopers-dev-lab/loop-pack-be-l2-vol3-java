@@ -20,7 +20,7 @@ public class MemberService {
     private final PasswordEncoder passwordEncoder;
 
     public Member register(String loginId, String plainPassword, String name,
-                           String birthDate, String email, Gender gender) {
+                           String birthDate, String email) {
         LoginId loginIdVo = new LoginId(loginId);
 
         if (memberRepository.existsByLoginId(loginIdVo)) {
@@ -31,17 +31,12 @@ public class MemberService {
         Password password = Password.create(plainPassword, birthDateVo.value(), passwordEncoder);
         Email emailVo = new Email(email);
 
-        Member member = new Member(loginIdVo, password, name, birthDateVo, emailVo, gender);
+        Member member = new Member(loginIdVo, password, name, birthDateVo, emailVo);
         return memberRepository.save(member);
     }
 
     public Optional<Member> findByLoginId(String loginId) {
         return memberRepository.findByLoginId(new LoginId(loginId));
-    }
-
-    public Optional<Long> findPointByLoginId(String loginId) {
-        return memberRepository.findByLoginId(new LoginId(loginId))
-            .map(Member::getPoint);
     }
 
     public void changePassword(Member member, String currentPlain, String newPlain) {

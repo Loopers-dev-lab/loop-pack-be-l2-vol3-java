@@ -21,14 +21,11 @@ class MemberTest {
             new Password("encodedPw"),
             "홍길동",
             BirthDate.from("1990-01-15"),
-            new Email("test@example.com"),
-            Gender.MALE
+            new Email("test@example.com")
         );
 
         assertThat(member.getLoginId().value()).isEqualTo("user1");
         assertThat(member.getName()).isEqualTo("홍길동");
-        assertThat(member.getGender()).isEqualTo(Gender.MALE);
-        assertThat(member.getPoint()).isEqualTo(0L);
     }
 
     @DisplayName("이름이 null이면 생성에 실패한다")
@@ -39,8 +36,7 @@ class MemberTest {
             new Password("encodedPw"),
             null,
             BirthDate.from("1990-01-15"),
-            new Email("test@example.com"),
-            Gender.MALE
+            new Email("test@example.com")
         )).isInstanceOf(CoreException.class);
     }
 
@@ -52,8 +48,7 @@ class MemberTest {
             new Password("encodedPw"),
             "  ",
             BirthDate.from("1990-01-15"),
-            new Email("test@example.com"),
-            Gender.MALE
+            new Email("test@example.com")
         )).isInstanceOf(CoreException.class);
     }
 
@@ -65,8 +60,7 @@ class MemberTest {
             new Password("oldEncodedPw"),
             "홍길동",
             BirthDate.from("1990-01-15"),
-            new Email("test@example.com"),
-            Gender.MALE
+            new Email("test@example.com")
         );
 
         member.changePassword(new Password("newEncodedPw"));

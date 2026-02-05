@@ -43,7 +43,7 @@ class MemberServiceIntegrationTest {
         void register_savesUser_verifiedBySpy() {
             // act
             Member result = memberService.register(
-                "user1", "Password1!", "홍길동", "1990-01-15", "test@example.com", Gender.MALE);
+                "user1", "Password1!", "홍길동", "1990-01-15", "test@example.com");
 
             // assert
             verify(memberRepository).save(any(Member.class));
@@ -55,11 +55,11 @@ class MemberServiceIntegrationTest {
         void register_withDuplicateId_throwsException() {
             // arrange
             memberService.register(
-                "user1", "Password1!", "홍길동", "1990-01-15", "test@example.com", Gender.MALE);
+                "user1", "Password1!", "홍길동", "1990-01-15", "test@example.com");
 
             // act & assert
             assertThatThrownBy(() -> memberService.register(
-                "user1", "Password2!", "김철수", "1995-05-20", "other@example.com", Gender.MALE))
+                "user1", "Password2!", "김철수", "1995-05-20", "other@example.com"))
                 .isInstanceOf(CoreException.class);
         }
     }
@@ -73,7 +73,7 @@ class MemberServiceIntegrationTest {
         void findByLoginId_whenExists_returnsMember() {
             // arrange
             memberService.register(
-                "user1", "Password1!", "홍길동", "1990-01-15", "test@example.com", Gender.MALE);
+                "user1", "Password1!", "홍길동", "1990-01-15", "test@example.com");
 
             // act
             Optional<Member> result = memberService.findByLoginId("user1");
@@ -91,36 +91,6 @@ class MemberServiceIntegrationTest {
 
             // assert
             assertThat(result).isEmpty();
-        }
-    }
-
-    @DisplayName("포인트 조회")
-    @Nested
-    class FindPointByLoginId {
-
-        @DisplayName("해당 ID의 회원이 존재할 경우 보유 포인트가 반환된다")
-        @Test
-        void findPointByLoginId_whenExists_returnsPoint() {
-            // arrange
-            memberService.register(
-                "user1", "Password1!", "홍길동", "1990-01-15", "test@example.com", Gender.MALE);
-
-            // act
-            Optional<Long> point = memberService.findPointByLoginId("user1");
-
-            // assert
-            assertThat(point).isPresent();
-            assertThat(point.get()).isEqualTo(0L);
-        }
-
-        @DisplayName("해당 ID의 회원이 존재하지 않을 경우 null이 반환된다")
-        @Test
-        void findPointByLoginId_whenNotExists_returnsEmpty() {
-            // act
-            Optional<Long> point = memberService.findPointByLoginId("nobody");
-
-            // assert
-            assertThat(point).isEmpty();
         }
     }
 }

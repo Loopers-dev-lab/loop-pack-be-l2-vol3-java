@@ -1,9 +1,7 @@
 package com.loopers.interfaces.api.member;
 
-import com.loopers.domain.member.Gender;
 import com.loopers.domain.member.Member;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
 
@@ -14,16 +12,14 @@ public class MemberV1Dto {
         @NotBlank String password,
         @NotBlank String name,
         @NotBlank String birthDate,
-        @NotBlank String email,
-        @NotNull Gender gender
+        @NotBlank String email
     ) {}
 
     public record SignUpResponse(
         Long id,
         String loginId,
         String name,
-        String email,
-        Gender gender
+        String email
     ) {}
 
     public record MyInfoResponse(

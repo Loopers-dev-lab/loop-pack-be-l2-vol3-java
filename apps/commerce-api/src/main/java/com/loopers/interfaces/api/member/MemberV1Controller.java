@@ -30,16 +30,14 @@ public class MemberV1Controller {
             request.password(),
             request.name(),
             request.birthDate(),
-            request.email(),
-            request.gender()
+            request.email()
         );
 
         MemberV1Dto.SignUpResponse response = new MemberV1Dto.SignUpResponse(
             member.getId(),
             member.getLoginId().value(),
             member.getName(),
-            member.getEmail().value(),
-            member.getGender()
+            member.getEmail().value()
         );
 
         return ApiResponse.success(response);
