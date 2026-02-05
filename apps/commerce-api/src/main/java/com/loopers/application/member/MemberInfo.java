@@ -7,7 +7,7 @@ public record MemberInfo(String loginId, String name, String birthDate, String e
     public static MemberInfo from(MemberModel model) {
         return new MemberInfo(
             model.getLoginId(),
-            model.getName(),
+            model.getMaskedName(),
             model.getBirthDate(),
             model.getEmail()
           );

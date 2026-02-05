@@ -37,17 +37,25 @@ public class MemberModel extends BaseEntity {
         throw new CoreException(ErrorType.BAD_REQUEST, "이메일은 비어있을 수 없습니다.");
       }
 
-      // 가입된 아이디로는 가입이 불가능하다 -> 디비에서 검증. 서비스에서 하기
-      // 비밀번호 8~16자의 영문 대소문자, 숫자, 특수문자만 가능합니다.
-      // 비밀번호 생년월일은 비밀번호 내에 포함될 수 없습니다.
-      // 비밀번호 규칙 검증
-      validatePassword(password, birthDate);
+        // 가입된 아이디로는 가입이 불가능하다 -> 디비에서 검증. 서비스에서 하기
+        // 가입하는 로그인 ID는 영문과 숫자만 허용한다
+        validateLoginId(loginId);
+
+        // 비밀번호 8~16자의 영문 대소문자, 숫자, 특수문자만 가능합니다.
+        // 비밀번호 생년월일은 비밀번호 내에 포함될 수 없습니다.
+        // 비밀번호 규칙 검증
+        validatePassword(password, birthDate);
 
       this.loginId = loginId;
       this.password = password;
       this.name = name;
       this.birthDate = birthDate;
       this.email = email;
+    }
+
+    public MemberModel(String loginId) {
+        // 가입하는 로그인 ID는 영문과 숫자만 허용한다
+        validateLoginId(loginId);
     }
 
     public String getLoginId() {
@@ -68,6 +76,16 @@ public class MemberModel extends BaseEntity {
 
     public String getEmail() {
       return email;
+    }
+
+    private void validateLoginId(String loginId) {
+        // 로그인 ID 는 영문과 숫자만 허용
+        if (!loginId.matches("^[a-zA-Z0-9]+$")) {
+            throw new CoreException(
+                    ErrorType.BAD_REQUEST,
+                    "로그인 아이디는 영문자와 숫자만 사용할 수 있습니다."
+            );
+        }
     }
 
     private void validatePassword(String password, String birthDate) {
@@ -93,6 +111,24 @@ public class MemberModel extends BaseEntity {
     // 암호화된 비밀번호를 엔티티에 넣어주기
     public void encryptPassword(String encryptedPassword) {
       this.password = encryptedPassword;
+    }
+
+    // 이름 마지막 글자에 마스킹 추가
+    public String maskLastChar(String name) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("이름은 비어 있을 수 없습니다.");
+        }
+
+        if (name.length() == 1) {
+            return "*";
+        }
+
+        return name.substring(0, name.length() - 1) + "*";
+    }
+
+    // 마스킹된 이름 가져오기
+    public String getMaskedName(){
+        return maskLastChar(this.name);
     }
 
 

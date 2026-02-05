@@ -20,4 +20,8 @@ public interface MemberV1ApiSpec {
       MemberV1Dto.SignUpRequest request
   );
 
+  ApiResponse<MemberV1Dto.SignUpResponse> getMyInfo(
+          String loginId
+  );
+
 }

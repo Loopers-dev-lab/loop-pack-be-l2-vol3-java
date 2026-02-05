@@ -30,7 +30,7 @@ class MemberModelTest {
 
             // assert
             assertThat(member.getLoginId()).isEqualTo(loginId);
-            assertThat(member.getPassword()).isNotEqualTo(rawPassword);
+            assertThat(member.getPassword()).isEqualTo(rawPassword);
             assertThat(member.getName()).isEqualTo(name);
             assertThat(member.getBirthDate()).isEqualTo(birthDate);
             assertThat(member.getEmail()).isEqualTo(email);

@@ -32,8 +32,9 @@ public class MemberService {
       }
 
     @Transactional(readOnly = true)
-    public MemberModel getMember(String id) {
-        return memberRepository.findByLoginId(id)
-            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[id = " + id + "] 회원을 찾을 수 없습니다."));
+    public MemberModel getMember(String loginId) {
+        MemberModel model = new MemberModel(loginId);  // 객체 먼저 생성해야 함
+        return memberRepository.findByLoginId(model.getLoginId())
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[id = " + loginId + "] 회원을 찾을 수 없습니다."));
     }
 }

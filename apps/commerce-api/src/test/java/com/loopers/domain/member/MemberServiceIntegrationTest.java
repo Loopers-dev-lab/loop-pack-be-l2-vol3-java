@@ -73,11 +73,31 @@ class MemberServiceIntegrationTest {
   @Nested
   class GetMember {
 
-    @DisplayName("존재하지 않는 ID로 조회하면 예외가 발생한다")
-    @Test
-    void throwsException_whenMemberNotFound() {
-      // arrange
-      String loginId = "testuser"; // Assuming this ID does not exist
+      @DisplayName("존재하는 ID를 주면, 해당 유저 정보를 반환한다.")
+      @Test
+      void returnsExampleInfo_whenValidIdIsProvided() {
+          // arrange  // 정보저장
+          MemberModel memberModel = new MemberModel("testuser", "Test1234!", "홍길동", "19900101", "test@example.com");
+          memberService.saveMember(memberModel);
+
+          // act
+          MemberModel result = memberService.getMember(memberModel.getLoginId());
+
+          // assert
+          assertAll(
+                  () -> assertThat(result).isNotNull(),
+                  () -> assertThat(result.getLoginId()).isEqualTo(memberModel.getLoginId()),
+                  () -> assertThat(result.getName()).isEqualTo(memberModel.getName()),
+                  () -> assertThat(result.getBirthDate()).isEqualTo(memberModel.getBirthDate()),
+                  () -> assertThat(result.getEmail()).isEqualTo(memberModel.getEmail())
+          );
+      }
+
+      @DisplayName("존재하지 않는 ID로 조회하면 예외가 발생한다")
+      @Test
+      void throwsException_whenMemberNotFound() {
+        // arrange
+        String loginId = "testuser"; // Assuming this ID does not exist
 
       // act
       CoreException exception = assertThrows(CoreException.class, () -> {

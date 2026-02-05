@@ -25,7 +25,12 @@ public class MemberFacade {
     // 2. Service 호출 (저장 + 중복 체크)
     MemberModel saved = memberService.saveMember(memberModel);
 
-    // 3. MemberModel → MemberInfo로 변환해서 반환
-    return MemberInfo.from(saved);
-  }
+        // 3. MemberModel → MemberInfo로 변환해서 반환
+        return MemberInfo.from(saved);
+    }
+
+    public MemberInfo getMyInfo(String loginId) {
+        MemberModel member = memberService.getMember(loginId);
+        return MemberInfo.from(member);
+    }
 }

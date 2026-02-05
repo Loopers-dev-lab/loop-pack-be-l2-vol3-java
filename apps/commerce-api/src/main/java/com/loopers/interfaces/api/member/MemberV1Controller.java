@@ -24,13 +24,23 @@ public class MemberV1Controller implements MemberV1ApiSpec {
   //            DB에서 꺼낸 객체                     응답 데이터 전달용
   private final MemberFacade memberFacade;
 
-  @PostMapping
-  @ResponseStatus(HttpStatus.CREATED)
-  @Override
-  public ApiResponse<SignUpResponse> signUp(@RequestBody SignUpRequest request) {
-    MemberInfo info = memberFacade.signupMember(request);
-    MemberV1Dto.SignUpResponse response = MemberV1Dto.SignUpResponse.from(info);
-    return ApiResponse.success(response);
-  }
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    @Override
+    public ApiResponse<SignUpResponse> signUp(@RequestBody SignUpRequest request) {
+        MemberInfo info = memberFacade.signupMember(request);
+        MemberV1Dto.SignUpResponse response = MemberV1Dto.SignUpResponse.from(info);
+        return ApiResponse.success(response);
+    }
+
+    @GetMapping("/{loginId}")
+    @Override
+    public ApiResponse<SignUpResponse> getMyInfo(
+            @PathVariable(value = "loginId") String loginId
+    ) {
+        MemberInfo info = memberFacade.getMyInfo(loginId);
+        MemberV1Dto.SignUpResponse response = MemberV1Dto.SignUpResponse.from(info);
+        return ApiResponse.success(response);
+    }
 
 }
