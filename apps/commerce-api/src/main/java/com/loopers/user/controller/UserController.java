@@ -1,6 +1,7 @@
 package com.loopers.user.controller;
 
 import com.loopers.user.domain.User;
+import com.loopers.user.dto.ChangePasswordRequest;
 import com.loopers.user.dto.CreateUserRequest;
 import com.loopers.user.dto.CreateUserResponse;
 import com.loopers.user.dto.GetMyInfoResponse;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     public static final String LOGIN_ID_HEADER = "X-Loopers-LoginId";
+    public static final String LOGIN_PW_HEADER = "X-Loopers-LoginPw";
 
     private final UserService userService;
 
@@ -32,5 +34,15 @@ public class UserController {
     ) {
         GetMyInfoResponse response = userService.getMyInfo(loginId);
         return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/password")
+    public ResponseEntity<Void> changePassword(
+            @RequestHeader(LOGIN_ID_HEADER) String loginId,
+            @RequestHeader(LOGIN_PW_HEADER) String currentPassword,
+            @Valid @RequestBody ChangePasswordRequest request
+    ) {
+        userService.changePassword(loginId, currentPassword, request.newPassword());
+        return ResponseEntity.ok().build();
     }
 }

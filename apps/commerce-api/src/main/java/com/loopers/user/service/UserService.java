@@ -5,6 +5,7 @@ import com.loopers.user.dto.CreateUserRequest;
 import com.loopers.user.dto.GetMyInfoResponse;
 import com.loopers.user.exception.DuplicateLoginIdException;
 import com.loopers.user.exception.InvalidCredentialsException;
+import com.loopers.user.exception.SamePasswordException;
 import com.loopers.user.repository.UserRepository;
 import com.loopers.user.validator.PasswordValidator;
 import lombok.RequiredArgsConstructor;
@@ -49,5 +50,28 @@ public class UserService {
                 .orElseThrow(InvalidCredentialsException::new);
 
         return GetMyInfoResponse.from(user);
+    }
+
+    @Transactional
+    public void changePassword(String loginId, String currentPassword, String newPassword) {
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(InvalidCredentialsException::new);
+
+        // 기존 비밀번호 확인
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new InvalidCredentialsException();
+        }
+
+        // 새 비밀번호가 기존 비밀번호와 동일한지 확인
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new SamePasswordException();
+        }
+
+        // 새 비밀번호 규칙 검증
+        PasswordValidator.validate(newPassword, user.getBirthDate());
+
+        // 비밀번호 암호화 후 저장
+        String encodedNewPassword = passwordEncoder.encode(newPassword);
+        user.changePassword(encodedNewPassword);
     }
 }

@@ -6,6 +6,8 @@ import com.loopers.user.dto.CreateUserRequest;
 import com.loopers.user.dto.GetMyInfoResponse;
 import com.loopers.user.exception.DuplicateLoginIdException;
 import com.loopers.user.exception.InvalidCredentialsException;
+import com.loopers.user.exception.SamePasswordException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import com.loopers.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +29,9 @@ public class UserServiceIntegrationTest {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Test
     void 회원_가입시_User_저장이_수행된다() {
@@ -92,5 +97,60 @@ public class UserServiceIntegrationTest {
         // when & then
         assertThatThrownBy(() -> userService.getMyInfo(nonExistentLoginId))
                 .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    @Test
+    void DB에_저장된_사용자의_비밀번호가_정상적으로_변경된다() {
+        // given
+        String loginId = "testuser";
+        String currentPassword = "password123!";
+        String newPassword = "newPassword456!";
+
+        CreateUserRequest request = new CreateUserRequest(
+                loginId, currentPassword, "홍길동", "1990-01-01", "test@test.com"
+        );
+        userService.createUser(request);
+
+        // when
+        userService.changePassword(loginId, currentPassword, newPassword);
+
+        // then
+        User updatedUser = userRepository.findByLoginId(loginId).orElseThrow();
+        assertThat(passwordEncoder.matches(newPassword, updatedUser.getPassword())).isTrue();
+    }
+
+    @Test
+    void 비밀번호_변경시_기존_비밀번호가_일치하지_않으면_예외가_발생한다() {
+        // given
+        String loginId = "testuser";
+        String currentPassword = "password123!";
+        String wrongPassword = "wrongPassword!";
+        String newPassword = "newPassword456!";
+
+        CreateUserRequest request = new CreateUserRequest(
+                loginId, currentPassword, "홍길동", "1990-01-01", "test@test.com"
+        );
+        userService.createUser(request);
+
+        // when & then
+        //FixMe: InvalidCredentialsException 예외가 loginId와 일치한 id 가 없어서 발생한 예외인지 현재 로그인한 비밀번호와 기존에 저장된 비밀번호가 달라서 발생한 예외인지 어떻게 확신이 가능한가?
+        assertThatThrownBy(() -> userService.changePassword(loginId, wrongPassword, newPassword))
+                .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    @Test
+    void 비밀번호_변경시_새_비밀번호가_기존과_동일하면_예외가_발생한다() {
+        // given
+        String loginId = "testuser";
+        String currentPassword = "password123!";
+
+        CreateUserRequest request = new CreateUserRequest(
+                loginId, currentPassword, "홍길동", "1990-01-01", "test@test.com"
+        );
+        userService.createUser(request);
+
+        // when & then
+        assertThatThrownBy(() -> userService.changePassword(loginId, currentPassword, currentPassword))
+                .isInstanceOf(SamePasswordException.class);
     }
 }

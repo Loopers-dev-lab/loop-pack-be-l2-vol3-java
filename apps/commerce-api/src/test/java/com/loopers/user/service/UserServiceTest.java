@@ -4,6 +4,7 @@ import com.loopers.user.domain.User;
 import com.loopers.user.dto.CreateUserRequest;
 import com.loopers.user.dto.GetMyInfoResponse;
 import com.loopers.user.exception.InvalidCredentialsException;
+import com.loopers.user.exception.SamePasswordException;
 import com.loopers.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -111,5 +112,108 @@ public class UserServiceTest {
         // when & then
         assertThatThrownBy(() -> userService.getMyInfo(loginId))
                 .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    @Test
+    void 올바른_기존_비밀번호로_비밀번호_변경에_성공한다() {
+        // given
+        String loginId = "testId";
+        String currentPassword = "oldPassword123!";
+        String newPassword = "newPassword456!";
+        String encodedCurrentPassword = "encodedOldPassword";
+        String encodedNewPassword = "encodedNewPassword";
+
+        User user = User.builder()
+                .loginId(loginId)
+                .password(encodedCurrentPassword)
+                .name("홍길동")
+                .birthDate("1990-01-01")
+                .email("test@test.com")
+                .build();
+
+        given(userRepository.findByLoginId(loginId)).willReturn(Optional.of(user));
+        given(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).willReturn(true);
+        given(passwordEncoder.matches(newPassword, encodedCurrentPassword)).willReturn(false);
+        given(passwordEncoder.encode(newPassword)).willReturn(encodedNewPassword);
+
+        // when
+        userService.changePassword(loginId, currentPassword, newPassword);
+
+        // then
+        assertThat(user.getPassword()).isEqualTo(encodedNewPassword);
+    }
+
+    @Test
+    void 기존_비밀번호가_일치하지_않으면_예외가_발생한다() {
+        // given
+        String loginId = "testId";
+        String wrongPassword = "wrongPassword!";
+        String newPassword = "newPassword456!";
+        String encodedSavedPassword = "encodedPassword";
+
+        User user = User.builder()
+                .loginId(loginId)
+                .password(encodedSavedPassword)
+                .name("홍길동")
+                .birthDate("1990-01-01")
+                .email("test@test.com")
+                .build();
+
+        given(userRepository.findByLoginId(loginId)).willReturn(Optional.of(user));
+        given(passwordEncoder.matches(wrongPassword, encodedSavedPassword)).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> userService.changePassword(loginId, wrongPassword, newPassword))
+                .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    @Test
+    void 새_비밀번호가_기존_비밀번호와_동일하면_예외가_발생한다() {
+        // given
+        String loginId = "testId";
+        String currentPassword = "samePassword123!";
+        String newPassword = "samePassword123!";
+        String encodedSavedPassword = "encodedPassword";
+
+        User user = User.builder()
+                .loginId(loginId)
+                .password(encodedSavedPassword)
+                .name("홍길동")
+                .birthDate("1990-01-01")
+                .email("test@test.com")
+                .build();
+
+        given(userRepository.findByLoginId(loginId)).willReturn(Optional.of(user));
+        given(passwordEncoder.matches(currentPassword, encodedSavedPassword)).willReturn(true);
+        given(passwordEncoder.matches(newPassword, encodedSavedPassword)).willReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> userService.changePassword(loginId, currentPassword, newPassword))
+                .isInstanceOf(SamePasswordException.class);
+    }
+
+    @Test
+    void 새_비밀번호가_규칙에_맞지_않으면_예외가_발생한다() {
+        // given
+        String loginId = "testId";
+        String currentPassword = "oldPassword123!";
+        String invalidNewPassword = "short";  // 8자 미만
+        String encodedSavedPassword = "encodedPassword";
+
+        User user = User.builder()
+                .loginId(loginId)
+                .password(encodedSavedPassword)
+                .name("홍길동")
+                .birthDate("1990-01-01")
+                .email("test@test.com")
+                .build();
+
+        given(userRepository.findByLoginId(loginId)).willReturn(Optional.of(user));
+        given(passwordEncoder.matches(currentPassword, encodedSavedPassword)).willReturn(true);
+        given(passwordEncoder.matches(invalidNewPassword, encodedSavedPassword)).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> userService.changePassword(loginId, currentPassword, invalidNewPassword))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

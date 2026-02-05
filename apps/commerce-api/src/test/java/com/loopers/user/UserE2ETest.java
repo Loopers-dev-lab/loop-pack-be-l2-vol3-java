@@ -1,6 +1,7 @@
 package com.loopers.user;
 
 import com.loopers.testcontainers.MySqlTestContainersConfig;
+import com.loopers.user.dto.ChangePasswordRequest;
 import com.loopers.user.dto.CreateUserRequest;
 import com.loopers.user.dto.CreateUserResponse;
 import com.loopers.user.dto.GetMyInfoResponse;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.transaction.annotation.Transactional;
 
 import static com.loopers.user.controller.UserController.LOGIN_ID_HEADER;
+import static com.loopers.user.controller.UserController.LOGIN_PW_HEADER;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(MySqlTestContainersConfig.class)
@@ -118,5 +120,137 @@ public class UserE2ETest {
 
         // then
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void 비밀번호_변경_API_요청시_200_OK_반환() {
+        // given - 사용자 생성
+        String loginId = "pwchg" + (System.currentTimeMillis() % 10000);
+        String currentPassword = "Password1!";
+        String newPassword = "NewPassword2@";
+
+        CreateUserRequest createRequest = new CreateUserRequest(
+                loginId, currentPassword, "홍길동", "1990-01-01", "test@example.com"
+        );
+        ResponseEntity<CreateUserResponse> createResponse = restTemplate.postForEntity("/api/v1/users", createRequest, CreateUserResponse.class);
+        assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+        // when - 비밀번호 변경
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(LOGIN_ID_HEADER, loginId);
+        headers.set(LOGIN_PW_HEADER, currentPassword);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        ChangePasswordRequest changeRequest = new ChangePasswordRequest(newPassword);
+        HttpEntity<ChangePasswordRequest> entity = new HttpEntity<>(changeRequest, headers);
+
+        ResponseEntity<Void> response = restTemplate.exchange(
+                "/api/v1/users/password",
+                HttpMethod.PATCH,
+                entity,
+                Void.class
+        );
+
+        // then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void 비밀번호_변경시_기존_비밀번호가_일치하지_않으면_401_Unauthorized_반환() {
+        // given - 사용자 생성
+        String loginId = "pwfail" + (System.currentTimeMillis() % 1000);
+        String currentPassword = "Password1!";
+        String wrongPassword = "WrongPassword!";
+        String newPassword = "NewPassword2@";
+
+        CreateUserRequest createRequest = new CreateUserRequest(
+                loginId, currentPassword, "홍길동", "1990-01-01", "test@example.com"
+        );
+        ResponseEntity<CreateUserResponse> createResponse = restTemplate.postForEntity("/api/v1/users", createRequest, CreateUserResponse.class);
+        assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+        // when - 잘못된 비밀번호로 변경 시도
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(LOGIN_ID_HEADER, loginId);
+        headers.set(LOGIN_PW_HEADER, wrongPassword);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        ChangePasswordRequest changeRequest = new ChangePasswordRequest(newPassword);
+        HttpEntity<ChangePasswordRequest> entity = new HttpEntity<>(changeRequest, headers);
+
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/api/v1/users/password",
+                HttpMethod.PATCH,
+                entity,
+                String.class
+        );
+
+        // then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void 비밀번호_변경시_새_비밀번호가_기존과_동일하면_400_Bad_Request_반환() {
+        // given - 사용자 생성
+        String loginId = "pwsame" + (System.currentTimeMillis() % 1000);
+        String currentPassword = "Password1!";
+
+        CreateUserRequest createRequest = new CreateUserRequest(
+                loginId, currentPassword, "홍길동", "1990-01-01", "test@example.com"
+        );
+        ResponseEntity<CreateUserResponse> createResponse = restTemplate.postForEntity("/api/v1/users", createRequest, CreateUserResponse.class);
+        assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+        // when - 동일한 비밀번호로 변경 시도
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(LOGIN_ID_HEADER, loginId);
+        headers.set(LOGIN_PW_HEADER, currentPassword);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        ChangePasswordRequest changeRequest = new ChangePasswordRequest(currentPassword);
+        HttpEntity<ChangePasswordRequest> entity = new HttpEntity<>(changeRequest, headers);
+
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/api/v1/users/password",
+                HttpMethod.PATCH,
+                entity,
+                String.class
+        );
+
+        // then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void 비밀번호_변경시_규칙_위반하면_400_Bad_Request_반환() {
+        // given - 사용자 생성
+        String loginId = "pwrule" + (System.currentTimeMillis() % 1000);
+        String currentPassword = "Password1!";
+        String invalidPassword = "short";  // 8자 미만
+
+        CreateUserRequest createRequest = new CreateUserRequest(
+                loginId, currentPassword, "홍길동", "1990-01-01", "test@example.com"
+        );
+        ResponseEntity<CreateUserResponse> createResponse = restTemplate.postForEntity("/api/v1/users", createRequest, CreateUserResponse.class);
+        assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+        // when - 규칙 위반 비밀번호로 변경 시도
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(LOGIN_ID_HEADER, loginId);
+        headers.set(LOGIN_PW_HEADER, currentPassword);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        ChangePasswordRequest changeRequest = new ChangePasswordRequest(invalidPassword);
+        HttpEntity<ChangePasswordRequest> entity = new HttpEntity<>(changeRequest, headers);
+
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/api/v1/users/password",
+                HttpMethod.PATCH,
+                entity,
+                String.class
+        );
+
+        // then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 }
