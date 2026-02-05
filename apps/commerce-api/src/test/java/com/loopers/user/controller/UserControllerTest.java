@@ -102,4 +102,21 @@ public class UserControllerTest {
         //then
         result.andExpect(status().isBadRequest());
     }
+
+    @Test
+    void 생년월일_형식_오류_시_400_Bad_Request_반환() throws Exception {
+        //given
+        SignUpRequest request = new SignUpRequest(
+                "testId", "password123!", "김준영", "1990-0427", "test@test.com"
+        );
+
+        //when
+        ResultActions result = mockMvc.perform(post("/api/v1/user/signup")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        );
+
+        //then
+        result.andExpect(status().isBadRequest());
+    }
 }
