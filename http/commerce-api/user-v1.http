@@ -1,0 +1,131 @@
+### 회원가입 - 성공 케이스
+POST {{commerce-api}}/api/v1/users/signup
+Content-Type: application/json
+
+{
+  "loginId": "testuser1",
+  "password": "Test1234!",
+  "name": "홍길동",
+  "birthDate": "19900101",
+  "email": "test@example.com"
+}
+
+### 회원가입 - 로그인 ID 4자 미만 (실패)
+POST {{commerce-api}}/api/v1/users/signup
+Content-Type: application/json
+
+{
+  "loginId": "abc",
+  "password": "Test1234!",
+  "name": "홍길동",
+  "birthDate": "19900101",
+  "email": "test@example.com"
+}
+
+### 회원가입 - 로그인 ID 12자 초과 (실패)
+POST {{commerce-api}}/api/v1/users/signup
+Content-Type: application/json
+
+{
+  "loginId": "testuser12345",
+  "password": "Test1234!",
+  "name": "홍길동",
+  "birthDate": "19900101",
+  "email": "test@example.com"
+}
+
+### 회원가입 - 로그인 ID 특수문자 포함 (실패)
+POST {{commerce-api}}/api/v1/users/signup
+Content-Type: application/json
+
+{
+  "loginId": "test@user",
+  "password": "Test1234!",
+  "name": "홍길동",
+  "birthDate": "19900101",
+  "email": "test@example.com"
+}
+
+### 회원가입 - 비밀번호 8자 미만 (실패)
+POST {{commerce-api}}/api/v1/users/signup
+Content-Type: application/json
+
+{
+  "loginId": "testuser1",
+  "password": "Test12!",
+  "name": "홍길동",
+  "birthDate": "19900101",
+  "email": "test@example.com"
+}
+
+### 회원가입 - 비밀번호 16자 초과 (실패)
+POST {{commerce-api}}/api/v1/users/signup
+Content-Type: application/json
+
+{
+  "loginId": "testuser1",
+  "password": "Test1234567890123!",
+  "name": "홍길동",
+  "birthDate": "19900101",
+  "email": "test@example.com"
+}
+
+### 회원가입 - 비밀번호에 생년월일 포함 (실패)
+POST {{commerce-api}}/api/v1/users/signup
+Content-Type: application/json
+
+{
+  "loginId": "testuser1",
+  "password": "Test19900101!",
+  "name": "홍길동",
+  "birthDate": "19900101",
+  "email": "test@example.com"
+}
+
+### 회원가입 - 이메일 형식 오류 (실패)
+POST {{commerce-api}}/api/v1/users/signup
+Content-Type: application/json
+
+{
+  "loginId": "testuser1",
+  "password": "Test1234!",
+  "name": "홍길동",
+  "birthDate": "19900101",
+  "email": "invalid-email"
+}
+
+### 회원가입 - 이름 2자 미만 (실패)
+POST {{commerce-api}}/api/v1/users/signup
+Content-Type: application/json
+
+{
+  "loginId": "testuser1",
+  "password": "Test1234!",
+  "name": "홍",
+  "birthDate": "19900101",
+  "email": "test@example.com"
+}
+
+### 회원가입 - 이름 10자 초과 (실패)
+POST {{commerce-api}}/api/v1/users/signup
+Content-Type: application/json
+
+{
+  "loginId": "testuser1",
+  "password": "Test1234!",
+  "name": "홍길동김철수박영희최강",
+  "birthDate": "19900101",
+  "email": "test@example.com"
+}
+
+### 회원가입 - 중복 로그인 ID (실패)
+POST {{commerce-api}}/api/v1/users/signup
+Content-Type: application/json
+
+{
+  "loginId": "testuser1",
+  "password": "Test5678!",
+  "name": "김철수",
+  "birthDate": "19950505",
+  "email": "test2@example.com"
+}
