@@ -33,6 +33,17 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserModel authenticate(String loginId, String rawPassword) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        if (loginId == null || loginId.isBlank() || rawPassword == null || rawPassword.isBlank()) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.");
+        }
+
+        UserModel user = userRepository.findByLoginId(loginId)
+            .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다."));
+
+        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.");
+        }
+
+        return user;
     }
 }
