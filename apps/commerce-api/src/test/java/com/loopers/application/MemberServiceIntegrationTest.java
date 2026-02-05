@@ -127,4 +127,85 @@ public class MemberServiceIntegrationTest {
                 .hasMessage(MemberExceptionMessage.ExistsMember.CANNOT_LOGIN.message());
     }
 
+    /**
+     * 비밀번호 수정 통합 테스트
+     */
+    @Test
+    @DisplayName("비밀번호 수정 성공: 기존 비밀번호가 일치하고 새 비밀번호가 정책에 맞으면 수정된다")
+    void updatePassword_Success() {
+        // given
+        String loginId = "tester123";
+        String currentPw = "oldPass123!";
+        String newPw = "newPass5678@";
+
+        memberRepository.save(Member.builder()
+                .loginId(loginId)
+                .password(PasswordEncryptor.encode(currentPw))
+                .name("공명선")
+                .birthDate(LocalDate.of(2001, 2, 9))
+                .email("test@loopers.com")
+                .build());
+
+        // when
+        memberService.updatePassword(loginId, currentPw, newPw);
+
+        // then
+        Member updatedMember = memberRepository.findByLoginId(loginId).orElseThrow();
+        assertThat(updatedMember.isSamePassword(newPw)).isTrue();
+    }
+
+    @Test
+    @DisplayName("비밀번호 수정 실패: 현재 비밀번호와 새 비밀번호가 동일하면 예외가 발생한다")
+    void updatePassword_Fail_SamePassword() {
+        // given
+        String loginId = "tester123";
+        String currentPw = "oldPass123!";
+
+        memberRepository.save(Member.builder()
+                .loginId(loginId)
+                .password(PasswordEncryptor.encode(currentPw))
+                .birthDate(LocalDate.of(2001, 2, 9))
+                .build());
+
+        // when & then
+        assertThatThrownBy(() -> memberService.updatePassword(loginId, currentPw, currentPw))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(MemberExceptionMessage.Password.PASSWORD_CANNOT_BE_SAME_AS_CURRENT.message());
+    }
+
+    @Test
+    @DisplayName("비밀번호 수정 실패: 새 비밀번호에 생년월일이 포함되면 예외가 발생한다")
+    void updatePassword_Fail_ContainsBirthDate() {
+        // given
+        String loginId = "tester123";
+        String currentPw = "oldPass123!";
+        String newPw = "pass20010209!"; // 생년월일 포함
+
+        memberRepository.save(Member.builder()
+                .loginId(loginId)
+                .password(PasswordEncryptor.encode(currentPw))
+                .birthDate(LocalDate.of(2001, 2, 9))
+                .build());
+
+        // when & then
+        assertThatThrownBy(() -> memberService.updatePassword(loginId, currentPw, newPw))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(MemberExceptionMessage.Password.PASSWORD_CONTAINS_BIRTHDATE.message());
+    }
+
+    @Test
+    @DisplayName("비밀번호 수정 실패: 현재 비밀번호가 틀리면 예외가 발생한다")
+    void updatePassword_Fail_IncorrectCurrentPassword() {
+        // given
+        String loginId = "tester123";
+        memberRepository.save(Member.builder()
+                .loginId(loginId)
+                .password(PasswordEncryptor.encode("correct123!"))
+                .build());
+
+        // when & then
+        assertThatThrownBy(() -> memberService.updatePassword(loginId, "wrong123!", "newPass123!"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
 }
