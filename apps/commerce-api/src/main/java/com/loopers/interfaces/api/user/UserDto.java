@@ -1,7 +1,9 @@
 package com.loopers.interfaces.api.user;
 
+import com.loopers.application.user.UserFacadeDto;
 import com.loopers.application.user.command.RegisterCommand;
 import com.loopers.domain.user.User;
+import com.loopers.domain.user.vo.UserId;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -64,6 +66,25 @@ public class UserDto {
                     user.email().value(),
                     user.birthDate().value().toString()
             );
+        }
+    }
+
+    @Getter
+    @NoArgsConstructor
+    public static class ChangePasswordRequest {
+        @NotBlank(message = "현재 비밀번호는 필수입니다")
+        private String currentPassword;
+
+        @NotBlank(message = "새 비밀번호는 필수입니다")
+        private String newPassword;
+
+        public ChangePasswordRequest(String currentPassword, String newPassword) {
+            this.currentPassword = currentPassword;
+            this.newPassword = newPassword;
+        }
+
+        public UserFacadeDto.ChangePasswordRequest toFacadeRequest(UserId userId) {
+            return new UserFacadeDto.ChangePasswordRequest(userId, currentPassword, newPassword);
         }
     }
 }
