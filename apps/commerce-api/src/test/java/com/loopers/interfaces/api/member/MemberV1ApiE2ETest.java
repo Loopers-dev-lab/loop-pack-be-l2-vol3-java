@@ -184,7 +184,7 @@ class MemberV1ApiE2ETest {
             assertAll(
                 () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                 () -> assertThat(response.getBody().data().loginId()).isEqualTo("testuser1"),
-                () -> assertThat(response.getBody().data().name()).isEqualTo("홍길동"),
+                () -> assertThat(response.getBody().data().name()).isEqualTo("홍길*"),
                 () -> assertThat(response.getBody().data().birthday()).isEqualTo("1995-03-15"),
                 () -> assertThat(response.getBody().data().email()).isEqualTo("test@example.com")
             );

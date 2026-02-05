@@ -20,6 +20,6 @@ public class MemberFacade {
 
     public MemberInfo getMyInfo(String loginId, String password) {
         Member member = memberService.authenticate(loginId, password);
-        return MemberInfo.from(member);
+        return MemberInfo.from(member).withMaskedName();
     }
 }

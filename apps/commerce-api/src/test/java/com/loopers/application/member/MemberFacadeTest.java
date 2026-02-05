@@ -90,7 +90,7 @@ class MemberFacadeTest {
             // assert
             assertAll(
                 () -> assertThat(info.loginId()).isEqualTo("testuser1"),
-                () -> assertThat(info.name()).isEqualTo("홍길동"),
+                () -> assertThat(info.name()).isEqualTo("홍길*"),
                 () -> assertThat(info.birthday()).isEqualTo(LocalDate.of(1995, 3, 15)),
                 () -> assertThat(info.email()).isEqualTo("test@example.com")
             );
