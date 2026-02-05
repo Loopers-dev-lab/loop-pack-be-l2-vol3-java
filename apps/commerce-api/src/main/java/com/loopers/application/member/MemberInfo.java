@@ -14,4 +14,9 @@ public record MemberInfo(Long id, String loginId, String name, LocalDate birthda
             member.getEmail()
         );
     }
+
+    public MemberInfo withMaskedName() {
+        String maskedName = name.substring(0, name.length() - 1) + "*";
+        return new MemberInfo(id, loginId, maskedName, birthday, email);
+    }
 }

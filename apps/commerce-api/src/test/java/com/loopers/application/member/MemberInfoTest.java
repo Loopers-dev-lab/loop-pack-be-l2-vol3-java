@@ -35,4 +35,37 @@ class MemberInfoTest {
             );
         }
     }
+
+    @DisplayName("이름 마스킹 시,")
+    @Nested
+    class MaskName {
+
+        @DisplayName("3자 이상 이름이면, 마지막 글자가 *로 마스킹된다.")
+        @Test
+        void masksLastCharacter_whenNameHasThreeOrMoreCharacters() {
+            // arrange
+            Member member = new Member(1L, "testuser1", "$2a$10$encodedHash", "홍길동", LocalDate.of(1995, 3, 15), "test@example.com");
+            MemberInfo info = MemberInfo.from(member);
+
+            // act
+            MemberInfo masked = info.withMaskedName();
+
+            // assert
+            assertThat(masked.name()).isEqualTo("홍길*");
+        }
+
+        @DisplayName("2자 이름이면, 마지막 글자가 *로 마스킹된다.")
+        @Test
+        void masksLastCharacter_whenNameHasTwoCharacters() {
+            // arrange
+            Member member = new Member(1L, "testuser1", "$2a$10$encodedHash", "홍길", LocalDate.of(1995, 3, 15), "test@example.com");
+            MemberInfo info = MemberInfo.from(member);
+
+            // act
+            MemberInfo masked = info.withMaskedName();
+
+            // assert
+            assertThat(masked.name()).isEqualTo("홍*");
+        }
+    }
 }
