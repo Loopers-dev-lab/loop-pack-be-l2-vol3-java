@@ -8,6 +8,6 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @Configuration
 @EnableTransactionManagement
 @EntityScan({"com.loopers"})
-@EnableJpaRepositories({"com.loopers.infrastructure"})
+@EnableJpaRepositories({"com.loopers.infrastructure", "com.loopers.user.repository"})
 public class JpaConfig {
 }

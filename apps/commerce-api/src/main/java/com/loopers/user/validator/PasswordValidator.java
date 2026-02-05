@@ -1,5 +1,8 @@
 package com.loopers.user.validator;
 
+import org.springframework.stereotype.Component;
+
+@Component
 public class PasswordValidator {
 
     public void validate(String password, String birthDate) {
