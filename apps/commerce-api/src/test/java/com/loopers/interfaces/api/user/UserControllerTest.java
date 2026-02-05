@@ -14,7 +14,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 
+import com.loopers.domain.user.UserInfo;
+
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -58,6 +61,28 @@ class UserControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.loginId").value("looper123"));
        }
+    }
+
+    @DisplayName("내 정보 조회 시,")
+    @Nested
+    class GetMyInfo {
+
+        @Test
+        void 성공하면_200_OK와_유저정보를_반환한다() throws Exception {
+            // Arrange
+            UserInfo userInfo = new UserInfo("loopers123", "루퍼*", LocalDate.of(1996, 11, 22), "test@loopers.im");
+            when(userService.getMyInfo("loopers123", "loopers123!@")).thenReturn(userInfo);
+
+            // Act & Assert
+            mockMvc.perform(get("/api/users/me")
+                            .header("X-Loopers-LoginId", "loopers123")
+                            .header("X-Loopers-LoginPw", "loopers123!@"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.loginId").value("loopers123"))
+                    .andExpect(jsonPath("$.data.name").value("루퍼*"))
+                    .andExpect(jsonPath("$.data.birthDate").value("1996-11-22"))
+                    .andExpect(jsonPath("$.data.email").value("test@loopers.im"));
+        }
     }
 
 }

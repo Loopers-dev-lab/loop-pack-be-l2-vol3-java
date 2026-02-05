@@ -4,10 +4,8 @@ import com.loopers.domain.user.LoginId;
 import com.loopers.domain.user.UserService;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import com.loopers.domain.user.UserInfo;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/users")
@@ -29,5 +27,13 @@ public class UserController implements UserApiSpec {
 
         UserDto.SignupResponse response = UserDto.SignupResponse.from(loginId);
         return ApiResponse.success(response);
+    }
+
+    @GetMapping("/me")
+    public ApiResponse<UserDto.MyInfoResponse> getMyInfo(
+            @RequestHeader("X-Loopers-LoginId") String loginId,
+            @RequestHeader("X-Loopers-LoginPw") String password) {
+        UserInfo userInfo = userService.getMyInfo(loginId, password);
+        return ApiResponse.success(UserDto.MyInfoResponse.from(userInfo));
     }
 }
