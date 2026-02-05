@@ -104,7 +104,7 @@ public class MemberExceptionMessage {
      */
     @AllArgsConstructor
     public enum ExistsMember implements ExceptionMessage {
-        NOT_FOUND("존재하지 않는 회원입니다.", 1_301);
+        CANNOT_LOGIN("아이디나 비밀번호가 잘못됐습니다.", 1_301);
 
         private final String message;
         private final Integer code;

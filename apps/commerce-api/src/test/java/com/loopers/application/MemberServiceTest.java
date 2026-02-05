@@ -2,9 +2,11 @@ package com.loopers.application;
 
 import com.loopers.application.service.MemberService;
 import com.loopers.application.service.dto.MemberRegisterRequest;
+import com.loopers.application.service.dto.MyMemberInfoResponse;
 import com.loopers.domain.member.Member;
 import com.loopers.domain.member.MemberExceptionMessage;
 import com.loopers.infrastructure.member.MemberRepository;
+import com.loopers.utils.PasswordEncryptor;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -102,7 +104,7 @@ public class MemberServiceTest {
 
         Member member = Member.builder()
                 .loginId(loginId)
-                .password(password)
+                .password(PasswordEncryptor.encode(password))
                 .name("공명선")
                 .birthDate(LocalDate.of(2001, 2, 9))
                 .email("gms72901217@gmail.com")

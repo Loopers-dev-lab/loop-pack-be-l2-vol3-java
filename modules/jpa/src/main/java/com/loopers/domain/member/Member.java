@@ -1,6 +1,7 @@
 package com.loopers.domain.member;
 
 import com.loopers.domain.member.policy.*;
+import com.loopers.utils.PasswordEncryptor;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -51,6 +52,10 @@ public class Member {
                 .birthDate(birthDate)
                 .email(email)
                 .build();
+    }
+
+    public boolean isSamePassword(String inputPassword) {
+        return PasswordEncryptor.matches(inputPassword, this.password);
     }
 
 }
