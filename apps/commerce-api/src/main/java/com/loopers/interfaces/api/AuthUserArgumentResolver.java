@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api;
 
-import com.loopers.application.AuthUserPrincipal;
+import com.loopers.application.user.AuthUserPrincipal;
 import com.loopers.domain.UserModel;
 import com.loopers.domain.UserService;
 import com.loopers.support.error.CoreException;

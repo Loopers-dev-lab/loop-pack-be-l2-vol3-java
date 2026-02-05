@@ -1,6 +1,6 @@
 package com.loopers.interfaces.user;
 
-import com.loopers.application.UserInfo;
+import com.loopers.application.user.UserInfo;
 import com.loopers.support.MaskingUtils;
 import java.time.LocalDate;
 

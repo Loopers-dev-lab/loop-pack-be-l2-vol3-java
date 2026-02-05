@@ -1,4 +1,4 @@
-package com.loopers.application;
+package com.loopers.application.user;
 
 import java.time.LocalDate;
 import lombok.Getter;

@@ -1,9 +1,9 @@
 package com.loopers.interfaces.user;
 
-import com.loopers.application.AuthUserPrincipal;
-import com.loopers.application.SignUpCommand;
-import com.loopers.application.UserFacade;
-import com.loopers.application.UserInfo;
+import com.loopers.application.user.AuthUserPrincipal;
+import com.loopers.application.user.SignUpCommand;
+import com.loopers.application.user.UserFacade;
+import com.loopers.application.user.UserInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.AuthUser;
 import com.loopers.interfaces.api.CredentialsHeaders;

@@ -10,9 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.application.SignUpCommand;
-import com.loopers.application.UserFacade;
-import com.loopers.application.UserInfo;
+import com.loopers.application.user.SignUpCommand;
+import com.loopers.application.user.UserFacade;
+import com.loopers.application.user.UserInfo;
 import com.loopers.config.WebMvcConfig;
 import com.loopers.domain.UserModel;
 import com.loopers.domain.UserService;
