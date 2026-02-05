@@ -21,4 +21,9 @@ public class Name {
             throw new CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 이름 길이입니다.");
         }
     }
+
+    public String getMaskedName() {
+        if (name == null || name.isEmpty()) return name;
+        return name.substring(0, name.length() - 1) + "*";
+    }
 }

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class NameTest {
@@ -58,5 +59,28 @@ class NameTest {
 
             assertThatThrownBy(() -> new Name(longName))
                     .isInstanceOf(CoreException.class);}
+    }
+
+    @DisplayName("이름을 마스킹할 때, ")
+    @Nested
+    class Masking {
+
+        @DisplayName("이름의 마지막 글자가 '*'로 치환된다.")
+        @ParameterizedTest
+        @CsvSource({
+                "홍길, 홍*",
+                "홍길동, 홍길*",
+                "가나다라마, 가나다라*"
+        })
+        void getMaskedName_shouldMaskLastCharacter(String original, String expected) {
+            // arrange
+            Name name = new Name(original);
+
+            // act
+            String maskedName = name.getMaskedName();
+
+            // assert
+            assertThat(maskedName).isEqualTo(expected);
+        }
     }
 }
