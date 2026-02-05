@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.member;
 import com.loopers.interfaces.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 @Tag(name = "Member V1 API", description = "회원 API")
 public interface MemberV1ApiSpec {
@@ -22,7 +23,8 @@ public interface MemberV1ApiSpec {
       description = "로그인 ID로 내 회원 정보를 조회한다"
   )
   ApiResponse<MemberV1Dto.MemberInfoResponse> getMyInfo(
-          String loginId
+      @RequestHeader("X-Loopers-LoginId") String loginId,
+      @RequestHeader("X-Loopers-LoginPw") String password
   );
 
   @Operation(
@@ -30,7 +32,8 @@ public interface MemberV1ApiSpec {
       description = "기존 비밀번호와 새 비밀번호를 받아 비밀번호를 변경한다"
   )
   ApiResponse<String> changePassword(
-      String loginId,
+      @RequestHeader("X-Loopers-LoginId") String loginId,
+      @RequestHeader("X-Loopers-LoginPw") String password,
       MemberV1Dto.ChangePasswordRequest request
   );
 

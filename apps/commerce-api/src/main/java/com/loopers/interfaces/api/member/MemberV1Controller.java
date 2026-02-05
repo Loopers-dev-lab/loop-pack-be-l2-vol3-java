@@ -11,9 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,22 +38,24 @@ public class MemberV1Controller implements MemberV1ApiSpec {
         return ApiResponse.success(response);
     }
 
-    @GetMapping("/{loginId}")
+    @GetMapping("/me")
     @Override
     public ApiResponse<MemberInfoResponse> getMyInfo(
-            @PathVariable(value = "loginId") String loginId
+        @RequestHeader("X-Loopers-LoginId") String loginId,
+        @RequestHeader("X-Loopers-LoginPw") String password
     ) {
-        MemberInfo info = memberFacade.getMyInfo(loginId);
+        MemberInfo info = memberFacade.getMyInfo(loginId, password);
         MemberInfoResponse response = MemberInfoResponse.from(info);
         return ApiResponse.success(response);
     }
 
-    @PatchMapping("/{loginId}/password")
+  @PatchMapping("/me/password")
     public ApiResponse<String> changePassword(
-        @PathVariable String loginId,
+        @RequestHeader("X-Loopers-LoginId") String loginId,
+        @RequestHeader("X-Loopers-LoginPw") String password,
         @RequestBody ChangePasswordRequest request
     ) {
-      memberFacade.changePassword(loginId, request.oldPassword(), request.newPassword());
+      memberFacade.changePassword(loginId, password, request.oldPassword(), request.newPassword());
       return ApiResponse.success("비밀번호가 변경되었습니다.");
     }
 

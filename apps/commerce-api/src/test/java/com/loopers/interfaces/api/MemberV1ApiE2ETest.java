@@ -1,7 +1,12 @@
 package com.loopers.interfaces.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
+
 import com.loopers.utils.DatabaseCleanUp;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -10,14 +15,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class MemberV1ApiE2ETest {
@@ -69,8 +70,14 @@ class MemberV1ApiE2ETest {
             assertAll(
                 () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED),
                 () -> assertThat(response.getBody()).isNotNull(),
-                () -> assertThat(response.getBody().data()).isNotNull(),
-                () -> assertThat(response.getBody().data().get("loginId")).isNotNull()
+                () -> {
+                  Assertions.assertNotNull(response.getBody());
+                  assertThat(response.getBody().data()).isNotNull();
+                },
+                () -> {
+                  Assertions.assertNotNull(response.getBody());
+                  assertThat(response.getBody().data().get("loginId")).isNotNull();
+                }
             );
         }
 
@@ -100,13 +107,13 @@ class MemberV1ApiE2ETest {
         }
     }
 
-    @DisplayName("GET /api/v1/members/{loginId} (회원정보조회)")
+    @DisplayName("GET /api/v1/members/me (회원정보조회)")
     @Nested
     class GetMemberInfo {
 
-        @DisplayName("존재하는 회원의 ID로 조회하면, 200 OK와 마스킹된 이름을 반환한다.")
+        @DisplayName("헤더 인증 성공 시, 200 OK와 마스킹된 이름을 반환한다.")
         @Test
-        void returnsMemberInfo_whenExistingLoginIdIsProvided() {
+        void returnsMemberInfo_whenHeaderAuthIsValid() {
             // arrange - 먼저 회원 가입
             Map<String, String> signUpRequest = Map.of(
                 "loginId", "testuser",
@@ -117,11 +124,15 @@ class MemberV1ApiE2ETest {
             );
             testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), new ParameterizedTypeReference<ApiResponse<Map<String, String>>>() {});
 
-            // act - GET 요청으로 회원 정보 조회
+            // act - 헤더에 인증 정보 포함하여 조회
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testuser");
+            headers.set("X-Loopers-LoginPw", "Test1234!");
+
             ResponseEntity<ApiResponse<Map<String, String>>> response = testRestTemplate.exchange(
-                ENDPOINT + "/testuser",
+                ENDPOINT + "/me",
                 HttpMethod.GET,
-                null,
+                new HttpEntity<>(headers),
                 new ParameterizedTypeReference<>() {}
             );
 
@@ -129,22 +140,63 @@ class MemberV1ApiE2ETest {
             assertAll(
                 () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                 () -> assertThat(response.getBody()).isNotNull(),
-                () -> assertThat(response.getBody().data()).isNotNull(),
-                () -> assertThat(response.getBody().data().get("loginId")).isEqualTo("testuser"),
-                () -> assertThat(response.getBody().data().get("name")).isEqualTo("홍길*")
+                () -> {
+                  Assertions.assertNotNull(response.getBody());
+                  assertThat(response.getBody().data()).isNotNull();
+                },
+                () -> {
+                  Assertions.assertNotNull(response.getBody());
+                  assertThat(response.getBody().data().get("loginId")).isEqualTo("testuser");
+                },
+                () -> {
+                  Assertions.assertNotNull(response.getBody());
+                  assertThat(response.getBody().data().get("name")).isEqualTo("홍길*");
+                }
             );
+        }
+
+        @DisplayName("헤더 인증 실패 시 (비밀번호 불일치), 401 Unauthorized를 반환한다.")
+        @Test
+        void returnsUnauthorized_whenHeaderPasswordIsWrong() {
+            // arrange - 먼저 회원 가입
+            Map<String, String> signUpRequest = Map.of(
+                "loginId", "testuser",
+                "password", "Test1234!",
+                "name", "홍길동",
+                "birthDate", "19900101",
+                "email", "test@test.co.kr"
+            );
+            testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), new ParameterizedTypeReference<ApiResponse<Map<String, String>>>() {});
+
+            // act - 틀린 비밀번호로 조회
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testuser");
+            headers.set("X-Loopers-LoginPw", "WrongPass1!");
+
+            ResponseEntity<ApiResponse<Map<String, String>>> response = testRestTemplate.exchange(
+                ENDPOINT + "/me",
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                new ParameterizedTypeReference<>() {}
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
 
         @DisplayName("존재하지 않는 회원의 ID로 조회하면, 404 Not Found를 반환한다.")
         @Test
-        void returnsNotFound_whenNonExistingLoginIdIsProvided() {
+        void returnsNotFound_whenMemberDoesNotExist() {
             // arrange - 아무 데이터 없음
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "nonexistent");
+            headers.set("X-Loopers-LoginPw", "Test1234!");
 
             // act
             ResponseEntity<ApiResponse<Map<String, String>>> response = testRestTemplate.exchange(
-                ENDPOINT + "/nonexistent",
+                ENDPOINT + "/me",
                 HttpMethod.GET,
-                null,
+                new HttpEntity<>(headers),
                 new ParameterizedTypeReference<>() {}
             );
 
@@ -153,13 +205,13 @@ class MemberV1ApiE2ETest {
         }
     }
 
-    @DisplayName("PATCH /api/v1/members/{loginId}/password (비밀번호 변경)")
+    @DisplayName("PATCH /api/v1/members/me/password (비밀번호 변경)")
     @Nested
     class ChangePassword {
 
-        @DisplayName("기존 비밀번호가 일치하고 새 비밀번호가 유효하면, 200 OK를 반환한다.")
+        @DisplayName("헤더 인증 성공 + 유효한 비밀번호 변경 요청이면, 200 OK를 반환한다.")
         @Test
-        void returnsOk_whenOldPasswordMatchesAndNewPasswordIsValid() {
+        void returnsOk_whenHeaderAuthAndPasswordChangeAreValid() {
             // arrange - 먼저 회원 가입
             Map<String, String> signUpRequest = Map.of(
                 "loginId", "testuser",
@@ -170,15 +222,20 @@ class MemberV1ApiE2ETest {
             );
             testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), new ParameterizedTypeReference<ApiResponse<Map<String, String>>>() {});
 
-            // act - 비밀번호 변경 요청
+            // act - 헤더 인증 + 비밀번호 변경 요청
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testuser");
+            headers.set("X-Loopers-LoginPw", "Test1234!");
+            headers.set("Content-Type", "application/json");
+
             Map<String, String> changePasswordRequest = Map.of(
                 "oldPassword", "Test1234!",
                 "newPassword", "NewPass123!"
             );
             ResponseEntity<ApiResponse<String>> response = testRestTemplate.exchange(
-                ENDPOINT + "/testuser/password",
+                ENDPOINT + "/me/password",
                 HttpMethod.PATCH,
-                new HttpEntity<>(changePasswordRequest),
+                new HttpEntity<>(changePasswordRequest, headers),
                 new ParameterizedTypeReference<>() {}
             );
 
@@ -186,13 +243,16 @@ class MemberV1ApiE2ETest {
             assertAll(
                 () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                 () -> assertThat(response.getBody()).isNotNull(),
-                () -> assertThat(response.getBody().data()).isEqualTo("비밀번호가 변경되었습니다.")
+                () -> {
+                  Assertions.assertNotNull(response.getBody());
+                  assertThat(response.getBody().data()).isEqualTo("비밀번호가 변경되었습니다.");
+                }
             );
         }
 
-        @DisplayName("기존 비밀번호가 일치하지 않으면, 401 Unauthorized를 반환한다.")
+        @DisplayName("헤더 인증 실패 시 (비밀번호 불일치), 401 Unauthorized를 반환한다.")
         @Test
-        void returnsUnauthorized_whenOldPasswordDoesNotMatch() {
+        void returnsUnauthorized_whenHeaderPasswordIsWrong() {
             // arrange - 먼저 회원 가입
             Map<String, String> signUpRequest = Map.of(
                 "loginId", "testuser",
@@ -203,15 +263,54 @@ class MemberV1ApiE2ETest {
             );
             testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), new ParameterizedTypeReference<ApiResponse<Map<String, String>>>() {});
 
-            // act - 틀린 기존 비밀번호로 변경 요청
+            // act - 틀린 헤더 비밀번호로 요청
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testuser");
+            headers.set("X-Loopers-LoginPw", "WrongPass1!");
+            headers.set("Content-Type", "application/json");
+
+            Map<String, String> changePasswordRequest = Map.of(
+                "oldPassword", "Test1234!",
+                "newPassword", "NewPass123!"
+            );
+            ResponseEntity<ApiResponse<String>> response = testRestTemplate.exchange(
+                ENDPOINT + "/me/password",
+                HttpMethod.PATCH,
+                new HttpEntity<>(changePasswordRequest, headers),
+                new ParameterizedTypeReference<>() {}
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @DisplayName("Body의 기존 비밀번호가 일치하지 않으면, 401 Unauthorized를 반환한다.")
+        @Test
+        void returnsUnauthorized_whenOldPasswordInBodyDoesNotMatch() {
+            // arrange - 먼저 회원 가입
+            Map<String, String> signUpRequest = Map.of(
+                "loginId", "testuser",
+                "password", "Test1234!",
+                "name", "홍길동",
+                "birthDate", "19900101",
+                "email", "test@test.co.kr"
+            );
+            testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), new ParameterizedTypeReference<ApiResponse<Map<String, String>>>() {});
+
+            // act - 헤더는 맞지만 Body의 oldPassword가 틀림
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testuser");
+            headers.set("X-Loopers-LoginPw", "Test1234!");
+            headers.set("Content-Type", "application/json");
+
             Map<String, String> changePasswordRequest = Map.of(
                 "oldPassword", "WrongPass1!",
                 "newPassword", "NewPass123!"
             );
             ResponseEntity<ApiResponse<String>> response = testRestTemplate.exchange(
-                ENDPOINT + "/testuser/password",
+                ENDPOINT + "/me/password",
                 HttpMethod.PATCH,
-                new HttpEntity<>(changePasswordRequest),
+                new HttpEntity<>(changePasswordRequest, headers),
                 new ParameterizedTypeReference<>() {}
             );
 
@@ -233,14 +332,19 @@ class MemberV1ApiE2ETest {
             testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), new ParameterizedTypeReference<ApiResponse<Map<String, String>>>() {});
 
             // act - 기존과 동일한 비밀번호로 변경 요청
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testuser");
+            headers.set("X-Loopers-LoginPw", "Test1234!");
+            headers.set("Content-Type", "application/json");
+
             Map<String, String> changePasswordRequest = Map.of(
                 "oldPassword", "Test1234!",
                 "newPassword", "Test1234!"
             );
             ResponseEntity<ApiResponse<String>> response = testRestTemplate.exchange(
-                ENDPOINT + "/testuser/password",
+                ENDPOINT + "/me/password",
                 HttpMethod.PATCH,
-                new HttpEntity<>(changePasswordRequest),
+                new HttpEntity<>(changePasswordRequest, headers),
                 new ParameterizedTypeReference<>() {}
             );
 

@@ -29,14 +29,18 @@ public class MemberFacade {
     return MemberInfo.from(saved);
   }
 
-  public MemberInfo getMyInfo(String loginId) {
-    MemberModel member = memberService.getMember(loginId);
+
+  public MemberInfo getMyInfo(String loginId, String password) {
+    MemberModel member = memberService.authenticate(loginId, password);
     return MemberInfo.from(member);
   }
 
-  public void changePassword(String loginId, String prevPassword, String newPassword) {
-    // Request → MemberModel로 변환
-    MemberModel memberModel = new MemberModel(loginId, prevPassword);
+
+  public void changePassword(String loginId, String password, String prevPassword, String newPassword) {
+    // 헤더 인증
+    memberService.authenticate(loginId, password);
+
+    MemberModel memberModel = new MemberModel(loginId, prevPassword);  // raw prevPassword
 
     // Service 호출
     memberService.changePassword(memberModel, newPassword);
