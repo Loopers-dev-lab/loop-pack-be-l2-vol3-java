@@ -128,15 +128,15 @@ public class MemberServiceTest {
         String loginId = "tester";
         Member member = Member.builder()
                 .loginId(loginId)
-                .password("correctPassword")
+                .password("correctPasswo")
                 .build();
 
         given(memberRepository.findByLoginId(loginId)).willReturn(Optional.of(member));
 
         // when & then
-        assertThatThrownBy(() -> memberService.updatePassword(loginId, "wrongPassword", "newPassword123!"))
+        assertThatThrownBy(() -> memberService.updatePassword(loginId, "wrongPassword", "newPass123!"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage(MemberExceptionMessage.Password.PASSWORD_CANNOT_BE_SAME_AS_CURRENT.message());
+                .hasMessage(MemberExceptionMessage.Password.PASSWORD_INCORRECT.message());
 
         // 비밀번호 수정 메서드가 호출되지 않았는지 간접적으로 확인 가능 (혹은 상태 검증)
     }

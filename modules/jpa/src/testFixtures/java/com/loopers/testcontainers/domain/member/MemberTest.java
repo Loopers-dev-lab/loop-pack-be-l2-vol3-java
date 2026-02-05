@@ -397,7 +397,7 @@ class MemberTest {
         void updatePassword_Fail_SameAsCurrent() {
             // given
             Member member = Member.builder()
-                    .password("oldPassword123!")
+                    .password(PasswordEncryptor.encode("oldPassword123!"))
                     .build();
 
             // when & then
@@ -421,7 +421,7 @@ class MemberTest {
                     .hasMessage(MemberExceptionMessage.Password.PASSWORD_CONTAINS_BIRTHDATE.message());
         }
 
-        @DisplayName("비밀번호 형식 검증")
+        @DisplayName("비밀번호 수정 시 형식 검증")
         @Nested
         class PasswordFormatValidation {
 
@@ -507,7 +507,11 @@ class MemberTest {
             }
 
             private AbstractThrowableAssert<?, ? extends Throwable> throwIfWrongPasswordInput(String wrongPassword) {
-                return assertThatThrownBy(() -> Member.updatePassword(wrongPassword))
+                Member member = Member.builder()
+                        .password("oldPass123!")
+                        .birthDate(LocalDate.of(2001, 2, 9))
+                        .build();
+                return assertThatThrownBy(() -> member.updatePassword(wrongPassword))
                         .isInstanceOf(IllegalArgumentException.class);
             }
 

@@ -48,7 +48,9 @@ public class MemberExceptionMessage {
         // 3-1. 재사용 금지
         PASSWORD_CANNOT_BE_SAME_AS_CURRENT("현재 사용 중인 비밀번호와 동일한 비밀번호로 변경할 수 없습니다.", 1_104),
 
-        PASSWORD_NOT_ENCODED("비밀번호가 암호화되지 않았습니다.", 1_105)
+        PASSWORD_NOT_ENCODED("비밀번호가 암호화되지 않았습니다.", 1_105),
+
+        PASSWORD_INCORRECT("비밀번호가 일치하지 않습니다.", 1_106)
 
         ;
 
