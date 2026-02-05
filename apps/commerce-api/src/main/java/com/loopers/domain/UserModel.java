@@ -2,11 +2,10 @@ package com.loopers.domain;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -17,26 +16,26 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "users")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor
 public class UserModel extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     @Embedded
+    @AttributeOverride(name = "value", column = @Column(name = "login_id"))
     private LoginId loginId;
 
     @Embedded
+    @AttributeOverride(name = "value", column = @Column(name = "password"))
     private Password password;
 
     @Embedded
+    @AttributeOverride(name = "name", column = @Column(name = "name"))
     private Name name;
 
     @Embedded
+    @AttributeOverride(name = "birthDate", column = @Column(name = "birth_date"))
     private BirthDate birthDate;
 
     @Embedded
+    @AttributeOverride(name = "mail", column = @Column(name = "email"))
     private Email email;
 
     public UserModel(LoginId loginId, Password password, Name name, BirthDate birthDate, Email email) {

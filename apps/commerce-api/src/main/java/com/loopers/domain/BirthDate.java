@@ -2,16 +2,20 @@ package com.loopers.domain;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.persistence.Embeddable;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import lombok.EqualsAndHashCode;
 
+@Embeddable
 @EqualsAndHashCode
 public class BirthDate {
 
     private static final DateTimeFormatter DATE_STRING_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-    private final LocalDate birthDate;
+    private LocalDate birthDate;
+
+    protected BirthDate() {}
 
     public BirthDate(LocalDate birthDate) {
         validate(birthDate);

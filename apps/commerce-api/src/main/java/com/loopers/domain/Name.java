@@ -2,11 +2,17 @@ package com.loopers.domain;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.persistence.Embeddable;
+import lombok.EqualsAndHashCode;
 
+@Embeddable
+@EqualsAndHashCode
 public class Name {
     private final static int MIN_LENGTH = 2;
     private final static int MAX_LENGTH = 10;
-    private final String name;
+    private String name;
+
+    protected Name() {}
 
     public Name(String name) {
         validate(name);

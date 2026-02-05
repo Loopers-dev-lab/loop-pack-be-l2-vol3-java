@@ -2,15 +2,21 @@ package com.loopers.domain;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.persistence.Embeddable;
 import java.util.regex.Pattern;
+import lombok.EqualsAndHashCode;
 
+@Embeddable
+@EqualsAndHashCode
 public class LoginId {
     private static final int MIN_LENGTH = 4;
     private static final int MAX_LENGTH = 12;
 
     private static final Pattern ALPHANUMERIC_PATTERN = Pattern.compile("^[a-zA-Z0-9]*$");
 
-    private final String value;
+    private String value;
+
+    protected LoginId() {}
 
     public LoginId(String value) {
         validate(value);

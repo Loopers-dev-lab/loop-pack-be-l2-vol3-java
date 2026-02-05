@@ -2,16 +2,20 @@ package com.loopers.domain;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.persistence.Embeddable;
 import java.util.regex.Pattern;
 import lombok.EqualsAndHashCode;
 
+@Embeddable
 @EqualsAndHashCode
 public class Password {
     // 특수문자 범위를 ~!@#$%^&*()_+=- 로 확장했습니다.
     private static final Pattern PASSWORD_PATTERN =
             Pattern.compile("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[~!@#$%^&*()_+=-])[A-Za-z\\d~!@#$%^&*()_+=-]{8,16}$");
 
-    private final String value;
+    private String value;
+
+    protected Password() {}
 
     public Password(String value) {
         validate(value);
