@@ -208,5 +208,24 @@ public class UserServiceTest {
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.SAME_PASSWORD);
         }
+
+        @DisplayName("새 비밀번호에 생년월일이 포함되면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenNewPasswordContainsBirthDate() {
+            // arrange - birthDate: 1990-03-25 (연속 동일 문자 없음)
+            User user = User.create(
+                    new LoginId("nahyeon"), "$2a$10$hash",
+                    new UserName("홍길동"), LocalDate.of(1990, 3, 25),
+                    new Email("nahyeon@example.com")
+            );
+            when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$hash")).thenReturn(true);
+
+            // act & assert - newPassword contains "19900325" (birthDate)
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                userService.changePassword(user, "Hx7!mK2@", "X19900325!");
+            });
+
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.PASSWORD_CONTAINS_BIRTH_DATE);
+        }
     }
 }
