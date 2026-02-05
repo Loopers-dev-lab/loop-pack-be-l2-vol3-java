@@ -56,6 +56,7 @@ public class MemberModel extends BaseEntity {
     public MemberModel(String loginId) {
         // 가입하는 로그인 ID는 영문과 숫자만 허용한다
         validateLoginId(loginId);
+        this.loginId = loginId;
     }
 
     public String getLoginId() {

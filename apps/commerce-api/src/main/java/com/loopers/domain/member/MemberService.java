@@ -4,6 +4,7 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,9 +27,12 @@ public class MemberService {
         // 비밀번호 암호화 후 저장
         String encrypted = passwordEncoder.encode(memberModel.getPassword());
         memberModel.encryptPassword(encrypted);
-        memberRepository.save(memberModel);
 
-        return getMember(memberModel.getLoginId());
+        try {
+          return memberRepository.save(memberModel);
+        } catch (DataIntegrityViolationException e) {
+          throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 아이디입니다.");
+        }
       }
 
     @Transactional(readOnly = true)

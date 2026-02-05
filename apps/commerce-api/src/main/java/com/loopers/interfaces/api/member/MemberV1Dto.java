@@ -21,5 +21,21 @@ public class MemberV1Dto {
       }
     }
 
+    public record MemberInfoResponse(
+        String loginId,
+        String name,
+        String birthDate,
+        String email
+    ) {
+      public static MemberInfoResponse from(MemberInfo info) {
+        return new MemberInfoResponse(
+            info.loginId(),
+            info.name(),
+            info.birthDate(),
+            info.email()
+        );
+      }
+    }
+
 
 }

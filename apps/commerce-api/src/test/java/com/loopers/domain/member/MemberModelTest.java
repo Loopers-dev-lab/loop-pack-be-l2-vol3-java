@@ -37,6 +37,22 @@ class MemberModelTest {
             // 비밀번호는 암호화되어 저장되므로 원본과 다를 수 있음 - 나중에 검증 방식 결정
         }
 
+        @DisplayName("아이디로 회원 모델을 생성할 때, 영문과 숫자가 아닌 문자가 포함되면 예외가 발생한다.")
+        @Test
+        void throwsBadRequestException_whenLoginIdContainsInvalidChars() {
+          // arrange
+          String loginId = "testuser!@#";
+
+          // act
+          CoreException result = assertThrows(CoreException.class, () -> {
+            new MemberModel(loginId);
+          });
+          // assert
+          assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST
+          );
+
+        }
+
 
         @DisplayName("(실패케이스) 비밀번호가 7자일때, 예외발생.")
         @Test
@@ -114,5 +130,43 @@ class MemberModelTest {
           // assert
           assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
+    }
+
+    @DisplayName("회원정보조회할 때,")
+    @Nested
+    class GetMemberInfo {
+
+        @DisplayName("이름 마지막 글자를 마스킹한다")
+        @Test
+        void mask_last_character() {
+          //arrange
+          String loginId = "testuser";
+          String rawPassword = "Test1234!";
+          String name = "홍길동";
+          String birthDate = "19900101";
+          String email = "test@example.com";
+
+          // act
+          MemberModel member = new MemberModel(loginId, rawPassword, name, birthDate, email);
+
+          assertThat(member.getMaskedName()).isEqualTo("홍길*");
+        }
+
+        @DisplayName("이름 마지막 글자를 마스킹한다")
+        @Test
+        void single_character_name_is_fully_masked() {
+          //arrange
+          String loginId = "testuser";
+          String rawPassword = "Test1234!";
+          String name = "홍";
+          String birthDate = "19900101";
+          String email = "test@example.com";
+
+          // act
+          MemberModel member = new MemberModel(loginId, rawPassword, name, birthDate, email);
+
+          assertThat(member.getMaskedName()).isEqualTo("*");
+        }
+
     }
 }

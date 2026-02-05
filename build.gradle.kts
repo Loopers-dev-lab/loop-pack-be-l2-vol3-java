@@ -40,10 +40,9 @@ subprojects {
     apply(plugin = "org.springframework.boot")
     apply(plugin = "io.spring.dependency-management")
 
-    // TODO: JDK 24 환경에서 JacocoReport 태스크 생성 오류 발생 - JDK 21로 전환 후 활성화 필요
-    // if (name !in containerProjects) {
-    //     apply(plugin = "jacoco")
-    // }
+     if (name !in containerProjects) {
+         apply(plugin = "jacoco")
+     }
 
     dependencyManagement {
         imports {

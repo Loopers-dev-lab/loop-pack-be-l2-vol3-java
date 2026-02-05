@@ -1,11 +1,8 @@
 package com.loopers.interfaces.api.member;
 
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.api.member.MemberV1Dto.SignUpResponse;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.web.bind.annotation.PostMapping;
 
 @Tag(name = "Member V1 API", description = "회원 API")
 public interface MemberV1ApiSpec {
@@ -20,7 +17,11 @@ public interface MemberV1ApiSpec {
       MemberV1Dto.SignUpRequest request
   );
 
-  ApiResponse<MemberV1Dto.SignUpResponse> getMyInfo(
+  @Operation(
+      summary = "내 정보 조회",
+      description = "로그인 ID로 내 회원 정보를 조회한다"
+  )
+  ApiResponse<MemberV1Dto.MemberInfoResponse> getMyInfo(
           String loginId
   );
 
