@@ -71,4 +71,23 @@ public class SignUpRequestValidationTest {
                 .annotationType())
                 .isEqualTo(Email.class);
     }
+
+    @Test
+    void 생년월일_형식_불일치_시_실패() {
+        //given
+        String id = "test";
+        String password = "pw";
+        String name = "name";
+        String birthDate = "19900427";
+        String email = "test123@test.com";
+        SignUpRequest request = new SignUpRequest(id, password, name, birthDate, email);
+
+        //when
+        Set<ConstraintViolation<SignUpRequest>> violations = validator.validate(request);
+
+        //then
+        assertThat(violations).hasSize(1);
+        ConstraintViolation<SignUpRequest> violation = violations.iterator().next();
+        assertThat(violation.getPropertyPath().toString()).isEqualTo("birthDate");
+    }
 }
