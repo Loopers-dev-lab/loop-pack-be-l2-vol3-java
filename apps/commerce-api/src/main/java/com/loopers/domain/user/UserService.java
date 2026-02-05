@@ -24,11 +24,11 @@ public class UserService {
 
     @Transactional
     public User register(RegisterCommand command) {
-        UserId userId = new UserId(command.getUserId());
-        Password password = new Password(command.getRawPassword());
-        Name name = new Name(command.getName());
-        Email email = new Email(command.getEmail());
-        BirthDate birthDate = BirthDate.of(command.getBirthDate());
+        UserId userId = new UserId(command.userId());
+        Password password = new Password(command.rawPassword());
+        Name name = new Name(command.name());
+        Email email = new Email(command.email());
+        BirthDate birthDate = BirthDate.of(command.birthDate());
 
         if (userRepository.existsByUserId(userId)) {
             throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 아이디입니다.");
@@ -45,19 +45,19 @@ public class UserService {
 
     @Transactional
     public void changePassword(ChangePasswordCommand command) {
-        User user = userRepository.findByUserId(command.getUserId())
+        User user = userRepository.findByUserId(command.userId())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
-        if (passwordEncoder.matches(command.getNewRawPassword(), user.password().value())) {
+        if (passwordEncoder.matches(command.newRawPassword(), user.password().value())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "새 비밀번호는 기존 비밀번호와 다르게 설정해야 합니다.");
         }
 
-        Password newPassword = new Password(command.getNewRawPassword());
+        Password newPassword = new Password(command.newRawPassword());
         Password encodedPassword = Password.ofEncoded(passwordEncoder.encode(newPassword.value()));
         if (!encodedPassword.isEncoded()) {
             throw new CoreException(ErrorType.INTERNAL_ERROR, ERROR_PASSWORD_NOT_ENCODED);
         }
-        User updatedUser = new User(user.id(), encodedPassword, user.name(), user.email(), command.getBirthDate());
+        User updatedUser = new User(user.id(), encodedPassword, user.name(), user.email(), command.birthDate());
         userRepository.save(updatedUser);
     }
 }

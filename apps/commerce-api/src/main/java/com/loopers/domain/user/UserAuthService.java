@@ -16,10 +16,10 @@ public class UserAuthService {
 
     @Transactional(readOnly = true)
     public User authenticate(AuthenticateCommand command) {
-        User user = userRepository.findByUserId(command.getUserId())
+        User user = userRepository.findByUserId(command.userId())
                 .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED));
 
-        if (!passwordEncoder.matches(command.getRawPassword(), user.password().value())) {
+        if (!passwordEncoder.matches(command.rawPassword(), user.password().value())) {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
 
