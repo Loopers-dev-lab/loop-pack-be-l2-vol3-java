@@ -8,6 +8,7 @@ import com.loopers.domain.member.MemberExceptionMessage;
 import com.loopers.infrastructure.member.MemberRepository;
 import com.loopers.utils.PasswordEncryptor;
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -118,6 +119,26 @@ public class MemberServiceTest {
         // then
         assertThat(response.loginId()).isEqualTo(loginId);
 
+    }
+
+    @Test
+    @DisplayName("현재 비밀번호가 틀리면 수정을 진행하지 않고 예외를 던진다")
+    void updatePassword_Fail_InvalidCurrentPassword() {
+        // given
+        String loginId = "tester";
+        Member member = Member.builder()
+                .loginId(loginId)
+                .password("correctPassword")
+                .build();
+
+        given(memberRepository.findByLoginId(loginId)).willReturn(Optional.of(member));
+
+        // when & then
+        assertThatThrownBy(() -> memberService.updatePassword(loginId, "wrongPassword", "newPassword123!"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(MemberExceptionMessage.Password.PASSWORD_CANNOT_BE_SAME_AS_CURRENT.message());
+
+        // 비밀번호 수정 메서드가 호출되지 않았는지 간접적으로 확인 가능 (혹은 상태 검증)
     }
 
 }

@@ -387,4 +387,130 @@ class MemberTest {
             assertThat(result).isFalse();
         }
     }
+
+    @DisplayName("비밀번호 수정 정책 검증")
+    @Nested
+    class UpdatePasswordPolicy {
+
+        @Test
+        @DisplayName("새 비밀번호가 현재 비밀번호와 같으면 예외가 발생한다")
+        void updatePassword_Fail_SameAsCurrent() {
+            // given
+            Member member = Member.builder()
+                    .password("oldPassword123!")
+                    .build();
+
+            // when & then
+            assertThatThrownBy(() -> member.updatePassword("oldPassword123!"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage(MemberExceptionMessage.Password.PASSWORD_CANNOT_BE_SAME_AS_CURRENT.message());
+        }
+
+        @Test
+        @DisplayName("새 비밀번호에 생년월일이 포함되면 예외가 발생한다")
+        void updatePassword_Fail_ContainsBirthDate() {
+            // given
+            Member member = Member.builder()
+                    .password("oldPass123!")
+                    .birthDate(LocalDate.of(2001, 2, 9))
+                    .build();
+
+            // when & then
+            assertThatThrownBy(() -> member.updatePassword("pass20010209!"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage(MemberExceptionMessage.Password.PASSWORD_CONTAINS_BIRTHDATE.message());
+        }
+
+        @DisplayName("비밀번호 형식 검증")
+        @Nested
+        class PasswordFormatValidation {
+
+            // 1-1-1
+            @Test
+            public void 비밀번호_길이는_8자_미만일_수_없음() throws Exception {
+                //given
+                String wrongPassword = "pap1234"; // 7글자
+
+                //when
+
+                //then
+                throwIfWrongPasswordInput(wrongPassword)
+                        .hasMessage(MemberExceptionMessage.Password.INVALID_PASSWORD_LENGTH.message());
+            }
+
+            // 1-1-2
+            @Test
+            public void 비밀번호_길이는_16자_초과일_수_없음() throws Exception {
+                //given
+                String wrongPassword = "qwer1234tyui5678a"; // 17글자
+
+                //when
+
+                //then
+                throwIfWrongPasswordInput(wrongPassword)
+                        .hasMessage(MemberExceptionMessage.Password.INVALID_PASSWORD_LENGTH.message());
+
+            }
+
+            // 1-2
+            @Test
+            public void 비밀번호는_영문_숫자_특수문자만_사용할_수_있음() throws Exception {
+                //given
+                String wrongPassword = "한글password123";
+
+                //when
+
+                //then
+                throwIfWrongPasswordInput(wrongPassword)
+                        .hasMessage(MemberExceptionMessage.Password.INVALID_PASSWORD_COMPOSITION.message());
+
+            }
+
+            // 2-1
+            @Test
+            public void 사용자_생년월일_YYYYMMDD가_비밀번호_포함_불가() throws Exception {
+                //given
+                LocalDate userBirthDate = LocalDate.of(2001, 2, 9);
+                String wrongPassword = "pwd20010209!";
+
+                //when
+
+                //then
+                throwIfWrongPasswordInput(wrongPassword)
+                        .hasMessage(MemberExceptionMessage.Password.PASSWORD_CONTAINS_BIRTHDATE.message());
+            }
+
+            // 2-2
+            @Test
+            public void 사용자_생년월일_YYMMDD가_비밀번호_포함_불가() throws Exception {
+                //given
+                LocalDate userBirthDate = LocalDate.of(2001, 2, 9);
+                String wrongPassword = "pass010209!";
+
+                //when
+
+                //then
+                throwIfWrongPasswordInput(wrongPassword)
+                        .hasMessage(MemberExceptionMessage.Password.PASSWORD_CONTAINS_BIRTHDATE.message());
+            }
+
+            // 4
+            @Test
+            public void 비밀번호는_암호화해_저장() throws Exception {
+                //given
+
+                //when
+                String encodedPassword = PasswordEncryptor.encode(VALID_PASSWORD);
+
+                //then
+                assertThat(PasswordEncryptor.matches(VALID_PASSWORD, encodedPassword)).isTrue();
+            }
+
+            private AbstractThrowableAssert<?, ? extends Throwable> throwIfWrongPasswordInput(String wrongPassword) {
+                return assertThatThrownBy(() -> Member.updatePassword(wrongPassword))
+                        .isInstanceOf(IllegalArgumentException.class);
+            }
+
+        }
+    }
 }
