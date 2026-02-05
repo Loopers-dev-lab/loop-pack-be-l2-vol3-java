@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.user;
 
 import com.loopers.application.user.command.RegisterCommand;
+import com.loopers.domain.user.User;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -39,6 +40,30 @@ public class UserDto {
 
         public RegisterCommand toCommand() {
             return new RegisterCommand(loginId, password, name, email, birthDate);
+        }
+    }
+
+    @Getter
+    public static class UserResponse {
+        private final String loginId;
+        private final String name;
+        private final String email;
+        private final String birthDate;
+
+        private UserResponse(String loginId, String name, String email, String birthDate) {
+            this.loginId = loginId;
+            this.name = name;
+            this.email = email;
+            this.birthDate = birthDate;
+        }
+
+        public static UserResponse from(User user) {
+            return new UserResponse(
+                    user.id().value(),
+                    user.getMaskedName(),
+                    user.email().value(),
+                    user.birthDate().value().toString()
+            );
         }
     }
 }
