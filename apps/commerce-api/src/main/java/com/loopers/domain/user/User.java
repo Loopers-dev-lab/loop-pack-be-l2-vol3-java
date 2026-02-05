@@ -72,7 +72,7 @@ public class User extends BaseEntity {
     }
 
     boolean matchesPassword(String rawPassword, PasswordEncoder passwordEncoder) {
-        return passwordEncoder.matches(rawPassword, password.getValue());
+        return password.matches(rawPassword, passwordEncoder);
     }
 
     private void validatePasswordNotContainsBirthDate(String rawPassword) {

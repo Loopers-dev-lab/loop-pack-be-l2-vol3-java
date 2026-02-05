@@ -56,7 +56,7 @@ class UserServiceIntegrationTest {
                     () -> assertThat(user.getName()).isEqualTo(new UserName(name)),
                     () -> assertThat(user.getBirthDate()).isEqualTo(new BirthDate(birthDate)),
                     () -> assertThat(user.getEmail()).isEqualTo(new Email(email)),
-                    () -> assertThat(user.getPassword().getValue()).isNotEqualTo(password)
+                    () -> assertThat(user.matchesPassword(password, passwordEncoder)).isTrue()
             );
         }
 

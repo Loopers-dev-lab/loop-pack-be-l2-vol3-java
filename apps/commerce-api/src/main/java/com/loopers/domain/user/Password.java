@@ -10,11 +10,9 @@ import com.loopers.support.error.ErrorType;
 
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Embeddable
-@Getter
 @EqualsAndHashCode
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Password {
@@ -27,6 +25,10 @@ public class Password {
     public Password(String value, PasswordEncoder passwordEncoder) {
         validate(value);
         this.value = passwordEncoder.encode(value);
+    }
+
+    public boolean matches(String rawPassword, PasswordEncoder passwordEncoder) {
+        return passwordEncoder.matches(rawPassword, this.value);
     }
 
     private void validate(String value) {

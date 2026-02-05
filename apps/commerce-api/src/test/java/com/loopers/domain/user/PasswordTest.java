@@ -72,4 +72,37 @@ class PasswordTest {
                     .isInstanceOf(Exception.class);
         }
     }
+
+    @DisplayName("matches 메서드를 호출할 때,")
+    @Nested
+    class Matches {
+
+        @DisplayName("원본 비밀번호가 일치하면, true를 반환한다.")
+        @Test
+        void returnsTrue_whenRawPasswordMatches() {
+            // arrange
+            String rawPassword = "Password1!";
+            Password password = new Password(rawPassword, passwordEncoder);
+
+            // act
+            boolean result = password.matches(rawPassword, passwordEncoder);
+
+            // assert
+            assertThat(result).isTrue();
+        }
+
+        @DisplayName("원본 비밀번호가 일치하지 않으면, false를 반환한다.")
+        @Test
+        void returnsFalse_whenRawPasswordDoesNotMatch() {
+            // arrange
+            String rawPassword = "Password1!";
+            Password password = new Password(rawPassword, passwordEncoder);
+
+            // act
+            boolean result = password.matches("WrongPassword1!", passwordEncoder);
+
+            // assert
+            assertThat(result).isFalse();
+        }
+    }
 }
