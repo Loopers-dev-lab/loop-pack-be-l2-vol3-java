@@ -34,10 +34,15 @@ allprojects {
 }
 
 subprojects {
+    val containerProjects = setOf("apps", "modules", "supports")
+
     apply(plugin = "java")
     apply(plugin = "org.springframework.boot")
     apply(plugin = "io.spring.dependency-management")
-    apply(plugin = "jacoco")
+
+     if (name !in containerProjects) {
+         apply(plugin = "jacoco")
+     }
 
     dependencyManagement {
         imports {
@@ -55,6 +60,8 @@ subprojects {
         // Lombok
         implementation("org.projectlombok:lombok")
         annotationProcessor("org.projectlombok:lombok")
+        // 암호화
+        implementation ("org.springframework.security:spring-security-crypto")
         // Test
         testRuntimeOnly("org.junit.platform:junit-platform-launcher")
         // testcontainers:mysql 이 jdbc 사용함
@@ -85,24 +92,27 @@ subprojects {
         jvmArgs("-Xshare:off")
     }
 
-    tasks.withType<JacocoReport> {
-        mustRunAfter("test")
-        executionData(fileTree(layout.buildDirectory.asFile).include("jacoco/*.exec"))
-        reports {
-            xml.required = true
-            csv.required = false
-            html.required = false
-        }
-        afterEvaluate {
-            classDirectories.setFrom(
-                files(
-                    classDirectories.files.map {
-                        fileTree(it)
-                    },
-                ),
-            )
-        }
-    }
+    // TODO: JDK 24 환경에서 JacocoReport 태스크 생성 오류 발생 - JDK 21로 전환 후 활성화 필요
+    // if (name !in containerProjects) {
+    //     tasks.withType<JacocoReport> {
+    //         mustRunAfter("test")
+    //         executionData(fileTree(layout.buildDirectory.asFile).include("jacoco/*.exec"))
+    //         reports {
+    //             xml.required = true
+    //             csv.required = false
+    //             html.required = false
+    //         }
+    //         afterEvaluate {
+    //             classDirectories.setFrom(
+    //                 files(
+    //                     classDirectories.files.map {
+    //                         fileTree(it)
+    //                     },
+    //                 ),
+    //             )
+    //         }
+    //     }
+    // }
 }
 
 // module-container 는 task 를 실행하지 않도록 한다.
