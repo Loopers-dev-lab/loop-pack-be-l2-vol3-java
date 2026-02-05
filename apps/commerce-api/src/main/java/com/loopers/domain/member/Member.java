@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 
 public class Member {
 
+    private static final Pattern LOGIN_ID_PATTERN = Pattern.compile("^[a-zA-Z0-9]+$");
     private static final Pattern PASSWORD_PATTERN = Pattern.compile("^[a-zA-Z0-9!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?`~]+$");
     private static final Pattern NAME_PATTERN = Pattern.compile("^[가-힣]{2,20}$");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
@@ -51,6 +52,9 @@ public class Member {
     private void validateLoginId(String loginId) {
         if (loginId == null || loginId.isBlank()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 비어있을 수 없습니다.");
+        }
+        if (!LOGIN_ID_PATTERN.matcher(loginId).matches()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 영문과 숫자만 입력 가능합니다.");
         }
     }
 

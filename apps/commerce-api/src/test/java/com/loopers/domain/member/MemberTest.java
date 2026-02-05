@@ -68,6 +68,40 @@ class MemberTest {
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
+
+        @DisplayName("영문과 숫자로만 구성되면, 정상적으로 생성된다.")
+        @Test
+        void createsSuccessfully_whenLoginIdIsAlphanumeric() {
+            // act
+            Member member = new Member("testUser123", VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+            // assert
+            assertThat(member.getLoginId()).isEqualTo("testUser123");
+        }
+
+        @DisplayName("한글이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenLoginIdContainsKorean() {
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                new Member("test유저1", VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL)
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("특수문자가 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenLoginIdContainsSpecialCharacters() {
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                new Member("test@user!", VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL)
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
     }
 
     @DisplayName("비밀번호를 검증할 때,")
