@@ -19,41 +19,38 @@ Layered Architecture + DDD 기반으로 설계했습니다.
 
 ## 아키텍처
 
-```plantuml
-@startuml Domain Architecture
-skinparam packageStyle rectangle
+```mermaid
+graph TB
+    subgraph Interface["Interface Layer"]
+        UC[UserController]
+        AR[AuthUserArgumentResolver]
+    end
 
-package "Interface Layer" {
-  [UserController]
-  [AuthUserArgumentResolver]
-}
+    subgraph Application["Application Layer"]
+        UF[UserFacade]
+    end
 
-package "Application Layer" {
-  [UserFacade]
-}
+    subgraph Domain["Domain Layer"]
+        US[UserService]
+        UAS[UserAuthService]
+        U[User]
+        PE[PasswordEncoder]
+    end
 
-package "Domain Layer" {
-  [UserService]
-  [UserAuthService]
-  [User]
-  [PasswordEncoder] <<interface>>
-}
+    subgraph Infrastructure["Infrastructure Layer"]
+        UE[UserEntity]
+        URI[UserRepositoryImpl]
+        BCE[BCryptPasswordEncoder]
+    end
 
-package "Infrastructure Layer" {
-  [UserEntity]
-  [UserRepositoryImpl]
-  [BCryptPasswordEncoder]
-}
-
-[UserController] --> [UserFacade]
-[UserController] --> [UserService]
-[UserFacade] --> [UserAuthService]
-[UserFacade] --> [UserService]
-[UserService] --> [UserRepository]
-[UserAuthService] --> [UserRepository]
-[UserRepositoryImpl] ..|> [UserRepository]
-[BCryptPasswordEncoder] ..|> [PasswordEncoder]
-@enduml
+    UC --> UF
+    UC --> US
+    UF --> UAS
+    UF --> US
+    US --> UR[UserRepository]
+    UAS --> UR
+    URI -.->|implements| UR
+    BCE -.->|implements| PE
 ```
 
 ---
@@ -62,143 +59,135 @@ package "Infrastructure Layer" {
 
 ### 1. 회원가입
 
-```plantuml
-@startuml Register Sequence
-actor Client
-participant UserController
-participant UserService
-participant UserRepository
-database DB
+```mermaid
+sequenceDiagram
+    actor Client
+    participant UC as UserController
+    participant US as UserService
+    participant UR as UserRepository
+    participant DB as Database
 
-Client -> UserController: POST /api/v1/users
-UserController -> UserService: register(command)
-UserService -> UserService: VO 검증 (Password, Email 등)
-UserService -> UserRepository: existsByUserId()
-UserRepository -> DB: SELECT
-DB --> UserRepository: false
-UserService -> UserService: 비밀번호 암호화 (BCrypt)
-UserService -> UserRepository: save(user)
-UserRepository -> DB: INSERT
-DB --> UserRepository: OK
-UserService --> UserController: User
-UserController --> Client: 201 Created
-@enduml
+    Client->>UC: POST /api/v1/users
+    UC->>US: register(command)
+    US->>US: VO 검증 (Password, Email 등)
+    US->>UR: existsByUserId()
+    UR->>DB: SELECT
+    DB-->>UR: false
+    US->>US: 비밀번호 암호화 (BCrypt)
+    US->>UR: save(user)
+    UR->>DB: INSERT
+    DB-->>UR: OK
+    US-->>UC: User
+    UC-->>Client: 201 Created
 ```
 
 ### 2. 비밀번호 변경
 
-```plantuml
-@startuml Change Password Sequence
-actor Client
-participant UserController
-participant UserFacade
-participant UserAuthService
-participant UserService
-participant UserRepository
-database DB
+```mermaid
+sequenceDiagram
+    actor Client
+    participant UC as UserController
+    participant UF as UserFacade
+    participant UAS as UserAuthService
+    participant US as UserService
+    participant UR as UserRepository
+    participant DB as Database
 
-Client -> UserController: PATCH /api/v1/users/me/password
-note right: Header: Authorization (Basic Auth)
-UserController -> UserFacade: changePassword(request)
-UserFacade -> UserAuthService: authenticate(command)
-UserAuthService -> UserRepository: findByUserId()
-UserRepository -> DB: SELECT
-DB --> UserRepository: UserEntity
-UserAuthService -> UserAuthService: 비밀번호 검증
-UserAuthService --> UserFacade: User
+    Client->>UC: PATCH /api/v1/users/me/password
+    Note right of Client: Header: Authorization
+    UC->>UF: changePassword(request)
+    UF->>UAS: authenticate(command)
+    UAS->>UR: findByUserId()
+    UR->>DB: SELECT
+    DB-->>UR: UserEntity
+    UAS->>UAS: 비밀번호 검증
+    UAS-->>UF: User
 
-UserFacade -> UserService: changePassword(command)
-UserService -> UserService: 신규 비밀번호 검증
-note right: - 8~16자\n- 대/소문자, 숫자, 특수문자\n- 생년월일 미포함\n- 기존 비밀번호와 다름
-UserService -> UserService: BCrypt 암호화
-UserService -> UserRepository: save(user)
-UserRepository -> DB: UPDATE
-DB --> UserRepository: OK
-UserService --> UserFacade: void
-UserFacade --> UserController: void
-UserController --> Client: 200 OK
-@enduml
+    UF->>US: changePassword(command)
+    US->>US: 신규 비밀번호 검증
+    Note right of US: - 8~16자<br/>- 대/소문자, 숫자, 특수문자<br/>- 생년월일 미포함<br/>- 기존 비밀번호와 다름
+    US->>US: BCrypt 암호화
+    US->>UR: save(user)
+    UR->>DB: UPDATE
+    DB-->>UR: OK
+    US-->>UF: void
+    UF-->>UC: void
+    UC-->>Client: 200 OK
 ```
 
 ---
 
 ## 도메인 모델
 
-```plantuml
-@startuml Domain Model
-skinparam classAttributeIconSize 0
+```mermaid
+classDiagram
+    class User {
+        <<record>>
+        -UserId id
+        -Password password
+        -Name name
+        -Email email
+        -BirthDate birthDate
+        +getMaskedName() String
+    }
 
-class User <<record>> {
-  - id: UserId
-  - password: Password
-  - name: Name
-  - email: Email
-  - birthDate: BirthDate
-  --
-  + getMaskedName(): String
-}
+    class UserId {
+        <<VO>>
+        -String value
+        검증: 4~20자, 영문소문자+숫자
+    }
 
-class UserId <<VO>> {
-  - value: String
-  --
-  검증: 4~20자, 영문소문자+숫자
-}
+    class Password {
+        <<VO>>
+        -String value
+        검증: 8~16자
+        대/소문자, 숫자, 특수문자 필수
+        +containsDate(date) boolean
+        +isEncoded() boolean
+        +ofEncoded(String) Password
+    }
 
-class Password <<VO>> {
-  - value: String
-  --
-  검증: 8~16자
-  대/소문자, 숫자, 특수문자 필수
-  --
-  + containsDate(date): boolean
-  + isEncoded(): boolean
-  + ofEncoded(String): Password
-}
+    class Email {
+        <<VO>>
+        -String value
+        검증: 이메일 형식
+    }
 
-class Email <<VO>> {
-  - value: String
-  --
-  검증: 이메일 형식
-}
+    class Name {
+        <<VO>>
+        -String value
+        검증: 2~10자, 한글만
+    }
 
-class Name <<VO>> {
-  - value: String
-  --
-  검증: 2~10자, 한글만
-}
+    class BirthDate {
+        <<VO>>
+        -LocalDate value
+        검증: 과거 날짜만
+    }
 
-class BirthDate <<VO>> {
-  - value: LocalDate
-  --
-  검증: 과거 날짜만
-}
-
-User *-- UserId
-User *-- Password
-User *-- Name
-User *-- Email
-User *-- BirthDate
-@enduml
+    User *-- UserId
+    User *-- Password
+    User *-- Name
+    User *-- Email
+    User *-- BirthDate
 ```
 
 ---
 
 ## ERD
 
-```plantuml
-@startuml ERD
-entity "users" as users {
-  * id : BIGINT <<PK, AUTO_INCREMENT>>
-  --
-  * user_id : VARCHAR(20) <<UNIQUE>>
-  * password : VARCHAR(255)
-  * name : VARCHAR(10)
-  * email : VARCHAR(255)
-  * birth_date : DATE
-  * created_at : DATETIME
-  * updated_at : DATETIME
-}
-@enduml
+```mermaid
+erDiagram
+    users {
+        BIGINT id PK "AUTO_INCREMENT"
+        VARCHAR(20) user_id UK
+        VARCHAR(255) password
+        VARCHAR(10) name
+        VARCHAR(255) email
+        DATE birth_date
+        DATETIME created_at
+        DATETIME updated_at
+    }
 ```
 
 ---
