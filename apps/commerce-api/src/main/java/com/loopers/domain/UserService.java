@@ -27,4 +27,13 @@ public class UserService {
         return userRepository.find(loginId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다."));
     }
+
+    @Transactional
+    public void changePassword(LoginId loginId, Password currentPassword, Password newPassword) {
+        UserModel user = userRepository.find(loginId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+
+        user.changePassword(currentPassword, newPassword);
+        userRepository.save(user);
+    }
 }
