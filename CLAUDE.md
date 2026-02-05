@@ -17,6 +17,15 @@
 | Test | TestContainers | (MySQL, Redis, Kafka) |
 | Lint | ktLint | 1.0.1 |
 
+### 1.1 빌드 및 테스트 명령어
+
+| 명령어 | 설명 |
+|--------|------|
+| `./gradlew :apps:commerce-api:test` | commerce-api 모듈 테스트 |
+| `./gradlew :apps:commerce-api:build` | commerce-api 모듈 빌드 |
+| `./gradlew test` | 전체 테스트 |
+| `./gradlew clean build` | 클린 빌드 |
+
 ## 2. 모듈 구조
 
 ```
@@ -129,6 +138,75 @@ class SomeIntegrationTest {
     // ...
 }
 ```
+
+### 4.4 커밋 메시지 컨벤션
+
+**형식**: `{type}: {한국어 설명}`
+
+| type | 용도 |
+|------|------|
+| `feat` | 새 기능 추가 |
+| `test` | 테스트 추가/수정 |
+| `refactor` | 리팩토링 (기능 변경 없음) |
+| `docs` | 문서 추가/수정 |
+| `init` | 초기 설정 |
+
+- 본문: 변경된 파일/클래스 목록을 `-` 리스트로 기술
+
+### 4.5 에러 처리 패턴
+
+모든 비즈니스 예외는 `CoreException` + `ErrorType` 조합으로 처리한다.
+
+**흐름**: `throw CoreException(ErrorType.XXX)` → `GlobalExceptionHandler` → `ErrorResponse(code, message)`
+
+**새 도메인 에러 추가 시**:
+1. `ErrorType` enum에 에러 추가 (HttpStatus, code, message)
+2. 도메인 코드에서 `throw new CoreException(ErrorType.XXX)`
+3. `GlobalExceptionHandler`는 수정 불필요 (자동 처리)
+
+- `@Valid` 검증 실패 → `MethodArgumentNotValidException` → BAD_REQUEST 자동 반환
+
+### 4.6 도메인 모델 패턴
+
+#### 팩토리 메서드
+- `create(...)`: 새 객체 생성 (유효성 검증 포함, id = null)
+- `reconstruct(...)`: DB에서 복원 (검증 생략, id 포함)
+- 생성자는 `private`으로 제한
+
+#### 유효성 검증 순서
+null 체크 → empty 체크 → 길이 제한 → 포맷(정규식) → 비즈니스 규칙
+
+#### Value Object
+- Java `record`로 구현 (예: `Password`)
+- `create()` + `fromEncoded()` 팩토리 메서드 패턴 동일 적용
+- 비즈니스 로직(검증, 변환)을 VO 내부에 캡슐화
+
+### 4.7 CQRS 레이어 흐름
+
+Controller → Facade(@Transactional) → Service → Repository(interface) → RepositoryImpl → JpaRepository + Entity ↔ Domain
+
+| 레이어 | 클래스 | 어노테이션 | 역할 |
+|--------|--------|-----------|------|
+| Controller | `{Domain}Controller` | `@RestController` | 요청 수신, Facade 호출 |
+| Facade | `{Domain}CommandFacade` | `@Component`, `@Transactional` | 유스케이스 오케스트레이션, 트랜잭션 경계 |
+| Service | `{Domain}CommandService` | `@Service`, `@Transactional` | 단일 도메인 비즈니스 로직 |
+| Repository(I) | `{Domain}Command/QueryRepository` | (인터페이스) | 명령(save,delete) / 조회(find,exists) 계약 |
+| RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain 변환 후 JPA 호출 |
+| Entity | `{Domain}Entity` | `@Entity` | `from(Domain)` + `toDomain()` 변환 |
+
+### 4.8 DTO 패턴
+
+모든 DTO는 Java `record`로 구현한다.
+
+| DTO 유형 | 위치 | 변환 메서드 |
+|----------|------|-----------|
+| Request | `interfaces/controller/request/` | `toCommand()` → Command 반환 |
+| Command | `application/dto/command/` | 불변 record, 변환 없음 |
+| Response | `interfaces/controller/response/` | `from(Domain)` static 팩토리 |
+| Entity | `infrastructure/entity/` | `from(Domain)` + `toDomain()` 양방향 |
+
+- Request에 `@NotBlank`, `@NotNull` 등 Jakarta Validation 적용
+- Response에 민감정보(password) 포함 금지
 
 ## 5. 주의사항
 
