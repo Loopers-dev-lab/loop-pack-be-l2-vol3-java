@@ -6,4 +6,5 @@ public interface UserRepository {
 
     UserModel save(UserModel userModel);
 
+    Boolean existsByEmail(String email);
 }
