@@ -41,4 +41,29 @@ public class MemberService {
         return memberRepository.findByLoginId(model.getLoginId())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[id = " + loginId + "] 회원을 찾을 수 없습니다."));
     }
+
+    @Transactional(readOnly = false)
+    public void changePassword(MemberModel memberModel, String newPassword) {
+
+        // 기존 회원 정보 조회
+        MemberModel member = getMember(memberModel.getLoginId());
+
+        // 암호화된 DB 비밀번호와 입력한 기존 비밀번호 비교
+        if (!passwordEncoder.matches(memberModel.getPassword(), member.getPassword())) {
+          throw new CoreException(ErrorType.UNAUTHORIZED, "기존 비밀번호가 일치하지 않습니다.");
+        }
+
+        // 암호화된 DB 기존 비밀번호와 입력한 새로운 비밀번호 비교
+        if (passwordEncoder.matches(newPassword, member.getPassword())) {
+          throw new CoreException(ErrorType.BAD_REQUEST, "새 비밀번호는 기존 비밀번호와 달라야 합니다.");
+        }
+
+        // 새 비밀번호 규칙 검증 + 암호화 + 저장 (Dirty Checking)
+        member.changePassword(newPassword, member.getBirthDate());
+
+        // 암호화 후 저장 (Dirty Checking)
+        String encryptedPassword = passwordEncoder.encode(newPassword);
+        member.encryptPassword(encryptedPassword);
+
+    }
 }

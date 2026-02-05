@@ -38,4 +38,11 @@ public class MemberV1Dto {
     }
 
 
+    // Request: 비밀번호 변경 요청
+    public record ChangePasswordRequest(
+      String oldPassword,
+      String newPassword
+    ) {}
+
+
 }

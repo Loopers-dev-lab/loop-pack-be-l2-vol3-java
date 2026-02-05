@@ -25,4 +25,13 @@ public interface MemberV1ApiSpec {
           String loginId
   );
 
+  @Operation(
+      summary = "비밀번호 변경",
+      description = "기존 비밀번호와 새 비밀번호를 받아 비밀번호를 변경한다"
+  )
+  ApiResponse<String> changePassword(
+      String loginId,
+      MemberV1Dto.ChangePasswordRequest request
+  );
+
 }

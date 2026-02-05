@@ -152,4 +152,100 @@ class MemberV1ApiE2ETest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         }
     }
+
+    @DisplayName("PATCH /api/v1/members/{loginId}/password (비밀번호 변경)")
+    @Nested
+    class ChangePassword {
+
+        @DisplayName("기존 비밀번호가 일치하고 새 비밀번호가 유효하면, 200 OK를 반환한다.")
+        @Test
+        void returnsOk_whenOldPasswordMatchesAndNewPasswordIsValid() {
+            // arrange - 먼저 회원 가입
+            Map<String, String> signUpRequest = Map.of(
+                "loginId", "testuser",
+                "password", "Test1234!",
+                "name", "홍길동",
+                "birthDate", "19900101",
+                "email", "test@test.co.kr"
+            );
+            testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), new ParameterizedTypeReference<ApiResponse<Map<String, String>>>() {});
+
+            // act - 비밀번호 변경 요청
+            Map<String, String> changePasswordRequest = Map.of(
+                "oldPassword", "Test1234!",
+                "newPassword", "NewPass123!"
+            );
+            ResponseEntity<ApiResponse<String>> response = testRestTemplate.exchange(
+                ENDPOINT + "/testuser/password",
+                HttpMethod.PATCH,
+                new HttpEntity<>(changePasswordRequest),
+                new ParameterizedTypeReference<>() {}
+            );
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().data()).isEqualTo("비밀번호가 변경되었습니다.")
+            );
+        }
+
+        @DisplayName("기존 비밀번호가 일치하지 않으면, 401 Unauthorized를 반환한다.")
+        @Test
+        void returnsUnauthorized_whenOldPasswordDoesNotMatch() {
+            // arrange - 먼저 회원 가입
+            Map<String, String> signUpRequest = Map.of(
+                "loginId", "testuser",
+                "password", "Test1234!",
+                "name", "홍길동",
+                "birthDate", "19900101",
+                "email", "test@test.co.kr"
+            );
+            testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), new ParameterizedTypeReference<ApiResponse<Map<String, String>>>() {});
+
+            // act - 틀린 기존 비밀번호로 변경 요청
+            Map<String, String> changePasswordRequest = Map.of(
+                "oldPassword", "WrongPass1!",
+                "newPassword", "NewPass123!"
+            );
+            ResponseEntity<ApiResponse<String>> response = testRestTemplate.exchange(
+                ENDPOINT + "/testuser/password",
+                HttpMethod.PATCH,
+                new HttpEntity<>(changePasswordRequest),
+                new ParameterizedTypeReference<>() {}
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @DisplayName("새 비밀번호가 기존 비밀번호와 같으면, 400 Bad Request를 반환한다.")
+        @Test
+        void returnsBadRequest_whenNewPasswordIsSameAsOld() {
+            // arrange - 먼저 회원 가입
+            Map<String, String> signUpRequest = Map.of(
+                "loginId", "testuser",
+                "password", "Test1234!",
+                "name", "홍길동",
+                "birthDate", "19900101",
+                "email", "test@test.co.kr"
+            );
+            testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), new ParameterizedTypeReference<ApiResponse<Map<String, String>>>() {});
+
+            // act - 기존과 동일한 비밀번호로 변경 요청
+            Map<String, String> changePasswordRequest = Map.of(
+                "oldPassword", "Test1234!",
+                "newPassword", "Test1234!"
+            );
+            ResponseEntity<ApiResponse<String>> response = testRestTemplate.exchange(
+                ENDPOINT + "/testuser/password",
+                HttpMethod.PATCH,
+                new HttpEntity<>(changePasswordRequest),
+                new ParameterizedTypeReference<>() {}
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+    }
 }
