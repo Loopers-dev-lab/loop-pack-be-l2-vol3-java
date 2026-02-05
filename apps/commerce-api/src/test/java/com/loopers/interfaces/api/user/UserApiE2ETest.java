@@ -191,6 +191,76 @@ class UserApiE2ETest {
         }
     }
 
+    @DisplayName("PATCH /api/users/me/password")
+    @Nested
+    class ChangePassword {
+
+        @Test
+        void 정상_변경이면_200_OK를_반환한다() {
+            // Arrange - 회원가입
+            UserDto.SignupRequest signupRequest = new UserDto.SignupRequest(
+                    "loopers123", "loopers123!@", "루퍼스",
+                    LocalDate.of(1996, 11, 22), "test@loopers.im"
+            );
+            testRestTemplate.exchange(
+                    ENDPOINT, HttpMethod.POST, new HttpEntity<>(signupRequest, jsonHeaders()),
+                    new ParameterizedTypeReference<ApiResponse<UserDto.SignupResponse>>() {}
+            );
+
+            HttpHeaders headers = jsonHeaders();
+            headers.set("X-Loopers-LoginId", "loopers123");
+            headers.set("X-Loopers-LoginPw", "loopers123!@");
+            UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest("newPass1234!");
+
+            // Act
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/me/password", HttpMethod.PATCH, new HttpEntity<>(request, headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            // Assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @Test
+        void 변경_후_새_비밀번호로_인증할_수_있다() {
+            // Arrange - 회원가입 후 비밀번호 변경
+            UserDto.SignupRequest signupRequest = new UserDto.SignupRequest(
+                    "loopers123", "loopers123!@", "루퍼스",
+                    LocalDate.of(1996, 11, 22), "test@loopers.im"
+            );
+            testRestTemplate.exchange(
+                    ENDPOINT, HttpMethod.POST, new HttpEntity<>(signupRequest, jsonHeaders()),
+                    new ParameterizedTypeReference<ApiResponse<UserDto.SignupResponse>>() {}
+            );
+
+            HttpHeaders changeHeaders = jsonHeaders();
+            changeHeaders.set("X-Loopers-LoginId", "loopers123");
+            changeHeaders.set("X-Loopers-LoginPw", "loopers123!@");
+            testRestTemplate.exchange(
+                    ENDPOINT + "/me/password", HttpMethod.PATCH,
+                    new HttpEntity<>(new UserDto.ChangePasswordRequest("newPass1234!"), changeHeaders),
+                    new ParameterizedTypeReference<ApiResponse<Object>>() {}
+            );
+
+            // Act - 새 비밀번호로 내 정보 조회
+            HttpHeaders newHeaders = new HttpHeaders();
+            newHeaders.set("X-Loopers-LoginId", "loopers123");
+            newHeaders.set("X-Loopers-LoginPw", "newPass1234!");
+
+            ResponseEntity<ApiResponse<UserDto.MyInfoResponse>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/me", HttpMethod.GET, new HttpEntity<>(null, newHeaders),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            // Assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().loginId()).isEqualTo("loopers123")
+            );
+        }
+    }
+
     private HttpHeaders jsonHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
