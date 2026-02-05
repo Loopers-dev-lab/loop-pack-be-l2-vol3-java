@@ -91,10 +91,10 @@ public class User extends BaseEntity {
     }
 
     public void changePassword(String newRawPassword, PasswordEncoder encoder) {
+        PasswordValidator.validate(newRawPassword, birthDate);
         if (encoder.matches(newRawPassword, password)) {
             throw new IllegalArgumentException("현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다");
         }
-        PasswordValidator.validate(newRawPassword, birthDate);
         password = encoder.encode(newRawPassword);
     }
 }
