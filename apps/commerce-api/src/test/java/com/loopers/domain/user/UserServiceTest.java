@@ -7,7 +7,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
 import java.util.Optional;
@@ -25,14 +24,14 @@ import static org.mockito.Mockito.when;
 public class UserServiceTest {
 
     private UserRepository userRepository;
-    private PasswordEncoder passwordEncoder;
+    private PasswordEncryptor passwordEncryptor;
     private UserService userService;
 
     @BeforeEach
     void setUp() {
         userRepository = Mockito.mock(UserRepository.class);
-        passwordEncoder = Mockito.mock(PasswordEncoder.class);
-        userService = new UserService(userRepository, passwordEncoder);
+        passwordEncryptor = Mockito.mock(PasswordEncryptor.class);
+        userService = new UserService(userRepository, passwordEncryptor);
     }
 
     @DisplayName("회원가입 시,")
@@ -44,7 +43,7 @@ public class UserServiceTest {
         void signup_whenValidInput() {
             // arrange
             when(userRepository.existsByLoginId(anyString())).thenReturn(false);
-            when(passwordEncoder.encode(anyString())).thenReturn("$2a$10$encodedHash");
+            when(passwordEncryptor.encode(anyString())).thenReturn("$2a$10$encodedHash");
             when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // act
@@ -103,7 +102,7 @@ public class UserServiceTest {
                     new Email("nahyeon@example.com")
             );
             when(userRepository.findByLoginId("nahyeon")).thenReturn(Optional.of(user));
-            when(passwordEncoder.matches("Hx7!mK2@", "$2a$10$hash")).thenReturn(true);
+            when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$hash")).thenReturn(true);
 
             // act
             User result = userService.authenticate("nahyeon", "Hx7!mK2@");
@@ -136,7 +135,7 @@ public class UserServiceTest {
                     new Email("nahyeon@example.com")
             );
             when(userRepository.findByLoginId("nahyeon")).thenReturn(Optional.of(user));
-            when(passwordEncoder.matches(anyString(), anyString())).thenReturn(false);
+            when(passwordEncryptor.matches(anyString(), anyString())).thenReturn(false);
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
@@ -160,9 +159,9 @@ public class UserServiceTest {
                     new UserName("홍길동"), LocalDate.of(1994, 11, 15),
                     new Email("nahyeon@example.com")
             );
-            when(passwordEncoder.matches("Hx7!mK2@", "$2a$10$oldHash")).thenReturn(true);
-            when(passwordEncoder.matches("Nw8@pL3#", "$2a$10$oldHash")).thenReturn(false);
-            when(passwordEncoder.encode("Nw8@pL3#")).thenReturn("$2a$10$newHash");
+            when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$oldHash")).thenReturn(true);
+            when(passwordEncryptor.matches("Nw8@pL3#", "$2a$10$oldHash")).thenReturn(false);
+            when(passwordEncryptor.encode("Nw8@pL3#")).thenReturn("$2a$10$newHash");
 
             // act
             userService.changePassword(user, "Hx7!mK2@", "Nw8@pL3#");
@@ -180,7 +179,7 @@ public class UserServiceTest {
                     new UserName("홍길동"), LocalDate.of(1994, 11, 15),
                     new Email("nahyeon@example.com")
             );
-            when(passwordEncoder.matches(anyString(), anyString())).thenReturn(false);
+            when(passwordEncryptor.matches(anyString(), anyString())).thenReturn(false);
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
@@ -199,8 +198,8 @@ public class UserServiceTest {
                     new UserName("홍길동"), LocalDate.of(1994, 11, 15),
                     new Email("nahyeon@example.com")
             );
-            when(passwordEncoder.matches("Hx7!mK2@", "$2a$10$hash")).thenReturn(true); // current matches
-            when(passwordEncoder.matches("Hx7!mK2@", "$2a$10$hash")).thenReturn(true); // same check also matches
+            when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$hash")).thenReturn(true); // current matches
+            when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$hash")).thenReturn(true); // same check also matches
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {

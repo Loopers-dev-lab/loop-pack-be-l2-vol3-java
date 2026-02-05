@@ -3,8 +3,6 @@ package com.loopers.domain.user;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,7 +13,7 @@ import java.time.LocalDate;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final PasswordEncryptor passwordEncryptor;
 
     @Transactional
     public User signup(String rawLoginId, String rawPassword, String rawName, String rawBirthDate, String rawEmail) {
@@ -35,7 +33,7 @@ public class UserService {
         }
 
         // 4. 비밀번호 암호화 + 엔티티 생성 + 저장
-        String encodedPassword = passwordEncoder.encode(rawPassword);
+        String encodedPassword = passwordEncryptor.encode(rawPassword);
         User user = User.create(loginId, encodedPassword, name, birthDate.getValue(), email);
         return userRepository.save(user);
     }
@@ -45,7 +43,7 @@ public class UserService {
         User user = userRepository.findByLoginId(rawLoginId)
                 .orElseThrow(() -> new CoreException(UserErrorType.UNAUTHORIZED));
 
-        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
+        if (!passwordEncryptor.matches(rawPassword, user.getPassword())) {
             throw new CoreException(UserErrorType.UNAUTHORIZED);
         }
 
@@ -55,7 +53,7 @@ public class UserService {
     @Transactional
     public void changePassword(User user, String currentRawPassword, String newRawPassword) {
         // 현재 비밀번호 확인
-        if (!passwordEncoder.matches(currentRawPassword, user.getPassword())) {
+        if (!passwordEncryptor.matches(currentRawPassword, user.getPassword())) {
             throw new CoreException(UserErrorType.PASSWORD_MISMATCH);
         }
 
@@ -66,11 +64,11 @@ public class UserService {
         PasswordPolicy.validate(newRawPassword, user.getBirthDate());
 
         // 동일 비밀번호 확인
-        if (passwordEncoder.matches(newRawPassword, user.getPassword())) {
+        if (passwordEncryptor.matches(newRawPassword, user.getPassword())) {
             throw new CoreException(UserErrorType.SAME_PASSWORD);
         }
 
         // 암호화 후 변경
-        user.changePassword(passwordEncoder.encode(newRawPassword));
+        user.changePassword(passwordEncryptor.encode(newRawPassword));
     }
 }
