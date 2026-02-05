@@ -22,4 +22,8 @@ public class MemberFacade {
         Member member = memberService.authenticate(loginId, password);
         return MemberInfo.from(member).withMaskedName();
     }
+
+    public void updatePassword(String loginId, String currentPassword, String newPassword) {
+        memberService.updatePassword(loginId, currentPassword, newPassword);
+    }
 }

@@ -43,6 +43,10 @@ public class MemberEntity extends BaseEntity {
         return new Member(getId(), loginId, password, name, birthday, email);
     }
 
+    public void updatePassword(String password) {
+        this.password = password;
+    }
+
     public String getLoginId() {
         return loginId;
     }

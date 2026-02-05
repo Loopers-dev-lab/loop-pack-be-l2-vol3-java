@@ -41,4 +41,21 @@ public class MemberService {
         member.encryptPassword(passwordEncoder.encode(password));
         return memberRepository.save(member);
     }
+
+    @Transactional
+    public void updatePassword(String loginId, String currentPassword, String newPassword) {
+        Member member = memberRepository.findByLoginId(loginId)
+            .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED));
+
+        if (!passwordEncoder.matches(currentPassword, member.getPassword())) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "현재 비밀번호가 일치하지 않습니다.");
+        }
+        if (passwordEncoder.matches(newPassword, member.getPassword())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다.");
+        }
+
+        String encodedNewPassword = passwordEncoder.encode(newPassword);
+        member.changePassword(newPassword, encodedNewPassword);
+        memberRepository.updatePassword(loginId, member.getPassword());
+    }
 }

@@ -41,6 +41,11 @@ public class Member {
         this.password = encodedPassword;
     }
 
+    public void changePassword(String newRawPassword, String newEncodedPassword) {
+        validatePasswordNotContainsBirthday(newRawPassword, this.birthday);
+        this.password = newEncodedPassword;
+    }
+
     private void validateBirthday(LocalDate birthday) {
         if (birthday != null && birthday.isAfter(LocalDate.now())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "생년월일은 미래 날짜일 수 없습니다.");

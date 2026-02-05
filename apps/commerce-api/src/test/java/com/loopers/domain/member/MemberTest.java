@@ -112,4 +112,38 @@ class MemberTest {
             assertThat(member.getPassword()).isEqualTo(encodedPassword);
         }
     }
+
+    @DisplayName("비밀번호를 변경할 때,")
+    @Nested
+    class ChangePassword {
+
+        @DisplayName("유효한 새 비밀번호로 변경하면, 비밀번호가 변경된다.")
+        @Test
+        void changesPassword_whenNewPasswordIsValid() {
+            // arrange
+            Member member = new Member(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+            String newEncodedPassword = "$2a$10$newEncodedPasswordHash";
+
+            // act
+            member.changePassword("NewPass123!", newEncodedPassword);
+
+            // assert
+            assertThat(member.getPassword()).isEqualTo(newEncodedPassword);
+        }
+
+        @DisplayName("새 비밀번호에 생년월일이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNewPasswordContainsBirthday() {
+            // arrange
+            Member member = new Member(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                member.changePassword("A19950315!", "encoded")
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+    }
 }

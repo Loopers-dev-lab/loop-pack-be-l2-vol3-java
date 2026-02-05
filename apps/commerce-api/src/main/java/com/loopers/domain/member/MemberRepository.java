@@ -7,4 +7,5 @@ public interface MemberRepository {
     boolean existsByLoginId(String loginId);
     boolean existsByEmail(String email);
     Optional<Member> findByLoginId(String loginId);
+    void updatePassword(String loginId, String encodedPassword);
 }

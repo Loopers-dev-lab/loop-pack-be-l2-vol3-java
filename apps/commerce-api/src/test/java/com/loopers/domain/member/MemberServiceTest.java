@@ -148,4 +148,65 @@ class MemberServiceTest {
                 .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED));
         }
     }
+
+    @DisplayName("비밀번호를 변경할 때,")
+    @Nested
+    class UpdatePassword {
+
+        private Member saveMember(String loginId, String rawPassword) {
+            Member member = new Member(loginId, rawPassword, "홍길동", LocalDate.of(1995, 3, 15), "test@example.com");
+            member.encryptPassword(passwordEncoder.encode(rawPassword));
+            return memberRepository.save(member);
+        }
+
+        @DisplayName("올바른 현재 비밀번호와 유효한 새 비밀번호로 변경하면, 새 비밀번호로 인증이 가능하다.")
+        @Test
+        void updatesPassword_whenValidCurrentAndNewPassword() {
+            // arrange
+            String currentPassword = "Test1234!";
+            String newPassword = "NewPass123!";
+            saveMember("testuser1", currentPassword);
+
+            // act
+            memberService.updatePassword("testuser1", currentPassword, newPassword);
+
+            // assert
+            Member authenticated = memberService.authenticate("testuser1", newPassword);
+            assertThat(authenticated.getLoginId()).isEqualTo("testuser1");
+        }
+
+        @DisplayName("존재하지 않는 loginId로 변경하면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        void throwsUnauthorized_whenLoginIdNotFound() {
+            // act & assert
+            assertThatThrownBy(() -> memberService.updatePassword("nonexistent", "Test1234!", "NewPass123!"))
+                .isInstanceOf(CoreException.class)
+                .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED));
+        }
+
+        @DisplayName("현재 비밀번호가 일치하지 않으면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        void throwsUnauthorized_whenCurrentPasswordIsWrong() {
+            // arrange
+            saveMember("testuser1", "Test1234!");
+
+            // act & assert
+            assertThatThrownBy(() -> memberService.updatePassword("testuser1", "Wrong1234!", "NewPass123!"))
+                .isInstanceOf(CoreException.class)
+                .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED));
+        }
+
+        @DisplayName("새 비밀번호가 현재 비밀번호와 동일하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNewPasswordSameAsCurrent() {
+            // arrange
+            String password = "Test1234!";
+            saveMember("testuser1", password);
+
+            // act & assert
+            assertThatThrownBy(() -> memberService.updatePassword("testuser1", password, password))
+                .isInstanceOf(CoreException.class)
+                .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+    }
 }

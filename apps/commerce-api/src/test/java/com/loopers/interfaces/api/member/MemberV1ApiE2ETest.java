@@ -16,6 +16,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -224,6 +225,179 @@ class MemberV1ApiE2ETest {
             ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {};
             ResponseEntity<ApiResponse<Object>> response =
                 testRestTemplate.exchange(ENDPOINT + "/me", HttpMethod.GET, null, responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @DisplayName("PATCH /api/v1/members/me/password")
+    @Nested
+    class UpdatePassword {
+
+        private Member saveMember(String loginId, String rawPassword) {
+            Member member = new Member(loginId, rawPassword, "홍길동", LocalDate.of(1995, 3, 15), "test@example.com");
+            member.encryptPassword(passwordEncoder.encode(rawPassword));
+            return memberRepository.save(member);
+        }
+
+        private HttpEntity<MemberV1Dto.UpdatePasswordRequest> createRequest(
+            String loginId, String headerPassword, String currentPassword, String newPassword
+        ) {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", loginId);
+            headers.set("X-Loopers-LoginPw", headerPassword);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            return new HttpEntity<>(new MemberV1Dto.UpdatePasswordRequest(currentPassword, newPassword), headers);
+        }
+
+        @DisplayName("올바른 인증 정보와 유효한 새 비밀번호로 변경하면, 200 OK를 반환한다.")
+        @Test
+        void returnsOk_whenValidRequest() {
+            // arrange
+            saveMember("testuser1", "Test1234!");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                ENDPOINT + "/me/password", HttpMethod.PATCH,
+                createRequest("testuser1", "Test1234!", "Test1234!", "NewPass123!"),
+                responseType
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @DisplayName("비밀번호 변경 후, 새 비밀번호로 내 정보 조회가 가능하다.")
+        @Test
+        void canLoginWithNewPassword_afterPasswordUpdate() {
+            // arrange
+            saveMember("testuser1", "Test1234!");
+            testRestTemplate.exchange(
+                ENDPOINT + "/me/password", HttpMethod.PATCH,
+                createRequest("testuser1", "Test1234!", "Test1234!", "NewPass123!"),
+                new ParameterizedTypeReference<ApiResponse<Object>>() {}
+            );
+
+            // act
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testuser1");
+            headers.set("X-Loopers-LoginPw", "NewPass123!");
+            ParameterizedTypeReference<ApiResponse<MemberV1Dto.MyInfoResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<MemberV1Dto.MyInfoResponse>> response = testRestTemplate.exchange(
+                ENDPOINT + "/me", HttpMethod.GET, new HttpEntity<>(headers), responseType
+            );
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().data().loginId()).isEqualTo("testuser1")
+            );
+        }
+
+        @DisplayName("존재하지 않는 loginId로 변경하면, 401 Unauthorized를 반환한다.")
+        @Test
+        void returnsUnauthorized_whenLoginIdNotFound() {
+            // act
+            ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                ENDPOINT + "/me/password", HttpMethod.PATCH,
+                createRequest("nonexistent", "Test1234!", "Test1234!", "NewPass123!"),
+                responseType
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @DisplayName("현재 비밀번호가 일치하지 않으면, 401 Unauthorized를 반환한다.")
+        @Test
+        void returnsUnauthorized_whenCurrentPasswordWrong() {
+            // arrange
+            saveMember("testuser1", "Test1234!");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                ENDPOINT + "/me/password", HttpMethod.PATCH,
+                createRequest("testuser1", "Wrong1234!", "Wrong1234!", "NewPass123!"),
+                responseType
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @DisplayName("헤더 비밀번호와 Body currentPassword가 다르면, 400 Bad Request를 반환한다.")
+        @Test
+        void returnsBadRequest_whenHeaderPasswordMismatchesBody() {
+            // arrange
+            saveMember("testuser1", "Test1234!");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                ENDPOINT + "/me/password", HttpMethod.PATCH,
+                createRequest("testuser1", "Test1234!", "Different1!", "NewPass123!"),
+                responseType
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("새 비밀번호가 현재 비밀번호와 동일하면, 400 Bad Request를 반환한다.")
+        @Test
+        void returnsBadRequest_whenNewPasswordSameAsCurrent() {
+            // arrange
+            saveMember("testuser1", "Test1234!");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                ENDPOINT + "/me/password", HttpMethod.PATCH,
+                createRequest("testuser1", "Test1234!", "Test1234!", "Test1234!"),
+                responseType
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("새 비밀번호가 8자 미만이면, 400 Bad Request를 반환한다.")
+        @Test
+        void returnsBadRequest_whenNewPasswordTooShort() {
+            // arrange
+            saveMember("testuser1", "Test1234!");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                ENDPOINT + "/me/password", HttpMethod.PATCH,
+                createRequest("testuser1", "Test1234!", "Test1234!", "New12!"),
+                responseType
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("인증 헤더가 누락되면, 400 Bad Request를 반환한다.")
+        @Test
+        void returnsBadRequest_whenHeaderMissing() {
+            // arrange
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<MemberV1Dto.UpdatePasswordRequest> request = new HttpEntity<>(
+                new MemberV1Dto.UpdatePasswordRequest("Test1234!", "NewPass123!"), headers
+            );
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                ENDPOINT + "/me/password", HttpMethod.PATCH, request, responseType
+            );
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);

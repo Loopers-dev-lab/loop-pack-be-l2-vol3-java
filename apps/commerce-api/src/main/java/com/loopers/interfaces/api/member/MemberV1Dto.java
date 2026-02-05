@@ -43,6 +43,17 @@ public class MemberV1Dto {
         }
     }
 
+    public record UpdatePasswordRequest(
+        @NotBlank(message = "현재 비밀번호는 비어있을 수 없습니다.")
+        String currentPassword,
+
+        @NotBlank(message = "새 비밀번호는 비어있을 수 없습니다.")
+        @Size(min = 8, max = 16, message = "비밀번호는 8~16자여야 합니다.")
+        @Pattern(regexp = "^[a-zA-Z0-9!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?`~]+$", message = "비밀번호는 영문 대소문자, 숫자, 특수문자만 입력 가능합니다.")
+        String newPassword
+    ) {
+    }
+
     public record MyInfoResponse(String loginId, String name, String birthday, String email) {
         public static MyInfoResponse from(MemberInfo info) {
             return new MyInfoResponse(
