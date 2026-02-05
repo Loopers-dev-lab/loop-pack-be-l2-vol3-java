@@ -1,13 +1,16 @@
 package com.loopers.domain.member;
 
+import com.loopers.domain.member.vo.BirthDate;
+import com.loopers.domain.member.vo.Email;
+import com.loopers.domain.member.vo.LoginId;
+import com.loopers.domain.member.vo.Password;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 @Service
@@ -16,50 +19,43 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
 
-    private static final String PASSWORD_PATTERN = "^[A-Za-z0-9!@#$%^&*()_+=-]{8,16}$";
+    public Member register(String loginId, String plainPassword, String name,
+                           String birthDate, String email, Gender gender) {
+        LoginId loginIdVo = new LoginId(loginId);
 
-    public MemberModel register(String loginId, String password, String name, LocalDate birthDate, String email) {
-        if (memberRepository.existsByLoginId(loginId)) {
-            throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.");
+        if (memberRepository.existsByLoginId(loginIdVo)) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 ID입니다.");
         }
 
-        if (!password.matches(PASSWORD_PATTERN)) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호는 8~16자의 영문 대소문자, 숫자, 특수문자만 허용됩니다.");
-        }
+        BirthDate birthDateVo = BirthDate.from(birthDate);
+        Password password = Password.create(plainPassword, birthDateVo.value(), passwordEncoder);
+        Email emailVo = new Email(email);
 
-        if (containsBirthDate(password, birthDate)) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호에 생년월일을 포함할 수 없습니다.");
-        }
-
-        String encodedPassword = passwordEncoder.encode(password);
-        MemberModel member = new MemberModel(loginId, encodedPassword, name, birthDate, email);
+        Member member = new Member(loginIdVo, password, name, birthDateVo, emailVo, gender);
         return memberRepository.save(member);
     }
 
-    public void changePassword(MemberModel member, String currentPassword, String newPassword) {
-        if (!passwordEncoder.matches(currentPassword, member.getPassword())) {
+    public Optional<Member> findByLoginId(String loginId) {
+        return memberRepository.findByLoginId(new LoginId(loginId));
+    }
+
+    public Optional<Long> findPointByLoginId(String loginId) {
+        return memberRepository.findByLoginId(new LoginId(loginId))
+            .map(Member::getPoint);
+    }
+
+    public void changePassword(Member member, String currentPlain, String newPlain) {
+        if (!member.getPassword().matches(currentPlain, passwordEncoder)) {
             throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");
         }
 
-        if (currentPassword.equals(newPassword)) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다.");
+        if (member.getPassword().matches(newPlain, passwordEncoder)) {
+            throw new CoreException(ErrorType.BAD_REQUEST,
+                "새 비밀번호는 현재 비밀번호와 달라야 합니다.");
         }
 
-        if (!newPassword.matches(PASSWORD_PATTERN)) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호는 8~16자의 영문 대소문자, 숫자, 특수문자만 허용됩니다.");
-        }
-
-        if (containsBirthDate(newPassword, member.getBirthDate())) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호에 생년월일을 포함할 수 없습니다.");
-        }
-
-        String encodedNewPassword = passwordEncoder.encode(newPassword);
-        member.changePassword(encodedNewPassword);
-    }
-
-    private boolean containsBirthDate(String password, LocalDate birthDate) {
-        String yyyyMMdd = birthDate.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String yyMMdd = birthDate.format(DateTimeFormatter.ofPattern("yyMMdd"));
-        return password.contains(yyyyMMdd) || password.contains(yyMMdd);
+        Password newPassword = Password.create(
+            newPlain, member.getBirthDate().value(), passwordEncoder);
+        member.changePassword(newPassword);
     }
 }

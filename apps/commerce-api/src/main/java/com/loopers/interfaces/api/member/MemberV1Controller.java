@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.member;
 
-import com.loopers.domain.member.MemberModel;
+import com.loopers.domain.member.Member;
 import com.loopers.domain.member.MemberService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthMember;
@@ -25,32 +25,34 @@ public class MemberV1Controller {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<MemberV1Dto.SignUpResponse> signUp(@Valid @RequestBody MemberV1Dto.SignUpRequest request) {
-        MemberModel member = memberService.register(
+        Member member = memberService.register(
             request.loginId(),
             request.password(),
             request.name(),
             request.birthDate(),
-            request.email()
+            request.email(),
+            request.gender()
         );
 
         MemberV1Dto.SignUpResponse response = new MemberV1Dto.SignUpResponse(
             member.getId(),
-            member.getLoginId(),
+            member.getLoginId().value(),
             member.getName(),
-            member.getEmail()
+            member.getEmail().value(),
+            member.getGender()
         );
 
         return ApiResponse.success(response);
     }
 
     @GetMapping("/me")
-    public ApiResponse<MemberV1Dto.MyInfoResponse> getMyInfo(@AuthMember MemberModel member) {
+    public ApiResponse<MemberV1Dto.MyInfoResponse> getMyInfo(@AuthMember Member member) {
         return ApiResponse.success(MemberV1Dto.MyInfoResponse.from(member));
     }
 
     @PatchMapping("/me/password")
     public ApiResponse<Object> changePassword(
-        @AuthMember MemberModel member,
+        @AuthMember Member member,
         @Valid @RequestBody MemberV1Dto.ChangePasswordRequest request
     ) {
         memberService.changePassword(member, request.currentPassword(), request.newPassword());

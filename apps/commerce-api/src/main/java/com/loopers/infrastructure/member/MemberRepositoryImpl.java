@@ -1,7 +1,8 @@
 package com.loopers.infrastructure.member;
 
-import com.loopers.domain.member.MemberModel;
+import com.loopers.domain.member.Member;
 import com.loopers.domain.member.MemberRepository;
+import com.loopers.domain.member.vo.LoginId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -14,17 +15,17 @@ public class MemberRepositoryImpl implements MemberRepository {
     private final MemberJpaRepository memberJpaRepository;
 
     @Override
-    public MemberModel save(MemberModel member) {
+    public Member save(Member member) {
         return memberJpaRepository.save(member);
     }
 
     @Override
-    public Optional<MemberModel> findByLoginId(String loginId) {
-        return memberJpaRepository.findByLoginId(loginId);
+    public Optional<Member> findByLoginId(LoginId loginId) {
+        return memberJpaRepository.findByLoginIdValue(loginId.value());
     }
 
     @Override
-    public boolean existsByLoginId(String loginId) {
-        return memberJpaRepository.existsByLoginId(loginId);
+    public boolean existsByLoginId(LoginId loginId) {
+        return memberJpaRepository.existsByLoginIdValue(loginId.value());
     }
 }

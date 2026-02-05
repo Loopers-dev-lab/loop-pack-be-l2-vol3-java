@@ -1,31 +1,29 @@
 package com.loopers.interfaces.api.member;
 
-import jakarta.validation.constraints.Email;
+import com.loopers.domain.member.Gender;
+import com.loopers.domain.member.Member;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Past;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
-
-import com.loopers.domain.member.MemberModel;
 
 import java.time.LocalDate;
 
 public class MemberV1Dto {
 
     public record SignUpRequest(
-        @NotBlank @Pattern(regexp = "^[A-Za-z0-9]+$") String loginId,
-        @NotBlank @Size(min = 8, max = 16) String password,
+        @NotBlank String loginId,
+        @NotBlank String password,
         @NotBlank String name,
-        @NotNull @Past LocalDate birthDate,
-        @NotBlank @Email String email
+        @NotBlank String birthDate,
+        @NotBlank String email,
+        @NotNull Gender gender
     ) {}
 
     public record SignUpResponse(
         Long id,
         String loginId,
         String name,
-        String email
+        String email,
+        Gender gender
     ) {}
 
     public record MyInfoResponse(
@@ -34,12 +32,12 @@ public class MemberV1Dto {
         LocalDate birthDate,
         String email
     ) {
-        public static MyInfoResponse from(MemberModel member) {
+        public static MyInfoResponse from(Member member) {
             return new MyInfoResponse(
-                member.getLoginId(),
+                member.getLoginId().value(),
                 maskName(member.getName()),
-                member.getBirthDate(),
-                member.getEmail()
+                member.getBirthDate().value(),
+                member.getEmail().value()
             );
         }
 
@@ -53,6 +51,6 @@ public class MemberV1Dto {
 
     public record ChangePasswordRequest(
         @NotBlank String currentPassword,
-        @NotBlank @Size(min = 8, max = 16) String newPassword
+        @NotBlank String newPassword
     ) {}
 }

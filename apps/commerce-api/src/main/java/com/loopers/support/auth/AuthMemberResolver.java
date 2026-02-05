@@ -1,7 +1,8 @@
 package com.loopers.support.auth;
 
-import com.loopers.domain.member.MemberModel;
+import com.loopers.domain.member.Member;
 import com.loopers.domain.member.MemberRepository;
+import com.loopers.domain.member.vo.LoginId;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.servlet.http.HttpServletRequest;
@@ -45,11 +46,13 @@ public class AuthMemberResolver implements HandlerMethodArgumentResolver {
             throw new CoreException(ErrorType.UNAUTHORIZED, "인증 헤더가 필요합니다.");
         }
 
-        MemberModel member = memberRepository.findByLoginId(loginId)
-            .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다."));
+        Member member = memberRepository.findByLoginId(new LoginId(loginId))
+            .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED,
+                "아이디 또는 비밀번호가 일치하지 않습니다."));
 
-        if (!passwordEncoder.matches(password, member.getPassword())) {
-            throw new CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.");
+        if (!member.getPassword().matches(password, passwordEncoder)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED,
+                "아이디 또는 비밀번호가 일치하지 않습니다.");
         }
 
         return member;
