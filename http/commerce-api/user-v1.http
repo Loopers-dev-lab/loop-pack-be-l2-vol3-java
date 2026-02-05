@@ -151,3 +151,73 @@ X-Loopers-LoginPw: Wrong1234!
 
 ### 내 정보 조회 - 인증 헤더 누락 (실패)
 GET {{commerce-api}}/api/v1/users/me
+
+###############################################
+# 비밀번호 변경 API
+###############################################
+
+### 비밀번호 변경 - 성공 케이스
+PATCH {{commerce-api}}/api/v1/users/password
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Test1234!
+Content-Type: application/json
+
+{
+  "currentPassword": "Test1234!",
+  "newPassword": "NewPass123!@"
+}
+
+### 비밀번호 변경 - 현재 비밀번호 불일치 (실패)
+PATCH {{commerce-api}}/api/v1/users/password
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Test1234!
+Content-Type: application/json
+
+{
+  "currentPassword": "Wrong1234!",
+  "newPassword": "NewPass123!@"
+}
+
+### 비밀번호 변경 - 새 비밀번호가 현재 비밀번호와 동일 (실패)
+PATCH {{commerce-api}}/api/v1/users/password
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Test1234!
+Content-Type: application/json
+
+{
+  "currentPassword": "Test1234!",
+  "newPassword": "Test1234!"
+}
+
+### 비밀번호 변경 - 새 비밀번호에 생년월일 포함 (실패)
+PATCH {{commerce-api}}/api/v1/users/password
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Test1234!
+Content-Type: application/json
+
+{
+  "currentPassword": "Test1234!",
+  "newPassword": "Pw19900101!"
+}
+
+### 비밀번호 변경 - 잘못된 인증 헤더 (실패)
+PATCH {{commerce-api}}/api/v1/users/password
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Wrong1234!
+Content-Type: application/json
+
+{
+  "currentPassword": "Test1234!",
+  "newPassword": "NewPass123!@"
+}
+
+### 비밀번호 변경 - 새 비밀번호 형식 오류 (실패)
+PATCH {{commerce-api}}/api/v1/users/password
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Test1234!
+Content-Type: application/json
+
+{
+  "currentPassword": "Test1234!",
+  "newPassword": "short"
+}
