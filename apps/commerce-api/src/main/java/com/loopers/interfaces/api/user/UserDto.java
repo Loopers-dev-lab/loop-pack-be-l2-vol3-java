@@ -16,6 +16,9 @@ public class UserDto {
         }
     }
 
+    public record ChangePasswordRequest(String newPassword) {
+    }
+
     public record MyInfoResponse(String loginId, String name, LocalDate birthDate, String email) {
         public static MyInfoResponse from(UserInfo userInfo) {
             return new MyInfoResponse(

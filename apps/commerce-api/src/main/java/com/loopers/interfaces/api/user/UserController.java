@@ -36,4 +36,13 @@ public class UserController implements UserApiSpec {
         UserInfo userInfo = userService.getMyInfo(loginId, password);
         return ApiResponse.success(UserDto.MyInfoResponse.from(userInfo));
     }
+
+    @PatchMapping("/me/password")
+    public ApiResponse<Object> changePassword(
+            @RequestHeader("X-Loopers-LoginId") String loginId,
+            @RequestHeader("X-Loopers-LoginPw") String currentPassword,
+            @RequestBody UserDto.ChangePasswordRequest request) {
+        userService.changePassword(loginId, currentPassword, request.newPassword());
+        return ApiResponse.success();
+    }
 }
