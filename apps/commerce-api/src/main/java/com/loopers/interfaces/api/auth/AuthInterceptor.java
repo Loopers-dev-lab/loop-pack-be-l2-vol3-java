@@ -8,6 +8,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import com.loopers.domain.user.UserService;
 import com.loopers.interfaces.api.config.WebMvcConfig;
+import com.loopers.support.error.CoreException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -45,7 +46,8 @@ public class AuthInterceptor implements HandlerInterceptor {
      * @param request  HTTP 요청
      * @param response HTTP 응답
      * @param handler  핸들러 객체
-     * @return 인증 성공 시 true, 실패 시 false
+     * @return 항상 true (인증 실패 시 예외가 발생한다)
+     * @throws CoreException 로그인 ID 또는 비밀번호가 유효하지 않은 경우
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
