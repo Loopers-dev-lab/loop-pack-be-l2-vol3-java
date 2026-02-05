@@ -14,6 +14,7 @@ public class MySqlTestContainersConfig {
             .withDatabaseName("loopers")
             .withUsername("test")
             .withPassword("test")
+            .withEnv("MYSQL_ROOT_PASSWORD", "test")
             .withExposedPorts(3306)
             .withCommand(
                 "--character-set-server=utf8mb4",
