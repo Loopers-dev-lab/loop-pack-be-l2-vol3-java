@@ -3,7 +3,8 @@ package com.loopers.interfaces.dto;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.loopers.interfaces.api.UsersSignUpRequestDto;
+import com.loopers.interfaces.request.ChangePasswordRequest;
+import com.loopers.interfaces.request.UsersSignUpRequestDto;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -271,6 +272,112 @@ public class UserDtoValidationTest {
 
             assertThat(violations).isNotEmpty();
             assertThat(violations.iterator().next().getMessage()).isEqualTo("이름은 한글, 영문, 공백만 입력 가능합니다.");
+        }
+    }
+
+    @DisplayName("비밀번호 변경 요청 검증")
+    @Nested
+    class ChangePasswordRequestValidation {
+
+        private Set<ConstraintViolation<ChangePasswordRequest>> validateChangePassword(ChangePasswordRequest dto) {
+            return validator.validate(dto);
+        }
+
+        @Test
+        @DisplayName("올바른 요청이면 검증에 통과한다")
+        void validRequest() {
+            ChangePasswordRequest dto = new ChangePasswordRequest("OldPass1!", "NewPass1!");
+
+            Set<ConstraintViolation<ChangePasswordRequest>> violations = validateChangePassword(dto);
+
+            assertThat(violations).isEmpty();
+        }
+
+        @Test
+        @DisplayName("기존 비밀번호가 null이면 검증에 실패한다")
+        void fail_when_currentPassword_is_null() {
+            ChangePasswordRequest dto = new ChangePasswordRequest(null, "NewPass1!");
+
+            Set<ConstraintViolation<ChangePasswordRequest>> violations = validateChangePassword(dto);
+
+            assertThat(violations).isNotEmpty();
+            assertThat(violations.iterator().next().getMessage()).isEqualTo("기존 비밀번호는 필수입니다.");
+        }
+
+        @Test
+        @DisplayName("기존 비밀번호가 빈 문자열이면 검증에 실패한다")
+        void fail_when_currentPassword_is_blank() {
+            ChangePasswordRequest dto = new ChangePasswordRequest("", "NewPass1!");
+
+            Set<ConstraintViolation<ChangePasswordRequest>> violations = validateChangePassword(dto);
+
+            assertThat(violations).isNotEmpty();
+            assertThat(violations.iterator().next().getMessage()).isEqualTo("기존 비밀번호는 필수입니다.");
+        }
+
+        @Test
+        @DisplayName("새 비밀번호가 null이면 검증에 실패한다")
+        void fail_when_newPassword_is_null() {
+            ChangePasswordRequest dto = new ChangePasswordRequest("OldPass1!", null);
+
+            Set<ConstraintViolation<ChangePasswordRequest>> violations = validateChangePassword(dto);
+
+            assertThat(violations).isNotEmpty();
+            assertThat(violations.iterator().next().getMessage()).isEqualTo("새 비밀번호는 필수입니다.");
+        }
+
+        @Test
+        @DisplayName("새 비밀번호가 빈 문자열이면 검증에 실패한다")
+        void fail_when_newPassword_is_blank() {
+            ChangePasswordRequest dto = new ChangePasswordRequest("OldPass1!", "");
+
+            Set<ConstraintViolation<ChangePasswordRequest>> violations = validateChangePassword(dto);
+
+            assertThat(violations).isNotEmpty();
+        }
+
+        @Test
+        @DisplayName("새 비밀번호가 7자 이하면 검증에 실패한다")
+        void fail_when_newPassword_too_short() {
+            ChangePasswordRequest dto = new ChangePasswordRequest("OldPass1!", "Pass1!");
+
+            Set<ConstraintViolation<ChangePasswordRequest>> violations = validateChangePassword(dto);
+
+            assertThat(violations).isNotEmpty();
+            assertThat(violations.iterator().next().getMessage()).isEqualTo("비밀번호는 8~16자로 입력해주세요.");
+        }
+
+        @Test
+        @DisplayName("새 비밀번호가 17자 이상이면 검증에 실패한다")
+        void fail_when_newPassword_too_long() {
+            ChangePasswordRequest dto = new ChangePasswordRequest("OldPass1!", "Password123456789!");
+
+            Set<ConstraintViolation<ChangePasswordRequest>> violations = validateChangePassword(dto);
+
+            assertThat(violations).isNotEmpty();
+            assertThat(violations.iterator().next().getMessage()).isEqualTo("비밀번호는 8~16자로 입력해주세요.");
+        }
+
+        @Test
+        @DisplayName("새 비밀번호에 한글이 포함되면 검증에 실패한다")
+        void fail_when_newPassword_contains_korean() {
+            ChangePasswordRequest dto = new ChangePasswordRequest("OldPass1!", "Password1가");
+
+            Set<ConstraintViolation<ChangePasswordRequest>> violations = validateChangePassword(dto);
+
+            assertThat(violations).isNotEmpty();
+            assertThat(violations.iterator().next().getMessage()).isEqualTo("영문 대소문자, 숫자, 특수문자만 사용 가능합니다.");
+        }
+
+        @Test
+        @DisplayName("새 비밀번호에 공백이 포함되면 검증에 실패한다")
+        void fail_when_newPassword_contains_space() {
+            ChangePasswordRequest dto = new ChangePasswordRequest("OldPass1!", "Pass word1!");
+
+            Set<ConstraintViolation<ChangePasswordRequest>> violations = validateChangePassword(dto);
+
+            assertThat(violations).isNotEmpty();
+            assertThat(violations.iterator().next().getMessage()).isEqualTo("영문 대소문자, 숫자, 특수문자만 사용 가능합니다.");
         }
     }
 }

@@ -5,6 +5,7 @@ import com.loopers.application.SignUpCommand;
 import com.loopers.application.UserFacade;
 import com.loopers.application.UserInfo;
 import com.loopers.interfaces.UserDto;
+import com.loopers.interfaces.request.UsersSignUpRequestDto;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
