@@ -5,12 +5,17 @@ import com.loopers.user.domain.User;
 import com.loopers.user.dto.SignUpRequest;
 import com.loopers.user.service.UserService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+
+import java.util.stream.Stream;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -54,5 +59,30 @@ public class UserControllerTest {
 
         //then
         result.andExpect(status().isCreated());
+    }
+
+    @ParameterizedTest(name = "{1} 누락 시 400 반환")
+    @MethodSource("필수값_누락_케이스")
+    void 필수값_누락_시_400_Bad_Request_반환(SignUpRequest request, String fieldName) throws Exception {
+        //given
+
+        //when
+        ResultActions result = mockMvc.perform(post("/api/v1/user/signup")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        );
+
+        //then
+        result.andExpect(status().isBadRequest());
+    }
+
+    static Stream<Arguments> 필수값_누락_케이스() {
+        return Stream.of(
+                Arguments.of(new SignUpRequest(null, "pw", "name", "19900101", "a@a.com"), "loginId"),
+                Arguments.of(new SignUpRequest("test", null, "name", "19900101", "a@a.com"), "password"),
+                Arguments.of(new SignUpRequest("test", "pw", null, "19900101", "a@a.com"), "name"),
+                Arguments.of(new SignUpRequest("test", "pw", "name", null, "a@a.com"), "birthDate"),
+                Arguments.of(new SignUpRequest("test", "pw", "name", "19900101", null), "email")
+        );
     }
 }
