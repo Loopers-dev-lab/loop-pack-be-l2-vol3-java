@@ -1,6 +1,7 @@
 package com.loopers.application.service;
 
 import com.loopers.application.service.dto.MemberRegisterRequest;
+import com.loopers.domain.member.Member;
 import com.loopers.domain.member.MemberExceptionMessage;
 import com.loopers.infrastructure.member.MemberRepository;
 import com.loopers.support.error.CoreException;
@@ -20,5 +21,6 @@ public class MemberService {
             throw new IllegalArgumentException(MemberExceptionMessage.LoginId.DUPLICATE_ID_EXISTS.message());
         }
 
+        memberRepository.save(Member.register(request.loginId(), request.password(), request.name(), request.birthdate(), request.email()));
     }
 }
