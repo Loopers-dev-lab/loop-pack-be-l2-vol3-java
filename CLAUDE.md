@@ -116,6 +116,7 @@ Entity → ExampleInfo (application DTO) → ExampleV1Dto (API DTO) → ApiRespo
 - `DatabaseCleanUp` 픽스처로 테스트 간 데이터 정리 (`@AfterEach`)
 - JaCoCo 코드 커버리지 (XML 리포트)
 - 프로파일: `test`, 순차 실행 (`maxParallelForks = 1`)
+- 테스트 데이터 중 여러 테스트에서 반복 사용되는 값은 클래스 레벨 상수(`private static final`)로 선언한다
 
 ### 코드 스타일
 - Lombok: `@RequiredArgsConstructor`, `@Getter`, `@Slf4j`
