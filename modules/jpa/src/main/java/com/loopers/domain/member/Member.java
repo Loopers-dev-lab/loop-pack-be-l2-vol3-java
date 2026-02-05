@@ -1,5 +1,6 @@
 package com.loopers.domain.member;
 
+import com.loopers.domain.member.policy.*;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -39,6 +40,12 @@ public class Member {
             LocalDate birthDate,
             String email
     ) {
+        MemberPolicy.LoginId.validate(loginId);
+        MemberPolicy.BirthDate.validate(birthDate);
+        MemberPolicy.Password.validate(password, birthDate);
+        MemberPolicy.Name.validate(name);
+        MemberPolicy.Email.validate(email);
+
         return Member.builder()
                 .loginId(loginId)
                 .password(password)

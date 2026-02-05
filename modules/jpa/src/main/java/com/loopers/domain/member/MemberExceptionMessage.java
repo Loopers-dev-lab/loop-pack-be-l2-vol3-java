@@ -37,8 +37,8 @@ public class MemberExceptionMessage {
         // 1-1. 길이 제한 (8~16자)
         INVALID_PASSWORD_LENGTH("비밀번호는 8자 이상 16자 이하여야 합니다.", 1_101),
 
-        // 1-2. 조합 규칙 (대소문자, 숫자, 특수문자)
-        INVALID_PASSWORD_COMPOSITION("비밀번호는 영문 대소문자, 숫자, 특수문자를 모두 포함해야 합니다.", 1_102),
+        // 메시지 수정: '모두 포함' -> '영문, 숫자, 특수문자만 사용 가능'
+        INVALID_PASSWORD_COMPOSITION("비밀번호는 영문, 숫자, 특수문자만 사용할 수 있으며 한글 등은 포함할 수 없습니다.", 1_102),
 
         // 2. 생년월일 포함 금지 규칙 (Zero-Birthdate Policy)
         // 2-1, 2-2, 2-3 통합 검증
