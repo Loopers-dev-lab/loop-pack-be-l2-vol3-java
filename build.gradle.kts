@@ -39,6 +39,10 @@ subprojects {
     apply(plugin = "io.spring.dependency-management")
     apply(plugin = "jacoco")
 
+    tasks.withType<JavaCompile> {
+        options.compilerArgs.add("-parameters")
+    }
+
     dependencyManagement {
         imports {
             mavenBom("org.springframework.cloud:spring-cloud-dependencies:${project.properties["springCloudDependenciesVersion"]}")
