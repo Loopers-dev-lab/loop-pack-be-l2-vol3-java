@@ -24,7 +24,23 @@ public class PasswordPolicy {
     public void validateForChange(String currentRawPassword,
                                   String newRawPassword,
                                   LocalDate birthDate) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        validateCommon(newRawPassword, birthDate);
+        validateDifferentFromCurrent(currentRawPassword, newRawPassword);
+    }
+
+    /**
+     * 변경 정책: 새 비밀번호는 현재 비밀번호와 달라야 한다.
+     */
+    private void validateDifferentFromCurrent(String currentRawPassword, String newRawPassword) {
+        if (currentRawPassword == null || currentRawPassword.isBlank()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호는 비어있을 수 없습니다.");
+        }
+        if (newRawPassword == null || newRawPassword.isBlank()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "새 비밀번호는 비어있을 수 없습니다.");
+        }
+        if (currentRawPassword.equals(newRawPassword)) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다.");
+        }
     }
 
     /**

@@ -22,4 +22,13 @@ public interface UserV1ApiSpec {
     ApiResponse<UserV1Dto.UserInfoResponse> getMyInfo(
         @Parameter(hidden = true) UserModel user
     );
+
+    @Operation(
+        summary = "비밀번호 변경",
+        description = "로그인한 사용자의 비밀번호를 변경합니다."
+    )
+    void changePassword(
+        @Parameter(hidden = true) UserModel user,
+        UserV1Dto.ChangePasswordRequest request
+    );
 }

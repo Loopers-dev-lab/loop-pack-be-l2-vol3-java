@@ -49,6 +49,14 @@ public class UserService {
 
     @Transactional
     public void changePassword(UserModel user, String currentPassword, String newPassword) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "현재 비밀번호가 일치하지 않습니다.");
+        }
+
+        passwordPolicy.validateForChange(currentPassword, newPassword, user.getBirthDate());
+
+        String encodedNewPassword = passwordEncoder.encode(newPassword);
+        user.changePassword(encodedNewPassword);
+        userRepository.save(user);
     }
 }

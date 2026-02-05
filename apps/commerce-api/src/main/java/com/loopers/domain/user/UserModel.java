@@ -76,7 +76,8 @@ public class UserModel extends BaseEntity {
     }
 
     public void changePassword(String newEncodedPassword) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        validateEncodedPassword(newEncodedPassword);
+        this.password = newEncodedPassword;
     }
 
     private void validateLoginId(String loginId) {

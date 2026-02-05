@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -45,5 +46,15 @@ public class UserV1Controller implements UserV1ApiSpec {
     ) {
         UserInfo info = UserInfo.from(user);
         return ApiResponse.success(UserV1Dto.UserInfoResponse.from(info));
+    }
+
+    @PatchMapping("/changePassword")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Override
+    public void changePassword(
+        @LoginUser UserModel user,
+        @Valid @RequestBody UserV1Dto.ChangePasswordRequest request
+    ) {
+        userFacade.changePassword(user, request.currentPassword(), request.newPassword());
     }
 }
