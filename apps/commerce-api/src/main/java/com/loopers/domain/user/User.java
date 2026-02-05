@@ -83,4 +83,8 @@ public class User extends BaseEntity {
     public Email email() {
         return email;
     }
+
+    public void changePassword(Password newPassword) {
+        this.password = newPassword;
+    }
 }
