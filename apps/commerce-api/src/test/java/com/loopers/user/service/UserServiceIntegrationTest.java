@@ -3,6 +3,9 @@ package com.loopers.user.service;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.user.domain.User;
 import com.loopers.user.dto.CreateUserRequest;
+import com.loopers.user.dto.GetMyInfoResponse;
+import com.loopers.user.exception.DuplicateLoginIdException;
+import com.loopers.user.exception.InvalidCredentialsException;
 import com.loopers.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +14,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 @SpringBootTest
@@ -58,6 +62,35 @@ public class UserServiceIntegrationTest {
         Throwable thrown = catchThrowable(() -> userService.createUser(duplicateRequest));
 
         //then
-        assertThat(thrown).isInstanceOf(IllegalArgumentException.class);
+        assertThat(thrown).isInstanceOf(DuplicateLoginIdException.class);
+    }
+
+    @Test
+    void DB에_저장된_사용자_정보를_정상적으로_조회한다() {
+        // given
+        String loginId = "testuser";
+        CreateUserRequest request = new CreateUserRequest(
+                loginId, "password123!", "홍길동", "1990-01-01", "test@test.com"
+        );
+        userService.createUser(request);
+
+        // when
+        GetMyInfoResponse response = userService.getMyInfo(loginId);
+
+        // then
+        assertThat(response.loginId()).isEqualTo(loginId);
+        assertThat(response.name()).isEqualTo("홍길*");
+        assertThat(response.birthDate()).isEqualTo("1990-01-01");
+        assertThat(response.email()).isEqualTo("test@test.com");
+    }
+
+    @Test
+    void 존재하지_않는_사용자_조회시_예외가_발생한다() {
+        // given
+        String nonExistentLoginId = "nonexistent";
+
+        // when & then
+        assertThatThrownBy(() -> userService.getMyInfo(nonExistentLoginId))
+                .isInstanceOf(InvalidCredentialsException.class);
     }
 }

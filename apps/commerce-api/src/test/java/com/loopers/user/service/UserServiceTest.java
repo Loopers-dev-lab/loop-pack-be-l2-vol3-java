@@ -2,6 +2,8 @@ package com.loopers.user.service;
 
 import com.loopers.user.domain.User;
 import com.loopers.user.dto.CreateUserRequest;
+import com.loopers.user.dto.GetMyInfoResponse;
+import com.loopers.user.exception.InvalidCredentialsException;
 import com.loopers.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -10,7 +12,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -72,4 +77,39 @@ public class UserServiceTest {
         verify(passwordEncoder).encode(rawPassword);
     }
 
+    @Test
+    void 유효한_로그인ID로_내_정보를_조회한다() {
+        // given
+        String loginId = "testId";
+        User user = User.builder()
+                .loginId(loginId)
+                .password("encodedPassword")
+                .name("홍길동")
+                .birthDate("1990-01-01")
+                .email("test@test.com")
+                .build();
+
+        given(userRepository.findByLoginId(loginId)).willReturn(Optional.of(user));
+
+        // when
+        GetMyInfoResponse response = userService.getMyInfo(loginId);
+
+        // then
+        assertThat(response.loginId()).isEqualTo(loginId);
+        assertThat(response.name()).isEqualTo("홍길*");
+        assertThat(response.birthDate()).isEqualTo("1990-01-01");
+        assertThat(response.email()).isEqualTo("test@test.com");
+    }
+
+    @Test
+    void 존재하지_않는_로그인ID로_조회시_예외가_발생한다() {
+        // given
+        String loginId = "nonExistentId";
+
+        given(userRepository.findByLoginId(loginId)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> userService.getMyInfo(loginId))
+                .isInstanceOf(InvalidCredentialsException.class);
+    }
 }

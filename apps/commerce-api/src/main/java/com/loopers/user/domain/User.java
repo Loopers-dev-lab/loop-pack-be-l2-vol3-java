@@ -47,5 +47,12 @@ public class User extends BaseEntity {
         Assert.hasText(birthDate, "birthDate는 필수입니다");
         Assert.hasText(email, "email은 필수입니다");
     }
+
+    public String getMaskedName() {
+        if (name.length() == 1) {
+            return "*";
+        }
+        return name.substring(0, name.length() - 1) + "*";
+    }
 }
 

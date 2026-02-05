@@ -2,7 +2,9 @@ package com.loopers.user.service;
 
 import com.loopers.user.domain.User;
 import com.loopers.user.dto.CreateUserRequest;
+import com.loopers.user.dto.GetMyInfoResponse;
 import com.loopers.user.exception.DuplicateLoginIdException;
+import com.loopers.user.exception.InvalidCredentialsException;
 import com.loopers.user.repository.UserRepository;
 import com.loopers.user.validator.PasswordValidator;
 import lombok.RequiredArgsConstructor;
@@ -39,5 +41,13 @@ public class UserService {
         );
 
         return userRepository.save(user);
+    }
+
+    @Transactional(readOnly = true)
+    public GetMyInfoResponse getMyInfo(String loginId) {
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(InvalidCredentialsException::new);
+
+        return GetMyInfoResponse.from(user);
     }
 }
