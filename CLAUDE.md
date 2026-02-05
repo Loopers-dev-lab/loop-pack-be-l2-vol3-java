@@ -45,10 +45,12 @@ com.loopers
     ├── application/               # 애플리케이션 서비스 레이어
     │   └── service/               # 애플리케이션 서비스
     │   └── facade/                # 퍼사드 서비스
-    │   └── repository/            # 리포지토리 인터페이스
-    │   └── dto/                   # DTO (in, out)
-    │       └── in/                # 입력 DTO
-    │       └── out/               # 출력 DTO
+    │   └── repository/            # 리포지토리 인터페이스 (CQRS)
+    │       └── {Domain}CommandRepository  # 명령 (save, delete)
+    │       └── {Domain}QueryRepository    # 조회 (find, exists)
+    │   └── dto/                   # DTO (CQRS)
+    │       └── command/           # 명령 DTO
+    │       └── query/             # 조회 DTO
     ├── domain/
     │   └── model/                 # 도메인 모델
     │       └── enum/              # 도메인 내 공통 Enum
@@ -56,7 +58,9 @@ com.loopers
     │   └── service/               # 도메인 서비스
     ├── infrastructure/            # 인프라 레이어 (Repository 구현 등)
     │   └── jpa/                   # JPA 레포지토리
-    │   └── repository/            # 애플리케이션 레포지토리 구현체
+    │   └── repository/            # 애플리케이션 레포지토리 구현체 (CQRS)
+    │       └── {Domain}CommandRepositoryImpl  # 명령 구현체
+    │       └── {Domain}QueryRepositoryImpl    # 조회 구현체
     │   └── entity/                # JPA 엔티티
     ├── interfaces/                # 프레젠테이션 레이어 (Controller)
     │   └── event/                 # 이벤트 리스너
@@ -88,6 +92,43 @@ com.loopers
 | **1. Red Phase** | 실패하는 테스트 먼저 작성. 요구사항을 만족하는 기능 테스트 케이스 작성 |
 | **2. Green Phase** | 테스트를 통과하는 코드 작성. Red Phase의 테스트가 모두 통과할 수 있는 코드 작성. 오버엔지니어링 금지 |
 | **3. Refactor Phase** | 불필요한 코드 제거 및 품질 개선. 불필요한 private 함수 지양, 객체지향적 코드 작성. unused import 제거. 성능 최적화. 모든 테스트 케이스가 통과해야 함 |
+
+### 4.3 테스트 컨벤션
+
+#### 테스트 커버리지 목표
+- **100%에 가깝게** 테스트 커버리지를 채울 것
+- 모든 public 메서드, 분기(branch), 예외 케이스를 테스트로 검증
+
+#### @DisplayName 작성 규칙 (필수)
+- **형식**: `[메서드명()] 조건 -> 결과. 상세 설명`
+- **아주 자세하게 작성**: 테스트만 보고도 요구사항을 파악할 수 있어야 함
+- 예시:
+  - `[POST /api/v1/users] 유효한 회원가입 요청 -> 201 Created. 응답: id, loginId, name, birthday, email 포함`
+  - `[UserCommandRepository.save()] 유효한 User 저장 -> ID가 할당된 User 반환`
+  - `[Password.create()] 8자 미만 비밀번호 -> INVALID_PASSWORD_FORMAT 예외`
+
+#### 예외 검증 패턴
+```java
+// Act
+CoreException exception = assertThrows(CoreException.class,
+    () -> targetMethod(args));
+
+// Assert
+assertAll(
+    () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.XXX),
+    () -> assertThat(exception.getMessage()).isEqualTo(ErrorType.XXX.getMessage())
+);
+```
+
+#### 통합 테스트 설정
+```java
+@SpringBootTest
+@ActiveProfiles("test")
+@Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
+class SomeIntegrationTest {
+    // ...
+}
+```
 
 ## 5. 주의사항
 
