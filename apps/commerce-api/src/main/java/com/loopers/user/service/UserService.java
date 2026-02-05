@@ -6,6 +6,7 @@ import com.loopers.user.validator.PasswordValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @RequiredArgsConstructor
 @Service
@@ -13,16 +14,16 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final PasswordValidator passwordValidator;
 
-    public User signUp(String loginId, String password, String name, String birthDate, String email) {
+    @Transactional
+    public User createUser(String loginId, String password, String name, String birthDate, String email) {
 
         if(userRepository.existsByLoginId(loginId)){
             throw new IllegalArgumentException("이미 가입된 ID 입니다.");
         }
 
         //비밀번호 검증
-        passwordValidator.validate(password, birthDate);
+        PasswordValidator.validate(password, birthDate);
 
         //비밀번호 암호화
         String encodedPassword = passwordEncoder.encode(password);

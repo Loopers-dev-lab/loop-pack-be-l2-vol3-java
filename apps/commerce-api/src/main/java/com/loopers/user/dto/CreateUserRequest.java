@@ -4,7 +4,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
-public record SignUpRequest (
+public record CreateUserRequest(
         @NotBlank
         String loginId,
         @NotBlank

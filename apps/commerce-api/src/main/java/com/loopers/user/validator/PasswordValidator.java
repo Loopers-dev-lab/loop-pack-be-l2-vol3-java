@@ -1,11 +1,11 @@
 package com.loopers.user.validator;
 
-import org.springframework.stereotype.Component;
-
-@Component
 public class PasswordValidator {
 
-    public void validate(String password, String birthDate) {
+    private PasswordValidator() {
+    }
+
+    public static void validate(String password, String birthDate) {
         if (password.length() < 8) {
             throw new IllegalArgumentException("비밀번호는 8자 이상이어야 합니다.");
         }

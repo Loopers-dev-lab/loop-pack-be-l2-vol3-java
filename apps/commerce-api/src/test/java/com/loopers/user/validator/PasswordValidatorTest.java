@@ -1,6 +1,5 @@
 package com.loopers.user.validator;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -10,12 +9,6 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 
 public class PasswordValidatorTest {
 
-    private PasswordValidator passwordValidator;
-
-    @BeforeEach
-    void setUp() {
-        passwordValidator = new PasswordValidator();
-    }
 
     @Test
     void 비밀번호가_8자_미만이면_예외_발생() {
@@ -23,7 +16,7 @@ public class PasswordValidatorTest {
         String password = "1234";
 
         //when
-        Throwable thrown = catchThrowable(() -> passwordValidator.validate(password, null));
+        Throwable thrown = catchThrowable(() -> PasswordValidator.validate(password, null));
 
         //then
         assertThat(thrown).isInstanceOf(IllegalArgumentException.class);
@@ -35,7 +28,7 @@ public class PasswordValidatorTest {
         String password = "12345678901234567";
 
         //when
-        Throwable thrown = catchThrowable(() -> passwordValidator.validate(password, null));
+        Throwable thrown = catchThrowable(() -> PasswordValidator.validate(password, null));
 
         //then
         assertThat(thrown).isInstanceOf(IllegalArgumentException.class);
@@ -47,7 +40,7 @@ public class PasswordValidatorTest {
         //given
 
         //when
-        Throwable thrown = catchThrowable(() -> passwordValidator.validate(password, null));
+        Throwable thrown = catchThrowable(() -> PasswordValidator.validate(password, null));
 
         //then
         assertThat(thrown).isInstanceOf(IllegalArgumentException.class);
@@ -56,11 +49,11 @@ public class PasswordValidatorTest {
     @Test
     void 비밀번호에_생년월일_포함시_예외_발생() {
         //given
-        String birthDate = "19900427";
-        String password = "pass19900427";
+        String birthDate = "1990-04-27";
+        String password = "pass1990-04-27";
 
         //when
-        Throwable thrown = catchThrowable(() -> passwordValidator.validate(password, birthDate));
+        Throwable thrown = catchThrowable(() -> PasswordValidator.validate(password, birthDate));
 
         //then
         assertThat(thrown).isInstanceOf(IllegalArgumentException.class);

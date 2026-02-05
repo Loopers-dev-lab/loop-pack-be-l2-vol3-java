@@ -2,7 +2,6 @@ package com.loopers.user.service;
 
 import com.loopers.user.domain.User;
 import com.loopers.user.repository.UserRepository;
-import com.loopers.user.validator.PasswordValidator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -11,7 +10,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -34,14 +32,14 @@ public class UserServiceTest {
         String loginId = "testId";
         String password = "password123!";
         String name = "김준영";
-        String birthDate = "19900427";
+        String birthDate = "1990-04-27";
         String email = "test@test.com";
 
         given(userRepository.save(any(User.class)))
                 .willAnswer(invocation -> invocation.getArgument(0));
 
         //when
-        User user = userService.signUp(loginId, password, name, birthDate, email);
+        User user = userService.createUser(loginId, password, name, birthDate, email);
 
         //then
         assertThat(user.getLoginId()).isEqualTo(loginId);
@@ -62,7 +60,7 @@ public class UserServiceTest {
 
         //when
         //회원가입을 진행했을 때
-        User user = userService.signUp("testId", rawPassword, "test", "19900427", "test@test.com");
+        User user = userService.createUser("testId", rawPassword, "test", "1990-04-27", "test@test.com");
 
         //then
         //비밀번호가 암호화되었는지 확인한다.

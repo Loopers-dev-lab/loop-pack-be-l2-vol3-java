@@ -2,7 +2,7 @@ package com.loopers.user.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.user.domain.User;
-import com.loopers.user.dto.SignUpRequest;
+import com.loopers.user.dto.CreateUserRequest;
 import com.loopers.user.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -36,7 +36,7 @@ public class UserControllerTest {
     @Test
     void 회원가입_성공_시_201_반환() throws Exception {
         //given
-        SignUpRequest request = new SignUpRequest(
+        CreateUserRequest request = new CreateUserRequest(
                 "testId", "password123!", "김준영", "1990-04-27", "test@test.com"
         );
 
@@ -48,11 +48,11 @@ public class UserControllerTest {
                 .email("test@test.com")
                 .build();
 
-        given(userService.signUp(anyString(), anyString(), anyString(), anyString(), anyString()))
+        given(userService.createUser(anyString(), anyString(), anyString(), anyString(), anyString()))
                 .willReturn(user);
 
         //when
-        ResultActions result = mockMvc.perform(post("/api/v1/user/signup")
+        ResultActions result = mockMvc.perform(post("/api/v1/users")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         );
@@ -63,11 +63,11 @@ public class UserControllerTest {
 
     @ParameterizedTest(name = "{1} 누락 시 400 반환")
     @MethodSource("필수값_누락_케이스")
-    void 필수값_누락_시_400_Bad_Request_반환(SignUpRequest request, String fieldName) throws Exception {
+    void 필수값_누락_시_400_Bad_Request_반환(CreateUserRequest request, String fieldName) throws Exception {
         //given
 
         //when
-        ResultActions result = mockMvc.perform(post("/api/v1/user/signup")
+        ResultActions result = mockMvc.perform(post("/api/v1/users")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         );
@@ -78,23 +78,23 @@ public class UserControllerTest {
 
     static Stream<Arguments> 필수값_누락_케이스() {
         return Stream.of(
-                Arguments.of(new SignUpRequest(null, "pw", "name", "19900101", "a@a.com"), "loginId"),
-                Arguments.of(new SignUpRequest("test", null, "name", "19900101", "a@a.com"), "password"),
-                Arguments.of(new SignUpRequest("test", "pw", null, "19900101", "a@a.com"), "name"),
-                Arguments.of(new SignUpRequest("test", "pw", "name", null, "a@a.com"), "birthDate"),
-                Arguments.of(new SignUpRequest("test", "pw", "name", "19900101", null), "email")
+                Arguments.of(new CreateUserRequest(null, "pw", "name", "1990-01-01", "a@a.com"), "loginId"),
+                Arguments.of(new CreateUserRequest("test", null, "name", "1990-01-01", "a@a.com"), "password"),
+                Arguments.of(new CreateUserRequest("test", "pw", null, "1990-01-01", "a@a.com"), "name"),
+                Arguments.of(new CreateUserRequest("test", "pw", "name", null, "a@a.com"), "birthDate"),
+                Arguments.of(new CreateUserRequest("test", "pw", "name", "1990-01-01", null), "email")
         );
     }
 
     @Test
     void 이메일_형식_오류_시_400_Bad_Request_반환() throws Exception {
         //given
-        SignUpRequest request = new SignUpRequest(
+        CreateUserRequest request = new CreateUserRequest(
                 "testId", "password123!", "김준영", "1990-04-27", "testtest.com"
         );
 
         //when
-        ResultActions result = mockMvc.perform(post("/api/v1/user/signup")
+        ResultActions result = mockMvc.perform(post("/api/v1/users")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         );
@@ -106,12 +106,12 @@ public class UserControllerTest {
     @Test
     void 생년월일_형식_오류_시_400_Bad_Request_반환() throws Exception {
         //given
-        SignUpRequest request = new SignUpRequest(
+        CreateUserRequest request = new CreateUserRequest(
                 "testId", "password123!", "김준영", "1990-0427", "test@test.com"
         );
 
         //when
-        ResultActions result = mockMvc.perform(post("/api/v1/user/signup")
+        ResultActions result = mockMvc.perform(post("/api/v1/users")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         );

@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
-import org.testcontainers.shaded.org.yaml.snakeyaml.constructor.DuplicateKeyException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -34,7 +33,7 @@ public class UserServiceIntegrationTest {
         String email = "test@test.com";
 
         //when
-        User savedUser = userService.signUp(loginId, password, name, birthDate, email);
+        User savedUser = userService.createUser(loginId, password, name, birthDate, email);
 
         //then
         User foundUser = userRepository.findById(savedUser.getId()).orElseThrow();
@@ -52,11 +51,11 @@ public class UserServiceIntegrationTest {
         String birthDate = "1990-04-27";
         String email = "test@test.com";
         //testuser 라는 ID로 가입
-        userService.signUp(loginId, password, name, birthDate, email);
+        userService.createUser(loginId, password, name, birthDate, email);
 
         //when
         //동일한 아이디로 가입하는 경우
-        Throwable thrown = catchThrowable(() -> userService.signUp(loginId, "password456!", "김철수", "1995-01-01", "other@test.com"));
+        Throwable thrown = catchThrowable(() -> userService.createUser(loginId, "password456!", "김철수", "1995-01-01", "other@test.com"));
 
         //then
         assertThat(thrown).isInstanceOf(IllegalArgumentException.class);
