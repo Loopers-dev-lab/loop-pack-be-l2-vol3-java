@@ -48,6 +48,21 @@ public class MemberService {
         );
     }
 
+    @Transactional
+    public void updatePassword(String userId, String currentPassword, String newPassword) {
+        // 1. 회원 조회
+        Member member = memberRepository.findByLoginId(userId)
+                .orElseThrow(() -> new IllegalArgumentException(MemberExceptionMessage.ExistsMember.CANNOT_LOGIN.message()));
+
+        // 2. 본인 확인 (기존 비밀번호 일치 여부)
+        if (!member.isSamePassword(currentPassword)) {
+            throw new IllegalArgumentException(MemberExceptionMessage.Password.PASSWORD_INCORRECT.message()); // 적절한 메시지로 변경 가능
+        }
+
+        // 4. 도메인 정책 검증 및 수정 (생년월일 포함 여부 등은 도메인 내 로직에서 처리)
+        member.updatePassword(newPassword);
+    }
+
     /**
      * 이름의 마지막 글자를 *로 마스킹 처리
      */

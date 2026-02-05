@@ -47,7 +47,7 @@ public class Member {
 
         return Member.builder()
                 .loginId(loginId)
-                .password(password)
+                .password(encodedPassword(password))
                 .name(name)
                 .birthDate(birthDate)
                 .email(email)
@@ -56,6 +56,19 @@ public class Member {
 
     public boolean isSamePassword(String inputPassword) {
         return PasswordEncryptor.matches(inputPassword, this.password);
+    }
+
+    public void updatePassword(String newPassword) {
+        if (isSamePassword(newPassword)) {
+            throw new IllegalArgumentException(MemberExceptionMessage.Password.PASSWORD_CANNOT_BE_SAME_AS_CURRENT.message());
+        }
+        MemberPolicy.Password.validate(newPassword, birthDate);
+
+        this.password = encodedPassword(newPassword);
+    }
+
+    private static String encodedPassword(String password) {
+        return PasswordEncryptor.encode(password);
     }
 
 }
