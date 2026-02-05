@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -24,7 +25,7 @@ public class UserV1Api implements UserV1ApiSpec {
 
     private final UserFacade userFacade;
 
-    @PostMapping("/signup")
+    @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Override
     public ApiResponse<UserV1Dto.SignUpResponse> signUp(@Valid @RequestBody UserV1Dto.SignUpRequest request) {
@@ -46,7 +47,7 @@ public class UserV1Api implements UserV1ApiSpec {
         return ApiResponse.success(UserV1Dto.MeResponse.from(userResult));
     }
 
-    @PostMapping("/me/password")
+    @PutMapping("/me/password")
     @Override
     public ApiResponse<Object> updatePassword(
             @LoginUser Long userId,

@@ -30,7 +30,7 @@ import com.loopers.utils.DatabaseCleanUp;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class UserV1ApiE2ETest {
 
-    private static final String SIGNUP_ENDPOINT = "/api/v1/users/signup";
+    private static final String SIGNUP_ENDPOINT = "/api/v1/users";
 
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
@@ -70,7 +70,7 @@ class UserV1ApiE2ETest {
         databaseCleanUp.truncateAllTables();
     }
 
-    @DisplayName("POST /api/v1/users/signup")
+    @DisplayName("POST /api/v1/users")
     @Nested
     class SignUp {
 
@@ -373,7 +373,7 @@ class UserV1ApiE2ETest {
         }
     }
 
-    @DisplayName("POST /api/v1/users/me/password")
+    @DisplayName("PUT /api/v1/users/me/password")
     @Nested
     class UpdatePassword {
 
@@ -392,7 +392,7 @@ class UserV1ApiE2ETest {
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {
             };
             ResponseEntity<ApiResponse<Void>> response =
-                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.POST, new HttpEntity<>(updatePasswordRequest, headers), responseType);
+                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest, headers), responseType);
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -411,7 +411,7 @@ class UserV1ApiE2ETest {
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {
             };
             ResponseEntity<ApiResponse<Void>> response =
-                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.POST, new HttpEntity<>(updatePasswordRequest), responseType);
+                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest), responseType);
 
             // assert
             assertAll(
@@ -438,7 +438,7 @@ class UserV1ApiE2ETest {
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {
             };
             ResponseEntity<ApiResponse<Void>> response =
-                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.POST, new HttpEntity<>(updatePasswordRequest, invalidHeaders), responseType);
+                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest, invalidHeaders), responseType);
 
             // assert
             assertAll(
@@ -465,7 +465,7 @@ class UserV1ApiE2ETest {
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {
             };
             ResponseEntity<ApiResponse<Void>> response =
-                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.POST, new HttpEntity<>(updatePasswordRequest, invalidHeaders), responseType);
+                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest, invalidHeaders), responseType);
 
             // assert
             assertAll(
@@ -489,7 +489,7 @@ class UserV1ApiE2ETest {
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {
             };
             ResponseEntity<ApiResponse<Void>> response =
-                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.POST, new HttpEntity<>(updatePasswordRequest, headers), responseType);
+                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest, headers), responseType);
 
             // assert
             assertAll(
@@ -513,7 +513,7 @@ class UserV1ApiE2ETest {
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {
             };
             ResponseEntity<ApiResponse<Void>> response =
-                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.POST, new HttpEntity<>(updatePasswordRequest, headers), responseType);
+                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest, headers), responseType);
 
             // assert
             assertAll(
@@ -536,7 +536,7 @@ class UserV1ApiE2ETest {
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {
             };
             ResponseEntity<ApiResponse<Void>> response =
-                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.POST, new HttpEntity<>(updatePasswordRequest, headers), responseType);
+                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest, headers), responseType);
 
             // assert
             assertAll(
@@ -559,7 +559,7 @@ class UserV1ApiE2ETest {
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {
             };
             ResponseEntity<ApiResponse<Void>> response =
-                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.POST, new HttpEntity<>(updatePasswordRequest, headers), responseType);
+                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest, headers), responseType);
 
             // assert
             assertAll(
@@ -582,7 +582,7 @@ class UserV1ApiE2ETest {
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {
             };
             ResponseEntity<ApiResponse<Void>> response =
-                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.POST, new HttpEntity<>(updatePasswordRequest, headers), responseType);
+                    testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest, headers), responseType);
 
             // assert
             assertAll(
