@@ -8,7 +8,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /*
-    # Service : 비즈니스 로직을 처리하는 객체
+    Service 
+    : 비즈니스 로직을 처리하는 객체
 
     - @Transactional : 트랜잭션 관리
     - @RequiredArgsConstructor : 생성자 주입
@@ -20,15 +21,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class MemberService {
 
     private final MemberRepository memberRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder; // 의존성 주입 요청
 
     /*
-        회원가입
+     * 회원가입
      */
     @Transactional
-    public Member signup(SignupCommand command) {
+    public Member signup(SignupCommand command) {// command는 서비스로 전달하기 위한 객체
+
         // 1. Value Object 생성 (유효성 검사 수행 + trim)
-        // Value Object는 값 자체가 중요한 객체이며, 생성 시점에 유효성 검사를 하여 유효하지 않으면 객체 생성이 안된다.
+        // Value Object는 값 자체가 중요한 객체이며, 생성 시점에 유효성 검사를 하여 유효하지 않으면 객체 생성이 안됨.
         LoginId loginId = new LoginId(command.loginId());
         Password password = new Password(command.password());
         MemberName name = new MemberName(command.name());
@@ -56,6 +58,9 @@ public class MemberService {
         return memberRepository.save(member);
     }
 
+    /*
+     * 인증(로그인)
+     */
     public Member authenticate(String loginId, String rawPassword) {
         if (loginId == null || rawPassword == null) {
             throw new CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.");
@@ -71,6 +76,9 @@ public class MemberService {
         return member;
     }
 
+    /*
+     * 비밀번호 변경
+     */
     @Transactional
     public void changePassword(Member member, String currentPassword, String newPassword) {
         // 1. 기존 비밀번호 일치 검사

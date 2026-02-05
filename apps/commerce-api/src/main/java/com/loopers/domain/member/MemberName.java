@@ -6,7 +6,7 @@ import com.loopers.support.error.ErrorType;
 import java.util.regex.Pattern;
 
 /*
-    # ValueObject - 회원 이름
+    VO(ValueObject) - 회원 이름
     
     - 한글 2~10자 유효성 검사
     - 마스킹 처리 메서드

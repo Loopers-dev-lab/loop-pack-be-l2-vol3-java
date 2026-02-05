@@ -201,7 +201,7 @@ JAVA_HOME=/path/to/jdk21 ./gradlew :apps:commerce-api:test
 
 ## 주의사항
 ### 1. Never Do
-- 실제 동작하지 않는 코드, 불필요한 Mock 데이터를 이요한 구현을 하지 말 것
+- 실제 동작하지 않는 코드, 불필요한 Mock 데이터를 이용한 구현을 하지 말 것
 - null-safety 하지 않게 코드 작성하지 말 것 (Java 의 경우, Optional 을 활용할 것)
 - println 코드 남기지 말 것
 - 개발자 승인 없이 `build.gradle.kts`에 새로운 의존성을 추가하지 말 것
@@ -211,7 +211,7 @@ JAVA_HOME=/path/to/jdk21 ./gradlew :apps:commerce-api:test
 ### 2. Recommendation
 - 실제 API 를 호출해 확인하는 E2E 테스트 코드 작성
 - 재사용 가능한 객체 설계
-- 성능 최적화에 대한 대안 ß및 제안
+- 성능 최적화에 대한 대안 및 제안
 - 개발 완료된 API 의 경우, `.http/**.http` 에 분류해 작성
 - JPA Entity 설계 시 `protected` 기본 생성자를 사용하고 정적 팩토리 메서드 사용을 고려할 것
 - 레이어 간 의존성 역전(DIP)을 준수하며, DTO와 Entity의 경계를 명확히 할 것
@@ -231,4 +231,73 @@ JAVA_HOME=/path/to/jdk21 ./gradlew :apps:commerce-api:test
 - week별 구현 기능에 대한 명세는 docs/week{주차}.md 파일 참고
 
 
+#### PR작성 템플릿
+```
+## 📌 Summary
+<!--
+무엇을/왜 바꿨는지 한눈에 보이게 작성한다.
+- 문제(배경) / 목표 / 결과(효과) 중심으로 3~5줄 권장한다.
+-->
 
+- 배경:
+- 목표:
+- 결과:
+
+
+## 🧭 Context & Decision
+<!--
+설계 의사결정 기록을 남기는 영역이다.
+"왜 이렇게 했는가"가 핵심이다.
+-->
+
+### 문제 정의
+- 현재 동작/제약:
+- 문제(또는 리스크):
+- 성공 기준(완료 정의):
+
+### 선택지와 결정
+- 고려한 대안:
+    - A:
+    - B:
+- 최종 결정:
+- 트레이드오프:
+- 추후 개선 여지(있다면):
+
+
+## 🏗️ Design Overview
+<!--
+구성 요소와 책임을 간단히 정리한다.
+-->
+
+### 변경 범위
+- 영향 받는 모듈/도메인:
+- 신규 추가:
+- 제거/대체:
+
+### 주요 컴포넌트 책임
+- `ComponentA`:
+- `ComponentB`:
+- `ComponentC`:
+
+
+## 🔁 Flow Diagram
+<!--
+가능하면 Mermaid로 작성한다. (시퀀스/플로우 중 택1)
+"핵심 경로"를 먼저 그리고, 예외 흐름은 아래에 분리한다.
+-->
+
+### Main Flow
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Client
+  participant API
+  participant Service
+  participant DB
+  Client->>API: request
+  API->>Service: command/query
+  Service->>DB: read/write
+  DB-->>Service: result
+  Service-->>API: response
+  API-->>Client: response
+```

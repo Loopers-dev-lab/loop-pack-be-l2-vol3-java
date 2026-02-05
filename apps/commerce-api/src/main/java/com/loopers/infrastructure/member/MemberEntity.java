@@ -9,12 +9,12 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * JPA 영속성 엔티티
- * 
- * 도메인 모델(Member)과 분리된 영속성 전용 클래스입니다.
- * - @Entity, @Table, @Column 등 JPA 어노테이션은 여기에만 존재
- * - Domain ↔ Entity 변환 메서드 제공
+/*
+    Entity
+    : JPA 영속성 엔티티 (도메인 모델(Member)과 분리된 영속성 전용 클래스)
+    
+    - @Entity, @Table, @Column 등 JPA 어노테이션은 여기에만 존재
+    - Domain ↔ Entity 변환 메서드 제공
  */
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -31,7 +31,7 @@ public class MemberEntity extends BaseEntity {
     @Column(name = "name", nullable = false, length = 30)
     private String name;
 
-    @Column(name = "email", nullable = false, length = 100)
+    @Column(name = "email", nullable = false, unique = true, length = 100)
     private String email;
 
     @Column(name = "birth_date", nullable = false, length = 8)

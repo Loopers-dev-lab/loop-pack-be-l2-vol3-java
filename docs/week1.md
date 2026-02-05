@@ -203,3 +203,137 @@ After:  Member (순수 도메인) ←→ MemberEntity (영속성 전용)
 - **인프라 레이어**: JPA 세부 구현 캡슐화, Entity ↔ Domain 변환 담당
 - **테스트**: 모든 테스트 (단위/통합/E2E) 정상 동작 확인
 
+---
+
+## PR 내용
+
+## 📌 Summary
+
+- 배경: Week1 과제로 회원 관련 기능(회원가입, 내 정보 조회, 비밀번호 변경) 구현이 필요함
+- 목표: TDD 방식으로 회원 도메인 기능 구현 및 클린 아키텍처 적용
+- 결과: 3개 API 구현 완료, 단위/통합/E2E 테스트 170개 통과, Domain-Persistence 분리 완료
+
+
+## 🧭 Context & Decision
+
+### 문제 정의
+- 현재 동작/제약: 회원 관련 기능이 전혀 없는 상태
+- 문제(또는 리스크): 회원 인증/인가 없이는 서비스 이용 불가
+- 성공 기준(완료 정의):
+  - 회원가입/내 정보 조회/비밀번호 변경 API 정상 동작
+  - 모든 유효성 검사 및 예외 처리 구현
+  - 테스트 피라미드에 따른 테스트 작성
+
+### 선택지와 결정
+- 고려한 대안:
+    - A: Member 클래스에 JPA 어노테이션 직접 적용 (도메인 + 영속성 혼합)
+    - B: Member(도메인)와 MemberEntity(영속성) 분리
+- 최종 결정: B안 - Domain/Persistence 분리
+- 트레이드오프: 변환 로직 추가로 코드량 증가 vs 도메인 순수성 확보, 테스트 용이성 향상
+- 추후 개선 여지: 인증 방식을 헤더 기반에서 JWT 토큰 기반으로 전환 가능
+
+
+## 🏗️ Design Overview
+
+### 변경 범위
+- 영향 받는 모듈/도메인: `commerce-api`
+- 신규 추가:
+  - Domain: `Member`, `MemberService`, `MemberRepository`, Value Objects (`LoginId`, `Password`, `MemberName`, `Email`, `BirthDate`)
+  - Application: `MemberFacade`, `MemberInfo`, `MyInfo`, `SignupCommand`
+  - Infrastructure: `MemberEntity`, `MemberJpaRepository`, `MemberRepositoryImpl`
+  - Interfaces: `MemberV1Controller`, `MemberV1Dto`
+  - Config: `PasswordEncoderConfig`
+- 제거/대체: 없음
+
+### 주요 컴포넌트 책임
+- `MemberV1Controller`: HTTP 요청/응답 처리, 헤더 인증 검증, 응답 헤더 설정
+- `MemberFacade`: 유스케이스 조합, Domain ↔ DTO 변환, 트랜잭션 경계 조정
+- `MemberService`: 비즈니스 로직 (회원가입, 인증, 비밀번호 변경)
+- `MemberRepository`: 도메인 레이어의 Repository 인터페이스 (DIP)
+- `MemberRepositoryImpl`: JPA 구현체, Entity ↔ Domain 변환
+- `Value Objects`: 유효성 검사 및 불변 값 보장
+
+
+## 🔁 Flow Diagram
+
+### Main Flow - 회원가입
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Client
+  participant Controller
+  participant Facade
+  participant Service
+  participant Repository
+  participant DB
+
+  Client->>Controller: POST /api/v1/members/signup
+  Controller->>Facade: signup(command)
+  Facade->>Service: signup(command)
+  Service->>Service: Value Object 생성 및 유효성 검사
+  Service->>Repository: existsByLoginId(), existsByEmail()
+  Repository->>DB: SELECT
+  DB-->>Repository: result
+  Service->>Service: 비밀번호 암호화
+  Service->>Repository: save(member)
+  Repository->>DB: INSERT
+  DB-->>Repository: entity
+  Repository-->>Service: member
+  Service-->>Facade: member
+  Facade-->>Controller: MemberInfo
+  Controller-->>Client: 200 OK + 헤더(LoginId, LoginPw)
+```
+
+### Main Flow - 내 정보 조회
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Client
+  participant Controller
+  participant Facade
+  participant Service
+  participant Repository
+  participant DB
+
+  Client->>Controller: GET /api/v1/members/me (헤더: LoginId, LoginPw)
+  Controller->>Controller: validateAuthHeaders()
+  Controller->>Facade: getMyInfo(loginId, password)
+  Facade->>Service: authenticate(loginId, password)
+  Service->>Repository: findByLoginId()
+  Repository->>DB: SELECT
+  DB-->>Repository: entity
+  Repository-->>Service: member
+  Service->>Service: 비밀번호 검증
+  Service-->>Facade: member
+  Facade->>Facade: 이름 마스킹 처리
+  Facade-->>Controller: MyInfo
+  Controller-->>Client: 200 OK
+```
+
+### Main Flow - 비밀번호 변경
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Client
+  participant Controller
+  participant Facade
+  participant Service
+  participant Repository
+  participant DB
+
+  Client->>Controller: PATCH /api/v1/members/me/password
+  Controller->>Controller: validateAuthHeaders()
+  Controller->>Facade: changePassword(loginId, headerPw, currentPw, newPw)
+  Facade->>Service: authenticate(loginId, headerPw)
+  Service-->>Facade: member
+  Facade->>Service: changePassword(member, currentPw, newPw)
+  Service->>Service: 기존 비밀번호 검증
+  Service->>Service: 새 비밀번호 유효성 검사
+  Service->>Service: 비밀번호 암호화
+  Service->>Repository: save(member)
+  Repository->>DB: UPDATE
+  DB-->>Repository: entity
+  Service-->>Facade: void
+  Facade-->>Controller: void
+  Controller-->>Client: 200 OK + 헤더(새 비밀번호)
+```

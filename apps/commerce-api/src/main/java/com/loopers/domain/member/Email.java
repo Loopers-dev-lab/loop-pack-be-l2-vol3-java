@@ -6,7 +6,7 @@ import com.loopers.support.error.ErrorType;
 import java.util.regex.Pattern;
 
 /*
-    # ValueObject - 이메일
+    VO(ValueObject) - 이메일
     
     - 이메일 형식 검사
     

@@ -6,7 +6,7 @@ import com.loopers.support.error.ErrorType;
 import java.util.regex.Pattern;
 
 /*
-    # ValueObject - 비밀번호
+    VO(ValueObject) - 비밀번호
     
     - 영문 대소문자, 숫자, 특수문자만 사용하여 8~16자 유효성 검사
     - 생년월일 포함 여부 체크
@@ -26,6 +26,7 @@ public record Password(String value) {
         value = trimmed;
     }
 
+    // 비밀번호에 생년월일 포함 여부 체크
     public void validateNotContainsBirthDate(String birthDate) {
         if (birthDate != null && value.contains(birthDate)) {
             throw new CoreException(ErrorType.BAD_REQUEST,

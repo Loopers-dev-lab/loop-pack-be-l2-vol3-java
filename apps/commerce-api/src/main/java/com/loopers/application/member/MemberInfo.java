@@ -3,8 +3,8 @@ package com.loopers.application.member;
 import com.loopers.domain.member.Member;
 
 /*
-    # Info의 역할
-    비즈니스 로직 결과를 전달하는 용도.
+    Info 
+    : 비즈니스 로직 결과를 전달하는 도메인 객체.
  */
 public record MemberInfo(
         Long id,

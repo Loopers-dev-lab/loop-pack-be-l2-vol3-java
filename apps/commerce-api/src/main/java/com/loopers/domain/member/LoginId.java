@@ -6,7 +6,7 @@ import com.loopers.support.error.ErrorType;
 import java.util.regex.Pattern;
 
 /*
-    # ValueObject - 로그인 아이디
+    VO(ValueObject) - 로그인 아이디
     
     - 영문,숫자를 사용한 4~20자리 유효성 검사
     

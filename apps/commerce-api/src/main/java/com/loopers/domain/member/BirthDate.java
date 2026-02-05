@@ -8,7 +8,7 @@ import java.time.LocalDate;
 import java.util.regex.Pattern;
 
 /*
-    # ValueObject - 생년월일
+    VO(ValueObject)- 생년월일
     
     - 8자리 숫자
     - 날짜 유효성 검사
@@ -24,6 +24,7 @@ public record BirthDate(String value) {
             throw new CoreException(ErrorType.BAD_REQUEST,
                     "생년월일은 8자리 숫자로 입력해주세요. (예: 19990101)");
         }
+        // 검증
         validateDate(trimmed);
         value = trimmed;
     }

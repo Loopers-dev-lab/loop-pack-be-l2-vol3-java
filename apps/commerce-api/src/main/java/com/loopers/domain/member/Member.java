@@ -2,17 +2,18 @@ package com.loopers.domain.member;
 
 import java.time.ZonedDateTime;
 
-/**
- * 순수 도메인 모델
- * 
- * JPA 어노테이션이 없는 순수한 도메인 객체입니다.
- * 영속성 관련 로직은 infrastructure 레이어의 MemberEntity에서 처리합니다.
- * 
- * 장점:
- * - 도메인 레이어가 인프라(JPA)에 의존하지 않음
- * - 테스트 시 JPA 없이도 도메인 로직 검증 가능
- * - 도메인 모델 변경 시 DB 스키마와 독립적
+import lombok.Getter;
+
+/*
+    순수 도메인 모델
+    : JPA 어노테이션이 없는 순수한 도메인 객체
+      영속성 관련 로직은 infrastructure 레이어의 MemberEntity에서 처리.
+ 
+    - 도메인 레이어가 인프라(JPA)에 의존하지 않음
+    - 테스트 시 JPA 없이도 도메인 로직 검증 가능
+    - 도메인 모델 변경 시 DB 스키마와 독립적
  */
+@Getter
 public class Member {
 
     private final Long id;
@@ -62,36 +63,4 @@ public class Member {
         this.password = encodedNewPassword;
     }
 
-    // Getters
-    public Long getId() {
-        return id;
-    }
-
-    public String getLoginId() {
-        return loginId;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getBirthDate() {
-        return birthDate;
-    }
-
-    public ZonedDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public ZonedDateTime getUpdatedAt() {
-        return updatedAt;
-    }
 }

@@ -20,39 +20,42 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/members")
-public class MemberV1Controller  {
+public class MemberV1Controller {
 
     private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
     private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
 
     private final MemberFacade memberFacade;
 
-    // # 회원가입
+    /**
+     * 회원가입
+     */
     @PostMapping("/signup")
     public ApiResponse<MemberV1Dto.SignupResponse> signup(
-        @RequestBody MemberV1Dto.SignupRequest request,
-        HttpServletResponse response
-    ) {
+            @RequestBody MemberV1Dto.SignupRequest request,
+            HttpServletResponse response) {
         // 원본 비밀번호 보관 (헤더 응답용)
         String rawPassword = request.password();
 
         // 회원가입 기능 동작
-        MemberInfo info = memberFacade.signup(request.toCommand());
+        MemberInfo info = memberFacade.signup(request.toCommand()); // info는 도메인 결과를 담는 객체
 
         // 응답 헤더 설정
         response.setHeader(HEADER_LOGIN_ID, info.loginId());
         response.setHeader(HEADER_LOGIN_PW, rawPassword);
 
+        // 클라이언트에게 필요한 정보만 노출 하기 위해 계층별로 DTO를 분리
         MemberV1Dto.SignupResponse signupResponse = MemberV1Dto.SignupResponse.from(info);
         return ApiResponse.success(signupResponse);
     }
 
-    // # 내 정보조회
+    /**
+     * 내 정보조회
+     */
     @GetMapping("/me")
     public ApiResponse<MemberV1Dto.MyInfoResponse> getMyInfo(
-        @RequestHeader(value = HEADER_LOGIN_ID, required = false) String loginId,
-        @RequestHeader(value = HEADER_LOGIN_PW, required = false) String password
-    ) {
+            @RequestHeader(value = HEADER_LOGIN_ID, required = false) String loginId,
+            @RequestHeader(value = HEADER_LOGIN_PW, required = false) String password) {
         validateAuthHeaders(loginId, password); // 헤더 정보 인증
 
         // 내 정보 조회 기능 동작
@@ -60,14 +63,15 @@ public class MemberV1Controller  {
         return ApiResponse.success(MemberV1Dto.MyInfoResponse.from(info));
     }
 
-    // # 비밀번호 변경
+    /**
+     * 비밀번호 변경
+     */
     @PatchMapping("/me/password")
     public ApiResponse<Void> changePassword(
-        @RequestHeader(value = HEADER_LOGIN_ID, required = false) String loginId,
-        @RequestHeader(value = HEADER_LOGIN_PW, required = false) String headerPassword,
-        @RequestBody MemberV1Dto.ChangePasswordRequest request,
-        HttpServletResponse response
-    ) {
+            @RequestHeader(value = HEADER_LOGIN_ID, required = false) String loginId,
+            @RequestHeader(value = HEADER_LOGIN_PW, required = false) String headerPassword,
+            @RequestBody MemberV1Dto.ChangePasswordRequest request,
+            HttpServletResponse response) {
         validateAuthHeaders(loginId, headerPassword); // 헤더 정보 인증
 
         // 비밀번호 변경 기능 동작
@@ -77,6 +81,9 @@ public class MemberV1Controller  {
         return ApiResponse.success(null);
     }
 
+    /**
+     * 헤더 정보 인증 - 빈 값 체크
+     */
     private void validateAuthHeaders(String loginId, String password) {
         if (loginId == null || loginId.isBlank() || password == null || password.isBlank()) {
             throw new CoreException(ErrorType.UNAUTHORIZED, "인증 정보가 필요합니다.");
