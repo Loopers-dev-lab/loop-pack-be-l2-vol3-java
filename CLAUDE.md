@@ -103,11 +103,34 @@ docker compose -f docker/monitoring-compose.yml up -d
 - **Kafka 배치 소비**: 3000건 배치, 수동 커밋 (Manual ACK)
 - **Redis 읽기 분산**: Master 쓰기, Replica 읽기 분리
 
+## API 응답 규칙
+- 모든 응답은 `ApiResponse<T>`로 래핑
+- 성공: `ApiResponse.success(data)` 반환
+- 실패: `CoreException(ErrorType)` throw → GlobalExceptionHandler에서 처리
+- 생성 API: `@ResponseStatus(HttpStatus.CREATED)`
+
+## 의존성 방향 (외부 → 내부)
+```
+interfaces → application → domain ← infrastructure
+```
+- domain 계층은 다른 계층에 의존하지 않음
+- infrastructure는 domain의 Repository 인터페이스를 구현
+
+## 문서 작성
+### 다이어그램 작성
+- ERD, 시퀀스 다이어그램, 클래스 다이어그램 등 작성 시 mermaid를 이용한 마크다운으로 작성.
+
 ## 개발 규칙
 ### 진행 Workflow - 증강 코딩
 - **대원칙** : 방향성 및 주요 의사 결정은 개발자에게 제안만 할 수 있으며, 최종 승인된 사항을 기반으로 작업을 수행.
 - **중간 결과 보고** : AI 가 반복적인 동작을 하거나, 요청하지 않은 기능을 구현, 테스트 삭제를 임의로 진행할 경우 개발자가 개입.
 - **설계 주도권 유지** : AI 가 임의판단을 하지 않고, 방향성에 대한 제안 등을 진행할 수 있으나 개발자의 승인을 받은 후 수행.
+- 구현은 한 단계씩 순서대로 진행 및 단계가 끝날 때 마다 핵심 개념/키워드 설명.
+- API는 RESTFul API로 구현
+### 인증 요청
+- 유저 정보가 필요한 모든 요청은 아래 헤더를 통해 요청
+* X-Loopers-LoginId : 로그인 ID
+* X-Loopers-LoginPw : 비밀번호
 
 ### 개발 Workflow - TDD (Red > Green > Refactor)
 - 모든 테스트는 3A 원칙으로 작성할 것 (Arrange - Act - Assert)
@@ -128,15 +151,30 @@ docker compose -f docker/monitoring-compose.yml up -d
 - 실제 동작하지 않는 코드, 불필요한 Mock 데이터를 이용한 구현을 하지 말 것
 - null-safety 하지 않게 코드 작성하지 말 것 (Java 의 경우, Optional 을 활용할 것)
 - println 코드 남기지 말 것
+- 객체지향 5원칙을 어기지 말 것
 
 ### 2. Recommendation
 - 실제 API 를 호출해 확인하는 E2E 테스트 코드 작성
 - 재사용 가능한 객체 설계
-- 성능 최적화에 대한 대 안 및 제안
+- 성능 최적화에 대한 대안 및 제안
 - 개발 완료된 API 의 경우, `.http/**.http` 에 분류해 작성
+- Domain Entity와 Persistence Entity는 구분하여 구현
+- 필요한 의존성은 적절히 관리하여 최소화
+- 통합 테스트는 테스트 컨테이너를 이용해 진행
+- 테스트 코드 작성 시 MIN, MAX, EDGE 케이스를 고려하여 작성
 
 ### 3. Priority
 1. 실제 동작하는 해결책만 고려
 2. null-safety, thread-safety 고려
 3. 테스트 가능한 구조로 설계
 4. 기존 코드 패턴 분석 후 일관성 유지
+
+## 깃 커밋 컨벤션
+- feat: 새로운 기능 추가
+- fix: 버그 수정
+- docs: 문서만 수정 (예: README, 주석은 아님)
+- style: 코드 포맷팅 (공백, 세미콜론 등 기능 변화 없음)
+- refactor: 기능 변화 없이 코드 개선
+- test: 테스트 코드 추가/수정
+- chore: 빌드/패키지 설정 등 기능과 직접 관련 없는 작업
+- 커밋 메세지는 한국어로 작성할 것
