@@ -8,8 +8,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
+import org.testcontainers.shaded.org.yaml.snakeyaml.constructor.DuplicateKeyException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 @SpringBootTest
 @Import(MySqlTestContainersConfig.class)
@@ -39,5 +41,24 @@ public class UserServiceIntegrationTest {
         assertThat(foundUser.getLoginId()).isEqualTo(loginId);
         assertThat(foundUser.getName()).isEqualTo(name);
         assertThat(foundUser.getEmail()).isEqualTo(email);
+    }
+
+    @Test
+    void 이미_가입된_ID로_회원가입_시도_시_실패() {
+        //given
+        String loginId = "testuser";
+        String password = "password123!";
+        String name = "홍길동";
+        String birthDate = "1990-04-27";
+        String email = "test@test.com";
+        //testuser 라는 ID로 가입
+        userService.signUp(loginId, password, name, birthDate, email);
+
+        //when
+        //동일한 아이디로 가입하는 경우
+        Throwable thrown = catchThrowable(() -> userService.signUp(loginId, "password456!", "김철수", "1995-01-01", "other@test.com"));
+
+        //then
+        assertThat(thrown).isInstanceOf(IllegalArgumentException.class);
     }
 }
