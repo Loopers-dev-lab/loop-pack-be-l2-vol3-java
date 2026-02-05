@@ -35,6 +35,8 @@ public class UserService {
                          , BirthDate.from(birthDate)
                          , Email.from(email));
 
+        userRepository.save(user);
+
         return user.loginId();
     }
 }
