@@ -75,6 +75,10 @@ public class UserModel extends BaseEntity {
         return name.substring(0, name.length() - 1) + "*";
     }
 
+    public void changePassword(String newEncodedPassword) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
     private void validateLoginId(String loginId) {
         if (loginId == null || loginId.isBlank()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 비어있을 수 없습니다.");

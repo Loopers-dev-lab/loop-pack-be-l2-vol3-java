@@ -149,4 +149,23 @@ class UserModelTest {
             assertThat(maskedName).isEqualTo("김*");
         }
     }
+
+    @DisplayName("비밀번호 변경 시,")
+    @Nested
+    class ChangePassword {
+
+        @DisplayName("새로운 암호화된 비밀번호로 변경된다.")
+        @Test
+        void changesPassword_whenNewEncodedPasswordIsProvided() {
+            // arrange
+            UserModel userModel = new UserModel(LOGIN_ID, "oldEncoded", NAME, BIRTH_DATE, EMAIL);
+            String newEncodedPassword = "newEncodedPassword";
+
+            // act
+            userModel.changePassword(newEncodedPassword);
+
+            // assert
+            assertThat(userModel.getPassword()).isEqualTo(newEncodedPassword);
+        }
+    }
 }

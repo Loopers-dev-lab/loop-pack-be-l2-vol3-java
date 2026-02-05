@@ -116,4 +116,103 @@ class PasswordPolicyTest {
             assertThat(exception.getMessage()).contains("영문 대소문자, 숫자, 특수문자만");
         }
     }
+
+    @DisplayName("비밀번호 변경 검증 시,")
+    @Nested
+    class ValidateForChange {
+
+        @DisplayName("유효한 새 비밀번호면, 예외가 발생하지 않는다.")
+        @Test
+        void doesNotThrow_whenNewPasswordIsValid() {
+            // arrange
+            String currentPassword = "OldPass123!";
+            String newPassword = "NewPass456!";
+
+            // act & assert
+            assertThatCode(() -> passwordPolicy.validateForChange(currentPassword, newPassword, BIRTH_DATE))
+                    .doesNotThrowAnyException();
+        }
+
+        @DisplayName("새 비밀번호가 현재 비밀번호와 같으면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNewPasswordIsSameAsCurrent() {
+            // arrange
+            String samePassword = "SamePass123!";
+
+            // act
+            CoreException exception = assertThrows(CoreException.class, () ->
+                    passwordPolicy.validateForChange(samePassword, samePassword, BIRTH_DATE)
+            );
+
+            // assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).contains("현재 비밀번호와 달라야");
+        }
+
+        @DisplayName("현재 비밀번호가 null이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenCurrentPasswordIsNull() {
+            // arrange
+            String newPassword = "NewPass456!";
+
+            // act
+            CoreException exception = assertThrows(CoreException.class, () ->
+                    passwordPolicy.validateForChange(null, newPassword, BIRTH_DATE)
+            );
+
+            // assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).contains("현재 비밀번호는 비어있을 수 없습니다");
+        }
+
+        @DisplayName("현재 비밀번호가 빈 문자열이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenCurrentPasswordIsBlank() {
+            // arrange
+            String newPassword = "NewPass456!";
+
+            // act
+            CoreException exception = assertThrows(CoreException.class, () ->
+                    passwordPolicy.validateForChange("   ", newPassword, BIRTH_DATE)
+            );
+
+            // assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).contains("현재 비밀번호는 비어있을 수 없습니다");
+        }
+
+        @DisplayName("새 비밀번호에 생년월일이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNewPasswordContainsBirthDate() {
+            // arrange
+            String currentPassword = "OldPass123!";
+            String newPasswordWithBirthDate = "Pass19900115!";
+
+            // act
+            CoreException exception = assertThrows(CoreException.class, () ->
+                    passwordPolicy.validateForChange(currentPassword, newPasswordWithBirthDate, BIRTH_DATE)
+            );
+
+            // assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).contains("생년월일");
+        }
+
+        @DisplayName("새 비밀번호가 8자 미만이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNewPasswordIsTooShort() {
+            // arrange
+            String currentPassword = "OldPass123!";
+            String shortPassword = "Short1!";
+
+            // act
+            CoreException exception = assertThrows(CoreException.class, () ->
+                    passwordPolicy.validateForChange(currentPassword, shortPassword, BIRTH_DATE)
+            );
+
+            // assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).contains("8~16자");
+        }
+    }
 }

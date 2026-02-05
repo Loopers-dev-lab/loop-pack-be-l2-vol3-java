@@ -61,4 +61,14 @@ public class UserV1Dto {
             );
         }
     }
+
+    public record ChangePasswordRequest(
+        @NotBlank(message = "현재 비밀번호는 비어있을 수 없습니다.")
+        String currentPassword,
+
+        @NotBlank(message = "새 비밀번호는 비어있을 수 없습니다.")
+        @Size(min = 8, max = 16, message = "비밀번호는 8~16자여야 합니다.")
+        String newPassword
+    ) {
+    }
 }

@@ -46,4 +46,9 @@ public class UserService {
 
         return user;
     }
+
+    @Transactional
+    public void changePassword(UserModel user, String currentPassword, String newPassword) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
 }

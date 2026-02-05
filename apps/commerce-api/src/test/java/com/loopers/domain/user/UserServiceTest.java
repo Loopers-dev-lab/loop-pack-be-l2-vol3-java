@@ -190,4 +190,89 @@ class UserServiceTest {
             assertThat(authenticated).isSameAs(user);
         }
     }
+
+    @DisplayName("비밀번호 변경 시,")
+    @Nested
+    class ChangePassword {
+
+        @DisplayName("현재 비밀번호가 틀리면 UNAUTHORIZED 예외를 던진다.")
+        @Test
+        void throwsUnauthorized_whenCurrentPasswordMismatch() {
+            // arrange
+            UserModel user = mock(UserModel.class);
+            when(user.getPassword()).thenReturn("encoded");
+            when(passwordEncoder.matches("WrongPass1!", "encoded")).thenReturn(false);
+
+            // act
+            CoreException ex = assertThrows(CoreException.class, () ->
+                    userService.changePassword(user, "WrongPass1!", "NewPass123!")
+            );
+
+            // assert
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("유효한 비밀번호 변경 요청이면 정상 처리된다.")
+        @Test
+        void succeeds_whenValid() {
+            // arrange
+            UserModel user = mock(UserModel.class);
+            when(user.getPassword()).thenReturn("encoded-current");
+            when(user.getBirthDate()).thenReturn(BIRTH_DATE);
+
+            String current = RAW_PASSWORD;
+            String newPw = "NewPass123!";
+
+            when(passwordEncoder.matches(current, "encoded-current")).thenReturn(true);
+            when(passwordEncoder.encode(newPw)).thenReturn("encoded-new");
+
+            // act & assert (예외 없이 정상 완료)
+            userService.changePassword(user, current, newPw);
+        }
+
+        @DisplayName("비밀번호 정책 클래스를 한 번 호출한다.")
+        @Test
+        void callsPasswordPolicy_once() {
+            // arrange
+            UserModel user = mock(UserModel.class);
+            when(user.getPassword()).thenReturn("encoded-current");
+            when(user.getBirthDate()).thenReturn(BIRTH_DATE);
+
+            String current = RAW_PASSWORD;
+            String newPw = "NewPass123!";
+
+            when(passwordEncoder.matches(current, "encoded-current")).thenReturn(true);
+            when(passwordEncoder.encode(newPw)).thenReturn("encoded-new");
+
+            // act
+            userService.changePassword(user, current, newPw);
+
+            // assert
+            verify(passwordPolicy, times(1)).validateForChange(current, newPw, BIRTH_DATE);
+        }
+
+        @DisplayName("비밀번호 정책 위반 시 BAD_REQUEST 예외를 던진다.")
+        @Test
+        void throwsBadRequest_whenPolicyFails() {
+            // arrange
+            UserModel user = mock(UserModel.class);
+            when(user.getPassword()).thenReturn("encoded-current");
+            when(user.getBirthDate()).thenReturn(BIRTH_DATE);
+
+            String current = RAW_PASSWORD;
+            String newPw = "NewPass123!";
+
+            when(passwordEncoder.matches(current, "encoded-current")).thenReturn(true);
+            doThrow(new CoreException(ErrorType.BAD_REQUEST, "policy fail"))
+                    .when(passwordPolicy).validateForChange(current, newPw, BIRTH_DATE);
+
+            // act
+            CoreException ex = assertThrows(CoreException.class, () ->
+                    userService.changePassword(user, current, newPw)
+            );
+
+            // assert
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+    }
 }

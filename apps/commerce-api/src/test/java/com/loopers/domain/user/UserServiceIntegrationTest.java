@@ -97,4 +97,45 @@ class UserServiceIntegrationTest {
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
         }
     }
+
+    @DisplayName("비밀번호 변경 시,")
+    @Nested
+    class ChangePassword {
+
+        @DisplayName("현재 비밀번호가 맞고 새 비밀번호가 정책을 만족하면, 비밀번호가 변경된다.")
+        @Test
+        void changesPassword_whenValid() {
+            // arrange
+            UserModel user = userService.signup(LOGIN_ID, RAW_PASSWORD, NAME, BIRTH_DATE, EMAIL);
+            String newPassword = "NewPass123!";
+
+            // act
+            userService.changePassword(user, RAW_PASSWORD, newPassword);
+
+            // assert (DB에 반영되었는지 확인)
+            UserModel authenticatedWithNew = userService.authenticate(LOGIN_ID, newPassword);
+            assertThat(authenticatedWithNew.getId()).isNotNull();
+
+            // 기존 비번으로는 인증 실패해야 함
+            CoreException exception = assertThrows(CoreException.class, () ->
+                    userService.authenticate(LOGIN_ID, RAW_PASSWORD)
+            );
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("현재 비밀번호가 틀리면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        void throwsUnauthorized_whenCurrentPasswordMismatch() {
+            // arrange
+            UserModel user = userService.signup(LOGIN_ID, RAW_PASSWORD, NAME, BIRTH_DATE, EMAIL);
+
+            // act
+            CoreException exception = assertThrows(CoreException.class, () ->
+                    userService.changePassword(user, "WrongPass1!", "NewPass123!")
+            );
+
+            // assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+    }
 }

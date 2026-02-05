@@ -18,6 +18,16 @@ public class PasswordPolicy {
     }
 
     /**
+     * 비밀번호 변경 시 비밀번호 정책
+     * - 공통 정책 + (현재 비밀번호와 달라야 함)
+     */
+    public void validateForChange(String currentRawPassword,
+                                  String newRawPassword,
+                                  LocalDate birthDate) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    /**
      * 공통 비밀번호 정책 (회원가입/변경 모두 적용)
      */
     public void validateCommon(String rawPassword, LocalDate birthDate) {
