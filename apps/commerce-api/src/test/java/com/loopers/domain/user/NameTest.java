@@ -42,4 +42,16 @@ class NameTest {
         // then
         assertThat(name.asString()).isEqualTo(value);
     }
+
+    @Test
+    void 마스킹하면_마지막_글자가_별표로_대체된다() {
+        // Arrange
+        Name name = Name.from("루퍼스");
+
+        // Act
+        String masked = name.masked();
+
+        // Assert
+        assertThat(masked).isEqualTo("루퍼*");
+    }
 }

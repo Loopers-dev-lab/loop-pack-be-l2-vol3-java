@@ -39,4 +39,17 @@ public class UserService {
 
         return user.loginId();
     }
+
+    public UserInfo getMyInfo(String loginId, String password) {
+        LoginId id = LoginId.from(loginId);
+
+        User user = userRepository.findByLoginId(id)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 사용자입니다."));
+
+        if (!user.password().matches(password, passwordEncoder)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "비밀번호가 일치하지 않습니다.");
+        }
+
+        return UserInfo.from(user);
+    }
 }

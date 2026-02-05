@@ -38,6 +38,10 @@ public class Name {
         return value;
     }
 
+    public String masked() {
+        return value.substring(0, value.length() - 1) + "*";
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
