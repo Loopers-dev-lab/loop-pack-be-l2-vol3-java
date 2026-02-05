@@ -7,11 +7,8 @@ import java.time.format.DateTimeFormatter;
 
 public class PasswordPolicyValidator {
 
-    private static final DateTimeFormatter BIRTH_DATE_FORMAT_FOR_PASSWORD_CHECK =
-            DateTimeFormatter.ofPattern("yyyyMMdd");
-
-    private static final String PASSWORD_PATTERN =
-            "^[a-zA-Z0-9!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?~`]{8,16}$";
+    private static final DateTimeFormatter BIRTH_DATE_FORMAT_FOR_PASSWORD_CHECK = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final String PASSWORD_PATTERN = "^[a-zA-Z0-9!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?~`]{8,16}$";
 
     private PasswordPolicyValidator() {}
 
