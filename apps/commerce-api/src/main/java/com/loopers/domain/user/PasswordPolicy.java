@@ -7,12 +7,14 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 /**
- * 비밀번호 교차 검증 정책 (Domain Service)
+ * 비밀번호 교차 검증 정책 (Utility Class)
  *
  * Password VO 자체로는 판단할 수 없는, 다른 도메인 값과의 관계를 검증한다.
  * - 생년월일 포함 금지 (YYYYMMDD, YYMMDD, MMDD)
  */
-public class PasswordPolicy {
+public final class PasswordPolicy {
+
+    private PasswordPolicy() {}
 
     public static void validate(String rawPassword, LocalDate birthDate) {
         validateBirthDateNotContained(rawPassword, birthDate);

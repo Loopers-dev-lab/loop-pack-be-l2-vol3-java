@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,7 +49,7 @@ class UserRepositoryIntegrationTest {
                 new LoginId(loginIdValue),
                 "$2a$10$encodedPasswordHash",
                 new UserName("홍길동"),
-                LocalDate.of(1994, 11, 15),
+                new BirthDate("1994-11-15"),
                 new Email(loginIdValue + "@example.com")
         );
     }
@@ -79,7 +78,7 @@ class UserRepositoryIntegrationTest {
             LoginId loginId = new LoginId("nahyeon");
             String encodedPassword = "$2a$10$encodedPasswordHash";
             UserName name = new UserName("홍길동");
-            LocalDate birthDate = LocalDate.of(1994, 11, 15);
+            BirthDate birthDate = new BirthDate("1994-11-15");
             Email email = new Email("nahyeon@example.com");
 
             User user = User.create(loginId, encodedPassword, name, birthDate, email);
@@ -92,7 +91,7 @@ class UserRepositoryIntegrationTest {
                     () -> assertThat(savedUser.getLoginId().getValue()).isEqualTo("nahyeon"),
                     () -> assertThat(savedUser.getPassword()).isEqualTo(encodedPassword),
                     () -> assertThat(savedUser.getName().getValue()).isEqualTo("홍길동"),
-                    () -> assertThat(savedUser.getBirthDate()).isEqualTo(birthDate),
+                    () -> assertThat(savedUser.getBirthDate().getValue()).isEqualTo(birthDate.getValue()),
                     () -> assertThat(savedUser.getEmail().getValue()).isEqualTo("nahyeon@example.com")
             );
         }

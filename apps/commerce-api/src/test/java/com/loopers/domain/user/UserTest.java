@@ -4,8 +4,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDate;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -25,7 +23,7 @@ public class UserTest {
             LoginId loginId = new LoginId("nahyeon");
             String encodedPassword = "$2a$10$encodedPasswordHash";
             UserName name = new UserName("홍길동");
-            LocalDate birthDate = LocalDate.of(1994, 11, 15);
+            BirthDate birthDate = new BirthDate("1994-11-15");
             Email email = new Email("nahyeon@example.com");
 
             // act
@@ -36,7 +34,7 @@ public class UserTest {
                     () -> assertThat(user.getLoginId().getValue()).isEqualTo("nahyeon"),
                     () -> assertThat(user.getPassword()).isEqualTo(encodedPassword),
                     () -> assertThat(user.getName().getValue()).isEqualTo("홍길동"),
-                    () -> assertThat(user.getBirthDate()).isEqualTo(birthDate),
+                    () -> assertThat(user.getBirthDate().getValue()).isEqualTo(birthDate.getValue()),
                     () -> assertThat(user.getEmail().getValue()).isEqualTo("nahyeon@example.com")
             );
         }
@@ -54,7 +52,7 @@ public class UserTest {
                     new LoginId("nahyeon"),
                     "$2a$10$oldHash",
                     new UserName("홍길동"),
-                    LocalDate.of(1994, 11, 15),
+                    new BirthDate("1994-11-15"),
                     new Email("nahyeon@example.com")
             );
             String newEncodedPassword = "$2a$10$newHash";

@@ -34,7 +34,7 @@ public class UserService {
 
         // 4. 비밀번호 암호화 + 엔티티 생성 + 저장
         String encodedPassword = passwordEncryptor.encode(rawPassword);
-        User user = User.create(loginId, encodedPassword, name, birthDate.getValue(), email);
+        User user = User.create(loginId, encodedPassword, name, birthDate, email);
         return userRepository.save(user);
     }
 
@@ -61,7 +61,7 @@ public class UserService {
         Password.of(newRawPassword);
 
         // 교차 검증
-        PasswordPolicy.validate(newRawPassword, user.getBirthDate());
+        PasswordPolicy.validate(newRawPassword, user.getBirthDate().getValue());
 
         // 동일 비밀번호 확인
         if (passwordEncryptor.matches(newRawPassword, user.getPassword())) {

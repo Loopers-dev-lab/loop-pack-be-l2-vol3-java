@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -54,7 +53,7 @@ public class UserServiceTest {
                     () -> assertThat(user.getLoginId().getValue()).isEqualTo("nahyeon"),
                     () -> assertThat(user.getPassword()).isEqualTo("$2a$10$encodedHash"),
                     () -> assertThat(user.getName().getValue()).isEqualTo("홍길동"),
-                    () -> assertThat(user.getBirthDate()).isEqualTo(LocalDate.of(1994, 11, 15)),
+                    () -> assertThat(user.getBirthDate().getValue()).isEqualTo(java.time.LocalDate.of(1994, 11, 15)),
                     () -> assertThat(user.getEmail().getValue()).isEqualTo("nahyeon@example.com")
             );
         }
@@ -98,7 +97,7 @@ public class UserServiceTest {
             // arrange
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
-                    new UserName("홍길동"), LocalDate.of(1994, 11, 15),
+                    new UserName("홍길동"), new BirthDate("1994-11-15"),
                     new Email("nahyeon@example.com")
             );
             when(userRepository.findByLoginId("nahyeon")).thenReturn(Optional.of(user));
@@ -131,7 +130,7 @@ public class UserServiceTest {
             // arrange
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
-                    new UserName("홍길동"), LocalDate.of(1994, 11, 15),
+                    new UserName("홍길동"), new BirthDate("1994-11-15"),
                     new Email("nahyeon@example.com")
             );
             when(userRepository.findByLoginId("nahyeon")).thenReturn(Optional.of(user));
@@ -156,7 +155,7 @@ public class UserServiceTest {
             // arrange
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$oldHash",
-                    new UserName("홍길동"), LocalDate.of(1994, 11, 15),
+                    new UserName("홍길동"), new BirthDate("1994-11-15"),
                     new Email("nahyeon@example.com")
             );
             when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$oldHash")).thenReturn(true);
@@ -176,7 +175,7 @@ public class UserServiceTest {
             // arrange
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
-                    new UserName("홍길동"), LocalDate.of(1994, 11, 15),
+                    new UserName("홍길동"), new BirthDate("1994-11-15"),
                     new Email("nahyeon@example.com")
             );
             when(passwordEncryptor.matches(anyString(), anyString())).thenReturn(false);
@@ -195,11 +194,10 @@ public class UserServiceTest {
             // arrange
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
-                    new UserName("홍길동"), LocalDate.of(1994, 11, 15),
+                    new UserName("홍길동"), new BirthDate("1994-11-15"),
                     new Email("nahyeon@example.com")
             );
-            when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$hash")).thenReturn(true); // current matches
-            when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$hash")).thenReturn(true); // same check also matches
+            when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$hash")).thenReturn(true);
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
@@ -215,7 +213,7 @@ public class UserServiceTest {
             // arrange - birthDate: 1990-03-25 (연속 동일 문자 없음)
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
-                    new UserName("홍길동"), LocalDate.of(1990, 3, 25),
+                    new UserName("홍길동"), new BirthDate("1990-03-25"),
                     new Email("nahyeon@example.com")
             );
             when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$hash")).thenReturn(true);

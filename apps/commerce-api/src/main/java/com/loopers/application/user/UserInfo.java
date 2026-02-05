@@ -16,7 +16,7 @@ public record UserInfo(
                 user.getLoginId().getValue(),
                 user.getName().getValue(),
                 user.getName().getMaskedValue(),
-                user.getBirthDate(),
+                user.getBirthDate().getValue(),
                 user.getEmail().getValue()
         );
     }
