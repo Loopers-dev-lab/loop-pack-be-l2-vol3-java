@@ -45,4 +45,13 @@ public class UserV1Controller {
         UserV1Dto.UserInfoResponse response = UserV1Dto.UserInfoResponse.from(user);
         return ApiResponse.success(response);
     }
+
+    @PatchMapping("/{id}/password")
+    public ApiResponse<Void> changePassword(
+        @PathVariable Long id,
+        @Valid @RequestBody UserV1Dto.ChangePasswordRequest request
+    ) {
+        userService.changePassword(id, request.oldPassword(), request.newPassword());
+        return ApiResponse.success(null);
+    }
 }

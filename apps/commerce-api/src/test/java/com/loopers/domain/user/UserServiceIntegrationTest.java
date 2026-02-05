@@ -124,4 +124,64 @@ class UserServiceIntegrationTest {
             assertThat(result).isEmpty();
         }
     }
+
+    @DisplayName("비밀번호 수정 할 때")
+    @Nested
+    class ChangePassword {
+
+        @DisplayName("기존 비밀번호가 일치하면, 비밀번호가 변경된다")
+        @Test
+        void changePassword_success() {
+            // given - 회원 등록
+            String loginId = "testuser";
+            String oldPassword = "password1";
+            LocalDate birthDate = LocalDate.of(1997, 10, 8);
+            User savedUser = userService.register(loginId, oldPassword, "김윤선", birthDate, "test@example.com", Gender.FEMALE);
+
+            // when - 비밀번호 변경 (1997년생 -> 20대만 가능)
+            String newPassword = "newpass2!";
+            userService.changePassword(savedUser.getId(), oldPassword, newPassword);
+
+            // then - 새 비밀번호로 암호화되어 저장되었는지 확인
+            User updatedUser = userRepository.findById(savedUser.getId()).orElseThrow();
+            assertThat(updatedUser.getPassword()).isNotEqualTo(oldPassword);
+            assertThat(updatedUser.getPassword()).isNotEqualTo(savedUser.getPassword());
+            assertThat(updatedUser.getPassword()).startsWith("$2"); // BCrypt 형식
+        }
+
+        @DisplayName("기존 비밀번호가 일치하지 않으면, 실패한다")
+        @Test
+        void changePassword_fail_whenWrongOldPassword() {
+            // given
+            String loginId = "testuser";
+            String oldPassword = "password1";
+            User savedUser = userService.register(loginId, oldPassword, "김윤선", LocalDate.of(1997, 10, 8), "test@example.com", Gender.FEMALE);
+
+            // when & then
+            assertThatThrownBy(() -> {
+                userService.changePassword(savedUser.getId(), "wrongPassword", "newpass2!");
+            })
+                .isInstanceOf(CoreException.class)
+                .satisfies(e -> {
+                    CoreException ce = (CoreException) e;
+                    assertThat(ce.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+                    assertThat(ce.getMessage()).contains("기존 비밀번호가 일치하지 않습니다");
+                });
+        }
+
+        @DisplayName("사용자가 존재하지 않으면, 실패한다")
+        @Test
+        void changePassword_fail_whenUserNotFound() {
+            // when & then
+            assertThatThrownBy(() -> {
+                userService.changePassword(999999L, "oldpass1", "newpass2!");
+            })
+                .isInstanceOf(CoreException.class)
+                .satisfies(e -> {
+                    CoreException ce = (CoreException) e;
+                    assertThat(ce.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+                    assertThat(ce.getMessage()).contains("사용자를 찾을 수 없습니다");
+                });
+        }
+    }
 }

@@ -126,6 +126,15 @@ public class User extends BaseEntity {
             throw new IllegalArgumentException("이메일 형식이 올바르지 않습니다");
         }
     }
+
+    public void changePassword(String oldPassword, String newPassword, PasswordEncryptor encryptor) {
+        if (!encryptor.matches(oldPassword, this.password)) {
+            throw new IllegalArgumentException("기존 비밀번호가 일치하지 않습니다");
+        }
+
+        validatePassword(newPassword, this.birthDate);
+        this.password = encryptor.encode(newPassword);
+    }
 }
 
 

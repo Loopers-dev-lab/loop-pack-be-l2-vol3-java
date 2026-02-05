@@ -33,4 +33,16 @@ public class UserService {
     public Optional<User> getUserInfo(Long id) {
         return userRepository.findById(id);
     }
+
+    @Transactional
+    public void changePassword(Long userId, String oldPassword, String newPassword) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다"));
+
+        try {
+            user.changePassword(oldPassword, newPassword, passwordEncryptor);
+        } catch (IllegalArgumentException e) {
+            throw new CoreException(ErrorType.BAD_REQUEST, e.getMessage());
+        }
+    }
 }
