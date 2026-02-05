@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class UserService {
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
     public UserInfo getMyInfo(String loginId) {
@@ -18,5 +19,20 @@ public class UserService {
                                   .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[loginId = " + loginId + "] 를 찾을 수 없습니다."));
 
         return UserInfo.from(user);
+    }
+
+    @Transactional
+    public void updatePassword(UpdatePasswordCommand command) {
+        String loginId = command.loginId();
+        User user = userRepository.findByLoginId(loginId)
+                                  .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[loginId = " + loginId + "] 를 찾을 수 없습니다."));
+
+        PasswordPolicyValidator.validate(command.newPassword(), user.getBirthDate());
+
+        if (passwordEncoder.matches(command.newPassword(), user.getPassword())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호로 변경할 수 없습니다.");
+        }
+
+        user.updatePassword(passwordEncoder.encode(command.newPassword()));
     }
 }

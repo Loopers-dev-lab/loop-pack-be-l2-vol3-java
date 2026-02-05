@@ -88,4 +88,8 @@ public class User extends BaseEntity {
             throw new CoreException(ErrorType.BAD_REQUEST, "이메일 형식이 올바르지 않습니다.");
         }
     }
+
+    public void updatePassword(String newEncodedPassword) {
+        this.password = newEncodedPassword;
+    }
 }

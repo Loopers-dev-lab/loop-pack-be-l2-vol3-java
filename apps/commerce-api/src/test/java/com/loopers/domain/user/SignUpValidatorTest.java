@@ -1,6 +1,7 @@
 package com.loopers.domain.user;
 
 import com.loopers.application.user.SignUpCommand;
+import com.loopers.infrastructure.user.BcryptPasswordEncoder;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,7 +22,7 @@ public class SignUpValidatorTest {
     @BeforeEach
     void setUp() {
         userRepository = new InMemoryUserRepository();
-        passwordEncoder = rawPassword -> "encoded_" + rawPassword;
+        passwordEncoder = new BcryptPasswordEncoder();
         signUpValidator = new SignUpValidator(userRepository);
         signUpService = new SignUpService(signUpValidator, passwordEncoder, userRepository);
     }
