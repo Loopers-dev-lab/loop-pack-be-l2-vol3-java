@@ -14,6 +14,11 @@ public class MemberV1Dto {
         String email
     ) {}
 
+    public record ChangePasswordRequest(
+        String currentPassword,
+        String newPassword
+    ) {}
+
     public record MemberResponse(
         String loginId,
         String name,

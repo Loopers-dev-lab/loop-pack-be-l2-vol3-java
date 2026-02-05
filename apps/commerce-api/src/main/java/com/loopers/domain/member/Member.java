@@ -80,6 +80,22 @@ public class Member extends BaseEntity {
         }
     }
 
+    public void changePassword(String currentPassword, String newRawPassword,
+                               PasswordEncoder encoder) {
+        // 현재 비밀번호 확인
+        if (!encoder.matches(currentPassword, this.password)) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");
+        }
+        // 새 비밀번호가 현재와 동일한지 확인
+        if (encoder.matches(newRawPassword, this.password)) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다.");
+        }
+        // 새 비밀번호 규칙 검증
+        validatePassword(newRawPassword, this.birthDate);
+        // 비밀번호 변경
+        this.password = encoder.encode(newRawPassword);
+    }
+
     // Getter
     public String getLoginId() {
         return loginId;

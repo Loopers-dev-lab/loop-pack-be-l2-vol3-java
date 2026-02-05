@@ -24,4 +24,9 @@ public class MemberService {
         Member member = Member.create(loginId, rawPassword, name, birthDate, email, passwordEncoder);
         return memberRepository.save(member);
     }
+
+    public void changePassword(Member member, String currentPassword, String newPassword) {
+        member.changePassword(currentPassword, newPassword, passwordEncoder);
+        memberRepository.save(member);
+    }
 }

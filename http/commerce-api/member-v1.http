@@ -64,3 +64,51 @@ GET {{baseUrl}}/api/v1/members/me
 GET {{baseUrl}}/api/v1/members/me
 X-Loopers-LoginId: testUser1
 X-Loopers-LoginPw: WrongPassword1!
+
+###############################################
+# 비밀번호 수정 API
+###############################################
+
+### 비밀번호 수정 (정상 - 회원가입 먼저 실행 후)
+PATCH {{baseUrl}}/api/v1/members/me/password
+Content-Type: application/json
+X-Loopers-LoginId: testUser1
+X-Loopers-LoginPw: Test1234!
+
+{
+  "currentPassword": "Test1234!",
+  "newPassword": "NewPass5678!"
+}
+
+### 비밀번호 수정 (현재 비밀번호 불일치 - 400)
+PATCH {{baseUrl}}/api/v1/members/me/password
+Content-Type: application/json
+X-Loopers-LoginId: testUser1
+X-Loopers-LoginPw: Test1234!
+
+{
+  "currentPassword": "WrongCurrent1!",
+  "newPassword": "NewPass5678!"
+}
+
+### 비밀번호 수정 (현재와 동일 - 400)
+PATCH {{baseUrl}}/api/v1/members/me/password
+Content-Type: application/json
+X-Loopers-LoginId: testUser1
+X-Loopers-LoginPw: Test1234!
+
+{
+  "currentPassword": "Test1234!",
+  "newPassword": "Test1234!"
+}
+
+### 비밀번호 수정 (규칙 위반 - 너무 짧음 - 400)
+PATCH {{baseUrl}}/api/v1/members/me/password
+Content-Type: application/json
+X-Loopers-LoginId: testUser1
+X-Loopers-LoginPw: Test1234!
+
+{
+  "currentPassword": "Test1234!",
+  "newPassword": "short"
+}
