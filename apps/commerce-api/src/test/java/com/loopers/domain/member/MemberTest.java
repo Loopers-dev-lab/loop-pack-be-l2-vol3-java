@@ -237,4 +237,102 @@ class MemberTest {
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
+
+    @DisplayName("비밀번호 변경 시, ")
+    @Nested
+    class ChangePassword {
+
+        private Member createMember() {
+            return Member.create(
+                "testuser1", "Test1234!", "홍길동",
+                LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder
+            );
+        }
+
+        @DisplayName("현재 비밀번호가 일치하지 않으면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenCurrentPasswordDoesNotMatch() {
+            // Arrange
+            Member member = createMember();
+            String wrongCurrentPassword = "WrongPass1!";
+            String newPassword = "NewPass5678!";
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                member.changePassword(wrongCurrentPassword, newPassword, stubEncoder);
+            });
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).isEqualTo("현재 비밀번호가 일치하지 않습니다.");
+        }
+
+        @DisplayName("새 비밀번호가 현재 비밀번호와 동일하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNewPasswordIsSameAsCurrent() {
+            // Arrange
+            Member member = createMember();
+            String currentPassword = "Test1234!";
+            String samePassword = "Test1234!";
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                member.changePassword(currentPassword, samePassword, stubEncoder);
+            });
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).isEqualTo("새 비밀번호는 현재 비밀번호와 달라야 합니다.");
+        }
+
+        @DisplayName("새 비밀번호가 규칙을 위반하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNewPasswordViolatesRules() {
+            // Arrange
+            Member member = createMember();
+            String currentPassword = "Test1234!";
+            String shortPassword = "short"; // 8자 미만
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                member.changePassword(currentPassword, shortPassword, stubEncoder);
+            });
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("새 비밀번호에 생년월일이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNewPasswordContainsBirthDate() {
+            // Arrange
+            Member member = createMember();
+            String currentPassword = "Test1234!";
+            String passwordWithBirthDate = "Pass19900115!"; // 생년월일 포함
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                member.changePassword(currentPassword, passwordWithBirthDate, stubEncoder);
+            });
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).isEqualTo("비밀번호에 생년월일을 포함할 수 없습니다.");
+        }
+
+        @DisplayName("모든 조건이 유효하면, 비밀번호가 정상적으로 변경된다.")
+        @Test
+        void changesPassword_whenAllConditionsAreValid() {
+            // Arrange
+            Member member = createMember();
+            String currentPassword = "Test1234!";
+            String newPassword = "NewPass5678!";
+
+            // Act
+            member.changePassword(currentPassword, newPassword, stubEncoder);
+
+            // Assert
+            assertThat(member.getPassword()).isEqualTo("encoded_" + newPassword);
+        }
+    }
 }
