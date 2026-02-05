@@ -12,6 +12,10 @@ import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 @SpringBootTest
 class UserServiceIntegrationTest {
@@ -55,6 +59,42 @@ class UserServiceIntegrationTest {
                     () -> assertThat(user.getEmail()).isEqualTo(EMAIL),
                     () -> assertThat(passwordEncoder.matches(RAW_PASSWORD, user.getPassword())).isTrue()
             );
+        }
+    }
+
+    @DisplayName("인증 시,")
+    @Nested
+    class Authenticate {
+
+        @DisplayName("올바른 자격 증명이면, 사용자 정보를 반환한다.")
+        @Test
+        void returnsUser_whenCredentialsAreValid() {
+            // arrange
+            userService.signup(LOGIN_ID, RAW_PASSWORD, NAME, BIRTH_DATE, EMAIL);
+
+            // act
+            UserModel authenticated = userService.authenticate(LOGIN_ID, RAW_PASSWORD);
+
+            // assert
+            assertAll(
+                    () -> assertThat(authenticated.getId()).isNotNull(),
+                    () -> assertThat(authenticated.getLoginId()).isEqualTo(LOGIN_ID)
+            );
+        }
+
+        @DisplayName("비밀번호가 틀리면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        void throwsUnauthorized_whenPasswordMismatch() {
+            // arrange
+            userService.signup(LOGIN_ID, RAW_PASSWORD, NAME, BIRTH_DATE, EMAIL);
+
+            // act
+            CoreException exception = assertThrows(CoreException.class, () ->
+                    userService.authenticate(LOGIN_ID, "WrongPass1!")
+            );
+
+            // assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
         }
     }
 }

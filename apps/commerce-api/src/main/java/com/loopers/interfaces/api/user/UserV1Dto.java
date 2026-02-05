@@ -45,4 +45,20 @@ public class UserV1Dto {
             );
         }
     }
+
+    public record UserInfoResponse(
+        String loginId,
+        String name,
+        LocalDate birthDate,
+        String email
+    ) {
+        public static UserInfoResponse from(UserInfo info) {
+            return new UserInfoResponse(
+                info.loginId(),
+                info.maskedName(),
+                info.birthDate(),
+                info.email()
+            );
+        }
+    }
 }

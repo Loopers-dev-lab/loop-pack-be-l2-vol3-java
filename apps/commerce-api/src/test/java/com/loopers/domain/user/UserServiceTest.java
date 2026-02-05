@@ -17,9 +17,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import java.util.Optional;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -111,6 +114,80 @@ class UserServiceTest {
 
             // assert
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+    }
+
+    @DisplayName("인증 시,")
+    @Nested
+    class Authenticate {
+
+        @DisplayName("loginId가 blank면 UNAUTHORIZED 예외를 던진다.")
+        @Test
+        void throwsUnauthorized_whenLoginIdIsBlank() {
+            // act
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> userService.authenticate(" ", RAW_PASSWORD));
+
+            // assert
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("password가 blank면 UNAUTHORIZED 예외를 던진다.")
+        @Test
+        void throwsUnauthorized_whenPasswordIsBlank() {
+            // act
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> userService.authenticate(LOGIN_ID, "   "));
+
+            // assert
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("유저가 없으면 UNAUTHORIZED 예외를 던진다.")
+        @Test
+        void throwsUnauthorized_whenUserNotFound() {
+            // arrange
+            when(userRepository.findByLoginId(LOGIN_ID)).thenReturn(Optional.empty());
+
+            // act
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> userService.authenticate(LOGIN_ID, RAW_PASSWORD));
+
+            // assert
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("비밀번호가 틀리면 UNAUTHORIZED 예외를 던진다.")
+        @Test
+        void throwsUnauthorized_whenPasswordMismatch() {
+            // arrange
+            UserModel user = mock(UserModel.class);
+            when(user.getPassword()).thenReturn("encoded");
+            when(userRepository.findByLoginId(LOGIN_ID)).thenReturn(Optional.of(user));
+            when(passwordEncoder.matches(RAW_PASSWORD, "encoded")).thenReturn(false);
+
+            // act
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> userService.authenticate(LOGIN_ID, RAW_PASSWORD));
+
+            // assert
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("자격 증명이 올바르면 user를 반환한다.")
+        @Test
+        void returnsUser_whenValid() {
+            // arrange
+            UserModel user = mock(UserModel.class);
+            when(userRepository.findByLoginId(LOGIN_ID)).thenReturn(Optional.of(user));
+            when(user.getPassword()).thenReturn("encoded");
+            when(passwordEncoder.matches(RAW_PASSWORD, "encoded")).thenReturn(true);
+
+            // act
+            UserModel authenticated = userService.authenticate(LOGIN_ID, RAW_PASSWORD);
+
+            // assert
+            assertThat(authenticated).isSameAs(user);
         }
     }
 }

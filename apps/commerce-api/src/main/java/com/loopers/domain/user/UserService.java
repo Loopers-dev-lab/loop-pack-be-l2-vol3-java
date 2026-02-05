@@ -30,4 +30,9 @@ public class UserService {
 
         return userRepository.save(user);
     }
+
+    @Transactional(readOnly = true)
+    public UserModel authenticate(String loginId, String rawPassword) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
 }

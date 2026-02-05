@@ -14,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -57,6 +58,13 @@ class UserV1ApiE2ETest {
             birthDate,
             email
         ));
+    }
+
+    private HttpHeaders createAuthHeaders(String loginId, String password) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Loopers-LoginId", loginId);
+        headers.set("X-Loopers-LoginPw", password);
+        return headers;
     }
 
     @DisplayName("POST /user/signup")
@@ -196,6 +204,74 @@ class UserV1ApiE2ETest {
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @DisplayName("GET /user")
+    @Nested
+    class GetMyInfo {
+
+        @DisplayName("유효한 인증 정보가 주어지면, 200 OK와 마스킹된 이름을 포함한 사용자 정보를 반환한다.")
+        @Test
+        void returns200WithMaskedName_whenAuthIsValid() {
+            // arrange
+            createUser(LOGIN_ID, RAW_PASSWORD, NAME, BIRTH_DATE, EMAIL);
+            HttpHeaders headers = createAuthHeaders(LOGIN_ID, RAW_PASSWORD);
+
+            // act
+            ResponseEntity<ApiResponse<UserV1Dto.UserInfoResponse>> response = testRestTemplate.exchange(
+                "/user",
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                new ParameterizedTypeReference<>() {
+                }
+            );
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().data().loginId()).isEqualTo(LOGIN_ID),
+                () -> assertThat(response.getBody().data().name()).isEqualTo("홍길*"),
+                () -> assertThat(response.getBody().data().birthDate()).isEqualTo(BIRTH_DATE),
+                () -> assertThat(response.getBody().data().email()).isEqualTo(EMAIL)
+            );
+        }
+
+        @DisplayName("인증 헤더가 없으면, 401 Unauthorized를 반환한다.")
+        @Test
+        void returns401_whenAuthHeaderIsMissing() {
+            // arrange & act
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                "/user",
+                HttpMethod.GET,
+                new HttpEntity<>(null),
+                new ParameterizedTypeReference<>() {
+                }
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @DisplayName("잘못된 비밀번호로 인증하면, 401 Unauthorized를 반환한다.")
+        @Test
+        void returns401_whenPasswordIsWrong() {
+            // arrange
+            createUser(LOGIN_ID, RAW_PASSWORD, NAME, BIRTH_DATE, EMAIL);
+            HttpHeaders headers = createAuthHeaders(LOGIN_ID, "WrongPassword!");
+
+            // act
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                "/user",
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                new ParameterizedTypeReference<>() {
+                }
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
     }
 }

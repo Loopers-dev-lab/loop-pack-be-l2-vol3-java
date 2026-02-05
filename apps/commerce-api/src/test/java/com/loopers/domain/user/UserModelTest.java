@@ -105,4 +105,48 @@ class UserModelTest {
                 .hasMessageContaining("이메일");
         }
     }
+
+    @DisplayName("이름 마스킹 시,")
+    @Nested
+    class MaskName {
+
+        @DisplayName("이름이 2글자 이상이면, 마지막 글자를 *로 마스킹한다.")
+        @Test
+        void masksLastCharacter_whenNameHasMultipleCharacters() {
+            // arrange
+            UserModel userModel = new UserModel(LOGIN_ID, ENCODED_PASSWORD, "홍길동", BIRTH_DATE, EMAIL);
+
+            // act
+            String maskedName = userModel.getMaskedName();
+
+            // assert
+            assertThat(maskedName).isEqualTo("홍길*");
+        }
+
+        @DisplayName("이름이 1글자면, 전체를 *로 마스킹한다.")
+        @Test
+        void masksEntireName_whenNameHasOneCharacter() {
+            // arrange
+            UserModel userModel = new UserModel(LOGIN_ID, ENCODED_PASSWORD, "김", BIRTH_DATE, EMAIL);
+
+            // act
+            String maskedName = userModel.getMaskedName();
+
+            // assert
+            assertThat(maskedName).isEqualTo("*");
+        }
+
+        @DisplayName("이름이 2글자면, 마지막 글자를 *로 마스킹한다.")
+        @Test
+        void masksLastCharacter_whenNameHasTwoCharacters() {
+            // arrange
+            UserModel userModel = new UserModel(LOGIN_ID, ENCODED_PASSWORD, "김철", BIRTH_DATE, EMAIL);
+
+            // act
+            String maskedName = userModel.getMaskedName();
+
+            // assert
+            assertThat(maskedName).isEqualTo("김*");
+        }
+    }
 }
