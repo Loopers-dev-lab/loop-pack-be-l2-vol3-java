@@ -350,4 +350,41 @@ class MemberTest {
                     .doesNotThrowAnyException();
         }
     }
+
+    @DisplayName("요청 시 비밀번호 동일한지 검증")
+    @Nested
+    class SamePasswordValidation {
+
+        @Test
+        @DisplayName("입력받은 비밀번호가 저장된 비밀번호와 정확히 일치하면 true를 반환한다")
+        void isSamePassword_Success() {
+            // given
+            String savedPassword = "password123!";
+            Member member = Member.builder()
+                    .password(PasswordEncryptor.encode(savedPassword))
+                    .build();
+
+            // when
+            boolean result = member.isSamePassword("password123!");
+
+            // then
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @DisplayName("입력받은 비밀번호가 저장된 비밀번호와 다르면 false를 반환한다")
+        void isSamePassword_Fail() {
+            // given
+            String savedPassword = "password123!";
+            Member member = Member.builder()
+                    .password(savedPassword)
+                    .build();
+
+            // when
+            boolean result = member.isSamePassword("wrongPassword");
+
+            // then
+            assertThat(result).isFalse();
+        }
+    }
 }

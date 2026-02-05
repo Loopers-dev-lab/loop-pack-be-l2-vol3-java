@@ -15,8 +15,10 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -27,6 +29,10 @@ public class MemberServiceTest {
 
     @Mock
     private MemberRepository memberRepository;
+
+    /**
+     * 회원가입
+     */
 
     @Test
     public void 회원가입_시_아이디_중복_불가() throws Exception {
@@ -63,6 +69,53 @@ public class MemberServiceTest {
         //then
         verify(memberRepository).save(memberCaptor.capture());
         assertThat(memberCaptor.getValue().getLoginId()).isEqualTo(request.loginId());
+    }
+
+    /**
+     * 요청 공통
+     */
+
+    @Test
+    public void 존재하지_않는_회원_조회_시_예외_발생() throws Exception {
+        //given
+        String dummyId = "unknownId";
+        String dummyPwd = "password123!";
+        given(memberRepository.findByLoginId(dummyId)).willReturn(Optional.empty());
+
+        //when
+
+        //then
+        assertThatThrownBy(() -> memberService.getMyInfo(dummyId, dummyPwd))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(MemberExceptionMessage.ExistsMember.CANNOT_LOGIN.message());
+    }
+
+    /**
+     * 내 정보 조회
+     */
+
+    @Test
+    public void 내_정보_조회_시_이름_마스킹() throws Exception {
+        // given
+        String loginId = "apape123";
+        String password = "password123!";
+
+        Member member = Member.builder()
+                .loginId(loginId)
+                .password(password)
+                .name("공명선")
+                .birthDate(LocalDate.of(2001, 2, 9))
+                .email("gms72901217@gmail.com")
+                .build();
+
+        given(memberRepository.findByLoginId(loginId)).willReturn(Optional.of(member));
+
+        // when
+        MyMemberInfoResponse response = memberService.getMyInfo(loginId, password);
+
+        // then
+        assertThat(response.loginId()).isEqualTo(loginId);
+
     }
 
 }

@@ -99,4 +99,19 @@ public class MemberExceptionMessage {
         public String message() { return message; }
     }
 
+    /**
+     * 1_300 ~ 1_399: 회원(Member) 존재 여부 관련 오류
+     */
+    @AllArgsConstructor
+    public enum ExistsMember implements ExceptionMessage {
+        NOT_FOUND("존재하지 않는 회원입니다.", 1_301);
+
+        private final String message;
+        private final Integer code;
+
+        public String message() {
+            return message;
+        }
+    }
+
 }
