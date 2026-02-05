@@ -58,7 +58,7 @@ public class UserService {
         }
 
         // 새 비밀번호 규칙 검증
-        Password newPassword = Password.of(newRawPassword);
+        Password.of(newRawPassword);
 
         // 교차 검증
         PasswordPolicy.validate(newRawPassword, user.getBirthDate());
@@ -68,7 +68,8 @@ public class UserService {
             throw new CoreException(UserErrorType.SAME_PASSWORD);
         }
 
-        // 암호화 후 변경
+        // 암호화 후 변경 및 저장 (detached 엔티티 대응)
         user.changePassword(passwordEncryptor.encode(newRawPassword));
+        userRepository.save(user);
     }
 }

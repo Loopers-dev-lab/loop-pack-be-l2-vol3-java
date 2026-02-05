@@ -24,7 +24,7 @@ public class AuthV1Controller implements AuthV1ApiSpec {
         return ApiResponse.success(AuthV1Dto.SignupResponse.from(info));
     }
 
-    @PatchMapping("/password")
+    @PutMapping("/password")
     @Override
     public ApiResponse<Void> changePassword(
             @RequestHeader("X-Loopers-LoginId") String loginId,
