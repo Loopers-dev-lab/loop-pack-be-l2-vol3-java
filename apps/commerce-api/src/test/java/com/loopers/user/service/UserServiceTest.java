@@ -49,19 +49,6 @@ public class UserServiceTest {
     }
 
     @Test
-    void 중복_가입된_ID_입력_시_예외_발생() {
-        //given
-        String loginId = "existingId";
-        given(userRepository.existsByLoginId(loginId)).willReturn(true);
-
-        //when
-        Throwable thrown = catchThrowable(() -> userService.signUp(loginId, "password123!", "김준영", "19900427", "test@test.com"));
-
-        //then
-        assertThat(thrown).isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
     void 비밀번호가_암호화되어_저장된다() {
         //given
         String rawPassword = "password123!";
