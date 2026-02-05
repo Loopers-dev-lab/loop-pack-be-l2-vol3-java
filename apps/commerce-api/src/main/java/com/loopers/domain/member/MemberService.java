@@ -9,16 +9,19 @@ import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
 @RequiredArgsConstructor
 @Service
+@Transactional(readOnly = true)
 public class MemberService {
 
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Transactional
     public Member register(String loginId, String plainPassword, String name,
                            String birthDate, String email) {
         LoginId loginIdVo = new LoginId(loginId);
@@ -39,6 +42,7 @@ public class MemberService {
         return memberRepository.findByLoginId(new LoginId(loginId));
     }
 
+    @Transactional
     public void changePassword(Member member, String currentPlain, String newPlain) {
         if (!member.getPassword().matches(currentPlain, passwordEncoder)) {
             throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");
