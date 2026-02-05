@@ -4,8 +4,10 @@ import com.loopers.user.dto.SignUpRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
-import org.junit.Test;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -45,5 +47,28 @@ public class SignUpRequestValidationTest {
                 Arguments.of(new SignUpRequest("test", "pw", "name", null, "a@a.com"), "birthDate"),
                 Arguments.of(new SignUpRequest("test", "pw", "name", "19900101", null), "email")
         );
+    }
+
+    @Test
+    void 이메일_형식_불일치_시_실패() {
+        //given
+        String id = "test";
+        String password = "pw";
+        String name = "name";
+        String birthDate = "19900101";
+        String email = "test123";
+        SignUpRequest request = new SignUpRequest(id, password, name, birthDate, email);
+
+        //when
+        Set<ConstraintViolation<SignUpRequest>> violations = validator.validate(request);
+
+        //then
+        assertThat(violations).hasSize(1);
+        ConstraintViolation<SignUpRequest> violation = violations.iterator().next();
+        assertThat(violation.getPropertyPath().toString()).isEqualTo("email");
+        assertThat(violation.getConstraintDescriptor()
+                .getAnnotation()
+                .annotationType())
+                .isEqualTo(Email.class);
     }
 }
