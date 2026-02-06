@@ -3,6 +3,7 @@ package com.loopers.domain.member;
 import com.loopers.domain.BaseEntity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
@@ -12,6 +13,7 @@ import java.time.LocalDate;
 @Table(name = "member")
 public class Member extends BaseEntity {
 
+    @Column(unique = true, nullable = false)
     private String loginId;
     private String password;
     private String name;
