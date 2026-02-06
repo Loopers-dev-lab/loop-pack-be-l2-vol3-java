@@ -34,6 +34,7 @@ public class UserService {
 
     private User findUserByLoginId(String loginId) {
         return userRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[loginId = " + loginId + "] 를 찾을 수 없습니다."));
+                             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND,
+                                                                  "[loginId = " + loginId + "] 를 찾을 수 없습니다."));
     }
 }
