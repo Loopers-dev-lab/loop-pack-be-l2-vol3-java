@@ -45,9 +45,9 @@ class UserServiceTest {
         @Test
         void signupSucceeds_whenInfoIsValid() {
             // arrange
-            // stub: findByLoginId 호출하면 빈 값 반환 (해당 아이디로 가입된 회원 없음)
-            when(userRepository.findByLoginId(VALID_LOGIN_ID))
-                    .thenReturn(Optional.empty());
+            // stub: existsByLoginId 호출하면 false 반환 (해당 아이디로 가입된 회원 없음)
+            when(userRepository.existsByLoginId(VALID_LOGIN_ID))
+                    .thenReturn(false);
 
             // stub: 비밀번호 암호화
             when(passwordEncoder.encode(VALID_PASSWORD))
@@ -71,12 +71,9 @@ class UserServiceTest {
         @Test
         void throwsException_whenLoginIdAlreadyExists() {
             // arrange
-            // 이미 존재하는 회원 생성
-            UserModel existingUser = new UserModel(VALID_LOGIN_ID, "anonymous@123", "기존회원", "1990-01-01", "anonymous@gmail.com");
-
-            // stub: ID가 중복되는 이미 존재하는 UserModel객체 반환
-            when(userRepository.findByLoginId(VALID_LOGIN_ID))
-                    .thenReturn(Optional.of(existingUser));
+            // stub: existsByLoginId 호출하면 true 반환 (이미 존재하는 회원)
+            when(userRepository.existsByLoginId(VALID_LOGIN_ID))
+                    .thenReturn(true);
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {

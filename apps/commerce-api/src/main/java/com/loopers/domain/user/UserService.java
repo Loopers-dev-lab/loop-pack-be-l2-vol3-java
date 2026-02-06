@@ -22,8 +22,7 @@ public class UserService {
         Password.validate(password, birthday);
 
         // 2. 중복 체크
-        Optional<UserModel> existedUser = userRepository.findByLoginId(loginId);
-        if (existedUser.isPresent()) {
+        if (userRepository.existsByLoginId(loginId)) {
             throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.");
         }
 
