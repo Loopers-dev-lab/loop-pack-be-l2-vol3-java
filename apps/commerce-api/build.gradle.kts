@@ -10,6 +10,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:${project.properties["springDocOpenApiVersion"]}")
+    
+    // security (for password encoding)
+    implementation("org.springframework.security:spring-security-crypto")
 
     // querydsl
     annotationProcessor("com.querydsl:querydsl-apt::jakarta")
@@ -19,4 +22,7 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+    
+    // test dependencies for security
+    testImplementation("org.springframework.security:spring-security-crypto")
 }
