@@ -24,6 +24,7 @@ class UserV1ApiE2ETest {
 
     private static final String ENDPOINT_SIGN_UP = "/customer/v1/users/sign-up";
     private static final String ENDPOINT_MY_INFO = "/customer/v1/users/me";
+    private static final String ENDPOINT_PASSWORD = "/customer/v1/users/me/password";
 
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
@@ -221,6 +222,152 @@ class UserV1ApiE2ETest {
                 () -> assertThat(response.getBody().data().email()).isEqualTo("john@example.com"),
                 () -> assertThat(response.getBody().data().birthDate()).isEqualTo("1990-01-15"),
                 () -> assertThat(response.getBody().data().gender()).isEqualTo("MALE")
+            );
+        }
+    }
+
+    @DisplayName("PATCH /customer/v1/users/me/password - 비밀번호 변경")
+    @Nested
+    class UpdatePassword {
+
+        @DisplayName("X-Loopers-LoginId 헤더가 없으면, 401 Unauthorized를 반환한다.")
+        @Test
+        void updatePassword_withoutLoginIdHeader_shouldReturnUnauthorized() {
+            // given
+            HttpHeaders headers = new HttpHeaders();
+            // X-Loopers-LoginId 헤더 누락
+            UserV1Dto.UpdatePasswordRequest request = new UserV1Dto.UpdatePasswordRequest(
+                "OldPass123!",
+                "NewPass456!"
+            );
+
+            // when
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PATCH, new HttpEntity<>(request, headers), responseType);
+
+            // then
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.FAIL)
+            );
+        }
+
+        @DisplayName("존재하지 않는 사용자 ID로 변경하면, 404 Not Found를 반환한다.")
+        @Test
+        void updatePassword_withNonExistentUserId_shouldReturnNotFound() {
+            // given
+            String nonExistentUserId = "nouser";
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", nonExistentUserId);
+            UserV1Dto.UpdatePasswordRequest request = new UserV1Dto.UpdatePasswordRequest(
+                "OldPass123!",
+                "NewPass456!"
+            );
+
+            // when
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PATCH, new HttpEntity<>(request, headers), responseType);
+
+            // then
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @DisplayName("현재 비밀번호가 일치하지 않으면, 400 Bad Request를 반환한다.")
+        @Test
+        void updatePassword_withIncorrectCurrentPassword_shouldReturnBadRequest() {
+            // given - 먼저 회원가입
+            UserV1Dto.SignUpRequest signUpRequest = new UserV1Dto.SignUpRequest(
+                "testuser1",
+                "OldPass123!",
+                "test@example.com",
+                "1990-01-15",
+                "MALE"
+            );
+            testRestTemplate.exchange(ENDPOINT_SIGN_UP, HttpMethod.POST, new HttpEntity<>(signUpRequest), new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {});
+
+            // when - 잘못된 현재 비밀번호로 변경 시도
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testuser1");
+            UserV1Dto.UpdatePasswordRequest request = new UserV1Dto.UpdatePasswordRequest(
+                "WrongPass!",
+                "NewPass456!"
+            );
+
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PATCH, new HttpEntity<>(request, headers), responseType);
+
+            // then
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.FAIL)
+            );
+        }
+
+        @DisplayName("새 비밀번호가 현재 비밀번호와 동일하면, 400 Bad Request를 반환한다.")
+        @Test
+        void updatePassword_withSamePassword_shouldReturnBadRequest() {
+            // given - 먼저 회원가입
+            String samePassword = "SamePass123!";
+            UserV1Dto.SignUpRequest signUpRequest = new UserV1Dto.SignUpRequest(
+                "testuser2",
+                samePassword,
+                "test2@example.com",
+                "1990-01-15",
+                "MALE"
+            );
+            testRestTemplate.exchange(ENDPOINT_SIGN_UP, HttpMethod.POST, new HttpEntity<>(signUpRequest), new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {});
+
+            // when - 같은 비밀번호로 변경 시도
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testuser2");
+            UserV1Dto.UpdatePasswordRequest request = new UserV1Dto.UpdatePasswordRequest(
+                samePassword,
+                samePassword
+            );
+
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PATCH, new HttpEntity<>(request, headers), responseType);
+
+            // then
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.FAIL)
+            );
+        }
+
+        @DisplayName("유효한 요청 시, 200 OK를 반환하고 비밀번호가 변경된다.")
+        @Test
+        void updatePassword_withValidRequest_shouldSuccess() {
+            // given - 먼저 회원가입
+            UserV1Dto.SignUpRequest signUpRequest = new UserV1Dto.SignUpRequest(
+                "testuser3",
+                "OldPass123!",
+                "test3@example.com",
+                "1990-01-15",
+                "MALE"
+            );
+            testRestTemplate.exchange(ENDPOINT_SIGN_UP, HttpMethod.POST, new HttpEntity<>(signUpRequest), new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {});
+
+            // when - 비밀번호 변경
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "testuser3");
+            UserV1Dto.UpdatePasswordRequest request = new UserV1Dto.UpdatePasswordRequest(
+                "OldPass123!",
+                "NewPass456!"
+            );
+
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PATCH, new HttpEntity<>(request, headers), responseType);
+
+            // then
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.SUCCESS)
             );
         }
     }
