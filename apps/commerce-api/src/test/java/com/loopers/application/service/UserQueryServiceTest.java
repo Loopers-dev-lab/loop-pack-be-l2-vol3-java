@@ -95,24 +95,11 @@ class UserQueryServiceTest {
     }
 
     @Test
-    @DisplayName("이름 마스킹 - 1자")
-    void getUserInfo_maskedName_1char() {
-        UserId userId = UserId.of("test1234");
-        User user = User.reconstitute(
-                1L,
-                userId,
-                UserName.of("홍"),
-                "encoded_password",
-                Birthday.of(LocalDate.of(1990, 5, 15)),
-                Email.of("test@example.com"),
-                WrongPasswordCount.init(),
-                LocalDateTime.now()
-        );
-
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-
-        var result = service.getUserInfo(userId);
-
-        assertThat(result.maskedName()).isEqualTo("*");
+    @DisplayName("이름은 최소 2자 이상이어야 한다")
+    void userName_fail_lessThan2chars() {
+        // UserName은 2~20자만 허용하므로 1자는 생성 불가
+        assertThatThrownBy(() -> UserName.of("홍"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("2~20자");
     }
 }
