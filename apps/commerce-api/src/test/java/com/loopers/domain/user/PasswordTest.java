@@ -113,4 +113,42 @@ class PasswordTest {
             assertThat(encrypted).isNotBlank();
         }
     }
+
+    @DisplayName("비밀번호를 검증할 때, ")
+    @Nested
+    class Matches {
+
+        @DisplayName("원본 비밀번호와 암호화된 비밀번호가 일치하면, true를 반환한다.")
+        @Test
+        void matches_withCorrectPassword_shouldReturnTrue() {
+            // given
+            String rawPassword = "SecurePass1!";
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            Password password = Password.of(rawPassword, birthDate);
+            String encryptedPassword = password.encrypt();
+
+            // when
+            boolean matches = Password.matches(rawPassword, encryptedPassword);
+
+            // then
+            assertThat(matches).isTrue();
+        }
+
+        @DisplayName("원본 비밀번호와 암호화된 비밀번호가 일치하지 않으면, false를 반환한다.")
+        @Test
+        void matches_withIncorrectPassword_shouldReturnFalse() {
+            // given
+            String correctPassword = "SecurePass1!";
+            String wrongPassword = "WrongPass2!";
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            Password password = Password.of(correctPassword, birthDate);
+            String encryptedPassword = password.encrypt();
+
+            // when
+            boolean matches = Password.matches(wrongPassword, encryptedPassword);
+
+            // then
+            assertThat(matches).isFalse();
+        }
+    }
 }
