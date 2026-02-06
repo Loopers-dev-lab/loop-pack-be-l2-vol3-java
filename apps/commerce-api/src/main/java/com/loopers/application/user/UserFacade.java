@@ -1,7 +1,5 @@
 package com.loopers.application.user;
 
-import com.loopers.domain.user.ChangePasswordCommand;
-import com.loopers.domain.user.SignupCommand;
 import com.loopers.domain.user.UserModel;
 import com.loopers.domain.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -12,8 +10,10 @@ import org.springframework.stereotype.Component;
 public class UserFacade {
     private final UserService userService;
 
-    public UserInfo signUp(SignupCommand command){
-        UserModel user = userService.signup(command);
+    public UserInfo signUp(SignupCommand command) {
+        UserModel user = userService.signup(
+            command.loginId(), command.password(), command.name(), command.birthday(), command.email()
+        );
         return UserInfo.from(user);
     }
 
@@ -22,8 +22,7 @@ public class UserFacade {
         return UserInfo.from(user);
     }
 
-    public void changePassword(String loginId, String currentPassword, String newPassword) {
-        ChangePasswordCommand command = new ChangePasswordCommand(loginId, currentPassword, newPassword);
-        userService.changePassword(command);
+    public void changePassword(ChangePasswordCommand command) {
+        userService.changePassword(command.loginId(), command.currentPassword(), command.newPassword());
     }
 }

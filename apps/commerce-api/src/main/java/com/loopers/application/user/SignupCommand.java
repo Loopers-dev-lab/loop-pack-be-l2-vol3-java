@@ -1,4 +1,4 @@
-package com.loopers.domain.user;
+package com.loopers.application.user;
 
 public record SignupCommand(
     String loginId,

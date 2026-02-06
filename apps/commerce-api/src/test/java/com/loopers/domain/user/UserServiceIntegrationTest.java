@@ -44,16 +44,13 @@ class UserServiceIntegrationTest {
         @DisplayName("정상적인 정보로 회원가입이 성공한다.")
         @Test
         void signupSucceeds_whenInfoIsValid() {
-            // arrange
-            SignupCommand command = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
-
             // act
-            UserModel result = userService.signup(command);
+            UserModel result = userService.signup(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
 
             // assert
             assertThat(result).isNotNull();
             assertThat(result.getId()).isNotNull();
-            assertThat(result.getLoginId()).isEqualTo(command.loginId());
+            assertThat(result.getLoginId()).isEqualTo(VALID_LOGIN_ID);
 
             // DB에 실제로 저장됐는지 확인
             assertThat(userJpaRepository.findById(result.getId())).isPresent();
@@ -66,12 +63,9 @@ class UserServiceIntegrationTest {
             UserModel existingUser = new UserModel(VALID_LOGIN_ID, "otherPw@123", "기존회원", "1990-01-01", "other@test.com");
             userJpaRepository.save(existingUser);
 
-            // 같은 loginId로 가입 시도
-            SignupCommand command = new SignupCommand(VALID_LOGIN_ID, "newPw@1234", "신규회원", "1995-05-05", "new@test.com");
-
             // act & assert
             CoreException result = assertThrows(CoreException.class, () -> {
-                userService.signup(command);
+                userService.signup(VALID_LOGIN_ID, "newPw@1234", "신규회원", "1995-05-05", "new@test.com");
             });
 
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -86,8 +80,7 @@ class UserServiceIntegrationTest {
         @Test
         void authenticateSucceeds_whenCredentialsAreValid() {
             // arrange - 회원가입 (BCrypt 암호화 포함)
-            SignupCommand command = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
-            userService.signup(command);
+            userService.signup(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
 
             // act
             UserModel result = userService.authenticate(VALID_LOGIN_ID, VALID_PASSWORD);
@@ -112,8 +105,7 @@ class UserServiceIntegrationTest {
         @Test
         void throwsException_whenPasswordDoesNotMatch() {
             // arrange - 회원가입
-            SignupCommand command = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
-            userService.signup(command);
+            userService.signup(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
 
             // act & assert
             CoreException result = assertThrows(CoreException.class, () -> {
@@ -134,13 +126,10 @@ class UserServiceIntegrationTest {
         @Test
         void changePasswordSucceeds_whenInfoIsValid() {
             // arrange - 회원가입
-            SignupCommand signupCommand = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
-            userService.signup(signupCommand);
-
-            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, VALID_PASSWORD, NEW_PASSWORD);
+            userService.signup(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
 
             // act
-            userService.changePassword(command);
+            userService.changePassword(VALID_LOGIN_ID, VALID_PASSWORD, NEW_PASSWORD);
 
             // assert - 새 비밀번호로 인증 성공
             UserModel result = userService.authenticate(VALID_LOGIN_ID, NEW_PASSWORD);
@@ -152,11 +141,8 @@ class UserServiceIntegrationTest {
         @Test
         void throwsException_whenAuthenticatingWithOldPassword() {
             // arrange - 회원가입 및 비밀번호 변경
-            SignupCommand signupCommand = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
-            userService.signup(signupCommand);
-
-            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, VALID_PASSWORD, NEW_PASSWORD);
-            userService.changePassword(command);
+            userService.signup(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+            userService.changePassword(VALID_LOGIN_ID, VALID_PASSWORD, NEW_PASSWORD);
 
             // act & assert - 기존 비밀번호로 인증 실패
             CoreException result = assertThrows(CoreException.class, () -> {
@@ -170,14 +156,11 @@ class UserServiceIntegrationTest {
         @Test
         void throwsException_whenCurrentPasswordDoesNotMatch() {
             // arrange - 회원가입
-            SignupCommand signupCommand = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
-            userService.signup(signupCommand);
-
-            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, "wrongPw@123", NEW_PASSWORD);
+            userService.signup(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
 
             // act & assert
             CoreException result = assertThrows(CoreException.class, () -> {
-                userService.changePassword(command);
+                userService.changePassword(VALID_LOGIN_ID, "wrongPw@123", NEW_PASSWORD);
             });
 
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -187,14 +170,11 @@ class UserServiceIntegrationTest {
         @Test
         void throwsException_whenNewPasswordIsSameAsCurrent() {
             // arrange - 회원가입
-            SignupCommand signupCommand = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
-            userService.signup(signupCommand);
-
-            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_PASSWORD);
+            userService.signup(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
 
             // act & assert
             CoreException result = assertThrows(CoreException.class, () -> {
-                userService.changePassword(command);
+                userService.changePassword(VALID_LOGIN_ID, VALID_PASSWORD, VALID_PASSWORD);
             });
 
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -209,8 +189,7 @@ class UserServiceIntegrationTest {
         @Test
         void returnsUser_whenLoginIdExists() {
             // arrange - 회원가입
-            SignupCommand command = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
-            userService.signup(command);
+            userService.signup(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
 
             // act
             UserModel result = userService.findByLoginId(VALID_LOGIN_ID);

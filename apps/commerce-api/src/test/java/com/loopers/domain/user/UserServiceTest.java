@@ -45,14 +45,12 @@ class UserServiceTest {
         @Test
         void signupSucceeds_whenInfoIsValid() {
             // arrange
-            SignupCommand command = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
-
             // stub: findByLoginId 호출하면 빈 값 반환 (해당 아이디로 가입된 회원 없음)
-            when(userRepository.findByLoginId(command.loginId()))
+            when(userRepository.findByLoginId(VALID_LOGIN_ID))
                     .thenReturn(Optional.empty());
 
             // stub: 비밀번호 암호화
-            when(passwordEncoder.encode(command.password()))
+            when(passwordEncoder.encode(VALID_PASSWORD))
                     .thenReturn("encrypted_password");
 
             // stub: save 호출 시 저장된 객체 반환
@@ -60,11 +58,11 @@ class UserServiceTest {
                     .thenAnswer((invocation) -> invocation.getArgument(0));
 
             // act
-            UserModel result = userService.signup(command);
+            UserModel result = userService.signup(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
 
             // assert
             assertThat(result).isNotNull();
-            assertThat(result.getLoginId()).isEqualTo(command.loginId());
+            assertThat(result.getLoginId()).isEqualTo(VALID_LOGIN_ID);
 
             verify(userRepository, times(1)).save(any(UserModel.class));
         }
@@ -73,18 +71,16 @@ class UserServiceTest {
         @Test
         void throwsException_whenLoginIdAlreadyExists() {
             // arrange
-            SignupCommand command = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
-
             // 이미 존재하는 회원 생성
-            UserModel existingUser = new UserModel(command.loginId(), "anonymous@123", "기존회원", "1990-01-01", "anonymous@gmail.com");
+            UserModel existingUser = new UserModel(VALID_LOGIN_ID, "anonymous@123", "기존회원", "1990-01-01", "anonymous@gmail.com");
 
             // stub: ID가 중복되는 이미 존재하는 UserModel객체 반환
-            when(userRepository.findByLoginId(command.loginId()))
+            when(userRepository.findByLoginId(VALID_LOGIN_ID))
                     .thenReturn(Optional.of(existingUser));
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
-                userService.signup(command);
+                userService.signup(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
             });
 
             // assert
@@ -166,7 +162,6 @@ class UserServiceTest {
         @Test
         void changePasswordSucceeds_whenInfoIsValid() {
             // arrange
-            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, VALID_PASSWORD, NEW_PASSWORD);
             UserModel user = new UserModel(VALID_LOGIN_ID, VALID_ENCRYPTED_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
 
             when(userRepository.findByLoginId(VALID_LOGIN_ID))
@@ -181,7 +176,7 @@ class UserServiceTest {
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
             // act
-            userService.changePassword(command);
+            userService.changePassword(VALID_LOGIN_ID, VALID_PASSWORD, NEW_PASSWORD);
 
             // assert
             verify(userRepository, times(1)).save(any(UserModel.class));
@@ -191,14 +186,12 @@ class UserServiceTest {
         @Test
         void throwsException_whenUserNotFound() {
             // arrange
-            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, VALID_PASSWORD, NEW_PASSWORD);
-
             when(userRepository.findByLoginId(VALID_LOGIN_ID))
                     .thenReturn(Optional.empty());
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
-                userService.changePassword(command);
+                userService.changePassword(VALID_LOGIN_ID, VALID_PASSWORD, NEW_PASSWORD);
             });
 
             // assert
@@ -210,7 +203,6 @@ class UserServiceTest {
         @Test
         void throwsException_whenCurrentPasswordDoesNotMatch() {
             // arrange
-            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, "wrongPw@123", NEW_PASSWORD);
             UserModel user = new UserModel(VALID_LOGIN_ID, VALID_ENCRYPTED_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
 
             when(userRepository.findByLoginId(VALID_LOGIN_ID))
@@ -220,7 +212,7 @@ class UserServiceTest {
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
-                userService.changePassword(command);
+                userService.changePassword(VALID_LOGIN_ID, "wrongPw@123", NEW_PASSWORD);
             });
 
             // assert
@@ -232,20 +224,16 @@ class UserServiceTest {
         @Test
         void throwsException_whenNewPasswordIsSameAsCurrent() {
             // arrange
-            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_PASSWORD);
             UserModel user = new UserModel(VALID_LOGIN_ID, VALID_ENCRYPTED_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
 
             when(userRepository.findByLoginId(VALID_LOGIN_ID))
                     .thenReturn(Optional.of(user));
             when(passwordEncoder.matches(VALID_PASSWORD, VALID_ENCRYPTED_PASSWORD))
                     .thenReturn(true);
-            // 새 비밀번호도 현재와 동일
-            when(passwordEncoder.matches(VALID_PASSWORD, VALID_ENCRYPTED_PASSWORD))
-                    .thenReturn(true);
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
-                userService.changePassword(command);
+                userService.changePassword(VALID_LOGIN_ID, VALID_PASSWORD, VALID_PASSWORD);
             });
 
             // assert
@@ -256,8 +244,7 @@ class UserServiceTest {
         @DisplayName("새 비밀번호가 규칙에 위반되면, 예외가 발생한다.")
         @Test
         void throwsException_whenNewPasswordViolatesRules() {
-            // arrange - 너무 짧은 비밀번호
-            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, VALID_PASSWORD, "short");
+            // arrange
             UserModel user = new UserModel(VALID_LOGIN_ID, VALID_ENCRYPTED_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
 
             when(userRepository.findByLoginId(VALID_LOGIN_ID))
@@ -269,7 +256,7 @@ class UserServiceTest {
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
-                userService.changePassword(command);
+                userService.changePassword(VALID_LOGIN_ID, VALID_PASSWORD, "short");
             });
 
             // assert

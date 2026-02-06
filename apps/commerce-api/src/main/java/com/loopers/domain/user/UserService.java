@@ -15,21 +15,21 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     // 회원가입
-    public UserModel signup(SignupCommand command){
+    public UserModel signup(String loginId, String password, String name, String birthday, String email) {
         // 1. 비밀번호 검증 (암호화 전 raw password)
-        Password.validate(command.password(), command.birthday());
+        Password.validate(password, birthday);
 
         // 2. 중복 체크
-        Optional<UserModel> existedUser = userRepository.findByLoginId(command.loginId());
-        if(existedUser.isPresent()){
+        Optional<UserModel> existedUser = userRepository.findByLoginId(loginId);
+        if (existedUser.isPresent()) {
             throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.");
         }
 
         // 3. 비밀번호 암호화
-        String encryptedPassword = passwordEncoder.encode(command.password());
+        String encryptedPassword = passwordEncoder.encode(password);
 
         // 4. 회원 생성 및 저장
-        UserModel newUser = new UserModel(command.loginId(), encryptedPassword, command.name(), command.birthday(), command.email());
+        UserModel newUser = new UserModel(loginId, encryptedPassword, name, birthday, email);
         return userRepository.save(newUser);
     }
 
@@ -46,26 +46,26 @@ public class UserService {
     }
 
     // 비밀번호 변경
-    public void changePassword(ChangePasswordCommand command) {
+    public void changePassword(String loginId, String currentPassword, String newPassword) {
         // 1. 사용자 조회
-        UserModel user = userRepository.findByLoginId(command.loginId())
+        UserModel user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 사용자입니다."));
 
         // 2. 현재 비밀번호 확인
-        if (!passwordEncoder.matches(command.currentPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");
         }
 
         // 3. 새 비밀번호가 현재 비밀번호와 동일한지 확인
-        if (passwordEncoder.matches(command.newPassword(), user.getPassword())) {
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 동일할 수 없습니다.");
         }
 
         // 4. 비밀번호 규칙 검증
-        Password.validate(command.newPassword(), user.getBirthday().toString());
+        Password.validate(newPassword, user.getBirthday().toString());
 
         // 5. 암호화 및 저장
-        String encryptedPassword = passwordEncoder.encode(command.newPassword());
+        String encryptedPassword = passwordEncoder.encode(newPassword);
         user.changePassword(encryptedPassword);
         userRepository.save(user);
     }
