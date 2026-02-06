@@ -108,11 +108,11 @@ class UserModelTest {
             UserModel user = UserModel.create(userId, email, birthDate, currentPassword, gender);
 
             String wrongCurrentPassword = "WrongPass!";
-            Password newPassword = Password.of("NewPass456!", birthDate);
+            String newPasswordValue = "NewPass456!";
 
             // when & then
             assertThrows(IllegalArgumentException.class, () -> {
-                user.updatePassword(wrongCurrentPassword, newPassword);
+                user.updatePassword(wrongCurrentPassword, newPasswordValue);
             });
         }
 
@@ -129,11 +129,9 @@ class UserModelTest {
 
             UserModel user = UserModel.create(userId, email, birthDate, currentPassword, gender);
 
-            Password newPassword = Password.of(samePassword, birthDate);
-
             // when & then
             assertThrows(IllegalArgumentException.class, () -> {
-                user.updatePassword(samePassword, newPassword);
+                user.updatePassword(samePassword, samePassword);
             });
         }
 
@@ -151,14 +149,14 @@ class UserModelTest {
             UserModel user = UserModel.create(userId, email, birthDate, currentPassword, gender);
             String oldEncryptedPassword = user.getEncryptedPassword();
 
-            Password newPassword = Password.of("NewPass456!", birthDate);
+            String newPasswordValue = "NewPass456!";
 
             // when
-            user.updatePassword(currentPasswordValue, newPassword);
+            user.updatePassword(currentPasswordValue, newPasswordValue);
 
             // then
             assertThat(user.getEncryptedPassword()).isNotEqualTo(oldEncryptedPassword);
-            assertThat(Password.matches("NewPass456!", user.getEncryptedPassword())).isTrue();
+            assertThat(Password.matches(newPasswordValue, user.getEncryptedPassword())).isTrue();
         }
     }
 }

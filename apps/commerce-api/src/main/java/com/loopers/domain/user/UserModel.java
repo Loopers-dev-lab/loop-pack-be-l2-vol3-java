@@ -68,4 +68,21 @@ public class UserModel extends BaseEntity {
             0L
         );
     }
+
+    public void updatePassword(String currentRawPassword, String newRawPassword) {
+        // 현재 비밀번호 검증
+        if (!Password.matches(currentRawPassword, this.encryptedPassword)) {
+            throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
+        }
+
+        // 새 비밀번호가 현재 비밀번호와 동일한지 검증
+        if (currentRawPassword.equals(newRawPassword)) {
+            throw new IllegalArgumentException("새 비밀번호는 현재 비밀번호와 달라야 합니다.");
+        }
+
+        // 새 비밀번호 생성 및 암호화
+        BirthDate birthDate = new BirthDate(this.birthDate);
+        Password newPassword = Password.of(newRawPassword, birthDate);
+        this.encryptedPassword = newPassword.encrypt();
+    }
 }
