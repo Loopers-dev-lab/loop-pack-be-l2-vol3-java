@@ -25,12 +25,13 @@
 | `./gradlew :apps:commerce-api:build` | commerce-api 모듈 빌드 |
 | `./gradlew test` | 전체 테스트 |
 | `./gradlew clean build` | 클린 빌드 |
+| `./gradlew :apps:commerce-api:jacocoTestReport` | commerce-api 커버리지 리포트 생성 |
 
 ## 2. 모듈 구조
 
 ```
 apps/
-├── commerce-api      # REST API 서버 (Spring Web + JPA + Redis + Kafka)
+├── commerce-api      # REST API 서버 (Spring Web + JPA + Redis)
 ├── commerce-streamer # Kafka 스트림 처리
 └── commerce-batch    # Spring Batch 배치 작업
 
@@ -63,6 +64,7 @@ com.loopers
     ├── domain/
     │   └── model/                 # 도메인 모델
     │       └── enum/              # 도메인 내 공통 Enum
+    │       └── vo/                # Value Object (예: Password)
     │   └── event/                 # 도메인 이벤트
     │   └── service/               # 도메인 서비스
     ├── infrastructure/            # 인프라 레이어 (Repository 구현 등)
@@ -146,9 +148,11 @@ class SomeIntegrationTest {
 | type | 용도 |
 |------|------|
 | `feat` | 새 기능 추가 |
+| `fix` | 버그 수정 |
 | `test` | 테스트 추가/수정 |
 | `refactor` | 리팩토링 (기능 변경 없음) |
 | `docs` | 문서 추가/수정 |
+| `chore` | 빌드 설정, 의존성 관리 |
 | `init` | 초기 설정 |
 
 - 본문: 변경된 파일/클래스 목록을 `-` 리스트로 기술
@@ -165,6 +169,12 @@ class SomeIntegrationTest {
 3. `GlobalExceptionHandler`는 수정 불필요 (자동 처리)
 
 - `@Valid` 검증 실패 → `MethodArgumentNotValidException` → BAD_REQUEST 자동 반환
+
+#### 인증 패턴
+- 인증 헤더: `X-Loopers-LoginId`, `X-Loopers-LoginPw`
+- Controller: `@RequestHeader(required = false)` → null 허용
+- Facade에서 null/blank 검증 → 단일 `UNAUTHORIZED` 응답 (보안: 실패 사유 미구분)
+- 비밀번호 검증은 도메인 모델에 위임: `User.authenticate(rawPassword)`
 
 ### 4.6 도메인 모델 패턴
 
@@ -185,10 +195,15 @@ null 체크 → empty 체크 → 길이 제한 → 포맷(정규식) → 비즈�
 
 Controller → Facade(@Transactional) → Service → Repository(interface) → RepositoryImpl → JpaRepository + Entity ↔ Domain
 
+#### 레이어 규칙
+- **호출 순서 준수**: Controller → Facade → Service → Repository 순서를 반드시 지켜야 하며, 계층을 건너뛰는 호출(예: Controller → Service 직접 호출)을 금지한다.
+- **비즈니스 로직과 서비스 로직 분리**: 비즈니스 로직(도메인 규칙, 검증, 계산)은 Domain Model 또는 Domain Service에서 작성하고, 서비스 로직(유스케이스 오케스트레이션, 트랜잭션 관리, 외부 시스템 연동)은 Facade와 Service에서 작성한다.
+
 | 레이어 | 클래스 | 어노테이션 | 역할 |
 |--------|--------|-----------|------|
 | Controller | `{Domain}Controller` | `@RestController` | 요청 수신, Facade 호출 |
-| Facade | `{Domain}CommandFacade` | `@Component`, `@Transactional` | 유스케이스 오케스트레이션, 트랜잭션 경계 |
+| Facade | `{Domain}CommandFacade` | `@Component`, `@Transactional` | 명령 유스케이스 오케스트레이션, 트랜잭션 경계 |
+| Facade | `{Domain}QueryFacade` | `@Component`, `@Transactional(readOnly = true)` | 조회 유스케이스 오케스트레이션 |
 | Service | `{Domain}CommandService` | `@Service`, `@Transactional` | 단일 도메인 비즈니스 로직 |
 | Repository(I) | `{Domain}Command/QueryRepository` | (인터페이스) | 명령(save,delete) / 조회(find,exists) 계약 |
 | RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain 변환 후 JPA 호출 |
