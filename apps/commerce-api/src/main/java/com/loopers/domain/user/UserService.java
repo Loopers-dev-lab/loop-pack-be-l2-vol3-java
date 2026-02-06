@@ -76,6 +76,10 @@ public class UserService {
             throw new CoreException(ErrorType.BAD_REQUEST, "이름은 필수입니다.");
         }
 
+        if (birthDate == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "생년월일은 필수입니다.");
+        }
+
         validatePassword(password, birthDate);
         validateEmail(email);
     }
