@@ -29,4 +29,8 @@ public record ApiResponse<T>(Metadata meta, T data) {
             null
         );
     }
+
+    public static <T> ApiResponse<T> successNoContent() {
+        return new ApiResponse<>(Metadata.success(), null);
+    }
 }
