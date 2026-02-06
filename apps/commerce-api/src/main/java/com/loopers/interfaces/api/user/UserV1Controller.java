@@ -54,4 +54,18 @@ public class UserV1Controller implements UserV1ApiSpec {
         UserV1Dto.MyInfoResponse response = UserV1Dto.MyInfoResponse.from(userInfo);
         return ApiResponse.success(response);
     }
+
+    @PatchMapping("/me/password")
+    @Override
+    public ApiResponse<Void> updatePassword(
+        @RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
+        @Valid @RequestBody UserV1Dto.UpdatePasswordRequest request
+    ) {
+        if (loginId == null || loginId.isBlank()) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "로그인이 필요합니다.");
+        }
+
+        userFacade.updatePassword(loginId, request.currentPassword(), request.newPassword());
+        return ApiResponse.success(null);
+    }
 }
