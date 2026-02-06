@@ -12,4 +12,16 @@ public interface UserV1ApiSpec {
         description = "새로운 회원을 등록합니다."
     )
     ApiResponse<UserV1Dto.UserResponse> signup(UserV1Dto.SignupRequest request);
+
+    @Operation(
+        summary = "내 정보 조회",
+        description = "인증된 사용자의 정보를 조회합니다."
+    )
+    ApiResponse<UserV1Dto.UserResponse> getMe(String loginId);
+
+    @Operation(
+        summary = "비밀번호 변경",
+        description = "인증된 사용자의 비밀번호를 변경합니다."
+    )
+    ApiResponse<Object> changePassword(String loginId, UserV1Dto.ChangePasswordRequest request);
 }

@@ -79,6 +79,11 @@ public class UserModel extends BaseEntity {
         }
     }
 
+    public void changePassword(String encryptedPassword) {
+        validatePassword(encryptedPassword);
+        this.password = encryptedPassword;
+    }
+
     private LocalDate parseBirthday(String birthday){
         if(birthday == null || birthday.isBlank()){
             throw new CoreException(ErrorType.BAD_REQUEST, "생년월일은 비어있을 수 없습니다.");

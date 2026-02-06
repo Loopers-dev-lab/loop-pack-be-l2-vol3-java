@@ -14,6 +14,11 @@ public class UserV1Dto {
         String email
     ) {}
 
+    public record ChangePasswordRequest(
+        String currentPassword,
+        String newPassword
+    ) {}
+
     public record UserResponse(
         String loginId,
         String name,
@@ -23,10 +28,17 @@ public class UserV1Dto {
         public static UserResponse from(UserInfo info) {
             return new UserResponse(
                 info.loginId(),
-                info.name(),
+                maskLastCharacter(info.name()),
                 info.birthday(),
                 info.email()
             );
+        }
+
+        private static String maskLastCharacter(String value) {
+            if (value == null || value.length() <= 1) {
+                return value;
+            }
+            return value.substring(0, value.length() - 1) + "*";
         }
     }
 }

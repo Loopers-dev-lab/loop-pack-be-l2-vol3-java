@@ -23,6 +23,7 @@ class UserServiceTest {
 
     private static final String VALID_LOGIN_ID = "namjin123";
     private static final String VALID_PASSWORD = "qwer@1234";
+    private static final String VALID_ENCRYPTED_PASSWORD = "encrypted_password";
     private static final String VALID_NAME = "namjin";
     private static final String VALID_BIRTHDAY = "1994-05-25";
     private static final String VALID_EMAIL = "epemxksl@gmail.com";
@@ -87,10 +88,231 @@ class UserServiceTest {
             });
 
             // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.CONFLICT);
 
             // 행위 검증
             verify(userRepository, never()).save(any());
+        }
+    }
+
+    @DisplayName("인증을 할 때, ")
+    @Nested
+    class Authenticate {
+
+        @DisplayName("올바른 로그인 ID와 비밀번호로 인증이 성공한다.")
+        @Test
+        void authenticateSucceeds_whenCredentialsAreValid() {
+            // arrange
+            UserModel user = new UserModel(VALID_LOGIN_ID, VALID_ENCRYPTED_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+            when(userRepository.findByLoginId(VALID_LOGIN_ID))
+                    .thenReturn(Optional.of(user));
+            when(passwordEncoder.matches(VALID_PASSWORD, VALID_ENCRYPTED_PASSWORD))
+                    .thenReturn(true);
+
+            // act
+            UserModel result = userService.authenticate(VALID_LOGIN_ID, VALID_PASSWORD);
+
+            // assert
+            assertThat(result).isNotNull();
+            assertThat(result.getLoginId()).isEqualTo(VALID_LOGIN_ID);
+        }
+
+        @DisplayName("존재하지 않는 로그인 ID로 인증하면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenLoginIdNotFound() {
+            // arrange
+            when(userRepository.findByLoginId(VALID_LOGIN_ID))
+                    .thenReturn(Optional.empty());
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                userService.authenticate(VALID_LOGIN_ID, VALID_PASSWORD);
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("비밀번호가 일치하지 않으면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenPasswordDoesNotMatch() {
+            // arrange
+            UserModel user = new UserModel(VALID_LOGIN_ID, VALID_ENCRYPTED_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+            when(userRepository.findByLoginId(VALID_LOGIN_ID))
+                    .thenReturn(Optional.of(user));
+            when(passwordEncoder.matches("wrongPassword", VALID_ENCRYPTED_PASSWORD))
+                    .thenReturn(false);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                userService.authenticate(VALID_LOGIN_ID, "wrongPassword");
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+    }
+
+    @DisplayName("비밀번호를 변경할 때, ")
+    @Nested
+    class ChangePassword {
+
+        private static final String NEW_PASSWORD = "newPw@1234";
+        private static final String NEW_ENCRYPTED_PASSWORD = "new_encrypted_password";
+
+        @DisplayName("정상적인 정보로 비밀번호 변경이 성공한다.")
+        @Test
+        void changePasswordSucceeds_whenInfoIsValid() {
+            // arrange
+            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, VALID_PASSWORD, NEW_PASSWORD);
+            UserModel user = new UserModel(VALID_LOGIN_ID, VALID_ENCRYPTED_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+            when(userRepository.findByLoginId(VALID_LOGIN_ID))
+                    .thenReturn(Optional.of(user));
+            when(passwordEncoder.matches(VALID_PASSWORD, VALID_ENCRYPTED_PASSWORD))
+                    .thenReturn(true);
+            when(passwordEncoder.matches(NEW_PASSWORD, VALID_ENCRYPTED_PASSWORD))
+                    .thenReturn(false);
+            when(passwordEncoder.encode(NEW_PASSWORD))
+                    .thenReturn(NEW_ENCRYPTED_PASSWORD);
+            when(userRepository.save(any(UserModel.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // act
+            userService.changePassword(command);
+
+            // assert
+            verify(userRepository, times(1)).save(any(UserModel.class));
+        }
+
+        @DisplayName("존재하지 않는 사용자이면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenUserNotFound() {
+            // arrange
+            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, VALID_PASSWORD, NEW_PASSWORD);
+
+            when(userRepository.findByLoginId(VALID_LOGIN_ID))
+                    .thenReturn(Optional.empty());
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                userService.changePassword(command);
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+            verify(userRepository, never()).save(any());
+        }
+
+        @DisplayName("현재 비밀번호가 일치하지 않으면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenCurrentPasswordDoesNotMatch() {
+            // arrange
+            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, "wrongPw@123", NEW_PASSWORD);
+            UserModel user = new UserModel(VALID_LOGIN_ID, VALID_ENCRYPTED_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+            when(userRepository.findByLoginId(VALID_LOGIN_ID))
+                    .thenReturn(Optional.of(user));
+            when(passwordEncoder.matches("wrongPw@123", VALID_ENCRYPTED_PASSWORD))
+                    .thenReturn(false);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                userService.changePassword(command);
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            verify(userRepository, never()).save(any());
+        }
+
+        @DisplayName("새 비밀번호가 현재 비밀번호와 동일하면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenNewPasswordIsSameAsCurrent() {
+            // arrange
+            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_PASSWORD);
+            UserModel user = new UserModel(VALID_LOGIN_ID, VALID_ENCRYPTED_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+            when(userRepository.findByLoginId(VALID_LOGIN_ID))
+                    .thenReturn(Optional.of(user));
+            when(passwordEncoder.matches(VALID_PASSWORD, VALID_ENCRYPTED_PASSWORD))
+                    .thenReturn(true);
+            // 새 비밀번호도 현재와 동일
+            when(passwordEncoder.matches(VALID_PASSWORD, VALID_ENCRYPTED_PASSWORD))
+                    .thenReturn(true);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                userService.changePassword(command);
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            verify(userRepository, never()).save(any());
+        }
+
+        @DisplayName("새 비밀번호가 규칙에 위반되면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenNewPasswordViolatesRules() {
+            // arrange - 너무 짧은 비밀번호
+            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, VALID_PASSWORD, "short");
+            UserModel user = new UserModel(VALID_LOGIN_ID, VALID_ENCRYPTED_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+            when(userRepository.findByLoginId(VALID_LOGIN_ID))
+                    .thenReturn(Optional.of(user));
+            when(passwordEncoder.matches(VALID_PASSWORD, VALID_ENCRYPTED_PASSWORD))
+                    .thenReturn(true);
+            when(passwordEncoder.matches("short", VALID_ENCRYPTED_PASSWORD))
+                    .thenReturn(false);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                userService.changePassword(command);
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            verify(userRepository, never()).save(any());
+        }
+    }
+
+    @DisplayName("로그인 ID로 조회할 때, ")
+    @Nested
+    class FindByLoginId {
+
+        @DisplayName("존재하는 로그인 ID로 조회하면, 사용자를 반환한다.")
+        @Test
+        void returnsUser_whenLoginIdExists() {
+            // arrange
+            UserModel user = new UserModel(VALID_LOGIN_ID, VALID_ENCRYPTED_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+            when(userRepository.findByLoginId(VALID_LOGIN_ID))
+                    .thenReturn(Optional.of(user));
+
+            // act
+            UserModel result = userService.findByLoginId(VALID_LOGIN_ID);
+
+            // assert
+            assertThat(result).isNotNull();
+            assertThat(result.getLoginId()).isEqualTo(VALID_LOGIN_ID);
+        }
+
+        @DisplayName("존재하지 않는 로그인 ID로 조회하면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenLoginIdNotFound() {
+            // arrange
+            when(userRepository.findByLoginId(VALID_LOGIN_ID))
+                    .thenReturn(Optional.empty());
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                userService.findByLoginId(VALID_LOGIN_ID);
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
     }
 }

@@ -90,5 +90,66 @@ class UserModelTest {
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
+
+        @DisplayName("생년월일이 현재보다 이후의 날짜면, 예외가 발생한다.")
+        @Test
+        void throwsBadRequestException_whenBirthDateisAfterToday(){
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                new UserModel(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, "2027-01-01", VALID_EMAIL);
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+    }
+
+    @DisplayName("비밀번호를 변경할 때, ")
+    @Nested
+    class ChangePassword {
+
+        @DisplayName("정상적인 암호화된 비밀번호로 변경하면, 비밀번호가 업데이트된다.")
+        @Test
+        void changesPassword_whenEncryptedPasswordIsValid() {
+            // arrange
+            UserModel user = new UserModel(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+            String newEncryptedPassword = "new_encrypted_password";
+
+            // act
+            user.changePassword(newEncryptedPassword);
+
+            // assert
+            assertThat(user.getPassword()).isEqualTo(newEncryptedPassword);
+        }
+
+        @DisplayName("blank 비밀번호로 변경하면, 예외가 발생한다.")
+        @Test
+        void throwsBadRequestException_whenPasswordIsBlank() {
+            // arrange
+            UserModel user = new UserModel(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                user.changePassword("");
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("null 비밀번호로 변경하면, 예외가 발생한다.")
+        @Test
+        void throwsBadRequestException_whenPasswordIsNull() {
+            // arrange
+            UserModel user = new UserModel(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                user.changePassword(null);
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
     }
 }

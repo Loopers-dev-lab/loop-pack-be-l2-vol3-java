@@ -77,4 +77,158 @@ class UserServiceIntegrationTest {
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
+
+    @DisplayName("인증을 할 때, ")
+    @Nested
+    class Authenticate {
+
+        @DisplayName("올바른 자격증명으로 인증이 성공한다.")
+        @Test
+        void authenticateSucceeds_whenCredentialsAreValid() {
+            // arrange - 회원가입 (BCrypt 암호화 포함)
+            SignupCommand command = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+            userService.signup(command);
+
+            // act
+            UserModel result = userService.authenticate(VALID_LOGIN_ID, VALID_PASSWORD);
+
+            // assert
+            assertThat(result).isNotNull();
+            assertThat(result.getLoginId()).isEqualTo(VALID_LOGIN_ID);
+        }
+
+        @DisplayName("존재하지 않는 로그인 ID로 인증하면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenLoginIdNotFound() {
+            // act & assert
+            CoreException result = assertThrows(CoreException.class, () -> {
+                userService.authenticate("nonexistent", VALID_PASSWORD);
+            });
+
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("비밀번호가 일치하지 않으면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenPasswordDoesNotMatch() {
+            // arrange - 회원가입
+            SignupCommand command = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+            userService.signup(command);
+
+            // act & assert
+            CoreException result = assertThrows(CoreException.class, () -> {
+                userService.authenticate(VALID_LOGIN_ID, "wrongPw@123");
+            });
+
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+    }
+
+    @DisplayName("비밀번호를 변경할 때, ")
+    @Nested
+    class ChangePassword {
+
+        private static final String NEW_PASSWORD = "newPw@1234";
+
+        @DisplayName("정상적인 정보로 비밀번호 변경이 성공한다.")
+        @Test
+        void changePasswordSucceeds_whenInfoIsValid() {
+            // arrange - 회원가입
+            SignupCommand signupCommand = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+            userService.signup(signupCommand);
+
+            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, VALID_PASSWORD, NEW_PASSWORD);
+
+            // act
+            userService.changePassword(command);
+
+            // assert - 새 비밀번호로 인증 성공
+            UserModel result = userService.authenticate(VALID_LOGIN_ID, NEW_PASSWORD);
+            assertThat(result).isNotNull();
+            assertThat(result.getLoginId()).isEqualTo(VALID_LOGIN_ID);
+        }
+
+        @DisplayName("비밀번호 변경 후 기존 비밀번호로 인증하면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenAuthenticatingWithOldPassword() {
+            // arrange - 회원가입 및 비밀번호 변경
+            SignupCommand signupCommand = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+            userService.signup(signupCommand);
+
+            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, VALID_PASSWORD, NEW_PASSWORD);
+            userService.changePassword(command);
+
+            // act & assert - 기존 비밀번호로 인증 실패
+            CoreException result = assertThrows(CoreException.class, () -> {
+                userService.authenticate(VALID_LOGIN_ID, VALID_PASSWORD);
+            });
+
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("현재 비밀번호가 일치하지 않으면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenCurrentPasswordDoesNotMatch() {
+            // arrange - 회원가입
+            SignupCommand signupCommand = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+            userService.signup(signupCommand);
+
+            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, "wrongPw@123", NEW_PASSWORD);
+
+            // act & assert
+            CoreException result = assertThrows(CoreException.class, () -> {
+                userService.changePassword(command);
+            });
+
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("새 비밀번호가 현재 비밀번호와 동일하면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenNewPasswordIsSameAsCurrent() {
+            // arrange - 회원가입
+            SignupCommand signupCommand = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+            userService.signup(signupCommand);
+
+            ChangePasswordCommand command = new ChangePasswordCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_PASSWORD);
+
+            // act & assert
+            CoreException result = assertThrows(CoreException.class, () -> {
+                userService.changePassword(command);
+            });
+
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+    }
+
+    @DisplayName("로그인 ID로 조회할 때, ")
+    @Nested
+    class FindByLoginId {
+
+        @DisplayName("존재하는 로그인 ID로 조회하면, 사용자를 반환한다.")
+        @Test
+        void returnsUser_whenLoginIdExists() {
+            // arrange - 회원가입
+            SignupCommand command = new SignupCommand(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+            userService.signup(command);
+
+            // act
+            UserModel result = userService.findByLoginId(VALID_LOGIN_ID);
+
+            // assert
+            assertThat(result).isNotNull();
+            assertThat(result.getLoginId()).isEqualTo(VALID_LOGIN_ID);
+        }
+
+        @DisplayName("존재하지 않는 로그인 ID로 조회하면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenLoginIdNotFound() {
+            // act & assert
+            CoreException result = assertThrows(CoreException.class, () -> {
+                userService.findByLoginId("nonexistent");
+            });
+
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+        }
+    }
 }
