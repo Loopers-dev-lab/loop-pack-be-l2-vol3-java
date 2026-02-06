@@ -3,6 +3,7 @@ package com.loopers.user.interfaces.controller;
 import com.loopers.user.application.facade.UserCommandFacade;
 import com.loopers.user.application.facade.UserQueryFacade;
 import com.loopers.user.domain.model.User;
+import com.loopers.user.interfaces.controller.request.UserChangePasswordRequest;
 import com.loopers.user.interfaces.controller.request.UserSignUpRequest;
 import com.loopers.user.interfaces.controller.response.UserMeResponse;
 import com.loopers.user.interfaces.controller.response.UserSignUpResponse;
@@ -10,6 +11,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -42,5 +44,14 @@ public class UserController {
 		User user = userQueryFacade.getMe(loginId, password);
 		UserMeResponse response = UserMeResponse.from(user);
 		return ResponseEntity.ok(response);
+	}
+
+	@PatchMapping("/me/password")
+	public ResponseEntity<Void> changePassword(
+			@RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
+			@RequestHeader(value = "X-Loopers-LoginPw", required = false) String password,
+			@Valid @RequestBody UserChangePasswordRequest request) {
+		userCommandFacade.changePassword(loginId, password, request.toCommand());
+		return ResponseEntity.ok().build();
 	}
 }

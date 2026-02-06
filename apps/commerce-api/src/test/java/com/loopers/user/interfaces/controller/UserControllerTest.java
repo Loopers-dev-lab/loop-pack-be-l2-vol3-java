@@ -2,9 +2,11 @@ package com.loopers.user.interfaces.controller;
 
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
+import com.loopers.user.application.dto.command.UserChangePasswordCommand;
 import com.loopers.user.application.facade.UserCommandFacade;
 import com.loopers.user.application.facade.UserQueryFacade;
 import com.loopers.user.domain.model.User;
+import com.loopers.user.interfaces.controller.request.UserChangePasswordRequest;
 import com.loopers.user.interfaces.controller.request.UserSignUpRequest;
 import com.loopers.user.interfaces.controller.response.UserMeResponse;
 import com.loopers.user.interfaces.controller.response.UserSignUpResponse;
@@ -23,7 +25,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -117,6 +122,45 @@ class UserControllerTest {
 		// Act & Assert
 		CoreException exception = assertThrows(CoreException.class,
 			() -> userController.getMe(null, null));
+
+		assertAll(
+			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
+			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
+		);
+	}
+
+	@Test
+	@DisplayName("[changePassword()] 유효한 비밀번호 변경 요청 -> 200 OK. 빈 응답 본문")
+	void changePasswordReturnsOkResponse() {
+		// Arrange
+		UserChangePasswordRequest request = new UserChangePasswordRequest("Test1234!", "NewPass1234!");
+
+		willDoNothing().given(userCommandFacade)
+			.changePassword(eq("testuser01"), eq("Test1234!"), any(UserChangePasswordCommand.class));
+
+		// Act
+		ResponseEntity<Void> response = userController.changePassword("testuser01", "Test1234!", request);
+
+		// Assert
+		assertAll(
+			() -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+			() -> assertThat(response.getBody()).isNull()
+		);
+		verify(userCommandFacade).changePassword(eq("testuser01"), eq("Test1234!"), any(UserChangePasswordCommand.class));
+	}
+
+	@Test
+	@DisplayName("[changePassword()] 인증 실패 -> CoreException(UNAUTHORIZED) 전파")
+	void changePasswordPropagatesUnauthorizedException() {
+		// Arrange
+		UserChangePasswordRequest request = new UserChangePasswordRequest("Test1234!", "NewPass1234!");
+
+		willThrow(new CoreException(ErrorType.UNAUTHORIZED)).given(userCommandFacade)
+			.changePassword(eq(null), eq(null), any(UserChangePasswordCommand.class));
+
+		// Act & Assert
+		CoreException exception = assertThrows(CoreException.class,
+			() -> userController.changePassword(null, null, request));
 
 		assertAll(
 			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),

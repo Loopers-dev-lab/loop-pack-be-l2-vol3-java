@@ -50,6 +50,10 @@ public class UserEntity extends BaseEntity {
 		);
 	}
 
+	public void updatePassword(String password) {
+		this.password = password;
+	}
+
 	public User toDomain() {
 		return User.reconstruct(
 			this.getId(),

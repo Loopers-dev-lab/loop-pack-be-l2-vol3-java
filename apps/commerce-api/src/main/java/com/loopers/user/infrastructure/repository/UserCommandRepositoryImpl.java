@@ -17,6 +17,13 @@ public class UserCommandRepositoryImpl implements UserCommandRepository {
 
 	@Override
 	public User save(User user) {
+		if (user.getId() != null) {
+			UserEntity existingEntity = userJpaRepository.findById(user.getId())
+				.orElseThrow();
+			existingEntity.updatePassword(user.getPassword().value());
+			return existingEntity.toDomain();
+		}
+
 		UserEntity entity = UserEntity.from(user);
 		UserEntity savedEntity = userJpaRepository.save(entity);
 		return savedEntity.toDomain();
