@@ -231,4 +231,42 @@ class UserServiceIntegrationTest {
             assertThat(userInfo.name()).isEqualTo("johnsmit*");
         }
     }
+
+    @DisplayName("포인트를 조회할 때, ")
+    @Nested
+    class GetPoints {
+
+        @DisplayName("존재하지 않는 사용자 ID로 조회하면, null을 반환한다.")
+        @Test
+        void getPoints_withNonExistentUserId_shouldReturnNull() {
+            // given
+            String nonExistentUserId = "nouser";
+
+            // when
+            Long points = userService.getPoints(nonExistentUserId);
+
+            // then
+            assertThat(points).isNull();
+        }
+
+        @DisplayName("존재하는 사용자 ID로 조회하면, 포인트를 반환한다.")
+        @Test
+        void getPoints_withExistingUserId_shouldReturnPoints() {
+            // given
+            String userId = "testuser1";
+            Email email = new Email("test@example.com");
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            Password password = Password.of("SecurePass1!", birthDate);
+            Gender gender = Gender.MALE;
+
+            userService.signUp(userId, email, birthDate, password, gender);
+
+            // when
+            Long points = userService.getPoints(userId);
+
+            // then
+            assertThat(points).isNotNull();
+            assertThat(points).isEqualTo(0L);
+        }
+    }
 }
