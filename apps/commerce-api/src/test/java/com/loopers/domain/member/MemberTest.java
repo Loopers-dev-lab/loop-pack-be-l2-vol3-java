@@ -7,20 +7,14 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-/**
- * [단위 테스트 - Entity]
- *
- * 테스트 대상: Member (Entity)
- * 테스트 유형: 순수 단위 테스트 (Pure Unit Test)
- * 외부 의존성: 없음
- *
- * 사용 라이브러리:
- * - JUnit 5 (org.junit.jupiter)
- * - AssertJ (org.assertj.core.api)
- *
- * 특징:
- * - Spring Context 불필요 → 빠른 실행
- * - Docker/DB 불필요
+/*
+  [단위 테스트]
+  대상 : Member
+  사용 라이브러리 : JUnit 5, AssertJ
+ 
+  특징:
+  - Spring Context 불필요 → 빠른 실행
+  - Docker/DB 불필요
  */
 @DisplayName("Member 엔티티")
 class MemberTest {
@@ -44,12 +38,11 @@ class MemberTest {
 
             // then
             assertAll(
-                () -> assertThat(member.getLoginId()).isEqualTo("testuser1"),
-                () -> assertThat(member.getPassword()).isEqualTo("$2a$10$encodedPassword"),
-                () -> assertThat(member.getName()).isEqualTo("홍길동"),
-                () -> assertThat(member.getEmail()).isEqualTo("test@example.com"),
-                () -> assertThat(member.getBirthDate()).isEqualTo("19990101")
-            );
+                    () -> assertThat(member.getLoginId()).isEqualTo("testuser1"),
+                    () -> assertThat(member.getPassword()).isEqualTo("$2a$10$encodedPassword"),
+                    () -> assertThat(member.getName()).isEqualTo("홍길동"),
+                    () -> assertThat(member.getEmail()).isEqualTo("test@example.com"),
+                    () -> assertThat(member.getBirthDate()).isEqualTo("19990101"));
         }
 
         @Test
@@ -67,11 +60,10 @@ class MemberTest {
 
             // then
             assertAll(
-                () -> assertThat(member.getLoginId()).isEqualTo("testuser1"),
-                () -> assertThat(member.getName()).isEqualTo("홍길동"),
-                () -> assertThat(member.getEmail()).isEqualTo("test@example.com"),
-                () -> assertThat(member.getBirthDate()).isEqualTo("19990101")
-            );
+                    () -> assertThat(member.getLoginId()).isEqualTo("testuser1"),
+                    () -> assertThat(member.getName()).isEqualTo("홍길동"),
+                    () -> assertThat(member.getEmail()).isEqualTo("test@example.com"),
+                    () -> assertThat(member.getBirthDate()).isEqualTo("19990101"));
         }
     }
 
@@ -84,12 +76,11 @@ class MemberTest {
         void changesPassword_toNewEncodedPassword() {
             // given
             Member member = new Member(
-                new LoginId("testuser1"),
-                "$2a$10$oldPassword",
-                new MemberName("홍길동"),
-                new Email("test@example.com"),
-                new BirthDate("19990101")
-            );
+                    new LoginId("testuser1"),
+                    "$2a$10$oldPassword",
+                    new MemberName("홍길동"),
+                    new Email("test@example.com"),
+                    new BirthDate("19990101"));
             String newEncodedPassword = "$2a$10$newPassword";
 
             // when
@@ -105,12 +96,11 @@ class MemberTest {
             // given
             String oldPassword = "$2a$10$oldPassword";
             Member member = new Member(
-                new LoginId("testuser1"),
-                oldPassword,
-                new MemberName("홍길동"),
-                new Email("test@example.com"),
-                new BirthDate("19990101")
-            );
+                    new LoginId("testuser1"),
+                    oldPassword,
+                    new MemberName("홍길동"),
+                    new Email("test@example.com"),
+                    new BirthDate("19990101"));
             String newEncodedPassword = "$2a$10$newPassword";
 
             // when

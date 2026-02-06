@@ -6,21 +6,14 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-/**
- * [단위 테스트 - Command]
- *
- * 테스트 대상: SignupCommand (Domain Command)
- * 테스트 유형: 순수 단위 테스트 (Pure Unit Test)
- * 외부 의존성: 없음
- *
- * 사용 라이브러리:
- * - JUnit 5 (org.junit.jupiter)
- * - AssertJ (org.assertj.core.api)
- *
- * 특징:
- * - Spring Context 불필요 → 빠른 실행
- * - Docker/DB 불필요
- * - Command 객체의 생성 및 컴포넌트 접근 검증
+/*
+  [단위 테스트]
+  대상 : SignupCommand
+  사용 라이브러리 : JUnit 5, AssertJ
+ 
+  특징:
+  - Spring Context 불필요 → 빠른 실행
+  - Docker/DB 불필요
  */
 @DisplayName("SignupCommand")
 class SignupCommandTest {
@@ -40,12 +33,11 @@ class SignupCommandTest {
 
         // then
         assertAll(
-            () -> assertThat(command.loginId()).isEqualTo("testuser1"),
-            () -> assertThat(command.password()).isEqualTo("Password1!"),
-            () -> assertThat(command.name()).isEqualTo("홍길동"),
-            () -> assertThat(command.email()).isEqualTo("test@example.com"),
-            () -> assertThat(command.birthDate()).isEqualTo("19990101")
-        );
+                () -> assertThat(command.loginId()).isEqualTo("testuser1"),
+                () -> assertThat(command.password()).isEqualTo("Password1!"),
+                () -> assertThat(command.name()).isEqualTo("홍길동"),
+                () -> assertThat(command.email()).isEqualTo("test@example.com"),
+                () -> assertThat(command.birthDate()).isEqualTo("19990101"));
     }
 
     @Test
@@ -53,21 +45,19 @@ class SignupCommandTest {
     void accessesRecordComponents_directly() {
         // given
         SignupCommand command = new SignupCommand(
-            "testuser1",
-            "Password1!",
-            "홍길동",
-            "test@example.com",
-            "19990101"
-        );
+                "testuser1",
+                "Password1!",
+                "홍길동",
+                "test@example.com",
+                "19990101");
 
         // when & then
         assertAll(
-            () -> assertThat(command.loginId()).isEqualTo("testuser1"),
-            () -> assertThat(command.password()).isEqualTo("Password1!"),
-            () -> assertThat(command.name()).isEqualTo("홍길동"),
-            () -> assertThat(command.email()).isEqualTo("test@example.com"),
-            () -> assertThat(command.birthDate()).isEqualTo("19990101")
-        );
+                () -> assertThat(command.loginId()).isEqualTo("testuser1"),
+                () -> assertThat(command.password()).isEqualTo("Password1!"),
+                () -> assertThat(command.name()).isEqualTo("홍길동"),
+                () -> assertThat(command.email()).isEqualTo("test@example.com"),
+                () -> assertThat(command.birthDate()).isEqualTo("19990101"));
     }
 
     @Test
@@ -75,19 +65,17 @@ class SignupCommandTest {
     void equals_whenSameValues() {
         // given
         SignupCommand command1 = new SignupCommand(
-            "testuser1",
-            "Password1!",
-            "홍길동",
-            "test@example.com",
-            "19990101"
-        );
+                "testuser1",
+                "Password1!",
+                "홍길동",
+                "test@example.com",
+                "19990101");
         SignupCommand command2 = new SignupCommand(
-            "testuser1",
-            "Password1!",
-            "홍길동",
-            "test@example.com",
-            "19990101"
-        );
+                "testuser1",
+                "Password1!",
+                "홍길동",
+                "test@example.com",
+                "19990101");
 
         // when & then
         assertThat(command1).isEqualTo(command2);
@@ -98,19 +86,17 @@ class SignupCommandTest {
     void notEquals_whenDifferentValues() {
         // given
         SignupCommand command1 = new SignupCommand(
-            "testuser1",
-            "Password1!",
-            "홍길동",
-            "test@example.com",
-            "19990101"
-        );
+                "testuser1",
+                "Password1!",
+                "홍길동",
+                "test@example.com",
+                "19990101");
         SignupCommand command2 = new SignupCommand(
-            "testuser2",
-            "Password2!",
-            "김철수",
-            "test2@example.com",
-            "19900101"
-        );
+                "testuser2",
+                "Password2!",
+                "김철수",
+                "test2@example.com",
+                "19900101");
 
         // when & then
         assertThat(command1).isNotEqualTo(command2);

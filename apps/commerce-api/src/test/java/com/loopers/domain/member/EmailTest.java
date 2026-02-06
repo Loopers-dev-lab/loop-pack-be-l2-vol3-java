@@ -9,20 +9,14 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * [단위 테스트 - Value Object]
- *
- * 테스트 대상: Email (Value Object)
- * 테스트 유형: 순수 단위 테스트 (Pure Unit Test)
- * 외부 의존성: 없음
- *
- * 사용 라이브러리:
- * - JUnit 5 (org.junit.jupiter)
- * - AssertJ (org.assertj.core.api)
- *
- * 특징:
- * - Spring Context 불필요 → 빠른 실행
- * - Docker/DB 불필요
+/*
+  [단위 테스트]
+  대상 : Email VO
+  사용 라이브러리 : JUnit 5, AssertJ
+ 
+  특징:
+  - Spring Context 불필요 → 빠른 실행
+  - Docker/DB 불필요
  */
 @DisplayName("이메일을 생성할 때,")
 class EmailTest {
@@ -109,7 +103,7 @@ class EmailTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new Email(value));
+                    () -> new Email(value));
 
             // assert
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -123,7 +117,7 @@ class EmailTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new Email(value));
+                    () -> new Email(value));
 
             // assert
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -137,7 +131,7 @@ class EmailTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new Email(value));
+                    () -> new Email(value));
 
             // assert
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -151,7 +145,7 @@ class EmailTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new Email(value));
+                    () -> new Email(value));
 
             // assert
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -165,7 +159,7 @@ class EmailTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new Email(value));
+                    () -> new Email(value));
 
             // assert
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -179,7 +173,7 @@ class EmailTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new Email(value));
+                    () -> new Email(value));
 
             // assert
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);

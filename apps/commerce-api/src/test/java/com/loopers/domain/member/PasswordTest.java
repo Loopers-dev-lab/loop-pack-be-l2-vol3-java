@@ -11,25 +11,14 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * [단위 테스트 - Value Object]
- *
- * 테스트 대상: Password (Value Object)
- * 테스트 유형: 순수 단위 테스트 (Pure Unit Test)
- * 외부 의존성: 없음
- *
- * 사용 라이브러리:
- * - JUnit 5 (org.junit.jupiter)
- * - AssertJ (org.assertj.core.api)
- *
- * 어노테이션 설명:
- * - @Test: 테스트 메서드 표시
- * - @DisplayName: 테스트 이름을 한글로 표시
- * - @Nested: 테스트를 논리적으로 그룹화
- *
- * 특징:
- * - Spring Context 불필요 → 빠른 실행
- * - Docker/DB 불필요
+/*
+  [단위 테스트]
+  대상 : Password VO
+  사용 라이브러리 : JUnit 5, AssertJ
+ 
+  특징:
+  - Spring Context 불필요 → 빠른 실행
+  - Docker/DB 불필요
  */
 @DisplayName("비밀번호를 생성할 때,")
 class PasswordTest {
@@ -103,13 +92,12 @@ class PasswordTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new Password(value));
+                    () -> new Password(value));
 
             // assert
             assertAll(
-                () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST),
-                () -> assertThat(exception.getMessage()).contains("8", "16")
-            );
+                    () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST),
+                    () -> assertThat(exception.getMessage()).contains("8", "16"));
         }
 
         @Test
@@ -120,13 +108,12 @@ class PasswordTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new Password(value));
+                    () -> new Password(value));
 
             // assert
             assertAll(
-                () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST),
-                () -> assertThat(exception.getMessage()).contains("8", "16")
-            );
+                    () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST),
+                    () -> assertThat(exception.getMessage()).contains("8", "16"));
         }
 
         @Test
@@ -137,7 +124,7 @@ class PasswordTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new Password(value));
+                    () -> new Password(value));
 
             // assert
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -151,7 +138,7 @@ class PasswordTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new Password(value));
+                    () -> new Password(value));
 
             // assert
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -165,7 +152,7 @@ class PasswordTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new Password(value));
+                    () -> new Password(value));
 
             // assert
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -185,13 +172,12 @@ class PasswordTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> password.validateNotContainsBirthDate(birthDate));
+                    () -> password.validateNotContainsBirthDate(birthDate));
 
             // assert
             assertAll(
-                () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST),
-                () -> assertThat(exception.getMessage()).contains("생년월일")
-            );
+                    () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST),
+                    () -> assertThat(exception.getMessage()).contains("생년월일"));
         }
 
         @Test

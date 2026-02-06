@@ -26,33 +26,28 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * [단위 테스트 - Facade with Mock]
- *
- * 테스트 대상: MemberFacade (Application Layer)
- * 테스트 유형: 단위 테스트 (Mock 사용)
- * 테스트 더블: Mock (MemberService)
- *
- * 사용 라이브러리:
- * - JUnit 5 (org.junit.jupiter)
- * - Mockito (org.mockito)
- * - AssertJ (org.assertj.core.api)
- *
- * 어노테이션 설명:
- * - @ExtendWith(MockitoExtension.class): Mockito-JUnit 5 통합
- * - @Mock: MemberService를 Mock 객체로 생성
- * - @InjectMocks: Mock을 MemberFacade에 주입
- *
- * Mockito 메서드 설명:
- * - mock(Class): 특정 클래스의 Mock 객체 동적 생성
- * - when().thenReturn(): Stub - 메서드 호출 시 반환값 지정
- * - verify(): Mock - 메서드 호출 여부/횟수 검증
- *
- * 특징:
- * - Spring Context 불필요 → 빠른 실행
- * - Docker/DB 불필요
- * - Facade가 Service를 올바르게 호출하는지 검증
+/*
+  [단위 테스트 - Facade with Mock]
+  대상 : MemberFacade
+  사용 라이브러리 : JUnit 5, AssertJ, Mockito
+  테스트 더블 : Mock(MemberService)
+
+  어노테이션 설명:
+  - @ExtendWith(MockitoExtension.class): Mockito-JUnit 5 통합
+  - @Mock: MemberService를 Mock 객체로 생성
+  - @InjectMocks: Mock을 MemberFacade에 주입
+
+  Mockito 메서드 설명:
+  - mock(Class): 특정 클래스의 Mock 객체 동적 생성
+  - when().thenReturn(): Stub - 메서드 호출 시 반환값 지정
+  - verify(): Mock - 메서드 호출 여부/횟수 검증
+
+  특징:
+  - Spring Context 불필요 → 빠른 실행
+  - Docker/DB 불필요
+  - Facade가 Service를 올바르게 호출하는지 검증
  */
+
 @ExtendWith(MockitoExtension.class)
 @DisplayName("MemberFacade 단위 테스트")
 class MemberFacadeTest {
@@ -72,12 +67,11 @@ class MemberFacadeTest {
         void callsServiceAndReturnsMemberInfo() {
             // arrange
             SignupCommand command = new SignupCommand(
-                "testuser1",
-                "Password1!",
-                "홍길동",
-                "test@example.com",
-                "19990101"
-            );
+                    "testuser1",
+                    "Password1!",
+                    "홍길동",
+                    "test@example.com",
+                    "19990101");
 
             // Stub - Member Mock 객체 설정
             Member mockMember = mock(Member.class);
@@ -94,13 +88,12 @@ class MemberFacadeTest {
 
             // assert
             assertAll(
-                () -> assertThat(info.id()).isEqualTo(1L),
-                () -> assertThat(info.loginId()).isEqualTo("testuser1"),
-                () -> assertThat(info.name()).isEqualTo("홍길동"),
-                () -> assertThat(info.email()).isEqualTo("test@example.com"),
-                () -> assertThat(info.birthDate()).isEqualTo("19990101"),
-                () -> verify(memberService, times(1)).signup(command)
-            );
+                    () -> assertThat(info.id()).isEqualTo(1L),
+                    () -> assertThat(info.loginId()).isEqualTo("testuser1"),
+                    () -> assertThat(info.name()).isEqualTo("홍길동"),
+                    () -> assertThat(info.email()).isEqualTo("test@example.com"),
+                    () -> assertThat(info.birthDate()).isEqualTo("19990101"),
+                    () -> verify(memberService, times(1)).signup(command));
         }
 
         @Test
@@ -108,12 +101,11 @@ class MemberFacadeTest {
         void passesCommandToService() {
             // arrange
             SignupCommand command = new SignupCommand(
-                "testuser1",
-                "Password1!",
-                "홍길동",
-                "test@example.com",
-                "19990101"
-            );
+                    "testuser1",
+                    "Password1!",
+                    "홍길동",
+                    "test@example.com",
+                    "19990101");
 
             Member mockMember = mock(Member.class);
             when(mockMember.getId()).thenReturn(1L);
@@ -136,23 +128,22 @@ class MemberFacadeTest {
         void throwsException_whenDuplicateLoginId() {
             // given
             SignupCommand command = new SignupCommand(
-                "duplicateId",
-                "Password1!",
-                "홍길동",
-                "test@example.com",
-                "19990101"
-            );
+                    "duplicateId",
+                    "Password1!",
+                    "홍길동",
+                    "test@example.com",
+                    "19990101");
 
             when(memberService.signup(command))
-                .thenThrow(new CoreException(ErrorType.CONFLICT, "이미 사용 중인 로그인 ID입니다."));
+                    .thenThrow(new CoreException(ErrorType.CONFLICT, "이미 사용 중인 로그인 ID입니다."));
 
             // when & then
             assertThatThrownBy(() -> memberFacade.signup(command))
-                .isInstanceOf(CoreException.class)
-                .satisfies(exception -> {
-                    CoreException coreException = (CoreException) exception;
-                    assertThat(coreException.getErrorType()).isEqualTo(ErrorType.CONFLICT);
-                });
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(exception -> {
+                        CoreException coreException = (CoreException) exception;
+                        assertThat(coreException.getErrorType()).isEqualTo(ErrorType.CONFLICT);
+                    });
         }
 
         @Test
@@ -160,23 +151,22 @@ class MemberFacadeTest {
         void throwsException_whenDuplicateEmail() {
             // given
             SignupCommand command = new SignupCommand(
-                "testuser1",
-                "Password1!",
-                "홍길동",
-                "duplicate@example.com",
-                "19990101"
-            );
+                    "testuser1",
+                    "Password1!",
+                    "홍길동",
+                    "duplicate@example.com",
+                    "19990101");
 
             when(memberService.signup(command))
-                .thenThrow(new CoreException(ErrorType.CONFLICT, "이미 사용 중인 이메일입니다."));
+                    .thenThrow(new CoreException(ErrorType.CONFLICT, "이미 사용 중인 이메일입니다."));
 
             // when & then
             assertThatThrownBy(() -> memberFacade.signup(command))
-                .isInstanceOf(CoreException.class)
-                .satisfies(exception -> {
-                    CoreException coreException = (CoreException) exception;
-                    assertThat(coreException.getErrorType()).isEqualTo(ErrorType.CONFLICT);
-                });
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(exception -> {
+                        CoreException coreException = (CoreException) exception;
+                        assertThat(coreException.getErrorType()).isEqualTo(ErrorType.CONFLICT);
+                    });
         }
     }
 
@@ -204,12 +194,11 @@ class MemberFacadeTest {
 
             // assert
             assertAll(
-                () -> assertThat(info.loginId()).isEqualTo("testuser1"),
-                () -> assertThat(info.name()).isEqualTo("홍길*"),  // 마스킹된 이름
-                () -> assertThat(info.email()).isEqualTo("test@example.com"),
-                () -> assertThat(info.birthDate()).isEqualTo("19990101"),
-                () -> verify(memberService, times(1)).authenticate(loginId, rawPassword)
-            );
+                    () -> assertThat(info.loginId()).isEqualTo("testuser1"),
+                    () -> assertThat(info.name()).isEqualTo("홍길*"), // 마스킹된 이름
+                    () -> assertThat(info.email()).isEqualTo("test@example.com"),
+                    () -> assertThat(info.birthDate()).isEqualTo("19990101"),
+                    () -> verify(memberService, times(1)).authenticate(loginId, rawPassword));
         }
 
         @Test
@@ -242,15 +231,15 @@ class MemberFacadeTest {
             String rawPassword = "Password1!";
 
             when(memberService.authenticate(loginId, rawPassword))
-                .thenThrow(new CoreException(ErrorType.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."));
+                    .thenThrow(new CoreException(ErrorType.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."));
 
             // when & then
             assertThatThrownBy(() -> memberFacade.getMyInfo(loginId, rawPassword))
-                .isInstanceOf(CoreException.class)
-                .satisfies(exception -> {
-                    CoreException coreException = (CoreException) exception;
-                    assertThat(coreException.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
-                });
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(exception -> {
+                        CoreException coreException = (CoreException) exception;
+                        assertThat(coreException.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+                    });
         }
 
         @Test
@@ -261,15 +250,15 @@ class MemberFacadeTest {
             String wrongPassword = "WrongPass1!";
 
             when(memberService.authenticate(loginId, wrongPassword))
-                .thenThrow(new CoreException(ErrorType.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."));
+                    .thenThrow(new CoreException(ErrorType.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."));
 
             // when & then
             assertThatThrownBy(() -> memberFacade.getMyInfo(loginId, wrongPassword))
-                .isInstanceOf(CoreException.class)
-                .satisfies(exception -> {
-                    CoreException coreException = (CoreException) exception;
-                    assertThat(coreException.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
-                });
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(exception -> {
+                        CoreException coreException = (CoreException) exception;
+                        assertThat(coreException.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+                    });
         }
     }
 
@@ -328,15 +317,16 @@ class MemberFacadeTest {
             String newPassword = "NewPass123!";
 
             when(memberService.authenticate(loginId, wrongHeaderPassword))
-                .thenThrow(new CoreException(ErrorType.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."));
+                    .thenThrow(new CoreException(ErrorType.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."));
 
             // when & then
-            assertThatThrownBy(() -> memberFacade.changePassword(loginId, wrongHeaderPassword, currentPassword, newPassword))
-                .isInstanceOf(CoreException.class)
-                .satisfies(exception -> {
-                    CoreException coreException = (CoreException) exception;
-                    assertThat(coreException.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
-                });
+            assertThatThrownBy(
+                    () -> memberFacade.changePassword(loginId, wrongHeaderPassword, currentPassword, newPassword))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(exception -> {
+                        CoreException coreException = (CoreException) exception;
+                        assertThat(coreException.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+                    });
 
             // 인증 실패 시 changePassword는 호출되지 않음
             verify(memberService, never()).changePassword(any(), anyString(), anyString());
@@ -354,15 +344,16 @@ class MemberFacadeTest {
             Member mockMember = mock(Member.class);
             when(memberService.authenticate(loginId, headerPassword)).thenReturn(mockMember);
             doThrow(new CoreException(ErrorType.UNAUTHORIZED, "현재 비밀번호가 일치하지 않습니다."))
-                .when(memberService).changePassword(mockMember, wrongCurrentPassword, newPassword);
+                    .when(memberService).changePassword(mockMember, wrongCurrentPassword, newPassword);
 
             // when & then
-            assertThatThrownBy(() -> memberFacade.changePassword(loginId, headerPassword, wrongCurrentPassword, newPassword))
-                .isInstanceOf(CoreException.class)
-                .satisfies(exception -> {
-                    CoreException coreException = (CoreException) exception;
-                    assertThat(coreException.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
-                });
+            assertThatThrownBy(
+                    () -> memberFacade.changePassword(loginId, headerPassword, wrongCurrentPassword, newPassword))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(exception -> {
+                        CoreException coreException = (CoreException) exception;
+                        assertThat(coreException.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
+                    });
         }
 
         @Test
@@ -377,15 +368,16 @@ class MemberFacadeTest {
             Member mockMember = mock(Member.class);
             when(memberService.authenticate(loginId, headerPassword)).thenReturn(mockMember);
             doThrow(new CoreException(ErrorType.BAD_REQUEST, "비밀번호는 8자 이상 16자 이하여야 합니다."))
-                .when(memberService).changePassword(mockMember, currentPassword, invalidNewPassword);
+                    .when(memberService).changePassword(mockMember, currentPassword, invalidNewPassword);
 
             // when & then
-            assertThatThrownBy(() -> memberFacade.changePassword(loginId, headerPassword, currentPassword, invalidNewPassword))
-                .isInstanceOf(CoreException.class)
-                .satisfies(exception -> {
-                    CoreException coreException = (CoreException) exception;
-                    assertThat(coreException.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
-                });
+            assertThatThrownBy(
+                    () -> memberFacade.changePassword(loginId, headerPassword, currentPassword, invalidNewPassword))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(exception -> {
+                        CoreException coreException = (CoreException) exception;
+                        assertThat(coreException.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+                    });
         }
     }
 }

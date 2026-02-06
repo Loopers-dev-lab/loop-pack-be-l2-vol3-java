@@ -10,7 +10,6 @@ import java.util.regex.Pattern;
     
     - 한글 2~10자 유효성 검사
     - 마스킹 처리 메서드
-    
 */
 public record MemberName(String value) {
 

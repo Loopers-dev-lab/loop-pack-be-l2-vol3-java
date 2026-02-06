@@ -10,20 +10,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * [단위 테스트 - Value Object]
- *
- * 테스트 대상: MemberName (Value Object)
- * 테스트 유형: 순수 단위 테스트 (Pure Unit Test)
- * 외부 의존성: 없음
- *
- * 사용 라이브러리:
- * - JUnit 5 (org.junit.jupiter)
- * - AssertJ (org.assertj.core.api)
- *
- * 특징:
- * - Spring Context 불필요 → 빠른 실행
- * - Docker/DB 불필요
+/*
+  [단위 테스트]
+  대상 : MemberName VO
+  사용 라이브러리 : JUnit 5, AssertJ
+ 
+  특징:
+  - Spring Context 불필요 → 빠른 실행
+  - Docker/DB 불필요
  */
 @DisplayName("이름을 생성할 때,")
 class MemberNameTest {
@@ -97,13 +91,12 @@ class MemberNameTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new MemberName(value));
+                    () -> new MemberName(value));
 
             // assert
             assertAll(
-                () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST),
-                () -> assertThat(exception.getMessage()).contains("2", "10")
-            );
+                    () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST),
+                    () -> assertThat(exception.getMessage()).contains("2", "10"));
         }
 
         @Test
@@ -114,13 +107,12 @@ class MemberNameTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new MemberName(value));
+                    () -> new MemberName(value));
 
             // assert
             assertAll(
-                () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST),
-                () -> assertThat(exception.getMessage()).contains("2", "10")
-            );
+                    () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST),
+                    () -> assertThat(exception.getMessage()).contains("2", "10"));
         }
 
         @Test
@@ -131,7 +123,7 @@ class MemberNameTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new MemberName(value));
+                    () -> new MemberName(value));
 
             // assert
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -145,7 +137,7 @@ class MemberNameTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new MemberName(value));
+                    () -> new MemberName(value));
 
             // assert
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -159,7 +151,7 @@ class MemberNameTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new MemberName(value));
+                    () -> new MemberName(value));
 
             // assert
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -173,7 +165,7 @@ class MemberNameTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new MemberName(value));
+                    () -> new MemberName(value));
 
             // assert
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -187,7 +179,7 @@ class MemberNameTest {
 
             // act
             CoreException exception = assertThrows(CoreException.class,
-                () -> new MemberName(value));
+                    () -> new MemberName(value));
 
             // assert
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);

@@ -53,11 +53,10 @@ class MyInfoTest {
 
             // then
             assertAll(
-                () -> assertThat(info.loginId()).isEqualTo("testuser1"),
-                () -> assertThat(info.name()).isEqualTo("홍길*"),
-                () -> assertThat(info.email()).isEqualTo("test@example.com"),
-                () -> assertThat(info.birthDate()).isEqualTo("19990101")
-            );
+                    () -> assertThat(info.loginId()).isEqualTo("testuser1"),
+                    () -> assertThat(info.name()).isEqualTo("홍길*"),
+                    () -> assertThat(info.email()).isEqualTo("test@example.com"),
+                    () -> assertThat(info.birthDate()).isEqualTo("19990101"));
         }
 
         @Test
@@ -99,23 +98,21 @@ class MyInfoTest {
         void createsFromRealMember_withAllFieldsMapped() {
             // given
             Member member = new Member(
-                new LoginId("testuser1"),
-                "$2a$10$encodedPassword",
-                new MemberName("홍길동"),
-                new Email("test@example.com"),
-                new BirthDate("19990101")
-            );
+                    new LoginId("testuser1"),
+                    "$2a$10$encodedPassword",
+                    new MemberName("홍길동"),
+                    new Email("test@example.com"),
+                    new BirthDate("19990101"));
 
             // when
             MyInfo info = MyInfo.from(member);
 
             // then
             assertAll(
-                () -> assertThat(info.loginId()).isEqualTo("testuser1"),
-                () -> assertThat(info.name()).isEqualTo("홍길*"),
-                () -> assertThat(info.email()).isEqualTo("test@example.com"),
-                () -> assertThat(info.birthDate()).isEqualTo("19990101")
-            );
+                    () -> assertThat(info.loginId()).isEqualTo("testuser1"),
+                    () -> assertThat(info.name()).isEqualTo("홍길*"),
+                    () -> assertThat(info.email()).isEqualTo("test@example.com"),
+                    () -> assertThat(info.birthDate()).isEqualTo("19990101"));
         }
     }
 
@@ -128,19 +125,17 @@ class MyInfoTest {
         void accessesRecordComponents_directly() {
             // given
             MyInfo info = new MyInfo(
-                "testuser1",
-                "홍길*",
-                "test@example.com",
-                "19990101"
-            );
+                    "testuser1",
+                    "홍길*",
+                    "test@example.com",
+                    "19990101");
 
             // when & then
             assertAll(
-                () -> assertThat(info.loginId()).isEqualTo("testuser1"),
-                () -> assertThat(info.name()).isEqualTo("홍길*"),
-                () -> assertThat(info.email()).isEqualTo("test@example.com"),
-                () -> assertThat(info.birthDate()).isEqualTo("19990101")
-            );
+                    () -> assertThat(info.loginId()).isEqualTo("testuser1"),
+                    () -> assertThat(info.name()).isEqualTo("홍길*"),
+                    () -> assertThat(info.email()).isEqualTo("test@example.com"),
+                    () -> assertThat(info.birthDate()).isEqualTo("19990101"));
         }
     }
 }

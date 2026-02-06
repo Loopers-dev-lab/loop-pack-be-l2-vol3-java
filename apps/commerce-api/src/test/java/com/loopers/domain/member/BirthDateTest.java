@@ -10,25 +10,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * [단위 테스트 - Value Object]
- *
- * 테스트 대상: BirthDate (Value Object)
- * 테스트 유형: 순수 단위 테스트
- * 외부 의존성: 없음
- *
- * 사용 라이브러리:
- * - JUnit 5 (org.junit.jupiter)
- * - AssertJ (org.assertj.core.api)
- *
- * 특징:
- * - Spring Context 불필요 → 빠른 실행
- * - Docker/DB 불필요
+/*
+  [단위 테스트]
+  대상 : BirthDate VO
+  사용 라이브러리 : JUnit 5, AssertJ
+ 
+  특징:
+  - Spring Context 불필요 → 빠른 실행
+  - Docker/DB 불필요
  */
 @DisplayName("생년월일을 생성할 때,")
 class BirthDateTest {
 
-    @Nested
+    @Nested // 테스트를 계층적으로 구성
     @DisplayName("성공 케이스")
     class Success {
 

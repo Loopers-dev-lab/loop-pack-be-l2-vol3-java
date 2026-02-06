@@ -22,40 +22,33 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-/**
- * [E2E 테스트 - End-to-End API Test]
- *
- * 테스트 대상: 회원가입 API 전체 흐름
- * 테스트 유형: E2E 테스트 (End-to-End Test)
- * 테스트 범위: HTTP 요청 → Controller → Facade → Service → Repository → Database
- *
- * 사용 라이브러리:
- * - JUnit 5 (org.junit.jupiter)
- * - Spring Boot Test (org.springframework.boot.test)
- * - TestRestTemplate (org.springframework.boot.test.web.client)
- * - Testcontainers (org.testcontainers) - testFixtures 모듈에서 제공
- * - AssertJ (org.assertj.core.api)
- *
- * 어노테이션 설명:
- * - @SpringBootTest(webEnvironment = RANDOM_PORT): 실제 웹 서버 구동
- * (org.springframework.boot.test.context.SpringBootTest)
- * → RANDOM_PORT: 사용 가능한 임의의 포트에서 실제 HTTP 서버 시작
- * → MockMvc와 달리 실제 HTTP 통신 수행
- *
- * - TestRestTemplate: 실제 HTTP 요청을 보내는 테스트 클라이언트
- * → exchange(): HTTP 요청 전송 및 응답 수신
- * → 실제 네트워크를 통한 요청/응답 테스트
- * → 응답 헤더, 상태 코드, 본문 모두 검증 가능
- *
- * - ParameterizedTypeReference: 제네릭 타입의 응답 바디 역직렬화
- * → ApiResponse<T> 같은 제네릭 응답 처리
- *
- * 특징:
- * - 전체 애플리케이션 스택 테스트 (사용자 관점)
- * - 실제 HTTP 서버 구동 + 실제 DB 연동
- * - Docker Daemon 필수 (Testcontainers)
- * - 가장 현실적인 테스트 but 가장 느림
- * - 응답 헤더(X-Loopers-LoginId 등) 검증 가능
+/*
+  [E2E 테스트]
+
+  대상 : 회원가입 API 전체 흐름
+
+  테스트 범위: HTTP 요청 → Controller → Facade → Service → Repository → Database
+  사용 라이브러리 : JUnit 5, Spring Boot Test, TestRestTemplate, Testcontainers, AssertJ
+ 
+  어노테이션 설명:
+  - @SpringBootTest(webEnvironment = RANDOM_PORT): 실제 웹 서버 구동
+  → RANDOM_PORT: 사용 가능한 임의의 포트에서 실제 HTTP 서버 시작
+  → MockMvc와 달리 실제 HTTP 통신 수행
+ 
+  - TestRestTemplate: 실제 HTTP 요청을 보내는 테스트 클라이언트
+  → exchange(): HTTP 요청 전송 및 응답 수신
+  → 실제 네트워크를 통한 요청/응답 테스트
+  → 응답 헤더, 상태 코드, 본문 모두 검증 가능
+ 
+  - ParameterizedTypeReference: 제네릭 타입의 응답 바디 역직렬화
+  → ApiResponse<T> 같은 제네릭 응답 처리
+ 
+  특징:
+  - 전체 애플리케이션 스택 테스트 (사용자 관점)
+  - 실제 HTTP 서버 구동 + 실제 DB 연동
+  - Docker Daemon 필수 (Testcontainers)
+  - 가장 현실적인 테스트 but 가장 느림
+  - 응답 헤더(X-Loopers-LoginId 등) 검증 가능
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class MemberV1ApiE2ETest {
