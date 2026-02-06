@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.user;
 
 import com.loopers.application.user.UserInfo;
-import com.loopers.domain.user.UpdatePasswordCommand;
+import com.loopers.application.user.UpdatePasswordCommand;
 import com.loopers.domain.user.UserService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.user.dto.UserV1Dto;

@@ -1,4 +1,4 @@
-package com.loopers.domain.user;
+package com.loopers.application.user;
 
 import com.loopers.interfaces.api.user.dto.UserV1Dto;
 
