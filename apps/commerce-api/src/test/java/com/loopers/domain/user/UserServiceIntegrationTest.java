@@ -1,5 +1,6 @@
 package com.loopers.domain.user;
 
+import com.loopers.application.user.UserInfo;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
@@ -168,6 +169,66 @@ class UserServiceIntegrationTest {
             // then
             boolean matches = passwordEncoder.matches(rawPassword, savedUser.getEncryptedPassword());
             assertThat(matches).isTrue();
+        }
+    }
+
+    @DisplayName("내 정보를 조회할 때, ")
+    @Nested
+    class GetMyInfo {
+
+        @DisplayName("존재하지 않는 사용자 ID로 조회하면, null을 반환한다.")
+        @Test
+        void getMyInfo_withNonExistentUserId_shouldReturnNull() {
+            // given
+            String nonExistentUserId = "nouser";
+
+            // when
+            UserInfo userInfo = userService.getMyInfo(nonExistentUserId);
+
+            // then
+            assertThat(userInfo).isNull();
+        }
+
+        @DisplayName("존재하는 사용자 ID로 조회하면, 사용자 정보를 반환한다.")
+        @Test
+        void getMyInfo_withExistingUserId_shouldReturnUserInfo() {
+            // given
+            String userId = "testuser1";
+            Email email = new Email("test@example.com");
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            Password password = Password.of("SecurePass1!", birthDate);
+            Gender gender = Gender.MALE;
+
+            userService.signUp(userId, email, birthDate, password, gender);
+
+            // when
+            UserInfo userInfo = userService.getMyInfo(userId);
+
+            // then
+            assertThat(userInfo).isNotNull();
+            assertThat(userInfo.userId()).isEqualTo(userId);
+            assertThat(userInfo.email()).isEqualTo("test@example.com");
+            assertThat(userInfo.birthDate()).isEqualTo("1990-01-15");
+            assertThat(userInfo.gender()).isEqualTo("MALE");
+        }
+
+        @DisplayName("조회된 사용자 정보의 이름은 userId를 마스킹한 값이다.")
+        @Test
+        void getMyInfo_shouldReturnMaskedName() {
+            // given
+            String userId = "johnsmith";
+            Email email = new Email("john@example.com");
+            BirthDate birthDate = new BirthDate("1992-06-10");
+            Password password = Password.of("Password2!", birthDate);
+            Gender gender = Gender.MALE;
+
+            userService.signUp(userId, email, birthDate, password, gender);
+
+            // when
+            UserInfo userInfo = userService.getMyInfo(userId);
+
+            // then
+            assertThat(userInfo.name()).isEqualTo("johnsmit*");
         }
     }
 }
