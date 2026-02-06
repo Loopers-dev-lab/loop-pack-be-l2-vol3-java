@@ -13,6 +13,7 @@ public record UserInfo(String loginId, String name, LocalDate birthDate, String 
             user.getEmail()
         );
     }
+
     private static String maskLastChar(String name) {
         if (name == null || name.isBlank()) return name;
         if (name.length() == 1) return "*";
