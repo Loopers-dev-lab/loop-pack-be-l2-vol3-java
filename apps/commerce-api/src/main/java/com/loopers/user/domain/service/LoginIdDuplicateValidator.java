@@ -14,6 +14,9 @@ public class LoginIdDuplicateValidator {
 	}
 
 	public void validate(String loginId) {
+		if (loginId == null || loginId.isBlank()) {
+			throw new CoreException(ErrorType.INVALID_LOGIN_ID_FORMAT);
+		}
 		if (existsByLoginId.test(loginId)) {
 			throw new CoreException(ErrorType.USER_ALREADY_EXISTS);
 		}

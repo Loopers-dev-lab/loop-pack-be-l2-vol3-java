@@ -71,4 +71,34 @@ class LoginIdDuplicateValidatorTest {
 		// Assert
 		verify(existsByLoginId).test("testuser01");
 	}
+
+	@Test
+	@DisplayName("[validate()] null loginId -> CoreException(INVALID_LOGIN_ID_FORMAT) 발생. "
+		+ "null 입력에 대해 Predicate 호출 없이 즉시 예외 발생")
+	void validateThrowsWhenLoginIdIsNull() {
+		// Act
+		CoreException exception = assertThrows(CoreException.class,
+			() -> validator.validate(null));
+
+		// Assert
+		assertAll(
+			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT),
+			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT.getMessage())
+		);
+	}
+
+	@Test
+	@DisplayName("[validate()] blank loginId -> CoreException(INVALID_LOGIN_ID_FORMAT) 발생. "
+		+ "빈 문자열/공백 입력에 대해 Predicate 호출 없이 즉시 예외 발생")
+	void validateThrowsWhenLoginIdIsBlank() {
+		// Act
+		CoreException exception = assertThrows(CoreException.class,
+			() -> validator.validate("   "));
+
+		// Assert
+		assertAll(
+			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT),
+			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT.getMessage())
+		);
+	}
 }
