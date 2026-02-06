@@ -31,4 +31,12 @@ public class UserFacade {
     public UserInfo getMyInfo(String userId) {
         return userService.getMyInfo(userId);
     }
+
+    public PointsInfo getPoints(String userId) {
+        Long points = userService.getPoints(userId);
+        if (points == null) {
+            return null;
+        }
+        return new PointsInfo(userId, points);
+    }
 }

@@ -42,4 +42,11 @@ public class UserService {
             .map(UserInfo::from)
             .orElse(null);
     }
+
+    @Transactional(readOnly = true)
+    public Long getPoints(String userId) {
+        return userRepository.findByUserId(userId)
+            .map(UserModel::getPoints)
+            .orElse(null);
+    }
 }
