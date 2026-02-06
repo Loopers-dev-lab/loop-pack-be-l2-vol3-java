@@ -58,9 +58,9 @@ com.loopers
     │   └── repository/            # 리포지토리 인터페이스 (CQRS)
     │       └── {Domain}CommandRepository  # 명령 (save, delete)
     │       └── {Domain}QueryRepository    # 조회 (find, exists)
-    │   └── dto/                   # DTO (CQRS)
-    │       └── command/           # 명령 DTO
-    │       └── query/             # 조회 DTO
+    │   └── dto/                   # DTO (InDto/OutDto)
+    │       └── in/                # 입력 DTO (Request → InDto)
+    │       └── out/               # 출력 DTO (Domain → OutDto → Response)
     ├── domain/
     │   └── model/                 # 도메인 모델
     │       └── enum/              # 도메인 내 공통 Enum
@@ -185,6 +185,7 @@ class SomeIntegrationTest {
 1. `ErrorType` enum에 에러 추가 (HttpStatus, code, message)
 2. 도메인 코드에서 `throw new CoreException(ErrorType.XXX)`
 3. `GlobalExceptionHandler`는 수정 불필요 (자동 처리)
+4. `CoreException(ErrorType, String customMessage)` 생성자로 커스텀 메시지 전달 가능 (기본값: ErrorType 메시지 사용)
 
 - `@Valid` 검증 실패 → `MethodArgumentNotValidException` → BAD_REQUEST 자동 반환
 
@@ -204,6 +205,10 @@ class SomeIntegrationTest {
 #### 유효성 검증 순서
 null 체크 → empty 체크 → 길이 제한 → 포맷(정규식) → 비즈니스 규칙
 
+#### 입력값 정규화 (Normalization)
+- `create()` 팩토리 메서드에서만 수행: `loginId` → `trim().toLowerCase()`, `name`/`email` → `trim()`
+- Facade/Service에서 중복 정규화 금지 (도메인 모델이 단일 책임)
+
 #### Value Object
 - Java `record`로 구현 (예: `Password`)
 - `create()` + `fromEncoded()` 팩토리 메서드 패턴 동일 적용
@@ -218,9 +223,15 @@ null 체크 → empty 체크 → 길이 제한 → 포맷(정규식) → 비즈�
 - 변경 가능 필드: `private` (non-final) → `changeXxx()` 메서드 제공 (예: `password`)
 - 불변 필드: `private final` → 변경 불가 (예: `loginId`, `name`, `birthday`, `email`)
 
+#### 도메인 서비스 (Domain Service)
+- **순수 Java 클래스** — Spring 어노테이션 없음 (Domain Model과 일관성 유지)
+- 리포지토리 조회가 필요한 비즈니스 불변식(invariant) 검증에 사용 (예: loginId 중복 체크)
+- 생성자에 함수형 인터페이스 주입 (예: `Predicate<String> existsByLoginId`)
+- `support/config/DomainServiceConfig.java`에서 `@Configuration` + `@Bean`으로 등록, 리포지토리 메서드 레퍼런스를 주입
+
 ### 4.7 CQRS 레이어 흐름
 
-Controller → Facade(@Transactional) → Service → Repository(interface) → RepositoryImpl → JpaRepository + Entity ↔ Domain
+Controller → Facade(@Transactional) → Service / Domain Service → Repository(interface) → RepositoryImpl → JpaRepository + Entity ↔ Domain
 
 #### 레이어 규칙
 - **호출 순서 준수**: Controller → Facade → Service → Repository 순서를 반드시 지켜야 하며, 계층을 건너뛰는 호출(예: Controller → Service 직접 호출)을 금지한다.
@@ -229,9 +240,10 @@ Controller → Facade(@Transactional) → Service → Repository(interface) → 
 | 레이어 | 클래스 | 어노테이션 | 역할 |
 |--------|--------|-----------|------|
 | Controller | `{Domain}Controller` | `@RestController` | 요청 수신, Facade 호출 |
-| Facade | `{Domain}CommandFacade` | `@Component`, `@Transactional` | 명령 유스케이스 오케스트레이션, 트랜잭션 경계 |
-| Facade | `{Domain}QueryFacade` | `@Component`, `@Transactional(readOnly = true)` | 조회 유스케이스 오케스트레이션 |
+| Facade | `{Domain}CommandFacade` | `@Service`, `@Transactional` | 명령 유스케이스 오케스트레이션, 트랜잭션 경계 |
+| Facade | `{Domain}QueryFacade` | `@Service`, `@Transactional(readOnly = true)` | 조회 유스케이스 오케스트레이션 |
 | Service | `{Domain}CommandService` | `@Service`, `@Transactional` | 단일 도메인 비즈니스 로직 |
+| Domain Service | `{Domain}XxxValidator` 등 | (순수 Java, `@Bean` 등록) | 리포지토리 의존 비즈니스 불변식 검증 |
 | Repository(I) | `{Domain}Command/QueryRepository` | (인터페이스) | 명령(save,delete) / 조회(find,exists) 계약 |
 | RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain 변환 후 JPA 호출 |
 | Entity | `{Domain}Entity` | `@Entity` | `from(Domain)` + `toDomain()` 변환 |
@@ -247,10 +259,16 @@ Controller → Facade(@Transactional) → Service → Repository(interface) → 
 
 | DTO 유형 | 위치 | 변환 메서드 |
 |----------|------|-----------|
-| Request | `interfaces/controller/request/` | `toCommand()` → Command 반환 |
-| Command | `application/dto/command/` | 불변 record, 변환 없음 |
-| Response | `interfaces/controller/response/` | `from(Domain)` static 팩토리 |
+| Request | `interfaces/controller/request/` | `toInDto()` → InDto 반환 |
+| InDto | `application/dto/in/` | 불변 record, 변환 없음 |
+| OutDto | `application/dto/out/` | `from(Domain)` static 팩토리 |
+| Response | `interfaces/controller/response/` | `from(OutDto)` static 팩토리 |
 | Entity | `infrastructure/entity/` | `from(Domain)` + `toDomain()` 양방향 |
+
+#### 데이터 변환 흐름
+`Request` → `toInDto()` → **Facade** → Domain → `OutDto.from(domain)` → **Controller** → `Response.from(outDto)`
+
+- Response에서 데이터 마스킹 가능 (예: `UserMeResponse.maskName()` — 이름 마지막 글자 마스킹)
 
 - Request에 `@NotBlank`, `@NotNull` 등 Jakarta Validation 적용
 - Response에 민감정보(password) 포함 금지
