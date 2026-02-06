@@ -31,4 +31,8 @@ public class UserFacade {
     public UserInfo getMyInfo(String userId) {
         return userService.getMyInfo(userId);
     }
+
+    public void updatePassword(String userId, String currentPassword, String newPassword) {
+        userService.updatePassword(userId, currentPassword, newPassword);
+    }
 }
