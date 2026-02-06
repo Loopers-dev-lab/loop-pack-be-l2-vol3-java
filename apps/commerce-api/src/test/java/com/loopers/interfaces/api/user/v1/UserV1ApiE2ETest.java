@@ -3,6 +3,11 @@ package com.loopers.interfaces.api.user.v1;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -125,6 +130,54 @@ class UserV1ApiE2ETest {
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
                     () -> assertThat(response.getBody()).isNotNull(),
                     () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.DUPLICATE_LOGIN_ID.getCode())
+            );
+        }
+
+        @DisplayName("동일한 로그인 ID로 동시에 가입 요청하면, 하나만 성공하고 나머지는 DUPLICATE_LOGIN_ID 에러 응답을 받는다.")
+        @Test
+        void signUp_onlyOneSucceeds_whenConcurrentRequestsWithSameLoginId() throws InterruptedException {
+            // arrange
+            int threadCount = 10;
+            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch latch = new CountDownLatch(threadCount);
+            AtomicInteger successCount = new AtomicInteger(0);
+            AtomicInteger duplicateCount = new AtomicInteger(0);
+
+            // act
+            for (int i = 0; i < threadCount; i++) {
+                int index = i;
+                executorService.execute(() -> {
+                    try {
+                        UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
+                                "concurrent",
+                                "Password" + index + "!",
+                                "이름" + index,
+                                "1990-01-01",
+                                "email" + index + "@test.com"
+                        );
+                        ParameterizedTypeReference<ApiResponse<SignUpResponse>> responseType = new ParameterizedTypeReference<>() {
+                        };
+                        ResponseEntity<ApiResponse<SignUpResponse>> response =
+                                testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
+                        if (response.getStatusCode() == HttpStatus.CREATED) {
+                            successCount.incrementAndGet();
+                        } else if (response.getBody() != null
+                                && ErrorType.DUPLICATE_LOGIN_ID.getCode().equals(response.getBody().meta().errorCode())
+                        ) {
+                            duplicateCount.incrementAndGet();
+                        }
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+            latch.await();
+            executorService.shutdown();
+
+            // assert
+            assertAll(
+                    () -> assertThat(successCount.get()).isEqualTo(1),
+                    () -> assertThat(duplicateCount.get()).isEqualTo(threadCount - 1)
             );
         }
 
