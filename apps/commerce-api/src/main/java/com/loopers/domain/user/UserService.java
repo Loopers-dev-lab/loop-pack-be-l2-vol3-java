@@ -1,5 +1,6 @@
 package com.loopers.domain.user;
 
+import com.loopers.application.user.UserInfo;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -33,5 +34,12 @@ public class UserService {
         } catch (DataIntegrityViolationException e) {
             throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 사용자 ID입니다: " + userId);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public UserInfo getMyInfo(String userId) {
+        return userRepository.findByUserId(userId)
+            .map(UserInfo::from)
+            .orElse(null);
     }
 }
