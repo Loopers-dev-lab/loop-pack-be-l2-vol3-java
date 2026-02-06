@@ -135,6 +135,22 @@ class UserServiceTest {
         }
 
         @Test
+        @DisplayName("생년월일이 null이면 BAD_REQUEST 예외가 발생한다")
+        void throwsBadRequest_whenBirthDateIsNull() {
+            // when & then
+            assertThatThrownBy(() -> userService.register(
+                "testuser",
+                "Password1!",
+                "홍길동",
+                null,
+                "test@example.com"
+            ))
+                .isInstanceOf(CoreException.class)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
+                .hasMessageContaining("생년월일");
+        }
+
+        @Test
         @DisplayName("비밀번호가 8자 미만이면 BAD_REQUEST 예외가 발생한다")
         void throwsBadRequest_whenPasswordTooShort() {
             // when & then

@@ -279,6 +279,27 @@ class UserV1ApiE2ETest {
             // then
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
+
+        @DisplayName("생년월일이 null이면, 400 BAD_REQUEST 응답을 반환한다.")
+        @Test
+        void returnsBadRequest_whenBirthDateIsNull() {
+            // given
+            UserV1Dto.RegisterRequest request = new UserV1Dto.RegisterRequest(
+                "testuser",
+                "Password1!",
+                "홍길동",
+                null,
+                "test@example.com"
+            );
+
+            // when
+            ParameterizedTypeReference<ApiResponse<UserV1Dto.RegisterResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserV1Dto.RegisterResponse>> response =
+                testRestTemplate.exchange(REGISTER_ENDPOINT, HttpMethod.POST, createRequestEntity(request), responseType);
+
+            // then
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
     }
 
     @DisplayName("GET /api/v1/users/info")
