@@ -6,9 +6,9 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class CoreExceptionTest {
-    @DisplayName("ErrorType 기반의 예외 생성 시, 별도의 메시지가 주어지지 않으면 ErrorType의 메시지를 사용한다.")
+    @DisplayName("커스텀 메시지가 없으면 ErrorType의 메시지를 사용한다")
     @Test
-    void messageShouldBeErrorTypeMessage_whenCustomMessageIsNull() {
+    void usesErrorTypeMessageByDefault() {
         // arrange
         ErrorType[] errorTypes = ErrorType.values();
 
@@ -19,9 +19,9 @@ class CoreExceptionTest {
         }
     }
 
-    @DisplayName("ErrorType 기반의 예외 생성 시, 별도의 메시지가 주어지면 해당 메시지를 사용한다.")
+    @DisplayName("커스텀 메시지가 주어지면 해당 메시지를 사용한다")
     @Test
-    void messageShouldBeCustomMessage_whenCustomMessageIsNotNull() {
+    void usesCustomMessageWhenProvided() {
         // arrange
         String customMessage = "custom message";
 
