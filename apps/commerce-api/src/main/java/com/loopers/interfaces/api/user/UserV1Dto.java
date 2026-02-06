@@ -41,4 +41,22 @@ public class UserV1Dto {
             );
         }
     }
+
+    public record MyInfoResponse(
+        String userId,
+        String name,
+        String email,
+        String birthDate,
+        String gender
+    ) {
+        public static MyInfoResponse from(UserInfo userInfo) {
+            return new MyInfoResponse(
+                userInfo.userId(),
+                userInfo.name(),
+                userInfo.email(),
+                userInfo.birthDate(),
+                userInfo.gender()
+            );
+        }
+    }
 }
