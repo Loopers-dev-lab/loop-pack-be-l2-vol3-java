@@ -255,11 +255,13 @@ Example: signUp_withDuplicateId_shouldFail()
    - ❌ Domain models importing Spring/JPA infrastructure (`@Autowired`, etc.)
    - ❌ Direct repository calls from Controllers (must go through Facades)
 
-4. **Lombok Restrictions**:
+4. **Lombok Usage Guidelines**:
 
-   - **NEW code and entities**: DO NOT use Lombok
-   - Use explicit constructors, getters, and builders
-   - Exception: Existing code may retain Lombok temporarily (refactor gradually)
+   - **VO/DTO**: Use Java `record` (Lombok not needed)
+   - **Entity**: Lombok allowed (`@Getter`, `@NoArgsConstructor(access = PROTECTED)`)
+   - **Exception/Enum**: Lombok allowed (`@Getter`, `@RequiredArgsConstructor`)
+   - **Service/Facade**: Avoid Lombok in business logic (constructor injection only)
+   - **Rationale**: Balance between code brevity and explicit domain logic
 
 5. **Test Anti-Patterns**:
 

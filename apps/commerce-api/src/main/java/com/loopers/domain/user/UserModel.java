@@ -6,9 +6,15 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import static lombok.AccessLevel.PROTECTED;
 
 @Entity
 @Table(name = "users")
+@Getter
+@NoArgsConstructor(access = PROTECTED)
 public class UserModel extends BaseEntity {
 
     @Column(name = "user_id", nullable = false, unique = true, length = 10)
@@ -29,8 +35,6 @@ public class UserModel extends BaseEntity {
 
     @Column(name = "points", nullable = false)
     private Long points;
-
-    protected UserModel() {}
 
     private UserModel(
         String userId,
@@ -63,29 +67,5 @@ public class UserModel extends BaseEntity {
             gender,
             0L
         );
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getBirthDate() {
-        return birthDate;
-    }
-
-    public String getEncryptedPassword() {
-        return encryptedPassword;
-    }
-
-    public Gender getGender() {
-        return gender;
-    }
-
-    public Long getPoints() {
-        return points;
     }
 }
