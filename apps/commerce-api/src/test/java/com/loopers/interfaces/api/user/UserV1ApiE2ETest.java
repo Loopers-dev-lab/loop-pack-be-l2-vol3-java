@@ -12,10 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 
 import static com.loopers.interfaces.api.ApiResponse.Metadata.Result;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class UserV1ApiE2ETest {
 
     private static final String ENDPOINT_SIGN_UP = "/customer/v1/users/sign-up";
+    private static final String ENDPOINT_MY_INFO = "/customer/v1/users/me";
 
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
@@ -154,6 +152,75 @@ class UserV1ApiE2ETest {
                 () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT),
                 () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.FAIL),
                 () -> assertThat(response.getBody().meta().errorCode()).isEqualTo("Conflict")
+            );
+        }
+    }
+
+    @DisplayName("GET /customer/v1/users/me - 내 정보 조회")
+    @Nested
+    class GetMyInfo {
+
+        @DisplayName("로그인 헤더 없이 요청하면, 401 Unauthorized를 반환한다.")
+        @Test
+        void getMyInfo_withoutLoginHeader_shouldReturnUnauthorized() {
+            // given - 헤더 없음
+
+            // when
+            ParameterizedTypeReference<ApiResponse<UserV1Dto.MyInfoResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserV1Dto.MyInfoResponse>> response =
+                testRestTemplate.exchange(ENDPOINT_MY_INFO, HttpMethod.GET, new HttpEntity<>(null), responseType);
+
+            // then
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @DisplayName("존재하지 않는 사용자 ID로 조회하면, 404 Not Found를 반환한다.")
+        @Test
+        void getMyInfo_withNonExistentUserId_shouldReturnNotFound() {
+            // given
+            String nonExistentUserId = "nouser";
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", nonExistentUserId);
+
+            // when
+            ParameterizedTypeReference<ApiResponse<UserV1Dto.MyInfoResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserV1Dto.MyInfoResponse>> response =
+                testRestTemplate.exchange(ENDPOINT_MY_INFO, HttpMethod.GET, new HttpEntity<>(headers), responseType);
+
+            // then
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @DisplayName("유효한 요청 시, 200 OK와 마스킹된 사용자 정보를 반환한다.")
+        @Test
+        void getMyInfo_withValidRequest_shouldReturnMaskedUserInfo() {
+            // given - 먼저 회원가입
+            UserV1Dto.SignUpRequest signUpRequest = new UserV1Dto.SignUpRequest(
+                "johnsmith",
+                "SecurePass1!",
+                "john@example.com",
+                "1990-01-15",
+                "MALE"
+            );
+            testRestTemplate.exchange(ENDPOINT_SIGN_UP, HttpMethod.POST, new HttpEntity<>(signUpRequest), new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {});
+
+            // when - 내 정보 조회
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "johnsmith");
+            
+            ParameterizedTypeReference<ApiResponse<UserV1Dto.MyInfoResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserV1Dto.MyInfoResponse>> response =
+                testRestTemplate.exchange(ENDPOINT_MY_INFO, HttpMethod.GET, new HttpEntity<>(headers), responseType);
+
+            // then
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.SUCCESS),
+                () -> assertThat(response.getBody().data().userId()).isEqualTo("johnsmith"),
+                () -> assertThat(response.getBody().data().name()).isEqualTo("johnsmit*"),
+                () -> assertThat(response.getBody().data().email()).isEqualTo("john@example.com"),
+                () -> assertThat(response.getBody().data().birthDate()).isEqualTo("1990-01-15"),
+                () -> assertThat(response.getBody().data().gender()).isEqualTo("MALE")
             );
         }
     }
