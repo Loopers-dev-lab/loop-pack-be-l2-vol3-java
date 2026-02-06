@@ -56,7 +56,6 @@ public class User extends BaseEntity {
     }
 
     public void changePassword(String newPassword) {
-        //FixMe: 비밀번호 변경 시 변경할 비밀번호를 전달했는지 확인하는 책임은 Service or Controller/DTO에 있지 않나...?
         Assert.hasText(newPassword, "새 비밀번호는 필수입니다");
         this.password = newPassword;
     }

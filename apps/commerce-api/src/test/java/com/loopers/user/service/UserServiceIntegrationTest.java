@@ -133,7 +133,6 @@ public class UserServiceIntegrationTest {
         userService.createUser(request);
 
         // when & then
-        //FixMe: InvalidCredentialsException 예외가 loginId와 일치한 id 가 없어서 발생한 예외인지 현재 로그인한 비밀번호와 기존에 저장된 비밀번호가 달라서 발생한 예외인지 어떻게 확신이 가능한가?
         assertThatThrownBy(() -> userService.changePassword(loginId, wrongPassword, newPassword))
                 .isInstanceOf(InvalidCredentialsException.class);
     }
