@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.user;
 
+import com.loopers.application.user.PointsInfo;
 import com.loopers.application.user.UserFacade;
 import com.loopers.application.user.UserInfo;
 import com.loopers.interfaces.api.ApiResponse;
@@ -52,6 +53,24 @@ public class UserV1Controller implements UserV1ApiSpec {
         }
 
         UserV1Dto.MyInfoResponse response = UserV1Dto.MyInfoResponse.from(userInfo);
+        return ApiResponse.success(response);
+    }
+
+    @GetMapping("/me/points")
+    @Override
+    public ApiResponse<UserV1Dto.PointsResponse> getPoints(
+        @RequestHeader(value = "X-USER-ID", required = false) String userId
+    ) {
+        if (userId == null || userId.isBlank()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "X-USER-ID 헤더가 필요합니다.");
+        }
+
+        PointsInfo pointsInfo = userFacade.getPoints(userId);
+        if (pointsInfo == null) {
+            throw new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다: " + userId);
+        }
+
+        UserV1Dto.PointsResponse response = UserV1Dto.PointsResponse.from(pointsInfo);
         return ApiResponse.success(response);
     }
 }

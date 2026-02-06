@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.user;
 
+import com.loopers.application.user.PointsInfo;
 import com.loopers.application.user.UserInfo;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -56,6 +57,18 @@ public class UserV1Dto {
                 userInfo.email(),
                 userInfo.birthDate(),
                 userInfo.gender()
+            );
+        }
+    }
+
+    public record PointsResponse(
+        String userId,
+        Long points
+    ) {
+        public static PointsResponse from(PointsInfo pointsInfo) {
+            return new PointsResponse(
+                pointsInfo.userId(),
+                pointsInfo.points()
             );
         }
     }

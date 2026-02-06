@@ -27,4 +27,13 @@ public interface UserV1ApiSpec {
         @Parameter(description = "로그인 사용자 ID", required = true)
         String loginId
     );
+
+    @Operation(
+        summary = "포인트 조회",
+        description = "사용자의 포인트를 조회합니다."
+    )
+    ApiResponse<UserV1Dto.PointsResponse> getPoints(
+        @Parameter(description = "사용자 ID", required = true)
+        String userId
+    );
 }
