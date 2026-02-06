@@ -15,17 +15,13 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserInfo getMyInfo(String loginId) {
-        User user = userRepository.findByLoginId(loginId)
-                                  .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[loginId = " + loginId + "] 를 찾을 수 없습니다."));
-
+        User user = findUserByLoginId(loginId);
         return UserInfo.from(user);
     }
 
     @Transactional
     public void updatePassword(UpdatePasswordCommand command) {
-        String loginId = command.loginId();
-        User user = userRepository.findByLoginId(loginId)
-                                  .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[loginId = " + loginId + "] 를 찾을 수 없습니다."));
+        User user = findUserByLoginId(command.loginId());
 
         PasswordPolicyValidator.validate(command.newPassword(), user.getBirthDate());
 
@@ -34,5 +30,10 @@ public class UserService {
         }
 
         user.updatePassword(passwordEncoder.encode(command.newPassword()));
+    }
+
+    private User findUserByLoginId(String loginId) {
+        return userRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[loginId = " + loginId + "] 를 찾을 수 없습니다."));
     }
 }
