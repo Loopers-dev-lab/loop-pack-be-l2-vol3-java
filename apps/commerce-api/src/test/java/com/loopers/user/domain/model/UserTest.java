@@ -331,6 +331,98 @@ class UserTest {
 	}
 
 	@Nested
+	@DisplayName("비밀번호 변경 테스트")
+	class ChangePasswordTest {
+
+		@Test
+		@DisplayName("[changePassword()] 유효한 현재 비밀번호와 새 비밀번호 -> 비밀번호 변경 성공. "
+			+ "새 비밀번호로 authenticate 성공")
+		void changePasswordSuccess() {
+			// Arrange
+			User user = User.create(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+			String newPassword = "NewPass1234!";
+
+			// Act
+			user.changePassword(VALID_PASSWORD, newPassword);
+
+			// Assert
+			user.authenticate(newPassword);
+		}
+
+		@Test
+		@DisplayName("[changePassword()] 현재 비밀번호 불일치 -> CoreException(ErrorType.UNAUTHORIZED) 발생. "
+			+ "에러 메시지: '인증에 실패했습니다.'")
+		void failWhenCurrentPasswordNotMatch() {
+			// Arrange
+			User user = User.create(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> user.changePassword("WrongPass1!", "NewPass1234!"));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
+			);
+		}
+
+		@Test
+		@DisplayName("[changePassword()] 새 비밀번호가 현재 비밀번호와 동일 -> CoreException(ErrorType.PASSWORD_SAME_AS_CURRENT) 발생. "
+			+ "에러 메시지: '새 비밀번호는 현재 비밀번호와 같을 수 없습니다.'")
+		void failWhenNewPasswordSameAsCurrent() {
+			// Arrange
+			User user = User.create(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> user.changePassword(VALID_PASSWORD, VALID_PASSWORD));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.PASSWORD_SAME_AS_CURRENT),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.PASSWORD_SAME_AS_CURRENT.getMessage())
+			);
+		}
+
+		@Test
+		@DisplayName("[changePassword()] 새 비밀번호 형식 오류 (8자 미만) -> CoreException(ErrorType.INVALID_PASSWORD_FORMAT) 발생. "
+			+ "에러 메시지: '비밀번호는 8~16자이며, 영문 대소문자, 숫자, 특수문자를 모두 포함해야 합니다.'")
+		void failWhenNewPasswordFormatInvalid() {
+			// Arrange
+			User user = User.create(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> user.changePassword(VALID_PASSWORD, "short"));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT.getMessage())
+			);
+		}
+
+		@Test
+		@DisplayName("[changePassword()] 새 비밀번호에 생년월일 포함 -> CoreException(ErrorType.PASSWORD_CONTAINS_BIRTHDAY) 발생. "
+			+ "에러 메시지: '비밀번호에 생년월일을 포함할 수 없습니다.'")
+		void failWhenNewPasswordContainsBirthday() {
+			// Arrange
+			User user = User.create(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> user.changePassword(VALID_PASSWORD, "Aa19900115!"));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.PASSWORD_CONTAINS_BIRTHDAY),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.PASSWORD_CONTAINS_BIRTHDAY.getMessage())
+			);
+		}
+	}
+
+	@Nested
 	@DisplayName("인증 테스트")
 	class AuthenticateTest {
 

@@ -21,7 +21,7 @@ public class User {
 
 	private Long id;
 	private final String loginId;
-	private final Password password;
+	private Password password;
 	private final String name;
 	private final LocalDate birthday;
 	private final String email;
@@ -78,6 +78,16 @@ public class User {
 		if (!this.password.matches(rawPassword)) {
 			throw new CoreException(ErrorType.UNAUTHORIZED);
 		}
+	}
+
+	public void changePassword(String currentRawPassword, String newRawPassword) {
+		authenticate(currentRawPassword);
+
+		if (currentRawPassword.equals(newRawPassword)) {
+			throw new CoreException(ErrorType.PASSWORD_SAME_AS_CURRENT);
+		}
+
+		this.password = Password.create(newRawPassword, this.birthday);
 	}
 
 	private static void validateLoginId(String loginId) {

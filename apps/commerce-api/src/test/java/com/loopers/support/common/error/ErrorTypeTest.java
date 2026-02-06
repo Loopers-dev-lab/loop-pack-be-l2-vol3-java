@@ -52,15 +52,17 @@ class ErrorTypeTest {
 				"INVALID_EMAIL_FORMAT", "올바른 이메일 형식이 아닙니다."),
 			Arguments.of(ErrorType.INVALID_BIRTHDAY, HttpStatus.BAD_REQUEST,
 				"INVALID_BIRTHDAY", "생년월일은 1900-01-01 이후, 오늘 이전이어야 합니다."),
+			Arguments.of(ErrorType.PASSWORD_SAME_AS_CURRENT, HttpStatus.BAD_REQUEST,
+				"PASSWORD_SAME_AS_CURRENT", "새 비밀번호는 현재 비밀번호와 같을 수 없습니다."),
 			Arguments.of(ErrorType.UNAUTHORIZED, HttpStatus.UNAUTHORIZED,
 				"UNAUTHORIZED", "인증에 실패했습니다.")
 		);
 	}
 
 	@Test
-	@DisplayName("[ErrorType] enum 상수 개수가 12개임을 보장")
+	@DisplayName("[ErrorType] enum 상수 개수가 13개임을 보장")
 	void enumConstantCount() {
 		// Assert
-		assertThat(ErrorType.values()).hasSize(12);
+		assertThat(ErrorType.values()).hasSize(13);
 	}
 }

@@ -23,6 +23,7 @@ public enum ErrorType {
 	INVALID_NAME_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_NAME_FORMAT", "이름은 한글 또는 영문만 사용 가능하며, 최대 100자입니다."),
 	INVALID_EMAIL_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_EMAIL_FORMAT", "올바른 이메일 형식이 아닙니다."),
 	INVALID_BIRTHDAY(HttpStatus.BAD_REQUEST, "INVALID_BIRTHDAY", "생년월일은 1900-01-01 이후, 오늘 이전이어야 합니다."),
+	PASSWORD_SAME_AS_CURRENT(HttpStatus.BAD_REQUEST, "PASSWORD_SAME_AS_CURRENT", "새 비밀번호는 현재 비밀번호와 같을 수 없습니다."),
 
 	/** 인증 에러 */
 	UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "인증에 실패했습니다.");
