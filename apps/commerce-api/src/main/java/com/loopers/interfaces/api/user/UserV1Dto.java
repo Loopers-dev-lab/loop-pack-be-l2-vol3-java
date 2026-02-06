@@ -46,4 +46,12 @@ public class UserV1Dto {
         String email,
         String birthDate
     ) {}
+
+    public record ChangePasswordRequest(
+        @NotBlank(message = "필수 입력값입니다")
+        String currentPassword,
+
+        @NotBlank(message = "필수 입력값입니다")
+        String newPassword
+    ) {}
 }

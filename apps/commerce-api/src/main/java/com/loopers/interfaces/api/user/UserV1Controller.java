@@ -7,6 +7,7 @@ import com.loopers.interfaces.api.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -47,5 +48,16 @@ public class UserV1Controller {
             user.getEmail(),
             user.getBirthDate()
         ));
+    }
+
+    @PatchMapping("/me/password")
+    public ApiResponse<Void> changePassword(
+        @RequestHeader("X-Loopers-LoginId") String loginId,
+        @RequestHeader("X-Loopers-LoginPw") String loginPw,
+        @Valid @RequestBody UserV1Dto.ChangePasswordRequest request
+    ) {
+        userService.authenticate(loginId, loginPw);
+        userService.changePassword(loginId, request.currentPassword(), request.newPassword());
+        return ApiResponse.success(null);
     }
 }

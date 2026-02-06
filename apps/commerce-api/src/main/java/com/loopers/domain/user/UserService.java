@@ -46,4 +46,23 @@ public class UserService {
 
         return userRepository.save(user);
     }
+
+    @Transactional
+    public void changePassword(String loginId, String currentPassword, String newPassword) {
+        User user = userRepository.findByLoginId(loginId)
+            .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "사용자를 찾을 수 없습니다."));
+
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "현재 비밀번호가 일치하지 않습니다.");
+        }
+
+        if (currentPassword.equals(newPassword)) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다.");
+        }
+
+        passwordPolicyValidator.validate(newPassword, user.getBirthDate());
+
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        user.changePassword(encodedPassword);
+    }
 }
