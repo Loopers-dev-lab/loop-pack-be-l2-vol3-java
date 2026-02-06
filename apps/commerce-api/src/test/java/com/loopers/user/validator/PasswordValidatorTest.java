@@ -11,7 +11,7 @@ public class PasswordValidatorTest {
 
 
     @Test
-    void 비밀번호가_8자_미만이면_예외_발생() {
+    void 비밀번호가_8자_미만이면_IllegalArgumentException이_발생한다() {
         //given
         String password = "1234";
 
@@ -23,7 +23,7 @@ public class PasswordValidatorTest {
     }
 
     @Test
-    void 비밀번호가_16자_초과하면_예외_발생() {
+    void 비밀번호가_16자_초과하면_IllegalArgumentException이_발생한다() {
         //given
         String password = "12345678901234567";
 
@@ -36,7 +36,7 @@ public class PasswordValidatorTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"Password1!한글", "Password1!😀", "Password 1!"})
-    void 비밀번호에_허용되지_않는_문자_포함시_예외_발생(String password) {
+    void 비밀번호에_허용되지_않는_문자_포함시_IllegalArgumentException이_발생한다(String password) {
         //given
 
         //when
@@ -47,7 +47,7 @@ public class PasswordValidatorTest {
     }
 
     @Test
-    void 비밀번호에_생년월일_포함시_예외_발생() {
+    void 비밀번호에_생년월일_포함시_IllegalArgumentException이_발생한다() {
         //given
         String birthDate = "1990-04-27";
         String password = "pass1990-04-27";

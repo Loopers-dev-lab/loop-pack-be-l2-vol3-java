@@ -222,7 +222,7 @@ public class UserE2ETest {
     }
 
     @Test
-    void 비밀번호_변경시_규칙_위반하면_400_Bad_Request_반환() {
+    void 비밀번호_변경시_8자_미만_규칙_위반하면_400_Bad_Request_반환() {
         // given - 사용자 생성
         String loginId = "pwrule" + (System.currentTimeMillis() % 1000);
         String currentPassword = "Password1!";

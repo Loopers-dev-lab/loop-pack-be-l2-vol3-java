@@ -51,7 +51,7 @@ public class UserServiceIntegrationTest {
     }
 
     @Test
-    void 이미_가입된_ID로_회원가입_시도_시_실패() {
+    void 이미_가입된_ID로_회원가입_시도_시_DuplicateLoginIdException이_발생한다() {
         //given
         CreateUserRequest request = new CreateUserRequest(
                 "testuser", "password123!", "홍길동", "1990-04-27", "test@test.com"
@@ -90,7 +90,7 @@ public class UserServiceIntegrationTest {
     }
 
     @Test
-    void 존재하지_않는_사용자_조회시_예외가_발생한다() {
+    void 존재하지_않는_로그인ID로_조회시_InvalidCredentialsException이_발생한다() {
         // given
         String nonExistentLoginId = "nonexistent";
 
@@ -120,7 +120,7 @@ public class UserServiceIntegrationTest {
     }
 
     @Test
-    void 비밀번호_변경시_기존_비밀번호가_일치하지_않으면_예외가_발생한다() {
+    void 비밀번호_변경시_기존_비밀번호가_일치하지_않으면_InvalidCredentialsException이_발생한다() {
         // given
         String loginId = "testuser";
         String currentPassword = "password123!";
@@ -139,7 +139,7 @@ public class UserServiceIntegrationTest {
     }
 
     @Test
-    void 비밀번호_변경시_새_비밀번호가_기존과_동일하면_예외가_발생한다() {
+    void 비밀번호_변경시_새_비밀번호가_기존과_동일하면_SamePasswordException이_발생한다() {
         // given
         String loginId = "testuser";
         String currentPassword = "password123!";

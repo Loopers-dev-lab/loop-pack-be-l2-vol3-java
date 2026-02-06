@@ -103,7 +103,7 @@ public class UserServiceTest {
     }
 
     @Test
-    void 존재하지_않는_로그인ID로_조회시_예외가_발생한다() {
+    void 존재하지_않는_로그인ID로_조회시_InvalidCredentialsException이_발생한다() {
         // given
         String loginId = "nonExistentId";
 
@@ -144,7 +144,7 @@ public class UserServiceTest {
     }
 
     @Test
-    void 기존_비밀번호가_일치하지_않으면_예외가_발생한다() {
+    void 기존_비밀번호가_일치하지_않으면_InvalidCredentialsException이_발생한다() {
         // given
         String loginId = "testId";
         String wrongPassword = "wrongPassword!";
@@ -168,7 +168,7 @@ public class UserServiceTest {
     }
 
     @Test
-    void 새_비밀번호가_기존_비밀번호와_동일하면_예외가_발생한다() {
+    void 새_비밀번호가_기존_비밀번호와_동일하면_SamePasswordException이_발생한다() {
         // given
         String loginId = "testId";
         String currentPassword = "samePassword123!";
@@ -193,7 +193,7 @@ public class UserServiceTest {
     }
 
     @Test
-    void 새_비밀번호가_규칙에_맞지_않으면_예외가_발생한다() {
+    void 새_비밀번호가_규칙에_맞지_않으면_IllegalArgumentException이_발생한다() {
         // given
         String loginId = "testId";
         String currentPassword = "oldPassword123!";
