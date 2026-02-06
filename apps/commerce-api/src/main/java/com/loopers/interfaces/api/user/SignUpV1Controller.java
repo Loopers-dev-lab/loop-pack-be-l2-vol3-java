@@ -3,7 +3,7 @@ package com.loopers.interfaces.api.user;
 import com.loopers.application.user.SignUpCommand;
 import com.loopers.domain.user.SignUpService;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.api.user.dto.CreateUserRequestV1;
+import com.loopers.interfaces.api.user.dto.UserV1Dto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -22,7 +22,7 @@ public class SignUpV1Controller {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Void> signUp(@Valid @RequestBody CreateUserRequestV1 request) {
+    public ApiResponse<Void> signUp(@Valid @RequestBody UserV1Dto.CreateRequest request) {
         SignUpCommand command = SignUpCommand.from(request);
         signUpService.signUp(command);
 

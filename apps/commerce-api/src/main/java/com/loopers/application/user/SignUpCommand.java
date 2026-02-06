@@ -1,6 +1,6 @@
 package com.loopers.application.user;
 
-import com.loopers.interfaces.api.user.dto.CreateUserRequestV1;
+import com.loopers.interfaces.api.user.dto.UserV1Dto;
 
 import java.time.LocalDate;
 
@@ -11,13 +11,13 @@ public record SignUpCommand(
         LocalDate birthDate,
         String email
 ) {
-    public static SignUpCommand from(CreateUserRequestV1 request) {
+    public static SignUpCommand from(UserV1Dto.CreateRequest request) {
         return new SignUpCommand(
-                request.getLoginId(),
-                request.getPassword(),
-                request.getName(),
-                request.getBirthDate(),
-                request.getEmail()
+                request.loginId(),
+                request.password(),
+                request.name(),
+                request.birthDate(),
+                request.email()
         );
     }
 }

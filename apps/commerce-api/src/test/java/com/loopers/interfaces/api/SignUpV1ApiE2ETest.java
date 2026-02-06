@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api;
 
 import com.loopers.infrastructure.user.UserJpaRepository;
-import com.loopers.interfaces.api.user.dto.CreateUserRequestV1;
+import com.loopers.interfaces.api.user.dto.UserV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -53,13 +53,13 @@ class SignUpV1ApiE2ETest {
         @Test
         void returnsCreated_whenValidRequest() {
             // arrange
-            CreateUserRequestV1 request = CreateUserRequestV1.builder()
-                    .loginId("testUser123")
-                    .password("ValidPass1!")
-                    .name("박자바")
-                    .birthDate(LocalDate.of(1990, 1, 15))
-                    .email("test@example.com")
-                    .build();
+            UserV1Dto.CreateRequest request = new UserV1Dto.CreateRequest(
+                    "testUser123",
+                    "ValidPass1!",
+                    "박자바",
+                    LocalDate.of(1990, 1, 15),
+                    "test@example.com"
+            );
 
             // act
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
@@ -77,12 +77,13 @@ class SignUpV1ApiE2ETest {
         @Test
         void returnsBadRequest_whenLoginIdIsMissing() {
             // arrange
-            CreateUserRequestV1 request = CreateUserRequestV1.builder()
-                    .password("ValidPass1!")
-                    .name("박자바")
-                    .birthDate(LocalDate.of(1990, 1, 15))
-                    .email("test@example.com")
-                    .build();
+            UserV1Dto.CreateRequest request = new UserV1Dto.CreateRequest(
+                    null,
+                    "ValidPass1!",
+                    "박자바",
+                    LocalDate.of(1990, 1, 15),
+                    "test@example.com"
+            );
 
             // act
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
@@ -97,24 +98,24 @@ class SignUpV1ApiE2ETest {
         @Test
         void returnsConflict_whenLoginIdAlreadyExists() {
             // arrange
-            CreateUserRequestV1 firstRequest = CreateUserRequestV1.builder()
-                    .loginId("duplicateId")
-                    .password("ValidPass1!")
-                    .name("박자바")
-                    .birthDate(LocalDate.of(1990, 1, 15))
-                    .email("first@example.com")
-                    .build();
+            UserV1Dto.CreateRequest firstRequest = new UserV1Dto.CreateRequest(
+                    "duplicateId",
+                    "ValidPass1!",
+                    "박자바",
+                    LocalDate.of(1990, 1, 15),
+                    "first@example.com"
+            );
 
             testRestTemplate.exchange(ENDPOINT_SIGN_UP, HttpMethod.POST, new HttpEntity<>(firstRequest),
                 new ParameterizedTypeReference<ApiResponse<Void>>() {});
 
-            CreateUserRequestV1 secondRequest = CreateUserRequestV1.builder()
-                    .loginId("duplicateId")
-                    .password("ValidPass2!")
-                    .name("김자바")
-                    .birthDate(LocalDate.of(1995, 5, 20))
-                    .email("second@example.com")
-                    .build();
+            UserV1Dto.CreateRequest secondRequest = new UserV1Dto.CreateRequest(
+                    "duplicateId",
+                    "ValidPass2!",
+                    "김자바",
+                    LocalDate.of(1995, 5, 20),
+                    "second@example.com"
+            );
 
             // act
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
