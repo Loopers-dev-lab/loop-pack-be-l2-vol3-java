@@ -141,6 +141,24 @@ class SomeIntegrationTest {
 }
 ```
 
+#### E2E 테스트 패턴
+- 위치: `src/test/java/com/loopers/{domain}/interfaces/{Domain}ControllerE2ETest.java` (controller 하위가 아님)
+- 어노테이션: `@SpringBootTest`, `@AutoConfigureMockMvc`, `@ActiveProfiles("test")`, `@Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})`
+- 테스트 격리: `@AfterEach`에서 `DatabaseCleanUp.truncateAllTables()` 호출 (`@Transactional` 미사용)
+- 테스트 데이터: API 호출 헬퍼 메서드로 직접 생성 (예: `signUpUser()`)
+- 테스트 구조: `@Nested` 클래스로 엔드포인트별 그룹화
+
+#### 단위 테스트 Mock 패턴
+- `@ExtendWith(MockitoExtension.class)` + `@Mock` + `@BeforeEach`에서 수동 생성자 주입
+- BDDMockito: `given().willReturn()`, `willDoNothing()`, `willThrow()`
+- 검증: `verify()`, `never()`
+- 헤더 검증 파라미터화: `@ParameterizedTest` + `@NullAndEmptySource` + `@ValueSource(strings = {"  ", "\t"})`
+
+#### ErrorType 추가 시 체크리스트
+- `ErrorType` enum에 새 값 추가
+- `ErrorTypeTest.errorTypeProvider()`에 테스트 케이스 추가
+- `ErrorTypeTest.enumConstantCount()`의 `hasSize(N)` 값을 N+1로 업데이트
+
 ### 4.4 커밋 메시지 컨벤션
 
 **형식**: `{type}: {한국어 설명}`
@@ -191,6 +209,15 @@ null 체크 → empty 체크 → 길이 제한 → 포맷(정규식) → 비즈�
 - `create()` + `fromEncoded()` 팩토리 메서드 패턴 동일 적용
 - 비즈니스 로직(검증, 변환)을 VO 내부에 캡슐화
 
+#### BaseEntity 제약사항
+- `id` 필드는 `final Long id = 0L` + `@GeneratedValue(IDENTITY)` → 엔티티에서 직접 id 설정 불가
+- `createdAt`, `updatedAt`은 `@PrePersist`, `@PreUpdate`로 자동 관리
+- Soft delete: `deletedAt` 필드, `delete()`/`restore()` 메서드 제공
+
+#### 필드 가변성
+- 변경 가능 필드: `private` (non-final) → `changeXxx()` 메서드 제공 (예: `password`)
+- 불변 필드: `private final` → 변경 불가 (예: `loginId`, `name`, `birthday`, `email`)
+
 ### 4.7 CQRS 레이어 흐름
 
 Controller → Facade(@Transactional) → Service → Repository(interface) → RepositoryImpl → JpaRepository + Entity ↔ Domain
@@ -208,6 +235,11 @@ Controller → Facade(@Transactional) → Service → Repository(interface) → 
 | Repository(I) | `{Domain}Command/QueryRepository` | (인터페이스) | 명령(save,delete) / 조회(find,exists) 계약 |
 | RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain 변환 후 JPA 호출 |
 | Entity | `{Domain}Entity` | `@Entity` | `from(Domain)` + `toDomain()` 변환 |
+
+#### Entity 업데이트 패턴
+- **신규 생성**: `Entity.from(domain)` → `jpaRepository.save(entity)` → `entity.toDomain()`
+- **기존 수정**: `jpaRepository.findById(id)` → `existingEntity.updateXxx(...)` → JPA dirty checking → `entity.toDomain()`
+- ⚠️ `Entity.from(domain)`은 항상 새 엔티티(id 없음)를 생성하므로, 업데이트 시 절대 사용 금지
 
 ### 4.8 DTO 패턴
 
