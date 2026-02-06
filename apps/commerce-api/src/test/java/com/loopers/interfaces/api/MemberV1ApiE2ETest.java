@@ -79,7 +79,7 @@ class MemberV1ApiE2ETest {
             // assert
             assertAll(
                 () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED),
-                () -> assertThat(response.getBody().data().loginId()).isEqualTo("testUser1"),
+                () -> assertThat(response.getBody().data().member().loginId()).isEqualTo("testUser1"),
                 () -> assertThat(memberJpaRepository.existsByLoginId("testUser1")).isTrue()
             );
         }
@@ -191,9 +191,9 @@ class MemberV1ApiE2ETest {
             // assert
             assertAll(
                 () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                () -> assertThat(response.getBody().data().loginId()).isEqualTo(loginId),
-                () -> assertThat(response.getBody().data().name()).isEqualTo("홍길*"),  // 마스킹 확인
-                () -> assertThat(response.getBody().data().email()).isEqualTo("test@example.com")
+                () -> assertThat(response.getBody().data().member().loginId()).isEqualTo(loginId),
+                () -> assertThat(response.getBody().data().member().name()).isEqualTo("홍길*"),  // 마스킹 확인
+                () -> assertThat(response.getBody().data().member().email()).isEqualTo("test@example.com")
             );
         }
 
