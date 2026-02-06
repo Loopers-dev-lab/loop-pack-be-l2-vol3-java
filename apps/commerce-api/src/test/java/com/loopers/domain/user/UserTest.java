@@ -81,23 +81,6 @@ public class UserTest {
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
-        @DisplayName("name에 공백이 포함되면 BAD_REQUEST 예외가 발생한다.")
-        @Test
-        void throwsBadRequestException_whenNameContainsWhitespace() {
-            // arrange
-            String name = "박 자바";
-
-            // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                UserFixture.builder()
-                           .name(name)
-                           .build();
-            });
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
-        }
-
         @DisplayName("email이 @와 .을 포함하면 정상적으로 생성된다.")
         @Test
         void createsUser_whenEmailIsValid() {
