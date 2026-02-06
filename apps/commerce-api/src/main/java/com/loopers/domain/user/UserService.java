@@ -13,26 +13,26 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Transactional(readOnly = true)
-    public UserInfo getMyInfo(String loginId) {
-        User user = findUserByLoginId(loginId);
-        return UserInfo.from(user);
-    }
-
     @Transactional
     public void updatePassword(UpdatePasswordCommand command) {
-        User user = findUserByLoginId(command.loginId());
-
-        PasswordPolicyValidator.validate(command.newPassword(), user.getBirthDate());
+        User user = getUser(command.loginId());
 
         if (passwordEncoder.matches(command.newPassword(), user.getPassword())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호로 변경할 수 없습니다.");
         }
 
-        user.updatePassword(passwordEncoder.encode(command.newPassword()));
+        PasswordPolicyValidator.validate(command.newPassword(), user.getBirthDate());
+        String encoded = passwordEncoder.encode(command.newPassword());
+        user.updatePassword(encoded);
     }
 
-    private User findUserByLoginId(String loginId) {
+    @Transactional(readOnly = true)
+    public UserInfo getMyInfo(String loginId) {
+        User user = getUser(loginId);
+        return UserInfo.from(user);
+    }
+
+    private User getUser(String loginId) {
         return userRepository.findByLoginId(loginId)
                              .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND,
                                                                   "[loginId = " + loginId + "] 를 찾을 수 없습니다."));
