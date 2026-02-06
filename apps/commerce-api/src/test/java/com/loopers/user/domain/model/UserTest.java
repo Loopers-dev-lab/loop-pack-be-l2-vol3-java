@@ -329,4 +329,36 @@ class UserTest {
 			);
 		}
 	}
+
+	@Nested
+	@DisplayName("인증 테스트")
+	class AuthenticateTest {
+
+		@Test
+		@DisplayName("[authenticate()] 올바른 비밀번호 -> 예외 없이 성공")
+		void authenticateSuccess() {
+			// Arrange
+			User user = User.create(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+			// Act & Assert
+			user.authenticate(VALID_PASSWORD);
+		}
+
+		@Test
+		@DisplayName("[authenticate()] 잘못된 비밀번호 -> UNAUTHORIZED 예외")
+		void authenticateFailWhenPasswordNotMatch() {
+			// Arrange
+			User user = User.create(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> user.authenticate("WrongPass1!"));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
+			);
+		}
+	}
 }

@@ -20,6 +20,9 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.hasKey;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -247,6 +250,129 @@ class UserControllerE2ETest {
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value(ErrorType.INVALID_BIRTHDAY.getCode()));
+		}
+	}
+
+	@Nested
+	@DisplayName("GET /api/v1/users/me - 내 정보 조회")
+	class GetMeTest {
+
+		private void signUpUser(String loginId, String password, String name,
+								LocalDate birthday, String email) throws Exception {
+			UserSignUpRequest request = new UserSignUpRequest(loginId, password, name, birthday, email);
+			mockMvc.perform(post("/api/v1/users")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isCreated());
+		}
+
+		@Test
+		@DisplayName("[GET /api/v1/users/me] 유효한 인증 헤더 -> 200 OK. loginId, maskedName, birthday, email 포함")
+		void getMeSuccess() throws Exception {
+			// Arrange
+			signUpUser("testuser01", "Test1234!", "홍길동",
+				LocalDate.of(1990, 1, 15), "test@example.com");
+
+			// Act & Assert
+			mockMvc.perform(get("/api/v1/users/me")
+					.header("X-Loopers-LoginId", "testuser01")
+					.header("X-Loopers-LoginPw", "Test1234!"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.loginId").value("testuser01"))
+				.andExpect(jsonPath("$.name").value("홍길*"))
+				.andExpect(jsonPath("$.birthday").value("1990-01-15"))
+				.andExpect(jsonPath("$.email").value("test@example.com"));
+		}
+
+		@Test
+		@DisplayName("[GET /api/v1/users/me] 응답에 password 미포함. 민감정보 누출 방지")
+		void getMeResponseDoesNotContainPassword() throws Exception {
+			// Arrange
+			signUpUser("testuser01", "Test1234!", "홍길동",
+				LocalDate.of(1990, 1, 15), "test@example.com");
+
+			// Act & Assert
+			mockMvc.perform(get("/api/v1/users/me")
+					.header("X-Loopers-LoginId", "testuser01")
+					.header("X-Loopers-LoginPw", "Test1234!"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", not(hasKey("password"))));
+		}
+
+		@Test
+		@DisplayName("[GET /api/v1/users/me] X-Loopers-LoginId 누락 -> 401 Unauthorized")
+		void getMeFailWhenLoginIdHeaderMissing() throws Exception {
+			// Act & Assert
+			mockMvc.perform(get("/api/v1/users/me")
+					.header("X-Loopers-LoginPw", "Test1234!"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
+		}
+
+		@Test
+		@DisplayName("[GET /api/v1/users/me] X-Loopers-LoginPw 누락 -> 401 Unauthorized")
+		void getMeFailWhenPasswordHeaderMissing() throws Exception {
+			// Act & Assert
+			mockMvc.perform(get("/api/v1/users/me")
+					.header("X-Loopers-LoginId", "testuser01"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
+		}
+
+		@Test
+		@DisplayName("[GET /api/v1/users/me] 존재하지 않는 loginId -> 401 Unauthorized")
+		void getMeFailWhenUserNotFound() throws Exception {
+			// Act & Assert
+			mockMvc.perform(get("/api/v1/users/me")
+					.header("X-Loopers-LoginId", "nonexistent")
+					.header("X-Loopers-LoginPw", "Test1234!"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
+		}
+
+		@Test
+		@DisplayName("[GET /api/v1/users/me] 비밀번호 불일치 -> 401 Unauthorized")
+		void getMeFailWhenPasswordNotMatch() throws Exception {
+			// Arrange
+			signUpUser("testuser01", "Test1234!", "홍길동",
+				LocalDate.of(1990, 1, 15), "test@example.com");
+
+			// Act & Assert
+			mockMvc.perform(get("/api/v1/users/me")
+					.header("X-Loopers-LoginId", "testuser01")
+					.header("X-Loopers-LoginPw", "WrongPass1!"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
+		}
+
+		@Test
+		@DisplayName("[GET /api/v1/users/me] loginId 앞뒤 공백 -> trim 후 정상 조회")
+		void getMeSuccessWithTrimmedLoginId() throws Exception {
+			// Arrange
+			signUpUser("testuser01", "Test1234!", "홍길동",
+				LocalDate.of(1990, 1, 15), "test@example.com");
+
+			// Act & Assert
+			mockMvc.perform(get("/api/v1/users/me")
+					.header("X-Loopers-LoginId", "  testuser01  ")
+					.header("X-Loopers-LoginPw", "Test1234!"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.loginId").value("testuser01"));
+		}
+
+		@Test
+		@DisplayName("[GET /api/v1/users/me] 이름 1자 사용자 -> *로 마스킹")
+		void getMeNameMasking1Char() throws Exception {
+			// Arrange
+			signUpUser("testuser02", "Test1234!", "김",
+				LocalDate.of(1990, 1, 15), "test2@example.com");
+
+			// Act & Assert
+			mockMvc.perform(get("/api/v1/users/me")
+					.header("X-Loopers-LoginId", "testuser02")
+					.header("X-Loopers-LoginPw", "Test1234!"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.name").value("*"));
 		}
 	}
 }
