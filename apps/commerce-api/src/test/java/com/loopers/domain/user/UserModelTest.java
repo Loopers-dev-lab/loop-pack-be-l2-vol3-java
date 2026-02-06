@@ -6,6 +6,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -16,6 +18,7 @@ class UserModelTest {
     private static final String VALID_NAME = "namjin";
     private static final String VALID_BIRTHDAY = "1994-05-25";
     private static final String VALID_EMAIL = "epemxksl@gmail.com";
+    private static final String FUTURE_BIRTHDAY = LocalDate.now().plusYears(1).toString();
 
     @DisplayName("회원을 생성할 때, ")
     @Nested
@@ -96,7 +99,7 @@ class UserModelTest {
         void throwsBadRequestException_whenBirthDateisAfterToday(){
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
-                new UserModel(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, "2027-01-01", VALID_EMAIL);
+                new UserModel(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, FUTURE_BIRTHDAY, VALID_EMAIL);
             });
 
             // assert
