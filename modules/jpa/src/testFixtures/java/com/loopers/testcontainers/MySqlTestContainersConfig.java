@@ -6,7 +6,6 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 @Configuration
-@Profile("test")
 public class MySqlTestContainersConfig {
 
     private static final MySQLContainer<?> mySqlContainer;

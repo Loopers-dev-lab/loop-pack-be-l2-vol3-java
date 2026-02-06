@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Profile;
 import org.testcontainers.utility.DockerImageName;
 
 @Configuration
-@Profile("test")
 public class RedisTestContainersConfig {
     private static final RedisContainer redisContainer = new RedisContainer(DockerImageName.parse("redis:latest"));
 
