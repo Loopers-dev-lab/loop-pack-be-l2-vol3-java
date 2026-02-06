@@ -25,7 +25,7 @@ public record MemberInfo(String loginId, String name, LocalDate birthDate, Strin
 
     private static String maskName(String name) {
         if (name == null || name.isEmpty()) {
-            return name;
+            return "";
         }
         if (name.length() == 1) {
             return "*";

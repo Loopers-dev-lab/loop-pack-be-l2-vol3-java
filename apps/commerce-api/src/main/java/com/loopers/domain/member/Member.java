@@ -32,6 +32,12 @@ public class Member extends BaseEntity {
     public static Member create(String loginId, String rawPassword,
                                 String name, LocalDate birthDate,
                                 String email, PasswordEncoder encoder) {
+        validateNotBlank(loginId, "로그인ID는 필수입니다.");
+        validateNotBlank(rawPassword, "비밀번호는 필수입니다.");
+        validateNotBlank(name, "이름은 필수입니다.");
+        validateNotNull(birthDate, "생년월일은 필수입니다.");
+        validateNotBlank(email, "이메일은 필수입니다.");
+
         validateLoginId(loginId);
         validatePassword(rawPassword, birthDate);
         String normalizedName = normalizeName(name);
@@ -40,6 +46,18 @@ public class Member extends BaseEntity {
 
         String encodedPassword = encoder.encode(rawPassword);
         return new Member(loginId, encodedPassword, normalizedName, birthDate, email);
+    }
+
+    private static void validateNotNull(Object value, String message) {
+        if (value == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, message);
+        }
+    }
+
+    private static void validateNotBlank(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, message);
+        }
     }
 
     private static void validatePassword(String password, LocalDate birthDate) {
@@ -82,6 +100,9 @@ public class Member extends BaseEntity {
 
     public void changePassword(String currentPassword, String newRawPassword,
                                PasswordEncoder encoder) {
+        validateNotBlank(currentPassword, "현재 비밀번호는 필수입니다.");
+        validateNotBlank(newRawPassword, "새 비밀번호는 필수입니다.");
+
         // 현재 비밀번호 확인
         if (!encoder.matches(currentPassword, this.password)) {
             throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");

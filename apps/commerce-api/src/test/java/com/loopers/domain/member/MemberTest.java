@@ -27,6 +27,77 @@ class MemberTest {
         }
     };
 
+    @DisplayName("필수값 검증 시, ")
+    @Nested
+    class ValidateRequired {
+
+        @DisplayName("로그인ID가 null이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenLoginIdIsNull() {
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                Member.create(null, "Test1234!", "홍길동",
+                    LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder);
+            });
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).isEqualTo("로그인ID는 필수입니다.");
+        }
+
+        @DisplayName("로그인ID가 빈 문자열이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenLoginIdIsBlank() {
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                Member.create("  ", "Test1234!", "홍길동",
+                    LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder);
+            });
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).isEqualTo("로그인ID는 필수입니다.");
+        }
+
+        @DisplayName("비밀번호가 null이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenPasswordIsNull() {
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                Member.create("testuser1", null, "홍길동",
+                    LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder);
+            });
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).isEqualTo("비밀번호는 필수입니다.");
+        }
+
+        @DisplayName("이름이 null이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNameIsNull() {
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                Member.create("testuser1", "Test1234!", null,
+                    LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder);
+            });
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).isEqualTo("이름은 필수입니다.");
+        }
+
+        @DisplayName("생년월일이 null이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenBirthDateIsNull() {
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                Member.create("testuser1", "Test1234!", "홍길동",
+                    null, "test@example.com", stubEncoder);
+            });
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).isEqualTo("생년월일은 필수입니다.");
+        }
+
+        @DisplayName("이메일이 null이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenEmailIsNull() {
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                Member.create("testuser1", "Test1234!", "홍길동",
+                    LocalDate.of(1990, 1, 15), null, stubEncoder);
+            });
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).isEqualTo("이메일은 필수입니다.");
+        }
+    }
+
     @DisplayName("회원을 생성할 때, ")
     @Nested
     class Create {
@@ -247,6 +318,38 @@ class MemberTest {
                 "testuser1", "Test1234!", "홍길동",
                 LocalDate.of(1990, 1, 15), "test@example.com", stubEncoder
             );
+        }
+
+        @DisplayName("현재 비밀번호가 null이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenCurrentPasswordIsNull() {
+            // Arrange
+            Member member = createMember();
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                member.changePassword(null, "NewPass5678!", stubEncoder);
+            });
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).isEqualTo("현재 비밀번호는 필수입니다.");
+        }
+
+        @DisplayName("새 비밀번호가 null이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenNewPasswordIsNull() {
+            // Arrange
+            Member member = createMember();
+
+            // Act & Assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                member.changePassword("Test1234!", null, stubEncoder);
+            });
+
+            // Assert
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exception.getMessage()).isEqualTo("새 비밀번호는 필수입니다.");
         }
 
         @DisplayName("현재 비밀번호가 일치하지 않으면, BAD_REQUEST 예외가 발생한다.")

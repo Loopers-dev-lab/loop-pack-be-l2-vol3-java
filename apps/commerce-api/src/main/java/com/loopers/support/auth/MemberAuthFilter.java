@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Optional;
 
 @RequiredArgsConstructor
 @Component
@@ -42,16 +41,12 @@ public class MemberAuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 회원 조회
-        Optional<Member> memberOpt = memberReader.findByLoginId(loginId);
-        if (memberOpt.isEmpty()) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            return;
-        }
+        // 회원 조회 및 비밀번호 검증
+        Member member = memberReader.findByLoginId(loginId)
+            .filter(m -> passwordEncoder.matches(loginPw, m.getPassword()))
+            .orElse(null);
 
-        // 비밀번호 검증
-        Member member = memberOpt.get();
-        if (!passwordEncoder.matches(loginPw, member.getPassword())) {
+        if (member == null) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }

@@ -39,7 +39,7 @@ public class MemberV1Controller {
 
     @GetMapping("/me")
     public ApiResponse<MemberV1Dto.MemberResponse> getMe(HttpServletRequest request) {
-        Member authenticatedMember = (Member) request.getAttribute("authenticatedMember");
+        Member authenticatedMember = getAuthenticatedMember(request);
         MemberInfo info = memberFacade.getMe(authenticatedMember);
         return ApiResponse.success(MemberV1Dto.MemberResponse.from(info));
     }
@@ -49,12 +49,20 @@ public class MemberV1Controller {
         HttpServletRequest request,
         @RequestBody MemberV1Dto.ChangePasswordRequest passwordRequest
     ) {
-        Member authenticatedMember = (Member) request.getAttribute("authenticatedMember");
+        Member authenticatedMember = getAuthenticatedMember(request);
         memberFacade.changePassword(
             authenticatedMember,
             passwordRequest.currentPassword(),
             passwordRequest.newPassword()
         );
         return ApiResponse.success(null);
+    }
+
+    private Member getAuthenticatedMember(HttpServletRequest request) {
+        Object attribute = request.getAttribute("authenticatedMember");
+        if (attribute == null) {
+            throw new IllegalStateException("인증된 회원 정보가 없습니다.");
+        }
+        return (Member) attribute;
     }
 }
