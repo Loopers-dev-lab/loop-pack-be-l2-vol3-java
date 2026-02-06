@@ -9,6 +9,7 @@ import com.loopers.user.interfaces.controller.request.UserSignUpRequest;
 import com.loopers.user.interfaces.controller.response.UserMeResponse;
 import com.loopers.user.interfaces.controller.response.UserSignUpResponse;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,15 +22,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/users")
+@RequiredArgsConstructor
 public class UserController {
 
 	private final UserCommandFacade userCommandFacade;
 	private final UserQueryFacade userQueryFacade;
-
-	public UserController(UserCommandFacade userCommandFacade, UserQueryFacade userQueryFacade) {
-		this.userCommandFacade = userCommandFacade;
-		this.userQueryFacade = userQueryFacade;
-	}
 
 	@PostMapping
 	public ResponseEntity<UserSignUpResponse> signUp(@Valid @RequestBody UserSignUpRequest request) {

@@ -6,17 +6,15 @@ import com.loopers.user.application.dto.out.UserMeOutDto;
 import com.loopers.user.application.service.UserQueryService;
 import com.loopers.user.domain.model.User;
 import com.loopers.user.support.common.HeaderValidator;
-import org.springframework.stereotype.Component;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Component
+@Service
+@RequiredArgsConstructor
 public class UserQueryFacade {
 
 	private final UserQueryService userQueryService;
-
-	public UserQueryFacade(UserQueryService userQueryService) {
-		this.userQueryService = userQueryService;
-	}
 
 	@Transactional(readOnly = true)
 	public UserMeOutDto getMe(String loginId, String password) {

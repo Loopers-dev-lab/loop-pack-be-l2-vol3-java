@@ -9,19 +9,16 @@ import com.loopers.user.application.service.UserCommandService;
 import com.loopers.user.application.service.UserQueryService;
 import com.loopers.user.domain.model.User;
 import com.loopers.user.support.common.HeaderValidator;
-import org.springframework.stereotype.Component;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Component
+@Service
+@RequiredArgsConstructor
 public class UserCommandFacade {
 
 	private final UserCommandService userCommandService;
 	private final UserQueryService userQueryService;
-
-	public UserCommandFacade(UserCommandService userCommandService, UserQueryService userQueryService) {
-		this.userCommandService = userCommandService;
-		this.userQueryService = userQueryService;
-	}
 
 	@Transactional
 	public UserSignUpOutDto signUp(UserSignUpInDto inDto) {
