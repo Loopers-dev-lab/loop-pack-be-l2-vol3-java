@@ -50,7 +50,7 @@ class PasswordValidatorTest {
 
         @Test
         void 비밀번호가_16자_초과면_예외() {
-            assertThatThrownBy(() -> PasswordValidator.validate("Abcd1234!Abcd1234!", BIRTHDAY))
+            assertThatThrownBy(() -> PasswordValidator.validate("Abcd1234!Abcd1234", BIRTHDAY))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("비밀번호는 8~16자여야 합니다");
         }
@@ -60,6 +60,12 @@ class PasswordValidatorTest {
             assertThatThrownBy(() -> PasswordValidator.validate("Abcd1234!가", BIRTHDAY))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("비밀번호는 영문/숫자/특수문자만 가능합니다");
+        }
+
+        @Test
+        void 생년월일이_null이면_생년월일_검증을_스킵한다() {
+            assertThatCode(() -> PasswordValidator.validate("Abcd1234!", null))
+                    .doesNotThrowAnyException();
         }
 
         @ParameterizedTest

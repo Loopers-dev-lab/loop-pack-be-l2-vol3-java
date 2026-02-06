@@ -39,6 +39,9 @@ public final class PasswordValidator {
     }
 
     private static void validateNotContainsBirthday(String rawPassword, LocalDate birthDate) {
+        if (birthDate == null) {
+            return;
+        }
         String yyyyMMdd = birthDate.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String yyMMdd = birthDate.format(DateTimeFormatter.ofPattern("yyMMdd"));
         String MMdd = birthDate.format(DateTimeFormatter.ofPattern("MMdd"));
