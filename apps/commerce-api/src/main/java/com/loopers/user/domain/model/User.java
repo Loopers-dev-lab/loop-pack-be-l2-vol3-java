@@ -74,6 +74,12 @@ public class User {
 		return email;
 	}
 
+	public void authenticate(String rawPassword) {
+		if (!this.password.matches(rawPassword)) {
+			throw new CoreException(ErrorType.UNAUTHORIZED);
+		}
+	}
+
 	private static void validateLoginId(String loginId) {
 		if (loginId == null ||
 			loginId.isEmpty() ||
