@@ -24,6 +24,7 @@ class UserV1ApiE2ETest {
 
     private static final String ENDPOINT_SIGN_UP = "/customer/v1/users/sign-up";
     private static final String ENDPOINT_MY_INFO = "/customer/v1/users/me";
+    private static final String ENDPOINT_POINTS = "/customer/v1/users/me/points";
 
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
@@ -221,6 +222,77 @@ class UserV1ApiE2ETest {
                 () -> assertThat(response.getBody().data().email()).isEqualTo("john@example.com"),
                 () -> assertThat(response.getBody().data().birthDate()).isEqualTo("1990-01-15"),
                 () -> assertThat(response.getBody().data().gender()).isEqualTo("MALE")
+            );
+        }
+    }
+
+    @DisplayName("GET /customer/v1/users/me/points - 포인트 조회")
+    @Nested
+    class GetPoints {
+
+        @DisplayName("X-USER-ID 헤더가 없으면, 400 Bad Request를 반환한다.")
+        @Test
+        void getPoints_withoutUserIdHeader_shouldReturnBadRequest() {
+            // given
+            HttpHeaders headers = new HttpHeaders();
+            // X-USER-ID 헤더 누락
+
+            // when
+            ParameterizedTypeReference<ApiResponse<UserV1Dto.PointsResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserV1Dto.PointsResponse>> response =
+                testRestTemplate.exchange(ENDPOINT_POINTS, HttpMethod.GET, new HttpEntity<>(headers), responseType);
+
+            // then
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.FAIL)
+            );
+        }
+
+        @DisplayName("존재하지 않는 사용자 ID로 조회하면, 404 Not Found를 반환한다.")
+        @Test
+        void getPoints_withNonExistentUserId_shouldReturnNotFound() {
+            // given
+            String nonExistentUserId = "nouser";
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-USER-ID", nonExistentUserId);
+
+            // when
+            ParameterizedTypeReference<ApiResponse<UserV1Dto.PointsResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserV1Dto.PointsResponse>> response =
+                testRestTemplate.exchange(ENDPOINT_POINTS, HttpMethod.GET, new HttpEntity<>(headers), responseType);
+
+            // then
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @DisplayName("유효한 요청 시, 200 OK와 포인트 정보를 반환한다.")
+        @Test
+        void getPoints_withValidRequest_shouldReturnPoints() {
+            // given - 먼저 회원가입
+            UserV1Dto.SignUpRequest signUpRequest = new UserV1Dto.SignUpRequest(
+                "testuser1",
+                "SecurePass1!",
+                "test@example.com",
+                "1990-01-15",
+                "MALE"
+            );
+            testRestTemplate.exchange(ENDPOINT_SIGN_UP, HttpMethod.POST, new HttpEntity<>(signUpRequest), new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {});
+
+            // when - 포인트 조회
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-USER-ID", "testuser1");
+            
+            ParameterizedTypeReference<ApiResponse<UserV1Dto.PointsResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserV1Dto.PointsResponse>> response =
+                testRestTemplate.exchange(ENDPOINT_POINTS, HttpMethod.GET, new HttpEntity<>(headers), responseType);
+
+            // then
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.SUCCESS),
+                () -> assertThat(response.getBody().data().userId()).isEqualTo("testuser1"),
+                () -> assertThat(response.getBody().data().points()).isEqualTo(0L)
             );
         }
     }
