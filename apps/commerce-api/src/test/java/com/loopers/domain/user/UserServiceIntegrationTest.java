@@ -2,6 +2,7 @@ package com.loopers.domain.user;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -21,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
+@Import(MySqlTestContainersConfig.class)
 class UserServiceIntegrationTest {
 
     @Autowired
@@ -47,7 +50,7 @@ class UserServiceIntegrationTest {
         @Test
         void signUp_withDuplicateUserId_shouldThrowConflictException() {
             // given
-            String duplicateUserId = "duplicate01";
+            String duplicateUserId = "duplicate1";
             Email email1 = new Email("user1@example.com");
             BirthDate birthDate1 = new BirthDate("1990-01-15");
             Password password1 = Password.of("Pass1234!", birthDate1);
@@ -73,7 +76,7 @@ class UserServiceIntegrationTest {
         @Test
         void signUp_withConcurrentSameUserId_shouldOnlyOneSucceed() throws InterruptedException {
             // given
-            String userId = "concurrent01";
+            String userId = "concurrent";
             int threadCount = 5;
             CountDownLatch latch = new CountDownLatch(threadCount);
             ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
@@ -114,7 +117,7 @@ class UserServiceIntegrationTest {
         @Test
         void signUp_shouldCallRepositorySave() {
             // given
-            String userId = "testuser01";
+            String userId = "testuser1";
             Email email = new Email("test@example.com");
             BirthDate birthDate = new BirthDate("1990-01-15");
             Password password = Password.of("SecurePass1!", birthDate);
@@ -133,7 +136,7 @@ class UserServiceIntegrationTest {
         @Test
         void signUp_shouldStoreEncryptedPassword() {
             // given
-            String userId = "testuser02";
+            String userId = "testuser2";
             String rawPassword = "RawPassword123!";
             Email email = new Email("test2@example.com");
             BirthDate birthDate = new BirthDate("1992-06-10");
@@ -152,7 +155,7 @@ class UserServiceIntegrationTest {
         @Test
         void signUp_shouldEncryptPasswordWithBCrypt() {
             // given
-            String userId = "testuser03";
+            String userId = "testuser3";
             String rawPassword = "VerifyPass456!";
             Email email = new Email("test3@example.com");
             BirthDate birthDate = new BirthDate("1988-12-25");

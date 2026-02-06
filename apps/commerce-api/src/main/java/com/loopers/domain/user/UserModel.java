@@ -20,13 +20,13 @@ public class UserModel extends BaseEntity {
     @Column(name = "user_id", nullable = false, unique = true, length = 10)
     private String userId;
 
-    @Column(name = "email", nullable = false)
+    @Column(name = "email", nullable = false, length = 255)
     private String email;
 
-    @Column(name = "birth_date", nullable = false)
+    @Column(name = "birth_date", nullable = false, length = 10)
     private String birthDate;
 
-    @Column(name = "encrypted_password", nullable = false)
+    @Column(name = "encrypted_password", nullable = false, length = 255)
     private String encryptedPassword;
 
     @Enumerated(EnumType.STRING)
