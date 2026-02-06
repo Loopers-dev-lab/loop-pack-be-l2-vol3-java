@@ -5,10 +5,10 @@ import com.loopers.domain.model.User;
 import com.loopers.domain.model.UserId;
 import com.loopers.domain.repository.UserRepository;
 import org.springframework.stereotype.Service;
-
-import java.time.format.DateTimeFormatter;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional(readOnly = true)
 public class UserQueryService implements UserQueryUseCase {
 
     private final UserRepository userRepository;
@@ -25,7 +25,7 @@ public class UserQueryService implements UserQueryUseCase {
         return new UserInfoResponse(
                 user.getUserId().getValue(),
                 maskName(user.getUserName().getValue()),
-                user.getBirth().getValue().format(DateTimeFormatter.ofPattern("yyyyMMdd")),
+                user.getBirth().getValue(),
                 user.getEmail().getValue()
         );
     }

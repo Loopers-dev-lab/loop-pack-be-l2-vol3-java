@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
 @Data
 public class UserId {
 
-    private static final Pattern PATTERN = Pattern.compile("^[a-zA-Z0-9]{4,10}$");
+    private static final Pattern PATTERN = Pattern.compile("^[a-z0-9]{4,10}$");
 
     private final String value;
 

@@ -31,12 +31,13 @@ class UserQueryServiceTest {
     void getUserInfo_success() {
         // given
         UserId userId = UserId.of("test1234");
+        LocalDate birthday = LocalDate.of(1990, 5, 15);
         User user = User.reconstitute(
                 1L,
                 userId,
                 UserName.of("홍길동"),
                 "encoded_password",
-                Birthday.of(LocalDate.of(1990, 5, 15)),
+                Birthday.of(birthday),
                 Email.of("test@example.com"),
                 WrongPasswordCount.init(),
                 LocalDateTime.now()
@@ -50,7 +51,7 @@ class UserQueryServiceTest {
         // then
         assertThat(result.loginId()).isEqualTo("test1234");
         assertThat(result.maskedName()).isEqualTo("홍길*");
-        assertThat(result.birthday()).isEqualTo("19900515");
+        assertThat(result.birthday()).isEqualTo(birthday);
         assertThat(result.email()).isEqualTo("test@example.com");
     }
 
@@ -91,5 +92,27 @@ class UserQueryServiceTest {
         assertThatThrownBy(() -> service.getUserInfo(userId))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("사용자를 찾을 수 없습니다");
+    }
+
+    @Test
+    @DisplayName("이름 마스킹 - 1자")
+    void getUserInfo_maskedName_1char() {
+        UserId userId = UserId.of("test1234");
+        User user = User.reconstitute(
+                1L,
+                userId,
+                UserName.of("홍"),
+                "encoded_password",
+                Birthday.of(LocalDate.of(1990, 5, 15)),
+                Email.of("test@example.com"),
+                WrongPasswordCount.init(),
+                LocalDateTime.now()
+        );
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        var result = service.getUserInfo(userId);
+
+        assertThat(result.maskedName()).isEqualTo("*");
     }
 }

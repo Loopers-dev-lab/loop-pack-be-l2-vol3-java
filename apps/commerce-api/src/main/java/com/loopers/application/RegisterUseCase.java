@@ -1,8 +1,8 @@
 package com.loopers.application;
 
-import com.loopers.domain.model.*;
+import java.time.LocalDate;
 
 public interface RegisterUseCase {
 
-    void register(UserId userId, UserName userName, String encodedPassword, Birthday birthday, Email email);
+    void register(String loginId, String name, String rawPassword, LocalDate birthday, String email);
 }

@@ -81,4 +81,14 @@ class EmailTest {
         // then
         assertThat(email.getValue()).isEqualTo("test@example.com");
     }
+
+    @Test
+    @DisplayName("동일한 이메일은 equals/hashCode 동등")
+    void equals_hashCode_consistency() {
+        Email email1 = Email.of("test@example.com");
+        Email email2 = Email.of("test@example.com");
+
+        assertThat(email1).isEqualTo(email2);
+        assertThat(email1.hashCode()).isEqualTo(email2.hashCode());
+    }
 }

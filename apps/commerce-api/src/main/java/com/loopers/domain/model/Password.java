@@ -1,15 +1,26 @@
 package com.loopers.domain.model;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.ToString;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.regex.Pattern;
 
-@Data
+@Getter
+@EqualsAndHashCode
+@ToString
 public class Password {
     private static final Pattern ALLOWED_CHARS = Pattern.compile("^[a-zA-Z0-9!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?`~]{8,16}$");
+    private static final DateTimeFormatter FMT_YYYYMMDD = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final DateTimeFormatter FMT_YYMMDD = DateTimeFormatter.ofPattern("yyMMdd");
+    private static final DateTimeFormatter FMT_MMDD = DateTimeFormatter.ofPattern("MMdd");
+    private static final DateTimeFormatter FMT_YYYY_MM_DD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter FMT_YY_MM_DD = DateTimeFormatter.ofPattern("yy-MM-dd");
+    private static final DateTimeFormatter FMT_MM_DD = DateTimeFormatter.ofPattern("MM-dd");
 
     private final String value;
 
@@ -35,11 +46,12 @@ public class Password {
     static boolean containsBirthday(String rawPassword, LocalDate birthday) {
         //yyyyMMdd, yyMMdd, MMdd 같은 포멧은 다 제외 하는걸로
         List<String> patterns = List.of(
-                birthday.format(DateTimeFormatter.ofPattern("yyyyMMdd")),
-                birthday.format(DateTimeFormatter.ofPattern("yyMMdd")),
-                birthday.format(DateTimeFormatter.ofPattern("MMdd")),
-                birthday.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
-                birthday.format(DateTimeFormatter.ofPattern("yy-MM-dd"))
+                birthday.format(FMT_YYYYMMDD),
+                birthday.format(FMT_YYMMDD),
+                birthday.format(FMT_MMDD),
+                birthday.format(FMT_YYYY_MM_DD),
+                birthday.format(FMT_YY_MM_DD),
+                birthday.format(FMT_MM_DD)
         );
 
         return patterns.stream().anyMatch(rawPassword::contains);

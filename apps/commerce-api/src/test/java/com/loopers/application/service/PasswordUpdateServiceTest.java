@@ -37,17 +37,17 @@ class PasswordUpdateServiceTest {
         // given
         UserId userId = UserId.of("test1234");
         User user = createUser(userId, "encoded_current");
-        Password currentPassword = Password.of("Current1!", BIRTHDAY);
-        Password newPassword = Password.of("NewPass1!", BIRTHDAY);
+        String currentRawPassword = "Current1!";
+        String newRawPassword = "NewPass1!";
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("Current1!", "encoded_current")).thenReturn(true);
-        when(passwordEncoder.matches("NewPass1!", "encoded_current")).thenReturn(false);
-        when(passwordEncoder.encrypt("NewPass1!")).thenReturn("encoded_new");
+        when(passwordEncoder.matches(currentRawPassword, "encoded_current")).thenReturn(true);
+        when(passwordEncoder.matches(newRawPassword, "encoded_current")).thenReturn(false);
+        when(passwordEncoder.encrypt(newRawPassword)).thenReturn("encoded_new");
 
-        // when and then
+        // when & then
         assertThatNoException()
-                .isThrownBy(() -> service.updatePassword(userId, currentPassword, newPassword));
+                .isThrownBy(() -> service.updatePassword(userId, currentRawPassword, newRawPassword));
 
         verify(userRepository).save(any(User.class));
     }
@@ -58,14 +58,14 @@ class PasswordUpdateServiceTest {
         // given
         UserId userId = UserId.of("test1234");
         User user = createUser(userId, "encoded_current");
-        Password wrongPassword = Password.of("WrongPw1!", BIRTHDAY);
-        Password newPassword = Password.of("NewPass1!", BIRTHDAY);
+        String wrongRawPassword = "WrongPw1!";
+        String newRawPassword = "NewPass1!";
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("WrongPw1!", "encoded_current")).thenReturn(false);
+        when(passwordEncoder.matches(wrongRawPassword, "encoded_current")).thenReturn(false);
 
-        // when and then
-        assertThatThrownBy(() -> service.updatePassword(userId, wrongPassword, newPassword))
+        // when & then
+        assertThatThrownBy(() -> service.updatePassword(userId, wrongRawPassword, newRawPassword))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("현재 비밀번호가 일치하지 않습니다");
 
@@ -78,14 +78,14 @@ class PasswordUpdateServiceTest {
         // given
         UserId userId = UserId.of("test1234");
         User user = createUser(userId, "encoded_current");
-        Password currentPassword = Password.of("Current1!", BIRTHDAY);
-        Password samePassword = Password.of("Current1!", BIRTHDAY);
+        String currentRawPassword = "Current1!";
+        String sameRawPassword = "Current1!";
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("Current1!", "encoded_current")).thenReturn(true);
+        when(passwordEncoder.matches(currentRawPassword, "encoded_current")).thenReturn(true);
 
-        // when and then
-        assertThatThrownBy(() -> service.updatePassword(userId, currentPassword, samePassword))
+        // when & then
+        assertThatThrownBy(() -> service.updatePassword(userId, currentRawPassword, sameRawPassword))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("현재 비밀번호는 사용할 수 없습니다");
 
@@ -97,13 +97,13 @@ class PasswordUpdateServiceTest {
     void updatePassword_fail_user_not_found() {
         // given
         UserId userId = UserId.of("notexist");
-        Password currentPassword = Password.of("Current1!", BIRTHDAY);
-        Password newPassword = Password.of("NewPass1!", BIRTHDAY);
+        String currentRawPassword = "Current1!";
+        String newRawPassword = "NewPass1!";
 
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
-        // when and then
-        assertThatThrownBy(() -> service.updatePassword(userId, currentPassword, newPassword))
+        // when & then
+        assertThatThrownBy(() -> service.updatePassword(userId, currentRawPassword, newRawPassword))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("사용자를 찾을 수 없습니다");
     }

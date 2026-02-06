@@ -1,16 +1,16 @@
 package com.loopers.domain.model;
 
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Value;
+
 import java.time.LocalDate;
 
+@Value
+@AllArgsConstructor(access = AccessLevel.PRIVATE) // 생성자를 private으로 제한
 public class Birthday {
 
-    private final LocalDate value;
-
-    private Birthday(LocalDate value) {this.value = value; }
-
-    public LocalDate getValue() {
-        return value;
-    }
+    LocalDate value;
 
     public static Birthday of(LocalDate value) {
         if(value == null) {

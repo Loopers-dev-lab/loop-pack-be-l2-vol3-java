@@ -1,11 +1,15 @@
 package com.loopers.interfaces.api.dto;
 
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
 import java.time.LocalDate;
 
 public record UserRegisterRequest(
-        String loginId,
-        String password,
-        String name,
-        LocalDate birthday,
-        String email
+        @NotBlank String loginId,
+        @NotBlank String password,
+        @NotBlank String name,
+        @NotNull LocalDate birthday,
+        @NotBlank @Email String email
 ) {}

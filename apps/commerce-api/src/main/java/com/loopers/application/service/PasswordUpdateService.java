@@ -7,6 +7,9 @@ import com.loopers.domain.model.UserId;
 import com.loopers.domain.repository.UserRepository;
 import com.loopers.domain.service.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
 
 @Service
 public class PasswordUpdateService implements PasswordUpdateUseCase {
@@ -20,9 +23,14 @@ public class PasswordUpdateService implements PasswordUpdateUseCase {
     }
 
     @Override
-    public void updatePassword(UserId userId, Password currentPassword, Password newPassword) {
+    @Transactional
+    public void updatePassword(UserId userId, String currentRawPassword, String newRawPassword) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        LocalDate birthday = user.getBirth().getValue();
+        Password currentPassword = Password.of(currentRawPassword, birthday);
+        Password newPassword = Password.of(newRawPassword, birthday);
 
         // 기존 비밀번호 확인
         if (!passwordEncoder.matches(currentPassword.getValue(), user.getEncodedPassword())) {

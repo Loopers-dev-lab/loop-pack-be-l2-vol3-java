@@ -71,4 +71,12 @@ class BirthdayTest {
         // then
         assertThat(birthday.getValue()).isEqualTo(today);
     }
+
+    @Test
+    @DisplayName("생년월일 1900-01-01 성공 (최소 경계)")
+    void create_success_min_boundary() {
+        LocalDate minDate = LocalDate.of(1900, 1, 1);
+        Birthday birthday = Birthday.of(minDate);
+        assertThat(birthday.getValue()).isEqualTo(minDate);
+    }
 }
