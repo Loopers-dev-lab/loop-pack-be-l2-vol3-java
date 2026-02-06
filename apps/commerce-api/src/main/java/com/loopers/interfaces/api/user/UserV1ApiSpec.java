@@ -36,4 +36,15 @@ public interface UserV1ApiSpec {
         @Parameter(description = "사용자 ID", required = true)
         String userId
     );
+
+    @Operation(
+        summary = "비밀번호 변경",
+        description = "사용자의 비밀번호를 변경합니다."
+    )
+    ApiResponse<Void> updatePassword(
+        @Parameter(description = "로그인 사용자 ID", required = true)
+        String loginId,
+        @Schema(description = "비밀번호 변경 요청 정보")
+        @Valid UserV1Dto.UpdatePasswordRequest request
+    );
 }

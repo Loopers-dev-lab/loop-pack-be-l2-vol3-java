@@ -56,4 +56,8 @@ public class Password {
     public String encrypt() {
         return passwordEncoder.encode(value);
     }
+
+    public static boolean matches(String rawPassword, String encryptedPassword) {
+        return passwordEncoder.matches(rawPassword, encryptedPassword);
+    }
 }

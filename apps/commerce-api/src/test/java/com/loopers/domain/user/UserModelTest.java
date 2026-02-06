@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class UserModelTest {
 
@@ -87,6 +88,75 @@ class UserModelTest {
             // then
             assertThat(user.getEncryptedPassword()).isNotEqualTo(rawPassword);
             assertThat(user.getEncryptedPassword()).isNotBlank();
+        }
+    }
+
+    @DisplayName("비밀번호를 변경할 때, ")
+    @Nested
+    class UpdatePassword {
+
+        @DisplayName("현재 비밀번호가 일치하지 않으면, IllegalArgumentException이 발생한다.")
+        @Test
+        void updatePassword_withIncorrectCurrentPassword_shouldFail() {
+            // given
+            String userId = "testuser01";
+            Email email = new Email("test@example.com");
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            Password currentPassword = Password.of("OldPass123!", birthDate);
+            Gender gender = Gender.MALE;
+
+            UserModel user = UserModel.create(userId, email, birthDate, currentPassword, gender);
+
+            String wrongCurrentPassword = "WrongPass!";
+            String newPasswordValue = "NewPass456!";
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                user.updatePassword(wrongCurrentPassword, newPasswordValue);
+            });
+        }
+
+        @DisplayName("새 비밀번호가 현재 비밀번호와 동일하면, IllegalArgumentException이 발생한다.")
+        @Test
+        void updatePassword_withSamePassword_shouldFail() {
+            // given
+            String userId = "testuser02";
+            Email email = new Email("test2@example.com");
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            String samePassword = "SamePass123!";
+            Password currentPassword = Password.of(samePassword, birthDate);
+            Gender gender = Gender.MALE;
+
+            UserModel user = UserModel.create(userId, email, birthDate, currentPassword, gender);
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                user.updatePassword(samePassword, samePassword);
+            });
+        }
+
+        @DisplayName("올바른 현재 비밀번호와 새 비밀번호가 주어지면, 비밀번호가 변경된다.")
+        @Test
+        void updatePassword_withValidPasswords_shouldSuccess() {
+            // given
+            String userId = "testuser03";
+            Email email = new Email("test3@example.com");
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            String currentPasswordValue = "OldPass123!";
+            Password currentPassword = Password.of(currentPasswordValue, birthDate);
+            Gender gender = Gender.MALE;
+
+            UserModel user = UserModel.create(userId, email, birthDate, currentPassword, gender);
+            String oldEncryptedPassword = user.getEncryptedPassword();
+
+            String newPasswordValue = "NewPass456!";
+
+            // when
+            user.updatePassword(currentPasswordValue, newPasswordValue);
+
+            // then
+            assertThat(user.getEncryptedPassword()).isNotEqualTo(oldEncryptedPassword);
+            assertThat(Password.matches(newPasswordValue, user.getEncryptedPassword())).isTrue();
         }
     }
 }

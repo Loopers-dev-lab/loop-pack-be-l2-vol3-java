@@ -39,4 +39,8 @@ public class UserFacade {
         }
         return new PointsInfo(userId, points);
     }
+
+    public void updatePassword(String userId, String currentPassword, String newPassword) {
+        userService.updatePassword(userId, currentPassword, newPassword);
+    }
 }

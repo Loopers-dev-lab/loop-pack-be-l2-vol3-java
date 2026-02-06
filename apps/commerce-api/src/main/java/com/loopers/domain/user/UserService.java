@@ -49,4 +49,16 @@ public class UserService {
             .map(UserModel::getPoints)
             .orElse(null);
     }
+
+    @Transactional
+    public void updatePassword(String userId, String currentPassword, String newPassword) {
+        UserModel user = userRepository.findByUserId(userId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다: " + userId));
+
+        try {
+            user.updatePassword(currentPassword, newPassword);
+        } catch (IllegalArgumentException e) {
+            throw new CoreException(ErrorType.BAD_REQUEST, e.getMessage());
+        }
+    }
 }

@@ -269,4 +269,94 @@ class UserServiceIntegrationTest {
             assertThat(points).isEqualTo(0L);
         }
     }
+
+    @DisplayName("비밀번호를 변경할 때, ")
+    @Nested
+    class UpdatePassword {
+
+        @DisplayName("존재하지 않는 사용자 ID로 변경하면, CoreException(NOT_FOUND)이 발생한다.")
+        @Test
+        void updatePassword_withNonExistentUserId_shouldThrowNotFoundException() {
+            // given
+            String nonExistentUserId = "nouser";
+            String currentPassword = "OldPass123!";
+            String newPassword = "NewPass456!";
+
+            // when & then
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                userService.updatePassword(nonExistentUserId, currentPassword, newPassword);
+            });
+
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+        }
+
+        @DisplayName("현재 비밀번호가 일치하지 않으면, CoreException(BAD_REQUEST)이 발생한다.")
+        @Test
+        void updatePassword_withIncorrectCurrentPassword_shouldThrowBadRequestException() {
+            // given
+            String userId = "testuser1";
+            Email email = new Email("test@example.com");
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            Password password = Password.of("OldPass123!", birthDate);
+            Gender gender = Gender.MALE;
+
+            userService.signUp(userId, email, birthDate, password, gender);
+
+            String wrongCurrentPassword = "WrongPass!";
+            String newPassword = "NewPass456!";
+
+            // when & then
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                userService.updatePassword(userId, wrongCurrentPassword, newPassword);
+            });
+
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("새 비밀번호가 현재 비밀번호와 동일하면, CoreException(BAD_REQUEST)이 발생한다.")
+        @Test
+        void updatePassword_withSamePassword_shouldThrowBadRequestException() {
+            // given
+            String userId = "testuser2";
+            Email email = new Email("test2@example.com");
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            String samePassword = "SamePass123!";
+            Password password = Password.of(samePassword, birthDate);
+            Gender gender = Gender.MALE;
+
+            userService.signUp(userId, email, birthDate, password, gender);
+
+            // when & then
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                userService.updatePassword(userId, samePassword, samePassword);
+            });
+
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("올바른 입력으로 비밀번호를 변경하면, 성공한다.")
+        @Test
+        void updatePassword_withValidInputs_shouldSuccess() {
+            // given
+            String userId = "testuser3";
+            Email email = new Email("test3@example.com");
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            String currentPassword = "OldPass123!";
+            Password password = Password.of(currentPassword, birthDate);
+            Gender gender = Gender.MALE;
+
+            UserModel user = userService.signUp(userId, email, birthDate, password, gender);
+            String oldEncryptedPassword = user.getEncryptedPassword();
+
+            String newPassword = "NewPass456!";
+
+            // when
+            userService.updatePassword(userId, currentPassword, newPassword);
+
+            // then
+            UserModel updatedUser = userRepository.findByUserId(userId).orElseThrow();
+            assertThat(updatedUser.getEncryptedPassword()).isNotEqualTo(oldEncryptedPassword);
+            assertThat(Password.matches(newPassword, updatedUser.getEncryptedPassword())).isTrue();
+        }
+    }
 }
