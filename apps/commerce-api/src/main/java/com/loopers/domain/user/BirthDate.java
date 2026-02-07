@@ -50,7 +50,7 @@ public class BirthDate {
             return LocalDate.parse(rawValue);
         } catch (DateTimeParseException e) {
             throw new CoreException(UserErrorType.INVALID_BIRTH_DATE,
-                    "생년월일은 YYYY-MM-DD 형식이어야 합니다.");
+                    "생년월일은 YYYY-MM-DD 형식이어야 합니다.", e);
         }
     }
 

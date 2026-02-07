@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -172,6 +173,17 @@ public class BirthDateTest {
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
+        }
+
+        @DisplayName("잘못된 형식이면, 예외의 원인으로 DateTimeParseException을 포함한다.")
+        @Test
+        void preservesCauseWhenInvalidFormat() {
+            // act & assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                new BirthDate("1994/11/15");
+            });
+
+            assertThat(exception.getCause()).isInstanceOf(DateTimeParseException.class);
         }
     }
 }
