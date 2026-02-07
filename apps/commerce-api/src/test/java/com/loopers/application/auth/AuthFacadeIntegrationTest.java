@@ -7,6 +7,8 @@ import com.loopers.support.error.UserErrorType;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * - 실제 비즈니스 흐름 전체 검증
  */
 @SpringBootTest
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class AuthFacadeIntegrationTest {
 
     @Autowired
@@ -53,8 +56,7 @@ class AuthFacadeIntegrationTest {
     class Signup {
 
         @Test
-        @DisplayName("유효한 정보로 가입하면, UserInfo를 반환한다")
-        void returnsUserInfoWhenValidInput() {
+        void 유효한_정보로_가입하면_UserInfo를_반환한다() {
             // arrange
             String loginId = "nahyeon";
             String password = "Hx7!mK2@";
@@ -76,8 +78,7 @@ class AuthFacadeIntegrationTest {
         }
 
         @Test
-        @DisplayName("가입 후 DB에 사용자가 저장된다")
-        void savesUserToDatabase() {
+        void 가입_후_DB에_사용자가_저장된다() {
             // arrange
             String loginId = "testuser";
             String password = "Hx7!mK2@";
@@ -93,8 +94,7 @@ class AuthFacadeIntegrationTest {
         }
 
         @Test
-        @DisplayName("중복된 로그인ID로 가입하면, 예외가 발생한다")
-        void throwsExceptionWhenDuplicateLoginId() {
+        void 중복된_로그인ID로_가입하면_예외가_발생한다() {
             // arrange
             String loginId = "duplicate";
             authFacade.signup(loginId, "Hx7!mK2@", "홍길동", "1994-11-15", "first@example.com");
@@ -108,8 +108,7 @@ class AuthFacadeIntegrationTest {
         }
 
         @Test
-        @DisplayName("비밀번호에 생년월일이 포함되면, 예외가 발생한다")
-        void throwsExceptionWhenPasswordContainsBirthDate() {
+        void 비밀번호에_생년월일이_포함되면_예외가_발생한다() {
             // arrange
             String loginId = "nahyeon";
             String password = "X19940115!";  // contains birthDate
@@ -131,8 +130,7 @@ class AuthFacadeIntegrationTest {
     class ChangePassword {
 
         @Test
-        @DisplayName("유효한 요청이면, 비밀번호가 변경된다")
-        void changesPasswordWhenValidRequest() {
+        void 유효한_요청이면_비밀번호가_변경된다() {
             // arrange
             String loginId = "nahyeon";
             String currentPassword = "Hx7!mK2@";
@@ -148,8 +146,7 @@ class AuthFacadeIntegrationTest {
         }
 
         @Test
-        @DisplayName("헤더 비밀번호가 틀리면, 인증 예외가 발생한다")
-        void throwsExceptionWhenHeaderPasswordWrong() {
+        void 헤더_비밀번호가_틀리면_인증_예외가_발생한다() {
             // arrange
             String loginId = "nahyeon";
             String currentPassword = "Hx7!mK2@";
@@ -164,8 +161,7 @@ class AuthFacadeIntegrationTest {
         }
 
         @Test
-        @DisplayName("현재 비밀번호가 틀리면, 예외가 발생한다")
-        void throwsExceptionWhenCurrentPasswordWrong() {
+        void 현재_비밀번호가_틀리면_예외가_발생한다() {
             // arrange
             String loginId = "nahyeon";
             String currentPassword = "Hx7!mK2@";
@@ -180,8 +176,7 @@ class AuthFacadeIntegrationTest {
         }
 
         @Test
-        @DisplayName("새 비밀번호가 현재와 동일하면, 예외가 발생한다")
-        void throwsExceptionWhenSameAsCurrentPassword() {
+        void 새_비밀번호가_현재와_동일하면_예외가_발생한다() {
             // arrange
             String loginId = "nahyeon";
             String currentPassword = "Hx7!mK2@";

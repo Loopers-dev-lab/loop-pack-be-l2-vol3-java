@@ -4,6 +4,8 @@ import com.loopers.interfaces.api.auth.AuthV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class AuthV1ApiE2ETest {
 
     private static final String SIGNUP_URL = "/api/v1/auth/signup";
@@ -53,9 +56,8 @@ class AuthV1ApiE2ETest {
     @Nested
     class Signup {
 
-        @DisplayName("유효한 정보로 가입하면, 201 Created 응답을 받는다.")
         @Test
-        void returns201_whenValidRequest() {
+        void 유효한_정보로_가입하면_201_Created_응답을_받는다() {
             // act
             ResponseEntity<ApiResponse> response = signup(validSignupRequest());
 
@@ -63,9 +65,8 @@ class AuthV1ApiE2ETest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         }
 
-        @DisplayName("중복 로그인 ID로 가입하면, 409 Conflict 응답을 받는다.")
         @Test
-        void returns409_whenDuplicateLoginId() {
+        void 중복_로그인_ID로_가입하면_409_Conflict_응답을_받는다() {
             // arrange
             signup(validSignupRequest());
 
@@ -76,9 +77,8 @@ class AuthV1ApiE2ETest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         }
 
-        @DisplayName("잘못된 비밀번호 형식이면, 400 Bad Request 응답을 받는다.")
         @Test
-        void returns400_whenInvalidPassword() {
+        void 잘못된_비밀번호_형식이면_400_Bad_Request_응답을_받는다() {
             // arrange
             AuthV1Dto.SignupRequest request = new AuthV1Dto.SignupRequest(
                     "nahyeon", "short", "홍길동", "1994-11-15", "nahyeon@example.com"
@@ -91,9 +91,8 @@ class AuthV1ApiE2ETest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
 
-        @DisplayName("비밀번호에 생년월일이 포함되면, 400 Bad Request 응답을 받는다.")
         @Test
-        void returns400_whenPasswordContainsBirthDate() {
+        void 비밀번호에_생년월일이_포함되면_400_Bad_Request_응답을_받는다() {
             // arrange
             AuthV1Dto.SignupRequest request = new AuthV1Dto.SignupRequest(
                     "nahyeon", "A19941115!", "홍길동", "1994-11-15", "nahyeon@example.com"
@@ -113,9 +112,8 @@ class AuthV1ApiE2ETest {
     @Nested
     class ChangePassword {
 
-        @DisplayName("유효한 요청이면, 200 OK 응답을 받는다.")
         @Test
-        void returns200_whenValidRequest() {
+        void 유효한_요청이면_200_OK_응답을_받는다() {
             // arrange
             signup(validSignupRequest());
             HttpHeaders headers = authHeaders("nahyeon", "Hx7!mK2@");
@@ -130,9 +128,8 @@ class AuthV1ApiE2ETest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         }
 
-        @DisplayName("변경 후 새 비밀번호로 인증되고, 이전 비밀번호로는 실패한다.")
         @Test
-        void authenticatesWithNewPassword_afterChange() {
+        void 변경_후_새_비밀번호로_인증되고_이전_비밀번호로는_실패한다() {
             // arrange - 회원가입 + 비밀번호 변경
             signup(validSignupRequest());
             HttpHeaders headers = authHeaders("nahyeon", "Hx7!mK2@");
@@ -157,9 +154,8 @@ class AuthV1ApiE2ETest {
             );
         }
 
-        @DisplayName("현재 비밀번호와 동일한 새 비밀번호면, 400 Bad Request 응답을 받는다.")
         @Test
-        void returns400_whenSamePassword() {
+        void 현재_비밀번호와_동일한_새_비밀번호면_400_Bad_Request_응답을_받는다() {
             // arrange
             signup(validSignupRequest());
             HttpHeaders headers = authHeaders("nahyeon", "Hx7!mK2@");

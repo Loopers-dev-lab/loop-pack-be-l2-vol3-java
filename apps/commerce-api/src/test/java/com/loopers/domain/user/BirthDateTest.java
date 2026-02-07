@@ -3,6 +3,8 @@ package com.loopers.domain.user;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * - 실제 존재하는 날짜
  * - 만 14세 이상
  */
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 public class BirthDateTest {
 
     @DisplayName("생년월일을 생성할 때,")
@@ -30,9 +33,8 @@ public class BirthDateTest {
 
         // ========== 정상 케이스 ==========
 
-        @DisplayName("유효한 날짜이면, 정상적으로 생성된다.")
         @Test
-        void createsBirthDate_whenValid() {
+        void 유효한_날짜이면_정상적으로_생성된다() {
             // arrange
             String value = "1994-11-15";
 
@@ -43,9 +45,8 @@ public class BirthDateTest {
             assertThat(birthDate.getValue()).isEqualTo(LocalDate.of(1994, 11, 15));
         }
 
-        @DisplayName("윤년 2월 29일이면, 정상적으로 생성된다.")
         @Test
-        void createsBirthDate_whenLeapYear() {
+        void 윤년_2월_29일이면_정상적으로_생성된다() {
             // arrange
             String value = "2000-02-29";
 
@@ -56,9 +57,8 @@ public class BirthDateTest {
             assertThat(birthDate.getValue()).isEqualTo(LocalDate.of(2000, 2, 29));
         }
 
-        @DisplayName("최소 허용 날짜(1900-01-01)이면, 정상적으로 생성된다.")
         @Test
-        void createsBirthDate_whenMinDate() {
+        void 최소_허용_날짜이면_정상적으로_생성된다() {
             // arrange
             String value = "1900-01-01";
 
@@ -69,9 +69,8 @@ public class BirthDateTest {
             assertThat(birthDate.getValue()).isEqualTo(LocalDate.of(1900, 1, 1));
         }
 
-        @DisplayName("만 14세 경계(정확히 14세)이면, 정상적으로 생성된다.")
         @Test
-        void createsBirthDate_whenExactlyMinAge() {
+        void 만_14세_경계이면_정상적으로_생성된다() {
             // arrange
             String value = LocalDate.now().minusYears(14).format(DateTimeFormatter.ISO_LOCAL_DATE);
 
@@ -84,9 +83,8 @@ public class BirthDateTest {
 
         // ========== 엣지 케이스 ==========
 
-        @DisplayName("null이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenNull() {
+        void null이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new BirthDate(null);
@@ -95,9 +93,8 @@ public class BirthDateTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
 
-        @DisplayName("잘못된 형식(슬래시)이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenSlashFormat() {
+        void 잘못된_형식_슬래시이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new BirthDate("1994/11/15");
@@ -106,9 +103,8 @@ public class BirthDateTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
 
-        @DisplayName("잘못된 형식(구분자 없음)이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenNoSeparator() {
+        void 잘못된_형식_구분자_없음이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new BirthDate("19941115");
@@ -117,9 +113,8 @@ public class BirthDateTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
 
-        @DisplayName("존재하지 않는 날짜(2월 30일)이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenInvalidDate() {
+        void 존재하지_않는_날짜이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new BirthDate("1994-02-30");
@@ -128,9 +123,8 @@ public class BirthDateTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
 
-        @DisplayName("미래 날짜이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenFutureDate() {
+        void 미래_날짜이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new BirthDate("2030-01-01");
@@ -139,9 +133,8 @@ public class BirthDateTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
 
-        @DisplayName("1900년 이전이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenTooOld() {
+        void 1900년_이전이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new BirthDate("1899-12-31");
@@ -150,9 +143,8 @@ public class BirthDateTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
 
-        @DisplayName("만 14세 미만이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenUnderMinAge() {
+        void 만_14세_미만이면_예외가_발생한다() {
             // arrange
             String value = LocalDate.now().minusYears(13).format(DateTimeFormatter.ISO_LOCAL_DATE);
 
@@ -164,9 +156,8 @@ public class BirthDateTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
 
-        @DisplayName("비윤년 2월 29일이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenNonLeapYearFeb29() {
+        void 비윤년_2월_29일이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new BirthDate("1999-02-29");
@@ -175,9 +166,8 @@ public class BirthDateTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
         }
 
-        @DisplayName("잘못된 형식이면, 예외의 원인으로 DateTimeParseException을 포함한다.")
         @Test
-        void preservesCauseWhenInvalidFormat() {
+        void 잘못된_형식이면_예외의_원인으로_DateTimeParseException을_포함한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new BirthDate("1994/11/15");

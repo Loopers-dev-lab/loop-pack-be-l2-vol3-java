@@ -3,6 +3,8 @@ package com.loopers.domain.user;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  *
  * 교차 검증(생년월일 포함 금지)은 PasswordPolicy에서 별도 테스트
  */
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 public class PasswordTest {
 
     @DisplayName("비밀번호를 생성할 때,")
@@ -30,9 +33,8 @@ public class PasswordTest {
 
         // ========== 정상 케이스 ==========
 
-        @DisplayName("모든 규칙을 만족하면, 정상적으로 생성된다.")
         @Test
-        void createsPassword_whenAllRulesSatisfied() {
+        void 모든_규칙을_만족하면_정상적으로_생성된다() {
             // arrange
             String rawPassword = "Hx7!mK2@";
 
@@ -43,9 +45,8 @@ public class PasswordTest {
             assertThat(password.getValue()).isEqualTo(rawPassword);
         }
 
-        @DisplayName("최소 길이(8자)이면, 정상적으로 생성된다.")
         @Test
-        void createsPassword_whenMinLength() {
+        void 최소_길이_8자이면_정상적으로_생성된다() {
             // arrange
             String rawPassword = "Xz5!qw9@";  // 8자
 
@@ -56,9 +57,8 @@ public class PasswordTest {
             assertThat(password.getValue()).isEqualTo(rawPassword);
         }
 
-        @DisplayName("최대 길이(16자)이면, 정상적으로 생성된다.")
         @Test
-        void createsPassword_whenMaxLength() {
+        void 최대_길이_16자이면_정상적으로_생성된다() {
             // arrange
             String rawPassword = "Px8!Kd3@Wm7#Rf2$";  // 16자
 
@@ -69,9 +69,8 @@ public class PasswordTest {
             assertThat(password.getValue()).isEqualTo(rawPassword);
         }
 
-        @DisplayName("다양한 특수문자 조합이면, 정상적으로 생성된다.")
         @Test
-        void createsPassword_whenVariousSpecialChars() {
+        void 다양한_특수문자_조합이면_정상적으로_생성된다() {
             // arrange
             String rawPassword = "Ac1~`[]{}";
 
@@ -81,9 +80,8 @@ public class PasswordTest {
 
         // ========== 엣지 케이스 ==========
 
-        @DisplayName("null이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenNull() {
+        void null이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 Password.of(null);
@@ -92,9 +90,8 @@ public class PasswordTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_PASSWORD);
         }
 
-        @DisplayName("빈 문자열이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenEmpty() {
+        void 빈_문자열이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 Password.of("");
@@ -103,9 +100,8 @@ public class PasswordTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_PASSWORD);
         }
 
-        @DisplayName("7자(최소 미만)이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenLessThanMinLength() {
+        void 7자_최소_미만이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 Password.of("Abcd12!");  // 7자
@@ -114,9 +110,8 @@ public class PasswordTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_PASSWORD);
         }
 
-        @DisplayName("17자(최대 초과)이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenExceedsMaxLength() {
+        void 17자_최대_초과이면_예외가_발생한다() {
             // arrange
             String rawPassword = "Px8!Kd3@Wm7#Rf2$A";  // 17자
 
@@ -128,9 +123,8 @@ public class PasswordTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_PASSWORD);
         }
 
-        @DisplayName("영문만 있으면(복잡도 미달), 예외가 발생한다.")
         @Test
-        void throwsException_whenOnlyLetters() {
+        void 영문만_있으면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 Password.of("Abcdefgh");  // 대문자+소문자 = 2종
@@ -139,9 +133,8 @@ public class PasswordTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_PASSWORD);
         }
 
-        @DisplayName("숫자만 있으면(복잡도 미달), 예외가 발생한다.")
         @Test
-        void throwsException_whenOnlyDigits() {
+        void 숫자만_있으면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 Password.of("12345978");  // 숫자 = 1종
@@ -150,9 +143,8 @@ public class PasswordTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_PASSWORD);
         }
 
-        @DisplayName("특수문자만 있으면(복잡도 미달), 예외가 발생한다.")
         @Test
-        void throwsException_whenOnlySpecialChars() {
+        void 특수문자만_있으면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 Password.of("!@#$%^&*");  // 특수문자 = 1종
@@ -161,9 +153,8 @@ public class PasswordTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_PASSWORD);
         }
 
-        @DisplayName("한글이 포함되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenContainsKorean() {
+        void 한글이_포함되면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 Password.of("Abcd123가");
@@ -172,9 +163,8 @@ public class PasswordTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_PASSWORD);
         }
 
-        @DisplayName("공백이 포함되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenContainsSpace() {
+        void 공백이_포함되면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 Password.of("Abcd 12!");
@@ -183,9 +173,8 @@ public class PasswordTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_PASSWORD);
         }
 
-        @DisplayName("동일 문자가 3회 이상 연속되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenThreeConsecutiveSameChars() {
+        void 동일_문자가_3회_이상_연속되면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 Password.of("Aaab123!@");
@@ -194,9 +183,8 @@ public class PasswordTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_PASSWORD);
         }
 
-        @DisplayName("연속 숫자 3자리가 포함되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenThreeSequentialDigits() {
+        void 연속_숫자_3자리가_포함되면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 Password.of("Abzx1234!");
@@ -205,9 +193,8 @@ public class PasswordTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_PASSWORD);
         }
 
-        @DisplayName("연속 문자 3자리가 포함되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenThreeSequentialChars() {
+        void 연속_문자_3자리가_포함되면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 Password.of("xAbcz12!@");

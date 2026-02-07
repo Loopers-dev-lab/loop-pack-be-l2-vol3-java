@@ -5,6 +5,8 @@ import com.loopers.interfaces.api.user.UserV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class UserV1ApiE2ETest {
 
     private static final String SIGNUP_URL = "/api/v1/auth/signup";
@@ -54,9 +57,8 @@ class UserV1ApiE2ETest {
     @Nested
     class GetMyInfo {
 
-        @DisplayName("유효한 인증 정보로 조회하면, 200 OK + 마스킹된 이름을 반환한다.")
         @Test
-        void returns200WithMaskedName_whenValidAuth() {
+        void 유효한_인증_정보로_조회하면_200_OK와_마스킹된_이름을_반환한다() {
             // arrange
             signup(validSignupRequest());
             HttpHeaders headers = authHeaders("nahyeon", "Hx7!mK2@");
@@ -74,9 +76,8 @@ class UserV1ApiE2ETest {
             );
         }
 
-        @DisplayName("잘못된 비밀번호로 조회하면, 401 Unauthorized 응답을 받는다.")
         @Test
-        void returns401_whenWrongPassword() {
+        void 잘못된_비밀번호로_조회하면_401_Unauthorized_응답을_받는다() {
             // arrange
             signup(validSignupRequest());
             HttpHeaders headers = authHeaders("nahyeon", "wrongPw1!");

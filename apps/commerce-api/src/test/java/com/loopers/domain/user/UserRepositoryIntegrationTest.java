@@ -3,6 +3,8 @@ package com.loopers.domain.user;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
  * - 각 테스트가 독립적으로 실행될 수 있도록 보장
  */
 @SpringBootTest
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class UserRepositoryIntegrationTest {
 
     @Autowired
@@ -59,8 +62,7 @@ class UserRepositoryIntegrationTest {
     class Save {
 
         @Test
-        @DisplayName("새로운 사용자를 저장하면, ID가 생성된다")
-        void createsIdWhenSavingNewUser() {
+        void 새로운_사용자를_저장하면_ID가_생성된다() {
             // arrange
             User user = createTestUser("testuser");
 
@@ -72,8 +74,7 @@ class UserRepositoryIntegrationTest {
         }
 
         @Test
-        @DisplayName("저장된 사용자의 모든 필드가 올바르게 저장된다")
-        void savesAllFieldsCorrectly() {
+        void 저장된_사용자의_모든_필드가_올바르게_저장된다() {
             // arrange
             LoginId loginId = new LoginId("nahyeon");
             String encodedPassword = "$2a$10$encodedPasswordHash";
@@ -102,8 +103,7 @@ class UserRepositoryIntegrationTest {
     class FindByLoginId {
 
         @Test
-        @DisplayName("존재하는 로그인ID로 조회하면, 해당 사용자를 반환한다")
-        void returnsUserWhenLoginIdExists() {
+        void 존재하는_로그인ID로_조회하면_해당_사용자를_반환한다() {
             // arrange
             User user = createTestUser("existinguser");
             userRepository.save(user);
@@ -119,8 +119,7 @@ class UserRepositoryIntegrationTest {
         }
 
         @Test
-        @DisplayName("존재하지 않는 로그인ID로 조회하면, empty를 반환한다")
-        void returnsEmptyWhenLoginIdNotExists() {
+        void 존재하지_않는_로그인ID로_조회하면_empty를_반환한다() {
             // arrange
             String nonExistingLoginId = "nonexisting";
 
@@ -137,8 +136,7 @@ class UserRepositoryIntegrationTest {
     class ExistsByLoginId {
 
         @Test
-        @DisplayName("존재하는 로그인ID면, true를 반환한다")
-        void returnsTrueWhenLoginIdExists() {
+        void 존재하는_로그인ID면_true를_반환한다() {
             // arrange
             User user = createTestUser("existinguser");
             userRepository.save(user);
@@ -151,8 +149,7 @@ class UserRepositoryIntegrationTest {
         }
 
         @Test
-        @DisplayName("존재하지 않는 로그인ID면, false를 반환한다")
-        void returnsFalseWhenLoginIdNotExists() {
+        void 존재하지_않는_로그인ID면_false를_반환한다() {
             // arrange
             String nonExistingLoginId = "nonexisting";
 

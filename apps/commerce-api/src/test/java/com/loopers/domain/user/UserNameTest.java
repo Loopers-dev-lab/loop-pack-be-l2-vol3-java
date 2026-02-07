@@ -3,6 +3,8 @@ package com.loopers.domain.user;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -20,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * 마스킹 규칙:
  * - 마지막 1글자를 '*'로 대체
  */
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 public class UserNameTest {
 
     @DisplayName("이름을 생성할 때,")
@@ -28,9 +31,8 @@ public class UserNameTest {
 
         // ========== 정상 케이스 ==========
 
-        @DisplayName("한글 이름이면, 정상적으로 생성된다.")
         @Test
-        void createsUserName_whenKorean() {
+        void 한글_이름이면_정상적으로_생성된다() {
             // arrange
             String value = "홍길동";
 
@@ -41,9 +43,8 @@ public class UserNameTest {
             assertThat(userName.getValue()).isEqualTo(value);
         }
 
-        @DisplayName("영문 이름이면, 정상적으로 생성된다.")
         @Test
-        void createsUserName_whenEnglish() {
+        void 영문_이름이면_정상적으로_생성된다() {
             // arrange
             String value = "Nahyeon";
 
@@ -54,9 +55,8 @@ public class UserNameTest {
             assertThat(userName.getValue()).isEqualTo(value);
         }
 
-        @DisplayName("최소 길이(2자)이면, 정상적으로 생성된다.")
         @Test
-        void createsUserName_whenMinLength() {
+        void 최소_길이_2자이면_정상적으로_생성된다() {
             // arrange
             String value = "홍길";
 
@@ -67,9 +67,8 @@ public class UserNameTest {
             assertThat(userName.getValue()).isEqualTo(value);
         }
 
-        @DisplayName("최대 길이(50자)이면, 정상적으로 생성된다.")
         @Test
-        void createsUserName_whenMaxLength() {
+        void 최대_길이_50자이면_정상적으로_생성된다() {
             // arrange
             String value = "가".repeat(50);
 
@@ -80,9 +79,8 @@ public class UserNameTest {
             assertThat(userName.getValue()).isEqualTo(value);
         }
 
-        @DisplayName("한글+영문 혼합이면, 정상적으로 생성된다.")
         @Test
-        void createsUserName_whenKoreanAndEnglishMixed() {
+        void 한글_영문_혼합이면_정상적으로_생성된다() {
             // arrange
             String value = "홍Nahyeon";
 
@@ -95,9 +93,8 @@ public class UserNameTest {
 
         // ========== 엣지 케이스 ==========
 
-        @DisplayName("null이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenNull() {
+        void null이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new UserName(null);
@@ -106,9 +103,8 @@ public class UserNameTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_NAME);
         }
 
-        @DisplayName("빈 문자열이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenEmpty() {
+        void 빈_문자열이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new UserName("");
@@ -117,9 +113,8 @@ public class UserNameTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_NAME);
         }
 
-        @DisplayName("1자(최소 미만)이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenLessThanMinLength() {
+        void 1자_최소_미만이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new UserName("홍");
@@ -128,9 +123,8 @@ public class UserNameTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_NAME);
         }
 
-        @DisplayName("51자(최대 초과)이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenExceedsMaxLength() {
+        void 51자_최대_초과이면_예외가_발생한다() {
             // arrange
             String value = "가".repeat(51);
 
@@ -142,9 +136,8 @@ public class UserNameTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_NAME);
         }
 
-        @DisplayName("숫자가 포함되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenContainsDigits() {
+        void 숫자가_포함되면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new UserName("홍길동123");
@@ -153,9 +146,8 @@ public class UserNameTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_NAME);
         }
 
-        @DisplayName("특수문자가 포함되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenContainsSpecialChars() {
+        void 특수문자가_포함되면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new UserName("홍길동!");
@@ -164,9 +156,8 @@ public class UserNameTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_NAME);
         }
 
-        @DisplayName("공백이 포함되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenContainsSpace() {
+        void 공백이_포함되면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new UserName("홍 길동");
@@ -180,9 +171,8 @@ public class UserNameTest {
     @Nested
     class Masking {
 
-        @DisplayName("3자 한글이면, 마지막 글자가 *로 대체된다.")
         @Test
-        void masksLastChar_whenThreeCharKorean() {
+        void 3자_한글이면_마지막_글자가_별표로_대체된다() {
             // arrange
             UserName userName = new UserName("홍길동");
 
@@ -193,9 +183,8 @@ public class UserNameTest {
             assertThat(masked).isEqualTo("홍길*");
         }
 
-        @DisplayName("2자 한글이면, 마지막 글자가 *로 대체된다.")
         @Test
-        void masksLastChar_whenTwoCharKorean() {
+        void 2자_한글이면_마지막_글자가_별표로_대체된다() {
             // arrange
             UserName userName = new UserName("홍길");
 
@@ -206,9 +195,8 @@ public class UserNameTest {
             assertThat(masked).isEqualTo("홍*");
         }
 
-        @DisplayName("영문이면, 마지막 글자가 *로 대체된다.")
         @Test
-        void masksLastChar_whenEnglish() {
+        void 영문이면_마지막_글자가_별표로_대체된다() {
             // arrange
             UserName userName = new UserName("Nahyeon");
 

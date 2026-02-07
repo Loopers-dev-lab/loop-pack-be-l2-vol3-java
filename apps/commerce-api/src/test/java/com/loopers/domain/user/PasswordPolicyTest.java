@@ -3,6 +3,8 @@ package com.loopers.domain.user;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -18,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * 검증 규칙:
  * - 비밀번호에 생년월일 포함 금지 (YYYYMMDD, YYMMDD, MMDD)
  */
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 public class PasswordPolicyTest {
 
     private static final LocalDate BIRTH_DATE = LocalDate.of(1994, 11, 15);
@@ -26,15 +29,13 @@ public class PasswordPolicyTest {
     @Nested
     class Validate {
 
-        @DisplayName("생년월일이 포함되지 않으면, 정상 통과한다.")
         @Test
-        void passes_whenNoBirthDate() {
+        void 생년월일이_포함되지_않으면_정상_통과한다() {
             assertDoesNotThrow(() -> PasswordPolicy.validate("Hx7!mK2@", BIRTH_DATE));
         }
 
-        @DisplayName("생년월일(YYYYMMDD)이 포함되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenContainsBirthDateYYYYMMDD() {
+        void 생년월일_YYYYMMDD가_포함되면_예외가_발생한다() {
             CoreException exception = assertThrows(CoreException.class, () -> {
                 PasswordPolicy.validate("A19941115!", BIRTH_DATE);
             });
@@ -42,9 +43,8 @@ public class PasswordPolicyTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.PASSWORD_CONTAINS_BIRTH_DATE);
         }
 
-        @DisplayName("생년월일(YYMMDD)이 포함되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenContainsBirthDateYYMMDD() {
+        void 생년월일_YYMMDD가_포함되면_예외가_발생한다() {
             CoreException exception = assertThrows(CoreException.class, () -> {
                 PasswordPolicy.validate("A941115!a", BIRTH_DATE);
             });
@@ -52,9 +52,8 @@ public class PasswordPolicyTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.PASSWORD_CONTAINS_BIRTH_DATE);
         }
 
-        @DisplayName("생년월일(MMDD)이 포함되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenContainsBirthDateMMDD() {
+        void 생년월일_MMDD가_포함되면_예외가_발생한다() {
             CoreException exception = assertThrows(CoreException.class, () -> {
                 PasswordPolicy.validate("Abcd1115!", BIRTH_DATE);
             });

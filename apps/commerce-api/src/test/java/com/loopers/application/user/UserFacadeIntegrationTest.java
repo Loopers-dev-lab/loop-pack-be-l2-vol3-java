@@ -6,6 +6,8 @@ import com.loopers.support.error.UserErrorType;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * - 실제 비즈니스 흐름 전체 검증
  */
 @SpringBootTest
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class UserFacadeIntegrationTest {
 
     @Autowired
@@ -49,8 +52,7 @@ class UserFacadeIntegrationTest {
     class GetMyInfo {
 
         @Test
-        @DisplayName("유효한 인증 정보면, 사용자 정보를 반환한다")
-        void returnsUserInfoWhenValidCredentials() {
+        void 유효한_인증_정보면_사용자_정보를_반환한다() {
             // arrange
             String loginId = "nahyeon";
             String password = "Hx7!mK2@";
@@ -70,8 +72,7 @@ class UserFacadeIntegrationTest {
         }
 
         @Test
-        @DisplayName("존재하지 않는 사용자면, 예외가 발생한다")
-        void throwsExceptionWhenUserNotFound() {
+        void 존재하지_않는_사용자면_예외가_발생한다() {
             // arrange
             String loginId = "nonexistent";
             String password = "Hx7!mK2@";
@@ -85,8 +86,7 @@ class UserFacadeIntegrationTest {
         }
 
         @Test
-        @DisplayName("비밀번호가 틀리면, 예외가 발생한다")
-        void throwsExceptionWhenPasswordWrong() {
+        void 비밀번호가_틀리면_예외가_발생한다() {
             // arrange
             String loginId = "nahyeon";
             String password = "Hx7!mK2@";

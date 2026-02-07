@@ -1,6 +1,8 @@
 package com.loopers.domain.user;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -10,15 +12,15 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 /**
  * User Entity 단위 테스트
  */
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 public class UserTest {
 
     @DisplayName("User를 생성할 때,")
     @Nested
     class Create {
 
-        @DisplayName("유효한 정보를 전달하면, 정상적으로 생성된다.")
         @Test
-        void createsUser_whenValidInput() {
+        void 유효한_정보를_전달하면_정상적으로_생성된다() {
             // arrange
             LoginId loginId = new LoginId("nahyeon");
             String encodedPassword = "$2a$10$encodedPasswordHash";
@@ -44,9 +46,8 @@ public class UserTest {
     @Nested
     class ChangePassword {
 
-        @DisplayName("새 인코딩된 비밀번호로 변경된다.")
         @Test
-        void changesPassword_whenNewEncodedPasswordGiven() {
+        void 새_인코딩된_비밀번호로_변경된다() {
             // arrange
             User user = User.create(
                     new LoginId("nahyeon"),

@@ -1,14 +1,16 @@
 package com.loopers.support.error;
 
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class CoreExceptionTest {
-    @DisplayName("ErrorType 기반의 예외 생성 시, 별도의 메시지가 주어지지 않으면 ErrorType의 메시지를 사용한다.")
+
     @Test
-    void messageShouldBeErrorTypeMessage_whenCustomMessageIsNull() {
+    void 별도_메시지가_없으면_ErrorType의_메시지를_사용한다() {
         // arrange
         CommonErrorType[] errorTypes = CommonErrorType.values();
 
@@ -19,9 +21,8 @@ class CoreExceptionTest {
         }
     }
 
-    @DisplayName("ErrorType 기반의 예외 생성 시, 별도의 메시지가 주어지면 해당 메시지를 사용한다.")
     @Test
-    void messageShouldBeCustomMessage_whenCustomMessageIsNotNull() {
+    void 별도_메시지가_주어지면_해당_메시지를_사용한다() {
         // arrange
         String customMessage = "custom message";
 

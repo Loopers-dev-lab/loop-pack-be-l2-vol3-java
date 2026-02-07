@@ -4,6 +4,8 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -20,6 +22,7 @@ import static org.mockito.Mockito.when;
 /**
  * UserService 단위 테스트
  */
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 public class UserServiceTest {
 
     private UserRepository userRepository;
@@ -37,9 +40,8 @@ public class UserServiceTest {
     @Nested
     class Signup {
 
-        @DisplayName("유효한 정보면, 정상적으로 가입된다.")
         @Test
-        void signup_whenValidInput() {
+        void 유효한_정보면_정상적으로_가입된다() {
             // arrange
             when(userRepository.existsByLoginId(anyString())).thenReturn(false);
             when(passwordEncryptor.encode(anyString())).thenReturn("$2a$10$encodedHash");
@@ -58,9 +60,8 @@ public class UserServiceTest {
             );
         }
 
-        @DisplayName("이미 존재하는 로그인 ID면, 예외가 발생한다.")
         @Test
-        void throwsException_whenDuplicateLoginId() {
+        void 이미_존재하는_로그인_ID면_예외가_발생한다() {
             // arrange
             when(userRepository.existsByLoginId(anyString())).thenReturn(true);
 
@@ -72,9 +73,8 @@ public class UserServiceTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.DUPLICATE_LOGIN_ID);
         }
 
-        @DisplayName("비밀번호에 생년월일이 포함되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenPasswordContainsBirthDate() {
+        void 비밀번호에_생년월일이_포함되면_예외가_발생한다() {
             // arrange
             when(userRepository.existsByLoginId(anyString())).thenReturn(false);
 
@@ -91,9 +91,8 @@ public class UserServiceTest {
     @Nested
     class Authenticate {
 
-        @DisplayName("유효한 ID/PW면, 사용자를 반환한다.")
         @Test
-        void returnsUser_whenValidCredentials() {
+        void 유효한_ID_PW면_사용자를_반환한다() {
             // arrange
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
@@ -110,9 +109,8 @@ public class UserServiceTest {
             assertThat(result.getLoginId().getValue()).isEqualTo("nahyeon");
         }
 
-        @DisplayName("존재하지 않는 ID면, 예외가 발생한다.")
         @Test
-        void throwsException_whenUserNotFound() {
+        void 존재하지_않는_ID면_예외가_발생한다() {
             // arrange
             when(userRepository.findByLoginId(anyString())).thenReturn(Optional.empty());
 
@@ -124,9 +122,8 @@ public class UserServiceTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.UNAUTHORIZED);
         }
 
-        @DisplayName("비밀번호가 불일치하면, 예외가 발생한다.")
         @Test
-        void throwsException_whenPasswordMismatch() {
+        void 비밀번호가_불일치하면_예외가_발생한다() {
             // arrange
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
@@ -149,9 +146,8 @@ public class UserServiceTest {
     @Nested
     class ChangePassword {
 
-        @DisplayName("유효한 요청이면, 비밀번호가 변경된다.")
         @Test
-        void changesPassword_whenValidRequest() {
+        void 유효한_요청이면_비밀번호가_변경된다() {
             // arrange
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$oldHash",
@@ -169,9 +165,8 @@ public class UserServiceTest {
             assertThat(user.getPassword()).isEqualTo("$2a$10$newHash");
         }
 
-        @DisplayName("현재 비밀번호가 틀리면, 예외가 발생한다.")
         @Test
-        void throwsException_whenCurrentPasswordWrong() {
+        void 현재_비밀번호가_틀리면_예외가_발생한다() {
             // arrange
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
@@ -188,9 +183,8 @@ public class UserServiceTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.PASSWORD_MISMATCH);
         }
 
-        @DisplayName("새 비밀번호가 현재와 동일하면, 예외가 발생한다.")
         @Test
-        void throwsException_whenSameAsCurrentPassword() {
+        void 새_비밀번호가_현재와_동일하면_예외가_발생한다() {
             // arrange
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
@@ -207,9 +201,8 @@ public class UserServiceTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.SAME_PASSWORD);
         }
 
-        @DisplayName("새 비밀번호에 생년월일이 포함되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenNewPasswordContainsBirthDate() {
+        void 새_비밀번호에_생년월일이_포함되면_예외가_발생한다() {
             // arrange - birthDate: 1990-03-25 (연속 동일 문자 없음)
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",

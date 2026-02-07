@@ -3,6 +3,8 @@ package com.loopers.domain.user;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * - 공백 불허
  * - 연속 점 불허 (로컬 파트)
  */
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 public class EmailTest {
 
     @DisplayName("이메일을 생성할 때,")
@@ -27,9 +30,8 @@ public class EmailTest {
 
         // ========== 정상 케이스 ==========
 
-        @DisplayName("유효한 이메일이면, 정상적으로 생성된다.")
         @Test
-        void createsEmail_whenValid() {
+        void 유효한_이메일이면_정상적으로_생성된다() {
             // arrange
             String value = "nahyeon@example.com";
 
@@ -40,9 +42,8 @@ public class EmailTest {
             assertThat(email.getValue()).isEqualTo(value);
         }
 
-        @DisplayName("서브도메인이 있으면, 정상적으로 생성된다.")
         @Test
-        void createsEmail_whenSubdomain() {
+        void 서브도메인이_있으면_정상적으로_생성된다() {
             // arrange
             String value = "nahyeon@mail.example.com";
 
@@ -53,9 +54,8 @@ public class EmailTest {
             assertThat(email.getValue()).isEqualTo(value);
         }
 
-        @DisplayName("+ 기호가 포함되면, 정상적으로 생성된다.")
         @Test
-        void createsEmail_whenPlusSign() {
+        void 플러스_기호가_포함되면_정상적으로_생성된다() {
             // arrange
             String value = "nahyeon+tag@example.com";
 
@@ -68,9 +68,8 @@ public class EmailTest {
 
         // ========== 엣지 케이스 ==========
 
-        @DisplayName("null이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenNull() {
+        void null이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new Email(null);
@@ -79,9 +78,8 @@ public class EmailTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
-        @DisplayName("빈 문자열이면, 예외가 발생한다.")
         @Test
-        void throwsException_whenEmpty() {
+        void 빈_문자열이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new Email("");
@@ -90,9 +88,8 @@ public class EmailTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
-        @DisplayName("@가 없으면, 예외가 발생한다.")
         @Test
-        void throwsException_whenNoAtSign() {
+        void 골뱅이가_없으면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new Email("nahyeonexample.com");
@@ -101,9 +98,8 @@ public class EmailTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
-        @DisplayName("도메인이 없으면, 예외가 발생한다.")
         @Test
-        void throwsException_whenNoDomain() {
+        void 도메인이_없으면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new Email("nahyeon@");
@@ -112,9 +108,8 @@ public class EmailTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
-        @DisplayName("로컬 파트가 없으면, 예외가 발생한다.")
         @Test
-        void throwsException_whenNoLocalPart() {
+        void 로컬_파트가_없으면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new Email("@example.com");
@@ -123,9 +118,8 @@ public class EmailTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
-        @DisplayName("연속 점이 포함되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenConsecutiveDots() {
+        void 연속_점이_포함되면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new Email("nahyeon..lim@example.com");
@@ -134,9 +128,8 @@ public class EmailTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
-        @DisplayName("공백이 포함되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenContainsSpace() {
+        void 공백이_포함되면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new Email("nahyeon lim@example.com");
@@ -145,9 +138,8 @@ public class EmailTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
-        @DisplayName("256자를 초과하면, 예외가 발생한다.")
         @Test
-        void throwsException_whenExceedsMaxLength() {
+        void 256자를_초과하면_예외가_발생한다() {
             // arrange
             String value = "a".repeat(250) + "@b.com";  // 256자
 
@@ -159,9 +151,8 @@ public class EmailTest {
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_EMAIL);
         }
 
-        @DisplayName("한글이 포함되면, 예외가 발생한다.")
         @Test
-        void throwsException_whenContainsKorean() {
+        void 한글이_포함되면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new Email("홍길동@example.com");
