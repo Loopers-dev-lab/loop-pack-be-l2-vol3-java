@@ -7,7 +7,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
-import lombok.Getter;
 import java.time.ZonedDateTime;
 
 /**
@@ -15,7 +14,6 @@ import java.time.ZonedDateTime;
  * 재사용성을 위해 이 외의 컬럼이나 동작은 추가하지 않는다.
  */
 @MappedSuperclass
-@Getter
 public abstract class BaseEntity {
 
     @Id
@@ -69,5 +67,21 @@ public abstract class BaseEntity {
         if (this.deletedAt != null) {
             this.deletedAt = null;
         }
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public ZonedDateTime getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public ZonedDateTime getUpdatedAt() {
+        return this.updatedAt;
+    }
+
+    public ZonedDateTime getDeletedAt() {
+        return this.deletedAt;
     }
 }

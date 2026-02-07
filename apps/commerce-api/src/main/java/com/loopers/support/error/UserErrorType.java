@@ -1,11 +1,7 @@
 package com.loopers.support.error;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 
-@Getter
-@RequiredArgsConstructor
 public enum UserErrorType implements ErrorType {
     // 400 Bad Request
     INVALID_LOGIN_ID(HttpStatus.BAD_REQUEST, "USER_001", "로그인 ID 형식이 올바르지 않습니다."),
@@ -29,4 +25,25 @@ public enum UserErrorType implements ErrorType {
     private final HttpStatus status;
     private final String code;
     private final String message;
+
+    UserErrorType(HttpStatus status, String code, String message) {
+        this.status = status;
+        this.code = code;
+        this.message = message;
+    }
+
+    @Override
+    public HttpStatus getStatus() {
+        return this.status;
+    }
+
+    @Override
+    public String getCode() {
+        return this.code;
+    }
+
+    @Override
+    public String getMessage() {
+        return this.message;
+    }
 }

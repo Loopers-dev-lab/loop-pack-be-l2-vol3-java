@@ -2,28 +2,30 @@ package com.loopers.infrastructure.user;
 
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
-@RequiredArgsConstructor
 @Component
 public class UserRepositoryImpl implements UserRepository {
     private final UserJpaRepository userJpaRepository;
 
+    public UserRepositoryImpl(UserJpaRepository userJpaRepository) {
+        this.userJpaRepository = userJpaRepository;
+    }
+
     @Override
     public User save(User user) {
-        return userJpaRepository.save(user);
+        return this.userJpaRepository.save(user);
     }
 
     @Override
     public Optional<User> findByLoginId(String loginId) {
-        return userJpaRepository.findByLoginIdValue(loginId);
+        return this.userJpaRepository.findByLoginIdValue(loginId);
     }
 
     @Override
     public boolean existsByLoginId(String loginId) {
-        return userJpaRepository.existsByLoginIdValue(loginId);
+        return this.userJpaRepository.existsByLoginIdValue(loginId);
     }
 }

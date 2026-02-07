@@ -11,11 +11,11 @@ public class BCryptPasswordEncryptor implements PasswordEncryptor {
 
     @Override
     public String encode(String rawPassword) {
-        return encoder.encode(rawPassword);
+        return this.encoder.encode(rawPassword);
     }
 
     @Override
     public boolean matches(String rawPassword, String encodedPassword) {
-        return encoder.matches(rawPassword, encodedPassword);
+        return this.encoder.matches(rawPassword, encodedPassword);
     }
 }

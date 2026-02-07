@@ -5,11 +5,9 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
-import lombok.Getter;
 
 @Entity
 @Table(name = "users")
-@Getter
 public class User extends BaseEntity {
 
     @Embedded
@@ -43,5 +41,25 @@ public class User extends BaseEntity {
 
     public void changePassword(String newEncodedPassword) {
         this.password = newEncodedPassword;
+    }
+
+    public LoginId getLoginId() {
+        return this.loginId;
+    }
+
+    public String getPassword() {
+        return this.password;
+    }
+
+    public UserName getName() {
+        return this.name;
+    }
+
+    public BirthDate getBirthDate() {
+        return this.birthDate;
+    }
+
+    public Email getEmail() {
+        return this.email;
     }
 }
