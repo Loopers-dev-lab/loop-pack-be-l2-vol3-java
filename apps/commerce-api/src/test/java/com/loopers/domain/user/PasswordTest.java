@@ -101,7 +101,7 @@ public class PasswordTest {
         }
 
         @Test
-        void 7자_최소_미만이면_예외가_발생한다() {
+        void 길이가_7자_최소_미만이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 Password.of("Abcd12!");  // 7자
@@ -111,7 +111,7 @@ public class PasswordTest {
         }
 
         @Test
-        void 17자_최대_초과이면_예외가_발생한다() {
+        void 길이가_17자_최대_초과이면_예외가_발생한다() {
             // arrange
             String rawPassword = "Px8!Kd3@Wm7#Rf2$A";  // 17자
 

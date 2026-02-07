@@ -97,7 +97,7 @@ public class LoginIdTest {
         }
 
         @Test
-        void 3자_최소_미만이면_예외가_발생한다() {
+        void 길이가_3자_최소_미만이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new LoginId("abc");
@@ -107,7 +107,7 @@ public class LoginIdTest {
         }
 
         @Test
-        void 21자_최대_초과이면_예외가_발생한다() {
+        void 길이가_21자_최대_초과이면_예외가_발생한다() {
             // arrange
             String value = "abcdefghij12345678901";  // 21자
 

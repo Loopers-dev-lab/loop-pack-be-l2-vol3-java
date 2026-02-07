@@ -17,11 +17,11 @@ public class UserV1Controller implements UserV1ApiSpec {
 
     @GetMapping("/me")
     @Override
-    public ApiResponse<UserV1Dto.UserResponse> getMyInfo(
+    public ApiResponse<UserV1Dto.UserResponse> getUser(
             @RequestHeader("X-Loopers-LoginId") String loginId,
             @RequestHeader("X-Loopers-LoginPw") String loginPw
     ) {
-        UserInfo info = this.userFacade.getMyInfo(loginId, loginPw);
+        UserInfo info = this.userFacade.getUser(loginId, loginPw);
         return ApiResponse.success(UserV1Dto.UserResponse.from(info));
     }
 }

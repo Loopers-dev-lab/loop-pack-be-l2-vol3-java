@@ -114,7 +114,7 @@ public class UserNameTest {
         }
 
         @Test
-        void 1자_최소_미만이면_예외가_발생한다() {
+        void 길이가_1자_최소_미만이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new UserName("홍");
@@ -124,7 +124,7 @@ public class UserNameTest {
         }
 
         @Test
-        void 51자_최대_초과이면_예외가_발생한다() {
+        void 길이가_51자_최대_초과이면_예외가_발생한다() {
             // arrange
             String value = "가".repeat(51);
 
@@ -172,7 +172,7 @@ public class UserNameTest {
     class Masking {
 
         @Test
-        void 3자_한글이면_마지막_글자가_별표로_대체된다() {
+        void 이름이_3자_한글이면_마지막_글자가_별표로_대체된다() {
             // arrange
             UserName userName = new UserName("홍길동");
 
@@ -184,7 +184,7 @@ public class UserNameTest {
         }
 
         @Test
-        void 2자_한글이면_마지막_글자가_별표로_대체된다() {
+        void 이름이_2자_한글이면_마지막_글자가_별표로_대체된다() {
             // arrange
             UserName userName = new UserName("홍길");
 

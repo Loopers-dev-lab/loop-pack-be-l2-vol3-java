@@ -134,7 +134,7 @@ public class BirthDateTest {
         }
 
         @Test
-        void 1900년_이전이면_예외가_발생한다() {
+        void 날짜가_1900년_이전이면_예외가_발생한다() {
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
                 new BirthDate("1899-12-31");

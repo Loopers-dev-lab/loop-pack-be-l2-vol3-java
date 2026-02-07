@@ -19,8 +19,8 @@ public class AuthV1Controller implements AuthV1ApiSpec {
     @PostMapping("/signup")
     @ResponseStatus(HttpStatus.CREATED)
     @Override
-    public ApiResponse<AuthV1Dto.SignupResponse> signup(@RequestBody AuthV1Dto.SignupRequest request) {
-        UserInfo info = this.authFacade.signup(
+    public ApiResponse<AuthV1Dto.SignupResponse> createUser(@RequestBody AuthV1Dto.SignupRequest request) {
+        UserInfo info = this.authFacade.createUser(
                 request.loginId(), request.password(), request.name(), request.birthDate(), request.email()
         );
         return ApiResponse.success(AuthV1Dto.SignupResponse.from(info));
@@ -28,12 +28,12 @@ public class AuthV1Controller implements AuthV1ApiSpec {
 
     @PutMapping("/password")
     @Override
-    public ApiResponse<Void> changePassword(
+    public ApiResponse<Void> updateUserPassword(
             @RequestHeader("X-Loopers-LoginId") String loginId,
             @RequestHeader("X-Loopers-LoginPw") String loginPw,
             @RequestBody AuthV1Dto.ChangePasswordRequest request
     ) {
-        this.authFacade.changePassword(loginId, loginPw, request.currentPassword(), request.newPassword());
+        this.authFacade.updateUserPassword(loginId, loginPw, request.currentPassword(), request.newPassword());
         return ApiResponse.success(null);
     }
 }

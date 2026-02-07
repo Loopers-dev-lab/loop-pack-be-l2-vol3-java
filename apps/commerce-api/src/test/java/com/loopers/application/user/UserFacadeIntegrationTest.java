@@ -48,7 +48,7 @@ class UserFacadeIntegrationTest {
     }
 
     @Nested
-    @DisplayName("getMyInfo 메서드는")
+    @DisplayName("getUser 메서드는")
     class GetMyInfo {
 
         @Test
@@ -56,10 +56,10 @@ class UserFacadeIntegrationTest {
             // arrange
             String loginId = "nahyeon";
             String password = "Hx7!mK2@";
-            authFacade.signup(loginId, password, "홍길동", "1994-11-15", "nahyeon@example.com");
+            authFacade.createUser(loginId, password, "홍길동", "1994-11-15", "nahyeon@example.com");
 
             // act
-            UserInfo result = userFacade.getMyInfo(loginId, password);
+            UserInfo result = userFacade.getUser(loginId, password);
 
             // assert
             assertAll(
@@ -79,7 +79,7 @@ class UserFacadeIntegrationTest {
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userFacade.getMyInfo(loginId, password);
+                userFacade.getUser(loginId, password);
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.UNAUTHORIZED);
@@ -90,11 +90,11 @@ class UserFacadeIntegrationTest {
             // arrange
             String loginId = "nahyeon";
             String password = "Hx7!mK2@";
-            authFacade.signup(loginId, password, "홍길동", "1994-11-15", "nahyeon@example.com");
+            authFacade.createUser(loginId, password, "홍길동", "1994-11-15", "nahyeon@example.com");
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userFacade.getMyInfo(loginId, "wrongPw1!");
+                userFacade.getUser(loginId, "wrongPw1!");
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.UNAUTHORIZED);

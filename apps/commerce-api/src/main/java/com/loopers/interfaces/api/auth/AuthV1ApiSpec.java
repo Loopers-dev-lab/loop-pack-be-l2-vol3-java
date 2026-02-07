@@ -8,8 +8,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public interface AuthV1ApiSpec {
 
     @Operation(summary = "회원가입", description = "새로운 사용자를 등록합니다.")
-    ApiResponse<AuthV1Dto.SignupResponse> signup(AuthV1Dto.SignupRequest request);
+    ApiResponse<AuthV1Dto.SignupResponse> createUser(AuthV1Dto.SignupRequest request);
 
     @Operation(summary = "비밀번호 변경", description = "인증된 사용자의 비밀번호를 변경합니다.")
-    ApiResponse<Void> changePassword(String loginId, String loginPw, AuthV1Dto.ChangePasswordRequest request);
+    ApiResponse<Void> updateUserPassword(String loginId, String loginPw, AuthV1Dto.ChangePasswordRequest request);
 }

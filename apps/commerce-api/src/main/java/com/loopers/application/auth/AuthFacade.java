@@ -13,13 +13,13 @@ public class AuthFacade {
         this.userService = userService;
     }
 
-    public UserInfo signup(String loginId, String password, String name, String birthDate, String email) {
-        User user = this.userService.signup(loginId, password, name, birthDate, email);
+    public UserInfo createUser(String loginId, String password, String name, String birthDate, String email) {
+        User user = this.userService.createUser(loginId, password, name, birthDate, email);
         return UserInfo.from(user);
     }
 
-    public void changePassword(String loginId, String headerPassword, String currentPassword, String newPassword) {
-        User user = this.userService.authenticate(loginId, headerPassword);
-        this.userService.changePassword(user, currentPassword, newPassword);
+    public void updateUserPassword(String loginId, String headerPassword, String currentPassword, String newPassword) {
+        User user = this.userService.authenticateUser(loginId, headerPassword);
+        this.userService.updateUserPassword(user, currentPassword, newPassword);
     }
 }

@@ -52,7 +52,7 @@ class AuthFacadeIntegrationTest {
     }
 
     @Nested
-    @DisplayName("signup 메서드는")
+    @DisplayName("createUser 메서드는")
     class Signup {
 
         @Test
@@ -65,7 +65,7 @@ class AuthFacadeIntegrationTest {
             String email = "nahyeon@example.com";
 
             // act
-            UserInfo result = authFacade.signup(loginId, password, name, birthDate, email);
+            UserInfo result = authFacade.createUser(loginId, password, name, birthDate, email);
 
             // assert
             assertAll(
@@ -87,7 +87,7 @@ class AuthFacadeIntegrationTest {
             String email = "test@example.com";
 
             // act
-            authFacade.signup(loginId, password, name, birthDate, email);
+            authFacade.createUser(loginId, password, name, birthDate, email);
 
             // assert
             assertThat(userRepository.existsByLoginId(loginId)).isTrue();
@@ -97,11 +97,11 @@ class AuthFacadeIntegrationTest {
         void 중복된_로그인ID로_가입하면_예외가_발생한다() {
             // arrange
             String loginId = "duplicate";
-            authFacade.signup(loginId, "Hx7!mK2@", "홍길동", "1994-11-15", "first@example.com");
+            authFacade.createUser(loginId, "Hx7!mK2@", "홍길동", "1994-11-15", "first@example.com");
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                authFacade.signup(loginId, "Nw8@pL3#", "김철수", "1995-05-05", "second@example.com");
+                authFacade.createUser(loginId, "Nw8@pL3#", "김철수", "1995-05-05", "second@example.com");
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.DUPLICATE_LOGIN_ID);
@@ -118,7 +118,7 @@ class AuthFacadeIntegrationTest {
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                authFacade.signup(loginId, password, name, birthDate, email);
+                authFacade.createUser(loginId, password, name, birthDate, email);
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.PASSWORD_CONTAINS_BIRTH_DATE);
@@ -126,7 +126,7 @@ class AuthFacadeIntegrationTest {
     }
 
     @Nested
-    @DisplayName("changePassword 메서드는")
+    @DisplayName("updateUserPassword 메서드는")
     class ChangePassword {
 
         @Test
@@ -135,10 +135,10 @@ class AuthFacadeIntegrationTest {
             String loginId = "nahyeon";
             String currentPassword = "Hx7!mK2@";
             String newPassword = "Nw8@pL3#";
-            authFacade.signup(loginId, currentPassword, "홍길동", "1994-11-15", "nahyeon@example.com");
+            authFacade.createUser(loginId, currentPassword, "홍길동", "1994-11-15", "nahyeon@example.com");
 
             // act
-            authFacade.changePassword(loginId, currentPassword, currentPassword, newPassword);
+            authFacade.updateUserPassword(loginId, currentPassword, currentPassword, newPassword);
 
             // assert - 새 비밀번호로 인증 성공 확인
             User user = userRepository.findByLoginId(loginId).orElseThrow();
@@ -150,11 +150,11 @@ class AuthFacadeIntegrationTest {
             // arrange
             String loginId = "nahyeon";
             String currentPassword = "Hx7!mK2@";
-            authFacade.signup(loginId, currentPassword, "홍길동", "1994-11-15", "nahyeon@example.com");
+            authFacade.createUser(loginId, currentPassword, "홍길동", "1994-11-15", "nahyeon@example.com");
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                authFacade.changePassword(loginId, "wrongPw1!", currentPassword, "Nw8@pL3#");
+                authFacade.updateUserPassword(loginId, "wrongPw1!", currentPassword, "Nw8@pL3#");
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.UNAUTHORIZED);
@@ -165,11 +165,11 @@ class AuthFacadeIntegrationTest {
             // arrange
             String loginId = "nahyeon";
             String currentPassword = "Hx7!mK2@";
-            authFacade.signup(loginId, currentPassword, "홍길동", "1994-11-15", "nahyeon@example.com");
+            authFacade.createUser(loginId, currentPassword, "홍길동", "1994-11-15", "nahyeon@example.com");
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                authFacade.changePassword(loginId, currentPassword, "wrongPw1!", "Nw8@pL3#");
+                authFacade.updateUserPassword(loginId, currentPassword, "wrongPw1!", "Nw8@pL3#");
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.PASSWORD_MISMATCH);
@@ -180,11 +180,11 @@ class AuthFacadeIntegrationTest {
             // arrange
             String loginId = "nahyeon";
             String currentPassword = "Hx7!mK2@";
-            authFacade.signup(loginId, currentPassword, "홍길동", "1994-11-15", "nahyeon@example.com");
+            authFacade.createUser(loginId, currentPassword, "홍길동", "1994-11-15", "nahyeon@example.com");
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                authFacade.changePassword(loginId, currentPassword, currentPassword, currentPassword);
+                authFacade.updateUserPassword(loginId, currentPassword, currentPassword, currentPassword);
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.SAME_PASSWORD);

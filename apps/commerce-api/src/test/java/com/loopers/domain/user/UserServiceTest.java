@@ -48,7 +48,7 @@ public class UserServiceTest {
             when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // act
-            User user = userService.signup("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com");
+            User user = userService.createUser("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com");
 
             // assert
             assertAll(
@@ -67,7 +67,7 @@ public class UserServiceTest {
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.signup("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com");
+                userService.createUser("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com");
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.DUPLICATE_LOGIN_ID);
@@ -80,7 +80,7 @@ public class UserServiceTest {
 
             // act & assert - birthDate: 1990-03-25, password contains "19900325"
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.signup("nahyeon", "X19900325!", "홍길동", "1990-03-25", "nahyeon@example.com");
+                userService.createUser("nahyeon", "X19900325!", "홍길동", "1990-03-25", "nahyeon@example.com");
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.PASSWORD_CONTAINS_BIRTH_DATE);
@@ -103,7 +103,7 @@ public class UserServiceTest {
             when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$hash")).thenReturn(true);
 
             // act
-            User result = userService.authenticate("nahyeon", "Hx7!mK2@");
+            User result = userService.authenticateUser("nahyeon", "Hx7!mK2@");
 
             // assert
             assertThat(result.getLoginId().getValue()).isEqualTo("nahyeon");
@@ -116,7 +116,7 @@ public class UserServiceTest {
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.authenticate("unknown", "Hx7!mK2@");
+                userService.authenticateUser("unknown", "Hx7!mK2@");
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.UNAUTHORIZED);
@@ -135,7 +135,7 @@ public class UserServiceTest {
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.authenticate("nahyeon", "wrongPw1!");
+                userService.authenticateUser("nahyeon", "wrongPw1!");
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.UNAUTHORIZED);
@@ -159,7 +159,7 @@ public class UserServiceTest {
             when(passwordEncryptor.encode("Nw8@pL3#")).thenReturn("$2a$10$newHash");
 
             // act
-            userService.changePassword(user, "Hx7!mK2@", "Nw8@pL3#");
+            userService.updateUserPassword(user, "Hx7!mK2@", "Nw8@pL3#");
 
             // assert
             assertThat(user.getPassword()).isEqualTo("$2a$10$newHash");
@@ -177,7 +177,7 @@ public class UserServiceTest {
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.changePassword(user, "wrongPw!", "Nw8@pL3#");
+                userService.updateUserPassword(user, "wrongPw!", "Nw8@pL3#");
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.PASSWORD_MISMATCH);
@@ -195,7 +195,7 @@ public class UserServiceTest {
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.changePassword(user, "Hx7!mK2@", "Hx7!mK2@");
+                userService.updateUserPassword(user, "Hx7!mK2@", "Hx7!mK2@");
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.SAME_PASSWORD);
@@ -213,7 +213,7 @@ public class UserServiceTest {
 
             // act & assert - newPassword contains "19900325" (birthDate)
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.changePassword(user, "Hx7!mK2@", "X19900325!");
+                userService.updateUserPassword(user, "Hx7!mK2@", "X19900325!");
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.PASSWORD_CONTAINS_BIRTH_DATE);

@@ -17,7 +17,7 @@ public class UserService {
     }
 
     @Transactional
-    public User signup(String rawLoginId, String rawPassword, String rawName, String rawBirthDate, String rawEmail) {
+    public User createUser(String rawLoginId, String rawPassword, String rawName, String rawBirthDate, String rawEmail) {
         // 1. VO 생성 (각 VO가 자체 규칙 검증)
         LoginId loginId = new LoginId(rawLoginId);
         Password password = Password.of(rawPassword);
@@ -40,7 +40,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public User authenticate(String rawLoginId, String rawPassword) {
+    public User authenticateUser(String rawLoginId, String rawPassword) {
         User user = this.userRepository.findByLoginId(rawLoginId)
                 .orElseThrow(() -> new CoreException(UserErrorType.UNAUTHORIZED));
 
@@ -52,7 +52,7 @@ public class UserService {
     }
 
     @Transactional
-    public void changePassword(User user, String currentRawPassword, String newRawPassword) {
+    public void updateUserPassword(User user, String currentRawPassword, String newRawPassword) {
         // 현재 비밀번호 확인
         if (!this.passwordEncryptor.matches(currentRawPassword, user.getPassword())) {
             throw new CoreException(UserErrorType.PASSWORD_MISMATCH);

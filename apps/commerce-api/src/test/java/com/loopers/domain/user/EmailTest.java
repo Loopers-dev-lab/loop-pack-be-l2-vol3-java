@@ -139,7 +139,7 @@ public class EmailTest {
         }
 
         @Test
-        void 256자를_초과하면_예외가_발생한다() {
+        void 길이가_256자를_초과하면_예외가_발생한다() {
             // arrange
             String value = "a".repeat(250) + "@b.com";  // 256자
 

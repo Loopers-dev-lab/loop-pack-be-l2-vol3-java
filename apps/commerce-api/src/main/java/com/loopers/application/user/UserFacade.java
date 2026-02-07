@@ -12,8 +12,8 @@ public class UserFacade {
         this.userService = userService;
     }
 
-    public UserInfo getMyInfo(String loginId, String password) {
-        User user = this.userService.authenticate(loginId, password);
+    public UserInfo getUser(String loginId, String password) {
+        User user = this.userService.authenticateUser(loginId, password);
         return UserInfo.from(user);
     }
 }

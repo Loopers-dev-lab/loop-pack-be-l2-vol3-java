@@ -8,5 +8,5 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public interface UserV1ApiSpec {
 
     @Operation(summary = "내 정보 조회", description = "인증된 사용자의 정보를 조회합니다.")
-    ApiResponse<UserV1Dto.UserResponse> getMyInfo(String loginId, String loginPw);
+    ApiResponse<UserV1Dto.UserResponse> getUser(String loginId, String loginPw);
 }
