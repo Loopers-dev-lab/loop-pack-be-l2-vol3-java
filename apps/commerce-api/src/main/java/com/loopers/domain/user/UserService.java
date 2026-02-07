@@ -1,6 +1,5 @@
 package com.loopers.domain.user;
 
-import com.loopers.domain.user.policy.PasswordPolicy;
 import com.loopers.domain.user.vo.BirthDate;
 import com.loopers.domain.user.vo.Email;
 import com.loopers.domain.user.vo.LoginId;
@@ -12,11 +11,13 @@ import com.loopers.support.error.UserErrorType;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+
 /**
  * 사용자 도메인 서비스
  *
  * 회원가입, 인증, 비밀번호 변경 등 사용자 도메인 핵심 비즈니스 로직을 담당한다.
- * VO 자체 검증 → 교차 검증(PasswordPolicy) → 저장 순서로 처리한다.
  */
 @Component
 public class UserService {
@@ -31,22 +32,19 @@ public class UserService {
 
     @Transactional
     public User createUser(String rawLoginId, String rawPassword, String rawName, String rawBirthDate, String rawEmail) {
-        // 1. VO 생성 (각 VO가 자체 규칙 검증)
         LoginId loginId = new LoginId(rawLoginId);
         Password password = Password.of(rawPassword);
         UserName name = new UserName(rawName);
         BirthDate birthDate = new BirthDate(rawBirthDate);
         Email email = new Email(rawEmail);
 
-        // 2. 교차 검증 (비밀번호에 생년월일 포함 불가)
-        PasswordPolicy.validate(rawPassword, birthDate.getValue());
+        // 비밀번호에 생년월일 포함 불가
+        validatePasswordNotContainsBirthDate(rawPassword, birthDate.getValue());
 
-        // 3. 중복 ID 검증
         if (this.userRepository.existsByLoginId(loginId.getValue())) {
             throw new CoreException(UserErrorType.DUPLICATE_LOGIN_ID);
         }
 
-        // 4. 비밀번호 암호화 + 엔티티 생성 + 저장
         String encodedPassword = this.passwordEncryptor.encode(rawPassword);
         User user = User.create(loginId, encodedPassword, name, birthDate, email);
         return this.userRepository.save(user);
@@ -83,30 +81,30 @@ public class UserService {
             throw new CoreException(UserErrorType.INVALID_PASSWORD, "새 비밀번호는 필수입니다.");
         }
 
-        // 현재 비밀번호 확인
         if (!this.passwordEncryptor.matches(currentRawPassword, user.getPassword())) {
             throw new CoreException(UserErrorType.PASSWORD_MISMATCH);
         }
 
-        // 새 비밀번호 규칙 검증
         Password.of(newRawPassword);
+        validatePasswordNotContainsBirthDate(newRawPassword, user.getBirthDate().getValue());
 
-        // 교차 검증
-        PasswordPolicy.validate(newRawPassword, user.getBirthDate().getValue());
-
-        // 동일 비밀번호 확인
         if (this.passwordEncryptor.matches(newRawPassword, user.getPassword())) {
             throw new CoreException(UserErrorType.SAME_PASSWORD);
         }
 
-        // 암호화 후 변경 및 저장 (detached 엔티티 대응)
         String newEncodedPassword = this.passwordEncryptor.encode(newRawPassword);
         user.changePassword(newEncodedPassword);
-        User savedUser = this.userRepository.save(user);
+        this.userRepository.save(user);
+    }
 
-        // 영속화 검증: 저장된 엔티티의 비밀번호가 정상 반영되었는지 확인
-        if (!savedUser.getPassword().equals(newEncodedPassword)) {
-            throw new CoreException(CommonErrorType.INTERNAL_ERROR, "비밀번호 변경이 정상적으로 반영되지 않았습니다.");
+    /** 비밀번호에 생년월일(YYYYMMDD, YYMMDD, MMDD) 포함 금지 */
+    private void validatePasswordNotContainsBirthDate(String rawPassword, LocalDate birthDate) {
+        String yyyymmdd = birthDate.format(DateTimeFormatter.BASIC_ISO_DATE);
+        String[] patterns = { yyyymmdd, yyyymmdd.substring(2), yyyymmdd.substring(4) };
+        for (String pattern : patterns) {
+            if (rawPassword.contains(pattern)) {
+                throw new CoreException(UserErrorType.PASSWORD_CONTAINS_BIRTH_DATE);
+            }
         }
     }
 }
