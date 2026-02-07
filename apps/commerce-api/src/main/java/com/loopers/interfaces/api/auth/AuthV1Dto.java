@@ -13,7 +13,14 @@ public class AuthV1Dto {
             String name,
             String birthDate,
             String email
-    ) {}
+    ) {
+        /** 비밀번호 평문 노출 방지 */
+        @Override
+        public String toString() {
+            return "SignupRequest[loginId=" + loginId + ", password=*****, name=" + name
+                    + ", birthDate=" + birthDate + ", email=" + email + "]";
+        }
+    }
 
     public record SignupResponse(
             String loginId,
@@ -29,5 +36,11 @@ public class AuthV1Dto {
     public record ChangePasswordRequest(
             String currentPassword,
             String newPassword
-    ) {}
+    ) {
+        /** 비밀번호 평문 노출 방지 */
+        @Override
+        public String toString() {
+            return "ChangePasswordRequest[currentPassword=*****, newPassword=*****]";
+        }
+    }
 }
