@@ -85,7 +85,12 @@ public class UserService {
         }
 
         Password.of(newRawPassword);
-        validatePasswordNotContainsBirthDate(newRawPassword, user.getBirthDate().getValue());
+
+        BirthDate birthDate = user.getBirthDate();
+        if (birthDate == null) {
+            throw new CoreException(UserErrorType.INVALID_BIRTH_DATE, "생년월일은 필수입니다.");
+        }
+        validatePasswordNotContainsBirthDate(newRawPassword, birthDate.getValue());
 
         if (this.passwordEncryptor.matches(newRawPassword, user.getPassword())) {
             throw new CoreException(UserErrorType.SAME_PASSWORD);

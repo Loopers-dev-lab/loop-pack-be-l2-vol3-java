@@ -1,7 +1,7 @@
-package com.loopers.interfaces.api.auth;
+package com.loopers.interfaces.api.user;
 
-/** 인증 API V1 요청 DTO */
-public class AuthV1Request {
+/** 사용자 API 요청 DTO */
+public class UserRequest {
 
     public record SignupRequest(
             String loginId,

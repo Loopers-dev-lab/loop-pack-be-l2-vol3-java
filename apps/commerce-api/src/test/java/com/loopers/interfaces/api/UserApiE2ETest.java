@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api;
 
-import com.loopers.interfaces.api.auth.AuthV1Request;
-import com.loopers.interfaces.api.auth.AuthV1Response;
+import com.loopers.interfaces.api.user.UserRequest;
+import com.loopers.interfaces.api.user.UserResponse;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,11 +20,11 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
-class AuthV1ApiE2ETest {
+class UserApiE2ETest {
 
-    private static final String SIGNUP_URL = "/api/v1/auth/signup";
-    private static final String CHANGE_PW_URL = "/api/v1/auth/password";
+    private static final String USERS_URL = "/api/v1/users";
     private static final String ME_URL = "/api/v1/users/me";
+    private static final String PASSWORD_URL = "/api/v1/users/password";
 
     @Autowired
     private TestRestTemplate testRestTemplate;
@@ -36,12 +37,12 @@ class AuthV1ApiE2ETest {
         databaseCleanUp.truncateAllTables();
     }
 
-    private AuthV1Request.SignupRequest validSignupRequest() {
-        return new AuthV1Request.SignupRequest("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com");
+    private UserRequest.SignupRequest validSignupRequest() {
+        return new UserRequest.SignupRequest("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com");
     }
 
-    private ResponseEntity<ApiResponse> signup(AuthV1Request.SignupRequest request) {
-        return testRestTemplate.postForEntity(SIGNUP_URL, request, ApiResponse.class);
+    private ResponseEntity<ApiResponse> signup(UserRequest.SignupRequest request) {
+        return testRestTemplate.postForEntity(USERS_URL, request, ApiResponse.class);
     }
 
     private HttpHeaders authHeaders(String loginId, String password) {
@@ -53,7 +54,7 @@ class AuthV1ApiE2ETest {
 
     // ========== 회원가입 ==========
 
-    @DisplayName("POST /api/v1/auth/signup")
+    @DisplayName("POST /api/v1/users")
     @Nested
     class Signup {
 
@@ -81,7 +82,7 @@ class AuthV1ApiE2ETest {
         @Test
         void 잘못된_비밀번호_형식이면_400_Bad_Request_응답을_받는다() {
             // arrange
-            AuthV1Request.SignupRequest request = new AuthV1Request.SignupRequest(
+            UserRequest.SignupRequest request = new UserRequest.SignupRequest(
                     "nahyeon", "short", "홍길동", "1994-11-15", "nahyeon@example.com"
             );
 
@@ -95,7 +96,7 @@ class AuthV1ApiE2ETest {
         @Test
         void 비밀번호에_생년월일이_포함되면_400_Bad_Request_응답을_받는다() {
             // arrange
-            AuthV1Request.SignupRequest request = new AuthV1Request.SignupRequest(
+            UserRequest.SignupRequest request = new UserRequest.SignupRequest(
                     "nahyeon", "A19941115!", "홍길동", "1994-11-15", "nahyeon@example.com"
             );
 
@@ -107,9 +108,49 @@ class AuthV1ApiE2ETest {
         }
     }
 
+    // ========== 내 정보 조회 ==========
+
+    @DisplayName("GET /api/v1/users/me")
+    @Nested
+    class GetMyInfo {
+
+        @Test
+        void 유효한_인증_정보로_조회하면_200_OK와_마스킹된_이름을_반환한다() {
+            // arrange
+            signup(validSignupRequest());
+            HttpHeaders headers = authHeaders("nahyeon", "Hx7!mK2@");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<UserResponse.UserDetailResponse>> type = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserResponse.UserDetailResponse>> response =
+                    testRestTemplate.exchange(ME_URL, HttpMethod.GET, new HttpEntity<>(headers), type);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("홍길*"),
+                    () -> assertThat(response.getBody().data().loginId()).isEqualTo("nahyeon")
+            );
+        }
+
+        @Test
+        void 잘못된_비밀번호로_조회하면_401_Unauthorized_응답을_받는다() {
+            // arrange
+            signup(validSignupRequest());
+            HttpHeaders headers = authHeaders("nahyeon", "wrongPw1!");
+
+            // act
+            ResponseEntity<ApiResponse> response =
+                    testRestTemplate.exchange(ME_URL, HttpMethod.GET, new HttpEntity<>(headers), ApiResponse.class);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+    }
+
     // ========== 비밀번호 변경 ==========
 
-    @DisplayName("PUT /api/v1/auth/password")
+    @DisplayName("PUT /api/v1/users/password")
     @Nested
     class ChangePassword {
 
@@ -119,11 +160,11 @@ class AuthV1ApiE2ETest {
             signup(validSignupRequest());
             HttpHeaders headers = authHeaders("nahyeon", "Hx7!mK2@");
             headers.setContentType(MediaType.APPLICATION_JSON);
-            AuthV1Request.ChangePasswordRequest body = new AuthV1Request.ChangePasswordRequest("Hx7!mK2@", "Nw8@pL3#");
+            UserRequest.ChangePasswordRequest body = new UserRequest.ChangePasswordRequest("Hx7!mK2@", "Nw8@pL3#");
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    CHANGE_PW_URL, HttpMethod.PUT, new HttpEntity<>(body, headers), ApiResponse.class);
+                    PASSWORD_URL, HttpMethod.PUT, new HttpEntity<>(body, headers), ApiResponse.class);
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -131,12 +172,12 @@ class AuthV1ApiE2ETest {
 
         @Test
         void 변경_후_새_비밀번호로_인증되고_이전_비밀번호로는_실패한다() {
-            // arrange - 회원가입 + 비밀번호 변경
+            // arrange
             signup(validSignupRequest());
             HttpHeaders headers = authHeaders("nahyeon", "Hx7!mK2@");
             headers.setContentType(MediaType.APPLICATION_JSON);
-            AuthV1Request.ChangePasswordRequest body = new AuthV1Request.ChangePasswordRequest("Hx7!mK2@", "Nw8@pL3#");
-            testRestTemplate.exchange(CHANGE_PW_URL, HttpMethod.PUT, new HttpEntity<>(body, headers), ApiResponse.class);
+            UserRequest.ChangePasswordRequest body = new UserRequest.ChangePasswordRequest("Hx7!mK2@", "Nw8@pL3#");
+            testRestTemplate.exchange(PASSWORD_URL, HttpMethod.PUT, new HttpEntity<>(body, headers), ApiResponse.class);
 
             // act - 새 비밀번호로 조회
             HttpHeaders newHeaders = authHeaders("nahyeon", "Nw8@pL3#");
@@ -161,11 +202,11 @@ class AuthV1ApiE2ETest {
             signup(validSignupRequest());
             HttpHeaders headers = authHeaders("nahyeon", "Hx7!mK2@");
             headers.setContentType(MediaType.APPLICATION_JSON);
-            AuthV1Request.ChangePasswordRequest body = new AuthV1Request.ChangePasswordRequest("Hx7!mK2@", "Hx7!mK2@");
+            UserRequest.ChangePasswordRequest body = new UserRequest.ChangePasswordRequest("Hx7!mK2@", "Hx7!mK2@");
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    CHANGE_PW_URL, HttpMethod.PUT, new HttpEntity<>(body, headers), ApiResponse.class);
+                    PASSWORD_URL, HttpMethod.PUT, new HttpEntity<>(body, headers), ApiResponse.class);
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);

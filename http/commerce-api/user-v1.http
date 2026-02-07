@@ -1,4 +1,0 @@
-### 내 정보 조회
-GET {{commerce-api}}/api/v1/users/me
-X-Loopers-LoginId: {{loginId}}
-X-Loopers-LoginPw: {{loginPw}}

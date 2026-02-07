@@ -18,6 +18,9 @@ public record UserInfo(
         String email
 ) {
     public static UserInfo from(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("User는 null일 수 없습니다.");
+        }
         return new UserInfo(
                 user.getLoginId().getValue(),
                 user.getName().getValue(),
