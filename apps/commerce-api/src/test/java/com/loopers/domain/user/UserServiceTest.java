@@ -12,11 +12,14 @@ import org.mockito.Mockito;
 
 import java.util.Optional;
 
+import com.loopers.support.error.CommonErrorType;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -174,7 +177,7 @@ public class UserServiceTest {
     class ChangePassword {
 
         @Test
-        void 유효한_요청이면_비밀번호가_변경된다() {
+        void 유효한_요청이면_비밀번호가_변경되고_영속화된다() {
             // arrange
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$oldHash",
@@ -184,12 +187,40 @@ public class UserServiceTest {
             when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$oldHash")).thenReturn(true);
             when(passwordEncryptor.matches("Nw8@pL3#", "$2a$10$oldHash")).thenReturn(false);
             when(passwordEncryptor.encode("Nw8@pL3#")).thenReturn("$2a$10$newHash");
+            when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // act
             userService.updateUserPassword(user, "Hx7!mK2@", "Nw8@pL3#");
 
-            // assert
+            // assert - 영속화 호출 검증 + 변경된 비밀번호 검증
+            verify(userRepository).save(user);
             assertThat(user.getPassword()).isEqualTo("$2a$10$newHash");
+        }
+
+        @Test
+        void 저장_후_비밀번호가_반영되지_않으면_시스템_예외가_발생한다() {
+            // arrange - save()가 변경 전 비밀번호를 가진 엔티티를 반환하는 비정상 시나리오
+            User user = User.create(
+                    new LoginId("nahyeon"), "$2a$10$oldHash",
+                    new UserName("홍길동"), new BirthDate("1994-11-15"),
+                    new Email("nahyeon@example.com")
+            );
+            User staleUser = User.create(
+                    new LoginId("nahyeon"), "$2a$10$oldHash",
+                    new UserName("홍길동"), new BirthDate("1994-11-15"),
+                    new Email("nahyeon@example.com")
+            );
+            when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$oldHash")).thenReturn(true);
+            when(passwordEncryptor.matches("Nw8@pL3#", "$2a$10$oldHash")).thenReturn(false);
+            when(passwordEncryptor.encode("Nw8@pL3#")).thenReturn("$2a$10$newHash");
+            when(userRepository.save(any(User.class))).thenReturn(staleUser);
+
+            // act & assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                userService.updateUserPassword(user, "Hx7!mK2@", "Nw8@pL3#");
+            });
+
+            assertThat(exception.getErrorType()).isEqualTo(CommonErrorType.INTERNAL_ERROR);
         }
 
         @Test

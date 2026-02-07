@@ -1,5 +1,6 @@
 package com.loopers.domain.user;
 
+import com.loopers.support.error.CommonErrorType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
 import org.springframework.stereotype.Component;
@@ -93,7 +94,13 @@ public class UserService {
         }
 
         // 암호화 후 변경 및 저장 (detached 엔티티 대응)
-        user.changePassword(this.passwordEncryptor.encode(newRawPassword));
-        this.userRepository.save(user);
+        String newEncodedPassword = this.passwordEncryptor.encode(newRawPassword);
+        user.changePassword(newEncodedPassword);
+        User savedUser = this.userRepository.save(user);
+
+        // 영속화 검증: 저장된 엔티티의 비밀번호가 정상 반영되었는지 확인
+        if (!savedUser.getPassword().equals(newEncodedPassword)) {
+            throw new CoreException(CommonErrorType.INTERNAL_ERROR, "비밀번호 변경이 정상적으로 반영되지 않았습니다.");
+        }
     }
 }

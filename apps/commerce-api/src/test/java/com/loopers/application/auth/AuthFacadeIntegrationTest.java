@@ -5,6 +5,7 @@ import com.loopers.domain.user.*;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
 import com.loopers.utils.DatabaseCleanUp;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.DisplayNameGeneration;
@@ -42,6 +43,9 @@ class AuthFacadeIntegrationTest {
 
     @Autowired
     private PasswordEncryptor passwordEncryptor;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -143,6 +147,25 @@ class AuthFacadeIntegrationTest {
             // assert - 새 비밀번호로 인증 성공 확인
             User user = userRepository.findByLoginId(loginId).orElseThrow();
             assertThat(passwordEncryptor.matches(newPassword, user.getPassword())).isTrue();
+        }
+
+        @Test
+        void 변경된_비밀번호로_재인증에_성공하고_이전_비밀번호는_실패한다() {
+            // arrange
+            String loginId = "nahyeon";
+            String oldPassword = "Hx7!mK2@";
+            String newPassword = "Nw8@pL3#";
+            authFacade.createUser(loginId, oldPassword, "홍길동", "1994-11-15", "nahyeon@example.com");
+
+            // act - 비밀번호 변경 (authenticateUser → detached entity → updateUserPassword에서 save)
+            authFacade.updateUserPassword(loginId, oldPassword, oldPassword, newPassword);
+
+            // assert - DB에서 재조회하여 새 비밀번호로 인증 성공 확인
+            User reloadedUser = userRepository.findByLoginId(loginId).orElseThrow();
+            assertAll(
+                    () -> assertThat(passwordEncryptor.matches(newPassword, reloadedUser.getPassword())).isTrue(),
+                    () -> assertThat(passwordEncryptor.matches(oldPassword, reloadedUser.getPassword())).isFalse()
+            );
         }
 
         @Test
