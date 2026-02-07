@@ -22,7 +22,7 @@ public class LoginId {
     private static final int MAX_LENGTH = 20;
     private static final Pattern PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9]{3,19}$");
 
-    @Column(name = "login_id")
+    @Column(name = "login_id", unique = true, nullable = false)
     private String value;
 
     // JPA 기본 생성자
