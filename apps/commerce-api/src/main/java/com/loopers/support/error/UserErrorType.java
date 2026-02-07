@@ -20,6 +20,7 @@ public enum UserErrorType implements ErrorType {
     INVALID_EMAIL(HttpStatus.BAD_REQUEST, "USER_005", "이메일 형식이 올바르지 않습니다."),
     SAME_PASSWORD(HttpStatus.BAD_REQUEST, "USER_006", "현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다."),
     PASSWORD_CONTAINS_BIRTH_DATE(HttpStatus.BAD_REQUEST, "USER_007", "비밀번호에 생년월일을 포함할 수 없습니다."),
+    INVALID_GENDER(HttpStatus.BAD_REQUEST, "USER_008", "성별 형식이 올바르지 않습니다."),
 
     // 401 Unauthorized
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "USER_101", "인증에 실패했습니다."),

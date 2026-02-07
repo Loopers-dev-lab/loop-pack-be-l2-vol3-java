@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.user;
 
 import com.loopers.application.user.UserInfo;
+import com.loopers.domain.user.Gender;
 
 import java.time.LocalDate;
 
@@ -12,10 +13,11 @@ public class UserV1Dto {
             String loginId,
             String name,
             LocalDate birthDate,
-            String email
+            String email,
+            Gender gender
     ) {
         public static UserResponse from(UserInfo info) {
-            return new UserResponse(info.loginId(), info.maskedName(), info.birthDate(), info.email());
+            return new UserResponse(info.loginId(), info.maskedName(), info.birthDate(), info.email(), info.gender());
         }
     }
 }

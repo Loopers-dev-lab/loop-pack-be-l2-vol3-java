@@ -1,10 +1,11 @@
-package com.loopers.domain.user;
+package com.loopers.domain.user.policy;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 /**
  * 비밀번호 교차 검증 정책 (Utility Class)
@@ -23,16 +24,23 @@ public final class PasswordPolicy {
         if (birthDate == null) {
             throw new CoreException(UserErrorType.INVALID_BIRTH_DATE, "생년월일은 필수입니다.");
         }
-        validateBirthDateNotContained(rawPassword, birthDate);
+        validateNotContainsSubstrings(rawPassword, extractBirthDateStrings(birthDate));
     }
 
-    private static void validateBirthDateNotContained(String rawPassword, LocalDate birthDate) {
-        String yyyymmdd = birthDate.format(DateTimeFormatter.BASIC_ISO_DATE);
-        String yymmdd = yyyymmdd.substring(2);
-        String mmdd = yyyymmdd.substring(4);
-
-        if (rawPassword.contains(yyyymmdd) || rawPassword.contains(yymmdd) || rawPassword.contains(mmdd)) {
-            throw new CoreException(UserErrorType.PASSWORD_CONTAINS_BIRTH_DATE);
+    public static void validateNotContainsSubstrings(String rawPassword, List<String> forbidden) {
+        for (String s : forbidden) {
+            if (rawPassword.contains(s)) {
+                throw new CoreException(UserErrorType.PASSWORD_CONTAINS_BIRTH_DATE);
+            }
         }
+    }
+
+    public static List<String> extractBirthDateStrings(LocalDate birthDate) {
+        String yyyymmdd = birthDate.format(DateTimeFormatter.BASIC_ISO_DATE);
+        return List.of(
+                yyyymmdd,
+                yyyymmdd.substring(2),
+                yyyymmdd.substring(4)
+        );
     }
 }

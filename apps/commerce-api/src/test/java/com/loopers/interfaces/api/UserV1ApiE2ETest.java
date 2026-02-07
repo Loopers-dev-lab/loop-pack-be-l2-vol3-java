@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api;
 
+import com.loopers.domain.user.Gender;
 import com.loopers.interfaces.api.auth.AuthV1Dto;
 import com.loopers.interfaces.api.user.UserV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
@@ -37,7 +38,7 @@ class UserV1ApiE2ETest {
     }
 
     private AuthV1Dto.SignupRequest validSignupRequest() {
-        return new AuthV1Dto.SignupRequest("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com");
+        return new AuthV1Dto.SignupRequest("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE);
     }
 
     private ResponseEntity<ApiResponse> signup(AuthV1Dto.SignupRequest request) {

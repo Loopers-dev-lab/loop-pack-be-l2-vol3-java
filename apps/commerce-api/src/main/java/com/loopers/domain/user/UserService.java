@@ -1,5 +1,11 @@
 package com.loopers.domain.user;
 
+import com.loopers.domain.user.policy.PasswordPolicy;
+import com.loopers.domain.user.vo.BirthDate;
+import com.loopers.domain.user.vo.Email;
+import com.loopers.domain.user.vo.LoginId;
+import com.loopers.domain.user.vo.Password;
+import com.loopers.domain.user.vo.UserName;
 import com.loopers.support.error.CommonErrorType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
@@ -24,7 +30,7 @@ public class UserService {
     }
 
     @Transactional
-    public User createUser(String rawLoginId, String rawPassword, String rawName, String rawBirthDate, String rawEmail) {
+    public User createUser(String rawLoginId, String rawPassword, String rawName, String rawBirthDate, String rawEmail, Gender gender) {
         // 1. VO 생성 (각 VO가 자체 규칙 검증)
         LoginId loginId = new LoginId(rawLoginId);
         Password password = Password.of(rawPassword);
@@ -42,7 +48,7 @@ public class UserService {
 
         // 4. 비밀번호 암호화 + 엔티티 생성 + 저장
         String encodedPassword = this.passwordEncryptor.encode(rawPassword);
-        User user = User.create(loginId, encodedPassword, name, birthDate, email);
+        User user = User.create(loginId, encodedPassword, name, birthDate, email, gender);
         return this.userRepository.save(user);
     }
 

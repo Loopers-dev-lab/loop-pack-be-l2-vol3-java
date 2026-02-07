@@ -1,5 +1,9 @@
 package com.loopers.domain.user;
 
+import com.loopers.domain.user.vo.BirthDate;
+import com.loopers.domain.user.vo.Email;
+import com.loopers.domain.user.vo.LoginId;
+import com.loopers.domain.user.vo.UserName;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -53,7 +57,8 @@ class UserRepositoryIntegrationTest {
                 "$2a$10$encodedPasswordHash",
                 new UserName("홍길동"),
                 new BirthDate("1994-11-15"),
-                new Email(loginIdValue + "@example.com")
+                new Email(loginIdValue + "@example.com"),
+                Gender.MALE
         );
     }
 
@@ -82,7 +87,7 @@ class UserRepositoryIntegrationTest {
             BirthDate birthDate = new BirthDate("1994-11-15");
             Email email = new Email("nahyeon@example.com");
 
-            User user = User.create(loginId, encodedPassword, name, birthDate, email);
+            User user = User.create(loginId, encodedPassword, name, birthDate, email, Gender.MALE);
 
             // act
             User savedUser = userRepository.save(user);

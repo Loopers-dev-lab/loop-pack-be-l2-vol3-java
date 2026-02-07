@@ -1,6 +1,7 @@
 package com.loopers.application.user;
 
 import com.loopers.application.auth.AuthFacade;
+import com.loopers.domain.user.Gender;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
 import com.loopers.utils.DatabaseCleanUp;
@@ -56,7 +57,7 @@ class UserFacadeIntegrationTest {
             // arrange
             String loginId = "nahyeon";
             String password = "Hx7!mK2@";
-            authFacade.createUser(loginId, password, "홍길동", "1994-11-15", "nahyeon@example.com");
+            authFacade.createUser(loginId, password, "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE);
 
             // act
             UserInfo result = userFacade.getUser(loginId, password);
@@ -90,7 +91,7 @@ class UserFacadeIntegrationTest {
             // arrange
             String loginId = "nahyeon";
             String password = "Hx7!mK2@";
-            authFacade.createUser(loginId, password, "홍길동", "1994-11-15", "nahyeon@example.com");
+            authFacade.createUser(loginId, password, "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE);
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {

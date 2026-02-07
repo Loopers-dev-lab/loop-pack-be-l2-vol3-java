@@ -1,6 +1,7 @@
 package com.loopers.application.auth;
 
 import com.loopers.application.user.UserInfo;
+import com.loopers.domain.user.Gender;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserService;
 import org.springframework.stereotype.Component;
@@ -19,8 +20,8 @@ public class AuthFacade {
         this.userService = userService;
     }
 
-    public UserInfo createUser(String loginId, String password, String name, String birthDate, String email) {
-        User user = this.userService.createUser(loginId, password, name, birthDate, email);
+    public UserInfo createUser(String loginId, String password, String name, String birthDate, String email, Gender gender) {
+        User user = this.userService.createUser(loginId, password, name, birthDate, email, gender);
         return UserInfo.from(user);
     }
 

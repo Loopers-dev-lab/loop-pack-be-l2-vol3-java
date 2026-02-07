@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api;
 
+import com.loopers.domain.user.Gender;
 import com.loopers.interfaces.api.auth.AuthV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -36,7 +37,7 @@ class AuthV1ApiE2ETest {
     }
 
     private AuthV1Dto.SignupRequest validSignupRequest() {
-        return new AuthV1Dto.SignupRequest("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com");
+        return new AuthV1Dto.SignupRequest("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE);
     }
 
     private ResponseEntity<ApiResponse> signup(AuthV1Dto.SignupRequest request) {
@@ -81,7 +82,7 @@ class AuthV1ApiE2ETest {
         void 잘못된_비밀번호_형식이면_400_Bad_Request_응답을_받는다() {
             // arrange
             AuthV1Dto.SignupRequest request = new AuthV1Dto.SignupRequest(
-                    "nahyeon", "short", "홍길동", "1994-11-15", "nahyeon@example.com"
+                    "nahyeon", "short", "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE
             );
 
             // act
@@ -95,7 +96,7 @@ class AuthV1ApiE2ETest {
         void 비밀번호에_생년월일이_포함되면_400_Bad_Request_응답을_받는다() {
             // arrange
             AuthV1Dto.SignupRequest request = new AuthV1Dto.SignupRequest(
-                    "nahyeon", "A19941115!", "홍길동", "1994-11-15", "nahyeon@example.com"
+                    "nahyeon", "A19941115!", "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE
             );
 
             // act

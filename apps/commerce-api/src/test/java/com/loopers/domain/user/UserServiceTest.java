@@ -1,5 +1,9 @@
 package com.loopers.domain.user;
 
+import com.loopers.domain.user.vo.BirthDate;
+import com.loopers.domain.user.vo.Email;
+import com.loopers.domain.user.vo.LoginId;
+import com.loopers.domain.user.vo.UserName;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,7 +55,7 @@ public class UserServiceTest {
             when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // act
-            User user = userService.createUser("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com");
+            User user = userService.createUser("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE);
 
             // assert
             assertAll(
@@ -70,7 +74,7 @@ public class UserServiceTest {
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.createUser("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com");
+                userService.createUser("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE);
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.DUPLICATE_LOGIN_ID);
@@ -83,7 +87,7 @@ public class UserServiceTest {
 
             // act & assert - birthDate: 1990-03-25, password contains "19900325"
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.createUser("nahyeon", "X19900325!", "홍길동", "1990-03-25", "nahyeon@example.com");
+                userService.createUser("nahyeon", "X19900325!", "홍길동", "1990-03-25", "nahyeon@example.com", Gender.MALE);
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.PASSWORD_CONTAINS_BIRTH_DATE);
@@ -100,7 +104,8 @@ public class UserServiceTest {
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
-                    new Email("nahyeon@example.com")
+                    new Email("nahyeon@example.com"),
+                    Gender.MALE
             );
             when(userRepository.findByLoginId("nahyeon")).thenReturn(Optional.of(user));
             when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$hash")).thenReturn(true);
@@ -158,7 +163,8 @@ public class UserServiceTest {
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
-                    new Email("nahyeon@example.com")
+                    new Email("nahyeon@example.com"),
+                    Gender.MALE
             );
             when(userRepository.findByLoginId("nahyeon")).thenReturn(Optional.of(user));
             when(passwordEncryptor.matches(anyString(), anyString())).thenReturn(false);
@@ -182,7 +188,8 @@ public class UserServiceTest {
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$oldHash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
-                    new Email("nahyeon@example.com")
+                    new Email("nahyeon@example.com"),
+                    Gender.MALE
             );
             when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$oldHash")).thenReturn(true);
             when(passwordEncryptor.matches("Nw8@pL3#", "$2a$10$oldHash")).thenReturn(false);
@@ -203,12 +210,14 @@ public class UserServiceTest {
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$oldHash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
-                    new Email("nahyeon@example.com")
+                    new Email("nahyeon@example.com"),
+                    Gender.MALE
             );
             User staleUser = User.create(
                     new LoginId("nahyeon"), "$2a$10$oldHash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
-                    new Email("nahyeon@example.com")
+                    new Email("nahyeon@example.com"),
+                    Gender.MALE
             );
             when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$oldHash")).thenReturn(true);
             when(passwordEncryptor.matches("Nw8@pL3#", "$2a$10$oldHash")).thenReturn(false);
@@ -237,7 +246,8 @@ public class UserServiceTest {
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
-                    new Email("nahyeon@example.com")
+                    new Email("nahyeon@example.com"),
+                    Gender.MALE
             );
 
             CoreException exception = assertThrows(CoreException.class, () -> {
@@ -252,7 +262,8 @@ public class UserServiceTest {
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
-                    new Email("nahyeon@example.com")
+                    new Email("nahyeon@example.com"),
+                    Gender.MALE
             );
 
             CoreException exception = assertThrows(CoreException.class, () -> {
@@ -268,7 +279,8 @@ public class UserServiceTest {
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
-                    new Email("nahyeon@example.com")
+                    new Email("nahyeon@example.com"),
+                    Gender.MALE
             );
             when(passwordEncryptor.matches(anyString(), anyString())).thenReturn(false);
 
@@ -286,7 +298,8 @@ public class UserServiceTest {
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
-                    new Email("nahyeon@example.com")
+                    new Email("nahyeon@example.com"),
+                    Gender.MALE
             );
             when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$hash")).thenReturn(true);
 
@@ -304,7 +317,8 @@ public class UserServiceTest {
             User user = User.create(
                     new LoginId("nahyeon"), "$2a$10$hash",
                     new UserName("홍길동"), new BirthDate("1990-03-25"),
-                    new Email("nahyeon@example.com")
+                    new Email("nahyeon@example.com"),
+                    Gender.MALE
             );
             when(passwordEncryptor.matches("Hx7!mK2@", "$2a$10$hash")).thenReturn(true);
 

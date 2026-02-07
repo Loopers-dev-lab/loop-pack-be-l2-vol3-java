@@ -27,7 +27,7 @@ public class AuthV1Controller implements AuthV1ApiSpec {
     @Override
     public ApiResponse<AuthV1Dto.SignupResponse> createUser(@RequestBody AuthV1Dto.SignupRequest request) {
         UserInfo info = this.authFacade.createUser(
-                request.loginId(), request.password(), request.name(), request.birthDate(), request.email()
+                request.loginId(), request.password(), request.name(), request.birthDate(), request.email(), request.gender()
         );
         return ApiResponse.success(AuthV1Dto.SignupResponse.from(info));
     }

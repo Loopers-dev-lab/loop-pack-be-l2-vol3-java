@@ -1,5 +1,11 @@
 package com.loopers.domain.user;
 
+import com.loopers.domain.user.vo.BirthDate;
+import com.loopers.domain.user.vo.Email;
+import com.loopers.domain.user.vo.LoginId;
+import com.loopers.domain.user.vo.UserName;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.UserErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
@@ -8,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * User Entity 단위 테스트
@@ -29,7 +36,7 @@ public class UserTest {
             Email email = new Email("nahyeon@example.com");
 
             // act
-            User user = User.create(loginId, encodedPassword, name, birthDate, email);
+            User user = User.create(loginId, encodedPassword, name, birthDate, email, Gender.MALE);
 
             // assert
             assertAll(
@@ -37,8 +44,26 @@ public class UserTest {
                     () -> assertThat(user.getPassword()).isEqualTo(encodedPassword),
                     () -> assertThat(user.getName().getValue()).isEqualTo("홍길동"),
                     () -> assertThat(user.getBirthDate().getValue()).isEqualTo(birthDate.getValue()),
-                    () -> assertThat(user.getEmail().getValue()).isEqualTo("nahyeon@example.com")
+                    () -> assertThat(user.getEmail().getValue()).isEqualTo("nahyeon@example.com"),
+                    () -> assertThat(user.getGender()).isEqualTo(Gender.MALE)
             );
+        }
+
+        @Test
+        void 성별이_null이면_예외가_발생한다() {
+            // arrange
+            LoginId loginId = new LoginId("nahyeon");
+            String encodedPassword = "$2a$10$encodedPasswordHash";
+            UserName name = new UserName("홍길동");
+            BirthDate birthDate = new BirthDate("1994-11-15");
+            Email email = new Email("nahyeon@example.com");
+
+            // act & assert
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                User.create(loginId, encodedPassword, name, birthDate, email, null);
+            });
+
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_GENDER);
         }
     }
 
@@ -54,7 +79,8 @@ public class UserTest {
                     "$2a$10$oldHash",
                     new UserName("홍길동"),
                     new BirthDate("1994-11-15"),
-                    new Email("nahyeon@example.com")
+                    new Email("nahyeon@example.com"),
+                    Gender.MALE
             );
             String newEncodedPassword = "$2a$10$newHash";
 
