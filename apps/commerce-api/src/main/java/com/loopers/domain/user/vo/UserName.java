@@ -50,7 +50,7 @@ public class UserName {
 
         if (value.length() < MIN_LENGTH || value.length() > MAX_LENGTH) {
             throw new CoreException(UserErrorType.INVALID_NAME,
-                    "이름은 " + MIN_LENGTH + "~" + MAX_LENGTH + "자여야 합니다.");
+                    "이름은 " + MIN_LENGTH + "자 이상 " + MAX_LENGTH + "자 이하여야 합니다.");
         }
 
         if (!PATTERN.matcher(value).matches()) {
