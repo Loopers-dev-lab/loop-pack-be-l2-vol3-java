@@ -17,6 +17,8 @@ public class UserService {
 
     @Transactional
     public UserModel createUser(String loginId, String rawPassword, LocalDate birthDate, String name, String email) {
+        validatePasswordNotContainsBirthDate(rawPassword, birthDate);
+
         String encodedPassword = passwordEncoder.encode(rawPassword);
         UserModel user = UserModel.create(loginId, encodedPassword, birthDate, name, email);
         return userRepository.save(user);

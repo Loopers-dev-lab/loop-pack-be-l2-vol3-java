@@ -52,24 +52,6 @@ public class UserFacadeTest {
     }
 
     @Test
-    @DisplayName("회원가입 실패 - 비밀번호에 생년월일 포함되어있으면 예외 발생")
-    void fail_with_birthDate() {
-
-        String rawPw = "pw19911203!!"; // 생일 포함
-        SignUpCommand signUpCommand = new SignUpCommand(
-            "user123",
-            rawPw,
-            LocalDate.of(1991, 12, 3),
-            "kim",
-            "yk@naver.com"
-        );
-
-        assertThatThrownBy(() -> userFacade.signUp(signUpCommand))
-            .isInstanceOf(CoreException.class)
-            .hasMessageContaining("생년월일을 포함할 수 없습니다");
-    }
-
-    @Test
     @DisplayName("회원가입 실패 - 이미 가입되어 있으면 예외 발생")
     void fail_already_signUp() {
 

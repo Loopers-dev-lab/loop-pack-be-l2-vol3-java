@@ -28,6 +28,27 @@ class UserServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @DisplayName("회원 가입")
+    @Nested
+    class CreateUser {
+
+        @Test
+        @DisplayName("비밀번호에 생년월일이 포함되면 예외가 발생한다")
+        void fail_when_password_contains_birthDate() {
+            // arrange
+            String loginId = "user123";
+            String rawPassword = "Pass19911203!";
+            LocalDate birthDate = LocalDate.of(1991, 12, 3);
+            String name = "김용권";
+            String email = "yk@google.com";
+
+            // act & assert
+            assertThatThrownBy(() -> userService.createUser(loginId, rawPassword, birthDate, name, email))
+                .isInstanceOf(CoreException.class)
+                .hasMessageContaining("비밀번호에 생년월일을 포함할 수 없습니다");
+        }
+    }
+
     @DisplayName("비밀번호 변경")
     @Nested
     class ChangePassword {
