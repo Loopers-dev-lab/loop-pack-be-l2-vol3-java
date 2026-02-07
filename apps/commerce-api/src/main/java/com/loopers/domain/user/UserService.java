@@ -5,7 +5,6 @@ import com.loopers.domain.user.vo.Email;
 import com.loopers.domain.user.vo.LoginId;
 import com.loopers.domain.user.vo.Password;
 import com.loopers.domain.user.vo.UserName;
-import com.loopers.support.error.CommonErrorType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
 import org.springframework.stereotype.Component;
@@ -99,6 +98,9 @@ public class UserService {
 
     /** 비밀번호에 생년월일(YYYYMMDD, YYMMDD, MMDD) 포함 금지 */
     private void validatePasswordNotContainsBirthDate(String rawPassword, LocalDate birthDate) {
+        if (birthDate == null) {
+            throw new CoreException(UserErrorType.INVALID_BIRTH_DATE, "생년월일은 필수입니다.");
+        }
         String yyyymmdd = birthDate.format(DateTimeFormatter.BASIC_ISO_DATE);
         String[] patterns = { yyyymmdd, yyyymmdd.substring(2), yyyymmdd.substring(4) };
         for (String pattern : patterns) {
