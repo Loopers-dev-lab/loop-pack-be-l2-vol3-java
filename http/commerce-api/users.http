@@ -1,0 +1,17 @@
+### 회원가입
+POST {{commerce-api}}/users
+Content-Type: application/json
+X-Loopers-LoginId: user123
+X-Loopers-LoginPw: Password1!
+
+{
+  "birthDate": "1991-12-03",
+  "name": "김용권",
+  "email": "yk@google.com"
+}
+
+### 내 정보 조회
+GET {{commerce-api}}/users/me
+Content-Type: application/json
+X-Loopers-LoginId: user123
+X-Loopers-LoginPw: Password1!
