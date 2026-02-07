@@ -30,7 +30,7 @@ public class UserService {
     }
 
     @Transactional
-    public User createUser(String rawLoginId, String rawPassword, String rawName, String rawBirthDate, String rawEmail, Gender gender) {
+    public User createUser(String rawLoginId, String rawPassword, String rawName, String rawBirthDate, String rawEmail) {
         // 1. VO 생성 (각 VO가 자체 규칙 검증)
         LoginId loginId = new LoginId(rawLoginId);
         Password password = Password.of(rawPassword);
@@ -48,7 +48,7 @@ public class UserService {
 
         // 4. 비밀번호 암호화 + 엔티티 생성 + 저장
         String encodedPassword = this.passwordEncryptor.encode(rawPassword);
-        User user = User.create(loginId, encodedPassword, name, birthDate, email, gender);
+        User user = User.create(loginId, encodedPassword, name, birthDate, email);
         return this.userRepository.save(user);
     }
 

@@ -5,13 +5,9 @@ import com.loopers.domain.user.vo.BirthDate;
 import com.loopers.domain.user.vo.Email;
 import com.loopers.domain.user.vo.LoginId;
 import com.loopers.domain.user.vo.UserName;
-import com.loopers.support.error.CoreException;
-import com.loopers.support.error.UserErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 
 /**
@@ -40,26 +36,18 @@ public class User extends BaseEntity {
     @Embedded
     private Email email;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    private Gender gender;
-
     protected User() {}
 
-    private User(LoginId loginId, String encodedPassword, UserName name, BirthDate birthDate, Email email, Gender gender) {
+    private User(LoginId loginId, String encodedPassword, UserName name, BirthDate birthDate, Email email) {
         this.loginId = loginId;
         this.password = encodedPassword;
         this.name = name;
         this.birthDate = birthDate;
         this.email = email;
-        this.gender = gender;
     }
 
-    public static User create(LoginId loginId, String encodedPassword, UserName name, BirthDate birthDate, Email email, Gender gender) {
-        if (gender == null) {
-            throw new CoreException(UserErrorType.INVALID_GENDER, "성별은 필수입니다.");
-        }
-        return new User(loginId, encodedPassword, name, birthDate, email, gender);
+    public static User create(LoginId loginId, String encodedPassword, UserName name, BirthDate birthDate, Email email) {
+        return new User(loginId, encodedPassword, name, birthDate, email);
     }
 
     public void changePassword(String newEncodedPassword) {
@@ -84,9 +72,5 @@ public class User extends BaseEntity {
 
     public Email getEmail() {
         return this.email;
-    }
-
-    public Gender getGender() {
-        return this.gender;
     }
 }

@@ -1,6 +1,5 @@
 package com.loopers.application.user;
 
-import com.loopers.domain.user.Gender;
 import com.loopers.domain.user.User;
 
 import java.time.LocalDate;
@@ -16,8 +15,7 @@ public record UserInfo(
         String name,
         String maskedName,
         LocalDate birthDate,
-        String email,
-        Gender gender
+        String email
 ) {
     public static UserInfo from(User user) {
         return new UserInfo(
@@ -25,8 +23,7 @@ public record UserInfo(
                 user.getName().getValue(),
                 user.getName().getMaskedValue(),
                 user.getBirthDate().getValue(),
-                user.getEmail().getValue(),
-                user.getGender()
+                user.getEmail().getValue()
         );
     }
 }

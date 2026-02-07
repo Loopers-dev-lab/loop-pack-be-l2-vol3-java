@@ -1,8 +1,7 @@
 package com.loopers.interfaces.api;
 
-import com.loopers.domain.user.Gender;
-import com.loopers.interfaces.api.auth.AuthV1Dto;
-import com.loopers.interfaces.api.user.UserV1Dto;
+import com.loopers.interfaces.api.auth.AuthV1Request;
+import com.loopers.interfaces.api.user.UserV1Response;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -37,11 +36,11 @@ class UserV1ApiE2ETest {
         databaseCleanUp.truncateAllTables();
     }
 
-    private AuthV1Dto.SignupRequest validSignupRequest() {
-        return new AuthV1Dto.SignupRequest("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE);
+    private AuthV1Request.SignupRequest validSignupRequest() {
+        return new AuthV1Request.SignupRequest("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com");
     }
 
-    private ResponseEntity<ApiResponse> signup(AuthV1Dto.SignupRequest request) {
+    private ResponseEntity<ApiResponse> signup(AuthV1Request.SignupRequest request) {
         return testRestTemplate.postForEntity(SIGNUP_URL, request, ApiResponse.class);
     }
 
@@ -65,8 +64,8 @@ class UserV1ApiE2ETest {
             HttpHeaders headers = authHeaders("nahyeon", "Hx7!mK2@");
 
             // act
-            ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>> type = new ParameterizedTypeReference<>() {};
-            ResponseEntity<ApiResponse<UserV1Dto.UserResponse>> response =
+            ParameterizedTypeReference<ApiResponse<UserV1Response.UserResponse>> type = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserV1Response.UserResponse>> response =
                     testRestTemplate.exchange(ME_URL, HttpMethod.GET, new HttpEntity<>(headers), type);
 
             // assert

@@ -57,8 +57,7 @@ class UserRepositoryIntegrationTest {
                 "$2a$10$encodedPasswordHash",
                 new UserName("홍길동"),
                 new BirthDate("1994-11-15"),
-                new Email(loginIdValue + "@example.com"),
-                Gender.MALE
+                new Email(loginIdValue + "@example.com")
         );
     }
 
@@ -87,7 +86,7 @@ class UserRepositoryIntegrationTest {
             BirthDate birthDate = new BirthDate("1994-11-15");
             Email email = new Email("nahyeon@example.com");
 
-            User user = User.create(loginId, encodedPassword, name, birthDate, email, Gender.MALE);
+            User user = User.create(loginId, encodedPassword, name, birthDate, email);
 
             // act
             User savedUser = userRepository.save(user);

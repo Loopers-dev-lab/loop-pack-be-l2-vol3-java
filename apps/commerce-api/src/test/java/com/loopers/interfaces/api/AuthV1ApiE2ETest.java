@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api;
 
-import com.loopers.domain.user.Gender;
-import com.loopers.interfaces.api.auth.AuthV1Dto;
+import com.loopers.interfaces.api.auth.AuthV1Request;
+import com.loopers.interfaces.api.auth.AuthV1Response;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,11 +36,11 @@ class AuthV1ApiE2ETest {
         databaseCleanUp.truncateAllTables();
     }
 
-    private AuthV1Dto.SignupRequest validSignupRequest() {
-        return new AuthV1Dto.SignupRequest("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE);
+    private AuthV1Request.SignupRequest validSignupRequest() {
+        return new AuthV1Request.SignupRequest("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com");
     }
 
-    private ResponseEntity<ApiResponse> signup(AuthV1Dto.SignupRequest request) {
+    private ResponseEntity<ApiResponse> signup(AuthV1Request.SignupRequest request) {
         return testRestTemplate.postForEntity(SIGNUP_URL, request, ApiResponse.class);
     }
 
@@ -81,8 +81,8 @@ class AuthV1ApiE2ETest {
         @Test
         void 잘못된_비밀번호_형식이면_400_Bad_Request_응답을_받는다() {
             // arrange
-            AuthV1Dto.SignupRequest request = new AuthV1Dto.SignupRequest(
-                    "nahyeon", "short", "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE
+            AuthV1Request.SignupRequest request = new AuthV1Request.SignupRequest(
+                    "nahyeon", "short", "홍길동", "1994-11-15", "nahyeon@example.com"
             );
 
             // act
@@ -95,8 +95,8 @@ class AuthV1ApiE2ETest {
         @Test
         void 비밀번호에_생년월일이_포함되면_400_Bad_Request_응답을_받는다() {
             // arrange
-            AuthV1Dto.SignupRequest request = new AuthV1Dto.SignupRequest(
-                    "nahyeon", "A19941115!", "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE
+            AuthV1Request.SignupRequest request = new AuthV1Request.SignupRequest(
+                    "nahyeon", "A19941115!", "홍길동", "1994-11-15", "nahyeon@example.com"
             );
 
             // act
@@ -119,7 +119,7 @@ class AuthV1ApiE2ETest {
             signup(validSignupRequest());
             HttpHeaders headers = authHeaders("nahyeon", "Hx7!mK2@");
             headers.setContentType(MediaType.APPLICATION_JSON);
-            AuthV1Dto.ChangePasswordRequest body = new AuthV1Dto.ChangePasswordRequest("Hx7!mK2@", "Nw8@pL3#");
+            AuthV1Request.ChangePasswordRequest body = new AuthV1Request.ChangePasswordRequest("Hx7!mK2@", "Nw8@pL3#");
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
@@ -135,7 +135,7 @@ class AuthV1ApiE2ETest {
             signup(validSignupRequest());
             HttpHeaders headers = authHeaders("nahyeon", "Hx7!mK2@");
             headers.setContentType(MediaType.APPLICATION_JSON);
-            AuthV1Dto.ChangePasswordRequest body = new AuthV1Dto.ChangePasswordRequest("Hx7!mK2@", "Nw8@pL3#");
+            AuthV1Request.ChangePasswordRequest body = new AuthV1Request.ChangePasswordRequest("Hx7!mK2@", "Nw8@pL3#");
             testRestTemplate.exchange(CHANGE_PW_URL, HttpMethod.PUT, new HttpEntity<>(body, headers), ApiResponse.class);
 
             // act - 새 비밀번호로 조회
@@ -161,7 +161,7 @@ class AuthV1ApiE2ETest {
             signup(validSignupRequest());
             HttpHeaders headers = authHeaders("nahyeon", "Hx7!mK2@");
             headers.setContentType(MediaType.APPLICATION_JSON);
-            AuthV1Dto.ChangePasswordRequest body = new AuthV1Dto.ChangePasswordRequest("Hx7!mK2@", "Hx7!mK2@");
+            AuthV1Request.ChangePasswordRequest body = new AuthV1Request.ChangePasswordRequest("Hx7!mK2@", "Hx7!mK2@");
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(

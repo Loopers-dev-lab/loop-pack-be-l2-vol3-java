@@ -1,10 +1,10 @@
 package com.loopers.application.auth;
 
 import com.loopers.application.user.UserInfo;
-import com.loopers.domain.user.Gender;
 import com.loopers.domain.user.PasswordEncryptor;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserRepository;
+import com.loopers.domain.user.UserService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
 import com.loopers.utils.DatabaseCleanUp;
@@ -45,6 +45,9 @@ class AuthFacadeIntegrationTest {
     private UserRepository userRepository;
 
     @Autowired
+    private UserService userService;
+
+    @Autowired
     private PasswordEncryptor passwordEncryptor;
 
     @Autowired
@@ -72,7 +75,7 @@ class AuthFacadeIntegrationTest {
             String email = "nahyeon@example.com";
 
             // act
-            UserInfo result = authFacade.createUser(loginId, password, name, birthDate, email, Gender.MALE);
+            UserInfo result = authFacade.createUser(loginId, password, name, birthDate, email);
 
             // assert
             assertAll(
@@ -80,8 +83,7 @@ class AuthFacadeIntegrationTest {
                     () -> assertThat(result.name()).isEqualTo("홍길동"),
                     () -> assertThat(result.maskedName()).isEqualTo("홍길*"),
                     () -> assertThat(result.birthDate()).isEqualTo(LocalDate.of(1994, 11, 15)),
-                    () -> assertThat(result.email()).isEqualTo("nahyeon@example.com"),
-                    () -> assertThat(result.gender()).isEqualTo(Gender.MALE)
+                    () -> assertThat(result.email()).isEqualTo("nahyeon@example.com")
             );
         }
 
@@ -95,7 +97,7 @@ class AuthFacadeIntegrationTest {
             String email = "test@example.com";
 
             // act
-            authFacade.createUser(loginId, password, name, birthDate, email, Gender.MALE);
+            authFacade.createUser(loginId, password, name, birthDate, email);
 
             // assert
             assertThat(userRepository.existsByLoginId(loginId)).isTrue();
@@ -105,11 +107,11 @@ class AuthFacadeIntegrationTest {
         void 중복된_로그인ID로_가입하면_예외가_발생한다() {
             // arrange
             String loginId = "duplicate";
-            authFacade.createUser(loginId, "Hx7!mK2@", "홍길동", "1994-11-15", "first@example.com", Gender.MALE);
+            authFacade.createUser(loginId, "Hx7!mK2@", "홍길동", "1994-11-15", "first@example.com");
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                authFacade.createUser(loginId, "Nw8@pL3#", "김철수", "1995-05-05", "second@example.com", Gender.FEMALE);
+                authFacade.createUser(loginId, "Nw8@pL3#", "김철수", "1995-05-05", "second@example.com");
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.DUPLICATE_LOGIN_ID);
@@ -126,7 +128,7 @@ class AuthFacadeIntegrationTest {
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                authFacade.createUser(loginId, password, name, birthDate, email, Gender.MALE);
+                authFacade.createUser(loginId, password, name, birthDate, email);
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.PASSWORD_CONTAINS_BIRTH_DATE);
@@ -143,14 +145,15 @@ class AuthFacadeIntegrationTest {
             String loginId = "nahyeon";
             String currentPassword = "Hx7!mK2@";
             String newPassword = "Nw8@pL3#";
-            authFacade.createUser(loginId, currentPassword, "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE);
+            authFacade.createUser(loginId, currentPassword, "홍길동", "1994-11-15", "nahyeon@example.com");
+            User user = userService.authenticateUser(loginId, currentPassword);
 
             // act
-            authFacade.updateUserPassword(loginId, currentPassword, currentPassword, newPassword);
+            authFacade.updateUserPassword(user, currentPassword, newPassword);
 
             // assert - 새 비밀번호로 인증 성공 확인
-            User user = userRepository.findByLoginId(loginId).orElseThrow();
-            assertThat(passwordEncryptor.matches(newPassword, user.getPassword())).isTrue();
+            User reloaded = userRepository.findByLoginId(loginId).orElseThrow();
+            assertThat(passwordEncryptor.matches(newPassword, reloaded.getPassword())).isTrue();
         }
 
         @Test
@@ -159,10 +162,11 @@ class AuthFacadeIntegrationTest {
             String loginId = "nahyeon";
             String oldPassword = "Hx7!mK2@";
             String newPassword = "Nw8@pL3#";
-            authFacade.createUser(loginId, oldPassword, "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE);
+            authFacade.createUser(loginId, oldPassword, "홍길동", "1994-11-15", "nahyeon@example.com");
+            User user = userService.authenticateUser(loginId, oldPassword);
 
-            // act - 비밀번호 변경 (authenticateUser → detached entity → updateUserPassword에서 save)
-            authFacade.updateUserPassword(loginId, oldPassword, oldPassword, newPassword);
+            // act
+            authFacade.updateUserPassword(user, oldPassword, newPassword);
 
             // assert - DB에서 재조회하여 새 비밀번호로 인증 성공 확인
             User reloadedUser = userRepository.findByLoginId(loginId).orElseThrow();
@@ -173,30 +177,16 @@ class AuthFacadeIntegrationTest {
         }
 
         @Test
-        void 헤더_비밀번호가_틀리면_인증_예외가_발생한다() {
-            // arrange
-            String loginId = "nahyeon";
-            String currentPassword = "Hx7!mK2@";
-            authFacade.createUser(loginId, currentPassword, "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE);
-
-            // act & assert
-            CoreException exception = assertThrows(CoreException.class, () -> {
-                authFacade.updateUserPassword(loginId, "wrongPw1!", currentPassword, "Nw8@pL3#");
-            });
-
-            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.UNAUTHORIZED);
-        }
-
-        @Test
         void 현재_비밀번호가_틀리면_예외가_발생한다() {
             // arrange
             String loginId = "nahyeon";
             String currentPassword = "Hx7!mK2@";
-            authFacade.createUser(loginId, currentPassword, "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE);
+            authFacade.createUser(loginId, currentPassword, "홍길동", "1994-11-15", "nahyeon@example.com");
+            User user = userService.authenticateUser(loginId, currentPassword);
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                authFacade.updateUserPassword(loginId, currentPassword, "wrongPw1!", "Nw8@pL3#");
+                authFacade.updateUserPassword(user, "wrongPw1!", "Nw8@pL3#");
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.PASSWORD_MISMATCH);
@@ -207,11 +197,12 @@ class AuthFacadeIntegrationTest {
             // arrange
             String loginId = "nahyeon";
             String currentPassword = "Hx7!mK2@";
-            authFacade.createUser(loginId, currentPassword, "홍길동", "1994-11-15", "nahyeon@example.com", Gender.MALE);
+            authFacade.createUser(loginId, currentPassword, "홍길동", "1994-11-15", "nahyeon@example.com");
+            User user = userService.authenticateUser(loginId, currentPassword);
 
             // act & assert
             CoreException exception = assertThrows(CoreException.class, () -> {
-                authFacade.updateUserPassword(loginId, currentPassword, currentPassword, currentPassword);
+                authFacade.updateUserPassword(user, currentPassword, currentPassword);
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.SAME_PASSWORD);
