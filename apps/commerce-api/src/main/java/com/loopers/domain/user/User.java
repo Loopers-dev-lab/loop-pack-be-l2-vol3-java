@@ -6,6 +6,12 @@ import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
+/**
+ * 사용자 엔티티 (Aggregate Root)
+ *
+ * 각 필드는 Value Object로 자체 검증을 수행하며,
+ * password는 암호화된 값만 저장한다 (평문 저장 금지).
+ */
 @Entity
 @Table(name = "users")
 public class User extends BaseEntity {
@@ -13,6 +19,7 @@ public class User extends BaseEntity {
     @Embedded
     private LoginId loginId;
 
+    /** 암호화된 비밀번호 (BCrypt 해시) */
     @Column(name = "password", nullable = false)
     private String password;
 

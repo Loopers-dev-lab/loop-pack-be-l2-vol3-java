@@ -4,6 +4,11 @@ import com.loopers.domain.user.PasswordEncryptor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 
+/**
+ * PasswordEncryptor 어댑터 (Infrastructure Layer)
+ *
+ * Spring Security의 BCryptPasswordEncoder를 사용하여 비밀번호를 암호화한다.
+ */
 @Component
 public class BCryptPasswordEncryptor implements PasswordEncryptor {
 

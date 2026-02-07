@@ -2,6 +2,7 @@ package com.loopers.support.error;
 
 import org.springframework.http.HttpStatus;
 
+/** 시스템 공통 에러 타입 (도메인에 속하지 않는 범용 에러) */
 public enum CommonErrorType implements ErrorType {
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(), "일시적인 오류가 발생했습니다."),
     BAD_REQUEST(HttpStatus.BAD_REQUEST, HttpStatus.BAD_REQUEST.getReasonPhrase(), "잘못된 요청입니다."),

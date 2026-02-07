@@ -5,6 +5,12 @@ import com.loopers.support.error.UserErrorType;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 사용자 도메인 서비스
+ *
+ * 회원가입, 인증, 비밀번호 변경 등 사용자 도메인 핵심 비즈니스 로직을 담당한다.
+ * VO 자체 검증 → 교차 검증(PasswordPolicy) → 저장 순서로 처리한다.
+ */
 @Component
 public class UserService {
 

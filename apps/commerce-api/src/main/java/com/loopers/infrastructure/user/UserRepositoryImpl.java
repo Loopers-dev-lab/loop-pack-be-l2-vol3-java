@@ -6,6 +6,11 @@ import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
+/**
+ * UserRepository 어댑터 (Infrastructure Layer)
+ *
+ * 도메인 포트(UserRepository)의 구현체로, Spring Data JPA에 위임한다.
+ */
 @Component
 public class UserRepositoryImpl implements UserRepository {
     private final UserJpaRepository userJpaRepository;

@@ -4,6 +4,7 @@ import com.loopers.application.user.UserInfo;
 
 import java.time.LocalDate;
 
+/** 인증 API V1 요청/응답 DTO */
 public class AuthV1Dto {
 
     public record SignupRequest(

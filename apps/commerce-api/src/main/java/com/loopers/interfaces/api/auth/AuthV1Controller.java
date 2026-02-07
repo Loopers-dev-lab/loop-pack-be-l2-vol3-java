@@ -6,6 +6,12 @@ import com.loopers.interfaces.api.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 인증 API 컨트롤러 (V1)
+ *
+ * 인증 방식: 커스텀 헤더(X-Loopers-LoginId, X-Loopers-LoginPw) 기반 인증.
+ * 비밀번호 변경 시 헤더 인증 + 본문 비밀번호 확인의 이중 검증을 수행한다.
+ */
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthV1Controller implements AuthV1ApiSpec {

@@ -22,10 +22,20 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/**
+ * 전역 예외 핸들러
+ *
+ * 에러 메시지 정책:
+ * - 클라이언트 응답: 사용자가 이해할 수 있는 메시지만 반환 (시스템 내부 정보 노출 금지)
+ * - 시스템 로그: 구체적인 요청 파라미터, 상태값, 스택트레이스를 기록
+ *
+ * customMessage가 있으면 우선 사용하고, 없으면 ErrorType의 기본 메시지를 반환한다.
+ */
 @RestControllerAdvice
 public class ApiControllerAdvice {
 
     private static final Logger log = LoggerFactory.getLogger(ApiControllerAdvice.class);
+
     @ExceptionHandler
     public ResponseEntity<ApiResponse<?>> handle(CoreException e) {
         log.warn("CoreException : {}", e.getCustomMessage() != null ? e.getCustomMessage() : e.getMessage(), e);

@@ -2,6 +2,15 @@ package com.loopers.support.error;
 
 import org.springframework.http.HttpStatus;
 
+/**
+ * 사용자 도메인 에러 타입
+ *
+ * 에러 코드 체계: USER_{카테고리}{순번}
+ * - 0xx: 입력값 검증 실패 (400)
+ * - 1xx: 인증 실패 (401)
+ * - 2xx: 리소스 미존재 (404)
+ * - 3xx: 충돌 (409)
+ */
 public enum UserErrorType implements ErrorType {
     // 400 Bad Request
     INVALID_LOGIN_ID(HttpStatus.BAD_REQUEST, "USER_001", "로그인 ID 형식이 올바르지 않습니다."),
