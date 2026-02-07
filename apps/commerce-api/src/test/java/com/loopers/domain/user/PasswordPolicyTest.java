@@ -60,5 +60,32 @@ public class PasswordPolicyTest {
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.PASSWORD_CONTAINS_BIRTH_DATE);
         }
+
+        @Test
+        void 비밀번호가_null이면_예외가_발생한다() {
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                PasswordPolicy.validate(null, BIRTH_DATE);
+            });
+
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_PASSWORD);
+        }
+
+        @Test
+        void 비밀번호가_빈_문자열이면_예외가_발생한다() {
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                PasswordPolicy.validate("   ", BIRTH_DATE);
+            });
+
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_PASSWORD);
+        }
+
+        @Test
+        void 생년월일이_null이면_예외가_발생한다() {
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                PasswordPolicy.validate("Hx7!mK2@", null);
+            });
+
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_BIRTH_DATE);
+        }
     }
 }

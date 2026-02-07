@@ -47,6 +47,13 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public User authenticateUser(String rawLoginId, String rawPassword) {
+        if (rawLoginId == null || rawLoginId.isBlank()) {
+            throw new CoreException(UserErrorType.UNAUTHORIZED, "로그인 ID는 필수입니다.");
+        }
+        if (rawPassword == null || rawPassword.isBlank()) {
+            throw new CoreException(UserErrorType.UNAUTHORIZED, "비밀번호는 필수입니다.");
+        }
+
         User user = this.userRepository.findByLoginId(rawLoginId)
                 .orElseThrow(() -> new CoreException(UserErrorType.UNAUTHORIZED));
 
@@ -59,6 +66,16 @@ public class UserService {
 
     @Transactional
     public void updateUserPassword(User user, String currentRawPassword, String newRawPassword) {
+        if (user == null) {
+            throw new CoreException(UserErrorType.USER_NOT_FOUND, "사용자 정보가 존재하지 않습니다.");
+        }
+        if (currentRawPassword == null || currentRawPassword.isBlank()) {
+            throw new CoreException(UserErrorType.INVALID_PASSWORD, "현재 비밀번호는 필수입니다.");
+        }
+        if (newRawPassword == null || newRawPassword.isBlank()) {
+            throw new CoreException(UserErrorType.INVALID_PASSWORD, "새 비밀번호는 필수입니다.");
+        }
+
         // 현재 비밀번호 확인
         if (!this.passwordEncryptor.matches(currentRawPassword, user.getPassword())) {
             throw new CoreException(UserErrorType.PASSWORD_MISMATCH);

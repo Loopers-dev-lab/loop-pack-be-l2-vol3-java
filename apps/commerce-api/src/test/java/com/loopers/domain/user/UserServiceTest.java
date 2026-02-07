@@ -123,6 +123,33 @@ public class UserServiceTest {
         }
 
         @Test
+        void 로그인_ID가_null이면_예외가_발생한다() {
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                userService.authenticateUser(null, "Hx7!mK2@");
+            });
+
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.UNAUTHORIZED);
+        }
+
+        @Test
+        void 로그인_ID가_빈_문자열이면_예외가_발생한다() {
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                userService.authenticateUser("   ", "Hx7!mK2@");
+            });
+
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.UNAUTHORIZED);
+        }
+
+        @Test
+        void 비밀번호가_null이면_예외가_발생한다() {
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                userService.authenticateUser("nahyeon", null);
+            });
+
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.UNAUTHORIZED);
+        }
+
+        @Test
         void 비밀번호가_불일치하면_예외가_발생한다() {
             // arrange
             User user = User.create(
@@ -163,6 +190,45 @@ public class UserServiceTest {
 
             // assert
             assertThat(user.getPassword()).isEqualTo("$2a$10$newHash");
+        }
+
+        @Test
+        void 사용자가_null이면_예외가_발생한다() {
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                userService.updateUserPassword(null, "Hx7!mK2@", "Nw8@pL3#");
+            });
+
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.USER_NOT_FOUND);
+        }
+
+        @Test
+        void 현재_비밀번호가_null이면_예외가_발생한다() {
+            User user = User.create(
+                    new LoginId("nahyeon"), "$2a$10$hash",
+                    new UserName("홍길동"), new BirthDate("1994-11-15"),
+                    new Email("nahyeon@example.com")
+            );
+
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                userService.updateUserPassword(user, null, "Nw8@pL3#");
+            });
+
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_PASSWORD);
+        }
+
+        @Test
+        void 새_비밀번호가_null이면_예외가_발생한다() {
+            User user = User.create(
+                    new LoginId("nahyeon"), "$2a$10$hash",
+                    new UserName("홍길동"), new BirthDate("1994-11-15"),
+                    new Email("nahyeon@example.com")
+            );
+
+            CoreException exception = assertThrows(CoreException.class, () -> {
+                userService.updateUserPassword(user, "Hx7!mK2@", null);
+            });
+
+            assertThat(exception.getErrorType()).isEqualTo(UserErrorType.INVALID_PASSWORD);
         }
 
         @Test

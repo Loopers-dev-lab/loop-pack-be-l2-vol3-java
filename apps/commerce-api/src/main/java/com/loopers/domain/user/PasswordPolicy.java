@@ -17,6 +17,12 @@ public final class PasswordPolicy {
     private PasswordPolicy() {}
 
     public static void validate(String rawPassword, LocalDate birthDate) {
+        if (rawPassword == null || rawPassword.isBlank()) {
+            throw new CoreException(UserErrorType.INVALID_PASSWORD, "비밀번호는 필수입니다.");
+        }
+        if (birthDate == null) {
+            throw new CoreException(UserErrorType.INVALID_BIRTH_DATE, "생년월일은 필수입니다.");
+        }
         validateBirthDateNotContained(rawPassword, birthDate);
     }
 
