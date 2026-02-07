@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -56,7 +57,7 @@ public class UserServiceTest {
             // act
             User user = userService.createUser("nahyeon", "Hx7!mK2@", "홍길동", "1994-11-15", "nahyeon@example.com");
 
-            // assert
+            // assert - 데이터 검증
             assertAll(
                     () -> assertThat(user.getLoginId().getValue()).isEqualTo("nahyeon"),
                     () -> assertThat(user.getPassword()).isEqualTo("$2a$10$encodedHash"),
@@ -64,6 +65,11 @@ public class UserServiceTest {
                     () -> assertThat(user.getBirthDate().getValue()).isEqualTo(java.time.LocalDate.of(1994, 11, 15)),
                     () -> assertThat(user.getEmail().getValue()).isEqualTo("nahyeon@example.com")
             );
+
+            // assert - 행위 검증 (test double)
+            verify(userRepository).existsByLoginId("nahyeon");
+            verify(passwordEncryptor).encode("Hx7!mK2@");
+            verify(userRepository).save(any(User.class));
         }
 
         @Test
@@ -77,6 +83,9 @@ public class UserServiceTest {
             });
 
             assertThat(exception.getErrorType()).isEqualTo(UserErrorType.DUPLICATE_LOGIN_ID);
+
+            // 중복 시 save가 호출되지 않아야 함
+            verify(userRepository, never()).save(any(User.class));
         }
 
         @Test
@@ -111,8 +120,12 @@ public class UserServiceTest {
             // act
             User result = userService.authenticateUser("nahyeon", "Hx7!mK2@");
 
-            // assert
+            // assert - 데이터 검증
             assertThat(result.getLoginId().getValue()).isEqualTo("nahyeon");
+
+            // assert - 행위 검증
+            verify(userRepository).findByLoginId("nahyeon");
+            verify(passwordEncryptor).matches("Hx7!mK2@", "$2a$10$hash");
         }
 
         @Test
