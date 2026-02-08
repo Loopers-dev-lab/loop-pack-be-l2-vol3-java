@@ -10,13 +10,23 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UserCommandService {
 
+	// repository
 	private final UserCommandRepository userCommandRepository;
 
+
+	/**
+	 * 유저 명령 서비스
+	 * 1. 유저 저장
+	 * 2. 유저 수정
+	 */
+
+	// 1. 유저 저장
 	@Transactional
 	public User createUser(User user) {
 		return userCommandRepository.save(user);
 	}
 
+	// 2. 유저 수정
 	@Transactional
 	public User updateUser(User user) {
 		return userCommandRepository.update(user);

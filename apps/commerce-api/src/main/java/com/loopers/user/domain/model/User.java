@@ -7,6 +7,15 @@ import com.loopers.support.common.error.ErrorType;
 import java.time.LocalDate;
 import java.util.regex.Pattern;
 
+/**
+ * 유저
+ * - id: 유저 ID
+ * - loginId: 로그인 ID
+ * - password: 비밀번호
+ * - name: 이름
+ * - birthday: 생년월일
+ * - email: 이메일
+ */
 public class User {
 
 	private static final int LOGIN_ID_MIN_LENGTH = 4;
@@ -27,6 +36,15 @@ public class User {
 	private final LocalDate birthday;
 	private final String email;
 
+
+	/**
+	 * 도메인 로직
+	 * 1. 회원가입용 유저 생성
+	 * 2. 저장된 유저 복원
+	 * 3. 비밀번호 인증
+	 * 4. 비밀번호 변경
+	 */
+
 	private User(Long id, String loginId, Password password, String name, LocalDate birthday, String email) {
 		this.id = id;
 		this.loginId = loginId;
@@ -36,21 +54,29 @@ public class User {
 		this.email = email;
 	}
 
+	// 1. 회원가입용 유저 생성
 	public static User create(String loginId, String rawPassword, String name, LocalDate birthday, String email) {
+
+		// 입력값 정규화
 		String normalizedLoginId = loginId != null ? loginId.trim().toLowerCase() : null;
 		String trimmedName = name != null ? name.trim() : null;
 		String trimmedEmail = email != null ? email.trim() : null;
 
+		// 회원가입 필드 유효성 검증
 		validateLoginId(normalizedLoginId);
 		validateName(trimmedName);
 		validateEmail(trimmedEmail);
 		validateBirthday(birthday);
 
+		// 비밀번호 생성 후 유저 도메인 객체 생성
 		Password password = Password.create(rawPassword, birthday);
 		return new User(null, normalizedLoginId, password, trimmedName, birthday, trimmedEmail);
 	}
 
+	// 2. 저장된 유저 복원
 	public static User reconstruct(Long id, String loginId, String encodedPassword, String name, LocalDate birthday, String email) {
+
+		// 저장된 인코딩 비밀번호를 값 객체로 복원
 		Password password = Password.fromEncoded(encodedPassword);
 		return new User(id, loginId, password, name, birthday, email);
 	}
@@ -79,27 +105,38 @@ public class User {
 		return email;
 	}
 
+	// 3. 비밀번호 인증
 	public void authenticate(String rawPassword) {
+
+		// 입력 비밀번호와 저장된 비밀번호 일치 여부 검증
 		if (!this.password.matches(rawPassword)) {
 			throw new CoreException(ErrorType.UNAUTHORIZED);
 		}
 	}
 
+	// 4. 비밀번호 변경
 	public void changePassword(String currentRawPassword, String newRawPassword) {
+
+		// 현재/신규 비밀번호 필수값 검증
 		if (currentRawPassword == null || newRawPassword == null) {
 			throw new CoreException(ErrorType.UNAUTHORIZED);
 		}
 
+		// 현재 비밀번호 인증
 		authenticate(currentRawPassword);
 
+		// 현재 비밀번호와 신규 비밀번호 동일 여부 검증
 		if (currentRawPassword.equals(newRawPassword)) {
 			throw new CoreException(ErrorType.PASSWORD_SAME_AS_CURRENT);
 		}
 
+		// 신규 비밀번호로 교체
 		this.password = Password.create(newRawPassword, this.birthday);
 	}
 
 	private static void validateLoginId(String loginId) {
+
+		// 로그인 ID 형식 검증
 		if (loginId == null ||
 			loginId.isBlank() ||
 			loginId.length() < LOGIN_ID_MIN_LENGTH ||
@@ -110,6 +147,8 @@ public class User {
 	}
 
 	private static void validateName(String name) {
+
+		// 이름 형식 검증
 		if (name == null ||
 			name.isBlank() ||
 			name.length() > NAME_MAX_LENGTH ||
@@ -119,6 +158,8 @@ public class User {
 	}
 
 	private static void validateEmail(String email) {
+
+		// 이메일 기본 형식 검증
 		if (email == null ||
 			email.isBlank() ||
 			email.length() > EMAIL_MAX_LENGTH ||
@@ -126,6 +167,7 @@ public class User {
 			throw new CoreException(ErrorType.INVALID_EMAIL_FORMAT);
 		}
 
+		// 도메인 구간의 비정상 패턴 검증
 		String domain = email.substring(email.indexOf('@') + 1);
 		if (EMAIL_DOMAIN_INVALID_PATTERN.matcher(domain).find()) {
 			throw new CoreException(ErrorType.INVALID_EMAIL_FORMAT);
@@ -133,6 +175,8 @@ public class User {
 	}
 
 	private static void validateBirthday(LocalDate birthday) {
+
+		// 생년월일 범위 검증
 		if (birthday == null ||
 			!birthday.isAfter(MIN_BIRTHDAY) ||
 			!birthday.isBefore(LocalDate.now())) {

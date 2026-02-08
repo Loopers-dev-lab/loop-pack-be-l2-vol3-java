@@ -13,14 +13,26 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class UserQueryRepositoryImpl implements UserQueryRepository {
 
+	// jpa
 	private final UserJpaRepository userJpaRepository;
 
+
+	/**
+	 * 유저 조회 리포지토리 구현체
+	 * 1. 로그인 ID로 유저 조회
+	 * 2. 로그인 ID 중복 여부 확인
+	 */
+
+	// 1. 로그인 ID로 유저 조회
 	@Override
 	public Optional<User> findByLoginId(String loginId) {
+
+		// 조회 결과를 유저 도메인 객체로 변환
 		return userJpaRepository.findByLoginId(loginId)
 			.map(UserEntity::toDomain);
 	}
 
+	// 2. 로그인 ID 중복 여부 확인
 	@Override
 	public boolean existsByLoginId(String loginId) {
 		return userJpaRepository.existsByLoginId(loginId);

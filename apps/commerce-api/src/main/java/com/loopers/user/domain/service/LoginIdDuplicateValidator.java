@@ -9,14 +9,24 @@ public class LoginIdDuplicateValidator {
 
 	private final Predicate<String> existsByLoginId;
 
+	/**
+	 * 로그인 ID 중복 검증기
+	 * 1. 로그인 ID 중복 검증
+	 */
+
 	public LoginIdDuplicateValidator(Predicate<String> existsByLoginId) {
 		this.existsByLoginId = existsByLoginId;
 	}
 
+	// 1. 로그인 ID 중복 검증
 	public void validate(String loginId) {
+
+		// 로그인 ID 필수값 검증
 		if (loginId == null || loginId.isBlank()) {
 			throw new CoreException(ErrorType.INVALID_LOGIN_ID_FORMAT);
 		}
+
+		// 동일 로그인 ID가 이미 존재하면 예외 반환
 		if (existsByLoginId.test(loginId)) {
 			throw new CoreException(ErrorType.USER_ALREADY_EXISTS);
 		}

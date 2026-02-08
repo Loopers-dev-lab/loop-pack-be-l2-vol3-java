@@ -32,6 +32,14 @@ public class UserEntity extends BaseEntity {
 	@Column(name = "email", nullable = false, length = 254)
 	private String email;
 
+
+	/**
+	 * 유저 엔티티
+	 * 1. 도메인 객체를 엔티티로 변환
+	 * 2. 엔티티 비밀번호 변경
+	 * 3. 엔티티를 도메인 객체로 변환
+	 */
+
 	private UserEntity(String loginId, String password, String name, LocalDate birthday, String email) {
 		this.loginId = loginId;
 		this.password = password;
@@ -40,6 +48,7 @@ public class UserEntity extends BaseEntity {
 		this.email = email;
 	}
 
+	// 1. 도메인 객체를 엔티티로 변환
 	public static UserEntity from(User user) {
 		return new UserEntity(
 			user.getLoginId(),
@@ -50,10 +59,12 @@ public class UserEntity extends BaseEntity {
 		);
 	}
 
+	// 2. 엔티티 비밀번호 변경
 	public void updatePassword(String password) {
 		this.password = password;
 	}
 
+	// 3. 엔티티를 도메인 객체로 변환
 	public User toDomain() {
 		return User.reconstruct(
 			this.getId(),

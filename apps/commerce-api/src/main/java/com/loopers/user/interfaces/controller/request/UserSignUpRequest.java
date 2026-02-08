@@ -6,6 +6,14 @@ import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
 
+/**
+ * 회원가입 요청
+ * - loginId: 로그인 ID
+ * - password: 비밀번호
+ * - name: 이름
+ * - birthday: 생년월일
+ * - email: 이메일
+ */
 public record UserSignUpRequest(
 	@NotBlank(message = "로그인 ID는 필수입니다.")
 	String loginId,
@@ -22,6 +30,8 @@ public record UserSignUpRequest(
 	@NotBlank(message = "이메일은 필수입니다.")
 	String email
 ) {
+
+	// 1. 회원가입 요청을 애플리케이션 입력 DTO로 변환
 	public UserSignUpInDto toInDto() {
 		return new UserSignUpInDto(loginId, password, name, birthday, email);
 	}
