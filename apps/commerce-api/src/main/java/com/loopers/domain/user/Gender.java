@@ -12,7 +12,7 @@ public enum Gender {
         try {
             return Gender.valueOf(value.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("성별은 MALE 또는 FEMALE이어야 합니다.");
+            throw new IllegalArgumentException("성별은 MALE 또는 FEMALE이어야 합니다.", e);
         }
     }
 }

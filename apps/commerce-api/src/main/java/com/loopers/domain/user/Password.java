@@ -16,6 +16,9 @@ public class Password {
 
     public static Password of(String rawPassword, BirthDate birthDate) {
         validateLength(rawPassword);
+        if (birthDate == null) {
+            throw new IllegalArgumentException("생년월일은 null일 수 없습니다.");
+        }
         validateNotContainsBirthDate(rawPassword, birthDate);
         return new Password(rawPassword);
     }
@@ -58,6 +61,9 @@ public class Password {
     }
 
     public static boolean matches(String rawPassword, String encryptedPassword) {
+        if (rawPassword == null || encryptedPassword == null) {
+            return false;
+        }
         return passwordEncoder.matches(rawPassword, encryptedPassword);
     }
 }

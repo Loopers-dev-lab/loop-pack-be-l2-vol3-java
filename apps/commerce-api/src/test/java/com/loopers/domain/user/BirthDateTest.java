@@ -64,5 +64,38 @@ class BirthDateTest {
             // then
             assertThat(birthDate.value()).isEqualTo(today);
         }
+
+        @DisplayName("null이면, IllegalArgumentException이 발생한다.")
+        @Test
+        void create_withNull_shouldFail() {
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                new BirthDate(null);
+            });
+        }
+
+        @DisplayName("빈 문자열이면, IllegalArgumentException이 발생한다.")
+        @Test
+        void create_withBlank_shouldFail() {
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                new BirthDate("");
+            });
+        }
+
+        @DisplayName("형식이 잘못되면, 예외의 원인(cause)이 DateTimeParseException이다.")
+        @Test
+        void create_withInvalidFormat_shouldPreserveCause() {
+            // given
+            String invalidFormat = "1990/01/15";
+
+            // when
+            IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+                new BirthDate(invalidFormat);
+            });
+
+            // then
+            assertThat(exception.getCause()).isInstanceOf(java.time.format.DateTimeParseException.class);
+        }
     }
 }

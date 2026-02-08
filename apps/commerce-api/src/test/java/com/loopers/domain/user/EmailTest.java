@@ -49,5 +49,29 @@ class EmailTest {
             // then
             assertThat(email.value()).isEqualTo(validEmail);
         }
+
+        @DisplayName("로컬 파트가 비어있으면(@example.com), IllegalArgumentException이 발생한다.")
+        @Test
+        void create_withBlankLocalPart_shouldFail() {
+            // given
+            String invalidEmail = "@example.com";
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                new Email(invalidEmail);
+            });
+        }
+
+        @DisplayName("@ 기호가 여러 개이면, IllegalArgumentException이 발생한다.")
+        @Test
+        void create_withMultipleAtSigns_shouldFail() {
+            // given
+            String invalidEmail = "user@domain@com";
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                new Email(invalidEmail);
+            });
+        }
     }
 }

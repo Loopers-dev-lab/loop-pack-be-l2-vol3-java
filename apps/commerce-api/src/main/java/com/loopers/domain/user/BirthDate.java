@@ -16,7 +16,7 @@ public record BirthDate(String value) {
         try {
             date = LocalDate.parse(value, FORMATTER);
         } catch (DateTimeParseException e) {
-            throw new IllegalArgumentException("생년월일 형식은 yyyy-MM-dd 이어야 합니다.");
+            throw new IllegalArgumentException("생년월일 형식은 yyyy-MM-dd 이어야 합니다.", e);
         }
 
         if (date.isAfter(LocalDate.now())) {

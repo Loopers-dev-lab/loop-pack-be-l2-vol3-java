@@ -91,6 +91,70 @@ class PasswordTest {
             // then
             assertThat(password).isNotNull();
         }
+
+        @DisplayName("null이면, IllegalArgumentException이 발생한다.")
+        @Test
+        void create_withNull_shouldFail() {
+            // given
+            BirthDate birthDate = new BirthDate("1990-01-15");
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                Password.of(null, birthDate);
+            });
+        }
+
+        @DisplayName("빈 문자열이면, IllegalArgumentException이 발생한다.")
+        @Test
+        void create_withBlank_shouldFail() {
+            // given
+            BirthDate birthDate = new BirthDate("1990-01-15");
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                Password.of("  ", birthDate);
+            });
+        }
+
+        @DisplayName("생년월일이 null이면, IllegalArgumentException이 발생한다.")
+        @Test
+        void create_withNullBirthDate_shouldFail() {
+            // given
+            String password = "SecurePass1!";
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                Password.of(password, null);
+            });
+        }
+
+        @DisplayName("정확히 8자이면, 정상적으로 생성된다.")
+        @Test
+        void create_withExactly8Characters_shouldSuccess() {
+            // given
+            String password = "Pass12!a";
+            BirthDate birthDate = new BirthDate("1990-01-15");
+
+            // when
+            Password result = Password.of(password, birthDate);
+
+            // then
+            assertThat(result).isNotNull();
+        }
+
+        @DisplayName("정확히 16자이면, 정상적으로 생성된다.")
+        @Test
+        void create_withExactly16Characters_shouldSuccess() {
+            // given
+            String password = "Pass12!abcdefgh1";
+            BirthDate birthDate = new BirthDate("1990-01-15");
+
+            // when
+            Password result = Password.of(password, birthDate);
+
+            // then
+            assertThat(result).isNotNull();
+        }
     }
 
     @DisplayName("비밀번호를 암호화할 때, ")
@@ -149,6 +213,32 @@ class PasswordTest {
 
             // then
             assertThat(matches).isFalse();
+        }
+
+        @DisplayName("rawPassword가 null이면, false를 반환한다.")
+        @Test
+        void matches_withNullRawPassword_shouldReturnFalse() {
+            // given
+            String rawPassword = "SecurePass1!";
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            Password password = Password.of(rawPassword, birthDate);
+            String encryptedPassword = password.encrypt();
+
+            // when
+            boolean result = Password.matches(null, encryptedPassword);
+
+            // then
+            assertThat(result).isFalse();
+        }
+
+        @DisplayName("encryptedPassword가 null이면, false를 반환한다.")
+        @Test
+        void matches_withNullEncryptedPassword_shouldReturnFalse() {
+            // when
+            boolean result = Password.matches("SecurePass1!", null);
+
+            // then
+            assertThat(result).isFalse();
         }
     }
 }
