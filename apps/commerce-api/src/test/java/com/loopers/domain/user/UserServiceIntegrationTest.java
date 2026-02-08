@@ -110,5 +110,16 @@ class UserServiceIntegrationTest {
             assertThatCode(() -> userService.authenticate(loginId, newPassword))
                     .doesNotThrowAnyException();
         }
+
+        @Test
+        void 변경_후_이전_비밀번호로_인증하면_예외() {
+            String loginId = "testuser";
+            userService.signUp(loginId, "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
+
+            userService.changePassword(loginId, "Test1234!", "NewPass123!");
+
+            assertThatThrownBy(() -> userService.authenticate(loginId, "Test1234!"))
+                    .isInstanceOf(CoreException.class);
+        }
     }
 }

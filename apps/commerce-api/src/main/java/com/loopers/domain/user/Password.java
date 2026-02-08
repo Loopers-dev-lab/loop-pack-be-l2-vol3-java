@@ -38,10 +38,6 @@ public class Password {
         return encoder.matches(rawPassword, value);
     }
 
-    public String getValue() {
-        return value;
-    }
-
     private static void validate(String rawPassword) {
         validateNotBlank(rawPassword);
 

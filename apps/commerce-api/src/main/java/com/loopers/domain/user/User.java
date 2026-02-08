@@ -5,6 +5,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.Getter;
 
 import java.time.LocalDate;
@@ -23,6 +24,7 @@ public class User extends BaseEntity {
     private String loginId;
 
     @Embedded
+    @Getter(AccessLevel.NONE)
     private Password password;
 
     @Column(nullable = false)

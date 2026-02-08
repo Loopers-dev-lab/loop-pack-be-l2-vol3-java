@@ -32,7 +32,7 @@ class UserTest {
             User user = User.create(loginId, rawPassword, name, birthDate, email, PASSWORD_ENCODER);
 
             assertThat(user.getLoginId()).isEqualTo(loginId);
-            assertThat(user.getPassword()).isNotNull();
+            assertThat(user.matchesPassword(rawPassword, PASSWORD_ENCODER)).isTrue();
             assertThat(user.getName()).isEqualTo(name);
             assertThat(user.getBirthDate()).isEqualTo(birthDate);
             assertThat(user.getEmail()).isEqualTo(email);
