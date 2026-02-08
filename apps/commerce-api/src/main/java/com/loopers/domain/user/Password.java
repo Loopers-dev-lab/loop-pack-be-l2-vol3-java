@@ -1,5 +1,7 @@
 package com.loopers.domain.user;
 
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 
@@ -28,7 +30,7 @@ public class Password {
     public Password change(String newRawPassword, PasswordEncoder encoder) {
         validate(newRawPassword);
         if (encoder.matches(newRawPassword, value)) {
-            throw new IllegalArgumentException("현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다");
+            throw new CoreException(ErrorType.BAD_REQUEST,"현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다");
         }
         return new Password(encoder.encode(newRawPassword));
     }
@@ -42,17 +44,17 @@ public class Password {
         validateNotBlank(rawPassword);
 
         if (rawPassword.length() < MIN_LENGTH || rawPassword.length() > MAX_LENGTH) {
-            throw new IllegalArgumentException("비밀번호는 8~16자여야 합니다");
+            throw new CoreException(ErrorType.BAD_REQUEST,"비밀번호는 8~16자여야 합니다");
         }
 
         if (!ALLOWED_CHARS_PATTERN.matcher(rawPassword).matches()) {
-            throw new IllegalArgumentException("비밀번호는 영문/숫자/특수문자만 가능합니다");
+            throw new CoreException(ErrorType.BAD_REQUEST,"비밀번호는 영문/숫자/특수문자만 가능합니다");
         }
     }
 
     private static void validateNotBlank(String rawPassword) {
         if (rawPassword == null || rawPassword.isBlank()) {
-            throw new IllegalArgumentException("비밀번호는 필수입니다.");
+            throw new CoreException(ErrorType.BAD_REQUEST,"비밀번호는 필수입니다.");
         }
     }
 }

@@ -1,6 +1,8 @@
 package com.loopers.domain.user;
 
 import com.loopers.domain.BaseEntity;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
@@ -73,34 +75,34 @@ public class User extends BaseEntity {
 
     private static void validateLoginId(String loginId) {
         if (loginId == null || loginId.isBlank()) {
-            throw new IllegalArgumentException("로그인 ID는 필수입니다");
+            throw new CoreException(ErrorType.BAD_REQUEST,"로그인 ID는 필수입니다");
         }
         if (!LOGIN_ID_PATTERN.matcher(loginId).matches()) {
-            throw new IllegalArgumentException("로그인 ID는 영문/숫자만 가능합니다");
+            throw new CoreException(ErrorType.BAD_REQUEST,"로그인 ID는 영문/숫자만 가능합니다");
         }
     }
 
     private static void validateName(String name) {
         if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("이름은 필수입니다");
+            throw new CoreException(ErrorType.BAD_REQUEST,"이름은 필수입니다");
         }
     }
 
     private static void validateBirthDate(LocalDate birthDate) {
         if (birthDate == null) {
-            throw new IllegalArgumentException("생년월일은 필수입니다");
+            throw new CoreException(ErrorType.BAD_REQUEST,"생년월일은 필수입니다");
         }
         if (birthDate.isAfter(LocalDate.now())) {
-            throw new IllegalArgumentException("생년월일은 미래일 수 없습니다");
+            throw new CoreException(ErrorType.BAD_REQUEST,"생년월일은 미래일 수 없습니다");
         }
     }
 
     private static void validateEmail(String email) {
         if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("이메일은 필수입니다");
+            throw new CoreException(ErrorType.BAD_REQUEST,"이메일은 필수입니다");
         }
         if (!EMAIL_PATTERN.matcher(email).matches()) {
-            throw new IllegalArgumentException("올바른 이메일 형식이 아닙니다");
+            throw new CoreException(ErrorType.BAD_REQUEST,"올바른 이메일 형식이 아닙니다");
         }
     }
 
@@ -114,7 +116,7 @@ public class User extends BaseEntity {
         String MMdd = birthDate.format(DateTimeFormatter.ofPattern("MMdd"));
 
         if (rawPassword.contains(yyyyMMdd) || rawPassword.contains(yyMMdd) || rawPassword.contains(MMdd)) {
-            throw new IllegalArgumentException("비밀번호에 생년월일을 포함할 수 없습니다");
+            throw new CoreException(ErrorType.BAD_REQUEST,"비밀번호에 생년월일을 포함할 수 없습니다");
         }
     }
 }

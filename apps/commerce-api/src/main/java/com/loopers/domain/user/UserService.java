@@ -39,9 +39,9 @@ public class UserService {
 
     public User authenticate(String loginId, String rawPassword) {
         User user = userRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "로그인 ID가 일치하지 않습니다"));
+                .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "아이디 또는 비밀번호가 일치하지 않습니다"));
         if (!user.matchesPassword(rawPassword, passwordEncoder)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED, "비밀번호가 일치하지 않습니다");
+            throw new CoreException(ErrorType.UNAUTHORIZED, "아이디 또는 비밀번호가 일치하지 않습니다");
         }
         return user;
     }

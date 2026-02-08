@@ -1,5 +1,6 @@
 package com.loopers.domain.user;
 
+import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
@@ -43,7 +44,7 @@ class UserTest {
         @ValueSource(strings = {"   "})
         void 로그인ID가_null_또는_빈값이면_예외(String loginId) {
             assertThatThrownBy(() -> User.create(loginId, "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CoreException.class)
                     .hasMessageContaining("로그인 ID");
         }
 
@@ -51,7 +52,7 @@ class UserTest {
         @ValueSource(strings = {"test user", "test@user", "test-user", "테스트유저", "test_user"})
         void 로그인ID가_영문숫자가_아니면_예외(String loginId) {
             assertThatThrownBy(() -> User.create(loginId, "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CoreException.class)
                     .hasMessageContaining("로그인 ID는 영문/숫자만 가능합니다");
         }
 
@@ -60,14 +61,14 @@ class UserTest {
         @ValueSource(strings = {"   "})
         void 이름이_null_또는_빈값이면_예외(String name) {
             assertThatThrownBy(() -> User.create("testuser", "Test1234!", name, LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CoreException.class)
                     .hasMessageContaining("이름");
         }
 
         @Test
         void 생년월일이_null이면_예외() {
             assertThatThrownBy(() -> User.create("testuser", "Test1234!", "홍길동", null, "test@example.com", PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CoreException.class)
                     .hasMessageContaining("생년월일");
         }
 
@@ -76,7 +77,7 @@ class UserTest {
             LocalDate futureDate = LocalDate.of(2999, 1, 1);
 
             assertThatThrownBy(() -> User.create("testuser", "Test1234!", "홍길동", futureDate, "test@example.com", PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CoreException.class)
                     .hasMessageContaining("생년월일은 미래일 수 없습니다");
         }
 
@@ -85,7 +86,7 @@ class UserTest {
         @ValueSource(strings = {"   "})
         void 이메일이_null_또는_빈값이면_예외(String email) {
             assertThatThrownBy(() -> User.create("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), email, PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CoreException.class)
                     .hasMessageContaining("이메일");
         }
 
@@ -93,7 +94,7 @@ class UserTest {
         @ValueSource(strings = {"invalid", "@domain.com", "user@", "user@.com", "user@domain"})
         void 이메일이_형식에_맞지_않으면_예외(String email) {
             assertThatThrownBy(() -> User.create("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), email, PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CoreException.class)
                     .hasMessageContaining("올바른 이메일 형식이 아닙니다");
         }
 
@@ -102,7 +103,7 @@ class UserTest {
         void 비밀번호에_생년월일이_포함되면_예외(String rawPassword) {
             assertThatThrownBy(() -> User.create("testuser", rawPassword, "홍길동",
                     LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CoreException.class)
                     .hasMessageContaining("생년월일을 포함할 수 없습니다");
         }
     }
@@ -141,7 +142,7 @@ class UserTest {
                     LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER);
 
             assertThatThrownBy(() -> user.changePassword("Pass0115!!", PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CoreException.class)
                     .hasMessageContaining("생년월일을 포함할 수 없습니다");
         }
     }

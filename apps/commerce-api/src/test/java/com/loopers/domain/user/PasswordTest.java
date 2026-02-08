@@ -1,5 +1,6 @@
 package com.loopers.domain.user;
 
+import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
@@ -34,28 +35,28 @@ class PasswordTest {
         @ValueSource(strings = {" "})
         void 비밀번호가_null_또는_빈값이면_예외(String password) {
             assertThatThrownBy(() -> Password.of(password, PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CoreException.class)
                     .hasMessageContaining("비밀번호는 필수");
         }
 
         @Test
         void 비밀번호가_8자_미만이면_예외() {
             assertThatThrownBy(() -> Password.of("Abcd123", PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CoreException.class)
                     .hasMessageContaining("비밀번호는 8~16자여야 합니다");
         }
 
         @Test
         void 비밀번호가_16자_초과면_예외() {
             assertThatThrownBy(() -> Password.of("Abcd1234Abcd1234!", PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CoreException.class)
                     .hasMessageContaining("비밀번호는 8~16자여야 합니다");
         }
 
         @Test
         void 비밀번호에_허용되지_않은_문자가_포함되면_예외() {
             assertThatThrownBy(() -> Password.of("가Abcd1234!", PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CoreException.class)
                     .hasMessageContaining("비밀번호는 영문/숫자/특수문자만 가능합니다");
         }
     }
@@ -77,7 +78,7 @@ class PasswordTest {
             Password password = Password.of("Abcd1234!", PASSWORD_ENCODER);
 
             assertThatThrownBy(() -> password.change("Abcd1234!", PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CoreException.class)
                     .hasMessageContaining("현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다");
         }
 
@@ -86,7 +87,7 @@ class PasswordTest {
             Password password = Password.of("Abcd1234!", PASSWORD_ENCODER);
 
             assertThatThrownBy(() -> password.change("short", PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(CoreException.class);
         }
     }
 
@@ -114,7 +115,7 @@ class PasswordTest {
             Password password = Password.of("Abcd1234!", PASSWORD_ENCODER);
 
             assertThatThrownBy(() -> password.matches(rawPassword, PASSWORD_ENCODER))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(CoreException.class)
                     .hasMessageContaining("비밀번호는 필수");
         }
     }
