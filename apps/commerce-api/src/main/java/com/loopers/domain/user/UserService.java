@@ -28,8 +28,8 @@ public class UserService {
 
     public User authenticate(String loginId, String rawPassword) {
         User user = userRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다"));
-        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
+                .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "로그인 ID가 일치하지 않습니다"));
+        if (!user.matchesPassword(rawPassword, passwordEncoder)) {
             throw new CoreException(ErrorType.UNAUTHORIZED, "비밀번호가 일치하지 않습니다");
         }
         return user;

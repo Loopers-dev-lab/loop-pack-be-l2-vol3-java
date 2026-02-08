@@ -46,16 +46,13 @@ class UserApiE2ETest {
 
         @Test
         void 유효한_정보로_회원가입하면_회원정보가_반환된다() {
-            // arrange
             UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
                     "testuser", "Test1234!", "홍길동",
                     LocalDate.of(2000, 1, 15), "test@example.com"
             );
 
-            // act
             ResponseEntity<ApiResponse<UserV1Dto.UserResponse>> response = postSignUp(request);
 
-            // assert
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().loginId()).isEqualTo("testuser"),
@@ -87,19 +84,16 @@ class UserApiE2ETest {
 
         @Test
         void 유효하지_않은_입력이면_400_응답() {
-            // arrange - 개별 검증 규칙은 단위 테스트에서 검증, 여기서는 파이프라인만 확인
             UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
                     "test-user!", "Test1234!", "홍길동",
                     LocalDate.of(2000, 1, 15), "test@example.com"
             );
 
-            // act
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request),
                     new ParameterizedTypeReference<>() {}
             );
 
-            // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
     }
@@ -109,13 +103,10 @@ class UserApiE2ETest {
 
         @Test
         void 유효한_인증정보로_조회하면_마스킹된_이름과_함께_정보가_반환된다() {
-            // arrange
             signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
 
-            // act
             ResponseEntity<ApiResponse<UserV1Dto.UserResponse>> response = getMyInfo("testuser", "Test1234!");
 
-            // assert
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().loginId()).isEqualTo("testuser"),
@@ -126,44 +117,37 @@ class UserApiE2ETest {
         }
 
         @Test
-        void 존재하지_않는_로그인ID로_조회하면_404_응답() {
-            // arrange & act
+        void 존재하지_않는_로그인ID로_조회하면_401_응답() {
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     MY_INFO_ENDPOINT, HttpMethod.GET,
                     new HttpEntity<>(authHeaders("notexist", "Test1234!")),
                     new ParameterizedTypeReference<>() {}
             );
 
-            // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
 
         @Test
         void 비밀번호가_일치하지_않으면_401_응답() {
-            // arrange
             signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
 
-            // act
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     MY_INFO_ENDPOINT, HttpMethod.GET,
                     new HttpEntity<>(authHeaders("testuser", "WrongPass1!")),
                     new ParameterizedTypeReference<>() {}
             );
 
-            // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
 
         @Test
         void 인증헤더가_누락되면_401_응답() {
-            // arrange & act
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     MY_INFO_ENDPOINT, HttpMethod.GET,
                     new HttpEntity<>(new HttpHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
-            // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
     }
@@ -231,17 +215,14 @@ class UserApiE2ETest {
 
         @Test
         void 인증헤더가_누락되면_401_응답() {
-            // arrange
             UserV1Dto.ChangePasswordRequest request = new UserV1Dto.ChangePasswordRequest("NewPass123!");
 
-            // act
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     CHANGE_PASSWORD_ENDPOINT, HttpMethod.PATCH,
                     new HttpEntity<>(request, new HttpHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
-            // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
     }

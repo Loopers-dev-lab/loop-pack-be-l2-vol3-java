@@ -2,11 +2,13 @@ package com.loopers.domain.user;
 
 import com.loopers.domain.BaseEntity;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.Getter;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.regex.Pattern;
 
 @Entity
@@ -20,8 +22,8 @@ public class User extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String loginId;
 
-    @Column(nullable = false)
-    private String password;
+    @Embedded
+    private Password password;
 
     @Column(nullable = false)
     private String name;
@@ -34,7 +36,7 @@ public class User extends BaseEntity {
 
     protected User() {}
 
-    private User(String loginId, String password, String name, LocalDate birthDate, String email) {
+    private User(String loginId, Password password, String name, LocalDate birthDate, String email) {
         this.loginId = loginId;
         this.password = password;
         this.name = name;
@@ -45,12 +47,26 @@ public class User extends BaseEntity {
     public static User create(String loginId, String rawPassword, String name, LocalDate birthDate, String email, PasswordEncoder encoder) {
         validateLoginId(loginId);
         validateBirthDate(birthDate);
-        PasswordValidator.validate(rawPassword, birthDate);
         validateName(name);
         validateEmail(email);
 
-        String encodedPassword = encoder.encode(rawPassword);
-        return new User(loginId, encodedPassword, name, birthDate, email);
+        validatePasswordNotContainsBirthDate(rawPassword, birthDate);
+
+        Password password = Password.of(rawPassword, encoder);
+        return new User(loginId, password, name, birthDate, email);
+    }
+
+    public void changePassword(String newRawPassword, PasswordEncoder encoder) {
+        validatePasswordNotContainsBirthDate(newRawPassword, birthDate);
+        this.password = password.change(newRawPassword, encoder);
+    }
+
+    public boolean matchesPassword(String rawPassword, PasswordEncoder encoder) {
+        return password.matches(rawPassword, encoder);
+    }
+
+    public String getMaskedName() {
+        return name.substring(0, name.length() - 1) + "*";
     }
 
     private static void validateLoginId(String loginId) {
@@ -86,15 +102,17 @@ public class User extends BaseEntity {
         }
     }
 
-    public String getMaskedName() {
-        return name.substring(0, name.length() - 1) + "*";
-    }
-
-    public void changePassword(String newRawPassword, PasswordEncoder encoder) {
-        PasswordValidator.validate(newRawPassword, birthDate);
-        if (encoder.matches(newRawPassword, password)) {
-            throw new IllegalArgumentException("현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다");
+    private static void validatePasswordNotContainsBirthDate(String rawPassword, LocalDate birthDate) {
+        if (rawPassword == null || birthDate == null) {
+            return;
         }
-        password = encoder.encode(newRawPassword);
+
+        String yyyyMMdd = birthDate.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String yyMMdd = birthDate.format(DateTimeFormatter.ofPattern("yyMMdd"));
+        String MMdd = birthDate.format(DateTimeFormatter.ofPattern("MMdd"));
+
+        if (rawPassword.contains(yyyyMMdd) || rawPassword.contains(yyMMdd) || rawPassword.contains(MMdd)) {
+            throw new IllegalArgumentException("비밀번호에 생년월일을 포함할 수 없습니다");
+        }
     }
 }

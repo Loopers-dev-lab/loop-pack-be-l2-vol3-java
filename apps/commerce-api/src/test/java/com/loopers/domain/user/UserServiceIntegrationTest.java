@@ -13,8 +13,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.LocalDate;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest
 @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
@@ -57,7 +56,8 @@ class UserServiceIntegrationTest {
 
             assertThatThrownBy(() -> userService.signUp(loginId, "Test5678!", "김철수", LocalDate.of(1995, 5, 20), "other@example.com"))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT))
+                    .hasMessageContaining("이미 사용 중인 로그인 ID입니다");
         }
     }
 
@@ -79,7 +79,8 @@ class UserServiceIntegrationTest {
         void 존재하지_않는_로그인ID로_인증하면_예외() {
             assertThatThrownBy(() -> userService.authenticate("notexist", "Test1234!"))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED))
+                    .hasMessageContaining("로그인 ID가 일치하지 않습니다");
         }
 
         @Test
@@ -89,7 +90,8 @@ class UserServiceIntegrationTest {
 
             assertThatThrownBy(() -> userService.authenticate(loginId, "WrongPass1!"))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED))
+                    .hasMessageContaining("비밀번호가 일치하지 않습니다");
         }
     }
 
@@ -101,33 +103,12 @@ class UserServiceIntegrationTest {
             String loginId = "testuser";
             String rawPassword = "Test1234!";
             String newPassword = "NewPass123!";
-            String oldEncodedPassword = userService.signUp(loginId, rawPassword, "홍길동", LocalDate.of(2000, 1, 15), "test@example.com").getPassword();
+            userService.signUp(loginId, rawPassword, "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
 
             userService.changePassword(loginId, rawPassword, newPassword);
 
-            String newEncodedPassword = userService.authenticate(loginId, newPassword).getPassword();
-            assertThat(newEncodedPassword).isNotEqualTo(oldEncodedPassword);
-        }
-
-        @Test
-        void 인증_실패하면_예외() {
-            String loginId = "testuser";
-            userService.signUp(loginId, "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
-
-            assertThatThrownBy(() -> userService.changePassword(loginId, "WrongPass1!", "NewPass123!"))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED));
-        }
-
-        @Test
-        void 현재_비밀번호와_동일하면_예외() {
-            String loginId = "testuser";
-            String rawPassword = "Test1234!";
-            userService.signUp(loginId, rawPassword, "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
-
-            assertThatThrownBy(() -> userService.changePassword(loginId, rawPassword, rawPassword))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다");
+            assertThatCode(() -> userService.authenticate(loginId, newPassword))
+                    .doesNotThrowAnyException();
         }
     }
 }

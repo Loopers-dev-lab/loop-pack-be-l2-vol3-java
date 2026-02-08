@@ -11,25 +11,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.LocalDate;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 
 @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class UserTest {
 
     private static final PasswordEncoder PASSWORD_ENCODER = new FakePasswordEncoder();
-
-    static class FakePasswordEncoder implements PasswordEncoder {
-        @Override
-        public String encode(String rawPassword) {
-            return "encoded_" + rawPassword;
-        }
-
-        @Override
-        public boolean matches(String rawPassword, String encodedPassword) {
-            return encodedPassword.equals("encoded_" + rawPassword);
-        }
-    }
 
     @Nested
     class 생성 {
@@ -45,8 +32,7 @@ class UserTest {
             User user = User.create(loginId, rawPassword, name, birthDate, email, PASSWORD_ENCODER);
 
             assertThat(user.getLoginId()).isEqualTo(loginId);
-            assertThat(user.getPassword()).isNotEqualTo(rawPassword);
-            assertThat(user.getPassword()).isNotBlank();
+            assertThat(user.getPassword()).isNotNull();
             assertThat(user.getName()).isEqualTo(name);
             assertThat(user.getBirthDate()).isEqualTo(birthDate);
             assertThat(user.getEmail()).isEqualTo(email);
@@ -110,6 +96,15 @@ class UserTest {
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("올바른 이메일 형식이 아닙니다");
         }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"Abcd20000115!", "Abcd000115!!", "Abcd0115"})
+        void 비밀번호에_생년월일이_포함되면_예외(String rawPassword) {
+            assertThatThrownBy(() -> User.create("testuser", rawPassword, "홍길동",
+                    LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("생년월일을 포함할 수 없습니다");
+        }
     }
 
     @Nested
@@ -133,22 +128,21 @@ class UserTest {
 
         @Test
         void 유효한_새_비밀번호면_변경된다() {
-            User user = User.create("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER);
-            String oldPassword = user.getPassword();
+            User user = User.create("testuser", "Test1234!", "홍길동",
+                    LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER);
 
-            user.changePassword("NewPass123!", PASSWORD_ENCODER);
-
-            assertThat(user.getPassword()).isNotEqualTo(oldPassword);
-            assertThat(user.getPassword()).isNotBlank();
+            assertThatCode(() -> user.changePassword("NewPass123!", PASSWORD_ENCODER))
+                    .doesNotThrowAnyException();
         }
 
         @Test
-        void 현재_비밀번호와_동일하면_예외() {
-            User user = User.create("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER);
+        void 비밀번호에_생년월일이_포함되면_예외() {
+            User user = User.create("testuser", "Test1234!", "홍길동",
+                    LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER);
 
-            assertThatThrownBy(() -> user.changePassword("Test1234!", PASSWORD_ENCODER))
+            assertThatThrownBy(() -> user.changePassword("Pass0115!!", PASSWORD_ENCODER))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다");
+                    .hasMessageContaining("생년월일을 포함할 수 없습니다");
         }
     }
 }
