@@ -1,6 +1,13 @@
 package com.loopers.infrastructure.member;
 
+import com.loopers.infrastructure.member.entity.MemberEntity;
 import com.loopers.domain.member.MemberModel;
+import com.loopers.domain.member.vo.BirthDate;
+import com.loopers.domain.member.vo.Email;
+import com.loopers.domain.member.vo.LoginId;
+import com.loopers.domain.member.vo.MemberName;
+import com.loopers.domain.member.vo.Password;
+import com.loopers.infrastructure.member.repository.MemberJpaRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -23,14 +30,15 @@ class MemberJpaRepositoryTest {
     @Autowired
     private MemberJpaRepository memberJpaRepository;
 
-    private MemberModel createMember(String loginId, String email) {
-        return MemberModel.signUp(
-            loginId,
-            "Password123!",
-            "홍길동",
-            LocalDate.of(1990, 1, 15),
-            email
+    private MemberEntity createEntity(String loginId, String email) {
+        MemberModel model = MemberModel.signUp(
+            new LoginId(loginId),
+            new Password("Password123!"),
+            new MemberName("홍길동"),
+            new BirthDate(LocalDate.of(1990, 1, 15)),
+            new Email(email)
         );
+        return MemberEntity.toEntity(model);
     }
 
     @DisplayName("회원 저장")
@@ -41,10 +49,10 @@ class MemberJpaRepositoryTest {
         @Test
         void saveMember() {
             // arrange
-            MemberModel member = createMember("testuser", "test@example.com");
+            MemberEntity entity = createEntity("testuser", "test@example.com");
 
             // act
-            MemberModel saved = memberJpaRepository.save(member);
+            MemberEntity saved = memberJpaRepository.save(entity);
 
             // assert
             assertThat(saved.getId()).isNotNull();
@@ -60,11 +68,11 @@ class MemberJpaRepositoryTest {
         @Test
         void findByLoginId_whenExists() {
             // arrange
-            MemberModel member = createMember("testuser", "test@example.com");
-            memberJpaRepository.save(member);
+            MemberEntity entity = createEntity("testuser", "test@example.com");
+            memberJpaRepository.save(entity);
 
             // act
-            Optional<MemberModel> found = memberJpaRepository.findByLoginId("testuser");
+            Optional<MemberEntity> found = memberJpaRepository.findByLoginId("testuser");
 
             // assert
             assertThat(found).isPresent();
@@ -75,7 +83,7 @@ class MemberJpaRepositoryTest {
         @Test
         void findByLoginId_whenNotExists() {
             // act
-            Optional<MemberModel> found = memberJpaRepository.findByLoginId("nonexistent");
+            Optional<MemberEntity> found = memberJpaRepository.findByLoginId("nonexistent");
 
             // assert
             assertThat(found).isEmpty();
@@ -90,11 +98,11 @@ class MemberJpaRepositoryTest {
         @Test
         void findByEmail_whenExists() {
             // arrange
-            MemberModel member = createMember("testuser", "test@example.com");
-            memberJpaRepository.save(member);
+            MemberEntity entity = createEntity("testuser", "test@example.com");
+            memberJpaRepository.save(entity);
 
             // act
-            Optional<MemberModel> found = memberJpaRepository.findByEmail("test@example.com");
+            Optional<MemberEntity> found = memberJpaRepository.findByEmail("test@example.com");
 
             // assert
             assertThat(found).isPresent();
@@ -105,7 +113,7 @@ class MemberJpaRepositoryTest {
         @Test
         void findByEmail_whenNotExists() {
             // act
-            Optional<MemberModel> found = memberJpaRepository.findByEmail("nonexistent@example.com");
+            Optional<MemberEntity> found = memberJpaRepository.findByEmail("nonexistent@example.com");
 
             // assert
             assertThat(found).isEmpty();
@@ -120,8 +128,8 @@ class MemberJpaRepositoryTest {
         @Test
         void existsByLoginId_whenExists() {
             // arrange
-            MemberModel member = createMember("testuser", "test@example.com");
-            memberJpaRepository.save(member);
+            MemberEntity entity = createEntity("testuser", "test@example.com");
+            memberJpaRepository.save(entity);
 
             // act
             boolean exists = memberJpaRepository.existsByLoginId("testuser");
@@ -149,8 +157,8 @@ class MemberJpaRepositoryTest {
         @Test
         void existsByEmail_whenExists() {
             // arrange
-            MemberModel member = createMember("testuser", "test@example.com");
-            memberJpaRepository.save(member);
+            MemberEntity entity = createEntity("testuser", "test@example.com");
+            memberJpaRepository.save(entity);
 
             // act
             boolean exists = memberJpaRepository.existsByEmail("test@example.com");

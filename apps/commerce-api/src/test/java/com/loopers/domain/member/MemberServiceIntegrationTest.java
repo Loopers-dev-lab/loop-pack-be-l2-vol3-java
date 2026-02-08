@@ -1,9 +1,12 @@
 package com.loopers.domain.member;
 
-import com.loopers.application.member.dto.AddMemberReqDto;
-import com.loopers.application.member.dto.FindMemberResDto;
-import com.loopers.application.member.dto.PutMemberPasswordReqDto;
-import com.loopers.infrastructure.member.MemberJpaRepository;
+import com.loopers.domain.member.vo.BirthDate;
+import com.loopers.domain.member.vo.Email;
+import com.loopers.domain.member.vo.LoginId;
+import com.loopers.domain.member.vo.MemberName;
+import com.loopers.domain.member.vo.Password;
+import com.loopers.infrastructure.member.entity.MemberEntity;
+import com.loopers.infrastructure.member.repository.MemberJpaRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
@@ -50,19 +53,17 @@ class MemberServiceIntegrationTest {
         @Test
         void signUp_success() {
             // arrange
-            AddMemberReqDto command = new AddMemberReqDto(
-                "testuser",
-                "Password123!",
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            );
+            LoginId loginId = new LoginId("testuser");
+            Password password = new Password(passwordEncoder.encode("Password123!"));
+            MemberName name = new MemberName("홍길동");
+            BirthDate birthDate = new BirthDate(LocalDate.of(1990, 1, 15));
+            Email email = new Email("test@example.com");
 
             // act
-            assertDoesNotThrow(() -> memberService.addMember(command));
+            assertDoesNotThrow(() -> memberService.addMember(loginId, password, name, birthDate, email));
 
             // assert - DB에 실제로 저장되었는지 확인
-            MemberModel saved = memberJpaRepository.findByLoginId("testuser").orElseThrow();
+            MemberEntity saved = memberJpaRepository.findByLoginId("testuser").orElseThrow();
             assertThat(saved.getLoginId()).isEqualTo("testuser");
             assertThat(saved.getName()).isEqualTo("홍길동");
             assertThat(saved.getEmail()).isEqualTo("test@example.com");
@@ -73,26 +74,22 @@ class MemberServiceIntegrationTest {
         @Test
         void signUp_duplicateLoginId() {
             // arrange - 먼저 회원 생성
-            AddMemberReqDto firstCommand = new AddMemberReqDto(
-                "existinguser",
-                "Password123!",
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "first@example.com"
-            );
-            memberService.addMember(firstCommand);
-
-            // 같은 loginId로 다시 가입 시도
-            AddMemberReqDto duplicateCommand = new AddMemberReqDto(
-                "existinguser",
-                "Password456!",
-                "김철수",
-                LocalDate.of(1985, 5, 20),
-                "second@example.com"
+            memberService.addMember(
+                new LoginId("existinguser"),
+                new Password(passwordEncoder.encode("Password123!")),
+                new MemberName("홍길동"),
+                new BirthDate(LocalDate.of(1990, 1, 15)),
+                new Email("first@example.com")
             );
 
             // act & assert
-            assertThatThrownBy(() -> memberService.addMember(duplicateCommand))
+            assertThatThrownBy(() -> memberService.addMember(
+                new LoginId("existinguser"),
+                new Password(passwordEncoder.encode("Password456!")),
+                new MemberName("김철수"),
+                new BirthDate(LocalDate.of(1985, 5, 20)),
+                new Email("second@example.com")
+            ))
                 .isInstanceOf(CoreException.class)
                 .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT));
         }
@@ -101,31 +98,26 @@ class MemberServiceIntegrationTest {
         @Test
         void signUp_duplicateEmail() {
             // arrange - 먼저 회원 생성
-            AddMemberReqDto firstCommand = new AddMemberReqDto(
-                "firstuser",
-                "Password123!",
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "duplicate@example.com"
-            );
-            memberService.addMember(firstCommand);
-
-            // 같은 email로 다시 가입 시도
-            AddMemberReqDto duplicateCommand = new AddMemberReqDto(
-                "seconduser",
-                "Password456!",
-                "김철수",
-                LocalDate.of(1985, 5, 20),
-                "duplicate@example.com"
+            memberService.addMember(
+                new LoginId("firstuser"),
+                new Password(passwordEncoder.encode("Password123!")),
+                new MemberName("홍길동"),
+                new BirthDate(LocalDate.of(1990, 1, 15)),
+                new Email("duplicate@example.com")
             );
 
             // act & assert
-            assertThatThrownBy(() -> memberService.addMember(duplicateCommand))
+            assertThatThrownBy(() -> memberService.addMember(
+                new LoginId("seconduser"),
+                new Password(passwordEncoder.encode("Password456!")),
+                new MemberName("김철수"),
+                new BirthDate(LocalDate.of(1985, 5, 20)),
+                new Email("duplicate@example.com")
+            ))
                 .isInstanceOf(CoreException.class)
                 .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT));
         }
     }
-
 
     @DisplayName("회원 조회 및 인증 통합 테스트")
     @Nested
@@ -135,29 +127,27 @@ class MemberServiceIntegrationTest {
         @Test
         void findMember_success() {
             // arrange - 회원 생성
-            String password = "Password123!";
-            AddMemberReqDto command = new AddMemberReqDto(
-                "testuser",
-                password,
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
+            String rawPassword = "Password123!";
+            memberService.addMember(
+                new LoginId("testuser"),
+                new Password(passwordEncoder.encode(rawPassword)),
+                new MemberName("홍길동"),
+                new BirthDate(LocalDate.of(1990, 1, 15)),
+                new Email("test@example.com")
             );
-            memberService.addMember(command);
 
             // act
-            FindMemberResDto result = memberService.findMember("testuser", password);
+            MemberModel result = memberService.findMember("testuser", rawPassword);
 
             // assert
-            assertThat(result.loginId()).isEqualTo("testuser");
-            assertThat(result.name()).isEqualTo("홍길동");
-            assertThat(result.email()).isEqualTo("test@example.com");
+            assertThat(result.getLoginId().value()).isEqualTo("testuser");
+            assertThat(result.getName().value()).isEqualTo("홍길동");
+            assertThat(result.getEmail().value()).isEqualTo("test@example.com");
         }
 
         @DisplayName("존재하지 않는 로그인 ID로 인증하면 예외가 발생한다")
         @Test
         void findMember_notFound() {
-            // act & assert
             assertThatThrownBy(() -> memberService.findMember("nonexistent", "Password123!"))
                 .isInstanceOf(CoreException.class)
                 .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED));
@@ -167,14 +157,13 @@ class MemberServiceIntegrationTest {
         @Test
         void findMember_wrongPassword() {
             // arrange - 회원 생성
-            AddMemberReqDto command = new AddMemberReqDto(
-                "testuser",
-                "Correct1234!",
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
+            memberService.addMember(
+                new LoginId("testuser"),
+                new Password(passwordEncoder.encode("Correct1234!")),
+                new MemberName("홍길동"),
+                new BirthDate(LocalDate.of(1990, 1, 15)),
+                new Email("test@example.com")
             );
-            memberService.addMember(command);
 
             // act & assert
             assertThatThrownBy(() -> memberService.findMember("testuser", "Wrong12345!"))
@@ -192,85 +181,44 @@ class MemberServiceIntegrationTest {
         void changePassword_success() {
             // arrange - 회원 생성
             String currentPassword = "OldPassword123!";
-            String newPassword = "NewPassword456!";
+            String newRawPassword = "NewPassword456!";
 
-            AddMemberReqDto signUpCommand = new AddMemberReqDto(
-                "testuser",
-                currentPassword,
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
+            memberService.addMember(
+                new LoginId("testuser"),
+                new Password(passwordEncoder.encode(currentPassword)),
+                new MemberName("홍길동"),
+                new BirthDate(LocalDate.of(1990, 1, 15)),
+                new Email("test@example.com")
             );
-            memberService.addMember(signUpCommand);
 
-            PutMemberPasswordReqDto changeCommand = new PutMemberPasswordReqDto(
-                "testuser",
-                currentPassword,
-                currentPassword,
-                newPassword
-            );
+            Password newPassword = new Password(passwordEncoder.encode(newRawPassword));
 
             // act
-            assertDoesNotThrow(() -> memberService.putPassword(changeCommand));
+            assertDoesNotThrow(() -> memberService.updatePassword("testuser", newPassword));
 
             // assert - DB에서 새 비밀번호 확인
-            MemberModel updated = memberJpaRepository.findByLoginId("testuser").orElseThrow();
-            assertThat(passwordEncoder.matches(newPassword, updated.getPassword())).isTrue();
+            MemberEntity updated = memberJpaRepository.findByLoginId("testuser").orElseThrow();
+            assertThat(passwordEncoder.matches(newRawPassword, updated.getPassword())).isTrue();
             assertThat(passwordEncoder.matches(currentPassword, updated.getPassword())).isFalse();
         }
 
-        @DisplayName("현재 비밀번호가 틀리면 예외가 발생한다")
+        @DisplayName("현재 비밀번호 검증 시 틀리면 예외가 발생한다")
         @Test
-        void changePassword_wrongCurrentPassword() {
+        void verifyPassword_wrongCurrentPassword() {
             // arrange - 회원 생성
             String actualPassword = "Correct1234!";
-            AddMemberReqDto signUpCommand = new AddMemberReqDto(
-                "testuser",
-                actualPassword,
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
+            memberService.addMember(
+                new LoginId("testuser"),
+                new Password(passwordEncoder.encode(actualPassword)),
+                new MemberName("홍길동"),
+                new BirthDate(LocalDate.of(1990, 1, 15)),
+                new Email("test@example.com")
             );
-            memberService.addMember(signUpCommand);
 
-            // 헤더 인증은 통과, 현재 비밀번호는 틀림
-            PutMemberPasswordReqDto changeCommand = new PutMemberPasswordReqDto(
-                "testuser",
-                actualPassword,
-                "Wrong12345!",
-                "NewPass1234!"
-            );
+            MemberModel member = memberService.findMember("testuser", actualPassword);
 
             // act & assert
-            assertThatThrownBy(() -> memberService.putPassword(changeCommand))
-                .isInstanceOf(CoreException.class)
-                .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
-        }
-
-        @DisplayName("새 비밀번호가 현재 비밀번호와 같으면 예외가 발생한다")
-        @Test
-        void changePassword_samePassword() {
-            // arrange - 회원 생성
-            String samePassword = "SamePassword123!";
-
-            AddMemberReqDto signUpCommand = new AddMemberReqDto(
-                "testuser",
-                samePassword,
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            );
-            memberService.addMember(signUpCommand);
-
-            PutMemberPasswordReqDto changeCommand = new PutMemberPasswordReqDto(
-                "testuser",
-                samePassword,
-                samePassword,
-                samePassword
-            );
-
-            // act & assert
-            assertThatThrownBy(() -> memberService.putPassword(changeCommand))
+            assertThatThrownBy(() -> memberService.verifyPassword(member, "Wrong12345!"))
                 .isInstanceOf(CoreException.class)
                 .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }

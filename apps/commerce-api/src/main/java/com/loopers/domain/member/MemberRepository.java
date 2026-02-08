@@ -6,6 +6,8 @@ public interface MemberRepository {
 
     MemberModel save(MemberModel member);
 
+    void updatePassword(String loginId, String encodedPassword);
+
     Optional<MemberModel> findByLoginId(String loginId);
 
     Optional<MemberModel> findByEmail(String email);

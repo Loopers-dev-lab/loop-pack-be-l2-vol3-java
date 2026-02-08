@@ -1,9 +1,7 @@
 package com.loopers.interfaces.api.member;
 
 import com.loopers.application.member.MemberCommand;
-import com.loopers.application.member.MemberInfo;
 import com.loopers.domain.member.MemberModel;
-import com.loopers.support.util.MaskingUtil;
 
 import java.time.LocalDate;
 
@@ -38,10 +36,10 @@ public class MemberV1Dto {
     ) {
         public static MemberResponse from(MemberModel model) {
             return new MemberResponse(
-                model.getLoginId(),
-                MaskingUtil.maskLast(model.getName(), 1),
-                model.getBirthDate(),
-                model.getEmail()
+                model.getLoginId().value(),
+                model.getName().masked(),
+                model.getBirthDate().value(),
+                model.getEmail().value()
             );
         }
     }

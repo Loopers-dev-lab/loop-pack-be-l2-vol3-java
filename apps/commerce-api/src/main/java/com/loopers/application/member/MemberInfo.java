@@ -1,7 +1,6 @@
 package com.loopers.application.member;
 
 import com.loopers.domain.member.MemberModel;
-import com.loopers.support.util.MaskingUtil;
 
 import java.time.LocalDate;
 
@@ -15,10 +14,10 @@ public record MemberInfo(
     public static MemberInfo from(MemberModel model) {
         return new MemberInfo(
             model.getId(),
-            model.getLoginId(),
-            MaskingUtil.maskLast(model.getName(), 1),
-            model.getBirthDate(),
-            model.getEmail()
+            model.getLoginId().value(),
+            model.getName().masked(),
+            model.getBirthDate().value(),
+            model.getEmail().value()
         );
     }
 }

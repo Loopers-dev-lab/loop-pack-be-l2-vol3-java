@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.member.dto;
 
-import com.loopers.application.member.dto.FindMemberResDto;
-import com.loopers.support.util.MaskingUtil;
+import com.loopers.domain.member.MemberModel;
 
 import java.time.LocalDate;
 
@@ -11,12 +10,12 @@ public record FindMemberApiResDto(
         LocalDate birthDate,
         String email
 ) {
-    public static FindMemberApiResDto from(FindMemberResDto resDto) {
+    public static FindMemberApiResDto from(MemberModel model) {
         return new FindMemberApiResDto(
-                resDto.loginId(),
-                MaskingUtil.maskLast(resDto.name(), 1),
-                resDto.birthDate(),
-                resDto.email()
+                model.getLoginId().value(),
+                model.getName().masked(),
+                model.getBirthDate().value(),
+                model.getEmail().value()
         );
     }
 }
