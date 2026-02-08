@@ -65,4 +65,14 @@ class ErrorTypeTest {
 		// Assert
 		assertThat(ErrorType.values()).hasSize(13);
 	}
+
+	@Test
+	@DisplayName("[ErrorType] errorTypeProvider가 모든 enum 상수를 포함")
+	void errorTypeProviderCoversAllEnums() {
+		// Act
+		long providerCount = errorTypeProvider().count();
+
+		// Assert
+		assertThat(providerCount).isEqualTo(ErrorType.values().length);
+	}
 }

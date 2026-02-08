@@ -89,6 +89,6 @@ class UserCommandServiceTest {
 			() -> assertThat(result.getId()).isEqualTo(1L),
 			() -> assertThat(result.getLoginId()).isEqualTo("testuser01")
 		);
-		verify(userCommandRepository).save(any(User.class));
+		verify(userCommandRepository).save(user);
 	}
 }

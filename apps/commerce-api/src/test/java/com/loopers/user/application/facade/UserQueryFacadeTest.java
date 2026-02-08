@@ -85,6 +85,20 @@ class UserQueryFacadeTest {
 			assertThat(result.loginId()).isEqualTo(VALID_LOGIN_ID);
 		}
 
+		@Test
+		@DisplayName("[UserQueryFacade.getMe()] loginId 대문자/공백 포함 -> trim + lowercase 적용 후 정상 조회")
+		void getMeNormalizesLoginIdToLowerCase() {
+			// Arrange
+			User user = createValidUser();
+			given(userQueryService.findByLoginId(VALID_LOGIN_ID)).willReturn(Optional.of(user));
+
+			// Act
+			UserMeOutDto result = userQueryFacade.getMe("  TESTUSER01  ", VALID_PASSWORD);
+
+			// Assert
+			assertThat(result.loginId()).isEqualTo(VALID_LOGIN_ID);
+		}
+
 		@ParameterizedTest
 		@NullAndEmptySource
 		@ValueSource(strings = {"  ", "\t"})

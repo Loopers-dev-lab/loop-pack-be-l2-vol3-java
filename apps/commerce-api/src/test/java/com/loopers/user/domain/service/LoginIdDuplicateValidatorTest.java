@@ -31,13 +31,14 @@ class LoginIdDuplicateValidatorTest {
 
 	@Test
 	@DisplayName("[validate()] 존재하지 않는 loginId -> 예외 없이 통과. "
-		+ "Predicate가 false를 반환하면 정상 처리")
+		+ "trim/lowercase 정규화된 loginId로 Predicate를 조회")
 	void validatePassesWhenLoginIdDoesNotExist() {
 		// Arrange
 		given(existsByLoginId.test("newuser01")).willReturn(false);
 
 		// Act & Assert
-		assertDoesNotThrow(() -> validator.validate("newuser01"));
+		assertDoesNotThrow(() -> validator.validate("  NewUser01  "));
+		verify(existsByLoginId).test("newuser01");
 	}
 
 	@Test
@@ -49,24 +50,25 @@ class LoginIdDuplicateValidatorTest {
 
 		// Act
 		CoreException exception = assertThrows(CoreException.class,
-			() -> validator.validate("existinguser"));
+			() -> validator.validate("  EXISTINGUSER  "));
 
 		// Assert
 		assertAll(
 			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.USER_ALREADY_EXISTS),
 			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.USER_ALREADY_EXISTS.getMessage())
 		);
+		verify(existsByLoginId).test("existinguser");
 	}
 
 	@Test
-	@DisplayName("[validate()] loginId 전달 검증 -> Predicate에 loginId가 정확히 전달됨. "
-		+ "validate 호출 시 전달된 loginId로 Predicate.test()가 호출되는지 확인")
+	@DisplayName("[validate()] loginId 전달 검증 -> Predicate에 정규화된 loginId가 전달됨. "
+		+ "앞뒤 공백/대문자 입력 시 trim/lowercase 적용")
 	void validatePassesLoginIdToPredicate() {
 		// Arrange
 		given(existsByLoginId.test("testuser01")).willReturn(false);
 
 		// Act
-		validator.validate("testuser01");
+		validator.validate("  TESTUSER01  ");
 
 		// Assert
 		verify(existsByLoginId).test("testuser01");

@@ -127,6 +127,35 @@ class UserCommandFacadeTest {
 			verify(loginIdDuplicateValidator).validate("existinguser");
 			verify(userCommandService, never()).createUser(any(User.class));
 		}
+
+		@Test
+		@DisplayName("[UserCommandFacade.signUp()] 대문자/공백 변형 loginId가 정규화 후 중복 -> CoreException(USER_ALREADY_EXISTS)")
+		void signUpFailWhenNormalizedLoginIdAlreadyExists() {
+			// Arrange
+			UserCommandFacade facadeWithRealValidator = new UserCommandFacade(
+				userCommandService,
+				userQueryService,
+				new LoginIdDuplicateValidator(loginId -> "testuser01".equals(loginId))
+			);
+			UserSignUpInDto inDto = new UserSignUpInDto(
+				"  TESTUSER01  ",
+				"Test1234!",
+				"홍길동",
+				LocalDate.of(1990, 1, 15),
+				"test@example.com"
+			);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> facadeWithRealValidator.signUp(inDto));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.USER_ALREADY_EXISTS),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.USER_ALREADY_EXISTS.getMessage())
+			);
+			verify(userCommandService, never()).createUser(any(User.class));
+		}
 	}
 
 	@Nested
@@ -149,6 +178,26 @@ class UserCommandFacadeTest {
 			// Act & Assert
 			assertDoesNotThrow(() ->
 				userCommandFacade.changePassword("testuser01", "Test1234!", inDto));
+
+			verify(userQueryService).findByLoginId("testuser01");
+			verify(userCommandService).updateUser(any(User.class));
+		}
+
+		@Test
+		@DisplayName("[UserCommandFacade.changePassword()] loginId 대문자/공백 포함 헤더 -> trim + lowercase 후 정상 조회")
+		void changePasswordNormalizesLoginIdHeader() {
+			// Arrange
+			User user = User.create("testuser01", "Test1234!", "홍길동",
+				LocalDate.of(1990, 1, 15), "test@example.com");
+
+			UserChangePasswordInDto inDto = new UserChangePasswordInDto("Test1234!", "NewPass1234!");
+
+			given(userQueryService.findByLoginId("testuser01")).willReturn(Optional.of(user));
+			given(userCommandService.updateUser(any(User.class))).willReturn(user);
+
+			// Act & Assert
+			assertDoesNotThrow(() ->
+				userCommandFacade.changePassword("  TESTUSER01  ", "Test1234!", inDto));
 
 			verify(userQueryService).findByLoginId("testuser01");
 			verify(userCommandService).updateUser(any(User.class));
@@ -235,6 +284,29 @@ class UserCommandFacadeTest {
 				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
 				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
 			);
+		}
+
+		@Test
+		@DisplayName("[UserCommandFacade.changePassword()] 현재/새 비밀번호 동일 -> CoreException(PASSWORD_SAME_AS_CURRENT)")
+		void failWhenNewPasswordSameAsCurrent() {
+			// Arrange
+			User user = User.create("testuser01", "Test1234!", "홍길동",
+				LocalDate.of(1990, 1, 15), "test@example.com");
+
+			UserChangePasswordInDto inDto = new UserChangePasswordInDto("Test1234!", "Test1234!");
+
+			given(userQueryService.findByLoginId("testuser01")).willReturn(Optional.of(user));
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> userCommandFacade.changePassword("testuser01", "Test1234!", inDto));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.PASSWORD_SAME_AS_CURRENT),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.PASSWORD_SAME_AS_CURRENT.getMessage())
+			);
+			verify(userCommandService, never()).updateUser(any(User.class));
 		}
 	}
 }

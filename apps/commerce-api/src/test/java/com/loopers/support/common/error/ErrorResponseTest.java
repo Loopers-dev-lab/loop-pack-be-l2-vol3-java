@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 @DisplayName("ErrorResponse 테스트")
@@ -40,5 +41,13 @@ class ErrorResponseTest {
 			() -> assertThat(response.code()).isEqualTo(code),
 			() -> assertThat(response.message()).isEqualTo(message)
 		);
+	}
+
+	@Test
+	@DisplayName("[ErrorResponse.from()] null ErrorType 전달 -> NullPointerException 발생")
+	void fromNullErrorTypeThrowsException() {
+		// Act & Assert
+		assertThatThrownBy(() -> ErrorResponse.from(null))
+			.isInstanceOf(NullPointerException.class);
 	}
 }

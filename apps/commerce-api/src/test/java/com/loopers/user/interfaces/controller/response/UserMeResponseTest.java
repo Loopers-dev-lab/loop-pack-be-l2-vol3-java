@@ -74,6 +74,32 @@ class UserMeResponseTest {
 	}
 
 	@Test
+	@DisplayName("[UserMeResponse.from()] 이름 null -> 전체 마스킹(*)")
+	void fromOutDtoNameMaskingNull() {
+		// Arrange
+		UserMeOutDto outDto = new UserMeOutDto(VALID_LOGIN_ID, null, VALID_BIRTHDAY, VALID_EMAIL);
+
+		// Act
+		UserMeResponse response = UserMeResponse.from(outDto);
+
+		// Assert
+		assertThat(response.name()).isEqualTo("*");
+	}
+
+	@Test
+	@DisplayName("[UserMeResponse.from()] 이름 빈 문자열(\"\") -> 전체 마스킹(*)")
+	void fromOutDtoNameMaskingEmptyString() {
+		// Arrange
+		UserMeOutDto outDto = new UserMeOutDto(VALID_LOGIN_ID, "", VALID_BIRTHDAY, VALID_EMAIL);
+
+		// Act
+		UserMeResponse response = UserMeResponse.from(outDto);
+
+		// Assert
+		assertThat(response.name()).isEqualTo("*");
+	}
+
+	@Test
 	@DisplayName("[UserMeResponse.from()] 영문 이름(John) -> 마지막 글자 마스킹(Joh*)")
 	void fromOutDtoNameMaskingEnglish() {
 		// Arrange

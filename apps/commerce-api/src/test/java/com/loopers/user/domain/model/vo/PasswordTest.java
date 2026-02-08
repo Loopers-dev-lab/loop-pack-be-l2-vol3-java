@@ -40,6 +40,38 @@ class PasswordTest {
 			);
 		}
 
+		@Test
+		@DisplayName("[Password.create()] 8자 비밀번호(최소 유효) -> Password 객체 반환")
+		void createWithMinimumLengthPassword() {
+			// Arrange
+			String rawPassword = "Aa1!aaaa";
+
+			// Act
+			Password password = Password.create(rawPassword, DEFAULT_BIRTHDAY);
+
+			// Assert
+			assertAll(
+				() -> assertThat(password).isNotNull(),
+				() -> assertThat(password.matches(rawPassword)).isTrue()
+			);
+		}
+
+		@Test
+		@DisplayName("[Password.create()] 16자 비밀번호(최대 유효) -> Password 객체 반환")
+		void createWithMaximumLengthPassword() {
+			// Arrange
+			String rawPassword = "Aa1!aaaaaaaaaaaa";
+
+			// Act
+			Password password = Password.create(rawPassword, DEFAULT_BIRTHDAY);
+
+			// Assert
+			assertAll(
+				() -> assertThat(password).isNotNull(),
+				() -> assertThat(password.matches(rawPassword)).isTrue()
+			);
+		}
+
 		@ParameterizedTest
 		@ValueSource(strings = {"Test12!", "Test1!"})
 		@DisplayName("[Password.create()] 8자 미만 비밀번호 -> CoreException(ErrorType.INVALID_PASSWORD_FORMAT) 발생. "

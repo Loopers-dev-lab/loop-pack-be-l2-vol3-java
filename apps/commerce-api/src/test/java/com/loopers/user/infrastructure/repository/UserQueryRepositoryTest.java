@@ -10,6 +10,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -78,6 +81,42 @@ class UserQueryRepositoryTest {
 			// Assert
 			assertThat(foundUser).isEmpty();
 		}
+
+		@ParameterizedTest
+		@NullAndEmptySource
+		@ValueSource(strings = {"  ", "\t"})
+		@DisplayName("[UserQueryRepository.findByLoginId()] loginId가 null/blank -> Optional.empty() 반환. "
+			+ "정규화 결과 null 분기 검증")
+		void findByLoginIdWithNullOrBlank(String loginId) {
+			// Act
+			Optional<User> foundUser = userQueryRepository.findByLoginId(loginId);
+
+			// Assert
+			assertThat(foundUser).isEmpty();
+		}
+
+		@Test
+		@DisplayName("[UserQueryRepository.findByLoginId()] 대문자/공백 loginId 조회 -> 정규화된 ID로 조회됨")
+		void findByLoginIdWithUppercaseAndWhitespace() {
+			// Arrange
+			User user = User.create(
+				"testuser01",
+				"Test1234!",
+				"홍길동",
+				LocalDate.of(1990, 1, 15),
+				"test@example.com"
+			);
+			userCommandRepository.save(user);
+
+			// Act
+			Optional<User> foundUser = userQueryRepository.findByLoginId("  TESTUSER01  ");
+
+			// Assert
+			assertAll(
+				() -> assertThat(foundUser).isPresent(),
+				() -> assertThat(foundUser.get().getLoginId()).isEqualTo("testuser01")
+			);
+		}
 	}
 
 	@Nested
@@ -113,14 +152,47 @@ class UserQueryRepositoryTest {
 			// Assert
 			assertThat(exists).isFalse();
 		}
+
+		@ParameterizedTest
+		@NullAndEmptySource
+		@ValueSource(strings = {"  ", "\t"})
+		@DisplayName("[UserQueryRepository.existsByLoginId()] loginId가 null/blank -> false 반환. "
+			+ "정규화 결과 null 분기 검증")
+		void existsByLoginIdWithNullOrBlank(String loginId) {
+			// Act
+			boolean exists = userQueryRepository.existsByLoginId(loginId);
+
+			// Assert
+			assertThat(exists).isFalse();
+		}
+
+		@Test
+		@DisplayName("[UserQueryRepository.existsByLoginId()] 대문자/공백 loginId -> 정규화 후 true 반환")
+		void existsByLoginIdWithUppercaseAndWhitespace() {
+			// Arrange
+			User user = User.create(
+				"testuser01",
+				"Test1234!",
+				"홍길동",
+				LocalDate.of(1990, 1, 15),
+				"test@example.com"
+			);
+			userCommandRepository.save(user);
+
+			// Act
+			boolean exists = userQueryRepository.existsByLoginId("  TESTUSER01  ");
+
+			// Assert
+			assertThat(exists).isTrue();
+		}
 	}
 
 	@Nested
-	@DisplayName("비밀번호 매칭 테스트")
+	@DisplayName("비밀번호 값 객체 복원 테스트")
 	class PasswordMatchTest {
 
 		@Test
-		@DisplayName("[UserQueryRepository.findByLoginId()] 조회된 User의 비밀번호 매칭 -> true 반환")
+		@DisplayName("[UserQueryRepository.findByLoginId()] 저장/조회 후 Password 값 객체 복원 -> matches(raw)=true")
 		void matchPasswordAfterSave() {
 			// Arrange
 			String rawPassword = "Test1234!";
