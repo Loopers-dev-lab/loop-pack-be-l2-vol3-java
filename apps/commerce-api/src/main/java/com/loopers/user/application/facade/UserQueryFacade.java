@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Locale;
+
 
 @Service
 @RequiredArgsConstructor
@@ -31,10 +33,10 @@ public class UserQueryFacade {
 
 		// 인증 헤더 필수값 검증
 		HeaderValidator.validate(loginId, password);
+		String normalizedLoginId = loginId.trim().toLowerCase(Locale.ROOT);
 
 		// 로그인 ID로 유저 조회
-		String trimmedLoginId = loginId.trim();
-		User user = userQueryService.findByLoginId(trimmedLoginId)
+		User user = userQueryService.findByLoginId(normalizedLoginId)
 			.orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED));
 
 		// 비밀번호 인증

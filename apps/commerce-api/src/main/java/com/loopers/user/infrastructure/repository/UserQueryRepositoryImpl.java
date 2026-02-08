@@ -7,6 +7,7 @@ import com.loopers.user.infrastructure.jpa.UserJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.Locale;
 import java.util.Optional;
 
 @Repository
@@ -26,15 +27,31 @@ public class UserQueryRepositoryImpl implements UserQueryRepository {
 	// 1. 로그인 ID로 유저 조회
 	@Override
 	public Optional<User> findByLoginId(String loginId) {
+		String normalizedLoginId = normalizeLoginId(loginId);
+		if (normalizedLoginId == null) {
+			return Optional.empty();
+		}
 
 		// 조회 결과를 유저 도메인 객체로 변환
-		return userJpaRepository.findByLoginId(loginId)
+		return userJpaRepository.findByLoginId(normalizedLoginId)
 			.map(UserEntity::toDomain);
 	}
 
 	// 2. 로그인 ID 중복 여부 확인
 	@Override
 	public boolean existsByLoginId(String loginId) {
-		return userJpaRepository.existsByLoginId(loginId);
+		String normalizedLoginId = normalizeLoginId(loginId);
+		if (normalizedLoginId == null) {
+			return false;
+		}
+		return userJpaRepository.existsByLoginId(normalizedLoginId);
+	}
+
+	private String normalizeLoginId(String loginId) {
+		if (loginId == null) {
+			return null;
+		}
+		String normalized = loginId.trim().toLowerCase(Locale.ROOT);
+		return normalized.isBlank() ? null : normalized;
 	}
 }
