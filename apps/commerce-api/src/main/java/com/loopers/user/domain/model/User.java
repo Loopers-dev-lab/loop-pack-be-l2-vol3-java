@@ -1,11 +1,13 @@
 package com.loopers.user.domain.model;
 
-import com.loopers.user.domain.model.vo.Password;
+
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
+import com.loopers.user.domain.model.vo.Password;
 
 import java.time.LocalDate;
 import java.util.regex.Pattern;
+
 
 /**
  * 유저
@@ -54,6 +56,7 @@ public class User {
 		this.email = email;
 	}
 
+
 	// 1. 회원가입용 유저 생성
 	public static User create(String loginId, String rawPassword, String name, LocalDate birthday, String email) {
 
@@ -73,37 +76,46 @@ public class User {
 		return new User(null, normalizedLoginId, password, trimmedName, birthday, trimmedEmail);
 	}
 
+
 	// 2. 저장된 유저 복원
-	public static User reconstruct(Long id, String loginId, String encodedPassword, String name, LocalDate birthday, String email) {
+	public static User reconstruct(Long id, String loginId, String encodedPassword, String name, LocalDate birthday,
+		String email) {
 
 		// 저장된 인코딩 비밀번호를 값 객체로 복원
 		Password password = Password.fromEncoded(encodedPassword);
 		return new User(id, loginId, password, name, birthday, email);
 	}
 
+
 	public Long getId() {
 		return id;
 	}
+
 
 	public String getLoginId() {
 		return loginId;
 	}
 
+
 	public Password getPassword() {
 		return password;
 	}
+
 
 	public String getName() {
 		return name;
 	}
 
+
 	public LocalDate getBirthday() {
 		return birthday;
 	}
 
+
 	public String getEmail() {
 		return email;
 	}
+
 
 	// 3. 비밀번호 인증
 	public void authenticate(String rawPassword) {
@@ -113,6 +125,7 @@ public class User {
 			throw new CoreException(ErrorType.UNAUTHORIZED);
 		}
 	}
+
 
 	// 4. 비밀번호 변경
 	public void changePassword(String currentRawPassword, String newRawPassword) {
@@ -134,6 +147,7 @@ public class User {
 		this.password = Password.create(newRawPassword, this.birthday);
 	}
 
+
 	private static void validateLoginId(String loginId) {
 
 		// 로그인 ID 형식 검증
@@ -146,6 +160,7 @@ public class User {
 		}
 	}
 
+
 	private static void validateName(String name) {
 
 		// 이름 형식 검증
@@ -156,6 +171,7 @@ public class User {
 			throw new CoreException(ErrorType.INVALID_NAME_FORMAT);
 		}
 	}
+
 
 	private static void validateEmail(String email) {
 
@@ -174,6 +190,7 @@ public class User {
 		}
 	}
 
+
 	private static void validateBirthday(LocalDate birthday) {
 
 		// 생년월일 범위 검증
@@ -183,4 +200,5 @@ public class User {
 			throw new CoreException(ErrorType.INVALID_BIRTHDAY);
 		}
 	}
+
 }

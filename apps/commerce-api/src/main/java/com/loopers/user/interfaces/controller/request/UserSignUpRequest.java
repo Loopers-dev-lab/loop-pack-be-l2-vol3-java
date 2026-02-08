@@ -1,10 +1,12 @@
 package com.loopers.user.interfaces.controller.request;
 
+
 import com.loopers.user.application.dto.in.UserSignUpInDto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
+
 
 /**
  * 회원가입 요청
@@ -35,4 +37,5 @@ public record UserSignUpRequest(
 	public UserSignUpInDto toInDto() {
 		return new UserSignUpInDto(loginId, password, name, birthday, email);
 	}
+
 }
