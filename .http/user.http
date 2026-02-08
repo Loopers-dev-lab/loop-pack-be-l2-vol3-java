@@ -1,0 +1,131 @@
+### 회원가입 API
+
+### 회원가입 성공
+POST http://localhost:8080/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser01",
+  "password": "Test1234!",
+  "name": "홍길동",
+  "birthday": "1990-01-15",
+  "email": "test@example.com"
+}
+
+### 회원가입 실패 - 중복 로그인 ID (위 요청을 두 번 실행)
+POST http://localhost:8080/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser01",
+  "password": "Test1234!",
+  "name": "김철수",
+  "birthday": "1985-05-20",
+  "email": "kim@example.com"
+}
+
+### 회원가입 실패 - 비밀번호 형식 오류 (8자 미만)
+POST http://localhost:8080/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser02",
+  "password": "short",
+  "name": "홍길동",
+  "birthday": "1990-01-15",
+  "email": "test2@example.com"
+}
+
+### 회원가입 실패 - 비밀번호 형식 오류 (특수문자 없음)
+POST http://localhost:8080/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser03",
+  "password": "Test1234",
+  "name": "홍길동",
+  "birthday": "1990-01-15",
+  "email": "test3@example.com"
+}
+
+### 회원가입 실패 - 비밀번호에 생년월일 포함 (YYYYMMDD)
+POST http://localhost:8080/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser04",
+  "password": "Aa19900115!",
+  "name": "홍길동",
+  "birthday": "1990-01-15",
+  "email": "test4@example.com"
+}
+
+### 회원가입 실패 - 비밀번호에 생년월일 포함 (YYMMDD)
+POST http://localhost:8080/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser05",
+  "password": "Aa900115!@",
+  "name": "홍길동",
+  "birthday": "1990-01-15",
+  "email": "test5@example.com"
+}
+
+### 회원가입 실패 - 로그인 ID 형식 오류 (특수문자 포함)
+POST http://localhost:8080/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "test_user!",
+  "password": "Test1234!",
+  "name": "홍길동",
+  "birthday": "1990-01-15",
+  "email": "test6@example.com"
+}
+
+### 회원가입 실패 - 이메일 형식 오류
+POST http://localhost:8080/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser06",
+  "password": "Test1234!",
+  "name": "홍길동",
+  "birthday": "1990-01-15",
+  "email": "invalid-email"
+}
+
+### 회원가입 실패 - 이름 형식 오류 (숫자 포함)
+POST http://localhost:8080/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser07",
+  "password": "Test1234!",
+  "name": "홍길동123",
+  "birthday": "1990-01-15",
+  "email": "test7@example.com"
+}
+
+### 회원가입 실패 - 미래 생년월일
+POST http://localhost:8080/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser08",
+  "password": "Test1234!",
+  "name": "홍길동",
+  "birthday": "2030-01-15",
+  "email": "test8@example.com"
+}
+
+### 회원가입 실패 - 필수 필드 누락
+POST http://localhost:8080/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser09",
+  "password": "Test1234!",
+  "name": "홍길동"
+}

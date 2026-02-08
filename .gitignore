@@ -1,3 +1,10 @@
+### Project Guide ###
+PROGRESS.md
+
+### example code ###
+apps/commerce-api/src/main/java/com/loopers/example
+apps/commerce-api/src/test/java/com/loopers/example
+
 HELP.md
 .gradle
 build/

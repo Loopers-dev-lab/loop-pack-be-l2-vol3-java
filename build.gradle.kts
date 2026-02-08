@@ -97,7 +97,10 @@ subprojects {
             classDirectories.setFrom(
                 files(
                     classDirectories.files.map {
-                        fileTree(it)
+                        fileTree(it) {
+                            exclude("**/Q*.class")
+                            exclude("**/*Application.class")
+                        }
                     },
                 ),
             )
