@@ -7,6 +7,12 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.List;
 
+/**
+ * Spring MVC 설정
+ *
+ * {@link AuthUserResolver}를 ArgumentResolver로 등록하여
+ * {@code @AuthUser} 어노테이션 기반의 인증된 사용자 주입을 활성화한다.
+ */
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 

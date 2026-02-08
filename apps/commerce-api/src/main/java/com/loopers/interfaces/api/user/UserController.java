@@ -20,6 +20,7 @@ public class UserController implements UserApiSpec {
     public UserController(UserService userService) {
         this.userService = userService;
     }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Override
@@ -30,11 +31,13 @@ public class UserController implements UserApiSpec {
         UserInfo info = UserInfo.from(user);
         return ApiResponse.success(UserResponse.SignupResponse.from(info));
     }
+
     @GetMapping("/me")
     @Override
     public ApiResponse<UserResponse.UserDetailResponse> getUser(@AuthUser User user) {
         return ApiResponse.success(UserResponse.UserDetailResponse.from(UserInfo.from(user)));
     }
+
     @PutMapping("/password")
     @Override
     public ApiResponse<Void> updateUserPassword(

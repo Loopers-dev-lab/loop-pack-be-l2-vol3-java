@@ -29,6 +29,9 @@ public class UserService {
         this.passwordEncryptor = passwordEncryptor;
     }
 
+    /**
+     * 회원가입: VO 생성(형식 검증) → 비밀번호-생년월일 교차검증 → 로그인 ID 중복 확인 → 비밀번호 암호화 → 저장
+     */
     @Transactional
     public User createUser(String rawLoginId, String rawPassword, String rawName, String rawBirthDate, String rawEmail) {
         LoginId loginId = new LoginId(rawLoginId);
@@ -49,6 +52,9 @@ public class UserService {
         return this.userRepository.save(user);
     }
 
+    /**
+     * 로그인 인증: 필수값 검증 → 사용자 조회 → 비밀번호 일치 확인
+     */
     @Transactional(readOnly = true)
     public User authenticateUser(String rawLoginId, String rawPassword) {
         if (rawLoginId == null || rawLoginId.isBlank()) {
@@ -68,6 +74,9 @@ public class UserService {
         return user;
     }
 
+    /**
+     * 비밀번호 변경: 필수값 검증 → 현재 비밀번호 확인 → 새 비밀번호 정책 검증 → 생년월일 교차검증 → 기존 비밀번호 동일 여부 확인 → 암호화 후 저장
+     */
     @Transactional
     public void updateUserPassword(User user, String currentRawPassword, String newRawPassword) {
         if (user == null) {

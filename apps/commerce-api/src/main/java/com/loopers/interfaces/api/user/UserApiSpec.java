@@ -5,6 +5,12 @@ import com.loopers.interfaces.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+/**
+ * 사용자 API 스펙 인터페이스
+ *
+ * Swagger(OpenAPI) 문서화 어노테이션과 Controller 메서드 시그니처를 분리하여
+ * Controller 구현체의 가독성을 높이고, API 계약을 명시적으로 정의한다.
+ */
 @Tag(name = "User API", description = "사용자 관련 API")
 public interface UserApiSpec {
 
