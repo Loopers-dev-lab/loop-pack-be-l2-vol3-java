@@ -20,7 +20,7 @@ public abstract class BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private final Long id = 0L;
+    private Long id;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private ZonedDateTime createdAt;
@@ -30,6 +30,13 @@ public abstract class BaseEntity {
 
     @Column(name = "deleted_at")
     private ZonedDateTime deletedAt;
+
+    protected BaseEntity() {
+    }
+
+    protected BaseEntity(Long id) {
+        this.id = id;
+    }
 
     /**
      * 엔티티의 유효성을 검증한다.
