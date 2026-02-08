@@ -12,10 +12,10 @@ public record FindMemberResDto(
 ) {
     public static FindMemberResDto from(MemberModel model) {
         return new FindMemberResDto(
-                model.getLoginId(),
-                model.getName(),
-                model.getBirthDate(),
-                model.getEmail()
+                model.getLoginId().value(),
+                model.getName().value(),
+                model.getBirthDate().value(),
+                model.getEmail().value()
         );
     }
 }

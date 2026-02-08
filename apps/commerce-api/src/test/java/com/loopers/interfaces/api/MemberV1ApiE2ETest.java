@@ -1,7 +1,13 @@
 package com.loopers.interfaces.api;
 
 import com.loopers.domain.member.MemberModel;
-import com.loopers.infrastructure.member.MemberJpaRepository;
+import com.loopers.domain.member.vo.BirthDate;
+import com.loopers.domain.member.vo.Email;
+import com.loopers.domain.member.vo.LoginId;
+import com.loopers.domain.member.vo.MemberName;
+import com.loopers.domain.member.vo.Password;
+import com.loopers.infrastructure.member.entity.MemberEntity;
+import com.loopers.infrastructure.member.repository.MemberJpaRepository;
 import com.loopers.interfaces.api.member.MemberV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -64,6 +70,17 @@ class MemberV1ApiE2ETest {
         return headers;
     }
 
+    private MemberEntity saveMember(String loginId, String rawPassword, String name, LocalDate birthDate, String email) {
+        MemberModel model = MemberModel.signUp(
+            new LoginId(loginId),
+            new Password(passwordEncoder.encode(rawPassword)),
+            new MemberName(name),
+            new BirthDate(birthDate),
+            new Email(email)
+        );
+        return memberJpaRepository.save(MemberEntity.toEntity(model));
+    }
+
     @DisplayName("POST /api/v1/member - 회원가입")
     @Nested
     class SignUp {
@@ -89,7 +106,7 @@ class MemberV1ApiE2ETest {
             assertTrue(response.getStatusCode().is2xxSuccessful());
 
             // DB 검증
-            MemberModel saved = memberJpaRepository.findByLoginId("testuser").orElseThrow();
+            MemberEntity saved = memberJpaRepository.findByLoginId("testuser").orElseThrow();
             assertThat(saved.getLoginId()).isEqualTo("testuser");
             assertThat(saved.getName()).isEqualTo("홍길동");
             assertThat(saved.getEmail()).isEqualTo("test@example.com");
@@ -100,13 +117,7 @@ class MemberV1ApiE2ETest {
         @Test
         void signUp_duplicateLoginId() {
             // arrange - 먼저 회원 생성
-            memberJpaRepository.save(MemberModel.signUp(
-                "existinguser",
-                passwordEncoder.encode("Pass1234!"),
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "existing@example.com"
-            ));
+            saveMember("existinguser", "Pass1234!", "홍길동", LocalDate.of(1990, 1, 15), "existing@example.com");
 
             MemberV1Dto.SignUpRequest request = new MemberV1Dto.SignUpRequest(
                 "existinguser",
@@ -132,13 +143,7 @@ class MemberV1ApiE2ETest {
         @Test
         void signUp_duplicateEmail() {
             // arrange - 먼저 회원 생성
-            memberJpaRepository.save(MemberModel.signUp(
-                "firstuser",
-                passwordEncoder.encode("Pass1234!"),
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "duplicate@example.com"
-            ));
+            saveMember("firstuser", "Pass1234!", "홍길동", LocalDate.of(1990, 1, 15), "duplicate@example.com");
 
             MemberV1Dto.SignUpRequest request = new MemberV1Dto.SignUpRequest(
                 "newuser",
@@ -170,13 +175,7 @@ class MemberV1ApiE2ETest {
         void getMe_success() {
             // arrange
             String password = "Pass1234!";
-            memberJpaRepository.save(MemberModel.signUp(
-                "testuser",
-                passwordEncoder.encode(password),
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            ));
+            saveMember("testuser", password, "홍길동", LocalDate.of(1990, 1, 15), "test@example.com");
 
             HttpHeaders headers = createAuthHeaders("testuser", password);
 
@@ -217,13 +216,7 @@ class MemberV1ApiE2ETest {
         @Test
         void getMe_wrongPassword() {
             // arrange
-            memberJpaRepository.save(MemberModel.signUp(
-                "testuser",
-                passwordEncoder.encode("Correct1234!"),
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            ));
+            saveMember("testuser", "Correct1234!", "홍길동", LocalDate.of(1990, 1, 15), "test@example.com");
 
             HttpHeaders headers = createAuthHeaders("testuser", "Wrong12345!");
 
@@ -251,13 +244,7 @@ class MemberV1ApiE2ETest {
             String currentPassword = "OldPass123!";
             String newPassword = "NewPass456!";
 
-            memberJpaRepository.save(MemberModel.signUp(
-                "testuser",
-                passwordEncoder.encode(currentPassword),
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            ));
+            saveMember("testuser", currentPassword, "홍길동", LocalDate.of(1990, 1, 15), "test@example.com");
 
             HttpHeaders headers = createAuthHeaders("testuser", currentPassword);
             MemberV1Dto.ChangePasswordRequest request = new MemberV1Dto.ChangePasswordRequest(
@@ -274,7 +261,7 @@ class MemberV1ApiE2ETest {
             assertTrue(response.getStatusCode().is2xxSuccessful());
 
             // DB 검증
-            MemberModel updated = memberJpaRepository.findByLoginId("testuser").orElseThrow();
+            MemberEntity updated = memberJpaRepository.findByLoginId("testuser").orElseThrow();
             assertThat(passwordEncoder.matches(newPassword, updated.getPassword())).isTrue();
             assertThat(passwordEncoder.matches(currentPassword, updated.getPassword())).isFalse();
         }
@@ -283,13 +270,7 @@ class MemberV1ApiE2ETest {
         @Test
         void changePassword_wrongHeaderPassword() {
             // arrange
-            memberJpaRepository.save(MemberModel.signUp(
-                "testuser",
-                passwordEncoder.encode("Correct1234!"),
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            ));
+            saveMember("testuser", "Correct1234!", "홍길동", LocalDate.of(1990, 1, 15), "test@example.com");
 
             HttpHeaders headers = createAuthHeaders("testuser", "Wrong12345!");
             MemberV1Dto.ChangePasswordRequest request = new MemberV1Dto.ChangePasswordRequest(
@@ -314,13 +295,7 @@ class MemberV1ApiE2ETest {
         void changePassword_wrongCurrentPassword() {
             // arrange
             String actualPassword = "Correct1234!";
-            memberJpaRepository.save(MemberModel.signUp(
-                "testuser",
-                passwordEncoder.encode(actualPassword),
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            ));
+            saveMember("testuser", actualPassword, "홍길동", LocalDate.of(1990, 1, 15), "test@example.com");
 
             HttpHeaders headers = createAuthHeaders("testuser", actualPassword);
             MemberV1Dto.ChangePasswordRequest request = new MemberV1Dto.ChangePasswordRequest(
@@ -346,18 +321,38 @@ class MemberV1ApiE2ETest {
             // arrange
             String samePassword = "SamePass1234!";
 
-            memberJpaRepository.save(MemberModel.signUp(
-                "testuser",
-                passwordEncoder.encode(samePassword),
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            ));
+            saveMember("testuser", samePassword, "홍길동", LocalDate.of(1990, 1, 15), "test@example.com");
 
             HttpHeaders headers = createAuthHeaders("testuser", samePassword);
             MemberV1Dto.ChangePasswordRequest request = new MemberV1Dto.ChangePasswordRequest(
                 samePassword,
                 samePassword
+            );
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Object>> response =
+                testRestTemplate.exchange(ENDPOINT_CHANGE_PASSWORD, HttpMethod.PUT, new HttpEntity<>(request, headers), responseType);
+
+            // assert
+            assertAll(
+                () -> assertTrue(response.getStatusCode().is4xxClientError()),
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST)
+            );
+        }
+
+        @DisplayName("새 비밀번호가 규칙에 맞지 않으면 400 BAD_REQUEST 응답을 받는다")
+        @Test
+        void changePassword_weakPassword() {
+            // arrange
+            String currentPassword = "Strong1234!";
+
+            saveMember("testuser", currentPassword, "홍길동", LocalDate.of(1990, 1, 15), "test@example.com");
+
+            HttpHeaders headers = createAuthHeaders("testuser", currentPassword);
+            MemberV1Dto.ChangePasswordRequest request = new MemberV1Dto.ChangePasswordRequest(
+                currentPassword,
+                "short1!"
             );
 
             // act

@@ -1,7 +1,9 @@
-package com.loopers.infrastructure.member;
+package com.loopers.infrastructure.member.repository.impl;
 
 import com.loopers.domain.member.MemberModel;
 import com.loopers.domain.member.MemberRepository;
+import com.loopers.infrastructure.member.entity.MemberEntity;
+import com.loopers.infrastructure.member.repository.MemberJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -15,17 +17,26 @@ public class MemberRepositoryImpl implements MemberRepository {
 
     @Override
     public MemberModel save(MemberModel member) {
-        return memberJpaRepository.save(member);
+        MemberEntity entity = MemberEntity.toEntity(member);
+        return memberJpaRepository.save(entity).toModel();
+    }
+
+    @Override
+    public void updatePassword(String loginId, String encodedPassword) {
+        MemberEntity entity = memberJpaRepository.findByLoginId(loginId).orElseThrow();
+        entity.changePassword(encodedPassword);
     }
 
     @Override
     public Optional<MemberModel> findByLoginId(String loginId) {
-        return memberJpaRepository.findByLoginId(loginId);
+        return memberJpaRepository.findByLoginId(loginId)
+            .map(MemberEntity::toModel);
     }
 
     @Override
     public Optional<MemberModel> findByEmail(String email) {
-        return memberJpaRepository.findByEmail(email);
+        return memberJpaRepository.findByEmail(email)
+            .map(MemberEntity::toModel);
     }
 
     @Override
