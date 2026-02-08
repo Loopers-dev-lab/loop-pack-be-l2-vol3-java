@@ -11,10 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
-
-import com.loopers.support.common.error.CoreException;
-import com.loopers.support.common.error.ErrorType;
 
 import java.time.LocalDate;
 
@@ -63,27 +61,26 @@ class UserCommandRepositoryTest {
 	}
 
 	@Test
-	@DisplayName("[UserCommandRepository.update()] 존재하지 않는 ID로 수정 시도 -> CoreException(NOT_FOUND) 발생. "
-		+ "DB에 없는 ID를 가진 User를 update하면 NOT_FOUND 예외")
-	void updateUserWithNonExistentIdThrowsNotFound() {
+	@DisplayName("[UserCommandRepository.save()] 중복 loginId 저장 시도 -> 예외 발생")
+	void saveDuplicateLoginIdThrowsException() {
 		// Arrange
-		User user = User.reconstruct(
-			999L,
+		User firstUser = User.create(
 			"testuser01",
-			"encoded_password",
+			"Test1234!",
 			"홍길동",
 			LocalDate.of(1990, 1, 15),
 			"test@example.com"
 		);
-
-		// Act
-		CoreException exception = assertThrows(CoreException.class,
-			() -> userCommandRepository.update(user));
-
-		// Assert
-		assertAll(
-			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND),
-			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.NOT_FOUND.getMessage())
+		User duplicateLoginIdUser = User.create(
+			"testuser01",
+			"DiffPass123!",
+			"김철수",
+			LocalDate.of(1991, 2, 2),
+			"other@example.com"
 		);
+		userCommandRepository.save(firstUser);
+
+		// Act & Assert
+		assertThrows(DataIntegrityViolationException.class, () -> userCommandRepository.save(duplicateLoginIdUser));
 	}
 }

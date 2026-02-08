@@ -1,6 +1,7 @@
 package com.loopers.user.infrastructure.entity;
 
 import com.loopers.user.domain.model.User;
+import com.loopers.user.infrastructure.mapper.UserEntityMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,7 @@ class UserEntityTest {
 	private static final String VALID_NAME = "홍길동";
 	private static final LocalDate VALID_BIRTHDAY = LocalDate.of(1990, 1, 15);
 	private static final String VALID_EMAIL = "test@example.com";
+	private final UserEntityMapper userEntityMapper = new UserEntityMapper();
 
 	@Nested
 	@DisplayName("도메인 -> 엔티티 변환 테스트")
@@ -31,7 +33,7 @@ class UserEntityTest {
 			User user = User.create(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
 
 			// Act
-			UserEntity entity = UserEntity.from(user);
+			UserEntity entity = userEntityMapper.toEntity(user);
 
 			// Assert
 			assertAll(
@@ -55,10 +57,10 @@ class UserEntityTest {
 		void toDomain() {
 			// Arrange
 			User originalUser = User.create(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
-			UserEntity entity = UserEntity.from(originalUser);
+			UserEntity entity = userEntityMapper.toEntity(originalUser);
 
 			// Act
-			User reconstructedUser = entity.toDomain();
+			User reconstructedUser = userEntityMapper.toDomain(entity);
 
 			// Assert
 			assertAll(

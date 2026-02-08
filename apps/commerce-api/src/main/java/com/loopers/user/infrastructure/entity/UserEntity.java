@@ -1,7 +1,7 @@
 package com.loopers.user.infrastructure.entity;
 
+
 import com.loopers.domain.BaseEntity;
-import com.loopers.user.domain.model.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+
 
 @Entity
 @Table(name = "users")
@@ -33,14 +34,8 @@ public class UserEntity extends BaseEntity {
 	private String email;
 
 
-	/**
-	 * 유저 엔티티
-	 * 1. 도메인 객체를 엔티티로 변환
-	 * 2. 엔티티 비밀번호 변경
-	 * 3. 엔티티를 도메인 객체로 변환
-	 */
-
-	private UserEntity(String loginId, String password, String name, LocalDate birthday, String email) {
+	private UserEntity(Long id, String loginId, String password, String name, LocalDate birthday, String email) {
+		super(id);
 		this.loginId = loginId;
 		this.password = password;
 		this.name = name;
@@ -48,31 +43,20 @@ public class UserEntity extends BaseEntity {
 		this.email = email;
 	}
 
-	// 1. 도메인 객체를 엔티티로 변환
-	public static UserEntity from(User user) {
+
+	public static UserEntity of(Long id, String loginId, String password, String name, LocalDate birthday, String email) {
 		return new UserEntity(
-			user.getLoginId(),
-			user.getPassword().value(),
-			user.getName(),
-			user.getBirthday(),
-			user.getEmail()
+			id,
+			loginId,
+			password,
+			name,
+			birthday,
+			email
 		);
 	}
 
-	// 2. 엔티티 비밀번호 변경
-	public void updatePassword(String password) {
-		this.password = password;
+	public static UserEntity of(String loginId, String password, String name, LocalDate birthday, String email) {
+		return of(null, loginId, password, name, birthday, email);
 	}
 
-	// 3. 엔티티를 도메인 객체로 변환
-	public User toDomain() {
-		return User.reconstruct(
-			this.getId(),
-			this.loginId,
-			this.password,
-			this.name,
-			this.birthday,
-			this.email
-		);
-	}
 }
