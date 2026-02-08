@@ -89,6 +89,36 @@ class UserModelTest {
             assertThat(user.getEncryptedPassword()).isNotEqualTo(rawPassword);
             assertThat(user.getEncryptedPassword()).isNotBlank();
         }
+
+        @DisplayName("userId가 null이면, IllegalArgumentException이 발생한다.")
+        @Test
+        void create_withNullUserId_shouldFail() {
+            // given
+            Email email = new Email("test@example.com");
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            Password password = Password.of("SecurePass1!", birthDate);
+            Gender gender = Gender.MALE;
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                UserModel.create(null, email, birthDate, password, gender);
+            });
+        }
+
+        @DisplayName("userId가 빈 문자열이면, IllegalArgumentException이 발생한다.")
+        @Test
+        void create_withBlankUserId_shouldFail() {
+            // given
+            Email email = new Email("test@example.com");
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            Password password = Password.of("SecurePass1!", birthDate);
+            Gender gender = Gender.MALE;
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                UserModel.create("  ", email, birthDate, password, gender);
+            });
+        }
     }
 
     @DisplayName("비밀번호를 변경할 때, ")
@@ -157,6 +187,78 @@ class UserModelTest {
             // then
             assertThat(user.getEncryptedPassword()).isNotEqualTo(oldEncryptedPassword);
             assertThat(Password.matches(newPasswordValue, user.getEncryptedPassword())).isTrue();
+        }
+
+        @DisplayName("현재 비밀번호가 null이면, IllegalArgumentException이 발생한다.")
+        @Test
+        void updatePassword_withNullCurrentPassword_shouldFail() {
+            // given
+            String userId = "testuser04";
+            Email email = new Email("test4@example.com");
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            Password password = Password.of("OldPass123!", birthDate);
+            Gender gender = Gender.MALE;
+
+            UserModel user = UserModel.create(userId, email, birthDate, password, gender);
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                user.updatePassword(null, "NewPass456!");
+            });
+        }
+
+        @DisplayName("새 비밀번호가 null이면, IllegalArgumentException이 발생한다.")
+        @Test
+        void updatePassword_withNullNewPassword_shouldFail() {
+            // given
+            String userId = "testuser05";
+            Email email = new Email("test5@example.com");
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            Password password = Password.of("OldPass123!", birthDate);
+            Gender gender = Gender.MALE;
+
+            UserModel user = UserModel.create(userId, email, birthDate, password, gender);
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                user.updatePassword("OldPass123!", null);
+            });
+        }
+
+        @DisplayName("현재 비밀번호가 빈 문자열이면, IllegalArgumentException이 발생한다.")
+        @Test
+        void updatePassword_withBlankCurrentPassword_shouldFail() {
+            // given
+            String userId = "testuser06";
+            Email email = new Email("test6@example.com");
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            Password password = Password.of("OldPass123!", birthDate);
+            Gender gender = Gender.MALE;
+
+            UserModel user = UserModel.create(userId, email, birthDate, password, gender);
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                user.updatePassword("  ", "NewPass456!");
+            });
+        }
+
+        @DisplayName("새 비밀번호가 빈 문자열이면, IllegalArgumentException이 발생한다.")
+        @Test
+        void updatePassword_withBlankNewPassword_shouldFail() {
+            // given
+            String userId = "testuser07";
+            Email email = new Email("test7@example.com");
+            BirthDate birthDate = new BirthDate("1990-01-15");
+            Password password = Password.of("OldPass123!", birthDate);
+            Gender gender = Gender.MALE;
+
+            UserModel user = UserModel.create(userId, email, birthDate, password, gender);
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> {
+                user.updatePassword("OldPass123!", "  ");
+            });
         }
     }
 }

@@ -59,6 +59,9 @@ public class UserModel extends BaseEntity {
         Password password,
         Gender gender
     ) {
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("사용자 ID는 비어있을 수 없습니다.");
+        }
         return new UserModel(
             userId,
             email.value(),
@@ -70,6 +73,13 @@ public class UserModel extends BaseEntity {
     }
 
     public void updatePassword(String currentRawPassword, String newRawPassword) {
+        if (currentRawPassword == null || currentRawPassword.isBlank()) {
+            throw new IllegalArgumentException("현재 비밀번호는 비어있을 수 없습니다.");
+        }
+        if (newRawPassword == null || newRawPassword.isBlank()) {
+            throw new IllegalArgumentException("새 비밀번호는 비어있을 수 없습니다.");
+        }
+
         // 현재 비밀번호 검증
         if (!Password.matches(currentRawPassword, this.encryptedPassword)) {
             throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
