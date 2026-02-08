@@ -96,7 +96,8 @@ class UserQueryRepositoryTest {
 		}
 
 		@Test
-		@DisplayName("[UserQueryRepository.findByLoginId()] 대문자/공백 loginId 조회 -> 정규화된 ID로 조회됨")
+		@DisplayName("[UserQueryRepository.findByLoginId()] 대문자/공백 loginId 조회 -> Optional.empty() 반환. "
+			+ "정규화는 상위 레이어 책임")
 		void findByLoginIdWithUppercaseAndWhitespace() {
 			// Arrange
 			User user = User.create(
@@ -112,10 +113,7 @@ class UserQueryRepositoryTest {
 			Optional<User> foundUser = userQueryRepository.findByLoginId("  TESTUSER01  ");
 
 			// Assert
-			assertAll(
-				() -> assertThat(foundUser).isPresent(),
-				() -> assertThat(foundUser.get().getLoginId()).isEqualTo("testuser01")
-			);
+			assertThat(foundUser).isEmpty();
 		}
 	}
 
@@ -167,7 +165,8 @@ class UserQueryRepositoryTest {
 		}
 
 		@Test
-		@DisplayName("[UserQueryRepository.existsByLoginId()] 대문자/공백 loginId -> 정규화 후 true 반환")
+		@DisplayName("[UserQueryRepository.existsByLoginId()] 대문자/공백 loginId -> false 반환. "
+			+ "정규화는 상위 레이어 책임")
 		void existsByLoginIdWithUppercaseAndWhitespace() {
 			// Arrange
 			User user = User.create(
@@ -183,7 +182,7 @@ class UserQueryRepositoryTest {
 			boolean exists = userQueryRepository.existsByLoginId("  TESTUSER01  ");
 
 			// Assert
-			assertThat(exists).isTrue();
+			assertThat(exists).isFalse();
 		}
 	}
 
