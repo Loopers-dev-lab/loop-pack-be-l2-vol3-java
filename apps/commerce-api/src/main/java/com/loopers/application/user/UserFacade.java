@@ -18,12 +18,12 @@ public class UserFacade {
         return UserInfo.from(user);
     }
 
-    public UserInfo getMyInfo(String loginId, String rawPassword) {
-        User user = userService.authenticate(loginId, rawPassword);
+    public UserInfo getMyInfo(Long id) {
+        User user = userService.getById(id);
         return UserInfo.from(user);
     }
 
-    public void changePassword(String loginId, String rawPassword, String newRawPassword) {
-        userService.changePassword(loginId, rawPassword, newRawPassword);
+    public void changePassword(Long id, String newRawPassword) {
+        userService.changePassword(id, newRawPassword);
     }
 }
