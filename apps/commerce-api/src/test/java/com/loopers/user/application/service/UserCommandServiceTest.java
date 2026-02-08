@@ -33,7 +33,7 @@ class UserCommandServiceTest {
 
 	@Test
 	@DisplayName("[UserCommandService.updateUser()] 변경된 User 저장 -> 저장된 User 반환. "
-		+ "repository.save() 위임")
+		+ "repository.update() 위임")
 	void updateUserSuccess() {
 		// Arrange
 		User user = User.reconstruct(
@@ -41,7 +41,7 @@ class UserCommandServiceTest {
 			LocalDate.of(1990, 1, 15), "test@example.com"
 		);
 
-		given(userCommandRepository.save(any(User.class))).willReturn(user);
+		given(userCommandRepository.update(any(User.class))).willReturn(user);
 
 		// Act
 		User result = userCommandService.updateUser(user);
@@ -52,7 +52,7 @@ class UserCommandServiceTest {
 			() -> assertThat(result.getId()).isEqualTo(1L),
 			() -> assertThat(result.getLoginId()).isEqualTo("testuser01")
 		);
-		verify(userCommandRepository).save(user);
+		verify(userCommandRepository).update(user);
 	}
 
 	@Test

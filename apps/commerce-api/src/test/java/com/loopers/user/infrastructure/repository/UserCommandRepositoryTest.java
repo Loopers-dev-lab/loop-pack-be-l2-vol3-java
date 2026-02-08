@@ -63,9 +63,9 @@ class UserCommandRepositoryTest {
 	}
 
 	@Test
-	@DisplayName("[UserCommandRepository.save()] 존재하지 않는 ID로 업데이트 시도 -> CoreException(NOT_FOUND) 발생. "
-		+ "DB에 없는 ID를 가진 User를 save하면 NOT_FOUND 예외")
-	void saveUserWithNonExistentIdThrowsNotFound() {
+	@DisplayName("[UserCommandRepository.update()] 존재하지 않는 ID로 수정 시도 -> CoreException(NOT_FOUND) 발생. "
+		+ "DB에 없는 ID를 가진 User를 update하면 NOT_FOUND 예외")
+	void updateUserWithNonExistentIdThrowsNotFound() {
 		// Arrange
 		User user = User.reconstruct(
 			999L,
@@ -78,7 +78,7 @@ class UserCommandRepositoryTest {
 
 		// Act
 		CoreException exception = assertThrows(CoreException.class,
-			() -> userCommandRepository.save(user));
+			() -> userCommandRepository.update(user));
 
 		// Assert
 		assertAll(

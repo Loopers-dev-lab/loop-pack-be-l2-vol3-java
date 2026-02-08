@@ -19,6 +19,6 @@ public class UserCommandService {
 
 	@Transactional
 	public User updateUser(User user) {
-		return userCommandRepository.save(user);
+		return userCommandRepository.update(user);
 	}
 }
