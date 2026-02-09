@@ -22,10 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 @Import(MySqlTestContainersConfig.class)
 class UserV1ApiE2ETest {
 
-    private static final String ENDPOINT_SIGN_UP = "/customer/v1/users/sign-up";
-    private static final String ENDPOINT_MY_INFO = "/customer/v1/users/me";
-    private static final String ENDPOINT_POINTS = "/customer/v1/users/me/points";
-    private static final String ENDPOINT_PASSWORD = "/customer/v1/users/me/password";
+    private static final String ENDPOINT_SIGN_UP = "/api/v1/users";
+    private static final String ENDPOINT_MY_INFO = "/api/v1/users/me";
+    private static final String ENDPOINT_POINTS = "/api/v1/users/me/points";
+    private static final String ENDPOINT_PASSWORD = "/api/v1/users/password";
 
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
@@ -44,7 +44,7 @@ class UserV1ApiE2ETest {
         databaseCleanUp.truncateAllTables();
     }
 
-    @DisplayName("POST /customer/v1/users/sign-up - 회원가입")
+    @DisplayName("POST /api/v1/users - 회원가입")
     @Nested
     class SignUp {
 
@@ -158,7 +158,7 @@ class UserV1ApiE2ETest {
         }
     }
 
-    @DisplayName("GET /customer/v1/users/me - 내 정보 조회")
+    @DisplayName("GET /api/v1/users/me - 내 정보 조회")
     @Nested
     class GetMyInfo {
 
@@ -227,7 +227,7 @@ class UserV1ApiE2ETest {
         }
     }
 
-    @DisplayName("GET /customer/v1/users/me/points - 포인트 조회")
+    @DisplayName("GET /api/v1/users/me/points - 포인트 조회")
     @Nested
     class GetPoints {
 
@@ -298,7 +298,7 @@ class UserV1ApiE2ETest {
         }
     }
 
-    @DisplayName("PATCH /customer/v1/users/me/password - 비밀번호 변경")
+    @DisplayName("PUT /api/v1/users/password - 비밀번호 변경")
     @Nested
     class UpdatePassword {
 
@@ -316,7 +316,7 @@ class UserV1ApiE2ETest {
             // when
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
             ResponseEntity<ApiResponse<Void>> response =
-                testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PATCH, new HttpEntity<>(request, headers), responseType);
+                testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PUT, new HttpEntity<>(request, headers), responseType);
 
             // then
             assertAll(
@@ -340,7 +340,7 @@ class UserV1ApiE2ETest {
             // when
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
             ResponseEntity<ApiResponse<Void>> response =
-                testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PATCH, new HttpEntity<>(request, headers), responseType);
+                testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PUT, new HttpEntity<>(request, headers), responseType);
 
             // then
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -369,7 +369,7 @@ class UserV1ApiE2ETest {
 
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
             ResponseEntity<ApiResponse<Void>> response =
-                testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PATCH, new HttpEntity<>(request, headers), responseType);
+                testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PUT, new HttpEntity<>(request, headers), responseType);
 
             // then
             assertAll(
@@ -402,7 +402,7 @@ class UserV1ApiE2ETest {
 
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
             ResponseEntity<ApiResponse<Void>> response =
-                testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PATCH, new HttpEntity<>(request, headers), responseType);
+                testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PUT, new HttpEntity<>(request, headers), responseType);
 
             // then
             assertAll(
@@ -434,7 +434,7 @@ class UserV1ApiE2ETest {
 
             ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
             ResponseEntity<ApiResponse<Void>> response =
-                testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PATCH, new HttpEntity<>(request, headers), responseType);
+                testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PUT, new HttpEntity<>(request, headers), responseType);
 
             // then
             assertAll(
