@@ -11,7 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/customer/v1/users")
+@RequestMapping("/api/v1/users")
 public class UserV1Controller implements UserV1ApiSpec {
 
     private final UserFacade userFacade;
@@ -20,7 +20,7 @@ public class UserV1Controller implements UserV1ApiSpec {
         this.userFacade = userFacade;
     }
 
-    @PostMapping("/sign-up")
+    @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Override
     public ApiResponse<UserV1Dto.SignUpResponse> signUp(
@@ -74,7 +74,7 @@ public class UserV1Controller implements UserV1ApiSpec {
         return ApiResponse.success(response);
     }
 
-    @PatchMapping("/me/password")
+    @PutMapping("/password")
     @Override
     public ApiResponse<Void> updatePassword(
         @RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
