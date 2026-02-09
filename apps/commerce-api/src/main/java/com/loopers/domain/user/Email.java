@@ -1,5 +1,6 @@
 package com.loopers.domain.user;
 
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 import jakarta.persistence.Column;
@@ -30,6 +31,9 @@ public class Email {
     }
 
     private void validate(String value) {
+        if (Objects.isNull(value) || value.isBlank()) {
+            throw new CoreException(ErrorType.REQUIRED_EMAIL);
+        }
         if (!EMAIL_PATTERN.matcher(value).matches()) {
             throw new CoreException(ErrorType.INVALID_EMAIL_FORMAT);
         }

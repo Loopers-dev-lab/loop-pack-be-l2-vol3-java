@@ -15,6 +15,11 @@ public enum ErrorType {
     CONFLICT(HttpStatus.CONFLICT, HttpStatus.CONFLICT.getReasonPhrase(), "이미 존재하는 리소스입니다."),
 
     /** User 도메인 에러 */
+    REQUIRED_LOGIN_ID(HttpStatus.BAD_REQUEST, "REQUIRED_LOGIN_ID", "로그인 ID는 필수 값입니다."),
+    REQUIRED_EMAIL(HttpStatus.BAD_REQUEST, "REQUIRED_EMAIL", "이메일은 필수 값입니다."),
+    REQUIRED_PASSWORD(HttpStatus.BAD_REQUEST, "REQUIRED_PASSWORD", "비밀번호는 필수 값입니다."),
+    REQUIRED_USER_NAME(HttpStatus.BAD_REQUEST, "REQUIRED_USER_NAME", "이름은 필수 값입니다."),
+    REQUIRED_BIRTH_DATE(HttpStatus.BAD_REQUEST, "REQUIRED_BIRTH_DATE", "생년월일은 필수 값입니다."),
     INVALID_EMAIL_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_EMAIL_FORMAT", "이메일은 xx@yy.zz 형식이어야 합니다."),
     INVALID_LOGIN_ID_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_LOGIN_ID_FORMAT", "로그인 ID는 영문과 숫자만 허용됩니다."),
     INVALID_PASSWORD_LENGTH(HttpStatus.BAD_REQUEST, "INVALID_PASSWORD_LENGTH", "비밀번호는 8~16자여야 합니다."),

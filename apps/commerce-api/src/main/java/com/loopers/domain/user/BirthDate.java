@@ -2,6 +2,7 @@ package com.loopers.domain.user;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Objects;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
@@ -24,14 +25,21 @@ public class BirthDate {
     private String value;
 
     public BirthDate(String value) {
-        if (!isValidDateFormat(value)) {
-            throw new CoreException(ErrorType.INVALID_BIRTH_DATE_FORMAT);
-        }
+        validate(value);
         this.value = value;
     }
 
     public String getValueWithoutHyphen() {
         return value.replace("-", "");
+    }
+
+    private void validate(String value) {
+        if (Objects.isNull(value) || value.isBlank()) {
+            throw new CoreException(ErrorType.REQUIRED_BIRTH_DATE);
+        }
+        if (!isValidDateFormat(value)) {
+            throw new CoreException(ErrorType.INVALID_BIRTH_DATE_FORMAT);
+        }
     }
 
     static boolean isValidDateFormat(String value) {

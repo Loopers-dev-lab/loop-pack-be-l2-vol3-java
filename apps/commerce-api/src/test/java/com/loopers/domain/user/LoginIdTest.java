@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -55,23 +56,25 @@ class LoginIdTest {
         @DisplayName("영문과 숫자 외의 문자가 포함되면, INVALID_LOGIN_ID_FORMAT 예외가 발생한다.")
         @ParameterizedTest(name = "[{index}] {1}")
         @CsvSource({
-                "user@123, 특수문자(@)",
-                "user한글, 한글",
-                "'user 123', 공백",
-                "'', 빈 문자열"
+                "user@123",
+                "user한글",
+                "user 123"
         })
-        void throwsInvalidLoginIdFormatException_whenContainsInvalidCharacter(String loginId, String description) {
+        void throwsInvalidLoginIdFormatException_whenContainsInvalidCharacter(String loginId) {
             assertThatThrownBy(() -> new LoginId(loginId))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                             .isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT));
         }
 
-        @DisplayName("null이면, 예외가 발생한다.")
-        @Test
-        void throwsException_whenValueIsNull() {
-            assertThatThrownBy(() -> new LoginId(null))
-                    .isInstanceOf(Exception.class);
+        @DisplayName("null이거나 빈 값이면, REQUIRED_LOGIN_ID 예외가 발생한다.")
+        @ParameterizedTest
+        @NullAndEmptySource
+        void throwsRequiredLoginIdException_whenValueIsNullOrBlank(String value) {
+            assertThatThrownBy(() -> new LoginId(value))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
+                            .isEqualTo(ErrorType.REQUIRED_LOGIN_ID));
         }
     }
 }

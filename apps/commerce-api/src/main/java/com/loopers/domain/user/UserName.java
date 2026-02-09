@@ -1,5 +1,7 @@
 package com.loopers.domain.user;
 
+import java.util.Objects;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 
@@ -40,8 +42,8 @@ public class UserName {
     }
 
     private void validate(String value) {
-        if (value == null || value.isBlank()) {
-            throw new CoreException(ErrorType.INVALID_USER_NAME);
+        if (Objects.isNull(value) || value.isBlank()) {
+            throw new CoreException(ErrorType.REQUIRED_USER_NAME);
         }
     }
 }

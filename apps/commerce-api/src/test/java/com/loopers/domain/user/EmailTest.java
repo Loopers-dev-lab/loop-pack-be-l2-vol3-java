@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import com.loopers.support.error.CoreException;
@@ -34,8 +35,7 @@ class EmailTest {
                 "userdomain.com",
                 "user@domaincom",
                 "user@domain.c",
-                "@domain.com",
-                "''"
+                "@domain.com"
         })
         void throwsInvalidEmailFormatException_whenFormatIsInvalid(String email) {
             assertThatThrownBy(() -> new Email(email))
@@ -44,11 +44,14 @@ class EmailTest {
                             .isEqualTo(ErrorType.INVALID_EMAIL_FORMAT));
         }
 
-        @DisplayName("null이면, 예외가 발생한다.")
-        @Test
-        void throwsException_whenValueIsNull() {
-            assertThatThrownBy(() -> new Email(null))
-                    .isInstanceOf(Exception.class);
+        @DisplayName("null이거나 빈 값이면, REQUIRED_EMAIL 예외가 발생한다.")
+        @ParameterizedTest
+        @NullAndEmptySource
+        void throwsRequiredEmailException_whenValueIsNullOrBlank(String value) {
+            assertThatThrownBy(() -> new Email(value))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
+                            .isEqualTo(ErrorType.REQUIRED_EMAIL));
         }
     }
 }

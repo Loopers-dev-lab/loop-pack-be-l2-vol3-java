@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import com.loopers.support.error.CoreException;
@@ -41,8 +42,7 @@ class PasswordTest {
         @ParameterizedTest
         @CsvSource({
                 "Pass1!a",
-                "Password1!abcdefg",
-                "''"
+                "Password1!abcdefg"
         })
         void throwsInvalidPasswordLengthException_whenLengthIsInvalid(String password) {
             assertThatThrownBy(() -> new Password(password, passwordEncoder))
@@ -65,11 +65,14 @@ class PasswordTest {
                             .isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT));
         }
 
-        @DisplayName("null이면, 예외가 발생한다.")
-        @Test
-        void throwsException_whenValueIsNull() {
-            assertThatThrownBy(() -> new Password(null, passwordEncoder))
-                    .isInstanceOf(Exception.class);
+        @DisplayName("null이거나 빈 값이면, REQUIRED_PASSWORD 예외가 발생한다.")
+        @ParameterizedTest
+        @NullAndEmptySource
+        void throwsRequiredPasswordException_whenValueIsNullOrBlank(String value) {
+            assertThatThrownBy(() -> new Password(value, passwordEncoder))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
+                            .isEqualTo(ErrorType.REQUIRED_PASSWORD));
         }
     }
 

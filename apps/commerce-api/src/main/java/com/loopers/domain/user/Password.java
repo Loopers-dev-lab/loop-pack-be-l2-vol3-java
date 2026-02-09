@@ -1,5 +1,6 @@
 package com.loopers.domain.user;
 
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 import jakarta.persistence.Column;
@@ -23,7 +24,9 @@ public class Password {
     private String value;
 
     public Password(String value, PasswordEncoder passwordEncoder) {
-        validate(value);
+        validateNotBlank(value);
+        validateLength(value);
+        validateFormat(value);
         this.value = passwordEncoder.encode(value);
     }
 
@@ -31,10 +34,19 @@ public class Password {
         return passwordEncoder.matches(rawPassword, this.value);
     }
 
-    private void validate(String value) {
+    private void validateNotBlank(String value) {
+        if (Objects.isNull(value) || value.isBlank()) {
+            throw new CoreException(ErrorType.REQUIRED_PASSWORD);
+        }
+    }
+
+    private void validateLength(String value) {
         if (value.length() < 8 || value.length() > 16) {
             throw new CoreException(ErrorType.INVALID_PASSWORD_LENGTH);
         }
+    }
+
+    private void validateFormat(String value) {
         if (!PASSWORD_PATTERN.matcher(value).matches()) {
             throw new CoreException(ErrorType.INVALID_PASSWORD_FORMAT);
         }
