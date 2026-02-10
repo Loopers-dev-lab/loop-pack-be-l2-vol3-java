@@ -13,7 +13,7 @@ import java.time.LocalDate;
 
 @Getter
 @Entity
-@Table(name = "user")
+@Table(name = "users")
 public class User extends BaseEntity {
     @Column(unique = true)
     private String loginId;
