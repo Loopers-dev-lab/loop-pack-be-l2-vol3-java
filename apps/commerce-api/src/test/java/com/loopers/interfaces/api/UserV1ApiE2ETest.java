@@ -111,11 +111,12 @@ class UserV1ApiE2ETest {
         void returnsOk_whenValidRequest() {
             // arrange
             String loginId = "testUser123";
-            String oldEncodedPassword = bCryptPasswordEncoder.encode("OldPass1!");
+            String currentPassword = "OldPass1!";
+            String encodedPassword = bCryptPasswordEncoder.encode(currentPassword);
             User savedUser = UserFixture.builder()
-                    .loginId(loginId)
-                    .password(oldEncodedPassword)
-                    .build();
+                                        .loginId(loginId)
+                                        .password(encodedPassword)
+                                        .build();
             userJpaRepository.save(savedUser);
 
             String newPassword = "NewPass1!";
@@ -123,6 +124,7 @@ class UserV1ApiE2ETest {
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Loopers-LoginId", loginId);
+            headers.set("X-Loopers-LoginPw", currentPassword);
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<UserV1Dto.UpdatePasswordRequest> requestEntity = new HttpEntity<>(request, headers);
 
@@ -147,6 +149,7 @@ class UserV1ApiE2ETest {
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Loopers-LoginId", "nonExistingId");
+            headers.set("X-Loopers-LoginPw", "OldPass1!");
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<UserV1Dto.UpdatePasswordRequest> requestEntity = new HttpEntity<>(request, headers);
 
@@ -157,6 +160,36 @@ class UserV1ApiE2ETest {
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @DisplayName("현재 비밀번호가 일치하지 않으면, 400 Bad Request를 반환한다.")
+        @Test
+        void returnsBadRequest_whenCurrentPasswordNotMatches() {
+            // arrange
+            String loginId = "testUser123";
+            String currentPassword = "OldPass1!";
+            String encodedPassword = bCryptPasswordEncoder.encode(currentPassword);
+            User savedUser = UserFixture.builder()
+                    .loginId(loginId)
+                    .password(encodedPassword)
+                    .build();
+            userJpaRepository.save(savedUser);
+
+            UserV1Dto.UpdatePasswordRequest request = new UserV1Dto.UpdatePasswordRequest("NewPass1!");
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", loginId);
+            headers.set("X-Loopers-LoginPw", "WrongPass1!");
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<UserV1Dto.UpdatePasswordRequest> requestEntity = new HttpEntity<>(request, headers);
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT_UPDATE_PASSWORD, HttpMethod.PATCH, requestEntity, responseType);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
 
         @DisplayName("현재 비밀번호와 동일한 비밀번호로 변경하면, 400 Bad Request를 반환한다.")
@@ -176,6 +209,7 @@ class UserV1ApiE2ETest {
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Loopers-LoginId", loginId);
+            headers.set("X-Loopers-LoginPw", currentPassword);
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<UserV1Dto.UpdatePasswordRequest> requestEntity = new HttpEntity<>(request, headers);
 

@@ -30,9 +30,10 @@ public class UserV1Controller {
     @PatchMapping("/me/password")
     public ApiResponse<Void> updatePassword(
             @RequestHeader("X-Loopers-LoginId") String loginId,
+            @RequestHeader("X-Loopers-LoginPw") String currentPassword,
             @Valid @RequestBody UserV1Dto.UpdatePasswordRequest request
     ) {
-        userService.updatePassword(UpdatePasswordCommand.from(loginId, request));
+        userService.updatePassword(UpdatePasswordCommand.from(loginId, currentPassword, request));
         return ApiResponse.success(null);
     }
 }

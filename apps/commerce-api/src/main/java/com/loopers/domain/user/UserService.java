@@ -18,6 +18,10 @@ public class UserService {
     public void updatePassword(UpdatePasswordCommand command) {
         User user = getUser(command.loginId());
 
+        if (!passwordEncoder.matches(command.currentPassword(), user.getPassword())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");
+        }
+
         if (passwordEncoder.matches(command.newPassword(), user.getPassword())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호로 변경할 수 없습니다.");
         }

@@ -59,15 +59,16 @@ class UserServiceIntegrationTest {
     void updatePassword_updatesPasswordInDb() {
         // arrange
         String loginId = "testUser123";
-        String oldPassword = bCryptPasswordEncoder.encode("OldPass1!");
+        String currentPassword = "OldPass1!";
+        String encode = bCryptPasswordEncoder.encode(currentPassword);
         User user = UserFixture.builder()
                                .loginId(loginId)
-                               .password(oldPassword)
+                               .password(encode)
                                .build();
         userJpaRepository.save(user);
 
         String newPassword = "NewPass1!";
-        UpdatePasswordCommand command = new UpdatePasswordCommand(loginId, newPassword);
+        UpdatePasswordCommand command = new UpdatePasswordCommand(loginId, currentPassword, newPassword);
 
         // act
         userService.updatePassword(command);

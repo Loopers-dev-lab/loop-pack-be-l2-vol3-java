@@ -44,6 +44,28 @@ public class UserServiceTest {
         assertThat(myInfo.birthDate()).isEqualTo(user.getBirthDate());
     }
 
+    @DisplayName("현재 비밀번호가 일치하지 않으면, BAD_REQUEST 예외가 발생한다.")
+    @Test
+    void throwsException_whenCurrentPasswordNotMatches() {
+        // given
+        String currentPassword = "ValidPass1!";
+        String encodedPassword = passwordEncoder.encode(currentPassword);
+        User user = UserFixture.builder()
+                               .password(encodedPassword)
+                               .build();
+        userRepository.save(user);
+
+        UpdatePasswordCommand command = new UpdatePasswordCommand(user.getLoginId(), "WrongPass1!", "NewPass1!");
+
+        // when
+        CoreException result = assertThrows(CoreException.class, () -> {
+            userService.updatePassword(command);
+        });
+
+        // then
+        assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+    }
+
     @DisplayName("새 비밀번호가 현재 비밀번호와 같으면, BAD_REQUEST 예외가 발생한다.")
     @Test
     void throwsException_whenNewPasswordSameAsCurrent() {
@@ -55,7 +77,7 @@ public class UserServiceTest {
                                .build();
         userRepository.save(user);
 
-        UpdatePasswordCommand command = new UpdatePasswordCommand(user.getLoginId(), rawPassword);
+        UpdatePasswordCommand command = new UpdatePasswordCommand(user.getLoginId(), rawPassword, rawPassword);
 
         // when
         CoreException result = assertThrows(CoreException.class, () -> {
