@@ -98,8 +98,6 @@ erDiagram
 ### 유니크 제약 조건
 
 - `likes`: `(user_id, product_id)` UNIQUE — 한 사용자가 동일 상품에 하나의 좋아요만 등록 가능
-- `brands`: `name` UNIQUE (활성 상태 기준) — 삭제된 브랜드와 동일한 이름으로 재등록 가능
-- `products`: `name` UNIQUE (활성 상태 기준) — 삭제된 상품과 동일한 이름으로 재등록 가능
 
 ### 주문 상태
 
