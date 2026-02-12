@@ -17,7 +17,6 @@
 - Entity: `{Domain}` (예: `User`)
 - Service: `{Domain}Service` (예: `UserService`)
 - Repository: `{Domain}Repository` (예: `UserRepository`)
-- 의존성 인터페이스: `{Concept}Encoder`, `{Concept}Validator` (예: `PasswordEncoder`)
 
 ### Infrastructure 계층 (infrastructure/)
 - Repository 구현: `{Domain}RepositoryImpl` (예: `UserRepositoryImpl`)
@@ -40,4 +39,3 @@
 
 ### 검증 메서드
 - private 검증: `validate{Field}(value)` (예: `validateLoginId`)
-- 정적 검증 유틸: `{Validator}.validate(...)` (예: `PasswordValidator.validate`)

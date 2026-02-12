@@ -40,7 +40,7 @@ Request → Controller (원시값 추출) → Service → Domain → Info → Re
 ```
 
 ## Request DTO 검증
-- Bean Validation 사용 허용: `@NotNull`, `@NotBlank`, `@NotEmpty`, `@Min`, `@Max`, `@Positive`, `@Size` 등
+- Bean Validation 사용 허용: `@NotNull`, `@NotBlank` 등
 - 입력값 형식 검증 담당 (도메인 불변식 검증과 관심사 분리)
 - Controller에서 `@Valid` 사용
 

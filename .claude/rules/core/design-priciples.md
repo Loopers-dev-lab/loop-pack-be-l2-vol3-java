@@ -4,18 +4,17 @@
 - SRP (Single Responsibility Principle) 무조건 준수
 - OCP (Open/Closed Principle) 준수
 - 현재 요구사항에 집중하되, 구조는 유연하게
-- 파라미터가 6개 이하면 그대로 유지, 7개 이상이면 Command 객체로 그루핑
 
 ## 입력값 검증 전략
 
 ### 2단계 검증 (관심사 분리)
-| 단계 | 계층 | 검증 대상 | 예시 |
-|------|------|----------|------|
-| 1단계 | Request DTO | 입력값 형식 | 필수값, 타입, 범위 |
-| 2단계 | Domain Entity | 도메인 불변식 | 비즈니스 규칙 |
+| 단계 | 계층 | 검증 대상 | 예시       |
+|------|------|----------|----------|
+| 1단계 | Request DTO | 입력값 형식 | 필수값, 타입  |
+| 2단계 | Domain Entity | 도메인 불변식 | 비즈니스 규칙  |
 
 ### Request DTO 검증 (입력값 형식)
-- Bean Validation 사용 허용: `@NotNull`, `@NotBlank`, `@NotEmpty`, `@Min`, `@Max`, `@Positive`, `@Size` 등
+- Bean Validation 사용 허용: `@NotNull`, `@NotBlank`, `@NotEmpty`
 - 목적: "값이 존재하는가? 기본 형식에 맞는가?"
 - Controller에서 `@Valid` 사용
 

@@ -1,22 +1,20 @@
 # Exception Patterns
 
-## 예외 종류별 사용
+## CoreException 사용
 
-### IllegalArgumentException
-- 도메인 불변식 검증 실패 시 사용
-- User.create(), validate{Field}() 등에서 throw
-- 글로벌 핸들러가 400 BAD_REQUEST로 변환
+### 도메인 불변식 검증
+- 도메인 객체의 validate 메서드에서 throw
+- `ErrorType.BAD_REQUEST` 사용
 
 ```java
 private static void validateLoginId(String loginId) {
     if (loginId == null || loginId.isBlank()) {
-        throw new IllegalArgumentException("로그인 ID는 필수입니다");
+        throw new CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 필수입니다");
     }
 }
 ```
 
-### CoreException
-- 비즈니스 로직 오류 시 사용
+### 비즈니스 로직 오류
 - Service 계층에서 throw
 - ErrorType에 따라 HTTP 상태코드 결정
 
@@ -27,17 +25,17 @@ if (userRepository.existsByLoginId(loginId)) {
 }
 
 // 조회 실패
-User user = userRepository.findByLoginId(loginId)
+User user = userRepository.findById(id)
     .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다"));
 
-// 인증 실패
-throw new CoreException(ErrorType.UNAUTHORIZED, "비밀번호가 일치하지 않습니다");
+// 인증 실패 (아이디/비밀번호 구분하지 않음)
+throw new CoreException(ErrorType.UNAUTHORIZED, "아이디 또는 비밀번호가 일치하지 않습니다");
 ```
 
 ## ErrorType 선택 기준
 | ErrorType | HTTP Status | 사용 상황 |
 |-----------|-------------|-----------|
-| BAD_REQUEST | 400 | 입력값 검증 실패 |
+| BAD_REQUEST | 400 | 입력값 검증 실패, 도메인 불변식 위반 |
 | UNAUTHORIZED | 401 | 인증 실패, 헤더 누락 |
 | NOT_FOUND | 404 | 리소스 없음 |
 | CONFLICT | 409 | 중복 리소스 |
