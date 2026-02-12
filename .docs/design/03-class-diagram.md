@@ -18,6 +18,7 @@ classDiagram
     }
 
     class Product {
+        Long brandId
         String name
         String description
         Integer price
@@ -41,11 +42,13 @@ classDiagram
     }
 
     class Order {
+        Long userId
         Status status
         Long totalAmount
     }
 
     class OrderItem {
+        Long productId
         String productName
         Integer price
         Integer quantity
