@@ -1,4 +1,4 @@
-# Sequence Diagram
+# Sequence Diagrams
 
 LAST UPDATED: 2026-02-11
 

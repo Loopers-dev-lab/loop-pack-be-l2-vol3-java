@@ -11,7 +11,7 @@ LAST UPDATED: 2026-02-11
 ## 개요
 
 이 문서는 감성 이커머스 플랫폼의 도메인 모델을 클래스 다이어그램으로 정의한다.
-[01-requirements.md](./01-requirements.md)의 요구사항과 [02-sequence-diagram.md](./02-sequence-diagram.md)의 API 흐름을 기반으로, 
+[01-requirements.md](./01-requirements.md)의 요구사항과 [02-sequence-diagrams.md](./02-sequence-diagrams.md)의 API 흐름을 기반으로, 
 각 도메인의 엔티티, 값 객체(Value Object), 열거형(Enum)과 이들의 관계를 Mermaid 클래스 다이어그램으로 표현한다.
 용어 정의는 [00-glossary.md](./00-glossary.md)를 참고한다.
 

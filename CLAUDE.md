@@ -1,12 +1,12 @@
-Always follow the instructions in docs/plan.md. When the user says "go", find the next unchecked item in docs/plan.md, implement the test for that requirement, then implement only enough code to make that test pass.
+Always follow the instructions in .docs/plan.md. When the user says "go", find the next unchecked item in .docs/plan.md, implement the test for that requirement, then implement only enough code to make that test pass.
 
 # "GO" COMMAND BEHAVIOR
 
 When the user inputs "go":
-1. Read `docs/plan.md` to find the next unchecked requirement (`- [ ]`)
+1. Read `.docs/plan.md` to find the next unchecked requirement (`- [ ]`)
 2. Write a failing test for that requirement (Red)
 3. Implement the minimum code to make the test pass (Green)
-4. Mark the requirement as done (`- [x]`) in docs/plan.md
+4. Mark the requirement as done (`- [x]`) in .docs/plan.md
 5. Report what was completed and wait for the next "go"
 
 # ROLE AND EXPERTISE
