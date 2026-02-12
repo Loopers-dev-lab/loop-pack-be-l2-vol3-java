@@ -250,6 +250,7 @@ classDiagram
     class ProductRepository {
         <<interface>>
         +findById(Long)
+        +findByIdAndNotDeleted(Long)
         +save(ProductModel)
     }
 
@@ -265,7 +266,7 @@ classDiagram
 
 ### 해석
 
-- **봐야 할 포인트**: ProductModel은 brandId만 보유하고 BrandModel을 직접 참조하지 않는다(다른 애그리거트 루트 참조 최소화). **재고 충족 여부**는 ProductModel.hasStock(quantity) 등 모델 책임으로 두어 Service에만 로직이 몰리지 않도록 한다. 가격 등은 VO(Price)로 검증 후 Entity 필드(price)에 값만 저장할 수 있다(§0 VO 구분). 브랜드 유효성(존재·미삭제)은 ProductService가 BrandRepository를 통해 조율한다.
+- **봐야 할 포인트**: ProductModel은 brandId만 보유하고 BrandModel을 직접 참조하지 않는다(다른 애그리거트 루트 참조 최소화). **재고 충족 여부**는 ProductModel.hasStock(quantity) 등 모델 책임으로 두어 Service에만 로직이 몰리지 않도록 한다. **ProductRepository**는 `findById`(관리/내부용), **findByIdAndNotDeleted**(Like/Cart/Order 등에서 "판매 중인 상품" 조회용)를 제공한다. 가격 등은 VO(Price)로 검증 후 Entity 필드(price)에 값만 저장할 수 있다(§0 VO 구분). 브랜드 유효성(존재·미삭제)은 ProductService가 BrandRepository를 통해 조율한다.
 - **설계 의도**: Likes/Cart/Orders가 ProductService의 findByIdAndNotDeleted, validateProductAvailability, validateProducts, restoreStock에 의존하므로, 이 메서드 시그니처와 정책이 변경되면 영향 범위가 넓다. 스냅샷·재고는 주문 도메인과의 협력 경계를 나타낸다.
 
 ### 잠재 리스크

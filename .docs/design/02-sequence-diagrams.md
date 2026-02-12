@@ -245,7 +245,7 @@ sequenceDiagram
     OrderService->>OrderService: Order + OrderItem 생성
     OrderService->>OrderRepository: save(order)
     OrderRepository-->>OrderService: saved Order
-    Note over OrderService: 재고 차감은 결제 완료 시 처리. 결제 시 재고 부족 시 주문 실패/취소 처리
+    Note over OrderService: 재고 차감은 결제 완료 시점에 처리. 결제 시 재고 차감 시 비관적 락(PESSIMISTIC_WRITE) 적용. 재고 부족 시 주문 실패/취소 처리
     OrderService-->>OrderFacade: OrderInfo
     OrderFacade-->>OrderController: OrderInfo
     OrderController-->>User: 201 Created
@@ -302,6 +302,7 @@ sequenceDiagram
 
     alt 결제 완료된 주문
         OrderService->>ProductService: restoreStock(orderItems)
+        Note over ProductService: 재고 복구 시 비관적 락 적용(동시성 보장)
         ProductService->>ProductService: 재고 복구
         alt 재고 복구 실패 (예: 상품 삭제)
             ProductService-->>OrderService: 예외
