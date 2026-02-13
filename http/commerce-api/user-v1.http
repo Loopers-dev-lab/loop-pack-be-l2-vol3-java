@@ -1,0 +1,96 @@
+회원가입 - 성공
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "userId": "testuser01",
+  "password": "SecurePass1!",
+  "email": "test@example.com",
+  "birthDate": "1990-01-15",
+  "gender": "MALE"
+}
+
+회원가입 - 실패 (성별 누락)
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "userId": "testuser02",
+  "password": "SecurePass1!",
+  "email": "test2@example.com",
+  "birthDate": "1990-01-15"
+}
+
+회원가입 - 실패 (비밀번호에 생년월일 포함)
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "userId": "testuser03",
+  "password": "Pass19900115!",
+  "email": "test3@example.com",
+  "birthDate": "1990-01-15",
+  "gender": "FEMALE"
+}
+
+회원가입 - 실패 (중복 사용자 ID)
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "userId": "testuser01",
+  "password": "AnotherPass1!",
+  "email": "another@example.com",
+  "birthDate": "1995-06-20",
+  "gender": "MALE"
+}
+
+내 정보 조회 - 성공
+GET {{commerce-api}}/api/v1/users/me
+X-Loopers-LoginId: testuser01
+
+내 정보 조회 - 실패 (인증 헤더 누락)
+GET {{commerce-api}}/api/v1/users/me
+
+내 정보 조회 - 실패 (존재하지 않는 사용자)
+GET {{commerce-api}}/api/v1/users/me
+X-Loopers-LoginId: nonexistent
+
+비밀번호 변경 - 성공
+PUT {{commerce-api}}/api/v1/users/password
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+
+{
+  "currentPassword": "SecurePass1!",
+  "newPassword": "NewPass456!"
+}
+
+비밀번호 변경 - 실패 (현재 비밀번호 불일치)
+PUT {{commerce-api}}/api/v1/users/password
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+
+{
+  "currentPassword": "WrongPass!",
+  "newPassword": "NewPass456!"
+}
+
+비밀번호 변경 - 실패 (인증 헤더 누락)
+PUT {{commerce-api}}/api/v1/users/password
+Content-Type: application/json
+
+{
+  "currentPassword": "SecurePass1!",
+  "newPassword": "NewPass456!"
+}
+
+비밀번호 변경 - 실패 (새 비밀번호가 현재와 동일)
+PUT {{commerce-api}}/api/v1/users/password
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+
+{
+  "currentPassword": "SecurePass1!",
+  "newPassword": "SecurePass1!"
+}
