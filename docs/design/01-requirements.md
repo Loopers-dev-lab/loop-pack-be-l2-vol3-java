@@ -64,15 +64,15 @@
 
 ### 상품
 
-| ID | 기능 명칭 | 대상 | 인증 | API | 설명 |
-| --- | --- | --- | --- | --- | --- |
-| PR-01 | 상품 등록 | Admin | LDAP | POST /api-admin/v1/products | 특정 브랜드에 속한 신규 상품 등록 |
-| PR-02 | 상품 정보 수정 | Admin | LDAP | PUT /api-admin/v1/products/{productId} | 상품 정보 변경 (소속 브랜드 변경 불가) |
+| ID | 기능 명칭 | 대상 | 인증 | API                                       | 설명 |
+| --- | --- | --- | --- |-------------------------------------------| --- |
+| PR-01 | 상품 등록 | Admin | LDAP | POST /api-admin/v1/products               | 특정 브랜드에 속한 신규 상품 등록 |
+| PR-02 | 상품 정보 수정 | Admin | LDAP | PATCH /api-admin/v1/products/{productId}  | 상품 정보 변경 (소속 브랜드 변경 불가) |
 | PR-03 | 상품 삭제 | Admin | LDAP | DELETE /api-admin/v1/products/{productId} | 상품 노출 차단 |
-| PR-04 | 상품 목록 조회 | Admin | LDAP | GET /api-admin/v1/products | 관리용 전체 상품 리스트 (페이징) |
-| PR-05 | 상품 상세 조회 | Admin | LDAP | GET /api-admin/v1/products/{productId} | 관리용 상품 상세 정보 확인 |
-| PR-06 | 상품 목록 조회 | User | 불필요 | GET /api/v1/products | 고객용 활성 상품 탐색 (정렬, 필터) |
-| PR-07 | 상품 상세 조회 | User | 불필요 | GET /api/v1/products/{productId} | 고객용 상품 상세 정보 |
+| PR-04 | 상품 목록 조회 | Admin | LDAP | GET /api-admin/v1/products                | 관리용 전체 상품 리스트 (페이징) |
+| PR-05 | 상품 상세 조회 | Admin | LDAP | GET /api-admin/v1/products/{productId}    | 관리용 상품 상세 정보 확인 |
+| PR-06 | 상품 목록 조회 | User | 불필요 | GET /api/v1/products                      | 고객용 활성 상품 탐색 (정렬, 필터) |
+| PR-07 | 상품 상세 조회 | User | 불필요 | GET /api/v1/products/{productId}          | 고객용 상품 상세 정보 |
 
 ## Business Rule
 
@@ -258,7 +258,6 @@
 | 취소 멱등성 | 좋아요가 없는 상품에 취소 요청 시 현재 상태를 유지한다 |
 | 물리적 삭제 | 좋아요 취소 시 데이터를 물리적으로 삭제한다 |
 | 삭제 상품 좋아요 불가 | 미존재 상품에는 좋아요를 등록할 수 없다 |
-| 삭제 상품 취소 허용 | 상품이 삭제되어도 좋아요 취소는 가능하다 |
 
 ## Use Case Flow
 

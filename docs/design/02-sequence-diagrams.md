@@ -52,7 +52,7 @@ sequenceDiagram
     participant BR as BrandRepository
     participant PR as ProductRepository
 
-    Admin->>BC: DELETE /api-admin/v1/brands/{brandId}
+    관리자->>BC: DELETE /api-admin/v1/brands/{brandId}
     activate BC
     BC->>BS: 브랜드 삭제 요청
     activate BS
