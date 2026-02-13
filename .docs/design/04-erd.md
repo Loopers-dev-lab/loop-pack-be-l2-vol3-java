@@ -1,6 +1,6 @@
 # ERD (Entity Relationship Diagram)
 
-LAST UPDATED: 2026-02-12
+LAST UPDATED: 2026-02-13
 
 ## 목차
 - [개요](#개요)
@@ -20,61 +20,61 @@ LAST UPDATED: 2026-02-12
 ```mermaid
 erDiagram
     products {
-        bigint id PK "상품 ID"
-        bigint brand_id FK "브랜드 ID"
-        varchar name "상품명"
-        varchar thumbnail_url "썸네일 URL"
-        bigint price "상품 가격"
-        bigint stock "재고"
-        text description "상품 설명"
-        timestamp created_at "생성 일시"
-        timestamp updated_at "수정 일시"
-        timestamp deleted_at "삭제 일시"
+        bigint id PK "not null"
+        bigint brand_id FK "not null"
+        varchar name "not null"
+        varchar thumbnail_url "not null"
+        bigint price "not null"
+        bigint stock "not null"
+        text description "null"
+        timestamp created_at "not null"
+        timestamp updated_at "not null"
+        timestamp deleted_at "null"
     }
     
     brands {
-        bigint id PK "브랜드 ID"
-        varchar name "브랜드명"
-        varchar logo_url "브랜드 로고 URL"
-        text description "브랜드 설명"
-        timestamp created_at "생성 일시"
-        timestamp updated_at "수정 일시"
-        timestamp deleted_at "삭제 일시"
+        bigint id PK "not null"
+        varchar name "not null"
+        varchar logo_url "not null"
+        text description "null"
+        timestamp created_at "not null"
+        timestamp updated_at "not null"
+        timestamp deleted_at "null"
     }
     
     likes {
-        bigint id PK "좋아요 ID"
-        bigint user_id FK "유저 ID"
-        bigint product_id FK "상품 ID"
-        timestamp liked_at "좋아요 일시"
-        timestamp created_at "생성 일시"
-        timestamp updated_at "수정 일시"
-        timestamp deleted_at "삭제 일시"
+        bigint id PK "not null"
+        bigint user_id FK "not null"
+        bigint product_id FK "not null"
+        timestamp liked_at "not null"
+        timestamp created_at "not null"
+        timestamp updated_at "not null"
+        timestamp deleted_at "null"
     }
     
     orders {
-        bigint id PK "주문 ID"
-        bigint user_id FK "유저 ID"
-        varchar name "주문명"
-        varchar status "주문 상태"
-        bigint total_price "총 주문 금액"
-        timestamp ordered_at "주문 일시"
-        timestamp created_at "생성 일시"
-        timestamp updated_at "수정 일시"
-        timestamp deleted_at "삭제 일시"
+        bigint id PK "not null"
+        bigint user_id FK "not null"
+        varchar name "not null"
+        varchar status "not null"
+        bigint total_price "not null"
+        timestamp ordered_at "not null"
+        timestamp created_at "not null"
+        timestamp updated_at "not null"
+        timestamp deleted_at "null"
     }
     
     order_items {
-        bigint id PK "주문 항목 ID"
-        bigint order_id FK "주문 ID"
-        bigint product_id FK "상품 ID"
-        varchar product_name "상품명"
-        bigint product_price "상품 가격"
-        varchar product_thumbnail_url "상품 썸네일 URL"
-        bigint quantity "주문 수량"
-        timestamp created_at "생성 일시"
-        timestamp updated_at "수정 일시"
-        timestamp deleted_at "삭제 일시"
+        bigint id PK "not null"
+        bigint order_id FK "not null"
+        bigint product_id FK "not null"
+        varchar product_name "not null"
+        bigint product_price "not null"
+        varchar product_thumbnail_url "not null"
+        bigint quantity "not null"
+        timestamp created_at "not null"
+        timestamp updated_at "not null"
+        timestamp deleted_at "null"
     }
     
     brands ||--o{ products: ""

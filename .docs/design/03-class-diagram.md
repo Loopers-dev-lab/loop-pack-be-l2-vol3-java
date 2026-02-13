@@ -1,6 +1,6 @@
 # Class Diagram
 
-LAST UPDATED: 2026-02-11
+LAST UPDATED: 2026-02-13
 
 ## 목차
 - [개요](#개요)
@@ -69,6 +69,7 @@ classDiagram
         Long id
         Long userId
         Long productId
+        LocalDateTime likedAt
     }
 
     %% ── Order ──

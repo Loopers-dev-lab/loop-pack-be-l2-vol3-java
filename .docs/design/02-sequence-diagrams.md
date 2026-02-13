@@ -1,6 +1,6 @@
 # Sequence Diagrams
 
-LAST UPDATED: 2026-02-11
+LAST UPDATED: 2026-02-13
 
 ## 목차
 - [개요](#개요)
@@ -265,7 +265,9 @@ sequenceDiagram
     end
 
     BrandService -->> BrandFacade: Brand
-    BrandFacade ->> LikeService: 브랜드 연관 좋아요 삭제
+    BrandFacade ->> ProductService: 브랜드 소속 상품 ID 목록 조회
+    ProductService -->> BrandFacade: List~Long~ productIds
+    BrandFacade ->> LikeService: 상품 연관 좋아요 삭제
     BrandFacade ->> ProductService: 브랜드 연관 상품 삭제
     BrandFacade ->> BrandService: 브랜드 삭제
     BrandFacade -->> BrandApi: 삭제 완료
