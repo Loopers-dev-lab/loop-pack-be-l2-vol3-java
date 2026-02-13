@@ -94,8 +94,8 @@ classDiagram
 
 ### Order
 
-1. 생성 시 즉시 ORDERED 상태가 된다.
-2. 상태 전이는 추후 결제 연동 시 확장한다.
+1. status는 Order의 inner enum(`Order.Status`)으로 관리한다. 현재 값은 `ORDERED`이며, 추후 결제 연동 시 상태를 확장한다.
+2. 생성 시 즉시 ORDERED 상태가 된다.
 3. totalAmount는 주문 시점의 최종 결제 금액이다. 현재는 OrderItem 합산 금액과 동일하며, 추후 쿠폰 연동 시 할인이 반영된 금액이 된다.
 
 ### OrderItem

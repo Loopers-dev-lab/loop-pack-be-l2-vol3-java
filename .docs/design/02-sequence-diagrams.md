@@ -91,3 +91,63 @@ sequenceDiagram
     BrandFacade-->>BrandController: 삭제 완료
     BrandController-->>Admin: 성공 응답
 ```
+
+---
+
+## 3. 좋아요 등록
+
+```mermaid
+sequenceDiagram
+    actor User as 사용자
+    participant LikeController
+    participant LikeService
+    participant ProductService
+
+    User->>LikeController: 좋아요 요청 (productId)
+    LikeController->>LikeService: 좋아요 등록 요청
+
+    %% 1. 상품 존재 확인 (Product 책임)
+    LikeService->>ProductService: 상품 조회
+    Note right of ProductService: 미존재/삭제된 상품 시 오류
+    ProductService-->>LikeService: 상품 정보
+
+    %% 2. 중복 좋아요 확인 (Like 책임)
+    Note right of LikeService: userId + productId 중복 체크
+
+    alt 이미 좋아요한 상품
+        LikeService-->>LikeController: 오류 (중복 좋아요)
+        LikeController-->>User: 실패 응답
+    else 좋아요 가능
+        %% 3. 좋아요 저장
+        LikeService->>LikeService: 좋아요 저장
+        LikeService-->>LikeController: 좋아요 완료
+        LikeController-->>User: 성공 응답
+    end
+```
+
+---
+
+## 4. 좋아요 취소
+
+```mermaid
+sequenceDiagram
+    actor User as 사용자
+    participant LikeController
+    participant LikeService
+
+    User->>LikeController: 좋아요 취소 요청 (productId)
+    LikeController->>LikeService: 좋아요 취소 요청
+
+    %% 1. 좋아요 존재 확인 (Like 책임)
+    Note right of LikeService: userId + productId로 좋아요 조회
+
+    alt 좋아요하지 않은 상품
+        LikeService-->>LikeController: 오류 (좋아요 이력 없음)
+        LikeController-->>User: 실패 응답
+    else 좋아요 존재
+        %% 2. 좋아요 삭제 (hard delete)
+        LikeService->>LikeService: 좋아요 삭제
+        LikeService-->>LikeController: 취소 완료
+        LikeController-->>User: 성공 응답
+    end
+```
