@@ -134,6 +134,19 @@ So that 변경된 정보를 반영할 수 있다
 | Exception | 가격이 0 이하이면 수정 실패 |
 | Exception | 재고가 음수이면 수정 실패 |
 
+#### US-P05: 상품 삭제
+```
+As a 관리자
+I want to 상품을 삭제하고 싶다
+So that 더 이상 해당 상품이 노출되지 않는다
+```
+
+| 흐름 | 설명 |
+|------|------|
+| Main | 상품을 soft delete 처리한다 |
+| Alternate | 해당 상품의 좋아요는 hard delete 된다 |
+| Exception | 존재하지 않는 상품이면 삭제 실패 |
+
 ---
 
 ### 4.3 좋아요 (Like)
@@ -312,7 +325,7 @@ public void addLike(Long memberId, Long productId) {
 | products | Soft Delete | 주문이 참조 (스냅샷 있어도 조회 가능해야) |
 | likes | Hard Delete | 삭제된 상품 좋아요는 의미 없음 |
 | orders | Soft Delete | 주문 이력은 절대 삭제 안 함 |
-| order_items | Soft Delete | 주문과 함께 보존 |
+| order_items | 삭제 없음 | Order와 생명주기 공유 (Order 취소 시에도 보존) |
 
 **브랜드 삭제 시 연쇄 처리**:
 ```java
@@ -342,6 +355,7 @@ public void deleteBrand(Long brandId) {
 
 | METHOD | URI | 설명 |
 |--------|-----|------|
+| GET | `/api/v1/brands` | 브랜드 목록 조회 |
 | GET | `/api/v1/brands/{brandId}` | 브랜드 정보 조회 |
 | GET | `/api/v1/products` | 상품 목록 조회 |
 | GET | `/api/v1/products/{productId}` | 상품 정보 조회 |
@@ -381,6 +395,7 @@ public void deleteBrand(Long brandId) {
 | POST | `/api/v1/orders` | 주문 요청 |
 | GET | `/api/v1/orders?startAt=&endAt=` | 주문 목록 조회 (날짜 필터) |
 | GET | `/api/v1/orders/{orderId}` | 주문 상세 조회 |
+| POST | `/api/v1/orders/{orderId}/cancel` | 주문 취소 |
 
 **주문 요청 Body 예시:**
 ```json

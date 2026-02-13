@@ -298,6 +298,8 @@ sequenceDiagram
     LikeRepo-->>Service: List~Like~
     deactivate LikeRepo
 
+    Note over Service: ⚠️ N+1 쿼리 발생 지점 - 향후 IN 쿼리로 최적화
+
     loop 각 Like에 대해
         Service->>ProductRepo: findById(productId)
         activate ProductRepo
@@ -339,7 +341,7 @@ sequenceDiagram
     participant ProductRepo as ProductRepository
     participant DB as Database
 
-    Admin->>Controller: POST /admin/products
+    Admin->>Controller: POST /api-admin/v1/products
     activate Controller
     Controller->>Service: createProduct(brandId, name, price, stockQuantity)
     activate Service
@@ -402,7 +404,7 @@ sequenceDiagram
     participant LikeRepo as LikeRepository
     participant DB as Database
 
-    Admin->>Controller: DELETE /admin/brands/{id}
+    Admin->>Controller: DELETE /api-admin/v1/brands/{brandId}
     activate Controller
     Controller->>Service: deleteBrand(brandId)
     activate Service
@@ -565,3 +567,4 @@ sequenceDiagram
 | **like_count 정합성** | 트랜잭션 내 동기화 | 오차 허용, 야간 배치로 보정 가능 |
 | **브랜드 삭제 시 대량 처리** | 동기 방식 연쇄 삭제 | 상품이 많으면 비동기 이벤트 처리 고려 |
 | **N+1 쿼리** | 좋아요 목록에서 상품 개별 조회 | `IN` 쿼리로 일괄 조회 또는 Join Fetch |
+| **주문 취소 시 삭제된 상품** | 재고 복원 대상 상품이 soft delete 상태일 수 있음 | 삭제된 상품은 재고 복원 생략, 또는 deletedAt 무시하고 복원 |
