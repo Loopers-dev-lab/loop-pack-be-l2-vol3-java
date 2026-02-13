@@ -1,19 +1,15 @@
 package com.loopers.support.error;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 
-@Getter
-@RequiredArgsConstructor
-public enum ErrorType {
-    /** 범용 에러 */
-    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(), "일시적인 오류가 발생했습니다."),
-    BAD_REQUEST(HttpStatus.BAD_REQUEST, HttpStatus.BAD_REQUEST.getReasonPhrase(), "잘못된 요청입니다."),
-    NOT_FOUND(HttpStatus.NOT_FOUND, HttpStatus.NOT_FOUND.getReasonPhrase(), "존재하지 않는 요청입니다."),
-    CONFLICT(HttpStatus.CONFLICT, HttpStatus.CONFLICT.getReasonPhrase(), "이미 존재하는 리소스입니다.");
-
-    private final HttpStatus status;
-    private final String code;
-    private final String message;
+/**
+ * 에러 타입 인터페이스
+ *
+ * 모든 에러 열거형(UserErrorType, CommonErrorType 등)이 구현하는 공통 계약.
+ * getCode()는 enum의 name()을 반환하여 별도 코드 관리 없이 식별한다.
+ */
+public interface ErrorType {
+    HttpStatus getStatus();
+    String getCode();
+    String getMessage();
 }

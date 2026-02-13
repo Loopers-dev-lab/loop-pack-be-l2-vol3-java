@@ -1,5 +1,12 @@
 package com.loopers.interfaces.api;
 
+/**
+ * 표준 API 응답 래퍼
+ *
+ * 모든 API 응답은 이 포맷으로 통일한다.
+ * - meta: 결과 상태(SUCCESS/FAIL), 에러 코드, 에러 메시지
+ * - data: 응답 본문 (실패 시 null)
+ */
 public record ApiResponse<T>(Metadata meta, T data) {
     public record Metadata(Result result, String errorCode, String message) {
         public enum Result {

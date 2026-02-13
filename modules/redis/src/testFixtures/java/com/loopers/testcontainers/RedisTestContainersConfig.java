@@ -4,9 +4,13 @@ import com.redis.testcontainers.RedisContainer;
 import org.springframework.context.annotation.Configuration;
 import org.testcontainers.utility.DockerImageName;
 
+import java.time.Duration;
+
 @Configuration
 public class RedisTestContainersConfig {
-    private static final RedisContainer redisContainer = new RedisContainer(DockerImageName.parse("redis:latest"));
+    private static final RedisContainer redisContainer = new RedisContainer(
+            DockerImageName.parse("redis:7-alpine").asCompatibleSubstituteFor("redis"))
+            .withStartupTimeout(Duration.ofMinutes(2));
 
     static {
         redisContainer.start();
