@@ -315,9 +315,13 @@ classDiagram
 | 요소 | 설계 | 이유 |
 |------|------|------|
 | `OrderItem` | Entity (Order 내부) | 별도 lifecycle 없이 Order와 함께 생성/삭제 |
-| 스냅샷 필드 | `productName`, `productPrice`, `brandName` | 주문 시점 데이터 보존 |
-| `productId` | 원본 ID 유지 | 상품 페이지 이동, 재주문 기능용 |
+| `productId` | 원본 ID 유지 | 상품 페이지 이동, 재주문 기능용 (삭제 시 404 허용) |
 | `totalPrice` | Order에 저장 | 매번 계산하지 않고 저장 (불변) |
+
+**스냅샷 필드** (`productName`, `productPrice`, `brandName`):
+- 판단 기준: "주문 상세 화면을 독립적으로 렌더링할 수 있는가?"
+- 원본 상품이 변경/삭제되어도 주문 상세 페이지가 깨지지 않고 온전하게 표시되어야 함
+- `imageUrl` 제외: 현재 상품 스펙에 이미지 필드 없음 (오버엔지니어링 방지)
 
 **Order 생성 시 totalPrice 계산**:
 ```java
