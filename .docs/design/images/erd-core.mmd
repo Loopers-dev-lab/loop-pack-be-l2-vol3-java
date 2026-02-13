@@ -1,0 +1,98 @@
+erDiagram
+    users {
+        bigint id PK "사용자 PK"
+        varchar login_id UK "로그인 아이디"
+        varchar email UK "이메일"
+        varchar password_hash "비밀번호 해시"
+        varchar name "표시명"
+        date birth_date "생년월일"
+        varchar phone "연락처"
+        varchar status "USER_STATUS: ACTIVE, INACTIVE, BLOCKED"
+        timestamp deleted_at "soft delete"
+        timestamp created_at "생성 시각"
+        timestamp updated_at "수정 시각"
+    }
+
+    brands {
+        bigint id PK "브랜드 PK"
+        varchar name "브랜드명"
+        text description "브랜드 설명"
+        varchar status "BRAND_STATUS: ACTIVE, INACTIVE"
+        timestamp deleted_at "soft delete"
+        timestamp created_at "생성 시각"
+        timestamp updated_at "수정 시각"
+    }
+
+    products {
+        bigint id PK "상품 PK"
+        bigint brand_id FK "brands.id"
+        varchar name "상품명"
+        text description "상세 설명"
+        int list_price "정가"
+        int sale_price "판매가"
+        int stock "재고 수량"
+        int like_count "좋아요 수"
+        varchar status "PRODUCT_STATUS: ACTIVE, SOLD_OUT, HIDDEN, DISCONTINUED"
+        timestamp deleted_at "soft delete"
+        timestamp created_at "생성 시각"
+        timestamp updated_at "수정 시각"
+    }
+
+    product_likes {
+        bigint id PK "좋아요 PK"
+        bigint user_id FK "users.id"
+        bigint product_id FK "products.id"
+        timestamp deleted_at "soft delete"
+        timestamp created_at "생성 시각"
+    }
+
+    brand_likes {
+        bigint id PK "브랜드 좋아요 PK"
+        bigint user_id FK "users.id"
+        bigint brand_id FK "brands.id"
+        timestamp deleted_at "soft delete"
+        timestamp created_at "생성 시각"
+    }
+
+    orders {
+        bigint id PK "주문 PK"
+        varchar order_number UK "외부 노출 주문번호"
+        bigint user_id FK "users.id"
+        varchar status "ORDER_STATUS: PLACED, PAID, CANCELED"
+        int total_amount "주문 총액"
+        timestamp deleted_at "soft delete"
+        timestamp created_at "주문 시각"
+        timestamp updated_at "수정 시각"
+    }
+
+    order_items {
+        bigint id PK "주문항목 PK"
+        bigint order_id FK "orders.id"
+        bigint product_id "products.id (추적용, FK 아님)"
+        varchar product_name "상품명 스냅샷"
+        varchar brand_name "브랜드명 스냅샷"
+        int unit_price "단가 스냅샷"
+        int quantity "수량"
+        int line_total "라인 합계"
+        timestamp created_at "생성 시각"
+    }
+
+    inventories {
+        bigint id PK "재고 PK"
+        bigint product_id FK "products.id (UK)"
+        int quantity "가용 재고 수량"
+        int reserved_qty "예약 재고 수량"
+        int safety_stock "안전재고 (경고 기준)"
+        timestamp deleted_at "soft delete"
+        timestamp created_at "생성 시각"
+        timestamp updated_at "수정 시각"
+    }
+
+    brands ||--o{ products : "1:N 브랜드-상품"
+    products ||--o{ product_likes : "1:N 상품-좋아요"
+    users ||--o{ product_likes : "1:N 사용자-좋아요"
+    brands ||--o{ brand_likes : "1:N 브랜드-좋아요"
+    users ||--o{ brand_likes : "1:N 사용자-브랜드좋아요"
+    users ||--o{ orders : "1:N 사용자-주문"
+    orders ||--o{ order_items : "1:N 주문-주문항목"
+    products ||--|| inventories : "1:1 상품-재고"
