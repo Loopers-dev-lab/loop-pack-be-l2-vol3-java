@@ -469,96 +469,7 @@ sequenceDiagram
 
 ---
 
-## 8. 주문 취소 (Order Cancellation)
-
-주문 취소 시 재고를 복원하는 흐름이다.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Client
-    participant Controller as OrderController
-    participant Service as OrderService
-    participant OrderRepo as OrderRepository
-    participant ProductRepo as ProductRepository
-    participant DB as Database
-
-    Client->>Controller: POST /orders/{id}/cancel
-    activate Controller
-    Controller->>Service: cancelOrder(memberId, orderId)
-    activate Service
-
-    Note over Service: 트랜잭션 시작
-
-    Service->>OrderRepo: findById(orderId)
-    activate OrderRepo
-    OrderRepo->>DB: SELECT order, order_items WHERE order.id = ?
-    DB-->>OrderRepo: Order with items
-    OrderRepo-->>Service: Order
-    deactivate OrderRepo
-
-    alt 주문이 존재하지 않음
-        Service-->>Controller: NotFound 예외
-        Controller-->>Client: 404 Not Found
-    else 다른 회원의 주문
-        Service-->>Controller: Forbidden 예외
-        Controller-->>Client: 403 Forbidden
-    else 이미 취소된 주문
-        Service-->>Controller: BadRequest 예외
-        Controller-->>Client: 400 Bad Request
-    end
-
-    Note over Service: 재고 복원 (각 주문 항목에 대해)
-
-    loop 각 OrderItem에 대해
-        Service->>ProductRepo: findById(productId)
-        activate ProductRepo
-        ProductRepo->>DB: SELECT product WHERE id = ?
-        DB-->>ProductRepo: Product
-        ProductRepo-->>Service: Product
-        deactivate ProductRepo
-
-        Note over Service: Stock.increase(quantity) 호출
-    end
-
-    Service->>ProductRepo: saveAll(products)
-    activate ProductRepo
-    ProductRepo->>DB: UPDATE stock_quantity (재고 복원)
-    DB-->>ProductRepo: OK
-    ProductRepo-->>Service: OK
-    deactivate ProductRepo
-
-    Note over Service: Order.cancel() 호출 (상태 변경)
-
-    Service->>OrderRepo: save(order)
-    activate OrderRepo
-    OrderRepo->>DB: UPDATE orders SET status = 'CANCELLED'
-    DB-->>OrderRepo: OK
-    OrderRepo-->>Service: OK
-    deactivate OrderRepo
-
-    Note over Service: 트랜잭션 커밋
-
-    Service-->>Controller: Order
-    deactivate Service
-    Controller-->>Client: 200 OK
-    deactivate Controller
-```
-
-### 핵심 설계 포인트
-
-| 포인트 | 설명 |
-|--------|------|
-| **재고 복원** | 주문 취소 시 차감했던 재고를 복원 |
-| **상태 변경** | OrderStatus.CANCELLED로 변경 |
-| **권한 검증** | 본인 주문만 취소 가능 |
-| **멱등성 미적용** | 이미 취소된 주문 재취소는 에러 |
-
----
-
----
-
-## 9. 잠재 리스크
+## 8. 잠재 리스크
 
 | 리스크 | 현재 상태 | 대응 방안 |
 |--------|----------|----------|
@@ -567,4 +478,3 @@ sequenceDiagram
 | **like_count 정합성** | 트랜잭션 내 동기화 | 오차 허용, 야간 배치로 보정 가능 |
 | **브랜드 삭제 시 대량 처리** | 동기 방식 연쇄 삭제 | 상품이 많으면 비동기 이벤트 처리 고려 |
 | **N+1 쿼리** | 좋아요 목록에서 상품 개별 조회 | `IN` 쿼리로 일괄 조회 또는 Join Fetch |
-| **주문 취소 시 삭제된 상품** | 재고 복원 대상 상품이 soft delete 상태일 수 있음 | 삭제된 상품은 재고 복원 생략, 또는 deletedAt 무시하고 복원 |

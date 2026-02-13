@@ -236,20 +236,6 @@ So that 주문한 상품과 금액을 확인할 수 있다
 | Alternate | - |
 | Exception | 다른 회원의 주문이면 조회 실패 |
 
-#### US-O04: 주문 취소
-```
-As a 회원
-I want to 주문을 취소하고 싶다
-So that 잘못 주문한 경우 되돌릴 수 있다
-```
-
-| 흐름 | 설명 |
-|------|------|
-| Main | 주문 상태를 CANCELLED로 변경하고 재고를 복원한다 |
-| Alternate | - |
-| Exception | 이미 취소된 주문이면 실패 |
-| Exception | 다른 회원의 주문이면 취소 실패 |
-
 ---
 
 ## 5. 설계 결정 사항
@@ -355,7 +341,6 @@ public void deleteBrand(Long brandId) {
 
 | METHOD | URI | 설명 |
 |--------|-----|------|
-| GET | `/api/v1/brands` | 브랜드 목록 조회 |
 | GET | `/api/v1/brands/{brandId}` | 브랜드 정보 조회 |
 | GET | `/api/v1/products` | 상품 목록 조회 |
 | GET | `/api/v1/products/{productId}` | 상품 정보 조회 |
@@ -395,7 +380,6 @@ public void deleteBrand(Long brandId) {
 | POST | `/api/v1/orders` | 주문 요청 |
 | GET | `/api/v1/orders?startAt=&endAt=` | 주문 목록 조회 (날짜 필터) |
 | GET | `/api/v1/orders/{orderId}` | 주문 상세 조회 |
-| POST | `/api/v1/orders/{orderId}/cancel` | 주문 취소 |
 
 **주문 요청 Body 예시:**
 ```json
