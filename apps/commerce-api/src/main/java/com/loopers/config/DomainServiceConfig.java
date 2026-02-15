@@ -2,6 +2,8 @@ package com.loopers.config;
 
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.like.LikeRepository;
+import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.user.PasswordEncryptor;
@@ -26,5 +28,10 @@ public class DomainServiceConfig {
     @Bean
     public ProductService productService(ProductRepository productRepository) {
         return new ProductService(productRepository);
+    }
+
+    @Bean
+    public LikeService likeService(LikeRepository likeRepository) {
+        return new LikeService(likeRepository);
     }
 }
