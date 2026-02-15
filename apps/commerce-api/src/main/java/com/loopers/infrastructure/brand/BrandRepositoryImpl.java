@@ -8,7 +8,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @RequiredArgsConstructor
 @Component
@@ -24,6 +26,11 @@ public class BrandRepositoryImpl implements BrandRepository {
     @Override
     public Optional<Brand> findById(Long id) {
         return brandJpaRepository.findByIdAndDeletedAtIsNull(id);
+    }
+
+    @Override
+    public List<Brand> findAllByIds(Set<Long> ids) {
+        return brandJpaRepository.findAllByIdInAndDeletedAtIsNull(ids);
     }
 
     @Override
