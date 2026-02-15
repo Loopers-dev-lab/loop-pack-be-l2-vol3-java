@@ -43,8 +43,8 @@ LAST UPDATED: 2026-02-15
 
 ### 다이어그램 작성 원칙
 
-- **핵심 컴포넌트만 표현**: 각 API 흐름의 주요 참여자(Api, Facade, Service, Repository)만 다이어그램에 포함한다.
-- **연관 도메인은 Service 레벨로 생략**: 삭제 등 연쇄 작업이 필요한 경우, 연관 도메인은 Service 호출까지만 표현하고 내부 Repository 흐름은 생략한다. (예: 브랜드 삭제 시 `LikeService`, `ProductService`만 호출하며, 각 Service 내부의 Repository 상호작용은 표현하지 않음)
+- **핵심 컴포넌트만 표현**: 각 API 흐름의 주요 참여자(Api, Service, Repository)만 다이어그램에 포함한다.
+- **연관 도메인은 Repository 레벨로 표현**: 여러 도메인 조율 시 주 Service가 타 도메인의 Repository를 직접 사용한다. (예: 브랜드 삭제 시 `BrandService`가 `ProductRepository`, `LikeRepository`를 직접 호출)
 - **인증 흐름 분리**: 인증(Interceptor → UserService) 흐름은 별도 섹션에서 정의하며, 각 API 다이어그램에서는 생략한다.
 - **Actor 구분**: 어드민 API는 `Admin`, 대고객 API는 `Client` actor로 구분한다.
 - **예외 흐름 포함**: 정상 흐름(happy path)과 주요 예외 흐름(break)을 함께 표현한다. 예외 발생 시 나머지 흐름을 건너뛰는 경우 `break`를, 여러 대안 중 하나를 선택하는 경우 `alt`를 사용한다.
@@ -55,19 +55,17 @@ LAST UPDATED: 2026-02-15
 | 컴포넌트             | 역할                                   |
 |------------------|--------------------------------------|
 | Api (Controller) | 클라이언트 요청 수신, 응답 반환                   |
-| Facade           | 여러 도메인 서비스 간 조율 (단일 서비스만 호출하는 경우 생략) |
-| Service          | 단일 도메인의 비즈니스 로직 수행                   |
+| Service          | 비즈니스 로직 수행 (여러 도메인 조율 포함)            |
 | Repository       | 데이터 영속화                              |
 
 ### 의존성 방향
 
 ```
-Api → Facade → Service → Repository
-Api → Service → Repository (단일 서비스인 경우)
+Api → Service → Repository
 ```
 
 - 의존성은 항상 상위 → 하위 방향이며, 역방향 의존은 허용하지 않는다.
-- Facade는 여러 Service를 조율할 때만 사용하며, 단일 Service 호출 시 Api가 직접 Service를 호출한다.
+- 여러 도메인을 조율할 때 주 Service가 타 도메인의 Repository를 직접 사용한다 (Service 간 의존 없음).
 
 ## Authentication (대고객 인증)
 
@@ -171,7 +169,7 @@ sequenceDiagram
     BrandApi ->>+ BrandService: 브랜드 목록 조회
     BrandService ->>+ BrandRepository: 브랜드 페이지 조회
     BrandRepository -->>- BrandService: Page<Brand>
-    BrandService -->>- BrandApi: Page<Brand>
+    BrandService -->>- BrandApi: Page<BrandResult>
     BrandApi -->>- Admin: 200 OK + 브랜드 목록 페이지
 ```
 
@@ -243,38 +241,33 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant BrandApi
-    participant BrandFacade
     participant BrandService
     participant BrandRepository
-    participant LikeService
-    participant ProductService
+    participant ProductRepository
+    participant LikeRepository
 
     Admin ->>+ BrandApi: DELETE /api-admin/v1/brands/{brandId}
-    BrandApi ->>+ BrandFacade: 브랜드 삭제 요청
-    BrandFacade ->>+ BrandService: 브랜드 조회
+    BrandApi ->>+ BrandService: 브랜드 삭제 요청
 
     BrandService ->>+ BrandRepository: 브랜드 조회
     BrandRepository -->>- BrandService: Optional<Brand>
 
     break 브랜드가 존재하지 않을 경우
-        BrandService -->> BrandFacade: 조회 실패
-        BrandFacade -->> BrandApi: 삭제 실패
+        BrandService -->> BrandApi: 조회 실패
         BrandApi -->> Admin: 404 Not Found
     end
 
     break 이미 삭제된 브랜드일 경우
-        BrandService -->> BrandFacade: 삭제 실패
-        BrandFacade -->> BrandApi: 삭제 실패
+        BrandService -->> BrandApi: 삭제 실패
         BrandApi -->> Admin: 400 Bad Request
     end
 
-    BrandService -->>- BrandFacade: Brand
-    BrandFacade ->>+ ProductService: 브랜드 소속 상품 ID 목록 조회
-    ProductService -->>- BrandFacade: List~Long~ productIds
-    BrandFacade ->> LikeService: 상품 연관 좋아요 삭제
-    BrandFacade ->> ProductService: 브랜드 연관 상품 삭제
-    BrandFacade ->> BrandService: 브랜드 삭제
-    BrandFacade -->>- BrandApi: 삭제 완료
+    BrandService ->>+ ProductRepository: 브랜드 소속 상품 ID 목록 조회
+    ProductRepository -->>- BrandService: List~Long~ productIds
+    BrandService ->> LikeRepository: 상품 연관 좋아요 삭제
+    BrandService ->> ProductRepository: 브랜드 연관 상품 삭제
+    BrandService ->> BrandRepository: 브랜드 삭제
+    BrandService -->>- BrandApi: 삭제 완료
     BrandApi -->>- Admin: 200 OK
 ```
 
@@ -311,30 +304,25 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant ProductApi
-    participant ProductFacade
-    participant BrandService
     participant ProductService
+    participant BrandRepository
     participant ProductRepository
 
     Admin ->>+ ProductApi: POST /api-admin/v1/products
-    ProductApi ->>+ ProductFacade: 상품 등록 요청
+    ProductApi ->>+ ProductService: 상품 등록 요청
 
-    ProductFacade ->>+ BrandService: 브랜드 조회
+    ProductService ->>+ BrandRepository: 브랜드 조회
+    BrandRepository -->>- ProductService: Optional<Brand>
 
     break 브랜드가 존재하지 않을 경우
-        BrandService -->> ProductFacade: 조회 실패
-        ProductFacade -->> ProductApi: 등록 실패
+        ProductService -->> ProductApi: 등록 실패
         ProductApi -->> Admin: 404 Not Found
     end
 
-    BrandService -->>- ProductFacade: Brand
-
-    ProductFacade ->>+ ProductService: 상품 등록
     ProductService ->> ProductService: 상품 정보 유효성 검증
 
     break 상품 정보 유효성 검증에 실패할 경우
-        ProductService -->> ProductFacade: 유효성 검증 실패
-        ProductFacade -->> ProductApi: 등록 실패
+        ProductService -->> ProductApi: 유효성 검증 실패
         ProductApi -->> Admin: 400 Bad Request
     end
 
@@ -342,16 +330,14 @@ sequenceDiagram
     ProductRepository -->>- ProductService: boolean
 
     break 활성 상태의 동일 이름 상품이 존재할 경우
-        ProductService -->> ProductFacade: 중복 검증 실패
-        ProductFacade -->> ProductApi: 등록 실패
+        ProductService -->> ProductApi: 중복 검증 실패
         ProductApi -->> Admin: 400 Bad Request
     end
 
     ProductService ->> ProductService: 상품 생성
     ProductService ->>+ ProductRepository: 상품 저장
     ProductRepository -->>- ProductService: Product
-    ProductService -->>- ProductFacade: Product
-    ProductFacade -->>- ProductApi: ProductResult
+    ProductService -->>- ProductApi: ProductResult
     ProductApi -->>- Admin: 201 Created
 ```
 
@@ -361,31 +347,26 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant ProductApi
-    participant ProductFacade
-    participant BrandService
     participant ProductService
+    participant BrandRepository
     participant ProductRepository
 
     Admin ->>+ ProductApi: GET /api-admin/v1/products
-    ProductApi ->>+ ProductFacade: 상품 목록 조회 요청
+    ProductApi ->>+ ProductService: 상품 목록 조회 요청
 
     opt brandId가 전달된 경우
-        ProductFacade ->>+ BrandService: 브랜드 조회
+        ProductService ->>+ BrandRepository: 브랜드 조회
+        BrandRepository -->>- ProductService: Optional<Brand>
 
         break 유효하지 않은 브랜드일 경우
-            BrandService -->> ProductFacade: 조회 실패
-            ProductFacade -->> ProductApi: 조회 실패
+            ProductService -->> ProductApi: 조회 실패
             ProductApi -->> Admin: 400 Bad Request
         end
-
-        BrandService -->>- ProductFacade: Brand
     end
 
-    ProductFacade ->>+ ProductService: 상품 페이지 조회
     ProductService ->>+ ProductRepository: 상품 페이지 조회
     ProductRepository -->>- ProductService: Page<Product>
-    ProductService -->>- ProductFacade: Page<Product>
-    ProductFacade -->>- ProductApi: Page<ProductResult>
+    ProductService -->>- ProductApi: Page<ProductResult>
     ProductApi -->>- Admin: 200 OK + 상품 목록 페이지
 ```
 
@@ -457,34 +438,29 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant ProductApi
-    participant ProductFacade
     participant ProductService
     participant ProductRepository
-    participant LikeService
+    participant LikeRepository
 
     Admin ->>+ ProductApi: DELETE /api-admin/v1/products/{productId}
-    ProductApi ->>+ ProductFacade: 상품 삭제 요청
-    ProductFacade ->>+ ProductService: 상품 조회
+    ProductApi ->>+ ProductService: 상품 삭제 요청
+
     ProductService ->>+ ProductRepository: 상품 조회
     ProductRepository -->>- ProductService: Optional<Product>
 
     break 상품이 존재하지 않을 경우
-        ProductService -->> ProductFacade: 조회 실패
-        ProductFacade -->> ProductApi: 삭제 실패
+        ProductService -->> ProductApi: 조회 실패
         ProductApi -->> Admin: 404 Not Found
     end
 
     break 이미 삭제된 상품일 경우
-        ProductService -->> ProductFacade: 삭제 실패
-        ProductFacade -->> ProductApi: 삭제 실패
+        ProductService -->> ProductApi: 삭제 실패
         ProductApi -->> Admin: 400 Bad Request
     end
 
-    ProductService -->>- ProductFacade: Product
-
-    ProductFacade ->> LikeService: 상품 연관 좋아요 삭제
-    ProductFacade ->> ProductService: 상품 삭제
-    ProductFacade -->>- ProductApi: 삭제 완료
+    ProductService ->> LikeRepository: 상품 연관 좋아요 삭제
+    ProductService ->> ProductRepository: 상품 삭제
+    ProductService -->>- ProductApi: 삭제 완료
     ProductApi -->>- Admin: 200 OK
 ```
 
@@ -494,33 +470,28 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant ProductApi
-    participant ProductFacade
-    participant BrandService
     participant ProductService
+    participant BrandRepository
     participant ProductRepository
 
     Client ->>+ ProductApi: GET /api/v1/products
-    ProductApi ->>+ ProductFacade: 상품 목록 조회 요청
+    ProductApi ->>+ ProductService: 상품 목록 조회 요청
 
     opt brandId가 전달된 경우
-        Note over BrandService: 활성 브랜드만 조회
-        ProductFacade ->>+ BrandService: 브랜드 조회
+        Note over BrandRepository: 활성 브랜드만 조회
+        ProductService ->>+ BrandRepository: 브랜드 조회
+        BrandRepository -->>- ProductService: Optional<Brand>
 
         break 브랜드가 존재하지 않거나 삭제된 경우
-            BrandService -->> ProductFacade: 조회 실패
-            ProductFacade -->> ProductApi: 조회 실패
+            ProductService -->> ProductApi: 조회 실패
             ProductApi -->> Client: 404 Not Found
         end
-
-        BrandService -->>- ProductFacade: Brand
     end
 
     Note over ProductService, ProductRepository: 활성 상품만 페이지 조회
-    ProductFacade ->>+ ProductService: 상품 페이지 조회
     ProductService ->>+ ProductRepository: 상품 페이지 조회
     ProductRepository -->>- ProductService: Page<Product>
-    ProductService -->>- ProductFacade: Page<Product>
-    ProductFacade -->>- ProductApi: Page<ProductResult>
+    ProductService -->>- ProductApi: Page<ProductResult>
     ProductApi -->>- Client: 200 OK + 상품 목록 페이지
 ```
 
@@ -530,29 +501,25 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant ProductApi
-    participant ProductFacade
     participant ProductService
     participant ProductRepository
-    participant LikeService
+    participant LikeRepository
 
     Client ->>+ ProductApi: GET /api/v1/products/{productId}
-    ProductApi ->>+ ProductFacade: 상품 상세 조회 요청
-    ProductFacade ->>+ ProductService: 상품 조회
+    ProductApi ->>+ ProductService: 상품 상세 조회 요청
+
     ProductService ->>+ ProductRepository: 상품 조회
     ProductRepository -->>- ProductService: Optional<Product>
 
     break 상품이 존재하지 않을 경우
-        ProductService -->> ProductFacade: 조회 실패
-        ProductFacade -->> ProductApi: 조회 실패
+        ProductService -->> ProductApi: 조회 실패
         ProductApi -->> Client: 404 Not Found
     end
 
-    ProductService -->>- ProductFacade: Product
+    ProductService ->>+ LikeRepository: 상품 좋아요 수 조회
+    LikeRepository -->>- ProductService: Long (count)
 
-    ProductFacade ->>+ LikeService: 상품 좋아요 수 조회
-    LikeService -->>- ProductFacade: Long (count)
-
-    ProductFacade -->>- ProductApi: ProductResult
+    ProductService -->>- ProductApi: ProductResult
     ProductApi -->>- Client: 200 OK + 상품 상세 정보
 ```
 
@@ -564,36 +531,32 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant LikeApi
-    participant LikeFacade
-    participant ProductService
     participant LikeService
+    participant ProductRepository
     participant LikeRepository
 
     Client ->>+ LikeApi: POST /api/v1/products/{productId}/likes
-    LikeApi ->>+ LikeFacade: 상품 좋아요 등록 요청
-    LikeFacade ->>+ ProductService: 상품 조회
+    LikeApi ->>+ LikeService: 상품 좋아요 등록 요청
+
+    LikeService ->>+ ProductRepository: 상품 조회
+    ProductRepository -->>- LikeService: Optional<Product>
 
     break 상품이 존재하지 않을 경우
-        ProductService -->> LikeFacade: 조회 실패
-        LikeFacade -->> LikeApi: 등록 실패
+        LikeService -->> LikeApi: 등록 실패
         LikeApi -->> Client: 404 Not Found
     end
 
-    ProductService -->>- LikeFacade: Product
-
-    LikeFacade ->>+ LikeService: 좋아요 등록
     LikeService ->>+ LikeRepository: 좋아요 조회
     LikeRepository -->>- LikeService: Optional<Like>
 
     alt 좋아요가 존재하지 않을 경우
         LikeService ->> LikeRepository: 좋아요 저장
-        LikeService -->> LikeFacade: 새로 등록됨
+        LikeRepository -->> LikeService: Like
     else 좋아요가 이미 존재할 경우
-        LikeService -->> LikeFacade: 이미 등록됨
+        LikeService ->> LikeService: 이미 등록됨
     end
-    deactivate LikeService
 
-    LikeFacade -->>- LikeApi: 등록 완료
+    LikeService -->>- LikeApi: 등록 완료
     LikeApi -->>- Client: 200 OK
 ```
 
@@ -603,36 +566,31 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant LikeApi
-    participant LikeFacade
-    participant ProductService
     participant LikeService
+    participant ProductRepository
     participant LikeRepository
 
     Client ->>+ LikeApi: DELETE /api/v1/products/{productId}/likes
-    LikeApi ->>+ LikeFacade: 상품 좋아요 취소 요청
-    LikeFacade ->>+ ProductService: 상품 조회
+    LikeApi ->>+ LikeService: 상품 좋아요 취소 요청
+
+    LikeService ->>+ ProductRepository: 상품 조회
+    ProductRepository -->>- LikeService: Optional<Product>
 
     break 상품이 존재하지 않을 경우
-        ProductService -->> LikeFacade: 조회 실패
-        LikeFacade -->> LikeApi: 취소 실패
+        LikeService -->> LikeApi: 취소 실패
         LikeApi -->> Client: 404 Not Found
     end
 
-    ProductService -->>- LikeFacade: Product
-
-    LikeFacade ->>+ LikeService: 좋아요 취소
     LikeService ->>+ LikeRepository: 좋아요 조회
     LikeRepository -->>- LikeService: Optional<Like>
 
     alt 좋아요가 존재할 경우
         LikeService ->> LikeRepository: 좋아요 삭제
-        LikeService -->> LikeFacade: 삭제됨
     else 좋아요가 존재하지 않을 경우
-        LikeService -->> LikeFacade: 이미 취소됨
+        LikeService ->> LikeService: 이미 취소됨
     end
-    deactivate LikeService
 
-    LikeFacade -->>- LikeApi: 취소 완료
+    LikeService -->>- LikeApi: 취소 완료
     LikeApi -->>- Client: 200 OK
 ```
 
@@ -642,23 +600,20 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant LikeApi
-    participant LikeFacade
     participant LikeService
     participant LikeRepository
-    participant ProductService
+    participant ProductRepository
 
     Client ->>+ LikeApi: GET /api/v1/users/me/likes
-    LikeApi ->>+ LikeFacade: 좋아요한 상품 목록 조회
+    LikeApi ->>+ LikeService: 좋아요한 상품 목록 조회
 
-    LikeFacade ->>+ LikeService: 좋아요 목록 조회
     LikeService ->>+ LikeRepository: 좋아요 페이지 조회
     LikeRepository -->>- LikeService: Page<Like>
-    LikeService -->>- LikeFacade: Page<Like>
 
-    LikeFacade ->>+ ProductService: 상품 목록 조회 (productIds)
-    ProductService -->>- LikeFacade: List<Product>
+    LikeService ->>+ ProductRepository: 상품 목록 조회 (productIds)
+    ProductRepository -->>- LikeService: List<Product>
 
-    LikeFacade -->>- LikeApi: Page<LikedProductResult>
+    LikeService -->>- LikeApi: Page<LikedProductResult>
     LikeApi -->>- Client: 200 OK + 좋아요한 상품 목록 페이지
 ```
 
@@ -677,7 +632,7 @@ sequenceDiagram
     OrderApi ->>+ OrderService: 주문 목록 조회
     OrderService ->>+ OrderRepository: 주문 페이지 조회
     OrderRepository -->>- OrderService: Page<Order>
-    OrderService -->>- OrderApi: Page<Order>
+    OrderService -->>- OrderApi: Page<OrderResult>
     OrderApi -->>- Admin: 200 OK + 주문 목록 페이지
 ```
 
@@ -711,44 +666,38 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant OrderApi
-    participant OrderFacade
-    participant ProductService
     participant OrderService
+    participant ProductRepository
     participant OrderRepository
 
     Client ->>+ OrderApi: POST /api/v1/orders
-    OrderApi ->>+ OrderFacade: 주문 요청
+    OrderApi ->>+ OrderService: 주문 요청
 
-    OrderFacade ->>+ ProductService: 주문 상품 검증 및 재고 차감
+    OrderService ->>+ ProductRepository: 주문 상품 조회
+    ProductRepository -->>- OrderService: List<Product>
 
     break 유효하지 않은 상품이 포함된 경우
-        ProductService -->> OrderFacade: 검증 실패
-        OrderFacade -->> OrderApi: 주문 실패
+        OrderService -->> OrderApi: 주문 실패
         OrderApi -->> Client: 400 Bad Request
     end
 
     break 재고가 부족한 상품이 존재할 경우
-        ProductService -->> OrderFacade: 재고 부족
-        OrderFacade -->> OrderApi: 주문 실패
+        OrderService -->> OrderApi: 주문 실패
         OrderApi -->> Client: 400 Bad Request
     end
 
-    ProductService -->>- OrderFacade: List<Product>
-
-    OrderFacade ->>+ OrderService: 주문 생성
+    OrderService ->> OrderService: 재고 차감
     OrderService ->> OrderService: 주문 유효성 검증
 
     break 주문 유효성 검증에 실패할 경우
-        OrderService -->> OrderFacade: 유효성 검증 실패
-        OrderFacade -->> OrderApi: 주문 실패
+        OrderService -->> OrderApi: 주문 실패
         OrderApi -->> Client: 400 Bad Request
     end
 
     OrderService ->> OrderService: 주문 생성
     OrderService ->>+ OrderRepository: 주문 저장
     OrderRepository -->>- OrderService: Order
-    OrderService -->>- OrderFacade: Order
-    OrderFacade -->>- OrderApi: OrderResult
+    OrderService -->>- OrderApi: OrderResult
     OrderApi -->>- Client: 201 Created
 ```
 
@@ -765,7 +714,7 @@ sequenceDiagram
     OrderApi ->>+ OrderService: 주문 목록 조회
     OrderService ->>+ OrderRepository: 주문 페이지 조회
     OrderRepository -->>- OrderService: Page<Order>
-    OrderService -->>- OrderApi: Page<Order>
+    OrderService -->>- OrderApi: Page<OrderResult>
     OrderApi -->>- Client: 200 OK + 주문 목록 페이지
 ```
 
