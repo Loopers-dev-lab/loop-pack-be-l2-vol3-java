@@ -6,6 +6,9 @@ import com.loopers.domain.cart.CartRepository;
 import com.loopers.domain.cart.CartService;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.like.LikeService;
+import com.loopers.domain.order.OrderItemRepository;
+import com.loopers.domain.order.OrderRepository;
+import com.loopers.domain.order.OrderService;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.user.PasswordEncryptor;
@@ -40,5 +43,10 @@ public class DomainServiceConfig {
     @Bean
     public CartService cartService(CartRepository cartRepository) {
         return new CartService(cartRepository);
+    }
+
+    @Bean
+    public OrderService orderService(OrderRepository orderRepository, OrderItemRepository orderItemRepository) {
+        return new OrderService(orderRepository, orderItemRepository);
     }
 }

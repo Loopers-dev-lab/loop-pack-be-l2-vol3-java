@@ -24,6 +24,11 @@ public class ProductService {
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
     }
 
+    public Product getByIdWithLock(Long id) {
+        return productRepository.findByIdWithLock(id)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
+    }
+
     public Map<Long, Product> getByIds(Set<Long> ids) {
         List<Product> products = productRepository.findAllByIds(ids);
         return products.stream().collect(Collectors.toMap(Product::getId, product -> product));

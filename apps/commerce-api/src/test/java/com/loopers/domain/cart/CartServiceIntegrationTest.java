@@ -1,5 +1,6 @@
 package com.loopers.domain.cart;
 
+import com.loopers.domain.Quantity;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.product.Money;
 import com.loopers.domain.product.Product;

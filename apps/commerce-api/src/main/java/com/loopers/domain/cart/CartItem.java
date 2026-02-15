@@ -1,5 +1,6 @@
 package com.loopers.domain.cart;
 
+import com.loopers.domain.Quantity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
