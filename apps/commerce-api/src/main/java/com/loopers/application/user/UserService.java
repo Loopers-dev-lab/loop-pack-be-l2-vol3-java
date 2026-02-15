@@ -1,8 +1,13 @@
-package com.loopers.domain.user;
+package com.loopers.application.user;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.loopers.domain.user.LoginId;
+import com.loopers.domain.user.PasswordEncoder;
+import com.loopers.domain.user.User;
+import com.loopers.domain.user.UserRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 
@@ -16,13 +21,24 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public User signUp(String loginId, String password, String name, String birthDate, String email) {
+    public UserResult signUp(String loginId, String password, String name, String birthDate, String email) {
         if (userRepository.existsByLoginId(new LoginId(loginId))) {
             throw new CoreException(ErrorType.DUPLICATE_LOGIN_ID);
         }
 
-        User user = User.signUp(loginId, password, name, birthDate, email, passwordEncoder);
-        return userRepository.save(user);
+        try {
+            User user = User.signUp(loginId, password, name, birthDate, email, passwordEncoder);
+            User savedUser = userRepository.save(user);
+            return UserResult.from(savedUser);
+        } catch (DataIntegrityViolationException e) {
+            throw new CoreException(ErrorType.DUPLICATE_LOGIN_ID);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public UserResult getMyInfo(Long userId) {
+        User user = getUser(userId);
+        return UserResult.from(user);
     }
 
     @Transactional(readOnly = true)

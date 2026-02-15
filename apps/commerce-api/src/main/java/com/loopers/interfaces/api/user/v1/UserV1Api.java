@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.loopers.application.user.UserFacade;
 import com.loopers.application.user.UserResult;
+import com.loopers.application.user.UserService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.LoginUser;
 
@@ -23,13 +23,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class UserV1Api implements UserV1ApiSpec {
 
-    private final UserFacade userFacade;
+    private final UserService userService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Override
     public ApiResponse<UserV1Dto.SignUpResponse> signUp(@Valid @RequestBody UserV1Dto.SignUpRequest request) {
-        UserResult userResult = userFacade.signUp(
+        UserResult userResult = userService.signUp(
                 request.loginId(),
                 request.password(),
                 request.name(),
@@ -43,7 +43,7 @@ public class UserV1Api implements UserV1ApiSpec {
     @GetMapping("/me")
     @Override
     public ApiResponse<UserV1Dto.MeResponse> getMyInfo(@LoginUser Long userId) {
-        UserResult userResult = userFacade.getMyInfo(userId);
+        UserResult userResult = userService.getMyInfo(userId);
         return ApiResponse.success(UserV1Dto.MeResponse.from(userResult));
     }
 
@@ -53,7 +53,7 @@ public class UserV1Api implements UserV1ApiSpec {
             @LoginUser Long userId,
             @Valid @RequestBody UserV1Dto.UpdatePasswordRequest request
     ) {
-        userFacade.updatePassword(userId, request.oldPassword(), request.newPassword());
+        userService.updatePassword(userId, request.oldPassword(), request.newPassword());
         return ApiResponse.success();
     }
 }

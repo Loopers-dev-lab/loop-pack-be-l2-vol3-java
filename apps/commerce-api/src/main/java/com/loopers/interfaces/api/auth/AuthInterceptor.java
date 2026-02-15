@@ -6,7 +6,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import com.loopers.domain.user.UserService;
+import com.loopers.application.user.UserService;
 import com.loopers.interfaces.api.config.WebMvcConfig;
 import com.loopers.support.error.CoreException;
 
