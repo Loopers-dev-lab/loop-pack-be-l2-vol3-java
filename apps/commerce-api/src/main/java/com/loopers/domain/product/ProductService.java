@@ -5,6 +5,11 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 @RequiredArgsConstructor
 public class ProductService {
 
@@ -17,6 +22,11 @@ public class ProductService {
     public Product getById(Long id) {
         return productRepository.findById(id)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
+    }
+
+    public Map<Long, Product> getByIds(Set<Long> ids) {
+        List<Product> products = productRepository.findAllByIds(ids);
+        return products.stream().collect(Collectors.toMap(Product::getId, product -> product));
     }
 
     public PageResult<Product> getAll(Long brandId, ProductSortType sort, int page, int size) {

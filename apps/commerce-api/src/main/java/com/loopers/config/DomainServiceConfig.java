@@ -2,6 +2,8 @@ package com.loopers.config;
 
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.cart.CartRepository;
+import com.loopers.domain.cart.CartService;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.ProductRepository;
@@ -33,5 +35,10 @@ public class DomainServiceConfig {
     @Bean
     public LikeService likeService(LikeRepository likeRepository) {
         return new LikeService(likeRepository);
+    }
+
+    @Bean
+    public CartService cartService(CartRepository cartRepository) {
+        return new CartService(cartRepository);
     }
 }

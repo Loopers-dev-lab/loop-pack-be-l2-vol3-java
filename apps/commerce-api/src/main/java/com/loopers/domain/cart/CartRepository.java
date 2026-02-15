@@ -1,0 +1,19 @@
+package com.loopers.domain.cart;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface CartRepository {
+
+    CartItem save(CartItem cartItem);
+
+    void delete(CartItem cartItem);
+
+    void deleteAllByUserId(Long userId);
+
+    Optional<CartItem> findById(Long id);
+
+    Optional<CartItem> findByUserIdAndProductId(Long userId, Long productId);
+
+    List<CartItem> findAllByUserId(Long userId);
+}

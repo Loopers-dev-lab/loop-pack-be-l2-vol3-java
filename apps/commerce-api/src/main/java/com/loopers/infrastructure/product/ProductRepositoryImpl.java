@@ -10,6 +10,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 @RequiredArgsConstructor
@@ -26,6 +28,11 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public Optional<Product> findById(Long id) {
         return productJpaRepository.findByIdAndDeletedAtIsNull(id);
+    }
+
+    @Override
+    public List<Product> findAllByIds(Collection<Long> ids) {
+        return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids);
     }
 
     @Override

@@ -44,8 +44,7 @@ public class LikeFacade {
             .map(Like::getProductId)
             .collect(Collectors.toSet());
 
-        Map<Long, Product> productMap = productIds.stream()
-            .collect(Collectors.toMap(id -> id, productService::getById));
+        Map<Long, Product> productMap = productService.getByIds(productIds);
 
         Set<Long> brandIds = productMap.values().stream()
             .map(Product::getBrandId)
@@ -53,6 +52,7 @@ public class LikeFacade {
         Map<Long, Brand> brandMap = brandService.getByIds(brandIds);
 
         return likes.stream()
+            .filter(like -> productMap.containsKey(like.getProductId()))
             .map(like -> {
                 Product product = productMap.get(like.getProductId());
                 Brand brand = brandMap.get(product.getBrandId());
