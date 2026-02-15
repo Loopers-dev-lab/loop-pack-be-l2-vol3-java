@@ -5,6 +5,7 @@ import com.loopers.application.user.UserInfo;
 import com.loopers.domain.user.User;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.AuthUser;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,7 +23,7 @@ public class UserV1Controller implements UserV1ApiSpec {
 
     @PostMapping
     @Override
-    public ApiResponse<UserV1Dto.SignupResponse> signup(@RequestBody UserV1Dto.SignupRequest request) {
+    public ApiResponse<UserV1Dto.SignupResponse> signup(@Valid @RequestBody UserV1Dto.SignupRequest request) {
         UserInfo info = userFacade.signup(
             request.loginId(),
             request.password(),
@@ -44,7 +45,7 @@ public class UserV1Controller implements UserV1ApiSpec {
 
     @PutMapping("/password")
     @Override
-    public ApiResponse<Void> changePassword(@AuthUser User user, @RequestBody UserV1Dto.ChangePasswordRequest request) {
+    public ApiResponse<Void> changePassword(@AuthUser User user, @Valid @RequestBody UserV1Dto.ChangePasswordRequest request) {
         userFacade.changePassword(user, request.currentPassword(), request.newPassword());
         return ApiResponse.success(null);
     }

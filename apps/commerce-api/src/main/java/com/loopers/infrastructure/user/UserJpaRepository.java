@@ -2,9 +2,16 @@ package com.loopers.infrastructure.user;
 
 import com.loopers.domain.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.Optional;
 
 public interface UserJpaRepository extends JpaRepository<User, Long> {
-    boolean existsByLoginId(String loginId);
 
-    java.util.Optional<User> findByLoginId(String loginId);
+    @Query("SELECT COUNT(u) > 0 FROM User u WHERE u.loginId.value = :loginId")
+    boolean existsByLoginId(@Param("loginId") String loginId);
+
+    @Query("SELECT u FROM User u WHERE u.loginId.value = :loginId")
+    Optional<User> findByLoginId(@Param("loginId") String loginId);
 }
