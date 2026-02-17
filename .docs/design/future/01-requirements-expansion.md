@@ -1,44 +1,62 @@
-# 향후 확장 설계 방향
+# 향후 확장 요구사항: 옵션/Variant 시스템
 
-> 현재 구현 범위(Brand, Product, Like, Order) 이후 확장할 도메인의 설계 방향을 정리한다.
+> 현재 구현 범위(19개 테이블)에서 제외된 확장 도메인의 요구사항 방향을 정리한다.
 > 본 문서는 방향성만 제시하며, 구현 시 별도 요구사항 명세를 작성한다.
 
 ---
 
-## A. 결제(Payment) 도메인
+## 현재 구현 범위와의 관계
 
-- 향후 추가 개발 예정
-- Order 상태와 분리된 별도 상태 머신 (INITIATED → AUTHORIZED → FAILED/CANCELED)
-- PG 콜백 멱등 처리 (pg_txn_id 유니크)
-- 결제 실패 시 재고 보상 트랜잭션
+현재 설계에서는 Product 단위로 가격(`base_price`)과 재고(`inventories`)를 관리한다.
+Variant 시스템 도입 시, **재고와 가격의 관리 단위가 Product에서 Variant로 이동**한다.
 
-## B. 옵션/Variant 시스템
+| 영역 | 현재 설계 | Variant 도입 후 |
+|------|----------|----------------|
+| 가격 | `products.base_price` | `base_price` + `variants.extra_price` |
+| 재고 | `inventories.product_id` (1:1) | `inventories.variant_id` (Variant 단위) |
+| 주문 항목 | `order_items.product_id` | `order_items.variant_id` + 옵션 스냅샷 |
+| 장바구니 | `cart_items.product_id` | `cart_items.variant_id` |
+| 재고 예약 | `inventory_reservation_items.product_id` | `inventory_reservation_items.variant_id` |
 
-- Product → OptionGroup → OptionValue → Variant 구조
-- 재고는 Variant 단위로 관리
-- 가격은 base_price + variant_extra_price
+---
 
-## C. 장바구니(Cart)
+## A. Option/Variant 시스템
 
-- 유저당 ACTIVE Cart 1개 정책
-- CartLine merge: (cart_id, variant_id) 기준 수량 합산
-- Cart는 "표시용" (확정은 Checkout에서)
+### 문제 상황
 
-## D. 주문서(OrderSheet) / Checkout
+- **사용자 관점**: 동일 상품이라도 사이즈/컬러에 따라 재고와 가격이 다를 수 있음. 현재는 구분 불가
+- **비즈니스 관점**: SKU(Stock Keeping Unit) 단위 재고 관리 필요. 옵션별 추가 가격 정책 필요
+- **시스템 관점**: Product 1:1 Inventory 구조에서는 옵션별 재고를 관리할 수 없음
 
-- Cart → OrderSheet 스냅샷 생성
-- DRAFT → VALIDATING → READY_FOR_PAYMENT 상태 전이
-- 재고 Reservation + 쿠폰 RESERVED 홀드
-- TTL 만료 시 자동 해제 (배치)
+### 요구사항 방향
 
-## E. 쿠폰(Coupon)
+| ID | 기능 | 설명 |
+|----|------|------|
+| V-01 | 옵션 그룹 관리 | 상품별 옵션 그룹(컬러, 사이즈 등) CRUD |
+| V-02 | 옵션 값 관리 | 옵션 그룹 내 값(빨강, 파랑 / S, M, L 등) CRUD |
+| V-03 | Variant 생성 | 옵션 값 조합으로 Variant 자동/수동 생성 |
+| V-04 | Variant별 가격 | base_price + extra_price 구조. 추가 가격은 Variant에 귀속 |
+| V-05 | Variant별 재고 | Inventory가 Variant 단위로 연결 (productId → variantId) |
+| V-06 | Variant별 SKU | 각 Variant에 고유 SKU 코드 부여 |
+| V-07 | 옵션 없는 상품 호환 | 옵션이 없는 단품은 기본 Variant 1개로 처리 (하위 호환) |
 
-- CouponTemplate (어드민 생성) → IssuedCoupon (유저 귀속)
-- 상태: ISSUED → RESERVED → REDEEMED
-- 대상 정책: ALL / PRODUCT / CATEGORY / BRAND
+### 미결정 사항
 
-## F. Reservation(재고 예약) 모델
+- **옵션 조합 방식**: 모든 조합을 자동 생성 vs 수동 선택
+- **재고 마이그레이션**: 기존 Product 단위 재고 → Variant 단위로 전환 시 마이그레이션 전략
+- **옵션 없는 상품**: 기본 Variant를 명시적으로 생성할지, 또는 Variant 없이도 동작하도록 분기할지
 
-- 현재: 주문 시 즉시 차감
-- 확장: Checkout 시 HELD → 결제 성공 시 CONFIRMED → 실패 시 RELEASED
-- 장점: 결제 중 재고 보호, 만료 시 자동 해제
+---
+
+## B. 참고: 이전 future 문서에서 이관된 항목
+
+아래 도메인들은 현재 구현 범위(Round 3)에 포함되어 메인 설계 문서로 이관되었다.
+
+| 도메인 | 이관된 설계 문서 |
+|--------|----------------|
+| 결제 (Payment) | `01-requirements.md` 시나리오 C, `02-sequence-diagrams.md` #2~#4 |
+| 장바구니 (Cart) | `01-requirements.md` 시나리오 B, `02-sequence-diagrams.md` #7 |
+| 쿠폰 (Coupon) | `01-requirements.md` 시나리오 D/H, `02-sequence-diagrams.md` #8 |
+| 포인트 (Point) | `01-requirements.md` 시나리오 D |
+| 재고 예약 (Reservation) | `01-requirements.md` 시나리오 C, `02-sequence-diagrams.md` #1 |
+| 주문서 (OrderSheet) | Order로 통합 (`00-design-decisions.md` Q-C2) |

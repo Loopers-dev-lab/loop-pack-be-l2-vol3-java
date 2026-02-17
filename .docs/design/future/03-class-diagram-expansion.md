@@ -1,114 +1,22 @@
-# 향후 확장 클래스 구조
+# 향후 확장 클래스 구조: 옵션/Variant 시스템
 
-> 현재 구현 범위 이후 도입할 도메인의 클래스 구조를 정리한다.
-
----
-
-## A. 재고 예약 모델 (Inventory)
-
-현재 `Product.stock`으로 즉시 차감하지만, 결제 도메인 도입 시 예약 모델로 확장한다.
-
-```mermaid
-classDiagram
-    class Inventory {
-        -Long id
-        -Long productId
-        -int quantity
-        -int reservedQty
-        -int safetyStock
-        +getSellable() int
-        +reserve(qty) void
-        +confirmReservation(qty) void
-        +releaseReservation(qty) void
-    }
-
-    Product "1" --> "1" Inventory : productId
-```
-
-- **현재**: `Product.stock`으로 즉시 차감 (현재 구현 범위)
-- **확장 시**: `Inventory`로 분리, `getSellable() = quantity - reservedQty`
-- **Variant 도입 시**: `productId` → `variantId`로 전환, `Product 1:N Variant 1:1 Inventory`
+> Variant 도입 시 추가/변경되는 도메인 클래스 구조를 정리한다.
 
 ---
 
-## B. 쿠폰 시스템 (Coupon)
+## A. Option/Variant 클래스 구조
 
 ```mermaid
 classDiagram
-    class CouponTemplate {
+    class Product {
         -Long id
+        -Long brandId
         -String name
-        -DiscountType discountType
-        -int discountValue
-        -int maxDiscountAmount
-        -int minOrderAmount
-        -LocalDateTime validFrom
-        -LocalDateTime validUntil
-        -CouponStatus status
-        +isValid() boolean
-        +calculateDiscount(orderAmount) int
-    }
-
-    class IssuedCoupon {
-        -Long id
-        -Long userId
-        -Long couponTemplateId
-        -String code
-        -IssuedCouponStatus status
-        -Long redeemedOrderId
-        +reserve() void
-        +redeem(orderId) void
-        +release() void
-        +expire() void
-        +isUsable() boolean
-    }
-
-    class CouponTarget {
-        -Long id
-        -Long couponTemplateId
-        -CouponTargetType targetType
-        -Long targetId
-    }
-
-    class DiscountType {
-        <<enumeration>>
-        FIXED
-        PERCENT
-    }
-
-    class IssuedCouponStatus {
-        <<enumeration>>
-        ISSUED
-        RESERVED
-        REDEEMED
-        EXPIRED
-        CANCELED
-    }
-
-    class CouponTargetType {
-        <<enumeration>>
-        ALL
-        PRODUCT
-        BRAND
-    }
-
-    CouponTemplate "1" --> "*" IssuedCoupon : couponTemplateId
-    CouponTemplate "1" --> "*" CouponTarget : couponTemplateId
-```
-
----
-
-## C. 결제/옵션/장바구니 (방향만 제시)
-
-```mermaid
-classDiagram
-    class Variant {
-        -Long id
-        -Long productId
-        -String skuCode
-        -int extraPrice
-        -VariantStatus status
-        +getUnitPrice(basePrice) int
+        -String description
+        -int basePrice
+        -int likeCount
+        -ProductStatus status
+        -LocalDateTime deletedAt
     }
 
     class OptionGroup {
@@ -116,40 +24,99 @@ classDiagram
         -Long productId
         -String code
         -String name
+        -int displayOrder
+        -LocalDateTime deletedAt
     }
 
     class OptionValue {
         -Long id
         -Long optionGroupId
         -String value
+        -int displayOrder
+        -LocalDateTime deletedAt
     }
 
-    class OrderSheet {
+    class Variant {
         -Long id
-        -Long userId
-        -OrderSheetStatus status
-        -LocalDateTime expiresAt
-        +assertDraft() void
-        +transitionToValidating() void
-        +transitionToReady() void
-        +isExpired() boolean
+        -Long productId
+        -String skuCode
+        -int extraPrice
+        -VariantStatus status
+        -LocalDateTime deletedAt
+        +getUnitPrice(basePrice) int
+        +isAvailable() boolean
     }
 
-    class Payment {
+    class VariantOptionValue {
         -Long id
-        -Long orderId
-        -PaymentStatus status
-        -int requestedAmount
-        -String pgTxnId
-        +authorize() void
-        +markFailed(reason) void
-        +isTerminal() boolean
+        -Long variantId
+        -Long optionValueId
     }
 
-    Product "1" --> "*" Variant
-    Product "1" --> "*" OptionGroup
-    OptionGroup "1" --> "*" OptionValue
-    Variant --> OptionValue : 조합
-    Order --> OrderSheet : 기반
-    Payment --> Order
+    class VariantStatus {
+        <<enumeration>>
+        ACTIVE
+        INACTIVE
+    }
+
+    Product "1" --> "*" OptionGroup : productId
+    OptionGroup "1" --> "*" OptionValue : optionGroupId
+    Product "1" --> "*" Variant : productId
+    Variant "1" --> "*" VariantOptionValue : variantId
+    VariantOptionValue --> OptionValue : optionValueId
 ```
+
+---
+
+## B. 기존 클래스 변경 사항
+
+Variant 도입 시 기존 클래스에서 변경이 필요한 부분:
+
+### Inventory 변경
+
+```mermaid
+classDiagram
+    class Inventory_현재 {
+        -Long productId
+        +getAvailableQty() int
+    }
+
+    class Inventory_확장 {
+        -Long variantId
+        +getAvailableQty() int
+    }
+
+    Inventory_현재 ..> Inventory_확장 : productId → variantId
+```
+
+- `productId` → `variantId`로 참조 대상 변경
+- 옵션 없는 상품: 기본 Variant 1개를 생성하여 호환 유지
+
+### OrderItem 변경
+
+| 필드 | 현재 | 확장 |
+|------|------|------|
+| 참조 대상 | `productId` | `variantId` + `productId` (추적용) |
+| 스냅샷 추가 | - | `optionSnapshot` (ex: "컬러: 빨강, 사이즈: M") |
+| 단가 계산 | `basePrice` | `basePrice + extraPrice` |
+
+### CartItem 변경
+
+| 필드 | 현재 | 확장 |
+|------|------|------|
+| UK 기준 | `(cart_id, product_id)` | `(cart_id, variant_id)` |
+| merge 기준 | 동일 상품 | 동일 Variant (동일 옵션 조합) |
+
+---
+
+## C. Aggregate 경계
+
+| Aggregate Root | 포함 Entity | 설명 |
+|---------------|------------|------|
+| **Product** | Product, OptionGroup, OptionValue | 옵션 구조는 Product와 동일 생명주기 |
+| **Variant** | Variant, VariantOptionValue | Variant는 독립 Aggregate (재고/주문에서 직접 참조) |
+
+**Variant를 Product에 포함하지 않는 이유**:
+- Variant는 주문, 재고, 장바구니에서 직접 참조됨
+- Variant 단위 재고 변경 시 Product 잠금 범위를 확대하지 않기 위함
+- Product 수정(이름, 설명)과 Variant 재고 변동은 독립적
