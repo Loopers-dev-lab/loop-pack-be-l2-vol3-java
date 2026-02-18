@@ -104,7 +104,7 @@ classDiagram
 
 | 필드 | 현재 | 확장 |
 |------|------|------|
-| UK 기준 | `(cart_id, product_id)` | `(cart_id, variant_id)` |
+| UK 기준 | `(user_id, product_id)` | `(user_id, variant_id)` |
 | merge 기준 | 동일 상품 | 동일 Variant (동일 옵션 조합) |
 
 ---

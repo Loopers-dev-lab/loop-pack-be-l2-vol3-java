@@ -113,9 +113,8 @@ Variant 도입 시 기존 테이블에서 변경이 필요한 부분:
 | 테이블 | 변경 내용 |
 |--------|----------|
 | `inventories` | `product_id` → `variant_id`로 FK 변경 |
-| `cart_items` | `product_id` → `variant_id`로 FK 변경, UK도 `(cart_id, variant_id)`로 변경 |
+| `cart_items` | `product_id` → `variant_id`로 FK 변경, UK도 `(user_id, variant_id)`로 변경 |
 | `order_items` | `variant_id` 컬럼 추가, `option_snapshot` (VARCHAR) 추가 |
-| `inventory_reservation_items` | `product_id` → `variant_id`로 FK 변경 |
 
 ---
 
@@ -123,5 +122,5 @@ Variant 도입 시 기존 테이블에서 변경이 필요한 부분:
 
 | 상태 | 테이블 수 |
 |------|----------|
-| 현재 설계 (Round 3) | 19개 |
-| Variant 도입 후 | 23개 (+4: option_groups, option_values, variants, variant_option_values) |
+| 현재 설계 (Round 3, 단순화 후) | 14개 |
+| Variant 도입 후 | 18개 (+4: option_groups, option_values, variants, variant_option_values) |

@@ -1,6 +1,6 @@
 # 향후 확장 요구사항: 옵션/Variant 시스템
 
-> 현재 구현 범위(19개 테이블)에서 제외된 확장 도메인의 요구사항 방향을 정리한다.
+> 현재 구현 범위(14개 테이블)에서 제외된 확장 도메인의 요구사항 방향을 정리한다.
 > 본 문서는 방향성만 제시하며, 구현 시 별도 요구사항 명세를 작성한다.
 
 ---
@@ -16,7 +16,6 @@ Variant 시스템 도입 시, **재고와 가격의 관리 단위가 Product에�
 | 재고 | `inventories.product_id` (1:1) | `inventories.variant_id` (Variant 단위) |
 | 주문 항목 | `order_items.product_id` | `order_items.variant_id` + 옵션 스냅샷 |
 | 장바구니 | `cart_items.product_id` | `cart_items.variant_id` |
-| 재고 예약 | `inventory_reservation_items.product_id` | `inventory_reservation_items.variant_id` |
 
 ---
 
@@ -58,5 +57,4 @@ Variant 시스템 도입 시, **재고와 가격의 관리 단위가 Product에�
 | 장바구니 (Cart) | `01-requirements.md` 시나리오 B, `02-sequence-diagrams.md` #7 |
 | 쿠폰 (Coupon) | `01-requirements.md` 시나리오 D/H, `02-sequence-diagrams.md` #8 |
 | 포인트 (Point) | `01-requirements.md` 시나리오 D |
-| 재고 예약 (Reservation) | `01-requirements.md` 시나리오 C, `02-sequence-diagrams.md` #1 |
 | 주문서 (OrderSheet) | Order로 통합 (`00-design-decisions.md` Q-C2) |
