@@ -8,9 +8,12 @@
 - **회원(User)**: v1에서 완성. 본 문서에서는 참조만
 - **핵심 변경점**:
   - OrderSheet 제거 → Order 단일 테이블로 통합 (PENDING/PAID/EXPIRED/CANCELED)
-  - 재고: `inventories` 테이블 분리 + 예약(reservation) 모델
+  - 재고: `inventories` 테이블 분리 + `reserved_qty` 기반 예약 (별도 예약 테이블 없음)
+  - 장바구니: `carts` 테이블 제거 → `cart_items.user_id` 직접 참조
   - 좋아요: hard delete (이력 추적 불필요)
   - 가격: `base_price` 단일. 할인은 쿠폰으로만 처리
+  - 쿠폰: `coupon_targets` 제거 → 주문 전체 적용. 상태 3단계 (ISSUED/USED/EXPIRED)
+  - 포인트: `point_ledgers` 제거 → `point_accounts` 잔액 관리만
   - 재고 예약 만료: 30분
 
 ---
@@ -22,14 +25,13 @@
 | 브랜드 | Brand | 상품을 공급하는 단위 | 삭제 시 소속 상품 연쇄 삭제 |
 | 상품 | Product | 판매 단위. 하나의 Brand에 소속 | Brand와 N:1 |
 | 좋아요 | Like (ProductLike/BrandLike) | 사용자가 관심 상품/브랜드를 저장 | 등록/취소 분리. hard delete |
-| 장바구니 | Cart | 구매 전 상품 임시 보관 | 사용자당 1개 |
-| 재고 | Inventory | 상품의 판매 가능 수량 | 예약 모델 (quantity - reserved_qty) |
-| 재고예약 | InventoryReservation | 결제 대기 중 재고 홀드 | 30분 만료 |
+| 장바구니 | CartItem | 구매 전 상품 임시 보관 | cart_items.user_id 직접 참조 |
+| 재고 | Inventory | 상품의 판매 가능 수량 | reserved_qty 기반 예약 (quantity - reserved_qty) |
 | 주문 | Order | 사용자의 구매 거래 단위 | PENDING→PAID 2단계 |
 | 주문항목 | OrderItem | 주문 시점의 상품 정보 스냅샷 | Order와 1:N |
 | 결제 | Payment | PG를 통한 결제 처리 | 재시도 가능 |
-| 포인트 | Point | 사용자 적립금 | 잔액 + 원장(ledger) |
-| 쿠폰 | Coupon | 할인 수단 | 템플릿→발급→사용 라이프사이클 |
+| 포인트 | Point | 사용자 적립금 | point_accounts 잔액 관리 |
+| 쿠폰 | Coupon | 할인 수단 | 템플릿→발급→사용. 주문 전체 적용 |
 | 어드민 | Admin | 운영자 | LDAP 헤더로 식별 |
 
 ### 상태 정의
@@ -39,9 +41,8 @@
 | Brand | BrandStatus | `ACTIVE`, `INACTIVE` | ACTIVE만 고객 노출 |
 | Product | ProductStatus | `ACTIVE`, `SOLDOUT`, `HIDDEN`, `DISCONTINUED` | ACTIVE/SOLDOUT: 고객 노출, HIDDEN/DISCONTINUED: 비노출 |
 | Order | OrderStatus | `PENDING`, `PAID`, `EXPIRED`, `CANCELED` | PENDING: 결제대기, PAID: 확정, EXPIRED: 만료, CANCELED: 취소 |
-| InventoryReservation | ReservationStatus | `HELD`, `COMMITTED`, `RELEASED`, `EXPIRED` | HELD: 홀드, COMMITTED: 확정, RELEASED: 해제, EXPIRED: 만료 |
 | Payment | PaymentStatus | `REQUESTED`, `APPROVED`, `FAILED`, `CANCELED` | PG 결제 상태 |
-| IssuedCoupon | IssuedCouponStatus | `ISSUED`, `RESERVED`, `REDEEMED`, `EXPIRED`, `CANCELED` | 쿠폰 라이프사이클 |
+| IssuedCoupon | IssuedCouponStatus | `ISSUED`, `USED`, `EXPIRED` | ISSUED: 발급, USED: 사용 확정, EXPIRED: 만료 |
 | CouponTemplate | CouponTemplateStatus | `ACTIVE`, `INACTIVE`, `EXPIRED` | 템플릿 상태 |
 | Like | - | 존재하면 좋아요, 없으면 해제 | hard delete (row 삭제) |
 
@@ -84,7 +85,7 @@
 | A | 고객 | 탐색 + 좋아요 | F-01 ~ F-06 |
 | B | 고객 | 장바구니 | F-07 ~ F-10 |
 | C | 고객 | 주문 + 결제 | F-11 ~ F-16 |
-| D | 고객 | 쿠폰 + 포인트 | F-17 ~ F-20 |
+| D | 고객 | 쿠폰 + 포인트 | F-17 ~ F-19 |
 | E | 고객 | 주소 관리 | F-21 ~ F-24 |
 | F | 어드민 | 브랜드/상품 관리 | F-25 ~ F-34 |
 | G | 어드민 | 주문 조회 | F-35 ~ F-36 |
@@ -208,15 +209,15 @@
 | **API** | `POST /api/v1/orders` |
 | **인증** | 필수 |
 | **요청** | `{ "items": [{"productId": 1, "quantity": 2}], "addressId": 5 }` |
-| **정상 흐름** | 1. items 유효성 검증 2. 각 상품 존재/판매가능 확인 3. **재고 예약** (inventories.reserved_qty 증가, reservation HELD) 4. Order(PENDING) 생성 + OrderItem 스냅샷 저장 5. 배송지 스냅샷 저장 6. expires_at = now() + 30분 |
-| **스냅샷 저장** | 상품명, 브랜드명, 가격(base_price), 수량, 라인합계 |
+| **정상 흐름** | 1. items 유효성 검증 2. 각 상품 존재/판매가능 확인 3. **재고 예약** (inventories.reserved_qty 증가, 비관적 락) 4. Order(PENDING) 생성 + OrderItem 스냅샷 저장 5. 배송지 스냅샷 저장 6. expires_at = now() + 30분 |
+| **스냅샷 저장** | 상품명, 브랜드명, 가격(base_price), 수량, 라인합계(unit_price * quantity) |
 | **재고 정책** | 주문 시점에 재고 예약을 **원자적으로** 수행. 부분 성공 없음 (전체 성공 or 전체 실패) |
 | **예외** | 400: items 비어있음/수량 비정상, 404: 상품/주소 없음, 409: 재고 부족/판매 불가 |
 
 **설계 의도 - 재고 예약**:
-- `inventories.reserved_qty`를 증가시켜 재고를 홀드
+- `inventories.reserved_qty`를 증가시켜 재고를 홀드 (비관적 락)
 - 실제 `quantity` 차감은 결제 성공 시
-- 30분 내 미결제 시 배치가 예약 해제 (reserved_qty 복구)
+- 30분 내 미결제 시 배치가 Order(PENDING) + expires_at 기준으로 만료 처리 (reserved_qty 복구)
 
 #### F-12. 할인 적용 (쿠폰/포인트)
 
@@ -225,7 +226,7 @@
 | **API** | `PUT /api/v1/orders/{orderId}/discount` |
 | **인증** | 필수 |
 | **요청** | `{ "couponCodes": ["COUPON-A"], "pointAmount": 1000 }` |
-| **정책** | PENDING 상태에서만 가능. 쿠폰은 RESERVED 상태로 전환. 포인트는 잔액 검증만 |
+| **정책** | PENDING 상태에서만 가능. 쿠폰 적용 가능 여부 검증 (ISSUED 상태 확인). 포인트는 잔액 검증만 |
 | **금액 재계산** | total_amount = subtotal - discount - point + shipping |
 | **예외** | 400: 쿠폰 적용 불가, 409: 포인트 잔액 부족, 404: 주문 없음 |
 
@@ -237,8 +238,8 @@
 | **인증** | 필수 |
 | **요청** | `{ "paymentMethod": "CARD" }` |
 | **정상 흐름** | 1. Order PENDING 확인 2. Payment(REQUESTED) 생성 3. PG 결제 승인 요청 |
-| **결제 성공 시** | Payment→APPROVED, Reservation→COMMITTED (quantity 차감 + reserved_qty 감소), Point 차감 + Ledger 기록, Coupon→REDEEMED, Order→PAID |
-| **결제 실패 시** | Payment→FAILED, Reservation→RELEASED (reserved_qty 감소), Coupon→ISSUED (복구) |
+| **결제 성공 시** | Payment→APPROVED, 재고 확정 (quantity 차감 + reserved_qty 감소), Point 차감, Coupon→USED, Order→PAID |
+| **결제 실패 시** | Payment→FAILED, reserved_qty 복구 (order_items 기준) |
 | **예외** | 404: 주문 없음, 409: 이미 결제됨/만료됨 |
 
 #### F-14. 유저 주문 목록 조회
@@ -265,7 +266,7 @@
 |------|------|
 | **API** | `DELETE /api/v1/orders/{orderId}` |
 | **인증** | 필수 |
-| **정책** | PENDING 상태에서만 취소 가능. Reservation→RELEASED, Coupon→ISSUED 복구, Order→CANCELED |
+| **정책** | PENDING 상태에서만 취소 가능. reserved_qty 복구 (order_items 기준), Order→CANCELED |
 | **예외** | 409: 이미 결제됨/만료됨 |
 
 ---
@@ -298,14 +299,6 @@
 |------|------|
 | **API** | `GET /api/v1/users/me/points` |
 | **인증** | 필수 |
-
-#### F-20. 포인트 내역 조회
-
-| 항목 | 내용 |
-|------|------|
-| **API** | `GET /api/v1/users/me/points/history` |
-| **인증** | 필수 |
-| **정책** | 최신순. 페이징 |
 
 ---
 
@@ -460,7 +453,7 @@
 |------|------|
 | **API** | `POST /api-admin/v1/coupon-templates` |
 | **인증** | LDAP 필수 |
-| **정책** | 할인유형(FIXED/PERCENT), 할인값, 최소주문금액, 유효기간 등 설정. 대상(coupon_targets) 함께 설정 |
+| **정책** | 할인유형(FIXED/PERCENT), 할인값, 최소주문금액, 유효기간 등 설정. 쿠폰은 주문 전체에 적용 |
 
 #### F-39. 쿠폰 템플릿 수정 (Admin)
 
@@ -516,10 +509,10 @@
 | 1 | OrderSheet 통합 | Order 단일 테이블 + PENDING 상태 | 데이터 중복 제거. 상태 확장으로 충분 |
 | 2 | Like 삭제 방식 | hard delete | 이력 불필요. UK 충돌 문제 해소 |
 | 3 | 가격 필드 | base_price 단일 | 할인은 쿠폰으로만 처리 |
-| 4 | 재고 관리 | inventories 분리 + 예약 모델 | 결제 대기 중 재고 점유 방지 |
+| 4 | 재고 관리 | inventories 분리 + reserved_qty 기반 예약 | Order(PENDING)이 예약 역할. 별도 예약 테이블 없음 |
 | 5 | 재고 예약 만료 | 30분 | 충분한 결제 시간 + 재고 점유 최소화 |
 | 6 | 만료 처리 방식 | Batch Scheduler | commerce-batch 모듈 활용 |
 | 7 | Like count | products.like_count 비정규화 | 조회 성능. 동기 증감 |
 | 8 | 브랜드 삭제 | 연쇄 soft delete (상품 + 재고) | 요구사항 명시 |
-| 9 | 쿠폰 추적 | issued_coupons.redeemed_order_id | coupon_codes VARCHAR 불필요 |
+| 9 | 쿠폰 추적 | issued_coupons.used_order_id | 결제 성공 시 USED + 주문 ID 기록 |
 | 10 | 결제 재시도 | orders(1) : payments(N) | 하나의 주문에 여러 결제 시도 가능 |

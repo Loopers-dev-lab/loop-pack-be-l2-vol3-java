@@ -16,9 +16,9 @@
 
 | # | 시퀀스 | 선별 이유 |
 |---|--------|----------|
-| 1 | 주문 생성 (재고 예약) | 핵심 흐름: 재고 예약 + 스냅샷 + 만료 설정 |
-| 2 | 결제 요청 (성공/실패) | 핵심 흐름: 6개 도메인 조율 (가장 복잡한 트랜잭션) |
-| 3 | 예약 만료 배치 | 배치 처리: 만료된 예약/주문 자동 정리 |
+| 1 | 주문 생성 (재고 예약) | 핵심 흐름: reserved_qty 예약 + 스냅샷 + 만료 설정 |
+| 2 | 결제 요청 (성공/실패) | 핵심 흐름: 다중 도메인 조율 (가장 복잡한 트랜잭션) |
+| 3 | 주문 만료 배치 | 배치 처리: 만료된 PENDING 주문 자동 정리 |
 | 4 | 상품 좋아요 등록/취소 | hard delete + like_count 동기 증감 |
 | 5 | 브랜드 삭제 (연쇄) | Aggregate 간 연쇄 soft delete |
 | 6 | 장바구니 → 주문 전환 | 장바구니 기반 주문 생성 흐름 |
@@ -29,7 +29,7 @@
 
 ## 1) 주문 생성 (재고 예약 + 스냅샷)
 
-핵심: 복수 상품 → 재고 예약(HELD) → Order(PENDING) + OrderItem(스냅샷) → 30분 만료 설정
+핵심: 복수 상품 → reserved_qty 증가(비관적 락) → Order(PENDING) + OrderItem(스냅샷) → 30분 만료 설정
 
 ```mermaid
 sequenceDiagram
@@ -70,7 +70,7 @@ sequenceDiagram
   end
 
   Note over Service,InvSvc: 트랜잭션 시작 - 재고 예약은 원자적으로 수행
-  Service->>InvSvc: reserve(userId, items, expiresAt=now+30min)
+  Service->>InvSvc: reserve(items)
 
   loop 각 item에 대해 (비관적 락)
     InvSvc->>InvRepo: findByProductIdForUpdate(productId)
@@ -87,13 +87,13 @@ sequenceDiagram
     end
   end
 
-  Note over InvSvc: InventoryReservation(HELD) + Items 생성
-  InvSvc-->>Service: reservationId
+  InvSvc-->>Service: 예약 완료
 
   Note over Service,Order: 스냅샷 생성 - 주문 시점 상품 정보 고정
-  Service->>Order: create(userId, products, items, address, reservationId)
+  Service->>Order: create(userId, products, items, address)
   Note over Order: Order(PENDING) 생성, expires_at = now + 30분
   Note over Order: OrderItem 생성 (상품명, 브랜드명, 가격, 수량 스냅샷)
+  Note over Order: line_total = unit_price * quantity
   Note over Order: 배송지 스냅샷 저장
 
   Service->>OrderRepo: save(order)
@@ -113,7 +113,7 @@ sequenceDiagram
 
 ## 2) 결제 요청 (성공/실패 분기)
 
-핵심: Payment 생성 → PG 승인 → 성공 시 6개 도메인 확정 / 실패 시 보상 처리
+핵심: Payment 생성 → PG 승인 → 성공 시 다중 도메인 확정 / 실패 시 reserved_qty 복구
 
 ```mermaid
 sequenceDiagram
@@ -149,18 +149,16 @@ sequenceDiagram
   alt 결제 성공
     Note over PaymentSvc: Payment → APPROVED, approvedAmount 기록
 
-    PaymentSvc->>InvSvc: commit(reservationId)
-    Note over InvSvc: Reservation → COMMITTED
+    PaymentSvc->>InvSvc: confirmStock(order.items)
     Note over InvSvc: inventories.quantity -= 수량
     Note over InvSvc: inventories.reserved_qty -= 수량
 
-    PaymentSvc->>PointSvc: use(userId, pointAmount, orderId)
+    PaymentSvc->>PointSvc: use(userId, pointAmount)
     Note over PointSvc: point_accounts.balance -= pointAmount
-    Note over PointSvc: point_ledgers 기록 (USE)
 
-    PaymentSvc->>CouponSvc: redeem(couponCodes, orderId)
-    Note over CouponSvc: issued_coupons → REDEEMED
-    Note over CouponSvc: redeemed_order_id = orderId
+    PaymentSvc->>CouponSvc: use(couponCode, orderId)
+    Note over CouponSvc: issued_coupons → USED
+    Note over CouponSvc: used_order_id = orderId
 
     PaymentSvc->>OrderSvc: confirmOrder(orderId, paymentId)
     Note over OrderSvc: Order → PAID
@@ -172,13 +170,10 @@ sequenceDiagram
   else 결제 실패
     Note over PaymentSvc: Payment → FAILED
 
-    PaymentSvc->>InvSvc: release(reservationId)
-    Note over InvSvc: Reservation → RELEASED
-    Note over InvSvc: inventories.reserved_qty -= 수량
+    PaymentSvc->>InvSvc: releaseStock(order.items)
+    Note over InvSvc: inventories.reserved_qty -= 수량 (order_items 기준)
 
-    PaymentSvc->>CouponSvc: release(couponCodes)
-    Note over CouponSvc: issued_coupons → ISSUED (복구)
-
+    Note over PaymentSvc: 쿠폰은 ISSUED 상태 유지 (RESERVED 단계 없음) → 복구 불필요
     Note over PaymentSvc: 포인트는 결제 성공 시에만 차감하므로 복구 불필요
 
     PaymentSvc-->>Controller: 결제 실패 (재시도 가능)
@@ -187,46 +182,36 @@ sequenceDiagram
 ```
 
 **설계 의도**:
-- 결제 성공 시 6개 도메인이 하나의 트랜잭션에서 확정
+- 결제 성공 시 다중 도메인이 하나의 트랜잭션에서 확정
 - 포인트는 결제 성공 후에만 차감 → 실패 시 포인트 복구 불필요
-- 쿠폰은 주문 생성 시 RESERVED → 결제 실패 시 ISSUED로 복구
+- 쿠폰은 결제 성공 시 바로 USED 처리 (RESERVED 단계 없음 → 실패 시 복구 불필요)
 
 ---
 
-## 3) 예약 만료 배치 처리
+## 3) 주문 만료 배치 처리
 
-핵심: 30분 경과 후 미결제 주문/예약 자동 정리
+핵심: 30분 경과 후 미결제 PENDING 주문 자동 정리 + reserved_qty 복구
 
 ```mermaid
 sequenceDiagram
   autonumber
   participant Batch as BatchScheduler
-  participant ResvRepo as ReservationRepository
-  participant InvRepo as InventoryRepository
   participant OrderRepo as OrderRepository
-  participant CouponRepo as IssuedCouponRepository
+  participant InvRepo as InventoryRepository
 
   Note over Batch: 주기적 실행 (예: 1분마다)
-  Batch->>ResvRepo: findByStatusAndExpiresAtBefore(HELD, now())
-  ResvRepo-->>Batch: expiredReservations
+  Batch->>OrderRepo: findByStatusAndExpiresAtBefore(PENDING, now())
+  OrderRepo-->>Batch: expiredOrders
 
-  loop 각 만료된 예약에 대해
+  loop 각 만료된 주문에 대해
     Note over Batch: 트랜잭션 시작
 
-    Batch->>ResvRepo: 예약 상태 → EXPIRED
-
-    loop 각 예약 항목에 대해
+    loop 각 order_item에 대해
       Batch->>InvRepo: findByProductIdForUpdate(productId)
       Batch->>InvRepo: inventories.reserved_qty -= quantity
     end
 
-    Batch->>OrderRepo: findByReservationId(reservationId)
     Batch->>OrderRepo: order.status → EXPIRED
-
-    Batch->>CouponRepo: findReservedByOrderId(orderId)
-    loop RESERVED 상태 쿠폰
-      Batch->>CouponRepo: issued_coupons.status → ISSUED (복구)
-    end
 
     Note over Batch: 트랜잭션 커밋
   end
@@ -234,8 +219,9 @@ sequenceDiagram
 
 **배치 설계 포인트**:
 - `commerce-batch` 모듈에서 Spring Batch 또는 `@Scheduled`로 구현
-- 각 만료 예약 처리는 개별 트랜잭션 (하나 실패해도 나머지 영향 없음)
-- 만료 시각 기준으로 인덱스 활용: `idx_reservations_status_expires_at`
+- 각 만료 주문 처리는 개별 트랜잭션 (하나 실패해도 나머지 영향 없음)
+- 만료 시각 기준으로 인덱스 활용: `idx_orders_status_expires_at`
+- 쿠폰은 ISSUED 상태 유지 (RESERVED 단계 없음) → 별도 복구 불필요
 
 ---
 
@@ -377,7 +363,6 @@ sequenceDiagram
   actor User
   participant Controller as OrderController
   participant Service as OrderService
-  participant CartRepo as CartRepository
   participant CartItemRepo as CartItemRepository
 
   User->>Controller: POST /api/v1/orders {items: [...], addressId: 5}
@@ -387,7 +372,7 @@ sequenceDiagram
   Note over Service: 이후 흐름은 시퀀스 1)과 동일<br>(재고 예약 → Order 생성 → 스냅샷)
 
   Note over Service: 주문 생성 성공 후
-  Service->>CartItemRepo: softDeleteByCartIdAndProductIds(cartId, productIds)
+  Service->>CartItemRepo: softDeleteByUserIdAndProductIds(userId, productIds)
   Note over CartItemRepo: 주문된 상품을 장바구니에서 제거
 
   Service-->>Controller: 200 {orderId, orderNumber}
@@ -397,6 +382,7 @@ sequenceDiagram
 **설계 포인트**:
 - 장바구니 → 주문은 별도 API가 아닌, 주문 생성 API의 입력으로 처리
 - 주문 생성 성공 후 해당 항목을 장바구니에서 제거 (soft delete)
+- cart_items.user_id로 직접 조회 (carts 테이블 없음)
 
 ---
 
@@ -410,9 +396,8 @@ sequenceDiagram
   participant CouponSvc as CouponService
   participant TemplateRepo as CouponTemplateRepository
   participant IssuedRepo as IssuedCouponRepository
-  participant TargetRepo as CouponTargetRepository
 
-  Note over User, TargetRepo: Phase 1: 쿠폰 발급
+  Note over User, IssuedRepo: Phase 1: 쿠폰 발급
 
   User->>Controller: POST /api/v1/coupons/issue {couponTemplateId}
   Controller->>CouponSvc: issueCoupon(userId, templateId)
@@ -432,10 +417,10 @@ sequenceDiagram
   CouponSvc-->>Controller: 200 {couponCode, status: ISSUED}
   Controller-->>User: 200 OK
 
-  Note over User, TargetRepo: Phase 2: 주문에 쿠폰 적용
+  Note over User, IssuedRepo: Phase 2: 주문에 쿠폰 적용 (할인 검증)
 
   User->>Controller: PUT /api/v1/orders/{orderId}/discount {couponCodes: [...]}
-  Controller->>CouponSvc: reserveCoupons(userId, orderId, couponCodes)
+  Controller->>CouponSvc: applyCoupons(userId, orderId, couponCodes)
 
   loop 각 쿠폰에 대해
     CouponSvc->>IssuedRepo: findByCodeAndUserId(code, userId)
@@ -446,22 +431,24 @@ sequenceDiagram
       CouponSvc-->>Controller: 409
     end
 
-    CouponSvc->>TargetRepo: findByCouponTemplateId(templateId)
-    CouponSvc->>CouponSvc: 대상 상품/브랜드 매칭 확인
+    CouponSvc->>TemplateRepo: findById(templateId)
     CouponSvc->>CouponSvc: 최소 주문금액 확인
-
-    CouponSvc->>IssuedRepo: status → RESERVED
+    CouponSvc->>CouponSvc: 유효기간 확인
   end
 
-  CouponSvc->>CouponSvc: 할인 금액 계산
+  CouponSvc->>CouponSvc: 할인 금액 계산 (주문 전체 적용)
   CouponSvc-->>Controller: discountAmount
+
+  Note over User, IssuedRepo: Phase 3: 결제 성공 시 사용 확정
+
+  Note over CouponSvc: 결제 성공 → issued_coupons.status = USED
+  Note over CouponSvc: issued_coupons.used_order_id = orderId
 ```
 
 **쿠폰 상태 전이 요약**:
-- `ISSUED` → 주문 적용 → `RESERVED`
-- `RESERVED` → 결제 성공 → `REDEEMED` (사용 확정, 취소 불가)
-- `RESERVED` → 결제 실패/만료 → `ISSUED` (복구)
+- `ISSUED` → 결제 성공 → `USED` (사용 확정)
 - `ISSUED` → 유효기간 만료 → `EXPIRED`
+- RESERVED 단계 없음 → 결제 실패 시 쿠폰 복구 불필요
 
 ---
 

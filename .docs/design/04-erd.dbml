@@ -1,5 +1,5 @@
 // ==========================================================
-// E-Commerce ERD (간결화 버전 - 19 테이블)
+// E-Commerce ERD (단순화 버전 - 14 테이블)
 // ==========================================================
 // 설계 원칙:
 //   - OrderSheet 제거 → Order 단일 테이블로 통합
@@ -7,12 +7,21 @@
 //   - status: VARCHAR
 //   - FK 제약 미사용 (Ref는 논리 참조)
 //   - 가격: base_price 단일 필드
-//   - 재고: inventories 테이블 분리 + 예약 모델
+//   - 재고: inventories 테이블 분리 (락 범위 분리)
+//   - 재고 예약: Order(PENDING) + reserved_qty로 관리 (별도 예약 테이블 없음)
 //   - 재고 예약 만료: 30분
+// ==========================================================
+// 단순화 변경 이력 (C1~C6):
+//   C1: coupon_targets 테이블 제거 - 쿠폰은 주문 전체에 적용
+//   C2: issued_coupons 상태 5단계→3단계 (ISSUED/USED/EXPIRED)
+//   C3: inventory_reservations + items 제거 - Order(PENDING)이 예약 역할
+//   C4: point_ledgers 테이블 제거 - 발제에 이력 추적 요구 없음
+//   C5: carts 테이블 제거 - cart_items.user_id로 직접 참조
+//   C6: order_items.discounted_unit_price 제거 - 할인은 주문 단위
 // ==========================================================
 
 // =========================
-// Users(1) : UserAddresses(N), Carts(1), Likes(N), Orders(N), PointAccounts(1)
+// Users(1) : UserAddresses(N), CartItems(N), Likes(N), Orders(N), PointAccounts(1)
 // =========================
 Table users {
   id         bigint [pk, increment, note: "사용자 PK"]
@@ -145,26 +154,11 @@ Table brand_likes {
 }
 
 // =========================
-// 장바구니
+// 장바구니 (C5: carts 테이블 제거 → cart_items.user_id 직접 참조)
 // =========================
-Table carts {
-  id         bigint [pk, increment, note: "장바구니 PK"]
-  user_id    bigint [not null, note: "사용자 ID"]
-  deleted_at timestamp [note: "삭제 일시"]
-  created_at timestamp [not null, note: "생성 일시"]
-  updated_at timestamp [not null, note: "수정 일시"]
-
-  Indexes {
-    (user_id) [unique, note: "Users(1) : Carts(1)"]
-    (deleted_at)
-  }
-
-  note: "Carts: Users(1) : Carts(1). 사용자당 장바구니 1개"
-}
-
 Table cart_items {
   id         bigint [pk, increment, note: "장바구니 항목 PK"]
-  cart_id    bigint [not null, note: "장바구니 ID"]
+  user_id    bigint [not null, note: "사용자 ID"]
   product_id bigint [not null, note: "상품 ID"]
   quantity   int [not null, note: "수량"]
   deleted_at timestamp [note: "삭제 일시"]
@@ -172,16 +166,17 @@ Table cart_items {
   updated_at timestamp [not null, note: "수정 일시"]
 
   Indexes {
-    (cart_id, product_id) [unique, note: "동일 상품 중복 방지 → 수량 merge"]
+    (user_id, product_id) [unique, note: "동일 상품 중복 방지 → 수량 merge"]
+    (user_id)
     (product_id)
     (deleted_at)
   }
 
-  note: "CartItems: 동일 상품 추가 시 수량 합산"
+  note: "CartItems: Users(1) : CartItems(N). 동일 상품 추가 시 수량 합산. carts 테이블 없이 user_id 직접 참조"
 }
 
 // =========================
-// 재고 (Inventory + 예약 모델)
+// 재고 (C3: 예약 테이블 제거 → Order(PENDING) + reserved_qty로 관리)
 // =========================
 Table inventories {
   id           bigint [pk, increment, note: "재고 PK"]
@@ -201,51 +196,15 @@ Table inventories {
   note: '''
     Inventories: Products(1) : Inventories(1).
     - 가용 수량 = quantity - reserved_qty
-    - 주문 생성 시: reserved_qty 증가 (HELD)
-    - 결제 성공 시: quantity 차감 + reserved_qty 감소 (COMMITTED)
-    - 결제 실패/만료 시: reserved_qty 감소 (RELEASED/EXPIRED)
+    - 주문 생성 시: reserved_qty 증가 (비관적 락)
+    - 결제 성공 시: quantity 차감 + reserved_qty 감소
+    - 결제 실패/만료 시: reserved_qty 감소 (order_items 기준)
   '''
-}
-
-Table inventory_reservations {
-  id         bigint [pk, increment, note: "재고예약 PK"]
-  user_id    bigint [not null, note: "사용자 ID"]
-  status     varchar(20) [not null, note: "RESERVATION_STATUS: HELD, COMMITTED, RELEASED, EXPIRED"]
-  expires_at timestamp [not null, note: "만료 시각 (생성 시각 + 30분)"]
-  created_at timestamp [not null, note: "생성 일시"]
-  updated_at timestamp [not null, note: "수정 일시"]
-
-  Indexes {
-    (user_id, status)
-    (status, expires_at) // 배치 만료 처리용
-  }
-
-  note: '''
-    InventoryReservations: 재고 예약 헤더.
-    - HELD: 주문 생성 시 재고 홀드 (30분 유효)
-    - COMMITTED: 결제 성공으로 재고 확정 차감
-    - RELEASED: 결제 실패로 재고 해제
-    - EXPIRED: 30분 경과 후 배치에 의해 만료 처리
-  '''
-}
-
-Table inventory_reservation_items {
-  id             bigint [pk, increment, note: "예약항목 PK"]
-  reservation_id bigint [not null, note: "재고예약 ID"]
-  product_id     bigint [not null, note: "상품 ID"]
-  quantity       int [not null, note: "예약 수량"]
-  created_at     timestamp [not null, note: "생성 일시"]
-
-  Indexes {
-    (reservation_id)
-    (product_id)
-  }
-
-  note: "ReservationItems: InventoryReservations(1) : Items(N)"
 }
 
 // =========================
 // 주문 (OrderSheet 통합 버전)
+// C3: reservation_id 제거 - Order(PENDING) 자체가 예약 역할
 // PENDING: 결제 대기 (수정 가능 - 쿠폰/포인트 적용)
 // PAID: 결제 완료 확정 (수정 불가, 스냅샷 확정)
 // EXPIRED: 30분 내 미결제 → 배치 만료
@@ -255,7 +214,6 @@ Table orders {
   id              bigint [pk, increment, note: "주문 PK"]
   order_number    varchar(50) [unique, not null, note: "주문번호(외부노출)"]
   user_id         bigint [not null, note: "사용자 ID"]
-  reservation_id  bigint [not null, note: "재고예약 ID"]
   status          varchar(20) [not null, note: "ORDER_STATUS: PENDING, PAID, EXPIRED, CANCELED"]
 
   // 배송지 스냅샷
@@ -269,7 +227,7 @@ Table orders {
 
   // 금액 분해
   subtotal_amount   int [not null, note: "상품 합계 (order_items.line_total 합)"]
-  discount_amount   int [not null, default: 0, note: "쿠폰 할인 합계"]
+  discount_amount   int [not null, default: 0, note: "쿠폰 할인 합계 (주문 단위)"]
   point_used_amount int [not null, default: 0, note: "포인트 사용액"]
   shipping_fee      int [not null, default: 0, note: "배송비"]
   total_amount      int [not null, note: "최종 결제 금액 = 소계 - 할인 - 포인트 + 배송비"]
@@ -287,7 +245,6 @@ Table orders {
 
   Indexes {
     (user_id, status)
-    (reservation_id) [unique, note: "Orders(1) : InventoryReservations(1)"]
     (status, expires_at) // 배치 만료 처리용
     (user_id, created_at) // 사용자별 주문 목록
   }
@@ -296,10 +253,12 @@ Table orders {
     Orders: OrderSheet 통합. PENDING=결제대기(수정가능), PAID=확정, EXPIRED=만료, CANCELED=취소.
     - PENDING 상태에서만 쿠폰/포인트 적용, 배송지 수정 가능
     - PAID 전환 시 스냅샷 확정 (이후 수정 불가)
-    - 30분 내 미결제 시 배치가 EXPIRED 처리 + 재고 예약 해제
+    - 30분 내 미결제 시 배치가 EXPIRED 처리 + reserved_qty 복구
+    - reservation_id 제거: Order(PENDING) 자체가 재고 예약 역할
   '''
 }
 
+// C6: discounted_unit_price 제거 → line_total = unit_price * quantity
 Table order_items {
   id                    bigint [pk, increment, note: "주문 항목 PK"]
   order_id              bigint [not null, note: "주문 ID"]
@@ -307,9 +266,8 @@ Table order_items {
   product_name          varchar(200) [not null, note: "상품명 스냅샷"]
   brand_name            varchar(150) [not null, note: "브랜드명 스냅샷"]
   unit_price            int [not null, note: "단가 스냅샷 (base_price)"]
-  discounted_unit_price int [not null, note: "할인 적용 단가 (쿠폰 적용 후)"]
   quantity              int [not null, note: "수량"]
-  line_total            int [not null, note: "라인 금액 (discounted_unit_price * quantity)"]
+  line_total            int [not null, note: "라인 금액 (unit_price * quantity)"]
   created_at            timestamp [not null, note: "생성 일시"]
 
   Indexes {
@@ -321,8 +279,8 @@ Table order_items {
     OrderItems: 주문 시점 스냅샷.
     - product_id: FK 아님 (상품 삭제 시에도 주문 데이터 유지)
     - unit_price: 주문 시점 base_price
-    - discounted_unit_price: 쿠폰 할인 적용 후 단가
-    - line_total = discounted_unit_price * quantity
+    - line_total = unit_price * quantity (원가 기준)
+    - 쿠폰 할인은 orders.discount_amount에서 주문 단위로 관리
     - deleted_at 없음: 스냅샷이므로 변경/삭제 불가
   '''
 }
@@ -360,7 +318,7 @@ Table payments {
 }
 
 // =========================
-// 포인트
+// 포인트 (C4: point_ledgers 제거 → point_accounts만으로 잔액 관리)
 // =========================
 Table point_accounts {
   id         bigint [pk, increment, note: "포인트 계좌 PK"]
@@ -373,34 +331,16 @@ Table point_accounts {
     (user_id) [unique, note: "Users(1) : PointAccounts(1)"]
   }
 
-  note: "PointAccounts: Users(1) : PointAccounts(1). 포인트 잔액 관리"
-}
-
-Table point_ledgers {
-  id            bigint [pk, increment, note: "포인트 원장 PK"]
-  user_id       bigint [not null, note: "사용자 ID"]
-  order_id      bigint [note: "주문 ID(관련 시)"]
-  type          varchar(20) [not null, note: "POINT_TYPE: EARN, USE, REFUND, ADJUST"]
-  amount        int [not null, note: "변동 금액(+/-)"]
-  balance_after int [not null, note: "반영 후 잔액"]
-  created_at    timestamp [not null, note: "생성 일시"]
-
-  Indexes {
-    (user_id, created_at)
-    (order_id)
-  }
-
   note: '''
-    PointLedgers: 포인트 변동 이력 (append-only).
-    - EARN: 적립 (주문 완료 리워드 등)
-    - USE: 사용 (결제 시 차감)
-    - REFUND: 환불 (주문 취소 시 복구)
-    - ADJUST: 관리자 조정
+    PointAccounts: Users(1) : PointAccounts(1). 포인트 잔액 관리.
+    - Point를 독립 도메인으로 유지 (User와 책임 분리)
+    - 잔액 조회 + 차감 + 부족 검증
+    - point_ledgers 제거: 발제에 이력 추적 요구사항 없음
   '''
 }
 
 // =========================
-// 쿠폰
+// 쿠폰 (C1: coupon_targets 제거, C2: 상태 3단계)
 // =========================
 Table coupon_templates {
   id                  bigint [pk, increment, note: "쿠폰 템플릿 PK"]
@@ -425,17 +365,18 @@ Table coupon_templates {
     (deleted_at)
   }
 
-  note: "CouponTemplates: 쿠폰 정책 마스터. 어드민이 생성"
+  note: "CouponTemplates: 쿠폰 정책 마스터. 어드민이 생성. 쿠폰은 주문 전체에 적용 (coupon_targets 제거)"
 }
 
+// C2: 상태 5단계→3단계 (ISSUED/USED/EXPIRED), redeemed_order_id→used_order_id
 Table issued_coupons {
   id                 bigint [pk, increment, note: "발급 쿠폰 PK"]
   user_id            bigint [not null, note: "사용자 ID"]
   coupon_template_id bigint [not null, note: "쿠폰 템플릿 ID"]
   code               varchar(100) [unique, not null, note: "쿠폰 코드(유니크)"]
-  status             varchar(20) [not null, note: "ISSUED_COUPON_STATUS: ISSUED, RESERVED, REDEEMED, EXPIRED, CANCELED"]
+  status             varchar(20) [not null, note: "ISSUED_COUPON_STATUS: ISSUED, USED, EXPIRED"]
   issued_at          timestamp [not null, note: "발급 시각"]
-  redeemed_order_id  bigint [note: "사용 확정 주문 ID (REDEEMED 시 설정)"]
+  used_order_id      bigint [note: "사용 확정 주문 ID (USED 시 설정)"]
   expired_at         timestamp [note: "만료 시각"]
   deleted_at         timestamp [note: "삭제 일시"]
   created_at         timestamp [not null, note: "생성 일시"]
@@ -445,35 +386,16 @@ Table issued_coupons {
     (user_id, status)
     (coupon_template_id)
     (code) [unique]
-    (redeemed_order_id)
+    (used_order_id)
   }
 
   note: '''
     IssuedCoupons: 사용자에게 발급된 쿠폰.
     - ISSUED: 발급됨 (사용 가능)
-    - RESERVED: 주문에서 적용 중 (결제 대기)
-    - REDEEMED: 결제 성공으로 사용 확정
+    - USED: 결제 성공으로 사용 확정
     - EXPIRED: 유효기간 만료
-    - CANCELED: 관리자/시스템 취소
-    - 결제 승인 후에는 쿠폰 취소 불가
+    - 결제 성공 시 바로 USED 처리 (RESERVED 단계 없음)
   '''
-}
-
-Table coupon_targets {
-  id                 bigint [pk, increment, note: "쿠폰 대상 PK"]
-  coupon_template_id bigint [not null, note: "쿠폰 템플릿 ID"]
-  target_type        varchar(20) [not null, note: "TARGET_TYPE: ALL, PRODUCT, BRAND"]
-  target_id          bigint [note: "대상 ID (ALL이면 NULL, PRODUCT면 products.id, BRAND면 brands.id)"]
-  deleted_at         timestamp [note: "삭제 일시"]
-  created_at         timestamp [not null, note: "생성 일시"]
-
-  Indexes {
-    (coupon_template_id)
-    (target_type, target_id)
-    (deleted_at)
-  }
-
-  note: "CouponTargets: 쿠폰 적용 대상. 템플릿 1개에 대상 N개 가능"
 }
 
 // ==========================================================
@@ -490,20 +412,15 @@ Ref product_like_product: product_likes.product_id > products.id
 Ref brand_like_user: brand_likes.user_id > users.id
 Ref brand_like_brand: brand_likes.brand_id > brands.id
 
-// Cart
-Ref cart_user: carts.user_id > users.id
-Ref cart_item_cart: cart_items.cart_id > carts.id
+// Cart (C5: cart_items → users 직접 참조)
+Ref cart_item_user: cart_items.user_id > users.id
 Ref cart_item_product: cart_items.product_id > products.id
 
 // Inventory
 Ref inventory_product: inventories.product_id > products.id
-Ref reservation_user: inventory_reservations.user_id > users.id
-Ref reservation_item_reservation: inventory_reservation_items.reservation_id > inventory_reservations.id
-Ref reservation_item_product: inventory_reservation_items.product_id > products.id
 
-// Order (OrderSheet 통합)
+// Order (C3: reservation 참조 제거)
 Ref order_user: orders.user_id > users.id
-Ref order_reservation: orders.reservation_id > inventory_reservations.id
 Ref order_item_order: order_items.order_id > orders.id
 // order_items.product_id는 FK 아님 (추적용 참조만)
 
@@ -511,13 +428,10 @@ Ref order_item_order: order_items.order_id > orders.id
 Ref payment_order: payments.order_id > orders.id
 Ref order_payment: orders.payment_id > payments.id
 
-// Point
+// Point (C4: point_ledgers 참조 제거)
 Ref point_account_user: point_accounts.user_id > users.id
-Ref point_ledger_user: point_ledgers.user_id > users.id
-Ref point_ledger_order: point_ledgers.order_id > orders.id
 
-// Coupon
+// Coupon (C1: coupon_targets 참조 제거, C2: used_order_id)
 Ref coupon_issue_user: issued_coupons.user_id > users.id
 Ref coupon_issue_template: issued_coupons.coupon_template_id > coupon_templates.id
-Ref coupon_issue_order: issued_coupons.redeemed_order_id > orders.id
-Ref coupon_target_template: coupon_targets.coupon_template_id > coupon_templates.id
+Ref coupon_issue_order: issued_coupons.used_order_id > orders.id

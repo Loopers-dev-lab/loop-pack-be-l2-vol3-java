@@ -7,9 +7,9 @@
 - **OrderSheet 제거**: Order 단일 테이블로 통합 (PENDING/PAID/EXPIRED/CANCELED)
 - **소프트 삭제**: 모든 테이블에 `deleted_at` 컬럼 (좋아요 제외 - hard delete)
 - **상태 관리**: `status` VARCHAR 컬럼으로 명확한 상태 전이 표현
-- **가격**: `base_price` 단일 필드. 할인은 쿠폰 시스템으로 처리
-- **재고**: `inventories` 테이블 분리 + 예약(reservation) 모델
-- **재고 예약 만료**: 30분
+- **가격**: `base_price` 단일 필드. 할인은 쿠폰 시스템으로 처리 (주문 단위 할인)
+- **재고**: `inventories` 테이블 분리 (독립 도메인). 재고 예약은 Order(PENDING) + `reserved_qty`로 관리
+- **재고 예약 만료**: 30분 (Order.expires_at 기준, 배치 처리)
 - **FK 제약 미사용**: 논리 참조만 (DBML Ref)
 - DBML 원본: `04-erd.dbml` 참조
 
@@ -20,13 +20,12 @@
 ```mermaid
 erDiagram
     users ||--o{ user_addresses : "1:N"
-    users ||--|| carts : "1:1"
     users ||--o{ product_likes : "1:N"
     users ||--o{ brand_likes : "1:N"
+    users ||--o{ cart_items : "1:N"
     users ||--o{ orders : "1:N"
     users ||--|| point_accounts : "1:1"
     users ||--o{ issued_coupons : "1:N"
-    users ||--o{ inventory_reservations : "1:N"
 
     brands ||--o{ products : "1:N"
     brands ||--o{ brand_likes : "1:N"
@@ -34,23 +33,12 @@ erDiagram
     products ||--o{ product_likes : "1:N"
     products ||--|| inventories : "1:1"
     products ||--o{ cart_items : "1:N"
-    products ||--o{ inventory_reservation_items : "1:N"
-
-    carts ||--o{ cart_items : "1:N"
-
-    inventory_reservations ||--o{ inventory_reservation_items : "1:N"
-    inventory_reservations ||--|| orders : "1:1"
 
     orders ||--o{ order_items : "1:N"
     orders ||--o{ payments : "1:N"
-
-    point_accounts ||--o{ point_ledgers : "1:N"
+    orders ||--o{ issued_coupons : "0:N used"
 
     coupon_templates ||--o{ issued_coupons : "1:N"
-    coupon_templates ||--o{ coupon_targets : "1:N"
-
-    orders ||--o{ issued_coupons : "0:N redeemed"
-    orders ||--o{ point_ledgers : "0:N"
 
     users {
         bigint id PK
@@ -115,17 +103,9 @@ erDiagram
         timestamp created_at
     }
 
-    carts {
-        bigint id PK
-        bigint user_id UK
-        timestamp deleted_at
-        timestamp created_at
-        timestamp updated_at
-    }
-
     cart_items {
         bigint id PK
-        bigint cart_id FK
+        bigint user_id FK
         bigint product_id FK
         int quantity
         timestamp deleted_at
@@ -144,28 +124,10 @@ erDiagram
         timestamp updated_at
     }
 
-    inventory_reservations {
-        bigint id PK
-        bigint user_id FK
-        varchar status "HELD/COMMITTED/RELEASED/EXPIRED"
-        timestamp expires_at
-        timestamp created_at
-        timestamp updated_at
-    }
-
-    inventory_reservation_items {
-        bigint id PK
-        bigint reservation_id FK
-        bigint product_id FK
-        int quantity
-        timestamp created_at
-    }
-
     orders {
         bigint id PK
         varchar order_number UK
         bigint user_id FK
-        bigint reservation_id UK
         varchar status "PENDING/PAID/EXPIRED/CANCELED"
         varchar orderer_name
         varchar receiver_name
@@ -188,7 +150,6 @@ erDiagram
         varchar product_name
         varchar brand_name
         int unit_price
-        int discounted_unit_price
         int quantity
         int line_total
         timestamp created_at
@@ -217,16 +178,6 @@ erDiagram
         timestamp updated_at
     }
 
-    point_ledgers {
-        bigint id PK
-        bigint user_id FK
-        bigint order_id
-        varchar type "EARN/USE/REFUND/ADJUST"
-        int amount
-        int balance_after
-        timestamp created_at
-    }
-
     coupon_templates {
         bigint id PK
         varchar name
@@ -246,21 +197,12 @@ erDiagram
         bigint user_id FK
         bigint coupon_template_id FK
         varchar code UK
-        varchar status "ISSUED/RESERVED/REDEEMED/EXPIRED/CANCELED"
-        bigint redeemed_order_id
+        varchar status "ISSUED/USED/EXPIRED"
+        bigint used_order_id
         timestamp issued_at
         timestamp deleted_at
         timestamp created_at
         timestamp updated_at
-    }
-
-    coupon_targets {
-        bigint id PK
-        bigint coupon_template_id FK
-        varchar target_type "ALL/PRODUCT/BRAND"
-        bigint target_id
-        timestamp deleted_at
-        timestamp created_at
     }
 ```
 
@@ -374,35 +316,25 @@ erDiagram
 
 ---
 
-### 2-7. carts (장바구니)
-
-| 컬럼 | 타입 | 제약 | 설명 |
-|------|------|------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | 장바구니 PK |
-| user_id | BIGINT | UNIQUE, NOT NULL | 사용자 ID (1:1) |
-| deleted_at | TIMESTAMP | NULL | soft delete |
-| created_at | TIMESTAMP | NOT NULL | 생성 시각 |
-| updated_at | TIMESTAMP | NOT NULL | 수정 시각 |
-
----
-
-### 2-8. cart_items (장바구니 항목)
+### 2-7. cart_items (장바구니 항목)
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
 | id | BIGINT | PK, AUTO_INCREMENT | 항목 PK |
-| cart_id | BIGINT | NOT NULL | 장바구니 ID |
+| user_id | BIGINT | NOT NULL | 사용자 ID |
 | product_id | BIGINT | NOT NULL | 상품 ID |
 | quantity | INT | NOT NULL | 수량 |
 | deleted_at | TIMESTAMP | NULL | soft delete |
 | created_at | TIMESTAMP | NOT NULL | 생성 시각 |
 | updated_at | TIMESTAMP | NOT NULL | 수정 시각 |
 
-**유니크 제약**: `uk_cart_items(cart_id, product_id)` - 동일 상품 추가 시 수량 merge
+**유니크 제약**: `uk_cart_items(user_id, product_id)` - 동일 상품 추가 시 수량 merge
+
+**설계 결정**: carts 테이블 제거. 발제에 장바구니 전체 비즈니스 규칙이 없으므로 cart_items가 user_id를 직접 참조.
 
 ---
 
-### 2-9. inventories (재고)
+### 2-8. inventories (재고)
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
@@ -417,46 +349,22 @@ erDiagram
 
 **가용 재고 계산**: `available = quantity - reserved_qty`
 
-**재고 예약 흐름**:
-1. 주문 생성(PENDING) → `reserved_qty += 수량` (HELD)
-2. 결제 성공(PAID) → `quantity -= 수량`, `reserved_qty -= 수량` (COMMITTED)
-3. 결제 실패/만료 → `reserved_qty -= 수량` (RELEASED/EXPIRED)
+**재고 예약 흐름** (Order 기반):
+1. 주문 생성(PENDING) → `reserved_qty += 수량` (비관적 락)
+2. 결제 성공(PAID) → `quantity -= 수량`, `reserved_qty -= 수량`
+3. 결제 실패/만료 → `reserved_qty -= 수량` (order_items 기준으로 복구)
+
+**설계 결정**: 별도 reservation 테이블 없이 Order(PENDING) + order_items가 예약 정보 역할을 겸함. 만료 배치는 `orders.status = PENDING AND expires_at < now()` 기준으로 동작.
 
 ---
 
-### 2-10. inventory_reservations (재고 예약)
-
-| 컬럼 | 타입 | 제약 | 설명 |
-|------|------|------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | 예약 PK |
-| user_id | BIGINT | NOT NULL | 사용자 ID |
-| status | VARCHAR(20) | NOT NULL | HELD/COMMITTED/RELEASED/EXPIRED |
-| expires_at | TIMESTAMP | NOT NULL | 만료 시각 (생성 + 30분) |
-| created_at | TIMESTAMP | NOT NULL | 생성 시각 |
-| updated_at | TIMESTAMP | NOT NULL | 수정 시각 |
-
----
-
-### 2-11. inventory_reservation_items (예약 항목)
-
-| 컬럼 | 타입 | 제약 | 설명 |
-|------|------|------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | 예약항목 PK |
-| reservation_id | BIGINT | NOT NULL | 재고예약 ID |
-| product_id | BIGINT | NOT NULL | 상품 ID |
-| quantity | INT | NOT NULL | 예약 수량 |
-| created_at | TIMESTAMP | NOT NULL | 생성 시각 |
-
----
-
-### 2-12. orders (주문 - OrderSheet 통합)
+### 2-9. orders (주문 - OrderSheet 통합)
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
 | id | BIGINT | PK, AUTO_INCREMENT | 주문 PK |
 | order_number | VARCHAR(50) | UNIQUE, NOT NULL | 주문번호(외부노출) |
 | user_id | BIGINT | NOT NULL | 사용자 ID |
-| reservation_id | BIGINT | UNIQUE, NOT NULL | 재고예약 ID (1:1) |
 | status | VARCHAR(20) | NOT NULL | PENDING/PAID/EXPIRED/CANCELED |
 | orderer_name | VARCHAR(100) | NOT NULL | 주문자 이름 |
 | orderer_phone | VARCHAR(50) | NOT NULL | 주문자 연락처 |
@@ -466,19 +374,19 @@ erDiagram
 | address_line1 | VARCHAR(255) | NOT NULL | 주소1 |
 | address_line2 | VARCHAR(255) | | 상세주소 |
 | subtotal_amount | INT | NOT NULL | 상품 합계 |
-| discount_amount | INT | NOT NULL, DEFAULT 0 | 쿠폰 할인 합계 |
+| discount_amount | INT | NOT NULL, DEFAULT 0 | 쿠폰 할인 합계 (주문 단위) |
 | point_used_amount | INT | NOT NULL, DEFAULT 0 | 포인트 사용액 |
 | shipping_fee | INT | NOT NULL, DEFAULT 0 | 배송비 |
 | total_amount | INT | NOT NULL | 최종 결제 금액 |
 | payment_method | VARCHAR(30) | | 결제수단 |
 | payment_id | BIGINT | | 승인된 결제 ID |
 | ordered_at | TIMESTAMP | | 결제 완료 시각 |
-| expires_at | TIMESTAMP | NOT NULL | 결제 만료 시각 |
+| expires_at | TIMESTAMP | NOT NULL | 결제 만료 시각 (생성 + 30분) |
 | canceled_at | TIMESTAMP | | 취소 시각 |
 | created_at | TIMESTAMP | NOT NULL | 생성 시각 |
 | updated_at | TIMESTAMP | NOT NULL | 수정 시각 |
 
-**인덱스**: `uk_orders_order_number`, `uk_orders_reservation_id`, `idx_orders_user_id_status`, `idx_orders_status_expires_at`, `idx_orders_user_id_created_at`
+**인덱스**: `uk_orders_order_number`, `idx_orders_user_id_status`, `idx_orders_status_expires_at`, `idx_orders_user_id_created_at`
 
 **OrderSheet 통합 설계**:
 - `PENDING` 상태가 기존 OrderSheet의 역할을 대체
@@ -488,7 +396,7 @@ erDiagram
 
 ---
 
-### 2-13. order_items (주문항목 - 스냅샷)
+### 2-10. order_items (주문항목 - 스냅샷)
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
@@ -498,16 +406,17 @@ erDiagram
 | product_name | VARCHAR(200) | NOT NULL | 상품명 스냅샷 |
 | brand_name | VARCHAR(150) | NOT NULL | 브랜드명 스냅샷 |
 | unit_price | INT | NOT NULL | 단가 스냅샷 (base_price) |
-| discounted_unit_price | INT | NOT NULL | 할인 적용 단가 |
 | quantity | INT | NOT NULL | 수량 |
-| line_total | INT | NOT NULL | 라인 금액 |
+| line_total | INT | NOT NULL | 라인 금액 (unit_price * quantity) |
 | created_at | TIMESTAMP | NOT NULL | 생성 시각 |
 
 **설계 의도**: 주문 시점의 상품 정보를 고정 저장. 원본 상품이 변경/삭제되어도 유지.
 
+**설계 결정**: `discounted_unit_price` 제거. 쿠폰 할인은 주문 단위(`orders.discount_amount`)로 관리하므로 상품별 할인 단가 불필요.
+
 ---
 
-### 2-14. payments (결제)
+### 2-11. payments (결제)
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
@@ -529,7 +438,7 @@ erDiagram
 
 ---
 
-### 2-15. point_accounts (포인트 계좌)
+### 2-12. point_accounts (포인트 계좌)
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
@@ -539,23 +448,11 @@ erDiagram
 | created_at | TIMESTAMP | NOT NULL | 생성 시각 |
 | updated_at | TIMESTAMP | NOT NULL | 수정 시각 |
 
----
-
-### 2-16. point_ledgers (포인트 원장)
-
-| 컬럼 | 타입 | 제약 | 설명 |
-|------|------|------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | 원장 PK |
-| user_id | BIGINT | NOT NULL | 사용자 ID |
-| order_id | BIGINT | | 주문 ID (관련 시) |
-| type | VARCHAR(20) | NOT NULL | EARN/USE/REFUND/ADJUST |
-| amount | INT | NOT NULL | 변동 금액(+/-) |
-| balance_after | INT | NOT NULL | 반영 후 잔액 |
-| created_at | TIMESTAMP | NOT NULL | 생성 시각 |
+**설계 결정**: Point를 독립 도메인으로 유지. User와 책임 분리. point_ledgers(이력 테이블)는 발제 요구사항에 없으므로 제거.
 
 ---
 
-### 2-17. coupon_templates (쿠폰 템플릿)
+### 2-13. coupon_templates (쿠폰 템플릿)
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
@@ -575,9 +472,11 @@ erDiagram
 | created_at | TIMESTAMP | NOT NULL | 생성 시각 |
 | updated_at | TIMESTAMP | NOT NULL | 수정 시각 |
 
+**설계 결정**: coupon_targets 테이블 제거. 쿠폰은 주문 전체에 적용. 상품별/브랜드별 타겟팅은 발제 요구사항 아님.
+
 ---
 
-### 2-18. issued_coupons (발급 쿠폰)
+### 2-14. issued_coupons (발급 쿠폰)
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
@@ -585,26 +484,14 @@ erDiagram
 | user_id | BIGINT | NOT NULL | 사용자 ID |
 | coupon_template_id | BIGINT | NOT NULL | 쿠폰 템플릿 ID |
 | code | VARCHAR(100) | UNIQUE, NOT NULL | 쿠폰 코드 |
-| status | VARCHAR(20) | NOT NULL | ISSUED/RESERVED/REDEEMED/EXPIRED/CANCELED |
+| status | VARCHAR(20) | NOT NULL | ISSUED/USED/EXPIRED |
 | issued_at | TIMESTAMP | NOT NULL | 발급 시각 |
-| redeemed_order_id | BIGINT | | 사용 확정 주문 ID |
-| expired_at | TIMESTAMP | | 만료 시각 |
+| used_order_id | BIGINT | | 사용 주문 ID (USED 시 설정) |
 | deleted_at | TIMESTAMP | NULL | soft delete |
 | created_at | TIMESTAMP | NOT NULL | 생성 시각 |
 | updated_at | TIMESTAMP | NOT NULL | 수정 시각 |
 
----
-
-### 2-19. coupon_targets (쿠폰 대상)
-
-| 컬럼 | 타입 | 제약 | 설명 |
-|------|------|------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | 대상 PK |
-| coupon_template_id | BIGINT | NOT NULL | 쿠폰 템플릿 ID |
-| target_type | VARCHAR(20) | NOT NULL | ALL/PRODUCT/BRAND |
-| target_id | BIGINT | | 대상 ID (ALL이면 NULL) |
-| deleted_at | TIMESTAMP | NULL | soft delete |
-| created_at | TIMESTAMP | NOT NULL | 생성 시각 |
+**설계 결정**: 상태를 5단계(ISSUED/RESERVED/REDEEMED/EXPIRED/CANCELED)에서 3단계(ISSUED/USED/EXPIRED)로 단순화. 결제 성공 시 바로 USED 처리.
 
 ---
 
@@ -615,12 +502,10 @@ erDiagram
 | products | brand_id → brands.id | 논리 FK | 상품은 반드시 브랜드에 소속 |
 | product_likes | (user_id, product_id) | UK | 중복 좋아요 방지 |
 | brand_likes | (user_id, brand_id) | UK | 중복 좋아요 방지 |
-| carts | user_id | UK | 사용자당 장바구니 1개 |
-| cart_items | (cart_id, product_id) | UK | 동일 상품 중복 방지 |
+| cart_items | (user_id, product_id) | UK | 동일 상품 중복 방지 |
 | inventories | product_id | UK | 상품당 재고 1건 (1:1) |
 | inventories | quantity >= 0, reserved_qty >= 0 | 앱 검증 | 음수 방지 |
 | orders | order_number | UK | 주문번호 유일성 |
-| orders | reservation_id | UK | 주문당 예약 1건 (1:1) |
 | order_items | product_id | 참조만 | FK 아님 - 스냅샷 유지 |
 | payments | idempotency_key | UK | PG 중복 요청 방지 |
 | issued_coupons | code | UK | 쿠폰 코드 유일성 |
@@ -637,18 +522,14 @@ erDiagram
 | products | deleted_at | 삭제되어도 기존 order_items 스냅샷 유지 |
 | **product_likes** | **hard delete** | 취소 시 row 삭제. 이력 불필요 |
 | **brand_likes** | **hard delete** | 취소 시 row 삭제. 이력 불필요 |
-| carts | deleted_at | |
 | cart_items | deleted_at | 장바구니 상품 제거 |
 | inventories | deleted_at | 상품 삭제 시 함께 soft delete |
-| inventory_reservations | 상태 관리 | HELD→COMMITTED/RELEASED/EXPIRED 상태 전이로 관리 |
 | orders | 상태 관리 | 취소는 status=CANCELED. deleted_at 미사용 |
 | order_items | 없음 | 스냅샷 - 변경/삭제 불가 |
 | payments | 상태 관리 | 상태 전이로 관리 |
 | point_accounts | 없음 | 계좌 삭제 없음 |
-| point_ledgers | 없음 | append-only |
 | coupon_templates | deleted_at | |
 | issued_coupons | deleted_at + 상태 | 상태 전이 + soft delete 병행 |
-| coupon_targets | deleted_at | |
 
 ---
 
@@ -663,8 +544,8 @@ erDiagram
 | products | `idx_products_like_count` | 좋아요순 정렬 |
 | product_likes | `uk_product_likes(user_id, product_id)` | 중복 방지 + 존재 여부 |
 | brand_likes | `uk_brand_likes(user_id, brand_id)` | 중복 방지 + 존재 여부 |
+| cart_items | `uk_cart_items(user_id, product_id)` | 동일 상품 중복 방지 |
 | inventories | `uk_inventories_product_id` | 상품당 재고 1건 |
-| inventory_reservations | `idx_reservations_status_expires_at` | 배치 만료 처리 |
 | orders | `uk_orders_order_number` | 주문번호 조회 |
 | orders | `idx_orders_user_id_created_at` | 사용자별 주문 목록 |
 | orders | `idx_orders_status_expires_at` | 배치 만료 처리 |
@@ -681,30 +562,18 @@ erDiagram
 
 ```
 PENDING ──결제성공──→ PAID
-   │                    │
+   │
    ├──30분경과──→ EXPIRED   (배치)
    │
    └──결제실패/취소──→ CANCELED
 ```
 
-### InventoryReservation 상태
-
-```
-HELD ──결제성공──→ COMMITTED
-  │
-  ├──결제실패──→ RELEASED
-  │
-  └──30분경과──→ EXPIRED   (배치)
-```
-
 ### IssuedCoupon 상태
 
 ```
-ISSUED ──주문적용──→ RESERVED ──결제성공──→ REDEEMED
-  │                    │
-  ├──유효기간만료──→ EXPIRED    ├──결제실패──→ ISSUED (복구)
+ISSUED ──결제성공──→ USED
   │
-  └──관리자취소──→ CANCELED
+  └──유효기간만료──→ EXPIRED
 ```
 
 ### Payment 상태
@@ -716,3 +585,16 @@ REQUESTED ──PG승인──→ APPROVED
                     │
           APPROVED ──취소──→ CANCELED
 ```
+
+---
+
+## 7. 단순화 변경 이력
+
+| 변경 | 내용 | 근거 |
+|------|------|------|
+| C1 | `coupon_targets` 테이블 제거 | 상품별/브랜드별 쿠폰 대상 지정 요구사항 없음 |
+| C2 | IssuedCoupon 상태 5→3단계 (ISSUED/USED/EXPIRED) | RESERVED 상태의 보상 로직 복잡도 제거 |
+| C3 | `inventory_reservations` + `items` 2테이블 제거, `orders.reservation_id` 제거 | Order(PENDING) + order_items가 동일 정보 보유 |
+| C4 | `point_ledgers` 테이블 제거 | 발제에 포인트 변동 이력 추적 요구사항 없음 |
+| C5 | `carts` 테이블 제거, cart_items가 user_id 직접 참조 | 장바구니 전체 비즈니스 규칙 없음 |
+| C6 | `order_items.discounted_unit_price` 컬럼 제거 | 쿠폰 할인은 주문 단위 관리 |

@@ -60,15 +60,9 @@ classDiagram
         -LocalDateTime createdAt
     }
 
-    class Cart {
-        -Long id
-        -Long userId
-        -LocalDateTime deletedAt
-    }
-
     class CartItem {
         -Long id
-        -Long cartId
+        -Long userId
         -Long productId
         -int quantity
         -LocalDateTime deletedAt
@@ -89,30 +83,10 @@ classDiagram
         +assertAvailable(qty) void
     }
 
-    class InventoryReservation {
-        -Long id
-        -Long userId
-        -ReservationStatus status
-        -LocalDateTime expiresAt
-        -List~InventoryReservationItem~ items
-        +isExpired() boolean
-        +commit() void
-        +release() void
-        +expire() void
-    }
-
-    class InventoryReservationItem {
-        -Long id
-        -Long reservationId
-        -Long productId
-        -int quantity
-    }
-
     class Order {
         -Long id
         -String orderNumber
         -Long userId
-        -Long reservationId
         -OrderStatus status
         -String ordererName
         -String ordererPhone
@@ -146,7 +120,6 @@ classDiagram
         -String productName
         -String brandName
         -int unitPrice
-        -int discountedUnitPrice
         -int quantity
         -int lineTotal
         +calculateLineTotal() int
@@ -179,15 +152,6 @@ classDiagram
         +assertSufficient(amount) void
     }
 
-    class PointLedger {
-        -Long id
-        -Long userId
-        -Long orderId
-        -PointType type
-        -int amount
-        -int balanceAfter
-    }
-
     class CouponTemplate {
         -Long id
         -String name
@@ -212,20 +176,10 @@ classDiagram
         -Long couponTemplateId
         -String code
         -IssuedCouponStatus status
-        -Long redeemedOrderId
-        +reserve() void
-        +redeem(orderId) void
-        +release() void
+        -Long usedOrderId
+        +use(orderId) void
         +expire() void
         +isUsable() boolean
-    }
-
-    class CouponTarget {
-        -Long id
-        -Long couponTemplateId
-        -CouponTargetType targetType
-        -Long targetId
-        +matches(productId, brandId) boolean
     }
 
     class BrandStatus {
@@ -250,14 +204,6 @@ classDiagram
         CANCELED
     }
 
-    class ReservationStatus {
-        <<enumeration>>
-        HELD
-        COMMITTED
-        RELEASED
-        EXPIRED
-    }
-
     class PaymentStatus {
         <<enumeration>>
         REQUESTED
@@ -269,18 +215,8 @@ classDiagram
     class IssuedCouponStatus {
         <<enumeration>>
         ISSUED
-        RESERVED
-        REDEEMED
+        USED
         EXPIRED
-        CANCELED
-    }
-
-    class PointType {
-        <<enumeration>>
-        EARN
-        USE
-        REFUND
-        ADJUST
     }
 
     class DiscountType {
@@ -289,33 +225,18 @@ classDiagram
         PERCENT
     }
 
-    class CouponTargetType {
-        <<enumeration>>
-        ALL
-        PRODUCT
-        BRAND
-    }
-
     Brand "1" --> "*" Product : brandId
     Product "1" --> "*" ProductLike : productId
     Brand "1" --> "*" BrandLike : brandId
     Product "1" --> "1" Inventory : productId
 
-    Cart "1" --> "*" CartItem : cartId
     CartItem --> Product : productId
 
-    Inventory "1" ..> InventoryReservation : 예약/해제
-    InventoryReservation "1" *-- "*" InventoryReservationItem : items
-
     Order "1" *-- "*" OrderItem : items
-    Order "1" --> "1" InventoryReservation : reservationId
     Order "1" --> "*" Payment : orderId
 
-    PointAccount "1" --> "*" PointLedger : userId
-
     CouponTemplate "1" --> "*" IssuedCoupon : templateId
-    CouponTemplate "1" --> "*" CouponTarget : templateId
-    IssuedCoupon ..> Order : redeemedOrderId
+    IssuedCoupon ..> Order : usedOrderId
 ```
 
 ---
@@ -328,15 +249,13 @@ classDiagram
 | **Product** | Product | 상품 정보 + 좋아요 수 관리. 재고는 Inventory로 분리 |
 | **ProductLike** | ProductLike | 좋아요 단독 Aggregate (Product와 ID 참조만) |
 | **BrandLike** | BrandLike | 브랜드 좋아요 단독 Aggregate |
-| **Cart** | Cart, CartItem | 장바구니 + 항목. CartItem은 Cart를 통해서만 접근 |
+| **CartItem** | CartItem | 장바구니 항목 단독 Aggregate. user_id로 직접 참조 |
 | **Inventory** | Inventory | 재고 수량 관리. 예약/확정/해제는 도메인 메서드 |
-| **InventoryReservation** | InventoryReservation, InventoryReservationItem | 재고 예약 단위. Items는 Reservation과 함께 생성 |
 | **Order** | Order, OrderItem | 주문 + 항목(스냅샷). OrderItem은 Order와 동일 생명주기 |
 | **Payment** | Payment | 결제 단독 Aggregate. Order와 ID 참조 |
-| **PointAccount** | PointAccount | 포인트 잔액 관리 |
-| **PointLedger** | PointLedger | 포인트 변동 이력 (append-only) |
-| **CouponTemplate** | CouponTemplate, CouponTarget | 쿠폰 정책 + 적용 대상 |
-| **IssuedCoupon** | IssuedCoupon | 발급된 쿠폰 단독 Aggregate. 상태 전이 관리 |
+| **PointAccount** | PointAccount | 포인트 잔액 관리. 독립 도메인 |
+| **CouponTemplate** | CouponTemplate | 쿠폰 정책 마스터. 쿠폰은 주문 전체에 적용 |
+| **IssuedCoupon** | IssuedCoupon | 발급된 쿠폰 단독 Aggregate. 상태 전이 관리 (ISSUED/USED/EXPIRED) |
 
 ### Aggregate 경계 설계 근거
 
@@ -344,6 +263,7 @@ classDiagram
 - **OrderItem을 Order에 포함한 이유**: OrderItem은 Order 없이 존재할 수 없고, 주문 생성 시 함께 생성. 외부에서 직접 조작하는 유스케이스 없음
 - **Inventory를 Product에 포함하지 않은 이유**: 재고 예약/확정/해제의 생명주기가 Product의 수정과 독립적. 비관적 락의 범위를 재고만으로 한정
 - **Payment를 Order에 포함하지 않은 이유**: 하나의 주문에 여러 결제 시도 가능 (재시도). 결제 상태 관리가 독립적
+- **CartItem을 단독 Aggregate로 설정한 이유**: carts 테이블 제거로 user_id 직접 참조. 장바구니 전체에 대한 비즈니스 규칙 없음
 
 ---
 
@@ -355,7 +275,6 @@ classDiagram
 | 재고 예약 | `Inventory.reserve(qty)` | reservedQty += qty, available 확인 |
 | 재고 확정 차감 | `Inventory.commit(qty)` | quantity -= qty, reservedQty -= qty |
 | 재고 예약 해제 | `Inventory.release(qty)` | reservedQty -= qty |
-| 예약 만료 여부 | `InventoryReservation.isExpired()` | expiresAt < now |
 | 좋아요 수 증감 | `Product.incrementLikeCount()` / `decrementLikeCount()` | likeCount < 0 방지 |
 | 고객 노출 여부 | `Product.isVisibleToCustomer()` | status IN (ACTIVE, SOLDOUT) |
 | 주문 생성 + 스냅샷 | `Order(생성자)` + `OrderItem(생성자)` | 주문 시점 정보 고정 |
@@ -363,8 +282,7 @@ classDiagram
 | 할인 적용 | `Order.applyDiscount()` | PENDING 상태에서만 |
 | 주문 확정 | `Order.confirm(paymentId)` | PENDING→PAID, orderedAt 설정 |
 | 쿠폰 할인 계산 | `CouponTemplate.calculateDiscount()` | FIXED: 고정액, PERCENT: 비율(max 제한) |
-| 쿠폰 적용 대상 확인 | `CouponTarget.matches()` | ALL/PRODUCT/BRAND 매칭 |
-| 쿠폰 상태 전이 | `IssuedCoupon.reserve/redeem/release()` | 상태 전이 규칙 |
+| 쿠폰 사용 확정 | `IssuedCoupon.use(orderId)` | ISSUED→USED, usedOrderId 설정 |
 | 포인트 차감 | `PointAccount.use(amount)` | balance 충분 여부 검증 + 차감 |
 | 결제 승인 | `Payment.approve()` | REQUESTED→APPROVED |
 | 브랜드 삭제 시 상품 연쇄 | `BrandAdminService` | Application 레벨 Aggregate 간 조율 |
@@ -379,17 +297,13 @@ classDiagram
 | `ProductRepository` | Product | `findById`, `save`, `findByConditions(brandId, sort, pageable)`, `softDeleteAllByBrandId` |
 | `ProductLikeRepository` | ProductLike | `findByUserIdAndProductId`, `save`, `delete`, `findByUserId(pageable)` |
 | `BrandLikeRepository` | BrandLike | `findByUserIdAndBrandId`, `save`, `delete` |
-| `CartRepository` | Cart | `findByUserId`, `save` |
-| `CartItemRepository` | CartItem | `findByCartIdAndProductId`, `save`, `softDelete`, `findByCartId` |
+| `CartItemRepository` | CartItem | `findByUserIdAndProductId`, `save`, `softDelete`, `findByUserId` |
 | `InventoryRepository` | Inventory | `findByProductId`, `findByProductIdForUpdate`, `save`, `softDeleteAllByProductIds` |
-| `InventoryReservationRepository` | Reservation + Items | `save`, `findById`, `findByStatusAndExpiresAtBefore` |
-| `OrderRepository` | Order + OrderItem | `save`, `findById`, `findByUserIdAndDateRange(pageable)` |
+| `OrderRepository` | Order + OrderItem | `save`, `findById`, `findByUserIdAndDateRange(pageable)`, `findByStatusAndExpiresAtBefore` |
 | `PaymentRepository` | Payment | `save`, `findByIdempotencyKey` |
 | `PointAccountRepository` | PointAccount | `findByUserId`, `save` |
-| `PointLedgerRepository` | PointLedger | `save`, `findByUserId(pageable)` |
 | `CouponTemplateRepository` | CouponTemplate | `findById`, `save`, `findAll(pageable)` |
 | `IssuedCouponRepository` | IssuedCoupon | `findByCodeAndUserId`, `save`, `findByUserIdAndStatus(pageable)` |
-| `CouponTargetRepository` | CouponTarget | `findByCouponTemplateId` |
 
 ---
 
