@@ -5,9 +5,14 @@ import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -43,6 +48,31 @@ public class ApiControllerAdvice {
         String name = e.getParameterName();
         String type = e.getParameterType();
         String message = String.format("필수 요청 파라미터 '%s' (타입: %s)가 누락되었습니다.", name, type);
+        return failureResponse(ErrorType.BAD_REQUEST, message);
+    }
+
+    @ExceptionHandler
+    public ResponseEntity<ApiResponse<?>> handleBadRequest(MethodArgumentNotValidException e) {
+        FieldError fieldError = e.getBindingResult().getFieldErrors().get(0);
+        String fieldName = fieldError.getField();
+        String message = fieldError.getDefaultMessage();
+        String errorMessage = String.format("필드 '%s': %s", fieldName, message);
+        return failureResponse(ErrorType.BAD_REQUEST, errorMessage);
+    }
+
+    @ExceptionHandler
+    public ResponseEntity<ApiResponse<?>> handleBadRequest(MissingRequestHeaderException e) {
+        String headerName = e.getHeaderName();
+        String message = String.format("필수 요청 헤더 '%s'가 누락되었습니다.", headerName);
+        return failureResponse(ErrorType.BAD_REQUEST, message);
+    }
+
+    @ExceptionHandler
+    public ResponseEntity<ApiResponse<?>> handleBadRequest(ConstraintViolationException e) {
+        String message = e.getConstraintViolations().stream()
+            .findFirst()
+            .map(ConstraintViolation::getMessage)
+            .orElse("요청 값이 올바르지 않습니다.");
         return failureResponse(ErrorType.BAD_REQUEST, message);
     }
 
