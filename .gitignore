@@ -38,3 +38,12 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### QueryDSL Generated ###
+**/src/main/generated/
+
+### Claude Code ###
+.claude/
+
+### WIL / PR 초안 ###
+docs/week2/
