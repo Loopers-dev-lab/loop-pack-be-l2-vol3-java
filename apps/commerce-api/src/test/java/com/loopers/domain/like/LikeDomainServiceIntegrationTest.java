@@ -1,9 +1,9 @@
 package com.loopers.domain.like;
 
-import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.brand.BrandDomainService;
 import com.loopers.domain.product.Money;
 import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ProductDomainService;
 import com.loopers.domain.product.Stock;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -23,16 +24,17 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
-class LikeServiceIntegrationTest {
+@Transactional
+class LikeDomainServiceIntegrationTest {
 
     @Autowired
-    private LikeService likeService;
+    private LikeDomainService likeService;
 
     @Autowired
-    private ProductService productService;
+    private ProductDomainService productService;
 
     @Autowired
-    private BrandService brandService;
+    private BrandDomainService brandService;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;

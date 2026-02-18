@@ -30,8 +30,6 @@ classDiagram
         int likeCount
         +update(String, Money, Stock) void
         +deductStock(int) void
-        +addLikeCount() void
-        +subtractLikeCount() void
     }
 
     class Like {
@@ -103,7 +101,6 @@ classDiagram
 |---|---|---|
 | User | changePassword(Password) | 새 Password VO로 교체 |
 | Product | deductStock(int) | 재고 부족 시 CoreException(BAD_REQUEST) |
-| Product | addLikeCount() / subtractLikeCount() | 좋아요 등록/취소 시 카운터 증감 |
 | CartItem | addQuantity(int) | 이미 담긴 상품 → 수량 합산 |
 | CartItem | updateQuantity(int) | 수량 변경, 0 이하 불가 |
 
@@ -128,7 +125,7 @@ classDiagram
 - **Rich Domain Model**: 비즈니스 로직은 엔티티 메서드에 포함한다. Facade는 오케스트레이션만 담당한다.
 - **FK 미사용**: 모든 관계는 ID 참조만. FK 제약조건 없음. 참조 무결성은 애플리케이션 레벨에서 검증한다.
 - **Cart 엔티티 없음**: CartItem만 사용. User가 곧 Cart 소유자이다.
-- **좋아요 수 비정규화**: Product에 likeCount 필드로 저장. 좋아요 등록/취소 시 카운터를 증감한다.
+- **좋아요 수 비정규화**: Product에 likeCount 필드로 저장. LikeService에서 좋아요 등록/취소 시 원자적 UPDATE(`ProductRepository.incrementLikeCount/decrementLikeCount`)로 카운터를 증감한다.
 - **N:M 관계**: Like, CartItem 교차 테이블로 해소한다.
 - **likes, cart_items 물리 삭제**: 이력이 필요 없는 토글/임시 데이터이므로 Soft Delete 대신 물리 삭제 처리. UNIQUE 제약조건과의 충돌을 방지한다.
 - **order_items의 deleted_at 유지**: 주문 항목은 삭제 시나리오가 없으나, BaseEntity 상속 일관성을 위해 deleted_at을 유지한다.

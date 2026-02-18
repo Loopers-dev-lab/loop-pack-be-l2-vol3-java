@@ -29,6 +29,11 @@ public class OrderRepositoryImpl implements OrderRepository {
     }
 
     @Override
+    public Optional<Order> findByIdWithItems(Long id) {
+        return orderJpaRepository.findByIdWithItems(id);
+    }
+
+    @Override
     public PageResult<Order> findByUserIdAndCreatedAtBetween(Long userId, ZonedDateTime startAt, ZonedDateTime endAt, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Order> result = orderJpaRepository.findByUserIdAndCreatedAtBetweenAndDeletedAtIsNull(userId, startAt, endAt, pageRequest);

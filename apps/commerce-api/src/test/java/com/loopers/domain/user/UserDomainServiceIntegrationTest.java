@@ -18,10 +18,10 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
-class UserServiceIntegrationTest {
+class UserDomainServiceIntegrationTest {
 
     @Autowired
-    private UserService userService;
+    private UserDomainService userService;
 
     @Autowired
     private UserJpaRepository userJpaRepository;

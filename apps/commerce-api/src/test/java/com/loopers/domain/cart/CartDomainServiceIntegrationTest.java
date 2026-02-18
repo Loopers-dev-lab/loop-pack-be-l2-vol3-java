@@ -1,10 +1,10 @@
 package com.loopers.domain.cart;
 
 import com.loopers.domain.Quantity;
-import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.brand.BrandDomainService;
 import com.loopers.domain.product.Money;
 import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ProductDomainService;
 import com.loopers.domain.product.Stock;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -26,16 +26,16 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
-class CartServiceIntegrationTest {
+class CartDomainServiceIntegrationTest {
 
     @Autowired
-    private CartService cartService;
+    private CartDomainService cartService;
 
     @Autowired
-    private ProductService productService;
+    private ProductDomainService productService;
 
     @Autowired
-    private BrandService brandService;
+    private BrandDomainService brandService;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;

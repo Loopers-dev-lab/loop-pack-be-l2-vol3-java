@@ -1,13 +1,15 @@
 package com.loopers.interfaces.api.product;
 
-import com.loopers.application.product.ProductInfo;
 import com.loopers.domain.PageResult;
+import com.loopers.domain.brand.Brand;
+import com.loopers.domain.product.Product;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Map;
 
 public class AdminProductV1Dto {
 
@@ -51,11 +53,11 @@ public class AdminProductV1Dto {
         ZonedDateTime createdAt,
         ZonedDateTime updatedAt
     ) {
-        public static ProductResponse from(ProductInfo info) {
+        public static ProductResponse from(Product product, Brand brand) {
             return new ProductResponse(
-                info.id(), info.brandId(), info.brandName(), info.name(),
-                info.price(), info.stock(), info.likeCount(),
-                info.createdAt(), info.updatedAt()
+                product.getId(), product.getBrandId(), brand.getName(), product.getName(),
+                product.getPrice().amount(), product.getStock().quantity(), product.getLikeCount(),
+                product.getCreatedAt(), product.getUpdatedAt()
             );
         }
     }
@@ -67,9 +69,10 @@ public class AdminProductV1Dto {
         long totalElements,
         int totalPages
     ) {
-        public static ProductPageResponse from(PageResult<ProductInfo> result) {
+        public static ProductPageResponse from(PageResult<Product> result, Map<Long, Brand> brandMap) {
             List<ProductResponse> content = result.items().stream()
-                .map(ProductResponse::from)
+                .filter(product -> brandMap.containsKey(product.getBrandId()))
+                .map(product -> ProductResponse.from(product, brandMap.get(product.getBrandId())))
                 .toList();
             return new ProductPageResponse(content, result.page(), result.size(), result.totalElements(), result.totalPages());
         }

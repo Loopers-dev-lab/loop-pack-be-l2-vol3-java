@@ -1,20 +1,33 @@
 package com.loopers.domain.order;
 
-import com.loopers.domain.BaseEntity;
 import com.loopers.domain.Quantity;
 import com.loopers.domain.product.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+
+import java.time.ZonedDateTime;
 
 @Entity
 @Table(name = "order_items")
-public class OrderItem extends BaseEntity {
+public class OrderItem {
 
-    @Column(name = "order_id", nullable = false)
-    private Long orderId;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id", nullable = false)
+    private Order order;
 
     @Column(name = "product_id", nullable = false)
     private Long productId;
@@ -31,11 +44,14 @@ public class OrderItem extends BaseEntity {
     @Column(name = "quantity", nullable = false)
     private int quantity;
 
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private ZonedDateTime createdAt;
+
     protected OrderItem() {}
 
-    public OrderItem(Long orderId, Long productId, String productName, Money productPrice, String brandName, int quantity) {
-        validate(orderId, productId, productName, productPrice, brandName);
-        this.orderId = orderId;
+    OrderItem(Order order, Long productId, String productName, Money productPrice, String brandName, int quantity) {
+        validate(order, productId, productName, productPrice, brandName);
+        this.order = order;
         this.productId = productId;
         this.productName = productName;
         this.productPrice = productPrice.amount();
@@ -43,16 +59,22 @@ public class OrderItem extends BaseEntity {
         this.quantity = new Quantity(quantity).value();
     }
 
-    public Long getOrderId() { return orderId; }
+    public Long getId() { return id; }
     public Long getProductId() { return productId; }
     public String getProductName() { return productName; }
     public Money getProductPrice() { return new Money(productPrice); }
     public String getBrandName() { return brandName; }
     public Quantity getQuantity() { return new Quantity(quantity); }
+    public ZonedDateTime getCreatedAt() { return createdAt; }
 
-    private void validate(Long orderId, Long productId, String productName, Money productPrice, String brandName) {
-        if (orderId == null) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "주문 ID는 필수입니다.");
+    @PrePersist
+    private void prePersist() {
+        this.createdAt = ZonedDateTime.now();
+    }
+
+    private void validate(Order order, Long productId, String productName, Money productPrice, String brandName) {
+        if (order == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문은 필수입니다.");
         }
         if (productId == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "상품 ID는 필수입니다.");

@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import java.time.ZonedDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,10 +20,10 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
-class OrderServiceIntegrationTest {
+class OrderDomainServiceIntegrationTest {
 
     @Autowired
-    private OrderService orderService;
+    private OrderDomainService orderService;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -33,18 +33,18 @@ class OrderServiceIntegrationTest {
         databaseCleanUp.truncateAllTables();
     }
 
-    private Order createTestOrder(Long userId, int totalPrice) {
+    private Order createTestOrder(Long userId) {
         List<OrderItemCommand> items = List.of(
             new OrderItemCommand(1L, "에어맥스", new Money(129000), "나이키", 2)
         );
-        return orderService.createOrder(userId, new Money(totalPrice), items);
+        return orderService.createOrder(userId, items);
     }
 
     @DisplayName("주문을 생성할 때, ")
     @Nested
     class CreateOrder {
 
-        @DisplayName("올바른 정보이면, 주문과 주문 항목이 생성된다.")
+        @DisplayName("올바른 정보이면, 주문과 주문 항목이 생성되고 총 금액이 계산된다.")
         @Test
         void createsOrderAndItems_whenValidInfo() {
             List<OrderItemCommand> items = List.of(
@@ -52,7 +52,7 @@ class OrderServiceIntegrationTest {
                 new OrderItemCommand(2L, "에어포스1", new Money(109000), "나이키", 1)
             );
 
-            Order order = orderService.createOrder(1L, new Money(367000), items);
+            Order order = orderService.createOrder(1L, items);
 
             assertAll(
                 () -> assertThat(order.getId()).isNotNull(),
@@ -61,13 +61,42 @@ class OrderServiceIntegrationTest {
                 () -> assertThat(order.getStatus()).isEqualTo(OrderStatus.ORDERED)
             );
 
-            List<OrderItem> orderItems = orderService.getOrderItems(order.getId());
+            List<OrderItem> orderItems = order.getItems();
             assertAll(
                 () -> assertThat(orderItems).hasSize(2),
                 () -> assertThat(orderItems.get(0).getProductName()).isEqualTo("에어맥스"),
                 () -> assertThat(orderItems.get(0).getBrandName()).isEqualTo("나이키"),
                 () -> assertThat(orderItems.get(1).getProductName()).isEqualTo("에어포스1")
             );
+        }
+
+        @DisplayName("주문 항목이 비어있으면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenItemsEmpty() {
+            CoreException result = assertThrows(CoreException.class,
+                () -> orderService.createOrder(1L, List.of()));
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("주문 항목이 null이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenItemsNull() {
+            CoreException result = assertThrows(CoreException.class,
+                () -> orderService.createOrder(1L, null));
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("중복된 상품이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenDuplicateProducts() {
+            List<OrderItemCommand> items = List.of(
+                new OrderItemCommand(1L, "에어맥스", new Money(129000), "나이키", 2),
+                new OrderItemCommand(1L, "에어맥스", new Money(129000), "나이키", 3)
+            );
+
+            CoreException result = assertThrows(CoreException.class,
+                () -> orderService.createOrder(1L, items));
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
 
@@ -78,7 +107,7 @@ class OrderServiceIntegrationTest {
         @DisplayName("존재하는 주문이면, 주문을 반환한다.")
         @Test
         void returnsOrder_whenOrderExists() {
-            Order created = createTestOrder(1L, 258000);
+            Order created = createTestOrder(1L);
 
             Order result = orderService.getById(created.getId());
 
@@ -94,6 +123,25 @@ class OrderServiceIntegrationTest {
         }
     }
 
+    @DisplayName("주문을 ID로 항목과 함께 조회할 때, ")
+    @Nested
+    class GetByIdWithItems {
+
+        @DisplayName("존재하는 주문이면, 주문과 항목을 반환한다.")
+        @Test
+        void returnsOrderWithItems_whenOrderExists() {
+            Order created = createTestOrder(1L);
+
+            Order result = orderService.getByIdWithItems(created.getId());
+
+            assertAll(
+                () -> assertThat(result.getId()).isEqualTo(created.getId()),
+                () -> assertThat(result.getItems()).hasSize(1),
+                () -> assertThat(result.getItems().get(0).getProductName()).isEqualTo("에어맥스")
+            );
+        }
+    }
+
     @DisplayName("유저의 주문을 조회할 때, ")
     @Nested
     class GetByIdAndUserId {
@@ -101,7 +149,7 @@ class OrderServiceIntegrationTest {
         @DisplayName("본인의 주문이면, 주문을 반환한다.")
         @Test
         void returnsOrder_whenOwner() {
-            Order created = createTestOrder(1L, 258000);
+            Order created = createTestOrder(1L);
 
             Order result = orderService.getByIdAndUserId(created.getId(), 1L);
 
@@ -111,7 +159,7 @@ class OrderServiceIntegrationTest {
         @DisplayName("다른 유저의 주문이면, NOT_FOUND 예외가 발생한다.")
         @Test
         void throwsNotFound_whenNotOwner() {
-            Order created = createTestOrder(1L, 258000);
+            Order created = createTestOrder(1L);
 
             CoreException result = assertThrows(CoreException.class,
                 () -> orderService.getByIdAndUserId(created.getId(), 999L));
@@ -126,12 +174,12 @@ class OrderServiceIntegrationTest {
         @DisplayName("기간 내 주문이 있으면, 목록을 반환한다.")
         @Test
         void returnsOrders_whenOrdersExistInRange() {
-            createTestOrder(1L, 258000);
-            createTestOrder(1L, 109000);
-            createTestOrder(2L, 50000);
+            createTestOrder(1L);
+            createTestOrder(1L);
+            createTestOrder(2L);
 
-            ZonedDateTime start = ZonedDateTime.now().minusDays(1);
-            ZonedDateTime end = ZonedDateTime.now().plusDays(1);
+            LocalDate start = LocalDate.now().minusDays(1);
+            LocalDate end = LocalDate.now().plusDays(1);
 
             PageResult<Order> result = orderService.getMyOrders(1L, start, end, 0, 20);
 
@@ -144,10 +192,10 @@ class OrderServiceIntegrationTest {
         @DisplayName("기간 내 주문이 없으면, 빈 목록을 반환한다.")
         @Test
         void returnsEmpty_whenNoOrdersInRange() {
-            createTestOrder(1L, 258000);
+            createTestOrder(1L);
 
-            ZonedDateTime start = ZonedDateTime.now().plusDays(1);
-            ZonedDateTime end = ZonedDateTime.now().plusDays(2);
+            LocalDate start = LocalDate.now().plusDays(1);
+            LocalDate end = LocalDate.now().plusDays(2);
 
             PageResult<Order> result = orderService.getMyOrders(1L, start, end, 0, 20);
 
@@ -162,9 +210,9 @@ class OrderServiceIntegrationTest {
         @DisplayName("주문이 존재하면, 페이지 결과를 반환한다.")
         @Test
         void returnsPageResult_whenOrdersExist() {
-            createTestOrder(1L, 258000);
-            createTestOrder(2L, 109000);
-            createTestOrder(3L, 50000);
+            createTestOrder(1L);
+            createTestOrder(2L);
+            createTestOrder(3L);
 
             PageResult<Order> result = orderService.getAllOrders(0, 2);
 

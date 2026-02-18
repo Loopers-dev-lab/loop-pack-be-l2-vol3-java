@@ -4,9 +4,17 @@ import com.loopers.domain.BaseEntity;
 import com.loopers.domain.product.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @Entity
 @Table(name = "orders")
@@ -18,8 +26,12 @@ public class Order extends BaseEntity {
     @Column(name = "total_price", nullable = false)
     private int totalPrice;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private String status;
+    private OrderStatus status;
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<OrderItem> items = new ArrayList<>();
 
     protected Order() {}
 
@@ -27,12 +39,22 @@ public class Order extends BaseEntity {
         validate(userId, totalPrice);
         this.userId = userId;
         this.totalPrice = totalPrice.amount();
-        this.status = OrderStatus.ORDERED.name();
+        this.status = OrderStatus.ORDERED;
+    }
+
+    public void addItems(List<OrderItemCommand> commands) {
+        for (OrderItemCommand cmd : commands) {
+            this.items.add(new OrderItem(
+                this, cmd.productId(), cmd.productName(),
+                cmd.productPrice(), cmd.brandName(), cmd.quantity()
+            ));
+        }
     }
 
     public Long getUserId() { return userId; }
     public Money getTotalPrice() { return new Money(totalPrice); }
-    public OrderStatus getStatus() { return OrderStatus.valueOf(status); }
+    public OrderStatus getStatus() { return status; }
+    public List<OrderItem> getItems() { return Collections.unmodifiableList(items); }
 
     private void validate(Long userId, Money totalPrice) {
         if (userId == null) {

@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.order;
 
-import com.loopers.application.order.OrderDetailInfo;
-import com.loopers.application.order.OrderInfo;
 import com.loopers.domain.PageResult;
+import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderItem;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -16,8 +16,8 @@ public class AdminOrderV1Dto {
         String status,
         ZonedDateTime createdAt
     ) {
-        public static OrderResponse from(OrderInfo info) {
-            return new OrderResponse(info.orderId(), info.userId(), info.totalPrice(), info.status(), info.createdAt());
+        public static OrderResponse from(Order order) {
+            return new OrderResponse(order.getId(), order.getUserId(), order.getTotalPrice().amount(), order.getStatus().name(), order.getCreatedAt());
         }
     }
 
@@ -29,12 +29,12 @@ public class AdminOrderV1Dto {
         ZonedDateTime createdAt,
         List<OrderItemResponse> items
     ) {
-        public static OrderDetailResponse from(OrderDetailInfo info) {
-            List<OrderItemResponse> items = info.items().stream()
+        public static OrderDetailResponse from(Order order) {
+            List<OrderItemResponse> items = order.getItems().stream()
                 .map(OrderItemResponse::from)
                 .toList();
             return new OrderDetailResponse(
-                info.orderId(), info.userId(), info.totalPrice(), info.status(), info.createdAt(), items
+                order.getId(), order.getUserId(), order.getTotalPrice().amount(), order.getStatus().name(), order.getCreatedAt(), items
             );
         }
     }
@@ -46,10 +46,10 @@ public class AdminOrderV1Dto {
         String brandName,
         int quantity
     ) {
-        public static OrderItemResponse from(OrderDetailInfo.OrderItemInfo info) {
+        public static OrderItemResponse from(OrderItem item) {
             return new OrderItemResponse(
-                info.productId(), info.productName(), info.productPrice(),
-                info.brandName(), info.quantity()
+                item.getProductId(), item.getProductName(), item.getProductPrice().amount(),
+                item.getBrandName(), item.getQuantity().value()
             );
         }
     }
@@ -61,7 +61,7 @@ public class AdminOrderV1Dto {
         long totalElements,
         int totalPages
     ) {
-        public static OrderPageResponse from(PageResult<OrderInfo> result) {
+        public static OrderPageResponse from(PageResult<Order> result) {
             List<OrderResponse> content = result.items().stream()
                 .map(OrderResponse::from)
                 .toList();

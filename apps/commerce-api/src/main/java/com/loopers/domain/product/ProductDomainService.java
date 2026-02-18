@@ -11,7 +11,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
-public class ProductService {
+public class ProductDomainService {
 
     private final ProductRepository productRepository;
 
@@ -40,7 +40,7 @@ public class ProductService {
 
     public Product update(Long id, String name, Money price, Stock stock) {
         Product product = getById(id);
-        product.update(name, price, stock);
+        product.changeDetails(name, price, stock);
         return productRepository.save(product);
     }
 
@@ -54,11 +54,21 @@ public class ProductService {
         productRepository.softDeleteAllByBrandId(brandId);
     }
 
+    public Product deductStockWithLock(Long productId, int quantity) {
+        Product product = getByIdWithLock(productId);
+        product.deductStock(quantity);
+        return product;
+    }
+
     public void incrementLikeCount(Long productId) {
-        productRepository.incrementLikeCount(productId);
+        Product product = getByIdWithLock(productId);
+        product.incrementLikeCount();
+        productRepository.save(product);
     }
 
     public void decrementLikeCount(Long productId) {
-        productRepository.decrementLikeCount(productId);
+        Product product = getByIdWithLock(productId);
+        product.decrementLikeCount();
+        productRepository.save(product);
     }
 }

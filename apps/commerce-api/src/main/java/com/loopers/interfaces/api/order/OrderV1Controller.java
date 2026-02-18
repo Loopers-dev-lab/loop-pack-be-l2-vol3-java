@@ -1,9 +1,9 @@
 package com.loopers.interfaces.api.order;
 
-import com.loopers.application.order.OrderDetailInfo;
-import com.loopers.application.order.OrderFacade;
-import com.loopers.application.order.OrderInfo;
+import com.loopers.application.order.OrderApplicationService;
 import com.loopers.domain.PageResult;
+import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderLineItem;
 import com.loopers.domain.user.User;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.AuthUser;
@@ -20,14 +20,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/orders")
 public class OrderV1Controller implements OrderV1ApiSpec {
 
-    private final OrderFacade orderFacade;
+    private final OrderApplicationService orderApplicationService;
 
     @PostMapping
     @Override
@@ -35,18 +34,18 @@ public class OrderV1Controller implements OrderV1ApiSpec {
         @AuthUser User user,
         @Valid @RequestBody OrderV1Dto.CreateOrderRequest request
     ) {
-        List<OrderFacade.OrderItemRequest> items = request.items().stream()
-            .map(i -> new OrderFacade.OrderItemRequest(i.productId(), i.quantity()))
-            .collect(Collectors.toList());
-        OrderDetailInfo info = orderFacade.createOrder(user.getId(), items);
-        return ApiResponse.success(OrderV1Dto.OrderDetailResponse.from(info));
+        List<OrderLineItem> items = request.items().stream()
+            .map(i -> new OrderLineItem(i.productId(), i.quantity()))
+            .toList();
+        Order order = orderApplicationService.createOrder(user.getId(), items);
+        return ApiResponse.success(OrderV1Dto.OrderDetailResponse.from(order));
     }
 
     @PostMapping("/cart")
     @Override
     public ApiResponse<OrderV1Dto.OrderDetailResponse> createOrderFromCart(@AuthUser User user) {
-        OrderDetailInfo info = orderFacade.createOrderFromCart(user.getId());
-        return ApiResponse.success(OrderV1Dto.OrderDetailResponse.from(info));
+        Order order = orderApplicationService.createOrderFromCart(user.getId());
+        return ApiResponse.success(OrderV1Dto.OrderDetailResponse.from(order));
     }
 
     @GetMapping
@@ -58,7 +57,7 @@ public class OrderV1Controller implements OrderV1ApiSpec {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
-        PageResult<OrderInfo> result = orderFacade.getMyOrders(user.getId(), startAt, endAt, page, size);
+        PageResult<Order> result = orderApplicationService.getMyOrders(user.getId(), startAt, endAt, page, size);
         return ApiResponse.success(OrderV1Dto.OrderPageResponse.from(result));
     }
 
@@ -68,7 +67,7 @@ public class OrderV1Controller implements OrderV1ApiSpec {
         @AuthUser User user,
         @PathVariable Long orderId
     ) {
-        OrderDetailInfo info = orderFacade.getMyOrderDetail(user.getId(), orderId);
-        return ApiResponse.success(OrderV1Dto.OrderDetailResponse.from(info));
+        Order order = orderApplicationService.getMyOrder(user.getId(), orderId);
+        return ApiResponse.success(OrderV1Dto.OrderDetailResponse.from(order));
     }
 }

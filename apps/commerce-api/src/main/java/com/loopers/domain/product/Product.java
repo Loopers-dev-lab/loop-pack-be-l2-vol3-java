@@ -37,7 +37,7 @@ public class Product extends BaseEntity {
         this.likeCount = 0;
     }
 
-    public void update(String name, Money price, Stock stock) {
+    public void changeDetails(String name, Money price, Stock stock) {
         validate(this.brandId, name, price, stock);
         this.name = name;
         this.price = price.amount();
@@ -50,14 +50,15 @@ public class Product extends BaseEntity {
         this.stock = deducted.quantity();
     }
 
-    public void addLikeCount() {
+    public void incrementLikeCount() {
         this.likeCount++;
     }
 
-    public void subtractLikeCount() {
-        if (this.likeCount > 0) {
-            this.likeCount--;
+    public void decrementLikeCount() {
+        if (this.likeCount <= 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "좋아요 수는 0 미만이 될 수 없습니다.");
         }
+        this.likeCount--;
     }
 
     public Long getBrandId() { return brandId; }

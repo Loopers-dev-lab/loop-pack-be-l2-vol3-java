@@ -63,15 +63,15 @@ class ProductTest {
         }
     }
 
-    @DisplayName("상품을 수정할 때, ")
+    @DisplayName("상품 정보를 변경할 때, ")
     @Nested
-    class Update {
+    class ChangeDetails {
 
         @DisplayName("올바른 정보이면, 이름/가격/재고가 수정된다.")
         @Test
-        void updatesProduct_whenValidInfo() {
+        void changesDetails_whenValidInfo() {
             Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(100));
-            product.update("아디다스 울트라부스트", new Money(159000), new Stock(50));
+            product.changeDetails("아디다스 울트라부스트", new Money(159000), new Stock(50));
 
             assertAll(
                 () -> assertThat(product.getName()).isEqualTo("아디다스 울트라부스트"),
@@ -84,7 +84,7 @@ class ProductTest {
         @Test
         void doesNotChangeBrandId() {
             Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(100));
-            product.update("아디다스 울트라부스트", new Money(159000), new Stock(50));
+            product.changeDetails("아디다스 울트라부스트", new Money(159000), new Stock(50));
 
             assertThat(product.getBrandId()).isEqualTo(1L);
         }
@@ -113,36 +113,56 @@ class ProductTest {
         }
     }
 
-    @DisplayName("좋아요 수를 변경할 때, ")
+    @DisplayName("좋아요 수를 증가시킬 때, ")
     @Nested
-    class LikeCount {
+    class IncrementLikeCount {
 
-        @DisplayName("좋아요를 추가하면, 1 증가한다.")
+        @DisplayName("좋아요 수가 1 증가한다.")
         @Test
         void incrementsLikeCount() {
             Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(10));
-            product.addLikeCount();
+
+            product.incrementLikeCount();
 
             assertThat(product.getLikeCount()).isEqualTo(1);
         }
 
-        @DisplayName("좋아요를 취소하면, 1 감소한다.")
+        @DisplayName("여러 번 호출하면, 호출 횟수만큼 증가한다.")
+        @Test
+        void incrementsMultipleTimes() {
+            Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(10));
+
+            product.incrementLikeCount();
+            product.incrementLikeCount();
+            product.incrementLikeCount();
+
+            assertThat(product.getLikeCount()).isEqualTo(3);
+        }
+    }
+
+    @DisplayName("좋아요 수를 감소시킬 때, ")
+    @Nested
+    class DecrementLikeCount {
+
+        @DisplayName("좋아요 수가 1보다 크면, 1 감소한다.")
         @Test
         void decrementsLikeCount() {
             Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(10));
-            product.addLikeCount();
-            product.subtractLikeCount();
+            product.incrementLikeCount();
+            product.incrementLikeCount();
 
-            assertThat(product.getLikeCount()).isEqualTo(0);
+            product.decrementLikeCount();
+
+            assertThat(product.getLikeCount()).isEqualTo(1);
         }
 
-        @DisplayName("좋아요가 0일 때 취소하면, 0 이하로 내려가지 않는다.")
+        @DisplayName("좋아요 수가 0이면, BAD_REQUEST 예외가 발생한다.")
         @Test
-        void doesNotGoBelowZero() {
+        void throwsBadRequest_whenLikeCountIsZero() {
             Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(10));
-            product.subtractLikeCount();
 
-            assertThat(product.getLikeCount()).isEqualTo(0);
+            CoreException result = assertThrows(CoreException.class, product::decrementLikeCount);
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
 }

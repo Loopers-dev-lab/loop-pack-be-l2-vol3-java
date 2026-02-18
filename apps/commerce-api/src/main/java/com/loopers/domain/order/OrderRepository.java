@@ -11,6 +11,8 @@ public interface OrderRepository {
 
     Optional<Order> findById(Long id);
 
+    Optional<Order> findByIdWithItems(Long id);
+
     PageResult<Order> findByUserIdAndCreatedAtBetween(Long userId, ZonedDateTime startAt, ZonedDateTime endAt, int page, int size);
 
     PageResult<Order> findAll(int page, int size);

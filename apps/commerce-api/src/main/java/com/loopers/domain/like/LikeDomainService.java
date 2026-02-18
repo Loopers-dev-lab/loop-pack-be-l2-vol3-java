@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import java.util.List;
 
 @RequiredArgsConstructor
-public class LikeService {
+public class LikeDomainService {
 
     private final LikeRepository likeRepository;
 

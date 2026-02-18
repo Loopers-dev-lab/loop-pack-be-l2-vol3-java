@@ -21,7 +21,7 @@ public class Brand extends BaseEntity {
         this.name = name;
     }
 
-    public void update(String name) {
+    public void rename(String name) {
         validateName(name);
         this.name = name;
     }

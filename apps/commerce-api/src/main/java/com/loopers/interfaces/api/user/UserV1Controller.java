@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.user;
 
-import com.loopers.application.user.UserFacade;
-import com.loopers.application.user.UserInfo;
+import com.loopers.application.user.UserApplicationService;
 import com.loopers.domain.user.User;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.AuthUser;
@@ -19,34 +18,31 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/users")
 public class UserV1Controller implements UserV1ApiSpec {
 
-    private final UserFacade userFacade;
+    private final UserApplicationService userApplicationService;
 
     @PostMapping
     @Override
     public ApiResponse<UserV1Dto.SignupResponse> signup(@Valid @RequestBody UserV1Dto.SignupRequest request) {
-        UserInfo info = userFacade.signup(
+        User user = userApplicationService.signup(
             request.loginId(),
             request.password(),
             request.name(),
             request.birthDate(),
             request.email()
         );
-        UserV1Dto.SignupResponse response = UserV1Dto.SignupResponse.from(info);
-        return ApiResponse.success(response);
+        return ApiResponse.success(UserV1Dto.SignupResponse.from(user));
     }
 
     @GetMapping("/me")
     @Override
     public ApiResponse<UserV1Dto.MeResponse> getMe(@AuthUser User user) {
-        UserInfo info = userFacade.getMyInfo(user);
-        UserV1Dto.MeResponse response = UserV1Dto.MeResponse.from(info);
-        return ApiResponse.success(response);
+        return ApiResponse.success(UserV1Dto.MeResponse.from(user));
     }
 
     @PutMapping("/password")
     @Override
     public ApiResponse<Void> changePassword(@AuthUser User user, @Valid @RequestBody UserV1Dto.ChangePasswordRequest request) {
-        userFacade.changePassword(user, request.currentPassword(), request.newPassword());
-        return ApiResponse.success(null);
+        userApplicationService.changePassword(user, request.currentPassword(), request.newPassword());
+        return ApiResponse.success();
     }
 }

@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.brand;
 
-import com.loopers.application.brand.BrandFacade;
-import com.loopers.application.brand.BrandInfo;
+import com.loopers.application.brand.BrandApplicationService;
 import com.loopers.domain.PageResult;
+import com.loopers.domain.brand.Brand;
 import com.loopers.interfaces.api.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,13 +21,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api-admin/v1/brands")
 public class AdminBrandV1Controller implements AdminBrandV1ApiSpec {
 
-    private final BrandFacade brandFacade;
+    private final BrandApplicationService brandApplicationService;
 
     @PostMapping
     @Override
     public ApiResponse<AdminBrandV1Dto.BrandResponse> create(@Valid @RequestBody AdminBrandV1Dto.CreateRequest request) {
-        BrandInfo info = brandFacade.register(request.name());
-        return ApiResponse.success(AdminBrandV1Dto.BrandResponse.from(info));
+        Brand brand = brandApplicationService.register(request.name());
+        return ApiResponse.success(AdminBrandV1Dto.BrandResponse.from(brand));
     }
 
     @GetMapping
@@ -36,15 +36,15 @@ public class AdminBrandV1Controller implements AdminBrandV1ApiSpec {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
-        PageResult<BrandInfo> result = brandFacade.getAll(page, size);
+        PageResult<Brand> result = brandApplicationService.getAll(page, size);
         return ApiResponse.success(AdminBrandV1Dto.BrandPageResponse.from(result));
     }
 
     @GetMapping("/{brandId}")
     @Override
     public ApiResponse<AdminBrandV1Dto.BrandResponse> getById(@PathVariable Long brandId) {
-        BrandInfo info = brandFacade.getById(brandId);
-        return ApiResponse.success(AdminBrandV1Dto.BrandResponse.from(info));
+        Brand brand = brandApplicationService.getById(brandId);
+        return ApiResponse.success(AdminBrandV1Dto.BrandResponse.from(brand));
     }
 
     @PutMapping("/{brandId}")
@@ -53,14 +53,14 @@ public class AdminBrandV1Controller implements AdminBrandV1ApiSpec {
         @PathVariable Long brandId,
         @Valid @RequestBody AdminBrandV1Dto.UpdateRequest request
     ) {
-        BrandInfo info = brandFacade.update(brandId, request.name());
-        return ApiResponse.success(AdminBrandV1Dto.BrandResponse.from(info));
+        Brand brand = brandApplicationService.update(brandId, request.name());
+        return ApiResponse.success(AdminBrandV1Dto.BrandResponse.from(brand));
     }
 
     @DeleteMapping("/{brandId}")
     @Override
     public ApiResponse<Void> delete(@PathVariable Long brandId) {
-        brandFacade.delete(brandId);
-        return ApiResponse.success(null);
+        brandApplicationService.delete(brandId);
+        return ApiResponse.success();
     }
 }

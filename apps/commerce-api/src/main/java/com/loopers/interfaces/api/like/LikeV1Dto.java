@@ -1,6 +1,8 @@
 package com.loopers.interfaces.api.like;
 
-import com.loopers.application.like.LikeInfo;
+import com.loopers.domain.brand.Brand;
+import com.loopers.domain.like.Like;
+import com.loopers.domain.product.Product;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -16,19 +18,16 @@ public class LikeV1Dto {
         int likeCount,
         ZonedDateTime likedAt
     ) {
-        public static LikeResponse from(LikeInfo info) {
+        public static LikeResponse from(Like like, Product product, Brand brand) {
             return new LikeResponse(
-                info.likeId(), info.productId(), info.productName(),
-                info.brandName(), info.price(), info.likeCount(), info.likedAt()
+                like.getId(), product.getId(), product.getName(),
+                brand.getName(), product.getPrice().amount(), product.getLikeCount(), like.getCreatedAt()
             );
         }
     }
 
     public record LikeListResponse(List<LikeResponse> likes) {
-        public static LikeListResponse from(List<LikeInfo> infos) {
-            List<LikeResponse> likes = infos.stream()
-                .map(LikeResponse::from)
-                .toList();
+        public static LikeListResponse from(List<LikeResponse> likes) {
             return new LikeListResponse(likes);
         }
     }

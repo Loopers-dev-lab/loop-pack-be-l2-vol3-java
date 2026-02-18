@@ -2,7 +2,7 @@ package com.loopers.domain.product;
 
 import com.loopers.domain.PageResult;
 import com.loopers.domain.brand.Brand;
-import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.brand.BrandDomainService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
@@ -21,13 +21,13 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
-class ProductServiceIntegrationTest {
+class ProductDomainServiceIntegrationTest {
 
     @Autowired
-    private ProductService productService;
+    private ProductDomainService productService;
 
     @Autowired
-    private BrandService brandService;
+    private BrandDomainService brandService;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -213,6 +213,52 @@ class ProductServiceIntegrationTest {
 
             PageResult<Product> result = productService.getAll(brandId, ProductSortType.LATEST, 0, 20);
             assertThat(result.items()).isEmpty();
+        }
+    }
+
+    @DisplayName("좋아요 수를 증가할 때, ")
+    @Nested
+    class IncrementLikeCount {
+
+        @DisplayName("좋아요 수가 1 증가한다.")
+        @Test
+        @Transactional
+        void incrementsLikeCount() {
+            Product product = productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
+
+            productService.incrementLikeCount(product.getId());
+
+            Product result = productService.getById(product.getId());
+            assertThat(result.getLikeCount()).isEqualTo(1);
+        }
+    }
+
+    @DisplayName("좋아요 수를 감소할 때, ")
+    @Nested
+    class DecrementLikeCount {
+
+        @DisplayName("좋아요 수가 1 감소한다.")
+        @Test
+        @Transactional
+        void decrementsLikeCount() {
+            Product product = productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
+            productService.incrementLikeCount(product.getId());
+
+            productService.decrementLikeCount(product.getId());
+
+            Product result = productService.getById(product.getId());
+            assertThat(result.getLikeCount()).isEqualTo(0);
+        }
+
+        @DisplayName("좋아요 수가 0이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        @Transactional
+        void throwsBadRequest_whenLikeCountIsZero() {
+            Product product = productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
+
+            CoreException result = assertThrows(CoreException.class,
+                () -> productService.decrementLikeCount(product.getId()));
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
 }

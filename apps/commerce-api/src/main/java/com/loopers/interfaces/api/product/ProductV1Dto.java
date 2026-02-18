@@ -1,9 +1,11 @@
 package com.loopers.interfaces.api.product;
 
-import com.loopers.application.product.ProductInfo;
 import com.loopers.domain.PageResult;
+import com.loopers.domain.brand.Brand;
+import com.loopers.domain.product.Product;
 
 import java.util.List;
+import java.util.Map;
 
 public class ProductV1Dto {
 
@@ -15,10 +17,10 @@ public class ProductV1Dto {
         int price,
         int likeCount
     ) {
-        public static ProductResponse from(ProductInfo info) {
+        public static ProductResponse from(Product product, Brand brand) {
             return new ProductResponse(
-                info.id(), info.brandId(), info.brandName(), info.name(),
-                info.price(), info.likeCount()
+                product.getId(), product.getBrandId(), brand.getName(), product.getName(),
+                product.getPrice().amount(), product.getLikeCount()
             );
         }
     }
@@ -30,9 +32,10 @@ public class ProductV1Dto {
         long totalElements,
         int totalPages
     ) {
-        public static ProductPageResponse from(PageResult<ProductInfo> result) {
+        public static ProductPageResponse from(PageResult<Product> result, Map<Long, Brand> brandMap) {
             List<ProductResponse> content = result.items().stream()
-                .map(ProductResponse::from)
+                .filter(product -> brandMap.containsKey(product.getBrandId()))
+                .map(product -> ProductResponse.from(product, brandMap.get(product.getBrandId())))
                 .toList();
             return new ProductPageResponse(content, result.page(), result.size(), result.totalElements(), result.totalPages());
         }

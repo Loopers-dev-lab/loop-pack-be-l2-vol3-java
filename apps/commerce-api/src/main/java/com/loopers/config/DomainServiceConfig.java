@@ -1,19 +1,18 @@
 package com.loopers.config;
 
+import com.loopers.domain.brand.BrandDomainService;
 import com.loopers.domain.brand.BrandRepository;
-import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.cart.CartDomainService;
 import com.loopers.domain.cart.CartRepository;
-import com.loopers.domain.cart.CartService;
+import com.loopers.domain.like.LikeDomainService;
 import com.loopers.domain.like.LikeRepository;
-import com.loopers.domain.like.LikeService;
-import com.loopers.domain.order.OrderItemRepository;
+import com.loopers.domain.order.OrderDomainService;
 import com.loopers.domain.order.OrderRepository;
-import com.loopers.domain.order.OrderService;
+import com.loopers.domain.product.ProductDomainService;
 import com.loopers.domain.product.ProductRepository;
-import com.loopers.domain.product.ProductService;
 import com.loopers.domain.user.PasswordEncryptor;
+import com.loopers.domain.user.UserDomainService;
 import com.loopers.domain.user.UserRepository;
-import com.loopers.domain.user.UserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -21,32 +20,32 @@ import org.springframework.context.annotation.Configuration;
 public class DomainServiceConfig {
 
     @Bean
-    public UserService userService(UserRepository userRepository, PasswordEncryptor passwordEncryptor) {
-        return new UserService(userRepository, passwordEncryptor);
+    public UserDomainService userDomainService(UserRepository userRepository, PasswordEncryptor passwordEncryptor) {
+        return new UserDomainService(userRepository, passwordEncryptor);
     }
 
     @Bean
-    public BrandService brandService(BrandRepository brandRepository) {
-        return new BrandService(brandRepository);
+    public BrandDomainService brandDomainService(BrandRepository brandRepository) {
+        return new BrandDomainService(brandRepository);
     }
 
     @Bean
-    public ProductService productService(ProductRepository productRepository) {
-        return new ProductService(productRepository);
+    public ProductDomainService productDomainService(ProductRepository productRepository) {
+        return new ProductDomainService(productRepository);
     }
 
     @Bean
-    public LikeService likeService(LikeRepository likeRepository) {
-        return new LikeService(likeRepository);
+    public LikeDomainService likeDomainService(LikeRepository likeRepository) {
+        return new LikeDomainService(likeRepository);
     }
 
     @Bean
-    public CartService cartService(CartRepository cartRepository) {
-        return new CartService(cartRepository);
+    public CartDomainService cartDomainService(CartRepository cartRepository) {
+        return new CartDomainService(cartRepository);
     }
 
     @Bean
-    public OrderService orderService(OrderRepository orderRepository, OrderItemRepository orderItemRepository) {
-        return new OrderService(orderRepository, orderItemRepository);
+    public OrderDomainService orderDomainService(OrderRepository orderRepository) {
+        return new OrderDomainService(orderRepository);
     }
 }

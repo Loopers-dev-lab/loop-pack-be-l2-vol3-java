@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import java.time.LocalDate;
 
 @RequiredArgsConstructor
-public class UserService {
+public class UserDomainService {
 
     private final UserRepository userRepository;
     private final PasswordEncryptor passwordEncryptor;

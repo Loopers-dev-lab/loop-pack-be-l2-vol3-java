@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.brand;
 
-import com.loopers.application.brand.BrandInfo;
 import com.loopers.domain.PageResult;
+import com.loopers.domain.brand.Brand;
 import jakarta.validation.constraints.NotBlank;
 
 import java.time.ZonedDateTime;
@@ -20,8 +20,8 @@ public class AdminBrandV1Dto {
     ) {}
 
     public record BrandResponse(Long id, String name, ZonedDateTime createdAt, ZonedDateTime updatedAt) {
-        public static BrandResponse from(BrandInfo info) {
-            return new BrandResponse(info.id(), info.name(), info.createdAt(), info.updatedAt());
+        public static BrandResponse from(Brand brand) {
+            return new BrandResponse(brand.getId(), brand.getName(), brand.getCreatedAt(), brand.getUpdatedAt());
         }
     }
 
@@ -32,7 +32,7 @@ public class AdminBrandV1Dto {
         long totalElements,
         int totalPages
     ) {
-        public static BrandPageResponse from(PageResult<BrandInfo> result) {
+        public static BrandPageResponse from(PageResult<Brand> result) {
             List<BrandResponse> content = result.items().stream()
                 .map(BrandResponse::from)
                 .toList();

@@ -46,9 +46,9 @@ class BrandTest {
         }
     }
 
-    @DisplayName("브랜드를 수정할 때, ")
+    @DisplayName("브랜드 이름을 변경할 때, ")
     @Nested
-    class Update {
+    class Rename {
 
         @DisplayName("올바른 이름이면, 정상적으로 수정된다.")
         @Test
@@ -57,7 +57,7 @@ class BrandTest {
             Brand brand = new Brand("나이키");
 
             // act
-            brand.update("아디다스");
+            brand.rename("아디다스");
 
             // assert
             assertThat(brand.getName()).isEqualTo("아디다스");
@@ -70,7 +70,7 @@ class BrandTest {
             Brand brand = new Brand("나이키");
 
             // act
-            CoreException result = assertThrows(CoreException.class, () -> brand.update(null));
+            CoreException result = assertThrows(CoreException.class, () -> brand.rename(null));
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -83,7 +83,7 @@ class BrandTest {
             Brand brand = new Brand("나이키");
 
             // act
-            CoreException result = assertThrows(CoreException.class, () -> brand.update("  "));
+            CoreException result = assertThrows(CoreException.class, () -> brand.rename("  "));
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);

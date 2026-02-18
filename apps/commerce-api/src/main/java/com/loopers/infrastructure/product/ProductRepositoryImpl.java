@@ -65,16 +65,6 @@ public class ProductRepositoryImpl implements ProductRepository {
         productJpaRepository.softDeleteAllByBrandId(brandId);
     }
 
-    @Override
-    public void incrementLikeCount(Long productId) {
-        productJpaRepository.incrementLikeCount(productId);
-    }
-
-    @Override
-    public void decrementLikeCount(Long productId) {
-        productJpaRepository.decrementLikeCount(productId);
-    }
-
     private Sort toSort(ProductSortType sortType) {
         return switch (sortType) {
             case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price");

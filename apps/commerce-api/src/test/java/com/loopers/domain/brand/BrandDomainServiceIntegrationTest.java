@@ -16,10 +16,10 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
-class BrandServiceIntegrationTest {
+class BrandDomainServiceIntegrationTest {
 
     @Autowired
-    private BrandService brandService;
+    private BrandDomainService brandService;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;

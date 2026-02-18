@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 @RequiredArgsConstructor
-public class CartService {
+public class CartDomainService {
 
     private final CartRepository cartRepository;
 

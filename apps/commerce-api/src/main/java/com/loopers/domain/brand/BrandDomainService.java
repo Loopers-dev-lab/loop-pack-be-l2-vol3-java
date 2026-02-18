@@ -11,7 +11,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
-public class BrandService {
+public class BrandDomainService {
 
     private final BrandRepository brandRepository;
 
@@ -35,7 +35,7 @@ public class BrandService {
 
     public Brand update(Long id, String name) {
         Brand brand = getById(id);
-        brand.update(name);
+        brand.rename(name);
         return brandRepository.save(brand);
     }
 
