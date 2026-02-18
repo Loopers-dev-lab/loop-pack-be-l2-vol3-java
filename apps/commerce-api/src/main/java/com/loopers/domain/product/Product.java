@@ -1,6 +1,8 @@
 package com.loopers.domain.product;
 
 import com.loopers.domain.BaseEntity;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -22,7 +24,7 @@ public class Product extends BaseEntity {
     private String description;
 
     @Column(name = "stock_quantity", nullable = false)
-    private Integer stockQuantity;
+    private StockQuantity stockQuantity;
 
     protected Product() {}
 
@@ -31,14 +33,21 @@ public class Product extends BaseEntity {
         this.name = name;
         this.price = price;
         this.description = description;
-        this.stockQuantity = stockQuantity;
+        this.stockQuantity = new StockQuantity(stockQuantity);
     }
 
     public void decreaseStock(int quantity) {
-        // Red 단계: 로직 미구현
+        if (quantity < 1) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "차감 수량은 1 이상이어야 합니다");
+        }
+        int current = this.stockQuantity.value();
+        if (current < quantity) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다");
+        }
+        this.stockQuantity = new StockQuantity(current - quantity);
     }
 
     public StockQuantity getStockQuantity() {
-        return new StockQuantity(stockQuantity);
+        return stockQuantity;
     }
 }
