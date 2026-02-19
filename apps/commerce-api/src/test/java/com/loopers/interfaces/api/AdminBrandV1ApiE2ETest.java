@@ -1,0 +1,220 @@
+package com.loopers.interfaces.api;
+
+import com.loopers.domain.brand.Brand;
+import com.loopers.infrastructure.brand.BrandJpaRepository;
+import com.loopers.interfaces.api.brand.dto.BrandV1Dto;
+import com.loopers.utils.DatabaseCleanUp;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+class AdminBrandV1ApiE2ETest {
+
+    private static final String ENDPOINT = "/api-admin/v1/brands";
+    private static final String LDAP_HEADER = "X-Loopers-Ldap";
+    private static final String LDAP_VALUE = "loopers.admin";
+
+    private final TestRestTemplate testRestTemplate;
+    private final BrandJpaRepository brandJpaRepository;
+    private final DatabaseCleanUp databaseCleanUp;
+
+    @Autowired
+    public AdminBrandV1ApiE2ETest(
+            TestRestTemplate testRestTemplate,
+            BrandJpaRepository brandJpaRepository,
+            DatabaseCleanUp databaseCleanUp
+    ) {
+        this.testRestTemplate = testRestTemplate;
+        this.brandJpaRepository = brandJpaRepository;
+        this.databaseCleanUp = databaseCleanUp;
+    }
+
+    @AfterEach
+    void tearDown() {
+        databaseCleanUp.truncateAllTables();
+    }
+
+    private HttpHeaders adminHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(LDAP_HEADER, LDAP_VALUE);
+        return headers;
+    }
+
+    private Brand saveBrand(String name, String description) {
+        return brandJpaRepository.save(Brand.create(name, description));
+    }
+
+    @DisplayName("POST /api-admin/v1/brands (브랜드 등록)")
+    @Nested
+    class CreateBrand {
+        @DisplayName("유효한 요청이면, 201 Created 응답을 반환한다.")
+        @Test
+        void returnsCreated_whenValidRequest() {
+            // arrange
+            BrandV1Dto.CreateRequest request = new BrandV1Dto.CreateRequest("나이키", "스포츠 브랜드");
+            HttpEntity<BrandV1Dto.CreateRequest> entity = new HttpEntity<>(request, adminHeaders());
+
+            // act
+            ResponseEntity<ApiResponse<BrandV1Dto.AdminBrandResponse>> response =
+                    testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED),
+                () -> assertThat(response.getBody().data().name()).isEqualTo("나이키")
+            );
+        }
+
+        @DisplayName("name이 누락되면, 400 Bad Request 응답을 반환한다.")
+        @Test
+        void returnsBadRequest_whenNameIsMissing() {
+            // arrange
+            BrandV1Dto.CreateRequest request = new BrandV1Dto.CreateRequest(null, "설명");
+            HttpEntity<BrandV1Dto.CreateRequest> entity = new HttpEntity<>(request, adminHeaders());
+
+            // act
+            ResponseEntity<ApiResponse<Void>> response =
+                    testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @DisplayName("GET /api-admin/v1/brands/{brandId} (브랜드 상세 조회)")
+    @Nested
+    class GetBrand {
+        @DisplayName("존재하는 브랜드를 조회하면, 200 OK 응답을 반환한다.")
+        @Test
+        void returnsOk_whenBrandExists() {
+            // arrange
+            Brand saved = saveBrand("나이키", "스포츠 브랜드");
+            HttpEntity<Void> entity = new HttpEntity<>(adminHeaders());
+
+            // act
+            ResponseEntity<ApiResponse<BrandV1Dto.AdminBrandResponse>> response =
+                    testRestTemplate.exchange(ENDPOINT + "/" + saved.getId(), HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().data().name()).isEqualTo("나이키")
+            );
+        }
+
+        @DisplayName("존재하지 않는 브랜드를 조회하면, 404 Not Found 응답을 반환한다.")
+        @Test
+        void returnsNotFound_whenBrandNotExists() {
+            // arrange
+            HttpEntity<Void> entity = new HttpEntity<>(adminHeaders());
+
+            // act
+            ResponseEntity<ApiResponse<Void>> response =
+                    testRestTemplate.exchange(ENDPOINT + "/999", HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+    }
+
+    @DisplayName("PUT /api-admin/v1/brands/{brandId} (브랜드 수정)")
+    @Nested
+    class UpdateBrand {
+        @DisplayName("유효한 요청이면, 200 OK 응답과 수정된 브랜드를 반환한다.")
+        @Test
+        void returnsOk_whenValidRequest() {
+            // arrange
+            Brand saved = saveBrand("나이키", "스포츠 브랜드");
+            BrandV1Dto.UpdateRequest request = new BrandV1Dto.UpdateRequest("아디다스", "독일 스포츠 브랜드");
+            HttpEntity<BrandV1Dto.UpdateRequest> entity = new HttpEntity<>(request, adminHeaders());
+
+            // act
+            ResponseEntity<ApiResponse<BrandV1Dto.AdminBrandResponse>> response =
+                    testRestTemplate.exchange(ENDPOINT + "/" + saved.getId(), HttpMethod.PUT, entity, new ParameterizedTypeReference<>() {});
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().data().name()).isEqualTo("아디다스")
+            );
+        }
+    }
+
+    @DisplayName("DELETE /api-admin/v1/brands/{brandId} (브랜드 삭제)")
+    @Nested
+    class DeleteBrand {
+        @DisplayName("존재하는 브랜드를 삭제하면, 200 OK 응답을 반환하고 soft delete 처리된다.")
+        @Test
+        void returnsOk_andSoftDeletes() {
+            // arrange
+            Brand saved = saveBrand("나이키", "스포츠 브랜드");
+            HttpEntity<Void> entity = new HttpEntity<>(adminHeaders());
+
+            // act
+            ResponseEntity<ApiResponse<Void>> response =
+                    testRestTemplate.exchange(ENDPOINT + "/" + saved.getId(), HttpMethod.DELETE, entity, new ParameterizedTypeReference<>() {});
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(brandJpaRepository.findById(saved.getId()).orElseThrow().getDeletedAt()).isNotNull()
+            );
+        }
+    }
+
+    @DisplayName("GET /api-admin/v1/brands (브랜드 목록 조회)")
+    @Nested
+    class GetBrands {
+        @DisplayName("등록된 브랜드 목록을 페이지 단위로 반환한다.")
+        @Test
+        void returnsPagedBrands() {
+            // arrange
+            saveBrand("나이키", "스포츠");
+            saveBrand("아디다스", "독일 스포츠");
+            HttpEntity<Void> entity = new HttpEntity<>(adminHeaders());
+
+            // act
+            ResponseEntity<String> response =
+                    testRestTemplate.exchange(ENDPOINT + "?page=0&size=20", HttpMethod.GET, entity, String.class);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @DisplayName("삭제된 브랜드는 목록에서 제외된다.")
+        @Test
+        void excludesDeletedBrands() {
+            // arrange
+            saveBrand("나이키", "스포츠");
+            Brand toDelete = saveBrand("삭제브랜드", "삭제될 브랜드");
+            toDelete.delete();
+            brandJpaRepository.save(toDelete);
+            HttpEntity<Void> entity = new HttpEntity<>(adminHeaders());
+
+            // act
+            ResponseEntity<String> response =
+                    testRestTemplate.exchange(ENDPOINT + "?page=0&size=20", HttpMethod.GET, entity, String.class);
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody()).contains("나이키"),
+                () -> assertThat(response.getBody()).doesNotContain("삭제브랜드")
+            );
+        }
+    }
+}
