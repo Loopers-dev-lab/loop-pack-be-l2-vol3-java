@@ -6,7 +6,6 @@ import com.loopers.interfaces.api.brand.dto.BrandV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -44,52 +43,48 @@ class BrandV1ApiE2ETest {
         databaseCleanUp.truncateAllTables();
     }
 
-    @DisplayName("GET /api/v1/brands/{brandId} (브랜드 조회)")
-    @Nested
-    class GetBrand {
-        @DisplayName("존재하는 브랜드를 조회하면, 200 OK 응답을 반환한다.")
-        @Test
-        void returnsOk_whenBrandExists() {
-            // arrange
-            Brand saved = brandJpaRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+    @DisplayName("존재하는 브랜드를 조회하면, 200 OK 응답을 반환한다.")
+    @Test
+    void returnsOk_whenBrandExists() {
+        // arrange
+        Brand saved = brandJpaRepository.save(Brand.create("TEST_BRAND", "스포츠 브랜드"));
 
-            // act
-            ResponseEntity<ApiResponse<BrandV1Dto.BrandResponse>> response =
-                    testRestTemplate.exchange(ENDPOINT + "/" + saved.getId(), HttpMethod.GET, null, new ParameterizedTypeReference<>() {});
+        // act
+        ResponseEntity<ApiResponse<BrandV1Dto.BrandResponse>> response =
+                testRestTemplate.exchange(ENDPOINT + "/" + saved.getId(), HttpMethod.GET, null, new ParameterizedTypeReference<>() {});
 
-            // assert
-            assertAll(
-                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                () -> assertThat(response.getBody().data().name()).isEqualTo("나이키"),
-                () -> assertThat(response.getBody().data().id()).isEqualTo(saved.getId())
-            );
-        }
+        // assert
+        assertAll(
+            () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+            () -> assertThat(response.getBody().data().name()).isEqualTo("TEST_BRAND"),
+            () -> assertThat(response.getBody().data().id()).isEqualTo(saved.getId())
+        );
+    }
 
-        @DisplayName("존재하지 않는 브랜드를 조회하면, 404 Not Found 응답을 반환한다.")
-        @Test
-        void returnsNotFound_whenBrandNotExists() {
-            // act
-            ResponseEntity<ApiResponse<Void>> response =
-                    testRestTemplate.exchange(ENDPOINT + "/999", HttpMethod.GET, null, new ParameterizedTypeReference<>() {});
+    @DisplayName("존재하지 않는 브랜드를 조회하면, 404 Not Found 응답을 반환한다.")
+    @Test
+    void returnsNotFound_whenBrandNotExists() {
+        // act
+        ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT + "/999", HttpMethod.GET, null, new ParameterizedTypeReference<>() {});
 
-            // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        }
+        // assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
 
-        @DisplayName("삭제된 브랜드를 조회하면, 404 Not Found 응답을 반환한다.")
-        @Test
-        void returnsNotFound_whenBrandIsDeleted() {
-            // arrange
-            Brand saved = brandJpaRepository.save(Brand.create("나이키", "스포츠 브랜드"));
-            saved.delete();
-            brandJpaRepository.save(saved);
+    @DisplayName("삭제된 브랜드를 조회하면, 404 Not Found 응답을 반환한다.")
+    @Test
+    void returnsNotFound_whenBrandIsDeleted() {
+        // arrange
+        Brand saved = brandJpaRepository.save(Brand.create("TEST_BRAND", "스포츠 브랜드"));
+        saved.delete();
+        brandJpaRepository.save(saved);
 
-            // act
-            ResponseEntity<ApiResponse<Void>> response =
-                    testRestTemplate.exchange(ENDPOINT + "/" + saved.getId(), HttpMethod.GET, null, new ParameterizedTypeReference<>() {});
+        // act
+        ResponseEntity<ApiResponse<Void>> response =
+                testRestTemplate.exchange(ENDPOINT + "/" + saved.getId(), HttpMethod.GET, null, new ParameterizedTypeReference<>() {});
 
-            // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        }
+        // assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 }

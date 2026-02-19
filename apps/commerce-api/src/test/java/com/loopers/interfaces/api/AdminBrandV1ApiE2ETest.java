@@ -58,7 +58,7 @@ class AdminBrandV1ApiE2ETest {
         return brandJpaRepository.save(Brand.create(name, description));
     }
 
-    @DisplayName("POST /api-admin/v1/brands (브랜드 등록)")
+    @DisplayName("브랜드 등록 시")
     @Nested
     class CreateBrand {
         @DisplayName("유효한 요청이면, 201 Created 응답을 반환한다.")
@@ -95,7 +95,7 @@ class AdminBrandV1ApiE2ETest {
         }
     }
 
-    @DisplayName("GET /api-admin/v1/brands/{brandId} (브랜드 상세 조회)")
+    @DisplayName("브랜드 상세 조회 시")
     @Nested
     class GetBrand {
         @DisplayName("존재하는 브랜드를 조회하면, 200 OK 응답을 반환한다.")
@@ -131,7 +131,7 @@ class AdminBrandV1ApiE2ETest {
         }
     }
 
-    @DisplayName("PUT /api-admin/v1/brands/{brandId} (브랜드 수정)")
+    @DisplayName("브랜드 수정 시")
     @Nested
     class UpdateBrand {
         @DisplayName("유효한 요청이면, 200 OK 응답과 수정된 브랜드를 반환한다.")
@@ -154,7 +154,7 @@ class AdminBrandV1ApiE2ETest {
         }
     }
 
-    @DisplayName("DELETE /api-admin/v1/brands/{brandId} (브랜드 삭제)")
+    @DisplayName("브랜드 삭제 시")
     @Nested
     class DeleteBrand {
         @DisplayName("존재하는 브랜드를 삭제하면, 200 OK 응답을 반환하고 soft delete 처리된다.")
@@ -176,7 +176,7 @@ class AdminBrandV1ApiE2ETest {
         }
     }
 
-    @DisplayName("GET /api-admin/v1/brands (브랜드 목록 조회)")
+    @DisplayName("브랜드 목록 조회 시")
     @Nested
     class GetBrands {
         @DisplayName("등록된 브랜드 목록을 페이지 단위로 반환한다.")
