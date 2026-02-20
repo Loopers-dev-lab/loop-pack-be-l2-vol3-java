@@ -49,6 +49,13 @@ public class BrandService {
         return BrandResult.from(brand);
     }
 
+    @Transactional(readOnly = true)
+    public BrandResult getActiveBrand(Long brandId) {
+        Brand brand = brandRepository.findByIdAndDeletedAtIsNull(brandId)
+                .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
+        return BrandResult.from(brand);
+    }
+
     @Transactional
     public void updateBrand(Long brandId, String newName, String newLogoUrl, String newDescription) {
         Brand brand = brandRepository.findById(brandId)

@@ -28,6 +28,11 @@ public class BrandRepositoryImpl implements BrandRepository {
     }
 
     @Override
+    public Optional<Brand> findByIdAndDeletedAtIsNull(Long brandId) {
+        return brandJpaRepository.findByIdAndDeletedAtIsNull(brandId);
+    }
+
+    @Override
     public Slice<Brand> findAllBy(Pageable pageable) {
         return brandJpaRepository.findAllBy(pageable);
     }
