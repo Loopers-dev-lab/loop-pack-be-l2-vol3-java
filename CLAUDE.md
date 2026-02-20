@@ -76,6 +76,32 @@ docker-compose -f ./docker/infra-compose.yml up
 # Kafka: localhost:19092
 ```
 
+# DOMAIN & OBJECT DESIGN STRATEGY
+
+- Domain objects must encapsulate business rules (validation in Entity factory methods & VO constructors).
+- Application services (`@Service`) orchestrate across domains — business rules belong in domain objects, only coordination logic in services.
+- If a rule appears in multiple services, it likely belongs in a domain object.
+- Entity: `@NoArgsConstructor(access = PROTECTED)` + static factory method pattern (e.g., `User.signUp()`).
+- Value Object: `@Embeddable`, validation in constructor, `@EqualsAndHashCode`.
+- When a domain needs an external capability, define a domain interface (Port) (e.g., `PasswordEncoder`).
+- Confirm responsibility and coupling intent with the developer before proceeding with each feature.
+
+# ARCHITECTURE & PACKAGING STRATEGY
+
+- This project follows a layered architecture with DIP (Dependency Inversion Principle).
+- Dependency direction: `interfaces` → `application` → `domain` ← `infrastructure` (enforced by ArchUnit).
+- Package structure: 4 layer packages, each subdivided by domain:
+  ```
+  interfaces/api/{domain}/v1/   — Controller, ApiSpec, Dto
+  application/{domain}/         — Service, Result
+  domain/{domain}/              — Entity, VO, Repository(interface), Domain Service
+  infrastructure/{domain}/      — RepositoryImpl, JpaRepository, external integrations
+  ```
+- API request/response DTOs (`*Dto.java`) and application layer DTOs (`*Result.java`) are kept separate.
+- Repository: interface in domain layer, implementation (`@Component` wrapping JpaRepository) in infrastructure layer.
+- Controllers implement a Swagger spec interface (`*ApiSpec`) to separate documentation annotations from logic.
+- Shared domain components (e.g., `BaseEntity`) reside in `modules/` submodules.
+
 # CODE QUALITY STANDARDS
 
 - Eliminate duplication ruthlessly
