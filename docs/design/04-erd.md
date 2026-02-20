@@ -6,12 +6,13 @@
 ```mermaid
 
 erDiagram
-    users {
-        bigint user_id PK
-        varchar login_id
+    users { 
+        varchar user_id PK
         varchar password "bcrypt"
         varchar user_name
+        varchar birthday
         varchar email
+        varchar address
         varchar del_yn "Y,N"
         datetime deleted_at "nullable"
         datetime created_at
@@ -19,11 +20,12 @@ erDiagram
     }
 
     brands {
-        bigint brand_id PK
-        varchar brand_seq
-        varchar brand_name
+        varchar brand_id PK
+        text brand_name
         varchar description
-        varchar status "ACTIVE/HIDDEN/DELETED"
+        varchar address
+        varchar display_status "ACTIVE/HIDDEN"
+        varchar attach_file
         varchar del_yn "Y,N"
         datetime deleted_at "nullable"
         datetime created_at
@@ -31,10 +33,10 @@ erDiagram
     }
 
     products {
-        bigint product_id PK
-        bigint product_seq PK
-        bigint brand_id
-        varchar name
+        varchar product_id PK
+        varchar revision_seq
+        varchar brand_id
+        varchar product_name
         text description
         decimal price
         varchar category
@@ -42,54 +44,51 @@ erDiagram
         varchar size
         varchar option
         varchar image_url
-        varchar status "ACTIVE/HIDDEN/DELETED"
+        varchar attach_file
+        varchar display_status "ACTIVE/HIDDEN"
+        varchar sale_status "ON_SALE / TEMP_SOLD_OUT / STOPPED"
         varchar del_yn "Y,N"
         datetime deleted_at "nullable"
         datetime created_at
         datetime updated_at
     }
-
+    
+    product_revisions {
+        varchar   product_id PK
+        bigint    revision_seq PK  
+        varchar   action      "UPDATE|HIDE|DELETE|RESTORE|SALE_STATUS_CHANGE"
+        varchar   changed_by  "admin_user_id or system"
+        varchar   change_reason
+        json      before_snapshot
+        json      after_snapshot
+        datetime created_at
+    }
+        
     product_stocks {
-        bigint product_id PK
+        varchar product_id PK
         int on_hand "총 재고"
         int reserved "예약 재고"
-        varchar del_yn "Y,N"
-        datetime deleted_at "nullable"
-        datetime created_at
-        datetime updated_at
-    }
-
-    product_revisions {
-        bigint product_id PK
-        bigint revision_seq PK
-        varchar changed_by "Admin ID"
-        varchar change_reason "nullable"
-        json snapshot "현재 상태"
-        varchar del_yn "Y,N"
-        datetime deleted_at "nullable"
         datetime created_at
         datetime updated_at
     }
 
     likes {
-        bigint user_id PK
-        bigint product_id PK
+        varchar user_id PK
+        varchar product_id PK
         datetime created_at
     }
 
     cart_items {
-        bigint user_id PK
-        bigint product_id PK
+        varchar user_id PK
+        varchar product_id PK
         int quantity
-        varchar del_yn "Y,N"
-        datetime deleted_at "nullable"
         datetime created_at
-        datetime updated_at
+        timestamp updated_at
     }
 
     orders {
-        bigint order_id PK
-        bigint user_id PK
+        varchar order_id PK
+        varchar user_id 
         varchar order_type "DIRECT/CART"
         varchar status "PENDING_PAYMENT/PAID/PAYMENT_FAILED/CANCELLED/EXPIRED"
         decimal total_amount
@@ -102,14 +101,14 @@ erDiagram
     }
 
     order_items {
-        bigint order_id PK
-        bigint user_id PK
-        bigint order_item_seq PK
-        bigint product_id
+        varchar order_id PK
+        int order_item_seq PK
+        varchar user_id
+        varchar product_id
         int quantity
         varchar snapshot_product_name
         decimal snapshot_unit_price
-        bigint snapshot_brand_id
+        varchar snapshot_brand_id
         varchar snapshot_brand_name
         varchar snapshot_image_url
         varchar del_yn "Y,N"
@@ -117,16 +116,14 @@ erDiagram
         datetime created_at
         datetime updated_at
     }
-
-    order_cart_restores {
-        bigint order_id PK
-        bigint user_id PK
-        varchar reason "EXPIRED/CANCELLED/PAYMENT_FAILED"
-        datetime restored_at
-        varchar del_yn "Y,N"
-        datetime deleted_at "nullable"
-        datetime created_at
-        datetime updated_at
+    
+    
+    order_cart_restore {
+        varchar   order_id PK          "멱등키(주문당 1회만 복원)"
+        varchar   user_id              "복원 대상 사용자"
+        varchar   reason               "PAYMENT_FAILED|EXPIRED|USER_CANCELLED|PG_CANCELLED"
+        varchar   trigger_source       "CANCEL_API|PG_WEBHOOK|EXPIRE_JOB|MANUAL"
+        timestamp restored_at          "복원 처리 완료 시각"
     }
 
     users ||--o{ likes : "places"
@@ -134,10 +131,11 @@ erDiagram
     users ||--o{ orders : "places"
     brands ||--o{ products : "has"
     products ||--|| product_stocks : "has"
-    products ||--o{ product_revisions : "tracks"
     products ||--o{ likes : "receives"
     products ||--o{ cart_items : "referenced_by"
     products ||--o{ order_items : "snapshot_of"
     orders ||--o{ order_items : "contains"
-    orders ||--o| order_cart_restores : "may_restore"
+    orders ||--o| order_cart_restore : "restored once"
+    cart_items }o--|| orders : "same user"
+    products ||--o{ product_revisions : "has history"
 ```

@@ -1,281 +1,192 @@
-### 1. 클래스 다이어그램 (도메인 모델)
-### domain, vo, entitiy 어떻게 나눌지 다시 고민
-**왜 이 다이어그램이 필요한가:**
-도메인 간 **의존 방향**과 **책임 분리**를 확인하기 위해 필요하다. 특히 Order가 Product를 직접 참조하는지, 스냅샷으로 분리하는지가 핵심.
+### 1. 클래스 다이어그램 (ERD 기준 정렬본)
 
-```mermaid
-classDiagram
-    class User {
-        +Long id
-        +String loginId
-        +String password
-        +String name
-        +String email
-        +LocalDateTime createdAt
-    }
+**왜 이 다이어그램이 필요한가:**  
+ERD를 기준으로 도메인 객체/서비스/리포지토리의 책임을 맞추고, 상태 모델(`display_status`, `sale_status`, soft delete), 주문 스냅샷, 재고 hold, 장바구니 복원 멱등성(`order_cart_restore`)을 일관되게 설계하기 위해 필요하다.
 
-    class Brand {
-        +Long id
-        +String name
-        +String description
-        +BrandStatus status
-        +LocalDateTime deletedAt
-    }
-
-    class Product {
-        +Long id
-        +Long brandId
-        +Long productSeq
-        +String name
-        +String description
-        +BigDecimal price
-        +String imageUrl
-        +ProductStatus status
-        +LocalDateTime deletedAt
-    }
-
-    class ProductStock {
-        +Long productId
-        +Integer onHand
-        +Integer reserved
-        +availableStock() Integer
-    }
-
-    class ProductRevision {
-        +ProductRevisionId id
-        +String changedBy
-        +String changeReason
-        +JSON beforeSnapshot
-        +JSON afterSnapshot
-        +LocalDateTime changedAt
-    }
-
-    class Like {
-        +LikeId id
-        +LocalDateTime createdAt
-    }
-
-    class CartItem {
-        +CartItemId id
-        +Integer quantity
-        +LocalDateTime createdAt
-        +LocalDateTime updatedAt
-    }
-
-    class Order {
-        +OrderId id
-        +OrderType orderType
-        +OrderStatus status
-        +BigDecimal totalAmount
-        +LocalDateTime expiresAt
-        +LocalDateTime paidAt
-        +LocalDateTime createdAt
-    }
-
-    class OrderItem {
-        +OrderItemId id
-        +Long productId
-        +Integer quantity
-        +String snapshotProductName
-        +BigDecimal snapshotUnitPrice
-        +Long snapshotBrandId
-        +String snapshotBrandName
-        +String snapshotImageUrl
-    }
-
-    class OrderCartRestore {
-        +OrderCartRestoreId id
-        +RestoreReason reason
-        +LocalDateTime restoredAt
-    }
-
-    %% =========================
-    %% Relations (conceptual)
-    %% =========================
-    Brand "1" --> "*" Product : has
-    Product "1" --> "1" ProductStock : has
-    Product "1" --> "*" ProductRevision : tracks
-    User "1" --> "*" Like : creates
-    Product "1" --> "*" Like : receives
-    User "1" --> "*" CartItem : owns
-    Product "1" --> "*" CartItem : referenced
-    User "1" --> "*" Order : places
-    Order "1" --> "*" OrderItem : contains
-    Order "1" --> "0..1" OrderCartRestore : may restore
-
-
-    class OrderStatus {
-        <<enumeration>>
-        PENDING_PAYMENT
-        PAID
-        PAYMENT_FAILED
-        CANCELLED
-        EXPIRED
-    }
-
-    class RestoreReason {
-        <<enumeration>>
-        EXPIRED
-        CANCELLED
-        PAYMENT_FAILED
-    }
-```
-
+> 정렬 원칙
+> - **ERD를 기준**으로 클래스/속성/상태값을 맞춘다.
+> - 상품/브랜드의 삭제는 `delYn + deletedAt`(soft delete)로 관리한다.
+> - 상품 상태는 `displayStatus`와 `saleStatus`를 분리한다.
+> - 주문은 `orderId` 단일 PK 기준으로 모델링한다.
 
 ```mermaid
 classDiagram
 direction LR
+
 %% =========================
-%% Core Actors / Context
+%% Core Entities (ERD-aligned)
 %% =========================
 class User {
-  +Long id
-  +String loginId
-  +String loginPwHash
-  +UserStatus status
-  +getProfile()
-  +changePassword(currentPw,newPw)
+  +String userId
+  +String passwordHash
+  +String userName
+  +LocalDate birthday
+  +String email
+  +String address
+  +YesNo delYn
+  +LocalDateTime deletedAt
+  +LocalDateTime createdAt
+  +LocalDateTime updatedAt
 }
 
-class Admin {
-  +String ldapId
-}
-
-User <|-- Admin
-
-%% =========================
-%% Catalog Domain
-%% =========================
 class Brand {
-  +Long id
-  +String name
-  +BrandStatus status
+  +String brandId
+  +String brandName
+  +String description
+  +String address
+  +DisplayStatus displayStatus
+  +String attachFile
+  +YesNo delYn
+  +LocalDateTime deletedAt
+  +LocalDateTime createdAt
+  +LocalDateTime updatedAt
   +hide()
+  +activate()
   +softDelete()
+  +restore()
 }
 
 class Product {
-  +Long id
-  +Long brandId
-  +String name
-  +Money price
-  +ProductStatus status
+  +String productId
+  +Long revisionSeq
+  +String brandId
+  +String productName
+  +String description
+  +BigDecimal price
+  +String category
+  +String color
+  +String size
+  +String option
+  +String imageUrl
+  +String attachFile
+  +DisplayStatus displayStatus
+  +ProductSaleStatus saleStatus
+  +YesNo delYn
+  +LocalDateTime deletedAt
+  +LocalDateTime createdAt
+  +LocalDateTime updatedAt
   +updateInfo(...)
+  +changeDisplayStatus(status)
+  +changeSaleStatus(status)
   +softDelete()
+  +restore()
 }
 
-Brand "1" --> "0..*" Product : owns
+class ProductStock {
+  +String productId
+  +int onHand
+  +int reserved
+  +YesNo delYn
+  +LocalDateTime deletedAt
+  +LocalDateTime createdAt
+  +LocalDateTime updatedAt
+  +availableQty() int
+  +canHold(qty) bool
+}
 
-%% =========================
-%% Like Domain
-%% =========================
+class ProductRevision {
+  +String productId
+  +Long revisionSeq
+  +ProductRevisionAction action
+  +String changedBy
+  +String changeReason
+  +Json beforeSnapshot
+  +Json afterSnapshot
+  +LocalDateTime changedAt
+}
+
 class Like {
-  +LikeId id
-  +DateTime createdAt
-}
-
-User "1" --> "0..*" Like
-Product "1" --> "0..*" Like
-
-%% =========================
-%% Cart Domain (No snapshot)
-%% =========================
-class Cart {
-  +Long userId
-  +addItem(productId, qty)
-  +removeItem(productId)
-  +changeQty(productId, qty)
-  +getItems()
+  +String userId
+  +String productId
+  +LocalDateTime createdAt
 }
 
 class CartItem {
-  +CartItemId id
+  +String userId
+  +String productId
   +int quantity
-  +DateTime updatedAt
+  +LocalDateTime createdAt
+  +LocalDateTime updatedAt
+  +changeQuantity(qty)
 }
 
-Cart "1" *-- "0..*" CartItem
-User "1" --> "1" Cart
-
-%% =========================
-%% Stock Domain (DB SoT)
-%% =========================
-class ProductStock {
-  +Long productId
-  +int onHand
-  +int reserved
-  +int version
-  +available() int
-}
-
-Product "1" --> "1" ProductStock : has
-
-%% =========================
-%% Order Domain (Snapshot)
-%% =========================
 class Order {
-  +OrderId id
+  +String orderId
+  +String userId
+  +OrderType orderType
   +OrderStatus status
-  +DateTime expiresAt
-  +DateTime paidAt
-  +Money orderAmount
-  +markPaid()
-  +expire()
+  +BigDecimal totalAmount
+  +LocalDateTime expiresAt
+  +LocalDateTime paidAt
+  +YesNo delYn
+  +LocalDateTime deletedAt
+  +LocalDateTime createdAt
+  +LocalDateTime updatedAt
   +cancel()
+  +expire()
+  +markPaid()
+  +markPaymentFailed()
 }
 
 class OrderItem {
-  +OrderItemId id
-  +Long productId
+  +String orderId
+  +int orderItemSeq
+  +String userId
+  +String productId
   +int quantity
-  %% Snapshot fields
-  +String productName
-  +Money unitPrice
-  +Long brandId
-  +String brandName
+  +String snapshotProductName
+  +BigDecimal snapshotUnitPrice
+  +String snapshotBrandId
+  +String snapshotBrandName
+  +String snapshotImageUrl
+  +YesNo delYn
+  +LocalDateTime deletedAt
+  +LocalDateTime createdAt
+  +LocalDateTime updatedAt
 }
 
-Order "1" *-- "1..*" OrderItem
-User "1" --> "0..*" Order
-
-%% =========================
-%% Payment (Phase2)
-%% =========================
-class Payment {
-  +Long id
-  +String paymentTransactionId
-  +OrderId orderId
-  +PaymentStatus status
-  +DateTime createdAt
-}
-
-Order "1" --> "0..1" Payment
-
-%% =========================
-%% Restore / Audit (idempotency helpers)
-%% =========================
 class OrderCartRestore {
-  +OrderCartRestoreId id
-  +DateTime restoredAt
+  +String orderId
+  +String userId
   +RestoreReason reason
+  +RestoreTriggerSource triggerSource
+  +LocalDateTime restoredAt
 }
 
-Order "1" --> "0..1" OrderCartRestore
+%% =========================
+%% Relations (conceptual)
+%% =========================
+User  "1" --> "0..*" Like : creates
+Product "1" --> "0..*" Like : receives
+
+User  "1" --> "0..*" CartItem : owns
+Product "1" --> "0..*" CartItem : referenced
+
+Brand   "1" --> "0..*" Product : has
+Product "1" --> "1"    ProductStock : has
+Product "1" --> "0..*" ProductRevision : hasHistory
+
+User  "1" --> "0..*" Order : places
+Order "1" *-- "1..*" OrderItem : contains
+Order "1" --> "0..1" OrderCartRestore : restoredOnce
 
 %% =========================
 %% Services (Use-case orchestration)
 %% =========================
 class OrderFacade {
-  +createOrderFromProduct(userId, items)
-  +createOrderFromCart(userId, selectedCartItemIds)
+  +createDirectOrder(userId, items)
+  +createCartOrder(userId, items)
+  +cancelOrder(userId, orderId)
   +getOrders(userId, period)
   +getOrderDetail(userId, orderId)
 }
 
-class StockService {
-  +hold(productId, qty) bool
-  +commit(productId, qty) bool
-  +release(productId, qty) bool
+class ProductQueryService {
+  +getProduct(productId)
+  +listProducts(filters, sort, page)
+  +listProductsByKeyword(keyword, brandId, sort, page)
+  +getBrand(brandId)
+  +resolveUnavailableReason(productId, qty)
 }
 
 class CartService {
@@ -283,38 +194,32 @@ class CartService {
   +addItem(userId, productId, qty)
   +removeItem(userId, productId)
   +changeQty(userId, productId, qty)
-  +cleanupByOrder(orderId)
+  +deletePurchasedItems(userId, orderId)
   +restoreFromOrder(orderId)
 }
 
-class LikeService {
-  +like(userId, productId)
-  +unlike(userId, productId)
-  +getMyLikes(userId)
+class StockService {
+  +hold(productId, qty) bool
+  +release(productId, qty) bool
+  +commit(productId, qty) bool
 }
 
-class ProductQueryService {
-  +getProduct(productId)
-  +listProducts(filters, sort, page)
-  +listProductsByKeyword(q, brandId, sort, page)
-  +getBrand(brandId)
-}
-
-class BrandQueryService {
-  +listBrands(page)
-  +listBrandsByKeyword(q, page)
-  +getBrand(brandId)
+class PaymentService {
+  +completePayment(orderId, paymentTxId)
+  +failPayment(orderId, reason)
 }
 
 class AdminCatalogService {
   +createBrand()
   +updateBrand()
-  +deleteBrandSoft()
+  +softDeleteBrand()
   +createProduct()
   +updateProduct()
-  +deleteProductSoft()
-  +listProductsWithHistory()
-  +getProductRevision()
+  +changeProductSaleStatus()
+  +changeProductDisplayStatus()
+  +softDeleteProduct()
+  +restoreProduct()
+  +getProductRevisions(productId)
 }
 
 class AdminStatsService {
@@ -325,93 +230,136 @@ class AdminStatsService {
   +getLowStock(threshold,limit)
 }
 
-class PaymentService {
-  +completePayment(orderId, paymentTxId)
-}
-
 OrderFacade ..> ProductQueryService
-OrderFacade ..> BrandQueryService
 OrderFacade ..> CartService
 OrderFacade ..> StockService
-PaymentService ..> StockService
-PaymentService ..> CartService
-
-LikeService ..> ProductQueryService
-AdminStatsService ..> LikeRepository
-
-AdminCatalogService ..> Brand
-AdminCatalogService ..> Product
-AdminCatalogService ..> ProductStock
-AdminStatsService ..> StockRepository
-AdminStatsService ..> ProductRepository
-AdminStatsService ..> BrandRepository
-AdminStatsService ..> CartRepository
-
-%% =========================
-%% Persistence (Repositories)
-%% =========================
-class OrderRepository
-class OrderItemRepository
-class StockRepository
-class CartRepository
-class LikeRepository
-class ProductRepository
-class BrandRepository
-class PaymentRepository
-
 OrderFacade ..> OrderRepository
 OrderFacade ..> OrderItemRepository
-StockService ..> StockRepository
+OrderFacade ..> OrderCartRestoreRepository
+
+PaymentService ..> OrderRepository
+PaymentService ..> OrderItemRepository
+PaymentService ..> StockService
+PaymentService ..> CartService
+PaymentService ..> OrderCartRestoreRepository
+
 CartService ..> CartRepository
-LikeService ..> LikeRepository
+CartService ..> OrderItemRepository
+CartService ..> OrderCartRestoreRepository
+StockService ..> StockRepository
 ProductQueryService ..> ProductRepository
 ProductQueryService ..> BrandRepository
-BrandQueryService ..> BrandRepository
-PaymentService ..> PaymentRepository
-PaymentService ..> OrderRepository
+ProductQueryService ..> StockRepository
+AdminCatalogService ..> BrandRepository
+AdminCatalogService ..> ProductRepository
+AdminCatalogService ..> StockRepository
+AdminCatalogService ..> ProductRevisionRepository
 AdminStatsService ..> OrderRepository
-PaymentService ..> OrderItemRepository
 AdminStatsService ..> OrderItemRepository
+AdminStatsService ..> LikeRepository
+AdminStatsService ..> ProductRepository
+AdminStatsService ..> StockRepository
 
 %% =========================
-%% Enums
+%% Repositories
 %% =========================
+class UserRepository
+class BrandRepository
+class ProductRepository
+class StockRepository
+class ProductRevisionRepository
+class LikeRepository
+class CartRepository
+class OrderRepository
+class OrderItemRepository
+class OrderCartRestoreRepository
+class PaymentRepository
+
+%% =========================
+%% Enums / Value Objects
+%% =========================
+class YesNo {
+  <<enumeration>>
+  Y
+  N
+}
+
+class DisplayStatus {
+  <<enumeration>>
+  ACTIVE
+  HIDDEN
+}
+
+class ProductSaleStatus {
+  <<enumeration>>
+  ON_SALE
+  TEMP_SOLD_OUT
+  STOPPED
+}
+
+class OrderType {
+  <<enumeration>>
+  DIRECT
+  CART
+}
+
 class OrderStatus {
   <<enumeration>>
   PENDING_PAYMENT
   PAID
-  EXPIRED
+  PAYMENT_FAILED
   CANCELLED
+  EXPIRED
+}
+
+class ProductRevisionAction {
+  <<enumeration>>
+  CREATE
+  UPDATE
+  HIDE
+  SALE_STATUS_CHANGE
+  DELETE
+  RESTORE
 }
 
 class RestoreReason {
   <<enumeration>>
-  EXPIRED
-  CANCELLED
+  USER_CANCELLED
   PAYMENT_FAILED
+  EXPIRED
+  PG_CANCELLED
 }
-class ProductStatus {
+
+class RestoreTriggerSource {
   <<enumeration>>
-  ACTIVE
+  CANCEL_API
+  PG_WEBHOOK
+  EXPIRE_JOB
+  MANUAL
+}
+
+class UnavailableReason {
+  <<enumeration>>
+  DELETED
   HIDDEN
-  DELETED
+  STOPPED
+  TEMP_SOLD_OUT
+  OUT_OF_STOCK
+  INVALID_QUANTITY
 }
-class BrandStatus {
-  <<enumeration>>
-  ACTIVE
-  HIDDEN
-  DELETED
-}
-class PaymentStatus {
-  <<enumeration>>
-  APPROVED
-  FAILED
-  REFUNDED
-}
-class UserStatus {
-  <<enumeration>>
-  ACTIVE
-  SUSPENDED
-  DELETED
-}
+
+class Json
 ```
+
+---
+
+### 설계 메모 (ERD 기준)
+
+- `Product.displayStatus`와 `Product.saleStatus`를 분리해 **노출 상태**와 **판매 상태**의 의미 충돌을 방지한다.
+- soft delete는 `delYn + deletedAt`를 함께 사용하되, **정합성 규칙**은 아래와 같이 고정한다.
+    - `delYn = N` -> `deletedAt = null`
+    - `delYn = Y` -> `deletedAt != null`
+- `Product.revisionSeq`는 **현재 버전 포인터**, `ProductRevision`은 **변경 이력 누적 저장소** 역할을 가진다.
+- `OrderCartRestore`는 "바로주문 실패/만료/취소 후 장바구니 복원"의 **멱등 보장**을 위한 안전장치다.
+    - 구현 시에는 `order_cart_restore` 기록을 먼저 생성(중복 체크)한 뒤 `cart_items` 복원을 수행한다.
+- `UnavailableReason`는 DB 컬럼이 아니라, `displayStatus / saleStatus / delYn+deletedAt / product_stocks(onHand,reserved)`를 기반으로 서비스가 계산하는 응답 코드다.
