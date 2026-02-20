@@ -2,6 +2,7 @@ package com.loopers.domain.user;
 
 import com.loopers.application.user.UpdatePasswordCommand;
 import com.loopers.application.user.UserInfo;
+import com.loopers.application.user.UserService;
 import com.loopers.infrastructure.user.BcryptPasswordEncoder;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;

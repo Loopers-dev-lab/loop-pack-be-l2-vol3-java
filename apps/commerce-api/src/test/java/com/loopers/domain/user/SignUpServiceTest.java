@@ -1,6 +1,7 @@
 package com.loopers.domain.user;
 
 import com.loopers.application.user.SignUpCommand;
+import com.loopers.application.user.SignUpService;
 import com.loopers.infrastructure.user.BcryptPasswordEncoder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

@@ -1,6 +1,6 @@
 package com.loopers.application.product;
 
-import com.loopers.domain.brand.BrandService;
+import com.loopers.application.brand.BrandService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;

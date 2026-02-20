@@ -44,7 +44,6 @@ public class User extends BaseEntity {
 
     public static User create(SignUpCommand command, String encodedPassword) {
         return new User(command.loginId(), encodedPassword, command.name(), command.birthDate(), command.email());
-
     }
 
     private void validateLoginId(String loginId) {

@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.user;
 
 import com.loopers.application.user.SignUpCommand;
-import com.loopers.domain.user.SignUpService;
+import com.loopers.application.user.SignUpService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.user.dto.UserV1Dto;
 import jakarta.validation.Valid;

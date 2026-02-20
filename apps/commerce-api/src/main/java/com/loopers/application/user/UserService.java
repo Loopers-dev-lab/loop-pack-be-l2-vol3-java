@@ -1,7 +1,9 @@
-package com.loopers.domain.user;
+package com.loopers.application.user;
 
-import com.loopers.application.user.UpdatePasswordCommand;
-import com.loopers.application.user.UserInfo;
+import com.loopers.domain.user.PasswordEncoder;
+import com.loopers.domain.user.PasswordPolicyValidator;
+import com.loopers.domain.user.User;
+import com.loopers.domain.user.UserRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
