@@ -1,5 +1,7 @@
 package com.loopers.domain.product;
 
+import com.loopers.application.product.ProductService;
+import com.loopers.application.product.ProductSort;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.brand.InMemoryBrandRepository;
