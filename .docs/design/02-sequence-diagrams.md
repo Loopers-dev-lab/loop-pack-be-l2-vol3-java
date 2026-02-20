@@ -114,7 +114,7 @@ sequenceDiagram
 
     Admin ->>+ AdminAuthInterceptor: HTTP 요청<br/>X-Loopers-Ldap: loopers.admin
 
-    break X-Loopers-Ldap 헤더가 존재하지 않을 경우
+    break X-Loopers-Ldap 헤더가 없거나 값이 일치하지 않을 경우
         AdminAuthInterceptor -->> Admin: 401 Unauthorized
     end
 
