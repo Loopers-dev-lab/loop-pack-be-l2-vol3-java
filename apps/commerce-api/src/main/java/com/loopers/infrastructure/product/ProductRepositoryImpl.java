@@ -1,0 +1,79 @@
+package com.loopers.infrastructure.product;
+
+import com.loopers.application.product.ProductSort;
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.product.QProduct;
+import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.types.OrderSpecifier;
+import com.querydsl.jpa.impl.JPAQueryFactory;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@RequiredArgsConstructor
+@Repository
+public class ProductRepositoryImpl implements ProductRepository {
+    private final ProductJpaRepository productJpaRepository;
+    private final JPAQueryFactory queryFactory;
+
+    @Override
+    public Product save(Product product) {
+        return productJpaRepository.save(product);
+    }
+
+    @Override
+    public Optional<Product> findById(Long id) {
+        return productJpaRepository.findById(id);
+    }
+
+    @Override
+    public Page<Product> findProducts(Long brandId, ProductSort sort, Pageable pageable) {
+        QProduct product = QProduct.product;
+
+        BooleanBuilder builder = new BooleanBuilder();
+        builder.and(product.deletedAt.isNull());
+        builder.and(product.visibility.eq(Product.Visibility.VISIBLE));
+
+        if (brandId != null) {
+            builder.and(product.brandId.eq(brandId));
+        }
+
+        OrderSpecifier<?> orderSpecifier = switch (sort) {
+            case PRICE_ASC -> product.price.asc();
+            case LIKES_DESC -> product.id.desc(); // Like 도메인 구현 후 집계 쿼리로 교체 예정
+            case LATEST -> product.id.desc();
+        };
+
+        List<Product> content = queryFactory
+                .selectFrom(product)
+                .where(builder)
+                .orderBy(orderSpecifier)
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        Long total = queryFactory
+                .select(product.count())
+                .from(product)
+                .where(builder)
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0);
+    }
+
+    @Override
+    public List<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId) {
+        return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId);
+    }
+
+    @Override
+    public List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> ids) {
+        return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids);
+    }
+}
