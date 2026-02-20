@@ -1,5 +1,6 @@
-package com.loopers.domain.user;
+package com.loopers.application.user;
 
+import com.loopers.domain.user.User;
 import com.loopers.application.user.SignUpCommand;
 import com.loopers.application.user.SignUpService;
 import com.loopers.utils.DatabaseCleanUp;

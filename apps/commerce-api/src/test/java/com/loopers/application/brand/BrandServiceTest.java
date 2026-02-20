@@ -1,5 +1,7 @@
-package com.loopers.domain.brand;
+package com.loopers.application.brand;
 
+import com.loopers.domain.brand.Brand;
+import com.loopers.domain.brand.InMemoryBrandRepository;
 import com.loopers.application.brand.BrandService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
