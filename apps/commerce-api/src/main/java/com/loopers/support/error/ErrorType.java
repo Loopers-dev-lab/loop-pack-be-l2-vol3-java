@@ -30,7 +30,13 @@ public enum ErrorType {
     PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "PASSWORD_MISMATCH", "기존 비밀번호가 일치하지 않습니다."),
     PASSWORD_REUSE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "PASSWORD_REUSE_NOT_ALLOWED", "기존 비밀번호와 동일한 비밀번호로 수정할 수 없습니다."),
     BIRTH_DATE_IN_PASSWORD_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "BIRTH_DATE_IN_PASSWORD_NOT_ALLOWED", "비밀번호에 생년월일을 포함할 수 없습니다."),
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다.");
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다."),
+
+    /** Brand 도메인 에러 */
+    REQUIRED_BRAND_NAME(HttpStatus.BAD_REQUEST, "REQUIRED_BRAND_NAME", "브랜드 이름은 필수 값입니다."),
+    REQUIRED_BRAND_LOGO_URL(HttpStatus.BAD_REQUEST, "REQUIRED_BRAND_LOGO_URL", "브랜드 로고 URL은 필수 값입니다."),
+    INVALID_BRAND_NAME(HttpStatus.BAD_REQUEST, "INVALID_BRAND_NAME", "브랜드 이름은 2자 이상 50자 이하이어야 합니다."),
+    ALREADY_EXIST_BRAND_NAME(HttpStatus.BAD_REQUEST, "ALREADY_EXIST_BRAND_NAME", "이미 존재하는 브랜드 이름입니다.");
 
     private final HttpStatus status;
     private final String code;
