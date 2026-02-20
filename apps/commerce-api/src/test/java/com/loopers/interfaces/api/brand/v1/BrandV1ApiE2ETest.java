@@ -1,56 +1,28 @@
 package com.loopers.interfaces.api.brand.v1;
 
+import static com.loopers.interfaces.api.brand.v1.BrandSteps.createBrand;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import java.util.List;
-import java.util.Map;
-
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.util.LinkedMultiValueMap;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.api.brand.v1.BrandDto.CreateBrandResponse;
-import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.support.BaseE2ETest;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class BrandV1ApiE2ETest {
+class BrandV1ApiE2ETest extends BaseE2ETest {
 
     private static final String BRAND_ENDPOINT = "/api/v1/brands";
 
-    private final TestRestTemplate testRestTemplate;
-    private final DatabaseCleanUp databaseCleanUp;
-    private final BrandRepository brandRepository;
-
     @Autowired
-    public BrandV1ApiE2ETest(
-            TestRestTemplate testRestTemplate,
-            DatabaseCleanUp databaseCleanUp,
-            BrandRepository brandRepository
-    ) {
-        this.testRestTemplate = testRestTemplate;
-        this.databaseCleanUp = databaseCleanUp;
-        this.brandRepository = brandRepository;
-    }
-
-    @AfterEach
-    void tearDown() {
-        databaseCleanUp.truncateAllTables();
-    }
+    private BrandRepository brandRepository;
 
     @DisplayName("GET /api/v1/brands/{brandId}")
     @Nested
@@ -61,8 +33,7 @@ class BrandV1ApiE2ETest {
         void returnsBrand_whenBrandIsActive() {
             // arrange
             var request = new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "브랜드 설명");
-            var result = createBrandRequest(request);
-            var brandId = result.getBody().data().brandId();
+            var brandId = createBrand(testRestTemplate, request);
 
             // act
             var response = testRestTemplate.exchange(
@@ -120,17 +91,5 @@ class BrandV1ApiE2ETest {
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         }
-    }
-
-    private ResponseEntity<ApiResponse<CreateBrandResponse>> createBrandRequest(
-            BrandDto.CreateBrandRequest request
-    ) {
-        return testRestTemplate.exchange(
-                "/api-admin/v1/brands",
-                HttpMethod.POST,
-                new HttpEntity<>(request, new HttpHeaders(new LinkedMultiValueMap<>(Map.of("X-Loopers-Ldap", List.of("loopers.admin"))))),
-                new ParameterizedTypeReference<ApiResponse<CreateBrandResponse>>() {
-                }
-        );
     }
 }

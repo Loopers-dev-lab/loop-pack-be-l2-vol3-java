@@ -59,7 +59,7 @@ class BrandServiceIntegrationTest {
             );
         }
 
-        @DisplayName("이미 존재하는 브랜드 이름을 입력하면, 예외가 발생한다.")
+        @DisplayName("이미 존재하는 브랜드 이름을 입력하면, ALREADY_EXIST_BRAND_NAME 예외가 발생한다.")
         @Test
         void throwsException_whenDuplicateBrandNameProvided() {
             // arrange
@@ -239,7 +239,7 @@ class BrandServiceIntegrationTest {
             );
         }
 
-        @DisplayName("존재하지 않는 브랜드 ID를 입력하면, 예외가 발생한다.")
+        @DisplayName("존재하지 않는 브랜드 ID를 입력하면, BRAND_NOT_FOUND 예외가 발생한다.")
         @Test
         void throwsException_whenNonExistingBrandIdProvided() {
             // act & assert
@@ -271,7 +271,7 @@ class BrandServiceIntegrationTest {
             );
         }
 
-        @DisplayName("삭제된 브랜드 ID를 입력하면, 예외가 발생한다.")
+        @DisplayName("삭제된 브랜드 ID를 입력하면, BRAND_NOT_FOUND 예외가 발생한다.")
         @Test
         void throwsException_whenDeletedBrandIdProvided() {
             // arrange
@@ -286,7 +286,7 @@ class BrandServiceIntegrationTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
         }
 
-        @DisplayName("존재하지 않는 브랜드 ID를 입력하면, 예외가 발생한다.")
+        @DisplayName("존재하지 않는 브랜드 ID를 입력하면, BRAND_NOT_FOUND 예외가 발생한다.")
         @Test
         void throwsException_whenNonExistingBrandIdProvided() {
             // act & assert
@@ -323,7 +323,7 @@ class BrandServiceIntegrationTest {
             );
         }
 
-        @DisplayName("존재하지 않는 브랜드 ID를 입력하면, 예외가 발생한다.")
+        @DisplayName("존재하지 않는 브랜드 ID를 입력하면, BRAND_NOT_FOUND 예외가 발생한다.")
         @Test
         void throwsException_whenBrandNotFound() {
             // act & assert
@@ -332,7 +332,7 @@ class BrandServiceIntegrationTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
         }
 
-        @DisplayName("다른 활성 브랜드와 동일한 이름으로 수정하면, 예외가 발생한다.")
+        @DisplayName("다른 활성 브랜드와 동일한 이름으로 수정하면, ALREADY_EXIST_BRAND_NAME 예외가 발생한다.")
         @Test
         void throwsException_whenDuplicateNameExists() {
             // arrange

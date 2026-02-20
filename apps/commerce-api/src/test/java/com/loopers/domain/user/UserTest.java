@@ -48,7 +48,7 @@ class UserTest {
             assertThat(user.matchesPassword(rawPassword, passwordEncoder)).isTrue();
         }
 
-        @DisplayName("비밀번호에 생년월일이 포함되면, PASSWORD_CONTAINS_BIRTH_DATE 예외가 발생한다.")
+        @DisplayName("비밀번호에 생년월일이 포함되면, BIRTH_DATE_IN_PASSWORD_NOT_ALLOWED 예외가 발생한다.")
         @Test
         void throwsPasswordContainsBirthDateException_whenPasswordContainsBirthDate() {
             // arrange

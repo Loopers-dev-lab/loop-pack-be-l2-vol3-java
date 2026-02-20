@@ -1,17 +1,16 @@
 package com.loopers.interfaces.api.brand.v1;
 
+import static com.loopers.interfaces.api.brand.v1.BrandSteps.createBrand;
+import static com.loopers.support.E2ETestHelper.adminAuthHeaders;
+import static com.loopers.support.E2ETestHelper.assertErrorResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -24,30 +23,12 @@ import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.brand.v1.BrandDto.BrandResponse;
 import com.loopers.interfaces.api.brand.v1.BrandDto.CreateBrandRequest;
+import com.loopers.support.BaseE2ETest;
 import com.loopers.support.error.ErrorType;
-import com.loopers.utils.DatabaseCleanUp;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class BrandV1AdminApiE2ETest {
+class BrandV1AdminApiE2ETest extends BaseE2ETest {
 
     private static final String BRAND_ADMIN_ENDPOINT = "/api-admin/v1/brands";
-
-    private final TestRestTemplate testRestTemplate;
-    private final DatabaseCleanUp databaseCleanUp;
-
-    @Autowired
-    public BrandV1AdminApiE2ETest(
-            TestRestTemplate testRestTemplate,
-            DatabaseCleanUp databaseCleanUp
-    ) {
-        this.testRestTemplate = testRestTemplate;
-        this.databaseCleanUp = databaseCleanUp;
-    }
-
-    @AfterEach
-    void tearDown() {
-        databaseCleanUp.truncateAllTables();
-    }
 
     @DisplayName("POST /api-admin/v1/brands")
     @Nested
@@ -60,7 +41,7 @@ class BrandV1AdminApiE2ETest {
             var request = new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "브랜드 설명");
 
             // act
-            var response = createBrandRequest(request, adminHeaders());
+            var response = createBrand(testRestTemplate, request, adminAuthHeaders());
 
             // assert
             assertAll(
@@ -77,14 +58,10 @@ class BrandV1AdminApiE2ETest {
             var request = new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "브랜드 설명");
 
             // act
-            var response = createBrandRequest(request, new HttpHeaders());
+            var response = createBrand(testRestTemplate, request, new HttpHeaders());
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.UNAUTHORIZED.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
         }
 
         @DisplayName("X-Loopers-Ldap 헤더 값이 잘못되면, 401 UNAUTHORIZED 응답을 받는다.")
@@ -96,14 +73,10 @@ class BrandV1AdminApiE2ETest {
             headers.set("X-Loopers-Ldap", "wrong.value");
 
             // act
-            var response = createBrandRequest(request, headers);
+            var response = createBrand(testRestTemplate, request, headers);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.UNAUTHORIZED.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
         }
 
         @DisplayName("브랜드명이 빈 값이면, 400 BAD_REQUEST 응답을 받는다.")
@@ -113,14 +86,10 @@ class BrandV1AdminApiE2ETest {
             var request = new BrandDto.CreateBrandRequest("", "https://example.com/logo.png", "브랜드 설명");
 
             // act
-            var response = createBrandRequest(request, adminHeaders());
+            var response = createBrand(testRestTemplate, request, adminAuthHeaders());
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.BAD_REQUEST.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.BAD_REQUEST);
         }
 
         @DisplayName("로고 URL이 빈 값이면, 400 BAD_REQUEST 응답을 받는다.")
@@ -130,14 +99,10 @@ class BrandV1AdminApiE2ETest {
             var request = new BrandDto.CreateBrandRequest("브랜드명", "", "브랜드 설명");
 
             // act
-            var response = createBrandRequest(request, adminHeaders());
+            var response = createBrand(testRestTemplate, request, adminAuthHeaders());
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.BAD_REQUEST.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.BAD_REQUEST);
         }
 
         @DisplayName("브랜드명 길이가 유효하지 않으면, INVALID_BRAND_NAME 에러 응답을 받는다.")
@@ -149,14 +114,10 @@ class BrandV1AdminApiE2ETest {
             var request = new BrandDto.CreateBrandRequest(name, "https://example.com/logo.png", "브랜드 설명");
 
             // act
-            var response = createBrandRequest(request, adminHeaders());
+            var response = createBrand(testRestTemplate, request, adminAuthHeaders());
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.INVALID_BRAND_NAME.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.INVALID_BRAND_NAME);
         }
 
         @DisplayName("이미 존재하는 브랜드명으로 등록하면, ALREADY_EXIST_BRAND_NAME 에러 응답을 받는다.")
@@ -164,17 +125,13 @@ class BrandV1AdminApiE2ETest {
         void returnsAlreadyExistBrandName_whenDuplicateNameProvided() {
             // arrange
             var request = new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "브랜드 설명");
-            createBrandRequest(request, adminHeaders());
+            createBrand(testRestTemplate, request, adminAuthHeaders());
 
             // act
-            var response = createBrandRequest(request, adminHeaders());
+            var response = createBrand(testRestTemplate, request, adminAuthHeaders());
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.ALREADY_EXIST_BRAND_NAME.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_EXIST_BRAND_NAME);
         }
     }
 
@@ -186,21 +143,21 @@ class BrandV1AdminApiE2ETest {
         @Test
         void returnsBrandList_whenBrandsExist() {
             // arrange
-            createBrandRequest(
+            createBrand(testRestTemplate,
                     new BrandDto.CreateBrandRequest(
                             "브랜드명1",
                             "https://example.com/logo1.png",
                             "브랜드 설명1"
                     ),
-                    adminHeaders()
+                    adminAuthHeaders()
             );
-            createBrandRequest(
+            createBrand(testRestTemplate,
                     new BrandDto.CreateBrandRequest(
                             "브랜드명2",
                             "https://example.com/logo2.png",
                             null
                     ),
-                    adminHeaders()
+                    adminAuthHeaders()
             );
 
             var url = UriComponentsBuilder.fromPath(BRAND_ADMIN_ENDPOINT)
@@ -230,13 +187,13 @@ class BrandV1AdminApiE2ETest {
         @Test
         void returnsDefaultPage_whenNoPageParams() {
             // arrange
-            createBrandRequest(
+            createBrand(testRestTemplate,
                     new BrandDto.CreateBrandRequest(
                             "브랜드명",
                             "https://example.com/logo.png",
                             null
                     ),
-                    adminHeaders()
+                    adminAuthHeaders()
             );
 
             // act
@@ -254,29 +211,29 @@ class BrandV1AdminApiE2ETest {
         @Test
         void returnsHasNextTrue_whenMoreBrandsExist() {
             // arrange
-            createBrandRequest(
+            createBrand(testRestTemplate,
                     new BrandDto.CreateBrandRequest(
                             "브랜드1",
                             "https://example.com/1.png",
                             null
                     ),
-                    adminHeaders()
+                    adminAuthHeaders()
             );
-            createBrandRequest(
+            createBrand(testRestTemplate,
                     new BrandDto.CreateBrandRequest(
                             "브랜드2",
                             "https://example.com/2.png",
                             null
                     ),
-                    adminHeaders()
+                    adminAuthHeaders()
             );
-            createBrandRequest(
+            createBrand(testRestTemplate,
                     new BrandDto.CreateBrandRequest(
                             "브랜드3",
                             "https://example.com/3.png",
                             null
                     ),
-                    adminHeaders()
+                    adminAuthHeaders()
             );
 
             var url = UriComponentsBuilder.fromPath(BRAND_ADMIN_ENDPOINT)
@@ -300,29 +257,29 @@ class BrandV1AdminApiE2ETest {
         @Test
         void returnsBrandsSortedByCreatedAtDesc() {
             // arrange
-            createBrandRequest(
+            createBrand(testRestTemplate,
                     new BrandDto.CreateBrandRequest(
                             "첫번째",
                             "https://example.com/1.png",
                             null
                     ),
-                    adminHeaders()
+                    adminAuthHeaders()
             );
-            createBrandRequest(
+            createBrand(testRestTemplate,
                     new BrandDto.CreateBrandRequest(
                             "두번째",
                             "https://example.com/2.png",
                             null
                     ),
-                    adminHeaders()
+                    adminAuthHeaders()
             );
-            createBrandRequest(
+            createBrand(testRestTemplate,
                     new BrandDto.CreateBrandRequest(
                             "세번째",
                             "https://example.com/3.png",
                             null
                     ),
-                    adminHeaders()
+                    adminAuthHeaders()
             );
 
             var url = UriComponentsBuilder.fromPath(BRAND_ADMIN_ENDPOINT)
@@ -372,13 +329,13 @@ class BrandV1AdminApiE2ETest {
         @Test
         void returnsBrandDetails_whenBrandIdExists() {
             // arrange
-            var result = createBrandRequest(
+            var result = createBrand(testRestTemplate,
                     new CreateBrandRequest(
                             "브랜드명",
                             "https://example.com/logo.png",
                             null
                     ),
-                    adminHeaders()
+                    adminAuthHeaders()
             );
             var brandId = result.getBody().data().brandId();
 
@@ -388,7 +345,7 @@ class BrandV1AdminApiE2ETest {
             var response = testRestTemplate.exchange(
                     BRAND_ADMIN_ENDPOINT + "/" + brandId,
                     HttpMethod.GET,
-                    new HttpEntity<>(adminHeaders()),
+                    new HttpEntity<>(adminAuthHeaders()),
                     responseType
             );
 
@@ -413,13 +370,13 @@ class BrandV1AdminApiE2ETest {
         @Test
         void updatesBrand_whenBrandIdExists() {
             // arrange
-            var result = createBrandRequest(
+            var result = createBrand(testRestTemplate,
                     new CreateBrandRequest(
                             "브랜드명",
                             "https://example.com/logo.png",
                             null
                     ),
-                    adminHeaders()
+                    adminAuthHeaders()
             );
             var brandId = result.getBody().data().brandId();
 
@@ -431,7 +388,7 @@ class BrandV1AdminApiE2ETest {
             testRestTemplate.exchange(
                     BRAND_ADMIN_ENDPOINT + "/" + brandId,
                     HttpMethod.PUT,
-                    new HttpEntity<>(request, adminHeaders()),
+                    new HttpEntity<>(request, adminAuthHeaders()),
                     responseType
             );
 
@@ -439,7 +396,7 @@ class BrandV1AdminApiE2ETest {
             var getResponse = testRestTemplate.exchange(
                     BRAND_ADMIN_ENDPOINT + "/" + brandId,
                     HttpMethod.GET,
-                    new HttpEntity<>(adminHeaders()),
+                    new HttpEntity<>(adminAuthHeaders()),
                     responseType
             );
             assertAll(
@@ -463,19 +420,15 @@ class BrandV1AdminApiE2ETest {
             var response = updateBrandRequest(999L, request);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.BRAND_NOT_FOUND.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.BRAND_NOT_FOUND);
         }
 
         @DisplayName("다른 활성 브랜드와 동일한 이름으로 수정하면, 400 응답을 받는다.")
         @Test
         void returnsBadRequest_whenDuplicateNameExists() {
             // arrange
-            createBrandRequest(new CreateBrandRequest("기존브랜드", "https://example.com/logo1.png", null), adminHeaders());
-            var result = createBrandRequest(new CreateBrandRequest("내브랜드", "https://example.com/logo2.png", null), adminHeaders());
+            createBrand(testRestTemplate,new CreateBrandRequest("기존브랜드", "https://example.com/logo1.png", null), adminAuthHeaders());
+            var result = createBrand(testRestTemplate,new CreateBrandRequest("내브랜드", "https://example.com/logo2.png", null), adminAuthHeaders());
             var brandId = result.getBody().data().brandId();
 
             var request = new BrandDto.UpdateBrandRequest("기존브랜드", "https://example.com/logo2.png", null);
@@ -484,18 +437,14 @@ class BrandV1AdminApiE2ETest {
             var response = updateBrandRequest(brandId, request);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.ALREADY_EXIST_BRAND_NAME.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_EXIST_BRAND_NAME);
         }
 
         @DisplayName("브랜드명이 빈 값이면, 400 응답을 받는다.")
         @Test
         void returnsBadRequest_whenNameIsBlank() {
             // arrange
-            var result = createBrandRequest(new CreateBrandRequest("브랜드명", "https://example.com/logo.png", null), adminHeaders());
+            var result = createBrand(testRestTemplate,new CreateBrandRequest("브랜드명", "https://example.com/logo.png", null), adminAuthHeaders());
             var brandId = result.getBody().data().brandId();
 
             var request = new BrandDto.UpdateBrandRequest("", "https://example.com/logo.png", null);
@@ -504,18 +453,14 @@ class BrandV1AdminApiE2ETest {
             var response = updateBrandRequest(brandId, request);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.BAD_REQUEST.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.BAD_REQUEST);
         }
 
         @DisplayName("브랜드명이 50자 초과이면, INVALID_BRAND_NAME 에러 응답을 받는다.")
         @Test
         void returnsInvalidBrandName_whenNameIsTooLong() {
             // arrange
-            var result = createBrandRequest(new CreateBrandRequest("브랜드명", "https://example.com/logo.png", null), adminHeaders());
+            var result = createBrand(testRestTemplate,new CreateBrandRequest("브랜드명", "https://example.com/logo.png", null), adminAuthHeaders());
             var brandId = result.getBody().data().brandId();
 
             var name = "a".repeat(51);
@@ -525,41 +470,17 @@ class BrandV1AdminApiE2ETest {
             var response = updateBrandRequest(brandId, request);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.INVALID_BRAND_NAME.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.INVALID_BRAND_NAME);
         }
     }
 
-    private HttpHeaders adminHeaders() {
-        var headers = new HttpHeaders();
-        headers.set("X-Loopers-Ldap", "loopers.admin");
-        return headers;
-    }
-
-    private ResponseEntity<ApiResponse<BrandDto.CreateBrandResponse>> createBrandRequest(
-            BrandDto.CreateBrandRequest request,
-            HttpHeaders headers
-    ) {
-        ParameterizedTypeReference<ApiResponse<BrandDto.CreateBrandResponse>> responseType = new ParameterizedTypeReference<>() {
-        };
-        return testRestTemplate.exchange(
-                BRAND_ADMIN_ENDPOINT,
-                HttpMethod.POST,
-                new HttpEntity<>(request, headers),
-                responseType
-        );
-    }
-
-    private ResponseEntity<ApiResponse<PageResponse<BrandResponse>>> getBrandsRequest(String url) {
+private ResponseEntity<ApiResponse<PageResponse<BrandResponse>>> getBrandsRequest(String url) {
         ParameterizedTypeReference<ApiResponse<PageResponse<BrandResponse>>> responseType = new ParameterizedTypeReference<>() {
         };
         return testRestTemplate.exchange(
                 url,
                 HttpMethod.GET,
-                new HttpEntity<>(adminHeaders()),
+                new HttpEntity<>(adminAuthHeaders()),
                 responseType
         );
     }
@@ -570,7 +491,7 @@ class BrandV1AdminApiE2ETest {
         return testRestTemplate.exchange(
                 BRAND_ADMIN_ENDPOINT + "/" + brandId,
                 HttpMethod.PUT,
-                new HttpEntity<>(request, adminHeaders()),
+                new HttpEntity<>(request, adminAuthHeaders()),
                 responseType
         );
     }
