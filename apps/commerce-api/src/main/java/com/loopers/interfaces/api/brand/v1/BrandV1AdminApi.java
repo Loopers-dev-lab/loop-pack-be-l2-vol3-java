@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,5 +44,12 @@ public class BrandV1AdminApi implements BrandV1AdminApiSpec {
     ) {
         Page<BrandResult> result = brandService.getBrands(new PageSize(page, size));
         return ApiResponse.success(new PageResponse<>(BrandDto.BrandResponse.from(result.content()), result.hasNext()));
+    }
+
+    @GetMapping("/{brandId}")
+    @Override
+    public ApiResponse<BrandDto.BrandResponse> getBrand(@PathVariable Long brandId) {
+        BrandResult result = brandService.getBrand(brandId);
+        return ApiResponse.success(BrandDto.BrandResponse.from(result));
     }
 }

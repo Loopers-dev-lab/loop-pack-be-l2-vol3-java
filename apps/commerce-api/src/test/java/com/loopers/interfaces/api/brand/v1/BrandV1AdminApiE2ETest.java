@@ -21,6 +21,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.brand.v1.BrandDto.BrandResponse;
+import com.loopers.interfaces.api.brand.v1.BrandDto.CreateBrandRequest;
 import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
 
@@ -373,6 +374,47 @@ class BrandV1AdminApiE2ETest {
                     () -> assertThat(response.getBody()).isNotNull(),
                     () -> assertThat(response.getBody().data().content()).isEmpty(),
                     () -> assertThat(response.getBody().data().hasNext()).isFalse()
+            );
+        }
+    }
+
+    @DisplayName("GET /api-admin/v1/brands/{brandId}")
+    @Nested
+    class GetBrand {
+
+        @DisplayName("존재하는 브랜드 ID로 조회하면, 브랜드 정보를 반환한다.")
+        @Test
+        void returnsBrandDetails_whenBrandIdExists() {
+            // arrange
+            var result = createBrandRequest(
+                    new CreateBrandRequest(
+                            "브랜드명",
+                            "https://example.com/logo.png",
+                            null
+                    ),
+                    adminHeaders()
+            );
+            var brandId = result.getBody().data().brandId();
+
+            // act
+            ParameterizedTypeReference<ApiResponse<BrandResponse>> responseType = new ParameterizedTypeReference<>() {
+            };
+            var response = testRestTemplate.exchange(
+                    BRAND_ADMIN_ENDPOINT + "/" + brandId,
+                    HttpMethod.GET,
+                    new HttpEntity<>(adminHeaders()),
+                    responseType
+            );
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().id()).isEqualTo(brandId),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("브랜드명"),
+                    () -> assertThat(response.getBody().data().logoUrl()).isEqualTo("https://example.com/logo.png"),
+                    () -> assertThat(response.getBody().data().description()).isNull(),
+                    () -> assertThat(response.getBody().data().createdAt()).isNotNull()
             );
         }
     }

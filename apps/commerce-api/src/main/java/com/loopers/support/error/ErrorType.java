@@ -36,7 +36,8 @@ public enum ErrorType {
     REQUIRED_BRAND_NAME(HttpStatus.BAD_REQUEST, "REQUIRED_BRAND_NAME", "브랜드 이름은 필수 값입니다."),
     REQUIRED_BRAND_LOGO_URL(HttpStatus.BAD_REQUEST, "REQUIRED_BRAND_LOGO_URL", "브랜드 로고 URL은 필수 값입니다."),
     INVALID_BRAND_NAME(HttpStatus.BAD_REQUEST, "INVALID_BRAND_NAME", "브랜드 이름은 2자 이상 50자 이하이어야 합니다."),
-    ALREADY_EXIST_BRAND_NAME(HttpStatus.BAD_REQUEST, "ALREADY_EXIST_BRAND_NAME", "이미 존재하는 브랜드 이름입니다.");
+    ALREADY_EXIST_BRAND_NAME(HttpStatus.BAD_REQUEST, "ALREADY_EXIST_BRAND_NAME", "이미 존재하는 브랜드 이름입니다."),
+    BRAND_NOT_FOUND(HttpStatus.NOT_FOUND, "BRAND_NOT_FOUND", "브랜드를 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

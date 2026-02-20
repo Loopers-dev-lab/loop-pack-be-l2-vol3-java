@@ -41,4 +41,11 @@ public class BrandService {
                 brands.hasNext()
         );
     }
+
+    @Transactional(readOnly = true)
+    public BrandResult getBrand(Long brandId) {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
+        return BrandResult.from(brand);
+    }
 }

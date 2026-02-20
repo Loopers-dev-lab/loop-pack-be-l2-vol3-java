@@ -25,4 +25,10 @@ public interface BrandV1AdminApiSpec {
             description = "등록된 브랜드 목록을 조회합니다."
     )
     ApiResponse<PageResponse<BrandResponse>> getBrands(int page, int size);
+
+    @Operation(
+            summary = "브랜드 상세 조회",
+            description = "특정 브랜드의 상세 정보를 조회합니다."
+    )
+    ApiResponse<BrandResponse> getBrand(Long brandId);
 }

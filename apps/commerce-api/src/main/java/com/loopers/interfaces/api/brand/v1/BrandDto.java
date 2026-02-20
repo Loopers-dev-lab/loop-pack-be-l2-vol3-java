@@ -33,16 +33,20 @@ public class BrandDto {
             ZonedDateTime deletedAt
     ) {
 
+        public static BrandResponse from(BrandResult result) {
+            return new BrandResponse(
+                    result.id(),
+                    result.name(),
+                    result.logoUrl(),
+                    result.description(),
+                    result.createdAt(),
+                    result.deletedAt()
+            );
+        }
+
         public static List<BrandResponse> from(List<BrandResult> results) {
             return results.stream()
-                    .map(brand -> new BrandResponse(
-                            brand.id(),
-                            brand.name(),
-                            brand.logoUrl(),
-                            brand.description(),
-                            brand.createdAt(),
-                            brand.deletedAt()
-                    ))
+                    .map(BrandResponse::from)
                     .toList();
         }
     }

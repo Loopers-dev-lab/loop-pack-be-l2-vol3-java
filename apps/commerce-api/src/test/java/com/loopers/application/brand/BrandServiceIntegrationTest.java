@@ -194,4 +194,58 @@ class BrandServiceIntegrationTest {
             );
         }
     }
+
+    @DisplayName("브랜드를 조회할 때,")
+    @Nested
+    class GetBrand {
+
+        @DisplayName("존재하는 브랜드 ID를 입력하면, 브랜드가 반환된다.")
+        @Test
+        void returnsBrand_whenExistingBrandIdProvided() {
+            // arrange
+            var created = brandService.createBrand("brand name", "logo url", "brand description");
+
+            // act
+            var result = brandService.getBrand(created.id());
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.id()).isEqualTo(created.id()),
+                    () -> assertThat(result.name()).isEqualTo("brand name"),
+                    () -> assertThat(result.logoUrl()).isEqualTo("logo url"),
+                    () -> assertThat(result.description()).isEqualTo("brand description")
+            );
+        }
+
+        @DisplayName("삭제된 브랜드 ID를 입력하면, 브랜드가 반환된다.")
+        @Test
+        void returnsBrand_whenDeletedBrandIdProvided() {
+            // arrange
+            var created = brandService.createBrand("brand name", "logo url", "brand description");
+            var brand = brandRepository.findById(created.id()).orElseThrow();
+            brand.delete();
+            brandRepository.save(brand);
+
+            // act
+            var result = brandService.getBrand(created.id());
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.id()).isEqualTo(created.id()),
+                    () -> assertThat(result.name()).isEqualTo("brand name"),
+                    () -> assertThat(result.logoUrl()).isEqualTo("logo url"),
+                    () -> assertThat(result.description()).isEqualTo("brand description"),
+                    () -> assertThat(result.deletedAt()).isNotNull()
+            );
+        }
+
+        @DisplayName("존재하지 않는 브랜드 ID를 입력하면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenNonExistingBrandIdProvided() {
+            // act & assert
+            assertThatThrownBy(() -> brandService.getBrand(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
+        }
+    }
 }
