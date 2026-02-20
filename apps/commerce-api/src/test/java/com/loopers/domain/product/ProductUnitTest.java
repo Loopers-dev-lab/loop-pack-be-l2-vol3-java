@@ -71,4 +71,22 @@ class ProductUnitTest {
             assertThat(negativeResult.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
+
+    @DisplayName("재고를 복원할 때,")
+    @Nested
+    class IncreaseStock {
+
+        @DisplayName("요청 수량이 1 이상이면, 재고가 증가한다.")
+        @Test
+        void increasesStock_whenQuantityIsValid() {
+            // arrange
+            Product product = new Product(1L, "상품A", 10000L, "설명", 5);
+
+            // act
+            product.increaseStock(3);
+
+            // assert
+            assertThat(product.getStockQuantity().value()).isEqualTo(8);
+        }
+    }
 }

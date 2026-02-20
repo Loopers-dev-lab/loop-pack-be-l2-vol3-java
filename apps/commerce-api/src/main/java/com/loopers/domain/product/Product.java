@@ -47,6 +47,10 @@ public class Product extends BaseEntity {
         this.stockQuantity = new StockQuantity(current - quantity);
     }
 
+    public void increaseStock(int quantity) {
+        // Red 단계: 로직 미구현
+    }
+
     public StockQuantity getStockQuantity() {
         return stockQuantity;
     }
