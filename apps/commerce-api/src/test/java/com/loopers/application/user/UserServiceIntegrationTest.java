@@ -1,4 +1,4 @@
-package com.loopers.domain.user;
+package com.loopers.application.user;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import com.loopers.domain.user.PasswordEncoder;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
@@ -47,16 +48,15 @@ class UserServiceIntegrationTest {
             String email = "test@email.com";
 
             // act
-            User user = userService.signUp(loginId, password, name, birthDate, email);
+            UserResult result = userService.signUp(loginId, password, name, birthDate, email);
 
             // assert
             assertAll(
-                    () -> assertThat(user.getId()).isNotNull(),
-                    () -> assertThat(user.getLoginId()).isEqualTo(new LoginId(loginId)),
-                    () -> assertThat(user.getName()).isEqualTo(new UserName(name)),
-                    () -> assertThat(user.getBirthDate()).isEqualTo(new BirthDate(birthDate)),
-                    () -> assertThat(user.getEmail()).isEqualTo(new Email(email)),
-                    () -> assertThat(user.matchesPassword(password, passwordEncoder)).isTrue()
+                    () -> assertThat(result.id()).isNotNull(),
+                    () -> assertThat(result.loginId()).isEqualTo(loginId),
+                    () -> assertThat(result.name()).isEqualTo("홍길*"),
+                    () -> assertThat(result.birthDate()).isEqualTo(birthDate),
+                    () -> assertThat(result.email()).isEqualTo(email)
             );
         }
 
@@ -74,21 +74,27 @@ class UserServiceIntegrationTest {
         }
     }
 
-    @DisplayName("사용자 정보를 조회할 때,")
+    @DisplayName("내 정보를 조회할 때,")
     @Nested
-    class GetUser {
+    class GetMyInfo {
 
-        @DisplayName("존재하는 사용자 ID를 입력하면, 해당 사용자의 정보를 반환한다.")
+        @DisplayName("존재하는 사용자 ID를 입력하면, 마스킹된 사용자 정보를 반환한다.")
         @Test
-        void returnsUserInfo_whenUserIdExists() {
+        void returnsUserResult_whenUserIdExists() {
             // arrange
-            User savedUser = userService.signUp("user123", "Password1!", "홍길동", "1990-01-01", "test@email.com");
+            UserResult signUpResult = userService.signUp("user123", "Password1!", "홍길동", "1990-01-01", "test@email.com");
 
             // act
-            User user = userService.getUser(savedUser.getId());
+            UserResult result = userService.getMyInfo(signUpResult.id());
 
             // assert
-            assertThat(user.getId()).isEqualTo(savedUser.getId());
+            assertAll(
+                    () -> assertThat(result.id()).isEqualTo(signUpResult.id()),
+                    () -> assertThat(result.loginId()).isEqualTo("user123"),
+                    () -> assertThat(result.name()).isEqualTo("홍길*"),
+                    () -> assertThat(result.birthDate()).isEqualTo("1990-01-01"),
+                    () -> assertThat(result.email()).isEqualTo("test@email.com")
+            );
         }
 
         @DisplayName("존재하지 않는 사용자 ID를 입력하면, USER_NOT_FOUND 예외가 발생한다.")
@@ -98,7 +104,7 @@ class UserServiceIntegrationTest {
             Long nonExistentUserId = 999L;
 
             // act & assert
-            assertThatThrownBy(() -> userService.getUser(nonExistentUserId))
+            assertThatThrownBy(() -> userService.getMyInfo(nonExistentUserId))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.USER_NOT_FOUND));
         }
@@ -112,16 +118,16 @@ class UserServiceIntegrationTest {
         @Test
         void updatesPassword_whenOldPasswordMatches() {
             // arrange
-            User user = userService.signUp("user123", "Password1!", "홍길동", "1990-01-01", "test@email.com");
+            UserResult signUpResult = userService.signUp("user123", "Password1!", "홍길동", "1990-01-01", "test@email.com");
             String oldPassword = "Password1!";
             String newPassword = "NewPassword2@";
 
             // act
-            userService.updatePassword(user.getId(), oldPassword, newPassword);
+            userService.updatePassword(signUpResult.id(), oldPassword, newPassword);
 
             // assert
-            User updatedUser = userService.getUser(user.getId());
-            assertThat(updatedUser.matchesPassword(newPassword, passwordEncoder)).isTrue();
+            Long userId = userService.login("user123", newPassword);
+            assertThat(userId).isEqualTo(signUpResult.id());
         }
 
         @DisplayName("존재하지 않는 사용자 ID를 입력하면, USER_NOT_FOUND 예외가 발생한다.")
@@ -149,13 +155,13 @@ class UserServiceIntegrationTest {
             // arrange
             String loginId = "user123";
             String password = "Password1!";
-            User savedUser = userService.signUp(loginId, password, "홍길동", "1990-01-01", "test@email.com");
+            UserResult signUpResult = userService.signUp(loginId, password, "홍길동", "1990-01-01", "test@email.com");
 
             // act
             Long userId = userService.login(loginId, password);
 
             // assert
-            assertThat(userId).isEqualTo(savedUser.getId());
+            assertThat(userId).isEqualTo(signUpResult.id());
         }
 
         @DisplayName("loginId가 null이면, UNAUTHORIZED 예외가 발생한다.")
