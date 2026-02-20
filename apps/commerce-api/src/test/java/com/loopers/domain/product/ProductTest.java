@@ -104,7 +104,7 @@ public class ProductTest {
 
         @DisplayName("price가 0이면 BAD_REQUEST 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenPriceIsZeroOrNegative() {
+        void throwsBadRequestException_whenPriceIsZero() {
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
                 Product.create(1L, "나이키 에어맥스", "신발", 0, 10);
@@ -116,7 +116,7 @@ public class ProductTest {
 
         @DisplayName("price가 음수면 BAD_REQUEST 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenPriceIsZeroOrNegative() {
+        void throwsBadRequestException_whenPriceIsNegative() {
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
                 Product.create(1L, "나이키 에어맥스", "신발", -5, 10);
@@ -216,7 +216,7 @@ public class ProductTest {
 
         @DisplayName("price가 0이면 BAD_REQUEST 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenPriceIsZeroOrNegative() {
+        void throwsBadRequestException_whenPriceIsZero() {
             // arrange
             Product product = Product.create(1L, "나이키 에어맥스", "신발", 150000, 10);
 
@@ -231,7 +231,7 @@ public class ProductTest {
 
         @DisplayName("price가 음수면 BAD_REQUEST 예외가 발생한다.")
         @Test
-        void throwsBadRequestException_whenPriceIsZeroOrNegative() {
+        void throwsBadRequestException_whenPriceIsNegative() {
             // arrange
             Product product = Product.create(1L, "나이키 에어맥스", "신발", 150000, 10);
 
