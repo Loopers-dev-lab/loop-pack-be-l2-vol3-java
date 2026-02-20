@@ -14,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import com.loopers.support.page.PageSize;
 import com.loopers.utils.DatabaseCleanUp;
 
 @SpringBootTest
@@ -69,8 +70,8 @@ class BrandServiceIntegrationTest {
 
             // act & assert
             assertThatThrownBy(() -> brandService.createBrand(name, logoUrl, description))
-                .isInstanceOf(CoreException.class)
-                .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_EXIST_BRAND_NAME));
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_EXIST_BRAND_NAME));
         }
 
         @DisplayName("삭제된 브랜드 이름으로 다시 생성할 수 있다.")
@@ -95,6 +96,101 @@ class BrandServiceIntegrationTest {
                     () -> assertThat(savedBrand2.getName()).isEqualTo(name),
                     () -> assertThat(savedBrand2.getLogoUrl()).isEqualTo(logoUrl),
                     () -> assertThat(savedBrand2.getDescription()).isEqualTo(description)
+            );
+        }
+    }
+
+    @DisplayName("브랜드 목록을 조회할 때,")
+    @Nested
+    class GetBrands {
+
+        @DisplayName("저장된 브랜드가 존재하면, 브랜드 목록이 반환된다.")
+        @Test
+        void returnsBrandList_whenBrandsExist() {
+            // arrange
+            brandService.createBrand("brand name 1", "logo url 1", "brand description 1");
+            brandService.createBrand("brand name 2", "logo url 2", "brand description 2");
+
+            // act
+            var result = brandService.getBrands(new PageSize(0, 10));
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.content()).hasSize(2),
+                    () -> assertThat(result.content()).extracting(BrandResult::name)
+                            .containsExactly("brand name 2", "brand name 1"),
+                    () -> assertThat(result.hasNext()).isFalse()
+            );
+        }
+
+        @DisplayName("브랜드가 없으면, 빈 리스트가 반환된다.")
+        @Test
+        void returnsEmptyList_whenNoBrandsExist() {
+            // act
+            var result = brandService.getBrands(new PageSize(0, 10));
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.content()).isEmpty(),
+                    () -> assertThat(result.hasNext()).isFalse()
+            );
+        }
+
+        @DisplayName("페이지 크기보다 브랜드가 많으면, hasNext가 true이다.")
+        @Test
+        void returnsHasNextTrue_whenMoreBrandsExist() {
+            // arrange
+            brandService.createBrand("brand 1", "logo 1", "desc 1");
+            brandService.createBrand("brand 2", "logo 2", "desc 2");
+            brandService.createBrand("brand 3", "logo 3", "desc 3");
+
+            // act
+            var result = brandService.getBrands(new PageSize(0, 2));
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.content()).hasSize(2),
+                    () -> assertThat(result.hasNext()).isTrue()
+            );
+        }
+
+        @DisplayName("생성일 내림차순으로 정렬된다.")
+        @Test
+        void returnsBrandsSortedByCreatedAtDesc() {
+            // arrange
+            brandService.createBrand("first brand", "logo 1", "desc 1");
+            brandService.createBrand("second brand", "logo 2", "desc 2");
+            brandService.createBrand("third brand", "logo 3", "desc 3");
+
+            // act
+            var result = brandService.getBrands(new PageSize(0, 10));
+
+            // assert
+            assertThat(result.content()).extracting(BrandResult::name)
+                    .containsExactly("third brand", "second brand", "first brand");
+        }
+
+        @DisplayName("삭제된 브랜드도 조회 대상에 포함된다.")
+        @Test
+        void includesDeletedBrands() {
+            // arrange
+            var created = brandService.createBrand("brand to delete", "logo", "desc");
+            var brand = brandRepository.findById(created.id()).orElseThrow();
+            brand.delete();
+            brandRepository.save(brand);
+
+            brandService.createBrand("active brand", "logo 2", "desc 2");
+
+            // act
+            var result = brandService.getBrands(new PageSize(0, 10));
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.content()).hasSize(2),
+                    () -> assertThat(result.content()).extracting(BrandResult::name)
+                            .containsExactly("active brand", "brand to delete"),
+                    () -> assertThat(result.content().get(0).deletedAt()).isNull(),
+                    () -> assertThat(result.content().get(1).deletedAt()).isNotNull()
             );
         }
     }

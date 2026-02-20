@@ -1,6 +1,6 @@
 # Sequence Diagrams
 
-LAST UPDATED: 2026-02-15
+LAST UPDATED: 2026-02-20
 
 ## 목차
 - [개요](#개요)
@@ -168,7 +168,7 @@ sequenceDiagram
     Admin ->>+ BrandApi: GET /api-admin/v1/brands
     BrandApi ->>+ BrandService: 브랜드 목록 조회
     BrandService ->>+ BrandRepository: 브랜드 페이지 조회
-    BrandRepository -->>- BrandService: Page<Brand>
+    BrandRepository -->>- BrandService: Slice<Brand>
     BrandService -->>- BrandApi: Page<BrandResult>
     BrandApi -->>- Admin: 200 OK + 브랜드 목록 페이지
 ```
