@@ -211,6 +211,7 @@ Example: signUp_withDuplicateId_shouldFail()
 3. **Document-Driven Changes**:
    - For structural changes (new module, layer, or pattern), update relevant docs FIRST
    - Ensure `.codeguide/`, `README.md`, and this `AGENTS.md` stay synchronized
+   - **유비쿼터스 언어**: 도메인 용어는 `.docs/design/00-ubiquitous-language.md`를 기준으로 하며, 코드·API·문서에 동일한 단어를 사용한다.
 
 ### Branch & PR Strategy
 
