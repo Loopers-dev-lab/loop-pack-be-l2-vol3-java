@@ -48,7 +48,11 @@ public class Product extends BaseEntity {
     }
 
     public void increaseStock(int quantity) {
-        // Red 단계: 로직 미구현
+        if (quantity < 1) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "복원 수량은 1 이상이어야 합니다");
+        }
+        int current = this.stockQuantity.value();
+        this.stockQuantity = new StockQuantity(current + quantity);
     }
 
     public StockQuantity getStockQuantity() {
