@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.brand.v1;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.brand.v1.BrandDto.BrandResponse;
+import com.loopers.interfaces.api.brand.v1.BrandDto.UpdateBrandRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -31,4 +32,10 @@ public interface BrandV1AdminApiSpec {
             description = "특정 브랜드의 상세 정보를 조회합니다."
     )
     ApiResponse<BrandResponse> getBrand(Long brandId);
+
+    @Operation(
+            summary = "브랜드 정보 수정",
+            description = "특정 브랜드의 정보를 수정합니다."
+    )
+    ApiResponse<Object> updateBrand(Long brandId, UpdateBrandRequest request);
 }

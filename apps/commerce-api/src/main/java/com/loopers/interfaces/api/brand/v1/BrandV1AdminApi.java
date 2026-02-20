@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -51,5 +52,12 @@ public class BrandV1AdminApi implements BrandV1AdminApiSpec {
     public ApiResponse<BrandDto.BrandResponse> getBrand(@PathVariable Long brandId) {
         BrandResult result = brandService.getBrand(brandId);
         return ApiResponse.success(BrandDto.BrandResponse.from(result));
+    }
+
+    @PutMapping("/{brandId}")
+    @Override
+    public ApiResponse<Object> updateBrand(@PathVariable Long brandId, @RequestBody @Valid BrandDto.UpdateBrandRequest request) {
+        brandService.updateBrand(brandId, request.name(), request.logoUrl(), request.description());
+        return ApiResponse.success();
     }
 }

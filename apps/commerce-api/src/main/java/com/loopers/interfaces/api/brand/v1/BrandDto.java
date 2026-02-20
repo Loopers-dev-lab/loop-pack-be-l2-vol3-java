@@ -50,4 +50,12 @@ public class BrandDto {
                     .toList();
         }
     }
+
+    public record UpdateBrandRequest(
+            @NotBlank(message = "브랜드명은 필수입니다.") String name,
+            @NotBlank(message = "로고 URL은 필수입니다.") String logoUrl,
+            String description
+    ) {
+
+    }
 }

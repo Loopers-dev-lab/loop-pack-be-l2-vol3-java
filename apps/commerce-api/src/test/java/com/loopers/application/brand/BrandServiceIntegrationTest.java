@@ -248,4 +248,91 @@ class BrandServiceIntegrationTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
         }
     }
+
+    @DisplayName("브랜드를 수정할 때,")
+    @Nested
+    class UpdateBrand {
+
+        @DisplayName("존재하는 브랜드 ID와 유효한 정보를 입력하면, 브랜드가 수정된다.")
+        @Test
+        void updatesBrand_whenExistingBrandIdAndValidInputProvided() {
+            // arrange
+            var created = brandService.createBrand("brand name", "logo url", "brand description");
+            var brandId = created.id();
+            var newName = "new brand name";
+            var newLogoUrl = "new logo url";
+            var newDescription = "new brand description";
+
+            // act
+            brandService.updateBrand(brandId, newName, newLogoUrl, newDescription);
+
+            // assert
+            var updatedBrand = brandRepository.findById(brandId).orElseThrow();
+            assertAll(
+                    () -> assertThat(updatedBrand.getId()).isEqualTo(brandId),
+                    () -> assertThat(updatedBrand.getName()).isEqualTo(newName),
+                    () -> assertThat(updatedBrand.getLogoUrl()).isEqualTo(newLogoUrl),
+                    () -> assertThat(updatedBrand.getDescription()).isEqualTo(newDescription)
+            );
+        }
+
+        @DisplayName("존재하지 않는 브랜드 ID를 입력하면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenBrandNotFound() {
+            // act & assert
+            assertThatThrownBy(() -> brandService.updateBrand(999L, "new name", "new logo", "new desc"))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
+        }
+
+        @DisplayName("다른 활성 브랜드와 동일한 이름으로 수정하면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenDuplicateNameExists() {
+            // arrange
+            brandService.createBrand("existing brand", "logo1", "desc1");
+            var created = brandService.createBrand("my brand", "logo2", "desc2");
+
+            // act & assert
+            assertThatThrownBy(() -> brandService.updateBrand(created.id(), "existing brand", "logo2", "desc2"))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_EXIST_BRAND_NAME));
+        }
+
+        @DisplayName("자기 자신과 동일한 이름으로 수정하면, 정상적으로 수정된다.")
+        @Test
+        void updatesBrand_whenKeepingSameName() {
+            // arrange
+            var created = brandService.createBrand("brand name", "logo url", "description");
+
+            // act
+            brandService.updateBrand(created.id(), "brand name", "new logo url", "new description");
+
+            // assert
+            var updatedBrand = brandRepository.findById(created.id()).orElseThrow();
+            assertAll(
+                    () -> assertThat(updatedBrand.getName()).isEqualTo("brand name"),
+                    () -> assertThat(updatedBrand.getLogoUrl()).isEqualTo("new logo url"),
+                    () -> assertThat(updatedBrand.getDescription()).isEqualTo("new description")
+            );
+        }
+
+        @DisplayName("삭제된 브랜드와 동일한 이름으로 수정하면, 정상적으로 수정된다.")
+        @Test
+        void updatesBrand_whenNameMatchesDeletedBrand() {
+            // arrange
+            var deleted = brandService.createBrand("deleted brand", "logo1", "desc1");
+            var brand = brandRepository.findById(deleted.id()).orElseThrow();
+            brand.delete();
+            brandRepository.save(brand);
+
+            var created = brandService.createBrand("my brand", "logo2", "desc2");
+
+            // act
+            brandService.updateBrand(created.id(), "deleted brand", "logo2", "desc2");
+
+            // assert
+            var updatedBrand = brandRepository.findById(created.id()).orElseThrow();
+            assertThat(updatedBrand.getName()).isEqualTo("deleted brand");
+        }
+    }
 }

@@ -7,6 +7,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -138,28 +140,12 @@ class BrandV1AdminApiE2ETest {
             );
         }
 
-        @DisplayName("브랜드명이 1자이면, INVALID_BRAND_NAME 에러 응답을 받는다.")
-        @Test
-        void returnsInvalidBrandName_whenNameIsTooShort() {
+        @DisplayName("브랜드명 길이가 유효하지 않으면, INVALID_BRAND_NAME 에러 응답을 받는다.")
+        @ParameterizedTest(name = "길이가 {0}인 브랜드명")
+        @ValueSource(ints = {1, 51})
+        void returnsInvalidBrandName_whenNameLengthIsInvalid(int length) {
             // arrange
-            var request = new BrandDto.CreateBrandRequest("X", "https://example.com/logo.png", "브랜드 설명");
-
-            // act
-            var response = createBrandRequest(request, adminHeaders());
-
-            // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.INVALID_BRAND_NAME.getCode())
-            );
-        }
-
-        @DisplayName("브랜드명이 50자 초과이면, INVALID_BRAND_NAME 에러 응답을 받는다.")
-        @Test
-        void returnsInvalidBrandName_whenNameIsTooLong() {
-            // arrange
-            var name = "a".repeat(51);
+            var name = "a".repeat(length);
             var request = new BrandDto.CreateBrandRequest(name, "https://example.com/logo.png", "브랜드 설명");
 
             // act
@@ -419,6 +405,134 @@ class BrandV1AdminApiE2ETest {
         }
     }
 
+    @DisplayName("PUT /api-admin/v1/brands/{brandId}")
+    @Nested
+    class UpdateBrand {
+
+        @DisplayName("존재하는 브랜드 ID로 업데이트하면, 브랜드 정보가 수정된다.")
+        @Test
+        void updatesBrand_whenBrandIdExists() {
+            // arrange
+            var result = createBrandRequest(
+                    new CreateBrandRequest(
+                            "브랜드명",
+                            "https://example.com/logo.png",
+                            null
+                    ),
+                    adminHeaders()
+            );
+            var brandId = result.getBody().data().brandId();
+
+            var request = new BrandDto.UpdateBrandRequest("수정된 브랜드명", "https://example.com/updated-logo.png", "수정된 설명");
+
+            // act
+            ParameterizedTypeReference<ApiResponse<BrandResponse>> responseType = new ParameterizedTypeReference<>() {
+            };
+            testRestTemplate.exchange(
+                    BRAND_ADMIN_ENDPOINT + "/" + brandId,
+                    HttpMethod.PUT,
+                    new HttpEntity<>(request, adminHeaders()),
+                    responseType
+            );
+
+            // assert
+            var getResponse = testRestTemplate.exchange(
+                    BRAND_ADMIN_ENDPOINT + "/" + brandId,
+                    HttpMethod.GET,
+                    new HttpEntity<>(adminHeaders()),
+                    responseType
+            );
+            assertAll(
+                    () -> assertThat(getResponse.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(getResponse.getBody()).isNotNull(),
+                    () -> assertThat(getResponse.getBody().data().id()).isEqualTo(brandId),
+                    () -> assertThat(getResponse.getBody().data().name()).isEqualTo("수정된 브랜드명"),
+                    () -> assertThat(getResponse.getBody().data().logoUrl()).isEqualTo("https://example.com/updated-logo.png"),
+                    () -> assertThat(getResponse.getBody().data().description()).isEqualTo("수정된 설명"),
+                    () -> assertThat(getResponse.getBody().data().createdAt()).isNotNull()
+            );
+        }
+
+        @DisplayName("존재하지 않는 브랜드 ID로 수정하면, 404 응답을 받는다.")
+        @Test
+        void returnsNotFound_whenBrandIdDoesNotExist() {
+            // arrange
+            var request = new BrandDto.UpdateBrandRequest("브랜드명", "https://example.com/logo.png", "설명");
+
+            // act
+            var response = updateBrandRequest(999L, request);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.BRAND_NOT_FOUND.getCode())
+            );
+        }
+
+        @DisplayName("다른 활성 브랜드와 동일한 이름으로 수정하면, 400 응답을 받는다.")
+        @Test
+        void returnsBadRequest_whenDuplicateNameExists() {
+            // arrange
+            createBrandRequest(new CreateBrandRequest("기존브랜드", "https://example.com/logo1.png", null), adminHeaders());
+            var result = createBrandRequest(new CreateBrandRequest("내브랜드", "https://example.com/logo2.png", null), adminHeaders());
+            var brandId = result.getBody().data().brandId();
+
+            var request = new BrandDto.UpdateBrandRequest("기존브랜드", "https://example.com/logo2.png", null);
+
+            // act
+            var response = updateBrandRequest(brandId, request);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.ALREADY_EXIST_BRAND_NAME.getCode())
+            );
+        }
+
+        @DisplayName("브랜드명이 빈 값이면, 400 응답을 받는다.")
+        @Test
+        void returnsBadRequest_whenNameIsBlank() {
+            // arrange
+            var result = createBrandRequest(new CreateBrandRequest("브랜드명", "https://example.com/logo.png", null), adminHeaders());
+            var brandId = result.getBody().data().brandId();
+
+            var request = new BrandDto.UpdateBrandRequest("", "https://example.com/logo.png", null);
+
+            // act
+            var response = updateBrandRequest(brandId, request);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.BAD_REQUEST.getCode())
+            );
+        }
+
+        @DisplayName("브랜드명이 50자 초과이면, INVALID_BRAND_NAME 에러 응답을 받는다.")
+        @Test
+        void returnsInvalidBrandName_whenNameIsTooLong() {
+            // arrange
+            var result = createBrandRequest(new CreateBrandRequest("브랜드명", "https://example.com/logo.png", null), adminHeaders());
+            var brandId = result.getBody().data().brandId();
+
+            var name = "a".repeat(51);
+            var request = new BrandDto.UpdateBrandRequest(name, "https://example.com/logo.png", null);
+
+            // act
+            var response = updateBrandRequest(brandId, request);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.INVALID_BRAND_NAME.getCode())
+            );
+        }
+    }
+
     private HttpHeaders adminHeaders() {
         var headers = new HttpHeaders();
         headers.set("X-Loopers-Ldap", "loopers.admin");
@@ -446,6 +560,17 @@ class BrandV1AdminApiE2ETest {
                 url,
                 HttpMethod.GET,
                 new HttpEntity<>(adminHeaders()),
+                responseType
+        );
+    }
+
+    private ResponseEntity<ApiResponse<Object>> updateBrandRequest(Long brandId, BrandDto.UpdateBrandRequest request) {
+        ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                BRAND_ADMIN_ENDPOINT + "/" + brandId,
+                HttpMethod.PUT,
+                new HttpEntity<>(request, adminHeaders()),
                 responseType
         );
     }

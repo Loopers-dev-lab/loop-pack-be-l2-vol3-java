@@ -48,4 +48,14 @@ public class BrandService {
                 .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
         return BrandResult.from(brand);
     }
+
+    @Transactional
+    public void updateBrand(Long brandId, String newName, String newLogoUrl, String newDescription) {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
+        if (brandRepository.existsByIdNotAndNameAndDeletedAtIsNull(brandId, newName)) {
+            throw new CoreException(ErrorType.ALREADY_EXIST_BRAND_NAME);
+        }
+        brand.update(newName, newLogoUrl, newDescription);
+    }
 }

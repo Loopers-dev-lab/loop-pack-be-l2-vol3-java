@@ -1,13 +1,10 @@
 package com.loopers.domain.brand;
 
-import java.util.Objects;
-
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
 import com.loopers.domain.BaseEntity;
-import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -16,32 +13,39 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "brand")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Getter
 public class Brand extends BaseEntity {
 
-    private String name;
+    @Embedded
+    private BrandName name;
 
-    private String logoUrl;
+    @Embedded
+    private BrandLogoUrl logoUrl;
 
     private String description;
 
     public static Brand create(String name, String logoUrl, String description) {
-        if  (Objects.isNull(name)) {
-            throw new CoreException(ErrorType.REQUIRED_BRAND_NAME);
-        }
-
-        if (name.length() < 2 || name.length() > 50) {
-            throw new CoreException(ErrorType.INVALID_BRAND_NAME);
-        }
-
-        if (Objects.isNull(logoUrl)) {
-            throw new CoreException(ErrorType.REQUIRED_BRAND_LOGO_URL);
-        }
-
         Brand brand = new Brand();
-        brand.name = name;
-        brand.logoUrl = logoUrl;
+        brand.name = new BrandName(name);
+        brand.logoUrl = new BrandLogoUrl(logoUrl);
         brand.description = description;
         return brand;
+    }
+
+    public void update(String newName, String newLogoUrl, String newDescription) {
+        this.name = new BrandName(newName);
+        this.logoUrl = new BrandLogoUrl(newLogoUrl);
+        this.description = newDescription;
+    }
+
+    public String getName() {
+        return name.getValue();
+    }
+
+    public String getLogoUrl() {
+        return logoUrl.getValue();
+    }
+
+    public String getDescription() {
+        return description;
     }
 }
