@@ -36,4 +36,9 @@ public class ProductRepositoryImpl implements ProductRepository {
     public Slice<Product> findAllByBrandId(Long brandId, Pageable pageable) {
         return productJpaRepository.findAllByBrandId(brandId, pageable);
     }
+
+    @Override
+    public boolean existsByIdAndDeletedAtIsNull(Long productId) {
+        return productJpaRepository.existsByIdAndDeletedAtIsNull(productId);
+    }
 }

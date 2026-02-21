@@ -76,7 +76,7 @@ classDiagram
         Long id
         Long userId
         Long productId
-        LocalDateTime likedAt
+        ZonedDateTime likedAt
         +create(Long userId, Long productId)$ Like
     }
 

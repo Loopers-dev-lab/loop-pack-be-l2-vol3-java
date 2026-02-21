@@ -11,4 +11,6 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
     Slice<Product> findAllBy(Pageable pageable);
 
     Slice<Product> findAllByBrandId(Long brandId, Pageable pageable);
+
+    boolean existsByIdAndDeletedAtIsNull(Long productId);
 }

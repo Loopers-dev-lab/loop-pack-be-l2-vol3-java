@@ -1,6 +1,6 @@
 # ERD (Entity Relationship Diagram)
 
-LAST UPDATED: 2026-02-13
+LAST UPDATED: 2026-02-21
 
 ## 목차
 - [개요](#개요)
@@ -19,7 +19,7 @@ LAST UPDATED: 2026-02-13
 
 ```mermaid
 erDiagram
-    products {
+    product {
         bigint id PK "not null"
         bigint brand_id FK "not null"
         varchar name "not null"
@@ -32,7 +32,7 @@ erDiagram
         timestamp deleted_at "null"
     }
     
-    brands {
+    brand {
         bigint id PK "not null"
         varchar name "not null"
         varchar logo_url "not null"
@@ -47,9 +47,6 @@ erDiagram
         bigint user_id FK "not null"
         bigint product_id FK "not null"
         timestamp liked_at "not null"
-        timestamp created_at "not null"
-        timestamp updated_at "not null"
-        timestamp deleted_at "null"
     }
     
     orders {
@@ -64,7 +61,7 @@ erDiagram
         timestamp deleted_at "null"
     }
     
-    order_items {
+    order_item {
         bigint id PK "not null"
         bigint order_id FK "not null"
         bigint product_id FK "not null"
@@ -77,10 +74,10 @@ erDiagram
         timestamp deleted_at "null"
     }
     
-    brands ||--o{ products: ""
-    products ||--o{ likes: ""
-    products ||--o{ order_items: ""
-    orders ||--|{ order_items: ""
+    brand ||--o{ product: ""
+    product ||--o{ likes: ""
+    product ||--o{ order_item: ""
+    orders ||--|{ order_item: ""
 ```
 
 ## 설계 포인트
@@ -92,7 +89,7 @@ erDiagram
 
 ### 좋아요 삭제 방식
 
-- likes 테이블은 BaseEntity를 상속하여 `deleted_at` 컬럼이 존재하지만, 좋아요 취소 시 **물리 삭제(hard delete)**를 사용한다.
+- likes 테이블은 BaseEntity를 상속하지 않으며, 좋아요 취소 시 **물리 삭제(hard delete)**를 사용한다.
 - 좋아요는 등록/취소가 빈번하고 이력 보존이 불필요하므로, insert/delete로 단순하게 처리한다.
 
 ### 유니크 제약 조건

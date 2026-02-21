@@ -49,7 +49,12 @@ public enum ErrorType {
     REQUIRED_PRODUCT_THUMBNAIL_URL(HttpStatus.BAD_REQUEST, "REQUIRED_PRODUCT_THUMBNAIL_URL", "상품 썸네일 URL은 필수 값입니다."),
     REQUIRED_PRODUCT_STOCK(HttpStatus.BAD_REQUEST, "REQUIRED_PRODUCT_STOCK", "상품 재고는 필수 값입니다."),
     INVALID_STOCK(HttpStatus.BAD_REQUEST, "INVALID_STOCK", "재고는 1 이상이어야 합니다."),
-    INVALID_PRODUCT_NAME(HttpStatus.BAD_REQUEST, "INVALID_PRODUCT_NAME", "상품 이름은 2자 이상 100자 이하이어야 합니다.");
+    INVALID_PRODUCT_NAME(HttpStatus.BAD_REQUEST, "INVALID_PRODUCT_NAME", "상품 이름은 2자 이상 100자 이하이어야 합니다."),
+    PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", "상품을 찾을 수 없습니다."),
+
+    /** Like 도메인 에러 */
+    REQUIRED_USER_ID(HttpStatus.BAD_REQUEST, "REQUIRED_USER_ID", "사용자 ID는 필수 값입니다."),
+    REQUIRED_PRODUCT_ID(HttpStatus.BAD_REQUEST, "REQUIRED_PRODUCT_ID", "상품 ID는 필수 값입니다.");
 
     private final HttpStatus status;
     private final String code;

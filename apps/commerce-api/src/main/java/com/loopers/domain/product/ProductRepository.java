@@ -14,4 +14,6 @@ public interface ProductRepository {
     Slice<Product> findAllBy(Pageable pageable);
 
     Slice<Product> findAllByBrandId(Long brandId, Pageable pageable);
+
+    boolean existsByIdAndDeletedAtIsNull(Long productId);
 }
