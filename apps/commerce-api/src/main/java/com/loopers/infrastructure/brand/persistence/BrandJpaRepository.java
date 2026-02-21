@@ -14,6 +14,8 @@ public interface BrandJpaRepository extends JpaRepository<Brand, Long> {
 
     Slice<Brand> findAllBy(Pageable pageable);
 
+    boolean existsByIdAndDeletedAtIsNull(Long brandId);
+
     boolean existsByName_ValueAndDeletedAtIsNull(String name);
 
     boolean existsByIdNotAndName_ValueAndDeletedAtIsNull(Long brandId, String name);

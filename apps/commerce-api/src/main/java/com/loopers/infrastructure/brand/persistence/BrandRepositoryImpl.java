@@ -38,6 +38,11 @@ public class BrandRepositoryImpl implements BrandRepository {
     }
 
     @Override
+    public boolean existsByIdAndDeletedAtIsNull(Long brandId) {
+        return brandJpaRepository.existsByIdAndDeletedAtIsNull(brandId);
+    }
+
+    @Override
     public boolean existsByNameAndDeletedAtIsNull(String name) {
         return brandJpaRepository.existsByName_ValueAndDeletedAtIsNull(name);
     }

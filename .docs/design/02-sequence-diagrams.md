@@ -1,6 +1,6 @@
 # Sequence Diagrams
 
-LAST UPDATED: 2026-02-20
+LAST UPDATED: 2026-02-21
 
 ## 목차
 - [개요](#개요)
@@ -326,14 +326,6 @@ sequenceDiagram
         ProductApi -->> Admin: 400 Bad Request
     end
 
-    ProductService ->>+ ProductRepository: 활성 상품 중 동일 이름 존재 여부 조회
-    ProductRepository -->>- ProductService: boolean
-
-    break 활성 상태의 동일 이름 상품이 존재할 경우
-        ProductService -->> ProductApi: 중복 검증 실패
-        ProductApi -->> Admin: 400 Bad Request
-    end
-
     ProductService ->> ProductService: 상품 생성
     ProductService ->>+ ProductRepository: 상품 저장
     ProductRepository -->>- ProductService: Product
@@ -416,14 +408,6 @@ sequenceDiagram
 
     break 상품 정보 유효성 검증에 실패할 경우
         ProductService -->> ProductApi: 유효성 검증 실패
-        ProductApi -->> Admin: 400 Bad Request
-    end
-
-    ProductService ->>+ ProductRepository: 자기 자신을 제외한 활성 상품 중 동일 이름 존재 여부 조회
-    ProductRepository -->>- ProductService: boolean
-
-    break 활성 상태의 동일 이름 상품이 존재할 경우
-        ProductService -->> ProductApi: 중복 검증 실패
         ProductApi -->> Admin: 400 Bad Request
     end
 
