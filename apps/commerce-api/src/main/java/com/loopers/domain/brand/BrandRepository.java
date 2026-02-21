@@ -15,6 +15,8 @@ public interface BrandRepository {
 
     Slice<Brand> findAllBy(Pageable pageable);
 
+    boolean existsById(Long brandId);
+
     boolean existsByIdAndDeletedAtIsNull(Long brandId);
 
     boolean existsByNameAndDeletedAtIsNull(String name);

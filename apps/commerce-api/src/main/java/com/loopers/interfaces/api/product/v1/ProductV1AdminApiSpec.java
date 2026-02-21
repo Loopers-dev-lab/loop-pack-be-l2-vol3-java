@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.product.v1;
 
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.PageResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -16,5 +17,15 @@ public interface ProductV1AdminApiSpec {
     ApiResponse<ProductDto.CreateProductResponse> createProduct(
             @Schema(description = "상품 등록 요청 정보")
             ProductDto.CreateProductRequest request
+    );
+
+    @Operation(
+            summary = "상품 목록 조회",
+            description = "등록된 상품들의 목록을 조회합니다."
+    )
+    ApiResponse<PageResponse<ProductDto.ProductResponse>> getProducts(
+            Long brandId,
+            int page,
+            int size
     );
 }

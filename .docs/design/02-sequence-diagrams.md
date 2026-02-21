@@ -350,9 +350,9 @@ sequenceDiagram
         ProductService ->>+ BrandRepository: 브랜드 조회
         BrandRepository -->>- ProductService: Optional<Brand>
 
-        break 유효하지 않은 브랜드일 경우
+        break 브랜드가 존재하지 않을 경우
             ProductService -->> ProductApi: 조회 실패
-            ProductApi -->> Admin: 400 Bad Request
+            ProductApi -->> Admin: 404 Not Found
         end
     end
 

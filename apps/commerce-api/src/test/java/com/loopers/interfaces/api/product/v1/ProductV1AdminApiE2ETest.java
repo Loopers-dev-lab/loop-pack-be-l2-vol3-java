@@ -15,14 +15,18 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.interfaces.api.brand.v1.BrandDto;
+import com.loopers.interfaces.api.product.v1.ProductDto.ProductResponse;
 import com.loopers.support.BaseE2ETest;
 import com.loopers.support.error.ErrorType;
 
 class ProductV1AdminApiE2ETest extends BaseE2ETest {
+
+    private static final String PRODUCT_ADMIN_ENDPOINT = "/api-admin/v1/products";
 
     @Autowired
     private BrandRepository brandRepository;
@@ -230,6 +234,173 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
 
             // assert
             assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.BRAND_NOT_FOUND);
+        }
+    }
+
+    @DisplayName("GET /api-admin/v1/products")
+    @Nested
+    class GetProducts {
+
+        @DisplayName("brandId 없이 전체 상품을 조회할 수 있다.")
+        @Test
+        void returnsAllProducts_whenNoBrandIdFilter() {
+            // arrange
+            var brandId1 = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드1", "https://example.com/logo1.png", "설명"));
+            var brandId2 = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드2", "https://example.com/logo2.png", "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId1, "상품1", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId2, "상품2", "https://example.com/thumb2.png", 20000L, 200L, "설명"));
+
+            var url = UriComponentsBuilder.fromPath(PRODUCT_ADMIN_ENDPOINT)
+                    .queryParam("page", 0)
+                    .queryParam("size", 10)
+                    .toUriString();
+
+            // act
+            var response = ProductSteps.getProducts(testRestTemplate, url);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().content()).hasSize(2)
+            );
+        }
+
+        @DisplayName("brandId가 전달되면, 해당 브랜드의 상품만 조회된다.")
+        @Test
+        void returnsProductsByBrandId_whenBrandIdProvided() {
+            // arrange
+            var brandId1 = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드1", "https://example.com/logo1.png", "설명"));
+            var brandId2 = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드2", "https://example.com/logo2.png", "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId1, "상품1", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId1, "상품2", "https://example.com/thumb2.png", 20000L, 200L, "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId2, "상품3", "https://example.com/thumb3.png", 30000L, 300L, "설명"));
+
+            var url = UriComponentsBuilder.fromPath(PRODUCT_ADMIN_ENDPOINT)
+                    .queryParam("brandId", brandId1)
+                    .queryParam("page", 0)
+                    .queryParam("size", 10)
+                    .toUriString();
+
+            // act
+            var response = ProductSteps.getProducts(testRestTemplate, url);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().content()).hasSize(2),
+                    () -> assertThat(response.getBody().data().content()).extracting(ProductResponse::brandId)
+                            .containsOnly(brandId1)
+            );
+        }
+
+        @DisplayName("페이지 크기보다 상품이 많으면, hasNext가 true이다.")
+        @Test
+        void returnsHasNextTrue_whenMoreProductsExist() {
+            // arrange
+            var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품1", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품2", "https://example.com/thumb2.png", 20000L, 200L, "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품3", "https://example.com/thumb3.png", 30000L, 300L, "설명"));
+
+            var url = UriComponentsBuilder.fromPath(PRODUCT_ADMIN_ENDPOINT)
+                    .queryParam("page", 0)
+                    .queryParam("size", 2)
+                    .toUriString();
+
+            // act
+            var response = ProductSteps.getProducts(testRestTemplate, url);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().content()).hasSize(2),
+                    () -> assertThat(response.getBody().data().hasNext()).isTrue()
+            );
+        }
+
+        @DisplayName("생성일 내림차순으로 정렬된다.")
+        @Test
+        void returnsProductsSortedByCreatedAtDesc() {
+            // arrange
+            var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "첫번째", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "두번째", "https://example.com/thumb2.png", 20000L, 200L, "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "세번째", "https://example.com/thumb3.png", 30000L, 300L, "설명"));
+
+            var url = UriComponentsBuilder.fromPath(PRODUCT_ADMIN_ENDPOINT)
+                    .queryParam("page", 0)
+                    .queryParam("size", 10)
+                    .toUriString();
+
+            // act
+            var response = ProductSteps.getProducts(testRestTemplate, url);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().content()).extracting(ProductResponse::name)
+                            .containsExactly("세번째", "두번째", "첫번째")
+            );
+        }
+
+        @DisplayName("상품이 없으면, 빈 목록이 반환된다.")
+        @Test
+        void returnsEmptyList_whenNoProductsExist() {
+            // arrange
+            var url = UriComponentsBuilder.fromPath(PRODUCT_ADMIN_ENDPOINT)
+                    .queryParam("page", 0)
+                    .queryParam("size", 10)
+                    .toUriString();
+
+            // act
+            var response = ProductSteps.getProducts(testRestTemplate, url);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().content()).isEmpty(),
+                    () -> assertThat(response.getBody().data().hasNext()).isFalse()
+            );
+        }
+
+        @DisplayName("존재하지 않는 브랜드 ID로 필터링하면, BRAND_NOT_FOUND 에러 응답을 받는다.")
+        @Test
+        void returnsBrandNotFound_whenBrandDoesNotExist() {
+            // arrange
+            var url = UriComponentsBuilder.fromPath(PRODUCT_ADMIN_ENDPOINT)
+                    .queryParam("brandId", 999)
+                    .queryParam("page", 0)
+                    .queryParam("size", 10)
+                    .toUriString();
+
+            // act
+            var response = ProductSteps.getProducts(testRestTemplate, url);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.BRAND_NOT_FOUND);
+        }
+
+        @DisplayName("page/size 파라미터 없이 호출하면, 기본값으로 조회된다.")
+        @Test
+        void returnsDefaultPage_whenNoPageParams() {
+            // arrange
+            var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품1", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
+
+            // act
+            var response = ProductSteps.getProducts(testRestTemplate, PRODUCT_ADMIN_ENDPOINT);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().content()).hasSize(1)
+            );
         }
     }
 }

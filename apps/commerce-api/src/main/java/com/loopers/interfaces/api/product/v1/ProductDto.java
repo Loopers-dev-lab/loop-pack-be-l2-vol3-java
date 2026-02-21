@@ -1,9 +1,12 @@
 package com.loopers.interfaces.api.product.v1;
 
+import java.util.List;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import com.loopers.application.product.ProductCommand;
+import com.loopers.application.product.ProductResult;
 
 public class ProductDto {
 
@@ -32,6 +35,35 @@ public class ProductDto {
 
         public static CreateProductResponse from(Long productId) {
             return new CreateProductResponse(productId);
+        }
+    }
+
+    public record ProductResponse(
+            Long id,
+            Long brandId,
+            String name,
+            String thumbnailUrl,
+            Long price,
+            Long stock,
+            String description
+    ) {
+
+        public static ProductResponse from(ProductResult result) {
+            return new ProductResponse(
+                    result.id(),
+                    result.brandId(),
+                    result.name(),
+                    result.thumbnailUrl(),
+                    result.price(),
+                    result.stock(),
+                    result.description()
+            );
+        }
+
+        public static List<ProductResponse> from(List<ProductResult> results) {
+            return results.stream()
+                    .map(ProductResponse::from)
+                    .toList();
         }
     }
 }

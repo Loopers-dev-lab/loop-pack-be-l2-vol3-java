@@ -16,6 +16,7 @@ import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import com.loopers.support.page.PageSize;
 import com.loopers.utils.DatabaseCleanUp;
 
 @SpringBootTest
@@ -101,6 +102,148 @@ class ProductServiceIntegrationTest {
             assertThatThrownBy(() -> productService.createProduct(command))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
+        }
+    }
+
+    @DisplayName("상품 목록을 조회할 때,")
+    @Nested
+    class GetProducts {
+
+        @DisplayName("브랜드 ID에 해당하는 상품들이 반환된다.")
+        @Test
+        void returnsProductsByBrandId() {
+            // arrange
+            var brandResult = brandService.createBrand("브랜드명", "https://example.com/logo.png", "브랜드 설명");
+            var command1 = new ProductCommand.CreateProductCommand(
+                    brandResult.id(), "상품명1", "https://example.com/thumb1.png", 10000L, 100L, "상품 설명1"
+            );
+            var command2 = new ProductCommand.CreateProductCommand(
+                    brandResult.id(), "상품명2", "https://example.com/thumb2.png", 20000L, 200L, "상품 설명2"
+            );
+            productService.createProduct(command1);
+            productService.createProduct(command2);
+
+            // act
+            var products = productService.getProductsByBrandId(brandResult.id(), new PageSize(0, 10));
+
+            // assert
+            assertThat(products.content()).hasSize(2)
+                    .extracting("name")
+                    .containsExactlyInAnyOrder("상품명1", "상품명2");
+        }
+
+        @DisplayName("brandId 없이 전체 상품을 조회할 수 있다.")
+        @Test
+        void returnsAllProducts_whenNoFilter() {
+            // arrange
+            var brand1 = brandService.createBrand("브랜드1", "https://example.com/logo1.png", "설명1");
+            var brand2 = brandService.createBrand("브랜드2", "https://example.com/logo2.png", "설명2");
+            productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brand1.id(), "상품1", "https://example.com/thumb1.png", 10000L, 100L, "설명"
+            ));
+            productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brand2.id(), "상품2", "https://example.com/thumb2.png", 20000L, 200L, "설명"
+            ));
+
+            // act
+            var products = productService.getProducts(new PageSize(0, 10));
+
+            // assert
+            assertThat(products.content()).hasSize(2);
+        }
+
+        @DisplayName("다른 브랜드의 상품은 필터링 결과에 포함되지 않는다.")
+        @Test
+        void returnsProductsByBrandId_filteringOtherBrands() {
+            // arrange
+            var brand1 = brandService.createBrand("브랜드1", "https://example.com/logo1.png", "설명1");
+            var brand2 = brandService.createBrand("브랜드2", "https://example.com/logo2.png", "설명2");
+            productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brand1.id(), "상품1", "https://example.com/thumb1.png", 10000L, 100L, "설명"
+            ));
+            productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brand2.id(), "상품2", "https://example.com/thumb2.png", 20000L, 200L, "설명"
+            ));
+
+            // act
+            var products = productService.getProductsByBrandId(brand1.id(), new PageSize(0, 10));
+
+            // assert
+            assertAll(
+                    () -> assertThat(products.content()).hasSize(1),
+                    () -> assertThat(products.content().get(0).name()).isEqualTo("상품1")
+            );
+        }
+
+        @DisplayName("존재하지 않는 브랜드 ID로 조회하면, BRAND_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenBrandNotFound() {
+            // act & assert
+            assertThatThrownBy(() -> productService.getProductsByBrandId(999L, new PageSize(0, 10)))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
+        }
+
+        @DisplayName("생성일 내림차순으로 정렬된다.")
+        @Test
+        void returnsProductsSortedByCreatedAtDesc() {
+            // arrange
+            var brandResult = brandService.createBrand("브랜드명", "https://example.com/logo.png", "설명");
+            productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brandResult.id(), "첫번째", "https://example.com/thumb1.png", 10000L, 100L, "설명"
+            ));
+            productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brandResult.id(), "두번째", "https://example.com/thumb2.png", 20000L, 200L, "설명"
+            ));
+            productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brandResult.id(), "세번째", "https://example.com/thumb3.png", 30000L, 300L, "설명"
+            ));
+
+            // act
+            var products = productService.getProducts(new PageSize(0, 10));
+
+            // assert
+            assertThat(products.content())
+                    .extracting("name")
+                    .containsExactly("세번째", "두번째", "첫번째");
+        }
+
+        @DisplayName("상품이 없으면, 빈 목록이 반환된다.")
+        @Test
+        void returnsEmptyList_whenNoProducts() {
+            // act
+            var products = productService.getProducts(new PageSize(0, 10));
+
+            // assert
+            assertAll(
+                    () -> assertThat(products.content()).isEmpty(),
+                    () -> assertThat(products.hasNext()).isFalse()
+            );
+        }
+
+        @DisplayName("페이지 크기보다 상품이 많으면, hasNext가 true이다.")
+        @Test
+        void returnsHasNextTrue_whenMoreProductsExist() {
+            // arrange
+            var brandResult = brandService.createBrand("브랜드명", "https://example.com/logo.png", "설명");
+            productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brandResult.id(), "상품1", "https://example.com/thumb1.png", 10000L, 100L, "설명"
+            ));
+            productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brandResult.id(), "상품2", "https://example.com/thumb2.png", 20000L, 200L, "설명"
+            ));
+            productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brandResult.id(), "상품3", "https://example.com/thumb3.png", 30000L, 300L, "설명"
+            ));
+
+            // act
+            var products = productService.getProducts(new PageSize(0, 2));
+
+            // assert
+            assertAll(
+                    () -> assertThat(products.content()).hasSize(2),
+                    () -> assertThat(products.hasNext()).isTrue()
+            );
         }
     }
 }

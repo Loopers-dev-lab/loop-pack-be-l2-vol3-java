@@ -2,6 +2,8 @@ package com.loopers.infrastructure.product.persistence;
 
 import java.util.Optional;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Repository;
 
 import com.loopers.domain.product.Product;
@@ -23,5 +25,15 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public Optional<Product> findById(Long id) {
         return productJpaRepository.findById(id);
+    }
+
+    @Override
+    public Slice<Product> findAllBy(Pageable pageable) {
+        return productJpaRepository.findAllBy(pageable);
+    }
+
+    @Override
+    public Slice<Product> findAllByBrandId(Long brandId, Pageable pageable) {
+        return productJpaRepository.findAllByBrandId(brandId, pageable);
     }
 }
