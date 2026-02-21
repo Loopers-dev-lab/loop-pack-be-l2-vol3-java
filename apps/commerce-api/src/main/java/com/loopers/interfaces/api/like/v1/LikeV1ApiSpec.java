@@ -13,4 +13,10 @@ public interface LikeV1ApiSpec {
             description = "상품에 좋아요를 등록합니다. 이미 좋아요가 존재하면 아무 동작 없이 성공합니다."
     )
     ApiResponse<Object> likeProduct(Long userId, Long productId);
+
+    @Operation(
+            summary = "상품 좋아요 취소",
+            description = "상품에 등록된 좋아요를 취소합니다. 좋아요가 존재하지 않으면 아무 동작 없이 성공합니다."
+    )
+    ApiResponse<Object> unlikeProduct(Long userId, Long productId);
 }

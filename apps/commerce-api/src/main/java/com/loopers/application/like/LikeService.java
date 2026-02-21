@@ -20,13 +20,24 @@ public class LikeService {
 
     @Transactional
     public void likeProduct(Long userId, Long productId) {
-        if (!productRepository.existsByIdAndDeletedAtIsNull(productId)) {
-            throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
-        }
+        validateProductExists(productId);
         if (likeRepository.existsByUserIdAndProductId(userId, productId)) {
             return;
         }
         Like like = Like.create(userId, productId);
         likeRepository.save(like);
+    }
+
+    @Transactional
+    public void unlikeProduct(Long userId, Long productId) {
+        validateProductExists(productId);
+        likeRepository.findByUserIdAndProductId(userId, productId)
+                .ifPresent(likeRepository::delete);
+    }
+
+    private void validateProductExists(Long productId) {
+        if (!productRepository.existsByIdAndDeletedAtIsNull(productId)) {
+            throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
+        }
     }
 }

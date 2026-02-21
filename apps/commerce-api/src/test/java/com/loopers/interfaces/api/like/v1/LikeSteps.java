@@ -25,4 +25,19 @@ public class LikeSteps {
                 responseType
         );
     }
+
+    public static ResponseEntity<ApiResponse<Object>> unlikeProduct(
+            TestRestTemplate testRestTemplate,
+            Long productId,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                "/api/v1/products/" + productId + "/likes",
+                HttpMethod.DELETE,
+                new HttpEntity<>(headers),
+                responseType
+        );
+    }
 }

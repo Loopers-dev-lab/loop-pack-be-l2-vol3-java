@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.like.v1;
 
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,6 +23,13 @@ public class LikeV1Api implements LikeV1ApiSpec {
     @Override
     public ApiResponse<Object> likeProduct(@LoginUser Long userId, @PathVariable Long productId) {
         likeService.likeProduct(userId, productId);
+        return ApiResponse.success();
+    }
+
+    @DeleteMapping
+    @Override
+    public ApiResponse<Object> unlikeProduct(@LoginUser Long userId, @PathVariable Long productId) {
+        likeService.unlikeProduct(userId, productId);
         return ApiResponse.success();
     }
 }

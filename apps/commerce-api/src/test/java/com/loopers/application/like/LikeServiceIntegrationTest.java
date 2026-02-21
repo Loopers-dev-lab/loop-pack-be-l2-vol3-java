@@ -141,6 +141,62 @@ class LikeServiceIntegrationTest {
         }
     }
 
+    @DisplayName("좋아요를 취소할 때,")
+    @Nested
+    class UnlikeProduct {
+
+        @DisplayName("유효한 요청이면, 좋아요가 삭제된다.")
+        @Test
+        void deletesLikeFromDatabase_whenValidInputProvided() {
+            // arrange
+            var productId = createProduct();
+            var userId = 1L;
+            likeService.likeProduct(userId, productId);
+
+            // act
+            likeService.unlikeProduct(userId, productId);
+
+            // assert
+            assertThat(likeJpaRepository.existsByUserIdAndProductId(userId, productId)).isFalse();
+        }
+
+        @DisplayName("좋아요가 존재하지 않으면, 아무 동작 없이 성공한다. (멱등성)")
+        @Test
+        void doesNothing_whenLikeDoesNotExist() {
+            // arrange
+            var productId = createProduct();
+            var userId = 1L;
+
+            // act & assert
+            assertThatCode(() -> likeService.unlikeProduct(userId, productId))
+                    .doesNotThrowAnyException();
+        }
+
+        @DisplayName("존재하지 않는 상품이면, PRODUCT_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenProductNotFound() {
+            // act & assert
+            assertThatThrownBy(() -> likeService.unlikeProduct(1L, 999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
+        }
+
+        @DisplayName("삭제된 상품이면, PRODUCT_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenProductIsDeleted() {
+            // arrange
+            var productId = createProduct();
+            var product = productRepository.findById(productId).orElseThrow();
+            product.delete();
+            productRepository.save(product);
+
+            // act & assert
+            assertThatThrownBy(() -> likeService.unlikeProduct(1L, productId))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
+        }
+    }
+
     private Long createProduct() {
         var brandResult = brandService.createBrand("브랜드명", "https://example.com/logo.png", "브랜드 설명");
         var command = new ProductCommand.CreateProductCommand(

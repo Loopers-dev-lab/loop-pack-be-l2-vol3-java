@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.like.v1;
 
 import static com.loopers.interfaces.api.like.v1.LikeSteps.likeProduct;
+import static com.loopers.interfaces.api.like.v1.LikeSteps.unlikeProduct;
 import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
 import static com.loopers.support.E2ETestHelper.assertErrorResponse;
 import static com.loopers.support.E2ETestHelper.userAuthHeaders;
@@ -97,6 +98,62 @@ class LikeV1ApiE2ETest extends BaseE2ETest {
         void returnsUnauthorized_whenNoAuthHeader() {
             // act
             var response = likeProduct(testRestTemplate, productId, new HttpHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
+        }
+    }
+
+    @DisplayName("DELETE /api/v1/products/{productId}/likes")
+    @Nested
+    class UnlikeProduct {
+
+        @DisplayName("인증된 사용자가 좋아요를 취소하면, 200 성공 응답을 받는다.")
+        @Test
+        void returnsSuccess_whenValidProductAndAuthenticated() {
+            // arrange
+            likeProduct(testRestTemplate, productId, userHeaders);
+
+            // act
+            var response = unlikeProduct(testRestTemplate, productId, userHeaders);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isNull()
+            );
+        }
+
+        @DisplayName("좋아요가 존재하지 않는 상품에 취소 요청하면, 200 성공 응답을 받는다. (멱등성)")
+        @Test
+        void returnsSuccess_whenLikeDoesNotExist() {
+            // act
+            var response = unlikeProduct(testRestTemplate, productId, userHeaders);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isNull()
+            );
+        }
+
+        @DisplayName("존재하지 않는 상품이면, 404 PRODUCT_NOT_FOUND 에러 응답을 받는다.")
+        @Test
+        void returnsProductNotFound_whenProductDoesNotExist() {
+            // act
+            var response = unlikeProduct(testRestTemplate, 999L, userHeaders);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.PRODUCT_NOT_FOUND);
+        }
+
+        @DisplayName("인증 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        void returnsUnauthorized_whenNoAuthHeader() {
+            // act
+            var response = unlikeProduct(testRestTemplate, productId, new HttpHeaders());
 
             // assert
             assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
