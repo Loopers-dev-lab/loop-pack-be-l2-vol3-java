@@ -82,7 +82,7 @@
 
 | 시나리오 | 대상 | 핵심 기능 | 기능 번호 |
 |---------|------|----------|----------|
-| A | 고객 | 탐색 + 좋아요 | F-01 ~ F-06 |
+| A | 고객 | 탐색 + 좋아요 | F-01 ~ F-06, F-06a ~ F-06c |
 | B | 고객 | 장바구니 | F-07 ~ F-10 |
 | C | 고객 | 주문 + 결제 | F-11 ~ F-16 |
 | D | 고객 | 쿠폰 + 포인트 | F-17 ~ F-19 |
@@ -153,6 +153,33 @@
 | **인증** | 필수 |
 | **정책** | 본인만 조회 (타인 userId 시 403). 최근 좋아요순. 삭제된 상품 제외 |
 | **예외** | 401: 로그인 없음, 403: 타인 접근 |
+
+#### F-06a. 브랜드 좋아요 등록
+
+| 항목 | 내용 |
+|------|------|
+| **API** | `POST /api/v1/brands/{brandId}/likes` |
+| **인증** | 필수 |
+| **정책** | (user_id, brand_id) 유일성. 이미 좋아요 시 409. ACTIVE 브랜드만 가능 |
+| **예외** | 401: 로그인 없음, 404: 브랜드 없음/비활성, 409: 이미 좋아요 |
+
+#### F-06b. 브랜드 좋아요 취소
+
+| 항목 | 내용 |
+|------|------|
+| **API** | `DELETE /api/v1/brands/{brandId}/likes` |
+| **인증** | 필수 |
+| **정책** | **hard delete** (row 삭제). 트랜잭션 내 보장 |
+| **예외** | 401: 로그인 없음, 404: 좋아요 없음 |
+
+#### F-06c. 내가 좋아요 한 브랜드 목록
+
+| 항목 | 내용 |
+|------|------|
+| **API** | `GET /api/v1/users/me/brand-likes` |
+| **인증** | 필수 |
+| **정책** | 본인만 조회. 최근 좋아요순. 삭제된 브랜드 제외 |
+| **예외** | 401: 로그인 없음 |
 
 ---
 
@@ -499,6 +526,82 @@
 | like_count | O | O | |
 | created_at | X | O | |
 | updated_at | X | O | |
+
+### 주문 정보
+
+| 필드 | 고객 | 어드민 | 비고 |
+|------|------|--------|------|
+| id | O | O | |
+| order_number | O | O | |
+| status | O | O | |
+| orderer_name | O | O | |
+| orderer_phone | O | O | |
+| receiver_name/phone | O | O | 배송지 스냅샷 |
+| zip_code/address | O | O | |
+| subtotal_amount | O | O | |
+| discount_amount | O | O | |
+| point_used_amount | O | O | |
+| shipping_fee | O | O | |
+| total_amount | O | O | |
+| items (OrderItem) | O | O | 스냅샷 |
+| user_id | X | O | 어드민은 주문자 식별 가능 |
+| payment_id | X | O | 내부 관리 |
+| expires_at | X | O | 내부 관리 |
+| canceled_at | X | O | |
+| created_at | X | O | |
+| updated_at | X | O | |
+
+### 주문항목 정보 (OrderItem — 스냅샷)
+
+| 필드 | 고객 | 어드민 | 비고 |
+|------|------|--------|------|
+| product_name | O | O | |
+| brand_name | O | O | |
+| unit_price | O | O | |
+| quantity | O | O | |
+| line_total | O | O | |
+| product_id | X | O | 어드민만 원본 상품 추적 |
+
+### 결제 정보
+
+| 필드 | 고객 | 어드민 | 비고 |
+|------|------|--------|------|
+| payment_method | O | O | "카드" 등 |
+| status | 간접 | O | 고객은 주문 status로 충분 |
+| approved_amount | O | O | 결제 금액 |
+| pg_txn_id | X | O | PG 내부 식별자 |
+| idempotency_key | X | O | 내부 관리 |
+| requested_at | X | O | |
+| approved_at | X | O | |
+| failed_at | X | O | |
+
+### 쿠폰 정보 (IssuedCoupon — 고객용)
+
+| 필드 | 고객 | 비고 |
+|------|------|------|
+| code | O | |
+| status | O | ISSUED/USED/EXPIRED |
+| 쿠폰명 (template.name) | O | 조인 |
+| 할인 정보 (type/value) | O | 조인 |
+| issued_at | O | |
+| used_order_id | X | 내부 관리 |
+
+### 쿠폰 템플릿 정보 (CouponTemplate — 어드민 전용)
+
+| 필드 | 고객 | 어드민 | 비고 |
+|------|------|--------|------|
+| 전체 필드 | X | O | 고객은 직접 접근 안 함 |
+
+### 고객 전용 도메인 (어드민 API 없음)
+
+| 도메인 | 고객 노출 필드 | 비고 |
+|--------|-------------|------|
+| 장바구니 (CartItem) | quantity + 상품 실시간 정보 (name, price, 품절 여부) | 상품 정보는 조인 |
+| 상품 좋아요 (ProductLike) | productId, createdAt + 상품 기본 정보 | 삭제된 상품 제외 |
+| 브랜드 좋아요 (BrandLike) | brandId, createdAt + 브랜드 기본 정보 | 삭제된 브랜드 제외 |
+| 배송지 (UserAddress) | 전체 필드 | 본인 데이터 |
+| 포인트 (PointAccount) | balance | 잔액만 |
+| 재고 (Inventory) | X (직접 노출 안 함) | Product에서 "재고 있음/품절"로만 표현 |
 
 ---
 

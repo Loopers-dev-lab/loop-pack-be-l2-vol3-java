@@ -22,11 +22,12 @@ classDiagram
         -String name
         -String description
         -BrandStatus status
-        -LocalDateTime deletedAt
+        -ZonedDateTime deletedAt
         +isActive() boolean
         +isDeleted() boolean
         +delete() void
         +update(name, description) void
+        +changeStatus(status) void
     }
 
     class Product {
@@ -37,7 +38,7 @@ classDiagram
         -int basePrice
         -int likeCount
         -ProductStatus status
-        -LocalDateTime deletedAt
+        -ZonedDateTime deletedAt
         +isVisibleToCustomer() boolean
         +isDeleted() boolean
         +incrementLikeCount() void
@@ -50,14 +51,14 @@ classDiagram
         -Long id
         -Long userId
         -Long productId
-        -LocalDateTime createdAt
+        -ZonedDateTime createdAt
     }
 
     class BrandLike {
         -Long id
         -Long userId
         -Long brandId
-        -LocalDateTime createdAt
+        -ZonedDateTime createdAt
     }
 
     class CartItem {
@@ -65,8 +66,11 @@ classDiagram
         -Long userId
         -Long productId
         -int quantity
-        -LocalDateTime deletedAt
+        -ZonedDateTime deletedAt
         +updateQuantity(quantity) void
+        +addQuantity(qty) void
+        +assertOwnedBy(userId) void
+        +delete() void
     }
 
     class Inventory {
@@ -75,12 +79,12 @@ classDiagram
         -int quantity
         -int reservedQty
         -int safetyStock
-        -LocalDateTime deletedAt
+        -ZonedDateTime deletedAt
         +getAvailableQty() int
         +reserve(qty) void
         +commit(qty) void
         +release(qty) void
-        +assertAvailable(qty) void
+        +delete() void
     }
 
     class Order {
@@ -101,16 +105,15 @@ classDiagram
         -int shippingFee
         -int totalAmount
         -Long paymentId
-        -LocalDateTime expiresAt
-        -LocalDateTime orderedAt
+        -ZonedDateTime expiresAt
+        -ZonedDateTime orderedAt
         -List~OrderItem~ items
-        +isPending() boolean
-        +isExpired() boolean
         +confirm(paymentId) void
         +cancel() void
         +expire() void
         +applyDiscount(discountAmount, pointAmount) void
-        +calculateTotalAmount() int
+        +assertPending() void
+        +assertOwnedBy(userId) void
     }
 
     class OrderItem {
@@ -122,7 +125,6 @@ classDiagram
         -int unitPrice
         -int quantity
         -int lineTotal
-        +calculateLineTotal() int
     }
 
     class Payment {
@@ -134,9 +136,9 @@ classDiagram
         -Integer approvedAmount
         -String pgTxnId
         -String idempotencyKey
-        -LocalDateTime requestedAt
-        -LocalDateTime approvedAt
-        -LocalDateTime failedAt
+        -ZonedDateTime requestedAt
+        -ZonedDateTime approvedAt
+        -ZonedDateTime failedAt
         +approve(approvedAmount, pgTxnId) void
         +fail() void
         +cancel() void
@@ -147,9 +149,8 @@ classDiagram
         -Long userId
         -int balance
         +use(amount) void
-        +earn(amount) void
+        +charge(amount) void
         +refund(amount) void
-        +assertSufficient(amount) void
     }
 
     class CouponTemplate {
@@ -160,14 +161,15 @@ classDiagram
         -int discountValue
         -Integer maxDiscountAmount
         -int minOrderAmount
-        -LocalDateTime validFrom
-        -LocalDateTime validUntil
+        -ZonedDateTime validFrom
+        -ZonedDateTime validUntil
         -Integer issueLimit
         -Integer perUserLimit
         -CouponTemplateStatus status
         +isActive() boolean
         +isValid() boolean
         +calculateDiscount(orderAmount) int
+        +update(...) void
     }
 
     class IssuedCoupon {
@@ -285,7 +287,7 @@ classDiagram
 | 쿠폰 사용 확정 | `IssuedCoupon.use(orderId)` | ISSUED→USED, usedOrderId 설정 |
 | 포인트 차감 | `PointAccount.use(amount)` | balance 충분 여부 검증 + 차감 |
 | 결제 승인 | `Payment.approve()` | REQUESTED→APPROVED |
-| 브랜드 삭제 시 상품 연쇄 | `BrandAdminService` | Application 레벨 Aggregate 간 조율 |
+| 브랜드 삭제 시 상품 연쇄 | `BrandAdminFacade` | Application 레벨 Aggregate 간 조율 |
 
 ---
 
