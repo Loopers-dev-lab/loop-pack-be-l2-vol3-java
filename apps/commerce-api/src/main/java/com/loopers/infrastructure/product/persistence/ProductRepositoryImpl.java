@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.product.persistence;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
@@ -25,6 +26,11 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public Optional<Product> findById(Long id) {
         return productJpaRepository.findById(id);
+    }
+
+    @Override
+    public List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> productIds) {
+        return productJpaRepository.findAllByIdInAndDeletedAtIsNull(productIds);
     }
 
     @Override

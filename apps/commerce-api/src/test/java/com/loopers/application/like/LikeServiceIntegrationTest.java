@@ -3,6 +3,7 @@ package com.loopers.application.like;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -23,6 +24,8 @@ import com.loopers.domain.product.ProductRepository;
 import com.loopers.infrastructure.like.persistence.LikeJpaRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import com.loopers.support.page.Page;
+import com.loopers.support.page.PageSize;
 import com.loopers.utils.DatabaseCleanUp;
 
 @SpringBootTest
@@ -194,6 +197,92 @@ class LikeServiceIntegrationTest {
             assertThatThrownBy(() -> likeService.unlikeProduct(1L, productId))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
+        }
+    }
+
+    @DisplayName("좋아요 등록한 상품 목록을 조회할 때,")
+    @Nested
+    class GetLikedProducts {
+
+        @DisplayName("좋아요한 상품이 있으면, 상품 정보와 좋아요 수가 정확히 반환된다.")
+        @Test
+        void returnsLikedProductsWithCorrectLikeCount_whenUserHasLikes() {
+            // arrange
+            var productId = createProduct();
+            likeService.likeProduct(1L, productId);
+            likeService.likeProduct(2L, productId);
+            likeService.likeProduct(3L, productId);
+
+            // act
+            Page<LikedProductResult> result = likeService.getLikedProducts(1L, new PageSize(0, 20));
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.content()).hasSize(1),
+                    () -> assertThat(result.content().get(0).productId()).isEqualTo(productId),
+                    () -> assertThat(result.content().get(0).productName()).isEqualTo("상품명"),
+                    () -> assertThat(result.content().get(0).likeCount()).isEqualTo(3L),
+                    () -> assertThat(result.hasNext()).isFalse()
+            );
+        }
+
+        @DisplayName("좋아요한 상품이 없으면, 빈 목록이 반환된다.")
+        @Test
+        void returnsEmptyList_whenUserHasNoLikes() {
+            // arrange
+            var userId = 1L;
+
+            // act
+            Page<LikedProductResult> result = likeService.getLikedProducts(userId, new PageSize(0, 20));
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.content()).isEmpty(),
+                    () -> assertThat(result.hasNext()).isFalse()
+            );
+        }
+
+        @DisplayName("삭제된 상품은 조회 대상에서 제외된다.")
+        @Test
+        void excludesDeletedProducts_whenProductIsDeleted() {
+            // arrange
+            var productId = createProduct();
+            likeService.likeProduct(1L, productId);
+            var product = productRepository.findById(productId).orElseThrow();
+            product.delete();
+            productRepository.save(product);
+
+            // act
+            Page<LikedProductResult> result = likeService.getLikedProducts(1L, new PageSize(0, 20));
+
+            // assert
+            assertThat(result.content()).isEmpty();
+        }
+
+        @DisplayName("좋아요한 상품이 페이지 크기보다 많으면, hasNext가 true이다.")
+        @Test
+        void supportsPagination_whenMultipleProductsLiked() {
+            // arrange
+            var userId = 1L;
+            var brandResult = brandService.createBrand("페이지브랜드", "https://example.com/logo.png", "브랜드 설명");
+            var productId1 = productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brandResult.id(), "상품1", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"));
+            var productId2 = productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brandResult.id(), "상품2", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"));
+            var productId3 = productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brandResult.id(), "상품3", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"));
+            likeService.likeProduct(userId, productId1);
+            likeService.likeProduct(userId, productId2);
+            likeService.likeProduct(userId, productId3);
+
+            // act
+            Page<LikedProductResult> result = likeService.getLikedProducts(userId, new PageSize(0, 2));
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.content()).hasSize(2),
+                    () -> assertThat(result.hasNext()).isTrue()
+            );
         }
     }
 

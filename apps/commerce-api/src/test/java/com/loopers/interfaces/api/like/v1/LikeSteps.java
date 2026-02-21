@@ -8,6 +8,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.PageResponse;
 
 public class LikeSteps {
 
@@ -36,6 +37,21 @@ public class LikeSteps {
         return testRestTemplate.exchange(
                 "/api/v1/products/" + productId + "/likes",
                 HttpMethod.DELETE,
+                new HttpEntity<>(headers),
+                responseType
+        );
+    }
+
+    public static ResponseEntity<ApiResponse<PageResponse<Object>>> getLikedProducts(
+            TestRestTemplate testRestTemplate,
+            String url,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<PageResponse<Object>>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                url,
+                HttpMethod.GET,
                 new HttpEntity<>(headers),
                 responseType
         );

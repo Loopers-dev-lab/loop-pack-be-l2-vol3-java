@@ -592,7 +592,10 @@ sequenceDiagram
     LikeApi ->>+ LikeService: 좋아요한 상품 목록 조회
 
     LikeService ->>+ LikeRepository: 좋아요 페이지 조회
-    LikeRepository -->>- LikeService: Page<Like>
+    LikeRepository -->>- LikeService: Slice<Like>
+    
+    LikeService ->>+ LikeRepository: 상품별 좋아요 수 조회
+    LikeRepository -->>- LikeService: Map<Long, Long> (productId → likeCount)
 
     LikeService ->>+ ProductRepository: 상품 목록 조회 (productIds)
     ProductRepository -->>- LikeService: List<Product>

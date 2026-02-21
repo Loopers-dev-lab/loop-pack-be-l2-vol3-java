@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.like.v1;
 
+import static com.loopers.interfaces.api.like.v1.LikeSteps.getLikedProducts;
 import static com.loopers.interfaces.api.like.v1.LikeSteps.likeProduct;
 import static com.loopers.interfaces.api.like.v1.LikeSteps.unlikeProduct;
 import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
@@ -154,6 +155,56 @@ class LikeV1ApiE2ETest extends BaseE2ETest {
         void returnsUnauthorized_whenNoAuthHeader() {
             // act
             var response = unlikeProduct(testRestTemplate, productId, new HttpHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
+        }
+    }
+
+    @DisplayName("GET /api/v1/users/me/likes")
+    @Nested
+    class GetLikedProducts {
+
+        private static final String LIKED_PRODUCTS_ENDPOINT = "/api/v1/users/me/likes";
+
+        @DisplayName("인증된 사용자가 좋아요한 상품 목록을 조회하면, 200 성공 응답과 상품 목록을 받는다.")
+        @Test
+        void returnsLikedProducts_whenAuthenticated() {
+            // arrange
+            likeProduct(testRestTemplate, productId, userHeaders);
+
+            // act
+            var response = getLikedProducts(testRestTemplate, LIKED_PRODUCTS_ENDPOINT, userHeaders);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().hasNext()).isFalse()
+            );
+        }
+
+        @DisplayName("좋아요한 상품이 없으면, 200 성공 응답과 빈 목록을 받는다.")
+        @Test
+        void returnsEmptyList_whenNoLikes() {
+            // act
+            var response = getLikedProducts(testRestTemplate, LIKED_PRODUCTS_ENDPOINT, userHeaders);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().content()).isEmpty(),
+                    () -> assertThat(response.getBody().data().hasNext()).isFalse()
+            );
+        }
+
+        @DisplayName("인증 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        void returnsUnauthorized_whenNoAuthHeader() {
+            // act
+            var response = getLikedProducts(testRestTemplate, LIKED_PRODUCTS_ENDPOINT, new HttpHeaders());
 
             // assert
             assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
