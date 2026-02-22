@@ -215,13 +215,6 @@ sequenceDiagram
         BrandApi -->> Admin: 404 Not Found
     end
 
-    BrandService ->> BrandService: 브랜드명 유효성 검증
-
-    break 브랜드명 유효성 검증에 실패할 경우
-        BrandService -->> BrandApi: 유효성 검증 실패
-        BrandApi -->> Admin: 400 Bad Request
-    end
-
     BrandService ->>+ BrandRepository: 자기 자신을 제외한 활성 브랜드 중 동일 이름 존재 여부 조회
     BrandRepository -->>- BrandService: boolean
 
@@ -231,6 +224,12 @@ sequenceDiagram
     end
 
     BrandService ->> BrandService: 브랜드 정보 수정
+
+    break 이미 삭제된 브랜드일 경우
+        BrandService -->> BrandApi: 수정 실패
+        BrandApi -->> Admin: 400 Bad Request
+    end
+
     BrandService -->>- BrandApi: BrandResult
     BrandApi -->>- Admin: 200 OK
 ```
@@ -257,9 +256,10 @@ sequenceDiagram
         BrandApi -->> Admin: 404 Not Found
     end
 
-    break 이미 삭제된 브랜드일 경우
-        BrandService -->> BrandApi: 삭제 실패
-        BrandApi -->> Admin: 400 Bad Request
+    alt 이미 삭제된 브랜드일 경우
+        BrandService -->>- BrandApi: 삭제 완료 (멱등)
+        BrandApi -->> Admin: 200 OK
+    else 활성 브랜드일 경우
     end
 
     BrandService ->>+ ProductRepository: 브랜드 소속 상품 ID 목록 조회
@@ -404,19 +404,12 @@ sequenceDiagram
         ProductApi -->> Admin: 404 Not Found
     end
 
+    ProductService ->> ProductService: 상품 정보 수정
+
     break 이미 삭제된 상품일 경우
         ProductService -->> ProductApi: 수정 실패
         ProductApi -->> Admin: 400 Bad Request
     end
-
-    ProductService ->> ProductService: 상품 정보 유효성 검증
-
-    break 상품 정보 유효성 검증에 실패할 경우
-        ProductService -->> ProductApi: 유효성 검증 실패
-        ProductApi -->> Admin: 400 Bad Request
-    end
-
-    ProductService ->> ProductService: 상품 정보 수정
     ProductService -->>- ProductApi: 수정 완료
     ProductApi -->>- Admin: 200 OK
 ```
@@ -442,9 +435,10 @@ sequenceDiagram
         ProductApi -->> Admin: 404 Not Found
     end
 
-    break 이미 삭제된 상품일 경우
-        ProductService -->> ProductApi: 삭제 실패
-        ProductApi -->> Admin: 400 Bad Request
+    alt 이미 삭제된 상품일 경우
+        ProductService -->>- ProductApi: 삭제 완료 (멱등)
+        ProductApi -->> Admin: 200 OK
+    else 활성 상품일 경우
     end
 
     ProductService ->> LikeRepository: 상품 연관 좋아요 삭제

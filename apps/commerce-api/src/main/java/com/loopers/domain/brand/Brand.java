@@ -5,9 +5,10 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
 import com.loopers.domain.BaseEntity;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 import lombok.AccessLevel;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
@@ -32,6 +33,9 @@ public class Brand extends BaseEntity {
     }
 
     public void update(String newName, String newLogoUrl, String newDescription) {
+        if (isDeleted()) {
+            throw new CoreException(ErrorType.ALREADY_DELETED_BRAND);
+        }
         this.name = new BrandName(newName);
         this.logoUrl = new BrandLogoUrl(newLogoUrl);
         this.description = newDescription;

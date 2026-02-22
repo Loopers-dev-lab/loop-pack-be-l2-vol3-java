@@ -1,6 +1,7 @@
 package com.loopers.application.brand;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -76,7 +77,7 @@ class BrandServiceIntegrationTest {
             );
         }
 
-        @DisplayName("이미 존재하는 브랜드 이름을 입력하면, ALREADY_EXIST_BRAND_NAME 예외가 발생한다.")
+        @DisplayName("이미 존재하는 브랜드 이름을 입력하면, ALREADY_EXISTS_BRAND_NAME 예외가 발생한다.")
         @Test
         void throwsException_whenDuplicateBrandNameProvided() {
             // arrange
@@ -88,7 +89,7 @@ class BrandServiceIntegrationTest {
             // act & assert
             assertThatThrownBy(() -> brandService.createBrand(name, logoUrl, description))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_EXIST_BRAND_NAME));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_EXISTS_BRAND_NAME));
         }
 
         @DisplayName("삭제된 브랜드 이름으로 다시 생성할 수 있다.")
@@ -349,7 +350,7 @@ class BrandServiceIntegrationTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
         }
 
-        @DisplayName("다른 활성 브랜드와 동일한 이름으로 수정하면, ALREADY_EXIST_BRAND_NAME 예외가 발생한다.")
+        @DisplayName("다른 활성 브랜드와 동일한 이름으로 수정하면, ALREADY_EXISTS_BRAND_NAME 예외가 발생한다.")
         @Test
         void throwsException_whenDuplicateNameExists() {
             // arrange
@@ -359,7 +360,7 @@ class BrandServiceIntegrationTest {
             // act & assert
             assertThatThrownBy(() -> brandService.updateBrand(created.id(), "existing brand", "logo2", "desc2"))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_EXIST_BRAND_NAME));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_EXISTS_BRAND_NAME));
         }
 
         @DisplayName("자기 자신과 동일한 이름으로 수정하면, 정상적으로 수정된다.")
@@ -398,6 +399,21 @@ class BrandServiceIntegrationTest {
             var updatedBrand = brandRepository.findById(created.id()).orElseThrow();
             assertThat(updatedBrand.getName()).isEqualTo("deleted brand");
         }
+
+        @DisplayName("삭제된 브랜드를 수정하면, ALREADY_DELETED_BRAND 예외가 발생한다.")
+        @Test
+        void throwsException_whenBrandIsDeleted() {
+            // arrange
+            var created = brandService.createBrand("brand name", "logo url", "description");
+            var brand = brandRepository.findById(created.id()).orElseThrow();
+            brand.delete();
+            brandRepository.save(brand);
+
+            // act & assert
+            assertThatThrownBy(() -> brandService.updateBrand(created.id(), "new name", "new logo", "new desc"))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_DELETED_BRAND));
+        }
     }
 
     @DisplayName("브랜드를 삭제할 때,")
@@ -418,26 +434,16 @@ class BrandServiceIntegrationTest {
             assertThat(deleted.getDeletedAt()).isNotNull();
         }
 
-        @DisplayName("존재하지 않는 브랜드이면, BRAND_NOT_FOUND 예외가 발생한다.")
+        @DisplayName("이미 삭제된 브랜드이면, 아무 동작 없이 성공한다.")
         @Test
-        void throwsException_whenBrandNotFound() {
-            // act & assert
-            assertThatThrownBy(() -> brandService.deleteBrand(999L))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
-        }
-
-        @DisplayName("이미 삭제된 브랜드이면, ALREADY_DELETED_BRAND 예외가 발생한다.")
-        @Test
-        void throwsException_whenBrandIsAlreadyDeleted() {
+        void succeedsIdempotently_whenBrandIsAlreadyDeleted() {
             // arrange
             var created = brandService.createBrand("브랜드명", "logo url", "설명");
             brandService.deleteBrand(created.id());
 
             // act & assert
-            assertThatThrownBy(() -> brandService.deleteBrand(created.id()))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_DELETED_BRAND));
+            assertThatCode(() -> brandService.deleteBrand(created.id()))
+                    .doesNotThrowAnyException();
         }
 
         @DisplayName("소속 상품과 좋아요가 함께 삭제된다.")
@@ -459,6 +465,15 @@ class BrandServiceIntegrationTest {
                     () -> assertThat(productRepository.findById(productId).orElseThrow().getDeletedAt()).isNotNull(),
                     () -> assertThat(likeJpaRepository.existsByUserIdAndProductId(userId, productId)).isFalse()
             );
+        }
+
+        @DisplayName("존재하지 않는 브랜드이면, BRAND_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenBrandNotFound() {
+            // act & assert
+            assertThatThrownBy(() -> brandService.deleteBrand(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
         }
     }
 }

@@ -55,11 +55,6 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public boolean existsByIdNotAndNameAndDeletedAtIsNull(Long productId, String name) {
-        return productJpaRepository.existsByIdNotAndName_ValueAndDeletedAtIsNull(productId, name);
-    }
-
-    @Override
     public void softDeleteAllByBrandId(Long brandId) {
         productJpaRepository.softDeleteAllByBrandId(brandId, ZonedDateTime.now());
     }

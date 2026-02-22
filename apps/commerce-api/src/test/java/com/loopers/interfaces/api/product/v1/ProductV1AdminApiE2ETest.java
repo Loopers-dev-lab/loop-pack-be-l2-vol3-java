@@ -551,23 +551,6 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
             assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.INVALID_MONEY_AMOUNT);
         }
 
-        @DisplayName("다른 활성 상품과 동일한 이름으로 수정하면, ALREADY_EXISTS_PRODUCT_NAME 에러 응답을 받는다.")
-        @Test
-        void returnsAlreadyExistsProductName_whenDuplicateName() {
-            // arrange
-            var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "기존 상품", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
-            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "수정 대상", "https://example.com/thumb2.png", 20000L, 200L, "설명"))
-                    .getBody().data().productId();
-            var request = new ProductDto.UpdateProductRequest("기존 상품", "https://example.com/new-thumb.png", 30000L, 300L, "수정된 설명");
-
-            // act
-            var response = updateProduct(testRestTemplate, productId, request);
-
-            // assert
-            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_EXISTS_PRODUCT_NAME);
-        }
-
         @DisplayName("재고가 0이면, INVALID_STOCK 에러 응답을 받는다.")
         @Test
         void returnsInvalidStock_whenStockIsZero() {
@@ -648,9 +631,9 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
             assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.PRODUCT_NOT_FOUND);
         }
 
-        @DisplayName("이미 삭제된 상품을 삭제하면, ALREADY_DELETED_PRODUCT 에러 응답을 받는다.")
+        @DisplayName("이미 삭제된 상품을 삭제하면, 200 응답을 받는다.")
         @Test
-        void returnsAlreadyDeleted_whenProductIsAlreadyDeleted() {
+        void returnsOk_whenProductIsAlreadyDeleted() {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
             var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"))
@@ -661,7 +644,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
             var response = deleteProduct(testRestTemplate, productId);
 
             // assert
-            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_DELETED_PRODUCT);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         }
     }
 }

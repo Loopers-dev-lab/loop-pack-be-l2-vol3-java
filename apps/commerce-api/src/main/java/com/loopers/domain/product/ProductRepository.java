@@ -22,7 +22,5 @@ public interface ProductRepository {
 
     boolean existsByIdAndDeletedAtIsNull(Long productId);
 
-    boolean existsByIdNotAndNameAndDeletedAtIsNull(Long productId, String name);
-
     void softDeleteAllByBrandId(Long brandId);
 }

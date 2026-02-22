@@ -41,7 +41,7 @@ public enum ErrorType {
     REQUIRED_BRAND_NAME(HttpStatus.BAD_REQUEST, "REQUIRED_BRAND_NAME", "브랜드 이름은 필수 값입니다."),
     REQUIRED_BRAND_LOGO_URL(HttpStatus.BAD_REQUEST, "REQUIRED_BRAND_LOGO_URL", "브랜드 로고 URL은 필수 값입니다."),
     INVALID_BRAND_NAME(HttpStatus.BAD_REQUEST, "INVALID_BRAND_NAME", "브랜드 이름은 2자 이상 50자 이하이어야 합니다."),
-    ALREADY_EXIST_BRAND_NAME(HttpStatus.BAD_REQUEST, "ALREADY_EXIST_BRAND_NAME", "이미 존재하는 브랜드 이름입니다."),
+    ALREADY_EXISTS_BRAND_NAME(HttpStatus.BAD_REQUEST, "ALREADY_EXISTS_BRAND_NAME", "이미 존재하는 브랜드 이름입니다."),
     ALREADY_DELETED_BRAND(HttpStatus.BAD_REQUEST, "ALREADY_DELETED_BRAND", "이미 삭제된 브랜드입니다."),
     BRAND_NOT_FOUND(HttpStatus.NOT_FOUND, "BRAND_NOT_FOUND", "브랜드를 찾을 수 없습니다."),
 
@@ -51,7 +51,6 @@ public enum ErrorType {
     REQUIRED_PRODUCT_STOCK(HttpStatus.BAD_REQUEST, "REQUIRED_PRODUCT_STOCK", "상품 재고는 필수 값입니다."),
     INVALID_STOCK(HttpStatus.BAD_REQUEST, "INVALID_STOCK", "재고는 1 이상이어야 합니다."),
     INVALID_PRODUCT_NAME(HttpStatus.BAD_REQUEST, "INVALID_PRODUCT_NAME", "상품 이름은 2자 이상 100자 이하이어야 합니다."),
-    ALREADY_EXISTS_PRODUCT_NAME(HttpStatus.BAD_REQUEST, "ALREADY_EXISTS_PRODUCT_NAME", "이미 존재하는 상품 이름입니다."),
     ALREADY_DELETED_PRODUCT(HttpStatus.BAD_REQUEST, "ALREADY_DELETED_PRODUCT", "이미 삭제된 상품입니다."),
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", "상품을 찾을 수 없습니다."),
 

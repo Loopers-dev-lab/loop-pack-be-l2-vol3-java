@@ -56,6 +56,9 @@ public class Product extends BaseEntity {
     }
 
     public void update(String name, String thumbnailUrl, Long price, Long stock, String description) {
+        if (isDeleted()) {
+            throw new CoreException(ErrorType.ALREADY_DELETED_PRODUCT);
+        }
         this.name = new ProductName(name);
         this.thumbnailUrl = new ProductThumbnailUrl(thumbnailUrl);
         this.price = Money.wons(price);

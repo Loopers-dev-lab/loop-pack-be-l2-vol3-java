@@ -120,7 +120,7 @@ class BrandV1AdminApiE2ETest extends BaseE2ETest {
             assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.INVALID_BRAND_NAME);
         }
 
-        @DisplayName("이미 존재하는 브랜드명으로 등록하면, ALREADY_EXIST_BRAND_NAME 에러 응답을 받는다.")
+        @DisplayName("이미 존재하는 브랜드명으로 등록하면, ALREADY_EXISTS_BRAND_NAME 에러 응답을 받는다.")
         @Test
         void returnsAlreadyExistBrandName_whenDuplicateNameProvided() {
             // arrange
@@ -131,7 +131,7 @@ class BrandV1AdminApiE2ETest extends BaseE2ETest {
             var response = createBrand(testRestTemplate, request, adminAuthHeaders());
 
             // assert
-            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_EXIST_BRAND_NAME);
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_EXISTS_BRAND_NAME);
         }
     }
 
@@ -440,7 +440,7 @@ class BrandV1AdminApiE2ETest extends BaseE2ETest {
             var response = updateBrandRequest(brandId, request);
 
             // assert
-            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_EXIST_BRAND_NAME);
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_EXISTS_BRAND_NAME);
         }
 
         @DisplayName("브랜드명이 빈 값이면, 400 응답을 받는다.")
@@ -507,9 +507,9 @@ class BrandV1AdminApiE2ETest extends BaseE2ETest {
             assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.BRAND_NOT_FOUND);
         }
 
-        @DisplayName("이미 삭제된 브랜드를 삭제하면, 400 응답을 받는다.")
+        @DisplayName("이미 삭제된 브랜드를 삭제하면, 200 응답을 받는다.")
         @Test
-        void returnsBadRequest_whenBrandIsAlreadyDeleted() {
+        void returnsOk_whenBrandIsAlreadyDeleted() {
             // arrange
             var brandId = createBrand(testRestTemplate,
                     new CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
@@ -519,7 +519,7 @@ class BrandV1AdminApiE2ETest extends BaseE2ETest {
             var response = BrandSteps.deleteBrand(testRestTemplate, brandId);
 
             // assert
-            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_DELETED_BRAND);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         }
     }
 

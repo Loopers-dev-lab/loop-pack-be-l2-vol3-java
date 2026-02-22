@@ -30,7 +30,7 @@ public class BrandService {
     @Transactional
     public BrandResult createBrand(String name, String logoUrl, String description) {
         if (brandRepository.existsByNameAndDeletedAtIsNull(name)) {
-            throw new CoreException(ErrorType.ALREADY_EXIST_BRAND_NAME);
+            throw new CoreException(ErrorType.ALREADY_EXISTS_BRAND_NAME);
         }
         Brand brand = Brand.create(name, logoUrl, description);
         Brand saved = brandRepository.save(brand);
@@ -68,7 +68,7 @@ public class BrandService {
         Brand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
         if (brandRepository.existsByIdNotAndNameAndDeletedAtIsNull(brandId, newName)) {
-            throw new CoreException(ErrorType.ALREADY_EXIST_BRAND_NAME);
+            throw new CoreException(ErrorType.ALREADY_EXISTS_BRAND_NAME);
         }
         brand.update(newName, newLogoUrl, newDescription);
     }
@@ -78,7 +78,7 @@ public class BrandService {
         Brand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
         if (brand.isDeleted()) {
-            throw new CoreException(ErrorType.ALREADY_DELETED_BRAND);
+            return;
         }
         List<Long> productIds = productRepository.findAllByBrandIdAndDeletedAtIsNull(brandId)
                 .stream()
