@@ -3,6 +3,11 @@ package com.loopers.interfaces.api.brand;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.brand.BrandStatus;
+import com.loopers.domain.inventory.Inventory;
+import com.loopers.domain.inventory.InventoryRepository;
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.product.ProductStatus;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -37,6 +42,12 @@ class AdminBrandApiE2ETest {
     private BrandRepository brandRepository;
 
     @Autowired
+    private ProductRepository productRepository;
+
+    @Autowired
+    private InventoryRepository inventoryRepository;
+
+    @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
     @AfterEach
@@ -44,21 +55,28 @@ class AdminBrandApiE2ETest {
         databaseCleanUp.truncateAllTables();
     }
 
-    /** 어드민 인증 헤더가 포함된 HttpHeaders 생성 */
     private HttpHeaders adminHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.set(HEADER_LDAP, VALID_LDAP);
         return headers;
     }
 
-    /** 어드민 인증 헤더만 포함된 HttpEntity (GET/DELETE용) */
     private HttpEntity<Void> adminEntity() {
         return new HttpEntity<>(adminHeaders());
     }
 
-    /** 어드민 인증 헤더 + 요청 본문이 포함된 HttpEntity (POST/PUT/PATCH용) */
     private <T> HttpEntity<T> adminEntity(T body) {
         return new HttpEntity<>(body, adminHeaders());
+    }
+
+    private Product createProductWithInventory(Long brandId, String name, ProductStatus status) {
+        Product product = Product.create(brandId, name, name + " 설명", 10000);
+        if (status != ProductStatus.ACTIVE) {
+            product.changeStatus(status);
+        }
+        Product saved = productRepository.save(product);
+        inventoryRepository.save(Inventory.create(saved.getId(), 100));
+        return saved;
     }
 
     @DisplayName("POST /api-admin/v1/brands")
@@ -92,7 +110,7 @@ class AdminBrandApiE2ETest {
             inactive.changeStatus(BrandStatus.INACTIVE);
             brandRepository.save(inactive);
 
-            // act - 기본 page=0, size=20
+            // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
                     ADMIN_BRANDS_URL, HttpMethod.GET, adminEntity(), ApiResponse.class);
 
@@ -134,6 +152,21 @@ class AdminBrandApiE2ETest {
         }
 
         @Test
+        void 브랜드_상세에_전체_상품_목록이_포함된다() {
+            // arrange
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            createProductWithInventory(brand.getId(), "에어맥스", ProductStatus.ACTIVE);
+            createProductWithInventory(brand.getId(), "숨김상품", ProductStatus.HIDDEN);
+
+            // act
+            ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
+                    ADMIN_BRANDS_URL + "/" + brand.getId(), HttpMethod.GET, adminEntity(), ApiResponse.class);
+
+            // assert - 어드민은 전체 상품 목록 (ACTIVE + HIDDEN)
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @Test
         void 존재하지_않는_ID면_404_Not_Found를_반환한다() {
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
@@ -160,10 +193,9 @@ class AdminBrandApiE2ETest {
                     ADMIN_BRANDS_URL + "/" + brand.getId(),
                     HttpMethod.PUT, adminEntity(request), ApiResponse.class);
 
-            // assert - 상태 코드 검증
+            // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
-            // assert - DB 변경 검증 (@Transactional + dirty checking 정상 동작 확인)
             Brand updated = brandRepository.findById(brand.getId()).orElseThrow();
             assertThat(updated.getName()).isEqualTo("아디다스");
             assertThat(updated.getDescription()).isEqualTo("독일 브랜드");
@@ -201,10 +233,9 @@ class AdminBrandApiE2ETest {
                     ADMIN_BRANDS_URL + "/" + brand.getId() + "/status",
                     HttpMethod.PATCH, adminEntity(request), ApiResponse.class);
 
-            // assert - 상태 코드 검증
+            // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
-            // assert - DB 변경 검증
             Brand changed = brandRepository.findById(brand.getId()).orElseThrow();
             assertThat(changed.getStatus()).isEqualTo(BrandStatus.INACTIVE);
         }
@@ -224,12 +255,37 @@ class AdminBrandApiE2ETest {
                     ADMIN_BRANDS_URL + "/" + brand.getId(),
                     HttpMethod.DELETE, adminEntity(), ApiResponse.class);
 
-            // assert - 상태 코드 검증
+            // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
-            // assert - DB 소프트 삭제 검증 (deletedAt이 설정되었는지)
             Brand deleted = brandRepository.findById(brand.getId()).orElseThrow();
             assertThat(deleted.getDeletedAt()).isNotNull();
+        }
+
+        @Test
+        void 브랜드_삭제_시_소속_상품과_재고가_연쇄_삭제된다() {
+            // arrange
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Product product = createProductWithInventory(brand.getId(), "에어맥스", ProductStatus.ACTIVE);
+
+            // act
+            ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
+                    ADMIN_BRANDS_URL + "/" + brand.getId(),
+                    HttpMethod.DELETE, adminEntity(), ApiResponse.class);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+            // 브랜드 소프트 삭제 검증
+            Brand deleted = brandRepository.findById(brand.getId()).orElseThrow();
+            assertThat(deleted.getDeletedAt()).isNotNull();
+
+            // 상품 소프트 삭제 검증
+            Product deletedProduct = productRepository.findById(product.getId()).orElseThrow();
+            assertThat(deletedProduct.getDeletedAt()).isNotNull();
+
+            // 재고 소프트 삭제 검증
+            assertThat(inventoryRepository.findByProductId(product.getId())).isEmpty();
         }
 
         @Test
@@ -237,23 +293,23 @@ class AdminBrandApiE2ETest {
             // arrange
             Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
 
-            // act - 1차 삭제
+            // 1차 삭제
             testRestTemplate.exchange(
                     ADMIN_BRANDS_URL + "/" + brand.getId(),
                     HttpMethod.DELETE, adminEntity(), ApiResponse.class);
 
-            // act - 2차 삭제 (이미 삭제된 상태)
+            // act - 2차 삭제
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
                     ADMIN_BRANDS_URL + "/" + brand.getId(),
                     HttpMethod.DELETE, adminEntity(), ApiResponse.class);
 
-            // assert - 이미 삭제된 브랜드 재삭제 시 409 Conflict
+            // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         }
 
         @Test
         void 이미_삭제된_브랜드면_409_Conflict를_반환한다() {
-            // arrange - DB에 이미 삭제 상태로 저장
+            // arrange
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
             brand.delete();
             brandRepository.save(brand);

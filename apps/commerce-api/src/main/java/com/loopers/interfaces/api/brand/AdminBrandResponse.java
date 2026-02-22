@@ -1,7 +1,9 @@
 package com.loopers.interfaces.api.brand;
 
 import com.loopers.application.brand.BrandInfo;
+import com.loopers.application.product.ProductInfo;
 import com.loopers.domain.brand.BrandStatus;
+import com.loopers.domain.product.ProductStatus;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -34,4 +36,39 @@ public class AdminBrandResponse {
             long totalElements,
             int totalPages
     ) {}
+
+    /** 브랜드 상세 + 상품 목록 (어드민용 - status 포함) */
+    public record BrandDetailWithProducts(
+            Long id,
+            String name,
+            String description,
+            BrandStatus status,
+            ZonedDateTime createdAt,
+            ZonedDateTime updatedAt,
+            List<ProductSummary> products
+    ) {
+        public static BrandDetailWithProducts from(BrandInfo brand, List<ProductInfo> products) {
+            List<ProductSummary> productSummaries = products.stream()
+                    .map(ProductSummary::from)
+                    .toList();
+            return new BrandDetailWithProducts(
+                    brand.id(), brand.name(), brand.description(),
+                    brand.status(), brand.createdAt(), brand.updatedAt(),
+                    productSummaries
+            );
+        }
+    }
+
+    /** 브랜드 상세 내 상품 요약 (어드민용 - status 포함) */
+    public record ProductSummary(
+            Long id,
+            String name,
+            int basePrice,
+            ProductStatus status,
+            int likeCount
+    ) {
+        public static ProductSummary from(ProductInfo info) {
+            return new ProductSummary(info.id(), info.name(), info.basePrice(), info.status(), info.likeCount());
+        }
+    }
 }

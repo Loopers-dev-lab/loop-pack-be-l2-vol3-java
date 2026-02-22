@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.brand;
 
+import com.loopers.application.brand.BrandAdminFacade;
 import com.loopers.application.brand.BrandInfo;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
@@ -26,9 +27,11 @@ import java.util.List;
 public class AdminBrandController implements AdminBrandApiSpec {
 
     private final BrandService brandService;
+    private final BrandAdminFacade brandAdminFacade;
 
-    public AdminBrandController(BrandService brandService) {
+    public AdminBrandController(BrandService brandService, BrandAdminFacade brandAdminFacade) {
         this.brandService = brandService;
+        this.brandAdminFacade = brandAdminFacade;
     }
 
     /** 전체 브랜드 목록 페이지네이션 조회 */
@@ -52,14 +55,16 @@ public class AdminBrandController implements AdminBrandApiSpec {
                 brandDetails, page, size, totalElements, totalPages));
     }
 
+    /** 브랜드 상세 조회 (BrandAdminFacade → 브랜드 + 전체 상품 목록) */
     @GetMapping("/{brandId}")
     @Override
-    public ApiResponse<AdminBrandResponse.BrandDetail> getBrand(
+    public ApiResponse<AdminBrandResponse.BrandDetailWithProducts> getBrand(
             @AuthAdmin String ldap,
             @PathVariable Long brandId
     ) {
-        Brand brand = this.brandService.getById(brandId);
-        return ApiResponse.success(AdminBrandResponse.BrandDetail.from(BrandInfo.from(brand)));
+        BrandAdminFacade.BrandAdminDetailResult result = brandAdminFacade.getBrandDetail(brandId);
+        return ApiResponse.success(
+                AdminBrandResponse.BrandDetailWithProducts.from(result.brand(), result.products()));
     }
 
     @PostMapping
@@ -95,13 +100,14 @@ public class AdminBrandController implements AdminBrandApiSpec {
         return ApiResponse.success(AdminBrandResponse.BrandDetail.from(BrandInfo.from(brand)));
     }
 
+    /** 브랜드 삭제 (BrandAdminFacade → 상품/재고 연쇄 삭제) */
     @DeleteMapping("/{brandId}")
     @Override
     public ApiResponse<Void> deleteBrand(
             @AuthAdmin String ldap,
             @PathVariable Long brandId
     ) {
-        this.brandService.delete(brandId);
+        brandAdminFacade.deleteBrand(brandId);
         return ApiResponse.success(null);
     }
 }

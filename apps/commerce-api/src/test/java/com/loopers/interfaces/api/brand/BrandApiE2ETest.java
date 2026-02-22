@@ -3,6 +3,11 @@ package com.loopers.interfaces.api.brand;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.brand.BrandStatus;
+import com.loopers.domain.inventory.Inventory;
+import com.loopers.domain.inventory.InventoryRepository;
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.product.ProductStatus;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -30,6 +35,12 @@ class BrandApiE2ETest {
     private BrandRepository brandRepository;
 
     @Autowired
+    private ProductRepository productRepository;
+
+    @Autowired
+    private InventoryRepository inventoryRepository;
+
+    @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
     @AfterEach
@@ -39,6 +50,16 @@ class BrandApiE2ETest {
 
     private Brand createActiveBrand(String name, String description) {
         return brandRepository.save(Brand.create(name, description));
+    }
+
+    private Product createProduct(Long brandId, String name, ProductStatus status) {
+        Product product = Product.create(brandId, name, name + " 설명", 10000);
+        if (status != ProductStatus.ACTIVE) {
+            product.changeStatus(status);
+        }
+        Product saved = productRepository.save(product);
+        inventoryRepository.save(Inventory.create(saved.getId(), 100));
+        return saved;
     }
 
     @DisplayName("GET /api/v1/brands")
@@ -90,6 +111,22 @@ class BrandApiE2ETest {
         }
 
         @Test
+        void 브랜드_상세에_ACTIVE_상품_목록이_포함된다() {
+            // arrange
+            Brand brand = createActiveBrand("나이키", "스포츠 브랜드");
+            createProduct(brand.getId(), "에어맥스", ProductStatus.ACTIVE);
+            createProduct(brand.getId(), "에어포스", ProductStatus.ACTIVE);
+            createProduct(brand.getId(), "숨김상품", ProductStatus.HIDDEN);
+
+            // act
+            ResponseEntity<ApiResponse> response = testRestTemplate.getForEntity(
+                    "/api/v1/brands/" + brand.getId(), ApiResponse.class);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @Test
         void 존재하지_않는_ID면_404_Not_Found를_반환한다() {
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.getForEntity(
@@ -106,7 +143,7 @@ class BrandApiE2ETest {
             brand.changeStatus(BrandStatus.INACTIVE);
             brandRepository.save(brand);
 
-            // act - 고객에게 비활성 브랜드는 "존재하지 않음"과 동일
+            // act
             ResponseEntity<ApiResponse> response = testRestTemplate.getForEntity(
                     "/api/v1/brands/" + brand.getId(), ApiResponse.class);
 
@@ -121,7 +158,7 @@ class BrandApiE2ETest {
             brand.delete();
             brandRepository.save(brand);
 
-            // act - 고객에게 삭제된 브랜드는 "존재하지 않음"과 동일
+            // act
             ResponseEntity<ApiResponse> response = testRestTemplate.getForEntity(
                     "/api/v1/brands/" + brand.getId(), ApiResponse.class);
 

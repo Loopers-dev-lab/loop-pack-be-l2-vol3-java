@@ -110,17 +110,31 @@ class ProductServiceTest {
     class 노출가능상품조회 {
 
         @Test
-        void 고객에게_노출_불가한_상품이면_예외가_발생한다() {
+        void 삭제된_상품이면_404_예외가_발생한다() {
             // arrange
             Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
-            product.update("에어맥스", "나이키 에어맥스", 150000, ProductStatus.HIDDEN);
+            product.delete();
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
             // act & assert
             assertThatThrownBy(() -> productService.getDisplayableProduct(1L))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
-                    .isEqualTo(ProductErrorType.NOT_DISPLAYABLE);
+                    .isEqualTo(ProductErrorType.PRODUCT_NOT_FOUND);
+        }
+
+        @Test
+        void 고객에게_노출_불가한_상품이면_404_예외가_발생한다() {
+            // arrange
+            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            product.changeStatus(ProductStatus.HIDDEN);
+            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+
+            // act & assert
+            assertThatThrownBy(() -> productService.getDisplayableProduct(1L))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ProductErrorType.PRODUCT_NOT_FOUND);
         }
 
         @Test
@@ -134,6 +148,44 @@ class ProductServiceTest {
 
             // assert
             assertThat(result.getName()).isEqualTo("에어맥스");
+        }
+    }
+
+    @DisplayName("상품을 수정할 때,")
+    @Nested
+    class 수정 {
+
+        @Test
+        void 유효한_정보면_수정된_상품이_반환된다() {
+            // arrange
+            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+
+            // act
+            Product result = productService.update(1L, "에어포스", "나이키 에어포스", 120000);
+
+            // assert
+            assertThat(result)
+                    .extracting(Product::getName, Product::getDescription, Product::getBasePrice)
+                    .containsExactly("에어포스", "나이키 에어포스", 120000);
+        }
+    }
+
+    @DisplayName("상품 상태를 변경할 때,")
+    @Nested
+    class 상태변경 {
+
+        @Test
+        void 지정한_상태로_변경된_상품이_반환된다() {
+            // arrange
+            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+
+            // act
+            Product result = productService.changeStatus(1L, ProductStatus.SOLDOUT);
+
+            // assert
+            assertThat(result.getStatus()).isEqualTo(ProductStatus.SOLDOUT);
         }
     }
 

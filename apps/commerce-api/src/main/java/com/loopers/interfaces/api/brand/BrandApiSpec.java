@@ -12,6 +12,6 @@ public interface BrandApiSpec {
     @Operation(summary = "브랜드 목록 조회", description = "활성 상태의 브랜드 목록을 조회합니다.")
     ApiResponse<List<BrandResponse.BrandSummary>> getBrands();
 
-    @Operation(summary = "브랜드 상세 조회", description = "브랜드 상세 정보를 조회합니다.")
-    ApiResponse<BrandResponse.BrandDetail> getBrand(Long brandId);
+    @Operation(summary = "브랜드 상세 조회", description = "브랜드 상세 정보와 상품 목록을 조회합니다.")
+    ApiResponse<BrandResponse.BrandDetailWithProducts> getBrand(Long brandId);
 }

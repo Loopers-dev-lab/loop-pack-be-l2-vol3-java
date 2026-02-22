@@ -36,17 +36,34 @@ class ProductTest {
     class 수정 {
 
         @Test
-        void name_description_basePrice_status가_변경된다() {
+        void name_description_basePrice가_변경된다() {
             // arrange
             Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
 
             // act
-            product.update("에어포스", "나이키 에어포스", 120000, ProductStatus.SOLDOUT);
+            product.update("에어포스", "나이키 에어포스", 120000);
 
             // assert
             assertThat(product)
-                    .extracting(Product::getName, Product::getDescription, Product::getBasePrice, Product::getStatus)
-                    .containsExactly("에어포스", "나이키 에어포스", 120000, ProductStatus.SOLDOUT);
+                    .extracting(Product::getName, Product::getDescription, Product::getBasePrice)
+                    .containsExactly("에어포스", "나이키 에어포스", 120000);
+        }
+    }
+
+    @DisplayName("상태를 변경할 때,")
+    @Nested
+    class 상태변경 {
+
+        @Test
+        void 지정한_상태로_변경된다() {
+            // arrange
+            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+
+            // act
+            product.changeStatus(ProductStatus.SOLDOUT);
+
+            // assert
+            assertThat(product.getStatus()).isEqualTo(ProductStatus.SOLDOUT);
         }
     }
 
@@ -88,7 +105,7 @@ class ProductTest {
         void HIDDEN_상태이면_노출되지_않는다() {
             // arrange
             Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
-            product.update("에어맥스", "나이키 에어맥스", 150000, ProductStatus.HIDDEN);
+            product.changeStatus(ProductStatus.HIDDEN);
 
             // act & assert
             assertThat(product.isDisplayable()).isFalse();
@@ -98,7 +115,7 @@ class ProductTest {
         void DISCONTINUED_상태이면_노출되지_않는다() {
             // arrange
             Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
-            product.update("에어맥스", "나이키 에어맥스", 150000, ProductStatus.DISCONTINUED);
+            product.changeStatus(ProductStatus.DISCONTINUED);
 
             // act & assert
             assertThat(product.isDisplayable()).isFalse();
@@ -117,7 +134,7 @@ class ProductTest {
         void SOLDOUT_상태이면_노출된다() {
             // arrange
             Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
-            product.update("에어맥스", "나이키 에어맥스", 150000, ProductStatus.SOLDOUT);
+            product.changeStatus(ProductStatus.SOLDOUT);
 
             // act & assert
             assertThat(product.isDisplayable()).isTrue();

@@ -10,13 +10,12 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -63,6 +62,36 @@ class InventoryServiceTest {
         }
     }
 
+    @DisplayName("상품별 재고를 조회할 때,")
+    @Nested
+    class 상품별조회 {
+
+        @Test
+        void 존재하지_않는_상품이면_예외가_발생한다() {
+            // arrange
+            when(inventoryRepository.findByProductId(1L)).thenReturn(Optional.empty());
+
+            // act & assert
+            assertThatThrownBy(() -> inventoryService.getByProductId(1L))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(InventoryErrorType.INVENTORY_NOT_FOUND);
+        }
+
+        @Test
+        void 존재하는_상품이면_재고를_반환한다() {
+            // arrange
+            Inventory inventory = Inventory.create(1L, 100);
+            when(inventoryRepository.findByProductId(1L)).thenReturn(Optional.of(inventory));
+
+            // act
+            Inventory result = inventoryService.getByProductId(1L);
+
+            // assert
+            assertThat(result.getQuantity()).isEqualTo(100);
+        }
+    }
+
     @DisplayName("일괄 예약할 때,")
     @Nested
     class 일괄예약 {
@@ -70,7 +99,7 @@ class InventoryServiceTest {
         @Test
         void 존재하지_않는_상품이면_예외가_발생한다() {
             // arrange
-            when(inventoryRepository.findAllByProductIdIn(anyList())).thenReturn(List.of());
+            when(inventoryRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.empty());
 
             // act & assert
             assertThatThrownBy(() -> inventoryService.reserveAll(Map.of(1L, 5)))
@@ -83,7 +112,7 @@ class InventoryServiceTest {
         void 하나라도_재고가_부족하면_예외가_발생한다() {
             // arrange
             Inventory inventory = Inventory.create(1L, 3);
-            when(inventoryRepository.findAllByProductIdIn(anyList())).thenReturn(List.of(inventory));
+            when(inventoryRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.of(inventory));
 
             // act & assert
             assertThatThrownBy(() -> inventoryService.reserveAll(Map.of(1L, 5)))
@@ -97,13 +126,15 @@ class InventoryServiceTest {
             // arrange
             Inventory inventory1 = Inventory.create(1L, 100);
             Inventory inventory2 = Inventory.create(2L, 50);
-            when(inventoryRepository.findAllByProductIdIn(anyList())).thenReturn(List.of(inventory1, inventory2));
+            when(inventoryRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.of(inventory1));
+            when(inventoryRepository.findByProductIdForUpdate(2L)).thenReturn(Optional.of(inventory2));
 
             // act
             inventoryService.reserveAll(Map.of(1L, 10, 2L, 5));
 
             // assert
             assertThat(inventory1.getReservedQty()).isEqualTo(10);
+            assertThat(inventory2.getReservedQty()).isEqualTo(5);
         }
     }
 
@@ -116,7 +147,7 @@ class InventoryServiceTest {
             // arrange
             Inventory inventory = Inventory.create(1L, 100);
             inventory.reserve(10);
-            when(inventoryRepository.findAllByProductIdIn(anyList())).thenReturn(List.of(inventory));
+            when(inventoryRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.of(inventory));
 
             // act
             inventoryService.commitAll(Map.of(1L, 10));
@@ -137,7 +168,7 @@ class InventoryServiceTest {
             // arrange
             Inventory inventory = Inventory.create(1L, 100);
             inventory.reserve(10);
-            when(inventoryRepository.findAllByProductIdIn(anyList())).thenReturn(List.of(inventory));
+            when(inventoryRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.of(inventory));
 
             // act
             inventoryService.releaseAll(Map.of(1L, 10));
@@ -154,12 +185,28 @@ class InventoryServiceTest {
     class 삭제 {
 
         @Test
-        void 존재하는_재고면_delete가_호출된다() {
+        void 존재하는_재고면_소프트_삭제된다() {
+            // arrange
+            Inventory inventory = Inventory.create(1L, 100);
+            when(inventoryRepository.findByProductId(1L)).thenReturn(Optional.of(inventory));
+
             // act
             inventoryService.delete(1L);
 
             // assert
-            verify(inventoryRepository).deleteByProductId(1L);
+            assertThat(inventory.getDeletedAt()).isNotNull();
+        }
+
+        @Test
+        void 존재하지_않는_재고면_무시된다() {
+            // arrange
+            when(inventoryRepository.findByProductId(1L)).thenReturn(Optional.empty());
+
+            // act - 예외 없이 정상 종료
+            inventoryService.delete(1L);
+
+            // assert
+            verify(inventoryRepository).findByProductId(1L);
         }
     }
 }
