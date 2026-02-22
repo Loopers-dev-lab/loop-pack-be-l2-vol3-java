@@ -56,27 +56,64 @@ This is a **multi-module Gradle project** with three primary categories:
 - **`logging`**: Logback configuration, Slack appender
 - **`monitoring`**: Actuator and metrics configuration
 
-### Code Architecture Pattern
+### Domain & Object Design Strategy
 
-This project follows **Layered Architecture** with strict dependency rules:
+- **Domain objects** MUST encapsulate business rules. Entities and VOs hold validation, invariants, and domain behavior.
+- **Application services (Facades)** assemble different domains and orchestrate domain logic to provide use cases. They MUST NOT contain business rules; delegate to the domain layer.
+- If a rule appears in multiple services, it likely belongs in a **domain object** (Entity, VO, or Domain Service). Confirm responsibility and coupling with the team before implementing.
+- For each feature, clarify **responsibility and coupling** and align implementation with that intent.
+
+### Code Architecture Pattern & DIP
+
+This project follows **Layered Architecture** and **DIP (Dependency Inversion Principle)**:
+
+- **Dependency direction**: **Presentation → Application → Domain ← Infrastructure**
+  - Interfaces (Presentation) depend on Application.
+  - Application depends on Domain.
+  - **Domain does NOT depend on Infrastructure.** Repository interfaces live in Domain; Infrastructure implements them and thus depends on Domain.
 
 ```
-interfaces (Controllers, DTOs, Specs)
+interfaces (Controllers, DTOs, Specs)     [Presentation]
     ↓
-application (Facades, Info DTOs)
+application (Facades, Info DTOs)          [Application]
     ↓
-domain (Services, Models, Repositories)
-    ↓
-infrastructure (JPA Repositories, External APIs)
+domain (Services, Models, Repositories)   [Domain - center of dependencies]
+    ↑
+infrastructure (JPA, Redis, Kafka impl.)  [Infrastructure]
 ```
 
-**Key Principles**:
+- **API request/response DTOs** (interfaces layer) and **Application-layer DTOs (Info)** MUST be kept separate. Do not reuse the same type across layers.
+- **Packaging**: Four top-level layer packages, with **domain-based subpackages** under each.
+  - Example: `/interfaces/api/{domain}`, `/application/{domain}`, `/domain/{domain}`, `/infrastructure/{domain}`
+
+### Layer Responsibilities & Package Rules
+
+| Layer | Responsibility | Package rule |
+|-------|----------------|--------------|
+| **Interfaces (Presentation)** | Direct contact with users (Web/Controller). Call Application use cases only. May perform request validation and response mapping. | `/interfaces/api/{domain}` |
+| **Application** | Orchestrate flows and complete use-case functions. Delegate real business logic to the domain as much as possible. | `/application/{domain}` |
+| **Domain** | Core business logic. Must not depend on other layers. All dependency arrows point **toward** the domain. | `/domain/{domain}` |
+| **Infrastructure** | Implement persistence and external tech (JPA, Redis, Kafka). Depends on Domain interfaces; provides what the domain needs. | `/infrastructure/{domain}` |
+
+Each layer has **clear responsibility and concern**. The domain should be **self-contained** so that it is highly testable.
+
+### DIP (Dependency Inversion Principle)
+
+- Dependency is **inverted**: not **Domain → Infrastructure**, but **Domain (interfaces) ← Infrastructure (implementations)**.
+- **Benefits**:
+  - Use `FakeOrderRepository` or `InMemoryOrderRepository` for tests without real DB.
+  - Structural flexibility (e.g. swap DB or change business logic with minimal impact).
+  - Testability (e.g. mock repositories).
+- **Repository**: Define the interface in the Domain layer; put the implementation in Infrastructure. Design for testability (e.g. fakes, mocks).
+- Write **unit tests** for all core domain logic, including exception and boundary cases.
+
+### Architecture Key Principles
 
 - Domain layer MUST be infrastructure-agnostic (no Spring, JPA annotations in domain logic)
 - Facades orchestrate business flows but DO NOT contain business logic
-- Services contain all business logic and invariants
+- Services (in Domain) contain business logic and invariants
 - Models (Entities) contain domain rules and validations
-- Repository interfaces are defined in domain, implemented in infrastructure
+- Repository **interfaces** are defined in **domain**; **implementations** live in **infrastructure**
 
 ### User Domain Class Design
 
@@ -347,6 +384,9 @@ The following structures are **locked** and require explicit approval to change:
 | Customer API | `/customer/v1` | `X-Loopers-LoginId`, `X-Loopers-LoginPw` | `POST /customer/v1/users/sign-up` |
 | Admin API    | `/admin/v1`    | `X-Loopers-Ldap`                         | `GET /admin/v1/orders`            |
 
+- **CustomerAuthInterceptor**: Applied only to customer API paths that require login (those paths MUST go through the interceptor). Public paths (e.g. product/brand list or detail) are excluded. See `.docs/design/02-sequence-diagrams.md` §0 and `01-requirements.md` §4.2.
+- **AdminAuthInterceptor**: Applied to all `/admin/**` paths.
+
 ### Standard Response Format
 
 **Success Response**:
@@ -556,6 +596,46 @@ Based on `.codeguide/loopers-1-week.md` and project requirements, follow these c
   "newPassword": "NewSecurePass456!"
 }
 ```
+
+### Domain & Architecture Implementation Checklist
+
+Use this checklist to verify design and implementation alignment.
+
+#### Product / Brand domain
+
+- [ ] Product representation includes brand information and like count where required.
+- [ ] Product list supports sort options (`latest`, `price_asc`, `likes_desc`) in the design.
+- [ ] Product has stock; order flow can decrement stock.
+- [ ] Negative stock is prevented at the **domain** level (e.g. in Entity or Domain Service).
+
+#### Like domain
+
+- [ ] Like is a separate domain representing the user–product relationship.
+- [ ] Like count is provided with product detail/list responses where specified.
+- [ ] Unit tests cover like add/remove flows.
+
+#### Order domain
+
+- [ ] An order can contain multiple products with explicit quantities.
+- [ ] Order placement performs stock decrement.
+- [ ] Design covers insufficient-stock exception flow.
+- [ ] Unit tests cover both success and exception order flows.
+
+#### Domain Service
+
+- [ ] Internal domain rules live in Domain Service (or Entity/VO where appropriate).
+- [ ] Product detail combining Product + Brand is handled in the **Application** layer (orchestration).
+- [ ] Complex use cases are orchestrated in the Application layer; domain logic is delegated.
+- [ ] Domain Services are stateless and collaborate with domain objects within the same bounded context.
+
+#### Software architecture & design
+
+- [ ] Overall structure follows **Presentation → Application → Domain ← Infrastructure**.
+- [ ] Application layer orchestrates domain objects and does not embed core business logic.
+- [ ] Core business logic resides in Entity, VO, and Domain Service.
+- [ ] Repository interface is in the Domain layer; implementation is in Infrastructure.
+- [ ] Packages are organized by layer and domain (e.g. `/domain/order`, `/application/like`).
+- [ ] Tests isolate external dependencies and use Fakes/Stubs so unit tests remain focused and fast.
 
 ---
 
