@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -174,6 +175,39 @@ class UserAddressServiceTest {
 
             // assert
             assertThat(address.getDeletedAt()).isNotNull();
+        }
+    }
+
+    @DisplayName("배송지 목록을 조회할 때,")
+    @Nested
+    class 목록조회 {
+
+        @Test
+        void 사용자의_배송지_목록이_반환된다() {
+            // arrange
+            List<UserAddress> addresses = List.of(
+                    UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null),
+                    UserAddress.create(1L, "김철수", "010-9876-5432", "54321", "부산시", null)
+            );
+            when(userAddressRepository.findAllByUserIdAndDeletedAtIsNull(1L)).thenReturn(addresses);
+
+            // act
+            List<UserAddress> result = userAddressService.getAddresses(1L);
+
+            // assert
+            assertThat(result).hasSize(2);
+        }
+
+        @Test
+        void 배송지가_없으면_빈_리스트가_반환된다() {
+            // arrange
+            when(userAddressRepository.findAllByUserIdAndDeletedAtIsNull(1L)).thenReturn(List.of());
+
+            // act
+            List<UserAddress> result = userAddressService.getAddresses(1L);
+
+            // assert
+            assertThat(result).isEmpty();
         }
     }
 }

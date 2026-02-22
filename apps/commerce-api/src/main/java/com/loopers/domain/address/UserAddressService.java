@@ -2,7 +2,12 @@ package com.loopers.domain.address;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserAddressErrorType;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
+@Component
 public class UserAddressService {
 
     private final UserAddressRepository userAddressRepository;
@@ -11,6 +16,7 @@ public class UserAddressService {
         this.userAddressRepository = userAddressRepository;
     }
 
+    @Transactional
     public UserAddress register(Long userId, String receiverName, String phone,
                                  String zipCode, String addressLine1, String addressLine2) {
         UserAddress address = UserAddress.create(userId, receiverName, phone, zipCode, addressLine1, addressLine2);
@@ -23,6 +29,7 @@ public class UserAddressService {
         return userAddressRepository.save(address);
     }
 
+    @Transactional
     public void update(Long addressId, Long userId, String receiverName, String phone,
                        String zipCode, String addressLine1, String addressLine2) {
         UserAddress address = userAddressRepository.findById(addressId)
@@ -31,6 +38,7 @@ public class UserAddressService {
         address.update(receiverName, phone, zipCode, addressLine1, addressLine2);
     }
 
+    @Transactional
     public void delete(Long addressId, Long userId) {
         UserAddress address = userAddressRepository.findById(addressId)
                 .orElseThrow(() -> new CoreException(UserAddressErrorType.ADDRESS_NOT_FOUND));
@@ -42,5 +50,10 @@ public class UserAddressService {
             userAddressRepository.findFirstByUserIdAndDeletedAtIsNullAndIdNot(userId, addressId)
                     .ifPresent(UserAddress::setAsDefault);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserAddress> getAddresses(Long userId) {
+        return userAddressRepository.findAllByUserIdAndDeletedAtIsNull(userId);
     }
 }
