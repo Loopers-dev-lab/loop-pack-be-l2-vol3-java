@@ -35,7 +35,7 @@ public class MemberV1Controller {
             @LoginUser Member member,
             @RequestBody MemberV1Dto.ChangePasswordRequest body
     ) {
-        memberFacade.changePassword(member, body.currentPassword(), body.newPassword());
+        memberFacade.changePassword(member.getMemberId().getValue(), body.currentPassword(), body.newPassword());
         return ApiResponse.success();
     }
 }

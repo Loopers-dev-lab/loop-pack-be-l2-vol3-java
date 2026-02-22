@@ -49,7 +49,7 @@ class AuthenticationFilterTest {
     @BeforeEach
     void setUp() {
         String encodedPassword = passwordEncoder.encode("Password1!");
-        testMember = new Member(
+        testMember = Member.create(
                 new MemberId("testuser"),
                 Password.ofEncoded(encodedPassword),
                 new Name("홍길동"),
