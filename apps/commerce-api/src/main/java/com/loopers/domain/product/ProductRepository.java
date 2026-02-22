@@ -10,7 +10,9 @@ public interface ProductRepository {
 
     Product save(Product product);
 
-    Optional<Product> findById(Long id);
+    Optional<Product> findById(Long productId);
+
+    Optional<Product> findByIdAndDeletedAtIsNull(Long productId);
 
     List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> productIds);
 

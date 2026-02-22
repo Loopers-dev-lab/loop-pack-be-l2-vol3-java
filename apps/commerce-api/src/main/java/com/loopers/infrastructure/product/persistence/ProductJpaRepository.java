@@ -2,6 +2,7 @@ package com.loopers.infrastructure.product.persistence;
 
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -13,6 +14,8 @@ import org.springframework.data.repository.query.Param;
 import com.loopers.domain.product.Product;
 
 public interface ProductJpaRepository extends JpaRepository<Product, Long> {
+
+    Optional<Product> findByIdAndDeletedAtIsNull(Long productId);
 
     List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> productIds);
 

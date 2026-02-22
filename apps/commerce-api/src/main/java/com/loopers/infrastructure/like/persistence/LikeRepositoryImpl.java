@@ -56,6 +56,11 @@ public class LikeRepositoryImpl implements LikeRepository {
     }
 
     @Override
+    public long countByProductId(Long productId) {
+        return likeJpaRepository.countByProductId(productId);
+    }
+
+    @Override
     public Map<Long, Long> countByProductIdIn(List<Long> productIds) {
         return likeJpaRepository.countByProductIdIn(productIds).stream()
                 .collect(Collectors.toMap(

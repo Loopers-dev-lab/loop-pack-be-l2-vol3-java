@@ -456,12 +456,12 @@ sequenceDiagram
     participant ProductService
     participant BrandRepository
     participant ProductRepository
+    participant LikeRepository
 
     Client ->>+ ProductApi: GET /api/v1/products
-    ProductApi ->>+ ProductService: 상품 목록 조회 요청
+    ProductApi ->>+ ProductService: 상품 목록 조회 요청 (brandId, sort, pageSize, userId)
 
-    opt brandId가 전달된 경우
-        Note over BrandRepository: 활성 브랜드만 조회
+    alt brandId가 전달된 경우
         ProductService ->>+ BrandRepository: 브랜드 조회
         BrandRepository -->>- ProductService: Optional<Brand>
 
@@ -469,11 +469,26 @@ sequenceDiagram
             ProductService -->> ProductApi: 조회 실패
             ProductApi -->> Client: 404 Not Found
         end
+
+        Note over ProductService, ProductRepository: 활성 상품만 페이지 조회
+        ProductService ->>+ ProductRepository: 브랜드별 활성 상품 페이지 조회
+        ProductRepository -->>- ProductService: Slice<Product>
+    else brandId가 전달되지 않은 경우
+        ProductService ->>+ ProductRepository: 전체 활성 상품 페이지 조회
+        ProductRepository -->>- ProductService: Slice<Product>
     end
 
-    Note over ProductService, ProductRepository: 활성 상품만 페이지 조회
-    ProductService ->>+ ProductRepository: 상품 페이지 조회
-    ProductRepository -->>- ProductService: Page<Product>
+    ProductService ->>+ BrandRepository: 브랜드 조회
+    BrandRepository -->>- ProductService: List<Brand>
+
+    ProductService ->>+ LikeRepository: 상품별 좋아요 수 조회 (productIds)
+    LikeRepository -->>- ProductService: Map<Long, Long>
+
+    opt userId가 존재할 경우
+        ProductService ->>+ LikeRepository: 사용자 좋아요 여부 조회 (userId, productIds)
+        LikeRepository -->>- ProductService: List<Like>
+    end
+
     ProductService -->>- ProductApi: Page<ProductResult>
     ProductApi -->>- Client: 200 OK + 상품 목록 페이지
 ```
@@ -486,21 +501,36 @@ sequenceDiagram
     participant ProductApi
     participant ProductService
     participant ProductRepository
+    participant BrandRepository
     participant LikeRepository
 
     Client ->>+ ProductApi: GET /api/v1/products/{productId}
-    ProductApi ->>+ ProductService: 상품 상세 조회 요청
+    ProductApi ->>+ ProductService: 상품 상세 조회 요청 (productId, userId)
 
     ProductService ->>+ ProductRepository: 상품 조회
     ProductRepository -->>- ProductService: Optional<Product>
 
-    break 상품이 존재하지 않을 경우
+    break 상품이 존재하지 않거나 삭제된 경우
+        ProductService -->> ProductApi: 조회 실패
+        ProductApi -->> Client: 404 Not Found
+    end
+
+    Note over ProductService, BrandRepository: 활성 브랜드만 조회
+    ProductService ->>+ BrandRepository: 브랜드 조회
+    BrandRepository -->>- ProductService: Optional<Brand>
+
+    break 브랜드가 존재하지 않거나 삭제된 경우
         ProductService -->> ProductApi: 조회 실패
         ProductApi -->> Client: 404 Not Found
     end
 
     ProductService ->>+ LikeRepository: 상품 좋아요 수 조회
-    LikeRepository -->>- ProductService: Long (count)
+    LikeRepository -->>- ProductService: Map<Long, Long>
+
+    opt userId가 존재할 경우
+        ProductService ->>+ LikeRepository: 사용자 좋아요 여부 조회
+        LikeRepository -->>- ProductService: boolean
+    end
 
     ProductService -->>- ProductApi: ProductResult
     ProductApi -->>- Client: 200 OK + 상품 상세 정보

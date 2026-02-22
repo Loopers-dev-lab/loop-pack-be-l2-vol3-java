@@ -1,10 +1,14 @@
 package com.loopers.application.product;
 
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.Product;
@@ -57,7 +61,8 @@ public class ProductService {
         if (!brandRepository.existsById(brandId)) {
             throw new CoreException(ErrorType.BRAND_NOT_FOUND);
         }
-        Slice<Product> products = productRepository.findAllByBrandId(brandId, pageSize.toPageable(Sort.by(Sort.Direction.DESC, "createdAt")));
+        Slice<Product> products = productRepository.findAllByBrandId(brandId,
+                pageSize.toPageable(Sort.by(Sort.Direction.DESC, "createdAt")));
         return new Page<>(
                 products.map(ProductResult::from)
                         .stream()
@@ -71,6 +76,17 @@ public class ProductService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
         return ProductResult.from(product);
+    }
+
+    @Transactional(readOnly = true)
+    public ProductDetail getActiveProduct(Long userId, Long productId) {
+        Product product = productRepository.findByIdAndDeletedAtIsNull(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+        Brand brand = brandRepository.findByIdAndDeletedAtIsNull(product.getBrandId())
+                .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
+        long likeCount = likeRepository.countByProductId(productId);
+        boolean liked = isLiked(userId, productId);
+        return ProductDetail.from(product, brand, likeCount, liked);
     }
 
     @Transactional
@@ -95,5 +111,12 @@ public class ProductService {
         }
         likeRepository.deleteAllByProductId(productId);
         product.delete();
+    }
+
+    private boolean isLiked(Long userId, Long productId) {
+        if (userId == null) {
+            return false;
+        }
+        return likeRepository.existsByUserIdAndProductId(userId, productId);
     }
 }

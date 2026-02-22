@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import com.loopers.application.product.ProductCommand;
+import com.loopers.application.product.ProductDetail;
 import com.loopers.application.product.ProductResult;
 
 public class ProductDto {
@@ -84,6 +85,48 @@ public class ProductDto {
             return results.stream()
                     .map(ProductResponse::from)
                     .toList();
+        }
+    }
+
+    public record ProductDetailResponse(
+            Long productId,
+            String name,
+            String thumbnailUrl,
+            Long price,
+            Long stock,
+            String description,
+            BrandInfo brand,
+            Long likeCount,
+            boolean liked
+    ) {
+
+        public static ProductDetailResponse from(ProductDetail productDetail) {
+            return new ProductDetailResponse(
+                    productDetail.productId(),
+                    productDetail.name(),
+                    productDetail.thumbnailUrl(),
+                    productDetail.price(),
+                    productDetail.stock(),
+                    productDetail.description(),
+                    BrandInfo.from(productDetail),
+                    productDetail.likeCount(),
+                    productDetail.liked()
+            );
+        }
+
+        public record BrandInfo(
+                Long id,
+                String name,
+                String logoUrl
+        ) {
+
+            public static BrandInfo from(ProductDetail productDetail) {
+                return new BrandInfo(
+                        productDetail.brandId(),
+                        productDetail.brandName(),
+                        productDetail.brandLogoUrl()
+                );
+            }
         }
     }
 }

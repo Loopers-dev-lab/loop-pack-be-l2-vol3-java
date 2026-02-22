@@ -16,6 +16,7 @@ import com.loopers.interfaces.api.product.v1.ProductDto.ProductResponse;
 public class ProductSteps {
 
     private static final String PRODUCT_ADMIN_ENDPOINT = "/api-admin/v1/products";
+    private static final String PRODUCT_ENDPOINT = "/api/v1/products";
 
     public static ResponseEntity<ApiResponse<ProductDto.CreateProductResponse>> createProduct(
             TestRestTemplate testRestTemplate,
@@ -111,5 +112,27 @@ public class ProductSteps {
                 new HttpEntity<>(adminAuthHeaders()),
                 responseType
         );
+    }
+
+    public static ResponseEntity<ApiResponse<ProductDto.ProductDetailResponse>> getActiveProduct(
+            TestRestTemplate testRestTemplate,
+            Long productId,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<ProductDto.ProductDetailResponse>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                PRODUCT_ENDPOINT + "/" + productId,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                responseType
+        );
+    }
+
+    public static ResponseEntity<ApiResponse<ProductDto.ProductDetailResponse>> getActiveProduct(
+            TestRestTemplate testRestTemplate,
+            Long productId
+    ) {
+        return getActiveProduct(testRestTemplate, productId, new HttpHeaders());
     }
 }

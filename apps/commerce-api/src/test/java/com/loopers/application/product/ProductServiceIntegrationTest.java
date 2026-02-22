@@ -307,6 +307,108 @@ class ProductServiceIntegrationTest {
         }
     }
 
+    @DisplayName("활성 상품을 상세 조회할 때,")
+    @Nested
+    class GetActiveProduct {
+
+        @DisplayName("존재하는 활성 상품이면, 브랜드 정보와 좋아요 수를 포함한 상세 정보가 반환된다.")
+        @Test
+        void returnsProductDetail_whenActiveProductExists() {
+            // arrange
+            var productId = createProduct();
+
+            // act
+            var result = productService.getActiveProduct(null, productId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.productId()).isEqualTo(productId),
+                    () -> assertThat(result.name()).isEqualTo("상품명"),
+                    () -> assertThat(result.thumbnailUrl()).isEqualTo("https://example.com/thumb.png"),
+                    () -> assertThat(result.price()).isEqualTo(10000L),
+                    () -> assertThat(result.stock()).isEqualTo(100L),
+                    () -> assertThat(result.description()).isEqualTo("상품 설명"),
+                    () -> assertThat(result.brandName()).isEqualTo("브랜드명"),
+                    () -> assertThat(result.brandLogoUrl()).isEqualTo("https://example.com/logo.png"),
+                    () -> assertThat(result.likeCount()).isZero(),
+                    () -> assertThat(result.liked()).isFalse()
+            );
+        }
+
+        @DisplayName("userId가 null이면, liked는 false를 반환한다.")
+        @Test
+        void returnsLikedFalse_whenUserIdIsNull() {
+            // arrange
+            var productId = createProduct();
+            likeService.likeProduct(1L, productId);
+
+            // act
+            var result = productService.getActiveProduct(null, productId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.likeCount()).isEqualTo(1L),
+                    () -> assertThat(result.liked()).isFalse()
+            );
+        }
+
+        @DisplayName("userId가 주어지고 좋아요한 상품이면, liked는 true를 반환한다.")
+        @Test
+        void returnsLikedTrue_whenUserLikedProduct() {
+            // arrange
+            var userId = 1L;
+            var productId = createProduct();
+            likeService.likeProduct(userId, productId);
+
+            // act
+            var result = productService.getActiveProduct(userId, productId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.likeCount()).isEqualTo(1L),
+                    () -> assertThat(result.liked()).isTrue()
+            );
+        }
+
+        @DisplayName("삭제된 상품이면, PRODUCT_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenProductIsDeleted() {
+            // arrange
+            var productId = createProduct();
+            productService.deleteProduct(productId);
+
+            // act & assert
+            assertThatThrownBy(() -> productService.getActiveProduct(null, productId))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
+        }
+
+        @DisplayName("존재하지 않는 상품이면, PRODUCT_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenProductNotFound() {
+            // act & assert
+            assertThatThrownBy(() -> productService.getActiveProduct(null, 999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
+        }
+
+        @DisplayName("브랜드가 삭제된 상품이면, BRAND_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenBrandIsDeleted() {
+            // arrange
+            var productId = createProduct();
+            var product = productRepository.findById(productId).orElseThrow();
+            var brand = brandRepository.findById(product.getBrandId()).orElseThrow();
+            brand.delete();
+            brandRepository.save(brand);
+
+            // act & assert
+            assertThatThrownBy(() -> productService.getActiveProduct(null, productId))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
+        }
+    }
+
     @DisplayName("상품 정보를 수정할 때,")
     @Nested
     class UpdateProduct {
