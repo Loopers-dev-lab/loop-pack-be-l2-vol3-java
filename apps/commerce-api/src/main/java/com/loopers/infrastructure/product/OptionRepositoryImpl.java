@@ -29,19 +29,14 @@ public class OptionRepositoryImpl implements OptionRepository {
 
     @Override
     public Optional<Option> findById(Long id) {
-        return optionJpaRepository.findById(id)
+        return optionJpaRepository.findByIdAndDeletedFalse(id)
                 .map(OptionJpaEntity::toDomain);
     }
 
     @Override
     public List<Option> findByProductId(Long productId) {
-        return optionJpaRepository.findByProductId(productId).stream()
+        return optionJpaRepository.findByProductIdAndDeletedFalse(productId).stream()
                 .map(OptionJpaEntity::toDomain)
                 .toList();
-    }
-
-    @Override
-    public void deleteByProductId(Long productId) {
-        optionJpaRepository.deleteByProductId(productId);
     }
 }

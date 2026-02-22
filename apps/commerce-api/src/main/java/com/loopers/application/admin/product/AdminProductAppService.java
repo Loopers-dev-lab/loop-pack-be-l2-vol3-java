@@ -44,6 +44,26 @@ public class AdminProductAppService {
         Product product = getById(id);
         product.delete();
         productRepository.save(product);
+        deleteOptionsByProductId(id);
+    }
+
+    @Transactional
+    public void deleteByBrandId(Long brandId) {
+        List<Product> products = productRepository.findByBrandId(brandId);
+        for (Product product : products) {
+            product.delete();
+            productRepository.save(product);
+            deleteOptionsByProductId(product.getId());
+        }
+    }
+
+    @Transactional
+    public void deleteOptionsByProductId(Long productId) {
+        List<Option> options = optionRepository.findByProductId(productId);
+        for (Option option : options) {
+            option.delete();
+            optionRepository.save(option);
+        }
     }
 
     @Transactional

@@ -7,5 +7,4 @@ public interface OptionRepository {
     Option save(Option option);
     Optional<Option> findById(Long id);
     List<Option> findByProductId(Long productId);
-    void deleteByProductId(Long productId);
 }

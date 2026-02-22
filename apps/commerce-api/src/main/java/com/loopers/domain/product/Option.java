@@ -12,8 +12,9 @@ public class Option {
     private final String name;
     private final Money additionalPrice;
     private int stock;
+    private boolean deleted;
 
-    private Option(Long id, Long productId, String name, Money additionalPrice, int stock) {
+    private Option(Long id, Long productId, String name, Money additionalPrice, int stock, boolean deleted) {
         validateProductId(productId);
         validateName(name);
         validateStock(stock);
@@ -22,14 +23,23 @@ public class Option {
         this.name = name;
         this.additionalPrice = additionalPrice != null ? additionalPrice : Money.zero();
         this.stock = stock;
+        this.deleted = deleted;
     }
 
     public static Option create(Long productId, String name, Money additionalPrice, int stock) {
-        return new Option(null, productId, name, additionalPrice, stock);
+        return new Option(null, productId, name, additionalPrice, stock, false);
     }
 
-    public static Option of(Long id, Long productId, String name, Money additionalPrice, int stock) {
-        return new Option(id, productId, name, additionalPrice, stock);
+    public static Option of(Long id, Long productId, String name, Money additionalPrice, int stock, boolean deleted) {
+        return new Option(id, productId, name, additionalPrice, stock, deleted);
+    }
+
+    public void delete() {
+        this.deleted = true;
+    }
+
+    public void restore() {
+        this.deleted = false;
     }
 
     public void decreaseStock(int quantity) {

@@ -29,13 +29,13 @@ public class BrandRepositoryImpl implements BrandRepository {
 
     @Override
     public Optional<Brand> findById(Long id) {
-        return brandJpaRepository.findById(id)
+        return brandJpaRepository.findByIdAndDeletedFalse(id)
                 .map(BrandJpaEntity::toDomain);
     }
 
     @Override
     public List<Brand> findAll() {
-        return brandJpaRepository.findAll().stream()
+        return brandJpaRepository.findByDeletedFalse().stream()
                 .map(BrandJpaEntity::toDomain)
                 .toList();
     }

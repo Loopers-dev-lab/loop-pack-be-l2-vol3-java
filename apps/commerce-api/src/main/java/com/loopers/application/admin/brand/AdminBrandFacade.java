@@ -1,8 +1,10 @@
 package com.loopers.application.admin.brand;
 
+import com.loopers.application.admin.product.AdminProductAppService;
 import com.loopers.domain.brand.Brand;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -10,6 +12,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminBrandFacade {
     private final AdminBrandAppService adminBrandAppService;
+    private final AdminProductAppService adminProductAppService;
 
     public Brand create(String name) {
         return adminBrandAppService.create(name);
@@ -19,7 +22,9 @@ public class AdminBrandFacade {
         return adminBrandAppService.update(id, name);
     }
 
+    @Transactional
     public void delete(Long id) {
+        adminProductAppService.deleteByBrandId(id);
         adminBrandAppService.delete(id);
     }
 

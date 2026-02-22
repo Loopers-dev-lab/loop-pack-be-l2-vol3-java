@@ -2,9 +2,6 @@ package com.loopers.application.admin.brand;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
-import com.loopers.domain.product.OptionRepository;
-import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -17,8 +14,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminBrandAppService {
     private final BrandRepository brandRepository;
-    private final ProductRepository productRepository;
-    private final OptionRepository optionRepository;
 
     @Transactional
     public Brand create(String name) {
@@ -38,13 +33,6 @@ public class AdminBrandAppService {
         Brand brand = getById(id);
         brand.delete();
         brandRepository.save(brand);
-
-        List<Product> products = productRepository.findByBrandId(id);
-        for (Product product : products) {
-            product.delete();
-            productRepository.save(product);
-            optionRepository.deleteByProductId(product.getId());
-        }
     }
 
     @Transactional(readOnly = true)

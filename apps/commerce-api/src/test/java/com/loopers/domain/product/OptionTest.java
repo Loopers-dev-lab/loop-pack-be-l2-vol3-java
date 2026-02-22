@@ -186,4 +186,38 @@ class OptionTest {
                     .isInstanceOf(CoreException.class);
         }
     }
+
+    @Nested
+    @DisplayName("삭제 테스트")
+    class DeleteTest {
+
+        @Test
+        @DisplayName("생성 시 삭제 상태는 false이다")
+        void defaultDeletedIsFalse() {
+            Option option = Option.create(1L, "옵션", Money.of(0L), 100);
+
+            assertThat(option.isDeleted()).isFalse();
+        }
+
+        @Test
+        @DisplayName("삭제하면 deleted가 true가 된다")
+        void deleteOption() {
+            Option option = Option.create(1L, "옵션", Money.of(0L), 100);
+
+            option.delete();
+
+            assertThat(option.isDeleted()).isTrue();
+        }
+
+        @Test
+        @DisplayName("복원하면 deleted가 false가 된다")
+        void restoreOption() {
+            Option option = Option.create(1L, "옵션", Money.of(0L), 100);
+            option.delete();
+
+            option.restore();
+
+            assertThat(option.isDeleted()).isFalse();
+        }
+    }
 }

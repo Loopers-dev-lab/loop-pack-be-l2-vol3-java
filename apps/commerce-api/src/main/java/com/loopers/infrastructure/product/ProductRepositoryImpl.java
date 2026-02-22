@@ -31,20 +31,20 @@ public class ProductRepositoryImpl implements ProductRepository {
 
     @Override
     public Optional<Product> findById(Long id) {
-        return productJpaRepository.findById(id)
+        return productJpaRepository.findByIdAndDeletedFalse(id)
                 .map(ProductJpaEntity::toDomain);
     }
 
     @Override
     public List<Product> findAll(ProductSortCondition condition) {
         if (condition == null) {
-            return productJpaRepository.findAll().stream()
+            return productJpaRepository.findByDeletedFalse(Sort.unsorted()).stream()
                     .map(ProductJpaEntity::toDomain)
                     .toList();
         }
 
         if (condition == ProductSortCondition.LIKES_DESC) {
-            return productJpaRepository.findAllOrderByLikesDesc().stream()
+            return productJpaRepository.findAllOrderByLikesDescAndDeletedFalse().stream()
                     .map(ProductJpaEntity::toDomain)
                     .toList();
         }
@@ -55,23 +55,15 @@ public class ProductRepositoryImpl implements ProductRepository {
             default -> Sort.by(Sort.Direction.DESC, "createdAt");
         };
 
-        return productJpaRepository.findAll(sort).stream()
+        return productJpaRepository.findByDeletedFalse(sort).stream()
                 .map(ProductJpaEntity::toDomain)
                 .toList();
     }
 
     @Override
     public List<Product> findByBrandId(Long brandId) {
-        return productJpaRepository.findByBrandId(brandId).stream()
+        return productJpaRepository.findByBrandIdAndDeletedFalse(brandId).stream()
                 .map(ProductJpaEntity::toDomain)
                 .toList();
-    }
-
-    @Override
-    public void deleteByBrandId(Long brandId) {
-        List<ProductJpaEntity> products = productJpaRepository.findByBrandId(brandId);
-        for (ProductJpaEntity product : products) {
-            product.delete();
-        }
     }
 }
