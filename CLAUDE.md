@@ -122,3 +122,12 @@
 - Testcontainers 기반 통합 테스트
 - QueryDSL을 통한 타입 안전 쿼리
 - Spring Cloud 기반 확장 가능한 구조
+
+## SKILLS
+
+작업 시작 전 관련 스킬 파일을 반드시 읽고 따를 것:
+
+### 요구사항 분석
+- 파일: `.claude/skills/requirements-analysis/SKILL.md`
+- 요구사항 분석, 설계 문서 작성 요청 시 해당 파일을 Read 도구로 읽고 지침을 따를 것
+- 시퀀스 다이어그램, 클래스 다이어그램, ERD 작성 시 Mermaid 문법 사용
