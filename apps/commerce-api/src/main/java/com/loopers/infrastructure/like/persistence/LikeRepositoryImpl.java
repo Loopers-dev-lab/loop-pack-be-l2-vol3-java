@@ -46,6 +46,11 @@ public class LikeRepositoryImpl implements LikeRepository {
     }
 
     @Override
+    public void deleteAllByProductId(Long productId) {
+        likeJpaRepository.deleteAllByProductId(productId);
+    }
+
+    @Override
     public Map<Long, Long> countByProductIdIn(List<Long> productIds) {
         return likeJpaRepository.countByProductIdIn(productIds).stream()
                 .collect(Collectors.toMap(

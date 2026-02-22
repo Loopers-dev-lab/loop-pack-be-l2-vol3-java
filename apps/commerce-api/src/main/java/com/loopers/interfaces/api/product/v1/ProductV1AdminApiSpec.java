@@ -28,4 +28,10 @@ public interface ProductV1AdminApiSpec {
             int page,
             int size
     );
+
+    @Operation(
+            summary = "상품 삭제",
+            description = "상품을 삭제합니다. 해당 상품에 등록된 좋아요도 함께 삭제됩니다."
+    )
+    ApiResponse<Object> deleteProduct(Long productId);
 }

@@ -52,4 +52,26 @@ public class ProductSteps {
                 responseType
         );
     }
+
+    public static ResponseEntity<ApiResponse<Object>> deleteProduct(
+            TestRestTemplate testRestTemplate,
+            Long productId,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                PRODUCT_ADMIN_ENDPOINT + "/" + productId,
+                HttpMethod.DELETE,
+                new HttpEntity<>(headers),
+                responseType
+        );
+    }
+
+    public static ResponseEntity<ApiResponse<Object>> deleteProduct(
+            TestRestTemplate testRestTemplate,
+            Long productId
+    ) {
+        return deleteProduct(testRestTemplate, productId, adminAuthHeaders());
+    }
 }

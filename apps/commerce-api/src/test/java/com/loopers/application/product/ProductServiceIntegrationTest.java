@@ -12,8 +12,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import com.loopers.application.brand.BrandService;
+import com.loopers.application.like.LikeService;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.infrastructure.like.persistence.LikeJpaRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.support.page.PageSize;
@@ -33,6 +35,12 @@ class ProductServiceIntegrationTest {
 
     @Autowired
     private BrandRepository brandRepository;
+
+    @Autowired
+    private LikeService likeService;
+
+    @Autowired
+    private LikeJpaRepository likeJpaRepository;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -245,5 +253,59 @@ class ProductServiceIntegrationTest {
                     () -> assertThat(products.hasNext()).isTrue()
             );
         }
+    }
+
+    @DisplayName("상품을 삭제할 때,")
+    @Nested
+    class DeleteProduct {
+
+        @DisplayName("유효한 상품이면, 상품이 삭제되고 좋아요도 함께 삭제된다.")
+        @Test
+        void deletesProductAndAssociatedLikes_whenProductExists() {
+            // arrange
+            var productId = createProduct();
+            var userId = 1L;
+            likeService.likeProduct(userId, productId);
+
+            // act
+            productService.deleteProduct(productId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(productRepository.findById(productId).orElseThrow().getDeletedAt()).isNotNull(),
+                    () -> assertThat(likeJpaRepository.existsByUserIdAndProductId(userId, productId)).isFalse()
+            );
+        }
+
+        @DisplayName("존재하지 않는 상품이면, PRODUCT_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenProductNotFound() {
+            // act & assert
+            assertThatThrownBy(() -> productService.deleteProduct(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
+        }
+
+        @DisplayName("이미 삭제된 상품이면, ALREADY_DELETED_PRODUCT 예외가 발생한다.")
+        @Test
+        void throwsException_whenProductIsAlreadyDeleted() {
+            // arrange
+            var productId = createProduct();
+            productService.deleteProduct(productId);
+
+            // act & assert
+            assertThatThrownBy(() -> productService.deleteProduct(productId))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_DELETED_PRODUCT));
+        }
+
+    }
+
+    private Long createProduct() {
+        var brandResult = brandService.createBrand("브랜드명", "https://example.com/logo.png", "브랜드 설명");
+        var command = new ProductCommand.CreateProductCommand(
+                brandResult.id(), "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"
+        );
+        return productService.createProduct(command);
     }
 }

@@ -19,6 +19,8 @@ public interface LikeRepository {
 
     void delete(Like like);
 
+    void deleteAllByProductId(Long productId);
+
     /**
      * 주어진 상품 ID 목록에 대해 상품별 좋아요 수를 조회한다.
      *

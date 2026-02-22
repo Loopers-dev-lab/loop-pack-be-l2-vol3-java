@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,6 +19,10 @@ public interface LikeJpaRepository extends JpaRepository<Like, Long> {
     Slice<Like> findAllByUserId(Long userId, Pageable pageable);
 
     boolean existsByUserIdAndProductId(Long userId, Long productId);
+
+    @Modifying
+    @Query("DELETE FROM Like l WHERE l.productId = :productId")
+    void deleteAllByProductId(@Param("productId") Long productId);
 
     @Query("SELECT l.productId, COUNT(l) FROM Like l WHERE l.productId IN :productIds GROUP BY l.productId")
     List<Object[]> countByProductIdIn(@Param("productIds") List<Long> productIds);

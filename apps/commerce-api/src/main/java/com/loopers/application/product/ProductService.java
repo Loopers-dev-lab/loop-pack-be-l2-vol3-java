@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
@@ -21,6 +22,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
+    private final LikeRepository likeRepository;
 
     @Transactional
     public Long createProduct(ProductCommand.CreateProductCommand command) {
@@ -62,5 +64,16 @@ public class ProductService {
                         .toList(),
                 products.hasNext()
         );
+    }
+
+    @Transactional
+    public void deleteProduct(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+        if (product.isDeleted()) {
+            throw new CoreException(ErrorType.ALREADY_DELETED_PRODUCT);
+        }
+        likeRepository.deleteAllByProductId(productId);
+        product.delete();
     }
 }

@@ -70,4 +70,11 @@ public abstract class BaseEntity {
             this.deletedAt = null;
         }
     }
+
+    /**
+     * 엔티티가 삭제되었는지 여부를 반환한다. deletedAt이 null이 아니면 삭제된 것으로 간주한다.
+     */
+    public boolean isDeleted() {
+        return this.deletedAt != null;
+    }
 }

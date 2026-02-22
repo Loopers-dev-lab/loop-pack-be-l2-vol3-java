@@ -50,6 +50,7 @@ public enum ErrorType {
     REQUIRED_PRODUCT_STOCK(HttpStatus.BAD_REQUEST, "REQUIRED_PRODUCT_STOCK", "상품 재고는 필수 값입니다."),
     INVALID_STOCK(HttpStatus.BAD_REQUEST, "INVALID_STOCK", "재고는 1 이상이어야 합니다."),
     INVALID_PRODUCT_NAME(HttpStatus.BAD_REQUEST, "INVALID_PRODUCT_NAME", "상품 이름은 2자 이상 100자 이하이어야 합니다."),
+    ALREADY_DELETED_PRODUCT(HttpStatus.BAD_REQUEST, "ALREADY_DELETED_PRODUCT", "이미 삭제된 상품입니다."),
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", "상품을 찾을 수 없습니다."),
 
     /** Like 도메인 에러 */

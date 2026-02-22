@@ -1,9 +1,13 @@
 package com.loopers.interfaces.api.product.v1;
 
 import static com.loopers.interfaces.api.brand.v1.BrandSteps.createBrand;
+import static com.loopers.interfaces.api.like.v1.LikeSteps.likeProduct;
 import static com.loopers.interfaces.api.product.v1.ProductSteps.createProduct;
+import static com.loopers.interfaces.api.product.v1.ProductSteps.deleteProduct;
+import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
 import static com.loopers.support.E2ETestHelper.adminAuthHeaders;
 import static com.loopers.support.E2ETestHelper.assertErrorResponse;
+import static com.loopers.support.E2ETestHelper.userAuthHeaders;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -19,8 +23,12 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.like.LikeRepository;
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductRepository;
 import com.loopers.interfaces.api.brand.v1.BrandDto;
 import com.loopers.interfaces.api.product.v1.ProductDto.ProductResponse;
+import com.loopers.interfaces.api.user.v1.UserV1Dto;
 import com.loopers.support.BaseE2ETest;
 import com.loopers.support.error.ErrorType;
 
@@ -30,6 +38,12 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
 
     @Autowired
     private BrandRepository brandRepository;
+
+    @Autowired
+    private ProductRepository productRepository;
+
+    @Autowired
+    private LikeRepository likeRepository;
 
     @DisplayName("POST /api-admin/v1/products")
     @Nested
@@ -401,6 +415,86 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
                     () -> assertThat(response.getBody()).isNotNull(),
                     () -> assertThat(response.getBody().data().content()).hasSize(1)
             );
+        }
+    }
+
+    @DisplayName("DELETE /api-admin/v1/products/{productId}")
+    @Nested
+    class DeleteProduct {
+
+        @DisplayName("유효한 상품을 삭제하면, 200 성공 응답을 받는다.")
+        @Test
+        void returnsSuccess_whenProductExists() {
+            // arrange
+            var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"))
+                    .getBody().data().productId();
+
+            // act
+            var response = deleteProduct(testRestTemplate, productId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isNull()
+            );
+
+            Product deletedProduct = productRepository.findById(productId).orElseThrow();
+            assertThat(deletedProduct.getDeletedAt()).isNotNull();
+        }
+
+        @DisplayName("존재하지 않는 상품을 삭제하면, PRODUCT_NOT_FOUND 에러 응답을 받는다.")
+        @Test
+        void returnsProductNotFound_whenProductDoesNotExist() {
+            // act
+            var response = deleteProduct(testRestTemplate, 999L);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.PRODUCT_NOT_FOUND);
+        }
+
+        @DisplayName("이미 삭제된 상품을 삭제하면, ALREADY_DELETED_PRODUCT 에러 응답을 받는다.")
+        @Test
+        void returnsAlreadyDeleted_whenProductIsAlreadyDeleted() {
+            // arrange
+            var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"))
+                    .getBody().data().productId();
+            deleteProduct(testRestTemplate, productId);
+
+            // act
+            var response = deleteProduct(testRestTemplate, productId);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_DELETED_PRODUCT);
+        }
+
+        @DisplayName("좋아요가 있는 상품을 삭제하면, 좋아요도 함께 삭제된다.")
+        @Test
+        void deletesLikesWithProduct_whenProductHasLikes() {
+            // arrange
+            var signUpRequest = new UserV1Dto.SignUpRequest("testuser1", "Password1!", "홍길동", "1990-01-15", "test@example.com");
+            signUp(testRestTemplate, signUpRequest);
+            var userHeaders = userAuthHeaders(signUpRequest.loginId(), signUpRequest.password());
+
+            var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"))
+                    .getBody().data().productId();
+
+            likeProduct(testRestTemplate, productId, userHeaders);
+
+            // act
+            var response = deleteProduct(testRestTemplate, productId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isNull()
+            );
+
+            assertThat(likeRepository.existsByUserIdAndProductId(1L, productId)).isFalse();
         }
     }
 }
