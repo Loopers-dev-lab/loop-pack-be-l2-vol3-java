@@ -5,8 +5,11 @@ import com.loopers.application.like.LikeAppService;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.common.Money;
 import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductSortCondition;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -27,6 +30,19 @@ public class ProductFacade {
         boolean likedByUser = userId != null && likeAppService.isLikedByUser(userId, productId);
 
         return ProductInfo.of(product, brand, likeCount, likedByUser);
+    }
+
+    public List<ProductInfo> getProductList(ProductSortCondition condition, Long userId) {
+        List<Product> products = productAppService.getProducts(condition);
+
+        return products.stream()
+                .map(product -> {
+                    Brand brand = brandAppService.getById(product.getBrandId());
+                    long likeCount = likeAppService.countByProductId(product.getId());
+                    boolean likedByUser = userId != null && likeAppService.isLikedByUser(userId, product.getId());
+                    return ProductInfo.of(product, brand, likeCount, likedByUser);
+                })
+                .toList();
     }
 
     public void likeProduct(Long userId, Long productId) {
