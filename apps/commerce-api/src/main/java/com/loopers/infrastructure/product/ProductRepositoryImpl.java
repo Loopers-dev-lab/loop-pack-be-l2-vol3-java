@@ -141,6 +141,11 @@ public class ProductRepositoryImpl implements ProductRepository {
                 .fetch();
     }
 
+    @Override
+    public List<Product> findAllByIdIn(List<Long> ids) {
+        return productJpaRepository.findAllById(ids);
+    }
+
     /** brandId가 null이면 필터 미적용 */
     private BooleanExpression brandIdEq(QProduct product, Long brandId) {
         return brandId != null ? product.brandId.eq(brandId) : null;

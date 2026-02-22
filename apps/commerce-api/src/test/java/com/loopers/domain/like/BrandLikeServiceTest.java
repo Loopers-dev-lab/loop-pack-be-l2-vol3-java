@@ -1,5 +1,7 @@
 package com.loopers.domain.like;
 
+import com.loopers.domain.brand.Brand;
+import com.loopers.domain.brand.BrandService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.LikeErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,12 +25,14 @@ import static org.mockito.Mockito.when;
 class BrandLikeServiceTest {
 
     private BrandLikeRepository brandLikeRepository;
+    private BrandService brandService;
     private BrandLikeService brandLikeService;
 
     @BeforeEach
     void setUp() {
         brandLikeRepository = Mockito.mock(BrandLikeRepository.class);
-        brandLikeService = new BrandLikeService(brandLikeRepository);
+        brandService = Mockito.mock(BrandService.class);
+        brandLikeService = new BrandLikeService(brandLikeRepository, brandService);
     }
 
     @DisplayName("좋아요를 생성할 때,")
@@ -36,8 +40,21 @@ class BrandLikeServiceTest {
     class 생성 {
 
         @Test
+        void 비활성_브랜드면_예외가_발생한다() {
+            // arrange
+            when(brandService.getActiveBrand(100L))
+                    .thenThrow(new CoreException(com.loopers.support.error.BrandErrorType.BRAND_NOT_FOUND));
+
+            // act & assert
+            assertThatThrownBy(() -> brandLikeService.like(1L, 100L))
+                    .isInstanceOf(CoreException.class);
+        }
+
+        @Test
         void 이미_좋아요한_브랜드면_예외가_발생한다() {
             // arrange
+            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            when(brandService.getActiveBrand(100L)).thenReturn(brand);
             when(brandLikeRepository.existsByUserIdAndBrandId(1L, 100L)).thenReturn(true);
 
             // act & assert
@@ -50,6 +67,8 @@ class BrandLikeServiceTest {
         @Test
         void 이미_좋아요_시_save가_호출되지_않는다() {
             // arrange
+            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            when(brandService.getActiveBrand(100L)).thenReturn(brand);
             when(brandLikeRepository.existsByUserIdAndBrandId(1L, 100L)).thenReturn(true);
 
             // act
@@ -62,6 +81,8 @@ class BrandLikeServiceTest {
         @Test
         void 좋아요가_없으면_정상적으로_생성된다() {
             // arrange
+            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            when(brandService.getActiveBrand(100L)).thenReturn(brand);
             when(brandLikeRepository.existsByUserIdAndBrandId(1L, 100L)).thenReturn(false);
             when(brandLikeRepository.save(any(BrandLike.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -77,6 +98,8 @@ class BrandLikeServiceTest {
         @Test
         void 생성_시_save가_호출된다() {
             // arrange
+            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            when(brandService.getActiveBrand(100L)).thenReturn(brand);
             when(brandLikeRepository.existsByUserIdAndBrandId(1L, 100L)).thenReturn(false);
             when(brandLikeRepository.save(any(BrandLike.class))).thenAnswer(invocation -> invocation.getArgument(0));
 

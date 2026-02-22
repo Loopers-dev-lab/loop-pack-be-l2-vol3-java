@@ -7,10 +7,13 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.ZonedDateTime;
 
 @Entity
-@Table(name = "product_likes")
+@Table(name = "product_likes", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_product_likes", columnNames = {"user_id", "product_id"})
+})
 public class ProductLike {
 
     @Id

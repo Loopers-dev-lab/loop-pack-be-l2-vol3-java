@@ -1,5 +1,7 @@
 package com.loopers.domain.like;
 
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.LikeErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,12 +25,14 @@ import static org.mockito.Mockito.when;
 class LikeServiceTest {
 
     private ProductLikeRepository productLikeRepository;
+    private ProductService productService;
     private LikeService likeService;
 
     @BeforeEach
     void setUp() {
         productLikeRepository = Mockito.mock(ProductLikeRepository.class);
-        likeService = new LikeService(productLikeRepository);
+        productService = Mockito.mock(ProductService.class);
+        likeService = new LikeService(productLikeRepository, productService);
     }
 
     @DisplayName("좋아요를 생성할 때,")
@@ -36,8 +40,21 @@ class LikeServiceTest {
     class 생성 {
 
         @Test
+        void 상품이_존재하지_않으면_예외가_발생한다() {
+            // arrange
+            when(productService.getDisplayableProduct(100L))
+                    .thenThrow(new CoreException(com.loopers.support.error.ProductErrorType.PRODUCT_NOT_FOUND));
+
+            // act & assert
+            assertThatThrownBy(() -> likeService.like(1L, 100L))
+                    .isInstanceOf(CoreException.class);
+        }
+
+        @Test
         void 이미_좋아요한_상품이면_예외가_발생한다() {
             // arrange
+            Product product = Product.create(1L, "상품", "설명", 10000);
+            when(productService.getDisplayableProduct(100L)).thenReturn(product);
             when(productLikeRepository.existsByUserIdAndProductId(1L, 100L)).thenReturn(true);
 
             // act & assert
@@ -50,6 +67,8 @@ class LikeServiceTest {
         @Test
         void 이미_좋아요_시_save가_호출되지_않는다() {
             // arrange
+            Product product = Product.create(1L, "상품", "설명", 10000);
+            when(productService.getDisplayableProduct(100L)).thenReturn(product);
             when(productLikeRepository.existsByUserIdAndProductId(1L, 100L)).thenReturn(true);
 
             // act
@@ -60,23 +79,25 @@ class LikeServiceTest {
         }
 
         @Test
-        void 좋아요가_없으면_정상적으로_생성된다() {
+        void 좋아요가_없으면_정상적으로_생성되고_likeCount를_반환한다() {
             // arrange
+            Product product = Product.create(1L, "상품", "설명", 10000);
+            when(productService.getDisplayableProduct(100L)).thenReturn(product);
             when(productLikeRepository.existsByUserIdAndProductId(1L, 100L)).thenReturn(false);
             when(productLikeRepository.save(any(ProductLike.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // act
-            ProductLike result = likeService.like(1L, 100L);
+            int likeCount = likeService.like(1L, 100L);
 
             // assert
-            assertThat(result)
-                    .extracting(ProductLike::getUserId, ProductLike::getProductId)
-                    .containsExactly(1L, 100L);
+            assertThat(likeCount).isEqualTo(1);
         }
 
         @Test
         void 생성_시_save가_호출된다() {
             // arrange
+            Product product = Product.create(1L, "상품", "설명", 10000);
+            when(productService.getDisplayableProduct(100L)).thenReturn(product);
             when(productLikeRepository.existsByUserIdAndProductId(1L, 100L)).thenReturn(false);
             when(productLikeRepository.save(any(ProductLike.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -105,16 +126,20 @@ class LikeServiceTest {
         }
 
         @Test
-        void 좋아요가_존재하면_delete가_호출된다() {
+        void 좋아요가_존재하면_delete가_호출되고_likeCount를_반환한다() {
             // arrange
             ProductLike productLike = ProductLike.create(1L, 100L);
             when(productLikeRepository.findByUserIdAndProductId(1L, 100L)).thenReturn(Optional.of(productLike));
+            Product product = Product.create(1L, "상품", "설명", 10000);
+            product.incrementLikeCount();
+            when(productService.getById(100L)).thenReturn(product);
 
             // act
-            likeService.unlike(1L, 100L);
+            int likeCount = likeService.unlike(1L, 100L);
 
             // assert
             verify(productLikeRepository).delete(productLike);
+            assertThat(likeCount).isZero();
         }
     }
 }

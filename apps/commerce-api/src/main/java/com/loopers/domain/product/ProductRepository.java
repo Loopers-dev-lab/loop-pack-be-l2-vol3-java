@@ -26,4 +26,7 @@ public interface ProductRepository {
 
     /** BrandAdminFacade용: 브랜드별 전체 상품 조회 (삭제 제외) */
     List<Product> findAllByBrandId(Long brandId);
+
+    /** 좋아요 목록용: ID 목록으로 상품 조회 */
+    List<Product> findAllByIdIn(List<Long> ids);
 }

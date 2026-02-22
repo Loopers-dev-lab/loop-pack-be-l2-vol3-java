@@ -47,6 +47,11 @@ public class BrandRepositoryImpl implements BrandRepository {
     }
 
     @Override
+    public List<Brand> findAllByIdIn(List<Long> ids) {
+        return this.brandJpaRepository.findAllById(ids);
+    }
+
+    @Override
     public List<Brand> findAllActive() {
         return this.brandJpaRepository.findAllByStatusAndDeletedAtIsNull(BrandStatus.ACTIVE);
     }

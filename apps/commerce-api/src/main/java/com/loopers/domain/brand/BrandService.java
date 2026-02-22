@@ -89,6 +89,12 @@ public class BrandService {
         return this.brandRepository.count();
     }
 
+    /** ID 목록으로 브랜드 조회 (좋아요 목록용) */
+    @Transactional(readOnly = true)
+    public List<Brand> getBrandsByIds(List<Long> ids) {
+        return this.brandRepository.findAllByIdIn(ids);
+    }
+
     /** 브랜드 상태 변경 (ACTIVE ↔ INACTIVE) */
     @Transactional
     public Brand changeStatus(Long id, BrandStatus status) {

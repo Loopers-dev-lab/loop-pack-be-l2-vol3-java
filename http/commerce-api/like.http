@@ -1,0 +1,35 @@
+### ========== 상품 좋아요 API ==========
+
+### 상품 좋아요 등록
+POST http://localhost:8080/api/v1/products/1/likes
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@
+
+### 상품 좋아요 취소
+DELETE http://localhost:8080/api/v1/products/1/likes
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@
+
+### ========== 브랜드 좋아요 API ==========
+
+### 브랜드 좋아요 등록
+POST http://localhost:8080/api/v1/brands/1/likes
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@
+
+### 브랜드 좋아요 취소
+DELETE http://localhost:8080/api/v1/brands/1/likes
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@
+
+### ========== 내 좋아요 목록 API ==========
+
+### 내가 좋아요한 상품 목록 (userId는 본인 ID로 변경)
+GET http://localhost:8080/api/v1/users/1/likes?page=0&size=20
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@
+
+### 내가 좋아요한 브랜드 목록
+GET http://localhost:8080/api/v1/users/me/brand-likes?page=0&size=20
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@

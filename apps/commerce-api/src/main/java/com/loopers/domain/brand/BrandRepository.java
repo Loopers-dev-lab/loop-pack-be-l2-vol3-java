@@ -15,4 +15,7 @@ public interface BrandRepository {
     List<Brand> findAll(int page, int size);
     long count();
     List<Brand> findAllActive();
+
+    /** 좋아요 목록용: ID 목록으로 브랜드 조회 */
+    List<Brand> findAllByIdIn(List<Long> ids);
 }

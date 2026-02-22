@@ -114,6 +114,12 @@ public class ProductService {
         return productRepository.findAllByBrandId(brandId);
     }
 
+    /** ID 목록으로 상품 조회 (좋아요 목록용) */
+    @Transactional(readOnly = true)
+    public List<Product> getProductsByIds(List<Long> ids) {
+        return productRepository.findAllByIdIn(ids);
+    }
+
     @Transactional
     public void incrementLikeCount(Long id) {
         Product product = getById(id);
