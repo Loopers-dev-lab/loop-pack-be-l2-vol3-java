@@ -59,6 +59,36 @@ class PointServiceTest {
         }
     }
 
+    @DisplayName("포인트 계정을 조회할 때,")
+    @Nested
+    class 조회 {
+
+        @Test
+        void 존재하지_않는_계정이면_예외가_발생한다() {
+            // arrange
+            when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.empty());
+
+            // act & assert
+            assertThatThrownBy(() -> pointService.getAccount(1L))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(PointErrorType.ACCOUNT_NOT_FOUND);
+        }
+
+        @Test
+        void 존재하는_계정이면_반환한다() {
+            // arrange
+            PointAccount account = PointAccount.create(1L);
+            when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
+
+            // act
+            PointAccount result = pointService.getAccount(1L);
+
+            // assert
+            assertThat(result.getUserId()).isEqualTo(1L);
+        }
+    }
+
     @DisplayName("포인트를 사용할 때,")
     @Nested
     class 사용 {

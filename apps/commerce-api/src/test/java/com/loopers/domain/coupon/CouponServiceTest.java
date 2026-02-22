@@ -11,12 +11,12 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -175,6 +175,54 @@ class CouponServiceTest {
 
             // assert
             assertThat(coupon.getStatus()).isEqualTo(IssuedCouponStatus.USED);
+        }
+    }
+
+    @DisplayName("내 쿠폰을 조회할 때,")
+    @Nested
+    class 내_쿠폰_조회 {
+
+        @Test
+        void 사용자의_쿠폰_목록을_반환한다() {
+            // arrange
+            IssuedCoupon coupon = IssuedCoupon.create(1L, 1L);
+            when(issuedCouponRepository.findAllByUserId(1L)).thenReturn(List.of(coupon));
+
+            // act
+            List<IssuedCoupon> result = couponService.getUserCoupons(1L);
+
+            // assert
+            assertThat(result).hasSize(1);
+        }
+    }
+
+    @DisplayName("쿠폰 템플릿을 조회할 때,")
+    @Nested
+    class 템플릿_조회 {
+
+        @Test
+        void 존재하지_않으면_예외가_발생한다() {
+            // arrange
+            when(couponTemplateRepository.findById(1L)).thenReturn(Optional.empty());
+
+            // act & assert
+            assertThatThrownBy(() -> couponService.getTemplate(1L))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(CouponErrorType.TEMPLATE_NOT_FOUND);
+        }
+
+        @Test
+        void 존재하면_반환한다() {
+            // arrange
+            CouponTemplate template = createActiveTemplate();
+            when(couponTemplateRepository.findById(1L)).thenReturn(Optional.of(template));
+
+            // act
+            CouponTemplate result = couponService.getTemplate(1L);
+
+            // assert
+            assertThat(result.getName()).isEqualTo("신규 가입 쿠폰");
         }
     }
 }
