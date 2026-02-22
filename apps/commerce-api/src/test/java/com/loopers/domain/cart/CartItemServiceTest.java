@@ -1,5 +1,8 @@
 package com.loopers.domain.cart;
 
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ProductStatus;
 import com.loopers.support.error.CartItemErrorType;
 import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,6 +13,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,12 +26,22 @@ import static org.mockito.Mockito.when;
 class CartItemServiceTest {
 
     private CartItemRepository cartItemRepository;
+    private ProductService productService;
     private CartItemService cartItemService;
 
     @BeforeEach
     void setUp() {
         cartItemRepository = Mockito.mock(CartItemRepository.class);
-        cartItemService = new CartItemService(cartItemRepository);
+        productService = Mockito.mock(ProductService.class);
+        cartItemService = new CartItemService(cartItemRepository, productService);
+    }
+
+    private Product createProduct(ProductStatus status) {
+        Product product = Product.create(1L, "테스트 상품", "설명", 10000);
+        if (status != ProductStatus.ACTIVE) {
+            product.changeStatus(status);
+        }
+        return product;
     }
 
     @DisplayName("장바구니에 추가할 때,")
@@ -37,6 +51,8 @@ class CartItemServiceTest {
         @Test
         void 이미_존재하는_상품이면_수량이_합산된다() {
             // arrange
+            Product product = createProduct(ProductStatus.ACTIVE);
+            when(productService.getDisplayableProduct(100L)).thenReturn(product);
             CartItem existing = CartItem.create(1L, 100L, 3);
             when(cartItemRepository.findByUserIdAndProductId(1L, 100L)).thenReturn(Optional.of(existing));
 
@@ -50,6 +66,8 @@ class CartItemServiceTest {
         @Test
         void 새로운_상품이면_새_CartItem이_생성된다() {
             // arrange
+            Product product = createProduct(ProductStatus.ACTIVE);
+            when(productService.getDisplayableProduct(100L)).thenReturn(product);
             when(cartItemRepository.findByUserIdAndProductId(1L, 100L)).thenReturn(Optional.empty());
             when(cartItemRepository.save(any(CartItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -65,6 +83,8 @@ class CartItemServiceTest {
         @Test
         void 생성_시_save가_호출된다() {
             // arrange
+            Product product = createProduct(ProductStatus.ACTIVE);
+            when(productService.getDisplayableProduct(100L)).thenReturn(product);
             when(cartItemRepository.findByUserIdAndProductId(1L, 100L)).thenReturn(Optional.empty());
             when(cartItemRepository.save(any(CartItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -73,6 +93,19 @@ class CartItemServiceTest {
 
             // assert
             verify(cartItemRepository).save(any(CartItem.class));
+        }
+
+        @Test
+        void 판매_불가능한_상품이면_예외가_발생한다() {
+            // arrange
+            Product product = createProduct(ProductStatus.SOLDOUT);
+            when(productService.getDisplayableProduct(100L)).thenReturn(product);
+
+            // act & assert
+            assertThatThrownBy(() -> cartItemService.addToCart(1L, 100L, 1))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(CartItemErrorType.NOT_PURCHASABLE);
         }
     }
 
@@ -149,7 +182,7 @@ class CartItemServiceTest {
         }
 
         @Test
-        void 유효한_요청이면_delete가_호출된다() {
+        void 유효한_요청이면_소프트_삭제된다() {
             // arrange
             CartItem cartItem = CartItem.create(1L, 100L, 3);
             when(cartItemRepository.findById(1L)).thenReturn(Optional.of(cartItem));
@@ -158,7 +191,40 @@ class CartItemServiceTest {
             cartItemService.delete(1L, 1L);
 
             // assert
-            verify(cartItemRepository).delete(cartItem);
+            assertThat(cartItem.getDeletedAt()).isNotNull();
+        }
+    }
+
+    @DisplayName("장바구니 목록을 조회할 때,")
+    @Nested
+    class 목록조회 {
+
+        @Test
+        void 사용자의_장바구니_항목이_반환된다() {
+            // arrange
+            List<CartItem> items = List.of(
+                    CartItem.create(1L, 100L, 2),
+                    CartItem.create(1L, 200L, 1)
+            );
+            when(cartItemRepository.findAllByUserId(1L)).thenReturn(items);
+
+            // act
+            List<CartItem> result = cartItemService.getCartItems(1L);
+
+            // assert
+            assertThat(result).hasSize(2);
+        }
+
+        @Test
+        void 장바구니가_비어있으면_빈_리스트가_반환된다() {
+            // arrange
+            when(cartItemRepository.findAllByUserId(1L)).thenReturn(List.of());
+
+            // act
+            List<CartItem> result = cartItemService.getCartItems(1L);
+
+            // assert
+            assertThat(result).isEmpty();
         }
     }
 }

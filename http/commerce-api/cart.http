@@ -1,0 +1,32 @@
+### ========== 장바구니 API ==========
+
+### 장바구니 조회
+GET http://localhost:8080/api/v1/carts
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@
+
+### 장바구니 상품 추가
+POST http://localhost:8080/api/v1/carts/items
+Content-Type: application/json
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@
+
+{
+  "productId": 1,
+  "quantity": 2
+}
+
+### 장바구니 수량 변경
+PUT http://localhost:8080/api/v1/carts/items/1
+Content-Type: application/json
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@
+
+{
+  "quantity": 5
+}
+
+### 장바구니 상품 삭제
+DELETE http://localhost:8080/api/v1/carts/items/1
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@

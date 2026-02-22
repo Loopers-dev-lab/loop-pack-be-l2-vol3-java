@@ -5,6 +5,7 @@ import com.loopers.support.error.InventoryErrorType;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -66,6 +67,12 @@ public class InventoryService {
                     .orElseThrow(() -> new CoreException(InventoryErrorType.INVENTORY_NOT_FOUND));
             inventory.release(entry.getValue());
         }
+    }
+
+    /** 상품 ID 목록으로 재고 일괄 조회 (장바구니 조회용) */
+    @Transactional(readOnly = true)
+    public List<Inventory> getByProductIds(List<Long> productIds) {
+        return inventoryRepository.findAllByProductIdIn(productIds);
     }
 
     /** 재고 소프트 삭제 (상품 삭제 시 연쇄) */
