@@ -37,12 +37,16 @@ public class ProductRepositoryImpl implements ProductRepository {
 
     @Override
     public List<Product> findAll(ProductSortCondition condition) {
+        if (condition == ProductSortCondition.LIKES_DESC) {
+            return productJpaRepository.findAllOrderByLikesDesc().stream()
+                    .map(ProductJpaEntity::toDomain)
+                    .toList();
+        }
+
         Sort sort = switch (condition) {
             case LATEST -> Sort.by(Sort.Direction.DESC, "createdAt");
             case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price.amount");
-            // TODO: QueryDSL 또는 별도 Read Model을 이용한 조회 최적화 예정
-            // LIKES_DESC는 Like 테이블과 조인이 필요하여 현재는 LATEST로 대체
-            case LIKES_DESC -> Sort.by(Sort.Direction.DESC, "createdAt");
+            default -> Sort.by(Sort.Direction.DESC, "createdAt");
         };
 
         return productJpaRepository.findAll(sort).stream()
