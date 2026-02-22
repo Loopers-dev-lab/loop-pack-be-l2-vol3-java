@@ -55,4 +55,35 @@ class ProductTest {
                     .hasMessageContaining(ErrorType.REQUIRED_BRAND_ID.getMessage());
         }
     }
+
+    @DisplayName("상품 정보를 수정할 때,")
+    @Nested
+    class Update {
+
+        @DisplayName("유효한 정보이면, 정상 수정된다.")
+        @ParameterizedTest(name = "description={0}")
+        @NullSource
+        @ValueSource(strings = {"수정된 설명"})
+        void success(String description) {
+            // arrange
+            var product = Product.create(1L, "상품명", "http://example.com/thumbnail.jpg", 10000L, 50L, "상품 설명");
+            var newName = "수정된 상품명";
+            var newThumbnailUrl = "http://example.com/new-thumbnail.jpg";
+            var newPrice = 20000L;
+            var newStock = 100L;
+
+            // act
+            product.update(newName, newThumbnailUrl, newPrice, newStock, description);
+
+            // assert
+            assertAll(
+                    () -> assertThat(product.getBrandId()).isEqualTo(1L),
+                    () -> assertThat(product.getName()).isEqualTo(new ProductName(newName)),
+                    () -> assertThat(product.getThumbnailUrl()).isEqualTo(new ProductThumbnailUrl(newThumbnailUrl)),
+                    () -> assertThat(product.getPrice()).isEqualTo(Money.wons(newPrice)),
+                    () -> assertThat(product.getStock()).isEqualTo(new Stock(newStock)),
+                    () -> assertThat(product.getDescription()).isEqualTo(description)
+            );
+        }
+    }
 }

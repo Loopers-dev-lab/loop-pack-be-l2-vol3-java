@@ -24,6 +24,8 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
 
     boolean existsByIdAndDeletedAtIsNull(Long productId);
 
+    boolean existsByIdNotAndName_ValueAndDeletedAtIsNull(Long productId, String name);
+
     @Modifying
     @Query("UPDATE Product p SET p.deletedAt = :now WHERE p.brandId = :brandId AND p.deletedAt IS NULL")
     void softDeleteAllByBrandId(@Param("brandId") Long brandId, @Param("now") ZonedDateTime now);

@@ -11,4 +11,14 @@ public class ProductCommand {
             String description
     ) {
     }
+
+    public record UpdateProductCommand(
+            Long productId,
+            String name,
+            String thumbnailUrl,
+            Long price,
+            Long stock,
+            String description
+    ) {
+    }
 }

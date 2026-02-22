@@ -183,15 +183,6 @@ class ProductServiceIntegrationTest {
             );
         }
 
-        @DisplayName("존재하지 않는 브랜드 ID로 조회하면, BRAND_NOT_FOUND 예외가 발생한다.")
-        @Test
-        void throwsException_whenBrandNotFound() {
-            // act & assert
-            assertThatThrownBy(() -> productService.getProductsByBrandId(999L, new PageSize(0, 10)))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
-        }
-
         @DisplayName("생성일 내림차순으로 정렬된다.")
         @Test
         void returnsProductsSortedByCreatedAtDesc() {
@@ -252,6 +243,169 @@ class ProductServiceIntegrationTest {
                     () -> assertThat(products.content()).hasSize(2),
                     () -> assertThat(products.hasNext()).isTrue()
             );
+        }
+
+        @DisplayName("존재하지 않는 브랜드 ID로 조회하면, BRAND_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenBrandNotFound() {
+            // act & assert
+            assertThatThrownBy(() -> productService.getProductsByBrandId(999L, new PageSize(0, 10)))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
+        }
+    }
+
+    @DisplayName("상품 정보를 수정할 때,")
+    @Nested
+    class UpdateProduct {
+
+        @DisplayName("유효한 정보를 입력하면, 상품 정보가 수정된다.")
+        @Test
+        void updatesProduct_whenValidInputProvided() {
+            // arrange
+            var productId = createProduct();
+            var command = new ProductCommand.UpdateProductCommand(
+                    productId,
+                    "수정된 상품명",
+                    "https://example.com/new-thumb.png",
+                    20000L,
+                    200L,
+                    "수정된 설명"
+            );
+
+            // act
+            productService.updateProduct(command);
+
+            // assert
+            var updatedProduct = productRepository.findById(productId).orElseThrow();
+            assertAll(
+                    () -> assertThat(updatedProduct.getName().getValue()).isEqualTo("수정된 상품명"),
+                    () -> assertThat(updatedProduct.getThumbnailUrl().getValue()).isEqualTo("https://example.com/new-thumb.png"),
+                    () -> assertThat(updatedProduct.getPrice().getAmount()).isEqualTo(20000L),
+                    () -> assertThat(updatedProduct.getStock().getValue()).isEqualTo(200L),
+                    () -> assertThat(updatedProduct.getDescription()).isEqualTo("수정된 설명"),
+                    () -> assertThat(updatedProduct.getBrandId()).isNotNull()
+            );
+        }
+
+        @DisplayName("자기 자신의 이름과 동일하면, 정상 수정된다.")
+        @Test
+        void updatesProduct_whenSameNameAsSelf() {
+            // arrange
+            var productId = createProduct();
+            var command = new ProductCommand.UpdateProductCommand(
+                    productId,
+                    "상품명",
+                    "https://example.com/new-thumb.png",
+                    20000L,
+                    200L,
+                    "수정된 설명"
+            );
+
+            // act
+            productService.updateProduct(command);
+
+            // assert
+            var updatedProduct = productRepository.findById(productId).orElseThrow();
+            assertThat(updatedProduct.getThumbnailUrl().getValue()).isEqualTo("https://example.com/new-thumb.png");
+        }
+
+        @DisplayName("삭제된 상품과 동일한 이름으로 수정하면, 정상 수정된다.")
+        @Test
+        void updatesProduct_whenDeletedProductHasSameName() {
+            // arrange
+            var brandResult = brandService.createBrand("브랜드명", "https://example.com/logo.png", "브랜드 설명");
+            var deletedProductId = productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brandResult.id(), "삭제된 상품", "https://example.com/thumb1.png", 10000L, 100L, "설명"
+            ));
+            productService.deleteProduct(deletedProductId);
+
+            var targetProductId = productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brandResult.id(), "수정 대상", "https://example.com/thumb2.png", 20000L, 200L, "설명"
+            ));
+
+            var command = new ProductCommand.UpdateProductCommand(
+                    targetProductId,
+                    "삭제된 상품",
+                    "https://example.com/new-thumb.png",
+                    30000L,
+                    300L,
+                    "수정된 설명"
+            );
+
+            // act
+            productService.updateProduct(command);
+
+            // assert
+            var updatedProduct = productRepository.findById(targetProductId).orElseThrow();
+            assertThat(updatedProduct.getName().getValue()).isEqualTo("삭제된 상품");
+        }
+
+        @DisplayName("존재하지 않는 상품이면, PRODUCT_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenProductNotFound() {
+            // arrange
+            var command = new ProductCommand.UpdateProductCommand(
+                    999L,
+                    "상품명",
+                    "https://example.com/thumb.png",
+                    10000L,
+                    100L,
+                    "설명"
+            );
+
+            // act & assert
+            assertThatThrownBy(() -> productService.updateProduct(command))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
+        }
+
+        @DisplayName("삭제된 상품이면, ALREADY_DELETED_PRODUCT 예외가 발생한다.")
+        @Test
+        void throwsException_whenProductIsDeleted() {
+            // arrange
+            var productId = createProduct();
+            productService.deleteProduct(productId);
+            var command = new ProductCommand.UpdateProductCommand(
+                    productId,
+                    "수정된 상품명",
+                    "https://example.com/new-thumb.png",
+                    20000L,
+                    200L,
+                    "수정된 설명"
+            );
+
+            // act & assert
+            assertThatThrownBy(() -> productService.updateProduct(command))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_DELETED_PRODUCT));
+        }
+
+        @DisplayName("다른 활성 상품과 동일한 이름으로 수정하면, ALREADY_EXISTS_PRODUCT_NAME 예외가 발생한다.")
+        @Test
+        void throwsException_whenDuplicateProductName() {
+            // arrange
+            var brandResult = brandService.createBrand("브랜드명", "https://example.com/logo.png", "브랜드 설명");
+            productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brandResult.id(), "기존 상품", "https://example.com/thumb1.png", 10000L, 100L, "설명"
+            ));
+            var targetProductId = productService.createProduct(new ProductCommand.CreateProductCommand(
+                    brandResult.id(), "수정 대상", "https://example.com/thumb2.png", 20000L, 200L, "설명"
+            ));
+
+            var command = new ProductCommand.UpdateProductCommand(
+                    targetProductId,
+                    "기존 상품",
+                    "https://example.com/new-thumb.png",
+                    30000L,
+                    300L,
+                    "수정된 설명"
+            );
+
+            // act & assert
+            assertThatThrownBy(() -> productService.updateProduct(command))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_EXISTS_PRODUCT_NAME));
         }
     }
 

@@ -30,6 +30,12 @@ public interface ProductV1AdminApiSpec {
     );
 
     @Operation(
+            summary = "상품 정보 수정",
+            description = "상품 정보를 수정합니다."
+    )
+    ApiResponse<Object> updateProduct(Long productId, ProductDto.UpdateProductRequest request);
+
+    @Operation(
             summary = "상품 삭제",
             description = "상품을 삭제합니다. 해당 상품에 등록된 좋아요도 함께 삭제됩니다."
     )

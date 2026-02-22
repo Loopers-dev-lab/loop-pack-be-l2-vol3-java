@@ -1,6 +1,6 @@
 # Sequence Diagrams
 
-LAST UPDATED: 2026-02-21
+LAST UPDATED: 2026-02-22
 
 ## 목차
 - [개요](#개요)
@@ -402,6 +402,11 @@ sequenceDiagram
     break 상품이 존재하지 않을 경우
         ProductService -->> ProductApi: 조회 실패
         ProductApi -->> Admin: 404 Not Found
+    end
+
+    break 이미 삭제된 상품일 경우
+        ProductService -->> ProductApi: 수정 실패
+        ProductApi -->> Admin: 400 Bad Request
     end
 
     ProductService ->> ProductService: 상품 정보 유효성 검증

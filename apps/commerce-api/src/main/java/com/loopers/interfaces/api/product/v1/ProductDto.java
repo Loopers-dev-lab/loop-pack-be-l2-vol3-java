@@ -38,6 +38,26 @@ public class ProductDto {
         }
     }
 
+    public record UpdateProductRequest(
+            @NotBlank(message = "상품명은 필수입니다.") String name,
+            @NotBlank(message = "썸네일 URL은 필수입니다.") String thumbnailUrl,
+            @NotNull(message = "가격은 필수입니다.") Long price,
+            @NotNull(message = "재고는 필수입니다.") Long stock,
+            String description
+    ) {
+
+        public ProductCommand.UpdateProductCommand toUpdateProductCommand(Long productId) {
+            return new ProductCommand.UpdateProductCommand(
+                    productId,
+                    name,
+                    thumbnailUrl,
+                    price,
+                    stock,
+                    description
+            );
+        }
+    }
+
     public record ProductResponse(
             Long id,
             Long brandId,

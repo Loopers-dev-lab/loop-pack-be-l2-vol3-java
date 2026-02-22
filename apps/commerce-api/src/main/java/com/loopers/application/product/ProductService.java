@@ -67,6 +67,25 @@ public class ProductService {
     }
 
     @Transactional
+    public void updateProduct(ProductCommand.UpdateProductCommand command) {
+        Product product = productRepository.findById(command.productId())
+                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+        if (product.isDeleted()) {
+            throw new CoreException(ErrorType.ALREADY_DELETED_PRODUCT);
+        }
+        if (productRepository.existsByIdNotAndNameAndDeletedAtIsNull(command.productId(), command.name())) {
+            throw new CoreException(ErrorType.ALREADY_EXISTS_PRODUCT_NAME);
+        }
+        product.update(
+                command.name(),
+                command.thumbnailUrl(),
+                command.price(),
+                command.stock(),
+                command.description()
+        );
+    }
+
+    @Transactional
     public void deleteProduct(Long productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));

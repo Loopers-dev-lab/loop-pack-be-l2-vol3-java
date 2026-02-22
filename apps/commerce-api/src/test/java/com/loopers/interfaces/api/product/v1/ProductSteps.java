@@ -53,6 +53,30 @@ public class ProductSteps {
         );
     }
 
+    public static ResponseEntity<ApiResponse<Object>> updateProduct(
+            TestRestTemplate testRestTemplate,
+            Long productId,
+            ProductDto.UpdateProductRequest request,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                PRODUCT_ADMIN_ENDPOINT + "/" + productId,
+                HttpMethod.PUT,
+                new HttpEntity<>(request, headers),
+                responseType
+        );
+    }
+
+    public static ResponseEntity<ApiResponse<Object>> updateProduct(
+            TestRestTemplate testRestTemplate,
+            Long productId,
+            ProductDto.UpdateProductRequest request
+    ) {
+        return updateProduct(testRestTemplate, productId, request, adminAuthHeaders());
+    }
+
     public static ResponseEntity<ApiResponse<Object>> deleteProduct(
             TestRestTemplate testRestTemplate,
             Long productId,
