@@ -11,4 +11,6 @@ public interface ProductJpaRepository extends JpaRepository<ProductJpaEntity, Lo
 
     @Query("SELECT p FROM ProductJpaEntity p LEFT JOIN LikeJpaEntity l ON p.id = l.productId GROUP BY p.id ORDER BY COUNT(l.id) DESC")
     List<ProductJpaEntity> findAllOrderByLikesDesc();
+
+    List<ProductJpaEntity> findByBrandId(Long brandId);
 }

@@ -37,6 +37,12 @@ public class ProductRepositoryImpl implements ProductRepository {
 
     @Override
     public List<Product> findAll(ProductSortCondition condition) {
+        if (condition == null) {
+            return productJpaRepository.findAll().stream()
+                    .map(ProductJpaEntity::toDomain)
+                    .toList();
+        }
+
         if (condition == ProductSortCondition.LIKES_DESC) {
             return productJpaRepository.findAllOrderByLikesDesc().stream()
                     .map(ProductJpaEntity::toDomain)
@@ -45,12 +51,27 @@ public class ProductRepositoryImpl implements ProductRepository {
 
         Sort sort = switch (condition) {
             case LATEST -> Sort.by(Sort.Direction.DESC, "createdAt");
-            case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price.amount");
+            case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "basePrice.amount");
             default -> Sort.by(Sort.Direction.DESC, "createdAt");
         };
 
         return productJpaRepository.findAll(sort).stream()
                 .map(ProductJpaEntity::toDomain)
                 .toList();
+    }
+
+    @Override
+    public List<Product> findByBrandId(Long brandId) {
+        return productJpaRepository.findByBrandId(brandId).stream()
+                .map(ProductJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
+    public void deleteByBrandId(Long brandId) {
+        List<ProductJpaEntity> products = productJpaRepository.findByBrandId(brandId);
+        for (ProductJpaEntity product : products) {
+            product.delete();
+        }
     }
 }

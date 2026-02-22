@@ -25,36 +25,35 @@ public class ProductJpaEntity extends BaseEntity {
     private String name;
 
     @Embedded
-    @AttributeOverride(name = "amount", column = @Column(name = "price", nullable = false))
-    private MoneyEmbeddable price;
+    @AttributeOverride(name = "amount", column = @Column(name = "base_price", nullable = false))
+    private MoneyEmbeddable basePrice;
 
-    @Column(name = "stock", nullable = false)
-    private int stock;
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted;
 
-    private ProductJpaEntity(Long brandId, String name, MoneyEmbeddable price, int stock) {
+    private ProductJpaEntity(Long brandId, String name, MoneyEmbeddable basePrice, boolean deleted) {
         this.brandId = brandId;
         this.name = name;
-        this.price = price;
-        this.stock = stock;
+        this.basePrice = basePrice;
+        this.deleted = deleted;
     }
 
     public static ProductJpaEntity from(Product product) {
         return new ProductJpaEntity(
                 product.getBrandId(),
                 product.getName(),
-                MoneyEmbeddable.from(product.getPrice()),
-                product.getStock()
+                MoneyEmbeddable.from(product.getBasePrice()),
+                product.isDeleted()
         );
     }
 
     public Product toDomain() {
-        return Product.of(getId(), brandId, name, price.toDomain(), stock);
+        return Product.of(getId(), brandId, name, basePrice.toDomain(), deleted);
     }
 
     public void update(Product product) {
-        this.brandId = product.getBrandId();
         this.name = product.getName();
-        this.price = MoneyEmbeddable.from(product.getPrice());
-        this.stock = product.getStock();
+        this.basePrice = MoneyEmbeddable.from(product.getBasePrice());
+        this.deleted = product.isDeleted();
     }
 }
