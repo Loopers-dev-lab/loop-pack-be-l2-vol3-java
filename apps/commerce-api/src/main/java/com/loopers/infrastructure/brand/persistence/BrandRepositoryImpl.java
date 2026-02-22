@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.brand.persistence;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
@@ -25,6 +26,11 @@ public class BrandRepositoryImpl implements BrandRepository {
     @Override
     public Optional<Brand> findById(Long brandId) {
         return brandJpaRepository.findById(brandId);
+    }
+
+    @Override
+    public List<Brand> findAllByIdIn(List<Long> brandIds) {
+        return brandJpaRepository.findAllById(brandIds);
     }
 
     @Override

@@ -18,6 +18,9 @@ public interface LikeJpaRepository extends JpaRepository<Like, Long> {
 
     Slice<Like> findAllByUserId(Long userId, Pageable pageable);
 
+    @Query("SELECT l.productId FROM Like l WHERE l.userId = :userId AND l.productId IN :productIds")
+    List<Long> findProductIdsByUserIdAndProductIdIn(@Param("userId") Long userId, @Param("productIds") List<Long> productIds);
+
     boolean existsByUserIdAndProductId(Long userId, Long productId);
 
     @Modifying

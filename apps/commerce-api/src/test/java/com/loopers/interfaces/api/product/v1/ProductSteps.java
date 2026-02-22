@@ -114,6 +114,42 @@ public class ProductSteps {
         );
     }
 
+    public static ResponseEntity<ApiResponse<PageResponse<ProductDto.ProductDetailResponse>>> getActiveProducts(
+            TestRestTemplate testRestTemplate,
+            String queryParams,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<PageResponse<ProductDto.ProductDetailResponse>>> responseType = new ParameterizedTypeReference<>() {
+        };
+        String url = queryParams.isEmpty() ? PRODUCT_ENDPOINT : PRODUCT_ENDPOINT + "?" + queryParams;
+        return testRestTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                responseType
+        );
+    }
+
+    public static ResponseEntity<ApiResponse<PageResponse<ProductDto.ProductDetailResponse>>> getActiveProducts(
+            TestRestTemplate testRestTemplate,
+            String queryParams
+    ) {
+        return getActiveProducts(testRestTemplate, queryParams, new HttpHeaders());
+    }
+
+    public static ResponseEntity<ApiResponse<PageResponse<ProductDto.ProductDetailResponse>>> getActiveProducts(
+            TestRestTemplate testRestTemplate
+    ) {
+        return getActiveProducts(testRestTemplate, "");
+    }
+
+    public static ResponseEntity<ApiResponse<PageResponse<ProductDto.ProductDetailResponse>>> getActiveProducts(
+            TestRestTemplate testRestTemplate,
+            HttpHeaders headers
+    ) {
+        return getActiveProducts(testRestTemplate, "", headers);
+    }
+
     public static ResponseEntity<ApiResponse<ProductDto.ProductDetailResponse>> getActiveProduct(
             TestRestTemplate testRestTemplate,
             Long productId,

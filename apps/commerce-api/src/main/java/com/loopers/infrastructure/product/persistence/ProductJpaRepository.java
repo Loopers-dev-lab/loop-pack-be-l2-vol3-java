@@ -21,11 +21,25 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
 
     Slice<Product> findAllBy(Pageable pageable);
 
+    Slice<Product> findAllByDeletedAtIsNull(Pageable pageable);
+
     Slice<Product> findAllByBrandId(Long brandId, Pageable pageable);
 
     List<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId);
 
+    Slice<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId, Pageable pageable);
+
     boolean existsByIdAndDeletedAtIsNull(Long productId);
+
+    @Query("SELECT p FROM Product p LEFT JOIN Like l ON l.productId = p.id "
+         + "WHERE p.deletedAt IS NULL "
+         + "GROUP BY p ORDER BY COUNT(l) DESC, p.createdAt DESC")
+    Slice<Product> findAllActiveOrderByLikeCountDesc(Pageable pageable);
+
+    @Query("SELECT p FROM Product p LEFT JOIN Like l ON l.productId = p.id "
+         + "WHERE p.deletedAt IS NULL AND p.brandId = :brandId "
+         + "GROUP BY p ORDER BY COUNT(l) DESC, p.createdAt DESC")
+    Slice<Product> findAllActiveByBrandIdOrderByLikeCountDesc(@Param("brandId") Long brandId, Pageable pageable);
 
     @Modifying
     @Query("UPDATE Product p SET p.deletedAt = :now WHERE p.brandId = :brandId AND p.deletedAt IS NULL")

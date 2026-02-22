@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 
+
 public interface ProductRepository {
 
     Product save(Product product);
@@ -17,6 +18,10 @@ public interface ProductRepository {
     List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> productIds);
 
     Slice<Product> findAllBy(Pageable pageable);
+
+    Slice<Product> findActiveProducts(ProductSortType sortType, Pageable pageable);
+
+    Slice<Product> findActiveProductsByBrandId(Long brandId, ProductSortType sortType, Pageable pageable);
 
     Slice<Product> findAllByBrandId(Long brandId, Pageable pageable);
 

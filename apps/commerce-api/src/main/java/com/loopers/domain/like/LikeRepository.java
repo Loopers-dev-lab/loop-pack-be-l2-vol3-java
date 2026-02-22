@@ -15,6 +15,8 @@ public interface LikeRepository {
 
     Slice<Like> findAllByUserId(Long userId, Pageable pageable);
 
+    List<Long> findProductIdsByUserIdAndProductIdIn(Long userId, List<Long> productIds);
+
     boolean existsByUserIdAndProductId(Long userId, Long productId);
 
     void delete(Like like);

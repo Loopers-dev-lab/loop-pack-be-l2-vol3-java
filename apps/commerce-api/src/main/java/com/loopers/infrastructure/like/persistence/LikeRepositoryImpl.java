@@ -36,6 +36,11 @@ public class LikeRepositoryImpl implements LikeRepository {
     }
 
     @Override
+    public List<Long> findProductIdsByUserIdAndProductIdIn(Long userId, List<Long> productIds) {
+        return likeJpaRepository.findProductIdsByUserIdAndProductIdIn(userId, productIds);
+    }
+
+    @Override
     public boolean existsByUserIdAndProductId(Long userId, Long productId) {
         return likeJpaRepository.existsByUserIdAndProductId(userId, productId);
     }
