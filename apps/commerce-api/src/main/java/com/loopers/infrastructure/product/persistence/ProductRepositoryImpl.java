@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.product.persistence;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,7 +45,17 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public List<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId) {
+        return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId);
+    }
+
+    @Override
     public boolean existsByIdAndDeletedAtIsNull(Long productId) {
         return productJpaRepository.existsByIdAndDeletedAtIsNull(productId);
+    }
+
+    @Override
+    public void softDeleteAllByBrandId(Long brandId) {
+        productJpaRepository.softDeleteAllByBrandId(brandId, ZonedDateTime.now());
     }
 }

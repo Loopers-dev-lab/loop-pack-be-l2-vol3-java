@@ -37,4 +37,26 @@ public class BrandSteps {
         var result = createBrand(testRestTemplate, request, adminAuthHeaders());
         return result.getBody().data().brandId();
     }
+
+    public static ResponseEntity<ApiResponse<Object>> deleteBrand(
+            TestRestTemplate testRestTemplate,
+            Long brandId,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                BRAND_ADMIN_ENDPOINT + "/" + brandId,
+                HttpMethod.DELETE,
+                new HttpEntity<>(headers),
+                responseType
+        );
+    }
+
+    public static ResponseEntity<ApiResponse<Object>> deleteBrand(
+            TestRestTemplate testRestTemplate,
+            Long brandId
+    ) {
+        return deleteBrand(testRestTemplate, brandId, adminAuthHeaders());
+    }
 }

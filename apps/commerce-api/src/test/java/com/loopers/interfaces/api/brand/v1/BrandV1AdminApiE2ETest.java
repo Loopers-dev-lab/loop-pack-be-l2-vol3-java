@@ -404,7 +404,8 @@ class BrandV1AdminApiE2ETest extends BaseE2ETest {
                     () -> assertThat(getResponse.getBody()).isNotNull(),
                     () -> assertThat(getResponse.getBody().data().id()).isEqualTo(brandId),
                     () -> assertThat(getResponse.getBody().data().name()).isEqualTo("수정된 브랜드명"),
-                    () -> assertThat(getResponse.getBody().data().logoUrl()).isEqualTo("https://example.com/updated-logo.png"),
+                    () -> assertThat(getResponse.getBody().data().logoUrl()).isEqualTo(
+                            "https://example.com/updated-logo.png"),
                     () -> assertThat(getResponse.getBody().data().description()).isEqualTo("수정된 설명"),
                     () -> assertThat(getResponse.getBody().data().createdAt()).isNotNull()
             );
@@ -427,8 +428,10 @@ class BrandV1AdminApiE2ETest extends BaseE2ETest {
         @Test
         void returnsBadRequest_whenDuplicateNameExists() {
             // arrange
-            createBrand(testRestTemplate,new CreateBrandRequest("기존브랜드", "https://example.com/logo1.png", null), adminAuthHeaders());
-            var result = createBrand(testRestTemplate,new CreateBrandRequest("내브랜드", "https://example.com/logo2.png", null), adminAuthHeaders());
+            createBrand(testRestTemplate, new CreateBrandRequest("기존브랜드", "https://example.com/logo1.png", null),
+                    adminAuthHeaders());
+            var result = createBrand(testRestTemplate,
+                    new CreateBrandRequest("내브랜드", "https://example.com/logo2.png", null), adminAuthHeaders());
             var brandId = result.getBody().data().brandId();
 
             var request = new BrandDto.UpdateBrandRequest("기존브랜드", "https://example.com/logo2.png", null);
@@ -444,7 +447,8 @@ class BrandV1AdminApiE2ETest extends BaseE2ETest {
         @Test
         void returnsBadRequest_whenNameIsBlank() {
             // arrange
-            var result = createBrand(testRestTemplate,new CreateBrandRequest("브랜드명", "https://example.com/logo.png", null), adminAuthHeaders());
+            var result = createBrand(testRestTemplate,
+                    new CreateBrandRequest("브랜드명", "https://example.com/logo.png", null), adminAuthHeaders());
             var brandId = result.getBody().data().brandId();
 
             var request = new BrandDto.UpdateBrandRequest("", "https://example.com/logo.png", null);
@@ -460,7 +464,8 @@ class BrandV1AdminApiE2ETest extends BaseE2ETest {
         @Test
         void returnsInvalidBrandName_whenNameIsTooLong() {
             // arrange
-            var result = createBrand(testRestTemplate,new CreateBrandRequest("브랜드명", "https://example.com/logo.png", null), adminAuthHeaders());
+            var result = createBrand(testRestTemplate,
+                    new CreateBrandRequest("브랜드명", "https://example.com/logo.png", null), adminAuthHeaders());
             var brandId = result.getBody().data().brandId();
 
             var name = "a".repeat(51);
@@ -474,7 +479,51 @@ class BrandV1AdminApiE2ETest extends BaseE2ETest {
         }
     }
 
-private ResponseEntity<ApiResponse<PageResponse<BrandResponse>>> getBrandsRequest(String url) {
+    @DisplayName("DELETE /api-admin/v1/brands/{brandId}")
+    @Nested
+    class DeleteBrand {
+
+        @DisplayName("유효한 브랜드를 삭제하면, 200 성공 응답을 받는다.")
+        @Test
+        void deletesBrand_whenValidBrandId() {
+            // arrange
+            var brandId = createBrand(testRestTemplate,
+                    new CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
+
+            // act
+            var response = BrandSteps.deleteBrand(testRestTemplate, brandId);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @DisplayName("존재하지 않는 브랜드를 삭제하면, 404 응답을 받는다.")
+        @Test
+        void returnsNotFound_whenBrandDoesNotExist() {
+            // act
+            var response = BrandSteps.deleteBrand(testRestTemplate, 999L);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.BRAND_NOT_FOUND);
+        }
+
+        @DisplayName("이미 삭제된 브랜드를 삭제하면, 400 응답을 받는다.")
+        @Test
+        void returnsBadRequest_whenBrandIsAlreadyDeleted() {
+            // arrange
+            var brandId = createBrand(testRestTemplate,
+                    new CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
+            BrandSteps.deleteBrand(testRestTemplate, brandId);
+
+            // act
+            var response = BrandSteps.deleteBrand(testRestTemplate, brandId);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_DELETED_BRAND);
+        }
+    }
+
+    private ResponseEntity<ApiResponse<PageResponse<BrandResponse>>> getBrandsRequest(String url) {
         ParameterizedTypeReference<ApiResponse<PageResponse<BrandResponse>>> responseType = new ParameterizedTypeReference<>() {
         };
         return testRestTemplate.exchange(

@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.brand.v1;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -58,6 +59,13 @@ public class BrandV1AdminApi implements BrandV1AdminApiSpec {
     @Override
     public ApiResponse<Object> updateBrand(@PathVariable Long brandId, @RequestBody @Valid BrandDto.UpdateBrandRequest request) {
         brandService.updateBrand(brandId, request.name(), request.logoUrl(), request.description());
+        return ApiResponse.success();
+    }
+
+    @DeleteMapping("/{brandId}")
+    @Override
+    public ApiResponse<Object> deleteBrand(@PathVariable Long brandId) {
+        brandService.deleteBrand(brandId);
         return ApiResponse.success();
     }
 }

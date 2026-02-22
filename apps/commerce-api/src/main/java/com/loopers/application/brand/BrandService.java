@@ -1,5 +1,7 @@
 package com.loopers.application.brand;
 
+import java.util.List;
+
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -7,6 +9,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.like.LikeRepository;
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.support.page.Page;
@@ -19,6 +24,8 @@ import lombok.RequiredArgsConstructor;
 public class BrandService {
 
     private final BrandRepository brandRepository;
+    private final ProductRepository productRepository;
+    private final LikeRepository likeRepository;
 
     @Transactional
     public BrandResult createBrand(String name, String logoUrl, String description) {
@@ -64,5 +71,25 @@ public class BrandService {
             throw new CoreException(ErrorType.ALREADY_EXIST_BRAND_NAME);
         }
         brand.update(newName, newLogoUrl, newDescription);
+    }
+
+    @Transactional
+    public void deleteBrand(Long brandId) {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
+        if (brand.isDeleted()) {
+            throw new CoreException(ErrorType.ALREADY_DELETED_BRAND);
+        }
+        List<Long> productIds = productRepository.findAllByBrandIdAndDeletedAtIsNull(brandId)
+                .stream()
+                .map(Product::getId)
+                .toList();
+
+        if (!productIds.isEmpty()) {
+            likeRepository.deleteAllByProductIdIn(productIds);
+            productRepository.softDeleteAllByBrandId(brandId);
+        }
+
+        brand.delete();
     }
 }

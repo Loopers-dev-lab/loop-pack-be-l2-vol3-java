@@ -11,7 +11,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import com.loopers.application.like.LikeService;
+import com.loopers.application.product.ProductCommand;
+import com.loopers.application.product.ProductService;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.product.ProductRepository;
+import com.loopers.infrastructure.like.persistence.LikeJpaRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.support.page.PageSize;
@@ -25,6 +30,18 @@ class BrandServiceIntegrationTest {
 
     @Autowired
     private BrandRepository brandRepository;
+
+    @Autowired
+    private ProductService productService;
+
+    @Autowired
+    private ProductRepository productRepository;
+
+    @Autowired
+    private LikeService likeService;
+
+    @Autowired
+    private LikeJpaRepository likeJpaRepository;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -380,6 +397,68 @@ class BrandServiceIntegrationTest {
             // assert
             var updatedBrand = brandRepository.findById(created.id()).orElseThrow();
             assertThat(updatedBrand.getName()).isEqualTo("deleted brand");
+        }
+    }
+
+    @DisplayName("브랜드를 삭제할 때,")
+    @Nested
+    class DeleteBrand {
+
+        @DisplayName("유효한 브랜드이면, 브랜드가 삭제된다.")
+        @Test
+        void deletesBrand_whenBrandExists() {
+            // arrange
+            var created = brandService.createBrand("브랜드명", "logo url", "설명");
+
+            // act
+            brandService.deleteBrand(created.id());
+
+            // assert
+            var deleted = brandRepository.findById(created.id()).orElseThrow();
+            assertThat(deleted.getDeletedAt()).isNotNull();
+        }
+
+        @DisplayName("존재하지 않는 브랜드이면, BRAND_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenBrandNotFound() {
+            // act & assert
+            assertThatThrownBy(() -> brandService.deleteBrand(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
+        }
+
+        @DisplayName("이미 삭제된 브랜드이면, ALREADY_DELETED_BRAND 예외가 발생한다.")
+        @Test
+        void throwsException_whenBrandIsAlreadyDeleted() {
+            // arrange
+            var created = brandService.createBrand("브랜드명", "logo url", "설명");
+            brandService.deleteBrand(created.id());
+
+            // act & assert
+            assertThatThrownBy(() -> brandService.deleteBrand(created.id()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_DELETED_BRAND));
+        }
+
+        @DisplayName("소속 상품과 좋아요가 함께 삭제된다.")
+        @Test
+        void deletesProductsAndLikes_whenBrandDeleted() {
+            // arrange
+            var brandResult = brandService.createBrand("브랜드명", "logo url", "설명");
+            var productId = productService.createProduct(
+                    new ProductCommand.CreateProductCommand(brandResult.id(), "상품명", "thumb.png", 10000L, 100L, "설명")
+            );
+            var userId = 1L;
+            likeService.likeProduct(userId, productId);
+
+            // act
+            brandService.deleteBrand(brandResult.id());
+
+            // assert
+            assertAll(
+                    () -> assertThat(productRepository.findById(productId).orElseThrow().getDeletedAt()).isNotNull(),
+                    () -> assertThat(likeJpaRepository.existsByUserIdAndProductId(userId, productId)).isFalse()
+            );
         }
     }
 }

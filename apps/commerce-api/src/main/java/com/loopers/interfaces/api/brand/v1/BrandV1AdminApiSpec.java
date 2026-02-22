@@ -38,4 +38,10 @@ public interface BrandV1AdminApiSpec {
             description = "특정 브랜드의 정보를 수정합니다."
     )
     ApiResponse<Object> updateBrand(Long brandId, UpdateBrandRequest request);
+
+    @Operation(
+            summary = "브랜드 삭제",
+            description = "브랜드를 삭제합니다. 소속 상품과 해당 상품의 좋아요도 함께 삭제됩니다."
+    )
+    ApiResponse<Object> deleteBrand(Long brandId);
 }

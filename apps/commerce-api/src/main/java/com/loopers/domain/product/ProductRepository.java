@@ -18,5 +18,9 @@ public interface ProductRepository {
 
     Slice<Product> findAllByBrandId(Long brandId, Pageable pageable);
 
+    List<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId);
+
     boolean existsByIdAndDeletedAtIsNull(Long productId);
+
+    void softDeleteAllByBrandId(Long brandId);
 }
