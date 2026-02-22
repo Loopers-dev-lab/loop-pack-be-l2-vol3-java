@@ -145,7 +145,7 @@ class BrandTest {
             brand.delete();
 
             // act & assert
-            assertThatThrownBy(brand::validateNotDeleted)
+            assertThatThrownBy(brand::assertNotDeleted)
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(BrandErrorType.ALREADY_DELETED);
@@ -157,7 +157,7 @@ class BrandTest {
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
 
             // act & assert
-            assertThatCode(brand::validateNotDeleted).doesNotThrowAnyException();
+            assertThatCode(brand::assertNotDeleted).doesNotThrowAnyException();
         }
     }
 }

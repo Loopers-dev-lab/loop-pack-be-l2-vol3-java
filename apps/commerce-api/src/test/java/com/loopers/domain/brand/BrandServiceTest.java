@@ -110,17 +110,17 @@ class BrandServiceTest {
     class 활성브랜드조회 {
 
         @Test
-        void INACTIVE_상태면_예외가_발생한다() {
+        void INACTIVE_상태면_BRAND_NOT_FOUND_예외가_발생한다() {
             // arrange
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
             brand.changeStatus(BrandStatus.INACTIVE);
             when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
 
-            // act & assert
+            // act & assert - 고객에게 비활성 브랜드는 "존재하지 않음"으로 처리
             assertThatThrownBy(() -> brandService.getActiveBrand(1L))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
-                    .isEqualTo(BrandErrorType.INACTIVE_BRAND);
+                    .isEqualTo(BrandErrorType.BRAND_NOT_FOUND);
         }
 
         @Test

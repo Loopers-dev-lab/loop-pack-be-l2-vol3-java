@@ -5,7 +5,8 @@ import org.springframework.http.HttpStatus;
 public enum BrandErrorType implements ErrorType {
     BRAND_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 브랜드입니다."),
     ALREADY_DELETED(HttpStatus.CONFLICT, "이미 삭제된 브랜드입니다."),
-    INACTIVE_BRAND(HttpStatus.BAD_REQUEST, "비활성 상태의 브랜드입니다.");
+    INACTIVE_BRAND(HttpStatus.BAD_REQUEST, "비활성 상태의 브랜드입니다."),
+    INVALID_BRAND_NAME(HttpStatus.BAD_REQUEST, "브랜드명은 필수입니다.");
 
     private final HttpStatus status;
     private final String message;
