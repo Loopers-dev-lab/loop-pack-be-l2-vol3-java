@@ -1,6 +1,8 @@
 package com.loopers.application.product;
 
 import com.loopers.domain.common.Money;
+import com.loopers.domain.product.Option;
+import com.loopers.domain.product.OptionRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.ProductSortCondition;
@@ -16,10 +18,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ProductAppService {
     private final ProductRepository productRepository;
+    private final OptionRepository optionRepository;
 
     @Transactional
-    public Product create(Long brandId, String name, Money price, int stock) {
-        Product product = Product.create(brandId, name, price, stock);
+    public Product create(Long brandId, String name, Money basePrice) {
+        Product product = Product.create(brandId, name, basePrice);
         return productRepository.save(product);
     }
 
@@ -34,17 +37,35 @@ public class ProductAppService {
         return productRepository.findAll(condition);
     }
 
-    @Transactional
-    public Product decreaseStock(Long productId, int quantity) {
-        Product product = getById(productId);
-        product.decreaseStock(quantity);
-        return productRepository.save(product);
+    @Transactional(readOnly = true)
+    public Option getOptionById(Long optionId) {
+        return optionRepository.findById(optionId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "옵션을 찾을 수 없습니다."));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Option> getOptionsByProductId(Long productId) {
+        return optionRepository.findByProductId(productId);
     }
 
     @Transactional
-    public Product increaseStock(Long productId, int quantity) {
-        Product product = getById(productId);
-        product.increaseStock(quantity);
-        return productRepository.save(product);
+    public Option createOption(Long productId, String name, Money additionalPrice, int stock) {
+        getById(productId);
+        Option option = Option.create(productId, name, additionalPrice, stock);
+        return optionRepository.save(option);
+    }
+
+    @Transactional
+    public Option decreaseStock(Long optionId, int quantity) {
+        Option option = getOptionById(optionId);
+        option.decreaseStock(quantity);
+        return optionRepository.save(option);
+    }
+
+    @Transactional
+    public Option increaseStock(Long optionId, int quantity) {
+        Option option = getOptionById(optionId);
+        option.increaseStock(quantity);
+        return optionRepository.save(option);
     }
 }

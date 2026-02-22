@@ -20,8 +20,8 @@ class OrderTest {
     @BeforeEach
     void setUp() {
         sampleOrderItems = List.of(
-                OrderItem.of(1L, "상품A", Money.of(10000L), 2),
-                OrderItem.of(2L, "상품B", Money.of(5000L), 1)
+                OrderItem.of(1L, "상품A", "기본 옵션", Money.of(10000L), 2),
+                OrderItem.of(2L, "상품B", "대용량", Money.of(5000L), 1)
         );
     }
 

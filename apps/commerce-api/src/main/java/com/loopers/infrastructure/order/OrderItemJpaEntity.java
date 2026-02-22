@@ -25,11 +25,14 @@ public class OrderItemJpaEntity extends BaseEntity {
     @JoinColumn(name = "order_id", nullable = false)
     private OrderJpaEntity order;
 
-    @Column(name = "product_id", nullable = false)
-    private Long productId;
+    @Column(name = "option_id", nullable = false)
+    private Long optionId;
 
     @Column(name = "product_name", nullable = false)
     private String productName;
+
+    @Column(name = "option_name", nullable = false)
+    private String optionName;
 
     @Embedded
     @AttributeOverride(name = "amount", column = @Column(name = "price", nullable = false))
@@ -38,11 +41,12 @@ public class OrderItemJpaEntity extends BaseEntity {
     @Column(name = "quantity", nullable = false)
     private int quantity;
 
-    private OrderItemJpaEntity(OrderJpaEntity order, Long productId, String productName,
-                               MoneyEmbeddable price, int quantity) {
+    private OrderItemJpaEntity(OrderJpaEntity order, Long optionId, String productName,
+                               String optionName, MoneyEmbeddable price, int quantity) {
         this.order = order;
-        this.productId = productId;
+        this.optionId = optionId;
         this.productName = productName;
+        this.optionName = optionName;
         this.price = price;
         this.quantity = quantity;
     }
@@ -50,14 +54,15 @@ public class OrderItemJpaEntity extends BaseEntity {
     public static OrderItemJpaEntity of(OrderJpaEntity order, OrderItem orderItem) {
         return new OrderItemJpaEntity(
                 order,
-                orderItem.getProductId(),
+                orderItem.getOptionId(),
                 orderItem.getProductName(),
+                orderItem.getOptionName(),
                 MoneyEmbeddable.from(orderItem.getPrice()),
                 orderItem.getQuantity()
         );
     }
 
     public OrderItem toDomain() {
-        return OrderItem.of(productId, productName, price.toDomain(), quantity);
+        return OrderItem.of(optionId, productName, optionName, price.toDomain(), quantity);
     }
 }

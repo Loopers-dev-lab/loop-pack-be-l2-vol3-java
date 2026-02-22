@@ -1,8 +1,10 @@
 package com.loopers.application.order;
 
 import com.loopers.application.product.ProductAppService;
+import com.loopers.domain.common.Money;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
+import com.loopers.domain.product.Option;
 import com.loopers.domain.product.Product;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -20,15 +22,19 @@ public class OrderFacade {
         List<OrderItem> orderItems = new ArrayList<>();
 
         for (OrderCreateCommand.OrderItemCommand itemCommand : command.getItems()) {
-            Product product = productAppService.decreaseStock(
-                    itemCommand.getProductId(),
+            Option option = productAppService.decreaseStock(
+                    itemCommand.getOptionId(),
                     itemCommand.getQuantity()
             );
 
+            Product product = productAppService.getById(option.getProductId());
+            Money totalPrice = product.getBasePrice().add(option.getAdditionalPrice());
+
             OrderItem orderItem = OrderItem.of(
-                    product.getId(),
+                    option.getId(),
                     product.getName(),
-                    product.getPrice(),
+                    option.getName(),
+                    totalPrice,
                     itemCommand.getQuantity()
             );
             orderItems.add(orderItem);
@@ -41,7 +47,7 @@ public class OrderFacade {
         Order order = orderAppService.getById(orderId);
 
         for (OrderItem item : order.getOrderItems()) {
-            productAppService.increaseStock(item.getProductId(), item.getQuantity());
+            productAppService.increaseStock(item.getOptionId(), item.getQuantity());
         }
 
         return orderAppService.cancel(orderId);

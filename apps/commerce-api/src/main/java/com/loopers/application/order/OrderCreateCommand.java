@@ -14,7 +14,7 @@ public class OrderCreateCommand {
     @Getter
     @RequiredArgsConstructor
     public static class OrderItemCommand {
-        private final Long productId;
+        private final Long optionId;
         private final int quantity;
     }
 }
