@@ -29,6 +29,7 @@ public class AuthenticationFilter implements Filter {
 
     private static final String LOGIN_ID_HEADER = "X-Loopers-LoginId";
     private static final String LOGIN_PW_HEADER = "X-Loopers-LoginPw";
+    private static final String ADMIN_LDAP_HEADER = "X-Loopers-Ldap";
 
     private static final Set<String> PUBLIC_PATHS = Set.of(
             "/api/v1/members/signup",
@@ -58,6 +59,29 @@ public class AuthenticationFilter implements Filter {
             return;
         }
 
+        if (path.startsWith("/api/admin/")) {
+            handleAdminAuthentication(httpRequest, httpResponse, chain);
+            return;
+        }
+
+        handleUserAuthentication(httpRequest, httpResponse, chain);
+    }
+
+    private void handleAdminAuthentication(HttpServletRequest httpRequest, HttpServletResponse httpResponse,
+                                           FilterChain chain) throws IOException, ServletException {
+        String ldap = httpRequest.getHeader(ADMIN_LDAP_HEADER);
+
+        if (ldap == null || ldap.isBlank()) {
+            sendUnauthorizedResponse(httpResponse, "관리자 인증 정보가 필요합니다.");
+            return;
+        }
+
+        httpRequest.setAttribute("authenticatedAdmin", ldap);
+        chain.doFilter(httpRequest, httpResponse);
+    }
+
+    private void handleUserAuthentication(HttpServletRequest httpRequest, HttpServletResponse httpResponse,
+                                          FilterChain chain) throws IOException, ServletException {
         String loginId = httpRequest.getHeader(LOGIN_ID_HEADER);
         String loginPw = httpRequest.getHeader(LOGIN_PW_HEADER);
 
@@ -79,7 +103,7 @@ public class AuthenticationFilter implements Filter {
         }
 
         httpRequest.setAttribute("authenticatedMember", member);
-        chain.doFilter(request, response);
+        chain.doFilter(httpRequest, httpResponse);
     }
 
     private boolean isPublicPath(String path) {
