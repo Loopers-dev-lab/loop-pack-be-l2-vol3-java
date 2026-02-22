@@ -19,98 +19,71 @@ class ProductTest {
         @Test
         @DisplayName("유효한 정보로 상품을 생성할 수 있다")
         void createProduct() {
-            Product product = Product.create(1L, "테스트 상품", Money.of(10000L), 100);
+            Product product = Product.create(1L, "테스트 상품", Money.of(10000L));
 
             assertThat(product.getId()).isNull();
             assertThat(product.getBrandId()).isEqualTo(1L);
             assertThat(product.getName()).isEqualTo("테스트 상품");
-            assertThat(product.getStock()).isEqualTo(100);
+            assertThat(product.getBasePrice().getAmount()).isEqualByComparingTo("10000");
+            assertThat(product.isDeleted()).isFalse();
         }
 
         @Test
         @DisplayName("상품명이 빈 값이면 예외가 발생한다")
         void createWithEmptyNameThrowsException() {
-            assertThatThrownBy(() -> Product.create(1L, "", Money.of(10000L), 100))
-                    .isInstanceOf(CoreException.class);
-        }
-
-        @Test
-        @DisplayName("재고가 음수이면 예외가 발생한다")
-        void createWithNegativeStockThrowsException() {
-            assertThatThrownBy(() -> Product.create(1L, "테스트 상품", Money.of(10000L), -1))
+            assertThatThrownBy(() -> Product.create(1L, "", Money.of(10000L)))
                     .isInstanceOf(CoreException.class);
         }
     }
 
     @Nested
-    @DisplayName("재고 차감 테스트")
-    class DecreaseStockTest {
+    @DisplayName("수정 테스트")
+    class UpdateTest {
 
         @Test
-        @DisplayName("재고 차감에 성공한다")
-        void decreaseStockSuccess() {
-            Product product = Product.create(1L, "테스트 상품", Money.of(10000L), 100);
+        @DisplayName("상품 정보를 수정할 수 있다")
+        void updateProduct() {
+            Product product = Product.create(1L, "원래 상품명", Money.of(10000L));
 
-            product.decreaseStock(30);
+            product.update("새 상품명", Money.of(20000L));
 
-            assertThat(product.getStock()).isEqualTo(70);
+            assertThat(product.getName()).isEqualTo("새 상품명");
+            assertThat(product.getBasePrice().getAmount()).isEqualByComparingTo("20000");
         }
 
         @Test
-        @DisplayName("재고를 0까지 차감할 수 있다")
-        void decreaseStockToZero() {
-            Product product = Product.create(1L, "테스트 상품", Money.of(10000L), 50);
+        @DisplayName("수정 시 상품명이 빈 값이면 예외가 발생한다")
+        void updateWithEmptyNameThrowsException() {
+            Product product = Product.create(1L, "원래 상품명", Money.of(10000L));
 
-            product.decreaseStock(50);
-
-            assertThat(product.getStock()).isZero();
-        }
-
-        @Test
-        @DisplayName("재고보다 많은 수량을 차감하면 예외가 발생한다")
-        void decreaseStockInsufficientThrowsException() {
-            Product product = Product.create(1L, "테스트 상품", Money.of(10000L), 10);
-
-            assertThatThrownBy(() -> product.decreaseStock(15))
-                    .isInstanceOf(CoreException.class)
-                    .hasMessageContaining("재고가 부족합니다");
-        }
-
-        @Test
-        @DisplayName("0 이하의 수량을 차감하면 예외가 발생한다")
-        void decreaseStockZeroOrNegativeThrowsException() {
-            Product product = Product.create(1L, "테스트 상품", Money.of(10000L), 100);
-
-            assertThatThrownBy(() -> product.decreaseStock(0))
-                    .isInstanceOf(CoreException.class)
-                    .hasMessageContaining("차감 수량은 1 이상");
-
-            assertThatThrownBy(() -> product.decreaseStock(-5))
+            assertThatThrownBy(() -> product.update("", Money.of(20000L)))
                     .isInstanceOf(CoreException.class);
         }
     }
 
     @Nested
-    @DisplayName("재고 증가 테스트")
-    class IncreaseStockTest {
+    @DisplayName("삭제 테스트")
+    class DeleteTest {
 
         @Test
-        @DisplayName("재고 증가에 성공한다")
-        void increaseStockSuccess() {
-            Product product = Product.create(1L, "테스트 상품", Money.of(10000L), 100);
+        @DisplayName("상품을 삭제할 수 있다")
+        void deleteProduct() {
+            Product product = Product.create(1L, "테스트 상품", Money.of(10000L));
 
-            product.increaseStock(50);
+            product.delete();
 
-            assertThat(product.getStock()).isEqualTo(150);
+            assertThat(product.isDeleted()).isTrue();
         }
 
         @Test
-        @DisplayName("0 이하의 수량을 증가하면 예외가 발생한다")
-        void increaseStockZeroOrNegativeThrowsException() {
-            Product product = Product.create(1L, "테스트 상품", Money.of(10000L), 100);
+        @DisplayName("삭제된 상품을 복원할 수 있다")
+        void restoreProduct() {
+            Product product = Product.create(1L, "테스트 상품", Money.of(10000L));
+            product.delete();
 
-            assertThatThrownBy(() -> product.increaseStock(0))
-                    .isInstanceOf(CoreException.class);
+            product.restore();
+
+            assertThat(product.isDeleted()).isFalse();
         }
     }
 }
