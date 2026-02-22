@@ -419,6 +419,64 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         }
     }
 
+    @DisplayName("GET /api-admin/v1/products/{productId}")
+    @Nested
+    class GetProduct {
+
+        @DisplayName("존재하는 상품이면, 상품 정보를 조회할 수 있다.")
+        @Test
+        void returnsProductInfo_whenProductExists() {
+            // arrange
+            var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"))
+                    .getBody().data().productId();
+
+            // act
+            var response = ProductSteps.getProduct(testRestTemplate, productId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().id()).isEqualTo(productId),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("상품명"),
+                    () -> assertThat(response.getBody().data().brandId()).isEqualTo(brandId),
+                    () -> assertThat(response.getBody().data().price()).isEqualTo(10000L),
+                    () -> assertThat(response.getBody().data().stock()).isEqualTo(100L)
+            );
+        }
+
+        @DisplayName("삭제된 상품이면, 삭제된 상품 정보를 조회할 수 있다.")
+        @Test
+        void returnsProductInfo_whenProductIsDeleted() {
+            // arrange
+            var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"))
+                    .getBody().data().productId();
+            deleteProduct(testRestTemplate, productId);
+
+            // act
+            var response = ProductSteps.getProduct(testRestTemplate, productId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().id()).isEqualTo(productId)
+            );
+        }
+
+        @DisplayName("존재하지 않는 상품이면, PRODUCT_NOT_FOUND 에러 응답을 받는다.")
+        @Test
+        void returnsProductNotFound_whenProductDoesNotExist() {
+            // act
+            var response = ProductSteps.getProduct(testRestTemplate, 999L);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.PRODUCT_NOT_FOUND);
+        }
+    }
+
     @DisplayName("PUT /api-admin/v1/products/{productId}")
     @Nested
     class UpdateProduct {

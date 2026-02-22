@@ -30,6 +30,12 @@ public interface ProductV1AdminApiSpec {
     );
 
     @Operation(
+            summary = "상품 상세 조회",
+            description = "특정 상품의 상세 정보를 조회합니다."
+    )
+    ApiResponse<ProductDto.ProductResponse> getProduct(Long productId);
+
+    @Operation(
             summary = "상품 정보 수정",
             description = "상품 정보를 수정합니다."
     )

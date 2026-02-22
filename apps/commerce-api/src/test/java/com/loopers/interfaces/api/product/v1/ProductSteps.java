@@ -98,4 +98,18 @@ public class ProductSteps {
     ) {
         return deleteProduct(testRestTemplate, productId, adminAuthHeaders());
     }
+
+    public static ResponseEntity<ApiResponse<ProductResponse>> getProduct(
+            TestRestTemplate testRestTemplate,
+            Long productId
+    ) {
+        ParameterizedTypeReference<ApiResponse<ProductResponse>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                PRODUCT_ADMIN_ENDPOINT + "/" + productId,
+                HttpMethod.GET,
+                new HttpEntity<>(adminAuthHeaders()),
+                responseType
+        );
+    }
 }

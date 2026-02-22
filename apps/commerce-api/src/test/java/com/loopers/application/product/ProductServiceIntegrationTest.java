@@ -256,6 +256,57 @@ class ProductServiceIntegrationTest {
         }
     }
 
+    @DisplayName("상품을 상세 조회할 때,")
+    @Nested
+    class GetProduct {
+
+        @DisplayName("존재하는 상품이면, 상품 정보가 반환된다.")
+        @Test
+        void returnsProductResult_whenProductExists() {
+            // arrange
+            var productId = createProduct();
+
+            // act
+            var result = productService.getProduct(productId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.id()).isEqualTo(productId),
+                    () -> assertThat(result.name()).isEqualTo("상품명"),
+                    () -> assertThat(result.thumbnailUrl()).isEqualTo("https://example.com/thumb.png"),
+                    () -> assertThat(result.price()).isEqualTo(10000L),
+                    () -> assertThat(result.stock()).isEqualTo(100L),
+                    () -> assertThat(result.description()).isEqualTo("상품 설명")
+            );
+        }
+
+        @DisplayName("삭제된 상품이면, 삭제된 상품 정보가 반환된다.")
+        @Test
+        void returnsProductResult_whenProductIsDeleted() {
+            // arrange
+            var productId = createProduct();
+            productService.deleteProduct(productId);
+
+            // act
+            var result = productService.getProduct(productId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.id()).isEqualTo(productId),
+                    () -> assertThat(result.deletedAt()).isNotNull()
+            );
+        }
+
+        @DisplayName("존재하지 않는 상품이면, PRODUCT_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenProductNotFound() {
+            // act & assert
+            assertThatThrownBy(() -> productService.getProduct(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
+        }
+    }
+
     @DisplayName("상품 정보를 수정할 때,")
     @Nested
     class UpdateProduct {

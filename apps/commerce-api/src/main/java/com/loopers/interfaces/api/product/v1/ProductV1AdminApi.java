@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.loopers.application.product.ProductResult;
 import com.loopers.application.product.ProductService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
@@ -58,6 +59,13 @@ public class ProductV1AdminApi implements ProductV1AdminApiSpec {
                         products.hasNext()
                 )
         );
+    }
+
+    @GetMapping("/{productId}")
+    @Override
+    public ApiResponse<ProductDto.ProductResponse> getProduct(@PathVariable Long productId) {
+        ProductResult result = productService.getProduct(productId);
+        return ApiResponse.success(ProductDto.ProductResponse.from(result));
     }
 
     @PutMapping("/{productId}")

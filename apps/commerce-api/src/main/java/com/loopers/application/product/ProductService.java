@@ -66,6 +66,13 @@ public class ProductService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public ProductResult getProduct(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+        return ProductResult.from(product);
+    }
+
     @Transactional
     public void updateProduct(ProductCommand.UpdateProductCommand command) {
         Product product = productRepository.findById(command.productId())
