@@ -31,19 +31,25 @@ public class LikeService {
 
     @Transactional
     public void likeProduct(Long userId, Long productId) {
-        validateProductExists(productId);
+        Product product = productRepository.findByIdAndDeletedAtIsNullForUpdate(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
         if (likeRepository.existsByUserIdAndProductId(userId, productId)) {
             return;
         }
         Like like = Like.create(userId, productId);
         likeRepository.save(like);
+        product.increaseLikeCount();
     }
 
     @Transactional
     public void unlikeProduct(Long userId, Long productId) {
-        validateProductExists(productId);
+        Product product = productRepository.findByIdAndDeletedAtIsNullForUpdate(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
         likeRepository.findByUserIdAndProductId(userId, productId)
-                .ifPresent(likeRepository::delete);
+                .ifPresent(like -> {
+                    likeRepository.delete(like);
+                    product.decreaseLikeCount();
+                });
     }
 
     @Transactional(readOnly = true)
@@ -60,19 +66,12 @@ public class LikeService {
         List<Long> productIds = likes.stream()
                 .map(Like::getProductId)
                 .toList();
-        Map<Long, Long> likeCounts = likeRepository.countByProductIdIn(productIds);
         Map<Long, Product> products = productRepository.findAllByIdInAndDeletedAtIsNull(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, Function.identity()));
         List<LikedProductResult> results = productIds.stream()
                 .filter(products::containsKey)
-                .map(productId -> LikedProductResult.from(products.get(productId), likeCounts.getOrDefault(productId, 0L)))
+                .map(productId -> LikedProductResult.from(products.get(productId)))
                 .toList();
         return new Page<>(results, likes.hasNext());
-    }
-
-    private void validateProductExists(Long productId) {
-        if (!productRepository.existsByIdAndDeletedAtIsNull(productId)) {
-            throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
-        }
     }
 }

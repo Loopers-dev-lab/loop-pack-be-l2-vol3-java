@@ -30,9 +30,4 @@ public interface LikeJpaRepository extends JpaRepository<Like, Long> {
     @Modifying
     @Query("DELETE FROM Like l WHERE l.productId IN :productIds")
     void deleteAllByProductIdIn(@Param("productIds") List<Long> productIds);
-
-    long countByProductId(Long productId);
-
-    @Query("SELECT l.productId, COUNT(l) FROM Like l WHERE l.productId IN :productIds GROUP BY l.productId")
-    List<Object[]> countByProductIdIn(@Param("productIds") List<Long> productIds);
 }

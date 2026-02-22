@@ -1,9 +1,7 @@
 package com.loopers.infrastructure.like.persistence;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -58,19 +56,5 @@ public class LikeRepositoryImpl implements LikeRepository {
     @Override
     public void deleteAllByProductIdIn(List<Long> productIds) {
         likeJpaRepository.deleteAllByProductIdIn(productIds);
-    }
-
-    @Override
-    public long countByProductId(Long productId) {
-        return likeJpaRepository.countByProductId(productId);
-    }
-
-    @Override
-    public Map<Long, Long> countByProductIdIn(List<Long> productIds) {
-        return likeJpaRepository.countByProductIdIn(productIds).stream()
-                .collect(Collectors.toMap(
-                        row -> (Long) row[0],
-                        row -> (Long) row[1]
-                ));
     }
 }

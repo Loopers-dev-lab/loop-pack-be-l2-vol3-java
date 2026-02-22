@@ -119,6 +119,44 @@ class LikeServiceIntegrationTest {
             assertThat(likeJpaRepository.count()).isEqualTo(1);
         }
 
+        @DisplayName("서로 다른 사용자가 동시에 좋아요를 요청하면, 모두 성공하고 좋아요 수가 정확히 반영된다.")
+        @Test
+        void allLikesCreatedWithCorrectCount_whenDifferentUsersConcurrentlyLike() throws InterruptedException {
+            // arrange
+            var productId = createProduct();
+            int threadCount = 10;
+            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch latch = new CountDownLatch(threadCount);
+            AtomicInteger successCount = new AtomicInteger(0);
+            AtomicInteger failCount = new AtomicInteger(0);
+
+            // act
+            for (int i = 0; i < threadCount; i++) {
+                long userId = i + 1;
+                executorService.execute(() -> {
+                    try {
+                        likeService.likeProduct(userId, productId);
+                        successCount.incrementAndGet();
+                    } catch (Exception e) {
+                        failCount.incrementAndGet();
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+            latch.await();
+            executorService.shutdown();
+
+            // assert
+            var product = productRepository.findById(productId).orElseThrow();
+            assertAll(
+                    () -> assertThat(likeJpaRepository.count()).isEqualTo(threadCount),
+                    () -> assertThat(product.getLikeCount()).isEqualTo(threadCount),
+                    () -> assertThat(successCount.get()).isEqualTo(threadCount),
+                    () -> assertThat(failCount.get()).isZero()
+            );
+        }
+
         @DisplayName("존재하지 않는 상품이면, PRODUCT_NOT_FOUND 예외가 발생한다.")
         @Test
         void throwsException_whenProductNotFound() {

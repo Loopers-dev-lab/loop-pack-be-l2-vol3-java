@@ -1,6 +1,6 @@
 # Class Diagram
 
-LAST UPDATED: 2026-02-14
+LAST UPDATED: 2026-02-22
 
 ## 목차
 - [개요](#개요)
@@ -63,11 +63,14 @@ classDiagram
         String thumbnailUrl
         Money price
         Long stock
+        long likeCount
         String description
         Long brandId
         +create(...)$ Product
         +update(...) void
         +deductStock(Long quantity) void
+        +increaseLikeCount() void
+        +decreaseLikeCount() void
     }
 
     %% ── Like ──

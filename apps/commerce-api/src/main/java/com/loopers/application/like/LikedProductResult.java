@@ -9,13 +9,12 @@ public record LikedProductResult(
         Long likeCount
 ) {
 
-    public static LikedProductResult from(Product product, Long likeCount) {
+    public static LikedProductResult from(Product product) {
         return new LikedProductResult(
                 product.getId(),
                 product.getName().getValue(),
                 product.getThumbnailUrl().getValue(),
-                likeCount
+                product.getLikeCount()
         );
-
     }
 }

@@ -20,7 +20,7 @@ public record ProductDetail(
         boolean liked
 ) {
 
-    public static ProductDetail from(Product product, Brand brand, Long likeCount, boolean liked) {
+    public static ProductDetail from(Product product, Brand brand, boolean liked) {
         return new ProductDetail(
                 product.getId(),
                 product.getName().getValue(),
@@ -32,7 +32,7 @@ public record ProductDetail(
                 brand.getId(),
                 brand.getName(),
                 brand.getLogoUrl(),
-                likeCount,
+                product.getLikeCount(),
                 liked
         );
     }

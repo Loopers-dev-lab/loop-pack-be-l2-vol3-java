@@ -38,6 +38,9 @@ public class Product extends BaseEntity {
     @Embedded
     private Stock stock;
 
+    @Column(nullable = false)
+    private long likeCount = 0;
+
     private String description;
 
     public static Product create(Long brandId, String name, String thumbnailUrl, Long price, Long stock, String description) {
@@ -53,6 +56,14 @@ public class Product extends BaseEntity {
         product.stock = new Stock(stock);
         product.description = description;
         return product;
+    }
+
+    public void increaseLikeCount() {
+        this.likeCount++;
+    }
+
+    public void decreaseLikeCount() {
+        this.likeCount--;
     }
 
     public void update(String name, String thumbnailUrl, Long price, Long stock, String description) {

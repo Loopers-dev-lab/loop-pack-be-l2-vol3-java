@@ -88,7 +88,7 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Page<ProductDetail> getActiveProducts(Long userId, ProductSortType sortType, PageSize pageSize) {
-        Slice<Product> products = productRepository.findActiveProducts(sortType, pageSize.toPageable());
+        Slice<Product> products = productRepository.findAllByDeletedAtIsNull(sortType, pageSize.toPageable());
         return toProductDetailPage(userId, products);
     }
 
@@ -97,7 +97,7 @@ public class ProductService {
         if (!brandRepository.existsByIdAndDeletedAtIsNull(brandId)) {
             throw new CoreException(ErrorType.BRAND_NOT_FOUND);
         }
-        Slice<Product> products = productRepository.findActiveProductsByBrandId(brandId, sortType, pageSize.toPageable());
+        Slice<Product> products = productRepository.findAllByBrandIdAndDeletedAtIsNull(brandId, sortType, pageSize.toPageable());
         return toProductDetailPage(userId, products);
     }
 
@@ -107,9 +107,8 @@ public class ProductService {
                 .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
         Brand brand = brandRepository.findByIdAndDeletedAtIsNull(product.getBrandId())
                 .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
-        long likeCount = likeRepository.countByProductId(productId);
         boolean liked = isLiked(userId, productId);
-        return ProductDetail.from(product, brand, likeCount, liked);
+        return ProductDetail.from(product, brand, liked);
     }
 
     @Transactional
@@ -155,14 +154,12 @@ public class ProductService {
         Map<Long, Brand> brands = brandRepository.findAllByIdIn(brandIds)
                 .stream()
                 .collect(Collectors.toMap(Brand::getId, Function.identity()));
-        Map<Long, Long> likeCounts = likeRepository.countByProductIdIn(productIds);
         Set<Long> likedProductIds = getLikedProductIds(userId, productIds);
 
         List<ProductDetail> results = productList.stream()
                 .map(product -> ProductDetail.from(
                         product,
                         brands.get(product.getBrandId()),
-                        likeCounts.getOrDefault(product.getId(), 0L),
                         likedProductIds.contains(product.getId())
                 ))
                 .toList();

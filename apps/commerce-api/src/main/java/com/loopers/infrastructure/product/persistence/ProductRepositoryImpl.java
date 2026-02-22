@@ -38,6 +38,11 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public Optional<Product> findByIdAndDeletedAtIsNullForUpdate(Long productId) {
+        return productJpaRepository.findByIdAndDeletedAtIsNullForUpdate(productId);
+    }
+
+    @Override
     public List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> productIds) {
         return productJpaRepository.findAllByIdInAndDeletedAtIsNull(productIds);
     }
@@ -48,21 +53,14 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public Slice<Product> findActiveProducts(ProductSortType sortType, Pageable pageable) {
-        if (sortType == ProductSortType.LIKE_COUNT_DESC) {
-            return productJpaRepository.findAllActiveOrderByLikeCountDesc(PageRequest.of(pageable.getPageNumber(), pageable.getPageSize()));
-        }
-        return productJpaRepository.findAllByDeletedAtIsNull(PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), toSort(sortType)));
+    public Slice<Product> findAllByDeletedAtIsNull(ProductSortType sortType, Pageable pageable) {
+        return productJpaRepository.findAllByDeletedAtIsNull(
+                PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), toSort(sortType))
+        );
     }
 
     @Override
-    public Slice<Product> findActiveProductsByBrandId(Long brandId, ProductSortType sortType, Pageable pageable) {
-        if (sortType == ProductSortType.LIKE_COUNT_DESC) {
-            return productJpaRepository.findAllActiveByBrandIdOrderByLikeCountDesc(
-                    brandId,
-                    PageRequest.of(pageable.getPageNumber(), pageable.getPageSize())
-            );
-        }
+    public Slice<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId, ProductSortType sortType, Pageable pageable) {
         return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(
                 brandId,
                 PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), toSort(sortType))
@@ -80,11 +78,6 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public boolean existsByIdAndDeletedAtIsNull(Long productId) {
-        return productJpaRepository.existsByIdAndDeletedAtIsNull(productId);
-    }
-
-    @Override
     public void softDeleteAllByBrandId(Long brandId) {
         productJpaRepository.softDeleteAllByBrandId(brandId, ZonedDateTime.now());
     }
@@ -92,8 +85,10 @@ public class ProductRepositoryImpl implements ProductRepository {
     private Sort toSort(ProductSortType sortType) {
         return switch (sortType) {
             case CREATED_AT_DESC -> Sort.by(Sort.Direction.DESC, "createdAt");
-            case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price.amount");
-            case LIKE_COUNT_DESC -> throw new IllegalStateException("LIKE_COUNT_DESC is handled separately");
+            case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price.amount")
+                    .and(Sort.by(Sort.Direction.DESC, "createdAt"));
+            case LIKE_COUNT_DESC -> Sort.by(Sort.Direction.DESC, "likeCount")
+                    .and(Sort.by(Sort.Direction.DESC, "createdAt"));
         };
     }
 }
