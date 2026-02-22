@@ -178,6 +178,49 @@ class UserAddressServiceTest {
         }
     }
 
+    @DisplayName("배송지를 단건 조회할 때,")
+    @Nested
+    class 단건조회 {
+
+        @Test
+        void 존재하지_않는_주소면_예외가_발생한다() {
+            // arrange
+            when(userAddressRepository.findById(1L)).thenReturn(Optional.empty());
+
+            // act & assert
+            assertThatThrownBy(() -> userAddressService.getAddress(1L, 1L))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(UserAddressErrorType.ADDRESS_NOT_FOUND);
+        }
+
+        @Test
+        void 본인의_주소가_아니면_예외가_발생한다() {
+            // arrange
+            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
+            when(userAddressRepository.findById(1L)).thenReturn(Optional.of(address));
+
+            // act & assert
+            assertThatThrownBy(() -> userAddressService.getAddress(1L, 999L))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(UserAddressErrorType.NOT_OWNER);
+        }
+
+        @Test
+        void 유효한_요청이면_주소를_반환한다() {
+            // arrange
+            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
+            when(userAddressRepository.findById(1L)).thenReturn(Optional.of(address));
+
+            // act
+            UserAddress result = userAddressService.getAddress(1L, 1L);
+
+            // assert
+            assertThat(result.getReceiverName()).isEqualTo("홍길동");
+        }
+    }
+
     @DisplayName("배송지 목록을 조회할 때,")
     @Nested
     class 목록조회 {

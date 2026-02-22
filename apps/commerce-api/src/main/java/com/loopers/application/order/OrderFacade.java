@@ -1,0 +1,120 @@
+package com.loopers.application.order;
+
+import com.loopers.domain.address.UserAddress;
+import com.loopers.domain.address.UserAddressService;
+import com.loopers.domain.brand.Brand;
+import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.inventory.InventoryService;
+import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderItem;
+import com.loopers.domain.order.OrderService;
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ProductStatus;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.OrderErrorType;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+/**
+ * 주문 Facade
+ *
+ * Order + Address + Product + Brand + Inventory 도메인 서비스를 조합하여
+ * 주문 생성(F-11)과 주문 취소(F-16)를 처리한다.
+ */
+@Component
+public class OrderFacade {
+
+    private final OrderService orderService;
+    private final UserAddressService userAddressService;
+    private final ProductService productService;
+    private final BrandService brandService;
+    private final InventoryService inventoryService;
+
+    public OrderFacade(OrderService orderService, UserAddressService userAddressService,
+                       ProductService productService, BrandService brandService,
+                       InventoryService inventoryService) {
+        this.orderService = orderService;
+        this.userAddressService = userAddressService;
+        this.productService = productService;
+        this.brandService = brandService;
+        this.inventoryService = inventoryService;
+    }
+
+    /**
+     * 주문 생성 (F-11)
+     *
+     * 1. items 유효성 검증 (비어있으면 400)
+     * 2. 배송지 조회 + 소유권 검증
+     * 3. 각 상품 존재/판매가능 확인 (ACTIVE만 주문 가능)
+     * 4. 재고 예약 (비관적 락, 원자적 수행)
+     * 5. Order(PENDING) + OrderItem 스냅샷 생성
+     */
+    @Transactional
+    public Order createOrder(Long userId, String userName, List<OrderItemCommand> itemCommands, Long addressId) {
+        if (itemCommands == null || itemCommands.isEmpty()) {
+            throw new CoreException(OrderErrorType.EMPTY_ORDER_ITEMS);
+        }
+
+        UserAddress address = userAddressService.getAddress(addressId, userId);
+
+        List<OrderItem> orderItems = new ArrayList<>();
+        Map<Long, Integer> productQtyMap = itemCommands.stream()
+                .collect(Collectors.toMap(OrderItemCommand::productId, OrderItemCommand::quantity));
+
+        for (OrderItemCommand cmd : itemCommands) {
+            Product product = productService.getDisplayableProduct(cmd.productId());
+            if (product.getStatus() != ProductStatus.ACTIVE) {
+                throw new CoreException(OrderErrorType.NOT_PURCHASABLE);
+            }
+
+            Brand brand = brandService.getById(product.getBrandId());
+
+            orderItems.add(OrderItem.create(
+                    product.getId(),
+                    product.getName(),
+                    brand.getName(),
+                    product.getBasePrice(),
+                    cmd.quantity()
+            ));
+        }
+
+        inventoryService.reserveAll(productQtyMap);
+
+        String orderNumber = generateOrderNumber();
+
+        return orderService.create(
+                userId, orderNumber, orderItems,
+                userName, address.getPhone(),
+                address.getReceiverName(), address.getPhone(),
+                address.getZipCode(), address.getAddressLine1(), address.getAddressLine2()
+        );
+    }
+
+    /**
+     * 주문 취소 (F-16)
+     *
+     * 1. OrderService.cancel → 소유권 검증 + PENDING→CANCELED
+     * 2. 재고 예약 해제 (order_items 기준으로 reserved_qty 복구)
+     */
+    @Transactional
+    public void cancelOrder(Long orderId, Long userId) {
+        Order order = orderService.cancel(orderId, userId);
+
+        Map<Long, Integer> productQtyMap = order.getItems().stream()
+                .collect(Collectors.toMap(OrderItem::getProductId, OrderItem::getQuantity));
+        inventoryService.releaseAll(productQtyMap);
+    }
+
+    private String generateOrderNumber() {
+        return "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    }
+
+    public record OrderItemCommand(Long productId, int quantity) {}
+}

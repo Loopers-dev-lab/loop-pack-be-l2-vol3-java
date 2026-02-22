@@ -56,4 +56,12 @@ public class UserAddressService {
     public List<UserAddress> getAddresses(Long userId) {
         return userAddressRepository.findAllByUserIdAndDeletedAtIsNull(userId);
     }
+
+    @Transactional(readOnly = true)
+    public UserAddress getAddress(Long addressId, Long userId) {
+        UserAddress address = userAddressRepository.findById(addressId)
+                .orElseThrow(() -> new CoreException(UserAddressErrorType.ADDRESS_NOT_FOUND));
+        address.validateOwnership(userId);
+        return address;
+    }
 }
