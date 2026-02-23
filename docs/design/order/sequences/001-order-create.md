@@ -19,24 +19,12 @@ sequenceDiagram
     activate OF
 
     critical @Transactional
-        OF->>PS: 주문 상품 조회
+        OF->>PS: 재고 차감 및 스냅샷 조회
         activate PS
-        PS-->>OF: 상품 목록
+        PS-->>OF: 스냅샷 정보
         deactivate PS
 
-        OF->>PS: 재고 차감
-        activate PS
-
-        alt 재고 부족
-            PS-->>OF: 재고 부족 예외
-            OF-->>OC: 에러
-            OC-->>사용자: 400 "재고가 부족한 상품이 있습니다"
-        end
-
-        PS-->>OF: 차감 완료
-        deactivate PS
-
-        OF->>OS: 주문 + 스냅샷 저장
+        OF->>OS: 주문 생성
         activate OS
         OS-->>OF: Order
         deactivate OS
@@ -51,6 +39,7 @@ sequenceDiagram
 ## 핵심 포인트
 
 - 재고 차감과 주문 생성은 같은 트랜잭션에서 처리한다
+- ProductService.재고차감이 상품 조회+활성 검증+재고 검증+차감+스냅샷 반환을 캡슐화한다 (재고 부족 시 예외)
 - 주문 상품 중 하나라도 재고가 부족하면 전체 주문이 실패한다 (부분 성공 없음)
 - 주문 시점의 상품명, 가격, 브랜드명을 OrderItem에 스냅샷으로 저장한다
 - Facade가 ProductService와 OrderService를 오케스트레이션한다

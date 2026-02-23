@@ -18,40 +18,35 @@ sequenceDiagram
     LC->>LF: 좋아요 등록
     activate LF
 
-    LF->>PS: 상품 조회
-    activate PS
-    PS-->>LF: Product
-    deactivate PS
+    critical @Transactional
+        LF->>PS: 활성 상품 확인
+        activate PS
+        PS-->>LF: 완료
+        deactivate PS
 
-    LF->>LS: 좋아요 존재 여부 확인
-    activate LS
-    LS-->>LF: 조회 결과
-    deactivate LS
+        LF->>LS: 좋아요 등록
+        activate LS
+        LS-->>LF: 생성 여부 (boolean)
+        deactivate LS
 
-    alt 이미 좋아요 상태
-        LF-->>LC: 현재 상태 유지
-        LC-->>사용자: 200 OK
-    else 좋아요 없음
-        critical @Transactional
-            LF->>LS: 좋아요 저장
-            activate LS
-            LS-->>LF: 완료
-            deactivate LS
-
+        opt 좋아요가 새로 생성됨
             LF->>PS: 좋아요 수 증가
             activate PS
             PS-->>LF: 완료
             deactivate PS
         end
-        LF-->>LC: 등록 완료
-        LC-->>사용자: 200 OK
     end
+
+    LF-->>LC: 200 OK
     deactivate LF
+    LC-->>사용자: 200 OK
     deactivate LC
 ```
 
 ## 핵심 포인트
 
+- 트랜잭션 범위: Facade 메서드 전체를 `@Transactional`로 감싼다
+- 활성 상품 확인: ProductService가 미존재/삭제 시 예외를 던진다 (Facade는 분기하지 않음)
+- 좋아요 등록 캡슐화: LikeService가 존재 여부 확인 + 저장을 캡슐화한다. Facade는 도메인 내부 상태(Optional 등)를 직접 다루지 않는다
 - 멱등성: 이미 좋아요 상태이면 저장/증가 없이 200 응답한다
 - 좋아요 저장과 likeCount 증가는 같은 트랜잭션에서 처리한다
-- 상품 존재 여부를 먼저 검증하여 삭제된 상품에 좋아요를 방지한다

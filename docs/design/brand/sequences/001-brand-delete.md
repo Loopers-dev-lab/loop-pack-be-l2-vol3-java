@@ -19,12 +19,7 @@ sequenceDiagram
     activate BF
 
     critical @Transactional
-        BF->>BS: 브랜드 조회
-        activate BS
-        BS-->>BF: Brand
-        deactivate BS
-
-        BF->>BS: 브랜드 삭제 처리
+        BF->>BS: 브랜드 삭제
         activate BS
         BS-->>BF: 완료
         deactivate BS
@@ -46,3 +41,4 @@ sequenceDiagram
 - 브랜드 삭제와 하위 상품 삭제는 같은 트랜잭션에서 원자적으로 처리한다
 - Facade가 BrandService와 ProductService를 오케스트레이션한다
 - Brand Entity는 Product를 모르며, 연쇄 삭제는 Facade의 책임이다
+- BrandService.삭제가 조회+검증+삭제를 캡슐화한다 (Facade에 Entity 노출 안 함)
