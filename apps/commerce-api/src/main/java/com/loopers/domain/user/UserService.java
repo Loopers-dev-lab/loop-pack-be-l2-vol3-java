@@ -19,21 +19,22 @@ public class UserService {
 
     @Transactional
     public UserModel signUp(
-        String userId,
+        UserId userId,
         Email email,
         BirthDate birthDate,
         Password password,
         Gender gender
     ) {
-        if (userRepository.existsByUserId(userId)) {
-            throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 사용자 ID입니다: " + userId);
+        String value = userId.value();
+        if (userRepository.existsByUserId(value)) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 사용자 ID입니다: " + value);
         }
 
         try {
             UserModel user = UserModel.create(userId, email, birthDate, password, gender);
             return userRepository.save(user);
         } catch (DataIntegrityViolationException e) {
-            throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 사용자 ID입니다: " + userId);
+            throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 사용자 ID입니다: " + value);
         }
     }
 
