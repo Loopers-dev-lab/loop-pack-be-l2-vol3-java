@@ -9,7 +9,7 @@
 ## 0. 인증·인가 (전역 및 컨트롤러)
 
 - **인증(전역)**
-  - **AdminAuthInterceptor**: 경로 `/admin/**` 전담. `X-Loopers-Ldap` 검증, Admin SecurityContext 설정. 실패 시 401.
+  - **AdminAuthInterceptor**: 경로 `/api-admin/**` 전담. `X-Loopers-Ldap` 검증, Admin SecurityContext 설정. 실패 시 401.
   - **CustomerAuthInterceptor**: **로그인이 필요한 고객 API 경로에만** 적용된다. 해당 경로를 반드시 거쳐야 하며, 헤더(`X-Loopers-LoginId` 등) 검증 후 고객 SecurityContext 설정, 실패 시 401.
   - **비회원 허용(조회)**: 상품·브랜드 조회 등 로그인 불필요 API는 인터셉터 적용 대상에서 **제외**한다. 따라서 해당 경로는 인터셉터를 거치지 않으며 비회원도 접근 가능하다.
 - **인가(컨트롤러)**: 어드민 전용 API는 해당 Controller에 `@PreAuthorize("hasRole('ADMIN')")`를 적용한다. 검증 실패 시 해당 지점에서 차단(403 등).
@@ -26,7 +26,7 @@ sequenceDiagram
     participant Facade as *Facade
     participant Service as *Service
 
-    Note over Admin, AdminAuth: [인증] /admin/** 전 구간
+    Note over Admin, AdminAuth: [인증] /api-admin/** 전 구간
     Admin->>+AdminAuth: API 호출 (X-Loopers-Ldap)
     AdminAuth->>AdminAuth: 헤더 검증, SecurityContext(Admin) 설정
     AdminAuth->>-Controller: 요청 전달

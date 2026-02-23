@@ -233,8 +233,8 @@
 - 어드민: `X-Loopers-Ldap` 헤더로 식별.
 - 인증 필요 API에서 헤더가 없거나 유효하지 않으면 **401 Unauthorized**로 응답한다.
 
-- **고객 인터셉터**: 로그인이 필요한 API에서만 **CustomerAuthInterceptor**를 반드시 거치도록 한다. 적용 경로 예: `/customer/v1/users/**`, `/customer/v1/likes/**`, `/customer/v1/cart/**`, `/customer/v1/orders/**`. 상품·브랜드 조회(목록/상세) 등 비회원 허용 API는 인터셉터 적용 대상에서 **제외**하여, 해당 경로는 인터셉터를 거치지 않고 비회원도 접근 가능하다.
-- **어드민 인터셉터**: `AdminAuthInterceptor`는 `/admin/**` 전 구간에 적용하며, 인증 실패 시 401.
+- **고객 인터셉터**: 로그인이 필요한 API에서만 **CustomerAuthInterceptor**를 반드시 거치도록 한다. 적용 경로 예: `/api/v1/users/**`, `/api/v1/likes/**`, `/api/v1/cart/**`, `/api/v1/orders/**`. 상품·브랜드 조회(목록/상세) 등 비회원 허용 API는 인터셉터 적용 대상에서 **제외**하여, 해당 경로는 인터셉터를 거치지 않고 비회원도 접근 가능하다.
+- **어드민 인터셉터**: `AdminAuthInterceptor`는 `/api-admin/**` 전 구간에 적용하며, 인증 실패 시 401.
 
 ### 4.3 존재하지 않는 자원 접근
 
