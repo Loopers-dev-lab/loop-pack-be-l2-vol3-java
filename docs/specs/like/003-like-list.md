@@ -7,7 +7,7 @@
 GET /api/v1/likes
 
 ## 인증
-User (X-Loopers-LoginId + LoginPw 헤더)
+User
 
 ## 요청
 | 필드 | 타입 | 필수 | 규칙 |
@@ -23,7 +23,7 @@ User (X-Loopers-LoginId + LoginPw 헤더)
 | content[].brandId | Long | 소속 브랜드 ID |
 | content[].brandName | String | 소속 브랜드명 |
 | content[].name | String | 상품명 |
-| content[].price | Integer | 가격 |
+| content[].price | BigDecimal | 가격 |
 | content[].stockQuantity | Integer | 재고 수량 |
 | content[].description | String | 상품 설명 |
 | content[].likeCount | Integer | 좋아요 수 |

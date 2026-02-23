@@ -7,14 +7,14 @@
 POST /api-admin/v1/products
 
 ## 인증
-LDAP (X-Loopers-Ldap 헤더)
+Admin
 
 ## 요청
 | 필드 | 타입 | 필수 | 규칙 |
 |------|------|------|------|
 | brandId | Long | O | 활성 브랜드 ID |
 | name | String | O | 1~200자 |
-| price | Integer | O | 0 ~ 999,999,999 |
+| price | BigDecimal | O | 0 ~ 999,999,999 |
 | stockQuantity | Integer | O | 0 ~ 9,999,999 |
 | description | String | X | 최대 1,000자 |
 
@@ -25,7 +25,7 @@ LDAP (X-Loopers-Ldap 헤더)
 | brandId | Long | 소속 브랜드 ID |
 | brandName | String | 소속 브랜드명 |
 | name | String | 상품명 |
-| price | Integer | 가격 |
+| price | BigDecimal | 가격 |
 | stockQuantity | Integer | 재고 수량 |
 | description | String | 상품 설명 |
 | likeCount | Integer | 좋아요 수 (초기값 0) |
@@ -39,6 +39,8 @@ LDAP (X-Loopers-Ldap 헤더)
 - [ ] likeCount는 0으로 초기화된다
 - [ ] 소속 브랜드가 미존재하면 404 응답, 메시지: "존재하지 않는 브랜드입니다"
 - [ ] 요청 필드 규칙 위반 시 400 응답
+- [ ] 인증 헤더가 누락되면 401 응답, 메시지: "인증 헤더가 필요합니다"
+- [ ] 인증에 실패하면 401 응답, 메시지: "인증에 실패했습니다"
 
 ## 제약
 - 소속 브랜드는 활성 상태여야 한다

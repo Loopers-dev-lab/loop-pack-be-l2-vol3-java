@@ -7,7 +7,7 @@
 {HTTP 메서드} {엔드포인트}
 
 ## 인증
-{불필요 / User (X-Loopers-LoginId + LoginPw 헤더) / LDAP (X-Loopers-Ldap 헤더)}
+{불필요 / User / Admin}
 
 ## 요청
 | 필드 | 타입 | 필수 | 규칙 |

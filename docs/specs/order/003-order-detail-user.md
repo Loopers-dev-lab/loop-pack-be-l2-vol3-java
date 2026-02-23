@@ -7,7 +7,7 @@
 GET /api/v1/orders/{orderId}
 
 ## 인증
-User (X-Loopers-LoginId + LoginPw 헤더)
+User
 
 ## 요청
 | 필드 | 타입 | 필수 | 규칙 |
@@ -18,14 +18,14 @@ User (X-Loopers-LoginId + LoginPw 헤더)
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | id | Long | 주문 ID |
-| totalAmount | Long | 총 주문 금액 |
+| totalAmount | BigDecimal | 총 주문 금액 |
 | orderItems[] | Array | 주문 상품 목록 |
 | orderItems[].productId | Long | 상품 ID |
 | orderItems[].productName | String | 상품명 (스냅샷) |
 | orderItems[].brandName | String | 브랜드명 (스냅샷) |
-| orderItems[].price | Integer | 상품 가격 (스냅샷) |
+| orderItems[].price | BigDecimal | 상품 가격 (스냅샷) |
 | orderItems[].quantity | Integer | 주문 수량 |
-| orderItems[].orderPrice | Long | 주문 금액 (price × quantity) |
+| orderItems[].orderPrice | BigDecimal | 주문 금액 (price × quantity) |
 | createdAt | LocalDateTime | 주문일시 |
 
 ## 인수 조건

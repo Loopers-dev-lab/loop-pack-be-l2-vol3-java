@@ -7,7 +7,7 @@
 GET /api/v1/orders
 
 ## 인증
-User (X-Loopers-LoginId + LoginPw 헤더)
+User
 
 ## 요청
 | 필드 | 타입 | 필수 | 규칙 |
@@ -22,7 +22,7 @@ User (X-Loopers-LoginId + LoginPw 헤더)
 |------|------|------|
 | content[] | Array | 주문 목록 |
 | content[].id | Long | 주문 ID |
-| content[].totalAmount | Long | 총 주문 금액 |
+| content[].totalAmount | BigDecimal | 총 주문 금액 |
 | content[].createdAt | LocalDateTime | 주문일시 |
 | page | Integer | 현재 페이지 번호 |
 | size | Integer | 페이지 크기 |

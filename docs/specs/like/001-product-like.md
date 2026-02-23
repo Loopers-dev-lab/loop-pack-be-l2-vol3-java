@@ -7,7 +7,7 @@
 POST /api/v1/products/{productId}/likes
 
 ## 인증
-User (X-Loopers-LoginId + LoginPw 헤더)
+User
 
 ## 요청
 | 필드 | 타입 | 필수 | 규칙 |

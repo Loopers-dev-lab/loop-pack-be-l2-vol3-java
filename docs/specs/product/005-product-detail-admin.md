@@ -7,7 +7,7 @@
 GET /api-admin/v1/products/{productId}
 
 ## 인증
-LDAP (X-Loopers-Ldap 헤더)
+Admin
 
 ## 요청
 | 필드 | 타입 | 필수 | 규칙 |
@@ -21,7 +21,7 @@ LDAP (X-Loopers-Ldap 헤더)
 | brandId | Long | 소속 브랜드 ID |
 | brandName | String | 소속 브랜드명 |
 | name | String | 상품명 |
-| price | Integer | 가격 |
+| price | BigDecimal | 가격 |
 | stockQuantity | Integer | 재고 수량 |
 | description | String | 상품 설명 |
 | likeCount | Integer | 좋아요 수 |
@@ -34,6 +34,8 @@ LDAP (X-Loopers-Ldap 헤더)
 - [ ] 활성 상품을 조회하면 200 응답과 상품 상세 정보를 반환한다
 - [ ] 삭제된 상품도 조회할 수 있으며, status가 DELETED로 표시된다
 - [ ] 해당 ID의 상품 데이터가 존재하지 않으면 404 응답, 메시지: "존재하지 않는 상품입니다"
+- [ ] 인증 헤더가 누락되면 401 응답, 메시지: "인증 헤더가 필요합니다"
+- [ ] 인증에 실패하면 401 응답, 메시지: "인증에 실패했습니다"
 
 ## 제약
 - Admin 상세 조회는 삭제 여부와 관계없이 데이터가 존재하면 반환한다

@@ -7,7 +7,7 @@
 GET /api-admin/v1/products
 
 ## 인증
-LDAP (X-Loopers-Ldap 헤더)
+Admin
 
 ## 요청
 | 필드 | 타입 | 필수 | 규칙 |
@@ -26,7 +26,7 @@ LDAP (X-Loopers-Ldap 헤더)
 | content[].brandId | Long | 소속 브랜드 ID |
 | content[].brandName | String | 소속 브랜드명 |
 | content[].name | String | 상품명 |
-| content[].price | Integer | 가격 |
+| content[].price | BigDecimal | 가격 |
 | content[].stockQuantity | Integer | 재고 수량 |
 | content[].description | String | 상품 설명 |
 | content[].likeCount | Integer | 좋아요 수 |
@@ -50,6 +50,8 @@ LDAP (X-Loopers-Ldap 헤더)
 - [ ] name 검색, brandId 필터, status 필터를 동시에 적용할 수 있다
 - [ ] 결과가 없으면 빈 목록을 반환한다
 - [ ] 요청 필드 규칙 위반 시 400 응답
+- [ ] 인증 헤더가 누락되면 401 응답, 메시지: "인증 헤더가 필요합니다"
+- [ ] 인증에 실패하면 401 응답, 메시지: "인증에 실패했습니다"
 
 ## 제약
 - 정렬 기준: 최신 등록순 (createdAt DESC) 고정

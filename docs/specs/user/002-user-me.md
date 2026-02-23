@@ -7,7 +7,7 @@
 GET /api/v1/users/me
 
 ## 인증
-User (X-Loopers-LoginId + LoginPw 헤더)
+User
 
 ## 요청
 없음

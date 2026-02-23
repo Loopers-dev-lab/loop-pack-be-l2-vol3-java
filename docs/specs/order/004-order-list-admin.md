@@ -7,7 +7,7 @@
 GET /api-admin/v1/orders
 
 ## 인증
-LDAP (X-Loopers-Ldap 헤더)
+Admin
 
 ## 요청
 | 필드 | 타입 | 필수 | 규칙 |
@@ -21,7 +21,7 @@ LDAP (X-Loopers-Ldap 헤더)
 | content[] | Array | 주문 목록 |
 | content[].id | Long | 주문 ID |
 | content[].userId | Long | 주문자 ID |
-| content[].totalAmount | Long | 총 주문 금액 |
+| content[].totalAmount | BigDecimal | 총 주문 금액 |
 | content[].createdAt | LocalDateTime | 주문일시 |
 | page | Integer | 현재 페이지 번호 |
 | size | Integer | 페이지 크기 |
@@ -33,6 +33,8 @@ LDAP (X-Loopers-Ldap 헤더)
 - [ ] 모든 사용자의 주문이 포함된다
 - [ ] 결과가 없으면 빈 목록을 반환한다
 - [ ] 요청 필드 규칙 위반 시 400 응답
+- [ ] 인증 헤더가 누락되면 401 응답, 메시지: "인증 헤더가 필요합니다"
+- [ ] 인증에 실패하면 401 응답, 메시지: "인증에 실패했습니다"
 
 ## 제약
 - 정렬 기준: 최신 주문순 (createdAt DESC) 고정

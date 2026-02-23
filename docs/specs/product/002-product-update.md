@@ -7,14 +7,14 @@
 PATCH /api-admin/v1/products/{productId}
 
 ## 인증
-LDAP (X-Loopers-Ldap 헤더)
+Admin
 
 ## 요청
 | 필드 | 타입 | 필수 | 규칙 |
 |------|------|------|------|
 | productId | Long | O | Path Variable |
 | name | String | X | 1~200자 |
-| price | Integer | X | 0 ~ 999,999,999 |
+| price | BigDecimal | X | 0 ~ 999,999,999 |
 | stockQuantity | Integer | X | 0 ~ 9,999,999 |
 | description | String | X | 최대 1,000자 |
 
@@ -25,7 +25,7 @@ LDAP (X-Loopers-Ldap 헤더)
 | brandId | Long | 소속 브랜드 ID |
 | brandName | String | 소속 브랜드명 |
 | name | String | 상품명 |
-| price | Integer | 가격 |
+| price | BigDecimal | 가격 |
 | stockQuantity | Integer | 재고 수량 |
 | description | String | 상품 설명 |
 | likeCount | Integer | 좋아요 수 |
@@ -39,6 +39,8 @@ LDAP (X-Loopers-Ldap 헤더)
 - [ ] 소속 브랜드(brandId)는 변경할 수 없다
 - [ ] 상품이 미존재하면 404 응답, 메시지: "존재하지 않는 상품입니다"
 - [ ] 요청 필드 규칙 위반 시 400 응답
+- [ ] 인증 헤더가 누락되면 401 응답, 메시지: "인증 헤더가 필요합니다"
+- [ ] 인증에 실패하면 401 응답, 메시지: "인증에 실패했습니다"
 
 ## 제약
 - PATCH 방식: 전달된 필드만 수정하고 나머지는 유지한다

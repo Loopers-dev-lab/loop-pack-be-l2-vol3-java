@@ -25,7 +25,7 @@ GET /api/v1/products
 | content[].brandId | Long | 소속 브랜드 ID |
 | content[].brandName | String | 소속 브랜드명 |
 | content[].name | String | 상품명 |
-| content[].price | Integer | 가격 |
+| content[].price | BigDecimal | 가격 |
 | content[].stockQuantity | Integer | 재고 수량 |
 | content[].description | String | 상품 설명 |
 | content[].likeCount | Integer | 좋아요 수 |
