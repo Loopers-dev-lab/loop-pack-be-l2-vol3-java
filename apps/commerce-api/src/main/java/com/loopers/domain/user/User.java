@@ -24,6 +24,9 @@ public record User(
         if (password == null || birthDate == null) {
             return;
         }
+        if (password.isEncoded()) {
+            return;
+        }
         if (password.containsDate(birthDate.value())) {
             throw new UserValidationException(ERROR_PASSWORD_CONTAINS_BIRTHDATE);
         }

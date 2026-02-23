@@ -255,7 +255,6 @@ class UserControllerTest {
             registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com");
 
             UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest(
-                    "Password1!",
                     "NewPassword1!"
             );
 
@@ -276,7 +275,6 @@ class UserControllerTest {
             registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com");
 
             UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest(
-                    "Password1!",
                     ""
             );
 
@@ -296,7 +294,6 @@ class UserControllerTest {
             registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com");
 
             UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest(
-                    "Password1!",
                     "Short1!"
             );
 
@@ -310,33 +307,12 @@ class UserControllerTest {
         }
 
         @Test
-        @DisplayName("현재 비밀번호가 틀리면 401 Unauthorized를 반환한다")
-        void returnsUnauthorized_whenCurrentPasswordWrong() throws Exception {
-            // arrange
-            registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com");
-
-            UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest(
-                    "WrongPassword1!",
-                    "NewPassword1!"
-            );
-
-            // act & assert
-            mockMvc.perform(patch("/api/v1/users/me/password")
-                            .header("X-Loopers-LoginId", "testuser1")
-                            .header("X-Loopers-LoginPw", "Password1!")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isUnauthorized());
-        }
-
-        @Test
         @DisplayName("새 비밀번호가 현재 비밀번호와 같으면 400 Bad Request를 반환한다")
         void returnsBadRequest_whenSamePassword() throws Exception {
             // arrange
             registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com");
 
             UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest(
-                    "Password1!",
                     "Password1!"
             );
 

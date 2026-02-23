@@ -10,4 +10,9 @@ public record RegisterCommand(
         String email,
         String birthDate
 ) {
+    @Override
+    public String toString() {
+        return "RegisterCommand[userId=%s, rawPassword=***, name=%s, email=%s, birthDate=%s]"
+                .formatted(userId, name, email, birthDate);
+    }
 }

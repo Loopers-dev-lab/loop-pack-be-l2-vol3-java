@@ -73,4 +73,14 @@ public class PasswordTest {
         Assertions.assertThatNoException()
             .isThrownBy(() -> new Password("1Q2w3e4r!1234567"));
     }
+
+    @Test
+    @DisplayName("BCrypt $2y$ prefix를 인코딩 비밀번호로 인식한다")
+    public void recognizesBcrypt2yPrefixAsEncoded() {
+        // given
+        Password encoded = Password.ofEncoded("$2y$10$dummyEncodedPasswordForTest");
+
+        // when & then
+        Assertions.assertThat(encoded.isEncoded()).isTrue();
+    }
 }

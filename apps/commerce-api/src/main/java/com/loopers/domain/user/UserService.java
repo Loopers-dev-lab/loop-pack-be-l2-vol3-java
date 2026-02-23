@@ -10,6 +10,7 @@ import com.loopers.domain.user.vo.UserId;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,7 +41,11 @@ public class UserService {
             throw new CoreException(ErrorType.INTERNAL_ERROR, ERROR_PASSWORD_NOT_ENCODED);
         }
         User userWithEncodedPassword = new User(user.id(), encodedPassword, user.name(), user.email(), user.birthDate());
-        return userRepository.save(userWithEncodedPassword);
+        try {
+            return userRepository.save(userWithEncodedPassword);
+        } catch (DataIntegrityViolationException e) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 아이디입니다.");
+        }
     }
 
     @Transactional
@@ -53,11 +58,13 @@ public class UserService {
         }
 
         Password newPassword = new Password(command.newRawPassword());
+        // Validate raw password business rules before encoding.
+        new User(user.id(), newPassword, user.name(), user.email(), user.birthDate());
         Password encodedPassword = Password.ofEncoded(passwordEncoder.encode(newPassword.value()));
         if (!encodedPassword.isEncoded()) {
             throw new CoreException(ErrorType.INTERNAL_ERROR, ERROR_PASSWORD_NOT_ENCODED);
         }
-        User updatedUser = new User(user.id(), encodedPassword, user.name(), user.email(), command.birthDate());
+        User updatedUser = new User(user.id(), encodedPassword, user.name(), user.email(), user.birthDate());
         userRepository.save(updatedUser);
     }
 }

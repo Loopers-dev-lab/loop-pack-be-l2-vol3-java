@@ -68,4 +68,10 @@ public class UserEntity extends BaseEntity {
         this.password = encodedPassword;
     }
 
+    public void updateFrom(User user) {
+        this.password = user.password().value();
+        this.name = user.name().value();
+        this.email = user.email().value();
+        this.birthDate = user.birthDate().value();
+    }
 }

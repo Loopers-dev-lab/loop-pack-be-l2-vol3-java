@@ -207,7 +207,6 @@ class UserApiE2ETest {
             headers.set(HEADER_LOGIN_PW, currentPassword);
 
             UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest(
-                    currentPassword,
                     "NewPassword1!"
             );
 
@@ -223,34 +222,6 @@ class UserApiE2ETest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         }
 
-        @DisplayName("현재 비밀번호가 틀리면 401 Unauthorized를 반환한다")
-        @Test
-        void returnsUnauthorized_whenCurrentPasswordWrong() {
-            // arrange
-            String loginId = "testuser1";
-            registerUser(loginId, "Password1!", "홍길동", "19900101", "test@example.com");
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.set(HEADER_LOGIN_ID, loginId);
-            headers.set(HEADER_LOGIN_PW, "Password1!");
-
-            UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest(
-                    "WrongPassword1!",
-                    "NewPassword1!"
-            );
-
-            // act
-            ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
-                    ENDPOINT_PASSWORD,
-                    HttpMethod.PATCH,
-                    new HttpEntity<>(request, headers),
-                    new ParameterizedTypeReference<>() {}
-            );
-
-            // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        }
-
         @DisplayName("새 비밀번호가 현재 비밀번호와 같으면 400 Bad Request를 반환한다")
         @Test
         void returnsBadRequest_whenSamePassword() {
@@ -264,7 +235,6 @@ class UserApiE2ETest {
             headers.set(HEADER_LOGIN_PW, currentPassword);
 
             UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest(
-                    currentPassword,
                     currentPassword
             );
 

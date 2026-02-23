@@ -56,9 +56,15 @@ public class UserAuthServiceTest {
         @DisplayName("성공")
         void authenticateSuccess() {
             // given
-            User savedUser = new User(userId, Password.ofEncoded("encodedPassword"), name, email, birthDate);
+            User savedUser = new User(
+                    userId,
+                    Password.ofEncoded("$2a$10$dummyEncodedPasswordForTest"),
+                    name,
+                    email,
+                    birthDate
+            );
             when(userRepository.findByUserId(userId)).thenReturn(Optional.of(savedUser));
-            when(passwordEncoder.matches("1Q2w3e4r!", "encodedPassword")).thenReturn(true);
+            when(passwordEncoder.matches("1Q2w3e4r!", "$2a$10$dummyEncodedPasswordForTest")).thenReturn(true);
 
             AuthenticateCommand command = AuthenticateCommand.builder()
                     .userId(userId)
@@ -97,9 +103,15 @@ public class UserAuthServiceTest {
         @DisplayName("실패 - 비밀번호 불일치")
         void authenticateFailWrongPassword() {
             // given
-            User savedUser = new User(userId, Password.ofEncoded("encodedPassword"), name, email, birthDate);
+            User savedUser = new User(
+                    userId,
+                    Password.ofEncoded("$2a$10$dummyEncodedPasswordForTest"),
+                    name,
+                    email,
+                    birthDate
+            );
             when(userRepository.findByUserId(userId)).thenReturn(Optional.of(savedUser));
-            when(passwordEncoder.matches("wrongPassword", "encodedPassword")).thenReturn(false);
+            when(passwordEncoder.matches("wrongPassword", "$2a$10$dummyEncodedPasswordForTest")).thenReturn(false);
 
             AuthenticateCommand command = AuthenticateCommand.builder()
                     .userId(userId)

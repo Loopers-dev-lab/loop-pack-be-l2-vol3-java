@@ -8,4 +8,8 @@ public record AuthenticateCommand(
         UserId userId,
         String rawPassword
 ) {
+    @Override
+    public String toString() {
+        return "AuthenticateCommand[userId=%s, rawPassword=***]".formatted(userId);
+    }
 }

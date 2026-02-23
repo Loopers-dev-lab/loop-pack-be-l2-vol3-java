@@ -108,6 +108,21 @@ public class UserTest {
             assertThatNoException()
                     .isThrownBy(() -> new User(userId, password, name, email, birthDate));
         }
+
+        @Test
+        @DisplayName("인코딩된 비밀번호는 생년월일 포함 검증을 생략한다")
+        void skipBirthDateValidationWhenPasswordEncoded() {
+            // given
+            UserId userId = new UserId("testuser");
+            Password password = Password.ofEncoded("$2a$10$encodedPassword");
+            Name name = new Name("홍길동");
+            Email email = new Email("test@example.com");
+            BirthDate birthDate = BirthDate.of("19990115");
+
+            // when & then
+            assertThatNoException()
+                    .isThrownBy(() -> new User(userId, password, name, email, birthDate));
+        }
     }
 
     @Nested
@@ -169,6 +184,25 @@ public class UserTest {
 
             // then
             assertThat(maskedName).isEqualTo("*");
+        }
+
+        @Test
+        @DisplayName("두 글자 이름 마스킹")
+        void getMaskedTwoCharName() {
+            // given
+            UserId userId = new UserId("testuser");
+            Password password = new Password("1Q2w3e4r!");
+            Name name = new Name("홍길");
+            Email email = new Email("test@example.com");
+            BirthDate birthDate = new BirthDate(LocalDate.of(1999, 1, 15));
+
+            User user = new User(userId, password, name, email, birthDate);
+
+            // when
+            String maskedName = user.getMaskedName();
+
+            // then
+            assertThat(maskedName).isEqualTo("홍*");
         }
     }
 }

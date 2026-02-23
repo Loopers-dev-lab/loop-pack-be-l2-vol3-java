@@ -37,7 +37,10 @@ public class AuthUserArgumentResolver implements HandlerMethodArgumentResolver {
             NativeWebRequest webRequest,
             WebDataBinderFactory binderFactory
     ) {
-        HttpServletRequest request = (HttpServletRequest) webRequest.getNativeRequest();
+        HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
+        if (request == null) {
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "HttpServletRequest를 가져올 수 없습니다");
+        }
         String loginId = request.getHeader(HEADER_LOGIN_ID);
         String password = request.getHeader(HEADER_LOGIN_PW);
 

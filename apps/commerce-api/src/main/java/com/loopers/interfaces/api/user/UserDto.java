@@ -14,17 +14,13 @@ public class UserDto {
     public record RegisterRequest(
             @NotBlank(message = "로그인 ID는 필수입니다")
             String loginId,
-
             @NotBlank(message = "비밀번호는 필수입니다")
             String password,
-
             @NotBlank(message = "이름은 필수입니다")
             String name,
-
             @NotBlank(message = "생년월일은 필수입니다")
             @Pattern(regexp = "\\d{8}", message = "생년월일은 yyyyMMdd 형식이어야 합니다")
             String birthDate,
-
             @NotBlank(message = "이메일은 필수입니다")
             @Email(message = "올바른 이메일 형식이 아닙니다")
             String email
@@ -58,16 +54,12 @@ public class UserDto {
     }
 
     public record ChangePasswordRequest(
-            @NotBlank(message = "현재 비밀번호는 필수입니다")
-            String currentPassword,
-
             @NotBlank(message = "새 비밀번호는 필수입니다")
             String newPassword
     ) {
         public UserFacadeDto.ChangePasswordRequest toFacadeRequest(UserId userId) {
             return UserFacadeDto.ChangePasswordRequest.builder()
                     .userId(userId)
-                    .currentPassword(currentPassword)
                     .newPassword(newPassword)
                     .build();
         }

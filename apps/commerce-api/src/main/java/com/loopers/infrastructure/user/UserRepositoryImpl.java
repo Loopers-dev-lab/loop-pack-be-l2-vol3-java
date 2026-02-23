@@ -36,7 +36,7 @@ public class UserRepositoryImpl implements UserRepository {
 
         if (existingModel.isPresent()) {
             UserEntity model = existingModel.get();
-            model.updatePassword(user.password().value());
+            model.updateFrom(user);
             return userJpaRepository.save(model).toDomain();
         }
 

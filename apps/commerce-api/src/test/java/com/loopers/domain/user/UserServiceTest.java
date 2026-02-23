@@ -9,6 +9,7 @@ import com.loopers.domain.user.vo.Password;
 import com.loopers.domain.user.vo.UserId;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -108,6 +109,31 @@ public class UserServiceTest {
 
             verify(userRepository, never()).save(any(User.class));
         }
+
+        @Test
+        @DisplayName("실패 - 동시성으로 저장 시점 중복 발생")
+        void registerFailDuplicateUserIdAtSave() {
+            // given
+            RegisterCommand command = RegisterCommand.builder()
+                    .userId("testuser")
+                    .rawPassword("1Q2w3e4r!")
+                    .name("홍길동")
+                    .email("test@example.com")
+                    .birthDate("19990115")
+                    .build();
+
+            when(userRepository.existsByUserId(any(UserId.class))).thenReturn(false);
+            when(passwordEncoder.encode("1Q2w3e4r!")).thenReturn("$2a$10$encodedPassword");
+            when(userRepository.save(any(User.class))).thenThrow(new DataIntegrityViolationException("duplicate key"));
+
+            // when & then
+            assertThatThrownBy(() -> userService.register(command))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> {
+                        CoreException ex = (CoreException) e;
+                        assertThat(ex.getErrorType()).isEqualTo(ErrorType.CONFLICT);
+                    });
+        }
     }
 
     @Nested
@@ -118,16 +144,21 @@ public class UserServiceTest {
         @DisplayName("성공")
         void changePasswordSuccess() {
             // given
-            User savedUser = new User(userId, Password.ofEncoded("encodedPassword"), name, email, birthDate);
+            User savedUser = new User(
+                    userId,
+                    Password.ofEncoded("$2a$10$dummyEncodedPasswordForTest"),
+                    name,
+                    email,
+                    birthDate
+            );
             when(userRepository.findByUserId(userId)).thenReturn(Optional.of(savedUser));
-            when(passwordEncoder.matches("New1234!@", "encodedPassword")).thenReturn(false);
+            when(passwordEncoder.matches("New1234!@", "$2a$10$dummyEncodedPasswordForTest")).thenReturn(false);
             when(passwordEncoder.encode("New1234!@")).thenReturn("$2a$10$newEncodedPassword");
             when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             ChangePasswordCommand command = ChangePasswordCommand.builder()
                     .userId(userId)
                     .newRawPassword("New1234!@")
-                    .birthDate(birthDate)
                     .build();
 
             // when & then
@@ -146,7 +177,6 @@ public class UserServiceTest {
             ChangePasswordCommand command = ChangePasswordCommand.builder()
                     .userId(userId)
                     .newRawPassword("New1234!@")
-                    .birthDate(birthDate)
                     .build();
 
             // when & then
@@ -164,14 +194,19 @@ public class UserServiceTest {
         @DisplayName("실패 - 새 비밀번호가 기존과 동일")
         void changePasswordFailSamePassword() {
             // given
-            User savedUser = new User(userId, Password.ofEncoded("encodedPassword"), name, email, birthDate);
+            User savedUser = new User(
+                    userId,
+                    Password.ofEncoded("$2a$10$dummyEncodedPasswordForTest"),
+                    name,
+                    email,
+                    birthDate
+            );
             when(userRepository.findByUserId(userId)).thenReturn(Optional.of(savedUser));
-            when(passwordEncoder.matches("1Q2w3e4r!", "encodedPassword")).thenReturn(true);
+            when(passwordEncoder.matches("1Q2w3e4r!", "$2a$10$dummyEncodedPasswordForTest")).thenReturn(true);
 
             ChangePasswordCommand command = ChangePasswordCommand.builder()
                     .userId(userId)
                     .newRawPassword("1Q2w3e4r!")
-                    .birthDate(birthDate)
                     .build();
 
             // when & then

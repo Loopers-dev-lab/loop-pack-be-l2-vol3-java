@@ -2,6 +2,7 @@ package com.loopers.domain.user.vo;
 
 import com.loopers.domain.user.exception.UserValidationException;
 
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -41,7 +42,7 @@ public record UserId(String value) {
         if (!ALLOWED_CHARS_PATTERN.matcher(userId).matches()) {
             throw new UserValidationException(ERROR_INVALID_FORMAT);
         }
-        if (RESERVED_WORDS.contains(userId.toLowerCase())) {
+        if (RESERVED_WORDS.contains(userId.toLowerCase(Locale.ROOT))) {
             throw new UserValidationException(ERROR_RESERVED_WORD);
         }
     }

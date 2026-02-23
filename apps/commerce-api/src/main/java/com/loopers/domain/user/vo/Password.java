@@ -77,7 +77,7 @@ public final class Password {
     }
 
     public boolean isEncoded() {
-        return value != null && (value.startsWith("$2a$") || value.startsWith("$2b$"));
+        return value != null && (value.startsWith("$2a$") || value.startsWith("$2b$") || value.startsWith("$2y$"));
     }
 
     @Override
