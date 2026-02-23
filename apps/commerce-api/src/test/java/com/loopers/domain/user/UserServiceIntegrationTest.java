@@ -56,7 +56,7 @@ class UserServiceIntegrationTest {
             Password password1 = Password.of("Pass1234!", birthDate1);
             Gender gender1 = Gender.MALE;
 
-            userService.signUp(duplicateUserId, email1, birthDate1, password1, gender1);
+            userService.signUp(new UserId(duplicateUserId), email1, birthDate1, password1, gender1);
 
             Email email2 = new Email("user2@example.com");
             BirthDate birthDate2 = new BirthDate("1995-05-20");
@@ -65,7 +65,7 @@ class UserServiceIntegrationTest {
 
             // when & then
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.signUp(duplicateUserId, email2, birthDate2, password2, gender2);
+                userService.signUp(new UserId(duplicateUserId), email2, birthDate2, password2, gender2);
             });
 
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.CONFLICT);
@@ -93,7 +93,7 @@ class UserServiceIntegrationTest {
                         Password password = Password.of("Pass1234!", birthDate);
                         Gender gender = Gender.MALE;
 
-                        userService.signUp(userId, email, birthDate, password, gender);
+                        userService.signUp(new UserId(userId), email, birthDate, password, gender);
                         successCount.incrementAndGet();
                     } catch (CoreException e) {
                         if (e.getErrorType() == ErrorType.CONFLICT) {
@@ -124,7 +124,7 @@ class UserServiceIntegrationTest {
             Gender gender = Gender.MALE;
 
             // when
-            UserModel savedUser = userService.signUp(userId, email, birthDate, password, gender);
+            UserModel savedUser = userService.signUp(new UserId(userId), email, birthDate, password, gender);
 
             // then
             assertThat(savedUser).isNotNull();
@@ -144,7 +144,7 @@ class UserServiceIntegrationTest {
             Gender gender = Gender.FEMALE;
 
             // when
-            UserModel savedUser = userService.signUp(userId, email, birthDate, password, gender);
+            UserModel savedUser = userService.signUp(new UserId(userId), email, birthDate, password, gender);
 
             // then
             assertThat(savedUser.getEncryptedPassword()).isNotEqualTo(rawPassword);
@@ -163,7 +163,7 @@ class UserServiceIntegrationTest {
             Gender gender = Gender.MALE;
 
             // when
-            UserModel savedUser = userService.signUp(userId, email, birthDate, password, gender);
+            UserModel savedUser = userService.signUp(new UserId(userId), email, birthDate, password, gender);
 
             // then
             boolean matches = passwordEncoder.matches(rawPassword, savedUser.getEncryptedPassword());
@@ -198,7 +198,7 @@ class UserServiceIntegrationTest {
             Password password = Password.of("SecurePass1!", birthDate);
             Gender gender = Gender.MALE;
 
-            userService.signUp(userId, email, birthDate, password, gender);
+            userService.signUp(new UserId(userId), email, birthDate, password, gender);
 
             // when
             var result = userService.getMyInfo(userId);
@@ -240,7 +240,7 @@ class UserServiceIntegrationTest {
             Password password = Password.of("SecurePass1!", birthDate);
             Gender gender = Gender.MALE;
 
-            userService.signUp(userId, email, birthDate, password, gender);
+            userService.signUp(new UserId(userId), email, birthDate, password, gender);
 
             // when
             Long points = userService.getPoints(userId);
@@ -281,7 +281,7 @@ class UserServiceIntegrationTest {
             Password password = Password.of("OldPass123!", birthDate);
             Gender gender = Gender.MALE;
 
-            userService.signUp(userId, email, birthDate, password, gender);
+            userService.signUp(new UserId(userId), email, birthDate, password, gender);
 
             String wrongCurrentPassword = "WrongPass!";
             String newPassword = "NewPass456!";
@@ -305,7 +305,7 @@ class UserServiceIntegrationTest {
             Password password = Password.of(samePassword, birthDate);
             Gender gender = Gender.MALE;
 
-            userService.signUp(userId, email, birthDate, password, gender);
+            userService.signUp(new UserId(userId), email, birthDate, password, gender);
 
             // when & then
             CoreException exception = assertThrows(CoreException.class, () -> {
@@ -326,7 +326,7 @@ class UserServiceIntegrationTest {
             Password password = Password.of(currentPassword, birthDate);
             Gender gender = Gender.MALE;
 
-            UserModel user = userService.signUp(userId, email, birthDate, password, gender);
+            UserModel user = userService.signUp(new UserId(userId), email, birthDate, password, gender);
             String oldEncryptedPassword = user.getEncryptedPassword();
 
             String newPassword = "NewPass456!";

@@ -19,12 +19,13 @@ public class UserFacade {
         String birthDate,
         String genderValue
     ) {
+        UserId userIdVO = new UserId(userId);
         Email emailVO = new Email(email);
         BirthDate birthDateVO = new BirthDate(birthDate);
         Password passwordVO = Password.of(password, birthDateVO);
         Gender gender = Gender.from(genderValue);
 
-        UserModel user = userService.signUp(userId, emailVO, birthDateVO, passwordVO, gender);
+        UserModel user = userService.signUp(userIdVO, emailVO, birthDateVO, passwordVO, gender);
         return UserInfo.from(user);
     }
 

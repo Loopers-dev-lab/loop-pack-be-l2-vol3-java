@@ -18,7 +18,7 @@ class UserModelTest {
         @Test
         void create_withValidInputs_shouldInitializePointsToZero() {
             // given
-            String userId = "testuser01";
+            UserId userId = new UserId("testuser01");
             Email email = new Email("test@example.com");
             BirthDate birthDate = new BirthDate("1990-01-15");
             Password password = Password.of("SecurePass1!", birthDate);
@@ -29,7 +29,7 @@ class UserModelTest {
 
             // then
             assertAll(
-                () -> assertThat(user.getUserId()).isEqualTo(userId),
+                () -> assertThat(user.getUserId()).isEqualTo("testuser01"),
                 () -> assertThat(user.getPoints()).isEqualTo(0L),
                 () -> assertThat(user.getGender()).isEqualTo(gender)
             );
@@ -39,7 +39,7 @@ class UserModelTest {
         @Test
         void create_shouldStoreExtractedEmailValue() {
             // given
-            String userId = "testuser02";
+            UserId userId = new UserId("testuser02");
             String emailValue = "user@example.com";
             Email email = new Email(emailValue);
             BirthDate birthDate = new BirthDate("1995-03-20");
@@ -57,7 +57,7 @@ class UserModelTest {
         @Test
         void create_shouldStoreExtractedBirthDateValue() {
             // given
-            String userId = "testuser03";
+            UserId userId = new UserId("testuser03");
             String birthDateValue = "1988-12-25";
             Email email = new Email("test3@example.com");
             BirthDate birthDate = new BirthDate(birthDateValue);
@@ -75,7 +75,7 @@ class UserModelTest {
         @Test
         void create_shouldStoreEncryptedPassword() {
             // given
-            String userId = "testuser04";
+            UserId userId = new UserId("testuser04");
             String rawPassword = "RawPass123!";
             Email email = new Email("test4@example.com");
             BirthDate birthDate = new BirthDate("1992-06-10");
@@ -89,36 +89,6 @@ class UserModelTest {
             assertThat(user.getEncryptedPassword()).isNotEqualTo(rawPassword);
             assertThat(user.getEncryptedPassword()).isNotBlank();
         }
-
-        @DisplayName("userId가 null이면, IllegalArgumentException이 발생한다.")
-        @Test
-        void create_withNullUserId_shouldFail() {
-            // given
-            Email email = new Email("test@example.com");
-            BirthDate birthDate = new BirthDate("1990-01-15");
-            Password password = Password.of("SecurePass1!", birthDate);
-            Gender gender = Gender.MALE;
-
-            // when & then
-            assertThrows(IllegalArgumentException.class, () -> {
-                UserModel.create(null, email, birthDate, password, gender);
-            });
-        }
-
-        @DisplayName("userId가 빈 문자열이면, IllegalArgumentException이 발생한다.")
-        @Test
-        void create_withBlankUserId_shouldFail() {
-            // given
-            Email email = new Email("test@example.com");
-            BirthDate birthDate = new BirthDate("1990-01-15");
-            Password password = Password.of("SecurePass1!", birthDate);
-            Gender gender = Gender.MALE;
-
-            // when & then
-            assertThrows(IllegalArgumentException.class, () -> {
-                UserModel.create("  ", email, birthDate, password, gender);
-            });
-        }
     }
 
     @DisplayName("비밀번호를 변경할 때, ")
@@ -129,7 +99,7 @@ class UserModelTest {
         @Test
         void updatePassword_withIncorrectCurrentPassword_shouldFail() {
             // given
-            String userId = "testuser01";
+            UserId userId = new UserId("testuser01");
             Email email = new Email("test@example.com");
             BirthDate birthDate = new BirthDate("1990-01-15");
             Password currentPassword = Password.of("OldPass123!", birthDate);
@@ -150,7 +120,7 @@ class UserModelTest {
         @Test
         void updatePassword_withSamePassword_shouldFail() {
             // given
-            String userId = "testuser02";
+            UserId userId = new UserId("testuser02");
             Email email = new Email("test2@example.com");
             BirthDate birthDate = new BirthDate("1990-01-15");
             String samePassword = "SamePass123!";
@@ -169,7 +139,7 @@ class UserModelTest {
         @Test
         void updatePassword_withValidPasswords_shouldSuccess() {
             // given
-            String userId = "testuser03";
+            UserId userId = new UserId("testuser03");
             Email email = new Email("test3@example.com");
             BirthDate birthDate = new BirthDate("1990-01-15");
             String currentPasswordValue = "OldPass123!";
@@ -193,7 +163,7 @@ class UserModelTest {
         @Test
         void updatePassword_withNullCurrentPassword_shouldFail() {
             // given
-            String userId = "testuser04";
+            UserId userId = new UserId("testuser04");
             Email email = new Email("test4@example.com");
             BirthDate birthDate = new BirthDate("1990-01-15");
             Password password = Password.of("OldPass123!", birthDate);
@@ -211,7 +181,7 @@ class UserModelTest {
         @Test
         void updatePassword_withNullNewPassword_shouldFail() {
             // given
-            String userId = "testuser05";
+            UserId userId = new UserId("testuser05");
             Email email = new Email("test5@example.com");
             BirthDate birthDate = new BirthDate("1990-01-15");
             Password password = Password.of("OldPass123!", birthDate);
@@ -229,7 +199,7 @@ class UserModelTest {
         @Test
         void updatePassword_withBlankCurrentPassword_shouldFail() {
             // given
-            String userId = "testuser06";
+            UserId userId = new UserId("testuser06");
             Email email = new Email("test6@example.com");
             BirthDate birthDate = new BirthDate("1990-01-15");
             Password password = Password.of("OldPass123!", birthDate);
@@ -247,7 +217,7 @@ class UserModelTest {
         @Test
         void updatePassword_withBlankNewPassword_shouldFail() {
             // given
-            String userId = "testuser07";
+            UserId userId = new UserId("testuser07");
             Email email = new Email("test7@example.com");
             BirthDate birthDate = new BirthDate("1990-01-15");
             Password password = Password.of("OldPass123!", birthDate);

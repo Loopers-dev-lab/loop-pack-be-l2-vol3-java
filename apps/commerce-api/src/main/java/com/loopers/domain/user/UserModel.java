@@ -53,17 +53,14 @@ public class UserModel extends BaseEntity {
     }
 
     public static UserModel create(
-        String userId,
+        UserId userId,
         Email email,
         BirthDate birthDate,
         Password password,
         Gender gender
     ) {
-        if (userId == null || userId.isBlank()) {
-            throw new IllegalArgumentException("사용자 ID는 비어있을 수 없습니다.");
-        }
         return new UserModel(
-            userId,
+            userId.value(),
             email.value(),
             birthDate.value(),
             password.encrypt(),
