@@ -1,6 +1,5 @@
 package com.loopers.application.brand;
 
-import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.InMemoryBrandRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -34,12 +33,12 @@ public class BrandServiceTest {
             String description = "스포츠 브랜드";
 
             // act
-            Brand brand = brandService.register(name, description);
+            BrandInfo brand = brandService.register(name, description);
 
             // assert
             assertAll(
-                () -> assertThat(brand.getName()).isEqualTo(name),
-                () -> assertThat(brand.getDescription()).isEqualTo(description)
+                () -> assertThat(brand.name()).isEqualTo(name),
+                () -> assertThat(brand.description()).isEqualTo(description)
             );
         }
     }
@@ -51,13 +50,13 @@ public class BrandServiceTest {
         @Test
         void returnsBrand_whenExists() {
             // arrange
-            Brand saved = brandService.register("나이키", "스포츠 브랜드");
+            BrandInfo saved = brandService.register("나이키", "스포츠 브랜드");
 
             // act
-            Brand found = brandService.getBrand(saved.getId());
+            BrandInfo found = brandService.getBrand(saved.id());
 
             // assert
-            assertThat(found.getName()).isEqualTo("나이키");
+            assertThat(found.name()).isEqualTo("나이키");
         }
 
         @DisplayName("존재하지 않는 브랜드를 조회하면 NOT_FOUND 예외가 발생한다.")
@@ -76,12 +75,12 @@ public class BrandServiceTest {
         @Test
         void throwsNotFoundException_whenDeleted() {
             // arrange
-            Brand saved = brandService.register("나이키", "스포츠 브랜드");
-            brandService.delete(saved.getId());
+            BrandInfo saved = brandService.register("나이키", "스포츠 브랜드");
+            brandService.delete(saved.id());
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
-                brandService.getBrand(saved.getId());
+                brandService.getBrand(saved.id());
             });
 
             // assert
@@ -96,15 +95,15 @@ public class BrandServiceTest {
         @Test
         void updatesBrand() {
             // arrange
-            Brand saved = brandService.register("나이키", "스포츠 브랜드");
+            BrandInfo saved = brandService.register("나이키", "스포츠 브랜드");
 
             // act
-            Brand updated = brandService.update(saved.getId(), "new 나이키", "새로운 스포츠 브랜드");
+            BrandInfo updated = brandService.update(saved.id(), "new 나이키", "새로운 스포츠 브랜드");
 
             // assert
             assertAll(
-                () -> assertThat(updated.getName()).isEqualTo("new 나이키"),
-                () -> assertThat(updated.getDescription()).isEqualTo("새로운 스포츠 브랜드")
+                () -> assertThat(updated.name()).isEqualTo("new 나이키"),
+                () -> assertThat(updated.description()).isEqualTo("새로운 스포츠 브랜드")
             );
         }
 
@@ -128,14 +127,13 @@ public class BrandServiceTest {
         @Test
         void deletesBrand() {
             // arrange
-            Brand saved = brandService.register("나이키", "스포츠 브랜드");
+            BrandInfo saved = brandService.register("나이키", "스포츠 브랜드");
 
             // act
-            brandService.delete(saved.getId());
+            brandService.delete(saved.id());
 
             // assert
-            Brand deleted = brandRepository.findById(saved.getId()).orElseThrow();
-            assertThat(deleted.getDeletedAt()).isNotNull();
+            assertThat(brandRepository.findById(saved.id()).orElseThrow().getDeletedAt()).isNotNull();
         }
 
         @DisplayName("존재하지 않는 브랜드를 삭제하면 NOT_FOUND 예외가 발생한다.")

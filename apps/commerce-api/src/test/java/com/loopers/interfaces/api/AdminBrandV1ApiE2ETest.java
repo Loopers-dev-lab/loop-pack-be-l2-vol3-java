@@ -1,7 +1,9 @@
 package com.loopers.interfaces.api;
 
 import com.loopers.domain.brand.Brand;
+import com.loopers.domain.product.Product;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
+import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.brand.dto.BrandV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
@@ -33,16 +35,19 @@ class AdminBrandV1ApiE2ETest {
 
     private final TestRestTemplate testRestTemplate;
     private final BrandJpaRepository brandJpaRepository;
+    private final ProductJpaRepository productJpaRepository;
     private final DatabaseCleanUp databaseCleanUp;
 
     @Autowired
     public AdminBrandV1ApiE2ETest(
             TestRestTemplate testRestTemplate,
             BrandJpaRepository brandJpaRepository,
+            ProductJpaRepository productJpaRepository,
             DatabaseCleanUp databaseCleanUp
     ) {
         this.testRestTemplate = testRestTemplate;
         this.brandJpaRepository = brandJpaRepository;
+        this.productJpaRepository = productJpaRepository;
         this.databaseCleanUp = databaseCleanUp;
     }
 
@@ -59,6 +64,10 @@ class AdminBrandV1ApiE2ETest {
 
     private Brand saveBrand(String name, String description) {
         return brandJpaRepository.save(Brand.create(name, description));
+    }
+
+    private Product saveProduct(Long brandId, String name) {
+        return productJpaRepository.save(Product.create(brandId, name, null, 10000, 10));
     }
 
     @DisplayName("브랜드 등록 시")
@@ -175,6 +184,25 @@ class AdminBrandV1ApiE2ETest {
             assertAll(
                 () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                 () -> assertThat(brandJpaRepository.findById(saved.getId()).orElseThrow().getDeletedAt()).isNotNull()
+            );
+        }
+
+        @DisplayName("브랜드를 삭제하면, 소속 상품도 모두 soft delete 처리된다.")
+        @Test
+        void softDeletesAllProducts_whenBrandIsDeleted() {
+            // arrange
+            Brand brand = saveBrand("나이키", "스포츠 브랜드");
+            Product product1 = saveProduct(brand.getId(), "에어맥스");
+            Product product2 = saveProduct(brand.getId(), "조던");
+            HttpEntity<Void> entity = new HttpEntity<>(adminHeaders());
+
+            // act
+            testRestTemplate.exchange(ENDPOINT + "/" + brand.getId(), HttpMethod.DELETE, entity, new ParameterizedTypeReference<>() {});
+
+            // assert
+            assertAll(
+                () -> assertThat(productJpaRepository.findById(product1.getId()).orElseThrow().getDeletedAt()).isNotNull(),
+                () -> assertThat(productJpaRepository.findById(product2.getId()).orElseThrow().getDeletedAt()).isNotNull()
             );
         }
     }

@@ -1,10 +1,10 @@
 package com.loopers.application.product;
 
-import com.loopers.domain.product.InMemoryProductRepository;
-import com.loopers.domain.product.Product;
-import com.loopers.domain.brand.Brand;
+import com.loopers.application.brand.BrandInfo;
 import com.loopers.application.brand.BrandService;
 import com.loopers.domain.brand.InMemoryBrandRepository;
+import com.loopers.domain.product.InMemoryProductRepository;
+import com.loopers.domain.product.Product;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,17 +35,17 @@ public class ProductServiceTest {
         @Test
         void registersProduct() {
             // arrange
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
 
             // act
-            Product product = productService.register(new ProductCreateCommand(brand.getId(), "에어맥스", "신발", 150000, 10));
+            ProductInfo product = productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
 
             // assert
             assertAll(
-                () -> assertThat(product.getBrandId()).isEqualTo(brand.getId()),
-                () -> assertThat(product.getName()).isEqualTo("에어맥스"),
-                () -> assertThat(product.getPrice()).isEqualTo(150000),
-                () -> assertThat(product.getStockQuantity()).isEqualTo(10)
+                () -> assertThat(product.brandId()).isEqualTo(brand.id()),
+                () -> assertThat(product.name()).isEqualTo("에어맥스"),
+                () -> assertThat(product.price()).isEqualTo(150000),
+                () -> assertThat(product.stockQuantity()).isEqualTo(10)
             );
         }
 
@@ -65,12 +65,12 @@ public class ProductServiceTest {
         @Test
         void throwsNotFoundException_whenBrandIsDeleted() {
             // arrange
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
-            brandService.delete(brand.getId());
+            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
+            brandService.delete(brand.id());
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
-                productService.register(new ProductCreateCommand(brand.getId(), "에어맥스", "신발", 150000, 10));
+                productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
             });
 
             // assert
@@ -85,14 +85,14 @@ public class ProductServiceTest {
         @Test
         void returnsProduct_whenExists() {
             // arrange
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
-            Product saved = productService.register(new ProductCreateCommand(brand.getId(), "에어맥스", "신발", 150000, 10));
+            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
+            ProductInfo saved = productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
 
             // act
-            Product found = productService.getProduct(saved.getId());
+            ProductInfo found = productService.getProduct(saved.id());
 
             // assert
-            assertThat(found.getName()).isEqualTo("에어맥스");
+            assertThat(found.name()).isEqualTo("에어맥스");
         }
 
         @DisplayName("존재하지 않는 상품을 조회하면 NOT_FOUND 예외가 발생한다.")
@@ -111,13 +111,13 @@ public class ProductServiceTest {
         @Test
         void throwsNotFoundException_whenDeleted() {
             // arrange
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
-            Product saved = productService.register(new ProductCreateCommand(brand.getId(), "에어맥스", "신발", 150000, 10));
-            productService.delete(saved.getId());
+            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
+            ProductInfo saved = productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
+            productService.delete(saved.id());
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
-                productService.getProduct(saved.getId());
+                productService.getProduct(saved.id());
             });
 
             // assert
@@ -132,14 +132,14 @@ public class ProductServiceTest {
         @Test
         void changesVisibility() {
             // arrange
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
-            Product saved = productService.register(new ProductCreateCommand(brand.getId(), "에어맥스", "신발", 150000, 10));
+            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
+            ProductInfo saved = productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
 
             // act
-            productService.changeVisibility(saved.getId(), Product.Visibility.HIDDEN);
+            ProductInfo updated = productService.changeVisibility(saved.id(), Product.Visibility.HIDDEN);
 
             // assert
-            assertThat(saved.getVisibility()).isEqualTo(Product.Visibility.HIDDEN);
+            assertThat(updated.visibility()).isEqualTo(Product.Visibility.HIDDEN);
         }
 
         @DisplayName("존재하지 않는 상품의 노출 여부를 변경하면 NOT_FOUND 예외가 발생한다.")
@@ -162,18 +162,18 @@ public class ProductServiceTest {
         @Test
         void updatesProduct() {
             // arrange
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
-            Product saved = productService.register(new ProductCreateCommand(brand.getId(), "에어맥스", "신발", 150000, 10));
+            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
+            ProductInfo saved = productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
 
             // act
-            Product updated = productService.update(saved.getId(), new ProductUpdateCommand("조던", "농구화", 200000, 5, null));
+            ProductInfo updated = productService.update(saved.id(), new ProductUpdateCommand("조던", "농구화", 200000, 5, null));
 
             // assert
             assertAll(
-                () -> assertThat(updated.getName()).isEqualTo("조던"),
-                () -> assertThat(updated.getDescription()).isEqualTo("농구화"),
-                () -> assertThat(updated.getPrice()).isEqualTo(200000),
-                () -> assertThat(updated.getStockQuantity()).isEqualTo(5)
+                () -> assertThat(updated.name()).isEqualTo("조던"),
+                () -> assertThat(updated.description()).isEqualTo("농구화"),
+                () -> assertThat(updated.price()).isEqualTo(200000),
+                () -> assertThat(updated.stockQuantity()).isEqualTo(5)
             );
         }
 
@@ -197,15 +197,14 @@ public class ProductServiceTest {
         @Test
         void deletesProduct() {
             // arrange
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
-            Product saved = productService.register(new ProductCreateCommand(brand.getId(), "에어맥스", "신발", 150000, 10));
+            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
+            ProductInfo saved = productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
 
             // act
-            productService.delete(saved.getId());
+            productService.delete(saved.id());
 
             // assert
-            Product deleted = productRepository.findById(saved.getId()).orElseThrow();
-            assertThat(deleted.getDeletedAt()).isNotNull();
+            assertThat(productRepository.findById(saved.id()).orElseThrow().getDeletedAt()).isNotNull();
         }
 
         @DisplayName("존재하지 않는 상품을 삭제하면 NOT_FOUND 예외가 발생한다.")

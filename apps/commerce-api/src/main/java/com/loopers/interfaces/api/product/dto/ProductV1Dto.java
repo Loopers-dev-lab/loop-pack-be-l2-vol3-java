@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.product.dto;
 
+import com.loopers.application.product.ProductInfo;
 import com.loopers.domain.product.Product;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,14 +17,14 @@ public class ProductV1Dto {
             Integer price,
             Integer stockQuantity
     ) {
-        public static ProductResponse from(Product product) {
+        public static ProductResponse from(ProductInfo productInfo) {
             return new ProductResponse(
-                    product.getId(),
-                    product.getBrandId(),
-                    product.getName(),
-                    product.getDescription(),
-                    product.getPrice(),
-                    product.getStockQuantity()
+                    productInfo.id(),
+                    productInfo.brandId(),
+                    productInfo.name(),
+                    productInfo.description(),
+                    productInfo.price(),
+                    productInfo.stockQuantity()
             );
         }
     }
@@ -39,17 +40,17 @@ public class ProductV1Dto {
             ZonedDateTime createdAt,
             ZonedDateTime updatedAt
     ) {
-        public static AdminProductResponse from(Product product) {
+        public static AdminProductResponse from(ProductInfo productInfo) {
             return new AdminProductResponse(
-                    product.getId(),
-                    product.getBrandId(),
-                    product.getName(),
-                    product.getDescription(),
-                    product.getPrice(),
-                    product.getStockQuantity(),
-                    product.getVisibility(),
-                    product.getCreatedAt(),
-                    product.getUpdatedAt()
+                    productInfo.id(),
+                    productInfo.brandId(),
+                    productInfo.name(),
+                    productInfo.description(),
+                    productInfo.price(),
+                    productInfo.stockQuantity(),
+                    productInfo.visibility(),
+                    productInfo.createdAt(),
+                    productInfo.updatedAt()
             );
         }
     }

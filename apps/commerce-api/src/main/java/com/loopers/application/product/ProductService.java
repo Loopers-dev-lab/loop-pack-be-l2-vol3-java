@@ -20,57 +20,51 @@ public class ProductService {
     private final BrandService brandService;
 
     @Transactional
-    public Product register(ProductCreateCommand command) {
+    public ProductInfo register(ProductCreateCommand command) {
         brandService.getBrand(command.brandId());
         Product product = Product.create(command.brandId(), command.name(), command.description(), command.price(), command.stockQuantity());
-        return productRepository.save(product);
+        return ProductInfo.from(productRepository.save(product));
     }
 
     @Transactional(readOnly = true)
-    public Product getProduct(Long id) {
-        Product product = findById(id);
-        if (product.getDeletedAt() != null) {
-            throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + id + "] 를 찾을 수 없습니다.");
-        }
-
-        return product;
+    public ProductInfo getProduct(Long id) {
+        return ProductInfo.from(findNonDeletedById(id));
     }
 
     @Transactional(readOnly = true)
-    public Page<Product> getProducts(Long brandId, ProductSort sort, Pageable pageable) {
-        return productRepository.findProducts(brandId, sort, pageable);
-    }
-
-    @Transactional(readOnly = true)
-    public Product getVisibleProduct(Long id) {
-        Product product = getProduct(id);
+    public ProductInfo getVisibleProduct(Long id) {
+        Product product = findNonDeletedById(id);
         if (product.getVisibility() == Product.Visibility.HIDDEN) {
             throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + id + "] 를 찾을 수 없습니다.");
         }
-
-        return product;
+        return ProductInfo.from(product);
     }
 
     @Transactional(readOnly = true)
-    public Page<Product> getAdminProducts(Long brandId, Pageable pageable) {
-        return productRepository.findAllProducts(brandId, pageable);
+    public Page<ProductInfo> getProducts(Long brandId, ProductSort sort, Pageable pageable) {
+        return productRepository.findProducts(brandId, sort, pageable).map(ProductInfo::from);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ProductInfo> getAdminProducts(Long brandId, Pageable pageable) {
+        return productRepository.findAllProducts(brandId, pageable).map(ProductInfo::from);
     }
 
     @Transactional
-    public Product update(Long id, ProductUpdateCommand command) {
-        Product product = getProduct(id);
+    public ProductInfo update(Long id, ProductUpdateCommand command) {
+        Product product = findNonDeletedById(id);
         product.update(command.name(), command.description(), command.price(), command.stockQuantity());
         if (command.visibility() != null) {
             product.changeVisibility(command.visibility());
         }
-
-        return product;
+        return ProductInfo.from(product);
     }
 
     @Transactional
-    public void changeVisibility(Long id, Product.Visibility visibility) {
-        Product product = getProduct(id);
+    public ProductInfo changeVisibility(Long id, Product.Visibility visibility) {
+        Product product = findNonDeletedById(id);
         product.changeVisibility(visibility);
+        return ProductInfo.from(product);
     }
 
     @Transactional
@@ -86,8 +80,18 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public List<Product> getProductsByIds(List<Long> ids) {
-        return productRepository.findAllByIdInAndDeletedAtIsNull(ids);
+    public List<ProductInfo> getProductsByIds(List<Long> ids) {
+        return productRepository.findAllByIdInAndDeletedAtIsNull(ids).stream()
+                .map(ProductInfo::from)
+                .toList();
+    }
+
+    private Product findNonDeletedById(Long id) {
+        Product product = findById(id);
+        if (product.getDeletedAt() != null) {
+            throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + id + "] 를 찾을 수 없습니다.");
+        }
+        return product;
     }
 
     private Product findById(Long id) {

@@ -16,39 +16,44 @@ public class BrandService {
     private final BrandRepository brandRepository;
 
     @Transactional
-    public Brand register(String name, String description) {
+    public BrandInfo register(String name, String description) {
         Brand brand = Brand.create(name, description);
-        return brandRepository.save(brand);
+        return BrandInfo.from(brandRepository.save(brand));
     }
 
     @Transactional(readOnly = true)
-    public Brand getBrand(Long id) {
+    public BrandInfo getBrand(Long id) {
         Brand brand = findById(id);
-
         if (brand.getDeletedAt() != null) {
             throw new CoreException(ErrorType.NOT_FOUND, "[brandId = " + id + "] 를 찾을 수 없습니다.");
         }
-
-        return brand;
+        return BrandInfo.from(brand);
     }
 
     @Transactional(readOnly = true)
-    public Page<Brand> getBrands(Pageable pageable) {
-        return brandRepository.findAllByDeletedAtIsNull(pageable);
+    public Page<BrandInfo> getBrands(Pageable pageable) {
+        return brandRepository.findAllByDeletedAtIsNull(pageable).map(BrandInfo::from);
     }
 
     @Transactional
-    public Brand update(Long id, String name, String description) {
-        Brand brand = getBrand(id);
+    public BrandInfo update(Long id, String name, String description) {
+        Brand brand = findNonDeletedById(id);
         brand.update(name, description);
-
-        return brand;
+        return BrandInfo.from(brand);
     }
 
     @Transactional
     public void delete(Long id) {
         Brand brand = findById(id);
         brand.delete();
+    }
+
+    private Brand findNonDeletedById(Long id) {
+        Brand brand = findById(id);
+        if (brand.getDeletedAt() != null) {
+            throw new CoreException(ErrorType.NOT_FOUND, "[brandId = " + id + "] 를 찾을 수 없습니다.");
+        }
+        return brand;
     }
 
     private Brand findById(Long id) {

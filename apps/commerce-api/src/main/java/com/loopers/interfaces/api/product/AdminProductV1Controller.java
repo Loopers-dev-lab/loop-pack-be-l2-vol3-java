@@ -1,9 +1,9 @@
 package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductCreateCommand;
+import com.loopers.application.product.ProductInfo;
 import com.loopers.application.product.ProductService;
 import com.loopers.application.product.ProductUpdateCommand;
-import com.loopers.domain.product.Product;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.product.dto.ProductV1Dto;
@@ -38,7 +38,7 @@ public class AdminProductV1Controller {
             @RequestHeader("X-Loopers-Ldap") String ldap,
             @Valid @RequestBody ProductV1Dto.CreateRequest request
     ) {
-        Product product = productService.register(
+        ProductInfo product = productService.register(
                 new ProductCreateCommand(request.brandId(), request.name(), request.description(),
                         request.price(), request.stockQuantity())
         );
@@ -51,7 +51,7 @@ public class AdminProductV1Controller {
             @RequestHeader("X-Loopers-Ldap") String ldap,
             @PathVariable Long productId
     ) {
-        Product product = productService.getProduct(productId);
+        ProductInfo product = productService.getProduct(productId);
         return ApiResponse.success(ProductV1Dto.AdminProductResponse.from(product));
     }
 
@@ -72,7 +72,7 @@ public class AdminProductV1Controller {
             @PathVariable Long productId,
             @Valid @RequestBody ProductV1Dto.UpdateRequest request
     ) {
-        Product product = productService.update(
+        ProductInfo product = productService.update(
                 productId, new ProductUpdateCommand(request.name(), request.description(),
                         request.price(), request.stockQuantity(), request.visibility())
         );
