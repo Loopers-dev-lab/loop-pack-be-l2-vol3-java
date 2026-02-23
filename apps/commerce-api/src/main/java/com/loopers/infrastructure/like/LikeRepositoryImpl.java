@@ -5,6 +5,7 @@ import com.loopers.domain.like.LikeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -34,5 +35,12 @@ public class LikeRepositoryImpl implements LikeRepository {
     @Override
     public long countByProductId(Long productId) {
         return likeJpaRepository.countByProductId(productId);
+    }
+
+    @Override
+    public List<Like> findByUserId(Long userId) {
+        return likeJpaRepository.findByUserId(userId).stream()
+                .map(LikeJpaEntity::toDomain)
+                .toList();
     }
 }
