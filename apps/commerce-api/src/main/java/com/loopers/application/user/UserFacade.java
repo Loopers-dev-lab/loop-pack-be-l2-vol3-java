@@ -29,7 +29,9 @@ public class UserFacade {
     }
 
     public UserInfo getMyInfo(String userId) {
-        return userService.getMyInfo(userId);
+        return userService.getMyInfo(userId)
+            .map(UserInfo::from)
+            .orElse(null);
     }
 
     public PointsInfo getPoints(String userId) {

@@ -1,11 +1,12 @@
 package com.loopers.domain.user;
 
-import com.loopers.application.user.UserInfo;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 @Service
 public class UserService {
@@ -37,10 +38,8 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public UserInfo getMyInfo(String userId) {
-        return userRepository.findByUserId(userId)
-            .map(UserInfo::from)
-            .orElse(null);
+    public Optional<UserModel> getMyInfo(String userId) {
+        return userRepository.findByUserId(userId);
     }
 
     @Transactional(readOnly = true)
