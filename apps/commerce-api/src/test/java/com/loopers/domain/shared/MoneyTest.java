@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -45,6 +46,43 @@ class MoneyTest {
             assertThatThrownBy(() -> Money.wons(amount))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.INVALID_MONEY_AMOUNT.getMessage());
+        }
+    }
+
+    @DisplayName("금액을 더할 때,")
+    @Nested
+    class Plus {
+
+        @DisplayName("두 금액의 합을 반환한다.")
+        @Test
+        void returnsSumOfTwoAmounts() {
+            // arrange
+            var money1 = Money.wons(10000L);
+            var money2 = Money.wons(5000L);
+
+            // act
+            var result = money1.plus(money2);
+
+            // assert
+            assertThat(result).isEqualTo(Money.wons(15000L));
+        }
+    }
+
+    @DisplayName("금액을 곱할 때,")
+    @Nested
+    class Multiply {
+
+        @DisplayName("금액과 배수의 곱을 반환한다.")
+        @Test
+        void returnsProductOfAmountAndMultiplier() {
+            // arrange
+            var money = Money.wons(10000L);
+
+            // act
+            var result = money.multiply(3L);
+
+            // assert
+            assertThat(result).isEqualTo(Money.wons(30000L));
         }
     }
 }

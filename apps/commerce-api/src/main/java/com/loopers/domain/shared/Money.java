@@ -1,6 +1,8 @@
 package com.loopers.domain.shared;
 
+import java.util.Collection;
 import java.util.Objects;
+import java.util.function.Function;
 
 import jakarta.persistence.Embeddable;
 
@@ -20,6 +22,8 @@ import lombok.ToString;
 @ToString
 public class Money {
 
+    public static final Money ZERO = new Money(0L);
+
     private Long amount;
 
     private Money(Long amount) {
@@ -29,6 +33,18 @@ public class Money {
     public static Money wons(Long amount) {
         validate(amount);
         return new Money(amount);
+    }
+
+    public static <T> Money sum(Collection<T> bags, Function<T, Money> monetary) {
+        return bags.stream().map(monetary).reduce(Money.ZERO, Money::plus);
+    }
+
+    public Money plus(Money other) {
+        return new Money(this.amount + other.amount);
+    }
+
+    public Money multiply(Long multiplier) {
+        return new Money(this.amount * multiplier);
     }
 
     private static void validate(Long amount) {

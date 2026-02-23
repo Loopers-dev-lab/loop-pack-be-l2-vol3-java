@@ -53,9 +53,13 @@ public class Product extends BaseEntity {
         product.name = new ProductName(name);
         product.thumbnailUrl = new ProductThumbnailUrl(thumbnailUrl);
         product.price = Money.wons(price);
-        product.stock = new Stock(stock);
+        product.stock = Stock.init(stock);
         product.description = description;
         return product;
+    }
+
+    public void deductStock(Long quantity) {
+        this.stock.deduct(quantity);
     }
 
     public void increaseLikeCount() {
@@ -73,7 +77,7 @@ public class Product extends BaseEntity {
         this.name = new ProductName(name);
         this.thumbnailUrl = new ProductThumbnailUrl(thumbnailUrl);
         this.price = Money.wons(price);
-        this.stock = new Stock(stock);
+        this.stock = Stock.init(stock);
         this.description = description;
     }
 }

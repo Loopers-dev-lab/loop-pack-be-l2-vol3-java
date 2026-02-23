@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -53,6 +54,24 @@ class ProductTest {
             assertThatThrownBy(() -> Product.create(brandId, "상품명", "http://example.com/thumbnail.jpg", 10000L, 50L, "상품 설명"))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.REQUIRED_BRAND_ID.getMessage());
+        }
+    }
+
+    @DisplayName("재고를 차감할 때,")
+    @Nested
+    class DeductStock {
+
+        @DisplayName("요청 수량만큼 재고가 차감된다.")
+        @Test
+        void deductsStockByQuantity() {
+            // arrange
+            var product = Product.create(1L, "상품명", "http://example.com/thumbnail.jpg", 10000L, 50L, null);
+
+            // act
+            product.deductStock(10L);
+
+            // assert
+            assertThat(product.getStock().getValue()).isEqualTo(40L);
         }
     }
 

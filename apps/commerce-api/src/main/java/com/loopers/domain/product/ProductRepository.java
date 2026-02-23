@@ -18,6 +18,8 @@ public interface ProductRepository {
 
     List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> productIds);
 
+    List<Product> findAllByIdInAndDeletedAtIsNullForUpdate(List<Long> productIds);
+
     Slice<Product> findAllBy(Pageable pageable);
 
     Slice<Product> findAllByDeletedAtIsNull(ProductSortType sortType, Pageable pageable);

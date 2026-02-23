@@ -48,6 +48,11 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public List<Product> findAllByIdInAndDeletedAtIsNullForUpdate(List<Long> productIds) {
+        return productJpaRepository.findAllByIdInAndDeletedAtIsNullForUpdate(productIds);
+    }
+
+    @Override
     public Slice<Product> findAllBy(Pageable pageable) {
         return productJpaRepository.findAllBy(pageable);
     }

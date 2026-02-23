@@ -25,11 +25,25 @@ public class Stock {
     private Long value;
 
     public Stock(Long value) {
-        validate(value);
         this.value = value;
     }
 
-    private void validate(Long value) {
+    public static Stock init(Long value) {
+        validate(value);
+        return new Stock(value);
+    }
+
+    public void deduct(Long quantity) {
+        if (this.value == 0) {
+            throw new CoreException(ErrorType.SOLD_OUT_PRODUCT);
+        }
+        if (this.value < quantity) {
+            throw new CoreException(ErrorType.INSUFFICIENT_STOCK);
+        }
+        this.value -= quantity;
+    }
+
+    private static void validate(Long value) {
         if (Objects.isNull(value)) {
             throw new CoreException(ErrorType.REQUIRED_PRODUCT_STOCK);
         }

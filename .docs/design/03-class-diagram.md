@@ -39,7 +39,9 @@ classDiagram
     %% ── 공통 ──
     class Money {
         <<Value Object>>
-        Long value
+        Long amount
+        +wons(Long amount)$ Money
+        +sum(Collection~T~ bags, Function~T·Money~ monetary)$ Money
         +plus(Money other) Money
         +multiply(Long multiplier) Money
     }
@@ -106,7 +108,7 @@ classDiagram
         Money productPrice
         Long quantity
         +create(...)$ OrderItem
-        +getSubtotal() Money
+        +calculateSubtotal() Money
     }
 
     %% ── Product 관계 ──
