@@ -30,16 +30,16 @@ public interface UserV1ApiSpec {
 
     @Operation(
         summary = "포인트 조회",
-        description = "사용자의 포인트를 조회합니다."
+        description = "로그인한 사용자의 포인트를 조회합니다. 헤더: X-Loopers-LoginId"
     )
     ApiResponse<UserV1Dto.PointsResponse> getPoints(
-        @Parameter(description = "사용자 ID", required = true)
-        String userId
+        @Parameter(description = "로그인 사용자 ID (X-Loopers-LoginId)", required = true)
+        String loginId
     );
 
     @Operation(
         summary = "비밀번호 변경",
-        description = "사용자의 비밀번호를 변경합니다."
+        description = "PUT /password. 로그인한 사용자의 비밀번호를 변경합니다."
     )
     ApiResponse<Void> updatePassword(
         @Parameter(description = "로그인 사용자 ID", required = true)

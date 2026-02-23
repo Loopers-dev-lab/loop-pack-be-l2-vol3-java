@@ -231,9 +231,9 @@ class UserV1ApiE2ETest {
     @Nested
     class GetPoints {
 
-        @DisplayName("X-USER-ID 헤더가 없으면, 400 Bad Request를 반환한다.")
+        @DisplayName("X-Loopers-LoginId 헤더가 없으면, 400 Bad Request를 반환한다.")
         @Test
-        void getPoints_withoutUserIdHeader_shouldReturnBadRequest() {
+        void getPoints_withoutLoginIdHeader_shouldReturnBadRequest() {
             // given
             HttpHeaders headers = new HttpHeaders();
             // X-USER-ID 헤더 누락
@@ -256,7 +256,7 @@ class UserV1ApiE2ETest {
             // given
             String nonExistentUserId = "nouser";
             HttpHeaders headers = new HttpHeaders();
-            headers.set("X-USER-ID", nonExistentUserId);
+            headers.set("X-Loopers-LoginId", nonExistentUserId);
 
             // when
             ParameterizedTypeReference<ApiResponse<UserV1Dto.PointsResponse>> responseType = new ParameterizedTypeReference<>() {};
@@ -282,7 +282,7 @@ class UserV1ApiE2ETest {
 
             // when - 포인트 조회
             HttpHeaders headers = new HttpHeaders();
-            headers.set("X-USER-ID", "testuser1");
+            headers.set("X-Loopers-LoginId", "testuser1");
             
             ParameterizedTypeReference<ApiResponse<UserV1Dto.PointsResponse>> responseType = new ParameterizedTypeReference<>() {};
             ResponseEntity<ApiResponse<UserV1Dto.PointsResponse>> response =
@@ -411,7 +411,7 @@ class UserV1ApiE2ETest {
             );
         }
 
-        @DisplayName("유효한 요청 시, 200 OK를 반환하고 비밀번호가 변경된다.")
+        @DisplayName("유효한 요청 시, 204 No Content를 반환하고 비밀번호가 변경된다.")
         @Test
         void updatePassword_withValidRequest_shouldSuccess() {
             // given - 먼저 회원가입
@@ -437,10 +437,7 @@ class UserV1ApiE2ETest {
                 testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PUT, new HttpEntity<>(request, headers), responseType);
 
             // then
-            assertAll(
-                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.SUCCESS)
-            );
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         }
     }
 }

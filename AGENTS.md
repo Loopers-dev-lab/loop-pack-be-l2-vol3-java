@@ -366,8 +366,8 @@ The following structures are **locked** and require explicit approval to change:
 
 4. **Authentication Headers**:
 
-   - Customer API: `X-Loopers-LoginId`, `X-Loopers-LoginPw`
-   - Admin API: `X-Loopers-Ldap`
+   - **대고객** (user_required): `X-Loopers-LoginId`, `X-Loopers-LoginPw` — 로그인 ID/비밀번호로 유저 식별. 인증/인가는 주요 스코프가 아니므로 구현하지 않으며, 유저는 타 유저 정보에 직접 접근할 수 없음.
+   - **어드민** (ldap_required): `X-Loopers-Ldap` — LDAP(회사 사내 어드민)으로 식별.
 
 5. **Shared Infrastructure Modules**:
    - `modules/jpa`, `modules/redis`, `modules/kafka`
@@ -379,13 +379,15 @@ The following structures are **locked** and require explicit approval to change:
 
 ### API Prefix & Authentication
 
-| API Type     | Prefix         | Auth Header(s)                           | Example                           |
-| ------------ | -------------- | ---------------------------------------- | --------------------------------- |
-| Customer API | `/customer/v1` | `X-Loopers-LoginId`, `X-Loopers-LoginPw` | `POST /customer/v1/users/sign-up` |
-| Admin API    | `/admin/v1`    | `X-Loopers-Ldap`                         | `GET /admin/v1/orders`            |
+| API Type     | Prefix          | Auth Header(s)                           | Example                              |
+| ------------ | --------------- | ---------------------------------------- | ------------------------------------ |
+| 대고객 (Customer) | `/api/v1`       | `X-Loopers-LoginId`, `X-Loopers-LoginPw` | `POST /api/v1/users`, `GET /api/v1/users/me` |
+| 어드민 (Admin)   | `/api-admin/v1` | `X-Loopers-Ldap`                         | `GET /api-admin/v1/orders`           |
 
-- **CustomerAuthInterceptor**: Applied only to customer API paths that require login (those paths MUST go through the interceptor). Public paths (e.g. product/brand list or detail) are excluded. See `.docs/design/02-sequence-diagrams.md` §0 and `01-requirements.md` §4.2.
-- **AdminAuthInterceptor**: Applied to all `/admin/**` paths.
+- **대고객**: user_required인 기능은 `X-Loopers-LoginId`(및 필요 시 `X-Loopers-LoginPw`)로 유저 식별. 인증/인가는 주요 스코프가 아니므로 구현하지 않음.
+- **어드민**: ldap_required인 기능은 `X-Loopers-Ldap`으로 어드민 식별.
+- **CustomerAuthInterceptor**: 로그인이 필요한 고객 API 경로에만 적용. 상품·브랜드 조회 등 비회원 허용 경로는 제외. `.docs/design/02-sequence-diagrams.md` §0, `01-requirements.md` §4.2 참조.
+- **AdminAuthInterceptor**: `/api-admin/**` 경로 전 구간 적용.
 
 ### Standard Response Format
 
@@ -441,7 +443,7 @@ After implementing an endpoint, document it in `http/commerce-api/{domain}-v1.ht
 
 ```http
 ### Sign Up
-POST http://localhost:8080/customer/v1/users/sign-up
+POST http://localhost:8080/api/v1/users
 Content-Type: application/json
 
 {
@@ -488,7 +490,7 @@ Based on `.codeguide/loopers-1-week.md` and project requirements, follow these c
   - [ ] Sign-up returns created user info on success
   - [ ] Sign-up returns `400 Bad Request` if gender is missing
 
-**Endpoint**: `POST /customer/v1/users/sign-up`
+**Endpoint**: `POST /api/v1/users`
 
 **Response**:
 
@@ -520,7 +522,7 @@ Based on `.codeguide/loopers-1-week.md` and project requirements, follow these c
   - [ ] Returns masked user info on success
   - [ ] Returns `404 Not Found` if user does not exist
 
-**Endpoint**: `GET /customer/v1/users/me`
+**Endpoint**: `GET /api/v1/users/me`
 
 **Headers**: `X-Loopers-LoginId: {userId}`
 
@@ -553,11 +555,11 @@ Based on `.codeguide/loopers-1-week.md` and project requirements, follow these c
   - [ ] Returns null if user does not exist
 - [ ] **E2E Tests**:
   - [ ] Returns point balance on success
-  - [ ] Returns `400 Bad Request` if `X-USER-ID` header is missing
+  - [ ] Returns `400 Bad Request` if `X-Loopers-LoginId` header is missing
 
-**Endpoint**: `GET /customer/v1/users/me/points`
+**Endpoint**: `GET /api/v1/users/me/points`
 
-**Headers**: `X-USER-ID: {userId}`
+**Headers**: `X-Loopers-LoginId: {userId}` (user_required)
 
 **Response**:
 
@@ -586,7 +588,7 @@ Based on `.codeguide/loopers-1-week.md` and project requirements, follow these c
 - [ ] Ensure new password differs from current password
 - [ ] Encrypt new password before saving
 
-**Endpoint**: `PATCH /customer/v1/users/me/password`
+**Endpoint**: `PUT /api/v1/users/password`
 
 **Request**:
 
