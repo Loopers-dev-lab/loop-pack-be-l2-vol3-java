@@ -36,6 +36,10 @@ public class AuthenticationFilter implements Filter {
             "/api/v1/examples"
     );
 
+    private static final Set<String> OPTIONAL_AUTH_PATHS = Set.of(
+            "/api/v1/products"
+    );
+
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
@@ -64,7 +68,42 @@ public class AuthenticationFilter implements Filter {
             return;
         }
 
+        if (isOptionalAuthPath(path)) {
+            handleOptionalUserAuthentication(httpRequest, httpResponse, chain);
+            return;
+        }
+
         handleUserAuthentication(httpRequest, httpResponse, chain);
+    }
+
+    private boolean isOptionalAuthPath(String path) {
+        return OPTIONAL_AUTH_PATHS.stream().anyMatch(optionalPath -> isPathMatch(path, optionalPath));
+    }
+
+    private void handleOptionalUserAuthentication(HttpServletRequest httpRequest, HttpServletResponse httpResponse,
+                                                   FilterChain chain) throws IOException, ServletException {
+        String loginId = httpRequest.getHeader(LOGIN_ID_HEADER);
+        String loginPw = httpRequest.getHeader(LOGIN_PW_HEADER);
+
+        if (loginId == null || loginPw == null) {
+            chain.doFilter(httpRequest, httpResponse);
+            return;
+        }
+
+        Optional<Member> memberOpt = memberRepository.findByMemberIdValue(loginId);
+        if (memberOpt.isEmpty()) {
+            chain.doFilter(httpRequest, httpResponse);
+            return;
+        }
+
+        Member member = memberOpt.get();
+        if (!member.getPassword().matches(loginPw, passwordEncoder)) {
+            chain.doFilter(httpRequest, httpResponse);
+            return;
+        }
+
+        httpRequest.setAttribute("authenticatedMember", member);
+        chain.doFilter(httpRequest, httpResponse);
     }
 
     private void handleAdminAuthentication(HttpServletRequest httpRequest, HttpServletResponse httpResponse,

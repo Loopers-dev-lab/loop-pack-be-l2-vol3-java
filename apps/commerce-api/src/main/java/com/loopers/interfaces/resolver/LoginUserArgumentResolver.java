@@ -27,8 +27,14 @@ public class LoginUserArgumentResolver implements HandlerMethodArgumentResolver 
         HttpServletRequest request = (HttpServletRequest) webRequest.getNativeRequest();
         Object attribute = request.getAttribute("authenticatedMember");
 
+        LoginUser loginUser = parameter.getParameterAnnotation(LoginUser.class);
+        boolean required = loginUser == null || loginUser.required();
+
         if (!(attribute instanceof Member)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED, "인증 정보가 유효하지 않습니다.");
+            if (required) {
+                throw new CoreException(ErrorType.UNAUTHORIZED, "인증 정보가 유효하지 않습니다.");
+            }
+            return null;
         }
 
         return attribute;
