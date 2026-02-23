@@ -158,3 +158,19 @@ Entity → ExampleInfo (application DTO) → ExampleV1Dto (API DTO) → ApiRespo
       /application/.. (application 레이어 - 도메인 레이어를 조합해 사용 가능한 기능을 제공)
       /domain/.. (domain 레이어 - 도메인 객체 및 엔티티, Repository 인터페이스가 위치)
       /infrastructure/.. (infrastructure 레이어 - JPA, Redis 등을 활용해 Repository 구현체를 제공)
+
+## 개발 규칙
+
+### 개발 Workflow - TDD (Red > Green > Refactor)
+- 모든 테스트는 3A 원칙으로 작성할 것 (Arrange - Act - Assert)
+#### 1. Red Phase : 실패하는 테스트 먼저 작성
+- 요구사항을 만족하는 기능 테스트 케이스 작성
+- 테스트 예시
+#### 2. Green Phase : 테스트를 통과하는 코드 작성
+- Red Phase 의 테스트가 모두 통과할 수 있는 코드 작성
+- 오버엔지니어링 금지
+#### 3. Refactor Phase : 불필요한 코드 제거 및 품질 개선
+- 불필요한 private 함수 지양, 객체지향적 코드 작성
+- unused import 제거
+- 성능 최적화
+- 모든 테스트 케이스가 통과해야 함
