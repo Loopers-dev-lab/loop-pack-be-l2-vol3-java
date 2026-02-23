@@ -1,4 +1,4 @@
-package com.loopers.support.auth;
+package com.loopers.interfaces.api.auth;
 
 import com.loopers.domain.user.User;
 

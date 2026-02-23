@@ -24,6 +24,10 @@ spring:
       - logging.yml
       - monitoring.yml
 
+auth:
+  admin:
+    ldap-credential: admin-ldap
+
 springdoc:
   use-fqn: true
   swagger-ui:

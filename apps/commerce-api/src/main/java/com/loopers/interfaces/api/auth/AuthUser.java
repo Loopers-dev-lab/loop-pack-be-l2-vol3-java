@@ -1,4 +1,4 @@
-package com.loopers.support.auth;
+package com.loopers.interfaces.api.auth;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
