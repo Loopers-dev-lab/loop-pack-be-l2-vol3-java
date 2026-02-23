@@ -166,7 +166,7 @@ class OrderFacadeIntegrationTest {
             assertThat(productAppService.getOptionById(optionId).getStock()).isEqualTo(80);
 
             // when
-            Order cancelledOrder = orderFacade.cancelOrder(order.getId());
+            Order cancelledOrder = orderFacade.cancelOrder(1L, order.getId());
 
             // then
             assertThat(cancelledOrder.getStatus()).isEqualTo(OrderStatus.CANCELED);
@@ -190,7 +190,7 @@ class OrderFacadeIntegrationTest {
             Order order = orderFacade.createOrder(command);
 
             // when
-            orderFacade.cancelOrder(order.getId());
+            orderFacade.cancelOrder(1L, order.getId());
 
             // then
             assertThat(productAppService.getOptionById(optionId).getStock()).isEqualTo(100);
@@ -209,7 +209,7 @@ class OrderFacadeIntegrationTest {
             orderFacade.payOrder(order.getId());
 
             // when
-            Order cancelledOrder = orderFacade.cancelOrder(order.getId());
+            Order cancelledOrder = orderFacade.cancelOrder(1L, order.getId());
 
             // then
             assertThat(cancelledOrder.getStatus()).isEqualTo(OrderStatus.CANCELED);
@@ -229,7 +229,7 @@ class OrderFacadeIntegrationTest {
             orderFacade.prepareOrder(order.getId());
 
             // when & then
-            assertThatThrownBy(() -> orderFacade.cancelOrder(order.getId()))
+            assertThatThrownBy(() -> orderFacade.cancelOrder(1L, order.getId()))
                     .isInstanceOf(CoreException.class)
                     .extracting("errorType").isEqualTo(ErrorType.BAD_REQUEST);
         }
