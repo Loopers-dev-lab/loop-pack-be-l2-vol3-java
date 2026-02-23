@@ -68,6 +68,34 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public Page<Product> findAllProducts(Long brandId, Pageable pageable) {
+        QProduct product = QProduct.product;
+
+        BooleanBuilder builder = new BooleanBuilder();
+        builder.and(product.deletedAt.isNull());
+
+        if (brandId != null) {
+            builder.and(product.brandId.eq(brandId));
+        }
+
+        List<Product> content = queryFactory
+                .selectFrom(product)
+                .where(builder)
+                .orderBy(product.id.desc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        Long total = queryFactory
+                .select(product.count())
+                .from(product)
+                .where(builder)
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0);
+    }
+
+    @Override
     public List<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId) {
         return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId);
     }

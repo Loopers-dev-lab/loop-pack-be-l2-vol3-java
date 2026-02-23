@@ -1,0 +1,72 @@
+package com.loopers.interfaces.api.product.dto;
+
+import com.loopers.domain.product.Product;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+import java.time.ZonedDateTime;
+
+public class ProductV1Dto {
+
+    public record ProductResponse(
+            Long id,
+            Long brandId,
+            String name,
+            String description,
+            Integer price,
+            Integer stockQuantity
+    ) {
+        public static ProductResponse from(Product product) {
+            return new ProductResponse(
+                    product.getId(),
+                    product.getBrandId(),
+                    product.getName(),
+                    product.getDescription(),
+                    product.getPrice(),
+                    product.getStockQuantity()
+            );
+        }
+    }
+
+    public record AdminProductResponse(
+            Long id,
+            Long brandId,
+            String name,
+            String description,
+            Integer price,
+            Integer stockQuantity,
+            Product.Visibility visibility,
+            ZonedDateTime createdAt,
+            ZonedDateTime updatedAt
+    ) {
+        public static AdminProductResponse from(Product product) {
+            return new AdminProductResponse(
+                    product.getId(),
+                    product.getBrandId(),
+                    product.getName(),
+                    product.getDescription(),
+                    product.getPrice(),
+                    product.getStockQuantity(),
+                    product.getVisibility(),
+                    product.getCreatedAt(),
+                    product.getUpdatedAt()
+            );
+        }
+    }
+
+    public record CreateRequest(
+            @NotNull Long brandId,
+            @NotBlank(message = "상품 이름은 필수값입니다.") String name,
+            String description,
+            @NotNull Integer price,
+            @NotNull Integer stockQuantity
+    ) {}
+
+    public record UpdateRequest(
+            @NotBlank(message = "상품 이름은 필수값입니다.") String name,
+            String description,
+            @NotNull Integer price,
+            @NotNull Integer stockQuantity,
+            Product.Visibility visibility
+    ) {}
+}

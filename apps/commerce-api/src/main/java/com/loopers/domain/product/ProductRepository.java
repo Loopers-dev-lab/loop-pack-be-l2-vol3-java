@@ -11,6 +11,7 @@ public interface ProductRepository {
     Product save(Product product);
     Optional<Product> findById(Long id);
     Page<Product> findProducts(Long brandId, ProductSort sort, Pageable pageable);
+    Page<Product> findAllProducts(Long brandId, Pageable pageable);
     List<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId);
     List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> ids);
 }

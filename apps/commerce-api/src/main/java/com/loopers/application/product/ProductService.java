@@ -20,9 +20,9 @@ public class ProductService {
     private final BrandService brandService;
 
     @Transactional
-    public Product register(Long brandId, String name, String description, Integer price, Integer stockQuantity) {
-        brandService.getBrand(brandId);
-        Product product = Product.create(brandId, name, description, price, stockQuantity);
+    public Product register(ProductCreateCommand command) {
+        brandService.getBrand(command.brandId());
+        Product product = Product.create(command.brandId(), command.name(), command.description(), command.price(), command.stockQuantity());
         return productRepository.save(product);
     }
 
@@ -32,6 +32,7 @@ public class ProductService {
         if (product.getDeletedAt() != null) {
             throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + id + "] 를 찾을 수 없습니다.");
         }
+
         return product;
     }
 
@@ -40,10 +41,29 @@ public class ProductService {
         return productRepository.findProducts(brandId, sort, pageable);
     }
 
-    @Transactional
-    public Product update(Long id, String name, String description, Integer price, Integer stockQuantity) {
+    @Transactional(readOnly = true)
+    public Product getVisibleProduct(Long id) {
         Product product = getProduct(id);
-        product.update(name, description, price, stockQuantity);
+        if (product.getVisibility() == Product.Visibility.HIDDEN) {
+            throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + id + "] 를 찾을 수 없습니다.");
+        }
+
+        return product;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Product> getAdminProducts(Long brandId, Pageable pageable) {
+        return productRepository.findAllProducts(brandId, pageable);
+    }
+
+    @Transactional
+    public Product update(Long id, ProductUpdateCommand command) {
+        Product product = getProduct(id);
+        product.update(command.name(), command.description(), command.price(), command.stockQuantity());
+        if (command.visibility() != null) {
+            product.changeVisibility(command.visibility());
+        }
+
         return product;
     }
 
