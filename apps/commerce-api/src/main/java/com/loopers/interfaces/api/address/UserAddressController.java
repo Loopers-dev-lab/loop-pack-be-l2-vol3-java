@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.address;
 
-import com.loopers.domain.address.UserAddress;
-import com.loopers.domain.address.UserAddressService;
+import com.loopers.application.address.UserAddressFacade;
 import com.loopers.domain.user.User;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthUser;
@@ -20,27 +19,22 @@ import java.util.List;
 @RequestMapping("/api/v1/users/me/addresses")
 public class UserAddressController implements UserAddressApiSpec {
 
-    private final UserAddressService userAddressService;
+    private final UserAddressFacade userAddressFacade;
 
-    public UserAddressController(UserAddressService userAddressService) {
-        this.userAddressService = userAddressService;
+    public UserAddressController(UserAddressFacade userAddressFacade) {
+        this.userAddressFacade = userAddressFacade;
     }
 
     @GetMapping
     @Override
     public ApiResponse<UserAddressResponse.AddressListResponse> getAddresses(@AuthUser User user) {
-        List<UserAddress> addresses = userAddressService.getAddresses(user.getId());
+        UserAddressFacade.AddressListResult result = userAddressFacade.getAddresses(user.getId());
 
-        List<UserAddressResponse.AddressSummary> summaries = addresses.stream()
+        List<UserAddressResponse.AddressSummary> summaries = result.addresses().stream()
                 .map(addr -> new UserAddressResponse.AddressSummary(
-                        addr.getId(),
-                        addr.getReceiverName(),
-                        addr.getPhone(),
-                        addr.getZipCode(),
-                        addr.getAddressLine1(),
-                        addr.getAddressLine2(),
-                        addr.isDefault()
-                ))
+                        addr.addressId(), addr.receiverName(), addr.phone(),
+                        addr.zipCode(), addr.addressLine1(), addr.addressLine2(),
+                        addr.isDefault()))
                 .toList();
 
         return ApiResponse.success(new UserAddressResponse.AddressListResponse(summaries));
@@ -50,7 +44,7 @@ public class UserAddressController implements UserAddressApiSpec {
     @Override
     public ApiResponse<Object> registerAddress(@AuthUser User user,
                                                 @RequestBody UserAddressRequest.RegisterAddressRequest request) {
-        userAddressService.register(user.getId(), request.receiverName(), request.phone(),
+        userAddressFacade.register(user.getId(), request.receiverName(), request.phone(),
                 request.zipCode(), request.addressLine1(), request.addressLine2());
         return ApiResponse.success();
     }
@@ -60,7 +54,7 @@ public class UserAddressController implements UserAddressApiSpec {
     public ApiResponse<Object> updateAddress(@AuthUser User user,
                                               @PathVariable Long addressId,
                                               @RequestBody UserAddressRequest.UpdateAddressRequest request) {
-        userAddressService.update(addressId, user.getId(), request.receiverName(), request.phone(),
+        userAddressFacade.update(addressId, user.getId(), request.receiverName(), request.phone(),
                 request.zipCode(), request.addressLine1(), request.addressLine2());
         return ApiResponse.success();
     }
@@ -69,7 +63,7 @@ public class UserAddressController implements UserAddressApiSpec {
     @Override
     public ApiResponse<Object> deleteAddress(@AuthUser User user,
                                               @PathVariable Long addressId) {
-        userAddressService.delete(addressId, user.getId());
+        userAddressFacade.delete(addressId, user.getId());
         return ApiResponse.success();
     }
 }

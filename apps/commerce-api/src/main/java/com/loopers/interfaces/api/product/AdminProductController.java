@@ -1,9 +1,6 @@
 package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductAdminFacade;
-import com.loopers.application.product.ProductInfo;
-import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthAdmin;
 import org.springframework.http.HttpStatus;
@@ -27,11 +24,9 @@ import java.util.List;
 public class AdminProductController implements AdminProductApiSpec {
 
     private final ProductAdminFacade productAdminFacade;
-    private final ProductService productService;
 
-    public AdminProductController(ProductAdminFacade productAdminFacade, ProductService productService) {
+    public AdminProductController(ProductAdminFacade productAdminFacade) {
         this.productAdminFacade = productAdminFacade;
-        this.productService = productService;
     }
 
     /** 전체 상품 목록 페이지네이션 조회 */
@@ -85,8 +80,8 @@ public class AdminProductController implements AdminProductApiSpec {
             @PathVariable Long productId,
             @RequestBody AdminProductRequest.UpdateProductRequest request
     ) {
-        Product product = productService.update(productId, request.name(), request.description(), request.basePrice());
-        ProductAdminFacade.ProductAdminDetailResult result = productAdminFacade.getProductDetail(productId);
+        ProductAdminFacade.ProductAdminDetailResult result = productAdminFacade.updateProduct(
+                productId, request.name(), request.description(), request.basePrice());
         return ApiResponse.success(AdminProductResponse.ProductDetail.from(
                 result.product(), result.brand(), result.inventory()));
     }
@@ -98,8 +93,8 @@ public class AdminProductController implements AdminProductApiSpec {
             @PathVariable Long productId,
             @RequestBody AdminProductRequest.ChangeStatusRequest request
     ) {
-        Product product = productService.changeStatus(productId, request.status());
-        ProductAdminFacade.ProductAdminDetailResult result = productAdminFacade.getProductDetail(productId);
+        ProductAdminFacade.ProductAdminDetailResult result = productAdminFacade.changeProductStatus(
+                productId, request.status());
         return ApiResponse.success(AdminProductResponse.ProductDetail.from(
                 result.product(), result.brand(), result.inventory()));
     }

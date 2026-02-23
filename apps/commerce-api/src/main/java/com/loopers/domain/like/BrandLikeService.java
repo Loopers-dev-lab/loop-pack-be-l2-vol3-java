@@ -1,6 +1,5 @@
 package com.loopers.domain.like;
 
-import com.loopers.domain.brand.BrandService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.LikeErrorType;
 import org.springframework.stereotype.Component;
@@ -12,16 +11,13 @@ import java.util.List;
 public class BrandLikeService {
 
     private final BrandLikeRepository brandLikeRepository;
-    private final BrandService brandService;
 
-    public BrandLikeService(BrandLikeRepository brandLikeRepository, BrandService brandService) {
+    public BrandLikeService(BrandLikeRepository brandLikeRepository) {
         this.brandLikeRepository = brandLikeRepository;
-        this.brandService = brandService;
     }
 
     @Transactional
     public BrandLike like(Long userId, Long brandId) {
-        brandService.getActiveBrand(brandId);
         if (brandLikeRepository.existsByUserIdAndBrandId(userId, brandId)) {
             throw new CoreException(LikeErrorType.ALREADY_LIKED);
         }

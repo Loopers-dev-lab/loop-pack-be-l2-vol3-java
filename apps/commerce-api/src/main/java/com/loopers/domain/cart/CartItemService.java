@@ -1,8 +1,5 @@
 package com.loopers.domain.cart;
 
-import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductService;
-import com.loopers.domain.product.ProductStatus;
 import com.loopers.support.error.CartItemErrorType;
 import com.loopers.support.error.CoreException;
 import org.springframework.stereotype.Component;
@@ -14,20 +11,13 @@ import java.util.List;
 public class CartItemService {
 
     private final CartItemRepository cartItemRepository;
-    private final ProductService productService;
 
-    public CartItemService(CartItemRepository cartItemRepository, ProductService productService) {
+    public CartItemService(CartItemRepository cartItemRepository) {
         this.cartItemRepository = cartItemRepository;
-        this.productService = productService;
     }
 
     @Transactional
     public CartItem addToCart(Long userId, Long productId, int quantity) {
-        Product product = productService.getDisplayableProduct(productId);
-        if (product.getStatus() != ProductStatus.ACTIVE) {
-            throw new CoreException(CartItemErrorType.NOT_PURCHASABLE);
-        }
-
         return cartItemRepository.findByUserIdAndProductId(userId, productId)
                 .map(existing -> {
                     existing.addQuantity(quantity);

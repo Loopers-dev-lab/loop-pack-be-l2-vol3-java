@@ -39,5 +39,13 @@ public class BrandFacade {
         return new BrandDetailResult(BrandInfo.from(brand), productInfos);
     }
 
+    /** 활성 브랜드 목록 조회 */
+    @Transactional(readOnly = true)
+    public List<BrandInfo> getAllActiveBrands() {
+        return brandService.getAllActiveBrands().stream()
+                .map(BrandInfo::from)
+                .toList();
+    }
+
     public record BrandDetailResult(BrandInfo brand, List<ProductInfo> products) {}
 }

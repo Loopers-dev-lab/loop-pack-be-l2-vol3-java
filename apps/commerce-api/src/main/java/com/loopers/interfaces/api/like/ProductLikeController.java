@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.like;
 
-import com.loopers.domain.like.LikeService;
+import com.loopers.application.like.LikeFacade;
 import com.loopers.domain.user.User;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthUser;
@@ -14,23 +14,23 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/products/{productId}/likes")
 public class ProductLikeController implements ProductLikeApiSpec {
 
-    private final LikeService likeService;
+    private final LikeFacade likeFacade;
 
-    public ProductLikeController(LikeService likeService) {
-        this.likeService = likeService;
+    public ProductLikeController(LikeFacade likeFacade) {
+        this.likeFacade = likeFacade;
     }
 
     @PostMapping
     @Override
     public ApiResponse<LikeResponse.LikeResult> likeProduct(@AuthUser User user, @PathVariable Long productId) {
-        int likeCount = likeService.like(user.getId(), productId);
-        return ApiResponse.success(new LikeResponse.LikeResult(true, likeCount));
+        LikeFacade.LikeResult result = likeFacade.likeProduct(user.getId(), productId);
+        return ApiResponse.success(new LikeResponse.LikeResult(true, result.likeCount()));
     }
 
     @DeleteMapping
     @Override
     public ApiResponse<LikeResponse.LikeResult> unlikeProduct(@AuthUser User user, @PathVariable Long productId) {
-        int likeCount = likeService.unlike(user.getId(), productId);
-        return ApiResponse.success(new LikeResponse.LikeResult(false, likeCount));
+        LikeFacade.LikeResult result = likeFacade.unlikeProduct(user.getId(), productId);
+        return ApiResponse.success(new LikeResponse.LikeResult(false, result.likeCount()));
     }
 }

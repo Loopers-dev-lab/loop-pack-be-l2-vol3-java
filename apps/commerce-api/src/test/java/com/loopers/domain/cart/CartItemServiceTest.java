@@ -1,8 +1,5 @@
 package com.loopers.domain.cart;
 
-import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductService;
-import com.loopers.domain.product.ProductStatus;
 import com.loopers.support.error.CartItemErrorType;
 import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,22 +23,12 @@ import static org.mockito.Mockito.when;
 class CartItemServiceTest {
 
     private CartItemRepository cartItemRepository;
-    private ProductService productService;
     private CartItemService cartItemService;
 
     @BeforeEach
     void setUp() {
         cartItemRepository = Mockito.mock(CartItemRepository.class);
-        productService = Mockito.mock(ProductService.class);
-        cartItemService = new CartItemService(cartItemRepository, productService);
-    }
-
-    private Product createProduct(ProductStatus status) {
-        Product product = Product.create(1L, "테스트 상품", "설명", 10000);
-        if (status != ProductStatus.ACTIVE) {
-            product.changeStatus(status);
-        }
-        return product;
+        cartItemService = new CartItemService(cartItemRepository);
     }
 
     @DisplayName("장바구니에 추가할 때,")
@@ -51,8 +38,6 @@ class CartItemServiceTest {
         @Test
         void 이미_존재하는_상품이면_수량이_합산된다() {
             // arrange
-            Product product = createProduct(ProductStatus.ACTIVE);
-            when(productService.getDisplayableProduct(100L)).thenReturn(product);
             CartItem existing = CartItem.create(1L, 100L, 3);
             when(cartItemRepository.findByUserIdAndProductId(1L, 100L)).thenReturn(Optional.of(existing));
 
@@ -66,8 +51,6 @@ class CartItemServiceTest {
         @Test
         void 새로운_상품이면_새_CartItem이_생성된다() {
             // arrange
-            Product product = createProduct(ProductStatus.ACTIVE);
-            when(productService.getDisplayableProduct(100L)).thenReturn(product);
             when(cartItemRepository.findByUserIdAndProductId(1L, 100L)).thenReturn(Optional.empty());
             when(cartItemRepository.save(any(CartItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -83,8 +66,6 @@ class CartItemServiceTest {
         @Test
         void 생성_시_save가_호출된다() {
             // arrange
-            Product product = createProduct(ProductStatus.ACTIVE);
-            when(productService.getDisplayableProduct(100L)).thenReturn(product);
             when(cartItemRepository.findByUserIdAndProductId(1L, 100L)).thenReturn(Optional.empty());
             when(cartItemRepository.save(any(CartItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -93,19 +74,6 @@ class CartItemServiceTest {
 
             // assert
             verify(cartItemRepository).save(any(CartItem.class));
-        }
-
-        @Test
-        void 판매_불가능한_상품이면_예외가_발생한다() {
-            // arrange
-            Product product = createProduct(ProductStatus.SOLDOUT);
-            when(productService.getDisplayableProduct(100L)).thenReturn(product);
-
-            // act & assert
-            assertThatThrownBy(() -> cartItemService.addToCart(1L, 100L, 1))
-                    .isInstanceOf(CoreException.class)
-                    .extracting(e -> ((CoreException) e).getErrorType())
-                    .isEqualTo(CartItemErrorType.NOT_PURCHASABLE);
         }
     }
 

@@ -2,7 +2,6 @@ package com.loopers.interfaces.api.order;
 
 import com.loopers.application.order.OrderFacade;
 import com.loopers.domain.order.Order;
-import com.loopers.domain.order.OrderService;
 import com.loopers.domain.user.User;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthUser;
@@ -23,11 +22,9 @@ import java.util.List;
 public class OrderController implements OrderApiSpec {
 
     private final OrderFacade orderFacade;
-    private final OrderService orderService;
 
-    public OrderController(OrderFacade orderFacade, OrderService orderService) {
+    public OrderController(OrderFacade orderFacade) {
         this.orderFacade = orderFacade;
-        this.orderService = orderService;
     }
 
     @PostMapping
@@ -55,12 +52,12 @@ public class OrderController implements OrderApiSpec {
         ZonedDateTime start = startAt != null ? ZonedDateTime.parse(startAt) : ZonedDateTime.now().minusMonths(3);
         ZonedDateTime end = endAt != null ? ZonedDateTime.parse(endAt) : ZonedDateTime.now();
 
-        List<Order> orders = orderService.getOrders(user.getId(), start, end);
+        OrderFacade.OrderListResult result = orderFacade.getOrders(user.getId(), start, end);
 
-        List<OrderResponse.OrderSummary> summaries = orders.stream()
+        List<OrderResponse.OrderSummary> summaries = result.orders().stream()
                 .map(o -> new OrderResponse.OrderSummary(
-                        o.getId(), o.getOrderNumber(), o.getStatus().name(),
-                        o.getTotalAmount(), o.getCreatedAt()))
+                        o.orderId(), o.orderNumber(), o.status(),
+                        o.totalAmount(), o.createdAt()))
                 .toList();
 
         return ApiResponse.success(new OrderResponse.OrderListResponse(summaries));
@@ -71,22 +68,22 @@ public class OrderController implements OrderApiSpec {
     public ApiResponse<OrderResponse.OrderDetail> getOrder(
             @AuthUser User user,
             @PathVariable Long orderId) {
-        Order order = orderService.getOrder(orderId, user.getId());
+        OrderFacade.OrderDetailResult result = orderFacade.getOrderDetail(orderId, user.getId());
 
-        List<OrderResponse.OrderItemDetail> items = order.getItems().stream()
+        List<OrderResponse.OrderItemDetail> items = result.items().stream()
                 .map(item -> new OrderResponse.OrderItemDetail(
-                        item.getProductName(), item.getBrandName(),
-                        item.getUnitPrice(), item.getQuantity(), item.getLineTotal()))
+                        item.productName(), item.brandName(),
+                        item.unitPrice(), item.quantity(), item.lineTotal()))
                 .toList();
 
         return ApiResponse.success(new OrderResponse.OrderDetail(
-                order.getId(), order.getOrderNumber(), order.getStatus().name(),
-                order.getOrdererName(), order.getOrdererPhone(),
-                order.getReceiverName(), order.getReceiverPhone(),
-                order.getZipCode(), order.getAddressLine1(), order.getAddressLine2(),
-                order.getSubtotalAmount(), order.getDiscountAmount(),
-                order.getPointUsedAmount(), order.getShippingFee(), order.getTotalAmount(),
-                items, order.getCreatedAt()));
+                result.orderId(), result.orderNumber(), result.status(),
+                result.ordererName(), result.ordererPhone(),
+                result.receiverName(), result.receiverPhone(),
+                result.zipCode(), result.addressLine1(), result.addressLine2(),
+                result.subtotalAmount(), result.discountAmount(),
+                result.pointUsedAmount(), result.shippingFee(), result.totalAmount(),
+                items, result.createdAt()));
     }
 
     @DeleteMapping("/{orderId}")

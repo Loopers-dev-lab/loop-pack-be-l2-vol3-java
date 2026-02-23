@@ -2,8 +2,6 @@ package com.loopers.interfaces.api.brand;
 
 import com.loopers.application.brand.BrandAdminFacade;
 import com.loopers.application.brand.BrandInfo;
-import com.loopers.domain.brand.Brand;
-import com.loopers.domain.brand.BrandService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthAdmin;
 import org.springframework.http.HttpStatus;
@@ -26,11 +24,9 @@ import java.util.List;
 @RequestMapping("/api-admin/v1/brands")
 public class AdminBrandController implements AdminBrandApiSpec {
 
-    private final BrandService brandService;
     private final BrandAdminFacade brandAdminFacade;
 
-    public AdminBrandController(BrandService brandService, BrandAdminFacade brandAdminFacade) {
-        this.brandService = brandService;
+    public AdminBrandController(BrandAdminFacade brandAdminFacade) {
         this.brandAdminFacade = brandAdminFacade;
     }
 
@@ -42,17 +38,14 @@ public class AdminBrandController implements AdminBrandApiSpec {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        List<Brand> brands = this.brandService.getAllBrands(page, size);
-        long totalElements = this.brandService.countAllBrands();
-        int totalPages = size > 0 ? (int) Math.ceil((double) totalElements / size) : 0;
+        BrandAdminFacade.BrandAdminListResult result = brandAdminFacade.getAllBrands(page, size);
 
-        List<AdminBrandResponse.BrandDetail> brandDetails = brands.stream()
-                .map(BrandInfo::from)
+        List<AdminBrandResponse.BrandDetail> brandDetails = result.brands().stream()
                 .map(AdminBrandResponse.BrandDetail::from)
                 .toList();
 
         return ApiResponse.success(new AdminBrandResponse.BrandListResponse(
-                brandDetails, page, size, totalElements, totalPages));
+                brandDetails, result.page(), result.size(), result.totalElements(), result.totalPages()));
     }
 
     /** 브랜드 상세 조회 (BrandAdminFacade → 브랜드 + 전체 상품 목록) */
@@ -74,8 +67,8 @@ public class AdminBrandController implements AdminBrandApiSpec {
             @AuthAdmin String ldap,
             @RequestBody AdminBrandRequest.CreateBrandRequest request
     ) {
-        Brand brand = this.brandService.create(request.name(), request.description());
-        return ApiResponse.success(AdminBrandResponse.BrandDetail.from(BrandInfo.from(brand)));
+        BrandInfo info = brandAdminFacade.createBrand(request.name(), request.description());
+        return ApiResponse.success(AdminBrandResponse.BrandDetail.from(info));
     }
 
     @PutMapping("/{brandId}")
@@ -85,8 +78,8 @@ public class AdminBrandController implements AdminBrandApiSpec {
             @PathVariable Long brandId,
             @RequestBody AdminBrandRequest.UpdateBrandRequest request
     ) {
-        Brand brand = this.brandService.update(brandId, request.name(), request.description());
-        return ApiResponse.success(AdminBrandResponse.BrandDetail.from(BrandInfo.from(brand)));
+        BrandInfo info = brandAdminFacade.updateBrand(brandId, request.name(), request.description());
+        return ApiResponse.success(AdminBrandResponse.BrandDetail.from(info));
     }
 
     @PatchMapping("/{brandId}/status")
@@ -96,8 +89,8 @@ public class AdminBrandController implements AdminBrandApiSpec {
             @PathVariable Long brandId,
             @RequestBody AdminBrandRequest.ChangeStatusRequest request
     ) {
-        Brand brand = this.brandService.changeStatus(brandId, request.status());
-        return ApiResponse.success(AdminBrandResponse.BrandDetail.from(BrandInfo.from(brand)));
+        BrandInfo info = brandAdminFacade.changeBrandStatus(brandId, request.status());
+        return ApiResponse.success(AdminBrandResponse.BrandDetail.from(info));
     }
 
     /** 브랜드 삭제 (BrandAdminFacade → 상품/재고 연쇄 삭제) */

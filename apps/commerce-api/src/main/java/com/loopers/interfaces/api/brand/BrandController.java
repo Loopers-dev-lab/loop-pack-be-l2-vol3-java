@@ -2,7 +2,6 @@ package com.loopers.interfaces.api.brand;
 
 import com.loopers.application.brand.BrandFacade;
 import com.loopers.application.brand.BrandInfo;
-import com.loopers.domain.brand.BrandService;
 import com.loopers.interfaces.api.ApiResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,20 +14,17 @@ import java.util.List;
 @RequestMapping("/api/v1/brands")
 public class BrandController implements BrandApiSpec {
 
-    private final BrandService brandService;
     private final BrandFacade brandFacade;
 
-    public BrandController(BrandService brandService, BrandFacade brandFacade) {
-        this.brandService = brandService;
+    public BrandController(BrandFacade brandFacade) {
         this.brandFacade = brandFacade;
     }
 
-    /** 활성 브랜드 목록 조회 (기존 BrandService 직접 사용) */
+    /** 활성 브랜드 목록 조회 */
     @GetMapping
     @Override
     public ApiResponse<List<BrandResponse.BrandSummary>> getBrands() {
-        List<BrandResponse.BrandSummary> brands = this.brandService.getAllActiveBrands().stream()
-                .map(BrandInfo::from)
+        List<BrandResponse.BrandSummary> brands = brandFacade.getAllActiveBrands().stream()
                 .map(BrandResponse.BrandSummary::from)
                 .toList();
         return ApiResponse.success(brands);

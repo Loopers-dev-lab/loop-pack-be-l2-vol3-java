@@ -16,6 +16,7 @@ import com.loopers.support.error.OrderErrorType;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -116,5 +117,59 @@ public class OrderFacade {
         return "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
+    /** 주문 목록 조회 */
+    @Transactional(readOnly = true)
+    public OrderListResult getOrders(Long userId, ZonedDateTime startAt, ZonedDateTime endAt) {
+        List<Order> orders = orderService.getOrders(userId, startAt, endAt);
+
+        List<OrderSummaryResult> summaries = orders.stream()
+                .map(o -> new OrderSummaryResult(
+                        o.getId(), o.getOrderNumber(), o.getStatus().name(),
+                        o.getTotalAmount(), o.getCreatedAt()))
+                .toList();
+
+        return new OrderListResult(summaries);
+    }
+
+    /** 주문 상세 조회 */
+    @Transactional(readOnly = true)
+    public OrderDetailResult getOrderDetail(Long orderId, Long userId) {
+        Order order = orderService.getOrder(orderId, userId);
+
+        List<OrderItemDetailResult> items = order.getItems().stream()
+                .map(item -> new OrderItemDetailResult(
+                        item.getProductName(), item.getBrandName(),
+                        item.getUnitPrice(), item.getQuantity(), item.getLineTotal()))
+                .toList();
+
+        return new OrderDetailResult(
+                order.getId(), order.getOrderNumber(), order.getStatus().name(),
+                order.getOrdererName(), order.getOrdererPhone(),
+                order.getReceiverName(), order.getReceiverPhone(),
+                order.getZipCode(), order.getAddressLine1(), order.getAddressLine2(),
+                order.getSubtotalAmount(), order.getDiscountAmount(),
+                order.getPointUsedAmount(), order.getShippingFee(), order.getTotalAmount(),
+                items, order.getCreatedAt());
+    }
+
     public record OrderItemCommand(Long productId, int quantity) {}
+
+    public record OrderListResult(List<OrderSummaryResult> orders) {}
+
+    public record OrderSummaryResult(
+            Long orderId, String orderNumber, String status,
+            int totalAmount, ZonedDateTime createdAt) {}
+
+    public record OrderDetailResult(
+            Long orderId, String orderNumber, String status,
+            String ordererName, String ordererPhone,
+            String receiverName, String receiverPhone,
+            String zipCode, String addressLine1, String addressLine2,
+            int subtotalAmount, int discountAmount,
+            int pointUsedAmount, int shippingFee, int totalAmount,
+            List<OrderItemDetailResult> items, ZonedDateTime createdAt) {}
+
+    public record OrderItemDetailResult(
+            String productName, String brandName,
+            int unitPrice, int quantity, int lineTotal) {}
 }

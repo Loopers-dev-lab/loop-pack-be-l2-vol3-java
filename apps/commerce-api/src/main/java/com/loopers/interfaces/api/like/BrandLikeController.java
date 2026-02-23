@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.like;
 
-import com.loopers.domain.like.BrandLikeService;
+import com.loopers.application.like.LikeFacade;
 import com.loopers.domain.user.User;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthUser;
@@ -14,23 +14,23 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/brands/{brandId}/likes")
 public class BrandLikeController implements BrandLikeApiSpec {
 
-    private final BrandLikeService brandLikeService;
+    private final LikeFacade likeFacade;
 
-    public BrandLikeController(BrandLikeService brandLikeService) {
-        this.brandLikeService = brandLikeService;
+    public BrandLikeController(LikeFacade likeFacade) {
+        this.likeFacade = likeFacade;
     }
 
     @PostMapping
     @Override
     public ApiResponse<Object> likeBrand(@AuthUser User user, @PathVariable Long brandId) {
-        brandLikeService.like(user.getId(), brandId);
+        likeFacade.likeBrand(user.getId(), brandId);
         return ApiResponse.success();
     }
 
     @DeleteMapping
     @Override
     public ApiResponse<Object> unlikeBrand(@AuthUser User user, @PathVariable Long brandId) {
-        brandLikeService.unlike(user.getId(), brandId);
+        likeFacade.unlikeBrand(user.getId(), brandId);
         return ApiResponse.success();
     }
 }

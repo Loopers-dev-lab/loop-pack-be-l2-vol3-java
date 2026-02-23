@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.coupon;
 
-import com.loopers.domain.coupon.CouponService;
-import com.loopers.domain.coupon.CouponTemplate;
+import com.loopers.application.coupon.AdminCouponFacade;
 import com.loopers.domain.coupon.DiscountType;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthAdmin;
@@ -21,10 +20,10 @@ import java.util.List;
 @RequestMapping("/api-admin/v1/coupon-templates")
 public class AdminCouponTemplateController implements AdminCouponTemplateApiSpec {
 
-    private final CouponService couponService;
+    private final AdminCouponFacade adminCouponFacade;
 
-    public AdminCouponTemplateController(CouponService couponService) {
-        this.couponService = couponService;
+    public AdminCouponTemplateController(AdminCouponFacade adminCouponFacade) {
+        this.adminCouponFacade = adminCouponFacade;
     }
 
     @GetMapping
@@ -33,16 +32,20 @@ public class AdminCouponTemplateController implements AdminCouponTemplateApiSpec
             @AuthAdmin String ldap,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        List<CouponTemplate> templates = couponService.getAllTemplates(page, size);
-        long totalElements = couponService.countAllTemplates();
-        int totalPages = size > 0 ? (int) Math.ceil((double) totalElements / size) : 0;
+        AdminCouponFacade.TemplateListResult result = adminCouponFacade.getTemplates(page, size);
 
-        List<AdminCouponTemplateResponse.TemplateDetail> details = templates.stream()
-                .map(this::toDetail)
+        List<AdminCouponTemplateResponse.TemplateDetail> details = result.templates().stream()
+                .map(t -> new AdminCouponTemplateResponse.TemplateDetail(
+                        t.id(), t.name(), t.description(),
+                        t.discountType(), t.discountValue(),
+                        t.maxDiscountAmount(), t.minOrderAmount(),
+                        t.maxIssueCount(), t.maxIssueCountPerUser(),
+                        t.validFrom(), t.validTo(),
+                        t.status(), t.createdAt(), t.updatedAt()))
                 .toList();
 
         return ApiResponse.success(new AdminCouponTemplateResponse.TemplateListResponse(
-                details, page, size, totalElements, totalPages));
+                details, result.page(), result.size(), result.totalElements(), result.totalPages()));
     }
 
     @PostMapping
@@ -50,14 +53,14 @@ public class AdminCouponTemplateController implements AdminCouponTemplateApiSpec
     public ApiResponse<AdminCouponTemplateResponse.TemplateDetail> createTemplate(
             @AuthAdmin String ldap,
             @RequestBody AdminCouponTemplateRequest.CreateTemplateRequest request) {
-        CouponTemplate template = couponService.createTemplate(
+        AdminCouponFacade.TemplateDetail result = adminCouponFacade.createTemplate(
                 request.name(), request.description(),
                 DiscountType.valueOf(request.discountType()),
                 request.discountValue(), request.maxDiscountAmount(),
                 request.minOrderAmount(), request.maxIssueCount(),
                 request.maxIssueCountPerUser(), request.validFrom(), request.validTo());
 
-        return ApiResponse.success(toDetail(template));
+        return ApiResponse.success(toResponse(result));
     }
 
     @PutMapping("/{templateId}")
@@ -66,13 +69,13 @@ public class AdminCouponTemplateController implements AdminCouponTemplateApiSpec
             @AuthAdmin String ldap,
             @PathVariable Long templateId,
             @RequestBody AdminCouponTemplateRequest.UpdateTemplateRequest request) {
-        CouponTemplate template = couponService.updateTemplate(
+        AdminCouponFacade.TemplateDetail result = adminCouponFacade.updateTemplate(
                 templateId, request.name(), request.description(),
                 DiscountType.valueOf(request.discountType()),
                 request.discountValue(), request.maxDiscountAmount(),
                 request.minOrderAmount());
 
-        return ApiResponse.success(toDetail(template));
+        return ApiResponse.success(toResponse(result));
     }
 
     @DeleteMapping("/{templateId}")
@@ -80,17 +83,17 @@ public class AdminCouponTemplateController implements AdminCouponTemplateApiSpec
     public ApiResponse<Void> deleteTemplate(
             @AuthAdmin String ldap,
             @PathVariable Long templateId) {
-        couponService.deleteTemplate(templateId);
+        adminCouponFacade.deleteTemplate(templateId);
         return ApiResponse.success(null);
     }
 
-    private AdminCouponTemplateResponse.TemplateDetail toDetail(CouponTemplate t) {
+    private AdminCouponTemplateResponse.TemplateDetail toResponse(AdminCouponFacade.TemplateDetail t) {
         return new AdminCouponTemplateResponse.TemplateDetail(
-                t.getId(), t.getName(), t.getDescription(),
-                t.getDiscountType().name(), t.getDiscountValue(),
-                t.getMaxDiscountAmount(), t.getMinOrderAmount(),
-                t.getMaxIssueCount(), t.getMaxIssueCountPerUser(),
-                t.getValidFrom(), t.getValidTo(),
-                t.getStatus().name(), t.getCreatedAt(), t.getUpdatedAt());
+                t.id(), t.name(), t.description(),
+                t.discountType(), t.discountValue(),
+                t.maxDiscountAmount(), t.minOrderAmount(),
+                t.maxIssueCount(), t.maxIssueCountPerUser(),
+                t.validFrom(), t.validTo(),
+                t.status(), t.createdAt(), t.updatedAt());
     }
 }

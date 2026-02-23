@@ -3,6 +3,7 @@ package com.loopers.application.brand;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.brand.BrandStatus;
 import com.loopers.domain.inventory.InventoryService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
@@ -56,5 +57,44 @@ public class BrandAdminFacade {
         }
     }
 
+    /** 전체 브랜드 목록 페이지네이션 조회 */
+    @Transactional(readOnly = true)
+    public BrandAdminListResult getAllBrands(int page, int size) {
+        List<Brand> brands = brandService.getAllBrands(page, size);
+        long totalElements = brandService.countAllBrands();
+        int totalPages = size > 0 ? (int) Math.ceil((double) totalElements / size) : 0;
+
+        List<BrandInfo> brandInfos = brands.stream()
+                .map(BrandInfo::from)
+                .toList();
+
+        return new BrandAdminListResult(brandInfos, page, size, totalElements, totalPages);
+    }
+
+    /** 브랜드 생성 */
+    @Transactional
+    public BrandInfo createBrand(String name, String description) {
+        Brand brand = brandService.create(name, description);
+        return BrandInfo.from(brand);
+    }
+
+    /** 브랜드 수정 */
+    @Transactional
+    public BrandInfo updateBrand(Long brandId, String name, String description) {
+        Brand brand = brandService.update(brandId, name, description);
+        return BrandInfo.from(brand);
+    }
+
+    /** 브랜드 상태 변경 */
+    @Transactional
+    public BrandInfo changeBrandStatus(Long brandId, BrandStatus status) {
+        Brand brand = brandService.changeStatus(brandId, status);
+        return BrandInfo.from(brand);
+    }
+
     public record BrandAdminDetailResult(BrandInfo brand, List<ProductInfo> products) {}
+
+    public record BrandAdminListResult(
+            List<BrandInfo> brands,
+            int page, int size, long totalElements, int totalPages) {}
 }

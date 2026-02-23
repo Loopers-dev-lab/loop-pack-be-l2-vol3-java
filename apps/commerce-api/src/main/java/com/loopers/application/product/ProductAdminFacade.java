@@ -8,6 +8,7 @@ import com.loopers.domain.inventory.Inventory;
 import com.loopers.domain.inventory.InventoryService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ProductStatus;
 import com.loopers.support.error.BrandErrorType;
 import com.loopers.support.error.CoreException;
 import org.springframework.stereotype.Component;
@@ -80,6 +81,20 @@ public class ProductAdminFacade {
     public void deleteProduct(Long productId) {
         productService.delete(productId);
         inventoryService.delete(productId);
+    }
+
+    /** 상품 수정 */
+    @Transactional
+    public ProductAdminDetailResult updateProduct(Long productId, String name, String description, int basePrice) {
+        productService.update(productId, name, description, basePrice);
+        return getProductDetail(productId);
+    }
+
+    /** 상품 상태 변경 */
+    @Transactional
+    public ProductAdminDetailResult changeProductStatus(Long productId, ProductStatus status) {
+        productService.changeStatus(productId, status);
+        return getProductDetail(productId);
     }
 
     public record ProductAdminDetailResult(ProductInfo product, BrandInfo brand, InventoryInfo inventory) {}
