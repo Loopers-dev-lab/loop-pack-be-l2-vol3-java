@@ -17,12 +17,12 @@
 
 ### 접근 원칙
 
-| 원칙               | 내용                                                                                                               |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| 원칙               | 내용                                                                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **엔티티/VO 분리** | ID 존재 여부·생명 주기로 구분. ID 있고 영속되는 것은 Entity, 값 검증·불변 표현은 VO(Transient). **VO는 별도 테이블 없이 Entity 필드에 값만 저장**한다. |
-| **연관 관계**      | **단방향**을 기본으로 하고, 양방향은 필요한 경우만 최소화한다.                                                     |
-| **비즈니스 책임**  | 검증·계산·상태 변경 등 **비즈니스 규칙은 도메인 객체(Entity/VO)**에 두고, Service는 조율·트랜잭션 경계에 집중한다. |
-| **설계 후 점검**   | "한 객체에 책임이 몰리지 않았는가?"를 반드시 점검한다.                                                             |
+| **연관 관계**      | **단방향**을 기본으로 하고, 양방향은 필요한 경우만 최소화한다.                                                                                         |
+| **비즈니스 책임**  | 검증·계산·상태 변경 등 **비즈니스 규칙은 도메인 객체(Entity/VO)**에 두고, Service는 조율·트랜잭션 경계에 집중한다.                                     |
+| **설계 후 점검**   | "한 객체에 책임이 몰리지 않았는가?"를 반드시 점검한다.                                                                                                 |
 
 - 본 프로젝트에서는 **다른 애그리거트 참조는 ID만 보유**(Product → Brand는 brandId, Like → Product는 productId)하고, 연관 객체 직접 참조는 도메인 모델에서 최소화한다(인프라·N+1 이슈 방지).
 
@@ -45,20 +45,25 @@
 classDiagram
     direction TB
 
-    subgraph interfaces 
-        ProductController
-        BrandController
-        LikeController
-        CartController
-        OrderController
+    subgraph interfaces
+        ProductV1Controller
+        BrandV1Controller
+        LikeV1Controller
+        CartV1Controller
+        OrderV1Controller
         ProductV1Dto
         BrandV1Dto
         LikeV1Dto
         CartV1Dto
         OrderV1Dto
+        ProductV1ApiSpec
+        BrandV1ApiSpec
+        LikeV1ApiSpec
+        CartV1ApiSpec
+        OrderV1ApiSpec
     end
 
-    subgraph application 
+    subgraph application
         ProductFacade
         BrandFacade
         LikeFacade
@@ -71,7 +76,7 @@ classDiagram
         OrderInfo
     end
 
-    subgraph domain 
+    subgraph domain
         ProductService
         BrandService
         LikeService
@@ -93,7 +98,7 @@ classDiagram
         OrderItemModel
     end
 
-    subgraph infrastructure 
+    subgraph infrastructure
         ProductRepositoryImpl
         BrandRepositoryImpl
         LikeRepositoryImpl
@@ -106,11 +111,11 @@ classDiagram
         OrderJpaRepository
     end
 
-    ProductController --> ProductFacade
-    BrandController --> BrandFacade
-    LikeController --> LikeFacade
-    CartController --> CartFacade
-    OrderController --> OrderFacade
+    ProductV1Controller --> ProductFacade
+    BrandV1Controller --> BrandFacade
+    LikeV1Controller --> LikeFacade
+    CartV1Controller --> CartFacade
+    OrderV1Controller --> OrderFacade
 
     ProductFacade --> ProductService
     ProductFacade --> ProductInfo
@@ -469,7 +474,7 @@ classDiagram
 | **domain**         | Cart    | CartItemModel, CartService, CartRepository                | 장바구니 추가/수정/삭제, 동일 품목 합산          |
 | **domain**         | Order   | OrderModel, OrderItemModel, OrderService, OrderRepository | 주문 생성/조회/취소, 스냅샷 보존, 본인 검증      |
 | **application**    | 공통    | *Facade, *Info                                            | 트랜잭션 경계, 도메인 결과 → Info 변환           |
-| **interfaces**     | 공통    | *Controller, *V1Dto                                       | HTTP 요청/응답, DTO 변환                         |
+| **interfaces**     | 공통    | *V1Controller, *V1Dto, \*V1ApiSpec                        | HTTP 요청/응답, DTO 변환, API 명세               |
 | **infrastructure** | 공통    | *JpaRepository, *RepositoryImpl                           | JPA 영속성, Repository 인터페이스 구현           |
 
 ---
