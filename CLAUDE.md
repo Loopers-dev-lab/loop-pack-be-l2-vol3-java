@@ -25,7 +25,7 @@
 - **Facade → Service만 호출**. Repository를 직접 접근하지 않는다.
 - **Service → 자기 도메인 Repository만 접근**. 다른 도메인의 Service나 Repository를 호출하지 않는다.
 - **Service 간 직접 호출 금지**. 크로스 도메인 협력은 반드시 Facade를 통해 이루어진다.
-- **트랜잭션 위치**: `@Transactional`은 Domain Service에만 위치한다. Facade에는 절대 `@Transactional`을 두지 않는다. 크로스 도메인 쓰기 시 각 Service가 자기 도메인 내에서 개별 트랜잭션을 관리하고, 실패 시 Facade에서 보상 로직을 처리한다.
+- **트랜잭션 위치**: `@Transactional`은 Domain Service 및 Application Service에만 위치한다. Facade에는 절대 `@Transactional`을 두지 않는다. 크로스 도메인 쓰기 시 각 Service가 자기 도메인 내에서 개별 트랜잭션을 관리하고, 실패 시 Facade에서 보상 로직을 처리한다.
 
 ## 비즈니스 규칙
 - 결제 시스템 없음. 주문 완료 = 결제 완료로 취급한다.

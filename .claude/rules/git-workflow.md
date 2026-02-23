@@ -1,0 +1,1 @@
+../../docs/ai-rules/git-workflow.md
