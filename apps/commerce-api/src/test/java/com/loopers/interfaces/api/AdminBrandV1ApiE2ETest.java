@@ -2,6 +2,7 @@ package com.loopers.interfaces.api;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
+import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.brand.dto.BrandV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -17,6 +18,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -183,37 +186,53 @@ class AdminBrandV1ApiE2ETest {
         @Test
         void returnsPagedBrands() {
             // arrange
-            saveBrand("나이키", "스포츠");
-            saveBrand("아디다스", "독일 스포츠");
+            Brand nike = saveBrand("나이키", "스포츠");
+            Brand adidas = saveBrand("아디다스", "독일 스포츠");
             HttpEntity<Void> entity = new HttpEntity<>(adminHeaders());
 
             // act
-            ResponseEntity<String> response =
-                    testRestTemplate.exchange(ENDPOINT + "?page=0&size=20", HttpMethod.GET, entity, String.class);
+            ResponseEntity<ApiResponse<PageResponse<BrandV1Dto.AdminBrandResponse>>> response =
+                    testRestTemplate.exchange(ENDPOINT + "?page=0&size=20", HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            List<Long> ids = response.getBody()
+                                     .data()
+                                     .content()
+                                     .stream()
+                                     .map(BrandV1Dto.AdminBrandResponse::id)
+                                     .toList();
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(ids).contains(nike.getId(), adidas.getId())
+            );
         }
 
         @DisplayName("삭제된 브랜드는 목록에서 제외된다.")
         @Test
         void excludesDeletedBrands() {
             // arrange
-            saveBrand("나이키", "스포츠");
+            Brand nike = saveBrand("나이키", "스포츠");
             Brand toDelete = saveBrand("삭제브랜드", "삭제될 브랜드");
             toDelete.delete();
             brandJpaRepository.save(toDelete);
             HttpEntity<Void> entity = new HttpEntity<>(adminHeaders());
 
             // act
-            ResponseEntity<String> response =
-                    testRestTemplate.exchange(ENDPOINT + "?page=0&size=20", HttpMethod.GET, entity, String.class);
+            ResponseEntity<ApiResponse<PageResponse<BrandV1Dto.AdminBrandResponse>>> response =
+                    testRestTemplate.exchange(ENDPOINT + "?page=0&size=20", HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
 
             // assert
+            List<Long> ids = response.getBody()
+                                     .data()
+                                     .content()
+                                     .stream()
+                                     .map(BrandV1Dto.AdminBrandResponse::id)
+                                     .toList();
+
             assertAll(
                 () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                () -> assertThat(response.getBody()).contains("나이키"),
-                () -> assertThat(response.getBody()).doesNotContain("삭제브랜드")
+                () -> assertThat(ids).contains(nike.getId()),
+                () -> assertThat(ids).doesNotContain(toDelete.getId())
             );
         }
     }

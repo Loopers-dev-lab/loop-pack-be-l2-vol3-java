@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.brand;
 import com.loopers.domain.brand.Brand;
 import com.loopers.application.brand.BrandService;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.brand.dto.BrandV1Dto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,13 +30,13 @@ public class AdminBrandV1Controller {
     private final BrandService brandService;
 
     @GetMapping
-    public ApiResponse<Page<BrandV1Dto.AdminBrandResponse>> getBrands(
+    public ApiResponse<PageResponse<BrandV1Dto.AdminBrandResponse>> getBrands(
             @RequestHeader("X-Loopers-Ldap") String ldap,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        Page<BrandV1Dto.AdminBrandResponse> response = brandService.getBrands(pageable)
-                .map(BrandV1Dto.AdminBrandResponse::from);
-        return ApiResponse.success(response);
+        Page<BrandV1Dto.AdminBrandResponse> page = brandService.getBrands(pageable)
+                                                               .map(BrandV1Dto.AdminBrandResponse::from);
+        return ApiResponse.success(PageResponse.from(page));
     }
 
     @GetMapping("/{brandId}")
