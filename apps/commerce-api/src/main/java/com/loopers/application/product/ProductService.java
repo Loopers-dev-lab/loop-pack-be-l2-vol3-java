@@ -70,6 +70,14 @@ public class ProductService {
         product.delete();
     }
 
+    @Transactional(readOnly = true)
+    public List<Long> getProductIdsByBrandId(Long brandId) {
+        return productRepository.findAllByBrandIdAndDeletedAtIsNull(brandId)
+                                .stream()
+                                .map(Product::getId)
+                                .toList();
+    }
+
     @Transactional
     public void deleteAllByBrandId(Long brandId) {
         List<Product> products = productRepository.findAllByBrandIdAndDeletedAtIsNull(brandId);
@@ -78,9 +86,10 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<ProductInfo> getProductsByIds(List<Long> ids) {
-        return productRepository.findAllByIdInAndDeletedAtIsNull(ids).stream()
-                .map(ProductInfo::from)
-                .toList();
+        return productRepository.findAllByIdInAndDeletedAtIsNull(ids)
+                                .stream()
+                                .map(ProductInfo::from)
+                                .toList();
     }
 
     private Product findNonDeletedById(Long id) {
