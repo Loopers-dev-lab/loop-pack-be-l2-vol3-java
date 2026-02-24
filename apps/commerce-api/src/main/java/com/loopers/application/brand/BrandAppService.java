@@ -9,6 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,5 +33,11 @@ public class BrandAppService {
     @Transactional(readOnly = true)
     public List<Brand> getAll() {
         return brandRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, Brand> getByIds(List<Long> ids) {
+        return brandRepository.findByIdIn(ids).stream()
+                .collect(Collectors.toMap(Brand::getId, Function.identity()));
     }
 }

@@ -8,4 +8,5 @@ import java.util.Optional;
 public interface BrandJpaRepository extends JpaRepository<BrandJpaEntity, Long> {
     List<BrandJpaEntity> findByDeletedFalse();
     Optional<BrandJpaEntity> findByIdAndDeletedFalse(Long id);
+    List<BrandJpaEntity> findByIdInAndDeletedFalse(List<Long> ids);
 }

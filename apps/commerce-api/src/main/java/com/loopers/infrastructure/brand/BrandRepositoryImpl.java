@@ -39,4 +39,11 @@ public class BrandRepositoryImpl implements BrandRepository {
                 .map(BrandJpaEntity::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<Brand> findByIdIn(List<Long> ids) {
+        return brandJpaRepository.findByIdInAndDeletedFalse(ids).stream()
+                .map(BrandJpaEntity::toDomain)
+                .toList();
+    }
 }
