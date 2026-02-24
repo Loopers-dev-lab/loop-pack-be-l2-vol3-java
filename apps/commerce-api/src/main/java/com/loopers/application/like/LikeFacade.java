@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -22,11 +23,15 @@ public class LikeFacade {
     public List<LikeInfo> getLikedProducts(Long userId) {
         List<Like> likes = likeAppService.getLikesByUserId(userId);
 
+        if (likes.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> productIds = likes.stream().map(Like::getProductId).toList();
+        Map<Long, Product> productMap = productAppService.getByIds(productIds);
+
         return likes.stream()
-                .map(like -> {
-                    Product product = productAppService.getById(like.getProductId());
-                    return LikeInfo.of(like, product);
-                })
+                .map(like -> LikeInfo.of(like, productMap.get(like.getProductId())))
                 .toList();
     }
 }

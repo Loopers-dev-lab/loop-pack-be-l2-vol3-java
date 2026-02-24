@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -23,10 +24,23 @@ public class CartFacade {
     public CartInfo getCart(Long userId) {
         List<CartItem> cartItems = cartAppService.getCartItems(userId);
 
+        if (cartItems.isEmpty()) {
+            return CartInfo.of(List.of());
+        }
+
+        List<Long> optionIds = cartItems.stream().map(CartItem::getOptionId).toList();
+        Map<Long, Option> optionMap = productAppService.getOptionsByIds(optionIds);
+
+        List<Long> productIds = optionMap.values().stream()
+                .map(Option::getProductId)
+                .distinct()
+                .toList();
+        Map<Long, Product> productMap = productAppService.getByIds(productIds);
+
         List<CartInfo.CartItemInfo> itemInfos = cartItems.stream()
                 .map(cartItem -> {
-                    Option option = productAppService.getOptionById(cartItem.getOptionId());
-                    Product product = productAppService.getById(option.getProductId());
+                    Option option = optionMap.get(cartItem.getOptionId());
+                    Product product = productMap.get(option.getProductId());
                     return CartInfo.CartItemInfo.of(cartItem, product, option);
                 })
                 .toList();
