@@ -25,7 +25,10 @@ public class UserDomainService {
         return userRepository.save(user);
     }
 
-    public void changePassword(User user, String currentRawPassword, String newRawPassword) {
+    public void changePassword(Long userId, String currentRawPassword, String newRawPassword) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+
         if (!passwordEncryptor.matches(currentRawPassword, user.getPassword())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "기존 비밀번호가 올바르지 않습니다.");
         }

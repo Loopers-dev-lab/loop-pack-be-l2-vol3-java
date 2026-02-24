@@ -57,6 +57,15 @@ class MoneyTest {
             assertThat(a.minus(b)).isEqualTo(new Money(2000));
         }
 
+        @DisplayName("빼서 음수가 되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenMinusResultsInNegative() {
+            Money a = new Money(1000);
+            Money b = new Money(3000);
+            CoreException result = assertThrows(CoreException.class, () -> a.minus(b));
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
         @DisplayName("곱하면, 곱셈된 금액을 반환한다.")
         @Test
         void returnsProduct_whenMultiplying() {

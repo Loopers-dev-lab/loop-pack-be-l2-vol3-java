@@ -25,7 +25,7 @@ public class UserApplicationService {
     }
 
     @Transactional
-    public void changePassword(User user, String currentPassword, String newPassword) {
-        userService.changePassword(user, currentPassword, newPassword);
+    public void changePassword(Long userId, String currentPassword, String newPassword) {
+        userService.changePassword(userId, currentPassword, newPassword);
     }
 }

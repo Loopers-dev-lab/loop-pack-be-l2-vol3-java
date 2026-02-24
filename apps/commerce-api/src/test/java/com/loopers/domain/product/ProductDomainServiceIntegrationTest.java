@@ -52,7 +52,7 @@ class ProductDomainServiceIntegrationTest {
         @DisplayName("올바른 정보이면, 상품이 저장되고 반환된다.")
         @Test
         void savesAndReturnsProduct_whenValidInfo() {
-            Product result = productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
+            Product result = productService.register(brandId, "에어맥스", 129000, 100);
 
             assertAll(
                 () -> assertThat(result.getId()).isNotNull(),
@@ -72,7 +72,7 @@ class ProductDomainServiceIntegrationTest {
         @DisplayName("존재하는 상품이면, 상품을 반환한다.")
         @Test
         void returnsProduct_whenProductExists() {
-            Product product = productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
+            Product product = productService.register(brandId, "에어맥스", 129000, 100);
 
             Product result = productService.getById(product.getId());
 
@@ -89,7 +89,7 @@ class ProductDomainServiceIntegrationTest {
         @DisplayName("삭제된 상품이면, NOT_FOUND 예외가 발생한다.")
         @Test
         void throwsNotFound_whenProductIsDeleted() {
-            Product product = productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
+            Product product = productService.register(brandId, "에어맥스", 129000, 100);
             productService.delete(product.getId());
 
             CoreException result = assertThrows(CoreException.class, () -> productService.getById(product.getId()));
@@ -104,9 +104,9 @@ class ProductDomainServiceIntegrationTest {
         @DisplayName("상품이 존재하면, 페이지 결과를 반환한다.")
         @Test
         void returnsPageResult_whenProductsExist() {
-            productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
-            productService.register(brandId, "울트라부스트", new Money(159000), new Stock(50));
-            productService.register(brandId, "뉴발란스 990", new Money(199000), new Stock(30));
+            productService.register(brandId, "에어맥스", 129000, 100);
+            productService.register(brandId, "울트라부스트", 159000, 50);
+            productService.register(brandId, "뉴발란스 990", 199000, 30);
 
             PageResult<Product> result = productService.getAll(null, ProductSortType.LATEST, 0, 2);
 
@@ -121,8 +121,8 @@ class ProductDomainServiceIntegrationTest {
         @Test
         void filtersByBrandId() {
             Brand brand2 = brandService.register("아디다스");
-            productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
-            productService.register(brand2.getId(), "울트라부스트", new Money(159000), new Stock(50));
+            productService.register(brandId, "에어맥스", 129000, 100);
+            productService.register(brand2.getId(), "울트라부스트", 159000, 50);
 
             PageResult<Product> result = productService.getAll(brandId, ProductSortType.LATEST, 0, 20);
 
@@ -132,11 +132,46 @@ class ProductDomainServiceIntegrationTest {
             );
         }
 
+        @DisplayName("가격 오름차순으로 정렬된다.")
+        @Test
+        void sortsByPriceAsc() {
+            productService.register(brandId, "비싼상품", 199000, 30);
+            productService.register(brandId, "싼상품", 99000, 100);
+            productService.register(brandId, "중간상품", 149000, 50);
+
+            PageResult<Product> result = productService.getAll(null, ProductSortType.PRICE_ASC, 0, 20);
+
+            assertAll(
+                () -> assertThat(result.items()).hasSize(3),
+                () -> assertThat(result.items().get(0).getName()).isEqualTo("싼상품"),
+                () -> assertThat(result.items().get(1).getName()).isEqualTo("중간상품"),
+                () -> assertThat(result.items().get(2).getName()).isEqualTo("비싼상품")
+            );
+        }
+
+        @DisplayName("좋아요 내림차순으로 정렬된다.")
+        @Test
+        void sortsByLikesDesc() {
+            Product p1 = productService.register(brandId, "인기없는상품", 129000, 100);
+            Product p2 = productService.register(brandId, "인기상품", 159000, 50);
+            productService.incrementLikeCount(p2.getId());
+            productService.incrementLikeCount(p2.getId());
+            productService.incrementLikeCount(p1.getId());
+
+            PageResult<Product> result = productService.getAll(null, ProductSortType.LIKES_DESC, 0, 20);
+
+            assertAll(
+                () -> assertThat(result.items()).hasSize(2),
+                () -> assertThat(result.items().get(0).getName()).isEqualTo("인기상품"),
+                () -> assertThat(result.items().get(1).getName()).isEqualTo("인기없는상품")
+            );
+        }
+
         @DisplayName("삭제된 상품은 목록에 포함되지 않는다.")
         @Test
         void excludesDeletedProducts() {
-            Product product = productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
-            productService.register(brandId, "울트라부스트", new Money(159000), new Stock(50));
+            Product product = productService.register(brandId, "에어맥스", 129000, 100);
+            productService.register(brandId, "울트라부스트", 159000, 50);
             productService.delete(product.getId());
 
             PageResult<Product> result = productService.getAll(null, ProductSortType.LATEST, 0, 20);
@@ -155,9 +190,9 @@ class ProductDomainServiceIntegrationTest {
         @DisplayName("올바른 정보이면, 상품이 수정된다.")
         @Test
         void updatesProduct_whenValidInfo() {
-            Product product = productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
+            Product product = productService.register(brandId, "에어맥스", 129000, 100);
 
-            Product result = productService.update(product.getId(), "에어포스1", new Money(109000), new Stock(200));
+            Product result = productService.update(product.getId(), "에어포스1", 109000, 200);
 
             assertAll(
                 () -> assertThat(result.getName()).isEqualTo("에어포스1"),
@@ -170,7 +205,7 @@ class ProductDomainServiceIntegrationTest {
         @Test
         void throwsNotFound_whenProductDoesNotExist() {
             CoreException result = assertThrows(CoreException.class,
-                () -> productService.update(999L, "에어맥스", new Money(129000), new Stock(100)));
+                () -> productService.update(999L, "에어맥스", 129000, 100));
             assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
     }
@@ -182,7 +217,7 @@ class ProductDomainServiceIntegrationTest {
         @DisplayName("존재하는 상품이면, 논리 삭제된다.")
         @Test
         void softDeletesProduct_whenProductExists() {
-            Product product = productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
+            Product product = productService.register(brandId, "에어맥스", 129000, 100);
 
             productService.delete(product.getId());
 
@@ -206,8 +241,8 @@ class ProductDomainServiceIntegrationTest {
         @Test
         @Transactional
         void deletesAllProductsOfBrand() {
-            productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
-            productService.register(brandId, "에어포스1", new Money(109000), new Stock(200));
+            productService.register(brandId, "에어맥스", 129000, 100);
+            productService.register(brandId, "에어포스1", 109000, 200);
 
             productService.deleteAllByBrandId(brandId);
 
@@ -224,7 +259,7 @@ class ProductDomainServiceIntegrationTest {
         @Test
         @Transactional
         void incrementsLikeCount() {
-            Product product = productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
+            Product product = productService.register(brandId, "에어맥스", 129000, 100);
 
             productService.incrementLikeCount(product.getId());
 
@@ -241,7 +276,7 @@ class ProductDomainServiceIntegrationTest {
         @Test
         @Transactional
         void decrementsLikeCount() {
-            Product product = productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
+            Product product = productService.register(brandId, "에어맥스", 129000, 100);
             productService.incrementLikeCount(product.getId());
 
             productService.decrementLikeCount(product.getId());
@@ -254,7 +289,7 @@ class ProductDomainServiceIntegrationTest {
         @Test
         @Transactional
         void throwsBadRequest_whenLikeCountIsZero() {
-            Product product = productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
+            Product product = productService.register(brandId, "에어맥스", 129000, 100);
 
             CoreException result = assertThrows(CoreException.class,
                 () -> productService.decrementLikeCount(product.getId()));

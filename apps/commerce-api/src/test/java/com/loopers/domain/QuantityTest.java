@@ -48,5 +48,21 @@ class QuantityTest {
             Quantity result = quantity.add(2);
             assertThat(result.value()).isEqualTo(5);
         }
+
+        @DisplayName("0을 합산하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenAmountIsZero() {
+            Quantity quantity = new Quantity(3);
+            CoreException result = assertThrows(CoreException.class, () -> quantity.add(0));
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("음수를 합산하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenAmountIsNegative() {
+            Quantity quantity = new Quantity(3);
+            CoreException result = assertThrows(CoreException.class, () -> quantity.add(-1));
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
     }
 }

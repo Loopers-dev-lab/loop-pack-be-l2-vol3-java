@@ -6,7 +6,6 @@ import com.loopers.domain.brand.BrandDomainService;
 import com.loopers.domain.cart.CartItem;
 import com.loopers.domain.cart.CartDomainService;
 import com.loopers.domain.order.Order;
-import com.loopers.domain.order.OrderItemCommand;
 import com.loopers.domain.order.OrderLineItem;
 import com.loopers.domain.order.OrderDomainService;
 import com.loopers.domain.product.Product;
@@ -51,6 +50,21 @@ public class OrderApplicationService {
         List<CartItem> cartItems = cartService.getCartItems(userId);
         if (cartItems.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "장바구니가 비어있습니다.");
+        }
+
+        Set<Long> cartProductIds = cartItems.stream()
+            .map(CartItem::getProductId)
+            .collect(Collectors.toSet());
+        Map<Long, Product> productMap = productService.getByIds(cartProductIds);
+        Set<Long> availableProductIds = productMap.keySet();
+
+        if (!availableProductIds.containsAll(cartProductIds)) {
+            cartService.removeUnavailableItems(userId, availableProductIds);
+            cartItems = cartService.getCartItems(userId);
+            if (cartItems.isEmpty()) {
+                throw new CoreException(ErrorType.BAD_REQUEST,
+                    "장바구니의 모든 상품이 더 이상 존재하지 않습니다.");
+            }
         }
 
         List<OrderLineItem> items = cartItems.stream()
@@ -109,24 +123,7 @@ public class OrderApplicationService {
             .collect(Collectors.toSet());
         Map<Long, Brand> brandMap = brandService.getByIds(brandIds);
 
-        // Build order item commands
-        List<OrderItemCommand> itemCommands = new ArrayList<>();
-        for (int i = 0; i < sortedItems.size(); i++) {
-            OrderLineItem item = sortedItems.get(i);
-            Product product = products.get(i);
-            Brand brand = brandMap.get(product.getBrandId());
-            if (brand == null) {
-                throw new CoreException(ErrorType.NOT_FOUND,
-                    "브랜드를 찾을 수 없습니다. brandId=" + product.getBrandId());
-            }
-
-            itemCommands.add(new OrderItemCommand(
-                product.getId(), product.getName(), product.getPrice(),
-                brand.getName(), item.quantity()
-            ));
-        }
-
-        // Create order (validation and price calculation handled by OrderDomainService)
-        return orderService.createOrder(userId, itemCommands);
+        // Create order (brand validation, command assembly, and price calculation handled by OrderDomainService)
+        return orderService.createOrder(userId, sortedItems, products, brandMap);
     }
 }

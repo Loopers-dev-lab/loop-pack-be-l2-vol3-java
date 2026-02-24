@@ -24,7 +24,6 @@ public class LikeApplicationService {
      */
     @Transactional
     public void like(Long userId, Long productId) {
-        productService.getById(productId);
         likeService.like(userId, productId);
         productService.incrementLikeCount(productId);
     }
@@ -37,7 +36,6 @@ public class LikeApplicationService {
      */
     @Transactional
     public void unlike(Long userId, Long productId) {
-        productService.getById(productId);
         likeService.unlike(userId, productId);
         productService.decrementLikeCount(productId);
     }

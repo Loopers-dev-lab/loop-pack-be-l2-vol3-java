@@ -12,6 +12,9 @@ public record Quantity(int value) {
     }
 
     public Quantity add(int amount) {
+        if (amount < 1) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "추가 수량은 1 이상이어야 합니다.");
+        }
         return new Quantity(this.value + amount);
     }
 }

@@ -9,6 +9,8 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.user.User;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.AuthUser;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -57,13 +59,17 @@ public class CartV1Controller implements CartV1ApiSpec {
         Map<Long, Brand> brandMap = brandApplicationService.getByIds(brandIds);
 
         List<CartV1Dto.CartItemResponse> itemResponses = cartItems.stream()
-            .filter(cartItem -> {
-                Product product = productMap.get(cartItem.getProductId());
-                return product != null && brandMap.containsKey(product.getBrandId());
-            })
             .map(cartItem -> {
                 Product product = productMap.get(cartItem.getProductId());
+                if (product == null) {
+                    throw new CoreException(ErrorType.INTERNAL_ERROR,
+                        "상품을 찾을 수 없습니다. productId=" + cartItem.getProductId());
+                }
                 Brand brand = brandMap.get(product.getBrandId());
+                if (brand == null) {
+                    throw new CoreException(ErrorType.INTERNAL_ERROR,
+                        "브랜드를 찾을 수 없습니다. brandId=" + product.getBrandId());
+                }
                 return CartV1Dto.CartItemResponse.from(cartItem, product, brand);
             })
             .toList();

@@ -2,10 +2,8 @@ package com.loopers.domain.cart;
 
 import com.loopers.domain.Quantity;
 import com.loopers.domain.brand.BrandDomainService;
-import com.loopers.domain.product.Money;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductDomainService;
-import com.loopers.domain.product.Stock;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
@@ -16,8 +14,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -46,7 +42,7 @@ class CartDomainServiceIntegrationTest {
     @BeforeEach
     void setUp() {
         brandId = brandService.register("나이키").getId();
-        Product product = productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
+        Product product = productService.register(brandId, "에어맥스", 129000, 100);
         productId = product.getId();
     }
 
@@ -62,13 +58,13 @@ class CartDomainServiceIntegrationTest {
         @DisplayName("새로운 상품이면, 장바구니 항목이 생성된다.")
         @Test
         void createsCartItem_whenNewProduct() {
-            CartItem result = cartService.addToCart(1L, productId, 2);
+            cartService.addToCart(1L, productId, 2);
 
+            List<CartItem> items = cartService.getCartItems(1L);
             assertAll(
-                () -> assertThat(result.getId()).isNotNull(),
-                () -> assertThat(result.getUserId()).isEqualTo(1L),
-                () -> assertThat(result.getProductId()).isEqualTo(productId),
-                () -> assertThat(result.getQuantity()).isEqualTo(new Quantity(2))
+                () -> assertThat(items).hasSize(1),
+                () -> assertThat(items.get(0).getProductId()).isEqualTo(productId),
+                () -> assertThat(items.get(0).getQuantity()).isEqualTo(new Quantity(2))
             );
         }
 
@@ -77,9 +73,13 @@ class CartDomainServiceIntegrationTest {
         void addsQuantity_whenProductAlreadyInCart() {
             cartService.addToCart(1L, productId, 2);
 
-            CartItem result = cartService.addToCart(1L, productId, 3);
+            cartService.addToCart(1L, productId, 3);
 
-            assertThat(result.getQuantity()).isEqualTo(new Quantity(5));
+            List<CartItem> items = cartService.getCartItems(1L);
+            assertAll(
+                () -> assertThat(items).hasSize(1),
+                () -> assertThat(items.get(0).getQuantity()).isEqualTo(new Quantity(5))
+            );
         }
     }
 
@@ -90,28 +90,30 @@ class CartDomainServiceIntegrationTest {
         @DisplayName("올바른 수량이면, 수량이 변경된다.")
         @Test
         void updatesQuantity_whenValid() {
-            CartItem cartItem = cartService.addToCart(1L, productId, 2);
+            cartService.addToCart(1L, productId, 2);
+            Long cartItemId = cartService.getCartItems(1L).get(0).getId();
 
-            CartItem result = cartService.updateQuantity(cartItem.getId(), 1L, 5);
+            cartService.updateItemQuantity(1L, cartItemId, 5);
 
-            assertThat(result.getQuantity()).isEqualTo(new Quantity(5));
+            List<CartItem> items = cartService.getCartItems(1L);
+            assertThat(items.get(0).getQuantity()).isEqualTo(new Quantity(5));
+        }
+
+        @DisplayName("장바구니가 없으면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsNotFound_whenCartDoesNotExist() {
+            CoreException result = assertThrows(CoreException.class,
+                () -> cartService.updateItemQuantity(999L, 1L, 5));
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
         @DisplayName("존재하지 않는 항목이면, NOT_FOUND 예외가 발생한다.")
         @Test
         void throwsNotFound_whenItemDoesNotExist() {
-            CoreException result = assertThrows(CoreException.class,
-                () -> cartService.updateQuantity(999L, 1L, 5));
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
-        }
-
-        @DisplayName("다른 유저의 항목이면, NOT_FOUND 예외가 발생한다.")
-        @Test
-        void throwsNotFound_whenOtherUsersItem() {
-            CartItem cartItem = cartService.addToCart(1L, productId, 2);
+            cartService.addToCart(1L, productId, 2);
 
             CoreException result = assertThrows(CoreException.class,
-                () -> cartService.updateQuantity(cartItem.getId(), 999L, 5));
+                () -> cartService.updateItemQuantity(1L, 999L, 5));
             assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
     }
@@ -123,17 +125,18 @@ class CartDomainServiceIntegrationTest {
         @DisplayName("존재하는 항목이면, 삭제된다.")
         @Test
         void removesItem_whenItemExists() {
-            CartItem cartItem = cartService.addToCart(1L, productId, 2);
+            cartService.addToCart(1L, productId, 2);
+            Long cartItemId = cartService.getCartItems(1L).get(0).getId();
 
-            cartService.removeItem(cartItem.getId(), 1L);
+            cartService.removeItem(1L, cartItemId);
 
             List<CartItem> items = cartService.getCartItems(1L);
             assertThat(items).isEmpty();
         }
 
-        @DisplayName("존재하지 않는 항목이면, NOT_FOUND 예외가 발생한다.")
+        @DisplayName("장바구니가 없으면, NOT_FOUND 예외가 발생한다.")
         @Test
-        void throwsNotFound_whenItemDoesNotExist() {
+        void throwsNotFound_whenCartDoesNotExist() {
             CoreException result = assertThrows(CoreException.class,
                 () -> cartService.removeItem(999L, 1L));
             assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
@@ -147,7 +150,7 @@ class CartDomainServiceIntegrationTest {
         @DisplayName("항목이 있으면, 목록을 반환한다.")
         @Test
         void returnsItems_whenItemsExist() {
-            Product product2 = productService.register(brandId, "에어포스1", new Money(109000), new Stock(200));
+            Product product2 = productService.register(brandId, "에어포스1", 109000, 200);
             cartService.addToCart(1L, productId, 2);
             cartService.addToCart(1L, product2.getId(), 1);
 
@@ -171,9 +174,8 @@ class CartDomainServiceIntegrationTest {
 
         @DisplayName("모든 항목이 삭제된다.")
         @Test
-        @Transactional
         void clearsAllItems() {
-            Product product2 = productService.register(brandId, "에어포스1", new Money(109000), new Stock(200));
+            Product product2 = productService.register(brandId, "에어포스1", 109000, 200);
             cartService.addToCart(1L, productId, 2);
             cartService.addToCart(1L, product2.getId(), 1);
 

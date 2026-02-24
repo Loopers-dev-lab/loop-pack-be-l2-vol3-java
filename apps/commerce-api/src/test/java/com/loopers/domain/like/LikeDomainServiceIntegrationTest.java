@@ -1,10 +1,8 @@
 package com.loopers.domain.like;
 
 import com.loopers.domain.brand.BrandDomainService;
-import com.loopers.domain.product.Money;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductDomainService;
-import com.loopers.domain.product.Stock;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
@@ -15,7 +13,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -24,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
-@Transactional
 class LikeDomainServiceIntegrationTest {
 
     @Autowired
@@ -45,7 +41,7 @@ class LikeDomainServiceIntegrationTest {
     @BeforeEach
     void setUp() {
         brandId = brandService.register("나이키").getId();
-        Product product = productService.register(brandId, "에어맥스", new Money(129000), new Stock(100));
+        Product product = productService.register(brandId, "에어맥스", 129000, 100);
         productId = product.getId();
     }
 
@@ -111,7 +107,7 @@ class LikeDomainServiceIntegrationTest {
         @DisplayName("좋아요한 상품이 있으면, 목록을 반환한다.")
         @Test
         void returnsLikes_whenLikesExist() {
-            Product product2 = productService.register(brandId, "에어포스1", new Money(109000), new Stock(200));
+            Product product2 = productService.register(brandId, "에어포스1", 109000, 200);
             likeService.like(1L, productId);
             likeService.like(1L, product2.getId());
 

@@ -42,7 +42,7 @@ public class UserV1Controller implements UserV1ApiSpec {
     @PutMapping("/password")
     @Override
     public ApiResponse<Void> changePassword(@AuthUser User user, @Valid @RequestBody UserV1Dto.ChangePasswordRequest request) {
-        userApplicationService.changePassword(user, request.currentPassword(), request.newPassword());
+        userApplicationService.changePassword(user.getId(), request.currentPassword(), request.newPassword());
         return ApiResponse.success();
     }
 }

@@ -15,8 +15,8 @@ public class ProductDomainService {
 
     private final ProductRepository productRepository;
 
-    public Product register(Long brandId, String name, Money price, Stock stock) {
-        return productRepository.save(new Product(brandId, name, price, stock));
+    public Product register(Long brandId, String name, int price, int stock) {
+        return productRepository.save(new Product(brandId, name, new Money(price), new Stock(stock)));
     }
 
     public Product getById(Long id) {
@@ -38,9 +38,9 @@ public class ProductDomainService {
         return productRepository.findAll(brandId, sort, page, size);
     }
 
-    public Product update(Long id, String name, Money price, Stock stock) {
+    public Product update(Long id, String name, int price, int stock) {
         Product product = getById(id);
-        product.changeDetails(name, price, stock);
+        product.changeDetails(name, new Money(price), new Stock(stock));
         return productRepository.save(product);
     }
 
@@ -57,7 +57,7 @@ public class ProductDomainService {
     public Product deductStockWithLock(Long productId, int quantity) {
         Product product = getByIdWithLock(productId);
         product.deductStock(quantity);
-        return product;
+        return productRepository.save(product);
     }
 
     public void incrementLikeCount(Long productId) {

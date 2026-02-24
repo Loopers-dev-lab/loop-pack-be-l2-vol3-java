@@ -2,11 +2,9 @@ package com.loopers.application.product;
 
 import com.loopers.domain.PageResult;
 import com.loopers.domain.brand.BrandDomainService;
-import com.loopers.domain.product.Money;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductDomainService;
 import com.loopers.domain.product.ProductSortType;
-import com.loopers.domain.product.Stock;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,7 +22,7 @@ public class ProductApplicationService {
     @Transactional
     public Product register(Long brandId, String name, int price, int stock) {
         brandService.getById(brandId);
-        return productService.register(brandId, name, new Money(price), new Stock(stock));
+        return productService.register(brandId, name, price, stock);
     }
 
     @Transactional(readOnly = true)
@@ -44,7 +42,7 @@ public class ProductApplicationService {
 
     @Transactional
     public Product update(Long id, String name, int price, int stock) {
-        return productService.update(id, name, new Money(price), new Stock(stock));
+        return productService.update(id, name, price, stock);
     }
 
     @Transactional

@@ -1,33 +1,33 @@
 package com.loopers.domain.cart;
 
 import com.loopers.domain.Quantity;
-import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 
 import java.time.ZonedDateTime;
+import java.util.Objects;
 
 @Getter
 @Entity
-@Table(name = "cart_items", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"user_id", "product_id"})
-})
+@Table(name = "cart_items")
 public class CartItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cart_id", nullable = false)
+    private Cart cart;
 
     @Column(name = "product_id", nullable = false)
     private Long productId;
@@ -40,14 +40,10 @@ public class CartItem {
 
     protected CartItem() {}
 
-    public CartItem(Long userId, Long productId, int quantity) {
-        if (userId == null) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "유저 ID는 필수입니다.");
-        }
-        if (productId == null) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "상품 ID는 필수입니다.");
-        }
-        this.userId = userId;
+    CartItem(Cart cart, Long productId, int quantity) {
+        Objects.requireNonNull(cart, "장바구니는 필수입니다.");
+        Objects.requireNonNull(productId, "상품 ID는 필수입니다.");
+        this.cart = cart;
         this.productId = productId;
         this.quantity = new Quantity(quantity).value();
     }

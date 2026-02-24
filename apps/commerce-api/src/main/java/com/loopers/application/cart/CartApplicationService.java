@@ -29,11 +29,11 @@ public class CartApplicationService {
 
     @Transactional
     public void updateQuantity(Long cartItemId, Long userId, int quantity) {
-        cartService.updateQuantity(cartItemId, userId, quantity);
+        cartService.updateItemQuantity(userId, cartItemId, quantity);
     }
 
     @Transactional
     public void removeItem(Long cartItemId, Long userId) {
-        cartService.removeItem(cartItemId, userId);
+        cartService.removeItem(userId, cartItemId);
     }
 }

@@ -9,6 +9,9 @@ import java.util.Optional;
 
 public interface UserJpaRepository extends JpaRepository<User, Long> {
 
+    @Query("SELECT u FROM User u WHERE u.id = :id AND u.deletedAt IS NULL")
+    Optional<User> findByIdAndDeletedAtIsNull(@Param("id") Long id);
+
     @Query("SELECT COUNT(u) > 0 FROM User u WHERE u.loginId.value = :loginId AND u.deletedAt IS NULL")
     boolean existsByLoginId(@Param("loginId") String loginId);
 
