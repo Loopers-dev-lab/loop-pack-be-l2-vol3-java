@@ -6,6 +6,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public class LikeRepositoryImpl implements LikeRepository {
 
@@ -18,6 +20,11 @@ public class LikeRepositoryImpl implements LikeRepository {
     @Override
     public boolean existsByUserIdAndProductId(Long userId, Long productId) {
         return likeJpaRepository.existsByUserIdAndProductId(userId, productId);
+    }
+
+    @Override
+    public Optional<LikeModel> findByUserIdAndProductId(Long userId, Long productId) {
+        return likeJpaRepository.findByUserIdAndProductId(userId, productId);
     }
 
     @Override

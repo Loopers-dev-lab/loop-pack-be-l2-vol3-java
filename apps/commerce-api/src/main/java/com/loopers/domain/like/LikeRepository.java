@@ -3,6 +3,8 @@ package com.loopers.domain.like;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.Optional;
+
 /**
  * 좋아요 영속성 인터페이스.
  * 구현체는 infrastructure 레이어에 둔다.
@@ -10,6 +12,8 @@ import org.springframework.data.domain.Pageable;
 public interface LikeRepository {
 
     boolean existsByUserIdAndProductId(Long userId, Long productId);
+
+    Optional<LikeModel> findByUserIdAndProductId(Long userId, Long productId);
 
     LikeModel save(LikeModel like);
 
