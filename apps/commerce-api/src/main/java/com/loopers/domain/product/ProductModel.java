@@ -82,6 +82,52 @@ public class ProductModel extends BaseEntity {
     }
 
     /**
+     * 상품명을 수정한다. (브랜드 변경 불가)
+     */
+    public void updateName(String name) {
+        if (name == null) {
+            throw new IllegalArgumentException("상품명은 null일 수 없습니다.");
+        }
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("상품명은 비어 있을 수 없습니다.");
+        }
+        this.name = name.trim();
+    }
+
+    /**
+     * 가격을 수정한다.
+     */
+    public void updatePrice(BigDecimal price) {
+        if (price == null) {
+            throw new IllegalArgumentException("가격은 null일 수 없습니다.");
+        }
+        if (price.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("가격은 0 이상이어야 합니다.");
+        }
+        this.price = price;
+    }
+
+    /**
+     * 재고 수량을 수정한다.
+     */
+    public void updateStockQuantity(int stockQuantity) {
+        if (stockQuantity < 0) {
+            throw new IllegalArgumentException("재고 수량은 0 이상이어야 합니다.");
+        }
+        this.stockQuantity = stockQuantity;
+    }
+
+    /**
+     * 재고를 복구(증가)한다. 취소 등으로 재고를 되돌릴 때 사용.
+     */
+    public void increaseStock(int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("복구 수량은 1 이상이어야 합니다.");
+        }
+        this.stockQuantity += quantity;
+    }
+
+    /**
      * 삭제 여부를 반환한다.
      */
     public boolean isDeleted() {
