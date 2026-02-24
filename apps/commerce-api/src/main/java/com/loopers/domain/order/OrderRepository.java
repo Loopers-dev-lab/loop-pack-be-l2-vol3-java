@@ -12,5 +12,7 @@ public interface OrderRepository {
 
     Optional<Order> findById(Long orderId);
 
+    Optional<Order> findByIdWithItems(Long orderId);
+
     Slice<Order> findAllByUserIdAndOrderedAtBetween(Long userId, LocalDateTime start, LocalDateTime end, Pageable pageable);
 }

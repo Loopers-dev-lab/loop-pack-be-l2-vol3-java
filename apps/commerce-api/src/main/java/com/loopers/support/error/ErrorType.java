@@ -61,8 +61,8 @@ public enum ErrorType {
     DUPLICATE_ORDER_PRODUCT(HttpStatus.BAD_REQUEST, "DUPLICATE_ORDER_PRODUCT", "같은 상품이 중복 포함되어 있습니다."),
     SOLD_OUT_PRODUCT(HttpStatus.BAD_REQUEST, "SOLD_OUT_PRODUCT", "매진된 상품입니다."),
     INSUFFICIENT_STOCK(HttpStatus.BAD_REQUEST, "INSUFFICIENT_STOCK", "재고가 부족합니다."),
+    FORBIDDEN_ORDER_ACCESS(HttpStatus.FORBIDDEN, "FORBIDDEN_ORDER_ACCESS", "접근 권한이 없는 주문입니다."),
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "주문을 찾을 수 없습니다."),
-    ORDER_ACCESS_DENIED(HttpStatus.FORBIDDEN, "ORDER_ACCESS_DENIED", "접근 권한이 없는 주문입니다."),
 
     /** Like 도메인 에러 */
     REQUIRED_USER_ID(HttpStatus.BAD_REQUEST, "REQUIRED_USER_ID", "사용자 ID는 필수 값입니다."),

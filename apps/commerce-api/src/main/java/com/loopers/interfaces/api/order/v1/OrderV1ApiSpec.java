@@ -22,10 +22,16 @@ public interface OrderV1ApiSpec {
             description = "인증된 사용자 본인의 주문 목록을 페이지 단위로 조회합니다."
     )
     ApiResponse<PageResponse<OrderDto.OrderListResponse>> getOrders(
-            Long userId, 
+            Long userId,
             LocalDate startDate,
             LocalDate endDate,
             int page,
             int size
     );
+
+    @Operation(
+            summary = "주문 상세 조회 API",
+            description = "주문 상세 정보를 조회합니다."
+    )
+    ApiResponse<OrderDto.OrderDetailResponse> getOrder(Long userId, Long orderId);
 }

@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotNull;
 
 import com.loopers.application.order.Cart;
 import com.loopers.application.order.Cart.CartItem;
+import com.loopers.application.order.OrderDetailResult;
 import com.loopers.application.order.OrderResult;
 import com.loopers.domain.order.OrderStatus;
 
@@ -57,6 +58,50 @@ public class OrderDto {
                     result.status(),
                     result.totalPrice(),
                     result.orderedAt()
+            );
+        }
+    }
+
+    public record OrderDetailResponse(
+            Long orderId,
+            String name,
+            OrderStatus status,
+            Long totalPrice,
+            LocalDateTime orderedAt,
+            List<OrderItemResponse> orderItems
+    ) {
+
+        public static OrderDetailResponse from(OrderDetailResult result) {
+            return new OrderDetailResponse(
+                    result.id(),
+                    result.name(),
+                    result.status(),
+                    result.totalPrice(),
+                    result.orderedAt(),
+                    result.orderItems().stream()
+                            .map(OrderItemResponse::from)
+                            .toList()
+            );
+        }
+    }
+
+    public record OrderItemResponse(
+            Long productId,
+            String productName,
+            String productThumbnailUrl,
+            Long productPrice,
+            Long quantity,
+            Long subtotal
+    ) {
+
+        public static OrderItemResponse from(OrderDetailResult.OrderItemResult result) {
+            return new OrderItemResponse(
+                    result.productId(),
+                    result.productName(),
+                    result.productThumbnailUrl(),
+                    result.productPrice(),
+                    result.quantity(),
+                    result.subtotal()
             );
         }
     }

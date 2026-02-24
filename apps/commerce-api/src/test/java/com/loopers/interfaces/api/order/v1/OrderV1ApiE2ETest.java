@@ -1,11 +1,15 @@
 package com.loopers.interfaces.api.order.v1;
 
 import static com.loopers.interfaces.api.order.v1.OrderSteps.createOrder;
+import static com.loopers.interfaces.api.order.v1.OrderSteps.getOrder;
 import static com.loopers.interfaces.api.order.v1.OrderSteps.getOrders;
 import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
+import static com.loopers.support.E2ETestHelper.assertErrorResponse;
 import static com.loopers.support.E2ETestHelper.userAuthHeaders;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+
+import com.loopers.support.error.ErrorType;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -156,6 +160,65 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @DisplayName("GET /api/v1/orders/{orderId}")
+    @Nested
+    class GetOrder {
+
+        @DisplayName("주문 상세 정보를 조회하면, 주문 정보와 주문 항목이 반환된다.")
+        @Test
+        void returnsOrderDetail_whenValidOrderId() {
+            // arrange
+            var request = new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(productId, 2L))
+            );
+            var orderId = createOrder(testRestTemplate, request, userHeaders).getBody().data().orderId();
+
+            // act
+            var response = getOrder(testRestTemplate, orderId, userHeaders);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().orderId()).isEqualTo(orderId),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("테스트상품"),
+                    () -> assertThat(response.getBody().data().totalPrice()).isEqualTo(20000L),
+                    () -> assertThat(response.getBody().data().orderItems()).hasSize(1),
+                    () -> assertThat(response.getBody().data().orderItems().get(0).productName()).isEqualTo("테스트상품"),
+                    () -> assertThat(response.getBody().data().orderItems().get(0).quantity()).isEqualTo(2L),
+                    () -> assertThat(response.getBody().data().orderItems().get(0).subtotal()).isEqualTo(20000L)
+            );
+        }
+
+        @DisplayName("존재하지 않는 주문을 조회하면, 404 Not Found를 반환한다.")
+        @Test
+        void returnsNotFound_whenOrderDoesNotExist() {
+            // act
+            var response = getOrder(testRestTemplate, 999L, userHeaders);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.ORDER_NOT_FOUND);
+        }
+
+        @DisplayName("다른 사용자의 주문을 조회하면, 403 Forbidden을 반환한다.")
+        @Test
+        void returnsForbidden_whenOtherUsersOrder() {
+            // arrange
+            var request = new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(productId, 1L))
+            );
+            var orderId = createOrder(testRestTemplate, request, userHeaders).getBody().data().orderId();
+
+            signUp(testRestTemplate, new UserV1Dto.SignUpRequest("otheruser", "Password1!", "다른유저", "1995-05-05", "other@test.com"));
+            var otherHeaders = userAuthHeaders("otheruser", "Password1!");
+
+            // act
+            var response = getOrder(testRestTemplate, orderId, otherHeaders);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.FORBIDDEN, ErrorType.FORBIDDEN_ORDER_ACCESS);
         }
     }
 }

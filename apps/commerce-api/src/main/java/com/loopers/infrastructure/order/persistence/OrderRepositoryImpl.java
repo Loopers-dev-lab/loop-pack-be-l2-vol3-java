@@ -29,6 +29,11 @@ public class OrderRepositoryImpl implements OrderRepository {
     }
 
     @Override
+    public Optional<Order> findByIdWithItems(Long orderId) {
+        return orderJpaRepository.findByIdWithItems(orderId);
+    }
+
+    @Override
     public Slice<Order> findAllByUserIdAndOrderedAtBetween(Long userId, LocalDateTime start, LocalDateTime end,
             Pageable pageable) {
         return orderJpaRepository.findAllByUserIdAndOrderedAtGreaterThanEqualAndOrderedAtLessThan(

@@ -1,6 +1,7 @@
 package com.loopers.domain.order;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -141,6 +142,37 @@ class OrderTest {
             assertThatThrownBy(() -> Order.create(1L, items))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.DUPLICATE_ORDER_PRODUCT.getMessage());
+        }
+    }
+
+    @DisplayName("주문 소유자를 검증할 때,")
+    @Nested
+    class ValidateOwner {
+
+        @DisplayName("본인의 주문이면, 예외가 발생하지 않는다.")
+        @Test
+        void doesNotThrow_whenOwnerMatches() {
+            // arrange
+            var order = Order.create(1L, List.of(
+                    OrderItem.create(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+
+            // act & assert
+            assertThatCode(() -> order.validateOwner(1L)).doesNotThrowAnyException();
+        }
+
+        @DisplayName("다른 사용자의 주문이면, FORBIDDEN_ORDER_ACCESS 예외가 발생한다.")
+        @Test
+        void throwsException_whenOwnerDoesNotMatch() {
+            // arrange
+            var order = Order.create(1L, List.of(
+                    OrderItem.create(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+
+            // act & assert
+            assertThatThrownBy(() -> order.validateOwner(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.FORBIDDEN_ORDER_ACCESS));
         }
     }
 }

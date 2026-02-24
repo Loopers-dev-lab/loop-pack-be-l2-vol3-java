@@ -316,6 +316,56 @@ class OrderServiceIntegrationTest {
         }
     }
 
+    @DisplayName("주문 상세를 조회할 때,")
+    @Nested
+    class GetOrder {
+
+        @DisplayName("본인의 주문이면, 주문 상세 정보가 반환된다.")
+        @Test
+        void returnsOrderDetail_whenOwnerRequests() {
+            // arrange
+            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var orderId = orderService.createOrder(new Cart(1L, List.of(new CartItem(productId, 2L))));
+
+            // act
+            var result = orderService.getOrder(1L, orderId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.id()).isEqualTo(orderId),
+                    () -> assertThat(result.name()).isEqualTo("테스트 상품"),
+                    () -> assertThat(result.status()).isEqualTo(OrderStatus.CREATED),
+                    () -> assertThat(result.totalPrice()).isEqualTo(20000L),
+                    () -> assertThat(result.orderItems()).hasSize(1),
+                    () -> assertThat(result.orderItems().get(0).productName()).isEqualTo("테스트 상품"),
+                    () -> assertThat(result.orderItems().get(0).quantity()).isEqualTo(2L),
+                    () -> assertThat(result.orderItems().get(0).subtotal()).isEqualTo(20000L)
+            );
+        }
+
+        @DisplayName("존재하지 않는 주문이면, ORDER_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenOrderNotFound() {
+            // act & assert
+            assertThatThrownBy(() -> orderService.getOrder(1L, 999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_FOUND));
+        }
+
+        @DisplayName("다른 사용자의 주문이면, FORBIDDEN_ORDER_ACCESS 예외가 발생한다.")
+        @Test
+        void throwsException_whenNotOwner() {
+            // arrange
+            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var orderId = orderService.createOrder(new Cart(1L, List.of(new CartItem(productId, 1L))));
+
+            // act & assert
+            assertThatThrownBy(() -> orderService.getOrder(999L, orderId))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.FORBIDDEN_ORDER_ACCESS));
+        }
+    }
+
     private Long createBrandAndProduct(String productName, Long price, Long stock) {
         var brand = brandService.createBrand("테스트 브랜드", "https://example.com/logo.png", null);
         return productService.createProduct(new ProductCommand.CreateProductCommand(

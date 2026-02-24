@@ -70,4 +70,12 @@ public class OrderService {
                 orders.hasNext()
         );
     }
+
+    @Transactional(readOnly = true)
+    public OrderDetailResult getOrder(Long userId, Long orderId) {
+        Order order = orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+        order.validateOwner(userId);
+        return OrderDetailResult.from(order);
+    }
 }
