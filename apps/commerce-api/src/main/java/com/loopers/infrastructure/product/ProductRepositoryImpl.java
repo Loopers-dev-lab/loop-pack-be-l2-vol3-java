@@ -66,4 +66,11 @@ public class ProductRepositoryImpl implements ProductRepository {
                 .map(ProductJpaEntity::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<Product> findByIdIn(List<Long> productIds) {
+        return productJpaRepository.findByIdInAndDeletedFalse(productIds).stream()
+                .map(ProductJpaEntity::toDomain)
+                .toList();
+    }
 }

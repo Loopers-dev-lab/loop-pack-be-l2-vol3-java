@@ -39,4 +39,18 @@ public class OptionRepositoryImpl implements OptionRepository {
                 .map(OptionJpaEntity::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<Option> findByProductIdIn(List<Long> productIds) {
+        return optionJpaRepository.findByProductIdInAndDeletedFalse(productIds).stream()
+                .map(OptionJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<Option> findByIdIn(List<Long> optionIds) {
+        return optionJpaRepository.findByIdInAndDeletedFalse(optionIds).stream()
+                .map(OptionJpaEntity::toDomain)
+                .toList();
+    }
 }

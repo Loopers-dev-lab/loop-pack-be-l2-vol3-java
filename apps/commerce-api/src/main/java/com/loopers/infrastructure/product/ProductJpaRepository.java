@@ -16,4 +16,6 @@ public interface ProductJpaRepository extends JpaRepository<ProductJpaEntity, Lo
     List<ProductJpaEntity> findByBrandIdAndDeletedFalse(Long brandId);
 
     Optional<ProductJpaEntity> findByIdAndDeletedFalse(Long id);
+
+    List<ProductJpaEntity> findByIdInAndDeletedFalse(List<Long> productIds);
 }

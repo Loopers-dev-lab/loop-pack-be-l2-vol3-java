@@ -8,4 +8,5 @@ public interface ProductRepository {
     Optional<Product> findById(Long id);
     List<Product> findAll(ProductSortCondition condition);
     List<Product> findByBrandId(Long brandId);
+    List<Product> findByIdIn(List<Long> productIds);
 }

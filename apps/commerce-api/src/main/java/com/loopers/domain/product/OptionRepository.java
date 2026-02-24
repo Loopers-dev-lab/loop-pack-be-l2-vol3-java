@@ -7,4 +7,6 @@ public interface OptionRepository {
     Option save(Option option);
     Optional<Option> findById(Long id);
     List<Option> findByProductId(Long productId);
+    List<Option> findByProductIdIn(List<Long> productIds);
+    List<Option> findByIdIn(List<Long> optionIds);
 }
