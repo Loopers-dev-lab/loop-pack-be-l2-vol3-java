@@ -74,4 +74,84 @@ class BrandServiceIntegrationTest {
                     .hasMessageContaining("이미 등록된 브랜드입니다");
         }
     }
+
+    @Nested
+    class 브랜드_수정 {
+
+        @Test
+        void 유효한_정보로_수정하면_성공한다() {
+            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+
+            Brand activeBrand = brandService.getActiveBrand(brand.getId());
+            brandService.update(activeBrand, "아디다스", "독일 스포츠 브랜드");
+
+            assertThat(activeBrand.getName()).isEqualTo("아디다스");
+            assertThat(activeBrand.getDescription()).isEqualTo("독일 스포츠 브랜드");
+        }
+
+        @Test
+        void 다른_브랜드와_이름이_중복이면_예외() {
+            brandService.register("나이키", "스포츠 브랜드");
+            Brand adidas = brandService.register("아디다스", "독일 스포츠 브랜드");
+
+            Brand activeBrand = brandService.getActiveBrand(adidas.getId());
+
+            assertThatThrownBy(() -> brandService.update(activeBrand, "나이키", null))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT))
+                    .hasMessageContaining("이미 등록된 브랜드입니다");
+        }
+
+        @Test
+        void 삭제된_브랜드와_이름이_중복이면_예외() {
+            Brand nike = brandService.register("나이키", "스포츠 브랜드");
+            nike.delete();
+            brandRepository.save(nike);
+
+            Brand adidas = brandService.register("아디다스", "독일 스포츠 브랜드");
+
+            Brand activeBrand = brandService.getActiveBrand(adidas.getId());
+
+            assertThatThrownBy(() -> brandService.update(activeBrand, "나이키", null))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT))
+                    .hasMessageContaining("이미 등록된 브랜드입니다");
+        }
+
+        @Test
+        void 자기_자신_이름으로_수정하면_정상_처리된다() {
+            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+
+            Brand activeBrand = brandService.getActiveBrand(brand.getId());
+            brandService.update(activeBrand, "나이키", "변경된 설명");
+
+            assertThat(activeBrand.getName()).isEqualTo("나이키");
+            assertThat(activeBrand.getDescription()).isEqualTo("변경된 설명");
+        }
+
+    }
+
+    @Nested
+    class 활성_브랜드_조회 {
+
+        @Test
+        void 미존재_브랜드면_예외() {
+            assertThatThrownBy(() -> brandService.getActiveBrand(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
+                    .hasMessageContaining("존재하지 않는 브랜드입니다");
+        }
+
+        @Test
+        void 삭제된_브랜드면_예외() {
+            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+            brand.delete();
+            brandRepository.save(brand);
+
+            assertThatThrownBy(() -> brandService.getActiveBrand(brand.getId()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
+                    .hasMessageContaining("존재하지 않는 브랜드입니다");
+        }
+    }
 }

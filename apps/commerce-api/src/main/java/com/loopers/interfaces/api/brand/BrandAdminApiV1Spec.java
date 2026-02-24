@@ -14,4 +14,13 @@ public interface BrandAdminApiV1Spec {
     ApiResponse<BrandAdminV1Dto.BrandResponse> register(
             BrandAdminV1Dto.RegisterRequest request
     );
+
+    @Operation(
+            summary = "브랜드 수정",
+            description = "브랜드 정보를 수정합니다."
+    )
+    ApiResponse<BrandAdminV1Dto.BrandResponse> update(
+            Long brandId,
+            BrandAdminV1Dto.UpdateRequest request
+    );
 }

@@ -14,12 +14,26 @@ public class BrandService {
     private final BrandRepository brandRepository;
 
     @Transactional
-    public Brand register(String name, String description) {
+public Brand register(String name, String description) {
         if (brandRepository.existsByName(name)) {
             throw new CoreException(ErrorType.CONFLICT, "이미 등록된 브랜드입니다");
         }
 
         Brand brand = Brand.create(name, description);
         return brandRepository.save(brand);
+    }
+
+    public Brand getActiveBrand(Long brandId) {
+        return brandRepository.findById(brandId)
+                .filter(brand -> !brand.isDeleted())
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다"));
+    }
+
+    public void update(Brand brand, String name, String description) {
+        if (brandRepository.existsByNameAndIdNot(name, brand.getId())) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 등록된 브랜드입니다");
+        }
+
+        brand.update(name, description);
     }
 }

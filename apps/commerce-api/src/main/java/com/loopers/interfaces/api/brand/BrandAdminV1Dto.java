@@ -17,6 +17,14 @@ public class BrandAdminV1Dto {
             String description
     ) {}
 
+    public record UpdateRequest(
+            @Size(min = 1, max = 100, message = "브랜드명은 1~100자여야 합니다")
+            String name,
+
+            @Size(max = 500, message = "브랜드 설명은 500자 이하여야 합니다")
+            String description
+    ) {}
+
     public record BrandResponse(
             Long id,
             String name,

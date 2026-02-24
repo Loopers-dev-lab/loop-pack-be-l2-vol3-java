@@ -35,6 +35,21 @@ public class Brand extends BaseEntity {
         return new Brand(name, description);
     }
 
+    public void update(String name, String description) {
+        if (name != null) {
+            validateName(name);
+            this.name = name;
+        }
+        if (description != null) {
+            validateDescription(description);
+            this.description = description;
+        }
+    }
+
+    public boolean isDeleted() {
+        return getDeletedAt() != null;
+    }
+
     private static void validateName(String name) {
         if (name == null || name.isBlank()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "브랜드명은 필수입니다");
@@ -48,9 +63,5 @@ public class Brand extends BaseEntity {
         if (description != null && description.length() > DESCRIPTION_MAX_LENGTH) {
             throw new CoreException(ErrorType.BAD_REQUEST, "브랜드 설명은 500자 이하여야 합니다");
         }
-    }
-
-    public boolean isDeleted() {
-        return getDeletedAt() != null;
     }
 }

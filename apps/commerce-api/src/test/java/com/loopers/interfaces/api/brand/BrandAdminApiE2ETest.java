@@ -125,11 +125,142 @@ class BrandAdminApiE2ETest {
         }
     }
 
+    @Nested
+    class 브랜드_수정 {
+
+        @Test
+        void 유효한_정보로_수정하면_200_응답과_수정된_정보를_반환한다() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("아디다스", "독일 스포츠 브랜드");
+
+            ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("아디다스"),
+                    () -> assertThat(response.getBody().data().description()).isEqualTo("독일 스포츠 브랜드")
+            );
+        }
+
+        @Test
+        void name만_보내면_name만_수정된다() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("아디다스", null);
+
+            ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("아디다스"),
+                    () -> assertThat(response.getBody().data().description()).isEqualTo("스포츠 브랜드")
+            );
+        }
+
+        @Test
+        void description만_보내면_description만_수정된다() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest(null, "변경된 설명");
+
+            ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("나이키"),
+                    () -> assertThat(response.getBody().data().description()).isEqualTo("변경된 설명")
+            );
+        }
+
+        @Test
+        void 중복_브랜드명이면_409_응답() {
+            registerBrand("나이키", "스포츠 브랜드");
+            Long adidasId = registerBrand("아디다스", "독일 스포츠 브랜드");
+            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("나이키", null);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/" + adidasId, HttpMethod.PATCH,
+                    new HttpEntity<>(request, adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        }
+
+        @Test
+        void 미존재_브랜드면_404_응답() {
+            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("나이키", null);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/999", HttpMethod.PATCH,
+                    new HttpEntity<>(request, adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        void 입력_규칙_위반_시_400_응답() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("", null);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/" + brandId, HttpMethod.PATCH,
+                    new HttpEntity<>(request, adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        void 인증_누락이면_401_응답() {
+            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("나이키", null);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1", HttpMethod.PATCH,
+                    new HttpEntity<>(request, new HttpHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void 인증_실패이면_401_응답() {
+            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("나이키", null);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-Ldap", "wrong-ldap");
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1", HttpMethod.PATCH,
+                    new HttpEntity<>(request, headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+    }
+
     // --- 헬퍼 메서드 ---
+
+    private Long registerBrand(String name, String description) {
+        BrandAdminV1Dto.RegisterRequest request = new BrandAdminV1Dto.RegisterRequest(name, description);
+        ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = postRegister(request);
+        return response.getBody().data().id();
+    }
 
     private ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> postRegister(BrandAdminV1Dto.RegisterRequest request) {
         return testRestTemplate.exchange(
                 ENDPOINT, HttpMethod.POST,
+                new HttpEntity<>(request, adminHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
+    }
+
+    private ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> patchUpdate(Long brandId, BrandAdminV1Dto.UpdateRequest request) {
+        return testRestTemplate.exchange(
+                ENDPOINT + "/" + brandId, HttpMethod.PATCH,
                 new HttpEntity<>(request, adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
