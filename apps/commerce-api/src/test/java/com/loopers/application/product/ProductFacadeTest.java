@@ -1,11 +1,13 @@
 package com.loopers.application.product;
 
 import com.loopers.domain.brand.Brand;
+import com.loopers.domain.like.Like;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductWithBrand;
 import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
 import com.loopers.fake.FakeBrandRepository;
+import com.loopers.fake.FakeLikeRepository;
 import com.loopers.fake.FakeProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -24,13 +26,15 @@ class ProductFacadeTest {
     private ProductFacade productFacade;
     private FakeProductRepository productRepository;
     private FakeBrandRepository brandRepository;
+    private FakeLikeRepository likeRepository;
 
     @BeforeEach
     void setUp() {
         productRepository = new FakeProductRepository();
         brandRepository = new FakeBrandRepository();
+        likeRepository = new FakeLikeRepository();
         productRepository.setBrandRepository(brandRepository);
-        productFacade = new ProductFacade(productRepository, brandRepository);
+        productFacade = new ProductFacade(productRepository, brandRepository, likeRepository);
     }
 
     @Nested
@@ -204,8 +208,7 @@ class ProductFacadeTest {
             productFacade.deleteProduct(product.getId());
 
             // assert
-            Product deleted = productRepository.findById(product.getId()).orElseThrow();
-            assertThat(deleted.getDeletedAt()).isNotNull();
+            assertThat(productRepository.findById(product.getId())).isEmpty();
         }
 
         @DisplayName("존재하지 않는 상품을 삭제하면 예외가 발생한다")
@@ -215,6 +218,24 @@ class ProductFacadeTest {
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.NOT_FOUND);
+        }
+
+        @DisplayName("상품 삭제 시 해당 상품의 좋아요가 hard delete 된다")
+        @Test
+        void deleteProduct_hardDeletesLikes() {
+            // arrange
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product product = productRepository.save(
+                    new Product(brand.getId(), "에어맥스", new Price(150000), new Stock(10)));
+            likeRepository.save(new Like(1L, product.getId()));
+            likeRepository.save(new Like(2L, product.getId()));
+
+            // act
+            productFacade.deleteProduct(product.getId());
+
+            // assert
+            assertThat(likeRepository.findByMemberIdAndProductId(1L, product.getId())).isEmpty();
+            assertThat(likeRepository.findByMemberIdAndProductId(2L, product.getId())).isEmpty();
         }
     }
 }

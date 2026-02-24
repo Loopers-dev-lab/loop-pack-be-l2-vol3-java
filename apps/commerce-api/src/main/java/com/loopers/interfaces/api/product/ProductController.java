@@ -17,13 +17,14 @@ public class ProductController {
 
     @GetMapping
     public ApiResponse<List<ProductDto.ProductResponse>> getProducts(
-        @RequestParam(required = false) Long brandId
+        @RequestParam(required = false) Long brandId,
+        @RequestParam(defaultValue = "latest") String sort
     ) {
         List<ProductWithBrand> products;
         if (brandId != null) {
             products = productFacade.getProductsByBrandId(brandId);
         } else {
-            products = productFacade.getAllProducts();
+            products = productFacade.getAllProducts(sort);
         }
         List<ProductDto.ProductResponse> responses = products.stream()
             .map(ProductDto.ProductResponse::from)

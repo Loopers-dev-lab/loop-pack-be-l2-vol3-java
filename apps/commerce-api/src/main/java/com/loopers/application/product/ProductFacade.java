@@ -1,5 +1,6 @@
 package com.loopers.application.product;
 
+import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.ProductWithBrand;
@@ -21,6 +22,7 @@ public class ProductFacade {
 
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
+    private final LikeRepository likeRepository;
 
     public ProductWithBrand getProductDetail(Long productId) {
         return productRepository.findByIdWithBrand(productId)
@@ -29,6 +31,10 @@ public class ProductFacade {
 
     public List<ProductWithBrand> getAllProducts() {
         return productRepository.findAllWithBrand();
+    }
+
+    public List<ProductWithBrand> getAllProducts(String sort) {
+        return productRepository.findAllWithBrand(sort);
     }
 
     public List<ProductWithBrand> getProductsByBrandId(Long brandId) {
@@ -59,6 +65,7 @@ public class ProductFacade {
     public void deleteProduct(Long productId) {
         Product product = productRepository.findById(productId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
+        likeRepository.deleteAllByProductId(productId);
         product.delete();
     }
 }

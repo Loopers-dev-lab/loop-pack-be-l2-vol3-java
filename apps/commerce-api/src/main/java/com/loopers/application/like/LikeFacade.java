@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -35,10 +36,12 @@ public class LikeFacade {
 
     @Transactional
     public void removeLike(Long memberId, Long productId) {
-        Like like = likeRepository.findByMemberIdAndProductId(memberId, productId)
-            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "좋아요를 찾을 수 없습니다."));
+        Optional<Like> likeOpt = likeRepository.findByMemberIdAndProductId(memberId, productId);
+        if (likeOpt.isEmpty()) {
+            return;
+        }
 
-        likeRepository.delete(like);
+        likeRepository.delete(likeOpt.get());
 
         Product product = productRepository.findById(productId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));

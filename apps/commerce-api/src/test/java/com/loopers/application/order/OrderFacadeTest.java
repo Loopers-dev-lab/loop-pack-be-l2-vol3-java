@@ -158,9 +158,9 @@ class OrderFacadeTest {
     @DisplayName("주문 단건 조회")
     class GetOrder {
 
-        @DisplayName("존재하는 주문을 조회하면 주문이 반환된다")
+        @DisplayName("본인의 주문을 조회하면 주문이 반환된다")
         @Test
-        void getOrder_whenExists_returnsOrder() {
+        void getOrder_whenOwner_returnsOrder() {
             // arrange
             Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
             Product product = productRepository.save(
@@ -169,17 +169,102 @@ class OrderFacadeTest {
                     new OrderFacade.OrderItemRequest(product.getId(), 1)));
 
             // act
-            Order result = orderFacade.getOrder(order.getId());
+            Order result = orderFacade.getOrder(order.getId(), 1L);
 
             // assert
             assertThat(result.getId()).isEqualTo(order.getId());
             assertThat(result.getMemberId()).isEqualTo(1L);
         }
 
+        @DisplayName("타인의 주문을 조회하면 예외가 발생한다")
+        @Test
+        void getOrder_whenNotOwner_throwsForbidden() {
+            // arrange
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product product = productRepository.save(
+                    new Product(brand.getId(), "에어맥스", new Price(150000), new Stock(10)));
+            Order order = orderFacade.createOrder(1L, List.of(
+                    new OrderFacade.OrderItemRequest(product.getId(), 1)));
+
+            // act & assert
+            assertThatThrownBy(() -> orderFacade.getOrder(order.getId(), 2L))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.FORBIDDEN);
+        }
+
         @DisplayName("존재하지 않는 주문을 조회하면 예외가 발생한다")
         @Test
         void getOrder_whenNotExists_throwsCoreException() {
-            assertThatThrownBy(() -> orderFacade.getOrder(999L))
+            assertThatThrownBy(() -> orderFacade.getOrder(999L, 1L))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("주문 취소")
+    class CancelOrder {
+
+        @DisplayName("주문을 취소하면 상태가 CANCELLED로 변경되고 재고가 복원된다")
+        @Test
+        void cancelOrder_cancelsAndRestoresStock() {
+            // arrange
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product product = productRepository.save(
+                    new Product(brand.getId(), "에어맥스", new Price(150000), new Stock(10)));
+            Order order = orderFacade.createOrder(1L, List.of(
+                    new OrderFacade.OrderItemRequest(product.getId(), 3)));
+            assertThat(product.getStock().getQuantity()).isEqualTo(7);
+
+            // act
+            orderFacade.cancelOrder(order.getId(), 1L);
+
+            // assert
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+            assertThat(product.getStock().getQuantity()).isEqualTo(10);
+        }
+
+        @DisplayName("타인의 주문을 취소하면 예외가 발생한다")
+        @Test
+        void cancelOrder_whenNotOwner_throwsForbidden() {
+            // arrange
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product product = productRepository.save(
+                    new Product(brand.getId(), "에어맥스", new Price(150000), new Stock(10)));
+            Order order = orderFacade.createOrder(1L, List.of(
+                    new OrderFacade.OrderItemRequest(product.getId(), 1)));
+
+            // act & assert
+            assertThatThrownBy(() -> orderFacade.cancelOrder(order.getId(), 2L))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.FORBIDDEN);
+        }
+
+        @DisplayName("이미 취소된 주문을 다시 취소하면 예외가 발생한다")
+        @Test
+        void cancelOrder_whenAlreadyCancelled_throwsException() {
+            // arrange
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product product = productRepository.save(
+                    new Product(brand.getId(), "에어맥스", new Price(150000), new Stock(10)));
+            Order order = orderFacade.createOrder(1L, List.of(
+                    new OrderFacade.OrderItemRequest(product.getId(), 1)));
+            orderFacade.cancelOrder(order.getId(), 1L);
+
+            // act & assert
+            assertThatThrownBy(() -> orderFacade.cancelOrder(order.getId(), 1L))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("존재하지 않는 주문을 취소하면 예외가 발생한다")
+        @Test
+        void cancelOrder_whenNotExists_throwsCoreException() {
+            assertThatThrownBy(() -> orderFacade.cancelOrder(999L, 1L))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.NOT_FOUND);

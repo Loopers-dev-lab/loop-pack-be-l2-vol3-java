@@ -2,6 +2,7 @@ package com.loopers.application.brand;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
@@ -19,6 +20,7 @@ public class BrandFacade {
 
     private final BrandRepository brandRepository;
     private final ProductRepository productRepository;
+    private final LikeRepository likeRepository;
 
     public Brand getBrand(Long brandId) {
         return brandRepository.findById(brandId)
@@ -50,6 +52,7 @@ public class BrandFacade {
 
         List<Product> products = productRepository.findAllByBrandId(brandId);
         for (Product product : products) {
+            likeRepository.deleteAllByProductId(product.getId());
             product.delete();
         }
         brand.delete();

@@ -1,5 +1,7 @@
 package com.loopers.domain.order;
 
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -43,6 +45,19 @@ class OrderTest {
             order.cancel();
 
             assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        }
+
+        @DisplayName("이미 취소된 주문을 다시 취소하면 예외가 발생한다")
+        @Test
+        void cancel_whenAlreadyCancelled_throwsException() {
+            OrderItem item = new OrderItem(1L, "상품A", 10000, "브랜드A", 1);
+            Order order = Order.create(1L, List.of(item));
+            order.cancel();
+
+            assertThatThrownBy(order::cancel)
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
 

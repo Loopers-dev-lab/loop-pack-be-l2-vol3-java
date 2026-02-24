@@ -60,6 +60,10 @@ public class Product extends BaseEntity {
         this.likeCount++;
     }
 
+    public void increaseStock(int quantity) {
+        this.stock = this.stock.increase(quantity);
+    }
+
     public void decrementLikeCount() {
         if (this.likeCount > 0) {
             this.likeCount--;

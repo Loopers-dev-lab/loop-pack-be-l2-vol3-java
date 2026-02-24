@@ -73,6 +73,30 @@ public class OrderFacade {
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
     }
 
+    public Order getOrder(Long orderId, Long memberId) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
+        if (!order.getMemberId().equals(memberId)) {
+            throw new CoreException(ErrorType.FORBIDDEN, "본인의 주문만 조회할 수 있습니다.");
+        }
+        return order;
+    }
+
+    @Transactional
+    public void cancelOrder(Long orderId, Long memberId) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
+        if (!order.getMemberId().equals(memberId)) {
+            throw new CoreException(ErrorType.FORBIDDEN, "본인의 주문만 취소할 수 있습니다.");
+        }
+        order.cancel();
+        for (OrderItem item : order.getItems()) {
+            Product product = productRepository.findById(item.getProductId())
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
+            product.increaseStock(item.getQuantity());
+        }
+    }
+
     public List<Order> getOrdersByMemberId(Long memberId, ZonedDateTime startAt, ZonedDateTime endAt) {
         if (startAt != null && endAt != null) {
             return orderRepository.findAllByMemberIdAndCreatedAtBetween(memberId, startAt, endAt);

@@ -115,18 +115,18 @@ class LikeFacadeTest {
             assertThat(product.getLikeCount()).isEqualTo(0);
         }
 
-        @DisplayName("좋아요하지 않은 상품의 좋아요를 취소하면 예외가 발생한다")
+        @DisplayName("좋아요하지 않은 상품의 좋아요를 취소해도 예외 없이 멱등하게 처리된다")
         @Test
-        void removeLike_whenNotLiked_throwsCoreException() {
+        void removeLike_whenNotLiked_isIdempotent() {
             // arrange
-            productRepository.save(
+            Product product = productRepository.save(
                     new Product(1L, "에어맥스", new Price(150000), new Stock(10)));
 
-            // act & assert
-            assertThatThrownBy(() -> likeFacade.removeLike(1L, 1L))
-                    .isInstanceOf(CoreException.class)
-                    .extracting(e -> ((CoreException) e).getErrorType())
-                    .isEqualTo(ErrorType.NOT_FOUND);
+            // act - 예외가 발생하지 않아야 한다
+            likeFacade.removeLike(1L, product.getId());
+
+            // assert
+            assertThat(product.getLikeCount()).isEqualTo(0);
         }
     }
 

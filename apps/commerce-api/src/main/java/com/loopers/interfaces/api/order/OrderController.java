@@ -52,8 +52,20 @@ public class OrderController {
     }
 
     @GetMapping("/{orderId}")
-    public ApiResponse<OrderDto.OrderResponse> getOrder(@PathVariable Long orderId) {
-        Order order = orderFacade.getOrder(orderId);
+    public ApiResponse<OrderDto.OrderResponse> getOrder(
+        @AuthMember Member member,
+        @PathVariable Long orderId
+    ) {
+        Order order = orderFacade.getOrder(orderId, member.getId());
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
+    }
+
+    @PostMapping("/{orderId}/cancel")
+    public ApiResponse<Object> cancelOrder(
+        @AuthMember Member member,
+        @PathVariable Long orderId
+    ) {
+        orderFacade.cancelOrder(orderId, member.getId());
+        return ApiResponse.success(null);
     }
 }

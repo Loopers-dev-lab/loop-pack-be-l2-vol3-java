@@ -1,6 +1,8 @@
 package com.loopers.domain.order;
 
 import com.loopers.domain.BaseEntity;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -47,6 +49,9 @@ public class Order extends BaseEntity {
     }
 
     public void cancel() {
+        if (this.status == OrderStatus.CANCELLED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "이미 취소된 주문입니다.");
+        }
         this.status = OrderStatus.CANCELLED;
     }
 }

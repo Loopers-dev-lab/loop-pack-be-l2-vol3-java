@@ -29,17 +29,21 @@ public class FakeBrandRepository implements BrandRepository {
 
     @Override
     public Optional<Brand> findById(Long id) {
-        return Optional.ofNullable(store.get(id));
+        return Optional.ofNullable(store.get(id))
+            .filter(brand -> brand.getDeletedAt() == null);
     }
 
     @Override
     public List<Brand> findAll() {
-        return new ArrayList<>(store.values());
+        return store.values().stream()
+            .filter(brand -> brand.getDeletedAt() == null)
+            .toList();
     }
 
     @Override
     public List<Brand> findAllByIds(Set<Long> ids) {
         return store.values().stream()
+            .filter(brand -> brand.getDeletedAt() == null)
             .filter(brand -> ids.contains(brand.getId()))
             .toList();
     }

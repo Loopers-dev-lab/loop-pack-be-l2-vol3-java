@@ -12,5 +12,6 @@ public interface ProductRepository {
     // 조회 전용 (Brand JOIN)
     Optional<ProductWithBrand> findByIdWithBrand(Long id);
     List<ProductWithBrand> findAllWithBrand();
+    List<ProductWithBrand> findAllWithBrand(String sort);
     List<ProductWithBrand> findAllByBrandIdWithBrand(Long brandId);
 }

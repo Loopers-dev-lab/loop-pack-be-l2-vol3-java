@@ -1,10 +1,12 @@
 package com.loopers.application.brand;
 
 import com.loopers.domain.brand.Brand;
+import com.loopers.domain.like.Like;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
 import com.loopers.fake.FakeBrandRepository;
+import com.loopers.fake.FakeLikeRepository;
 import com.loopers.fake.FakeProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -23,12 +25,14 @@ class BrandFacadeTest {
     private BrandFacade brandFacade;
     private FakeBrandRepository brandRepository;
     private FakeProductRepository productRepository;
+    private FakeLikeRepository likeRepository;
 
     @BeforeEach
     void setUp() {
         brandRepository = new FakeBrandRepository();
         productRepository = new FakeProductRepository();
-        brandFacade = new BrandFacade(brandRepository, productRepository);
+        likeRepository = new FakeLikeRepository();
+        brandFacade = new BrandFacade(brandRepository, productRepository, likeRepository);
     }
 
     @Nested
@@ -159,8 +163,7 @@ class BrandFacadeTest {
             brandFacade.deleteBrand(saved.getId());
 
             // assert
-            Brand deleted = brandRepository.findById(saved.getId()).orElseThrow();
-            assertThat(deleted.getDeletedAt()).isNotNull();
+            assertThat(brandRepository.findById(saved.getId())).isEmpty();
         }
 
         @DisplayName("브랜드를 삭제하면 해당 브랜드의 상품도 소프트 삭제된다")
@@ -177,10 +180,8 @@ class BrandFacadeTest {
             brandFacade.deleteBrand(brand.getId());
 
             // assert
-            Product deletedProduct1 = productRepository.findById(product1.getId()).orElseThrow();
-            Product deletedProduct2 = productRepository.findById(product2.getId()).orElseThrow();
-            assertThat(deletedProduct1.getDeletedAt()).isNotNull();
-            assertThat(deletedProduct2.getDeletedAt()).isNotNull();
+            assertThat(productRepository.findById(product1.getId())).isEmpty();
+            assertThat(productRepository.findById(product2.getId())).isEmpty();
         }
 
         @DisplayName("존재하지 않는 브랜드를 삭제하면 예외가 발생한다")
@@ -202,8 +203,28 @@ class BrandFacadeTest {
             brandFacade.deleteBrand(brand.getId());
 
             // assert
-            Brand deleted = brandRepository.findById(brand.getId()).orElseThrow();
-            assertThat(deleted.getDeletedAt()).isNotNull();
+            assertThat(brandRepository.findById(brand.getId())).isEmpty();
+        }
+
+        @DisplayName("브랜드 삭제 시 해당 상품들의 좋아요가 hard delete 된다")
+        @Test
+        void deleteBrand_hardDeletesLikesOfProducts() {
+            // arrange
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product product1 = productRepository.save(
+                    new Product(brand.getId(), "에어맥스", new Price(150000), new Stock(10)));
+            Product product2 = productRepository.save(
+                    new Product(brand.getId(), "에어포스", new Price(120000), new Stock(20)));
+            likeRepository.save(new Like(1L, product1.getId()));
+            likeRepository.save(new Like(2L, product1.getId()));
+            likeRepository.save(new Like(1L, product2.getId()));
+
+            // act
+            brandFacade.deleteBrand(brand.getId());
+
+            // assert
+            assertThat(likeRepository.findAllByMemberId(1L)).isEmpty();
+            assertThat(likeRepository.findAllByMemberId(2L)).isEmpty();
         }
     }
 }
