@@ -83,4 +83,18 @@ public class CartItemModel extends BaseEntity {
         }
         this.quantity = quantity;
     }
+
+    /**
+     * 수량과 옵션을 갱신한다. 장바구니 수정 시 사용.
+     *
+     * @param quantity 1 이상
+     * @param optionId 옵션 ID (null 가능)
+     */
+    public void updateQuantityAndOption(int quantity, Long optionId) {
+        if (quantity < 1) {
+            throw new IllegalArgumentException("수량은 1 이상이어야 합니다.");
+        }
+        this.quantity = quantity;
+        this.optionId = optionId;
+    }
 }
