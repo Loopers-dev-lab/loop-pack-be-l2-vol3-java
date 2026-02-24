@@ -23,7 +23,7 @@ interfaces → application → domain ← infrastructure
 - **Rich Domain Model**: 비즈니스 로직과 도메인 불변식은 Entity에
 - **Service**: 자기 도메인의 연산 캡슐화 (Repository 접근 + Entity/Domain Service 위임)
 - **Facade**: 여러 도메인 Service 간 오케스트레이션, 트랜잭션 경계
-- **Repository 패턴**: 인터페이스는 `domain/`, 구현체는 `infrastructure/
+- **Repository 패턴**: 인터페이스는 `domain/`, 구현체는 `infrastructure/`
 - **DTO**: Java record 사용 (불변 보장)
 - **Soft Delete**: `deletedAt` 필드 사용
 
@@ -48,9 +48,14 @@ interfaces → application → domain ← infrastructure
 - Domain Entity → Info DTO 변환
 - 다른 도메인의 **Service만** 호출 (Repository 직접 호출 금지)
 
-### Service (domain) — 자기 도메인의 연산 캡슐화
-- **조회 메서드**: 범용 대상 식별 (getActiveBrand, getActiveUser 등)
-  - 여러 비즈니스 연산에서 공통으로 사용되는 조회
+### Service (domain) — 명령 흐름
+- 자기 도메인의 연산 캡슐화
+- **조회 메서드**: 대상 식별만 수행
+  - 쿼리에는 식별 조건만 사용한다
+  - 식별 조건: 조건을 제거하면 다른 Entity가 조회되는 것 (PK, FK, 복합키, 유니크 관계 등)
+  - 예: `findById`, `findByUserIdAndProductId`, `findAllByIdIn`
+  - 동시성 제어가 필요한 경우 락 조회 허용 (`findByIdForUpdate` 등)
+  - **상태 조건(deletedAt, status 등)은 쿼리에 포함하지 않는다** — 상태 검증은 Entity 책임
 - **명령 메서드**: Entity를 받아서 도메인 연산 수행 (판단+실행)
   - 연산에 필요한 DB 조회(중복 확인, 존재 여부 등)는 Service 내부에서 처리
   - 단, 대상 식별 자체가 연산과 불가분인 경우 Service 내부에서 조회 포함
@@ -59,6 +64,20 @@ interfaces → application → domain ← infrastructure
 - **다른 도메인의 Service 직접 호출 금지** (크로스 도메인은 Facade 책임)
 - Facade에 도메인 내부 구조(Optional, 상태값, Entity 컬렉션) 노출 최소화
 
+#### 식별 조건 vs 상태 조건 판별 기준
+
+> **"이 조건을 빼면 다른 Entity가 조회되는가?"**
+
+- 빼면 다른 Entity가 나온다 → **식별 조건** → 쿼리에 포함
+- 빼도 같은 Entity인데 더 많이 나온다 → **상태 조건** → Entity가 판단
+
+### QueryService (domain) — 조회 흐름
+
+- 표현을 위한 조회 전용 서비스
+- 상태 필터링, 정렬, 페이징 등 쿼리 조건에 포함 가능
+- 예: `getActiveBrand`, `getActiveProducts`, `findOrdersByStatus`
+- 조회가 단순한 도메인은 Service에 조회 메서드로 포함해도 무방
+- 조회가 복잡해지는 시점(정렬, 페이징, 검색 조건, DTO 프로젝션)에서 분리
 
 ### Domain Service (domain) — 필요할 때만 생성
 - 단일 Entity로 해결 안 되는 비즈니스 로직
@@ -79,25 +98,6 @@ interfaces → application → domain ← infrastructure
 ### 트랜잭션 전략
 - **Service**: 클래스 레벨 `@Transactional(readOnly = true)` 기본 적용
     - 명령 메서드는 메서드 레벨 `@Transactional`로 오버라이드
-- **Facade**: `@Transactional`로 여러 Service를 하나의 트랜잭션으로 묶음
+- **Facade**: 클래스 레벨 `@Transactional(readOnly = true)` 기본 적용
+    - 명령 메서드는 메서드 레벨 `@Transactional`로 오버라이드
     - Facade가 있으면 Service의 트랜잭션은 기존 트랜잭션에 참여 (REQUIRED)
-
-# 검증 전략
-
-### 검증 위치와 역할
-
-| 위치 | 역할 | 예시 |
-|---|---|---|
-| `@Valid` (DTO) | Fail-Fast 형식 검증 | `@NotNull`, `@NotBlank`, `@Size`, `@Positive`, `@PositiveOrZero` |
-| Entity | 자기 데이터의 모든 비즈니스 검증 | 길이, 범위, 상태 전이 규칙, 불변 조건 |
-| Service | DB 조회가 필요한 검증 | 유일성, 존재 여부, 권한 |
-
-- `@Valid`는 Entity 검증 중 일부를 앞단에서 선처리하는 것 (중복 검증 허용)
-- Entity가 검증의 최종 방어선 — DTO 검증이 빠져도 Entity에서 반드시 잡아야 함
-
-## 예외 처리
-- 비즈니스 예외는 `CoreException`으로 통일
-- `CoreException(ErrorType, message)` 형태로 사용
-- 글로벌 핸들러(`@RestControllerAdvice`)에서 일괄 처리
-- Controller에서 try-catch 금지
-- ErrorType은 HTTP 상태코드와 매핑되는 enum으로 관리 (`BAD_REQUEST`, `NOT_FOUND`, `FORBIDDEN` 등)
