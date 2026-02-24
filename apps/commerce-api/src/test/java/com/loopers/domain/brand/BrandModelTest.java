@@ -92,6 +92,44 @@ class BrandModelTest {
         }
     }
 
+    @DisplayName("이름을 수정할 때, ")
+    @Nested
+    class UpdateName {
+
+        @DisplayName("유효한 이름이 주어지면, 이름이 변경된다.")
+        @Test
+        void updateName_withValidName_shouldUpdate() {
+            // given
+            BrandModel brand = BrandModel.create("기존 이름");
+
+            // when
+            brand.updateName("새 이름");
+
+            // then
+            assertThat(brand.getName()).isEqualTo("새 이름");
+        }
+
+        @DisplayName("이름이 null이면, IllegalArgumentException이 발생한다.")
+        @Test
+        void updateName_withNullName_shouldThrow() {
+            // given
+            BrandModel brand = BrandModel.create("브랜드");
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> brand.updateName(null));
+        }
+
+        @DisplayName("이름이 빈 문자열이면, IllegalArgumentException이 발생한다.")
+        @Test
+        void updateName_withBlankName_shouldThrow() {
+            // given
+            BrandModel brand = BrandModel.create("브랜드");
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> brand.updateName(""));
+        }
+    }
+
     @DisplayName("삭제 여부를 확인할 때, ")
     @Nested
     class IsDeleted {
