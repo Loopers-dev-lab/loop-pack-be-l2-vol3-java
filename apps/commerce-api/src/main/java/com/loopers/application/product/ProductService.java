@@ -39,7 +39,7 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Page<ProductInfo> getProducts(Long brandId, ProductSort sort, Pageable pageable) {
-        return productRepository.findProducts(brandId, sort, pageable).map(ProductInfo::from);
+        return productRepository.findProducts(brandId, sort.toOrder(), pageable).map(ProductInfo::from);
     }
 
     @Transactional(readOnly = true)

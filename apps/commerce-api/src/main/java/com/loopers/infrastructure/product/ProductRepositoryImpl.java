@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.product;
 
-import com.loopers.application.product.ProductSort;
+import com.loopers.domain.product.ProductOrder;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.QProduct;
@@ -33,7 +33,7 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public Page<Product> findProducts(Long brandId, ProductSort sort, Pageable pageable) {
+    public Page<Product> findProducts(Long brandId, ProductOrder order, Pageable pageable) {
         QProduct product = QProduct.product;
 
         BooleanBuilder builder = new BooleanBuilder();
@@ -44,7 +44,7 @@ public class ProductRepositoryImpl implements ProductRepository {
             builder.and(product.brandId.eq(brandId));
         }
 
-        OrderSpecifier<?> orderSpecifier = switch (sort) {
+        OrderSpecifier<?> orderSpecifier = switch (order) {
             case PRICE_ASC -> product.price.asc();
             case LIKES_DESC -> product.id.desc(); // Like 도메인 구현 후 집계 쿼리로 교체 예정
             case LATEST -> product.id.desc();

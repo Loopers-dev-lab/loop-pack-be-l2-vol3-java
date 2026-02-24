@@ -1,6 +1,6 @@
 package com.loopers.domain.product;
 
-import com.loopers.application.product.ProductSort;
+import com.loopers.domain.product.ProductOrder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -38,7 +38,7 @@ public class InMemoryProductRepository implements ProductRepository {
     }
 
     @Override
-    public Page<Product> findProducts(Long brandId, ProductSort sort, Pageable pageable) {
+    public Page<Product> findProducts(Long brandId, ProductOrder sort, Pageable pageable) {
         Stream<Product> stream = store.values().stream()
                 .filter(p -> p.getDeletedAt() == null)
                 .filter(p -> p.getVisibility() == Product.Visibility.VISIBLE);
