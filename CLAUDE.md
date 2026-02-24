@@ -117,6 +117,7 @@ Entity → ExampleInfo (application DTO) → ExampleV1Dto (API DTO) → ApiRespo
 - JaCoCo 코드 커버리지 (XML 리포트)
 - 프로파일: `test`, 순차 실행 (`maxParallelForks = 1`)
 - 테스트 데이터 중 여러 테스트에서 반복 사용되는 값은 클래스 레벨 상수(`private static final`)로 선언한다
+- 테스트 메서드 내부는 `// arrange` / `// act` / `// assert` 주석으로 단계를 구분한다. 단, 해당 단계에 작성할 코드가 없으면 주석을 생략한다.
 
 ### 코드 스타일
 - Lombok: `@RequiredArgsConstructor`, `@Getter`, `@Slf4j`
