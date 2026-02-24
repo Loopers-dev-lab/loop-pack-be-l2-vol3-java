@@ -178,4 +178,57 @@ class CartItemModelTest {
             assertThrows(IllegalArgumentException.class, () -> item.updateQuantity(-1));
         }
     }
+
+    @DisplayName("updateQuantityAndOption 시")
+    @Nested
+    class UpdateQuantityAndOption {
+
+        @DisplayName("유효한 수량과 옵션이면 갱신된다.")
+        @Test
+        void updateQuantityAndOption_withValid_shouldUpdate() {
+            // given
+            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
+
+            // when
+            item.updateQuantityAndOption(5, 20L);
+
+            // then
+            assertThat(item.getQuantity()).isEqualTo(5);
+            assertThat(item.getOptionId()).isEqualTo(20L);
+        }
+
+        @DisplayName("optionId를 null로 갱신할 수 있다.")
+        @Test
+        void updateQuantityAndOption_withNullOption_shouldUpdate() {
+            // given
+            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
+
+            // when
+            item.updateQuantityAndOption(1, null);
+
+            // then
+            assertThat(item.getQuantity()).isEqualTo(1);
+            assertThat(item.getOptionId()).isNull();
+        }
+
+        @DisplayName("수량이 0이면 IllegalArgumentException이 발생한다.")
+        @Test
+        void updateQuantityAndOption_withZero_shouldThrow() {
+            // given
+            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> item.updateQuantityAndOption(0, OPTION_ID));
+        }
+
+        @DisplayName("수량이 음수면 IllegalArgumentException이 발생한다.")
+        @Test
+        void updateQuantityAndOption_withNegative_shouldThrow() {
+            // given
+            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> item.updateQuantityAndOption(-1, null));
+        }
+    }
 }
