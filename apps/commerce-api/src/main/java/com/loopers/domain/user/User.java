@@ -5,6 +5,7 @@ import com.loopers.domain.user.vo.BirthDate;
 import com.loopers.domain.user.vo.Email;
 import com.loopers.domain.user.vo.Name;
 import com.loopers.domain.user.vo.Password;
+import com.loopers.domain.user.vo.Phone;
 import com.loopers.domain.user.vo.UserId;
 
 public record User(
@@ -12,12 +13,14 @@ public record User(
         Password password,
         Name name,
         Email email,
-        BirthDate birthDate
+        Phone phone
 ) {
     private static final String ERROR_PASSWORD_CONTAINS_BIRTHDATE = "비밀번호에 생년월일을 포함할 수 없습니다";
 
     public User {
-        validatePasswordNotContainsBirthDate(password, birthDate);
+        if (phone != null) {
+            validatePasswordNotContainsBirthDate(password, birthDate);
+        }
     }
 
     private void validatePasswordNotContainsBirthDate(Password password, BirthDate birthDate) {
@@ -38,5 +41,9 @@ public record User(
             return "*";
         }
         return nameValue.substring(0, nameValue.length() - 1) + "*";
+    }
+
+    public Phone phone() {
+        return phone;
     }
 }

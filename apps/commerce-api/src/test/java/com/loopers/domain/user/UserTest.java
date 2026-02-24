@@ -5,6 +5,7 @@ import com.loopers.domain.user.vo.BirthDate;
 import com.loopers.domain.user.vo.Email;
 import com.loopers.domain.user.vo.Name;
 import com.loopers.domain.user.vo.Password;
+import com.loopers.domain.user.vo.Phone;
 import com.loopers.domain.user.vo.UserId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -30,6 +31,7 @@ public class UserTest {
             Name name = mock(Name.class);
             Email email = mock(Email.class);
             BirthDate birthDate = mock(BirthDate.class);
+            Phone phone = mock(Phone.class);
 
             when(password.value()).thenReturn("1Q2w3e4r!");
             when(birthDate.toYymmdd()).thenReturn("990115");
@@ -38,7 +40,7 @@ public class UserTest {
 
             // when & then
             assertThatNoException()
-                    .isThrownBy(() -> new User(userId, password, name, email, birthDate));
+                    .isThrownBy(() -> new User(userId, password, name, email, phone));
         }
     }
 
@@ -55,9 +57,10 @@ public class UserTest {
             Name name = new Name("홍길동");
             Email email = new Email("test@example.com");
             BirthDate birthDate = BirthDate.of("19990115");
+            Phone phone = new Phone("010-1234-5678");
 
             // when & then
-            assertThatThrownBy(() -> new User(userId, password, name, email, birthDate))
+            assertThatThrownBy(() -> new User(userId, password, name, email, phone))
                     .isInstanceOf(UserValidationException.class)
                     .hasMessage("비밀번호에 생년월일을 포함할 수 없습니다");
         }
@@ -71,9 +74,10 @@ public class UserTest {
             Name name = new Name("홍길동");
             Email email = new Email("test@example.com");
             BirthDate birthDate = BirthDate.of("19990115");
+            Phone phone = new Phone("010-1234-5678");
 
             // when & then
-            assertThatThrownBy(() -> new User(userId, password, name, email, birthDate))
+            assertThatThrownBy(() -> new User(userId, password, name, email, phone))
                     .isInstanceOf(UserValidationException.class)
                     .hasMessage("비밀번호에 생년월일을 포함할 수 없습니다");
         }
@@ -87,9 +91,10 @@ public class UserTest {
             Name name = new Name("홍길동");
             Email email = new Email("test@example.com");
             BirthDate birthDate = BirthDate.of("19990115");
+            Phone phone = new Phone("010-1234-5678");
 
             // when & then
-            assertThatThrownBy(() -> new User(userId, password, name, email, birthDate))
+            assertThatThrownBy(() -> new User(userId, password, name, email, phone))
                     .isInstanceOf(UserValidationException.class)
                     .hasMessage("비밀번호에 생년월일을 포함할 수 없습니다");
         }
@@ -103,10 +108,11 @@ public class UserTest {
             Name name = new Name("홍길동");
             Email email = new Email("test@example.com");
             BirthDate birthDate = BirthDate.of("19990115");
+            Phone phone = new Phone("010-1234-5678");
 
             // when & then
             assertThatNoException()
-                    .isThrownBy(() -> new User(userId, password, name, email, birthDate));
+                    .isThrownBy(() -> new User(userId, password, name, email, phone));
         }
 
         @Test
@@ -118,10 +124,11 @@ public class UserTest {
             Name name = new Name("홍길동");
             Email email = new Email("test@example.com");
             BirthDate birthDate = BirthDate.of("19990115");
+            Phone phone = new Phone("010-1234-5678");
 
             // when & then
             assertThatNoException()
-                    .isThrownBy(() -> new User(userId, password, name, email, birthDate));
+                    .isThrownBy(() -> new User(userId, password, name, email, phone));
         }
     }
 
@@ -138,8 +145,9 @@ public class UserTest {
             Name name = new Name("홍길동");
             Email email = new Email("test@example.com");
             BirthDate birthDate = new BirthDate(LocalDate.of(1999, 1, 15));
+            Phone phone = new Phone("010-1234-5678");
 
-            User user = new User(userId, password, name, email, birthDate);
+            User user = new User(userId, password, name, email, phone);
 
             // when
             String maskedName = user.getMaskedName();
@@ -157,8 +165,9 @@ public class UserTest {
             Name name = new Name("John");
             Email email = new Email("test@example.com");
             BirthDate birthDate = new BirthDate(LocalDate.of(1999, 1, 15));
+            Phone phone = new Phone("010-1234-5678");
 
-            User user = new User(userId, password, name, email, birthDate);
+            User user = new User(userId, password, name, email, phone);
 
             // when
             String maskedName = user.getMaskedName();
@@ -176,8 +185,9 @@ public class UserTest {
             Name name = new Name("김");
             Email email = new Email("test@example.com");
             BirthDate birthDate = new BirthDate(LocalDate.of(1999, 1, 15));
+            Phone phone = new Phone("010-1234-5678");
 
-            User user = new User(userId, password, name, email, birthDate);
+            User user = new User(userId, password, name, email, phone);
 
             // when
             String maskedName = user.getMaskedName();
@@ -195,8 +205,9 @@ public class UserTest {
             Name name = new Name("홍길");
             Email email = new Email("test@example.com");
             BirthDate birthDate = new BirthDate(LocalDate.of(1999, 1, 15));
+            Phone phone = new Phone("010-1234-5678");
 
-            User user = new User(userId, password, name, email, birthDate);
+            User user = new User(userId, password, name, email, phone);
 
             // when
             String maskedName = user.getMaskedName();
