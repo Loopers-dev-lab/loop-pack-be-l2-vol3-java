@@ -21,7 +21,7 @@
 |----|--------|----------|
 | Money | Product.price, OrderItem.price | 2곳 재사용 + 음수 불가 검증 |
 | Stock | Product.stock | 자체 행위 3개 (decrease, increase, hasEnough) → Product 책임 분산 |
-| Quantity | CartItem.quantity, OrderItem.quantity | 2곳 재사용 + >= 1 검증 (BR-C03, BR-O02) |
+| Quantity | OrderItem.quantity | 자체 검증 규칙 (>= 1, BR-O02) |
 
 ### 연관 관계 원칙
 
@@ -61,20 +61,18 @@ classDiagram
 
     Brand "1" <.. "*" Product : brandId
     Product "1" <.. "*" Like : productId
-    Product "1" <.. "*" CartItem : productId
     Product "1" <.. "*" OrderItem : productId
     Order "1" *-- "1..*" OrderItem : orderItems
 
     Product *-- Money : price
     Product *-- Stock : stock
-    CartItem *-- Quantity : quantity
     OrderItem *-- Quantity : quantity
     OrderItem *-- Money : price
 ```
 
 ### 봐야 할 포인트
 
-1. **Like, CartItem은 BaseEntity 미상속**: 둘 다 hard delete 정책이므로 `deletedAt`이 불필요하다. BaseEntity를 상속하면 사용하지 않는 `deletedAt` 컬럼과 `delete()`/`restore()` 메서드가 노출되어 상속 계약을 위반한다. 나머지 4개 엔티티(Brand, Product, Order, OrderItem)는 soft delete를 사용한다.
+1. **Like는 BaseEntity 미상속**: hard delete 정책이므로 `deletedAt`이 불필요하다. BaseEntity를 상속하면 사용하지 않는 `deletedAt` 컬럼과 `delete()`/`restore()` 메서드가 노출되어 상속 계약을 위반한다. 나머지 4개 엔티티(Brand, Product, Order, OrderItem)는 soft delete를 사용한다.
 2. **ID 참조**: 점선 화살표(`<..`)는 Long 타입 ID로 참조하는 느슨한 연관이다. JPA `@ManyToOne`이 아닌 `Long brandId` 필드로 표현된다.
 3. **유일한 composition**: Order → OrderItem만 실선 다이아몬드(`*--`)로 표현한다. OrderItem은 Order 없이 존재할 수 없다.
 
@@ -224,49 +222,6 @@ classDiagram
 
 ---
 
-## 장바구니 (CartItem + Quantity VO)
-
-### 검증 목적
-
-CartItem이 Quantity VO를 통해 수량 검증(BR-C03)을 위임하는 구조와, 수량 누적(BR-C02)이 도메인 모델의 행위 메서드로 표현되는지 확인한다. Like와 마찬가지로 hard delete 정책이므로 BaseEntity를 상속하지 않는다.
-
-### 다이어그램
-
-```mermaid
-classDiagram
-    class CartItem {
-        -Long id
-        -Long userId
-        -Long productId
-        -Quantity quantity
-        -ZonedDateTime createdAt
-        +CartItem(Long userId, Long productId, Quantity quantity)
-        +addQuantity(Quantity quantity) void
-        +changeQuantity(Quantity quantity) void
-    }
-
-    class Quantity {
-        <<VO>>
-        -int value
-        +Quantity(int value)
-        +add(Quantity other) Quantity
-    }
-
-    CartItem *-- Quantity : quantity
-
-    note for CartItem "BaseEntity 미상속\nhard delete 정책\ndeletedAt 불필요"
-```
-
-### 봐야 할 포인트
-
-1. **BaseEntity 미상속 이유**: CartItem은 hard delete 정책이다. 회원이 장바구니에서 상품을 제거하면 물리 삭제하며, 관리자가 상품/브랜드를 삭제할 때도 해당 장바구니 항목을 물리 삭제한다. 이력 보존이 불필요하므로 `deletedAt`이 필요 없고, BaseEntity의 `delete()`/`restore()` 메서드가 노출되면 안 된다.
-2. **addQuantity()**: BR-C02(수량 누적)를 구현한다. 이미 장바구니에 있는 상품을 다시 담으면, CartService가 기존 CartItem의 `addQuantity()`를 호출하여 수량을 누적한다. 내부적으로 Quantity VO의 `add()`에 위임한다.
-3. **changeQuantity()**: US-C03(수량 변경)을 구현한다. 새 Quantity를 받아 교체한다. Quantity 생성자에서 `value >= 1` 검증이 수행되므로, 0 이하 수량은 VO 레벨에서 거부된다.
-4. **Quantity.add()**: 불변 VO이므로 두 Quantity의 합산 결과를 새 인스턴스로 반환한다. `value >= 1` 검증은 생성자에서 수행되므로 `add()` 결과도 자동으로 유효하다.
-5. **Cart 엔티티 없음**: BR-C01("회원은 하나의 장바구니를 가진다")이지만, 장바구니 자체를 엔티티로 두지 않고 `CartItem.userId`로 회원의 장바구니를 식별한다. CartItem의 집합이 곧 해당 회원의 장바구니이다.
-
----
-
 ## 주문 (Order + OrderItem)
 
 ### 검증 목적
@@ -347,7 +302,6 @@ classDiagram
 | Product | price | Money VO | 음수 검증 위임 |
 | Product | stock | Stock VO | 행위 3개(decrease, increase, hasEnough) 위임 |
 | Product | likeCount | int (단순) | 증감만, VO 불필요 |
-| CartItem | quantity | Quantity VO | >= 1 검증 + 수량 합산 위임 |
 | OrderItem | quantity | Quantity VO | >= 1 검증 위임 |
 | OrderItem | productName, brandName | String (단순) | 스냅샷 필드, OrderItem 자체가 스냅샷이므로 VO 불필요 |
 | OrderItem | price | Money VO | Product.price와 동일 VO 재사용 |
@@ -357,7 +311,7 @@ classDiagram
 | 리스크 | 설명 | 대응 |
 |--------|------|------|
 | **Stock 불변성과 JPA 매핑** | Stock VO가 불변이므로 `decrease()`가 새 인스턴스를 반환한다. JPA `@Embedded`로 매핑할 때 setter가 필요한지 확인이 필요하다 | `@Embedded` + `@Column`으로 매핑하되, JPA 접근용 protected 기본 생성자만 허용한다. 상태 변경은 `Product.decreaseStock()`이 새 Stock을 할당하는 방식으로 처리한다 |
-| **Quantity 재사용 범위** | CartItem과 OrderItem에서 동일한 Quantity VO를 사용한다. 두 도메인의 수량 규칙이 달라질 가능성이 있다 | 현재는 동일한 규칙(>= 1)이므로 공유한다. 규칙이 분기되는 시점에 각 도메인 전용 VO로 분리한다 |
+| **Quantity 확장 가능성** | 수량 규칙이 추후 도메인별로 달라질 수 있다 | 현재는 OrderItem에서만 사용한다. 규칙이 복잡해지는 시점에 전용 VO로 분리한다 |
 | **Money 확장 가능성** | 현재 `int amount`로 원화만 지원한다. 통화 단위가 추가되면 VO 구조가 변경된다 | 현재 범위에서는 원화 단일 통화로 충분하다. 다중 통화 요구가 확정되면 `currency` 필드를 추가한다 |
 
 ### 도메인 간 정합성 리스크
@@ -365,6 +319,5 @@ classDiagram
 | 리스크 | 관련 도메인 | 설명 |
 |--------|------------|------|
 | **좋아요 수 불일치** | Product ↔ Like | `Product.likeCount`와 실제 Like 레코드 수가 어긋날 수 있다. 트랜잭션 내 원자적 처리 + 배치 보정 전략이 필요하다 |
-| ~~장바구니 상품 삭제~~ | ~~CartItem ↔ Product~~ | **해결됨**: 상품/브랜드 삭제 시 해당 장바구니 항목을 함께 물리 삭제한다. Like와 동일한 패턴 |
 | **스냅샷 시점 정합성** | OrderItem ↔ Product | Facade에서 상품 정보를 조회한 시점과 Order를 저장하는 시점 사이에 상품 정보가 변경될 수 있다. 트랜잭션 격리 수준으로 방어한다 |
 | **재고 동시성** | Product.stock ↔ Order | 동시 주문 시 재고가 음수가 될 수 있다. 비관적 잠금(SELECT FOR UPDATE) 또는 Stock VO의 `decrease()`에서 음수 검증으로 방어한다 |

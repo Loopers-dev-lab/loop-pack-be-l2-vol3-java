@@ -4,7 +4,7 @@
 
 ### 인증/인가
 
-- 회원 전용 기능(좋아요, 장바구니, 주문)과 관리자 전용 기능(브랜드/상품 관리)은 AuthInterceptor에서 인증을 선처리한다.
+- 회원 전용 기능(좋아요, 주문)과 관리자 전용 기능(브랜드/상품 관리)은 AuthInterceptor에서 인증을 선처리한다.
 - 인증 실패 시 Controller에 도달하기 전에 요청이 거부된다.
 - 아래 다이어그램은 **인증이 통과된 이후의 흐름**만 표현한다.
 
@@ -239,7 +239,7 @@ sequenceDiagram
 
 #### 검증 목적
 
-BR-B01(연쇄 삭제)의 책임이 어느 계층에 있는지 확인한다. 브랜드 삭제 → 상품 삭제 → 좋아요 삭제의 3단계 연쇄가 발생하며, Facade가 BrandService, ProductService, LikeService를 조율한다.
+BR-B01(연쇄 삭제)의 책임이 어느 계층에 있는지 확인한다. 브랜드 삭제 → 좋아요 삭제 → 상품 삭제의 3단계 연쇄가 발생하며, Facade가 BrandService, ProductService, LikeService를 조율한다.
 
 #### 시퀀스 다이어그램
 
@@ -253,8 +253,6 @@ sequenceDiagram
     participant BrandRepository
     participant LikeService
     participant LikeRepository
-    participant CartService
-    participant CartRepository
     participant ProductService
     participant ProductRepository
 
@@ -277,10 +275,6 @@ sequenceDiagram
     LikeService->>LikeRepository: 좋아요 전체 삭제 (hard delete)
     LikeRepository-->>LikeService: 삭제 완료
     LikeService-->>Facade: 삭제 완료
-    Facade->>CartService: 해당 브랜드 상품 장바구니 항목 전체 삭제
-    CartService->>CartRepository: 장바구니 항목 전체 삭제 (hard delete)
-    CartRepository-->>CartService: 삭제 완료
-    CartService-->>Facade: 삭제 완료
     Facade->>ProductService: 해당 브랜드 상품 전체 삭제
     ProductService->>ProductRepository: 상품 전체 삭제 (soft delete)
     ProductRepository-->>ProductService: 삭제 완료
@@ -295,13 +289,13 @@ sequenceDiagram
 
 #### 봐야 할 포인트
 
-1. **Facade의 4-서비스 조율**: BrandService, LikeService, CartService, ProductService는 서로를 모른다. 도메인 간 삭제 순서를 Facade가 결정한다.
-2. **삭제 순서와 정책**: 좋아요(hard delete) → 장바구니 항목(hard delete) → 상품(soft delete) → 브랜드(soft delete). 종속 데이터를 먼저 정리해야 상위 엔티티 삭제 후 고아 데이터가 남지 않는다.
+1. **Facade의 3-서비스 조율**: BrandService, LikeService, ProductService는 서로를 모른다. 도메인 간 삭제 순서를 Facade가 결정한다.
+2. **삭제 순서와 정책**: 좋아요(hard delete) → 상품(soft delete) → 브랜드(soft delete). 종속 데이터를 먼저 정리해야 상위 엔티티 삭제 후 고아 데이터가 남지 않는다.
 
 #### 잠재 리스크
 
-- **트랜잭션 범위**: 좋아요 삭제, 장바구니 항목 삭제, 상품 삭제, 브랜드 삭제가 하나의 트랜잭션으로 묶여야 한다. 4개 서비스를 포함하므로 트랜잭션이 넓다.
-- **Soft Delete 연쇄 정책**: 브랜드 복원 시 상품도 함께 복원해야 하는지, 복원된 상품의 좋아요와 장바구니 항목은 이미 hard delete되어 복원 불가능한 점을 어떻게 다룰지 정책 결정이 필요하다.
+- **트랜잭션 범위**: 좋아요 삭제, 상품 삭제, 브랜드 삭제가 하나의 트랜잭션으로 묶여야 한다. 3개 서비스를 포함하므로 트랜잭션이 넓다.
+- **Soft Delete 연쇄 정책**: 브랜드 복원 시 상품도 함께 복원해야 하는지, 복원된 상품의 좋아요는 이미 hard delete되어 복원 불가능한 점을 어떻게 다룰지 정책 결정이 필요하다.
 
 ---
 
@@ -591,8 +585,6 @@ sequenceDiagram
     participant ProductRepository
     participant LikeService
     participant LikeRepository
-    participant CartService
-    participant CartRepository
 
     관리자->>Controller: 상품 삭제 요청
     Controller->>Facade: 상품 삭제 위임
@@ -613,10 +605,6 @@ sequenceDiagram
     LikeService->>LikeRepository: 좋아요 전체 삭제 (hard delete)
     LikeRepository-->>LikeService: 삭제 완료
     LikeService-->>Facade: 삭제 완료
-    Facade->>CartService: 해당 상품 장바구니 항목 전체 삭제
-    CartService->>CartRepository: 장바구니 항목 전체 삭제 (hard delete)
-    CartRepository-->>CartService: 삭제 완료
-    CartService-->>Facade: 삭제 완료
     Facade->>ProductService: 상품 삭제
     ProductService->>ProductRepository: 상품 삭제 (soft delete)
     ProductRepository-->>ProductService: 삭제 완료
@@ -627,8 +615,8 @@ sequenceDiagram
 
 #### 봐야 할 포인트
 
-1. **삭제 정책의 혼합**: 좋아요(hard delete) → 장바구니 항목(hard delete) → 상품(soft delete) 순서로 처리한다. 종속 데이터를 먼저 정리해야 soft delete된 상품에 고아 데이터가 남는 불일치를 방지한다.
-2. **US-B06과 동일한 패턴**: 브랜드 삭제 시 상품을 정리하듯, 상품 삭제 시 좋아요와 장바구니 항목을 정리한다. Facade가 도메인 간 삭제 순서를 결정한다.
+1. **삭제 정책의 혼합**: 좋아요(hard delete) → 상품(soft delete) 순서로 처리한다. 종속 데이터를 먼저 정리해야 soft delete된 상품에 고아 데이터가 남는 불일치를 방지한다.
+2. **US-B06과 동일한 패턴**: 브랜드 삭제 시 상품을 정리하듯, 상품 삭제 시 좋아요를 정리한다. Facade가 도메인 간 삭제 순서를 결정한다.
 
 #### 상품 도메인 잠재 리스크
 
@@ -794,194 +782,7 @@ sequenceDiagram
 
 ---
 
-## 2.4 장바구니 (Cart)
-
-### US-C01: 장바구니에 상품 담기
-
-#### 검증 목적
-
-BR-C02에 따라 이미 장바구니에 있는 상품을 다시 담으면 수량이 누적된다. "신규 추가"와 "수량 누적"의 분기 처리 책임이 어느 계층에 있는지 확인한다.
-
-#### 시퀀스 다이어그램
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor 회원
-    participant Controller as CartV1Controller
-    participant Facade as CartFacade
-    participant ProductService
-    participant ProductRepository
-    participant CartService
-    participant CartRepository
-
-    회원->>Controller: 장바구니 담기 요청 (상품, 수량)
-    Controller->>Facade: 장바구니 담기 위임
-    Facade->>ProductService: 상품 존재 확인
-    ProductService->>ProductRepository: 상품 존재 여부 확인
-
-    alt 상품이 존재하지 않는 경우
-        ProductRepository-->>ProductService: 없음
-        ProductService->>ProductService: 비즈니스 예외 발생
-        ProductService-->>Facade: 예외 전파
-        Facade-->>Controller: 예외 전파
-        Controller-->>회원: 상품이 존재하지 않음 안내
-    end
-
-    ProductRepository-->>ProductService: 상품 정보
-    ProductService-->>Facade: 상품 정보
-    Facade->>CartService: 장바구니에 상품 담기
-    CartService->>CartRepository: 장바구니 항목 조회
-
-    alt 이미 장바구니에 있는 상품인 경우
-        CartRepository-->>CartService: 기존 장바구니 항목
-        CartService->>CartRepository: 수량 누적 후 저장
-        CartRepository-->>CartService: 저장 완료
-    else 새로운 상품인 경우
-        CartRepository-->>CartService: 없음
-        CartService->>CartRepository: 새 장바구니 항목 저장
-        CartRepository-->>CartService: 저장 완료
-    end
-
-    CartService-->>Facade: 담기 완료
-    Facade-->>Controller: 담기 완료
-    Controller-->>회원: 장바구니 담기 완료 응답
-```
-
-#### 봐야 할 포인트
-
-1. **수량 누적 판단의 책임**: CartService가 CartRepository를 통해 기존 항목 존재 여부를 확인하고, 존재하면 수량을 누적, 없으면 새 항목을 생성한다. Facade는 "담기"를 요청할 뿐, 신규/누적 분기를 알 필요가 없다.
-2. **상품 검증은 Facade 책임**: 도메인 간 검증(상품 존재)은 US-P05, US-L01과 동일하게 Facade가 조율한다.
-
----
-
-### US-C02: 장바구니 조회
-
-#### 검증 목적
-
-회원이 자신의 장바구니만 조회하는 흐름(BR-C04)을 확인한다.
-
-#### 시퀀스 다이어그램
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor 회원
-    participant Controller as CartV1Controller
-    participant Facade as CartFacade
-    participant Service as CartService
-    participant Repository as CartRepository
-
-    회원->>Controller: 장바구니 조회 요청
-    Controller->>Facade: 장바구니 조회 위임
-    Facade->>Service: 장바구니 조회
-    Service->>Repository: 회원의 장바구니 항목 조회
-    Repository-->>Service: 장바구니 항목 목록
-    Service-->>Facade: 장바구니 항목 목록
-    Facade-->>Controller: 장바구니 항목 목록
-    Controller-->>회원: 장바구니 조회 응답
-```
-
-#### 봐야 할 포인트
-
-1. **BR-C04 소유권 제한**: 인증된 회원 ID 기준으로 자신의 장바구니만 조회한다.
-2. **빈 장바구니도 정상 응답**: 장바구니에 항목이 없어도 빈 목록으로 정상 응답한다.
-
----
-
-### US-C03: 장바구니 상품 수량 변경
-
-#### 검증 목적
-
-수량 변경 시 BR-C03(수량 1 이상)과 장바구니 항목 존재 여부를 어느 계층에서 검증하는지 확인한다.
-
-#### 시퀀스 다이어그램
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor 회원
-    participant Controller as CartV1Controller
-    participant Facade as CartFacade
-    participant Service as CartService
-    participant Repository as CartRepository
-
-    회원->>Controller: 수량 변경 요청 (상품, 새 수량)
-    Controller->>Facade: 수량 변경 위임
-    Facade->>Service: 수량 변경
-    Service->>Repository: 장바구니 항목 조회
-
-    alt 장바구니에 해당 상품이 없는 경우
-        Repository-->>Service: 없음
-        Service->>Service: 비즈니스 예외 발생
-        Service-->>Facade: 예외 전파
-        Facade-->>Controller: 예외 전파
-        Controller-->>회원: 장바구니에 해당 상품 없음 안내
-    end
-
-    Repository-->>Service: 장바구니 항목
-    Service->>Repository: 수량 변경
-    Repository-->>Service: 변경 완료
-    Service-->>Facade: 변경 완료
-    Facade-->>Controller: 변경 완료
-    Controller-->>회원: 수량 변경 완료 응답
-```
-
-#### 봐야 할 포인트
-
-1. **BR-C03 수량 검증 위치**: 수량이 1 이상인지 검증은 Service 또는 도메인 모델에서 처리한다. Controller의 요청 검증(@Valid)에서 먼저 걸러낼 수도 있다.
-
----
-
-### US-C04: 장바구니 상품 제거
-
-#### 검증 목적
-
-장바구니 항목 제거의 흐름을 확인한다. 존재하지 않는 항목 제거 시도에 대한 예외 처리를 검증한다.
-
-#### 시퀀스 다이어그램
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor 회원
-    participant Controller as CartV1Controller
-    participant Facade as CartFacade
-    participant Service as CartService
-    participant Repository as CartRepository
-
-    회원->>Controller: 장바구니 상품 제거 요청
-    Controller->>Facade: 상품 제거 위임
-    Facade->>Service: 장바구니 항목 제거
-    Service->>Repository: 장바구니 항목 조회
-
-    alt 장바구니에 해당 상품이 없는 경우
-        Repository-->>Service: 없음
-        Service->>Service: 비즈니스 예외 발생
-        Service-->>Facade: 예외 전파
-        Facade-->>Controller: 예외 전파
-        Controller-->>회원: 장바구니에 해당 상품 없음 안내
-    end
-
-    Repository-->>Service: 장바구니 항목
-    Service->>Repository: 항목 삭제
-    Repository-->>Service: 삭제 완료
-    Service-->>Facade: 제거 완료
-    Facade-->>Controller: 제거 완료
-    Controller-->>회원: 상품 제거 완료 응답
-```
-
-#### 봐야 할 포인트
-
-1. **US-C03과 동일한 전제**: 장바구니 항목의 존재 여부를 먼저 확인한다. early-return으로 예외를 빼고 정상 흐름은 블록 바깥에 둔다.
-
-#### 장바구니 도메인 잠재 리스크
-
-- **수량 누적의 상한**: BR-C02에서 수량 누적에 상한이 없다. 재고보다 많은 수량을 장바구니에 담는 것을 허용할지, 담기 시점에 재고를 검증할지 결정이 필요하다.
-
----
-
-## 2.5 주문 (Order)
+## 2.4 주문 (Order)
 
 ### US-O01: 주문 생성
 
