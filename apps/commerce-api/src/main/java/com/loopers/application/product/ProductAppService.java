@@ -12,7 +12,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -46,6 +49,36 @@ public class ProductAppService {
     @Transactional(readOnly = true)
     public List<Option> getOptionsByProductId(Long productId) {
         return optionRepository.findByProductId(productId);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, List<Option>> getOptionsByProductIds(List<Long> productIds) {
+        List<Option> options = optionRepository.findByProductIdIn(productIds);
+        Map<Long, List<Option>> optionMap = new HashMap<>();
+        for (Option option : options) {
+            optionMap.computeIfAbsent(option.getProductId(), k -> new ArrayList<>()).add(option);
+        }
+        return optionMap;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, Option> getOptionsByIds(List<Long> optionIds) {
+        List<Option> options = optionRepository.findByIdIn(optionIds);
+        Map<Long, Option> optionMap = new HashMap<>();
+        for (Option option : options) {
+            optionMap.put(option.getId(), option);
+        }
+        return optionMap;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, Product> getByIds(List<Long> productIds) {
+        List<Product> products = productRepository.findByIdIn(productIds);
+        Map<Long, Product> productMap = new HashMap<>();
+        for (Product product : products) {
+            productMap.put(product.getId(), product);
+        }
+        return productMap;
     }
 
     @Transactional
