@@ -1,56 +1,31 @@
 package com.loopers.domain.payment;
 
-import com.loopers.domain.BaseEntity;
 import com.loopers.domain.common.vo.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.PaymentErrorType;
-import jakarta.persistence.AttributeOverride;
-import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Table;
 import java.time.ZonedDateTime;
 
-@Entity
-@Table(name = "payments")
-public class Payment extends BaseEntity {
+/**
+ * Payment Aggregate Root (순수 POJO)
+ * JPA 어노테이션 없음
+ */
+public class Payment {
 
-    @Column(name = "order_id", nullable = false)
+    private Long id;
     private Long orderId;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
     private PaymentStatus status;
-
-    @Column(name = "payment_method", nullable = false)
     private String paymentMethod;
-
-    @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "requested_amount", nullable = false))
     private Money requestedAmount;
-
-    @Column(name = "approved_amount")
     private Integer approvedAmount;
-
-    @Column(name = "pg_txn_id")
     private String pgTxnId;
-
-    @Column(name = "idempotency_key", unique = true)
     private String idempotencyKey;
-
-    @Column(name = "requested_at", nullable = false)
     private ZonedDateTime requestedAt;
-
-    @Column(name = "approved_at")
     private ZonedDateTime approvedAt;
-
-    @Column(name = "failed_at")
     private ZonedDateTime failedAt;
-
-    @Column(name = "canceled_at")
     private ZonedDateTime canceledAt;
+    private ZonedDateTime createdAt;
+    private ZonedDateTime updatedAt;
+    private ZonedDateTime deletedAt;
 
     protected Payment() {}
 
@@ -65,6 +40,33 @@ public class Payment extends BaseEntity {
 
     public static Payment create(Long orderId, int requestedAmount, String paymentMethod, String idempotencyKey) {
         return new Payment(orderId, requestedAmount, paymentMethod, idempotencyKey);
+    }
+
+    /**
+     * 영속화된 데이터로부터 도메인 객체 재구성
+     */
+    public static Payment reconstitute(Long id, Long orderId, PaymentStatus status, String paymentMethod,
+                                        Money requestedAmount, Integer approvedAmount, String pgTxnId,
+                                        String idempotencyKey, ZonedDateTime requestedAt, ZonedDateTime approvedAt,
+                                        ZonedDateTime failedAt, ZonedDateTime canceledAt,
+                                        ZonedDateTime createdAt, ZonedDateTime updatedAt, ZonedDateTime deletedAt) {
+        Payment payment = new Payment();
+        payment.id = id;
+        payment.orderId = orderId;
+        payment.status = status;
+        payment.paymentMethod = paymentMethod;
+        payment.requestedAmount = requestedAmount;
+        payment.approvedAmount = approvedAmount;
+        payment.pgTxnId = pgTxnId;
+        payment.idempotencyKey = idempotencyKey;
+        payment.requestedAt = requestedAt;
+        payment.approvedAt = approvedAt;
+        payment.failedAt = failedAt;
+        payment.canceledAt = canceledAt;
+        payment.createdAt = createdAt;
+        payment.updatedAt = updatedAt;
+        payment.deletedAt = deletedAt;
+        return payment;
     }
 
     public void approve(String pgTxnId, int approvedAmount) {
@@ -129,5 +131,21 @@ public class Payment extends BaseEntity {
 
     public ZonedDateTime getCanceledAt() {
         return this.canceledAt;
+    }
+
+    public ZonedDateTime getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public ZonedDateTime getUpdatedAt() {
+        return this.updatedAt;
+    }
+
+    public ZonedDateTime getDeletedAt() {
+        return this.deletedAt;
+    }
+
+    public Long getId() {
+        return this.id;
     }
 }

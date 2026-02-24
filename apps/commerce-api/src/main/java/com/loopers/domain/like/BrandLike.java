@@ -1,32 +1,16 @@
 package com.loopers.domain.like;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import java.time.ZonedDateTime;
 
-@Entity
-@Table(name = "brand_likes", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_brand_likes", columnNames = {"user_id", "brand_id"})
-})
+/**
+ * BrandLike Aggregate Root (순수 POJO)
+ * JPA 어노테이션 없음
+ */
 public class BrandLike {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "user_id", nullable = false)
     private Long userId;
-
-    @Column(name = "brand_id", nullable = false)
     private Long brandId;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
     private ZonedDateTime createdAt;
 
     protected BrandLike() {}
@@ -34,15 +18,26 @@ public class BrandLike {
     private BrandLike(Long userId, Long brandId) {
         this.userId = userId;
         this.brandId = brandId;
+        this.createdAt = ZonedDateTime.now();
     }
 
+    /**
+     * 새로운 브랜드 좋아요 생성 (비즈니스 로직)
+     */
     public static BrandLike create(Long userId, Long brandId) {
         return new BrandLike(userId, brandId);
     }
 
-    @PrePersist
-    private void prePersist() {
-        this.createdAt = ZonedDateTime.now();
+    /**
+     * 영속화된 데이터로부터 도메인 객체 재구성
+     */
+    public static BrandLike reconstitute(Long id, Long userId, Long brandId, ZonedDateTime createdAt) {
+        BrandLike brandLike = new BrandLike();
+        brandLike.id = id;
+        brandLike.userId = userId;
+        brandLike.brandId = brandId;
+        brandLike.createdAt = createdAt;
+        return brandLike;
     }
 
     public Long getId() {

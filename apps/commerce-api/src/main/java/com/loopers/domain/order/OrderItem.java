@@ -2,38 +2,18 @@ package com.loopers.domain.order;
 
 import com.loopers.domain.common.vo.Money;
 import com.loopers.domain.common.vo.Quantity;
-import jakarta.persistence.AttributeOverride;
-import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 
-@Entity
-@Table(name = "order_items")
+/**
+ * OrderItem Domain POJO (순수 도메인 객체)
+ * JPA 의존성 없음
+ */
 public class OrderItem {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "product_id", nullable = false)
     private Long productId;
-
-    @Column(name = "product_name", nullable = false)
     private String productName;
-
-    @Column(name = "brand_name", nullable = false)
     private String brandName;
-
-    @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "unit_price", nullable = false))
     private Money unitPrice;
-
-    @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "quantity", nullable = false))
     private Quantity quantity;
 
     protected OrderItem() {}
@@ -48,6 +28,22 @@ public class OrderItem {
 
     public static OrderItem create(Long productId, String productName, String brandName, int unitPrice, int quantity) {
         return new OrderItem(productId, productName, brandName, unitPrice, quantity);
+    }
+
+    /**
+     * DB에서 읽어온 데이터로 도메인 객체 재구성
+     * Infrastructure 계층에서만 호출
+     */
+    public static OrderItem reconstitute(Long id, Long productId, String productName,
+                                          String brandName, int unitPrice, int quantity) {
+        OrderItem item = new OrderItem();
+        item.id = id;
+        item.productId = productId;
+        item.productName = productName;
+        item.brandName = brandName;
+        item.unitPrice = new Money(unitPrice);
+        item.quantity = new Quantity(quantity);
+        return item;
     }
 
     public int getLineTotal() {

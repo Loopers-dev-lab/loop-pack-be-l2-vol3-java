@@ -1,34 +1,24 @@
 package com.loopers.domain.brand;
 
-import com.loopers.domain.BaseEntity;
 import com.loopers.support.error.BrandErrorType;
 import com.loopers.support.error.CoreException;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Table;
+import java.time.ZonedDateTime;
 
 /**
- * 브랜드 엔티티 (Aggregate Root)
+ * 브랜드 엔티티 (Aggregate Root) - 순수 POJO
  *
  * 브랜드의 생성, 수정, 상태 변경, 삭제를 담당한다.
  * 초기 상태는 ACTIVE이며, 소프트 삭제를 지원한다.
  */
-@Entity
-@Table(name = "brands")
-public class Brand extends BaseEntity {
+public class Brand {
 
-    @Column(name = "name", nullable = false, length = 150)
+    private Long id;
     private String name;
-
-    @Column(name = "description")
     private String description;
-
-    /** 브랜드 활성 상태 (ACTIVE, INACTIVE) */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
     private BrandStatus status;
+    private ZonedDateTime createdAt;
+    private ZonedDateTime updatedAt;
+    private ZonedDateTime deletedAt;
 
     protected Brand() {}
 
@@ -38,16 +28,43 @@ public class Brand extends BaseEntity {
         this.status = BrandStatus.ACTIVE; // 생성 시 기본 ACTIVE
     }
 
+    /**
+     * 영속화된 데이터로부터 도메인 객체 재구성
+     */
+    public static Brand reconstitute(
+        Long id,
+        String name,
+        String description,
+        BrandStatus status,
+        ZonedDateTime createdAt,
+        ZonedDateTime updatedAt,
+        ZonedDateTime deletedAt
+    ) {
+        Brand brand = new Brand();
+        brand.id = id;
+        brand.name = name;
+        brand.description = description;
+        brand.status = status;
+        brand.createdAt = createdAt;
+        brand.updatedAt = updatedAt;
+        brand.deletedAt = deletedAt;
+        return brand;
+    }
+
     /** 브랜드 생성 팩토리 메서드 */
     public static Brand create(String name, String description) {
-        return new Brand(name, description);
+        Brand brand = new Brand(name, description);
+        brand.guard();
+        ZonedDateTime now = ZonedDateTime.now();
+        brand.createdAt = now;
+        brand.updatedAt = now;
+        return brand;
     }
 
     /**
-     * 엔티티 유효성 검증 (PrePersist, PreUpdate 시점에 호출)
+     * 엔티티 유효성 검증
      * ERD 제약: name VARCHAR(150) NOT NULL
      */
-    @Override
     protected void guard() {
         if (this.name == null || this.name.isBlank()) {
             throw new CoreException(BrandErrorType.INVALID_BRAND_NAME);
@@ -58,21 +75,33 @@ public class Brand extends BaseEntity {
     public void update(String name, String description) {
         this.name = name;
         this.description = description;
+        this.updatedAt = ZonedDateTime.now();
     }
 
     /** 브랜드 상태 변경 (ACTIVE ↔ INACTIVE) */
     public void changeStatus(BrandStatus status) {
         this.status = status;
+        this.updatedAt = ZonedDateTime.now();
     }
 
     /**
      * 브랜드 소프트 삭제
-     * BaseEntity의 멱등 delete()를 override하여, 이미 삭제된 브랜드는 예외를 던진다.
+     * 이미 삭제된 브랜드는 예외를 던진다.
      */
-    @Override
     public void delete() {
         assertNotDeleted(); // 이미 삭제된 경우 409 Conflict
-        super.delete();
+        if (this.deletedAt == null) {
+            this.deletedAt = ZonedDateTime.now();
+        }
+    }
+
+    /**
+     * 브랜드 복원
+     */
+    public void restore() {
+        if (this.deletedAt != null) {
+            this.deletedAt = null;
+        }
     }
 
     /** 브랜드가 활성 상태인지 확인 */
@@ -82,9 +111,13 @@ public class Brand extends BaseEntity {
 
     /** 삭제된 브랜드에 대한 작업을 방지하는 단언 메서드 */
     public void assertNotDeleted() {
-        if (getDeletedAt() != null) {
+        if (this.deletedAt != null) {
             throw new CoreException(BrandErrorType.ALREADY_DELETED);
         }
+    }
+
+    public Long getId() {
+        return this.id;
     }
 
     public String getName() {
@@ -97,5 +130,17 @@ public class Brand extends BaseEntity {
 
     public BrandStatus getStatus() {
         return this.status;
+    }
+
+    public ZonedDateTime getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public ZonedDateTime getUpdatedAt() {
+        return this.updatedAt;
+    }
+
+    public ZonedDateTime getDeletedAt() {
+        return this.deletedAt;
     }
 }

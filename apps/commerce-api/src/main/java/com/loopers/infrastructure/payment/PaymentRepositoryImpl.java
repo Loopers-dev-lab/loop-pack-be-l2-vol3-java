@@ -10,18 +10,23 @@ import java.util.Optional;
 public class PaymentRepositoryImpl implements PaymentRepository {
 
     private final PaymentJpaRepository paymentJpaRepository;
+    private final PaymentMapper paymentMapper;
 
-    public PaymentRepositoryImpl(PaymentJpaRepository paymentJpaRepository) {
+    public PaymentRepositoryImpl(PaymentJpaRepository paymentJpaRepository, PaymentMapper paymentMapper) {
         this.paymentJpaRepository = paymentJpaRepository;
+        this.paymentMapper = paymentMapper;
     }
 
     @Override
     public Payment save(Payment payment) {
-        return paymentJpaRepository.save(payment);
+        PaymentEntity entity = paymentMapper.toEntity(payment);
+        PaymentEntity saved = paymentJpaRepository.save(entity);
+        return paymentMapper.toDomain(saved);
     }
 
     @Override
     public Optional<Payment> findById(Long id) {
-        return paymentJpaRepository.findById(id);
+        return paymentJpaRepository.findById(id)
+                .map(paymentMapper::toDomain);
     }
 }

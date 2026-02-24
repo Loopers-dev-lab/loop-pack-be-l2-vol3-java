@@ -1,13 +1,12 @@
 package com.loopers.domain.common.vo;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
 import java.util.Objects;
 
-@Embeddable
+/**
+ * Money Value Object (순수 POJO)
+ */
 public class Money {
 
-    @Column
     private int value;
 
     protected Money() {}

@@ -8,31 +8,41 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Repository
 public class CouponTemplateRepositoryImpl implements CouponTemplateRepository {
 
     private final CouponTemplateJpaRepository couponTemplateJpaRepository;
+    private final CouponTemplateMapper couponTemplateMapper;
 
-    public CouponTemplateRepositoryImpl(CouponTemplateJpaRepository couponTemplateJpaRepository) {
+    public CouponTemplateRepositoryImpl(CouponTemplateJpaRepository couponTemplateJpaRepository,
+                                         CouponTemplateMapper couponTemplateMapper) {
         this.couponTemplateJpaRepository = couponTemplateJpaRepository;
+        this.couponTemplateMapper = couponTemplateMapper;
     }
 
     @Override
     public CouponTemplate save(CouponTemplate couponTemplate) {
-        return couponTemplateJpaRepository.save(couponTemplate);
+        CouponTemplateEntity entity = couponTemplateMapper.toEntity(couponTemplate);
+        CouponTemplateEntity saved = couponTemplateJpaRepository.save(entity);
+        return couponTemplateMapper.toDomain(saved);
     }
 
     @Override
     public Optional<CouponTemplate> findById(Long id) {
-        return couponTemplateJpaRepository.findById(id);
+        return couponTemplateJpaRepository.findById(id)
+                .map(couponTemplateMapper::toDomain);
     }
 
     @Override
     public List<CouponTemplate> findAll(int page, int size) {
         return couponTemplateJpaRepository.findAll(
                 PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
-        ).getContent();
+        ).getContent()
+                .stream()
+                .map(couponTemplateMapper::toDomain)
+                .collect(Collectors.toList());
     }
 
     @Override

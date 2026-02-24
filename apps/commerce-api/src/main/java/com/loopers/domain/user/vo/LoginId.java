@@ -2,27 +2,23 @@ package com.loopers.domain.user.vo;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
 
 import java.util.regex.Pattern;
 
 /**
- * 로그인 ID Value Object
+ * 로그인 ID Value Object (순수 POJO)
  *
  * 검증 규칙:
  * - 영문 대소문자 + 숫자만 허용
  * - 4~20자
  * - 영문으로 시작
  */
-@Embeddable
 public class LoginId {
 
     private static final int MIN_LENGTH = 4;
     private static final int MAX_LENGTH = 20;
     private static final Pattern PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9]{3,19}$");
 
-    @Column(name = "login_id", unique = true, nullable = false)
     private String value;
 
     // JPA 기본 생성자

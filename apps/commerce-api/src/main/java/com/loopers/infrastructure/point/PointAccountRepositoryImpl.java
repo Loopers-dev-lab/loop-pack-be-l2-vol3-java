@@ -6,22 +6,38 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
+/**
+ * 포인트 계좌 리포지토리 구현체 (Infrastructure Layer)
+ *
+ * Domain 계층의 PointAccountRepository 포트를 구현한다.
+ * Mapper를 활용하여 Domain ↔ Entity 변환한다.
+ */
 @Repository
 public class PointAccountRepositoryImpl implements PointAccountRepository {
 
     private final PointAccountJpaRepository pointAccountJpaRepository;
+    private final PointAccountMapper pointAccountMapper;
 
-    public PointAccountRepositoryImpl(PointAccountJpaRepository pointAccountJpaRepository) {
+    public PointAccountRepositoryImpl(PointAccountJpaRepository pointAccountJpaRepository, PointAccountMapper pointAccountMapper) {
         this.pointAccountJpaRepository = pointAccountJpaRepository;
+        this.pointAccountMapper = pointAccountMapper;
     }
 
     @Override
     public PointAccount save(PointAccount pointAccount) {
-        return pointAccountJpaRepository.save(pointAccount);
+        // Domain → Entity
+        PointAccountEntity entity = pointAccountMapper.toEntity(pointAccount);
+
+        // JPA save
+        PointAccountEntity saved = pointAccountJpaRepository.save(entity);
+
+        // Entity → Domain
+        return pointAccountMapper.toDomain(saved);
     }
 
     @Override
     public Optional<PointAccount> findByUserId(Long userId) {
-        return pointAccountJpaRepository.findByUserId(userId);
+        return pointAccountJpaRepository.findByUserId(userId)
+            .map(pointAccountMapper::toDomain);  // Entity → Domain
     }
 }

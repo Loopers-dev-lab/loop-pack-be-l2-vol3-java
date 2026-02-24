@@ -1,19 +1,15 @@
 package com.loopers.domain.common.vo;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
 import java.util.Objects;
 
-@Embeddable
+/**
+ * Address Value Object (순수 POJO)
+ * JPA 어노테이션 없음
+ */
 public class Address {
 
-    @Column(name = "zip_code", nullable = false)
     private String zipCode;
-
-    @Column(name = "address_line1", nullable = false)
     private String addressLine1;
-
-    @Column(name = "address_line2")
     private String addressLine2;
 
     protected Address() {}

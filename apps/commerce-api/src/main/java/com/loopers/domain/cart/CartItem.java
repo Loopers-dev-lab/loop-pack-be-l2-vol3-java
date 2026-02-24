@@ -1,28 +1,22 @@
 package com.loopers.domain.cart;
 
-import com.loopers.domain.BaseEntity;
 import com.loopers.domain.common.vo.Quantity;
 import com.loopers.support.error.CartItemErrorType;
 import com.loopers.support.error.CoreException;
-import jakarta.persistence.AttributeOverride;
-import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import java.time.ZonedDateTime;
 
-@Entity
-@Table(name = "cart_items")
-public class CartItem extends BaseEntity {
+/**
+ * 장바구니 아이템 엔티티 (Aggregate Root) - 순수 POJO
+ */
+public class CartItem {
 
-    @Column(name = "user_id", nullable = false)
+    private Long id;
     private Long userId;
-
-    @Column(name = "product_id", nullable = false)
     private Long productId;
-
-    @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "quantity", nullable = false))
     private Quantity quantity;
+    private ZonedDateTime createdAt;
+    private ZonedDateTime updatedAt;
+    private ZonedDateTime deletedAt;
 
     protected CartItem() {}
 
@@ -35,12 +29,40 @@ public class CartItem extends BaseEntity {
         this.quantity = new Quantity(quantity);
     }
 
+    /**
+     * 영속화된 데이터로부터 도메인 객체 재구성
+     */
+    public static CartItem reconstitute(
+        Long id,
+        Long userId,
+        Long productId,
+        Quantity quantity,
+        ZonedDateTime createdAt,
+        ZonedDateTime updatedAt,
+        ZonedDateTime deletedAt
+    ) {
+        CartItem cartItem = new CartItem();
+        cartItem.id = id;
+        cartItem.userId = userId;
+        cartItem.productId = productId;
+        cartItem.quantity = quantity;
+        cartItem.createdAt = createdAt;
+        cartItem.updatedAt = updatedAt;
+        cartItem.deletedAt = deletedAt;
+        return cartItem;
+    }
+
     public static CartItem create(Long userId, Long productId, int quantity) {
-        return new CartItem(userId, productId, quantity);
+        CartItem cartItem = new CartItem(userId, productId, quantity);
+        ZonedDateTime now = ZonedDateTime.now();
+        cartItem.createdAt = now;
+        cartItem.updatedAt = now;
+        return cartItem;
     }
 
     public void addQuantity(int additionalQuantity) {
         this.quantity = this.quantity.plus(new Quantity(additionalQuantity));
+        this.updatedAt = ZonedDateTime.now();
     }
 
     public void changeQuantity(int quantity) {
@@ -48,12 +70,23 @@ public class CartItem extends BaseEntity {
             throw new CoreException(CartItemErrorType.INVALID_QUANTITY);
         }
         this.quantity = new Quantity(quantity);
+        this.updatedAt = ZonedDateTime.now();
+    }
+
+    public void delete() {
+        if (this.deletedAt == null) {
+            this.deletedAt = ZonedDateTime.now();
+        }
     }
 
     public void validateOwnership(Long userId) {
         if (!this.userId.equals(userId)) {
             throw new CoreException(CartItemErrorType.NOT_OWNER);
         }
+    }
+
+    public Long getId() {
+        return this.id;
     }
 
     public Long getUserId() {
@@ -66,5 +99,17 @@ public class CartItem extends BaseEntity {
 
     public int getQuantity() {
         return this.quantity.toInt();
+    }
+
+    public ZonedDateTime getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public ZonedDateTime getUpdatedAt() {
+        return this.updatedAt;
+    }
+
+    public ZonedDateTime getDeletedAt() {
+        return this.deletedAt;
     }
 }

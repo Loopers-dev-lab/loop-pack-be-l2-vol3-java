@@ -1,13 +1,12 @@
 package com.loopers.domain.common.vo;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
 import java.util.Objects;
 
-@Embeddable
+/**
+ * Quantity Value Object (순수 POJO)
+ */
 public class Quantity {
 
-    @Column
     private int value;
 
     protected Quantity() {}

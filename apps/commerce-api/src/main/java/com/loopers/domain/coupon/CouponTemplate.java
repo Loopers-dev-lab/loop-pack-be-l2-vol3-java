@@ -1,55 +1,29 @@
 package com.loopers.domain.coupon;
 
-import com.loopers.domain.BaseEntity;
 import com.loopers.domain.common.vo.Money;
-import jakarta.persistence.AttributeOverride;
-import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Table;
 import java.time.ZonedDateTime;
 
-@Entity
-@Table(name = "coupon_templates")
-public class CouponTemplate extends BaseEntity {
+/**
+ * CouponTemplate Domain POJO (순수 도메인 객체)
+ * JPA 의존성 없음
+ */
+public class CouponTemplate {
 
-    @Column(name = "name", nullable = false)
+    private Long id;
     private String name;
-
-    @Column(name = "description")
     private String description;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "discount_type", nullable = false)
     private DiscountType discountType;
-
-    @Column(name = "discount_value", nullable = false)
     private int discountValue;
-
-    @Column(name = "max_discount_amount")
     private Integer maxDiscountAmount;
-
-    @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "min_order_amount", nullable = false))
     private Money minOrderAmount;
-
-    @Column(name = "max_issue_count", nullable = false)
     private int maxIssueCount;
-
-    @Column(name = "max_issue_count_per_user", nullable = false)
     private int maxIssueCountPerUser;
-
-    @Column(name = "valid_from", nullable = false)
     private ZonedDateTime validFrom;
-
-    @Column(name = "valid_to", nullable = false)
     private ZonedDateTime validTo;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
     private CouponTemplateStatus status;
+    private ZonedDateTime createdAt;
+    private ZonedDateTime updatedAt;
+    private ZonedDateTime deletedAt;
 
     protected CouponTemplate() {}
 
@@ -75,6 +49,37 @@ public class CouponTemplate extends BaseEntity {
                                          ZonedDateTime validFrom, ZonedDateTime validTo) {
         return new CouponTemplate(name, description, discountType, discountValue, maxDiscountAmount,
                 minOrderAmount, maxIssueCount, maxIssueCountPerUser, validFrom, validTo);
+    }
+
+    /**
+     * DB에서 읽어온 데이터로 도메인 객체 재구성
+     * Infrastructure 계층에서만 호출
+     */
+    public static CouponTemplate reconstitute(Long id, String name, String description,
+                                               DiscountType discountType, int discountValue,
+                                               Integer maxDiscountAmount, int minOrderAmount,
+                                               int maxIssueCount, int maxIssueCountPerUser,
+                                               ZonedDateTime validFrom, ZonedDateTime validTo,
+                                               CouponTemplateStatus status,
+                                               ZonedDateTime createdAt, ZonedDateTime updatedAt,
+                                               ZonedDateTime deletedAt) {
+        CouponTemplate template = new CouponTemplate();
+        template.id = id;
+        template.name = name;
+        template.description = description;
+        template.discountType = discountType;
+        template.discountValue = discountValue;
+        template.maxDiscountAmount = maxDiscountAmount;
+        template.minOrderAmount = new Money(minOrderAmount);
+        template.maxIssueCount = maxIssueCount;
+        template.maxIssueCountPerUser = maxIssueCountPerUser;
+        template.validFrom = validFrom;
+        template.validTo = validTo;
+        template.status = status;
+        template.createdAt = createdAt;
+        template.updatedAt = updatedAt;
+        template.deletedAt = deletedAt;
+        return template;
     }
 
     public int calculateDiscount(int orderAmount) {
@@ -110,6 +115,12 @@ public class CouponTemplate extends BaseEntity {
         this.discountValue = discountValue;
         this.maxDiscountAmount = maxDiscountAmount;
         this.minOrderAmount = new Money(minOrderAmount);
+    }
+
+    public void delete() {
+        if (this.deletedAt == null) {
+            this.deletedAt = ZonedDateTime.now();
+        }
     }
 
     public String getName() {
@@ -154,5 +165,21 @@ public class CouponTemplate extends BaseEntity {
 
     public CouponTemplateStatus getStatus() {
         return this.status;
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public ZonedDateTime getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public ZonedDateTime getUpdatedAt() {
+        return this.updatedAt;
+    }
+
+    public ZonedDateTime getDeletedAt() {
+        return this.deletedAt;
     }
 }

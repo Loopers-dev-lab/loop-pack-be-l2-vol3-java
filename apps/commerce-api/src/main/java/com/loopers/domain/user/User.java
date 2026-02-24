@@ -1,40 +1,29 @@
 package com.loopers.domain.user;
 
-import com.loopers.domain.BaseEntity;
 import com.loopers.domain.user.vo.BirthDate;
 import com.loopers.domain.user.vo.Email;
 import com.loopers.domain.user.vo.LoginId;
 import com.loopers.domain.user.vo.UserName;
-import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import java.time.ZonedDateTime;
 
 /**
  * 사용자 엔티티 (Aggregate Root)
+ * 순수 POJO - JPA 어노테이션 없음
  *
  * 각 필드는 Value Object로 자체 검증을 수행하며,
  * password는 암호화된 값만 저장한다 (평문 저장 금지).
  */
-@Entity
-@Table(name = "users")
-public class User extends BaseEntity {
+public class User {
 
-    @Embedded
+    private Long id;
     private LoginId loginId;
-
-    /** 암호화된 비밀번호 (BCrypt 해시) */
-    @Column(name = "password", nullable = false)
     private String password;
-
-    @Embedded
     private UserName name;
-
-    @Embedded
     private BirthDate birthDate;
-
-    @Embedded
     private Email email;
+    private ZonedDateTime createdAt;
+    private ZonedDateTime updatedAt;
+    private ZonedDateTime deletedAt;
 
     protected User() {}
 
@@ -48,6 +37,25 @@ public class User extends BaseEntity {
 
     public static User create(LoginId loginId, String encodedPassword, UserName name, BirthDate birthDate, Email email) {
         return new User(loginId, encodedPassword, name, birthDate, email);
+    }
+
+    /**
+     * 영속화된 데이터로부터 도메인 객체 재구성
+     */
+    public static User reconstitute(Long id, LoginId loginId, String password, UserName name,
+                                     BirthDate birthDate, Email email,
+                                     ZonedDateTime createdAt, ZonedDateTime updatedAt, ZonedDateTime deletedAt) {
+        User user = new User();
+        user.id = id;
+        user.loginId = loginId;
+        user.password = password;
+        user.name = name;
+        user.birthDate = birthDate;
+        user.email = email;
+        user.createdAt = createdAt;
+        user.updatedAt = updatedAt;
+        user.deletedAt = deletedAt;
+        return user;
     }
 
     public void changePassword(String newEncodedPassword) {
@@ -72,5 +80,21 @@ public class User extends BaseEntity {
 
     public Email getEmail() {
         return this.email;
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public ZonedDateTime getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public ZonedDateTime getUpdatedAt() {
+        return this.updatedAt;
+    }
+
+    public ZonedDateTime getDeletedAt() {
+        return this.deletedAt;
     }
 }

@@ -1,47 +1,28 @@
 package com.loopers.domain.product;
 
-import com.loopers.domain.BaseEntity;
 import com.loopers.domain.common.vo.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ProductErrorType;
-import jakarta.persistence.AttributeOverride;
-import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Table;
+import java.time.ZonedDateTime;
 
 /**
- * 상품 엔티티 (Aggregate Root)
+ * 상품 엔티티 (Aggregate Root) - 순수 POJO
  *
  * 상품의 생성, 수정, 상태 변경, 삭제를 담당한다.
  * 초기 상태는 ACTIVE이며, 소프트 삭제를 지원한다.
  */
-@Entity
-@Table(name = "products")
-public class Product extends BaseEntity {
+public class Product {
 
-    @Column(name = "brand_id", nullable = false)
+    private Long id;
     private Long brandId;
-
-    @Column(name = "name", nullable = false, length = 200)
     private String name;
-
-    @Column(name = "description")
     private String description;
-
-    @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "base_price", nullable = false))
     private Money basePrice;
-
-    /** 상품 노출 상태 (ACTIVE, SOLDOUT, HIDDEN, DISCONTINUED) */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
     private ProductStatus status;
-
-    @Column(name = "like_count", nullable = false)
     private int likeCount;
+    private ZonedDateTime createdAt;
+    private ZonedDateTime updatedAt;
+    private ZonedDateTime deletedAt;
 
     protected Product() {}
 
@@ -54,16 +35,49 @@ public class Product extends BaseEntity {
         this.likeCount = 0;
     }
 
+    /**
+     * 영속화된 데이터로부터 도메인 객체 재구성
+     */
+    public static Product reconstitute(
+        Long id,
+        Long brandId,
+        String name,
+        String description,
+        Money basePrice,
+        ProductStatus status,
+        int likeCount,
+        ZonedDateTime createdAt,
+        ZonedDateTime updatedAt,
+        ZonedDateTime deletedAt
+    ) {
+        Product product = new Product();
+        product.id = id;
+        product.brandId = brandId;
+        product.name = name;
+        product.description = description;
+        product.basePrice = basePrice;
+        product.status = status;
+        product.likeCount = likeCount;
+        product.createdAt = createdAt;
+        product.updatedAt = updatedAt;
+        product.deletedAt = deletedAt;
+        return product;
+    }
+
     /** 상품 생성 팩토리 메서드 */
     public static Product create(Long brandId, String name, String description, int basePrice) {
-        return new Product(brandId, name, description, basePrice);
+        Product product = new Product(brandId, name, description, basePrice);
+        product.guard();
+        ZonedDateTime now = ZonedDateTime.now();
+        product.createdAt = now;
+        product.updatedAt = now;
+        return product;
     }
 
     /**
-     * 엔티티 유효성 검증 (PrePersist, PreUpdate 시점에 호출)
+     * 엔티티 유효성 검증
      * ERD 제약: name VARCHAR(200) NOT NULL
      */
-    @Override
     protected void guard() {
         if (this.name == null || this.name.isBlank()) {
             throw new CoreException(ProductErrorType.INVALID_PRODUCT_NAME);
@@ -75,21 +89,24 @@ public class Product extends BaseEntity {
         this.name = name;
         this.description = description;
         this.basePrice = new Money(basePrice);
+        this.updatedAt = ZonedDateTime.now();
     }
 
     /** 상품 상태 변경 (ACTIVE, SOLDOUT, HIDDEN, DISCONTINUED) */
     public void changeStatus(ProductStatus status) {
         this.status = status;
+        this.updatedAt = ZonedDateTime.now();
     }
 
     /**
      * 상품 소프트 삭제
-     * BaseEntity의 멱등 delete()를 override하여, 이미 삭제된 상품은 예외를 던진다.
+     * 이미 삭제된 상품은 예외를 던진다.
      */
-    @Override
     public void delete() {
         assertNotDeleted();
-        super.delete();
+        if (this.deletedAt == null) {
+            this.deletedAt = ZonedDateTime.now();
+        }
     }
 
     /** 삭제된 상품에 대한 작업을 방지하는 단언 메서드 */
@@ -106,12 +123,18 @@ public class Product extends BaseEntity {
 
     public void incrementLikeCount() {
         this.likeCount++;
+        this.updatedAt = ZonedDateTime.now();
     }
 
     public void decrementLikeCount() {
         if (this.likeCount > 0) {
             this.likeCount--;
+            this.updatedAt = ZonedDateTime.now();
         }
+    }
+
+    public Long getId() {
+        return this.id;
     }
 
     public Long getBrandId() {
@@ -136,5 +159,17 @@ public class Product extends BaseEntity {
 
     public int getLikeCount() {
         return this.likeCount;
+    }
+
+    public ZonedDateTime getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public ZonedDateTime getUpdatedAt() {
+        return this.updatedAt;
+    }
+
+    public ZonedDateTime getDeletedAt() {
+        return this.deletedAt;
     }
 }

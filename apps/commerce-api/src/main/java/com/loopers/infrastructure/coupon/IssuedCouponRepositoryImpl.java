@@ -6,24 +6,31 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Repository
 public class IssuedCouponRepositoryImpl implements IssuedCouponRepository {
 
     private final IssuedCouponJpaRepository issuedCouponJpaRepository;
+    private final IssuedCouponMapper issuedCouponMapper;
 
-    public IssuedCouponRepositoryImpl(IssuedCouponJpaRepository issuedCouponJpaRepository) {
+    public IssuedCouponRepositoryImpl(IssuedCouponJpaRepository issuedCouponJpaRepository,
+                                       IssuedCouponMapper issuedCouponMapper) {
         this.issuedCouponJpaRepository = issuedCouponJpaRepository;
+        this.issuedCouponMapper = issuedCouponMapper;
     }
 
     @Override
     public IssuedCoupon save(IssuedCoupon issuedCoupon) {
-        return issuedCouponJpaRepository.save(issuedCoupon);
+        IssuedCouponEntity entity = issuedCouponMapper.toEntity(issuedCoupon);
+        IssuedCouponEntity saved = issuedCouponJpaRepository.save(entity);
+        return issuedCouponMapper.toDomain(saved);
     }
 
     @Override
     public Optional<IssuedCoupon> findById(Long id) {
-        return issuedCouponJpaRepository.findById(id);
+        return issuedCouponJpaRepository.findById(id)
+                .map(issuedCouponMapper::toDomain);
     }
 
     @Override
@@ -38,6 +45,9 @@ public class IssuedCouponRepositoryImpl implements IssuedCouponRepository {
 
     @Override
     public List<IssuedCoupon> findAllByUserId(Long userId) {
-        return issuedCouponJpaRepository.findAllByUserIdOrderByCreatedAtDesc(userId);
+        return issuedCouponJpaRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(issuedCouponMapper::toDomain)
+                .collect(Collectors.toList());
     }
 }

@@ -11,28 +11,40 @@ import java.util.Optional;
 public class CartItemRepositoryImpl implements CartItemRepository {
 
     private final CartItemJpaRepository cartItemJpaRepository;
+    private final CartItemMapper cartItemMapper;
 
-    public CartItemRepositoryImpl(CartItemJpaRepository cartItemJpaRepository) {
+    public CartItemRepositoryImpl(
+        CartItemJpaRepository cartItemJpaRepository,
+        CartItemMapper cartItemMapper
+    ) {
         this.cartItemJpaRepository = cartItemJpaRepository;
+        this.cartItemMapper = cartItemMapper;
     }
 
     @Override
     public CartItem save(CartItem cartItem) {
-        return cartItemJpaRepository.save(cartItem);
+        CartItemEntity entity = cartItemMapper.toEntity(cartItem);
+        CartItemEntity saved = cartItemJpaRepository.save(entity);
+        return cartItemMapper.toDomain(saved);
     }
 
     @Override
     public Optional<CartItem> findById(Long id) {
-        return cartItemJpaRepository.findByIdAndDeletedAtIsNull(id);
+        return cartItemJpaRepository.findByIdAndDeletedAtIsNull(id)
+            .map(cartItemMapper::toDomain);
     }
 
     @Override
     public Optional<CartItem> findByUserIdAndProductId(Long userId, Long productId) {
-        return cartItemJpaRepository.findByUserIdAndProductIdAndDeletedAtIsNull(userId, productId);
+        return cartItemJpaRepository.findByUserIdAndProductIdAndDeletedAtIsNull(userId, productId)
+            .map(cartItemMapper::toDomain);
     }
 
     @Override
     public List<CartItem> findAllByUserId(Long userId) {
-        return cartItemJpaRepository.findAllByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId);
+        return cartItemJpaRepository.findAllByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId)
+            .stream()
+            .map(cartItemMapper::toDomain)
+            .toList();
     }
 }

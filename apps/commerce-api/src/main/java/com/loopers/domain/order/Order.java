@@ -1,95 +1,42 @@
 package com.loopers.domain.order;
 
-import com.loopers.domain.BaseEntity;
 import com.loopers.domain.common.vo.Address;
 import com.loopers.domain.common.vo.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.OrderErrorType;
-import jakarta.persistence.AttributeOverride;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@Entity
-@Table(name = "orders")
-public class Order extends BaseEntity {
+/**
+ * Order Domain POJO (순수 도메인 객체)
+ * JPA 의존성 없음
+ */
+public class Order {
 
-    @Column(name = "user_id", nullable = false)
+    private Long id;
     private Long userId;
-
-    @Column(name = "order_number", nullable = false, unique = true)
     private String orderNumber;
-
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id")
     private List<OrderItem> items = new ArrayList<>();
-
-    @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "subtotal_amount", nullable = false))
     private Money subtotalAmount;
-
-    @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "discount_amount", nullable = false))
     private Money discountAmount;
-
-    @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "point_used_amount", nullable = false))
     private Money pointUsedAmount;
-
-    @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "shipping_fee", nullable = false))
     private Money shippingFee;
-
-    @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "total_amount", nullable = false))
     private Money totalAmount;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
     private OrderStatus status;
-
-    @Column(name = "orderer_name", nullable = false)
     private String ordererName;
-
-    @Column(name = "orderer_phone", nullable = false)
     private String ordererPhone;
-
-    @Column(name = "receiver_name", nullable = false)
     private String receiverName;
-
-    @Column(name = "receiver_phone", nullable = false)
     private String receiverPhone;
-
-    @Embedded
-    @AttributeOverride(name = "zipCode", column = @Column(name = "zip_code", nullable = false))
-    @AttributeOverride(name = "addressLine1", column = @Column(name = "address_line1", nullable = false))
-    @AttributeOverride(name = "addressLine2", column = @Column(name = "address_line2"))
     private Address shippingAddress;
-
-    @Column(name = "payment_id")
     private Long paymentId;
-
-    @Column(name = "payment_method")
     private String paymentMethod;
-
-    @Column(name = "ordered_at")
     private ZonedDateTime orderedAt;
-
-    @Column(name = "expires_at")
     private ZonedDateTime expiresAt;
-
-    @Column(name = "canceled_at")
     private ZonedDateTime canceledAt;
+    private ZonedDateTime createdAt;
+    private ZonedDateTime updatedAt;
+    private ZonedDateTime deletedAt;
 
     protected Order() {}
 
@@ -120,6 +67,45 @@ public class Order extends BaseEntity {
                                 String zipCode, String addressLine1, String addressLine2) {
         return new Order(userId, orderNumber, items, ordererName, ordererPhone,
                 receiverName, receiverPhone, zipCode, addressLine1, addressLine2);
+    }
+
+    /**
+     * DB에서 읽어온 데이터로 도메인 객체 재구성
+     * Infrastructure 계층에서만 호출
+     */
+    public static Order reconstitute(Long id, Long userId, String orderNumber, List<OrderItem> items,
+                                      int subtotalAmount, int discountAmount, int pointUsedAmount,
+                                      int shippingFee, int totalAmount, OrderStatus status,
+                                      String ordererName, String ordererPhone,
+                                      String receiverName, String receiverPhone, Address shippingAddress,
+                                      Long paymentId, String paymentMethod,
+                                      ZonedDateTime orderedAt, ZonedDateTime expiresAt, ZonedDateTime canceledAt,
+                                      ZonedDateTime createdAt, ZonedDateTime updatedAt, ZonedDateTime deletedAt) {
+        Order order = new Order();
+        order.id = id;
+        order.userId = userId;
+        order.orderNumber = orderNumber;
+        order.items = items != null ? new ArrayList<>(items) : new ArrayList<>();
+        order.subtotalAmount = new Money(subtotalAmount);
+        order.discountAmount = new Money(discountAmount);
+        order.pointUsedAmount = new Money(pointUsedAmount);
+        order.shippingFee = new Money(shippingFee);
+        order.totalAmount = new Money(totalAmount);
+        order.status = status;
+        order.ordererName = ordererName;
+        order.ordererPhone = ordererPhone;
+        order.receiverName = receiverName;
+        order.receiverPhone = receiverPhone;
+        order.shippingAddress = shippingAddress;
+        order.paymentId = paymentId;
+        order.paymentMethod = paymentMethod;
+        order.orderedAt = orderedAt;
+        order.expiresAt = expiresAt;
+        order.canceledAt = canceledAt;
+        order.createdAt = createdAt;
+        order.updatedAt = updatedAt;
+        order.deletedAt = deletedAt;
+        return order;
     }
 
     public void confirm(Long paymentId, String paymentMethod) {
@@ -160,6 +146,10 @@ public class Order extends BaseEntity {
         if (this.status != OrderStatus.PENDING) {
             throw new CoreException(OrderErrorType.INVALID_ORDER_STATUS);
         }
+    }
+
+    public Long getId() {
+        return this.id;
     }
 
     public Long getUserId() {
@@ -248,5 +238,17 @@ public class Order extends BaseEntity {
 
     public ZonedDateTime getCanceledAt() {
         return this.canceledAt;
+    }
+
+    public ZonedDateTime getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public ZonedDateTime getUpdatedAt() {
+        return this.updatedAt;
+    }
+
+    public ZonedDateTime getDeletedAt() {
+        return this.deletedAt;
     }
 }
