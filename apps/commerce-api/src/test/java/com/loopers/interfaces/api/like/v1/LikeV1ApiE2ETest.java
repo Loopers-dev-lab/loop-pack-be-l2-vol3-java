@@ -42,11 +42,10 @@ class LikeV1ApiE2ETest extends BaseE2ETest {
         var brandId = BrandSteps.createBrand(
                 testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "브랜드 설명")
         );
-        var productResponse = ProductSteps.createProduct(
+        productId = ProductSteps.createProduct(
                 testRestTemplate,
                 new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명")
         );
-        productId = productResponse.getBody().data().productId();
     }
 
     @DisplayName("POST /api/v1/products/{productId}/likes")

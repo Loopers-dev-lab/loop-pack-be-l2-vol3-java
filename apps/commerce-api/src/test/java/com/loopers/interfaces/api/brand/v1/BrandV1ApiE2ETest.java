@@ -7,22 +7,16 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 
-import com.loopers.domain.brand.Brand;
-import com.loopers.domain.brand.BrandRepository;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.BaseE2ETest;
 
 class BrandV1ApiE2ETest extends BaseE2ETest {
 
     private static final String BRAND_ENDPOINT = "/api/v1/brands";
-
-    @Autowired
-    private BrandRepository brandRepository;
 
     @DisplayName("GET /api/v1/brands/{brandId}")
     @Nested
@@ -75,13 +69,13 @@ class BrandV1ApiE2ETest extends BaseE2ETest {
         @Test
         void returns404_whenBrandIsDeleted() {
             // arrange
-            Brand brand = Brand.create("삭제브랜드", "https://example.com/logo.png", "설명");
-            brand.delete();
-            brandRepository.save(brand);
+            var request = new BrandDto.CreateBrandRequest("삭제 브랜드", "https://example.com/logo.png", "설명");
+            var brandId = createBrand(testRestTemplate, request);
+            BrandSteps.deleteBrand(testRestTemplate, brandId);
 
             // act
             var response = testRestTemplate.exchange(
-                    BRAND_ENDPOINT + "/" + brand.getId(),
+                    BRAND_ENDPOINT + "/" + brandId,
                     HttpMethod.GET,
                     null,
                     new ParameterizedTypeReference<ApiResponse<BrandDto.BrandResponse>>() {

@@ -42,12 +42,12 @@ public class LikeSteps {
         );
     }
 
-    public static ResponseEntity<ApiResponse<PageResponse<Object>>> getLikedProducts(
+    public static ResponseEntity<ApiResponse<PageResponse<LikeDto.LikedProductResponse>>> getLikedProducts(
             TestRestTemplate testRestTemplate,
             String url,
             HttpHeaders headers
     ) {
-        ParameterizedTypeReference<ApiResponse<PageResponse<Object>>> responseType = new ParameterizedTypeReference<>() {
+        ParameterizedTypeReference<ApiResponse<PageResponse<LikeDto.LikedProductResponse>>> responseType = new ParameterizedTypeReference<>() {
         };
         return testRestTemplate.exchange(
                 url,

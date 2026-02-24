@@ -33,11 +33,14 @@ public class ProductSteps {
         );
     }
 
-    public static ResponseEntity<ApiResponse<ProductDto.CreateProductResponse>> createProduct(
+    public static Long createProduct(
             TestRestTemplate testRestTemplate,
             ProductDto.CreateProductRequest request
     ) {
-        return createProduct(testRestTemplate, request, adminAuthHeaders());
+        return createProduct(testRestTemplate, request, adminAuthHeaders())
+                .getBody()
+                .data()
+                .productId();
     }
 
     public static ResponseEntity<ApiResponse<PageResponse<ProductResponse>>> getProducts(
@@ -128,26 +131,6 @@ public class ProductSteps {
                 new HttpEntity<>(headers),
                 responseType
         );
-    }
-
-    public static ResponseEntity<ApiResponse<PageResponse<ProductDto.ProductDetailResponse>>> getActiveProducts(
-            TestRestTemplate testRestTemplate,
-            String queryParams
-    ) {
-        return getActiveProducts(testRestTemplate, queryParams, new HttpHeaders());
-    }
-
-    public static ResponseEntity<ApiResponse<PageResponse<ProductDto.ProductDetailResponse>>> getActiveProducts(
-            TestRestTemplate testRestTemplate
-    ) {
-        return getActiveProducts(testRestTemplate, "");
-    }
-
-    public static ResponseEntity<ApiResponse<PageResponse<ProductDto.ProductDetailResponse>>> getActiveProducts(
-            TestRestTemplate testRestTemplate,
-            HttpHeaders headers
-    ) {
-        return getActiveProducts(testRestTemplate, "", headers);
     }
 
     public static ResponseEntity<ApiResponse<ProductDto.ProductDetailResponse>> getActiveProduct(

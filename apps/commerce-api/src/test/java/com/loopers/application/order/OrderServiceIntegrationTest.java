@@ -12,54 +12,33 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
-import com.loopers.application.brand.BrandService;
 import com.loopers.application.order.Cart.CartItem;
-import com.loopers.application.product.ProductCommand;
-import com.loopers.application.product.ProductService;
 import com.loopers.application.user.UserService;
-import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.order.OrderStatus;
-import com.loopers.domain.product.ProductRepository;
-import com.loopers.domain.shared.Money;
+import com.loopers.support.BaseIntegrationTest;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.support.page.PageSize;
-import com.loopers.utils.DatabaseCleanUp;
 
-@SpringBootTest
-class OrderServiceIntegrationTest {
+class OrderServiceIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private OrderService orderService;
 
     @Autowired
-    private OrderRepository orderRepository;
-
-    @Autowired
-    private ProductService productService;
-
-    @Autowired
-    private ProductRepository productRepository;
-
-    @Autowired
-    private BrandService brandService;
-
-    @Autowired
     private UserService userService;
 
-    @Autowired
-    private DatabaseCleanUp databaseCleanUp;
+    private Long brandId;
 
-    @AfterEach
-    void tearDown() {
-        databaseCleanUp.truncateAllTables();
+    @BeforeEach
+    void setUp() {
+        brandId = initDefaultBrand();
     }
 
     @DisplayName("주문을 생성할 때,")
@@ -70,7 +49,7 @@ class OrderServiceIntegrationTest {
         @Test
         void savesOrderToDatabase_whenValidRequest() {
             // arrange
-            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
             var cart = new Cart(
                     1L,
                     List.of(new CartItem(productId, 2L))
@@ -80,13 +59,12 @@ class OrderServiceIntegrationTest {
             var orderId = orderService.createOrder(cart);
 
             // assert
-            var savedOrder = orderRepository.findById(orderId).orElseThrow();
+            var savedOrder = orderService.getMyOrder(1L, orderId);
             assertAll(
-                    () -> assertThat(savedOrder.getUserId()).isEqualTo(1L),
-                    () -> assertThat(savedOrder.getName()).isEqualTo("테스트 상품"),
-                    () -> assertThat(savedOrder.getStatus()).isEqualTo(OrderStatus.CREATED),
-                    () -> assertThat(savedOrder.getTotalPrice()).isEqualTo(Money.wons(20000L)),
-                    () -> assertThat(savedOrder.getOrderedAt()).isNotNull()
+                    () -> assertThat(savedOrder.name()).isEqualTo("테스트 상품"),
+                    () -> assertThat(savedOrder.status()).isEqualTo(OrderStatus.CREATED),
+                    () -> assertThat(savedOrder.totalPrice()).isEqualTo(20000L),
+                    () -> assertThat(savedOrder.orderedAt()).isNotNull()
             );
         }
 
@@ -94,7 +72,7 @@ class OrderServiceIntegrationTest {
         @Test
         void deductsProductStock_whenOrderCreated() {
             // arrange
-            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
             var cart = new Cart(
                     1L,
                     List.of(new CartItem(productId, 30L))
@@ -104,8 +82,8 @@ class OrderServiceIntegrationTest {
             orderService.createOrder(cart);
 
             // assert
-            var product = productRepository.findById(productId).orElseThrow();
-            assertThat(product.getStock().getValue()).isEqualTo(70L);
+            var product = productService.getProduct(productId);
+            assertThat(product.stock()).isEqualTo(70L);
         }
 
         @DisplayName("존재하지 않는 상품이 포함되면, PRODUCT_NOT_FOUND 예외가 발생한다.")
@@ -128,7 +106,7 @@ class OrderServiceIntegrationTest {
         @Test
         void throwsException_whenProductIsDeleted() {
             // arrange
-            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
             productService.deleteProduct(productId);
 
             var cart = new Cart(
@@ -147,7 +125,7 @@ class OrderServiceIntegrationTest {
         @Test
         void throwsException_whenDuplicateProductIncluded() {
             // arrange
-            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
             var cart = new Cart(
                     1L,
                     List.of(
@@ -167,7 +145,7 @@ class OrderServiceIntegrationTest {
         @Test
         void throwsException_whenProductSoldOut() {
             // arrange
-            var productId = createBrandAndProduct("품절 상품", 10000L, 3L);
+            var productId = createProduct(brandId, "품절 상품", 10000L, 3L);
             orderService.createOrder(new Cart(
                     1L,
                     List.of(new CartItem(productId, 3L))
@@ -189,7 +167,7 @@ class OrderServiceIntegrationTest {
         @Test
         void throwsException_whenInsufficientStock() {
             // arrange
-            var productId = createBrandAndProduct("테스트 상품", 10000L, 5L);
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 5L);
             var cart = new Cart(
                     1L,
                     List.of(new CartItem(productId, 10L))
@@ -208,7 +186,7 @@ class OrderServiceIntegrationTest {
             // arrange
             long stock = 5L;
             int threadCount = 10;
-            var productId = createBrandAndProduct("상품", 10000L, stock);
+            var productId = createProduct(brandId, "상품", 10000L, stock);
             ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
             CountDownLatch latch = new CountDownLatch(threadCount);
             AtomicInteger successCount = new AtomicInteger(0);
@@ -235,11 +213,11 @@ class OrderServiceIntegrationTest {
             executorService.shutdown();
 
             // assert
-            var product = productRepository.findById(productId).orElseThrow();
+            var product = productService.getProduct(productId);
             assertAll(
                     () -> assertThat(successCount.get() + failCount.get()).isEqualTo(threadCount),
                     () -> assertThat(successCount.get()).isEqualTo((int) stock),
-                    () -> assertThat(product.getStock().getValue()).isZero()
+                    () -> assertThat(product.stock()).isZero()
             );
         }
     }
@@ -252,7 +230,7 @@ class OrderServiceIntegrationTest {
         @Test
         void returnsAllOrdersInPage() {
             // arrange
-            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
             orderService.createOrder(new Cart(1L, List.of(new CartItem(productId, 1L))));
             orderService.createOrder(new Cart(2L, List.of(new CartItem(productId, 1L))));
 
@@ -288,19 +266,10 @@ class OrderServiceIntegrationTest {
         @Test
         void returnsOrdersSortedByCreatedAtDesc() {
             // arrange
-            var brandId = brandService.createBrand("테스트 브랜드", "https://example.com/logo.png", null).id();
-            var firstProductId = productService.createProduct(
-                    new ProductCommand.CreateProductCommand(
-                            brandId, "첫번째 상품", "https://example.com/thumb.png", 10000L, 100L, null
-                    )
-            );
-            var secondProductId = productService.createProduct(
-                    new ProductCommand.CreateProductCommand(
-                            brandId, "두번째 상품", "https://example.com/thumb.png", 20000L, 100L, null
-                    )
-            );
-            orderService.createOrder(new Cart(1L, List.of(new CartItem(firstProductId, 1L))));
-            orderService.createOrder(new Cart(1L, List.of(new CartItem(secondProductId, 1L))));
+            var firstProductId = createProduct(brandId, "첫 번째 상품", 10000L, 100L);
+            var secondProductId = createProduct(brandId, "두 번째 상품", 20000L, 100L);
+            var firstOrderId = orderService.createOrder(new Cart(1L, List.of(new CartItem(firstProductId, 1L))));
+            var secondOrderId = orderService.createOrder(new Cart(1L, List.of(new CartItem(secondProductId, 1L))));
 
             var pageSize = new PageSize(0, 20);
 
@@ -309,8 +278,8 @@ class OrderServiceIntegrationTest {
 
             // assert
             assertThat(result.content())
-                    .extracting(OrderResult::name)
-                    .containsExactly("두번째 상품", "첫번째 상품");
+                    .extracting(OrderResult::id)
+                    .containsExactly(secondOrderId, firstOrderId);
         }
     }
 
@@ -322,7 +291,7 @@ class OrderServiceIntegrationTest {
         @Test
         void returnsOrderPage_whenOrdersExistInDateRange() {
             // arrange
-            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
             orderService.createOrder(new Cart(1L, List.of(new CartItem(productId, 1L))));
 
             var today = LocalDate.now();
@@ -361,7 +330,7 @@ class OrderServiceIntegrationTest {
         @Test
         void returnsOnlyOwnOrders_whenOtherUserOrdersExist() {
             // arrange
-            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
             orderService.createOrder(new Cart(1L, List.of(new CartItem(productId, 1L))));
             orderService.createOrder(new Cart(2L, List.of(new CartItem(productId, 1L))));
 
@@ -379,7 +348,7 @@ class OrderServiceIntegrationTest {
         @Test
         void excludesOrdersOutsideDateRange() {
             // arrange
-            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
             orderService.createOrder(new Cart(1L, List.of(new CartItem(productId, 1L))));
 
             var pastDate = LocalDate.of(2020, 1, 1);
@@ -404,7 +373,7 @@ class OrderServiceIntegrationTest {
         @Test
         void returnsOrderDetail_whenOwnerRequests() {
             // arrange
-            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
             var orderId = orderService.createOrder(new Cart(1L, List.of(new CartItem(productId, 2L))));
 
             // act
@@ -437,7 +406,7 @@ class OrderServiceIntegrationTest {
         @Test
         void throwsException_whenNotOwner() {
             // arrange
-            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
             var orderId = orderService.createOrder(new Cart(1L, List.of(new CartItem(productId, 1L))));
 
             // act & assert
@@ -456,7 +425,7 @@ class OrderServiceIntegrationTest {
         @Test
         void returnsOrderDetailWithMaskedOrdererName_whenValidOrderId() {
             // arrange
-            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
             var userId = userService.signUp("testuser1", "Password1!", "홍길동", "2000-01-01", "test@test.com").id();
             var orderId = orderService.createOrder(new Cart(userId, List.of(new CartItem(productId, 2L))));
 
@@ -488,7 +457,7 @@ class OrderServiceIntegrationTest {
         @Test
         void returnsAnyOrder_withoutOwnershipCheck() {
             // arrange
-            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
             var userId = userService.signUp("testuser1", "Password1!", "홍길동", "2000-01-01", "test@test.com").id();
             var orderId = orderService.createOrder(new Cart(userId, List.of(new CartItem(productId, 1L))));
 
@@ -496,12 +465,5 @@ class OrderServiceIntegrationTest {
             assertThatCode(() -> orderService.getOrder(orderId))
                     .doesNotThrowAnyException();
         }
-    }
-
-    private Long createBrandAndProduct(String productName, Long price, Long stock) {
-        var brand = brandService.createBrand("테스트 브랜드", "https://example.com/logo.png", null);
-        return productService.createProduct(new ProductCommand.CreateProductCommand(
-                brand.id(), productName, "https://example.com/thumb.png", price, stock, null
-        ));
     }
 }

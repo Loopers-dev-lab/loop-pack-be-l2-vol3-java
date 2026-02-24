@@ -1,6 +1,8 @@
 package com.loopers.interfaces.api.product.v1;
 
 import static com.loopers.interfaces.api.brand.v1.BrandSteps.createBrand;
+import static com.loopers.interfaces.api.brand.v1.BrandSteps.deleteBrand;
+import static com.loopers.interfaces.api.like.v1.LikeSteps.getLikedProducts;
 import static com.loopers.interfaces.api.like.v1.LikeSteps.likeProduct;
 import static com.loopers.interfaces.api.product.v1.ProductSteps.createProduct;
 import static com.loopers.interfaces.api.product.v1.ProductSteps.deleteProduct;
@@ -17,16 +19,10 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import com.loopers.domain.brand.Brand;
-import com.loopers.domain.brand.BrandRepository;
-import com.loopers.domain.like.LikeRepository;
-import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductRepository;
 import com.loopers.interfaces.api.brand.v1.BrandDto;
 import com.loopers.interfaces.api.product.v1.ProductDto.ProductResponse;
 import com.loopers.interfaces.api.user.v1.UserV1Dto;
@@ -36,15 +32,6 @@ import com.loopers.support.error.ErrorType;
 class ProductV1AdminApiE2ETest extends BaseE2ETest {
 
     private static final String PRODUCT_ADMIN_ENDPOINT = "/api-admin/v1/products";
-
-    @Autowired
-    private BrandRepository brandRepository;
-
-    @Autowired
-    private ProductRepository productRepository;
-
-    @Autowired
-    private LikeRepository likeRepository;
 
     @DisplayName("POST /api-admin/v1/products")
     @Nested
@@ -238,9 +225,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         void returnsBrandNotFound_whenBrandIsDeleted() {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            Brand brand = brandRepository.findById(brandId).orElseThrow();
-            brand.delete();
-            brandRepository.save(brand);
+            deleteBrand(testRestTemplate, brandId);
 
             var request = new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명");
 
@@ -260,10 +245,10 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         @Test
         void returnsAllProducts_whenNoBrandIdFilter() {
             // arrange
-            var brandId1 = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드1", "https://example.com/logo1.png", "설명"));
-            var brandId2 = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드2", "https://example.com/logo2.png", "설명"));
-            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId1, "상품1", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
-            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId2, "상품2", "https://example.com/thumb2.png", 20000L, 200L, "설명"));
+            var brandId1 = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드 1", "https://example.com/logo1.png", "설명"));
+            var brandId2 = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드 2", "https://example.com/logo2.png", "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId1, "상품 1", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId2, "상품 2", "https://example.com/thumb2.png", 20000L, 200L, "설명"));
 
             var url = UriComponentsBuilder.fromPath(PRODUCT_ADMIN_ENDPOINT)
                     .queryParam("page", 0)
@@ -285,11 +270,11 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         @Test
         void returnsProductsByBrandId_whenBrandIdProvided() {
             // arrange
-            var brandId1 = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드1", "https://example.com/logo1.png", "설명"));
-            var brandId2 = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드2", "https://example.com/logo2.png", "설명"));
-            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId1, "상품1", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
-            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId1, "상품2", "https://example.com/thumb2.png", 20000L, 200L, "설명"));
-            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId2, "상품3", "https://example.com/thumb3.png", 30000L, 300L, "설명"));
+            var brandId1 = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드 1", "https://example.com/logo1.png", "설명"));
+            var brandId2 = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드 2", "https://example.com/logo2.png", "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId1, "상품 1", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId1, "상품 2", "https://example.com/thumb2.png", 20000L, 200L, "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId2, "상품 3", "https://example.com/thumb3.png", 30000L, 300L, "설명"));
 
             var url = UriComponentsBuilder.fromPath(PRODUCT_ADMIN_ENDPOINT)
                     .queryParam("brandId", brandId1)
@@ -315,9 +300,9 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         void returnsHasNextTrue_whenMoreProductsExist() {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품1", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
-            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품2", "https://example.com/thumb2.png", 20000L, 200L, "설명"));
-            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품3", "https://example.com/thumb3.png", 30000L, 300L, "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품 1", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품 2", "https://example.com/thumb2.png", 20000L, 200L, "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품 3", "https://example.com/thumb3.png", 30000L, 300L, "설명"));
 
             var url = UriComponentsBuilder.fromPath(PRODUCT_ADMIN_ENDPOINT)
                     .queryParam("page", 0)
@@ -341,9 +326,9 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         void returnsProductsSortedByCreatedAtDesc() {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "첫번째", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
-            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "두번째", "https://example.com/thumb2.png", 20000L, 200L, "설명"));
-            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "세번째", "https://example.com/thumb3.png", 30000L, 300L, "설명"));
+            var productId1 = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "첫 번째 상품", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
+            var productId2 = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "두 번째 상품", "https://example.com/thumb2.png", 20000L, 200L, "설명"));
+            var productId3 = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "세 번째 상품", "https://example.com/thumb3.png", 30000L, 300L, "설명"));
 
             var url = UriComponentsBuilder.fromPath(PRODUCT_ADMIN_ENDPOINT)
                     .queryParam("page", 0)
@@ -357,8 +342,8 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().data().content()).extracting(ProductResponse::name)
-                            .containsExactly("세번째", "두번째", "첫번째")
+                    () -> assertThat(response.getBody().data().content()).extracting(ProductResponse::id)
+                            .containsExactly(productId3, productId2, productId1)
             );
         }
 
@@ -388,7 +373,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         void returnsDefaultPage_whenNoPageParams() {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품1", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
+            createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품 1", "https://example.com/thumb1.png", 10000L, 100L, "설명"));
 
             // act
             var response = ProductSteps.getProducts(testRestTemplate, PRODUCT_ADMIN_ENDPOINT);
@@ -428,8 +413,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         void returnsProductInfo_whenProductExists() {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"))
-                    .getBody().data().productId();
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"));
 
             // act
             var response = ProductSteps.getProduct(testRestTemplate, productId);
@@ -451,8 +435,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         void returnsProductInfo_whenProductIsDeleted() {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"))
-                    .getBody().data().productId();
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"));
             deleteProduct(testRestTemplate, productId);
 
             // act
@@ -486,8 +469,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         void updatesProduct_whenValidInputProvided() {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"))
-                    .getBody().data().productId();
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"));
             var request = new ProductDto.UpdateProductRequest("수정된 상품명", "https://example.com/new-thumb.png", 20000L, 200L, "수정된 설명");
 
             // act
@@ -500,14 +482,15 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
                     () -> assertThat(response.getBody().meta().errorCode()).isNull()
             );
 
-            Product updatedProduct = productRepository.findById(productId).orElseThrow();
+            var getResponse = ProductSteps.getProduct(testRestTemplate, productId);
+            var updatedProduct = getResponse.getBody().data();
             assertAll(
-                    () -> assertThat(updatedProduct.getName().getValue()).isEqualTo("수정된 상품명"),
-                    () -> assertThat(updatedProduct.getThumbnailUrl().getValue()).isEqualTo("https://example.com/new-thumb.png"),
-                    () -> assertThat(updatedProduct.getPrice().getAmount()).isEqualTo(20000L),
-                    () -> assertThat(updatedProduct.getStock().getValue()).isEqualTo(200L),
-                    () -> assertThat(updatedProduct.getDescription()).isEqualTo("수정된 설명"),
-                    () -> assertThat(updatedProduct.getBrandId()).isEqualTo(brandId)
+                    () -> assertThat(updatedProduct.name()).isEqualTo("수정된 상품명"),
+                    () -> assertThat(updatedProduct.thumbnailUrl()).isEqualTo("https://example.com/new-thumb.png"),
+                    () -> assertThat(updatedProduct.price()).isEqualTo(20000L),
+                    () -> assertThat(updatedProduct.stock()).isEqualTo(200L),
+                    () -> assertThat(updatedProduct.description()).isEqualTo("수정된 설명"),
+                    () -> assertThat(updatedProduct.brandId()).isEqualTo(brandId)
             );
         }
 
@@ -516,8 +499,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         void returnsUnauthorized_whenNoLdapHeader() {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"))
-                    .getBody().data().productId();
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"));
             var request = new ProductDto.UpdateProductRequest("수정된 상품명", "https://example.com/new-thumb.png", 20000L, 200L, "수정된 설명");
 
             // act
@@ -532,8 +514,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         void returnsUnauthorized_whenLdapHeaderValueIsWrong() {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"))
-                    .getBody().data().productId();
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"));
             var request = new ProductDto.UpdateProductRequest("수정된 상품명", "https://example.com/new-thumb.png", 20000L, 200L, "수정된 설명");
             var headers = new HttpHeaders();
             headers.set("X-Loopers-Ldap", "wrong.value");
@@ -563,8 +544,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         void returnsAlreadyDeleted_whenProductIsAlreadyDeleted() {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"))
-                    .getBody().data().productId();
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"));
             deleteProduct(testRestTemplate, productId);
             var request = new ProductDto.UpdateProductRequest("수정된 상품명", "https://example.com/new-thumb.png", 20000L, 200L, "수정된 설명");
 
@@ -581,8 +561,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         void returnsInvalidProductName_whenNameLengthIsInvalid(int length) {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"))
-                    .getBody().data().productId();
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"));
             var name = "a".repeat(length);
             var request = new ProductDto.UpdateProductRequest(name, "https://example.com/new-thumb.png", 20000L, 200L, "수정된 설명");
 
@@ -598,8 +577,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         void returnsInvalidMoneyAmount_whenPriceIsNegative() {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"))
-                    .getBody().data().productId();
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"));
             var request = new ProductDto.UpdateProductRequest("수정된 상품명", "https://example.com/new-thumb.png", -1L, 200L, "수정된 설명");
 
             // act
@@ -614,8 +592,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         void returnsInvalidStock_whenStockIsZero() {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"))
-                    .getBody().data().productId();
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"));
             var request = new ProductDto.UpdateProductRequest("수정된 상품명", "https://example.com/new-thumb.png", 20000L, 0L, "수정된 설명");
 
             // act
@@ -635,8 +612,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         void returnsSuccess_whenProductExists() {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"))
-                    .getBody().data().productId();
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"));
 
             // act
             var response = deleteProduct(testRestTemplate, productId);
@@ -648,8 +624,6 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
                     () -> assertThat(response.getBody().meta().errorCode()).isNull()
             );
 
-            Product deletedProduct = productRepository.findById(productId).orElseThrow();
-            assertThat(deletedProduct.getDeletedAt()).isNotNull();
         }
 
         @DisplayName("좋아요가 있는 상품을 삭제하면, 좋아요도 함께 삭제된다.")
@@ -661,8 +635,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
             var userHeaders = userAuthHeaders(signUpRequest.loginId(), signUpRequest.password());
 
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"))
-                    .getBody().data().productId();
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"));
 
             likeProduct(testRestTemplate, productId, userHeaders);
 
@@ -676,7 +649,8 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
                     () -> assertThat(response.getBody().meta().errorCode()).isNull()
             );
 
-            assertThat(likeRepository.existsByUserIdAndProductId(1L, productId)).isFalse();
+            var likedResponse = getLikedProducts(testRestTemplate, "/api/v1/users/me/likes", userHeaders);
+            assertThat(likedResponse.getBody().data().content()).isEmpty();
         }
 
         @DisplayName("존재하지 않는 상품을 삭제하면, PRODUCT_NOT_FOUND 에러 응답을 받는다.")
@@ -694,8 +668,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
         void returnsOk_whenProductIsAlreadyDeleted() {
             // arrange
             var brandId = createBrand(testRestTemplate, new BrandDto.CreateBrandRequest("브랜드명", "https://example.com/logo.png", "설명"));
-            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"))
-                    .getBody().data().productId();
+            var productId = createProduct(testRestTemplate, new ProductDto.CreateProductRequest(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "설명"));
             deleteProduct(testRestTemplate, productId);
 
             // act

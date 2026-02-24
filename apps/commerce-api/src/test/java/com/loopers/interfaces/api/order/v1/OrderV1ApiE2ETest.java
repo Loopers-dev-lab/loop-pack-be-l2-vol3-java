@@ -43,14 +43,12 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
 
         var brandId = BrandSteps.createBrand(
                 testRestTemplate,
-                new BrandDto.CreateBrandRequest("테스트브랜드", "https://example.com/logo.png", "브랜드 설명")
+                new BrandDto.CreateBrandRequest("테스트 브랜드", "https://example.com/logo.png", "브랜드 설명")
         );
-        var productResponse = ProductSteps.createProduct(
+        productId = ProductSteps.createProduct(
                 testRestTemplate,
-                new ProductDto.CreateProductRequest(brandId, "테스트상품", "https://example.com/thumb.png", 10000L, 100L,
-                        "상품 설명")
+                new ProductDto.CreateProductRequest(brandId, "테스트 상품", "https://example.com/thumb.png", 10000L, 100L, "상품 설명")
         );
-        productId = productResponse.getBody().data().productId();
     }
 
     @DisplayName("POST /api/v1/orders")
@@ -103,7 +101,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content()).hasSize(1),
-                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("테스트상품"),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("테스트 상품"),
                     () -> assertThat(response.getBody().data().hasNext()).isFalse()
             );
         }
@@ -183,10 +181,10 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().orderId()).isEqualTo(orderId),
-                    () -> assertThat(response.getBody().data().name()).isEqualTo("테스트상품"),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("테스트 상품"),
                     () -> assertThat(response.getBody().data().totalPrice()).isEqualTo(20000L),
                     () -> assertThat(response.getBody().data().orderItems()).hasSize(1),
-                    () -> assertThat(response.getBody().data().orderItems().get(0).productName()).isEqualTo("테스트상품"),
+                    () -> assertThat(response.getBody().data().orderItems().get(0).productName()).isEqualTo("테스트 상품"),
                     () -> assertThat(response.getBody().data().orderItems().get(0).quantity()).isEqualTo(2L),
                     () -> assertThat(response.getBody().data().orderItems().get(0).subtotal()).isEqualTo(20000L)
             );

@@ -10,26 +10,21 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
-import com.loopers.application.brand.BrandService;
-import com.loopers.application.product.ProductCommand;
-import com.loopers.application.product.ProductService;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.infrastructure.like.persistence.LikeJpaRepository;
+import com.loopers.support.BaseIntegrationTest;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.support.page.Page;
 import com.loopers.support.page.PageSize;
-import com.loopers.utils.DatabaseCleanUp;
 
-@SpringBootTest
-class LikeServiceIntegrationTest {
+class LikeServiceIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private LikeService likeService;
@@ -38,20 +33,13 @@ class LikeServiceIntegrationTest {
     private LikeJpaRepository likeJpaRepository;
 
     @Autowired
-    private ProductService productService;
-
-    @Autowired
     private ProductRepository productRepository;
 
-    @Autowired
-    private BrandService brandService;
+    private Long brandId;
 
-    @Autowired
-    private DatabaseCleanUp databaseCleanUp;
-
-    @AfterEach
-    void tearDown() {
-        databaseCleanUp.truncateAllTables();
+    @BeforeEach
+    void setUp() {
+        brandId = initDefaultBrand();
     }
 
     @DisplayName("좋아요를 등록할 때,")
@@ -62,35 +50,40 @@ class LikeServiceIntegrationTest {
         @Test
         void savesLikeToDatabase_whenValidInputProvided() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             var userId = 1L;
 
             // act
             likeService.likeProduct(userId, productId);
 
             // assert
-            assertThat(likeJpaRepository.existsByUserIdAndProductId(userId, productId)).isTrue();
+            var likedProducts = likeService.getLikedProducts(userId, new PageSize(0, 20));
+            assertAll(
+                    () -> assertThat(likedProducts.content()).hasSize(1),
+                    () -> assertThat(likedProducts.content().get(0).productId()).isEqualTo(productId)
+            );
         }
 
         @DisplayName("이미 좋아요가 존재하면, 아무 동작 없이 성공한다. (멱등성)")
         @Test
         void doesNothing_whenLikeAlreadyExists() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             var userId = 1L;
             likeService.likeProduct(userId, productId);
 
             // act & assert
             assertThatCode(() -> likeService.likeProduct(userId, productId))
                     .doesNotThrowAnyException();
-            assertThat(likeJpaRepository.existsByUserIdAndProductId(userId, productId)).isTrue();
+            var likedProducts = likeService.getLikedProducts(userId, new PageSize(0, 20));
+            assertThat(likedProducts.content()).hasSize(1);
         }
 
         @DisplayName("동일한 사용자가 동시에 좋아요를 요청하면, 하나만 성공하고 좋아요는 1개만 생성된다.")
         @Test
         void onlyOneLikeCreated_whenConcurrentLikeRequests() throws InterruptedException {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             var userId = 1L;
             int threadCount = 10;
             ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
@@ -123,7 +116,7 @@ class LikeServiceIntegrationTest {
         @Test
         void allLikesCreatedWithCorrectCount_whenDifferentUsersConcurrentlyLike() throws InterruptedException {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             int threadCount = 10;
             ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
             CountDownLatch latch = new CountDownLatch(threadCount);
@@ -170,10 +163,8 @@ class LikeServiceIntegrationTest {
         @Test
         void throwsException_whenProductIsDeleted() {
             // arrange
-            var productId = createProduct();
-            var product = productRepository.findById(productId).orElseThrow();
-            product.delete();
-            productRepository.save(product);
+            var productId = createProduct(brandId);
+            productService.deleteProduct(productId);
 
             // act & assert
             assertThatThrownBy(() -> likeService.likeProduct(1L, productId))
@@ -190,7 +181,7 @@ class LikeServiceIntegrationTest {
         @Test
         void deletesLikeFromDatabase_whenValidInputProvided() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             var userId = 1L;
             likeService.likeProduct(userId, productId);
 
@@ -198,14 +189,15 @@ class LikeServiceIntegrationTest {
             likeService.unlikeProduct(userId, productId);
 
             // assert
-            assertThat(likeJpaRepository.existsByUserIdAndProductId(userId, productId)).isFalse();
+            var likedProducts = likeService.getLikedProducts(userId, new PageSize(0, 20));
+            assertThat(likedProducts.content()).isEmpty();
         }
 
         @DisplayName("좋아요가 존재하지 않으면, 아무 동작 없이 성공한다. (멱등성)")
         @Test
         void doesNothing_whenLikeDoesNotExist() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             var userId = 1L;
 
             // act & assert
@@ -226,10 +218,8 @@ class LikeServiceIntegrationTest {
         @Test
         void throwsException_whenProductIsDeleted() {
             // arrange
-            var productId = createProduct();
-            var product = productRepository.findById(productId).orElseThrow();
-            product.delete();
-            productRepository.save(product);
+            var productId = createProduct(brandId);
+            productService.deleteProduct(productId);
 
             // act & assert
             assertThatThrownBy(() -> likeService.unlikeProduct(1L, productId))
@@ -246,7 +236,7 @@ class LikeServiceIntegrationTest {
         @Test
         void returnsLikedProductsWithCorrectLikeCount_whenUserHasLikes() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             likeService.likeProduct(1L, productId);
             likeService.likeProduct(2L, productId);
             likeService.likeProduct(3L, productId);
@@ -284,11 +274,9 @@ class LikeServiceIntegrationTest {
         @Test
         void excludesDeletedProducts_whenProductIsDeleted() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             likeService.likeProduct(1L, productId);
-            var product = productRepository.findById(productId).orElseThrow();
-            product.delete();
-            productRepository.save(product);
+            productService.deleteProduct(productId);
 
             // act
             Page<LikedProductResult> result = likeService.getLikedProducts(1L, new PageSize(0, 20));
@@ -302,13 +290,9 @@ class LikeServiceIntegrationTest {
         void supportsPagination_whenMultipleProductsLiked() {
             // arrange
             var userId = 1L;
-            var brandResult = brandService.createBrand("페이지브랜드", "https://example.com/logo.png", "브랜드 설명");
-            var productId1 = productService.createProduct(new ProductCommand.CreateProductCommand(
-                    brandResult.id(), "상품1", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"));
-            var productId2 = productService.createProduct(new ProductCommand.CreateProductCommand(
-                    brandResult.id(), "상품2", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"));
-            var productId3 = productService.createProduct(new ProductCommand.CreateProductCommand(
-                    brandResult.id(), "상품3", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"));
+            var productId1 = createProduct(brandId, "상품 1", 10000L, 100L);
+            var productId2 = createProduct(brandId, "상품 2", 10000L, 100L);
+            var productId3 = createProduct(brandId, "상품 3", 10000L, 100L);
             likeService.likeProduct(userId, productId1);
             likeService.likeProduct(userId, productId2);
             likeService.likeProduct(userId, productId3);
@@ -322,13 +306,5 @@ class LikeServiceIntegrationTest {
                     () -> assertThat(result.hasNext()).isTrue()
             );
         }
-    }
-
-    private Long createProduct() {
-        var brandResult = brandService.createBrand("브랜드명", "https://example.com/logo.png", "브랜드 설명");
-        var command = new ProductCommand.CreateProductCommand(
-                brandResult.id(), "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"
-        );
-        return productService.createProduct(command);
     }
 }

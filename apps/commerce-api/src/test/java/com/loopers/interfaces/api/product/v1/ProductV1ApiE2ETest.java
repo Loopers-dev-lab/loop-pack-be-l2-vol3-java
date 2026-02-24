@@ -31,13 +31,19 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
     void setUp() {
         brandId = BrandSteps.createBrand(
                 testRestTemplate,
-                new BrandDto.CreateBrandRequest("테스트브랜드", "https://example.com/logo.png", "브랜드 설명")
+                new BrandDto.CreateBrandRequest("테스트 브랜드", "https://example.com/logo.png", "브랜드 설명")
         );
-        var productResponse = ProductSteps.createProduct(
+        productId = ProductSteps.createProduct(
                 testRestTemplate,
-                new ProductDto.CreateProductRequest(brandId, "테스트상품", "https://example.com/thumb.png", 10000L, 100L, "상품 설명")
+                new ProductDto.CreateProductRequest(
+                        brandId,
+                        "테스트 상품",
+                        "https://example.com/thumb.png",
+                        10000L,
+                        100L,
+                        "상품 설명"
+                )
         );
-        productId = productResponse.getBody().data().productId();
     }
 
     @DisplayName("GET /api/v1/products")
@@ -50,19 +56,33 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
             // arrange
             var brandId2 = BrandSteps.createBrand(
                     testRestTemplate,
-                    new BrandDto.CreateBrandRequest("다른브랜드", "https://example.com/logo2.png", null)
+                    new BrandDto.CreateBrandRequest("다른 브랜드", "https://example.com/logo2.png", null)
             );
             ProductSteps.createProduct(
                     testRestTemplate,
-                    new ProductDto.CreateProductRequest(brandId2, "다른브랜드상품", "https://example.com/thumb2.png", 20000L, 50L, null)
+                    new ProductDto.CreateProductRequest(
+                            brandId2,
+                            "다른 브랜드 상품",
+                            "https://example.com/thumb2.png",
+                            20000L,
+                            50L,
+                            null
+                    )
             );
             ProductSteps.createProduct(
                     testRestTemplate,
-                    new ProductDto.CreateProductRequest(brandId, "같은브랜드상품", "https://example.com/thumb3.png", 30000L, 200L, null)
+                    new ProductDto.CreateProductRequest(
+                            brandId,
+                            "같은 브랜드 상품",
+                            "https://example.com/thumb3.png",
+                            30000L,
+                            200L,
+                            null
+                    )
             );
 
             // act
-            var response = getActiveProducts(testRestTemplate, "brandId=" + brandId);
+            var response = getActiveProducts(testRestTemplate, "brandId=" + brandId, new HttpHeaders());
 
             // assert
             var content = response.getBody().data().content();
@@ -79,17 +99,17 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
         @Test
         void returnsLikedStatus_whenAuthenticatedUserRequestsProductList() {
             // arrange
-            var product2Response = ProductSteps.createProduct(
+            var product2Id = ProductSteps.createProduct(
                     testRestTemplate,
-                    new ProductDto.CreateProductRequest(brandId, "두번째상품", "https://example.com/thumb2.png", 20000L, 50L, null)
+                    new ProductDto.CreateProductRequest(brandId, "두 번째 상품", "https://example.com/thumb2.png", 20000L, 50L, null)
             );
-            var product2Id = product2Response.getBody().data().productId();
 
-            var userHeaders = createUserAndGetHeaders("user1", "Password1!", "홍길동", "1990-01-15", "user1@test.com");
+            signUp(testRestTemplate, new UserV1Dto.SignUpRequest("user1", "Password1!", "홍길동", "1990-01-15", "user1@test.com"));
+            var userHeaders = userAuthHeaders("user1", "Password1!");
             likeProduct(testRestTemplate, productId, userHeaders);
 
             // act
-            var response = getActiveProducts(testRestTemplate, userHeaders);
+            var response = getActiveProducts(testRestTemplate, "", userHeaders);
 
             // assert
             var content = response.getBody().data().content();
@@ -109,7 +129,7 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
         @Test
         void returnsBrandNotFound_whenBrandDoesNotExist() {
             // act
-            var response = getActiveProducts(testRestTemplate, "brandId=999");
+            var response = getActiveProducts(testRestTemplate, "brandId=999", new HttpHeaders());
 
             // assert
             assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.BRAND_NOT_FOUND);
@@ -121,12 +141,12 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
             // arrange
             var deletedBrandId = BrandSteps.createBrand(
                     testRestTemplate,
-                    new BrandDto.CreateBrandRequest("삭제브랜드", "https://example.com/logo2.png", null)
+                    new BrandDto.CreateBrandRequest("삭제 브랜드", "https://example.com/logo2.png", null)
             );
             BrandSteps.deleteBrand(testRestTemplate, deletedBrandId);
 
             // act
-            var response = getActiveProducts(testRestTemplate, "brandId=" + deletedBrandId);
+            var response = getActiveProducts(testRestTemplate, "brandId=" + deletedBrandId, new HttpHeaders());
 
             // assert
             assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.BRAND_NOT_FOUND);
@@ -136,37 +156,51 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
         @Test
         void returnsProductsSortedByLikeCountDesc_whenSortIsLikeCountDesc() {
             // arrange
-            var product2Response = ProductSteps.createProduct(
+            var product2Id = ProductSteps.createProduct(
                     testRestTemplate,
-                    new ProductDto.CreateProductRequest(brandId, "인기상품", "https://example.com/thumb2.png", 20000L, 50L, null)
+                    new ProductDto.CreateProductRequest(
+                            brandId,
+                            "인기 상품",
+                            "https://example.com/thumb2.png",
+                            20000L,
+                            50L,
+                            null
+                    )
             );
-            var product2Id = product2Response.getBody().data().productId();
-            var product3Response = ProductSteps.createProduct(
+            var product3Id = ProductSteps.createProduct(
                     testRestTemplate,
-                    new ProductDto.CreateProductRequest(brandId, "보통상품", "https://example.com/thumb3.png", 15000L, 30L, null)
+                    new ProductDto.CreateProductRequest(
+                            brandId,
+                            "보통 상품",
+                            "https://example.com/thumb3.png",
+                            15000L,
+                            30L,
+                            null
+                    )
             );
-            var product3Id = product3Response.getBody().data().productId();
 
             // product2에 좋아요 2개, product1에 좋아요 1개, product3에 좋아요 0개
-            var user1Headers = createUserAndGetHeaders("user1", "Password1!", "홍길동", "1990-01-15", "user1@test.com");
-            var user2Headers = createUserAndGetHeaders("user2", "Password1!", "김철수", "1991-02-20", "user2@test.com");
+            signUp(testRestTemplate, new UserV1Dto.SignUpRequest("user1", "Password1!", "홍길동", "1990-01-15", "user1@test.com"));
+            signUp(testRestTemplate, new UserV1Dto.SignUpRequest("user2", "Password1!", "김철수", "1991-02-20", "user2@test.com"));
+            var user1Headers = userAuthHeaders("user1", "Password1!");
+            var user2Headers = userAuthHeaders("user2", "Password1!");
             likeProduct(testRestTemplate, product2Id, user1Headers);
             likeProduct(testRestTemplate, product2Id, user2Headers);
             likeProduct(testRestTemplate, productId, user1Headers);
 
             // act
-            var response = getActiveProducts(testRestTemplate, "sort=LIKE_COUNT_DESC");
+            var response = getActiveProducts(testRestTemplate, "sort=LIKE_COUNT_DESC", new HttpHeaders());
 
             // assert
             var content = response.getBody().data().content();
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(content).hasSize(3),
-                    () -> assertThat(content.get(0).name()).isEqualTo("인기상품"),
+                    () -> assertThat(content.get(0).productId()).isEqualTo(product2Id),
                     () -> assertThat(content.get(0).likeCount()).isEqualTo(2L),
-                    () -> assertThat(content.get(1).name()).isEqualTo("테스트상품"),
+                    () -> assertThat(content.get(1).productId()).isEqualTo(productId),
                     () -> assertThat(content.get(1).likeCount()).isEqualTo(1L),
-                    () -> assertThat(content.get(2).name()).isEqualTo("보통상품"),
+                    () -> assertThat(content.get(2).productId()).isEqualTo(product3Id),
                     () -> assertThat(content.get(2).likeCount()).isZero()
             );
         }
@@ -177,15 +211,29 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
             // arrange
             ProductSteps.createProduct(
                     testRestTemplate,
-                    new ProductDto.CreateProductRequest(brandId, "비싼상품", "https://example.com/thumb2.png", 50000L, 10L, null)
+                    new ProductDto.CreateProductRequest(
+                            brandId,
+                            "비싼 상품",
+                            "https://example.com/thumb2.png",
+                            50000L,
+                            10L,
+                            null
+                    )
             );
             ProductSteps.createProduct(
                     testRestTemplate,
-                    new ProductDto.CreateProductRequest(brandId, "싼상품", "https://example.com/thumb3.png", 3000L, 200L, null)
+                    new ProductDto.CreateProductRequest(
+                            brandId,
+                            "싼 상품",
+                            "https://example.com/thumb3.png",
+                            3000L,
+                            200L,
+                            null
+                    )
             );
 
             // act
-            var response = getActiveProducts(testRestTemplate, "sort=PRICE_ASC");
+            var response = getActiveProducts(testRestTemplate, "sort=PRICE_ASC", new HttpHeaders());
 
             // assert
             var content = response.getBody().data().content();
@@ -202,7 +250,7 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
         @Test
         void returnsInvalidSortType_whenSortIsInvalid() {
             // act
-            var response = getActiveProducts(testRestTemplate, "sort=INVALID");
+            var response = getActiveProducts(testRestTemplate, "sort=INVALID", new HttpHeaders());
 
             // assert
             assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.INVALID_SORT_TYPE);
@@ -214,36 +262,54 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
             // arrange
             var brandId2 = BrandSteps.createBrand(
                     testRestTemplate,
-                    new BrandDto.CreateBrandRequest("삭제브랜드", "https://example.com/logo2.png", null)
+                    new BrandDto.CreateBrandRequest("삭제 브랜드", "https://example.com/logo2.png", null)
             );
-            var deletedBrandProductResponse = ProductSteps.createProduct(
+            ProductSteps.createProduct(
                     testRestTemplate,
-                    new ProductDto.CreateProductRequest(brandId2, "삭제브랜드상품", "https://example.com/thumb2.png", 20000L, 50L, null)
+                    new ProductDto.CreateProductRequest(
+                            brandId2,
+                            "삭제 브랜드 상품",
+                            "https://example.com/thumb2.png", 
+                            20000L, 
+                            50L, 
+                            null
+                    )
             );
-            var product2Response = ProductSteps.createProduct(
+            var secondProductId = ProductSteps.createProduct(
                     testRestTemplate,
-                    new ProductDto.CreateProductRequest(brandId, "두번째상품", "https://example.com/thumb3.png", 30000L, 200L, "설명2")
+                    new ProductDto.CreateProductRequest(brandId,
+                            "두 번째 상품",
+                            "https://example.com/thumb3.png",
+                            30000L,
+                            200L,
+                            "설명 2"
+                    )
             );
-            var deletedProductResponse = ProductSteps.createProduct(
+            var deletedProductId = ProductSteps.createProduct(
                     testRestTemplate,
-                    new ProductDto.CreateProductRequest(brandId, "삭제상품", "https://example.com/thumb4.png", 5000L, 10L, null)
+                    new ProductDto.CreateProductRequest(
+                            brandId,
+                            "삭제 상품",
+                            "https://example.com/thumb4.png",
+                            5000L,
+                            10L,
+                            null
+                    )
             );
 
-            // 상품 삭제
-            ProductSteps.deleteProduct(testRestTemplate, deletedProductResponse.getBody().data().productId());
-            // 브랜드 삭제 (소속 상품도 제외됨)
+            ProductSteps.deleteProduct(testRestTemplate, deletedProductId);
             BrandSteps.deleteBrand(testRestTemplate, brandId2);
 
             // act
-            var response = getActiveProducts(testRestTemplate);
+            var response = getActiveProducts(testRestTemplate, "", new HttpHeaders());
 
             // assert
             var content = response.getBody().data().content();
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(content).hasSize(2),
-                    () -> assertThat(content.get(0).name()).isEqualTo("두번째상품"),
-                    () -> assertThat(content.get(1).name()).isEqualTo("테스트상품"),
+                    () -> assertThat(content.get(0).productId()).isEqualTo(secondProductId),
+                    () -> assertThat(content.get(1).productId()).isEqualTo(productId),
                     () -> assertThat(content.get(0).brand().id()).isEqualTo(brandId),
                     () -> assertThat(content.get(0).likeCount()).isZero(),
                     () -> assertThat(content.get(0).liked()).isFalse()
@@ -266,13 +332,13 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody()).isNotNull(),
                     () -> assertThat(response.getBody().data().productId()).isEqualTo(productId),
-                    () -> assertThat(response.getBody().data().name()).isEqualTo("테스트상품"),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("테스트 상품"),
                     () -> assertThat(response.getBody().data().thumbnailUrl()).isEqualTo("https://example.com/thumb.png"),
                     () -> assertThat(response.getBody().data().price()).isEqualTo(10000L),
                     () -> assertThat(response.getBody().data().stock()).isEqualTo(100L),
                     () -> assertThat(response.getBody().data().description()).isEqualTo("상품 설명"),
                     () -> assertThat(response.getBody().data().brand().id()).isEqualTo(brandId),
-                    () -> assertThat(response.getBody().data().brand().name()).isEqualTo("테스트브랜드"),
+                    () -> assertThat(response.getBody().data().brand().name()).isEqualTo("테스트 브랜드"),
                     () -> assertThat(response.getBody().data().brand().logoUrl()).isEqualTo("https://example.com/logo.png"),
                     () -> assertThat(response.getBody().data().likeCount()).isZero(),
                     () -> assertThat(response.getBody().data().liked()).isFalse()
@@ -283,7 +349,8 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
         @Test
         void returnsLikedTrue_whenUserLikedProduct() {
             // arrange
-            var userHeaders = createUserAndGetHeaders("user1", "Password1!", "홍길동", "1990-01-15", "user1@test.com");
+            signUp(testRestTemplate, new UserV1Dto.SignUpRequest("user1", "Password1!", "홍길동", "1990-01-15", "user1@test.com"));
+            var userHeaders = userAuthHeaders("user1", "Password1!");
             likeProduct(testRestTemplate, productId, userHeaders);
 
             // act
@@ -301,7 +368,8 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
         @Test
         void returnsLikedFalse_whenUserDidNotLikeProduct() {
             // arrange
-            var userHeaders = createUserAndGetHeaders("user1", "Password1!", "홍길동", "1990-01-15", "user1@test.com");
+            signUp(testRestTemplate, new UserV1Dto.SignUpRequest("user1", "Password1!", "홍길동", "1990-01-15", "user1@test.com"));
+            var userHeaders = userAuthHeaders("user1", "Password1!");
 
             // act
             var response = getActiveProduct(testRestTemplate, productId, userHeaders);
@@ -318,8 +386,10 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
         @Test
         void returnsCorrectLikeCount_whenMultipleUsersLiked() {
             // arrange
-            var user1Headers = createUserAndGetHeaders("user1", "Password1!", "홍길동", "1990-01-15", "user1@test.com");
-            var user2Headers = createUserAndGetHeaders("user2", "Password1!", "김철수", "1991-02-20", "user2@test.com");
+            signUp(testRestTemplate, new UserV1Dto.SignUpRequest("user1", "Password1!", "홍길동", "1990-01-15", "user1@test.com"));
+            signUp(testRestTemplate, new UserV1Dto.SignUpRequest("user2", "Password1!", "김철수", "1991-02-20", "user2@test.com"));
+            var user1Headers = userAuthHeaders("user1", "Password1!");
+            var user2Headers = userAuthHeaders("user2", "Password1!");
             likeProduct(testRestTemplate, productId, user1Headers);
             likeProduct(testRestTemplate, productId, user2Headers);
 
@@ -356,10 +426,5 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
             // assert
             assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.PRODUCT_NOT_FOUND);
         }
-    }
-
-    private HttpHeaders createUserAndGetHeaders(String loginId, String password, String name, String birthDate, String email) {
-        signUp(testRestTemplate, new UserV1Dto.SignUpRequest(loginId, password, name, birthDate, email));
-        return userAuthHeaders(loginId, password);
     }
 }

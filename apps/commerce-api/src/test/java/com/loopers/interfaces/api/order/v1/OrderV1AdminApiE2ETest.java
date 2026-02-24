@@ -45,13 +45,12 @@ class OrderV1AdminApiE2ETest extends BaseE2ETest {
 
         var brandId = BrandSteps.createBrand(
                 testRestTemplate,
-                new BrandDto.CreateBrandRequest("테스트브랜드", "https://example.com/logo.png", "브랜드 설명")
+                new BrandDto.CreateBrandRequest("테스트 브랜드", "https://example.com/logo.png", "브랜드 설명")
         );
-        var productResponse = ProductSteps.createProduct(
+        productId = ProductSteps.createProduct(
                 testRestTemplate,
-                new ProductDto.CreateProductRequest(brandId, "테스트상품", "https://example.com/thumb.png", 10000L, 100L, "상품 설명")
+                new ProductDto.CreateProductRequest(brandId, "테스트 상품", "https://example.com/thumb.png", 10000L, 100L, "상품 설명")
         );
-        productId = productResponse.getBody().data().productId();
     }
 
     @DisplayName("GET /api-admin/v1/orders")
@@ -91,19 +90,30 @@ class OrderV1AdminApiE2ETest extends BaseE2ETest {
             // arrange
             var brandId = BrandSteps.createBrand(
                     testRestTemplate,
-                    new BrandDto.CreateBrandRequest("두번째브랜드", "https://example.com/logo2.png", "설명")
+                    new BrandDto.CreateBrandRequest("두 번째 브랜드", "https://example.com/logo2.png", "설명")
             );
             var secondProductId = ProductSteps.createProduct(
                     testRestTemplate,
-                    new ProductDto.CreateProductRequest(brandId, "두번째상품", "https://example.com/thumb2.png", 20000L, 100L, "설명")
-            ).getBody().data().productId();
+                    new ProductDto.CreateProductRequest(
+                            brandId,
+                            "두 번째 상품",
+                            "https://example.com/thumb2.png",
+                            20000L,
+                            100L,
+                            "설명"
+                    )
+            );
 
-            createOrder(testRestTemplate,
-                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L))),
-                    userHeaders);
-            createOrder(testRestTemplate,
+            var firstOrderId = createOrder(
+                    testRestTemplate,
+                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L))), 
+                    userHeaders
+            ).getBody().data().orderId();
+            var secondOrderId = createOrder(
+                    testRestTemplate,
                     new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(secondProductId, 1L))),
-                    userHeaders);
+                    userHeaders
+            ).getBody().data().orderId();
 
             var url = UriComponentsBuilder.fromPath(ORDER_ADMIN_ENDPOINT)
                     .queryParam("page", 0)
@@ -117,8 +127,8 @@ class OrderV1AdminApiE2ETest extends BaseE2ETest {
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content())
-                            .extracting(AdminOrderDto.OrderListResponse::name)
-                            .containsExactly("두번째상품", "테스트상품")
+                            .extracting(AdminOrderDto.OrderListResponse::orderId)
+                            .containsExactly(secondOrderId, firstOrderId)
             );
         }
 
@@ -188,7 +198,7 @@ class OrderV1AdminApiE2ETest extends BaseE2ETest {
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().orderId()).isEqualTo(orderId),
-                    () -> assertThat(response.getBody().data().name()).isEqualTo("테스트상품"),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("테스트 상품"),
                     () -> assertThat(response.getBody().data().totalPrice()).isEqualTo(20000L),
                     () -> assertThat(response.getBody().data().orderItems()).hasSize(1),
                     () -> assertThat(response.getBody().data().orderer().name()).isEqualTo("테스*")

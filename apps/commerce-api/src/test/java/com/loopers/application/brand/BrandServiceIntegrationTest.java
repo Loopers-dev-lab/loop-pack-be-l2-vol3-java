@@ -5,52 +5,22 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import com.loopers.application.like.LikeService;
 import com.loopers.application.product.ProductCommand;
-import com.loopers.application.product.ProductService;
-import com.loopers.domain.brand.BrandRepository;
-import com.loopers.domain.product.ProductRepository;
-import com.loopers.infrastructure.like.persistence.LikeJpaRepository;
+import com.loopers.support.BaseIntegrationTest;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.support.page.PageSize;
-import com.loopers.utils.DatabaseCleanUp;
 
-@SpringBootTest
-class BrandServiceIntegrationTest {
-
-    @Autowired
-    private BrandService brandService;
-
-    @Autowired
-    private BrandRepository brandRepository;
-
-    @Autowired
-    private ProductService productService;
-
-    @Autowired
-    private ProductRepository productRepository;
+class BrandServiceIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private LikeService likeService;
-
-    @Autowired
-    private LikeJpaRepository likeJpaRepository;
-
-    @Autowired
-    private DatabaseCleanUp databaseCleanUp;
-
-    @AfterEach
-    void tearDown() {
-        databaseCleanUp.truncateAllTables();
-    }
 
     @DisplayName("브랜드를 생성할 때,")
     @Nested
@@ -68,12 +38,12 @@ class BrandServiceIntegrationTest {
             var result = brandService.createBrand(name, logoUrl, description);
 
             // assert
-            var savedBrand = brandRepository.findById(result.id()).orElseThrow();
+            var savedBrand = brandService.getBrand(result.id());
             assertAll(
-                    () -> assertThat(savedBrand.getId()).isEqualTo(result.id()),
-                    () -> assertThat(savedBrand.getName()).isEqualTo(name),
-                    () -> assertThat(savedBrand.getLogoUrl()).isEqualTo(logoUrl),
-                    () -> assertThat(savedBrand.getDescription()).isEqualTo(description)
+                    () -> assertThat(savedBrand.id()).isEqualTo(result.id()),
+                    () -> assertThat(savedBrand.name()).isEqualTo(name),
+                    () -> assertThat(savedBrand.logoUrl()).isEqualTo(logoUrl),
+                    () -> assertThat(savedBrand.description()).isEqualTo(description)
             );
         }
 
@@ -100,20 +70,18 @@ class BrandServiceIntegrationTest {
             var logoUrl = "logo url";
             var description = "brand description";
             var brandResult = brandService.createBrand(name, logoUrl, description);
-            var savedBrand = brandRepository.findById(brandResult.id()).orElseThrow();
-            savedBrand.delete();
-            brandRepository.save(savedBrand);
+            brandService.deleteBrand(brandResult.id());
 
             // act
             var result = brandService.createBrand(name, logoUrl, description);
 
             // assert
-            var savedBrand2 = brandRepository.findById(result.id()).orElseThrow();
+            var savedBrand = brandService.getBrand(result.id());
             assertAll(
-                    () -> assertThat(savedBrand2.getId()).isEqualTo(result.id()),
-                    () -> assertThat(savedBrand2.getName()).isEqualTo(name),
-                    () -> assertThat(savedBrand2.getLogoUrl()).isEqualTo(logoUrl),
-                    () -> assertThat(savedBrand2.getDescription()).isEqualTo(description)
+                    () -> assertThat(savedBrand.id()).isEqualTo(result.id()),
+                    () -> assertThat(savedBrand.name()).isEqualTo(name),
+                    () -> assertThat(savedBrand.logoUrl()).isEqualTo(logoUrl),
+                    () -> assertThat(savedBrand.description()).isEqualTo(description)
             );
         }
     }
@@ -126,8 +94,8 @@ class BrandServiceIntegrationTest {
         @Test
         void returnsBrandList_whenBrandsExist() {
             // arrange
-            brandService.createBrand("brand name 1", "logo url 1", "brand description 1");
-            brandService.createBrand("brand name 2", "logo url 2", "brand description 2");
+            var brand1 = brandService.createBrand("브랜드 1", "logo url 1", "브랜드 설명 1");
+            var brand2 = brandService.createBrand("브랜드 2", "logo url 2", "브랜드 설명 2");
 
             // act
             var result = brandService.getBrands(new PageSize(0, 10));
@@ -135,8 +103,8 @@ class BrandServiceIntegrationTest {
             // assert
             assertAll(
                     () -> assertThat(result.content()).hasSize(2),
-                    () -> assertThat(result.content()).extracting(BrandResult::name)
-                            .containsExactly("brand name 2", "brand name 1"),
+                    () -> assertThat(result.content()).extracting(BrandResult::id)
+                            .containsExactly(brand2.id(), brand1.id()),
                     () -> assertThat(result.hasNext()).isFalse()
             );
         }
@@ -158,9 +126,9 @@ class BrandServiceIntegrationTest {
         @Test
         void returnsHasNextTrue_whenMoreBrandsExist() {
             // arrange
-            brandService.createBrand("brand 1", "logo 1", "desc 1");
-            brandService.createBrand("brand 2", "logo 2", "desc 2");
-            brandService.createBrand("brand 3", "logo 3", "desc 3");
+            brandService.createBrand("브랜드 1", "logo 1", "설명 1");
+            brandService.createBrand("브랜드 2", "logo 2", "설명 2");
+            brandService.createBrand("브랜드 3", "logo 3", "설명 3");
 
             // act
             var result = brandService.getBrands(new PageSize(0, 2));
@@ -176,28 +144,26 @@ class BrandServiceIntegrationTest {
         @Test
         void returnsBrandsSortedByCreatedAtDesc() {
             // arrange
-            brandService.createBrand("first brand", "logo 1", "desc 1");
-            brandService.createBrand("second brand", "logo 2", "desc 2");
-            brandService.createBrand("third brand", "logo 3", "desc 3");
+            var brand1 = brandService.createBrand("브랜드 1", "logo 1", "설명 1");
+            var brand2 = brandService.createBrand("브랜드 2", "logo 2", "설명 2");
+            var brand3 = brandService.createBrand("브랜드 3", "logo 3", "설명 3");
 
             // act
             var result = brandService.getBrands(new PageSize(0, 10));
 
             // assert
-            assertThat(result.content()).extracting(BrandResult::name)
-                    .containsExactly("third brand", "second brand", "first brand");
+            assertThat(result.content()).extracting(BrandResult::id)
+                    .containsExactly(brand3.id(), brand2.id(), brand1.id());
         }
 
         @DisplayName("삭제된 브랜드도 조회 대상에 포함된다.")
         @Test
         void includesDeletedBrands() {
             // arrange
-            var created = brandService.createBrand("brand to delete", "logo", "desc");
-            var brand = brandRepository.findById(created.id()).orElseThrow();
-            brand.delete();
-            brandRepository.save(brand);
+            var deletedBrand = brandService.createBrand("삭제 브랜드", "logo", "설명");
+            brandService.deleteBrand(deletedBrand.id());
 
-            brandService.createBrand("active brand", "logo 2", "desc 2");
+            var activeBrand = brandService.createBrand("활성 브랜드", "logo 2", "설명 2");
 
             // act
             var result = brandService.getBrands(new PageSize(0, 10));
@@ -205,8 +171,8 @@ class BrandServiceIntegrationTest {
             // assert
             assertAll(
                     () -> assertThat(result.content()).hasSize(2),
-                    () -> assertThat(result.content()).extracting(BrandResult::name)
-                            .containsExactly("active brand", "brand to delete"),
+                    () -> assertThat(result.content()).extracting(BrandResult::id)
+                            .containsExactly(activeBrand.id(), deletedBrand.id()),
                     () -> assertThat(result.content().get(0).deletedAt()).isNull(),
                     () -> assertThat(result.content().get(1).deletedAt()).isNotNull()
             );
@@ -240,9 +206,7 @@ class BrandServiceIntegrationTest {
         void returnsBrand_whenDeletedBrandIdProvided() {
             // arrange
             var created = brandService.createBrand("brand name", "logo url", "brand description");
-            var brand = brandRepository.findById(created.id()).orElseThrow();
-            brand.delete();
-            brandRepository.save(brand);
+            brandService.deleteBrand(created.id());
 
             // act
             var result = brandService.getBrand(created.id());
@@ -294,9 +258,7 @@ class BrandServiceIntegrationTest {
         void throwsException_whenDeletedBrandIdProvided() {
             // arrange
             var created = brandService.createBrand("brand name", "logo url", "brand description");
-            var brand = brandRepository.findById(created.id()).orElseThrow();
-            brand.delete();
-            brandRepository.save(brand);
+            brandService.deleteBrand(created.id());
 
             // act & assert
             assertThatThrownBy(() -> brandService.getActiveBrand(created.id()))
@@ -332,12 +294,12 @@ class BrandServiceIntegrationTest {
             brandService.updateBrand(brandId, newName, newLogoUrl, newDescription);
 
             // assert
-            var updatedBrand = brandRepository.findById(brandId).orElseThrow();
+            var updatedBrand = brandService.getBrand(brandId);
             assertAll(
-                    () -> assertThat(updatedBrand.getId()).isEqualTo(brandId),
-                    () -> assertThat(updatedBrand.getName()).isEqualTo(newName),
-                    () -> assertThat(updatedBrand.getLogoUrl()).isEqualTo(newLogoUrl),
-                    () -> assertThat(updatedBrand.getDescription()).isEqualTo(newDescription)
+                    () -> assertThat(updatedBrand.id()).isEqualTo(brandId),
+                    () -> assertThat(updatedBrand.name()).isEqualTo(newName),
+                    () -> assertThat(updatedBrand.logoUrl()).isEqualTo(newLogoUrl),
+                    () -> assertThat(updatedBrand.description()).isEqualTo(newDescription)
             );
         }
 
@@ -373,11 +335,11 @@ class BrandServiceIntegrationTest {
             brandService.updateBrand(created.id(), "brand name", "new logo url", "new description");
 
             // assert
-            var updatedBrand = brandRepository.findById(created.id()).orElseThrow();
+            var updatedBrand = brandService.getBrand(created.id());
             assertAll(
-                    () -> assertThat(updatedBrand.getName()).isEqualTo("brand name"),
-                    () -> assertThat(updatedBrand.getLogoUrl()).isEqualTo("new logo url"),
-                    () -> assertThat(updatedBrand.getDescription()).isEqualTo("new description")
+                    () -> assertThat(updatedBrand.name()).isEqualTo("brand name"),
+                    () -> assertThat(updatedBrand.logoUrl()).isEqualTo("new logo url"),
+                    () -> assertThat(updatedBrand.description()).isEqualTo("new description")
             );
         }
 
@@ -386,9 +348,7 @@ class BrandServiceIntegrationTest {
         void updatesBrand_whenNameMatchesDeletedBrand() {
             // arrange
             var deleted = brandService.createBrand("deleted brand", "logo1", "desc1");
-            var brand = brandRepository.findById(deleted.id()).orElseThrow();
-            brand.delete();
-            brandRepository.save(brand);
+            brandService.deleteBrand(deleted.id());
 
             var created = brandService.createBrand("my brand", "logo2", "desc2");
 
@@ -396,8 +356,8 @@ class BrandServiceIntegrationTest {
             brandService.updateBrand(created.id(), "deleted brand", "logo2", "desc2");
 
             // assert
-            var updatedBrand = brandRepository.findById(created.id()).orElseThrow();
-            assertThat(updatedBrand.getName()).isEqualTo("deleted brand");
+            var updatedBrand = brandService.getBrand(created.id());
+            assertThat(updatedBrand.name()).isEqualTo("deleted brand");
         }
 
         @DisplayName("삭제된 브랜드를 수정하면, ALREADY_DELETED_BRAND 예외가 발생한다.")
@@ -405,9 +365,7 @@ class BrandServiceIntegrationTest {
         void throwsException_whenBrandIsDeleted() {
             // arrange
             var created = brandService.createBrand("brand name", "logo url", "description");
-            var brand = brandRepository.findById(created.id()).orElseThrow();
-            brand.delete();
-            brandRepository.save(brand);
+            brandService.deleteBrand(created.id());
 
             // act & assert
             assertThatThrownBy(() -> brandService.updateBrand(created.id(), "new name", "new logo", "new desc"))
@@ -430,8 +388,8 @@ class BrandServiceIntegrationTest {
             brandService.deleteBrand(created.id());
 
             // assert
-            var deleted = brandRepository.findById(created.id()).orElseThrow();
-            assertThat(deleted.getDeletedAt()).isNotNull();
+            var deleted = brandService.getBrand(created.id());
+            assertThat(deleted.deletedAt()).isNotNull();
         }
 
         @DisplayName("이미 삭제된 브랜드이면, 아무 동작 없이 성공한다.")
@@ -462,8 +420,8 @@ class BrandServiceIntegrationTest {
 
             // assert
             assertAll(
-                    () -> assertThat(productRepository.findById(productId).orElseThrow().getDeletedAt()).isNotNull(),
-                    () -> assertThat(likeJpaRepository.existsByUserIdAndProductId(userId, productId)).isFalse()
+                    () -> assertThat(productService.getProduct(productId).deletedAt()).isNotNull(),
+                    () -> assertThat(likeService.getLikedProducts(userId, new PageSize(0, 20)).content()).isEmpty()
             );
         }
 

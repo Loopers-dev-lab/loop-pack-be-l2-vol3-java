@@ -5,50 +5,36 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
-import com.loopers.application.brand.BrandService;
 import com.loopers.application.like.LikeService;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.product.ProductRepository;
-import com.loopers.infrastructure.like.persistence.LikeJpaRepository;
+import com.loopers.support.BaseIntegrationTest;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.support.page.PageSize;
-import com.loopers.utils.DatabaseCleanUp;
 
-@SpringBootTest
-class ProductServiceIntegrationTest {
-
-    @Autowired
-    private ProductService productService;
-
-    @Autowired
-    private ProductRepository productRepository;
-
-    @Autowired
-    private BrandService brandService;
-
-    @Autowired
-    private BrandRepository brandRepository;
+class ProductServiceIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private LikeService likeService;
 
     @Autowired
-    private LikeJpaRepository likeJpaRepository;
+    private BrandRepository brandRepository;
 
     @Autowired
-    private DatabaseCleanUp databaseCleanUp;
+    private ProductRepository productRepository;
 
-    @AfterEach
-    void tearDown() {
-        databaseCleanUp.truncateAllTables();
+    private Long brandId;
+
+    @BeforeEach
+    void setUp() {
+        brandId = initDefaultBrand();
     }
 
     @DisplayName("상품을 등록할 때,")
@@ -59,24 +45,23 @@ class ProductServiceIntegrationTest {
         @Test
         void savesProductToDatabase_whenValidInputProvided() {
             // arrange
-            var brandResult = brandService.createBrand("브랜드명", "https://example.com/logo.png", "브랜드 설명");
             var command = new ProductCommand.CreateProductCommand(
-                    brandResult.id(), "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"
+                    brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"
             );
 
             // act
             var productId = productService.createProduct(command);
 
             // assert
-            var savedProduct = productRepository.findById(productId).orElseThrow();
+            var savedProduct = productService.getProduct(productId);
             assertAll(
-                    () -> assertThat(savedProduct.getId()).isEqualTo(productId),
-                    () -> assertThat(savedProduct.getBrandId()).isEqualTo(brandResult.id()),
-                    () -> assertThat(savedProduct.getName().getValue()).isEqualTo("상품명"),
-                    () -> assertThat(savedProduct.getThumbnailUrl().getValue()).isEqualTo("https://example.com/thumb.png"),
-                    () -> assertThat(savedProduct.getPrice().getAmount()).isEqualTo(10000L),
-                    () -> assertThat(savedProduct.getStock().getValue()).isEqualTo(100L),
-                    () -> assertThat(savedProduct.getDescription()).isEqualTo("상품 설명")
+                    () -> assertThat(savedProduct.id()).isEqualTo(productId),
+                    () -> assertThat(savedProduct.brandId()).isEqualTo(brandId),
+                    () -> assertThat(savedProduct.name()).isEqualTo("상품명"),
+                    () -> assertThat(savedProduct.thumbnailUrl()).isEqualTo("https://example.com/thumb.png"),
+                    () -> assertThat(savedProduct.price()).isEqualTo(10000L),
+                    () -> assertThat(savedProduct.stock()).isEqualTo(100L),
+                    () -> assertThat(savedProduct.description()).isEqualTo("상품 설명")
             );
         }
 
@@ -91,26 +76,25 @@ class ProductServiceIntegrationTest {
             // act & assert
             assertThatThrownBy(() -> productService.createProduct(command))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
+                    .satisfies(
+                            e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
         }
 
         @DisplayName("삭제된 브랜드 ID를 입력하면, BRAND_NOT_FOUND 예외가 발생한다.")
         @Test
         void throwsException_whenBrandIsDeleted() {
             // arrange
-            var brandResult = brandService.createBrand("브랜드명", "https://example.com/logo.png", "브랜드 설명");
-            var brand = brandRepository.findById(brandResult.id()).orElseThrow();
-            brand.delete();
-            brandRepository.save(brand);
+            brandService.deleteBrand(brandId);
 
             var command = new ProductCommand.CreateProductCommand(
-                    brandResult.id(), "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"
+                    brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"
             );
 
             // act & assert
             assertThatThrownBy(() -> productService.createProduct(command))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
+                    .satisfies(
+                            e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
         }
     }
 
@@ -122,36 +106,31 @@ class ProductServiceIntegrationTest {
         @Test
         void returnsProductsByBrandId() {
             // arrange
-            var brandResult = brandService.createBrand("브랜드명", "https://example.com/logo.png", "브랜드 설명");
-            var command1 = new ProductCommand.CreateProductCommand(
-                    brandResult.id(), "상품명1", "https://example.com/thumb1.png", 10000L, 100L, "상품 설명1"
-            );
-            var command2 = new ProductCommand.CreateProductCommand(
-                    brandResult.id(), "상품명2", "https://example.com/thumb2.png", 20000L, 200L, "상품 설명2"
-            );
-            productService.createProduct(command1);
-            productService.createProduct(command2);
+            var productId1 = createProduct(brandId, "상품 1", 10000L, 100L);
+            var productId2 = createProduct(brandId, "상품 2", 20000L, 200L);
 
             // act
-            var products = productService.getProductsByBrandId(brandResult.id(), new PageSize(0, 10));
+            var products = productService.getProductsByBrandId(brandId, new PageSize(0, 10));
 
             // assert
             assertThat(products.content()).hasSize(2)
-                    .extracting("name")
-                    .containsExactlyInAnyOrder("상품명1", "상품명2");
+                    .extracting("id")
+                    .containsExactlyInAnyOrder(productId1, productId2);
         }
 
         @DisplayName("brandId 없이 전체 상품을 조회할 수 있다.")
         @Test
         void returnsAllProducts_whenNoFilter() {
             // arrange
-            var brand1 = brandService.createBrand("브랜드1", "https://example.com/logo1.png", "설명1");
-            var brand2 = brandService.createBrand("브랜드2", "https://example.com/logo2.png", "설명2");
+            var otherBrandId = brandService.createBrand("브랜드 2", "https://example.com/logo2.png", "설명 2").id();
+            createProduct(brandId, "상품 1", 10000L, 100L);
             productService.createProduct(new ProductCommand.CreateProductCommand(
-                    brand1.id(), "상품1", "https://example.com/thumb1.png", 10000L, 100L, "설명"
-            ));
-            productService.createProduct(new ProductCommand.CreateProductCommand(
-                    brand2.id(), "상품2", "https://example.com/thumb2.png", 20000L, 200L, "설명"
+                    otherBrandId,
+                    "상품 2",
+                    "https://example.com/thumb2.png",
+                    20000L,
+                    200L,
+                    "설명"
             ));
 
             // act
@@ -165,22 +144,24 @@ class ProductServiceIntegrationTest {
         @Test
         void returnsProductsByBrandId_filteringOtherBrands() {
             // arrange
-            var brand1 = brandService.createBrand("브랜드1", "https://example.com/logo1.png", "설명1");
-            var brand2 = brandService.createBrand("브랜드2", "https://example.com/logo2.png", "설명2");
+            var otherBrandId = brandService.createBrand("브랜드 2", "https://example.com/logo2.png", "설명 2").id();
+            createProduct(brandId, "상품 1", 10000L, 100L);
             productService.createProduct(new ProductCommand.CreateProductCommand(
-                    brand1.id(), "상품1", "https://example.com/thumb1.png", 10000L, 100L, "설명"
-            ));
-            productService.createProduct(new ProductCommand.CreateProductCommand(
-                    brand2.id(), "상품2", "https://example.com/thumb2.png", 20000L, 200L, "설명"
+                    otherBrandId,
+                    "상품 2",
+                    "https://example.com/thumb2.png",
+                    20000L,
+                    200L,
+                    "설명"
             ));
 
             // act
-            var products = productService.getProductsByBrandId(brand1.id(), new PageSize(0, 10));
+            var products = productService.getProductsByBrandId(brandId, new PageSize(0, 10));
 
             // assert
             assertAll(
                     () -> assertThat(products.content()).hasSize(1),
-                    () -> assertThat(products.content().get(0).name()).isEqualTo("상품1")
+                    () -> assertThat(products.content().get(0).name()).isEqualTo("상품 1")
             );
         }
 
@@ -188,24 +169,17 @@ class ProductServiceIntegrationTest {
         @Test
         void returnsProductsSortedByCreatedAtDesc() {
             // arrange
-            var brandResult = brandService.createBrand("브랜드명", "https://example.com/logo.png", "설명");
-            productService.createProduct(new ProductCommand.CreateProductCommand(
-                    brandResult.id(), "첫번째", "https://example.com/thumb1.png", 10000L, 100L, "설명"
-            ));
-            productService.createProduct(new ProductCommand.CreateProductCommand(
-                    brandResult.id(), "두번째", "https://example.com/thumb2.png", 20000L, 200L, "설명"
-            ));
-            productService.createProduct(new ProductCommand.CreateProductCommand(
-                    brandResult.id(), "세번째", "https://example.com/thumb3.png", 30000L, 300L, "설명"
-            ));
+            var productId1 = createProduct(brandId, "상품 1", 10000L, 100L);
+            var productId2 = createProduct(brandId, "상품 2", 20000L, 200L);
+            var productId3 = createProduct(brandId, "상품 3", 30000L, 300L);
 
             // act
             var products = productService.getProducts(new PageSize(0, 10));
 
             // assert
             assertThat(products.content())
-                    .extracting("name")
-                    .containsExactly("세번째", "두번째", "첫번째");
+                    .extracting("id")
+                    .containsExactly(productId3, productId2, productId1);
         }
 
         @DisplayName("상품이 없으면, 빈 목록이 반환된다.")
@@ -225,16 +199,9 @@ class ProductServiceIntegrationTest {
         @Test
         void returnsHasNextTrue_whenMoreProductsExist() {
             // arrange
-            var brandResult = brandService.createBrand("브랜드명", "https://example.com/logo.png", "설명");
-            productService.createProduct(new ProductCommand.CreateProductCommand(
-                    brandResult.id(), "상품1", "https://example.com/thumb1.png", 10000L, 100L, "설명"
-            ));
-            productService.createProduct(new ProductCommand.CreateProductCommand(
-                    brandResult.id(), "상품2", "https://example.com/thumb2.png", 20000L, 200L, "설명"
-            ));
-            productService.createProduct(new ProductCommand.CreateProductCommand(
-                    brandResult.id(), "상품3", "https://example.com/thumb3.png", 30000L, 300L, "설명"
-            ));
+            createProduct(brandId, "상품 1", 10000L, 100L);
+            createProduct(brandId, "상품 2", 20000L, 200L);
+            createProduct(brandId, "상품 3", 30000L, 300L);
 
             // act
             var products = productService.getProducts(new PageSize(0, 2));
@@ -249,10 +216,10 @@ class ProductServiceIntegrationTest {
         @DisplayName("존재하지 않는 브랜드 ID로 조회하면, BRAND_NOT_FOUND 예외가 발생한다.")
         @Test
         void throwsException_whenBrandNotFound() {
-            // act & assert
             assertThatThrownBy(() -> productService.getProductsByBrandId(999L, new PageSize(0, 10)))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
+                    .satisfies(
+                            e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
         }
     }
 
@@ -264,7 +231,7 @@ class ProductServiceIntegrationTest {
         @Test
         void returnsProductResult_whenProductExists() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
 
             // act
             var result = productService.getProduct(productId);
@@ -284,7 +251,7 @@ class ProductServiceIntegrationTest {
         @Test
         void returnsProductResult_whenProductIsDeleted() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             productService.deleteProduct(productId);
 
             // act
@@ -300,10 +267,10 @@ class ProductServiceIntegrationTest {
         @DisplayName("존재하지 않는 상품이면, PRODUCT_NOT_FOUND 예외가 발생한다.")
         @Test
         void throwsException_whenProductNotFound() {
-            // act & assert
             assertThatThrownBy(() -> productService.getProduct(999L))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
+                    .satisfies(
+                            e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
         }
     }
 
@@ -315,7 +282,7 @@ class ProductServiceIntegrationTest {
         @Test
         void returnsProductDetail_whenActiveProductExists() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
 
             // act
             var result = productService.getActiveProduct(null, productId);
@@ -339,7 +306,7 @@ class ProductServiceIntegrationTest {
         @Test
         void returnsLikedFalse_whenUserIdIsNull() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             likeService.likeProduct(1L, productId);
 
             // act
@@ -357,7 +324,7 @@ class ProductServiceIntegrationTest {
         void returnsLikedTrue_whenUserLikedProduct() {
             // arrange
             var userId = 1L;
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             likeService.likeProduct(userId, productId);
 
             // act
@@ -374,29 +341,30 @@ class ProductServiceIntegrationTest {
         @Test
         void throwsException_whenProductIsDeleted() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             productService.deleteProduct(productId);
 
             // act & assert
             assertThatThrownBy(() -> productService.getActiveProduct(null, productId))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
+                    .satisfies(
+                            e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
         }
 
         @DisplayName("존재하지 않는 상품이면, PRODUCT_NOT_FOUND 예외가 발생한다.")
         @Test
         void throwsException_whenProductNotFound() {
-            // act & assert
             assertThatThrownBy(() -> productService.getActiveProduct(null, 999L))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
+                    .satisfies(
+                            e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
         }
 
         @DisplayName("브랜드가 삭제된 상품이면, BRAND_NOT_FOUND 예외가 발생한다.")
         @Test
         void throwsException_whenBrandIsDeleted() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             var product = productRepository.findById(productId).orElseThrow();
             var brand = brandRepository.findById(product.getBrandId()).orElseThrow();
             brand.delete();
@@ -405,7 +373,8 @@ class ProductServiceIntegrationTest {
             // act & assert
             assertThatThrownBy(() -> productService.getActiveProduct(null, productId))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
+                    .satisfies(
+                            e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
         }
     }
 
@@ -417,7 +386,7 @@ class ProductServiceIntegrationTest {
         @Test
         void updatesProduct_whenValidInputProvided() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             var command = new ProductCommand.UpdateProductCommand(
                     productId,
                     "수정된 상품명",
@@ -431,14 +400,14 @@ class ProductServiceIntegrationTest {
             productService.updateProduct(command);
 
             // assert
-            var updatedProduct = productRepository.findById(productId).orElseThrow();
+            var updatedProduct = productService.getProduct(productId);
             assertAll(
-                    () -> assertThat(updatedProduct.getName().getValue()).isEqualTo("수정된 상품명"),
-                    () -> assertThat(updatedProduct.getThumbnailUrl().getValue()).isEqualTo("https://example.com/new-thumb.png"),
-                    () -> assertThat(updatedProduct.getPrice().getAmount()).isEqualTo(20000L),
-                    () -> assertThat(updatedProduct.getStock().getValue()).isEqualTo(200L),
-                    () -> assertThat(updatedProduct.getDescription()).isEqualTo("수정된 설명"),
-                    () -> assertThat(updatedProduct.getBrandId()).isNotNull()
+                    () -> assertThat(updatedProduct.name()).isEqualTo("수정된 상품명"),
+                    () -> assertThat(updatedProduct.thumbnailUrl()).isEqualTo("https://example.com/new-thumb.png"),
+                    () -> assertThat(updatedProduct.price()).isEqualTo(20000L),
+                    () -> assertThat(updatedProduct.stock()).isEqualTo(200L),
+                    () -> assertThat(updatedProduct.description()).isEqualTo("수정된 설명"),
+                    () -> assertThat(updatedProduct.brandId()).isNotNull()
             );
         }
 
@@ -458,14 +427,15 @@ class ProductServiceIntegrationTest {
             // act & assert
             assertThatThrownBy(() -> productService.updateProduct(command))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
+                    .satisfies(
+                            e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
         }
 
         @DisplayName("삭제된 상품이면, ALREADY_DELETED_PRODUCT 예외가 발생한다.")
         @Test
         void throwsException_whenProductIsDeleted() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             productService.deleteProduct(productId);
             var command = new ProductCommand.UpdateProductCommand(
                     productId,
@@ -479,9 +449,9 @@ class ProductServiceIntegrationTest {
             // act & assert
             assertThatThrownBy(() -> productService.updateProduct(command))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_DELETED_PRODUCT));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(
+                            ErrorType.ALREADY_DELETED_PRODUCT));
         }
-
     }
 
     @DisplayName("상품을 삭제할 때,")
@@ -492,7 +462,7 @@ class ProductServiceIntegrationTest {
         @Test
         void deletesProductAndAssociatedLikes_whenProductExists() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             var userId = 1L;
             likeService.likeProduct(userId, productId);
 
@@ -501,8 +471,8 @@ class ProductServiceIntegrationTest {
 
             // assert
             assertAll(
-                    () -> assertThat(productRepository.findById(productId).orElseThrow().getDeletedAt()).isNotNull(),
-                    () -> assertThat(likeJpaRepository.existsByUserIdAndProductId(userId, productId)).isFalse()
+                    () -> assertThat(productService.getProduct(productId).deletedAt()).isNotNull(),
+                    () -> assertThat(likeService.getLikedProducts(userId, new PageSize(0, 20)).content()).isEmpty()
             );
         }
 
@@ -510,7 +480,7 @@ class ProductServiceIntegrationTest {
         @Test
         void succeedsIdempotently_whenProductIsAlreadyDeleted() {
             // arrange
-            var productId = createProduct();
+            var productId = createProduct(brandId);
             productService.deleteProduct(productId);
 
             // act & assert
@@ -521,19 +491,10 @@ class ProductServiceIntegrationTest {
         @DisplayName("존재하지 않는 상품이면, PRODUCT_NOT_FOUND 예외가 발생한다.")
         @Test
         void throwsException_whenProductNotFound() {
-            // act & assert
             assertThatThrownBy(() -> productService.deleteProduct(999L))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
+                    .satisfies(
+                            e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
         }
-
-    }
-
-    private Long createProduct() {
-        var brandResult = brandService.createBrand("브랜드명", "https://example.com/logo.png", "브랜드 설명");
-        var command = new ProductCommand.CreateProductCommand(
-                brandResult.id(), "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"
-        );
-        return productService.createProduct(command);
     }
 }
