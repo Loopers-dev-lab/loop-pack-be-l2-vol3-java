@@ -38,7 +38,7 @@ public class InMemoryProductRepository implements ProductRepository {
     }
 
     @Override
-    public Page<Product> findProducts(Long brandId, ProductOrder sort, Pageable pageable) {
+    public Page<Product> findVisibleProducts(Long brandId, ProductOrder sort, Pageable pageable) {
         Stream<Product> stream = store.values().stream()
                 .filter(p -> p.getDeletedAt() == null)
                 .filter(p -> p.getVisibility() == Product.Visibility.VISIBLE);
@@ -60,7 +60,6 @@ public class InMemoryProductRepository implements ProductRepository {
     @Override
     public Page<Product> findAllProducts(Long brandId, Pageable pageable) {
         List<Product> list = store.values().stream()
-                                  .filter(p -> p.getDeletedAt() == null)
                                   .filter(p -> brandId == null || p.getBrandId().equals(brandId))
                                   .sorted(Comparator.comparing(Product::getId).reversed())
                                   .toList();

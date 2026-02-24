@@ -35,7 +35,7 @@ public class ProductV1Controller {
             @RequestParam(defaultValue = "LATEST") ProductSort sort,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        Page<ProductV1Dto.ProductResponse> page = productService.getProducts(brandId, sort, pageable)
+        Page<ProductV1Dto.ProductResponse> page = productService.getVisibleProducts(brandId, sort, pageable)
                                                                 .map(ProductV1Dto.ProductResponse::from);
 
         return ApiResponse.success(PageResponse.from(page));

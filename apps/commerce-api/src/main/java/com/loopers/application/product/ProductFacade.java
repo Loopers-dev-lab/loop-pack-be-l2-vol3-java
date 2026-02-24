@@ -21,8 +21,8 @@ public class ProductFacade {
         return productService.getProduct(id);
     }
 
-    public Page<ProductInfo> getAdminProducts(Long brandId, Pageable pageable) {
-        return productService.getAdminProducts(brandId, pageable);
+    public Page<ProductInfo> getAllProducts(Long brandId, Pageable pageable) {
+        return productService.getAllProducts(brandId, pageable);
     }
 
     public ProductInfo update(Long id, ProductUpdateCommand command) {

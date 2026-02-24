@@ -33,7 +33,7 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public Page<Product> findProducts(Long brandId, ProductOrder order, Pageable pageable) {
+    public Page<Product> findVisibleProducts(Long brandId, ProductOrder order, Pageable pageable) {
         QProduct product = QProduct.product;
 
         BooleanBuilder builder = new BooleanBuilder();
@@ -72,7 +72,6 @@ public class ProductRepositoryImpl implements ProductRepository {
         QProduct product = QProduct.product;
 
         BooleanBuilder builder = new BooleanBuilder();
-        builder.and(product.deletedAt.isNull());
 
         if (brandId != null) {
             builder.and(product.brandId.eq(brandId));

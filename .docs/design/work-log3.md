@@ -295,25 +295,30 @@ infrastructure/{도메인}/ → RepositoryImpl, JpaRepository
 interfaces/api/{도메인}/ → Controller, ApiSpec, DTO
 ```
 
-### Service 레이어 위치 재고 — `domain/` → `application/` 이동
+### Service 레이어 위치 — `application/` 배치 결정
 
-#### 문제 인식
+#### 결론
 
-초기 구현에서 `BrandService`, `UserService`, `SignUpService` 등을 `domain/` 하위에 배치했다.
-그러나 이 구조는 **레이어 의존 방향을 역전**시킬 수 있다.
+`BrandService`, `ProductService` 등은 **`application/` 하위에 배치한다.**
 
-#### Clean Architecture 의존 방향
+#### 근거 (2026-02-24 토론으로 정제)
 
-```
-Presentation → Application → Domain ← Infrastructure
-```
+초기에는 "domain에 두면 domain→domain 의존이 생긴다"는 이유로 application으로 이동했으나, 이 근거 자체는 충분하지 않다. Facade 패턴이 적용된 이후 cross-domain 호출은 Facade 레이어에서 처리되므로, 이 우려는 해소됐다.
 
-- `Domain`: 순수 비즈니스 모델 — 엔티티, 도메인 로직, Repository 인터페이스
-- `Application`: 유스케이스 조율 — Service, Facade, Command, Info
-- `Infrastructure`: 외부 구현 — JPA, Redis 등
+실제로 application에 두는 **더 본질적인 이유**는 서비스가 담고 있는 내용의 성격이다:
 
-Service 클래스가 `domain/` 에 위치하면, 도메인 간 Service 호출이 발생할 때 `domain → domain` 의존이 생기고,
-Application 계층의 경계가 흐려진다.
+- `getAdminProducts` / `getProducts` — actor(어드민/사용자)에 따라 다른 쿼리를 반환. **역할 인식이 있는 유스케이스 조율**로, 순수 도메인 불변식이 아니다.
+- `getVisibleProduct` — visibility 정책 적용. 도메인 규칙에 가깝지만, 어디서 호출하느냐(사용자 API)에 의존하는 컨텍스트가 있다.
+- CRUD 흐름 전체 — "존재 확인 → 상태 변경 → 저장"의 오케스트레이션. 엔티티 자체의 불변식이 아닌, 유스케이스 단위의 흐름이다.
+
+> 순수 도메인 서비스라면 actor를 모르고, 조건을 파라미터로 받아야 한다.
+> 현재 서비스들은 메서드명/로직에 actor 인식이 녹아 있으므로 application 배치가 더 정직하다.
+
+만약 domain에 두려면 actor 인식을 걷어내고 메서드를 role-agnostic하게 재설계해야 하나, 현재 복잡도에서는 과도한 추상화다.
+
+#### 참고: DDD vs Clean Architecture 해석 차이
+
+DDD 관점에서는 domain service가 repository를 직접 호출하는 구조가 자연스럽고(ExampleService 템플릿 참고), 멘토님(Devin) CASE C도 이 방향이다. 그러나 이 프로젝트의 현재 서비스들은 순수 도메인 서비스라기보다 유스케이스 흐름에 가깝기 때문에 application 배치를 유지한다. **위치보다 책임이 중요하다.**
 
 #### 이동 결과
 
@@ -619,6 +624,73 @@ ProductV1Controller      → ProductService (사용자 읽기 전용, Facade 불
 
 - `BrandV1Controller`가 `BrandService` 직접 사용하는 것과 동일한 패턴 유지
 - 전체 테스트 통과 확인
+
+---
+
+### ProductOrder 도입 — 레이어 의존 방향 정리 (2026-02-24)
+
+#### 문제
+
+`ProductRepository` (domain)가 `ProductSort` (application)를 import하고 있어 `domain → application` 의존 방향 위반.
+
+```java
+// domain/product/ProductRepository.java
+import com.loopers.application.product.ProductSort; // ← 위반
+Page<Product> findProducts(Long brandId, ProductSort sort, Pageable pageable);
+```
+
+#### 해결 방향 토론
+
+`ProductSort`를 domain으로 옮기는 안도 검토했으나, **정렬은 조회 정책이지 도메인 불변 규칙이 아니다**. 따라서 개념적으로 domain 소속이 어색하다.
+
+대신 두 타입의 역할을 명확히 분리했다:
+
+| 타입 | 위치 | 역할 |
+|------|------|------|
+| `ProductSort` | `application/product/` | API 파라미터 (`@RequestParam`) — 외부 노출용 |
+| `ProductOrder` | `domain/product/` | Repository 계약용 — domain 내부 정렬 기준 |
+
+#### 구현
+
+- `ProductOrder` 신설 (`domain/product/`)
+- `ProductSort.toOrder()` 추가 — application → domain 방향 변환 (의존 방향 정상)
+- `ProductRepository` / `ProductRepositoryImpl`: `ProductOrder` 사용
+- `ProductService`: `sort.toOrder()`로 변환해 repository에 전달
+- `ProductV1Controller`: `ProductSort` 유지 (API 파라미터 역할 명확)
+
+#### 의존 흐름
+
+```
+ProductV1Controller(interfaces) → ProductSort(application)
+ProductSort.toOrder()           → ProductOrder(domain)      [application → domain, 정상]
+ProductRepository(domain)       ← ProductOrder(domain)      [domain 내부]
+ProductRepositoryImpl(infra)    → ProductOrder(domain)      [infra → domain, 정상]
+```
+
+---
+
+### 네이밍 정리 — Admin 네이밍 제거 및 정직화 (2026-02-24)
+
+#### 문제
+
+1. `findProducts`: 메서드명만 봐서는 어떤 필터가 적용되는지 알 수 없음
+2. `findAllProducts`: "All"이라는 이름인데 `deletedAt.isNull()` 필터가 있어 실제로는 전부 조회가 아님
+3. `getAdminProducts`: 서비스 메서드명에 actor("Admin")가 노출됨 — 서비스가 호출자를 인식하는 구조
+
+#### 변경 내용
+
+| 변경 전 | 변경 후 | 레이어 |
+|---------|---------|--------|
+| `findProducts` | `findVisibleProducts` | Repository (domain, infra, InMemory) |
+| `findAllProducts` `deletedAt.isNull()` 조건 | 조건 제거 — 진짜 전체 조회 | RepositoryImpl, InMemoryProductRepository |
+| `getProducts` | `getVisibleProducts` | ProductService |
+| `getAdminProducts` | `getAllProducts` | ProductService, ProductFacade |
+
+#### 결과
+
+- 메서드명만 보고 동작을 예측할 수 있게 됨
+- 서비스가 actor를 모름 — "visible한 상품 조회" vs "전체 상품 조회"로 표현
+- 어드민 API는 `getAllProducts` 호출, 사용자 API는 `getVisibleProducts` 호출 — 어떤 조건인지 호출부에서 결정
 
 ---
 

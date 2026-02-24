@@ -38,12 +38,12 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ProductInfo> getProducts(Long brandId, ProductSort sort, Pageable pageable) {
-        return productRepository.findProducts(brandId, sort.toOrder(), pageable).map(ProductInfo::from);
+    public Page<ProductInfo> getVisibleProducts(Long brandId, ProductSort sort, Pageable pageable) {
+        return productRepository.findVisibleProducts(brandId, sort.toOrder(), pageable).map(ProductInfo::from);
     }
 
     @Transactional(readOnly = true)
-    public Page<ProductInfo> getAdminProducts(Long brandId, Pageable pageable) {
+    public Page<ProductInfo> getAllProducts(Long brandId, Pageable pageable) {
         return productRepository.findAllProducts(brandId, pageable).map(ProductInfo::from);
     }
 

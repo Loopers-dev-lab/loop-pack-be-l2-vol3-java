@@ -61,7 +61,7 @@ public class AdminProductV1Controller {
             @RequestParam(required = false) Long brandId,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        Page<ProductV1Dto.AdminProductResponse> page = productFacade.getAdminProducts(brandId, pageable)
+        Page<ProductV1Dto.AdminProductResponse> page = productFacade.getAllProducts(brandId, pageable)
                 .map(ProductV1Dto.AdminProductResponse::from);
         return ApiResponse.success(PageResponse.from(page));
     }
