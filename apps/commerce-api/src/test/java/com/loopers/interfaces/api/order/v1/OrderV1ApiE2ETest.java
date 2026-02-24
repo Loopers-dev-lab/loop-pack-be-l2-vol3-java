@@ -1,11 +1,13 @@
 package com.loopers.interfaces.api.order.v1;
 
 import static com.loopers.interfaces.api.order.v1.OrderSteps.createOrder;
+import static com.loopers.interfaces.api.order.v1.OrderSteps.getOrders;
 import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
 import static com.loopers.support.E2ETestHelper.userAuthHeaders;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.loopers.interfaces.api.brand.v1.BrandDto;
 import com.loopers.interfaces.api.brand.v1.BrandSteps;
@@ -66,6 +69,93 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED),
                     () -> assertThat(response.getBody().data().orderId()).isNotNull()
             );
+        }
+    }
+
+    @DisplayName("GET /api/v1/orders")
+    @Nested
+    class GetOrders {
+
+        private static final String ORDER_ENDPOINT = "/api/v1/orders";
+
+        @DisplayName("주문이 존재하면, 주문 목록이 반환된다.")
+        @Test
+        void returnsOrderList_whenOrdersExist() {
+            // arrange
+            createOrder(testRestTemplate,
+                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 2L))),
+                    userHeaders);
+
+            var today = LocalDate.now();
+            var url = UriComponentsBuilder.fromPath(ORDER_ENDPOINT)
+                    .queryParam("startDate", today.toString())
+                    .queryParam("endDate", today.toString())
+                    .toUriString();
+
+            // act
+            var response = getOrders(testRestTemplate, url, userHeaders);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("테스트상품"),
+                    () -> assertThat(response.getBody().data().hasNext()).isFalse()
+            );
+        }
+
+        @DisplayName("날짜 범위 밖이면, 빈 목록이 반환된다.")
+        @Test
+        void returnsEmptyPage_whenNoOrdersInDateRange() {
+            // arrange
+            createOrder(testRestTemplate,
+                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L))),
+                    userHeaders);
+
+            var url = UriComponentsBuilder.fromPath(ORDER_ENDPOINT)
+                    .queryParam("startDate", "2020-01-01")
+                    .queryParam("endDate", "2020-01-02")
+                    .toUriString();
+
+            // act
+            var response = getOrders(testRestTemplate, url, userHeaders);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).isEmpty(),
+                    () -> assertThat(response.getBody().data().hasNext()).isFalse()
+            );
+        }
+
+        @DisplayName("startDate가 누락되면, 400 Bad Request를 반환한다.")
+        @Test
+        void returnsBadRequest_whenStartDateMissing() {
+            // arrange
+            var url = UriComponentsBuilder.fromPath(ORDER_ENDPOINT)
+                    .queryParam("endDate", "2026-01-01")
+                    .toUriString();
+
+            // act
+            var response = getOrders(testRestTemplate, url, userHeaders);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("endDate가 누락되면, 400 Bad Request를 반환한다.")
+        @Test
+        void returnsBadRequest_whenEndDateMissing() {
+            // arrange
+            var url = UriComponentsBuilder.fromPath(ORDER_ENDPOINT)
+                    .queryParam("startDate", "2026-01-01")
+                    .toUriString();
+
+            // act
+            var response = getOrders(testRestTemplate, url, userHeaders);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
     }
 }

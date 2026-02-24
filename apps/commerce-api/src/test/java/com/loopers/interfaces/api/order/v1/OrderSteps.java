@@ -8,6 +8,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.PageResponse;
 
 public class OrderSteps {
 
@@ -24,6 +25,21 @@ public class OrderSteps {
                 ORDER_ENDPOINT,
                 HttpMethod.POST,
                 new HttpEntity<>(request, headers),
+                responseType
+        );
+    }
+
+    public static ResponseEntity<ApiResponse<PageResponse<OrderDto.OrderListResponse>>> getOrders(
+            TestRestTemplate testRestTemplate,
+            String url,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<PageResponse<OrderDto.OrderListResponse>>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
                 responseType
         );
     }

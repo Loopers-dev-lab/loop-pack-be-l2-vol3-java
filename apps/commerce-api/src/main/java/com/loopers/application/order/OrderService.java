@@ -1,11 +1,13 @@
 package com.loopers.application.order;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,5 +51,23 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
         return saved.getId();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<OrderResult> getOrders(Long userId, LocalDate startDate, LocalDate endDate, PageSize pageSize) {
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
+        Slice<Order> orders = orderRepository.findAllByUserIdAndOrderedAtBetween(
+                userId,
+                startDateTime,
+                endDateTime,
+                pageSize.toPageable(Sort.by(Sort.Direction.DESC, "orderedAt"))
+        );
+        return new Page<>(
+                orders.map(OrderResult::from)
+                        .stream()
+                        .toList(),
+                orders.hasNext()
+        );
     }
 }

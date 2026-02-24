@@ -1,7 +1,10 @@
 package com.loopers.infrastructure.order.persistence;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Repository;
 
 import com.loopers.domain.order.Order;
@@ -23,5 +26,12 @@ public class OrderRepositoryImpl implements OrderRepository {
     @Override
     public Optional<Order> findById(Long orderId) {
         return orderJpaRepository.findById(orderId);
+    }
+
+    @Override
+    public Slice<Order> findAllByUserIdAndOrderedAtBetween(Long userId, LocalDateTime start, LocalDateTime end,
+            Pageable pageable) {
+        return orderJpaRepository.findAllByUserIdAndOrderedAtGreaterThanEqualAndOrderedAtLessThan(
+                userId, start, end, pageable);
     }
 }
