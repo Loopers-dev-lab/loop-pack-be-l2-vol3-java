@@ -247,6 +247,16 @@ class BrandAdminApiE2ETest {
         }
 
         @Test
+        void 이미_삭제된_브랜드를_다시_삭제해도_200_응답() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            deleteRequest(brandId);
+
+            ResponseEntity<ApiResponse<Void>> response = deleteRequest(brandId);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @Test
         void 미존재_브랜드면_404_응답() {
             ResponseEntity<ApiResponse<Void>> response = deleteRequest(999L);
 

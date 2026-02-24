@@ -25,15 +25,13 @@ public class BrandFacade {
 
     @Transactional
     public BrandInfo update(Long brandId, String name, String description) {
-        Brand brand = brandService.getBrand(brandId);
-        brandService.update(brand, name, description);
+        Brand brand = brandService.update(brandId, name, description);
         return BrandInfo.from(brand);
     }
 
     @Transactional
     public void delete(Long brandId) {
-        Brand brand = brandService.getBrand(brandId);
-        brandService.delete(brand);
+        brandService.delete(brandId);
     }
 
     // Query
@@ -45,6 +43,16 @@ public class BrandFacade {
 
     public BrandInfo getDetail(Long brandId) {
         Brand brand = brandService.getBrand(brandId);
+        return BrandInfo.from(brand);
+    }
+
+    public Page<BrandInfo> getActiveList(String name, Pageable pageable) {
+        Page<Brand> brands = brandService.findActiveBrands(name, pageable);
+        return brands.map(BrandInfo::from);
+    }
+
+    public BrandInfo getActiveDetail(Long brandId) {
+        Brand brand = brandService.getActiveBrand(brandId);
         return BrandInfo.from(brand);
     }
 }

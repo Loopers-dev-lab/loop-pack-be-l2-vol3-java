@@ -28,16 +28,22 @@ public class BrandService {
     }
 
     @Transactional
-    public void update(Brand brand, String name, String description) {
+    public Brand update(Long brandId, String name, String description) {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다"));
+
         if (brandRepository.existsByNameAndIdNot(name, brand.getId())) {
             throw new CoreException(ErrorType.CONFLICT, "이미 등록된 브랜드입니다");
         }
 
         brand.update(name, description);
+        return brand;
     }
 
     @Transactional
-    public void delete(Brand brand) {
+    public void delete(Long brandId) {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다"));
         brand.delete();
     }
 
@@ -50,5 +56,16 @@ public class BrandService {
 
     public Page<Brand> findBrands(String name, Boolean deleted, Pageable pageable) {
         return brandRepository.findAll(name, deleted, pageable);
+    }
+
+    public Brand getActiveBrand(Long brandId) {
+        Brand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다"));
+        brand.validateNotDeleted();
+        return brand;
+    }
+
+    public Page<Brand> findActiveBrands(String name, Pageable pageable) {
+        return brandRepository.findAllActive(name, pageable);
     }
 }

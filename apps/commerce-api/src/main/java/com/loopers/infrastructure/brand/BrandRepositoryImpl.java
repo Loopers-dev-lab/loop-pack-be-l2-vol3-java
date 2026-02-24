@@ -43,4 +43,9 @@ public class BrandRepositoryImpl implements BrandRepository {
     public Page<Brand> findAll(String name, Boolean deleted, Pageable pageable) {
         return brandJpaRepository.findAll(name, deleted, pageable);
     }
+
+    @Override
+    public Page<Brand> findAllActive(String name, Pageable pageable) {
+        return brandJpaRepository.findAllActive(name, pageable);
+    }
 }

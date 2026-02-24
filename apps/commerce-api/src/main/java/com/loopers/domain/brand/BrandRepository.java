@@ -20,4 +20,6 @@ public interface BrandRepository {
     boolean existsByNameAndIdNot(String name, Long id);
 
     Page<Brand> findAll(String name, Boolean deleted, Pageable pageable);
+
+    Page<Brand> findAllActive(String name, Pageable pageable);
 }

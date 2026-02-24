@@ -75,11 +75,29 @@ class BrandServiceIntegrationTest {
         void 유효한_정보로_수정하면_성공한다() {
             Brand brand = brandService.register("나이키", "스포츠 브랜드");
 
-            Brand activeBrand = brandService.getBrand(brand.getId());
-            brandService.update(activeBrand, "아디다스", "독일 스포츠 브랜드");
+            Brand result = brandService.update(brand.getId(), "아디다스", "독일 스포츠 브랜드");
 
-            assertThat(activeBrand.getName()).isEqualTo("아디다스");
-            assertThat(activeBrand.getDescription()).isEqualTo("독일 스포츠 브랜드");
+            assertThat(result.getName()).isEqualTo("아디다스");
+            assertThat(result.getDescription()).isEqualTo("독일 스포츠 브랜드");
+        }
+
+        @Test
+        void 미존재_브랜드면_예외() {
+            assertThatThrownBy(() -> brandService.update(999L, "나이키", null))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
+                    .hasMessageContaining("존재하지 않는 브랜드입니다");
+        }
+
+        @Test
+        void 삭제된_브랜드를_수정하면_예외() {
+            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+            brandService.delete(brand.getId());
+
+            assertThatThrownBy(() -> brandService.update(brand.getId(), "아디다스", null))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
+                    .hasMessageContaining("존재하지 않는 브랜드입니다");
         }
 
         @Test
@@ -87,9 +105,7 @@ class BrandServiceIntegrationTest {
             brandService.register("나이키", "스포츠 브랜드");
             Brand adidas = brandService.register("아디다스", "독일 스포츠 브랜드");
 
-            Brand activeBrand = brandService.getBrand(adidas.getId());
-
-            assertThatThrownBy(() -> brandService.update(activeBrand, "나이키", null))
+            assertThatThrownBy(() -> brandService.update(adidas.getId(), "나이키", null))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT))
                     .hasMessageContaining("이미 등록된 브랜드입니다");
@@ -103,9 +119,7 @@ class BrandServiceIntegrationTest {
 
             Brand adidas = brandService.register("아디다스", "독일 스포츠 브랜드");
 
-            Brand activeBrand = brandService.getBrand(adidas.getId());
-
-            assertThatThrownBy(() -> brandService.update(activeBrand, "나이키", null))
+            assertThatThrownBy(() -> brandService.update(adidas.getId(), "나이키", null))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT))
                     .hasMessageContaining("이미 등록된 브랜드입니다");
@@ -115,11 +129,10 @@ class BrandServiceIntegrationTest {
         void 자기_자신_이름으로_수정하면_정상_처리된다() {
             Brand brand = brandService.register("나이키", "스포츠 브랜드");
 
-            Brand activeBrand = brandService.getBrand(brand.getId());
-            brandService.update(activeBrand, "나이키", "변경된 설명");
+            Brand result = brandService.update(brand.getId(), "나이키", "변경된 설명");
 
-            assertThat(activeBrand.getName()).isEqualTo("나이키");
-            assertThat(activeBrand.getDescription()).isEqualTo("변경된 설명");
+            assertThat(result.getName()).isEqualTo("나이키");
+            assertThat(result.getDescription()).isEqualTo("변경된 설명");
         }
 
     }
@@ -131,10 +144,27 @@ class BrandServiceIntegrationTest {
         void 활성_브랜드를_삭제하면_삭제_상태로_변경된다() {
             Brand brand = brandService.register("나이키", "스포츠 브랜드");
 
-            Brand activeBrand = brandService.getBrand(brand.getId());
-            brandService.delete(activeBrand);
+            brandService.delete(brand.getId());
 
-            assertThat(activeBrand.isDeleted()).isTrue();
+            Brand result = brandService.getBrand(brand.getId());
+            assertThat(result.isDeleted()).isTrue();
+        }
+
+        @Test
+        void 이미_삭제된_브랜드를_삭제해도_성공한다() {
+            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+            brandService.delete(brand.getId());
+
+            assertThatCode(() -> brandService.delete(brand.getId()))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        void 미존재_브랜드면_예외() {
+            assertThatThrownBy(() -> brandService.delete(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
+                    .hasMessageContaining("존재하지 않는 브랜드입니다");
         }
     }
 
@@ -235,6 +265,92 @@ class BrandServiceIntegrationTest {
         @Test
         void 결과가_없으면_빈_페이지를_반환한다() {
             Page<Brand> result = brandService.findBrands("존재하지않는", null, PageRequest.of(0, 20));
+
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isEqualTo(0);
+        }
+    }
+
+    @Nested
+    class 활성_브랜드_조회 {
+
+        @Test
+        void 활성_브랜드를_조회하면_성공한다() {
+            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+
+            Brand result = brandService.getActiveBrand(brand.getId());
+
+            assertThat(result.getId()).isEqualTo(brand.getId());
+            assertThat(result.getName()).isEqualTo("나이키");
+        }
+
+        @Test
+        void 삭제된_브랜드를_조회하면_예외() {
+            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+            brand.delete();
+            brandRepository.save(brand);
+
+            assertThatThrownBy(() -> brandService.getActiveBrand(brand.getId()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
+                    .hasMessageContaining("존재하지 않는 브랜드입니다");
+        }
+
+        @Test
+        void 미존재_브랜드를_조회하면_예외() {
+            assertThatThrownBy(() -> brandService.getActiveBrand(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
+                    .hasMessageContaining("존재하지 않는 브랜드입니다");
+        }
+    }
+
+    @Nested
+    class 활성_브랜드_목록_조회 {
+
+        @Test
+        void 활성_브랜드만_이름_오름차순으로_반환된다() {
+            brandService.register("다나이키", "스포츠 브랜드");
+            brandService.register("가아디다스", "독일 스포츠 브랜드");
+            brandService.register("나뉴발란스", "미국 스포츠 브랜드");
+
+            Page<Brand> result = brandService.findActiveBrands(null, PageRequest.of(0, 20));
+
+            assertThat(result.getContent()).hasSize(3);
+            assertThat(result.getContent().get(0).getName()).isEqualTo("가아디다스");
+            assertThat(result.getContent().get(1).getName()).isEqualTo("나뉴발란스");
+            assertThat(result.getContent().get(2).getName()).isEqualTo("다나이키");
+        }
+
+        @Test
+        void 삭제된_브랜드는_제외된다() {
+            brandService.register("나이키", "스포츠 브랜드");
+            Brand adidas = brandService.register("아디다스", "독일 스포츠 브랜드");
+            adidas.delete();
+            brandRepository.save(adidas);
+
+            Page<Brand> result = brandService.findActiveBrands(null, PageRequest.of(0, 20));
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getName()).isEqualTo("나이키");
+        }
+
+        @Test
+        void name_키워드로_검색하면_활성_브랜드_중_부분_일치하는_것만_반환된다() {
+            brandService.register("나이키 에어", "에어 시리즈");
+            brandService.register("나이키 조던", "조던 시리즈");
+            brandService.register("아디다스", "독일 스포츠 브랜드");
+
+            Page<Brand> result = brandService.findActiveBrands("나이키", PageRequest.of(0, 20));
+
+            assertThat(result.getContent()).hasSize(2);
+            assertThat(result.getContent()).extracting(Brand::getName)
+                    .containsExactly("나이키 에어", "나이키 조던");
+        }
+
+        @Test
+        void 결과가_없으면_빈_페이지를_반환한다() {
+            Page<Brand> result = brandService.findActiveBrands("존재하지않는", PageRequest.of(0, 20));
 
             assertThat(result.getContent()).isEmpty();
             assertThat(result.getTotalElements()).isEqualTo(0);

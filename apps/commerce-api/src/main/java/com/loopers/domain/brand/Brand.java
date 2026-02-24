@@ -47,12 +47,6 @@ public class Brand extends BaseEntity {
         }
     }
 
-    @Override
-    public void delete() {
-        validateNotDeleted();
-        super.delete();
-    }
-
     public boolean isDeleted() {
         return getDeletedAt() != null;
     }
