@@ -1,0 +1,24 @@
+### 상품 목록 조회 (비로그인)
+GET {{commerce-api}}/api/v1/products
+
+### 상품 목록 조회 - 최신순 정렬
+GET {{commerce-api}}/api/v1/products?sort=LATEST
+
+### 상품 목록 조회 - 가격 낮은순 정렬
+GET {{commerce-api}}/api/v1/products?sort=PRICE_ASC
+
+### 상품 목록 조회 - 좋아요 많은순 정렬
+GET {{commerce-api}}/api/v1/products?sort=LIKES_DESC
+
+### 상품 목록 조회 (로그인)
+GET {{commerce-api}}/api/v1/products
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Password1!
+
+### 상품 상세 조회 (비로그인)
+GET {{commerce-api}}/api/v1/products/1
+
+### 상품 상세 조회 (로그인)
+GET {{commerce-api}}/api/v1/products/1
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Password1!
