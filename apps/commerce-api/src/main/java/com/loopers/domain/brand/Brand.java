@@ -36,6 +36,7 @@ public class Brand extends BaseEntity {
     }
 
     public void update(String name, String description) {
+        validateNotDeleted();
         if (name != null) {
             validateName(name);
             this.name = name;
@@ -46,8 +47,20 @@ public class Brand extends BaseEntity {
         }
     }
 
+    @Override
+    public void delete() {
+        validateNotDeleted();
+        super.delete();
+    }
+
     public boolean isDeleted() {
         return getDeletedAt() != null;
+    }
+
+    public void validateNotDeleted() {
+        if (isDeleted()) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다");
+        }
     }
 
     private static void validateName(String name) {

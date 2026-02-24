@@ -142,7 +142,7 @@ class BrandTest {
     }
 
     @Nested
-    class 삭제_상태_확인 {
+    class 삭제 {
 
         @Test
         void 삭제하면_삭제_상태이다() {
@@ -150,6 +150,26 @@ class BrandTest {
             brand.delete();
 
             assertThat(brand.isDeleted()).isTrue();
+        }
+
+        @Test
+        void 삭제된_브랜드를_삭제하면_예외() {
+            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            brand.delete();
+
+            assertThatThrownBy(brand::delete)
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining("존재하지 않는 브랜드입니다");
+        }
+
+        @Test
+        void 삭제된_브랜드를_수정하면_예외() {
+            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            brand.delete();
+
+            assertThatThrownBy(() -> brand.update("아디다스", "독일 스포츠 브랜드"))
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining("존재하지 않는 브랜드입니다");
         }
     }
 }

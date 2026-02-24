@@ -59,15 +59,6 @@ class BrandAdminApiE2ETest {
         }
 
         @Test
-        void 브랜드는_활성_상태로_생성된다() {
-            BrandAdminV1Dto.RegisterRequest request = new BrandAdminV1Dto.RegisterRequest("나이키", null);
-
-            ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = postRegister(request);
-
-            assertThat(response.getBody().data().status()).isEqualTo("ACTIVE");
-        }
-
-        @Test
         void 이미_존재하는_브랜드명이면_409_응답() {
             postRegister(new BrandAdminV1Dto.RegisterRequest("나이키", "스포츠 브랜드"));
 

@@ -23,9 +23,8 @@ public Brand register(String name, String description) {
         return brandRepository.save(brand);
     }
 
-    public Brand getActiveBrand(Long brandId) {
+    public Brand getBrand(Long brandId) {
         return brandRepository.findById(brandId)
-                .filter(brand -> !brand.isDeleted())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다"));
     }
 
