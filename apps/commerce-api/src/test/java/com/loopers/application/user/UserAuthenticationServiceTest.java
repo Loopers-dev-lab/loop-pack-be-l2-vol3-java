@@ -8,6 +8,7 @@ import com.loopers.domain.user.vo.BirthDate;
 import com.loopers.domain.user.vo.Email;
 import com.loopers.domain.user.vo.Name;
 import com.loopers.domain.user.vo.Password;
+import com.loopers.domain.user.vo.Phone;
 import com.loopers.domain.user.vo.UserId;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -50,7 +51,7 @@ class UserAuthenticationServiceTest {
                 Password.ofEncoded("$2a$10$dummyEncodedPasswordForTest"),
                 new Name("홍길동"),
                 new Email("test@example.com"),
-                new BirthDate(LocalDate.of(1999, 1, 15))
+                new Phone("010-1234-5678")
         );
     }
 

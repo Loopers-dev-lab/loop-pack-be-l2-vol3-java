@@ -54,7 +54,8 @@ class UserControllerTest {
                     "Password1!",
                     "홍길동",
                     "19900101",
-                    "test@example.com"
+                    "test@example.com",
+                    "010-1234-5678"
             );
 
             // act & assert
@@ -74,7 +75,8 @@ class UserControllerTest {
                     "Password1!",
                     "홍길동",
                     "19900101",
-                    "test@example.com"
+                    "test@example.com",
+                    "010-1234-5678"
             );
 
             // act & assert
@@ -93,7 +95,8 @@ class UserControllerTest {
                     "Password1!",
                     "홍길동",
                     "19900101",
-                    "test@example.com"
+                    "test@example.com",
+                    "010-1234-5678"
             );
 
             // act & assert
@@ -112,7 +115,8 @@ class UserControllerTest {
                     "Password1!",
                     "홍길동",
                     "19900101",
-                    "test@example.com"
+                    "test@example.com",
+                    "010-1234-5678"
             );
 
             // act & assert
@@ -131,7 +135,8 @@ class UserControllerTest {
                     "Pass1!",
                     "홍길동",
                     "19900101",
-                    "test@example.com"
+                    "test@example.com",
+                    "010-1234-5678"
             );
 
             // act & assert
@@ -150,7 +155,8 @@ class UserControllerTest {
                     "Password1!",
                     "홍길동",
                     "1990-01-01",
-                    "test@example.com"
+                    "test@example.com",
+                    "010-1234-5678"
             );
 
             // act & assert
@@ -169,7 +175,48 @@ class UserControllerTest {
                     "Password1!",
                     "홍길동",
                     "19900101",
-                    "invalid-email"
+                    "invalid-email",
+                    "010-1234-5678"
+            );
+
+            // act & assert
+            mockMvc.perform(post("/api/v1/users")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("전화번호 형식이 잘못되면 400 Bad Request를 반환한다")
+        void returnsBadRequest_whenPhoneInvalidFormat() throws Exception {
+            // arrange
+            UserDto.RegisterRequest request = new UserDto.RegisterRequest(
+                    "testuser1",
+                    "Password1!",
+                    "홍길동",
+                    "19900101",
+                    "test@example.com",
+                    "010-123-4567"
+            );
+
+            // act & assert
+            mockMvc.perform(post("/api/v1/users")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("전화번호가 누락되면 400 Bad Request를 반환한다")
+        void returnsBadRequest_whenPhoneIsBlank() throws Exception {
+            // arrange
+            UserDto.RegisterRequest request = new UserDto.RegisterRequest(
+                    "testuser1",
+                    "Password1!",
+                    "홍길동",
+                    "19900101",
+                    "test@example.com",
+                    ""
             );
 
             // act & assert
@@ -188,7 +235,8 @@ class UserControllerTest {
                     "Password1!",
                     "홍길동",
                     "19900101",
-                    "test@example.com"
+                    "test@example.com",
+                    "010-1234-5678"
             );
             mockMvc.perform(post("/api/v1/users")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -203,6 +251,56 @@ class UserControllerTest {
     }
 
     @Nested
+    @DisplayName("GET /api/v1/users/duplicate - 로그인 ID 중복 검사")
+    class DuplicateCheckTest {
+
+        @Test
+        @DisplayName("사용 가능한 아이디면 available=true를 반환한다")
+        void returnsAvailable_whenLoginIdIsAvailable() throws Exception {
+            // act & assert
+            mockMvc.perform(get("/api/v1/users/duplicate")
+                            .param("loginId", "newuser123"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
+                    .andExpect(jsonPath("$.data.available").value(true))
+                    .andExpect(jsonPath("$.data.loginId").value("newuser123"));
+        }
+
+        @Test
+        @DisplayName("이미 사용 중인 아이디면 available=false를 반환한다")
+        void returnsUnavailable_whenLoginIdIsAlreadyUsed() throws Exception {
+            // arrange
+            UserDto.RegisterRequest request = new UserDto.RegisterRequest(
+                    "existinguser",
+                    "Password1!",
+                    "홍길동",
+                    "19900101",
+                    "test@example.com",
+                    "010-1234-5678"
+            );
+            mockMvc.perform(post("/api/v1/users")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)));
+
+            // act & assert
+            mockMvc.perform(get("/api/v1/users/duplicate")
+                            .param("loginId", "existinguser"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
+                    .andExpect(jsonPath("$.data.available").value(false))
+                    .andExpect(jsonPath("$.data.loginId").value("existinguser"));
+        }
+
+        @Test
+        @DisplayName("loginId 파라미터가 없으면 400 Bad Request를 반환한다")
+        void returnsBadRequest_whenLoginIdParamIsMissing() throws Exception {
+            // act & assert
+            mockMvc.perform(get("/api/v1/users/duplicate"))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Nested
     @DisplayName("GET /api/v1/users/me - 내 정보 조회")
     class GetMeTest {
 
@@ -210,7 +308,7 @@ class UserControllerTest {
         @DisplayName("인증된 사용자면 200 OK와 사용자 정보를 반환한다")
         void returnsOk_whenAuthenticated() throws Exception {
             // arrange
-            registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com");
+            registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com", "010-1234-5678");
 
             // act & assert
             mockMvc.perform(get("/api/v1/users/me")
@@ -219,7 +317,8 @@ class UserControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
                     .andExpect(jsonPath("$.data.loginId").value("testuser1"))
-                    .andExpect(jsonPath("$.data.name").value("홍길*"));
+                    .andExpect(jsonPath("$.data.name").value("홍길*"))
+                    .andExpect(jsonPath("$.data.phone").value("010-1234-5678"));
         }
 
         @Test
@@ -234,7 +333,7 @@ class UserControllerTest {
         @DisplayName("잘못된 비밀번호로 조회하면 401 Unauthorized를 반환한다")
         void returnsUnauthorized_whenWrongPassword() throws Exception {
             // arrange
-            registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com");
+            registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com", "010-1234-5678");
 
             // act & assert
             mockMvc.perform(get("/api/v1/users/me")
@@ -252,7 +351,7 @@ class UserControllerTest {
         @DisplayName("유효한 요청이면 200 OK를 반환한다")
         void returnsOk_whenValidRequest() throws Exception {
             // arrange
-            registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com");
+            registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com", "010-1234-5678");
 
             UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest(
                     "NewPassword1!"
@@ -272,7 +371,7 @@ class UserControllerTest {
         @DisplayName("새 비밀번호가 없으면 400 Bad Request를 반환한다")
         void returnsBadRequest_whenNewPasswordIsBlank() throws Exception {
             // arrange
-            registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com");
+            registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com", "010-1234-5678");
 
             UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest(
                     ""
@@ -291,7 +390,7 @@ class UserControllerTest {
         @DisplayName("새 비밀번호가 8자 미만이면 400 Bad Request를 반환한다")
         void returnsBadRequest_whenNewPasswordTooShort() throws Exception {
             // arrange
-            registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com");
+            registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com", "010-1234-5678");
 
             UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest(
                     "Short1!"
@@ -310,7 +409,7 @@ class UserControllerTest {
         @DisplayName("새 비밀번호가 현재 비밀번호와 같으면 400 Bad Request를 반환한다")
         void returnsBadRequest_whenSamePassword() throws Exception {
             // arrange
-            registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com");
+            registerUser("testuser1", "Password1!", "홍길동", "19900101", "test@example.com", "010-1234-5678");
 
             UserDto.ChangePasswordRequest request = new UserDto.ChangePasswordRequest(
                     "Password1!"
@@ -326,8 +425,8 @@ class UserControllerTest {
         }
     }
 
-    private void registerUser(String loginId, String password, String name, String birthDate, String email) throws Exception {
-        UserDto.RegisterRequest request = new UserDto.RegisterRequest(loginId, password, name, birthDate, email);
+    private void registerUser(String loginId, String password, String name, String birthDate, String email, String phone) throws Exception {
+        UserDto.RegisterRequest request = new UserDto.RegisterRequest(loginId, password, name, birthDate, email, phone);
         mockMvc.perform(post("/api/v1/users")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)));

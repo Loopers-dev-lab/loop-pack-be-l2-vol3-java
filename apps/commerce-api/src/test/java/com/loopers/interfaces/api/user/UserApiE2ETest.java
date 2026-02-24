@@ -30,6 +30,7 @@ class UserApiE2ETest {
     private static final String ENDPOINT_USERS = "/api/v1/users";
     private static final String ENDPOINT_ME = "/api/v1/users/me";
     private static final String ENDPOINT_PASSWORD = "/api/v1/users/me/password";
+    private static final String ENDPOINT_DUPLICATE = "/api/v1/users/duplicate";
 
     private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
     private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
@@ -64,7 +65,8 @@ class UserApiE2ETest {
                     "Password1!",
                     "홍길동",
                     "19900101",
-                    "test@example.com"
+                    "test@example.com",
+                    "010-1234-5678"
             );
 
             // act
@@ -88,7 +90,8 @@ class UserApiE2ETest {
                     "Password1!",
                     "홍길동",
                     "19900101",
-                    "test@example.com"
+                    "test@example.com",
+                    "010-1234-5678"
             );
             testRestTemplate.exchange(
                     ENDPOINT_USERS,
@@ -102,7 +105,8 @@ class UserApiE2ETest {
                     "Password2!",
                     "김철수",
                     "19950505",
-                    "another@example.com"
+                    "another@example.com",
+                    "010-5678-1234"
             );
 
             // act
@@ -116,6 +120,78 @@ class UserApiE2ETest {
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         }
+
+        @DisplayName("전화번호 형식이 잘못되면 400 Bad Request를 반환한다")
+        @Test
+        void returnsBadRequest_whenPhoneInvalidFormat() {
+            // arrange
+            UserDto.RegisterRequest request = new UserDto.RegisterRequest(
+                    "testuser1",
+                    "Password1!",
+                    "홍길동",
+                    "19900101",
+                    "test@example.com",
+                    "010-123-4567"
+            );
+
+            // act
+            ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
+                    ENDPOINT_USERS,
+                    HttpMethod.POST,
+                    new HttpEntity<>(request),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @DisplayName("GET /api/v1/users/duplicate - 로그인 ID 중복 검사")
+    @Nested
+    class DuplicateCheck {
+
+        @DisplayName("사용 가능한 아이디면 available=true를 반환한다")
+        @Test
+        void returnsAvailable_whenLoginIdIsAvailable() {
+            // act
+            ResponseEntity<ApiResponse<UserDto.DuplicateCheckResponse>> response = testRestTemplate.exchange(
+                    ENDPOINT_DUPLICATE + "?loginId=newuser123",
+                    HttpMethod.GET,
+                    new HttpEntity<>(null),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().available()).isTrue(),
+                    () -> assertThat(response.getBody().data().loginId()).isEqualTo("newuser123")
+            );
+        }
+
+        @DisplayName("이미 사용 중인 아이디면 available=false를 반환한다")
+        @Test
+        void returnsUnavailable_whenLoginIdIsAlreadyUsed() {
+            // arrange
+            String loginId = "existinguser";
+            registerUser(loginId, "Password1!", "홍길동", "19900101", "test@example.com", "010-1234-5678");
+
+            // act
+            ResponseEntity<ApiResponse<UserDto.DuplicateCheckResponse>> response = testRestTemplate.exchange(
+                    ENDPOINT_DUPLICATE + "?loginId=" + loginId,
+                    HttpMethod.GET,
+                    new HttpEntity<>(null),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().available()).isFalse(),
+                    () -> assertThat(response.getBody().data().loginId()).isEqualTo(loginId)
+            );
+        }
     }
 
     @DisplayName("GET /api/v1/users/me - 내 정보 조회")
@@ -128,7 +204,8 @@ class UserApiE2ETest {
             // arrange
             String loginId = "testuser1";
             String password = "Password1!";
-            registerUser(loginId, password, "홍길동", "19900101", "test@example.com");
+            String phone = "010-1234-5678";
+            registerUser(loginId, password, "홍길동", "19900101", "test@example.com", phone);
 
             HttpHeaders headers = new HttpHeaders();
             headers.set(HEADER_LOGIN_ID, loginId);
@@ -147,7 +224,8 @@ class UserApiE2ETest {
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().loginId()).isEqualTo("testuser1"),
                     () -> assertThat(response.getBody().data().name()).isEqualTo("홍길*"),
-                    () -> assertThat(response.getBody().data().email()).isEqualTo("test@example.com")
+                    () -> assertThat(response.getBody().data().email()).isEqualTo("test@example.com"),
+                    () -> assertThat(response.getBody().data().phone()).isEqualTo(phone)
             );
         }
 
@@ -171,7 +249,7 @@ class UserApiE2ETest {
         void returnsUnauthorized_whenWrongPassword() {
             // arrange
             String loginId = "testuser1";
-            registerUser(loginId, "Password1!", "홍길동", "19900101", "test@example.com");
+            registerUser(loginId, "Password1!", "홍길동", "19900101", "test@example.com", "010-1234-5678");
 
             HttpHeaders headers = new HttpHeaders();
             headers.set(HEADER_LOGIN_ID, loginId);
@@ -200,7 +278,7 @@ class UserApiE2ETest {
             // arrange
             String loginId = "testuser1";
             String currentPassword = "Password1!";
-            registerUser(loginId, currentPassword, "홍길동", "19900101", "test@example.com");
+            registerUser(loginId, currentPassword, "홍길동", "19900101", "test@example.com", "010-1234-5678");
 
             HttpHeaders headers = new HttpHeaders();
             headers.set(HEADER_LOGIN_ID, loginId);
@@ -228,7 +306,7 @@ class UserApiE2ETest {
             // arrange
             String loginId = "testuser1";
             String currentPassword = "Password1!";
-            registerUser(loginId, currentPassword, "홍길동", "19900101", "test@example.com");
+            registerUser(loginId, currentPassword, "홍길동", "19900101", "test@example.com", "010-1234-5678");
 
             HttpHeaders headers = new HttpHeaders();
             headers.set(HEADER_LOGIN_ID, loginId);
@@ -251,8 +329,8 @@ class UserApiE2ETest {
         }
     }
 
-    private void registerUser(String loginId, String password, String name, String birthDate, String email) {
-        UserDto.RegisterRequest request = new UserDto.RegisterRequest(loginId, password, name, birthDate, email);
+    private void registerUser(String loginId, String password, String name, String birthDate, String email, String phone) {
+        UserDto.RegisterRequest request = new UserDto.RegisterRequest(loginId, password, name, birthDate, email, phone);
         testRestTemplate.exchange(
                 ENDPOINT_USERS,
                 HttpMethod.POST,

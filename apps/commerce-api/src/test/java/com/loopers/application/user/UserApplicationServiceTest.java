@@ -9,6 +9,7 @@ import com.loopers.domain.user.vo.BirthDate;
 import com.loopers.domain.user.vo.Email;
 import com.loopers.domain.user.vo.Name;
 import com.loopers.domain.user.vo.Password;
+import com.loopers.domain.user.vo.Phone;
 import com.loopers.domain.user.vo.UserId;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -49,6 +50,7 @@ class UserApplicationServiceTest {
     private Name name;
     private Email email;
     private BirthDate birthDate;
+    private Phone phone;
     private User user;
 
     @BeforeEach
@@ -57,7 +59,8 @@ class UserApplicationServiceTest {
         name = new Name("홍길동");
         email = new Email("test@example.com");
         birthDate = new BirthDate(LocalDate.of(1999, 1, 15));
-        user = new User(userId, Password.ofEncoded("$2a$10$encodedPassword"), name, email, birthDate);
+        phone = new Phone("010-1234-5678");
+        user = new User(userId, Password.ofEncoded("$2a$10$encodedPassword"), name, email, phone);
     }
 
     @Nested
@@ -73,8 +76,9 @@ class UserApplicationServiceTest {
                     .name("홍길동")
                     .email("test@example.com")
                     .birthDate("19990115")
+                    .phone("010-1234-5678")
                     .build();
-            User encodedUser = new User(userId, Password.ofEncoded("$2a$10$encodedPassword"), name, email, birthDate);
+            User encodedUser = new User(userId, Password.ofEncoded("$2a$10$encodedPassword"), name, email, phone);
 
             when(userRepository.existsByUserId(any(UserId.class))).thenReturn(false);
             when(passwordEncoder.encode("1Q2w3e4r!")).thenReturn("$2a$10$encodedPassword");
@@ -84,6 +88,7 @@ class UserApplicationServiceTest {
 
             assertThat(result.id().value()).isEqualTo("testuser");
             assertThat(result.password().value()).isEqualTo("$2a$10$encodedPassword");
+            assertThat(result.phone().value()).isEqualTo("010-1234-5678");
         }
 
         @Test
@@ -95,6 +100,7 @@ class UserApplicationServiceTest {
                     .name("홍길동")
                     .email("test@example.com")
                     .birthDate("19990115")
+                    .phone("010-1234-5678")
                     .build();
             when(userRepository.existsByUserId(any(UserId.class))).thenReturn(true);
 
@@ -113,6 +119,7 @@ class UserApplicationServiceTest {
                     .name("홍길동")
                     .email("test@example.com")
                     .birthDate("19990115")
+                    .phone("010-1234-5678")
                     .build();
             when(userRepository.existsByUserId(any(UserId.class))).thenReturn(false);
             when(passwordEncoder.encode("1Q2w3e4r!")).thenReturn("$2a$10$encodedPassword");
@@ -121,6 +128,31 @@ class UserApplicationServiceTest {
             assertThatThrownBy(() -> userApplicationService.register(command))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT));
+        }
+    }
+
+    @Nested
+    @DisplayName("로그인 ID 중복 검사")
+    class DuplicateCheckTest {
+
+        @Test
+        @DisplayName("사용 가능한 아이디 - false 반환")
+        void checkDuplicateLoginId_available() {
+            when(userRepository.existsByUserId(userId)).thenReturn(false);
+
+            boolean result = userApplicationService.checkDuplicateLoginId("testuser");
+
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("이미 사용 중인 아이디 - true 반환")
+        void checkDuplicateLoginId_unavailable() {
+            when(userRepository.existsByUserId(userId)).thenReturn(true);
+
+            boolean result = userApplicationService.checkDuplicateLoginId("testuser");
+
+            assertThat(result).isTrue();
         }
     }
 
@@ -135,7 +167,7 @@ class UserApplicationServiceTest {
                     .userId(userId)
                     .newRawPassword("New1234!@")
                     .build();
-            User updatedUser = new User(userId, Password.ofEncoded("$2a$10$newEncodedPassword"), name, email, birthDate);
+            User updatedUser = new User(userId, Password.ofEncoded("$2a$10$newEncodedPassword"), name, email, phone);
 
             when(userRepository.findByUserId(userId)).thenReturn(Optional.of(user));
             when(passwordEncoder.matches("New1234!@", "$2a$10$encodedPassword")).thenReturn(false);

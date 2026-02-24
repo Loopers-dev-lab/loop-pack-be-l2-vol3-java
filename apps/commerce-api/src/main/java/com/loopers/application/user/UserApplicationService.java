@@ -9,6 +9,7 @@ import com.loopers.domain.user.vo.BirthDate;
 import com.loopers.domain.user.vo.Email;
 import com.loopers.domain.user.vo.Name;
 import com.loopers.domain.user.vo.Password;
+import com.loopers.domain.user.vo.Phone;
 import com.loopers.domain.user.vo.UserId;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -31,20 +32,27 @@ public class UserApplicationService {
         Name name = new Name(command.name());
         Email email = new Email(command.email());
         BirthDate birthDate = BirthDate.of(command.birthDate());
+        Phone phone = new Phone(command.phone());
 
         if (userRepository.existsByUserId(userId)) {
             throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 아이디입니다.");
         }
 
-        User user = new User(userId, rawPassword, name, email, birthDate);
+        User user = new User(userId, rawPassword, name, email, phone);
         Password encodedPassword = Password.ofEncoded(passwordEncoder.encode(user.password().value()));
-        User userWithEncodedPassword = new User(user.id(), encodedPassword, user.name(), user.email(), user.birthDate());
+        User userWithEncodedPassword = new User(user.id(), encodedPassword, user.name(), user.email(), user.phone());
 
         try {
             return userRepository.save(userWithEncodedPassword);
         } catch (DataIntegrityViolationException e) {
             throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 아이디입니다.");
         }
+    }
+
+    @Transactional(readOnly = true)
+    public boolean checkDuplicateLoginId(String loginId) {
+        UserId userId = new UserId(loginId);
+        return userRepository.existsByUserId(userId);
     }
 
     @Transactional
@@ -57,9 +65,9 @@ public class UserApplicationService {
         }
 
         Password newRawPassword = new Password(command.newRawPassword());
-        new User(user.id(), newRawPassword, user.name(), user.email(), user.birthDate());
+        new User(user.id(), newRawPassword, user.name(), user.email(), user.phone());
         Password encodedPassword = Password.ofEncoded(passwordEncoder.encode(newRawPassword.value()));
-        User updatedUser = new User(user.id(), encodedPassword, user.name(), user.email(), user.birthDate());
+        User updatedUser = new User(user.id(), encodedPassword, user.name(), user.email(), user.phone());
         userRepository.save(updatedUser);
     }
 }

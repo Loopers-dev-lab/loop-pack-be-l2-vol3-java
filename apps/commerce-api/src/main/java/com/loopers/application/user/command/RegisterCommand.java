@@ -8,11 +8,12 @@ public record RegisterCommand(
         String rawPassword,
         String name,
         String email,
-        String birthDate
+        String birthDate,
+        String phone
 ) {
     @Override
     public String toString() {
-        return "RegisterCommand[userId=%s, rawPassword=***, name=%s, email=%s, birthDate=%s]"
-                .formatted(userId, name, email, birthDate);
+        return "RegisterCommand[userId=%s, rawPassword=***, name=%s, email=%s, birthDate=%s, phone=%s]"
+                .formatted(userId, name, email, birthDate, phone);
     }
 }
