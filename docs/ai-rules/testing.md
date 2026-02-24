@@ -20,6 +20,12 @@
 - 회원가입 중복: 저장 시점 중복키 예외(동시성 경합) 테스트 필수
 - 이름 마스킹 경계값: 1/2/3글자 테스트 필수
 
+## 도메인별 레시피
+- 공통 인덱스: `/Users/anseonghun/Documents/project/loop-pack-be-l2-vol3-java/docs/ai-rules/testing-recipes/README.md`
+- 사용자 도메인: `/Users/anseonghun/Documents/project/loop-pack-be-l2-vol3-java/docs/ai-rules/testing-recipes/user.md`
+- 주문 도메인: `/Users/anseonghun/Documents/project/loop-pack-be-l2-vol3-java/docs/ai-rules/testing-recipes/order.md`
+- 상품/좋아요 도메인: `/Users/anseonghun/Documents/project/loop-pack-be-l2-vol3-java/docs/ai-rules/testing-recipes/product-like.md`
+
 ## 레이어별 테스트 전략
 - Domain / Domain Service → 단위 테스트
 - Application Service → 통합 테스트

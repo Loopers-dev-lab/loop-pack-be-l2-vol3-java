@@ -2,39 +2,35 @@
 
 ## 모델 선택
 
-| 작업 유형 | 모델 | 호출 방법 |
-|----------|------|----------|
-| 최상단 설계 (아키텍처, 핵심 의사결정 등 복잡하지만 작성량이 적은 작업) | `claude-opus-4-6` | `Task(model="opus", ...)` |
-| 세부 계획 (요구사항 명세 도출, 관련 문서 작성 등) 및 디버깅 | `claude-sonnet-4-6` | `Task(model="sonnet", ...)` |
-| 코드 작성 | Codex | `mcp__codex__codex(prompt: "...")` |
-| 단순 반복/대량 생성 | Gemini | `mcp__gemini__gemini_cli(prompt: "...")` |
+| 작업 유형 | 기본 모델 ID | 사용 기준 |
+|----------|--------------|----------|
+| 기본 코드 / 테스트코드 / 리팩터링 수행 등 간단한 작업 | `gpt-5.3-codex-spark` | 기본값 (토큰 비용 절약 우선) |
+| 복잡 디버깅 / 설계 의사 결정 | `GPT-5.1-Codex-Max` | 난이도 높거나 판단 비용이 큰 경우만 |
 
-### 호출 예시
+### 실행 규칙
+- 기본은 항상 `gpt-5.3-codex-spark`로 시작한다.
+- 작업 중 복잡도가 높아질 때만 `GPT-5.1-Codex-Max`로 승급한다.
+- 승급 작업 완료 후 후속 구현/리팩터링은 다시 `gpt-5.3-codex-spark`로 복귀한다.
 
-```
-# 아키텍처 설계
-Task(subagent_type="Plan", model="opus", prompt="아키텍처 설계")
+### 호출 예시 (Codex / OhMyOpenCode / OpenCode 인식용)
 
-# 디버깅 / 세부 계획
-Task(subagent_type="general-purpose", model="sonnet", prompt="디버깅")
-
-# 코드 작성 (Codex MCP) - Java/Spring 스타일 주입 필수
+```md
+# Codex MCP - 기본
 mcp__codex__codex(
   prompt: "구현 내용",
-  developer-instructions: """
-    - final 우선, null 반환 금지 → Optional/빈 컬렉션 반환
-    - Optional은 반환 타입으로만 사용 (파라미터/필드 금지)
-    - 레이어: Facade -> Application Service -> Domain Service
-    - @Transactional은 Application Service에만, Facade/Domain Service 금지
-    - Domain Service는 순수 규칙만 담당 (저장/외부 I/O 금지)
-    - 코드 뎁스 1 제한, unused import 제거
-    - System.out.println 금지
-  """,
-  sandbox: "workspace-write"
+  model: "gpt-5.3-codex-spark"
 )
 
-# 단순 반복 / 대량 생성 (Gemini MCP)
-mcp__gemini__gemini_cli(prompt: "작업 내용", model: "gemini-2.5-pro")
+# Codex MCP - 복잡 디버깅 / 설계
+mcp__codex__codex(
+  prompt: "복잡 이슈 분석",
+  model: "gpt-5.1-codex-max"
+)
+
+# OpenCode / OhMyOpenCode 설정 예시
+model = "gpt-5.3-codex-spark"
+# 필요 시 일시 승급
+# model = "gpt-5.1-codex-max"
 ```
 
 ## 코드 성능

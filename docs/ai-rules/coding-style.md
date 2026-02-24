@@ -25,7 +25,9 @@
 - 패키지 → lowercase
 
 ## Spring 레이어 규칙
+- Facade는 여러 Application Service를 조합/오케스트레이션할 때만 도입한다
 - Facade → Application Service만 호출 (Repository/Domain Service 직접 접근 금지)
+- 단일 Application Service 호출만 필요한 유스케이스는 Controller → Application Service로 직접 연결한다
 - Application Service → 자기 도메인 Repository와 Domain Service만 접근
 - Application Service 간 직접 호출 금지 → 크로스 도메인 협력은 Facade 경유
 - Domain Service → 순수 비즈니스 규칙만 수행 (저장/외부 I/O/트랜잭션 금지)

@@ -18,7 +18,9 @@
 - 보안 관련 변경(인증/인가/입력 검증): `/Users/anseonghun/Documents/project/loop-pack-be-l2-vol3-java/docs/ai-rules/security.md`
 
 ## Non-negotiable Architecture
+- Facade는 여러 Application Service를 조합/오케스트레이션할 때만 사용한다
 - Facade -> Application Service only (Repository/Domain Service 직접 접근 금지)
+- 단일 Application Service 호출만 필요한 유스케이스는 Facade를 만들지 않고 Controller -> Application Service로 직접 연결한다
 - Application Service -> 자기 도메인 Repository + Domain Service only
 - Application Service 간 직접 호출 금지 (크로스 도메인 협력은 Facade에서 조정)
 - Domain Service는 순수 비즈니스 규칙만 담당 (저장/외부 I/O/트랜잭션 금지)
