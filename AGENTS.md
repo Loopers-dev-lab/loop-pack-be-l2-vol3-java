@@ -601,25 +601,25 @@ Based on `.codeguide/loopers-1-week.md` and project requirements, follow these c
 
 ### Domain & Architecture Implementation Checklist
 
-Use this checklist to verify design and implementation alignment.
+Use this checklist to verify design and implementation alignment. **구현 시 유의**: (1) 고객 식별은 API에서 X-Loopers-LoginId(문자열); Facade에서 User.id(Long)로 변환 후 도메인/Service에 전달(01 §4.6, 04 §5). (2) Brand/Product soft-delete는 BaseEntity.deletedAt 사용, isDeleted() = getDeletedAt() != null(03 §0, 04 §5). (3) validateProducts/restoreStock 등 Service 파라미터는 도메인·application 전용 타입만 사용, interfaces DTO 재사용 금지(03 §0). (4) optionId는 option 테이블 없음—존재 검증 제외, 값 보존만(01 §4.6). (5) 도메인 구현 순서: Brand → Product(이후 Brand 연쇄 삭제 연결) → Like → Order. 상세는 03-class-diagram, 04-erd 참고.
 
 #### Product / Brand domain
 
 - [ ] Product representation includes brand information and like count where required.
 - [ ] Product list supports sort options (`latest`, `price_asc`, `likes_desc`) in the design.
-- [ ] Product has stock; order flow can decrement stock.
+- [ ] Product has stock; **stock is decremented at payment completion** (not at order creation); order creation only validates availability (see 01-requirements §3.1).
 - [ ] Negative stock is prevented at the **domain** level (e.g. in Entity or Domain Service).
 
 #### Like domain
 
 - [ ] Like is a separate domain representing the user–product relationship.
-- [ ] Like count is provided with product detail/list responses where specified.
+- [ ] Like count is provided with product detail/list responses where specified (e.g. via LikeRepository count by product).
 - [ ] Unit tests cover like add/remove flows.
 
 #### Order domain
 
 - [ ] An order can contain multiple products with explicit quantities.
-- [ ] Order placement performs stock decrement.
+- [ ] Order creation **validates** stock; stock **decrement** happens at payment completion (01-requirements §3.1).
 - [ ] Design covers insufficient-stock exception flow.
 - [ ] Unit tests cover both success and exception order flows.
 
@@ -638,7 +638,6 @@ Use this checklist to verify design and implementation alignment.
 - [ ] Repository interface is in the Domain layer; implementation is in Infrastructure.
 - [ ] Packages are organized by layer and domain (e.g. `/domain/order`, `/application/like`).
 - [ ] Tests isolate external dependencies and use Fakes/Stubs so unit tests remain focused and fast.
-
 ---
 
 ## 6. Testing Strategy

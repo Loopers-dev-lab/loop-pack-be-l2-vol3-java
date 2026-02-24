@@ -252,6 +252,12 @@
 - **취소 가능**: ORDERED(즉시), PAID(재고 복구 후 CANCELLED). SHIPPING, DELIVERED는 취소 불가.
 - 취소 시: ORDER_STATUS = CANCELLED, 결제 완료 건은 재고 복구 후 상태 변경. 상세 전이 규칙은 [04-erd.md](./04-erd.md) §2 주문 상태 전이 규칙 표 참고.
 
+### 4.6 구현 시 식별자·파라미터
+
+- **고객 식별**: API는 `X-Loopers-LoginId`(문자열, 로그인 ID)로 고객을 식별한다. Like·Order 등 도메인/DB에서는 **User 엔티티의 PK(id, Long)**를 사용한다. Facade 또는 인증 계층에서 **로그인 ID → User.id(Long) 변환** 후 Service에는 Long userId만 전달한다.
+- **재고**: 주문 생성 시에는 재고 **검증만** 수행하고, **차감은 결제 완료 시점**에 수행한다(§3.1). 주문 생성 시 validateProducts만 호출하며, 재고 차감은 결제 도메인 연동 시 별도 구현한다.
+- **optionId**: cart·order_item에 option_id 참조 컬럼만 있고 **option 테이블은 없다**. 현재 단계에서는 optionId **존재 여부 검증은 하지 않고**, 값 보존 및 null/양수 등 최소 검증만 수행한다. Option 도메인 추가 시 확장한다.
+
 ---
 
 ## 5. 범위 제외 사항

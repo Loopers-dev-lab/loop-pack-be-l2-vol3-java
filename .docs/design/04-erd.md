@@ -191,8 +191,11 @@ erDiagram
 ## 5. 구현 시 유지할 것
 
 - **참조 컬럼**: brand_id, user_id, product_id, order_id는 그대로 두고, 조인·조회는 현재 ERD와 동일하게 사용.
+- **user_id**: like·order·cart의 user_id는 **User 테이블의 PK(id)**를 참조한다. API는 X-Loopers-LoginId(문자열)로 고객을 식별하므로, Facade에서 로그인 ID → User.id(Long) 변환 후 도메인/DB에 전달한다(01 §4.6).
 - **UNIQUE(user_id, product_id)** on like: 1인 1좋아요 보장을 위해 DDL에 포함.
 - **JPA**: 다른 애그리거트 참조는 `Long brandId`, `Long userId` 등 ID만 두고, `@ManyToOne` 사용하지 않음. DDL은 Flyway/Liquibase로 관리 시 REFERENCES 절 포함하지 않음.
 - **참조 정합성**: 저장/수정 전 서비스에서 참조 대상 존재·미삭제 여부 검증.
+- **Soft delete (brand·product)**: 컬럼은 deleted_at. 엔티티는 BaseEntity 상속으로 deletedAt 사용하고, isDeleted()는 getDeletedAt() != null로 구현(03 §0 구현 시 유의).
+- **option_id**: cart·order_item에 option_id만 있고 **option 테이블은 없다**. 현재 단계에서는 옵션 존재 여부 검증은 하지 않고 값 보존·최소 검증만 수행한다(01 §4.6).
 
 ---
