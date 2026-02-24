@@ -49,12 +49,15 @@ interfaces → application → domain ← infrastructure
 - 다른 도메인의 **Service만** 호출 (Repository 직접 호출 금지)
 
 ### Service (domain) — 자기 도메인의 연산 캡슐화
-- **조회 메서드**: 비즈니스 의미를 가진 이름으로 제공 (`getActiveUser`, `getActiveProduct` 등)
-- **명령 메서드**: 조회+판단+실행을 하나의 비즈니스 연산으로 캡슐화
+- **조회 메서드**: 범용 대상 식별 (getActiveBrand, getActiveUser 등)
+  - 여러 비즈니스 연산에서 공통으로 사용되는 조회
+- **명령 메서드**: Entity를 받아서 도메인 연산 수행 (판단+실행)
+  - 연산에 필요한 DB 조회(중복 확인, 존재 여부 등)는 Service 내부에서 처리
+  - 단, 대상 식별 자체가 연산과 불가분인 경우 Service 내부에서 조회 포함
+    (예: unlike — 존재 여부 확인이 곧 연산의 전제조건)
 - 자기 도메인의 Repository + Domain Service만 사용
 - **다른 도메인의 Service 직접 호출 금지** (크로스 도메인은 Facade 책임)
 - Facade에 도메인 내부 구조(Optional, 상태값, Entity 컬렉션) 노출 최소화
-- `@Transactional` 사용하지 않음 (트랜잭션은 Facade 책임)
 
 
 ### Domain Service (domain) — 필요할 때만 생성
