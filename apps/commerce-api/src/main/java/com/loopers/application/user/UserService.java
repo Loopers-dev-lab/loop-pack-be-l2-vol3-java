@@ -39,6 +39,16 @@ public class UserService {
         return UserInfo.from(user);
     }
 
+    @Transactional(readOnly = true)
+    public Long getUserId(String loginId, String loginPw) {
+        User user = getUser(loginId);
+        if (!passwordEncoder.matches(loginPw, user.getPassword())) {
+            throw new CoreException(ErrorType.NOT_FOUND, "사용자 정보가 올바르지 않습니다.");
+        }
+
+        return user.getId();
+    }
+
     private User getUser(String loginId) {
         return userRepository.findByLoginId(loginId)
                              .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND,
