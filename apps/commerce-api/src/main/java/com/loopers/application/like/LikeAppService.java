@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -55,5 +57,15 @@ public class LikeAppService {
         Like like = Like.create(userId, productId);
         likeRepository.save(like);
         return true;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, Long> countByProductIds(List<Long> productIds) {
+        return likeRepository.countByProductIdIn(productIds);
+    }
+
+    @Transactional(readOnly = true)
+    public Set<Long> getLikedProductIds(Long userId, List<Long> productIds) {
+        return likeRepository.findLikedProductIds(userId, productIds);
     }
 }
