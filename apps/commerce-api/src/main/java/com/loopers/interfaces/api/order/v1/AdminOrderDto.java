@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.order.v1;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.loopers.application.order.AdminOrderDetailResult;
 import com.loopers.application.order.OrderDetailResult;
 import com.loopers.application.order.OrderResult;
 import com.loopers.domain.order.OrderStatus;
@@ -34,10 +35,11 @@ public class AdminOrderDto {
             OrderStatus status,
             Long totalPrice,
             LocalDateTime orderedAt,
-            List<OrderItemResponse> orderItems
+            List<OrderItemResponse> orderItems,
+            OrdererResponse orderer
     ) {
 
-        public static OrderDetailResponse from(OrderDetailResult result) {
+        public static OrderDetailResponse from(AdminOrderDetailResult result) {
             return new OrderDetailResponse(
                     result.id(),
                     result.name(),
@@ -46,8 +48,19 @@ public class AdminOrderDto {
                     result.orderedAt(),
                     result.orderItems().stream()
                             .map(OrderItemResponse::from)
-                            .toList()
+                            .toList(),
+                    OrdererResponse.from(result.orderer())
             );
+        }
+    }
+
+    public record OrdererResponse(
+            Long id,
+            String name
+    ) {
+
+        public static OrdererResponse from(AdminOrderDetailResult.Orderer orderer) {
+            return new OrdererResponse(orderer.id(), orderer.name());
         }
     }
 

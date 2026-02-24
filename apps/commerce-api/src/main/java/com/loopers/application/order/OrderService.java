@@ -17,6 +17,7 @@ import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.user.UserRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.support.page.Page;
@@ -30,6 +31,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public Long createOrder(Cart cart) {
@@ -80,6 +82,15 @@ public class OrderService {
                         .toList(),
                 orders.hasNext()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public AdminOrderDetailResult getOrder(Long orderId) {
+        Order order = orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+        var user = userRepository.findById(order.getUserId())
+                .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
+        return AdminOrderDetailResult.of(order, user.getName().masked());
     }
 
     @Transactional(readOnly = true)

@@ -26,4 +26,18 @@ public class OrderAdminSteps {
                 responseType
         );
     }
+
+    public static ResponseEntity<ApiResponse<AdminOrderDto.OrderDetailResponse>> getOrder(
+            TestRestTemplate testRestTemplate,
+            Long orderId
+    ) {
+        ParameterizedTypeReference<ApiResponse<AdminOrderDto.OrderDetailResponse>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                "/api-admin/v1/orders/" + orderId,
+                HttpMethod.GET,
+                new HttpEntity<>(adminAuthHeaders()),
+                responseType
+        );
+    }
 }

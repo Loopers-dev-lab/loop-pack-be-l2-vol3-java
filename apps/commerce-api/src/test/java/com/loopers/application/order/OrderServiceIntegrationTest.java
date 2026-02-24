@@ -1,6 +1,7 @@
 package com.loopers.application.order;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -22,6 +23,7 @@ import com.loopers.application.brand.BrandService;
 import com.loopers.application.order.Cart.CartItem;
 import com.loopers.application.product.ProductCommand;
 import com.loopers.application.product.ProductService;
+import com.loopers.application.user.UserService;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.product.ProductRepository;
@@ -48,6 +50,9 @@ class OrderServiceIntegrationTest {
 
     @Autowired
     private BrandService brandService;
+
+    @Autowired
+    private UserService userService;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -440,6 +445,56 @@ class OrderServiceIntegrationTest {
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(
                             ErrorType.FORBIDDEN_ORDER_ACCESS));
+        }
+    }
+
+    @DisplayName("어드민 주문 상세를 조회할 때,")
+    @Nested
+    class GetOrder {
+
+        @DisplayName("유효한 주문이면, 주문 상세 정보와 마스킹된 주문자 이름이 반환된다.")
+        @Test
+        void returnsOrderDetailWithMaskedOrdererName_whenValidOrderId() {
+            // arrange
+            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var userId = userService.signUp("testuser1", "Password1!", "홍길동", "2000-01-01", "test@test.com").id();
+            var orderId = orderService.createOrder(new Cart(userId, List.of(new CartItem(productId, 2L))));
+
+            // act
+            var result = orderService.getOrder(orderId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.id()).isEqualTo(orderId),
+                    () -> assertThat(result.name()).isEqualTo("테스트 상품"),
+                    () -> assertThat(result.status()).isEqualTo(OrderStatus.CREATED),
+                    () -> assertThat(result.totalPrice()).isEqualTo(20000L),
+                    () -> assertThat(result.orderItems()).hasSize(1),
+                    () -> assertThat(result.orderer().name()).isEqualTo("홍길*")
+            );
+        }
+
+        @DisplayName("존재하지 않는 주문이면, ORDER_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenOrderNotFound() {
+            // act & assert
+            assertThatThrownBy(() -> orderService.getOrder(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(
+                            e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_FOUND));
+        }
+
+        @DisplayName("다른 사용자의 주문도 소유권 검증 없이 조회된다.")
+        @Test
+        void returnsAnyOrder_withoutOwnershipCheck() {
+            // arrange
+            var productId = createBrandAndProduct("테스트 상품", 10000L, 100L);
+            var userId = userService.signUp("testuser1", "Password1!", "홍길동", "2000-01-01", "test@test.com").id();
+            var orderId = orderService.createOrder(new Cart(userId, List.of(new CartItem(productId, 1L))));
+
+            // act & assert
+            assertThatCode(() -> orderService.getOrder(orderId))
+                    .doesNotThrowAnyException();
         }
     }
 

@@ -660,6 +660,7 @@ sequenceDiagram
     participant OrderApi
     participant OrderService
     participant OrderRepository
+    participant UserRepository
 
     Admin ->>+ OrderApi: GET /api-admin/v1/orders/{orderId}
     OrderApi ->>+ OrderService: 주문 조회
@@ -672,7 +673,17 @@ sequenceDiagram
         OrderApi -->> Admin: 404 Not Found
     end
 
-    OrderService -->>- OrderApi: OrderResult
+    OrderService ->>+ UserRepository: 주문자 조회
+    UserRepository -->>- OrderService: Optional<User>
+
+    break 주문자가 존재하지 않을 경우
+        OrderService -->> OrderApi: 조회 실패
+        OrderApi -->> Admin: 404 Not Found
+    end
+
+    OrderService ->> OrderService: 주문자 이름 마스킹
+
+    OrderService -->>- OrderApi: AdminOrderDetailResult
     OrderApi -->>- Admin: 200 OK + 주문 상세 정보
 ```
 

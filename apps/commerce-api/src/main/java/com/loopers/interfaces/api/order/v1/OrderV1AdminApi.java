@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.order.v1;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,5 +35,14 @@ public class OrderV1AdminApi implements OrderV1AdminApiSpec {
                         orders.hasNext()
                 )
         );
+    }
+
+    @GetMapping("/{orderId}")
+    @Override
+    public ApiResponse<AdminOrderDto.OrderDetailResponse> getOrder(
+            @PathVariable Long orderId
+    ) {
+        var result = orderService.getOrder(orderId);
+        return ApiResponse.success(AdminOrderDto.OrderDetailResponse.from(result));
     }
 }

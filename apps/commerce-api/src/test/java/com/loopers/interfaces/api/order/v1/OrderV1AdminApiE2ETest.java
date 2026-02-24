@@ -1,11 +1,15 @@
 package com.loopers.interfaces.api.order.v1;
 
+import static com.loopers.interfaces.api.order.v1.OrderAdminSteps.getOrder;
 import static com.loopers.interfaces.api.order.v1.OrderAdminSteps.getOrders;
 import static com.loopers.interfaces.api.order.v1.OrderSteps.createOrder;
 import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
+import static com.loopers.support.E2ETestHelper.assertErrorResponse;
 import static com.loopers.support.E2ETestHelper.userAuthHeaders;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+
+import com.loopers.support.error.ErrorType;
 
 import java.util.List;
 
@@ -159,6 +163,69 @@ class OrderV1AdminApiE2ETest extends BaseE2ETest {
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content()).hasSize(1),
                     () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo(OrderStatus.CREATED)
+            );
+        }
+    }
+
+    @DisplayName("GET /api-admin/v1/orders/{orderId}")
+    @Nested
+    class GetOrder {
+
+        @DisplayName("주문이 존재하면, 주문 상세 정보와 마스킹된 주문자 이름이 반환된다.")
+        @Test
+        void returnsOrderDetailWithMaskedOrdererName_whenOrderExists() {
+            // arrange
+            var orderId = createOrder(
+                    testRestTemplate,
+                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 2L))),
+                    userHeaders
+            ).getBody().data().orderId();
+
+            // act
+            var response = getOrder(testRestTemplate, orderId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().orderId()).isEqualTo(orderId),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("테스트상품"),
+                    () -> assertThat(response.getBody().data().totalPrice()).isEqualTo(20000L),
+                    () -> assertThat(response.getBody().data().orderItems()).hasSize(1),
+                    () -> assertThat(response.getBody().data().orderer().name()).isEqualTo("테스*")
+            );
+        }
+
+        @DisplayName("존재하지 않는 주문을 조회하면, 404 Not Found를 반환한다.")
+        @Test
+        void returnsNotFound_whenOrderDoesNotExist() {
+            // act
+            var response = getOrder(testRestTemplate, 999L);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.ORDER_NOT_FOUND);
+        }
+
+        @DisplayName("다른 사용자의 주문도 조회할 수 있다.")
+        @Test
+        void returnsAnyOrder_withoutOwnershipRestriction() {
+            // arrange
+            signUp(testRestTemplate,
+                    new UserV1Dto.SignUpRequest("otheruser", "Password1!", "다른유저", "1990-01-01", "other@test.com"));
+            var otherHeaders = userAuthHeaders("otheruser", "Password1!");
+            var orderId = createOrder(
+                    testRestTemplate,
+                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L))),
+                    otherHeaders
+            ).getBody().data().orderId();
+
+            // act
+            var response = getOrder(testRestTemplate, orderId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().orderId()).isEqualTo(orderId),
+                    () -> assertThat(response.getBody().data().orderer().name()).isEqualTo("다른유*")
             );
         }
     }

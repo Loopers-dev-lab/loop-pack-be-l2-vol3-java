@@ -14,4 +14,10 @@ public interface OrderV1AdminApiSpec {
             description = "전체 주문 목록을 페이지 단위로 조회합니다."
     )
     ApiResponse<PageResponse<AdminOrderDto.OrderListResponse>> getOrders(int page, int size);
+
+    @Operation(
+            summary = "주문 상세 조회",
+            description = "주문 상세 정보를 조회합니다."
+    )
+    ApiResponse<AdminOrderDto.OrderDetailResponse> getOrder(Long orderId);
 }

@@ -1,6 +1,6 @@
 # Class Diagram
 
-LAST UPDATED: 2026-02-22
+LAST UPDATED: 2026-02-24
 
 ## 목차
 - [개요](#개요)
@@ -96,7 +96,7 @@ classDiagram
         Money totalPrice
         List~OrderItem~ orderItems
         +create(Long userId, List~OrderItem~ orderItems)$ Order
-        +verifyOwner(Long userId) void
+        +validateOwner(Long userId) void
     }
 
     class OrderItem {
