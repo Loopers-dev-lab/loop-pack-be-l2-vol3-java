@@ -1,5 +1,7 @@
-package com.loopers.domain.member;
+package com.loopers.application.member;
 
+import com.loopers.domain.member.Member;
+import com.loopers.domain.member.MemberRepository;
 import com.loopers.domain.member.vo.BirthDate;
 import com.loopers.domain.member.vo.Email;
 import com.loopers.domain.member.vo.LoginId;
@@ -16,7 +18,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Service
 @Transactional(readOnly = true)
-public class MemberService {
+public class MemberFacade {
 
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
