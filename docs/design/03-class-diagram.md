@@ -1,336 +1,227 @@
-# 📐 03. 클래스 다이어그램 (Class Diagram)
+# 03. 도메인 모델 (Domain Model)
 
-## 1. 전체 도메인 클래스 다이어그램
+멘토 피드백에 따라 ERD보다 **도메인 모델링**에 집중합니다.
+어떤 순수 객체(Entity, VO)가 어떤 메시지(행위)를 주고받는지 표현합니다.
+
+---
+
+## 1. Aggregate 구조
+
+| Aggregate | Root Entity | 포함 요소 |
+|-----------|-------------|----------|
+| **Order** | `Order` | `OrderItem` (VO), `OrderStatus` (Enum) |
+| **Product** | `Product` | - |
+| **Option** | `Option` | - |
+| **Brand** | `Brand` | - |
+| **Cart** | `CartItem` | - |
+| **Like** | `Like` | Hard Delete 대상 |
+
+---
+
+## 2. 도메인 클래스 다이어그램
 
 ```mermaid
 classDiagram
     direction TB
 
-    %% ===== Base =====
-    class BaseEntity {
-        <<abstract>>
-        #Long id
-        #ZonedDateTime createdAt
-        #ZonedDateTime updatedAt
-        #ZonedDateTime deletedAt
+    %% ===== Order Aggregate =====
+    class Order {
+        -Long id
+        -Long userId
+        -List~OrderItem~ orderItems
+        -OrderStatus status
+        +create(userId, orderItems) Order
+        +pay() void
+        +prepare() void
+        +ship() void
+        +deliver() void
+        +cancel() void
+        +getTotalAmount() Money
+    }
+
+    class OrderItem {
+        <<Value Object>>
+        -Long optionId
+        -String productName
+        -String optionName
+        -Money price
+        -int quantity
+        +of(...) OrderItem
+        +getTotalPrice() Money
+    }
+
+    class OrderStatus {
+        <<Enumeration>>
+        PENDING
+        PAID
+        PREPARING
+        SHIPPED
+        DELIVERED
+        CANCELED
+        +canCancel() boolean
+        +canShip() boolean
+        +canDeliver() boolean
+    }
+
+    %% ===== Product & Option =====
+    class Product {
+        -Long id
+        -Long brandId
+        -String name
+        -Money basePrice
+        -boolean deleted
+        +create(brandId, name, basePrice) Product
+        +update(name, basePrice) void
         +delete() void
         +restore() void
     }
 
-    %% ===== Value Objects =====
-    class Money {
-        <<VO>>
-        -Long value
-        +add(Money) Money
-        +multiply(int) Money
-        +isPositive() boolean
-    }
-
-    class Stock {
-        <<VO>>
-        -Integer value
-        +decrease(int) Stock
-        +increase(int) Stock
-        +isSoldOut() boolean
-        +isAvailable(int) boolean
-    }
-
-    class Quantity {
-        <<VO>>
-        -Integer value
-        +add(Quantity) Quantity
-    }
-
-    class BrandName {
-        <<VO>>
-        -String value
-    }
-
-    class ProductName {
-        <<VO>>
-        -String value
-    }
-
-    class OptionName {
-        <<VO>>
-        -String value
-    }
-
-    class ImageUrl {
-        <<VO>>
-        -String value
-    }
-
-    %% ===== Entities =====
-    class Brand {
-        -BrandName name
-        -ImageUrl logoUrl
-        -String description
-        +update(name, logoUrl, description) void
-    }
-
-    class Product {
-        -Long brandId
-        -ProductName name
-        -String description
-        -ImageUrl thumbnailUrl
-        -Money basePrice
-        -List~Option~ options
-        +addOption(Option) void
-        +update(...) void
-    }
-
     class Option {
+        -Long id
         -Long productId
-        -OptionName name
+        -String name
         -Money additionalPrice
-        -Stock stock
-        +decreaseStock(int) void
-        +increaseStock(int) void
-        +calculatePrice(Money) Money
+        -int stock
+        -boolean deleted
+        +create(productId, name, additionalPrice, stock) Option
+        +decreaseStock(quantity) void
+        +increaseStock(quantity) void
+        +updateStock(newStock) void
         +isSoldOut() boolean
+        +delete() void
+        +restore() void
     }
 
+    %% ===== Brand =====
+    class Brand {
+        -Long id
+        -String name
+        -boolean deleted
+        +create(name) Brand
+        +update(name) void
+        +delete() void
+        +restore() void
+    }
+
+    %% ===== Cart =====
+    class CartItem {
+        -Long id
+        -Long userId
+        -Long optionId
+        -int quantity
+        +create(userId, optionId, quantity) CartItem
+        +addQuantity(quantity) void
+        +updateQuantity(quantity) void
+    }
+
+    %% ===== Like =====
     class Like {
         <<Hard Delete>>
-        -Long memberId
+        -Long id
+        -Long userId
         -Long productId
+        +create(userId, productId) Like
     }
 
-    class CartItem {
-        -Long memberId
-        -Long optionId
-        -Quantity quantity
-        +addQuantity(Quantity) void
-        +updateQuantity(Quantity) void
+    %% ===== Value Object =====
+    class Money {
+        <<Value Object>>
+        -BigDecimal amount
+        +of(amount) Money
+        +zero() Money
+        +add(Money) Money
+        +multiply(int) Money
+        +isGreaterThan(Money) boolean
     }
 
-    class Order {
-        -Long memberId
-        -Money totalAmount
-        -OrderStatus status
-        -List~OrderItem~ orderItems
-        +cancel() void
-        +isCancelable() boolean
-    }
+    %% ===== Relationships =====
+    Order "1" *-- "N" OrderItem : contains
+    Order --> OrderStatus : has
+    Order ..> Money : uses
+    OrderItem ..> Money : uses
+    Product ..> Money : uses
+    Option ..> Money : uses
 
-    class OrderItem {
-        -Long orderId
-        -Long optionId
-        -ProductName productName
-        -OptionName optionName
-        -Money price
-        -Quantity quantity
-        +calculateSubtotal() Money
-    }
-
-    class OrderStatus {
-        <<enumeration>>
-        COMPLETED
-        CANCELED
-    }
-
-    %% ===== Inheritance =====
-    BaseEntity <|-- Brand
-    BaseEntity <|-- Product
-    BaseEntity <|-- Option
-    BaseEntity <|-- Like
-    BaseEntity <|-- CartItem
-    BaseEntity <|-- Order
-    BaseEntity <|-- OrderItem
-
-    %% ===== Composition (VO) =====
-    Brand *-- BrandName
-    Brand *-- ImageUrl
-    Product *-- ProductName
-    Product *-- ImageUrl
-    Product *-- Money
-    Option *-- OptionName
-    Option *-- Money
-    Option *-- Stock
-    CartItem *-- Quantity
-    Order *-- Money
-    Order *-- OrderStatus
-    OrderItem *-- ProductName
-    OrderItem *-- OptionName
-    OrderItem *-- Money
-    OrderItem *-- Quantity
-
-    %% ===== Associations (Logical FK - No Physical Constraint) =====
-    Product "N" ..> "1" Brand : brandId (논리적 참조)
-    Option "N" ..> "1" Product : productId (논리적 참조)
-    Like "N" ..> "1" Product : productId (논리적 참조)
-    CartItem "N" ..> "1" Option : optionId (논리적 참조)
-    Order "1" --> "N" OrderItem : contains
-    OrderItem "N" ..> "1" Option : optionId (논리적 참조)
+    %% ===== Logical References (ID only) =====
+    Product ..> Brand : brandId
+    Option ..> Product : productId
+    CartItem ..> Option : optionId
+    Like ..> Product : productId
+    OrderItem ..> Option : optionId (참조용)
 ```
 
 ---
 
-## 2. Value Object 설계
+## 3. Entity 메시지 정리
 
-### 2.1 VO 목록 및 책임
+### 3.1 Order (Aggregate Root)
 
-| VO | 책임 | 핵심 규칙 |
-|----|------|----------|
-| **Money** | 금액 표현 및 연산 | 0원 이상, 불변, 덧셈/곱셈 연산 제공 |
-| **Stock** | 재고 수량 관리 | 0개 이상, 불변, 차감 시 부족하면 예외 |
-| **Quantity** | 주문/장바구니 수량 | 1개 이상, 불변 |
-| **BrandName** | 브랜드명 | 필수값, 100자 이내 |
-| **ProductName** | 상품명 | 필수값, 100자 이내 |
-| **OptionName** | 옵션명 | 필수값, 100자 이내 |
-| **ImageUrl** | 이미지 URL | URL 형식 검증 |
-
-### 2.2 VO 설계 원칙
-
-| 원칙 | 설명 |
-|------|------|
-| **불변성 (Immutability)** | 생성 후 값 변경 불가. 연산 시 새 객체 반환. |
-| **자가 검증 (Self-Validation)** | 생성자에서 유효성 검증. 잘못된 값으로 생성 불가. |
-| **동등성 (Equality)** | 값이 같으면 같은 객체로 취급 |
-
----
-
-## 3. Entity 설계
-
-### 3.1 Entity 목록 및 책임
-
-| Entity | 책임 | 특이사항 |
+| 메서드 | 행위 | 상태 전이 |
 |--------|------|----------|
-| **Brand** | 브랜드 정보 관리 | Soft Delete, 삭제 시 하위 상품 Cascade |
-| **Product** | 상품 메타정보 관리 | Soft Delete, 옵션과 1:N 관계 |
-| **Option** | 실제 판매 단위 관리 | Soft Delete, 재고 보유 |
-| **Like** | 회원-상품 관심 표시 | **Hard Delete**, 이력 미보존 |
-| **CartItem** | 장바구니 항목 | Hard Delete, 임시 데이터 |
-| **Order** | 주문 정보 | 삭제 불가, 취소만 가능 |
-| **OrderItem** | 주문 상세 (스냅샷) | 삭제 불가, 원본 변경과 무관 |
+| `pay()` | 결제 처리 | PENDING → PAID |
+| `prepare()` | 준비 시작 | PAID → PREPARING |
+| `ship()` | 배송 시작 | PREPARING → SHIPPED |
+| `deliver()` | 배송 완료 | SHIPPED → DELIVERED |
+| `cancel()` | 주문 취소 | PENDING/PAID → CANCELED |
+| `getTotalAmount()` | 총액 계산 | - |
 
-### 3.2 Entity 설계 원칙
+### 3.2 Option
 
-| 원칙 | 설명 |
+| 메서드 | 행위 | 비고 |
+|--------|------|------|
+| `decreaseStock(qty)` | 재고 차감 | 부족 시 예외 |
+| `increaseStock(qty)` | 재고 증가 | 취소 시 복구 |
+| `isSoldOut()` | 품절 여부 확인 | stock ≤ 0 |
+| `delete()` / `restore()` | Soft Delete | - |
+
+### 3.3 Product / Brand
+
+| 메서드 | 행위 |
+|--------|------|
+| `update(...)` | 정보 수정 |
+| `delete()` / `restore()` | Soft Delete |
+
+### 3.4 CartItem
+
+| 메서드 | 행위 |
+|--------|------|
+| `addQuantity(qty)` | 수량 합산 (동일 옵션 추가 시) |
+| `updateQuantity(qty)` | 수량 변경 |
+
+### 3.5 Like
+
+행위 메서드 없음. 생성(`create`)과 삭제(Hard Delete)만 존재.
+
+---
+
+## 4. Value Object 정리
+
+### 4.1 Money
+
+| 메서드 | 설명 |
+|--------|------|
+| `of(amount)` | 생성 (0 이상 검증) |
+| `zero()` | 0원 생성 |
+| `add(Money)` | 덧셈 (새 객체 반환) |
+| `multiply(int)` | 곱셈 (새 객체 반환) |
+| `isGreaterThan(Money)` | 비교 |
+
+### 4.2 OrderItem
+
+| 특징 | 설명 |
 |------|------|
-| **풍부한 도메인 모델** | 비즈니스 로직을 Entity 내부에 캡슐화 |
-| **Setter 금지** | 상태 변경은 의미 있는 도메인 메서드로만 수행 |
-| **VO 활용** | 원시값 대신 VO로 감싸서 타입 안전성 확보 |
+| 스냅샷 | 주문 시점의 productName, optionName, price 저장 |
+| 불변 | 생성 후 변경 불가 |
+| `getTotalPrice()` | price × quantity |
 
 ---
 
-## 4. 서비스 레이어 구조
+## 5. 설계 원칙 요약
 
-### 4.1 패키지 구조 (Admin/Member 분리)
-
-```
-com.loopers
-├── domain
-│   ├── brand
-│   │   ├── Brand
-│   │   ├── BrandRepository
-│   │   ├── BrandService (순수 비즈니스 로직)
-│   │   └── vo/
-│   │       └── BrandName
-│   ├── product
-│   │   ├── Product
-│   │   ├── Option
-│   │   ├── ProductRepository
-│   │   ├── OptionRepository
-│   │   ├── ProductService (순수 비즈니스 로직)
-│   │   └── vo/
-│   │       ├── ProductName
-│   │       ├── OptionName
-│   │       ├── Money
-│   │       └── Stock
-│   ├── like
-│   │   ├── Like
-│   │   ├── LikeRepository
-│   │   └── LikeService (순수 비즈니스 로직)
-│   ├── cart
-│   │   ├── CartItem
-│   │   ├── CartItemRepository
-│   │   ├── CartService (순수 비즈니스 로직)
-│   │   └── vo/
-│   │       └── Quantity
-│   └── order
-│       ├── Order
-│       ├── OrderItem
-│       ├── OrderStatus
-│       ├── OrderRepository
-│       └── OrderService (순수 비즈니스 로직)
-│
-├── application
-│   ├── admin                          # 관리자 전용
-│   │   ├── brand/
-│   │   │   └── AdminBrandFacade
-│   │   └── product/
-│   │       └── AdminProductFacade
-│   │
-│   └── member                         # 회원 전용
-│       ├── product/
-│       │   └── ProductFacade          # 조회 전용
-│       ├── like/
-│       │   └── LikeFacade
-│       ├── cart/
-│       │   └── CartFacade
-│       └── order/
-│           └── OrderFacade
-│
-├── interfaces
-│   ├── api
-│   │   ├── admin                      # /api/admin/**
-│   │   │   ├── AdminBrandController
-│   │   │   └── AdminProductController
-│   │   │
-│   │   └── member                     # /api/v1/**
-│   │       ├── ProductController
-│   │       ├── LikeController
-│   │       ├── CartController
-│   │       └── OrderController
-│   │
-│   └── resolver/
-│       └── LoginMemberArgumentResolver
-│
-└── config
-    └── DomainConfig
-```
-
-### 4.2 Admin/Member 분리 근거
-
-| 관점 | 설명 |
+| 원칙 | 적용 |
 |------|------|
-| **책임 분리** | Admin은 "데이터 관리", Member는 "거래 활동" - 성격이 다름 |
-| **보안 경계** | URL 패턴으로 인증/인가 정책 분리 가능 |
-| **확장 용이** | Admin에 대량 업로드, 통계 등 추가 시 Member 코드 영향 없음 |
-| **팀 협업** | 백오피스팀 / 서비스팀 분리 개발 가능 |
-
----
-
-## 5. 책임 분배 요약
-
-| 구분 | 책임 | 예시 |
-|------|------|------|
-| **VO** | 유효성 검증, 불변식 보장, 연산 | Stock 차감, Money 덧셈 |
-| **Entity** | 상태 변경, 도메인 메서드 | Order 취소, Option 재고 차감 |
-| **Service (POJO)** | 비즈니스 로직 조합 | 스냅샷 생성, 총액 계산 |
-| **Facade** | 트랜잭션, Repository 조율 | 잠금 획득, 저장, 삭제 |
-
----
-
-## 6. 설계 결정 사항 (Design Decisions)
-
-### 6.1 논리적 FK (물리적 제약조건 미적용)
-
-| 대상 | 물리적 FK | 근거 |
-|------|----------|------|
-| Product → Brand | 미적용 | Soft Delete 시 참조 무결성 충돌 방지 |
-| Like → Member/Product | 미적용 | 애플리케이션 레벨 검증으로 충분 |
-| CartItem → Option | 미적용 | 옵션 삭제 시에도 장바구니 유지 필요 |
-| OrderItem → Option | 미적용 | 스냅샷이 주 데이터, 참조는 부가 정보 |
-| OrderItem → Order | **적용** | 강한 결합 (Aggregate Root) |
-
-### 6.2 삭제 정책
-
-| 도메인 | 삭제 방식 | 근거 |
-|--------|----------|------|
-| **Like** | Hard Delete | 이력 보존 가치 낮음, 토글 로직 단순화 |
-| CartItem | Hard Delete | 임시 데이터 |
-| 나머지 | Soft Delete | 이력 보존, 참조 관계 유지 |
-
+| **순수 도메인** | JPA, DB 기술 의존 없음 |
+| **Rich Domain Model** | Entity가 스스로 상태 변경 |
+| **Setter 금지** | 도메인 메서드로만 상태 변경 |
+| **자가 검증** | 생성자에서 CoreException 발생 |
+| **논리적 FK** | ID로만 참조, 물리적 제약 없음 |
