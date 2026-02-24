@@ -67,4 +67,9 @@ public class OrderAppService {
         order.deliver();
         return orderRepository.save(order);
     }
+
+    @Transactional(readOnly = true)
+    public List<Order> getAll() {
+        return orderRepository.findAll();
+    }
 }

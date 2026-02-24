@@ -39,4 +39,11 @@ public class OrderRepositoryImpl implements OrderRepository {
                 .map(OrderJpaEntity::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<Order> findAll() {
+        return orderJpaRepository.findAll().stream()
+                .map(OrderJpaEntity::toDomain)
+                .toList();
+    }
 }
