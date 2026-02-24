@@ -1,0 +1,5 @@
+### 브랜드 목록 조회
+GET {{commerce-api}}/api/v1/brands
+
+### 브랜드 상세 조회
+GET {{commerce-api}}/api/v1/brands/1
