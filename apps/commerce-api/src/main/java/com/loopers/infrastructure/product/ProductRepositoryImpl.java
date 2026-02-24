@@ -1,0 +1,62 @@
+package com.loopers.infrastructure.product;
+
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.product.ProductWithBrand;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+@RequiredArgsConstructor
+public class ProductRepositoryImpl implements ProductRepository {
+
+    private final ProductJpaRepository productJpaRepository;
+
+    @Override
+    public Product save(Product product) {
+        return productJpaRepository.save(product);
+    }
+
+    @Override
+    public Optional<Product> findById(Long id) {
+        return productJpaRepository.findByIdAndDeletedAtIsNull(id);
+    }
+
+    @Override
+    public List<Product> findAll() {
+        return productJpaRepository.findAllByDeletedAtIsNull();
+    }
+
+    @Override
+    public List<Product> findAllByBrandId(Long brandId) {
+        return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId);
+    }
+
+    @Override
+    public Optional<ProductWithBrand> findByIdWithBrand(Long id) {
+        return productJpaRepository.findByIdWithBrand(id).stream()
+            .map(this::toProductWithBrand)
+            .findFirst();
+    }
+
+    @Override
+    public List<ProductWithBrand> findAllWithBrand() {
+        return productJpaRepository.findAllWithBrand().stream()
+            .map(this::toProductWithBrand)
+            .toList();
+    }
+
+    @Override
+    public List<ProductWithBrand> findAllByBrandIdWithBrand(Long brandId) {
+        return productJpaRepository.findAllByBrandIdWithBrand(brandId).stream()
+            .map(this::toProductWithBrand)
+            .toList();
+    }
+
+    private ProductWithBrand toProductWithBrand(Object[] row) {
+        return new ProductWithBrand((Product) row[0], (String) row[1]);
+    }
+}
