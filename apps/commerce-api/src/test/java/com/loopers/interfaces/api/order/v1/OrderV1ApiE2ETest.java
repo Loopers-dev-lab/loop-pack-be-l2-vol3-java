@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.order.v1;
 
 import static com.loopers.interfaces.api.order.v1.OrderSteps.createOrder;
-import static com.loopers.interfaces.api.order.v1.OrderSteps.getOrder;
-import static com.loopers.interfaces.api.order.v1.OrderSteps.getOrders;
+import static com.loopers.interfaces.api.order.v1.OrderSteps.getMyOrder;
+import static com.loopers.interfaces.api.order.v1.OrderSteps.getMyOrders;
 import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
 import static com.loopers.support.E2ETestHelper.assertErrorResponse;
 import static com.loopers.support.E2ETestHelper.userAuthHeaders;
@@ -78,7 +78,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
 
     @DisplayName("GET /api/v1/orders")
     @Nested
-    class GetOrders {
+    class GetMyOrders {
 
         private static final String ORDER_ENDPOINT = "/api/v1/orders";
 
@@ -97,7 +97,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
                     .toUriString();
 
             // act
-            var response = getOrders(testRestTemplate, url, userHeaders);
+            var response = getMyOrders(testRestTemplate, url, userHeaders);
 
             // assert
             assertAll(
@@ -122,7 +122,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
                     .toUriString();
 
             // act
-            var response = getOrders(testRestTemplate, url, userHeaders);
+            var response = getMyOrders(testRestTemplate, url, userHeaders);
 
             // assert
             assertAll(
@@ -141,7 +141,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
                     .toUriString();
 
             // act
-            var response = getOrders(testRestTemplate, url, userHeaders);
+            var response = getMyOrders(testRestTemplate, url, userHeaders);
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -156,7 +156,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
                     .toUriString();
 
             // act
-            var response = getOrders(testRestTemplate, url, userHeaders);
+            var response = getMyOrders(testRestTemplate, url, userHeaders);
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -165,7 +165,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
 
     @DisplayName("GET /api/v1/orders/{orderId}")
     @Nested
-    class GetOrder {
+    class GetMyOrder {
 
         @DisplayName("주문 상세 정보를 조회하면, 주문 정보와 주문 항목이 반환된다.")
         @Test
@@ -177,7 +177,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             var orderId = createOrder(testRestTemplate, request, userHeaders).getBody().data().orderId();
 
             // act
-            var response = getOrder(testRestTemplate, orderId, userHeaders);
+            var response = getMyOrder(testRestTemplate, orderId, userHeaders);
 
             // assert
             assertAll(
@@ -196,7 +196,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         @Test
         void returnsNotFound_whenOrderDoesNotExist() {
             // act
-            var response = getOrder(testRestTemplate, 999L, userHeaders);
+            var response = getMyOrder(testRestTemplate, 999L, userHeaders);
 
             // assert
             assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.ORDER_NOT_FOUND);
@@ -215,7 +215,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             var otherHeaders = userAuthHeaders("otheruser", "Password1!");
 
             // act
-            var response = getOrder(testRestTemplate, orderId, otherHeaders);
+            var response = getMyOrder(testRestTemplate, orderId, otherHeaders);
 
             // assert
             assertErrorResponse(response, HttpStatus.FORBIDDEN, ErrorType.FORBIDDEN_ORDER_ACCESS);

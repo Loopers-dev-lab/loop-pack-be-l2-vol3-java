@@ -54,7 +54,18 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public Page<OrderResult> getOrders(Long userId, LocalDate startDate, LocalDate endDate, PageSize pageSize) {
+    public Page<OrderResult> getOrders(PageSize pageSize) {
+        Slice<Order> orders = orderRepository.findAll(pageSize.toPageable(Sort.by(Sort.Direction.DESC, "createdAt")));
+        return new Page<>(
+                orders.map(OrderResult::from)
+                        .stream()
+                        .toList(),
+                orders.hasNext()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public Page<OrderResult> getMyOrders(Long userId, LocalDate startDate, LocalDate endDate, PageSize pageSize) {
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
         Slice<Order> orders = orderRepository.findAllByUserIdAndOrderedAtBetween(
@@ -72,7 +83,7 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public OrderDetailResult getOrder(Long userId, Long orderId) {
+    public OrderDetailResult getMyOrder(Long userId, Long orderId) {
         Order order = orderRepository.findByIdWithItems(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
         order.validateOwner(userId);

@@ -17,10 +17,12 @@ public interface OrderJpaRepository extends JpaRepository<Order, Long> {
     @Query("SELECT o FROM Order o JOIN FETCH o.orderItems WHERE o.id = :orderId")
     Optional<Order> findByIdWithItems(@Param("orderId") Long orderId);
 
+    Slice<Order> findAllBy(Pageable pageable);
+
     Slice<Order> findAllByUserIdAndOrderedAtGreaterThanEqualAndOrderedAtLessThan(
-            Long userId, 
-            LocalDateTime start, 
-            LocalDateTime end, 
+            Long userId,
+            LocalDateTime start,
+            LocalDateTime end,
             Pageable pageable
     );
 }

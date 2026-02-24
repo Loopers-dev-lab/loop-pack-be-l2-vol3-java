@@ -50,7 +50,7 @@ public class OrderV1Api implements OrderV1ApiSpec {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        var orders = orderService.getOrders(userId, startDate, endDate, new PageSize(page,size));
+        var orders = orderService.getMyOrders(userId, startDate, endDate, new PageSize(page,size));
         return ApiResponse.success(new PageResponse<>(
                 orders.content()
                         .stream()
@@ -66,7 +66,7 @@ public class OrderV1Api implements OrderV1ApiSpec {
             @LoginUser Long userId,
             @PathVariable Long orderId
     ) {
-        var result = orderService.getOrder(userId, orderId);
+        var result = orderService.getMyOrder(userId, orderId);
         return ApiResponse.success(OrderDto.OrderDetailResponse.from(result));
     }
 }

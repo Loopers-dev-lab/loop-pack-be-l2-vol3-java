@@ -29,7 +29,7 @@ public class OrderSteps {
         );
     }
 
-    public static ResponseEntity<ApiResponse<PageResponse<OrderDto.OrderListResponse>>> getOrders(
+    public static ResponseEntity<ApiResponse<PageResponse<OrderDto.OrderListResponse>>> getMyOrders(
             TestRestTemplate testRestTemplate,
             String url,
             HttpHeaders headers
@@ -44,7 +44,7 @@ public class OrderSteps {
         );
     }
 
-    public static ResponseEntity<ApiResponse<OrderDto.OrderDetailResponse>> getOrder(
+    public static ResponseEntity<ApiResponse<OrderDto.OrderDetailResponse>> getMyOrder(
             TestRestTemplate testRestTemplate,
             Long orderId,
             HttpHeaders headers

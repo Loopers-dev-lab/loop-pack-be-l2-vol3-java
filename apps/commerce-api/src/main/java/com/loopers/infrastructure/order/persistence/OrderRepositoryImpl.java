@@ -34,6 +34,11 @@ public class OrderRepositoryImpl implements OrderRepository {
     }
 
     @Override
+    public Slice<Order> findAll(Pageable pageable) {
+        return orderJpaRepository.findAllBy(pageable);
+    }
+
+    @Override
     public Slice<Order> findAllByUserIdAndOrderedAtBetween(Long userId, LocalDateTime start, LocalDateTime end,
             Pageable pageable) {
         return orderJpaRepository.findAllByUserIdAndOrderedAtGreaterThanEqualAndOrderedAtLessThan(
