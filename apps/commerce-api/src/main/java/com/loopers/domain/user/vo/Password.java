@@ -25,6 +25,7 @@ public final class Password {
     private static final String ERROR_LOWERCASE_REQUIRED = "소문자를 포함해야 합니다";
     private static final String ERROR_DIGIT_REQUIRED = "숫자를 포함해야 합니다";
     private static final String ERROR_SPECIAL_CHAR_REQUIRED = "특수문자를 포함해야 합니다";
+    private static final String ERROR_NOT_ENCODED = "비밀번호가 암호화되지 않았습니다";
 
     private final String value;
 
@@ -38,6 +39,9 @@ public final class Password {
     }
 
     public static Password ofEncoded(String encodedPassword) {
+        if (!isEncodedFormat(encodedPassword)) {
+            throw new UserValidationException(ERROR_NOT_ENCODED);
+        }
         return new Password(encodedPassword, EncodedMarker.INSTANCE);
     }
 
@@ -77,7 +81,11 @@ public final class Password {
     }
 
     public boolean isEncoded() {
-        return value != null && (value.startsWith("$2a$") || value.startsWith("$2b$") || value.startsWith("$2y$"));
+        return isEncodedFormat(value);
+    }
+
+    private static boolean isEncodedFormat(String password) {
+        return password != null && (password.startsWith("$2a$") || password.startsWith("$2b$") || password.startsWith("$2y$"));
     }
 
     @Override

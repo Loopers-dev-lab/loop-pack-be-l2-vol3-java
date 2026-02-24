@@ -1,8 +1,7 @@
 package com.loopers.interfaces.api.user;
 
-import com.loopers.application.user.UserFacade;
+import com.loopers.application.user.UserApplicationService;
 import com.loopers.domain.user.User;
-import com.loopers.domain.user.UserService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.auth.AuthUser;
 import jakarta.validation.Valid;
@@ -21,13 +20,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/users")
 public class UserController {
 
-    private final UserService userService;
-    private final UserFacade userFacade;
+    private final UserApplicationService userApplicationService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Void> register(@Valid @RequestBody UserDto.RegisterRequest request) {
-        userService.register(request.toCommand());
+        userApplicationService.register(request.toCommand());
         return ApiResponse.success();
     }
 
@@ -41,7 +39,7 @@ public class UserController {
             @AuthUser User user,
             @Valid @RequestBody UserDto.ChangePasswordRequest request
     ) {
-        userFacade.changePassword(request.toFacadeRequest(user.id()));
+        userApplicationService.changePassword(request.toCommand(user.id()));
         return ApiResponse.success();
     }
 }

@@ -1,7 +1,10 @@
-package com.loopers.domain.user;
+package com.loopers.application.user;
 
 import com.loopers.application.user.command.ChangePasswordCommand;
 import com.loopers.application.user.command.RegisterCommand;
+import com.loopers.domain.user.PasswordEncoder;
+import com.loopers.domain.user.User;
+import com.loopers.domain.user.UserRepository;
 import com.loopers.domain.user.vo.BirthDate;
 import com.loopers.domain.user.vo.Email;
 import com.loopers.domain.user.vo.Name;
@@ -16,9 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @RequiredArgsConstructor
 @Service
-public class UserService {
-
-    private static final String ERROR_PASSWORD_NOT_ENCODED = "비밀번호가 암호화되지 않았습니다";
+public class UserApplicationService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -26,7 +27,7 @@ public class UserService {
     @Transactional
     public User register(RegisterCommand command) {
         UserId userId = new UserId(command.userId());
-        Password password = new Password(command.rawPassword());
+        Password rawPassword = new Password(command.rawPassword());
         Name name = new Name(command.name());
         Email email = new Email(command.email());
         BirthDate birthDate = BirthDate.of(command.birthDate());
@@ -35,12 +36,10 @@ public class UserService {
             throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 아이디입니다.");
         }
 
-        User user = new User(userId, password, name, email, birthDate);
+        User user = new User(userId, rawPassword, name, email, birthDate);
         Password encodedPassword = Password.ofEncoded(passwordEncoder.encode(user.password().value()));
-        if (!encodedPassword.isEncoded()) {
-            throw new CoreException(ErrorType.INTERNAL_ERROR, ERROR_PASSWORD_NOT_ENCODED);
-        }
         User userWithEncodedPassword = new User(user.id(), encodedPassword, user.name(), user.email(), user.birthDate());
+
         try {
             return userRepository.save(userWithEncodedPassword);
         } catch (DataIntegrityViolationException e) {
@@ -57,13 +56,9 @@ public class UserService {
             throw new CoreException(ErrorType.BAD_REQUEST, "새 비밀번호는 기존 비밀번호와 다르게 설정해야 합니다.");
         }
 
-        Password newPassword = new Password(command.newRawPassword());
-        // Validate raw password business rules before encoding.
-        new User(user.id(), newPassword, user.name(), user.email(), user.birthDate());
-        Password encodedPassword = Password.ofEncoded(passwordEncoder.encode(newPassword.value()));
-        if (!encodedPassword.isEncoded()) {
-            throw new CoreException(ErrorType.INTERNAL_ERROR, ERROR_PASSWORD_NOT_ENCODED);
-        }
+        Password newRawPassword = new Password(command.newRawPassword());
+        new User(user.id(), newRawPassword, user.name(), user.email(), user.birthDate());
+        Password encodedPassword = Password.ofEncoded(passwordEncoder.encode(newRawPassword.value()));
         User updatedUser = new User(user.id(), encodedPassword, user.name(), user.email(), user.birthDate());
         userRepository.save(updatedUser);
     }

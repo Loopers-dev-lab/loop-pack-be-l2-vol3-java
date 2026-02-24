@@ -1,8 +1,8 @@
 package com.loopers.interfaces.auth;
 
-import com.loopers.domain.user.User;
-import com.loopers.domain.user.UserAuthService;
+import com.loopers.application.user.UserAuthenticationService;
 import com.loopers.application.user.command.AuthenticateCommand;
+import com.loopers.domain.user.User;
 import com.loopers.domain.user.vo.UserId;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -22,7 +22,7 @@ public class AuthUserArgumentResolver implements HandlerMethodArgumentResolver {
     private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
     private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
 
-    private final UserAuthService userAuthService;
+    private final UserAuthenticationService userAuthenticationService;
 
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
@@ -52,6 +52,6 @@ public class AuthUserArgumentResolver implements HandlerMethodArgumentResolver {
                 .userId(new UserId(loginId))
                 .rawPassword(password)
                 .build();
-        return userAuthService.authenticate(command);
+        return userAuthenticationService.authenticate(command);
     }
 }

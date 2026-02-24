@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.user;
 
-import com.loopers.application.user.UserFacadeDto;
+import com.loopers.application.user.command.ChangePasswordCommand;
 import com.loopers.application.user.command.RegisterCommand;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.vo.UserId;
@@ -25,6 +25,12 @@ public class UserDto {
             @Email(message = "올바른 이메일 형식이 아닙니다")
             String email
     ) {
+        @Override
+        public String toString() {
+            return "RegisterRequest[loginId=%s, password=***, name=%s, birthDate=%s, email=%s]"
+                    .formatted(loginId, name, birthDate, email);
+        }
+
         public RegisterCommand toCommand() {
             return RegisterCommand.builder()
                     .userId(loginId)
@@ -57,10 +63,15 @@ public class UserDto {
             @NotBlank(message = "새 비밀번호는 필수입니다")
             String newPassword
     ) {
-        public UserFacadeDto.ChangePasswordRequest toFacadeRequest(UserId userId) {
-            return UserFacadeDto.ChangePasswordRequest.builder()
+        @Override
+        public String toString() {
+            return "ChangePasswordRequest[newPassword=***]";
+        }
+
+        public ChangePasswordCommand toCommand(UserId userId) {
+            return ChangePasswordCommand.builder()
                     .userId(userId)
-                    .newPassword(newPassword)
+                    .newRawPassword(newPassword)
                     .build();
         }
     }
