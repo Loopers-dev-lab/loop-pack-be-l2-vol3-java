@@ -14,6 +14,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
@@ -81,6 +83,36 @@ class LikeRepositoryIntegrationTest {
 
             // then
             assertThat(exists).isFalse();
+        }
+    }
+
+    @DisplayName("findByUserIdAndProductId 시")
+    @Nested
+    class FindByUserIdAndProductId {
+
+        @DisplayName("저장된 좋아요가 있으면 Optional로 반환한다.")
+        @Test
+        void findByUserIdAndProductId_whenExists_shouldReturnPresent() {
+            // given
+            LikeModel like = LikeModel.create(USER_ID, PRODUCT_ID);
+            LikeModel saved = likeRepository.save(like);
+
+            // when
+            Optional<LikeModel> result = likeRepository.findByUserIdAndProductId(USER_ID, PRODUCT_ID);
+
+            // then
+            assertThat(result).isPresent();
+            assertThat(result.get().getId()).isEqualTo(saved.getId());
+        }
+
+        @DisplayName("저장된 좋아요가 없으면 empty를 반환한다.")
+        @Test
+        void findByUserIdAndProductId_whenNotExists_shouldReturnEmpty() {
+            // when
+            Optional<LikeModel> result = likeRepository.findByUserIdAndProductId(999L, 999L);
+
+            // then
+            assertThat(result).isEmpty();
         }
     }
 
