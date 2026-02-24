@@ -1,7 +1,6 @@
-package com.loopers.interfaces.api;
+package com.loopers.interfaces.api.user;
 
-import com.loopers.interfaces.api.user.UserV1Dto;
-import com.loopers.support.error.ErrorType;
+import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;

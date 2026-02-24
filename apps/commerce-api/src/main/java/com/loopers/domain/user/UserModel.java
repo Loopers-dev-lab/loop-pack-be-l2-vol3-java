@@ -6,6 +6,7 @@ import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -13,9 +14,9 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 
 @Entity
-@Table(name = "users")
+@Table(name = "user")
 @Getter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserModel extends BaseEntity {
 
     @Column(nullable = false, unique = true)

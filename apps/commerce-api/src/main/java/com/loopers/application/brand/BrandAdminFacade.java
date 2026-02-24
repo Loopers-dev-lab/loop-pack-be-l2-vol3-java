@@ -2,6 +2,7 @@ package com.loopers.application.brand;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.product.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -11,10 +12,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class BrandAdminFacade {
     private final BrandService brandService;
+    private final ProductService productService;
 
     // 브랜드 등록
-    public BrandInfo register(String name){
-        Brand brand = brandService.register(name);
+    public BrandInfo register(BrandRegisterCommand command){
+        Brand brand = brandService.register(command.name());
         return BrandInfo.from(brand);
     }
 
@@ -35,8 +37,11 @@ public class BrandAdminFacade {
         return BrandInfo.from(brand);
     }
 
-    // 브랜드 삭제
+    // 브랜드 삭제 - 상품 cascade soft delete 후 브랜드 삭제 (US-B06)
+    // Like/Cart cascade는 해당 도메인 구현 시 추가 예정
     public void delete(Long id){
+        brandService.findById(id); // 브랜드 존재 확인
+        productService.deleteAllByBrandId(id);
         brandService.delete(id);
     }
 }

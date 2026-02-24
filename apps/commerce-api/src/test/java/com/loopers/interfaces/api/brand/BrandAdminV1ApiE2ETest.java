@@ -1,8 +1,8 @@
-package com.loopers.interfaces.api;
+package com.loopers.interfaces.api.brand;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
-import com.loopers.interfaces.api.brand.BrandAdminV1Dto;
+import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;

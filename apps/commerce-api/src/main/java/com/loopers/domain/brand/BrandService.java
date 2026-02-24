@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Component
@@ -30,6 +32,13 @@ public class BrandService {
     public Brand findById(Long id) {
         return brandRepository.findById(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다."));
+    }
+
+    // 브랜드 일괄 조회 (brandId → brandName 매핑용)
+    @Transactional(readOnly = true)
+    public Map<Long, String> findNamesByIds(List<Long> ids) {
+        return brandRepository.findAllByIds(ids).stream()
+                .collect(Collectors.toMap(Brand::getId, Brand::getName));
     }
 
     // 브랜드 목록 조회

@@ -27,7 +27,7 @@ public class BrandAdminV1Controller implements BrandAdminV1ApiSpec {
     @Override
     public ApiResponse<BrandAdminV1Dto.BrandResponse> registerBrand(
             @RequestBody BrandAdminV1Dto.RegisterRequest request) {
-        BrandInfo info = brandAdminFacade.register(request.name());
+        BrandInfo info = brandAdminFacade.register(request.toCommand());
         return ApiResponse.success(BrandAdminV1Dto.BrandResponse.from(info));
     }
 

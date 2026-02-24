@@ -21,6 +21,11 @@ public class BrandRepositoryImpl implements BrandRepository {
     }
 
     @Override
+    public List<Brand> findAllByIds(List<Long> ids) {
+        return brandJpaRepository.findAllById(ids);
+    }
+
+    @Override
     public Page<Brand> findAll(Pageable pageable) {
         return brandJpaRepository.findAll(pageable);
     }
