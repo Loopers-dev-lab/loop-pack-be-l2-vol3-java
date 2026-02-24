@@ -145,6 +145,21 @@ class CartServiceTest {
             assertThat(item.getQuantity()).isEqualTo(5);
             assertThat(item.getOptionId()).isEqualTo(20L);
         }
+
+        @DisplayName("상품 검증 실패 시 예외가 전파된다.")
+        @Test
+        void updateItem_whenProductValidationFails_shouldThrow() {
+            // given
+            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
+            when(cartRepository.findByUserIdAndCartItemId(USER_ID, CART_ITEM_ID)).thenReturn(Optional.of(item));
+            doThrow(new CoreException(ErrorType.BAD_REQUEST, "재고 부족"))
+                .when(productService).validateProductAvailability(PRODUCT_ID, 10, 20L);
+
+            // when & then
+            assertThrows(CoreException.class, () ->
+                cartService.updateItem(USER_ID, CART_ITEM_ID, 10, 20L));
+            verify(cartRepository, never()).save(any());
+        }
     }
 
     @DisplayName("removeItems 시")
@@ -188,6 +203,22 @@ class CartServiceTest {
             cartService.removeItems(USER_ID, List.of(CART_ITEM_ID));
 
             // then
+            verify(cartRepository).delete(item);
+        }
+
+        @DisplayName("복수 ID 중 하나라도 없으면 NOT_FOUND 예외가 발생한다.")
+        @Test
+        void removeItems_whenOneOfMultipleNotFound_shouldThrowNotFound() {
+            // given: 첫 번째는 존재, 두 번째는 없음 → 첫 번째 delete 후 두 번째 조회 시 예외
+            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
+            when(cartRepository.findByUserIdAndCartItemId(USER_ID, CART_ITEM_ID)).thenReturn(Optional.of(item));
+            when(cartRepository.findByUserIdAndCartItemId(USER_ID, 999L)).thenReturn(Optional.empty());
+
+            // when & then
+            CoreException ex = assertThrows(CoreException.class, () ->
+                cartService.removeItems(USER_ID, List.of(CART_ITEM_ID, 999L)));
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+            assertThat(ex.getMessage()).contains("999");
             verify(cartRepository).delete(item);
         }
     }
