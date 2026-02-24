@@ -161,4 +161,108 @@ class ProductModelTest {
             assertThat(product.isDeleted()).isTrue();
         }
     }
+
+    @DisplayName("updateName 시")
+    @Nested
+    class UpdateName {
+
+        @Test
+        void updateName_withValidName_shouldUpdate() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            product.updateName("새 상품명");
+            assertThat(product.getName()).isEqualTo("새 상품명");
+        }
+
+        @Test
+        void updateName_withNull_shouldThrow() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            assertThrows(IllegalArgumentException.class, () -> product.updateName(null));
+        }
+
+        @Test
+        void updateName_withBlank_shouldThrow() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            assertThrows(IllegalArgumentException.class, () -> product.updateName(""));
+        }
+
+        @Test
+        void updateName_withWhitespaceOnly_shouldThrow() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            assertThrows(IllegalArgumentException.class, () -> product.updateName("   "));
+        }
+    }
+
+    @DisplayName("updatePrice 시")
+    @Nested
+    class UpdatePrice {
+
+        @Test
+        void updatePrice_withValidPrice_shouldUpdate() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            product.updatePrice(new BigDecimal("20000"));
+            assertThat(product.getPrice()).isEqualByComparingTo("20000");
+        }
+
+        @Test
+        void updatePrice_withNull_shouldThrow() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            assertThrows(IllegalArgumentException.class, () -> product.updatePrice(null));
+        }
+
+        @Test
+        void updatePrice_withNegative_shouldThrow() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            assertThrows(IllegalArgumentException.class, () -> product.updatePrice(new BigDecimal("-1")));
+        }
+    }
+
+    @DisplayName("updateStockQuantity 시")
+    @Nested
+    class UpdateStockQuantity {
+
+        @Test
+        void updateStockQuantity_withValidValue_shouldUpdate() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            product.updateStockQuantity(20);
+            assertThat(product.getStockQuantity()).isEqualTo(20);
+        }
+
+        @Test
+        void updateStockQuantity_withNegative_shouldThrow() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            assertThrows(IllegalArgumentException.class, () -> product.updateStockQuantity(-1));
+        }
+
+        @DisplayName("재고 0은 허용된다.")
+        @Test
+        void updateStockQuantity_withZero_shouldSucceed() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, 5);
+            product.updateStockQuantity(0);
+            assertThat(product.getStockQuantity()).isZero();
+        }
+    }
+
+    @DisplayName("increaseStock 시")
+    @Nested
+    class IncreaseStock {
+
+        @Test
+        void increaseStock_withValidQuantity_shouldAdd() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, 5);
+            product.increaseStock(3);
+            assertThat(product.getStockQuantity()).isEqualTo(8);
+        }
+
+        @Test
+        void increaseStock_withZero_shouldThrow() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            assertThrows(IllegalArgumentException.class, () -> product.increaseStock(0));
+        }
+
+        @Test
+        void increaseStock_withNegative_shouldThrow() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            assertThrows(IllegalArgumentException.class, () -> product.increaseStock(-1));
+        }
+    }
 }
