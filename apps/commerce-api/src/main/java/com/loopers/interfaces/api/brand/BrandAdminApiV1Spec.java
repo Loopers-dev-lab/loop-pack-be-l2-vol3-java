@@ -23,4 +23,10 @@ public interface BrandAdminApiV1Spec {
             Long brandId,
             BrandAdminV1Dto.UpdateRequest request
     );
+
+    @Operation(
+            summary = "브랜드 삭제",
+            description = "브랜드를 삭제합니다."
+    )
+    ApiResponse<Void> delete(Long brandId);
 }

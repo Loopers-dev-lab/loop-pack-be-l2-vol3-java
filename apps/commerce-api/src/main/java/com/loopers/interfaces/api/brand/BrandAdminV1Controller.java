@@ -5,6 +5,7 @@ import com.loopers.application.brand.BrandInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,5 +35,12 @@ public class BrandAdminV1Controller implements BrandAdminApiV1Spec {
             @Valid @RequestBody BrandAdminV1Dto.UpdateRequest request) {
         BrandInfo info = brandFacade.update(brandId, request.name(), request.description());
         return ApiResponse.success(BrandAdminV1Dto.BrandResponse.from(info));
+    }
+
+    @DeleteMapping("/{brandId}")
+    @Override
+    public ApiResponse<Void> delete(@PathVariable Long brandId) {
+        brandFacade.delete(brandId);
+        return ApiResponse.success();
     }
 }

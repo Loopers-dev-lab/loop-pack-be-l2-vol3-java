@@ -18,6 +18,12 @@ public class BrandFacade {
     }
 
     @Transactional
+    public void delete(Long brandId) {
+        Brand brand = brandService.getActiveBrand(brandId);
+        brandService.delete(brand);
+    }
+
+    @Transactional
     public BrandInfo update(Long brandId, String name, String description) {
         Brand brand = brandService.getActiveBrand(brandId);
         brandService.update(brand, name, description);

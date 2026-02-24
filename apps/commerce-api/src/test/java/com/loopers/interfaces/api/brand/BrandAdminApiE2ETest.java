@@ -242,6 +242,51 @@ class BrandAdminApiE2ETest {
         }
     }
 
+    @Nested
+    class 브랜드_삭제 {
+
+        @Test
+        void 활성_브랜드를_삭제하면_200_응답() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+
+            ResponseEntity<ApiResponse<Void>> response = deleteRequest(brandId);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @Test
+        void 미존재_브랜드면_404_응답() {
+            ResponseEntity<ApiResponse<Void>> response = deleteRequest(999L);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        void 인증헤더가_누락되면_401_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1", HttpMethod.DELETE,
+                    new HttpEntity<>(new HttpHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void 인증에_실패하면_401_응답() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-Ldap", "wrong-ldap");
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1", HttpMethod.DELETE,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+    }
+
     // --- 헬퍼 메서드 ---
 
     private Long registerBrand(String name, String description) {
@@ -262,6 +307,14 @@ class BrandAdminApiE2ETest {
         return testRestTemplate.exchange(
                 ENDPOINT + "/" + brandId, HttpMethod.PATCH,
                 new HttpEntity<>(request, adminHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
+    }
+
+    private ResponseEntity<ApiResponse<Void>> deleteRequest(Long brandId) {
+        return testRestTemplate.exchange(
+                ENDPOINT + "/" + brandId, HttpMethod.DELETE,
+                new HttpEntity<>(adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
     }

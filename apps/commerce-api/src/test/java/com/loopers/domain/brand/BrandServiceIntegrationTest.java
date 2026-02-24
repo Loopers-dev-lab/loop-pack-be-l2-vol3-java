@@ -132,6 +132,20 @@ class BrandServiceIntegrationTest {
     }
 
     @Nested
+    class 브랜드_삭제 {
+
+        @Test
+        void 활성_브랜드를_삭제하면_삭제_상태로_변경된다() {
+            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+
+            Brand activeBrand = brandService.getActiveBrand(brand.getId());
+            brandService.delete(activeBrand);
+
+            assertThat(activeBrand.isDeleted()).isTrue();
+        }
+    }
+
+    @Nested
     class 활성_브랜드_조회 {
 
         @Test

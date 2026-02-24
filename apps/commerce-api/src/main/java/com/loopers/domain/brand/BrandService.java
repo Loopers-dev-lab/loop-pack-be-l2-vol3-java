@@ -29,6 +29,11 @@ public Brand register(String name, String description) {
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다"));
     }
 
+    @Transactional
+    public void delete(Brand brand) {
+        brand.delete();
+    }
+
     public void update(Brand brand, String name, String description) {
         if (brandRepository.existsByNameAndIdNot(name, brand.getId())) {
             throw new CoreException(ErrorType.CONFLICT, "이미 등록된 브랜드입니다");
