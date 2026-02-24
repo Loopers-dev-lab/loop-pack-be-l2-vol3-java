@@ -3,17 +3,30 @@ package com.loopers.application.brand;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class BrandFacade {
 
     private final BrandService brandService;
 
+    // Command
+
+    @Transactional
     public BrandInfo register(String name, String description) {
         Brand brand = brandService.register(name, description);
+        return BrandInfo.from(brand);
+    }
+
+    @Transactional
+    public BrandInfo update(Long brandId, String name, String description) {
+        Brand brand = brandService.getBrand(brandId);
+        brandService.update(brand, name, description);
         return BrandInfo.from(brand);
     }
 
@@ -23,10 +36,15 @@ public class BrandFacade {
         brandService.delete(brand);
     }
 
-    @Transactional
-    public BrandInfo update(Long brandId, String name, String description) {
+    // Query
+
+    public Page<BrandInfo> getList(String name, Boolean deleted, Pageable pageable) {
+        Page<Brand> brands = brandService.findBrands(name, deleted, pageable);
+        return brands.map(BrandInfo::from);
+    }
+
+    public BrandInfo getDetail(Long brandId) {
         Brand brand = brandService.getBrand(brandId);
-        brandService.update(brand, name, description);
         return BrandInfo.from(brand);
     }
 }

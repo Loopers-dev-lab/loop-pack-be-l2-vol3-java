@@ -10,7 +10,8 @@ public record BrandInfo(
         String description,
         Status status,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        LocalDateTime deletedAt
 ) {
     public enum Status {
         ACTIVE, DELETED
@@ -23,7 +24,8 @@ public record BrandInfo(
                 brand.getDescription(),
                 brand.isDeleted() ? Status.DELETED : Status.ACTIVE,
                 brand.getCreatedAt().toLocalDateTime(),
-                brand.getUpdatedAt().toLocalDateTime()
+                brand.getUpdatedAt().toLocalDateTime(),
+                brand.getDeletedAt() != null ? brand.getDeletedAt().toLocalDateTime() : null
         );
     }
 }

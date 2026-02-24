@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -157,6 +159,85 @@ class BrandServiceIntegrationTest {
 
             assertThat(result.getId()).isEqualTo(brand.getId());
             assertThat(result.isDeleted()).isTrue();
+        }
+    }
+
+    @Nested
+    class 브랜드_목록_조회 {
+
+        @Test
+        void 조건_없이_조회하면_전체_브랜드가_최신순으로_반환된다() {
+            brandService.register("나이키", "스포츠 브랜드");
+            brandService.register("아디다스", "독일 스포츠 브랜드");
+            brandService.register("뉴발란스", "미국 스포츠 브랜드");
+
+            Page<Brand> result = brandService.findBrands(null, null, PageRequest.of(0, 20));
+
+            assertThat(result.getContent()).hasSize(3);
+            assertThat(result.getContent().get(0).getName()).isEqualTo("뉴발란스");
+            assertThat(result.getContent().get(1).getName()).isEqualTo("아디다스");
+            assertThat(result.getContent().get(2).getName()).isEqualTo("나이키");
+        }
+
+        @Test
+        void name_키워드로_검색하면_부분_일치하는_브랜드만_반환된다() {
+            brandService.register("나이키 에어", "에어 시리즈");
+            brandService.register("나이키 조던", "조던 시리즈");
+            brandService.register("아디다스", "독일 스포츠 브랜드");
+
+            Page<Brand> result = brandService.findBrands("나이키", null, PageRequest.of(0, 20));
+
+            assertThat(result.getContent()).hasSize(2);
+            assertThat(result.getContent()).extracting(Brand::getName)
+                    .containsExactly("나이키 조던", "나이키 에어");
+        }
+
+        @Test
+        void deleted_false면_활성_브랜드만_반환된다() {
+            brandService.register("나이키", "스포츠 브랜드");
+            Brand adidas = brandService.register("아디다스", "독일 스포츠 브랜드");
+            adidas.delete();
+            brandRepository.save(adidas);
+
+            Page<Brand> result = brandService.findBrands(null, false, PageRequest.of(0, 20));
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getName()).isEqualTo("나이키");
+        }
+
+        @Test
+        void deleted_true면_삭제된_브랜드만_반환된다() {
+            brandService.register("나이키", "스포츠 브랜드");
+            Brand adidas = brandService.register("아디다스", "독일 스포츠 브랜드");
+            adidas.delete();
+            brandRepository.save(adidas);
+
+            Page<Brand> result = brandService.findBrands(null, true, PageRequest.of(0, 20));
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getName()).isEqualTo("아디다스");
+        }
+
+        @Test
+        void 복합_조건_name과_deleted_적용_시_모두_반영된다() {
+            brandService.register("나이키 에어", "에어 시리즈");
+            Brand deletedNike = brandService.register("나이키 조던", "조던 시리즈");
+            deletedNike.delete();
+            brandRepository.save(deletedNike);
+            brandService.register("아디다스", "독일 스포츠 브랜드");
+
+            Page<Brand> result = brandService.findBrands("나이키", false, PageRequest.of(0, 20));
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getName()).isEqualTo("나이키 에어");
+        }
+
+        @Test
+        void 결과가_없으면_빈_페이지를_반환한다() {
+            Page<Brand> result = brandService.findBrands("존재하지않는", null, PageRequest.of(0, 20));
+
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isEqualTo(0);
         }
     }
 }

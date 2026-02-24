@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.brand;
 
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.PageResponse;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
@@ -278,12 +279,239 @@ class BrandAdminApiE2ETest {
         }
     }
 
+    @Nested
+    class 브랜드_목록_조회 {
+
+        @Test
+        void 조건_없이_조회하면_전체_브랜드를_최신_등록순으로_페이징하여_200_응답한다() {
+            registerBrand("나이키", "스포츠 브랜드");
+            registerBrand("아디다스", "독일 스포츠 브랜드");
+            registerBrand("뉴발란스", "미국 스포츠 브랜드");
+
+            ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> response = getList("");
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(3),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("뉴발란스"),
+                    () -> assertThat(response.getBody().data().content().get(1).name()).isEqualTo("아디다스"),
+                    () -> assertThat(response.getBody().data().content().get(2).name()).isEqualTo("나이키"),
+                    () -> assertThat(response.getBody().data().totalElements()).isEqualTo(3),
+                    () -> assertThat(response.getBody().data().page()).isEqualTo(0),
+                    () -> assertThat(response.getBody().data().size()).isEqualTo(20)
+            );
+        }
+
+        @Test
+        void 삭제된_브랜드도_포함하여_반환한다() {
+            registerBrand("나이키", "스포츠 브랜드");
+            Long deletedBrandId = registerBrand("아디다스", "독일 스포츠 브랜드");
+            deleteBrand(deletedBrandId);
+
+            ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> response = getList("");
+
+            assertAll(
+                    () -> assertThat(response.getBody().data().content()).hasSize(2),
+                    () -> assertThat(response.getBody().data().content())
+                            .extracting(BrandAdminV1Dto.BrandResponse::status)
+                            .containsExactly("DELETED", "ACTIVE")
+            );
+        }
+
+        @Test
+        void name_키워드로_검색하면_해당_키워드가_포함된_브랜드만_반환한다() {
+            registerBrand("나이키", "스포츠 브랜드");
+            registerBrand("아디다스", "독일 스포츠 브랜드");
+            registerBrand("뉴발란스", "미국 스포츠 브랜드");
+
+            ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> response =
+                    getList("?name=나이키");
+
+            assertAll(
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("나이키")
+            );
+        }
+
+        @Test
+        void status_ACTIVE로_필터링하면_활성_브랜드만_반환한다() {
+            registerBrand("나이키", "스포츠 브랜드");
+            Long deletedBrandId = registerBrand("아디다스", "독일 스포츠 브랜드");
+            deleteBrand(deletedBrandId);
+
+            ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> response =
+                    getList("?status=ACTIVE");
+
+            assertAll(
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("나이키"),
+                    () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo("ACTIVE")
+            );
+        }
+
+        @Test
+        void status_DELETED로_필터링하면_삭제된_브랜드만_반환한다() {
+            registerBrand("나이키", "스포츠 브랜드");
+            Long deletedBrandId = registerBrand("아디다스", "독일 스포츠 브랜드");
+            deleteBrand(deletedBrandId);
+
+            ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> response =
+                    getList("?status=DELETED");
+
+            assertAll(
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("아디다스"),
+                    () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo("DELETED")
+            );
+        }
+
+        @Test
+        void status에_유효하지_않은_값을_보내면_400_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "?status=INVALID", HttpMethod.GET,
+                    new HttpEntity<>(adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        void name_검색과_status_필터를_동시에_적용할_수_있다() {
+            registerBrand("나이키 에어", "에어 시리즈");
+            Long deletedId = registerBrand("나이키 조던", "조던 시리즈");
+            deleteBrand(deletedId);
+            registerBrand("아디다스", "독일 스포츠 브랜드");
+
+            ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> response =
+                    getList("?name=나이키&status=ACTIVE");
+
+            assertAll(
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("나이키 에어")
+            );
+        }
+
+        @Test
+        void 결과가_없으면_빈_목록을_반환한다() {
+            ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> response =
+                    getList("?name=존재하지않는브랜드");
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).isEmpty(),
+                    () -> assertThat(response.getBody().data().totalElements()).isEqualTo(0)
+            );
+        }
+
+        @Test
+        void 인증_헤더가_누락되면_401_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT, HttpMethod.GET,
+                    new HttpEntity<>(new HttpHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void 인증에_실패하면_401_응답() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-Ldap", "wrong-ldap");
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT, HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+    }
+
+    @Nested
+    class 브랜드_상세_조회 {
+
+        @Test
+        void 활성_브랜드를_조회하면_200_응답과_상세_정보를_반환한다() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+
+            ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = getDetail(brandId);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().id()).isEqualTo(brandId),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("나이키"),
+                    () -> assertThat(response.getBody().data().description()).isEqualTo("스포츠 브랜드"),
+                    () -> assertThat(response.getBody().data().status()).isEqualTo("ACTIVE"),
+                    () -> assertThat(response.getBody().data().createdAt()).isNotNull(),
+                    () -> assertThat(response.getBody().data().updatedAt()).isNotNull(),
+                    () -> assertThat(response.getBody().data().deletedAt()).isNull()
+            );
+        }
+
+        @Test
+        void 삭제된_브랜드도_조회할_수_있으며_status가_DELETED로_표시된다() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            deleteBrand(brandId);
+
+            ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = getDetail(brandId);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().status()).isEqualTo("DELETED"),
+                    () -> assertThat(response.getBody().data().deletedAt()).isNotNull()
+            );
+        }
+
+        @Test
+        void 미존재_브랜드면_404_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/999", HttpMethod.GET,
+                    new HttpEntity<>(adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        void 인증_헤더가_누락되면_401_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1", HttpMethod.GET,
+                    new HttpEntity<>(new HttpHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void 인증에_실패하면_401_응답() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-Ldap", "wrong-ldap");
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1", HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+    }
+
     // --- 헬퍼 메서드 ---
 
     private Long registerBrand(String name, String description) {
         BrandAdminV1Dto.RegisterRequest request = new BrandAdminV1Dto.RegisterRequest(name, description);
         ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = postRegister(request);
         return response.getBody().data().id();
+    }
+
+    private void deleteBrand(Long brandId) {
+        deleteRequest(brandId);
     }
 
     private ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> postRegister(BrandAdminV1Dto.RegisterRequest request) {
@@ -305,6 +533,22 @@ class BrandAdminApiE2ETest {
     private ResponseEntity<ApiResponse<Void>> deleteRequest(Long brandId) {
         return testRestTemplate.exchange(
                 ENDPOINT + "/" + brandId, HttpMethod.DELETE,
+                new HttpEntity<>(adminHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
+    }
+
+    private ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> getList(String queryString) {
+        return testRestTemplate.exchange(
+                ENDPOINT + queryString, HttpMethod.GET,
+                new HttpEntity<>(adminHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
+    }
+
+    private ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> getDetail(Long brandId) {
+        return testRestTemplate.exchange(
+                ENDPOINT + "/" + brandId, HttpMethod.GET,
                 new HttpEntity<>(adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );

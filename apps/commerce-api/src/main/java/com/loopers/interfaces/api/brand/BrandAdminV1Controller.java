@@ -3,9 +3,12 @@ package com.loopers.interfaces.api.brand;
 import com.loopers.application.brand.BrandFacade;
 import com.loopers.application.brand.BrandInfo;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,6 +22,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class BrandAdminV1Controller implements BrandAdminApiV1Spec {
 
     private final BrandFacade brandFacade;
+
+    // Command
 
     @PostMapping
     @Override
@@ -42,5 +47,24 @@ public class BrandAdminV1Controller implements BrandAdminApiV1Spec {
     public ApiResponse<Void> delete(@PathVariable Long brandId) {
         brandFacade.delete(brandId);
         return ApiResponse.success();
+    }
+
+    // Query
+
+    @GetMapping
+    @Override
+    public ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>> list(
+            @Valid BrandAdminV1Dto.ListRequest request) {
+        Page<BrandInfo> brands = brandFacade.getList(request.name(), request.toDeleted(), request.toPageable());
+        PageResponse<BrandAdminV1Dto.BrandResponse> pageResponse =
+                PageResponse.from(brands, BrandAdminV1Dto.BrandResponse::from);
+        return ApiResponse.success(pageResponse);
+    }
+
+    @GetMapping("/{brandId}")
+    @Override
+    public ApiResponse<BrandAdminV1Dto.BrandResponse> detail(@PathVariable Long brandId) {
+        BrandInfo info = brandFacade.getDetail(brandId);
+        return ApiResponse.success(BrandAdminV1Dto.BrandResponse.from(info));
     }
 }
