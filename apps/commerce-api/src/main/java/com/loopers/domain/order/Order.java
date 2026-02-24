@@ -35,14 +35,22 @@ public class Order extends BaseEntity {
     @JoinColumn(name = "order_id")
     private List<OrderItem> items = new ArrayList<>();
 
-    public static Order create(Long memberId, List<OrderItem> items) {
+    public static Order create(Long memberId, List<ItemSnapshot> snapshots) {
         Order order = new Order();
         order.memberId = memberId;
         order.status = OrderStatus.CREATED;
-        order.items.addAll(items);
-        order.totalPrice = items.stream().mapToInt(OrderItem::getSubtotal).sum();
+        for (ItemSnapshot s : snapshots) {
+            order.items.add(new OrderItem(
+                s.productId(), s.productName(), s.productPrice(), s.brandName(), s.quantity()
+            ));
+        }
+        order.totalPrice = order.items.stream().mapToInt(OrderItem::getSubtotal).sum();
         return order;
     }
+
+    public record ItemSnapshot(
+        Long productId, String productName, int productPrice, String brandName, int quantity
+    ) {}
 
     public List<OrderItem> getItems() {
         return Collections.unmodifiableList(items);

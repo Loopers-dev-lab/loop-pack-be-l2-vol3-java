@@ -30,7 +30,7 @@ public class OrderItem {
     @Column(nullable = false)
     private int quantity;
 
-    public OrderItem(Long productId, String productName, int productPrice, String brandName, int quantity) {
+    OrderItem(Long productId, String productName, int productPrice, String brandName, int quantity) {
         this.productId = productId;
         this.productName = productName;
         this.productPrice = productPrice;

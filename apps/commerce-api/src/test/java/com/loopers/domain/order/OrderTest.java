@@ -20,10 +20,10 @@ class OrderTest {
         @DisplayName("주문 항목들의 소계 합산으로 totalPrice가 계산된다")
         @Test
         void create_withItems_calculatesTotalPrice() {
-            OrderItem item1 = new OrderItem(1L, "상품A", 10000, "브랜드A", 2);
-            OrderItem item2 = new OrderItem(2L, "상품B", 5000, "브랜드B", 3);
+            Order.ItemSnapshot snap1 = new Order.ItemSnapshot(1L, "상품A", 10000, "브랜드A", 2);
+            Order.ItemSnapshot snap2 = new Order.ItemSnapshot(2L, "상품B", 5000, "브랜드B", 3);
 
-            Order order = Order.create(1L, List.of(item1, item2));
+            Order order = Order.create(1L, List.of(snap1, snap2));
 
             assertThat(order.getMemberId()).isEqualTo(1L);
             assertThat(order.getStatus()).isEqualTo(OrderStatus.CREATED);
@@ -39,8 +39,8 @@ class OrderTest {
         @DisplayName("주문을 취소하면 상태가 CANCELLED로 변경된다")
         @Test
         void cancel_changesStatusToCancelled() {
-            OrderItem item = new OrderItem(1L, "상품A", 10000, "브랜드A", 1);
-            Order order = Order.create(1L, List.of(item));
+            Order order = Order.create(1L, List.of(
+                    new Order.ItemSnapshot(1L, "상품A", 10000, "브랜드A", 1)));
 
             order.cancel();
 
@@ -50,8 +50,8 @@ class OrderTest {
         @DisplayName("이미 취소된 주문을 다시 취소하면 예외가 발생한다")
         @Test
         void cancel_whenAlreadyCancelled_throwsException() {
-            OrderItem item = new OrderItem(1L, "상품A", 10000, "브랜드A", 1);
-            Order order = Order.create(1L, List.of(item));
+            Order order = Order.create(1L, List.of(
+                    new Order.ItemSnapshot(1L, "상품A", 10000, "브랜드A", 1)));
             order.cancel();
 
             assertThatThrownBy(order::cancel)
@@ -68,8 +68,8 @@ class OrderTest {
         @DisplayName("getItems는 수정 불가능한 리스트를 반환한다")
         @Test
         void getItems_returnsUnmodifiableList() {
-            OrderItem item = new OrderItem(1L, "상품A", 10000, "브랜드A", 1);
-            Order order = Order.create(1L, List.of(item));
+            Order order = Order.create(1L, List.of(
+                    new Order.ItemSnapshot(1L, "상품A", 10000, "브랜드A", 1)));
 
             List<OrderItem> items = order.getItems();
 

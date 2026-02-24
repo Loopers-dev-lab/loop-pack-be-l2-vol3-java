@@ -49,13 +49,13 @@ public class OrderFacade {
             .collect(Collectors.toMap(Brand::getId, Function.identity()));
 
         // 3. 스냅샷 생성
-        List<OrderItem> orderItems = new ArrayList<>();
+        List<Order.ItemSnapshot> snapshots = new ArrayList<>();
         for (int i = 0; i < itemRequests.size(); i++) {
             Product product = products.get(i);
             Brand brand = brandMap.get(product.getBrandId());
             String brandName = brand != null ? brand.getName() : null;
 
-            orderItems.add(new OrderItem(
+            snapshots.add(new Order.ItemSnapshot(
                 product.getId(),
                 product.getName(),
                 product.getPrice().getValue(),
@@ -65,7 +65,7 @@ public class OrderFacade {
         }
 
         // 4. 주문 저장
-        return orderRepository.save(Order.create(memberId, orderItems));
+        return orderRepository.save(Order.create(memberId, snapshots));
     }
 
     public Order getOrder(Long orderId) {
