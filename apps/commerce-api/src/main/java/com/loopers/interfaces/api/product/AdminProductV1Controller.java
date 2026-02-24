@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductCreateCommand;
+import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
-import com.loopers.application.product.ProductService;
 import com.loopers.application.product.ProductUpdateCommand;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
@@ -30,7 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api-admin/v1/products")
 public class AdminProductV1Controller {
 
-    private final ProductService productService;
+    private final ProductFacade productFacade;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -38,7 +38,7 @@ public class AdminProductV1Controller {
             @RequestHeader("X-Loopers-Ldap") String ldap,
             @Valid @RequestBody ProductV1Dto.CreateRequest request
     ) {
-        ProductInfo product = productService.register(
+        ProductInfo product = productFacade.register(
                 new ProductCreateCommand(request.brandId(), request.name(), request.description(),
                         request.price(), request.stockQuantity())
         );
@@ -51,7 +51,7 @@ public class AdminProductV1Controller {
             @RequestHeader("X-Loopers-Ldap") String ldap,
             @PathVariable Long productId
     ) {
-        ProductInfo product = productService.getProduct(productId);
+        ProductInfo product = productFacade.getProduct(productId);
         return ApiResponse.success(ProductV1Dto.AdminProductResponse.from(product));
     }
 
@@ -61,7 +61,7 @@ public class AdminProductV1Controller {
             @RequestParam(required = false) Long brandId,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        Page<ProductV1Dto.AdminProductResponse> page = productService.getAdminProducts(brandId, pageable)
+        Page<ProductV1Dto.AdminProductResponse> page = productFacade.getAdminProducts(brandId, pageable)
                 .map(ProductV1Dto.AdminProductResponse::from);
         return ApiResponse.success(PageResponse.from(page));
     }
@@ -72,7 +72,7 @@ public class AdminProductV1Controller {
             @PathVariable Long productId,
             @Valid @RequestBody ProductV1Dto.UpdateRequest request
     ) {
-        ProductInfo product = productService.update(
+        ProductInfo product = productFacade.update(
                 productId, new ProductUpdateCommand(request.name(), request.description(),
                         request.price(), request.stockQuantity(), request.visibility())
         );
@@ -84,7 +84,7 @@ public class AdminProductV1Controller {
             @RequestHeader("X-Loopers-Ldap") String ldap,
             @PathVariable Long productId
     ) {
-        productService.delete(productId);
+        productFacade.delete(productId);
         return ApiResponse.success(null);
     }
 }

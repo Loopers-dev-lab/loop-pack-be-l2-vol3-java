@@ -1,8 +1,5 @@
 package com.loopers.application.product;
 
-import com.loopers.application.brand.BrandInfo;
-import com.loopers.application.brand.BrandService;
-import com.loopers.domain.brand.InMemoryBrandRepository;
 import com.loopers.domain.product.InMemoryProductRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.support.error.CoreException;
@@ -17,15 +14,15 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class ProductServiceTest {
+    private static final Long BRAND_ID = 1L;
+
     private InMemoryProductRepository productRepository;
-    private BrandService brandService;
     private ProductService productService;
 
     @BeforeEach
     void setUp() {
         productRepository = new InMemoryProductRepository();
-        brandService = new BrandService(new InMemoryBrandRepository());
-        productService = new ProductService(productRepository, brandService);
+        productService = new ProductService(productRepository);
     }
 
     @DisplayName("상품 등록 시, ")
@@ -34,47 +31,16 @@ public class ProductServiceTest {
         @DisplayName("정상적으로 등록된다.")
         @Test
         void registersProduct() {
-            // arrange
-            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
-
             // act
-            ProductInfo product = productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
+            ProductInfo product = productService.register(new ProductCreateCommand(BRAND_ID, "에어맥스", "신발", 150000, 10));
 
             // assert
             assertAll(
-                () -> assertThat(product.brandId()).isEqualTo(brand.id()),
+                () -> assertThat(product.brandId()).isEqualTo(BRAND_ID),
                 () -> assertThat(product.name()).isEqualTo("에어맥스"),
                 () -> assertThat(product.price()).isEqualTo(150000),
                 () -> assertThat(product.stockQuantity()).isEqualTo(10)
             );
-        }
-
-        @DisplayName("존재하지 않는 브랜드로 등록하면 NOT_FOUND 예외가 발생한다.")
-        @Test
-        void throwsNotFoundException_whenBrandNotExists() {
-            // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                productService.register(new ProductCreateCommand(99999L, "에어맥스", "신발", 150000, 10));
-            });
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
-        }
-
-        @DisplayName("삭제된 브랜드로 등록하면 NOT_FOUND 예외가 발생한다.")
-        @Test
-        void throwsNotFoundException_whenBrandIsDeleted() {
-            // arrange
-            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
-            brandService.delete(brand.id());
-
-            // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
-            });
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
     }
 
@@ -85,8 +51,7 @@ public class ProductServiceTest {
         @Test
         void returnsProduct_whenExists() {
             // arrange
-            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
-            ProductInfo saved = productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
+            ProductInfo saved = productService.register(new ProductCreateCommand(BRAND_ID, "에어맥스", "신발", 150000, 10));
 
             // act
             ProductInfo found = productService.getProduct(saved.id());
@@ -111,8 +76,7 @@ public class ProductServiceTest {
         @Test
         void throwsNotFoundException_whenDeleted() {
             // arrange
-            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
-            ProductInfo saved = productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
+            ProductInfo saved = productService.register(new ProductCreateCommand(BRAND_ID, "에어맥스", "신발", 150000, 10));
             productService.delete(saved.id());
 
             // act
@@ -132,8 +96,7 @@ public class ProductServiceTest {
         @Test
         void changesVisibility() {
             // arrange
-            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
-            ProductInfo saved = productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
+            ProductInfo saved = productService.register(new ProductCreateCommand(BRAND_ID, "에어맥스", "신발", 150000, 10));
 
             // act
             ProductInfo updated = productService.changeVisibility(saved.id(), Product.Visibility.HIDDEN);
@@ -162,8 +125,7 @@ public class ProductServiceTest {
         @Test
         void updatesProduct() {
             // arrange
-            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
-            ProductInfo saved = productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
+            ProductInfo saved = productService.register(new ProductCreateCommand(BRAND_ID, "에어맥스", "신발", 150000, 10));
 
             // act
             ProductInfo updated = productService.update(saved.id(), new ProductUpdateCommand("조던", "농구화", 200000, 5, null));
@@ -197,8 +159,7 @@ public class ProductServiceTest {
         @Test
         void deletesProduct() {
             // arrange
-            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
-            ProductInfo saved = productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
+            ProductInfo saved = productService.register(new ProductCreateCommand(BRAND_ID, "에어맥스", "신발", 150000, 10));
 
             // act
             productService.delete(saved.id());

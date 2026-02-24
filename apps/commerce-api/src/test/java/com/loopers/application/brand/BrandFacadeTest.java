@@ -24,7 +24,7 @@ public class BrandFacadeTest {
         brandRepository = new InMemoryBrandRepository();
         productRepository = new InMemoryProductRepository();
         brandService = new BrandService(brandRepository);
-        productService = new ProductService(productRepository, brandService);
+        productService = new ProductService(productRepository);
         brandFacade = new BrandFacade(brandService, productService);
     }
 

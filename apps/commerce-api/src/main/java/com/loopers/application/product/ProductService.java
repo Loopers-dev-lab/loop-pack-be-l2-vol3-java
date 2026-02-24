@@ -1,6 +1,5 @@
 package com.loopers.application.product;
 
-import com.loopers.application.brand.BrandService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
@@ -17,11 +16,9 @@ import java.util.List;
 @Service
 public class ProductService {
     private final ProductRepository productRepository;
-    private final BrandService brandService;
 
     @Transactional
     public ProductInfo register(ProductCreateCommand command) {
-        brandService.getBrand(command.brandId());
         Product product = Product.create(command.brandId(), command.name(), command.description(), command.price(), command.stockQuantity());
         return ProductInfo.from(productRepository.save(product));
     }
