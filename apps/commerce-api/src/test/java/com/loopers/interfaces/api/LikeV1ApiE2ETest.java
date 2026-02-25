@@ -234,7 +234,7 @@ class LikeV1ApiE2ETest {
             testRestTemplate.exchange(likeUrl, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});
 
             // act
-            ResponseEntity<ApiResponse<List<LikeV1Dto.LikeResponse>>> response =
+            ResponseEntity<ApiResponse<List<LikeV1Dto.LikedProductResponse>>> response =
                     testRestTemplate.exchange(MY_LIKES_ENDPOINT, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
 
             // assert
@@ -257,7 +257,7 @@ class LikeV1ApiE2ETest {
             productJpaRepository.save(savedProduct);
 
             // act
-            ResponseEntity<ApiResponse<List<LikeV1Dto.LikeResponse>>> response =
+            ResponseEntity<ApiResponse<List<LikeV1Dto.LikedProductResponse>>> response =
                     testRestTemplate.exchange(MY_LIKES_ENDPOINT, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
 
             // assert
@@ -279,7 +279,7 @@ class LikeV1ApiE2ETest {
             productJpaRepository.save(savedProduct);
 
             // act
-            ResponseEntity<ApiResponse<List<LikeV1Dto.LikeResponse>>> response =
+            ResponseEntity<ApiResponse<List<LikeV1Dto.LikedProductResponse>>> response =
                     testRestTemplate.exchange(MY_LIKES_ENDPOINT, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
 
             // assert
@@ -296,7 +296,7 @@ class LikeV1ApiE2ETest {
             HttpEntity<Void> entity = new HttpEntity<>(userHeaders());
 
             // act
-            ResponseEntity<ApiResponse<List<LikeV1Dto.LikeResponse>>> response =
+            ResponseEntity<ApiResponse<List<LikeV1Dto.LikedProductResponse>>> response =
                     testRestTemplate.exchange(MY_LIKES_ENDPOINT, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
 
             // assert

@@ -50,11 +50,11 @@ public class LikeFacadeTest {
             productService.delete(deletedProduct.id());
 
             // act
-            List<LikeInfo> likes = likeFacade.getLikesByUserId(userId);
+            List<LikedProductInfo> likes = likeFacade.getLikedProductsByUserId(userId);
 
             // assert
             assertThat(likes)
-                    .extracting(LikeInfo::productId)
+                    .extracting(info -> info.product().id())
                     .doesNotContain(deletedProduct.id());
         }
 
@@ -72,11 +72,11 @@ public class LikeFacadeTest {
             productService.changeVisibility(hiddenProduct.id(), Product.Visibility.HIDDEN);
 
             // act
-            List<LikeInfo> likes = likeFacade.getLikesByUserId(userId);
+            List<LikedProductInfo> likes = likeFacade.getLikedProductsByUserId(userId);
 
             // assert
             assertThat(likes)
-                    .extracting(LikeInfo::productId)
+                    .extracting(info -> info.product().id())
                     .doesNotContain(hiddenProduct.id());
         }
     }

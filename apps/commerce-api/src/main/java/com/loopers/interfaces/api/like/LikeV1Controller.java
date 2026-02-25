@@ -47,14 +47,14 @@ public class LikeV1Controller {
     }
 
     @GetMapping("/api/v1/users/me/likes")
-    public ApiResponse<List<LikeV1Dto.LikeResponse>> getLikes(
+    public ApiResponse<List<LikeV1Dto.LikedProductResponse>> getLikes(
             @RequestHeader("X-Loopers-LoginId") String loginId,
             @RequestHeader("X-Loopers-LoginPw") String loginPw
     ) {
         Long userId = userService.getUserId(loginId, loginPw);
-        List<LikeV1Dto.LikeResponse> likes = likeFacade.getLikesByUserId(userId).stream()
-                .map(LikeV1Dto.LikeResponse::from)
-                .toList();
+        List<LikeV1Dto.LikedProductResponse> likes = likeFacade.getLikedProductsByUserId(userId).stream()
+                                                               .map(LikeV1Dto.LikedProductResponse::from)
+                                                               .toList();
         return ApiResponse.success(likes);
     }
 }

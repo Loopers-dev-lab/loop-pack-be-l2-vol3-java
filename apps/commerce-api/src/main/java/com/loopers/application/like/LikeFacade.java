@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -24,17 +24,18 @@ public class LikeFacade {
         likeService.cancel(userId, productId);
     }
 
-    public List<LikeInfo> getLikesByUserId(Long userId) {
+    public List<LikedProductInfo> getLikedProductsByUserId(Long userId) {
         List<LikeInfo> likes = likeService.getLikesByUserId(userId);
-        if (likes.isEmpty()) return likes;
+        if (likes.isEmpty()) return List.of();
 
         List<Long> productIds = likes.stream().map(LikeInfo::productId).toList();
-        Set<Long> existingProductIds = productService.getVisibleProductsByIds(productIds)
-                                                     .stream()
-                                                     .map(ProductInfo::id)
-                                                     .collect(Collectors.toSet());
+        Map<Long, ProductInfo> productMap = productService.getVisibleProductsByIds(productIds)
+                                                          .stream()
+                                                          .collect(Collectors.toMap(ProductInfo::id, p -> p));
+
         return likes.stream()
-                    .filter(like -> existingProductIds.contains(like.productId()))
+                    .filter(like -> productMap.containsKey(like.productId()))
+                    .map(like -> new LikedProductInfo(like.id(), productMap.get(like.productId()), like.createdAt()))
                     .toList();
     }
 }
