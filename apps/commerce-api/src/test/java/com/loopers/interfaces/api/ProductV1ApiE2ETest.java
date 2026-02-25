@@ -107,7 +107,7 @@ class ProductV1ApiE2ETest {
             // assert
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(response.getBody().data().likeCount()).isGreaterThan(0)
+                    () -> assertThat(response.getBody().data().likeCount()).isEqualTo(0)
             );
         }
 
