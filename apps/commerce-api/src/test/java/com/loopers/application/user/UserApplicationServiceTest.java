@@ -60,7 +60,7 @@ class UserApplicationServiceTest {
         email = new Email("test@example.com");
         birthDate = new BirthDate(LocalDate.of(1999, 1, 15));
         phone = new Phone("010-1234-5678");
-        user = new User(userId, Password.ofEncoded("$2a$10$encodedPassword"), name, email, phone);
+        user = new User(userId, Password.ofEncoded("$2a$10$encodedPassword"), name, email, birthDate, phone);
     }
 
     @Nested
@@ -78,7 +78,7 @@ class UserApplicationServiceTest {
                     .birthDate("19990115")
                     .phone("010-1234-5678")
                     .build();
-            User encodedUser = new User(userId, Password.ofEncoded("$2a$10$encodedPassword"), name, email, phone);
+            User encodedUser = new User(userId, Password.ofEncoded("$2a$10$encodedPassword"), name, email, birthDate, phone);
 
             when(userRepository.existsByUserId(any(UserId.class))).thenReturn(false);
             when(passwordEncoder.encode("1Q2w3e4r!")).thenReturn("$2a$10$encodedPassword");
@@ -167,7 +167,7 @@ class UserApplicationServiceTest {
                     .userId(userId)
                     .newRawPassword("New1234!@")
                     .build();
-            User updatedUser = new User(userId, Password.ofEncoded("$2a$10$newEncodedPassword"), name, email, phone);
+            User updatedUser = new User(userId, Password.ofEncoded("$2a$10$newEncodedPassword"), name, email, birthDate, phone);
 
             when(userRepository.findByUserId(userId)).thenReturn(Optional.of(user));
             when(passwordEncoder.matches("New1234!@", "$2a$10$encodedPassword")).thenReturn(false);

@@ -40,7 +40,7 @@ public class UserTest {
 
             // when & then
             assertThatNoException()
-                    .isThrownBy(() -> new User(userId, password, name, email, phone));
+                    .isThrownBy(() -> new User(userId, password, name, email, birthDate, phone));
         }
     }
 
@@ -60,7 +60,7 @@ public class UserTest {
             Phone phone = new Phone("010-1234-5678");
 
             // when & then
-            assertThatThrownBy(() -> new User(userId, password, name, email, phone))
+            assertThatThrownBy(() -> new User(userId, password, name, email, birthDate, phone))
                     .isInstanceOf(UserValidationException.class)
                     .hasMessage("비밀번호에 생년월일을 포함할 수 없습니다");
         }
@@ -77,7 +77,7 @@ public class UserTest {
             Phone phone = new Phone("010-1234-5678");
 
             // when & then
-            assertThatThrownBy(() -> new User(userId, password, name, email, phone))
+            assertThatThrownBy(() -> new User(userId, password, name, email, birthDate, phone))
                     .isInstanceOf(UserValidationException.class)
                     .hasMessage("비밀번호에 생년월일을 포함할 수 없습니다");
         }
@@ -94,7 +94,7 @@ public class UserTest {
             Phone phone = new Phone("010-1234-5678");
 
             // when & then
-            assertThatThrownBy(() -> new User(userId, password, name, email, phone))
+            assertThatThrownBy(() -> new User(userId, password, name, email, birthDate, phone))
                     .isInstanceOf(UserValidationException.class)
                     .hasMessage("비밀번호에 생년월일을 포함할 수 없습니다");
         }
@@ -112,7 +112,7 @@ public class UserTest {
 
             // when & then
             assertThatNoException()
-                    .isThrownBy(() -> new User(userId, password, name, email, phone));
+                    .isThrownBy(() -> new User(userId, password, name, email, birthDate, phone));
         }
 
         @Test
@@ -128,7 +128,7 @@ public class UserTest {
 
             // when & then
             assertThatNoException()
-                    .isThrownBy(() -> new User(userId, password, name, email, phone));
+                    .isThrownBy(() -> new User(userId, password, name, email, birthDate, phone));
         }
     }
 
@@ -147,7 +147,7 @@ public class UserTest {
             BirthDate birthDate = new BirthDate(LocalDate.of(1999, 1, 15));
             Phone phone = new Phone("010-1234-5678");
 
-            User user = new User(userId, password, name, email, phone);
+            User user = new User(userId, password, name, email, birthDate, phone);
 
             // when
             String maskedName = user.getMaskedName();
@@ -167,7 +167,7 @@ public class UserTest {
             BirthDate birthDate = new BirthDate(LocalDate.of(1999, 1, 15));
             Phone phone = new Phone("010-1234-5678");
 
-            User user = new User(userId, password, name, email, phone);
+            User user = new User(userId, password, name, email, birthDate, phone);
 
             // when
             String maskedName = user.getMaskedName();
@@ -187,7 +187,7 @@ public class UserTest {
             BirthDate birthDate = new BirthDate(LocalDate.of(1999, 1, 15));
             Phone phone = new Phone("010-1234-5678");
 
-            User user = new User(userId, password, name, email, phone);
+            User user = new User(userId, password, name, email, birthDate, phone);
 
             // when
             String maskedName = user.getMaskedName();
@@ -207,7 +207,7 @@ public class UserTest {
             BirthDate birthDate = new BirthDate(LocalDate.of(1999, 1, 15));
             Phone phone = new Phone("010-1234-5678");
 
-            User user = new User(userId, password, name, email, phone);
+            User user = new User(userId, password, name, email, birthDate, phone);
 
             // when
             String maskedName = user.getMaskedName();
