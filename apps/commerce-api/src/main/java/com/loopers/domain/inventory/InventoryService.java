@@ -51,6 +51,7 @@ public class InventoryService {
             Inventory inventory = inventoryRepository.findByProductIdForUpdate(entry.getKey())
                     .orElseThrow(() -> new CoreException(InventoryErrorType.INVENTORY_NOT_FOUND));
             inventory.reserve(entry.getValue());
+            inventoryRepository.save(inventory);
         }
     }
 
@@ -65,6 +66,7 @@ public class InventoryService {
             Inventory inventory = inventoryRepository.findByProductIdForUpdate(entry.getKey())
                     .orElseThrow(() -> new CoreException(InventoryErrorType.INVENTORY_NOT_FOUND));
             inventory.commit(entry.getValue());
+            inventoryRepository.save(inventory);
         }
     }
 
@@ -79,6 +81,7 @@ public class InventoryService {
             Inventory inventory = inventoryRepository.findByProductIdForUpdate(entry.getKey())
                     .orElseThrow(() -> new CoreException(InventoryErrorType.INVENTORY_NOT_FOUND));
             inventory.release(entry.getValue());
+            inventoryRepository.save(inventory);
         }
     }
 
@@ -92,6 +95,9 @@ public class InventoryService {
     @Transactional
     public void delete(Long productId) {
         inventoryRepository.findByProductId(productId)
-                .ifPresent(Inventory::delete);
+                .ifPresent(inventory -> {
+                    inventory.delete();
+                    inventoryRepository.save(inventory);
+                });
     }
 }

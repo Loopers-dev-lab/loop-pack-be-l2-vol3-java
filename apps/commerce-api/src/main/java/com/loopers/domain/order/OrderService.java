@@ -51,12 +51,13 @@ public class OrderService {
         Order order = getById(orderId);
         order.validateOwnership(userId);
         order.cancel();
-        return order;
+        return orderRepository.save(order);
     }
 
     @Transactional
     public void confirm(Long orderId, Long paymentId, String paymentMethod) {
         Order order = getById(orderId);
         order.confirm(paymentId, paymentMethod);
+        orderRepository.save(order);
     }
 }

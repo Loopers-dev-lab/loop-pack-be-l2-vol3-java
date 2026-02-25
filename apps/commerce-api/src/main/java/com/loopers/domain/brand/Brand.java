@@ -116,6 +116,13 @@ public class Brand {
         return this.status == BrandStatus.ACTIVE;
     }
 
+    /** 비활성 브랜드에 대한 작업을 방지하는 단언 메서드 */
+    public void assertActive() {
+        if (this.status != BrandStatus.ACTIVE) {
+            throw new CoreException(BrandErrorType.INACTIVE_BRAND);
+        }
+    }
+
     /** 삭제된 브랜드에 대한 작업을 방지하는 단언 메서드 */
     public void assertNotDeleted() {
         if (this.deletedAt != null) {

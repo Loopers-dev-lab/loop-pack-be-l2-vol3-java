@@ -56,12 +56,12 @@ public class BrandService {
         return brand;
     }
 
-    /** 브랜드 정보 수정 (dirty checking으로 반영) */
+    /** 브랜드 정보 수정 */
     @Transactional
     public Brand update(Long id, String name, String description) {
         Brand brand = getById(id);
         brand.update(name, description);
-        return brand;
+        return brandRepository.save(brand);
     }
 
     /** 브랜드 소프트 삭제 (이미 삭제된 경우 409 Conflict) */
@@ -69,6 +69,7 @@ public class BrandService {
     public void delete(Long id) {
         Brand brand = getById(id);
         brand.delete();
+        brandRepository.save(brand);
     }
 
     /** 활성 브랜드 전체 조회 (고객용, 페이지네이션 미적용) */
@@ -100,6 +101,6 @@ public class BrandService {
     public Brand changeStatus(Long id, BrandStatus status) {
         Brand brand = getById(id);
         brand.changeStatus(status);
-        return brand;
+        return brandRepository.save(brand);
     }
 }

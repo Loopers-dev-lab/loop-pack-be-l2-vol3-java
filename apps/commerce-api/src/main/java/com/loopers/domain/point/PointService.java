@@ -30,12 +30,14 @@ public class PointService {
     public void use(Long userId, int amount) {
         PointAccount account = getAccount(userId);
         account.use(amount);
+        pointAccountRepository.save(account);
     }
 
     @Transactional
     public void charge(Long userId, int amount) {
         PointAccount account = getAccount(userId);
         account.charge(amount);
+        pointAccountRepository.save(account);
     }
 
     @Transactional
@@ -53,5 +55,6 @@ public class PointService {
 
         int earnedPoints = orderAmount * earnRate / 100;
         account.charge(earnedPoints);
+        pointAccountRepository.save(account);
     }
 }

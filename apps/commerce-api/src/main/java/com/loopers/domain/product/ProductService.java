@@ -55,12 +55,12 @@ public class ProductService {
         return product;
     }
 
-    /** 상품 정보 부분 수정 (dirty checking으로 반영) */
+    /** 상품 정보 부분 수정 */
     @Transactional
     public Product update(Long id, String name, String description, Integer basePrice) {
         Product product = getById(id);
         product.update(name, description, basePrice);
-        return product;
+        return productRepository.save(product);
     }
 
     /** 상품 상태 변경 (ACTIVE, SOLDOUT, HIDDEN, DISCONTINUED) */
@@ -68,7 +68,7 @@ public class ProductService {
     public Product changeStatus(Long id, ProductStatus status) {
         Product product = getById(id);
         product.changeStatus(status);
-        return product;
+        return productRepository.save(product);
     }
 
     /** 상품 소프트 삭제 (이미 삭제된 경우 409 Conflict) */
@@ -76,6 +76,7 @@ public class ProductService {
     public void delete(Long id) {
         Product product = getById(id);
         product.delete();
+        productRepository.save(product);
     }
 
     /** 전체 상품 페이지 조회 (Admin용, brandId 선택 필터) */
@@ -124,11 +125,13 @@ public class ProductService {
     public void incrementLikeCount(Long id) {
         Product product = getById(id);
         product.incrementLikeCount();
+        productRepository.save(product);
     }
 
     @Transactional
     public void decrementLikeCount(Long id) {
         Product product = getById(id);
         product.decrementLikeCount();
+        productRepository.save(product);
     }
 }

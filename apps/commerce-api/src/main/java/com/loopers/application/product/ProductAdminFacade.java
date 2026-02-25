@@ -10,8 +10,6 @@ import com.loopers.domain.inventory.InventoryService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductStatus;
-import com.loopers.support.error.BrandErrorType;
-import com.loopers.support.error.CoreException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,9 +41,7 @@ public class ProductAdminFacade {
     public ProductAdminDetailResult createProduct(Long brandId, String name, String description,
                                                    int basePrice, int quantity) {
         Brand brand = brandService.getById(brandId);
-        if (!brand.isActive()) {
-            throw new CoreException(BrandErrorType.INACTIVE_BRAND);
-        }
+        brand.assertActive();
 
         Product product = productService.create(brandId, name, description, basePrice);
         Inventory inventory = inventoryService.create(product.getId(), quantity);

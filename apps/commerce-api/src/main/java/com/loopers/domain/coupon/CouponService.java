@@ -50,6 +50,7 @@ public class CouponService {
                 .orElseThrow(() -> new CoreException(CouponErrorType.COUPON_NOT_FOUND));
         issuedCoupon.validateOwnership(userId);
         issuedCoupon.use(orderId);
+        issuedCouponRepository.save(issuedCoupon);
     }
 
     @Transactional(readOnly = true)
@@ -104,12 +105,13 @@ public class CouponService {
                                           Integer maxDiscountAmount, Integer minOrderAmount) {
         CouponTemplate template = getTemplate(templateId);
         template.update(name, description, discountType, discountValue, maxDiscountAmount, minOrderAmount);
-        return template;
+        return couponTemplateRepository.save(template);
     }
 
     @Transactional
     public void deleteTemplate(Long templateId) {
         CouponTemplate template = getTemplate(templateId);
         template.delete();
+        couponTemplateRepository.save(template);
     }
 }

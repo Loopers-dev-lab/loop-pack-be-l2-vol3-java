@@ -39,6 +39,7 @@ public class CartItemService {
                 .orElseThrow(() -> new CoreException(CartItemErrorType.CART_ITEM_NOT_FOUND));
         cartItem.validateOwnership(userId);
         cartItem.changeQuantity(quantity);
+        cartItemRepository.save(cartItem);
     }
 
     @Transactional
@@ -47,6 +48,7 @@ public class CartItemService {
                 .orElseThrow(() -> new CoreException(CartItemErrorType.CART_ITEM_NOT_FOUND));
         cartItem.validateOwnership(userId);
         cartItem.delete();
+        cartItemRepository.save(cartItem);
     }
 
     @Transactional(readOnly = true)
@@ -72,6 +74,7 @@ public class CartItemService {
         cartItems.forEach(item -> {
             item.validateOwnership(userId);
             item.delete();
+            cartItemRepository.save(item);
         });
     }
 
@@ -79,6 +82,9 @@ public class CartItemService {
     @Transactional
     public void deleteByProductId(Long productId) {
         List<CartItem> cartItems = cartItemRepository.findAllByProductId(productId);
-        cartItems.forEach(CartItem::delete);
+        cartItems.forEach(cartItem -> {
+            cartItem.delete();
+            cartItemRepository.save(cartItem);
+        });
     }
 }
