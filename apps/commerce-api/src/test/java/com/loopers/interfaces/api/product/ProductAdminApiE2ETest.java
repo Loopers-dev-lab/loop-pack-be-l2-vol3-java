@@ -1,7 +1,5 @@
 package com.loopers.interfaces.api.product;
 
-import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductRepository;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.brand.BrandAdminV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
@@ -35,9 +33,6 @@ class ProductAdminApiE2ETest {
 
     @Autowired
     private TestRestTemplate testRestTemplate;
-
-    @Autowired
-    private ProductRepository productRepository;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -322,6 +317,83 @@ class ProductAdminApiE2ETest {
         }
     }
 
+    @Nested
+    class 상품_삭제 {
+
+        @Test
+        void 활성_상품을_삭제하면_200_응답() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+
+            ResponseEntity<ApiResponse<Void>> response = deleteRequest(productId);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @Test
+        void 미존재_상품이면_404_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/999", HttpMethod.DELETE,
+                    new HttpEntity<>(adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
+                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 상품입니다")
+            );
+        }
+
+        @Test
+        void 삭제된_상품이면_404_응답() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            deleteProduct(productId);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/" + productId, HttpMethod.DELETE,
+                    new HttpEntity<>(adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
+                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 상품입니다")
+            );
+        }
+
+        @Test
+        void 인증_헤더가_누락되면_401_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1", HttpMethod.DELETE,
+                    new HttpEntity<>(new HttpHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증 헤더가 필요합니다")
+            );
+        }
+
+        @Test
+        void 인증에_실패하면_401_응답() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-Ldap", "wrong-ldap");
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1", HttpMethod.DELETE,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증에 실패했습니다")
+            );
+        }
+    }
+
     // --- 헬퍼 메서드 ---
 
     private Long registerBrand(String name, String description) {
@@ -351,9 +423,19 @@ class ProductAdminApiE2ETest {
     }
 
     private void deleteProduct(Long productId) {
-        Product product = productRepository.findById(productId).orElseThrow();
-        product.delete();
-        productRepository.save(product);
+        testRestTemplate.exchange(
+                ENDPOINT + "/" + productId, HttpMethod.DELETE,
+                new HttpEntity<>(adminHeaders()),
+                new ParameterizedTypeReference<ApiResponse<Void>>() {}
+        );
+    }
+
+    private ResponseEntity<ApiResponse<Void>> deleteRequest(Long productId) {
+        return testRestTemplate.exchange(
+                ENDPOINT + "/" + productId, HttpMethod.DELETE,
+                new HttpEntity<>(adminHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
     }
 
     private ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> postRegister(

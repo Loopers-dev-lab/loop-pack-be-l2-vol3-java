@@ -335,4 +335,28 @@ class ProductTest {
                     .hasMessageContaining("존재하지 않는 상품입니다");
         }
     }
+
+    @Nested
+    class 삭제 {
+
+        @Test
+        void 삭제하면_삭제_상태이다() {
+            Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+
+            product.delete();
+
+            assertThat(product.isDeleted()).isTrue();
+        }
+
+        @Test
+        void 삭제된_상품에_삭제_검증을_호출하면_예외() {
+            Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            product.delete();
+
+            assertThatThrownBy(() -> product.validateNotDeleted())
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
+                    .hasMessageContaining("존재하지 않는 상품입니다");
+        }
+    }
 }

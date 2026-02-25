@@ -5,6 +5,7 @@ import com.loopers.application.product.ProductInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,5 +49,12 @@ public class ProductAdminV1Controller implements ProductAdminApiV1Spec {
                 request.description()
         );
         return ApiResponse.success(ProductAdminV1Dto.ProductResponse.from(info));
+    }
+
+    @DeleteMapping("/{productId}")
+    @Override
+    public ApiResponse<Void> delete(@PathVariable Long productId) {
+        productFacade.delete(productId);
+        return ApiResponse.success();
     }
 }

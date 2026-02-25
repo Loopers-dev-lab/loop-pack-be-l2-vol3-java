@@ -32,4 +32,9 @@ public class ProductFacade {
         Brand brand = brandService.getBrand(product.getBrandId());
         return ProductInfo.from(product, brand.getName());
     }
+
+    @Transactional
+    public void delete(Long productId) {
+        productService.delete(productId);
+    }
 }

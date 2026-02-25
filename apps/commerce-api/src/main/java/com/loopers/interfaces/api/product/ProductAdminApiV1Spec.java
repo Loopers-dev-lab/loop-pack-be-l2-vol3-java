@@ -25,4 +25,10 @@ public interface ProductAdminApiV1Spec {
             Long productId,
             ProductAdminV1Dto.UpdateRequest request
     );
+
+    @Operation(
+            summary = "상품 삭제",
+            description = "상품을 삭제합니다."
+    )
+    ApiResponse<Void> delete(Long productId);
 }

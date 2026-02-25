@@ -88,4 +88,37 @@ class ProductServiceIntegrationTest {
                     .hasMessageContaining("존재하지 않는 상품입니다");
         }
     }
+
+    @Nested
+    class 상품_삭제 {
+
+        @Test
+        void 활성_상품을_삭제하면_삭제_상태로_변경된다() {
+            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+
+            productService.delete(product.getId());
+
+            Product found = productRepository.findById(product.getId()).orElseThrow();
+            assertThat(found.isDeleted()).isTrue();
+        }
+
+        @Test
+        void 미존재_상품이면_예외() {
+            assertThatThrownBy(() -> productService.delete(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
+                    .hasMessageContaining("존재하지 않는 상품입니다");
+        }
+
+        @Test
+        void 삭제된_상품이면_예외() {
+            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            productService.delete(product.getId());
+
+            assertThatThrownBy(() -> productService.delete(product.getId()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
+                    .hasMessageContaining("존재하지 않는 상품입니다");
+        }
+    }
 }
