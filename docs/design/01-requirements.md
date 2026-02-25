@@ -131,12 +131,11 @@
 **So that** 시스템을 깔끔하게 유지할 수 있다
 
 **수용 기준 (AC):**
-- [ ] AC1: Given 상품 없는 브랜드, When DELETE /api-admin/v1/brands/{brandId}, Then 200
-- [ ] AC2: Given 상품이 있는 브랜드, When DELETE, Then 409 Conflict
-- [ ] AC3: Given 관련 상품에 주문이 있는 브랜드, When DELETE, Then 409 Conflict
+- [ ] AC1: Given 브랜드가 존재, When DELETE /api-admin/v1/brands/{brandId}, Then 브랜드와 해당 브랜드의 상품이 함께 soft-delete 처리되고 200
+- [ ] AC2: Given 삭제된 브랜드, When DELETE, Then 404
 
 **비즈니스 규칙:**
-- 해당 브랜드에 상품이 없고, 관련 상품의 주문이 없을 때만 삭제 가능
+- 브랜드 삭제는 해당 브랜드를 soft-delete하고, 관련 상품을 함께 soft-delete한다.
 
 ---
 

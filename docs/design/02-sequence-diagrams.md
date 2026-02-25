@@ -151,53 +151,34 @@ sequenceDiagram
 
 ## 브랜드 삭제 (DELETE /api-admin/v1/brands/{brandId})
 
-브랜드 삭제는 참조 무결성 보장이 핵심이다. 상품이 있거나, 관련 상품에 주문이 있는 경우 삭제를 차단하는 로직이 올바른 순서로 동작하는지 검증한다.
+브랜드 삭제는 소프트 삭제 정책으로 수행되며, 브랜드 삭제 시 해당 브랜드의 상품도 함께 soft-delete 처리되는지 확인한다.
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant C as Client
     participant BC as BrandAdminController
-    participant BF as BrandFacade
-    participant BS as BrandService
-    participant PS as ProductService
-    participant OS as OrderService
+    participant BS as BrandApplicationService
+    
 
     C->>BC: DELETE /api-admin/v1/brands/{brandId}
     note over BC: LDAP 인증 확인
-    BC->>BF: 브랜드 삭제 요청
+    BC->>BS: 브랜드 삭제 요청
 
-    BF->>BS: 브랜드 조회
-    BS-->>BF: 브랜드 정보 (없으면 404)
+    BS->>BS: 브랜드 조회
+    BS-->>BC: 브랜드 정보 (없으면 404)
 
-    BF->>PS: 해당 브랜드 상품 존재 확인
-    PS-->>BF: 존재 여부
+    BS->>BS: 브랜드 + 연관 상품 삭제
+    BS-->>BC: 브랜드 + 연관 상품 삭제 완료
 
-    alt 상품 존재
-        BF-->>BC: 409 Conflict
-        BC-->>C: 409 (상품 있음)
-    else 상품 없음
-        BF->>OS: 해당 브랜드 관련 주문 존재 확인
-        OS-->>BF: 존재 여부
-
-        alt 관련 주문 존재
-            BF-->>BC: 409 Conflict
-            BC-->>C: 409 (주문 있음)
-        else 주문 없음
-            BF->>BS: 브랜드 삭제
-            BS-->>BF: 삭제 완료
-
-            BF-->>BC: 삭제 완료
-            BC-->>C: 200 OK
-        end
-    end
+    BC-->>C: 200 OK
 ```
 
 ### 핵심 포인트
-- **참조 무결성 순서**: Facade에서 상품 존재 확인 → 주문 존재 확인 → BrandService에 삭제 위임.
+- **삭제 정책**: BrandService가 브랜드 삭제와 연관 상품 soft-delete를 단일 트랜잭션 안에서 수행한다.
 
 ### 설계 리스크
-- **확인-삭제 사이 갭**: 상품 없음을 확인한 후 삭제 전에 새 상품이 등록될 수 있음. 트랜잭션 격리 수준으로 기본 방어 가능.
+- **확인-삭제 갭 제거**: 사전 존재성 검사 분기를 제거하고, 삭제 플로우 내부에서 일괄 soft-delete를 수행해 경쟁 조건을 줄인다.
 
 ---
 
