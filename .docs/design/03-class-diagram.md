@@ -32,6 +32,14 @@
 - **도메인 책임 없이 Service에 모든 로직 집중** → Entity/VO는 getter/setter만, 검증·계산은 전부 Service에 두는 패턴. 비즈니스 규칙은 도메인 객체에 두고 Service는 조율만 하도록 분리.
 - **VO를 테이블처럼 다루기** → 예: Price를 별도 DB 테이블로 설계. VO는 값 객체로 엔티티 필드에 포함되어 저장된다.
 
+### 구현 시 유의 (Brand·Product·Like·Order)
+
+- **삭제 플래그**: Brand·Product는 ERD의 `deleted_at`을 사용한다. 구현 시 **BaseEntity**를 상속하고, `isDeleted()`는 **`getDeletedAt() != null`**로 둔다. 별도 boolean deleted 필드는 두지 않는다.
+- **userId**: Like·Order 모델의 userId는 **User 엔티티의 PK(id, Long)**이다. API의 로그인 ID(String)는 Facade에서 Long으로 변환한 뒤 Service에 전달한다(01 §4.6).
+- **Service 파라미터**: validateProducts, restoreStock 등 Service 메서드의 인자는 **도메인 또는 application 전용 타입**을 사용한다. interfaces 레이어의 API 요청 DTO와 동일 타입을 재사용하지 않는다(AGENTS.md 레이어 규칙).
+- **LikeRepository**: 상품 상세/목록·인기순 정렬을 위해 **countByProductId(Long)** 또는 countByProductIdIn(Collection<Long>) 등 상품별 좋아요 수 조회를 제공한다(04 §4 인기순 정렬).
+- **Brand 연쇄 삭제**: 브랜드 삭제 시 해당 브랜드 상품 전부 soft delete는 **Product 도메인 구현 후** BrandService.delete()에서 연결한다. ProductRepository.findByBrandId 또는 ProductService.softDeleteByBrandId 등으로 구현(01 §3.5).
+
 ---
 
 ## 1. 레이어별 클래스 구조 (전체 의존 방향)
@@ -210,7 +218,8 @@ classDiagram
 ### 해석
 
 - **봐야 할 포인트**: BrandModel은 이름·삭제 여부 등 브랜드 상태만 보유한다. Soft delete이므로 deleted 플래그와 isDeleted() 등 도메인 행위는 모델에 둔다. 조회 시 "미삭제만" 쓰는 경우 findByIdAndNotDeleted는 Repository 또는 Service에서 제공한다.
-- **설계 의도**: 브랜드 삭제 시 해당 브랜드의 모든 상품 연쇄 삭제(01 요구사항 4.1)는 서비스에서 일괄 처리하거나 DB CASCADE로 처리한다. Product 도메인은 brandId로만 참조하므로 Brand는 독립 애그리거트로 유지된다.
+- **구현**: BrandModel은 **BaseEntity 상속**으로 `deletedAt`을 사용하고, **isDeleted() = getDeletedAt() != null**로 둔다. 다이어그램의 "boolean deleted"는 삭제 여부 개념이며, 저장소는 04-erd §1의 deleted_at 컬럼과 일치시킨다.
+- **설계 의도**: 브랜드 삭제 시 해당 브랜드의 모든 상품 연쇄 삭제(01 요구사항 4.1)는 **Product 도메인 구현 후** BrandService.delete()에서 ProductRepository.findByBrandId 또는 ProductService.softDeleteByBrandId 등으로 일괄 soft delete한다. Product 도메인은 brandId로만 참조하므로 Brand는 독립 애그리거트로 유지된다.
 
 ### 잠재 리스크
 
@@ -271,8 +280,9 @@ classDiagram
 
 ### 해석
 
-- **봐야 할 포인트**: ProductModel은 brandId만 보유하고 BrandModel을 직접 참조하지 않는다(다른 애그리거트 루트 참조 최소화). **재고 충족 여부**는 ProductModel.hasStock(quantity) 등 모델 책임으로 두어 Service에만 로직이 몰리지 않도록 한다. **ProductRepository**는 `findById`(관리/내부용), **findByIdAndNotDeleted**(Like/Cart/Order 등에서 "판매 중인 상품" 조회용)를 제공한다. 가격 등은 VO(Price)로 검증 후 Entity 필드(price)에 값만 저장할 수 있다(§0 VO 구분). 브랜드 유효성(존재·미삭제)은 ProductService가 BrandRepository를 통해 조율한다.
-- **설계 의도**: Likes/Cart/Orders가 ProductService의 findByIdAndNotDeleted, validateProductAvailability, validateProducts, restoreStock에 의존하므로, 이 메서드 시그니처와 정책이 변경되면 영향 범위가 넓다. 스냅샷·재고는 주문 도메인과의 협력 경계를 나타낸다.
+- **봐야 할 포인트**: ProductModel은 brandId만 보유하고 BrandModel을 직접 참조하지 않는다(다른 애그리거트 루트 참조 최소화). **재고 충족 여부**는 ProductModel.hasStock(quantity) 등 모델 책임으로 두어 Service에만 로직이 몰리지 않도록 한다. **ProductRepository**는 `findById`(관리/내부용), **findByIdAndNotDeleted**(Like/Cart/Order 등에서 "판매 중인 상품" 조회용)를 제공한다. 목록·정렬(01 §3.7) 지원 시 findAll(필터, Pageable) 또는 동등 시그니처를 추가한다. 가격 등은 VO(Price)로 검증 후 Entity 필드(price)에 값만 저장할 수 있다(§0 VO 구분). 브랜드 유효성(존재·미삭제)은 ProductService가 BrandRepository를 통해 조율한다.
+- **구현**: validateProducts, restoreStock의 파라미터(List~OrderItemRequest~, List~OrderItem~)는 **도메인 또는 application 전용 타입**을 사용한다. interfaces의 API 요청 DTO와 동일 타입을 재사용하지 않는다. Brand 연쇄 삭제를 위해 ProductRepository.findByBrandId(Long) 또는 ProductService.softDeleteByBrandId(Long) 등을 노출한다.
+- **설계 의도**: Likes/Cart/Orders가 ProductService의 findByIdAndNotDeleted, validateProductAvailability, validateProducts, restoreStock에 의존하므로, 이 메서드 시그니처와 정책이 변경되면 영향 범위가 넓다. 스냅샷·재고는 주문 도메인과의 협력 경계를 나타낸다. 재고 차감은 결제 완료 시점(01 §3.1)이므로 주문 생성 시에는 검증만 수행한다.
 
 ### 잠재 리스크
 
@@ -326,7 +336,8 @@ classDiagram
 
 ### 해석
 
-- **봐야 할 포인트**: "1인 1좋아요"는 LikeRepository.existsByUserIdAndProductId + DB unique 제약(userId, productId)으로 보장된다. LikeService는 상품 검증 → 중복 검사 → Like 생성 순서를 유지한다(02 시퀀스와 동일).
+- **봐야 할 포인트**: "1인 1좋아요"는 LikeRepository.existsByUserIdAndProductId + DB unique 제약(userId, productId)으로 보장된다. LikeService는 상품 검증 → 중복 검사 → Like 생성 순서를 유지한다(02 시퀀스와 동일). **userId**는 User 엔티티의 PK(id, Long)이며, API의 로그인 ID는 Facade에서 Long으로 변환 후 전달한다(01 §4.6).
+- **구현**: 상품 상세/목록·인기순 정렬(01 §3.7, 04 §4)을 위해 **LikeRepository에 countByProductId(Long)** 또는 countByProductIdIn(Collection<Long>) 등 상품별 좋아요 수 조회를 추가한다.
 - **설계 의도**: 삭제된 상품 좋아요 불가는 ProductService.findByIdAndNotDeleted에 위임하고, Like 도메인은 "좋아요 존재 여부·생성·취소"에만 집중한다.
 
 ### 잠재 리스크
@@ -455,6 +466,7 @@ classDiagram
 ### 해석
 
 - **봐야 할 포인트**: OrderItemModel은 주문 시점의 상품명·가격·수량·옵션을 스냅샷으로 보유한다. **스냅샷 생성**은 OrderItemModel.of(product, quantity) 등 모델/팩토리 책임으로 두어, 이후 Product가 바뀌어도 주문 내역이 변하지 않도록 한다(01 요구사항 3.2 스냅샷 보존). 재고 차감은 주문 생성 트랜잭션에 포함하지 않고, 결제 완료 시점에 처리한다(02 시퀀스 해석과 일치).
+- **구현**: **userId**는 User 엔티티의 PK(id, Long). create(userId, request)의 request(주문 항목 목록)는 **도메인 또는 application 전용 타입**을 사용하며, interfaces의 API 요청 DTO와 동일 타입을 재사용하지 않는다(§0 구현 시 유의). restoreStock의 인자(List~OrderItem~)도 도메인 타입 기준이다.
 - **설계 의도**: 주문 생성 시 validateProducts로 일괄 검증 후 Order + OrderItem 생성·저장만 담당하고, 재고 복구는 취소 시 OrderService → ProductService.restoreStock으로 처리한다.
 
 ### 잠재 리스크
