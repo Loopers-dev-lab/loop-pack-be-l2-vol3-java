@@ -397,7 +397,10 @@ class UserApiE2ETest {
             );
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT),
+                    () -> assertThat(response.getBody().meta().message()).contains("이미 존재하는 로그인 ID입니다")
+            );
         }
 
         @Test
@@ -537,6 +540,7 @@ class UserApiE2ETest {
 - [ ] `RANDOM_PORT` 설정
 - [ ] `TestRestTemplate` 사용
 - [ ] HTTP 상태 코드 검증
+- [ ] AC에 에러 메시지가 명시되어 있으면 `meta().message()` 검증
 - [ ] 스펙(AC)의 모든 상태 코드 시나리오가 E2E에 1:1 매핑되었는지 확인
 
 ---

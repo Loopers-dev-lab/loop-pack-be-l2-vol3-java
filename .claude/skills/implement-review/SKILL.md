@@ -36,7 +36,9 @@ FIX    → 사용자 승인 시 수정 (선택)
 
 1. 요구사항 정의서가 있으면 읽는다: `docs/requirements/{epic}.md`
 2. `docs/specs/{epic}/{NNN-feature-name}.md` 읽기 → AC 추출
-3. `docs/design/{epic}/` 관련 문서 읽기 (class-diagram, erd, sequence — 있는 경우만)
+3. 설계 문서 읽기 (있는 경우만):
+   - 루트: `docs/design/domain-map.md`, `docs/design/erd.md`
+   - Epic: `docs/design/{epic}/` (class-diagram, sequence)
 4. 해당 도메인의 구현 코드 전체 읽기 (domain, infra, application, interfaces)
 5. 해당 도메인의 테스트 코드 전체 읽기
 6. 검증 기준 상기: `references/` 3개 파일 읽기

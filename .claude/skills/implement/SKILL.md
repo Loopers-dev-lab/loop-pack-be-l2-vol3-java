@@ -38,7 +38,10 @@ REPORT → AC 매핑 표 + 파일 목록 보고
 
 1. 요구사항 정의서가 있으면 읽는다: `docs/requirements/{epic}.md`
 2. `docs/specs/{epic}/{NNN-feature-name}.md` 파일을 읽는다
-3. 설계 문서가 있으면 함께 읽는다: `docs/design/{epic}/`
+3. 설계 문서가 있으면 함께 읽는다:
+   - 루트: `docs/design/domain-map.md`, `docs/design/erd.md` (있는 경우)
+   - Epic: `docs/design/{epic}/` (class-diagram, sequence 등 — 있는 경우)
+   - 설계 문서가 없으면 spec과 rules만으로 진행한다 (별도 안내 불필요)
 4. AC를 추출하고 각 AC의 테스트 유형을 분류한다
 
 ### AC → 테스트 유형 매핑 기준
@@ -128,7 +131,7 @@ REPORT → AC 매핑 표 + 파일 목록 보고
 
 ### 절차
 
-1. `test-patterns` 스킬을 읽고 패턴을 확인한다
+1. `.claude/skills/test-patterns/SKILL.md`를 읽고 테스트 패턴을 확인한다
    - 스킬을 찾을 수 없으면 `.claude/rules/` 하위 테스트 관련 규칙과 Phase 4의 필수 준수 사항을 기준으로 작성한다
 2. Phase 1에서 분류한 AC별 테스트 유형에 따라 작성한다
 
