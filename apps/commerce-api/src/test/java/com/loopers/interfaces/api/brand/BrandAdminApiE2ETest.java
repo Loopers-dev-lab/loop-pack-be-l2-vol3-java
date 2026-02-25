@@ -115,6 +115,20 @@ class BrandAdminApiE2ETest {
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
+
+        @Test
+        void 삭제된_브랜드와_동일한_이름으로_등록하면_409_응답() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            deleteBrand(brandId);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT, HttpMethod.POST,
+                    new HttpEntity<>(new BrandAdminV1Dto.RegisterRequest("나이키", "다른 설명"), adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        }
     }
 
     @Nested
@@ -231,6 +245,49 @@ class BrandAdminApiE2ETest {
             );
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void 삭제된_브랜드와_동일한_이름으로_변경하면_409_응답() {
+            Long nikeId = registerBrand("나이키", "스포츠 브랜드");
+            deleteBrand(nikeId);
+            Long adidasId = registerBrand("아디다스", "독일 스포츠 브랜드");
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/" + adidasId, HttpMethod.PATCH,
+                    new HttpEntity<>(new BrandAdminV1Dto.UpdateRequest("나이키", null), adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        }
+
+        @Test
+        void 자기_자신의_현재_이름과_동일한_이름으로_수정하면_200_응답() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("나이키", "변경된 설명");
+
+            ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("나이키"),
+                    () -> assertThat(response.getBody().data().description()).isEqualTo("변경된 설명")
+            );
+        }
+
+        @Test
+        void 삭제된_브랜드를_수정하면_404_응답() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            deleteBrand(brandId);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/" + brandId, HttpMethod.PATCH,
+                    new HttpEntity<>(new BrandAdminV1Dto.UpdateRequest("변경이름", null), adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         }
     }
 
@@ -437,6 +494,17 @@ class BrandAdminApiE2ETest {
             );
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void 요청_필드_규칙_위반_시_400_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "?page=-1", HttpMethod.GET,
+                    new HttpEntity<>(adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
     }
 
