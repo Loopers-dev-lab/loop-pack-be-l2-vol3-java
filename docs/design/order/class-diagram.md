@@ -9,7 +9,7 @@
 classDiagram
     class Order {
         -Long userId
-        -Money totalAmount
+        -BigDecimal totalAmount
         -List~OrderItem~ orderItems
         +create(userId, orderItems)$ Order
     }
@@ -18,22 +18,13 @@ classDiagram
         -Long productId
         -String productName
         -String brandName
-        -Money price
+        -BigDecimal price
         -int quantity
         +create(productId, productName, brandName, price, quantity)$ OrderItem
-        +getOrderPrice() Money
-    }
-
-    class Money {
-        <<VO>>
-        -BigDecimal amount
-        +add(Money) Money
-        +multiply(int) Money
+        +getOrderPrice() BigDecimal
     }
 
     Order *-- "1..*" OrderItem
-    Order *-- Money
-    OrderItem *-- Money
     OrderItem ..> Product : productId 참조
     Order ..> User : userId 참조
 ```
