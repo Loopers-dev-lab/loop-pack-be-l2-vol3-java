@@ -85,8 +85,8 @@ public class CouponService {
 
     @Transactional
     public CouponTemplate updateTemplate(Long templateId, String name, String description,
-                                          DiscountType discountType, int discountValue,
-                                          Integer maxDiscountAmount, int minOrderAmount) {
+                                          DiscountType discountType, Integer discountValue,
+                                          Integer maxDiscountAmount, Integer minOrderAmount) {
         CouponTemplate template = getTemplate(templateId);
         template.update(name, description, discountType, discountValue, maxDiscountAmount, minOrderAmount);
         return template;

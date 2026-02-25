@@ -9,7 +9,8 @@ public enum CouponErrorType implements ErrorType {
     ISSUE_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "전체 발급 제한을 초과했습니다."),
     USER_ISSUE_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "유저별 발급 제한을 초과했습니다."),
     INVALID_COUPON_STATUS(HttpStatus.CONFLICT, "현재 쿠폰 상태에서는 수행할 수 없는 작업입니다."),
-    NOT_OWNER(HttpStatus.FORBIDDEN, "본인의 쿠폰이 아닙니다.");
+    NOT_OWNER(HttpStatus.FORBIDDEN, "본인의 쿠폰이 아닙니다."),
+    INVALID_TEMPLATE_NAME(HttpStatus.BAD_REQUEST, "쿠폰 템플릿명은 필수입니다.");
 
     private final HttpStatus status;
     private final String message;

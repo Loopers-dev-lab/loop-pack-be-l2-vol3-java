@@ -83,9 +83,9 @@ public class ProductAdminFacade {
         inventoryService.delete(productId);
     }
 
-    /** 상품 수정 */
+    /** 상품 부분 수정 */
     @Transactional
-    public ProductAdminDetailResult updateProduct(Long productId, String name, String description, int basePrice) {
+    public ProductAdminDetailResult updateProduct(Long productId, String name, String description, Integer basePrice) {
         productService.update(productId, name, description, basePrice);
         return getProductDetail(productId);
     }

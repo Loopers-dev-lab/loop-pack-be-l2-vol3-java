@@ -21,8 +21,8 @@ public class AdminCouponTemplateRequest {
             String name,
             String description,
             String discountType,
-            int discountValue,
+            Integer discountValue,
             Integer maxDiscountAmount,
-            int minOrderAmount
+            Integer minOrderAmount
     ) {}
 }

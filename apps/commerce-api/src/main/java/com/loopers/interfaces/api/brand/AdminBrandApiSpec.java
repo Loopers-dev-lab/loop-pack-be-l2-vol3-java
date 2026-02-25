@@ -17,7 +17,7 @@ public interface AdminBrandApiSpec {
     @Operation(summary = "브랜드 등록", description = "새로운 브랜드를 등록합니다.")
     ApiResponse<AdminBrandResponse.BrandDetail> createBrand(String ldap, AdminBrandRequest.CreateBrandRequest request);
 
-    @Operation(summary = "브랜드 수정", description = "브랜드 정보를 수정합니다.")
+    @Operation(summary = "브랜드 부분 수정", description = "브랜드 정보를 부분 수정합니다. 전달된 필드만 수정되며, null인 필드는 기존값을 유지합니다.")
     ApiResponse<AdminBrandResponse.BrandDetail> updateBrand(String ldap, Long brandId, AdminBrandRequest.UpdateBrandRequest request);
 
     @Operation(summary = "브랜드 상태 변경", description = "브랜드 상태를 변경합니다.")

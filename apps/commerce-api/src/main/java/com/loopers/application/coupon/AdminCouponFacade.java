@@ -49,11 +49,11 @@ public class AdminCouponFacade {
         return toDetail(template);
     }
 
-    /** 쿠폰 템플릿 수정 */
+    /** 쿠폰 템플릿 부분 수정 */
     @Transactional
     public TemplateDetail updateTemplate(Long templateId, String name, String description,
-                                          DiscountType discountType, int discountValue,
-                                          Integer maxDiscountAmount, int minOrderAmount) {
+                                          DiscountType discountType, Integer discountValue,
+                                          Integer maxDiscountAmount, Integer minOrderAmount) {
         CouponTemplate template = couponService.updateTemplate(
                 templateId, name, description, discountType, discountValue,
                 maxDiscountAmount, minOrderAmount);

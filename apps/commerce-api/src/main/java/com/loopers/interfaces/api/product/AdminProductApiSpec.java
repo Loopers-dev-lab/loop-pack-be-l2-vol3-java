@@ -19,7 +19,7 @@ public interface AdminProductApiSpec {
     ApiResponse<AdminProductResponse.ProductDetail> createProduct(
             String ldap, AdminProductRequest.CreateProductRequest request);
 
-    @Operation(summary = "상품 수정", description = "상품 정보를 수정합니다.")
+    @Operation(summary = "상품 부분 수정", description = "상품 정보를 부분 수정합니다. 전달된 필드만 수정되며, null인 필드는 기존값을 유지합니다.")
     ApiResponse<AdminProductResponse.ProductDetail> updateProduct(
             String ldap, Long productId, AdminProductRequest.UpdateProductRequest request);
 

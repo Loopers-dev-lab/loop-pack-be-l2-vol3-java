@@ -16,7 +16,7 @@ public class AdminProductRequest {
     public record UpdateProductRequest(
             String name,
             String description,
-            int basePrice
+            Integer basePrice
     ) {}
 
     public record ChangeStatusRequest(

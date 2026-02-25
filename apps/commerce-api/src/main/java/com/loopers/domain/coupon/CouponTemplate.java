@@ -1,6 +1,8 @@
 package com.loopers.domain.coupon;
 
 import com.loopers.domain.common.vo.Money;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.CouponErrorType;
 import java.time.ZonedDateTime;
 
 /**
@@ -107,14 +109,30 @@ public class CouponTemplate {
         this.status = status;
     }
 
-    public void update(String name, String description, DiscountType discountType, int discountValue,
-                       Integer maxDiscountAmount, int minOrderAmount) {
-        this.name = name;
-        this.description = description;
-        this.discountType = discountType;
-        this.discountValue = discountValue;
-        this.maxDiscountAmount = maxDiscountAmount;
-        this.minOrderAmount = new Money(minOrderAmount);
+    /** 쿠폰 템플릿 부분 수정 (null이면 기존값 유지, 빈값이면 검증 에러) */
+    public void update(String name, String description, DiscountType discountType, Integer discountValue,
+                       Integer maxDiscountAmount, Integer minOrderAmount) {
+        if (name != null) {
+            if (name.isBlank()) {
+                throw new CoreException(CouponErrorType.INVALID_TEMPLATE_NAME);
+            }
+            this.name = name;
+        }
+        if (description != null) {
+            this.description = description;
+        }
+        if (discountType != null) {
+            this.discountType = discountType;
+        }
+        if (discountValue != null) {
+            this.discountValue = discountValue;
+        }
+        if (maxDiscountAmount != null) {
+            this.maxDiscountAmount = maxDiscountAmount;
+        }
+        if (minOrderAmount != null) {
+            this.minOrderAmount = new Money(minOrderAmount);
+        }
     }
 
     public void delete() {

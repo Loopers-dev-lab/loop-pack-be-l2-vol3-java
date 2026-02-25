@@ -84,11 +84,20 @@ public class Product {
         }
     }
 
-    /** 상품 정보 수정 (이름, 설명, 기본가격) */
-    public void update(String name, String description, int basePrice) {
-        this.name = name;
-        this.description = description;
-        this.basePrice = new Money(basePrice);
+    /** 상품 정보 부분 수정 (null이면 기존값 유지, 빈값이면 검증 에러) */
+    public void update(String name, String description, Integer basePrice) {
+        if (name != null) {
+            if (name.isBlank()) {
+                throw new CoreException(ProductErrorType.INVALID_PRODUCT_NAME);
+            }
+            this.name = name;
+        }
+        if (description != null) {
+            this.description = description;
+        }
+        if (basePrice != null) {
+            this.basePrice = new Money(basePrice);
+        }
         this.updatedAt = ZonedDateTime.now();
     }
 

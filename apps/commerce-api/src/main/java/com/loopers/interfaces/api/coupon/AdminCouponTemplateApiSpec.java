@@ -15,7 +15,7 @@ public interface AdminCouponTemplateApiSpec {
     ApiResponse<AdminCouponTemplateResponse.TemplateDetail> createTemplate(
             String ldap, AdminCouponTemplateRequest.CreateTemplateRequest request);
 
-    @Operation(summary = "쿠폰 템플릿 수정", description = "쿠폰 템플릿을 수정합니다.")
+    @Operation(summary = "쿠폰 템플릿 부분 수정", description = "쿠폰 템플릿을 부분 수정합니다. 전달된 필드만 수정되며, null인 필드는 기존값을 유지합니다.")
     ApiResponse<AdminCouponTemplateResponse.TemplateDetail> updateTemplate(
             String ldap, Long templateId, AdminCouponTemplateRequest.UpdateTemplateRequest request);
 

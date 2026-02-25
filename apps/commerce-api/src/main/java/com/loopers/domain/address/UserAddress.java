@@ -60,13 +60,31 @@ public class UserAddress {
     }
 
     /**
-     * 배송지 정보 수정
+     * 배송지 정보 부분 수정 (null이면 기존값 유지, 빈값이면 검증 에러)
      */
     public void update(String receiverName, String phone,
                        String zipCode, String addressLine1, String addressLine2) {
-        this.receiverName = receiverName;
-        this.phone = phone;
-        this.address = new Address(zipCode, addressLine1, addressLine2);
+        if (receiverName != null) {
+            if (receiverName.isBlank()) {
+                throw new CoreException(UserAddressErrorType.INVALID_RECEIVER_NAME);
+            }
+            this.receiverName = receiverName;
+        }
+        if (phone != null) {
+            if (phone.isBlank()) {
+                throw new CoreException(UserAddressErrorType.INVALID_PHONE);
+            }
+            this.phone = phone;
+        }
+        if (zipCode != null || addressLine1 != null || addressLine2 != null) {
+            String newZipCode = zipCode != null ? zipCode : this.address.getZipCode();
+            String newLine1 = addressLine1 != null ? addressLine1 : this.address.getAddressLine1();
+            String newLine2 = addressLine2 != null ? addressLine2 : this.address.getAddressLine2();
+            if (newZipCode.isBlank() || newLine1.isBlank()) {
+                throw new CoreException(UserAddressErrorType.INVALID_ADDRESS);
+            }
+            this.address = new Address(newZipCode, newLine1, newLine2);
+        }
     }
 
     /**

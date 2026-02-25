@@ -55,9 +55,9 @@ public class ProductService {
         return product;
     }
 
-    /** 상품 정보 수정 (dirty checking으로 반영) */
+    /** 상품 정보 부분 수정 (dirty checking으로 반영) */
     @Transactional
-    public Product update(Long id, String name, String description, int basePrice) {
+    public Product update(Long id, String name, String description, Integer basePrice) {
         Product product = getById(id);
         product.update(name, description, basePrice);
         return product;

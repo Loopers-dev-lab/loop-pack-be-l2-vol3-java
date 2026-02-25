@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -63,15 +63,17 @@ public class AdminCouponTemplateController implements AdminCouponTemplateApiSpec
         return ApiResponse.success(toResponse(result));
     }
 
-    @PutMapping("/{templateId}")
+    @PatchMapping("/{templateId}")
     @Override
     public ApiResponse<AdminCouponTemplateResponse.TemplateDetail> updateTemplate(
             @AuthAdmin String ldap,
             @PathVariable Long templateId,
             @RequestBody AdminCouponTemplateRequest.UpdateTemplateRequest request) {
+        DiscountType discountType = request.discountType() != null
+                ? DiscountType.valueOf(request.discountType()) : null;
         AdminCouponFacade.TemplateDetail result = adminCouponFacade.updateTemplate(
                 templateId, request.name(), request.description(),
-                DiscountType.valueOf(request.discountType()),
+                discountType,
                 request.discountValue(), request.maxDiscountAmount(),
                 request.minOrderAmount());
 

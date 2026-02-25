@@ -71,10 +71,17 @@ public class Brand {
         }
     }
 
-    /** 브랜드 정보 수정 */
+    /** 브랜드 정보 부분 수정 (null이면 기존값 유지, 빈값이면 검증 에러) */
     public void update(String name, String description) {
-        this.name = name;
-        this.description = description;
+        if (name != null) {
+            if (name.isBlank()) {
+                throw new CoreException(BrandErrorType.INVALID_BRAND_NAME);
+            }
+            this.name = name;
+        }
+        if (description != null) {
+            this.description = description;
+        }
         this.updatedAt = ZonedDateTime.now();
     }
 

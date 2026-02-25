@@ -15,7 +15,7 @@ public interface UserAddressApiSpec {
     @Operation(summary = "배송지 등록", description = "배송지를 등록합니다. 첫 번째 주소는 자동으로 기본주소로 설정됩니다.")
     ApiResponse<Object> registerAddress(@AuthUser User user, UserAddressRequest.RegisterAddressRequest request);
 
-    @Operation(summary = "배송지 수정", description = "배송지 정보를 수정합니다.")
+    @Operation(summary = "배송지 부분 수정", description = "배송지 정보를 부분 수정합니다. 전달된 필드만 수정되며, null인 필드는 기존값을 유지합니다.")
     ApiResponse<Object> updateAddress(@AuthUser User user, Long addressId, UserAddressRequest.UpdateAddressRequest request);
 
     @Operation(summary = "배송지 삭제", description = "배송지를 삭제합니다. 기본주소 삭제 시 다른 주소가 기본주소로 전환됩니다.")
