@@ -16,22 +16,16 @@ sequenceDiagram
     actor 고객
     participant LikeV1Controller
     participant LikeApplicationService
-    participant ProductDomainService
     participant LikeDomainService
     participant Like
     participant LikeRepository
-    participant ProductRepository
+    participant ProductDomainService
+    participant Product
 
     Note right of 고객: 인증된 고객
 
     고객->>+LikeV1Controller: 좋아요 등록 요청
     LikeV1Controller->>+LikeApplicationService: 좋아요 등록
-
-    LikeApplicationService->>+ProductDomainService: 상품 조회
-    alt 상품이 존재하지 않거나 삭제됨
-        ProductDomainService-->>고객: 실패
-    end
-    ProductDomainService-->>-LikeApplicationService: 상품
 
     LikeApplicationService->>+LikeDomainService: 좋아요 등록
     LikeDomainService->>+LikeRepository: 중복 좋아요 확인
@@ -44,10 +38,14 @@ sequenceDiagram
     Like-->>-LikeDomainService: 좋아요
     LikeDomainService->>+LikeRepository: 좋아요 저장
     LikeRepository-->>-LikeDomainService: 완료
-    LikeDomainService->>+ProductRepository: 좋아요 수 증가 (원자적 UPDATE)
-    ProductRepository-->>-LikeDomainService: 완료
 
     LikeDomainService-->>-LikeApplicationService: 결과 반환
+
+    LikeApplicationService->>+ProductDomainService: 좋아요 수 증가 (비관적 락)
+    ProductDomainService->>+Product: incrementLikeCount()
+    Product-->>-ProductDomainService: 완료
+    ProductDomainService-->>-LikeApplicationService: 완료
+
     LikeApplicationService-->>-LikeV1Controller: 결과 반환
     LikeV1Controller-->>-고객: 성공
 ```
@@ -187,9 +185,20 @@ sequenceDiagram
     OrderV1Controller->>+OrderApplicationService: 장바구니 주문
 
     OrderApplicationService->>+CartDomainService: 장바구니 조회
-    CartDomainService-->>-OrderApplicationService: 장바구니 항목
+    CartDomainService-->>-OrderApplicationService: 장바구니
     alt 장바구니가 비어있음
         OrderApplicationService-->>고객: 실패
+    end
+
+    OrderApplicationService->>+ProductDomainService: 장바구니 상품 일괄 조회
+    ProductDomainService-->>-OrderApplicationService: 유효한 상품 목록
+
+    alt 유효하지 않은 상품이 포함됨
+        OrderApplicationService->>+CartDomainService: 유효하지 않은 상품 제거
+        CartDomainService-->>-OrderApplicationService: 완료
+        alt 유효한 상품이 하나도 없음
+            OrderApplicationService-->>고객: 실패
+        end
     end
 
     loop 각 장바구니 항목 (productId 순으로 정렬)
@@ -231,7 +240,7 @@ sequenceDiagram
 
 **다이어그램이 필요한 이유**
 - 도메인 간 협력: Brand 삭제가 Product 연쇄 삭제를 트리거한다
-- 삭제 순서: 상품을 먼저 삭제한 뒤 브랜드를 삭제해야 정합성이 유지된다
+- 삭제 순서: 브랜드를 먼저 삭제한 뒤 해당 브랜드의 상품을 삭제한다
 
 ```mermaid
 sequenceDiagram
@@ -248,22 +257,59 @@ sequenceDiagram
     어드민->>+AdminBrandV1Controller: 브랜드 삭제 요청
     AdminBrandV1Controller->>+BrandApplicationService: 브랜드 삭제
 
-    BrandApplicationService->>+BrandDomainService: 브랜드 조회
+    BrandApplicationService->>+BrandDomainService: 브랜드 삭제
+    BrandDomainService->>BrandDomainService: 브랜드 조회
     alt 브랜드가 존재하지 않거나 삭제됨
         BrandDomainService-->>어드민: 실패
     end
-    BrandDomainService-->>-BrandApplicationService: 브랜드
+    BrandDomainService->>+Brand: 논리 삭제 (soft delete)
+    Brand-->>-BrandDomainService: 완료
+    BrandDomainService-->>-BrandApplicationService: 완료
 
     BrandApplicationService->>+ProductDomainService: 해당 브랜드의 상품 전체 삭제
     ProductDomainService->>+Product: 논리 삭제 (soft delete)
     Product-->>-ProductDomainService: 완료
     ProductDomainService-->>-BrandApplicationService: 완료
 
-    BrandApplicationService->>+BrandDomainService: 브랜드 삭제
-    BrandDomainService->>+Brand: 논리 삭제 (soft delete)
-    Brand-->>-BrandDomainService: 완료
-    BrandDomainService-->>-BrandApplicationService: 완료
-
     BrandApplicationService-->>-AdminBrandV1Controller: 결과 반환
     AdminBrandV1Controller-->>-어드민: 성공
+```
+
+---
+
+## 주문 취소
+
+> 시나리오 2.4 — 고객이 주문을 취소한다.
+
+**다이어그램이 필요한 이유**
+- 조건 분기: 주문 상태에 따른 취소 가능 여부 검증
+- 도메인 로직: ORDERED 상태에서만 CANCELLED로 전이 가능
+
+```mermaid
+sequenceDiagram
+    actor 고객
+    participant OrderV1Controller
+    participant OrderApplicationService
+    participant OrderDomainService
+    participant Order
+
+    Note right of 고객: 인증된 고객
+
+    고객->>+OrderV1Controller: 주문 취소 요청
+    OrderV1Controller->>+OrderApplicationService: 주문 취소
+
+    OrderApplicationService->>+OrderDomainService: 주문 조회 (본인 확인)
+    alt 주문이 존재하지 않거나 본인의 주문이 아님
+        OrderDomainService-->>고객: 실패
+    end
+    OrderDomainService-->>-OrderApplicationService: 주문
+
+    OrderApplicationService->>+Order: cancel()
+    alt ORDERED 상태가 아님
+        Order-->>고객: 실패
+    end
+    Order-->>-OrderApplicationService: 완료
+
+    OrderApplicationService-->>-OrderV1Controller: 결과 반환
+    OrderV1Controller-->>-고객: 성공
 ```
