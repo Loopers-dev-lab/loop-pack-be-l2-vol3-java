@@ -6,7 +6,7 @@
 |---|---|---|
 | `@Valid` (DTO) | Fail-Fast 형식 검증 | `@NotNull`, `@NotBlank`, `@Size`, `@Positive`, `@PositiveOrZero` |
 | Entity | 자기 데이터의 모든 비즈니스 검증 | 길이, 범위, 상태 전이 규칙, 불변 조건 |
-| Service | DB 조회가 필요한 검증 | 유일성, 존재 여부, 권한 |
+| ApplicationService | DB 조회가 필요한 검증 | 유일성, 존재 여부, 권한 |
 
 - `@Valid`는 Entity 검증 중 일부를 앞단에서 선처리하는 것 (중복 검증 허용)
 - Entity가 검증의 최종 방어선 — DTO 검증이 빠져도 Entity에서 반드시 잡아야 함

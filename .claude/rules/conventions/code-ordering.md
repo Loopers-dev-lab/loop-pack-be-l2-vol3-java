@@ -5,7 +5,7 @@
 클래스 내 멤버는 **공개 범위 넓은 것 → 좁은 것**, 역할별로 그룹핑한다.
 모든 클래스에서 private 메서드는 최하단에 배치한다.
 
-## 계층별 적용 (Service, Facade, Controller, Repository 등)
+## 계층별 적용 (ApplicationService, Facade, Controller, Repository 등)
 
 - 구분 주석: `// Command` → `// Query` 순서
 - DTO는 `// Command` → `// Query` → `// Response`
@@ -15,7 +15,7 @@
 | Controller | `// Command` → `// Query` | POST/PATCH/DELETE → GET |
 | ApiSpec | `// Command` → `// Query` | Controller와 동일 순서 |
 | Facade | `// Command` → `// Query` | |
-| Service | `// Command` → `// Query` | |
+| ApplicationService | `// Command` → `// Query` | |
 | Repository (interface) | `// Command` → `// Query` | save → find, exists |
 | RepositoryImpl | `// Command` → `// Query` | Repository 인터페이스와 동일 순서 |
 | JpaRepository | `// Query` 만 | 상속 메서드 생략, 직접 정의한 메서드만 기재 |

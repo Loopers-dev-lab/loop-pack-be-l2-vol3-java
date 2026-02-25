@@ -4,8 +4,8 @@
 ```
 com.loopers/
 ├── interfaces/          # REST 컨트롤러, Request/Response DTO
-├── application/         # Facade (오케스트레이션, 트랜잭션 경계), Info DTO
-├── domain/              # Entity, Service, Domain Service, Repository 인터페이스, VO
+├── application/         # Facade, ApplicationService(xxxService), Info DTO
+├── domain/              # Entity, Domain Service, Repository 인터페이스, VO
 ├── infrastructure/      # Repository 구현체, 외부 어댑터
 └── support/             # 횡단 관심사 (에러, 유틸, 글로벌 핸들러)
 ```
@@ -16,13 +16,13 @@ interfaces → application → domain ← infrastructure
 ```
 - domain은 infrastructure를 알지 않음
 - 외부 의존성은 인터페이스로 추상화
-- **도메인 간 의존 규칙**: Service는 자기 도메인만 접근, 크로스 도메인 협력은 반드시 Facade에서
+- **도메인 간 의존 규칙**: ApplicationService는 자기 도메인만 접근, 크로스 도메인 협력은 반드시 Facade에서
 
 ## 핵심 패턴
 
 - **Rich Domain Model**: 비즈니스 로직과 도메인 불변식은 Entity에
-- **Service**: 자기 도메인의 연산 캡슐화 (Repository 접근 + Entity/Domain Service 위임)
-- **Facade**: 여러 도메인 Service 간 오케스트레이션, 트랜잭션 경계
+- **ApplicationService**: 자기 도메인의 유스케이스 캡슐화 (Repository 접근 + Entity/Domain Service 위임)
+- **Facade**: 여러 도메인의 ApplicationService 간 오케스트레이션, 트랜잭션 경계
 - **Repository 패턴**: 인터페이스는 `domain/`, 구현체는 `infrastructure/`
 - **DTO**: Java record 사용 (불변 보장)
 - **Soft Delete**: `deletedAt` 필드 사용
@@ -42,12 +42,14 @@ interfaces → application → domain ← infrastructure
 - 검증 및 예외 처리 규칙은 `conventions/validation.md` 참고
 
 ### Facade (application)
-- 여러 도메인 Service 호출 오케스트레이션
+- 여러 도메인의 ApplicationService 호출 오케스트레이션
 - 트랜잭션 경계 (`@Transactional`)
 - Domain Entity → Info DTO 변환
-- 다른 도메인의 **Service만** 호출 (Repository 직접 호출 금지)
+- 다른 도메인의 **ApplicationService만** 호출 (Repository 직접 호출 금지)
+- Controller는 **항상 Facade만 호출** (일관성 유지, Entity가 Controller에 노출되지 않음)
+- 단일 도메인이어도 Facade 유지 (DTO 변환 책임 + 크로스 도메인 확장 대비)
 
-### Service (domain) — 비즈니스 유스케이스
+### ApplicationService (application) — 유스케이스
 
 - **각 비즈니스 메서드가 조회부터 실행까지 완결적으로 소유한다**
   - 조회를 private 헬퍼로 공유하지 않는다
@@ -70,14 +72,15 @@ interfaces → application → domain ← infrastructure
 - 표현을 위한 조회 전용 서비스
 - 상태 필터링, 정렬, 페이징 등 **쿼리 조건에 자유롭게 포함 가능**
 - 예: `getActiveBrands`, `findProductsByStatus`, `searchByKeyword`
-- 조회가 단순한 도메인은 Service에 포함해도 무방, 복잡해지면 분리
+- 조회가 단순한 도메인은 ApplicationService에 포함해도 무방, 복잡해지면 분리
 
 #### 제약
 
 - 자기 도메인의 Repository + Domain Service만 사용
-- **다른 도메인의 Service 직접 호출 금지** (크로스 도메인은 Facade 책임)
+- **다른 도메인의 ApplicationService 직접 호출 금지** (크로스 도메인은 Facade 책임)
 - **private 메서드 금지**
 - **자가호출 금지**
+- 네이밍: `xxxService` (예: `BrandService`)
 
 ### Domain Service (domain) — 필요할 때만 생성
 - 단일 Entity로 해결 안 되는 비즈니스 로직
@@ -96,8 +99,8 @@ interfaces → application → domain ← infrastructure
 - 구현체는 `infrastructure/` 패키지에 배치
 
 ### 트랜잭션 전략
-- **Service**: 클래스 레벨 `@Transactional(readOnly = true)` 기본 적용
+- **ApplicationService**: 클래스 레벨 `@Transactional(readOnly = true)` 기본 적용
     - 명령 메서드는 메서드 레벨 `@Transactional`로 오버라이드
 - **Facade**: 클래스 레벨 `@Transactional(readOnly = true)` 기본 적용
     - 명령 메서드는 메서드 레벨 `@Transactional`로 오버라이드
-    - Facade가 있으면 Service의 트랜잭션은 기존 트랜잭션에 참여 (REQUIRED)
+    - Facade가 있으면 ApplicationService의 트랜잭션은 기존 트랜잭션에 참여 (REQUIRED)
