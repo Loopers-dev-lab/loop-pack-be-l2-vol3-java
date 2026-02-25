@@ -10,4 +10,5 @@ import java.util.List;
  */
 public interface BrandJpaRepository extends JpaRepository<BrandEntity, Long> {
     List<BrandEntity> findAllByStatusAndDeletedAtIsNull(String status);
+    List<BrandEntity> findAllByIdInAndDeletedAtIsNull(List<Long> ids);
 }

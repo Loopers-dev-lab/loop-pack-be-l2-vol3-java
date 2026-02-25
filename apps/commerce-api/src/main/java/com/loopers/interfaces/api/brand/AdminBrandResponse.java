@@ -11,19 +11,21 @@ import java.util.List;
 /** 브랜드 어드민 API 응답 DTO */
 public class AdminBrandResponse {
 
-    /** 브랜드 상세 정보 (Admin용 - 상태, 생성/수정 시각 포함) */
+    /** 브랜드 상세 정보 (Admin용 - 상태, 생성/수정/삭제 시각 포함) */
     public record BrandDetail(
             Long id,
             String name,
             String description,
             BrandStatus status,
             ZonedDateTime createdAt,
-            ZonedDateTime updatedAt
+            ZonedDateTime updatedAt,
+            ZonedDateTime deletedAt
     ) {
         public static BrandDetail from(BrandInfo info) {
             return new BrandDetail(
                     info.id(), info.name(), info.description(),
-                    info.status(), info.createdAt(), info.updatedAt()
+                    info.status(), info.createdAt(), info.updatedAt(),
+                    info.deletedAt()
             );
         }
     }
@@ -37,7 +39,7 @@ public class AdminBrandResponse {
             int totalPages
     ) {}
 
-    /** 브랜드 상세 + 상품 목록 (어드민용 - status 포함) */
+    /** 브랜드 상세 + 상품 목록 (어드민용 - status, deletedAt 포함) */
     public record BrandDetailWithProducts(
             Long id,
             String name,
@@ -45,6 +47,7 @@ public class AdminBrandResponse {
             BrandStatus status,
             ZonedDateTime createdAt,
             ZonedDateTime updatedAt,
+            ZonedDateTime deletedAt,
             List<ProductSummary> products
     ) {
         public static BrandDetailWithProducts from(BrandInfo brand, List<ProductInfo> products) {
@@ -54,6 +57,7 @@ public class AdminBrandResponse {
             return new BrandDetailWithProducts(
                     brand.id(), brand.name(), brand.description(),
                     brand.status(), brand.createdAt(), brand.updatedAt(),
+                    brand.deletedAt(),
                     productSummaries
             );
         }

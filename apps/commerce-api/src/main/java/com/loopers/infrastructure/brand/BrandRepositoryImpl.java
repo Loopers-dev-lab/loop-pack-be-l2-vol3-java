@@ -64,7 +64,7 @@ public class BrandRepositoryImpl implements BrandRepository {
 
     @Override
     public List<Brand> findAllByIdIn(List<Long> ids) {
-        return brandJpaRepository.findAllById(ids).stream()
+        return brandJpaRepository.findAllByIdInAndDeletedAtIsNull(ids).stream()
             .map(brandMapper::toDomain)  // Entity → Domain
             .collect(Collectors.toList());
     }

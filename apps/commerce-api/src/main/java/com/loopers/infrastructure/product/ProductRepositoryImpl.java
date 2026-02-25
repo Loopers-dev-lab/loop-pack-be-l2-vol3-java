@@ -162,7 +162,7 @@ public class ProductRepositoryImpl implements ProductRepository {
 
     @Override
     public List<Product> findAllByIdIn(List<Long> ids) {
-        return productJpaRepository.findAllById(ids)
+        return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids)
             .stream()
             .map(productMapper::toDomain)
             .toList();

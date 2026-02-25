@@ -11,7 +11,8 @@ public record BrandInfo(
         String description,
         BrandStatus status,
         ZonedDateTime createdAt,
-        ZonedDateTime updatedAt
+        ZonedDateTime updatedAt,
+        ZonedDateTime deletedAt
 ) {
     public static BrandInfo from(Brand brand) {
         if (brand == null) {
@@ -23,7 +24,8 @@ public record BrandInfo(
                 brand.getDescription(),
                 brand.getStatus(),
                 brand.getCreatedAt(),
-                brand.getUpdatedAt()
+                brand.getUpdatedAt(),
+                brand.getDeletedAt()
         );
     }
 }
