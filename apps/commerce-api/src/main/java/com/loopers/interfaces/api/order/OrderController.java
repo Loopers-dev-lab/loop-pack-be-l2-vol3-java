@@ -37,7 +37,8 @@ public class OrderController implements OrderApiSpec {
                 .toList();
 
         Order order = orderFacade.createOrder(
-                user.getId(), user.getName().getValue(), commands, request.addressId());
+                user.getId(), user.getName().getValue(), request.ordererPhone(),
+                commands, request.addressId());
 
         return ApiResponse.success(new OrderResponse.OrderCreateResponse(
                 order.getId(), order.getOrderNumber(), order.getStatus().name(), order.getExpiresAt()));

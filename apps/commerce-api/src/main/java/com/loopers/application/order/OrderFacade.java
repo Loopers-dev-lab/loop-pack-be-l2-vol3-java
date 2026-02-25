@@ -58,19 +58,20 @@ public class OrderFacade {
      * 5. Order(PENDING) + OrderItem 스냅샷 생성
      */
     @Transactional
-    public Order createOrder(Long userId, String userName, List<OrderItemCommand> itemCommands, Long addressId) {
+    public Order createOrder(Long userId, String userName, String ordererPhone,
+                             List<OrderItemCommand> itemCommands, Long addressId) {
         if (itemCommands == null || itemCommands.isEmpty()) {
             throw new CoreException(OrderErrorType.EMPTY_ORDER_ITEMS);
         }
 
         UserAddress address = userAddressService.getAddress(addressId, userId);
 
-        List<OrderItem> orderItems = new ArrayList<>();
         Map<Long, Integer> productQtyMap = itemCommands.stream()
-                .collect(Collectors.toMap(OrderItemCommand::productId, OrderItemCommand::quantity));
+                .collect(Collectors.toMap(OrderItemCommand::productId, OrderItemCommand::quantity, Integer::sum));
 
-        for (OrderItemCommand cmd : itemCommands) {
-            Product product = productService.getDisplayableProduct(cmd.productId());
+        List<OrderItem> orderItems = new ArrayList<>();
+        for (Map.Entry<Long, Integer> entry : productQtyMap.entrySet()) {
+            Product product = productService.getDisplayableProduct(entry.getKey());
             if (product.getStatus() != ProductStatus.ACTIVE) {
                 throw new CoreException(OrderErrorType.NOT_PURCHASABLE);
             }
@@ -82,7 +83,7 @@ public class OrderFacade {
                     product.getName(),
                     brand.getName(),
                     product.getBasePrice(),
-                    cmd.quantity()
+                    entry.getValue()
             ));
         }
 
@@ -92,7 +93,7 @@ public class OrderFacade {
 
         return orderService.create(
                 userId, orderNumber, orderItems,
-                userName, address.getPhone(),
+                userName, ordererPhone,
                 address.getReceiverName(), address.getPhone(),
                 address.getZipCode(), address.getAddressLine1(), address.getAddressLine2()
         );
@@ -109,7 +110,7 @@ public class OrderFacade {
         Order order = orderService.cancel(orderId, userId);
 
         Map<Long, Integer> productQtyMap = order.getItems().stream()
-                .collect(Collectors.toMap(OrderItem::getProductId, OrderItem::getQuantity));
+                .collect(Collectors.toMap(OrderItem::getProductId, OrderItem::getQuantity, Integer::sum));
         inventoryService.releaseAll(productQtyMap);
     }
 

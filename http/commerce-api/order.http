@@ -11,7 +11,8 @@ X-Loopers-LoginPw: Hx7!mK2@
     {"productId": 1, "quantity": 2},
     {"productId": 2, "quantity": 1}
   ],
-  "addressId": 1
+  "addressId": 1,
+  "ordererPhone": "010-1234-5678"
 }
 
 ### 주문 목록 조회

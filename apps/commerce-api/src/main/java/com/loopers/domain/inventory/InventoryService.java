@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 재고 도메인 서비스
@@ -38,31 +39,43 @@ public class InventoryService {
 
     /**
      * 일괄 예약 (비관적 락)
-     * 개별 findByProductIdForUpdate로 비관적 락을 획득한다.
+     * productId 오름차순으로 락을 획득하여 데드락을 방지한다.
      */
     @Transactional
     public void reserveAll(Map<Long, Integer> productQtyMap) {
-        for (Map.Entry<Long, Integer> entry : productQtyMap.entrySet()) {
+        List<Map.Entry<Long, Integer>> sortedEntries = productQtyMap.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .collect(Collectors.toList());
+
+        for (Map.Entry<Long, Integer> entry : sortedEntries) {
             Inventory inventory = inventoryRepository.findByProductIdForUpdate(entry.getKey())
                     .orElseThrow(() -> new CoreException(InventoryErrorType.INVENTORY_NOT_FOUND));
             inventory.reserve(entry.getValue());
         }
     }
 
-    /** 일괄 확정 (결제 완료) */
+    /** 일괄 확정 (결제 완료) — productId 오름차순 락 획득 */
     @Transactional
     public void commitAll(Map<Long, Integer> productQtyMap) {
-        for (Map.Entry<Long, Integer> entry : productQtyMap.entrySet()) {
+        List<Map.Entry<Long, Integer>> sortedEntries = productQtyMap.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .collect(Collectors.toList());
+
+        for (Map.Entry<Long, Integer> entry : sortedEntries) {
             Inventory inventory = inventoryRepository.findByProductIdForUpdate(entry.getKey())
                     .orElseThrow(() -> new CoreException(InventoryErrorType.INVENTORY_NOT_FOUND));
             inventory.commit(entry.getValue());
         }
     }
 
-    /** 일괄 해제 (주문 취소) */
+    /** 일괄 해제 (주문 취소) — productId 오름차순 락 획득 */
     @Transactional
     public void releaseAll(Map<Long, Integer> productQtyMap) {
-        for (Map.Entry<Long, Integer> entry : productQtyMap.entrySet()) {
+        List<Map.Entry<Long, Integer>> sortedEntries = productQtyMap.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .collect(Collectors.toList());
+
+        for (Map.Entry<Long, Integer> entry : sortedEntries) {
             Inventory inventory = inventoryRepository.findByProductIdForUpdate(entry.getKey())
                     .orElseThrow(() -> new CoreException(InventoryErrorType.INVENTORY_NOT_FOUND));
             inventory.release(entry.getValue());

@@ -6,6 +6,7 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.OrderErrorType;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -129,10 +130,13 @@ public class Order {
 
     public void applyDiscount(int discountAmount, int pointUsedAmount, int shippingFee) {
         validatePending();
+        int total = this.subtotalAmount.toInt() - discountAmount - pointUsedAmount + shippingFee;
+        if (total < 0) {
+            throw new CoreException(OrderErrorType.DISCOUNT_EXCEEDS_TOTAL);
+        }
         this.discountAmount = new Money(discountAmount);
         this.pointUsedAmount = new Money(pointUsedAmount);
         this.shippingFee = new Money(shippingFee);
-        int total = this.subtotalAmount.toInt() - discountAmount - pointUsedAmount + shippingFee;
         this.totalAmount = new Money(total);
     }
 
@@ -161,7 +165,7 @@ public class Order {
     }
 
     public List<OrderItem> getItems() {
-        return this.items;
+        return Collections.unmodifiableList(this.items);
     }
 
     public int getSubtotalAmount() {
