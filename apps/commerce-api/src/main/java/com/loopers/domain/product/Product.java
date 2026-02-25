@@ -59,6 +59,23 @@ public class Product extends BaseEntity {
         return new Product(brandId, name, price, stockQuantity, description);
     }
 
+    public void incrementLikeCount() {
+        this.likeCount++;
+    }
+
+    public void decrementLikeCount() {
+        if (this.likeCount > 0) {
+            this.likeCount--;
+        }
+    }
+
+    public void deductStock(int quantity) {
+        if (this.stockQuantity < quantity) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족한 상품이 있습니다");
+        }
+        this.stockQuantity -= quantity;
+    }
+
     public void update(String name, BigDecimal price, Integer stockQuantity, String description) {
         validateNotDeleted();
         if (name != null) {

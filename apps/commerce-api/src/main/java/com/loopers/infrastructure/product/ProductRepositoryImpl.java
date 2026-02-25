@@ -24,6 +24,11 @@ public class ProductRepositoryImpl implements ProductRepository {
 
     // Query
     @Override
+    public List<Product> findAllByIdInForUpdate(List<Long> ids) {
+        return productJpaRepository.findAllByIdInForUpdate(ids);
+    }
+
+    @Override
     public Optional<Product> findById(Long id) {
         return productJpaRepository.findById(id);
     }

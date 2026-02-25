@@ -337,6 +337,38 @@ class ProductTest {
     }
 
     @Nested
+    class 재고_차감 {
+
+        @Test
+        void 재고가_충분하면_차감된다() {
+            Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+
+            product.deductStock(30);
+
+            assertThat(product.getStockQuantity()).isEqualTo(70);
+        }
+
+        @Test
+        void 재고가_정확히_일치하면_0이_된다() {
+            Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+
+            product.deductStock(100);
+
+            assertThat(product.getStockQuantity()).isEqualTo(0);
+        }
+
+        @Test
+        void 재고가_부족하면_예외() {
+            Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 10, "편한 운동화");
+
+            assertThatThrownBy(() -> product.deductStock(11))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
+                    .hasMessageContaining("재고가 부족한 상품이 있습니다");
+        }
+    }
+
+    @Nested
     class 삭제 {
 
         @Test

@@ -11,7 +11,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -46,12 +48,52 @@ public class ProductService {
     }
 
     @Transactional
+    public void incrementLikeCount(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
+        product.incrementLikeCount();
+    }
+
+    @Transactional
+    public void decrementLikeCount(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
+        product.decrementLikeCount();
+    }
+
+    @Transactional
+    public List<Product> deductStocks(Map<Long, Integer> productQuantities) {
+        List<Long> productIds = new ArrayList<>(productQuantities.keySet());
+        List<Product> products = productRepository.findAllByIdInForUpdate(productIds);
+
+        if (products.size() != productIds.size()) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품이 포함되어 있습니다");
+        }
+
+        for (Product product : products) {
+            if (product.isDeleted()) {
+                throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품이 포함되어 있습니다");
+            }
+            product.deductStock(productQuantities.get(product.getId()));
+        }
+
+        return products;
+    }
+
+    @Transactional
     public void deleteAllByBrandId(Long brandId) {
         List<Product> products = productRepository.findAllByBrandId(brandId);
         products.forEach(Product::delete);
     }
 
     // Query
+
+    public Product getActiveProduct(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
+        product.validateNotDeleted();
+        return product;
+    }
 
     public Page<Product> findProducts(String name, Long brandId, Boolean deleted, Pageable pageable) {
         return productRepository.findAll(name, brandId, deleted, pageable);
