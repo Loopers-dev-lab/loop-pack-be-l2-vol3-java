@@ -23,7 +23,6 @@ class CartItemModelTest {
         void create_withValidInputs_shouldSucceed() {
             // when
             CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
-
             // then
             assertThat(item.getUserId()).isEqualTo(USER_ID);
             assertThat(item.getProductId()).isEqualTo(PRODUCT_ID);
@@ -36,7 +35,6 @@ class CartItemModelTest {
         void create_withNullOptionId_shouldSucceed() {
             // when
             CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, null, QUANTITY);
-
             // then
             assertThat(item.getOptionId()).isNull();
             assertThat(item.getQuantity()).isEqualTo(QUANTITY);
@@ -45,6 +43,7 @@ class CartItemModelTest {
         @DisplayName("userId가 null이면 IllegalArgumentException이 발생한다.")
         @Test
         void create_withNullUserId_shouldThrow() {
+            // when & then
             assertThrows(IllegalArgumentException.class, () ->
                 CartItemModel.create(null, PRODUCT_ID, OPTION_ID, QUANTITY));
         }
@@ -52,6 +51,7 @@ class CartItemModelTest {
         @DisplayName("productId가 null이면 IllegalArgumentException이 발생한다.")
         @Test
         void create_withNullProductId_shouldThrow() {
+            // when & then
             assertThrows(IllegalArgumentException.class, () ->
                 CartItemModel.create(USER_ID, null, OPTION_ID, QUANTITY));
         }
@@ -59,6 +59,7 @@ class CartItemModelTest {
         @DisplayName("수량이 0이면 IllegalArgumentException이 발생한다.")
         @Test
         void create_withZeroQuantity_shouldThrow() {
+            // when & then
             assertThrows(IllegalArgumentException.class, () ->
                 CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, 0));
         }
@@ -66,6 +67,7 @@ class CartItemModelTest {
         @DisplayName("수량이 음수면 IllegalArgumentException이 발생한다.")
         @Test
         void create_withNegativeQuantity_shouldThrow() {
+            // when & then
             assertThrows(IllegalArgumentException.class, () ->
                 CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, -1));
         }

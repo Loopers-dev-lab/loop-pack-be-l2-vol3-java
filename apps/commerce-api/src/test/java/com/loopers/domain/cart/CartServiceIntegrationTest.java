@@ -90,6 +90,7 @@ class CartServiceIntegrationTest {
         @DisplayName("존재하지 않는 상품이면 NOT_FOUND 예외가 발생한다.")
         @Test
         void addItem_whenProductNotFound_shouldThrowNotFound() {
+            // when & then
             CoreException ex = assertThrows(CoreException.class, () ->
                 cartService.addItem(TEST_USER_ID, NON_EXISTENT_ID, null, 1));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
@@ -190,6 +191,7 @@ class CartServiceIntegrationTest {
         @DisplayName("항목이 없으면 NOT_FOUND 예외가 발생한다.")
         @Test
         void removeItems_whenNotFound_shouldThrowNotFound() {
+            // when & then
             CoreException ex = assertThrows(CoreException.class, () ->
                 cartService.removeItems(TEST_USER_ID, List.of(NON_EXISTENT_ID)));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);

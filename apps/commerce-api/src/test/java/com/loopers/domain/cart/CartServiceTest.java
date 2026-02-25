@@ -170,14 +170,18 @@ class CartServiceTest {
         @DisplayName("빈 목록이면 아무 작업도 하지 않는다.")
         @Test
         void removeItems_whenEmpty_shouldDoNothing() {
+            // when
             cartService.removeItems(USER_ID, List.of());
+            // then
             verify(cartRepository, never()).delete(any());
         }
 
         @DisplayName("null 목록이면 아무 작업도 하지 않는다.")
         @Test
         void removeItems_whenNull_shouldDoNothing() {
+            // when
             cartService.removeItems(USER_ID, null);
+            // then
             verify(cartRepository, never()).delete(any());
         }
 
