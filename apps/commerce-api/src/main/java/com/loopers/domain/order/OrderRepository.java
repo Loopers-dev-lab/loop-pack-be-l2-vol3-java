@@ -1,0 +1,24 @@
+package com.loopers.domain.order;
+
+import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * 주문 영속성 인터페이스.
+ * 구현체는 infrastructure 레이어에 둔다.
+ */
+public interface OrderRepository {
+
+    Optional<OrderModel> findById(Long orderId);
+
+    OrderModel save(OrderModel order);
+
+    List<OrderModel> findByUserIdAndOrderedAtBetween(
+            Long userId,
+            ZonedDateTime start,
+            ZonedDateTime end,
+            int page,
+            int size
+    );
+}
