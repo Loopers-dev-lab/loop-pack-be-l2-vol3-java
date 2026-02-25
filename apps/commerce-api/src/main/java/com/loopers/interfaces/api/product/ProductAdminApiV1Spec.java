@@ -36,6 +36,12 @@ public interface ProductAdminApiV1Spec {
     // Query
 
     @Operation(
+            summary = "상품 상세 조회",
+            description = "특정 상품의 상세 정보를 조회합니다. 삭제된 상품도 조회할 수 있습니다."
+    )
+    ApiResponse<ProductAdminV1Dto.ProductResponse> detail(Long productId);
+
+    @Operation(
             summary = "상품 목록 조회",
             description = "전체 상품을 검색/필터링하여 페이징 조회합니다."
     )

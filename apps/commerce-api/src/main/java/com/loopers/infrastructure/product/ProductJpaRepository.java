@@ -15,6 +15,8 @@ import java.util.List;
 public interface ProductJpaRepository extends JpaRepository<Product, Long> {
 
     // Query
+    List<Product> findAllByIdIn(List<Long> ids);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Product p WHERE p.id IN :ids")
     List<Product> findAllByIdInForUpdate(@Param("ids") List<Long> ids);

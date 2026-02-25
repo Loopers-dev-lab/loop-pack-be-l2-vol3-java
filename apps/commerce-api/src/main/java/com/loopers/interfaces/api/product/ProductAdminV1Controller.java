@@ -63,6 +63,13 @@ public class ProductAdminV1Controller implements ProductAdminApiV1Spec {
 
     // Query
 
+    @GetMapping("/{productId}")
+    @Override
+    public ApiResponse<ProductAdminV1Dto.ProductResponse> detail(@PathVariable Long productId) {
+        ProductInfo info = productFacade.getDetail(productId);
+        return ApiResponse.success(ProductAdminV1Dto.ProductResponse.from(info));
+    }
+
     @GetMapping
     @Override
     public ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>> list(

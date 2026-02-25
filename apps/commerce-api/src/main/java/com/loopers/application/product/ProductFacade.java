@@ -48,6 +48,12 @@ public class ProductFacade {
 
     // Query
 
+    public ProductInfo getDetail(Long productId) {
+        Product product = productService.getProduct(productId);
+        Brand brand = brandService.getBrand(product.getBrandId());
+        return ProductInfo.from(product, brand.getName());
+    }
+
     public Page<ProductInfo> getList(String name, Long brandId, Boolean deleted, Pageable pageable) {
         Page<Product> products = productService.findProducts(name, brandId, deleted, pageable);
 

@@ -88,6 +88,11 @@ public class ProductService {
 
     // Query
 
+    public Product getProduct(Long productId) {
+        return productRepository.findById(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
+    }
+
     public Product getActiveProduct(Long productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
@@ -97,5 +102,9 @@ public class ProductService {
 
     public Page<Product> findProducts(String name, Long brandId, Boolean deleted, Pageable pageable) {
         return productRepository.findAll(name, brandId, deleted, pageable);
+    }
+
+    public List<Product> getProducts(List<Long> productIds) {
+        return productRepository.findAllByIdIn(productIds);
     }
 }

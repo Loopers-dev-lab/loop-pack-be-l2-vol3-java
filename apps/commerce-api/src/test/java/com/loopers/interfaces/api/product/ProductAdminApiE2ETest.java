@@ -396,6 +396,95 @@ class ProductAdminApiE2ETest {
     }
 
     @Nested
+    class 상품_상세_조회 {
+
+        @Test
+        void 활성_상품을_조회하면_200_응답과_상품_상세_정보를_반환한다() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+
+            ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> response = getDetail(productId);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().id()).isEqualTo(productId),
+                    () -> assertThat(response.getBody().data().brandId()).isEqualTo(brandId),
+                    () -> assertThat(response.getBody().data().brandName()).isEqualTo("나이키"),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("운동화"),
+                    () -> assertThat(response.getBody().data().price()).isEqualByComparingTo(new BigDecimal("50000")),
+                    () -> assertThat(response.getBody().data().stockQuantity()).isEqualTo(100),
+                    () -> assertThat(response.getBody().data().description()).isEqualTo("편한 운동화"),
+                    () -> assertThat(response.getBody().data().likeCount()).isEqualTo(0),
+                    () -> assertThat(response.getBody().data().status()).isEqualTo("ACTIVE"),
+                    () -> assertThat(response.getBody().data().createdAt()).isNotNull(),
+                    () -> assertThat(response.getBody().data().updatedAt()).isNotNull(),
+                    () -> assertThat(response.getBody().data().deletedAt()).isNull()
+            );
+        }
+
+        @Test
+        void 삭제된_상품도_조회할_수_있으며_status가_DELETED로_표시된다() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            deleteProduct(productId);
+
+            ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> response = getDetail(productId);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().id()).isEqualTo(productId),
+                    () -> assertThat(response.getBody().data().status()).isEqualTo("DELETED"),
+                    () -> assertThat(response.getBody().data().deletedAt()).isNotNull()
+            );
+        }
+
+        @Test
+        void 해당_ID의_상품_데이터가_존재하지_않으면_404_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/999", HttpMethod.GET,
+                    new HttpEntity<>(adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
+                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 상품입니다")
+            );
+        }
+
+        @Test
+        void 인증_헤더가_누락되면_401_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1", HttpMethod.GET,
+                    new HttpEntity<>(new HttpHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증 헤더가 필요합니다")
+            );
+        }
+
+        @Test
+        void 인증에_실패하면_401_응답() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-Ldap", "wrong-ldap");
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1", HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증에 실패했습니다")
+            );
+        }
+    }
+
+    @Nested
     class 상품_목록_조회 {
 
         @Test
@@ -655,6 +744,14 @@ class ProductAdminApiE2ETest {
         return testRestTemplate.exchange(
                 ENDPOINT + "/" + productId, HttpMethod.PATCH,
                 new HttpEntity<>(request, adminHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
+    }
+
+    private ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> getDetail(Long productId) {
+        return testRestTemplate.exchange(
+                ENDPOINT + "/" + productId, HttpMethod.GET,
+                new HttpEntity<>(adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
     }
