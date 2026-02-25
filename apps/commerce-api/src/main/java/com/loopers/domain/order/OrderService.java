@@ -54,6 +54,18 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
+    // --- 어드민 기능 ---
+
+    @Transactional(readOnly = true)
+    public List<Order> getAllOrders(int page, int size) {
+        return orderRepository.findAll(page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public long countAllOrders() {
+        return orderRepository.count();
+    }
+
     @Transactional
     public void confirm(Long orderId, Long paymentId, String paymentMethod) {
         Order order = getById(orderId);

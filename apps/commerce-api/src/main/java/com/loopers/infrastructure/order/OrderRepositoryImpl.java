@@ -2,6 +2,8 @@ package com.loopers.infrastructure.order;
 
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderRepository;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 import java.time.ZonedDateTime;
@@ -39,5 +41,19 @@ public class OrderRepositoryImpl implements OrderRepository {
                 .stream()
                 .map(orderMapper::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Order> findAll(int page, int size) {
+        return orderJpaRepository.findAll(PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")))
+                .getContent()
+                .stream()
+                .map(orderMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public long count() {
+        return orderJpaRepository.count();
     }
 }
