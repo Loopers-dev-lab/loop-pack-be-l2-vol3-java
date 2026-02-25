@@ -59,8 +59,34 @@ public class Product extends BaseEntity {
         return new Product(brandId, name, price, stockQuantity, description);
     }
 
+    public void update(String name, BigDecimal price, Integer stockQuantity, String description) {
+        validateNotDeleted();
+        if (name != null) {
+            validateName(name);
+            this.name = name;
+        }
+        if (price != null) {
+            validatePrice(price);
+            this.price = price;
+        }
+        if (stockQuantity != null) {
+            validateStockQuantity(stockQuantity);
+            this.stockQuantity = stockQuantity;
+        }
+        if (description != null) {
+            validateDescription(description);
+            this.description = description;
+        }
+    }
+
     public boolean isDeleted() {
         return getDeletedAt() != null;
+    }
+
+    public void validateNotDeleted() {
+        if (isDeleted()) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다");
+        }
     }
 
     private static void validateBrandId(Long brandId) {

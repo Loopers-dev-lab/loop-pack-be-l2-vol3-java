@@ -39,6 +39,23 @@ public class ProductAdminV1Dto {
     ) {
     }
 
+    public record UpdateRequest(
+            @Size(min = 1, max = 200, message = "상품명은 1~200자여야 합니다")
+            String name,
+
+            @DecimalMin(value = "0", message = "가격은 0 이상이어야 합니다")
+            @DecimalMax(value = "999999999", message = "가격은 999,999,999 이하여야 합니다")
+            BigDecimal price,
+
+            @Min(value = 0, message = "재고 수량은 0 이상이어야 합니다")
+            @Max(value = 9999999, message = "재고 수량은 9,999,999 이하여야 합니다")
+            Integer stockQuantity,
+
+            @Size(max = 1000, message = "상품 설명은 1,000자 이하여야 합니다")
+            String description
+    ) {
+    }
+
     // Response
 
     public record ProductResponse(

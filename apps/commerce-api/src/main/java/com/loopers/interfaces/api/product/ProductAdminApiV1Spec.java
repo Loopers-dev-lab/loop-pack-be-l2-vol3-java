@@ -16,4 +16,13 @@ public interface ProductAdminApiV1Spec {
     ApiResponse<ProductAdminV1Dto.ProductResponse> register(
             ProductAdminV1Dto.RegisterRequest request
     );
+
+    @Operation(
+            summary = "상품 정보 수정",
+            description = "등록된 상품의 정보를 수정합니다. 소속 브랜드는 변경할 수 없습니다."
+    )
+    ApiResponse<ProductAdminV1Dto.ProductResponse> update(
+            Long productId,
+            ProductAdminV1Dto.UpdateRequest request
+    );
 }

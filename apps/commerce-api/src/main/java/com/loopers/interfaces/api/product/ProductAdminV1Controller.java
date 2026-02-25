@@ -5,6 +5,8 @@ import com.loopers.application.product.ProductInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,6 +27,21 @@ public class ProductAdminV1Controller implements ProductAdminApiV1Spec {
             @Valid @RequestBody ProductAdminV1Dto.RegisterRequest request) {
         ProductInfo info = productFacade.register(
                 request.brandId(),
+                request.name(),
+                request.price(),
+                request.stockQuantity(),
+                request.description()
+        );
+        return ApiResponse.success(ProductAdminV1Dto.ProductResponse.from(info));
+    }
+
+    @PatchMapping("/{productId}")
+    @Override
+    public ApiResponse<ProductAdminV1Dto.ProductResponse> update(
+            @PathVariable Long productId,
+            @Valid @RequestBody ProductAdminV1Dto.UpdateRequest request) {
+        ProductInfo info = productFacade.update(
+                productId,
                 request.name(),
                 request.price(),
                 request.stockQuantity(),

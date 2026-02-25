@@ -25,4 +25,11 @@ public class ProductFacade {
         Product product = productService.register(brandId, name, price, stockQuantity, description);
         return ProductInfo.from(product, brand.getName());
     }
+
+    @Transactional
+    public ProductInfo update(Long productId, String name, BigDecimal price, Integer stockQuantity, String description) {
+        Product product = productService.update(productId, name, price, stockQuantity, description);
+        Brand brand = brandService.getBrand(product.getBrandId());
+        return ProductInfo.from(product, brand.getName());
+    }
 }
