@@ -7,6 +7,7 @@ public interface CartItemRepository {
     CartItem save(CartItem cartItem);
     Optional<CartItem> findById(Long id);
     Optional<CartItem> findByUserIdAndProductId(Long userId, Long productId);
+    Optional<CartItem> findByUserIdAndProductIdIncludeDeleted(Long userId, Long productId);
     List<CartItem> findAllByUserId(Long userId);
     List<CartItem> findAllByProductId(Long productId);
     List<CartItem> findAllByIdIn(List<Long> ids);

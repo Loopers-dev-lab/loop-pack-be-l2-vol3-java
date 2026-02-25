@@ -79,6 +79,16 @@ public class CartItem {
         }
     }
 
+    /** 소프트 삭제된 장바구니 아이템 복구 (deletedAt 초기화 + 수량 재설정) */
+    public void restore(int quantity) {
+        if (quantity <= 0) {
+            throw new CoreException(CartItemErrorType.INVALID_QUANTITY);
+        }
+        this.quantity = new Quantity(quantity);
+        this.deletedAt = null;
+        this.updatedAt = ZonedDateTime.now();
+    }
+
     public void validateOwnership(Long userId) {
         if (!this.userId.equals(userId)) {
             throw new CoreException(CartItemErrorType.NOT_OWNER);

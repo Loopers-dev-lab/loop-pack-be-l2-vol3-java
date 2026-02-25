@@ -33,7 +33,7 @@ public class UserEntity {
     @Column(name = "birth_date")
     private LocalDate birthDate;
 
-    @Column(name = "email")
+    @Column(name = "email", unique = true)
     private String email;
 
     @Column(name = "created_at", nullable = false, updatable = false)

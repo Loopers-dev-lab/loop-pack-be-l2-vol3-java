@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.ZonedDateTime;
 
 /**
@@ -13,7 +14,9 @@ import java.time.ZonedDateTime;
  * JPA 어노테이션만 사용
  */
 @Entity
-@Table(name = "cart_items")
+@Table(name = "cart_items", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_cart_items_user_product", columnNames = {"user_id", "product_id"})
+})
 public class CartItemEntity {
 
     @Id

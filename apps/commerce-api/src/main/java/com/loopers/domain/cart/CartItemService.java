@@ -18,10 +18,14 @@ public class CartItemService {
 
     @Transactional
     public CartItem addToCart(Long userId, Long productId, int quantity) {
-        return cartItemRepository.findByUserIdAndProductId(userId, productId)
+        return cartItemRepository.findByUserIdAndProductIdIncludeDeleted(userId, productId)
                 .map(existing -> {
-                    existing.addQuantity(quantity);
-                    return existing;
+                    if (existing.getDeletedAt() != null) {
+                        existing.restore(quantity);
+                    } else {
+                        existing.addQuantity(quantity);
+                    }
+                    return cartItemRepository.save(existing);
                 })
                 .orElseGet(() -> {
                     CartItem cartItem = CartItem.create(userId, productId, quantity);

@@ -41,6 +41,12 @@ public class CartItemRepositoryImpl implements CartItemRepository {
     }
 
     @Override
+    public Optional<CartItem> findByUserIdAndProductIdIncludeDeleted(Long userId, Long productId) {
+        return cartItemJpaRepository.findByUserIdAndProductId(userId, productId)
+            .map(cartItemMapper::toDomain);
+    }
+
+    @Override
     public List<CartItem> findAllByUserId(Long userId) {
         return cartItemJpaRepository.findAllByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId)
             .stream()
