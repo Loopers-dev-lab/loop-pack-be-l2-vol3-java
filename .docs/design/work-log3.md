@@ -176,10 +176,11 @@ round2에서 설계한 4개 도메인(브랜드, 상품, 좋아요, 주문)을 T
 | id | Long | PK |
 | userId | Long | 필수 |
 | productId | Long | 필수 |
-| createdAt | ZonedDateTime | 자동 |
+| createdAt | ZonedDateTime | 자동 (`@PrePersist`) |
 
-- **BaseEntity 상속하지 않음** (hard delete 정책)
-- `(userId, productId)` 복합 UNIQUE 제약
+- **BaseEntity 상속하지 않음** — Brand/Product와 달리 **hard delete** 정책
+- `(userId, productId)` 복합 UNIQUE 제약 → `@UniqueConstraint`로 선언
+- createdAt만 존재 (updatedAt, deletedAt 없음)
 
 ### API 목록
 
@@ -187,25 +188,154 @@ round2에서 설계한 4개 도메인(브랜드, 상품, 좋아요, 주문)을 T
 |------|--------|-----|------|
 | 사용자 | POST | `/api/v1/products/{productId}/likes` | 좋아요 등록 |
 | 사용자 | DELETE | `/api/v1/products/{productId}/likes` | 좋아요 취소 |
-| 사용자 | GET | `/api/v1/users/{userId}/likes` | 내 좋아요 목록 조회 |
+| 사용자 | GET | `/api/v1/users/me/likes` | 내 좋아요 목록 조회 |
+
+- 인증: `X-Loopers-LoginId` / `X-Loopers-LoginPw` 헤더
+- `/me` 패턴 — 로그인한 본인의 목록만 조회 가능, 타인 접근 시나리오 자체 없음
+
+### 구현 컴포넌트
+
+#### 신규 파일
+
+| 파일 | 패키지 | 설명 |
+|------|--------|------|
+| `Like.java` | `domain/like/` | 엔티티 (BaseEntity 미상속) |
+| `LikeRepository.java` | `domain/like/` | 인터페이스 |
+| `LikeJpaRepository.java` | `infrastructure/like/` | extends JpaRepository |
+| `LikeRepositoryImpl.java` | `infrastructure/like/` | 구현체 |
+| `LikeInfo.java` | `application/like/` | record (id, userId, productId, createdAt) |
+| `LikeService.java` | `application/like/` | register, cancel, getLikesByUserId, deleteAllByProductIds |
+| `LikeFacade.java` | `application/like/` | ProductService 조율 (상품 유효성 검증) |
+| `LikeV1Dto.java` | `interfaces/api/like/` | LikeResponse record |
+| `LikeV1Controller.java` | `interfaces/api/like/` | 사용자 API |
+
+#### 기존 파일 수정
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `BrandFacade.java` | `delete()` — 좋아요 연쇄 삭제 추가 (`LikeService.deleteAllByProductIds`) |
+| `ProductService.java` | `getProductIdsByBrandId()` 메서드 추가 (BrandFacade에서 사용) |
+| `ErrorType.java` | `ALREADY_LIKED` (BAD_REQUEST) 추가 |
 
 ### 구현 태스크
 
-- [ ] Like 엔티티 (BaseEntity 미상속, 직접 필드 정의) ← **미구현**
-- [ ] LikeRepository 인터페이스 + JPA 구현체 ← **미구현**
-- [ ] LikeService (등록, 취소, 목록 조회, 브랜드/상품 삭제 시 일괄 삭제) ← **미구현**
-- [ ] 사용자 API (Controller, DTO) ← **미구현**
-- [ ] 단위 테스트 ← **미구현**
-- [ ] E2E 테스트 ← **미구현**
-- [ ] `http/commerce-api/like-v1.http` 파일 작성 ← **미작성**
+- [x] Like 엔티티 (BaseEntity 미상속, 직접 필드 정의)
+- [x] LikeRepository 인터페이스 + JPA 구현체
+- [x] LikeService (등록, 취소, 목록 조회, 일괄 삭제)
+- [x] LikeFacade (ProductService로 상품 유효성 검증)
+- [x] 사용자 API (Controller, DTO)
+- [x] BrandFacade.delete() 연쇄 삭제 확장
+- [x] ProductService.getProductIdsByBrandId() 추가
+- [x] 단위 테스트 — `InMemoryLikeRepository` (save + findByUserIdAndProductId만), `LikeServiceTest` (ALREADY_LIKED guard 1건)
+- [x] E2E 테스트 (LikeV1ApiE2ETest)
+- [x] `http/commerce-api/like-v1.http` 파일 작성
+
+### 구현 중 추가 변경 사항
+
+- `ErrorType.ALREADY_LIKED` 추가 (BAD_REQUEST) — 중복 좋아요 시 명확한 에러 코드 반환
+- `UserService.getUserId(loginId, loginPw): Long` 추가 — 자격증명 검증 후 userId 반환 (UserInfo에 id 추가 없이 처리)
+- `AdminBrandV1ApiE2ETest`에 좋아요 연쇄 삭제 케이스 추가
+- `BrandFacadeTest` — 좋아요 연쇄 삭제 케이스는 E2E로 이관, `LikeService`는 `mock(LikeService.class)`로 생성자 채움
+- 좋아요 목록 조회 URL 변경: `GET /api/v1/users/{userId}/likes` → `GET /api/v1/users/me/likes`
+- `LikeTest.java` 삭제 — Like 엔티티에 guard 로직 없어 유의미한 단위 테스트 불가
+- 좋아요 취소 멱등화 — 미존재 취소 시 NOT_FOUND → 200 OK (DELETE 멱등 원칙)
+
+### 구현 순서 (TDD)
+
+```
+1. LikeTest (Red) → Like 엔티티 (Green)
+2. InMemoryLikeRepository 작성
+3. LikeServiceTest (Red) → LikeService + LikeInfo (Green)
+4. LikeRepositoryImpl + LikeJpaRepository
+5. LikeFacade
+6. LikeV1Controller + LikeV1Dto
+7. ProductService.getProductIdsByBrandId() 추가
+8. BrandFacade.delete() 수정 — LikeService 연쇄 삭제
+9. LikeV1ApiE2ETest
+10. like-v1.http
+```
+
+### 설계 고민
+
+#### /me URL 패턴 채택 이유
+
+초기 설계: `GET /api/v1/users/{userId}/likes`
+→ 변경: `GET /api/v1/users/me/likes`
+
+이유:
+- `{userId}`가 DB PK 노출 (IDOR 위험)
+- 소유권 비교 로직(`requesterId.equals(userId)`) 필요 → 복잡도 증가
+- 어차피 본인 목록만 조회 가능하므로 pathVariable 자체가 불필요
+- 기존 `/api/v1/users/me` 패턴과 일관성
+
+#### 취소 멱등화 (NOT_FOUND → 200 OK)
+
+REST DELETE는 멱등이 원칙. 이미 없는 리소스에 DELETE해도 결과가 동일하면 200/204 반환이 자연스럽다. 좋아요 취소 실패가 비즈니스적으로 중요한 오류가 아니므로 에러 대신 무시하는 방향으로 결정.
+
+#### likeCount 미구현 — 설계 고민
+
+상품 조회 시 좋아요 수 노출이 필요하나 현재 미구현. 검토한 선택지:
+
+| 방식 | 정합성 | 성능 | 복잡도 |
+|------|--------|------|--------|
+| 실시간 COUNT | 완벽 | 낮음 | 낮음 |
+| Product.likeCount 카운터 | 관리 필요 | 높음 | 중간 |
+| Redis 카운터 | 최종 일관성 | 매우 높음 | 높음 |
+
+`Product.likeCount`는 denormalized cache — `likes` 테이블이 source of truth이고 카운터는 파생 데이터. 같은 트랜잭션 안에서 관리하면 정합성 유지 가능하나, 브랜드 삭제 시 cascade 삭제 등에서 감산 누락 위험. 좋아요 수는 approximate count로 허용되는 서비스가 대부분.
+
+→ **TODO**: `Product.likeCount` 카운터 컬럼 방향으로 구현 예정
+
+#### 인증 방식 한계
+
+현재 구조: Controller에서 `X-Loopers-LoginId` + `X-Loopers-LoginPw` 헤더를 직접 받아 `UserService.getUserId()` 호출. 이는 임시방편으로, 인증 책임이 Controller 레이어에 산재되어 있음.
+
+올바른 방향: `HandlerInterceptor` + `ArgumentResolver`로 인증 분리 → `@LoginUser Long userId`로 주입. 완료 시 Controller에서 `UserService` 의존 제거 가능.
+
+→ **TODO**: HandlerInterceptor + ArgumentResolver 구현 예정
+
+#### BrandFacadeTest에서 LikeService mock 사용 이유
+
+`BrandFacade` 생성자가 `LikeService`를 필수 의존성으로 받음. `BrandFacadeTest`는 brand/product soft delete만 검증하고 좋아요 cascade는 `AdminBrandV1ApiE2ETest`에서 커버. 관심사와 무관한 의존성을 채우기 위해 `mock(LikeService.class)` 사용.
+
+---
+
+### 설계 결정 사항
+
+#### Brand/Product와의 차이
+
+| 항목 | Brand / Product | Like |
+|------|-----------------|------|
+| BaseEntity 상속 | O (soft delete) | X (hard delete) |
+| 타임스탬프 | createdAt, updatedAt, deletedAt | createdAt만 |
+| 복합 UNIQUE | 없음 | (userId, productId) |
+| Facade 역할 | 도메인 조율 | 상품 유효성 검증 |
+
+#### LikeFacade 책임
+
+```
+register:            ProductService.getVisibleProduct() 검증 → LikeService.register()
+cancel:              LikeService.cancel() 직접 위임
+getLikesByUserId:    LikeService.getLikesByUserId() 직접 위임
+```
+
+#### BrandFacade.delete() 연쇄 삭제 흐름
+
+```
+BrandFacade.delete(brandId)
+  1. productService.getProductIdsByBrandId(brandId)  ← 신규 메서드
+  2. likeService.deleteAllByProductIds(productIds)    ← hard delete
+  3. productService.deleteAllByBrandId(brandId)       ← soft delete
+  4. brandService.delete(brandId)                     ← soft delete
+```
 
 ### 비즈니스 규칙
 
-- 같은 상품에 중복 좋아요 불가 → 오류
-- 좋아요하지 않은 상품에 취소 요청 → 오류
+- 같은 상품에 중복 좋아요 불가 → BAD_REQUEST
+- 좋아요하지 않은 상품에 취소 요청 → 200 OK (멱등, 무시)
+- HIDDEN / 삭제된 상품에 좋아요 등록 시 → NOT_FOUND
 - 좋아요/취소는 본인만 가능
 - 취소 시 이력 미보존 (hard delete)
-- 삭제된 상품의 좋아요는 목록에서 제외
 
 ---
 
@@ -707,3 +837,46 @@ assertThat(response.getBody().data().name()).isEqualTo(brandName);
 // ❌
 assertThat(response.getBody().data().name()).isEqualTo("나이키");
 ```
+
+---
+
+## TODO
+
+### 1. 인증 — HandlerInterceptor + ArgumentResolver
+
+**현재 문제:**
+- `X-Loopers-LoginId` + `X-Loopers-LoginPw` 헤더 처리가 각 Controller에 분산
+- Controller마다 `UserService.getUserId(loginId, loginPw)` 호출 반복
+- 인증 책임이 Controller 레이어에 산재
+
+**목표 구조:**
+```java
+// Controller
+public ApiResponse<...> register(
+    @LoginUser Long userId,   // ArgumentResolver가 인증 후 주입
+    @PathVariable Long productId
+) { ... }
+```
+
+**구현 내용:**
+- `HandlerInterceptor` — 헤더 존재 여부 + 자격증명 검증
+- `LoginUserArgumentResolver` — `@LoginUser` 어노테이션으로 userId 주입
+- 완료 시 `LikeV1Controller`, `UserV1Controller` 등에서 `UserService` 의존 제거
+
+---
+
+### 2. likeCount — 상품 좋아요 수 카운터
+
+**현재 문제:**
+- `Product` 엔티티에 `likeCount` 필드 없음
+- 상품 조회 시 좋아요 수 반환 불가
+
+**구현 방향:** `Product.likeCount` 카운터 컬럼
+
+**구현 내용:**
+- `Product.likeCount` 필드 추가 (기본값 0)
+- `LikeService.register()` → `ProductService.incrementLikeCount(productId)`
+- `LikeService.cancel()` → `ProductService.decrementLikeCount(productId)`
+- 브랜드 삭제 시 좋아요 cascade 삭제 → likeCount 감산 처리 (`BrandFacade` 수정)
+- `ProductInfo`, `ProductV1Dto` 등 응답 DTO에 `likeCount` 포함
+- 동시성 고민: `@Version` 낙관적 락 적용 여부 결정 필요

@@ -1,9 +1,14 @@
 package com.loopers.interfaces.api;
 
 import com.loopers.domain.brand.Brand;
+import com.loopers.domain.like.Like;
 import com.loopers.domain.product.Product;
+import com.loopers.domain.user.User;
+import com.loopers.domain.user.UserFixture;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
+import com.loopers.infrastructure.like.LikeJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
+import com.loopers.infrastructure.user.UserJpaRepository;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.brand.dto.BrandV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
@@ -36,6 +41,8 @@ class AdminBrandV1ApiE2ETest {
     private final TestRestTemplate testRestTemplate;
     private final BrandJpaRepository brandJpaRepository;
     private final ProductJpaRepository productJpaRepository;
+    private final LikeJpaRepository likeJpaRepository;
+    private final UserJpaRepository userJpaRepository;
     private final DatabaseCleanUp databaseCleanUp;
 
     @Autowired
@@ -43,11 +50,15 @@ class AdminBrandV1ApiE2ETest {
             TestRestTemplate testRestTemplate,
             BrandJpaRepository brandJpaRepository,
             ProductJpaRepository productJpaRepository,
+            LikeJpaRepository likeJpaRepository,
+            UserJpaRepository userJpaRepository,
             DatabaseCleanUp databaseCleanUp
     ) {
         this.testRestTemplate = testRestTemplate;
         this.brandJpaRepository = brandJpaRepository;
         this.productJpaRepository = productJpaRepository;
+        this.likeJpaRepository = likeJpaRepository;
+        this.userJpaRepository = userJpaRepository;
         this.databaseCleanUp = databaseCleanUp;
     }
 
@@ -204,6 +215,23 @@ class AdminBrandV1ApiE2ETest {
                 () -> assertThat(productJpaRepository.findById(product1.getId()).orElseThrow().getDeletedAt()).isNotNull(),
                 () -> assertThat(productJpaRepository.findById(product2.getId()).orElseThrow().getDeletedAt()).isNotNull()
             );
+        }
+
+        @DisplayName("브랜드를 삭제하면, 소속 상품의 좋아요도 모두 hard delete 처리된다.")
+        @Test
+        void hardDeletesAllLikes_whenBrandIsDeleted() {
+            // arrange
+            Brand brand = saveBrand("나이키", "스포츠 브랜드");
+            Product product = saveProduct(brand.getId(), "에어맥스");
+            User user = userJpaRepository.save(UserFixture.builder().loginId("brandDeleteUser").build());
+            likeJpaRepository.save(Like.create(user.getId(), product.getId()));
+            HttpEntity<Void> entity = new HttpEntity<>(adminHeaders());
+
+            // act
+            testRestTemplate.exchange(ENDPOINT + "/" + brand.getId(), HttpMethod.DELETE, entity, new ParameterizedTypeReference<>() {});
+
+            // assert
+            assertThat(likeJpaRepository.findByUserIdAndProductId(user.getId(), product.getId())).isEmpty();
         }
     }
 

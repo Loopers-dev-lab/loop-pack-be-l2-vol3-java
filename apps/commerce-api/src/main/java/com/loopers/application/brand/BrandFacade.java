@@ -1,5 +1,6 @@
 package com.loopers.application.brand;
 
+import com.loopers.application.like.LikeService;
 import com.loopers.application.product.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -7,11 +8,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @Service
 public class BrandFacade {
     private final BrandService brandService;
     private final ProductService productService;
+    private final LikeService likeService;
 
     public BrandInfo register(String name, String description) {
         return brandService.register(name, description);
@@ -31,6 +35,8 @@ public class BrandFacade {
 
     @Transactional
     public void delete(Long brandId) {
+        List<Long> productIds = productService.getProductIdsByBrandId(brandId);
+        likeService.deleteAllByProductIds(productIds);
         productService.deleteAllByBrandId(brandId);
         brandService.delete(brandId);
     }

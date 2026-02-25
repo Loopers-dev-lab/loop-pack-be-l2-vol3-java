@@ -85,9 +85,10 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public List<ProductInfo> getProductsByIds(List<Long> ids) {
+    public List<ProductInfo> getVisibleProductsByIds(List<Long> ids) {
         return productRepository.findAllByIdInAndDeletedAtIsNull(ids)
                                 .stream()
+                                .filter(p -> p.getVisibility() == Product.Visibility.VISIBLE)
                                 .map(ProductInfo::from)
                                 .toList();
     }
