@@ -5,6 +5,8 @@ import com.loopers.domain.order.Order;
 import com.loopers.domain.user.User;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthUser;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.OrderErrorType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,13 +34,26 @@ public class OrderController implements OrderApiSpec {
     public ApiResponse<OrderResponse.OrderCreateResponse> createOrder(
             @AuthUser User user,
             @RequestBody OrderRequest.CreateOrderRequest request) {
-        List<OrderFacade.OrderItemCommand> commands = request.items().stream()
-                .map(item -> new OrderFacade.OrderItemCommand(item.productId(), item.quantity()))
-                .toList();
+        Order order;
 
-        Order order = orderFacade.createOrder(
-                user.getId(), user.getName().getValue(), request.ordererPhone(),
-                commands, request.addressId());
+        boolean hasCartItems = request.cartItemIds() != null && !request.cartItemIds().isEmpty();
+        boolean hasItems = request.items() != null && !request.items().isEmpty();
+
+        if (hasCartItems) {
+            order = orderFacade.createOrderFromCart(
+                    user.getId(), user.getName().getValue(), request.ordererPhone(),
+                    request.cartItemIds(), request.addressId());
+        } else if (hasItems) {
+            List<OrderFacade.OrderItemCommand> commands = request.items().stream()
+                    .map(item -> new OrderFacade.OrderItemCommand(item.productId(), item.quantity()))
+                    .toList();
+            order = orderFacade.createOrder(
+                    user.getId(), user.getName().getValue(), request.ordererPhone(),
+                    commands, request.addressId());
+        } else {
+            throw new CoreException(
+                    OrderErrorType.EMPTY_ORDER_ITEMS);
+        }
 
         return ApiResponse.success(new OrderResponse.OrderCreateResponse(
                 order.getId(), order.getOrderNumber(), order.getStatus().name(), order.getExpiresAt()));

@@ -8,8 +8,6 @@ import com.loopers.domain.inventory.Inventory;
 import com.loopers.domain.inventory.InventoryService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
-import com.loopers.domain.product.ProductStatus;
-import com.loopers.support.error.CartItemErrorType;
 import com.loopers.support.error.CoreException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -84,9 +82,7 @@ public class CartItemFacade {
     @Transactional
     public void addToCart(Long userId, Long productId, int quantity) {
         Product product = productService.getDisplayableProduct(productId);
-        if (product.getStatus() != ProductStatus.ACTIVE) {
-            throw new CoreException(CartItemErrorType.NOT_PURCHASABLE);
-        }
+        product.assertPurchasable();
         cartItemService.addToCart(userId, productId, quantity);
     }
 

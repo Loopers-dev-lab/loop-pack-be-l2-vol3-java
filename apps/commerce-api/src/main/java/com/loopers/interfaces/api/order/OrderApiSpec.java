@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @Tag(name = "Order API", description = "주문 API")
 public interface OrderApiSpec {
 
-    @Operation(summary = "주문 생성", description = "상품을 주문합니다. 재고 예약 후 PENDING 상태로 생성됩니다.")
+    @Operation(summary = "주문 생성", description = "상품을 주문합니다. items(직접 주문) 또는 cartItemIds(장바구니 기반 주문) 중 하나를 전달합니다. 장바구니 기반 주문 시 해당 장바구니 아이템이 삭제됩니다.")
     ApiResponse<OrderResponse.OrderCreateResponse> createOrder(
             @AuthUser User user, OrderRequest.CreateOrderRequest request);
 

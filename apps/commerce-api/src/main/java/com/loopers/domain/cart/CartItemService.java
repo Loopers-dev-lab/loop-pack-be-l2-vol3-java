@@ -50,6 +50,27 @@ public class CartItemService {
         return cartItemRepository.findAllByUserId(userId);
     }
 
+    /** ID 목록으로 장바구니 아이템 조회 + 소유권 검증 */
+    @Transactional(readOnly = true)
+    public List<CartItem> getCartItemsByIds(List<Long> cartItemIds, Long userId) {
+        List<CartItem> cartItems = cartItemRepository.findAllByIdIn(cartItemIds);
+        if (cartItems.size() != cartItemIds.size()) {
+            throw new CoreException(CartItemErrorType.CART_ITEM_NOT_FOUND);
+        }
+        cartItems.forEach(item -> item.validateOwnership(userId));
+        return cartItems;
+    }
+
+    /** 장바구니 아이템 일괄 소프트 삭제 (주문 전환 시) */
+    @Transactional
+    public void deleteAll(List<Long> cartItemIds, Long userId) {
+        List<CartItem> cartItems = cartItemRepository.findAllByIdIn(cartItemIds);
+        cartItems.forEach(item -> {
+            item.validateOwnership(userId);
+            item.delete();
+        });
+    }
+
     /** 상품 삭제 시 해당 상품을 참조하는 장바구니 아이템 일괄 소프트 삭제 */
     @Transactional
     public void deleteByProductId(Long productId) {

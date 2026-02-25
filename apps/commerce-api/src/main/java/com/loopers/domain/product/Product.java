@@ -130,6 +130,13 @@ public class Product {
         return this.status == ProductStatus.ACTIVE || this.status == ProductStatus.SOLDOUT;
     }
 
+    /** 구매 가능한 상태인지 단언 (ACTIVE만 구매 가능) */
+    public void assertPurchasable() {
+        if (this.status != ProductStatus.ACTIVE) {
+            throw new CoreException(ProductErrorType.NOT_PURCHASABLE);
+        }
+    }
+
     public void incrementLikeCount() {
         this.likeCount++;
         this.updatedAt = ZonedDateTime.now();

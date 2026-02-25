@@ -14,4 +14,6 @@ public interface CartItemJpaRepository extends JpaRepository<CartItemEntity, Lon
     List<CartItemEntity> findAllByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long userId);
 
     List<CartItemEntity> findAllByProductIdAndDeletedAtIsNull(Long productId);
+
+    List<CartItemEntity> findAllByIdInAndDeletedAtIsNull(List<Long> ids);
 }

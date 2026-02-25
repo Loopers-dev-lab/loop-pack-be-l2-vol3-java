@@ -55,4 +55,12 @@ public class CartItemRepositoryImpl implements CartItemRepository {
             .map(cartItemMapper::toDomain)
             .toList();
     }
+
+    @Override
+    public List<CartItem> findAllByIdIn(List<Long> ids) {
+        return cartItemJpaRepository.findAllByIdInAndDeletedAtIsNull(ids)
+            .stream()
+            .map(cartItemMapper::toDomain)
+            .toList();
+    }
 }

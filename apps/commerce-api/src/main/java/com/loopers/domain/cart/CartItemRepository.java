@@ -9,4 +9,5 @@ public interface CartItemRepository {
     Optional<CartItem> findByUserIdAndProductId(Long userId, Long productId);
     List<CartItem> findAllByUserId(Long userId);
     List<CartItem> findAllByProductId(Long productId);
+    List<CartItem> findAllByIdIn(List<Long> ids);
 }

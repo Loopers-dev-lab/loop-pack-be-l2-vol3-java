@@ -4,13 +4,14 @@ import com.loopers.domain.address.UserAddress;
 import com.loopers.domain.address.UserAddressService;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.cart.CartItem;
+import com.loopers.domain.cart.CartItemService;
 import com.loopers.domain.inventory.InventoryService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
-import com.loopers.domain.product.ProductStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.OrderErrorType;
 import org.springframework.stereotype.Component;
@@ -26,8 +27,8 @@ import java.util.stream.Collectors;
 /**
  * 주문 Facade
  *
- * Order + Address + Product + Brand + Inventory 도메인 서비스를 조합하여
- * 주문 생성(F-11)과 주문 취소(F-16)를 처리한다.
+ * Order + Address + Product + Brand + Inventory + Cart 도메인 서비스를 조합하여
+ * 주문 생성, 장바구니 기반 주문 생성, 주문 취소를 처리한다.
  */
 @Component
 public class OrderFacade {
@@ -37,15 +38,17 @@ public class OrderFacade {
     private final ProductService productService;
     private final BrandService brandService;
     private final InventoryService inventoryService;
+    private final CartItemService cartItemService;
 
     public OrderFacade(OrderService orderService, UserAddressService userAddressService,
                        ProductService productService, BrandService brandService,
-                       InventoryService inventoryService) {
+                       InventoryService inventoryService, CartItemService cartItemService) {
         this.orderService = orderService;
         this.userAddressService = userAddressService;
         this.productService = productService;
         this.brandService = brandService;
         this.inventoryService = inventoryService;
+        this.cartItemService = cartItemService;
     }
 
     /**
@@ -72,9 +75,7 @@ public class OrderFacade {
         List<OrderItem> orderItems = new ArrayList<>();
         for (Map.Entry<Long, Integer> entry : productQtyMap.entrySet()) {
             Product product = productService.getDisplayableProduct(entry.getKey());
-            if (product.getStatus() != ProductStatus.ACTIVE) {
-                throw new CoreException(OrderErrorType.NOT_PURCHASABLE);
-            }
+            product.assertPurchasable();
 
             Brand brand = brandService.getById(product.getBrandId());
 
@@ -97,6 +98,34 @@ public class OrderFacade {
                 address.getReceiverName(), address.getPhone(),
                 address.getZipCode(), address.getAddressLine1(), address.getAddressLine2()
         );
+    }
+
+    /**
+     * 장바구니 기반 주문 생성
+     *
+     * 1. 장바구니 아이템 조회 + 소유권 검증
+     * 2. CartItem → OrderItemCommand 변환
+     * 3. 기존 주문 생성 로직 재사용 (상품 검증 → 재고 예약 → Order 생성)
+     * 4. 주문 성공 시 장바구니 아이템 소프트 삭제
+     */
+    @Transactional
+    public Order createOrderFromCart(Long userId, String userName, String ordererPhone,
+                                     List<Long> cartItemIds, Long addressId) {
+        if (cartItemIds == null || cartItemIds.isEmpty()) {
+            throw new CoreException(OrderErrorType.EMPTY_ORDER_ITEMS);
+        }
+
+        List<CartItem> cartItems = cartItemService.getCartItemsByIds(cartItemIds, userId);
+
+        List<OrderItemCommand> itemCommands = cartItems.stream()
+                .map(item -> new OrderItemCommand(item.getProductId(), item.getQuantity()))
+                .toList();
+
+        Order order = createOrder(userId, userName, ordererPhone, itemCommands, addressId);
+
+        cartItemService.deleteAll(cartItemIds, userId);
+
+        return order;
     }
 
     /**

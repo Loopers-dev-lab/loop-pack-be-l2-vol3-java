@@ -6,6 +6,7 @@ public class OrderRequest {
 
     public record CreateOrderRequest(
             List<OrderItemRequest> items,
+            List<Long> cartItemIds,
             Long addressId,
             String ordererPhone
     ) {}
