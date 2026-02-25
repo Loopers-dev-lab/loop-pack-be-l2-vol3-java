@@ -24,8 +24,10 @@ public class InMemoryLikeRepository implements LikeRepository {
     }
 
     @Override
-    public void deleteByUserIdAndProductId(Long userId, Long productId) {
+    public int deleteByUserIdAndProductId(Long userId, Long productId) {
+        int before = store.size();
         store.removeIf(l -> l.getUserId().equals(userId) && l.getProductId().equals(productId));
+        return before - store.size();
     }
 
     @Override

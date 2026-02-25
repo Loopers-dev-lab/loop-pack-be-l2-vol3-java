@@ -29,6 +29,9 @@ public class Product extends BaseEntity {
     @Column(nullable = false)
     private Integer stockQuantity;
 
+    @Column(nullable = false)
+    private Integer likeCount = 0;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Visibility visibility;
@@ -64,6 +67,16 @@ public class Product extends BaseEntity {
 
     public void changeVisibility(Visibility visibility) {
         this.visibility = visibility;
+    }
+
+    public void increaseLikeCount() {
+        this.likeCount++;
+    }
+
+    public void decreaseLikeCount() {
+        if (this.likeCount > 0) {
+            this.likeCount--;
+        }
     }
 
     public void decreaseStock(int quantity) {

@@ -6,6 +6,8 @@ import com.loopers.application.product.ProductService;
 import com.loopers.domain.like.InMemoryLikeRepository;
 import com.loopers.domain.product.InMemoryProductRepository;
 import com.loopers.domain.product.Product;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class LikeFacadeTest {
 
@@ -30,6 +33,78 @@ public class LikeFacadeTest {
         likeService = new LikeService(likeRepository);
         productService = new ProductService(productRepository);
         likeFacade = new LikeFacade(likeService, productService);
+    }
+
+    @DisplayName("좋아요 등록 시, ")
+    @Nested
+    class Register {
+
+        @DisplayName("성공하면 상품 likeCount가 1 증가한다.")
+        @Test
+        void increases_like_count_by_1_on_success() {
+            // arrange
+            long userId = 1L;
+            ProductInfo product = productService.register(new ProductCreateCommand(1L, "에어맥스", "신발", 150000, 10));
+
+            // act
+            likeFacade.register(userId, product.id());
+
+            // assert
+            assertThat(productService.getProduct(product.id()).likeCount()).isEqualTo(1);
+        }
+
+        @DisplayName("이미 좋아요한 상품이면 예외가 발생한다.")
+        @Test
+        void throws_when_already_liked() {
+            // arrange
+            long userId = 1L;
+            ProductInfo product = productService.register(new ProductCreateCommand(1L, "에어맥스", "신발", 150000, 10));
+            likeFacade.register(userId, product.id());
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                likeFacade.register(userId, product.id());
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.ALREADY_LIKED);
+        }
+    }
+
+    @DisplayName("좋아요 취소 시, ")
+    @Nested
+    class Cancel {
+
+        @DisplayName("좋아요가 있을 때 취소하면 likeCount가 1 감소한다.")
+        @Test
+        void decreases_like_count_by_1_when_like_exists() {
+            // arrange
+            long userId = 1L;
+            ProductInfo product = productService.register(new ProductCreateCommand(1L, "에어맥스", "신발", 150000, 10));
+            likeFacade.register(userId, product.id());
+
+            // act
+            likeFacade.cancel(userId, product.id());
+
+            // assert
+            assertThat(productService.getProduct(product.id()).likeCount()).isEqualTo(0);
+        }
+
+        @DisplayName("좋아요가 없을 때 취소하면 예외가 발생한다.")
+        @Test
+        void throws_when_like_does_not_exist() {
+            // arrange
+            long userId = 1L;
+            ProductInfo product = productService.register(new ProductCreateCommand(1L, "에어맥스", "신발", 150000, 10));
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                likeFacade.cancel(userId, product.id());
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
     }
 
     @DisplayName("좋아요 목록 조회 시, ")

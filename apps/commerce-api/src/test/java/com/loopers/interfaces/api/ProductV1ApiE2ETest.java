@@ -89,6 +89,28 @@ class ProductV1ApiE2ETest {
             );
         }
 
+        @DisplayName("상품 조회 시 likeCount가 포함되어 반환된다")
+        @Test
+        void returnsOk_withLikeCountDefault() {
+            // arrange
+            Brand brand = saveBrand("TEST_BRAND");
+            Product saved = saveProduct(brand.getId(), "에어맥스", 150000, 10);
+
+            // act
+            ResponseEntity<ApiResponse<ProductV1Dto.ProductResponse>> response =
+                    testRestTemplate.exchange(
+                            ENDPOINT + "/" + saved.getId(),
+                            HttpMethod.GET, null,
+                            new ParameterizedTypeReference<>() {}
+                    );
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().likeCount()).isGreaterThan(0)
+            );
+        }
+
         @DisplayName("존재하지 않는 상품을 조회하면, 404 Not Found를 반환한다.")
         @Test
         void returnsNotFound_whenProductNotExists() {

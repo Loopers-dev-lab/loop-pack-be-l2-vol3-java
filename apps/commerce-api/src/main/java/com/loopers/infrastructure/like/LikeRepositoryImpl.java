@@ -3,6 +3,9 @@ package com.loopers.infrastructure.like;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.like.LikeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -24,8 +27,8 @@ public class LikeRepositoryImpl implements LikeRepository {
     }
 
     @Override
-    public void deleteByUserIdAndProductId(Long userId, Long productId) {
-        likeJpaRepository.deleteByUserIdAndProductId(userId, productId);
+    public int deleteByUserIdAndProductId(Long userId, Long productId) {
+        return likeJpaRepository.deleteByUserIdAndProductId(userId, productId);
     }
 
     @Override

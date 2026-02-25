@@ -38,6 +38,11 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
+    public void ensureVisibleProduct(Long id) {
+        getVisibleProduct(id);
+    }
+
+    @Transactional(readOnly = true)
     public Page<ProductInfo> getVisibleProducts(Long brandId, ProductSort sort, Pageable pageable) {
         return productRepository.findVisibleProducts(brandId, sort.toOrder(), pageable).map(ProductInfo::from);
     }
@@ -82,6 +87,18 @@ public class ProductService {
     public void deleteAllByBrandId(Long brandId) {
         List<Product> products = productRepository.findAllByBrandIdAndDeletedAtIsNull(brandId);
         products.forEach(Product::delete);
+    }
+
+    @Transactional
+    public void increaseLikeCount(Long productId) {
+        Product product = findById(productId);
+        product.increaseLikeCount();
+    }
+
+    @Transactional
+    public void decreaseLikeCount(Long productId) {
+        Product product = findById(productId);
+        product.decreaseLikeCount();
     }
 
     @Transactional(readOnly = true)

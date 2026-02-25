@@ -5,6 +5,7 @@ import com.loopers.domain.like.LikeRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,7 +28,10 @@ public class LikeService {
 
     @Transactional
     public void cancel(Long userId, Long productId) {
-        likeRepository.deleteByUserIdAndProductId(userId, productId);
+        int deleted = likeRepository.deleteByUserIdAndProductId(userId, productId);
+        if (deleted == 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "좋아요 이력 없음");
+        }
     }
 
     @Transactional(readOnly = true)

@@ -304,6 +304,61 @@ public class ProductTest {
         }
     }
 
+    @DisplayName("좋아요 수 변경 시, ")
+    @Nested
+    class LikeCount {
+
+        @DisplayName("기본값은 0이다.")
+        @Test
+        void likeCount_기본값은_0이다() {
+            // act
+            Product product = Product.create(1L, "나이키 에어맥스", "신발", 150000, 10);
+
+            // assert
+            assertThat(product.getLikeCount()).isEqualTo(0);
+        }
+
+        @DisplayName("incrementLikeCount 호출 시 1 증가한다.")
+        @Test
+        void incrementLikeCount_호출시_1증가한다() {
+            // arrange
+            Product product = Product.create(1L, "나이키 에어맥스", "신발", 150000, 10);
+
+            // act
+            product.increaseLikeCount();
+
+            // assert
+            assertThat(product.getLikeCount()).isEqualTo(1);
+        }
+
+        @DisplayName("decrementLikeCount 호출 시 1 감소한다.")
+        @Test
+        void decrementLikeCount_호출시_1감소한다() {
+            // arrange
+            Product product = Product.create(1L, "나이키 에어맥스", "신발", 150000, 10);
+            product.increaseLikeCount();
+
+            // act
+            product.decreaseLikeCount();
+
+            // assert
+            assertThat(product.getLikeCount()).isEqualTo(0);
+        }
+
+        @DisplayName("decrementLikeCount를 0에서 호출해도 음수가 되지 않는다.")
+        @Test
+        void decrementLikeCount_0에서_호출해도_음수가_되지_않는다() {
+            // arrange
+            Product product = Product.create(1L, "나이키 에어맥스", "신발", 150000, 10);
+
+            // act
+            product.decreaseLikeCount();
+
+            // assert
+            assertThat(product.getLikeCount()).isEqualTo(0);
+        }
+    }
+
     @DisplayName("재고 차감 시, ")
     @Nested
     class DecreaseStock {

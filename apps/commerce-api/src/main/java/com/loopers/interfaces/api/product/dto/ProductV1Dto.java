@@ -15,7 +15,8 @@ public class ProductV1Dto {
             String name,
             String description,
             Integer price,
-            Integer stockQuantity
+            Integer stockQuantity,
+            Integer likeCount
     ) {
         public static ProductResponse from(ProductInfo productInfo) {
             return new ProductResponse(
@@ -24,7 +25,8 @@ public class ProductV1Dto {
                     productInfo.name(),
                     productInfo.description(),
                     productInfo.price(),
-                    productInfo.stockQuantity()
+                    productInfo.stockQuantity(),
+                    productInfo.likeCount()
             );
         }
     }
@@ -36,6 +38,7 @@ public class ProductV1Dto {
             String description,
             Integer price,
             Integer stockQuantity,
+            Integer likeCount,
             Product.Visibility visibility,
             ZonedDateTime createdAt,
             ZonedDateTime updatedAt
@@ -48,6 +51,7 @@ public class ProductV1Dto {
                     productInfo.description(),
                     productInfo.price(),
                     productInfo.stockQuantity(),
+                    productInfo.likeCount(),
                     productInfo.visibility(),
                     productInfo.createdAt(),
                     productInfo.updatedAt()

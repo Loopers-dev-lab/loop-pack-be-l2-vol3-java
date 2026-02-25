@@ -16,12 +16,15 @@ public class LikeFacade {
     private final ProductService productService;
 
     public LikeInfo register(Long userId, Long productId) {
-        productService.getVisibleProduct(productId);
-        return likeService.register(userId, productId);
+        productService.ensureVisibleProduct(productId);
+        LikeInfo like = likeService.register(userId, productId);
+        productService.increaseLikeCount(productId);
+        return like;
     }
 
     public void cancel(Long userId, Long productId) {
         likeService.cancel(userId, productId);
+        productService.decreaseLikeCount(productId);
     }
 
     public List<LikedProductInfo> getLikedProductsByUserId(Long userId) {
