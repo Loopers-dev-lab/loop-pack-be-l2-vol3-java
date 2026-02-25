@@ -3,6 +3,8 @@ package com.loopers.application.like;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.like.LikeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,5 +40,11 @@ public class LikeService {
 
         likeRepository.delete(existing.get());
         return true;
+    }
+
+    // Query
+
+    public Page<Like> findLikedProducts(Long userId, Pageable pageable) {
+        return likeRepository.findAllByUserIdWithActiveProduct(userId, pageable);
     }
 }

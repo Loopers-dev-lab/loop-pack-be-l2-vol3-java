@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class LikeApiE2ETest {
 
     private static final String LIKE_ENDPOINT = "/api/v1/products/{productId}/likes";
+    private static final String LIKE_LIST_ENDPOINT = "/api/v1/likes";
     private static final String BRAND_ENDPOINT = "/api-admin/v1/brands";
     private static final String PRODUCT_ENDPOINT = "/api-admin/v1/products";
     private static final String USER_ENDPOINT = "/api/v1/users";
@@ -290,6 +291,109 @@ class LikeApiE2ETest {
         }
     }
 
+    @Nested
+    class 좋아요_목록_조회 {
+
+        @Test
+        void 좋아요한_상품_목록을_좋아요_등록순으로_페이징하여_200_응답() {
+            signUpUser();
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            Long productId1 = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long productId2 = registerProduct(brandId, "슬리퍼", new BigDecimal("30000"), 50, "편한 슬리퍼");
+            postLike(productId1);
+            postLike(productId2);
+
+            ResponseEntity<ApiResponse<PageResponse<LikeV1Dto.LikeProductResponse>>> response = getLikeList("");
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(2),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("슬리퍼"),
+                    () -> assertThat(response.getBody().data().content().get(1).name()).isEqualTo("운동화"),
+                    () -> assertThat(response.getBody().data().totalElements()).isEqualTo(2),
+                    () -> assertThat(response.getBody().data().content().get(0).brandName()).isEqualTo("나이키")
+            );
+        }
+
+        @Test
+        void 활성_상품만_반환한다() {
+            signUpUser();
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            Long productId1 = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long productId2 = registerProduct(brandId, "슬리퍼", new BigDecimal("30000"), 50, "편한 슬리퍼");
+            postLike(productId1);
+            postLike(productId2);
+            deleteProduct(productId2);
+
+            ResponseEntity<ApiResponse<PageResponse<LikeV1Dto.LikeProductResponse>>> response = getLikeList("");
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("운동화"),
+                    () -> assertThat(response.getBody().data().totalElements()).isEqualTo(1)
+            );
+        }
+
+        @Test
+        void 결과가_없으면_빈_목록을_반환한다() {
+            signUpUser();
+
+            ResponseEntity<ApiResponse<PageResponse<LikeV1Dto.LikeProductResponse>>> response = getLikeList("");
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).isEmpty(),
+                    () -> assertThat(response.getBody().data().totalElements()).isZero()
+            );
+        }
+
+        @Test
+        void 요청_필드_규칙_위반_시_400_응답() {
+            signUpUser();
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    LIKE_LIST_ENDPOINT + "?page=-1", HttpMethod.GET,
+                    new HttpEntity<>(userHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        void 인증_헤더가_누락되면_401_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    LIKE_LIST_ENDPOINT, HttpMethod.GET,
+                    new HttpEntity<>(new HttpHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증 헤더가 필요합니다")
+            );
+        }
+
+        @Test
+        void 인증에_실패하면_401_응답() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "notexist");
+            headers.set("X-Loopers-LoginPw", "WrongPass1!");
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    LIKE_LIST_ENDPOINT, HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증에 실패했습니다")
+            );
+        }
+    }
+
     // --- 헬퍼 메서드 ---
 
     private void signUpUser() {
@@ -348,6 +452,14 @@ class LikeApiE2ETest {
                 new HttpEntity<>(userHeaders()),
                 new ParameterizedTypeReference<>() {},
                 productId
+        );
+    }
+
+    private ResponseEntity<ApiResponse<PageResponse<LikeV1Dto.LikeProductResponse>>> getLikeList(String queryString) {
+        return testRestTemplate.exchange(
+                LIKE_LIST_ENDPOINT + queryString, HttpMethod.GET,
+                new HttpEntity<>(userHeaders()),
+                new ParameterizedTypeReference<>() {}
         );
     }
 
