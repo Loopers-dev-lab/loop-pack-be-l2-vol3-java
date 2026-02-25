@@ -38,4 +38,32 @@ public class LikeServiceTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_LIKED));
         }
     }
+
+    @DisplayName("좋아요 취소 시, ")
+    @Nested
+    class Cancel {
+
+        @DisplayName("좋아요가 존재하면 삭제 후 true를 반환한다.")
+        @Test
+        void returnsTrue_whenLikeExists() {
+            // arrange
+            likeRepository.save(Like.create(1L, 100L));
+
+            // act
+            boolean result = likeService.cancel(1L, 100L);
+
+            // assert
+            assertThat(result).isTrue();
+        }
+
+        @DisplayName("좋아요가 존재하지 않으면 false를 반환한다.")
+        @Test
+        void returnsFalse_whenLikeDoesNotExist() {
+            // act
+            boolean result = likeService.cancel(1L, 100L);
+
+            // assert
+            assertThat(result).isFalse();
+        }
+    }
 }

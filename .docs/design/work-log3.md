@@ -270,7 +270,11 @@ round2에서 설계한 4개 도메인(브랜드, 상품, 좋아요, 주문)을 T
 
 #### 취소 멱등화 (NOT_FOUND → 200 OK)
 
-REST DELETE는 멱등이 원칙. 이미 없는 리소스에 DELETE해도 결과가 동일하면 200/204 반환이 자연스럽다. 좋아요 취소 실패가 비즈니스적으로 중요한 오류가 아니므로 에러 대신 무시하는 방향으로 결정.
+클라이언트는 좋아요 버튼의 현재 상태를 이미 알고 있으며, 취소 요청의 목적은 "좋아요가 없는 상태를 보장하는 것"이다.
+
+만약 이미 취소된 상태라면, 이는 오류라기보다 이미 목적이 달성된 상태에 가깝다. 에러를 반환하더라도 클라이언트가 추가로 취할 수 있는 행동은 없으며, 오히려 불필요한 예외 처리는 복잡도와 UX 부담만 증가시킨다.
+
+따라서 멱등성(idempotency)을 유지하는 관점과 서비스 품질 측면에서 200 OK를 반환하는 것이 더 적절하다고 판단하였다. `requirements 4.2` 반영 완료.
 
 #### likeCount 미구현 — 설계 고민
 
@@ -970,14 +974,23 @@ LoginUserArgumentResolver
   6. request.getAttribute("userId") 반환
 ```
 
-### 인터셉터 적용 경로
+### 인터셉터 적용 경로 — opt-out 패턴
 
-```
-/api/v1/users/me/**      → getMyInfo, updatePassword, getLikes
-/api/v1/products/*/likes → register, cancel
+```java
+// WebConfig.java
+.addPathPatterns("/api/v1/**")
+.excludePathPatterns(
+    "/api/v1/users",        // POST: 회원가입
+    "/api/v1/brands/**",    // GET: 브랜드 조회
+    "/api/v1/products",     // GET: 상품 목록
+    "/api/v1/products/*",   // GET: 상품 상세 (* 는 '/' 미포함 → /likes 는 인터셉터 적용)
+    "/api/v1/examples/**"   // GET: 예시
+)
 ```
 
-`/api/v1/**` + excludePathPatterns 방식은 Brand/Product 등 인증 불필요 엔드포인트까지 가로채므로 사용 금지. 인증이 필요한 경로만 명시적으로 지정.
+- **secure by default** 원칙: 새 API 추가 시 기본으로 인증이 적용되고, 공개 엔드포인트만 명시적으로 제외
+- 어드민(`/api-admin/**`)은 경로 자체가 달라서 이 인터셉터와 무관
+- `X-Loopers-Ldap` 헤더 기반 어드민 인증은 각 Controller의 `@RequestHeader`로만 처리 (값 검증 없는 placeholder)
 
 ### authenticate() 반환 타입 — User vs Long
 
@@ -991,20 +1004,46 @@ LoginUserArgumentResolver
 
 ---
 
-## TODO
+---
 
-### 1. likeCount — 상품 좋아요 수 카운터
+## 6. LikeCount 구현 (2026-02-25)
 
-**현재 문제:**
-- `Product` 엔티티에 `likeCount` 필드 없음
-- 상품 조회 시 좋아요 수 반환 불가
+### 구현 내용
 
-**구현 방향:** `Product.likeCount` 카운터 컬럼
+`Product.likeCount` 카운터 컬럼 방식으로 구현. TDD(Red → Green) 순서 준수.
 
-**구현 내용:**
-- `Product.likeCount` 필드 추가 (기본값 0)
-- `LikeService.register()` → `ProductService.incrementLikeCount(productId)`
-- `LikeService.cancel()` → `ProductService.decrementLikeCount(productId)`
-- 브랜드 삭제 시 좋아요 cascade 삭제 → likeCount 감산 처리 (`BrandFacade` 수정)
-- `ProductInfo`, `ProductV1Dto` 등 응답 DTO에 `likeCount` 포함
-- 동시성 고민: `@Version` 낙관적 락 적용 여부 결정 필요
+#### 수정 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `Product.java` | `likeCount` 필드 추가 (기본값 0), `incrementLikeCount()`, `decrementLikeCount()` 메서드 추가 |
+| `ProductInfo.java` | `likeCount` 필드 추가 (stockQuantity와 visibility 사이), `from()` 갱신 |
+| `ProductService.java` | `incrementLikeCount(Long productId)`, `decrementLikeCount(Long productId)` 추가 |
+| `LikeService.java` | `cancel()` 반환 타입 `void` → `boolean` (실제 삭제 여부 반환) |
+| `LikeFacade.java` | `register()`: 좋아요 저장 후 `productService.incrementLikeCount()` 호출, `cancel()`: 실제 삭제된 경우에만 `productService.decrementLikeCount()` 호출 |
+| `ProductV1Dto.java` | `ProductResponse`, `AdminProductResponse`에 `likeCount` 추가 |
+
+#### 테스트 추가
+
+| 파일 | 추가 테스트 |
+|------|------------|
+| `ProductTest.java` | `LikeCount` Nested — 기본값 0, increment +1, decrement -1, 0 이하 방지 (4건) |
+| `LikeFacadeTest.java` | `Register` Nested — 등록 시 likeCount +1, 중복 시 예외 (2건), `Cancel` Nested — 있을 때 -1 / 없을 때 불변 (2건) |
+| `LikeServiceTest.java` | `Cancel` Nested — 존재 시 true 반환 / 미존재 시 false 반환 (2건) |
+| `ProductV1ApiE2ETest.java` | 상품 조회 시 `likeCount=0` 반환 확인 (1건) |
+
+#### 설계 결정
+
+**LikeService.cancel() — DELETE row count 방식 (정확한 카운터)**
+- SELECT 없이 `deleteByUserIdAndProductId()` 반환값(삭제된 row 수)으로 존재 여부 판별
+- 삭제 성공 시 `true`, 미존재 시 `false` 반환
+- LikeFacade에서 `wasLiked` 체크 후 조건부 감산 → 멱등 취소에서 카운터 오차 없음
+- SELECT → DELETE 패턴 대비 DB 쿼리 1회 절감, TOCTOU 레이스 컨디션 없음
+
+**LikeFacade.register() — `ensureActiveProduct` 호출**
+- 기존 `getVisibleProduct()` 반환값을 버리는 구조에서 `ensureActiveProduct()`로 교체
+- 의도 명확화: 존재/노출 여부를 보장하는 precondition 체크임을 이름으로 표현
+
+**브랜드 삭제 시 likeCount 감산 불필요**
+- `BrandFacade.delete()` 시 상품도 soft delete됨 → likeCount 값 자체가 의미 없어짐
+- 별도 감산 처리 추가하지 않음
