@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/admin/brands")
+@RequestMapping("/api/admin/v1/brands")
 @RequiredArgsConstructor
 public class AdminBrandController {
     private final AdminBrandFacade adminBrandFacade;
