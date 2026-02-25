@@ -2,8 +2,6 @@ package com.loopers.infrastructure.product;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -34,7 +32,6 @@ public class ProductEntity {
     @Column(name = "base_price", nullable = false)
     private Integer basePrice;
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private String status;
 

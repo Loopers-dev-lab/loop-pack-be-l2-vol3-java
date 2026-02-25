@@ -1,10 +1,7 @@
 package com.loopers.infrastructure.brand;
 
-import com.loopers.domain.brand.BrandStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -29,7 +26,6 @@ public class BrandEntity {
     @Column(name = "description")
     private String description;
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private String status;
 

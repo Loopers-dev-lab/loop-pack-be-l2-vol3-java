@@ -4,5 +4,5 @@ public enum ProductSortType {
     LATEST,
     PRICE_ASC,
     PRICE_DESC,
-    LIKES
+    LIKES_DESC
 }

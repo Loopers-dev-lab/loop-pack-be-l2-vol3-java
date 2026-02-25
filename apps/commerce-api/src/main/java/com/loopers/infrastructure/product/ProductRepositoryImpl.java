@@ -205,7 +205,7 @@ public class ProductRepositoryImpl implements ProductRepository {
             case LATEST -> product.createdAt.desc();
             case PRICE_ASC -> product.basePrice.asc();
             case PRICE_DESC -> product.basePrice.desc();
-            case LIKES -> product.likeCount.desc();
+            case LIKES_DESC -> product.likeCount.desc();
         };
     }
 }
