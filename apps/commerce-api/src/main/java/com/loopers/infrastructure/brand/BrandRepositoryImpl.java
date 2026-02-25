@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -37,6 +38,11 @@ public class BrandRepositoryImpl implements BrandRepository {
     @Override
     public boolean existsByNameAndIdNot(String name, Long id) {
         return brandJpaRepository.existsByNameAndIdNot(name, id);
+    }
+
+    @Override
+    public List<Brand> findAllByIdIn(List<Long> ids) {
+        return brandJpaRepository.findAllById(ids);
     }
 
     @Override

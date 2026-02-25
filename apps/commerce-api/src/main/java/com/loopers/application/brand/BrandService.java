@@ -10,6 +10,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -65,6 +67,10 @@ public class BrandService {
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다"));
         brand.validateNotDeleted();
         return brand;
+    }
+
+    public List<Brand> getBrands(List<Long> brandIds) {
+        return brandRepository.findAllByIdIn(brandIds);
     }
 
     public Page<Brand> findActiveBrands(String name, Pageable pageable) {

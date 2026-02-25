@@ -2,6 +2,8 @@ package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandService;
 import com.loopers.domain.brand.Brand;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import com.loopers.domain.product.Product;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -10,6 +12,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -44,8 +50,20 @@ public class ProductFacade {
 
     public Page<ProductInfo> getList(String name, Long brandId, Boolean deleted, Pageable pageable) {
         Page<Product> products = productService.findProducts(name, brandId, deleted, pageable);
+
+        List<Long> brandIds = products.getContent().stream()
+                .map(Product::getBrandId)
+                .distinct()
+                .toList();
+
+        Map<Long, Brand> brandMap = brandService.getBrands(brandIds).stream()
+                .collect(Collectors.toMap(Brand::getId, Function.identity()));
+
         return products.map(product -> {
-            Brand brand = brandService.getBrand(product.getBrandId());
+            Brand brand = brandMap.get(product.getBrandId());
+            if (brand == null) {
+                throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다");
+            }
             return ProductInfo.from(product, brand.getName());
         });
     }
