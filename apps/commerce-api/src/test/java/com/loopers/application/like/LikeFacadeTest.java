@@ -90,20 +90,24 @@ public class LikeFacadeTest {
             assertThat(productService.getProduct(product.id()).likeCount()).isEqualTo(0);
         }
 
-        @DisplayName("좋아요가 없을 때 취소하면 예외가 발생한다.")
+        @DisplayName("좋아요가 없을 때 취소하면 예외 없이 처리되고 likeCount는 감소하지 않는다.")
         @Test
-        void throws_when_like_does_not_exist() {
+        void noop_when_like_does_not_exist() {
             // arrange
             long userId = 1L;
-            ProductInfo product = productService.register(new ProductCreateCommand(1L, "에어맥스", "신발", 150000, 10));
+            ProductInfo product = productService.register(
+                    new ProductCreateCommand(1L, "에어맥스", "신발", 150000, 10)
+            );
+
+            long productId = product.id();
+            int before = productService.getProduct(productId).likeCount();
 
             // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                likeFacade.cancel(userId, product.id());
-            });
+            likeFacade.cancel(userId, productId);
 
             // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            int after = productService.getProduct(productId).likeCount();
+            assertThat(after).isEqualTo(before);
         }
     }
 

@@ -27,11 +27,8 @@ public class LikeService {
     }
 
     @Transactional
-    public void cancel(Long userId, Long productId) {
-        int deleted = likeRepository.deleteByUserIdAndProductId(userId, productId);
-        if (deleted == 0) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "좋아요 이력 없음");
-        }
+    public boolean cancel(Long userId, Long productId) {
+        return likeRepository.deleteByUserIdAndProductId(userId, productId) > 0;
     }
 
     @Transactional(readOnly = true)

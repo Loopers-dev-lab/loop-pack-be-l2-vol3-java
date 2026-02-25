@@ -23,8 +23,9 @@ public class LikeFacade {
     }
 
     public void cancel(Long userId, Long productId) {
-        likeService.cancel(userId, productId);
-        productService.decreaseLikeCount(productId);
+        if (likeService.cancel(userId, productId)) {
+            productService.decreaseLikeCount(productId);
+        }
     }
 
     public List<LikedProductInfo> getLikedProductsByUserId(Long userId) {
