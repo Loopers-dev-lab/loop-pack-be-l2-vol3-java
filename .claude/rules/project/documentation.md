@@ -20,8 +20,7 @@ docs/
 requirements → specs → design → 구현
 
 ## 규칙
-- 기능 구현 전 해당 기능의 specs가 있으면 먼저 읽고 AC 기반으로 구현할 것
-- specs의 AC와 테스트는 1:1 매핑
+- 구현 시 행동 규칙은 `conventions/workflow.md` 참고
 
 ## 참고 스킬
 - 요구사항 정의서 작성 → requirements-writer
