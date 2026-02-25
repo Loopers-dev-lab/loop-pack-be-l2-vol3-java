@@ -96,6 +96,21 @@ class UserApiE2ETest {
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
+
+        @Test
+        void 비밀번호에_생년월일이_포함되면_400_응답() {
+            UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
+                    "testuser", "Abcd20000115!", "홍길동",
+                    LocalDate.of(2000, 1, 15), "test@example.com"
+            );
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
     }
 
     @Nested
@@ -224,6 +239,36 @@ class UserApiE2ETest {
             );
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void 비밀번호에_생년월일이_포함되면_400_응답() {
+            signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
+
+            UserV1Dto.ChangePasswordRequest request = new UserV1Dto.ChangePasswordRequest("Abcd20000115!");
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    CHANGE_PASSWORD_ENDPOINT, HttpMethod.PATCH,
+                    new HttpEntity<>(request, authHeaders("testuser", "Test1234!")),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        void 유효하지_않은_비밀번호면_400_응답() {
+            signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
+
+            UserV1Dto.ChangePasswordRequest request = new UserV1Dto.ChangePasswordRequest("short");
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    CHANGE_PASSWORD_ENDPOINT, HttpMethod.PATCH,
+                    new HttpEntity<>(request, authHeaders("testuser", "Test1234!")),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
     }
 

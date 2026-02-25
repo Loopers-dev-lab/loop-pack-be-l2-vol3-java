@@ -19,7 +19,11 @@ import java.util.regex.Pattern;
 @Getter
 public class User extends BaseEntity {
 
+    private static final int LOGIN_ID_MIN_LENGTH = 4;
+    private static final int LOGIN_ID_MAX_LENGTH = 20;
     private static final Pattern LOGIN_ID_PATTERN = Pattern.compile("^[a-zA-Z0-9]+$");
+    private static final int NAME_MIN_LENGTH = 2;
+    private static final int NAME_MAX_LENGTH = 20;
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
 
     @Column(nullable = false, unique = true)
@@ -77,6 +81,9 @@ public class User extends BaseEntity {
         if (loginId == null || loginId.isBlank()) {
             throw new CoreException(ErrorType.BAD_REQUEST,"로그인 ID는 필수입니다");
         }
+        if (loginId.length() < LOGIN_ID_MIN_LENGTH || loginId.length() > LOGIN_ID_MAX_LENGTH) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 " + LOGIN_ID_MIN_LENGTH + "~" + LOGIN_ID_MAX_LENGTH + "자여야 합니다");
+        }
         if (!LOGIN_ID_PATTERN.matcher(loginId).matches()) {
             throw new CoreException(ErrorType.BAD_REQUEST,"로그인 ID는 영문/숫자만 가능합니다");
         }
@@ -85,6 +92,9 @@ public class User extends BaseEntity {
     private static void validateName(String name) {
         if (name == null || name.isBlank()) {
             throw new CoreException(ErrorType.BAD_REQUEST,"이름은 필수입니다");
+        }
+        if (name.length() < NAME_MIN_LENGTH || name.length() > NAME_MAX_LENGTH) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "이름은 " + NAME_MIN_LENGTH + "~" + NAME_MAX_LENGTH + "자여야 합니다");
         }
     }
 

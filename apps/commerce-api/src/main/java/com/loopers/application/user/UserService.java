@@ -19,6 +19,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    // Command
+
     @Transactional
     public User signUp(String loginId, String rawPassword, String name, LocalDate birthDate, String email) {
         if (userRepository.existsByLoginId(loginId)) {
@@ -31,9 +33,12 @@ public class UserService {
 
     @Transactional
     public void changePassword(Long id, String newRawPassword) {
-        User user = getById(id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다"));
         user.changePassword(newRawPassword, passwordEncoder);
     }
+
+    // Query
 
     public User getById(Long id) {
         return userRepository.findById(id)
@@ -42,9 +47,9 @@ public class UserService {
 
     public User authenticate(String loginId, String rawPassword) {
         User user = userRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "아이디 또는 비밀번호가 일치하지 않습니다"));
+                .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다"));
         if (!user.matchesPassword(rawPassword, passwordEncoder)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED, "아이디 또는 비밀번호가 일치하지 않습니다");
+            throw new CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다");
         }
         return user;
     }

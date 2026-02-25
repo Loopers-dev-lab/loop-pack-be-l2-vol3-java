@@ -114,8 +114,7 @@ class UserTest {
         @ParameterizedTest
         @CsvSource({
                 "홍길동, 홍길*",
-                "김밥, 김*",
-                "이, *"
+                "김밥, 김*"
         })
         void 마지막_글자를_마스킹한다(String name, String expected) {
             User user = User.create("testuser", "Test1234!", name, LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER);

@@ -81,7 +81,7 @@ class UserServiceIntegrationTest {
             assertThatThrownBy(() -> userService.authenticate("notexist", "Test1234!"))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED))
-                    .hasMessageContaining("아이디 또는 비밀번호가 일치하지 않습니다");
+                    .hasMessageContaining("인증에 실패했습니다");
         }
 
         @Test
@@ -92,7 +92,7 @@ class UserServiceIntegrationTest {
             assertThatThrownBy(() -> userService.authenticate(loginId, "WrongPass1!"))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED))
-                    .hasMessageContaining("아이디 또는 비밀번호가 일치하지 않습니다");
+                    .hasMessageContaining("인증에 실패했습니다");
         }
     }
 

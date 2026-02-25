@@ -21,6 +21,8 @@ public class UserV1Controller implements UserApiV1Spec {
 
     private final UserFacade userFacade;
 
+    // Command
+
     @PostMapping
     @Override
     public ApiResponse<UserV1Dto.UserResponse> signUp(@Valid @RequestBody UserV1Dto.SignUpRequest request) {
@@ -34,13 +36,6 @@ public class UserV1Controller implements UserApiV1Spec {
         return ApiResponse.success(UserV1Dto.UserResponse.from(info));
     }
 
-    @GetMapping("/me")
-    @Override
-    public ApiResponse<UserV1Dto.UserResponse> getMyInfo(@AuthUser AuthenticatedUser authUser) {
-        UserInfo info = userFacade.getMyInfo(authUser.id());
-        return ApiResponse.success(UserV1Dto.UserResponse.from(info));
-    }
-
     @PatchMapping("/me/password")
     @Override
     public ApiResponse<Void> changePassword(
@@ -48,5 +43,14 @@ public class UserV1Controller implements UserApiV1Spec {
             @Valid @RequestBody UserV1Dto.ChangePasswordRequest request) {
         userFacade.changePassword(authUser.id(), request.newPassword());
         return ApiResponse.success();
+    }
+
+    // Query
+
+    @GetMapping("/me")
+    @Override
+    public ApiResponse<UserV1Dto.UserResponse> getMyInfo(@AuthUser AuthenticatedUser authUser) {
+        UserInfo info = userFacade.getMyInfo(authUser.id());
+        return ApiResponse.success(UserV1Dto.UserResponse.from(info));
     }
 }
