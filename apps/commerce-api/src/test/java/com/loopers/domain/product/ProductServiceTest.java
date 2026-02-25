@@ -220,6 +220,61 @@ class ProductServiceTest {
         }
     }
 
+    @DisplayName("validateAndGetSnapshots 시")
+    @Nested
+    class ValidateAndGetSnapshots {
+
+        @Test
+        void validateAndGetSnapshots_whenNull_shouldThrowBadRequest() {
+            CoreException ex = assertThrows(CoreException.class, () ->
+                productService.validateAndGetSnapshots(null));
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @Test
+        void validateAndGetSnapshots_whenEmpty_shouldThrowBadRequest() {
+            CoreException ex = assertThrows(CoreException.class, () ->
+                productService.validateAndGetSnapshots(List.of()));
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @Test
+        void validateAndGetSnapshots_whenProductNotFound_shouldThrowNotFound() {
+            when(productRepository.findByIdAndNotDeleted(1L)).thenReturn(Optional.empty());
+            List<ProductValidationRequest> requests = List.of(new ProductValidationRequest(1L, 1, null));
+            CoreException ex = assertThrows(CoreException.class, () ->
+                productService.validateAndGetSnapshots(requests));
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+        }
+
+        @Test
+        void validateAndGetSnapshots_whenInsufficientStock_shouldThrowBadRequest() {
+            Long id = 1L;
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, 2);
+            when(productRepository.findByIdAndNotDeleted(id)).thenReturn(Optional.of(product));
+            List<ProductValidationRequest> requests = List.of(new ProductValidationRequest(id, 10, null));
+            CoreException ex = assertThrows(CoreException.class, () ->
+                productService.validateAndGetSnapshots(requests));
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @Test
+        void validateAndGetSnapshots_whenValid_shouldReturnSnapshots() {
+            Long requestedId = 1L;
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, 10);
+            when(productRepository.findByIdAndNotDeleted(requestedId)).thenReturn(Optional.of(product));
+            List<ProductValidationRequest> requests = List.of(new ProductValidationRequest(requestedId, 2, null));
+
+            List<ProductSnapshot> result = productService.validateAndGetSnapshots(requests);
+
+            assertThat(result).hasSize(1);
+            // Mock된 product는 persist되지 않아 BaseEntity 기본 id(0L)를 가짐
+            assertThat(result.get(0).productId()).isEqualTo(0L);
+            assertThat(result.get(0).productName()).isEqualTo(NAME);
+            assertThat(result.get(0).price()).isEqualByComparingTo(PRICE);
+        }
+    }
+
     @DisplayName("restoreStock 시")
     @Nested
     class RestoreStock {
