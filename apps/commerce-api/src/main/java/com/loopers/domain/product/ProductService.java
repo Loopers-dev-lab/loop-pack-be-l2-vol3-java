@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -85,6 +86,30 @@ public class ProductService {
         for (ProductValidationRequest req : requests) {
             validateProductAvailability(req.productId(), req.quantity(), req.optionId());
         }
+    }
+
+    /**
+     * 주문 항목 목록을 검증하고, 유효 시 각 상품의 스냅샷(이름·가격) 목록을 반환한다.
+     * 하나라도 미존재/삭제/재고 부족이면 예외를 던진다.
+     */
+    @Transactional(readOnly = true)
+    public List<ProductSnapshot> validateAndGetSnapshots(List<ProductValidationRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목이 없습니다.");
+        }
+        List<ProductSnapshot> snapshots = new ArrayList<>();
+        for (ProductValidationRequest req : requests) {
+            ProductModel product = productRepository.findByIdAndNotDeleted(req.productId())
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + req.productId()));
+            if (product.isDeleted()) {
+                throw new CoreException(ErrorType.NOT_FOUND, "삭제된 상품입니다: " + req.productId());
+            }
+            if (!product.hasStock(req.quantity())) {
+                throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다. 상품 ID: " + req.productId());
+            }
+            snapshots.add(product.snapshotForOrder());
+        }
+        return snapshots;
     }
 
     /**
