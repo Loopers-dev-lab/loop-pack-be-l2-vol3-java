@@ -1,6 +1,6 @@
 ---
 name: test-patterns
-description: 테스트 작성 패턴. "테스트 작성해줘", "단위 테스트 만들어줘", "통합 테스트 구현해줘", "E2E 테스트 추가해줘" 요청 시 사용. 단위/통합/E2E 테스트 구조, Mock 원칙, 네이밍 컨벤션 제공.
+description: 테스트 작성 패턴. "테스트 작성해줘", "단위 테스트 만들어줘", "통합 테스트 구현해줘", "E2E 테스트 추가해줘" 요청할 때 사용합니다. 단위/통합/E2E 테스트 구조, Mock 원칙, 네이밍 컨벤션 제공. 테스트 실행이나 CI 설정에는 사용하지 마세요.
 ---
 
 # 테스트 패턴 및 컨벤션
@@ -485,6 +485,33 @@ class UserApiE2ETest {
     }
 }
 ```
+
+---
+
+## 상세 예제
+
+도메인 유형별 구체적인 테스트 코드 예제는 아래 파일을 참고합니다.
+
+### 단위 테스트 예제
+
+| 대상 | 예제 파일 | 주요 내용 |
+|------|----------|----------|
+| Entity | [examples/entity.md](examples/entity.md) | 생성, 상태 전이, 경계값, Fixture 패턴 |
+| VO | [examples/vo.md](examples/vo.md) | 생성 검증, 불변성, 연산, 경계값 |
+| Enum | [examples/enum.md](examples/enum.md) | 상태 전이, 그룹화, 매핑, 새 값 추가 방어 |
+| Domain Service | [examples/domain-service.md](examples/domain-service.md) | 복합 비즈니스 규칙, 정책 분기, 시간 의존 로직 |
+
+### 통합 테스트 예제
+
+| 대상 | 예제 파일 | 주요 내용 |
+|------|----------|----------|
+| Service IT | [examples/service-it.md](examples/service-it.md) | 전체 흐름, 트랜잭션, 동시성, Fake 활용 |
+
+### 테스트 인프라
+
+| 대상 | 예제 파일 | 주요 내용 |
+|------|----------|----------|
+| Fake 구현체 | [examples/fake.md](examples/fake.md) | Fake vs Dummy, 시나리오 제어, 디렉토리 구조 |
 
 ---
 

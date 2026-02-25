@@ -86,6 +86,25 @@ paths:
 - 범위: 모든 프로젝트에 적용
 - 우선순위: 프로젝트 rules보다 **낮음** (프로젝트가 오버라이드)
 
+## CLAUDE.md 크기 가이드
+
+- **50-100줄** 유지 권장
+- 각 줄마다 자문: "이 줄을 빼면 Claude가 실수할까?"
+- 프로젝트 개요, 구조, Rules 구조 안내만 남기고 상세 규칙은 rules/로 위임
+- 너무 길면 Claude가 중요한 규칙을 놓침
+
+## 로딩 우선순위
+
+아래에서 위로 로드되며, 같은 키가 겹치면 위가 오버라이드:
+
+| 순서 | 위치 | 범위 |
+|------|------|------|
+| 1 (최하) | Managed Policy (`/Library/Application Support/ClaudeCode/`) | 조직 IT 배포 |
+| 2 | `~/.claude/CLAUDE.md`, `~/.claude/rules/` | 유저 전체 |
+| 3 | `./CLAUDE.md`, `./.claude/rules/` | 프로젝트 (팀 공유) |
+| 4 | `./CLAUDE.local.md` | 프로젝트 (개인, gitignore) |
+| 5 (최상) | `foo/CLAUDE.md` (하위 디렉토리) | 온디맨드 (해당 경로 작업 시만) |
+
 ## 심링크 지원
 
 ```bash
@@ -104,3 +123,4 @@ ln -s ~/company-standards/security.md .claude/rules/security.md
 - **서술적 파일명**: 파일명만으로 내용을 알 수 있게
 - **조건부 규칙은 신중히**: paths가 정말 특정 파일 유형에만 해당할 때만 사용
 - **하위 디렉토리로 정리**: 관련 규칙을 그룹화 (frontend/, backend/)
+- **적절한 파일 크기**: 파일당 100-300줄 목표. 너무 짧으면 맥락 부족, 너무 길면 집중도 저하
