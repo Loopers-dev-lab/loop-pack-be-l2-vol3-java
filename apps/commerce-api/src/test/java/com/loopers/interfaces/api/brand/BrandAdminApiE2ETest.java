@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.brand;
 
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
+import com.loopers.interfaces.api.product.ProductAdminV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
@@ -18,6 +19,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.math.BigDecimal;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -26,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class BrandAdminApiE2ETest {
 
     private static final String ENDPOINT = "/api-admin/v1/brands";
+    private static final String PRODUCT_ENDPOINT = "/api-admin/v1/products";
     private static final String VALID_LDAP = "admin-ldap";
 
     @Autowired
@@ -344,6 +348,25 @@ class BrandAdminApiE2ETest {
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
+
+        @Test
+        void 브랜드_삭제_시_해당_브랜드의_활성_상품도_삭제_상태로_변경된다() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            registerProduct(brandId, "런닝화", new BigDecimal("60000"), 200, "가벼운 런닝화");
+
+            deleteRequest(brandId);
+
+            ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> response =
+                    getProductList("?brandId=" + brandId);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(2),
+                    () -> assertThat(response.getBody().data().content())
+                            .allSatisfy(product -> assertThat(product.status()).isEqualTo("DELETED"))
+            );
+        }
     }
 
     @Nested
@@ -378,6 +401,7 @@ class BrandAdminApiE2ETest {
             ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> response = getList("");
 
             assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content()).hasSize(2),
                     () -> assertThat(response.getBody().data().content())
                             .extracting(BrandAdminV1Dto.BrandResponse::status)
@@ -395,6 +419,7 @@ class BrandAdminApiE2ETest {
                     getList("?name=나이키");
 
             assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content()).hasSize(1),
                     () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("나이키")
             );
@@ -410,6 +435,7 @@ class BrandAdminApiE2ETest {
                     getList("?status=ACTIVE");
 
             assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content()).hasSize(1),
                     () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("나이키"),
                     () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo("ACTIVE")
@@ -426,6 +452,7 @@ class BrandAdminApiE2ETest {
                     getList("?status=DELETED");
 
             assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content()).hasSize(1),
                     () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("아디다스"),
                     () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo("DELETED")
@@ -454,6 +481,7 @@ class BrandAdminApiE2ETest {
                     getList("?name=나이키&status=ACTIVE");
 
             assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content()).hasSize(1),
                     () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("나이키 에어")
             );
@@ -627,6 +655,26 @@ class BrandAdminApiE2ETest {
     private ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> getDetail(Long brandId) {
         return testRestTemplate.exchange(
                 ENDPOINT + "/" + brandId, HttpMethod.GET,
+                new HttpEntity<>(adminHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
+    }
+
+    private Long registerProduct(Long brandId, String name, BigDecimal price, Integer stockQuantity, String description) {
+        ProductAdminV1Dto.RegisterRequest request = new ProductAdminV1Dto.RegisterRequest(
+                brandId, name, price, stockQuantity, description
+        );
+        ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> response = testRestTemplate.exchange(
+                PRODUCT_ENDPOINT, HttpMethod.POST,
+                new HttpEntity<>(request, adminHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
+        return response.getBody().data().id();
+    }
+
+    private ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> getProductList(String queryString) {
+        return testRestTemplate.exchange(
+                PRODUCT_ENDPOINT + queryString, HttpMethod.GET,
                 new HttpEntity<>(adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );

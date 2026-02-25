@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.product;
 
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.brand.BrandAdminV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -394,6 +395,208 @@ class ProductAdminApiE2ETest {
         }
     }
 
+    @Nested
+    class 상품_목록_조회 {
+
+        @Test
+        void 조건_없이_조회하면_전체_상품을_최신_등록순으로_페이징하여_200_응답한다() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            registerProduct(brandId, "운동화A", new BigDecimal("10000"), 10, "설명A");
+            registerProduct(brandId, "운동화B", new BigDecimal("20000"), 20, "설명B");
+            registerProduct(brandId, "운동화C", new BigDecimal("30000"), 30, "설명C");
+
+            ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> response = getList("");
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(3),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("운동화C"),
+                    () -> assertThat(response.getBody().data().content().get(1).name()).isEqualTo("운동화B"),
+                    () -> assertThat(response.getBody().data().content().get(2).name()).isEqualTo("운동화A"),
+                    () -> assertThat(response.getBody().data().totalElements()).isEqualTo(3),
+                    () -> assertThat(response.getBody().data().page()).isEqualTo(0),
+                    () -> assertThat(response.getBody().data().size()).isEqualTo(20)
+            );
+        }
+
+        @Test
+        void 삭제된_상품도_포함하여_반환한다() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            registerProduct(brandId, "운동화A", new BigDecimal("10000"), 10, "설명A");
+            Long deletedProductId = registerProduct(brandId, "운동화B", new BigDecimal("20000"), 20, "설명B");
+            deleteProduct(deletedProductId);
+
+            ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> response = getList("");
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(2),
+                    () -> assertThat(response.getBody().data().content())
+                            .extracting(ProductAdminV1Dto.ProductResponse::status)
+                            .containsExactly("DELETED", "ACTIVE")
+            );
+        }
+
+        @Test
+        void name_키워드로_검색하면_상품명에_해당_키워드가_포함된_상품만_반환한다() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            registerProduct(brandId, "런닝화", new BigDecimal("10000"), 10, "설명A");
+            registerProduct(brandId, "운동화", new BigDecimal("20000"), 20, "설명B");
+            registerProduct(brandId, "런닝 슈즈", new BigDecimal("30000"), 30, "설명C");
+
+            ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> response =
+                    getList("?name=런닝");
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(2),
+                    () -> assertThat(response.getBody().data().content())
+                            .extracting(ProductAdminV1Dto.ProductResponse::name)
+                            .containsExactly("런닝 슈즈", "런닝화")
+            );
+        }
+
+        @Test
+        void brandId로_필터링하면_해당_브랜드에_속한_상품만_반환한다() {
+            Long nikeId = registerBrand("나이키", "스포츠 브랜드");
+            Long adidasId = registerBrand("아디다스", "독일 브랜드");
+            registerProduct(nikeId, "나이키 운동화", new BigDecimal("10000"), 10, "설명");
+            registerProduct(adidasId, "아디다스 운동화", new BigDecimal("20000"), 20, "설명");
+            registerProduct(nikeId, "나이키 런닝화", new BigDecimal("30000"), 30, "설명");
+
+            ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> response =
+                    getList("?brandId=" + nikeId);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(2),
+                    () -> assertThat(response.getBody().data().content())
+                            .extracting(ProductAdminV1Dto.ProductResponse::brandId)
+                            .containsOnly(nikeId)
+            );
+        }
+
+        @Test
+        void status_ACTIVE로_필터링하면_활성_상품만_반환한다() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            registerProduct(brandId, "운동화A", new BigDecimal("10000"), 10, "설명A");
+            Long deletedProductId = registerProduct(brandId, "운동화B", new BigDecimal("20000"), 20, "설명B");
+            deleteProduct(deletedProductId);
+
+            ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> response =
+                    getList("?status=ACTIVE");
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("운동화A"),
+                    () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo("ACTIVE")
+            );
+        }
+
+        @Test
+        void status_DELETED로_필터링하면_삭제된_상품만_반환한다() {
+            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            registerProduct(brandId, "운동화A", new BigDecimal("10000"), 10, "설명A");
+            Long deletedProductId = registerProduct(brandId, "운동화B", new BigDecimal("20000"), 20, "설명B");
+            deleteProduct(deletedProductId);
+
+            ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> response =
+                    getList("?status=DELETED");
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("운동화B"),
+                    () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo("DELETED")
+            );
+        }
+
+        @Test
+        void status에_유효하지_않은_값을_보내면_400_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "?status=INVALID", HttpMethod.GET,
+                    new HttpEntity<>(adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        void name_검색과_brandId_필터와_status_필터를_동시에_적용할_수_있다() {
+            Long nikeId = registerBrand("나이키", "스포츠 브랜드");
+            Long adidasId = registerBrand("아디다스", "독일 브랜드");
+            registerProduct(nikeId, "나이키 에어맥스", new BigDecimal("10000"), 10, "설명");
+            Long deletedId = registerProduct(nikeId, "나이키 조던", new BigDecimal("20000"), 20, "설명");
+            deleteProduct(deletedId);
+            registerProduct(adidasId, "나이키 콜라보", new BigDecimal("30000"), 30, "설명");
+
+            ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> response =
+                    getList("?name=나이키&brandId=" + nikeId + "&status=ACTIVE");
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("나이키 에어맥스")
+            );
+        }
+
+        @Test
+        void 결과가_없으면_빈_목록을_반환한다() {
+            ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> response =
+                    getList("?name=존재하지않는상품");
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).isEmpty(),
+                    () -> assertThat(response.getBody().data().totalElements()).isEqualTo(0)
+            );
+        }
+
+        @Test
+        void 요청_필드_규칙_위반_시_400_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "?page=-1", HttpMethod.GET,
+                    new HttpEntity<>(adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        void 인증_헤더가_누락되면_401_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT, HttpMethod.GET,
+                    new HttpEntity<>(new HttpHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증 헤더가 필요합니다")
+            );
+        }
+
+        @Test
+        void 인증에_실패하면_401_응답() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-Ldap", "wrong-ldap");
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT, HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증에 실패했습니다")
+            );
+        }
+    }
+
     // --- 헬퍼 메서드 ---
 
     private Long registerBrand(String name, String description) {
@@ -452,6 +655,14 @@ class ProductAdminApiE2ETest {
         return testRestTemplate.exchange(
                 ENDPOINT + "/" + productId, HttpMethod.PATCH,
                 new HttpEntity<>(request, adminHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
+    }
+
+    private ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> getList(String queryString) {
+        return testRestTemplate.exchange(
+                ENDPOINT + queryString, HttpMethod.GET,
+                new HttpEntity<>(adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
     }

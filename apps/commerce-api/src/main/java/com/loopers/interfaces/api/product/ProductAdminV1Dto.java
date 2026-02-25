@@ -7,7 +7,10 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -54,6 +57,42 @@ public class ProductAdminV1Dto {
             @Size(max = 1000, message = "상품 설명은 1,000자 이하여야 합니다")
             String description
     ) {
+    }
+
+    // Query
+
+    public record ListRequest(
+            String name,
+            Long brandId,
+            ProductStatus status,
+
+            @PositiveOrZero(message = "페이지 번호는 0 이상이어야 합니다")
+            Integer page,
+
+            @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다")
+            @Max(value = 100, message = "페이지 크기는 100 이하여야 합니다")
+            Integer size
+    ) {
+        public ListRequest {
+            if (page == null) page = 0;
+            if (size == null) size = 20;
+        }
+
+        public enum ProductStatus {
+            ACTIVE, DELETED;
+
+            public Boolean toDeleted() {
+                return this == DELETED ? Boolean.TRUE : Boolean.FALSE;
+            }
+        }
+
+        public Boolean toDeleted() {
+            return status != null ? status.toDeleted() : null;
+        }
+
+        public Pageable toPageable() {
+            return PageRequest.of(page, size);
+        }
     }
 
     // Response

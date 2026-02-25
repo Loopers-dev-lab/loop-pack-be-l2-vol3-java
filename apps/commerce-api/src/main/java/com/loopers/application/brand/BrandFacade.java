@@ -1,5 +1,6 @@
 package com.loopers.application.brand;
 
+import com.loopers.application.product.ProductService;
 import com.loopers.domain.brand.Brand;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class BrandFacade {
 
     private final BrandService brandService;
+    private final ProductService productService;
 
     // Command
 
@@ -31,6 +33,7 @@ public class BrandFacade {
     @Transactional
     public void delete(Long brandId) {
         brandService.delete(brandId);
+        productService.deleteAllByBrandId(brandId);
     }
 
     // Query

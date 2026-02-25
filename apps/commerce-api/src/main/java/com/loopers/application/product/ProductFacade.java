@@ -4,6 +4,8 @@ import com.loopers.application.brand.BrandService;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.product.Product;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,5 +38,15 @@ public class ProductFacade {
     @Transactional
     public void delete(Long productId) {
         productService.delete(productId);
+    }
+
+    // Query
+
+    public Page<ProductInfo> getList(String name, Long brandId, Boolean deleted, Pageable pageable) {
+        Page<Product> products = productService.findProducts(name, brandId, deleted, pageable);
+        return products.map(product -> {
+            Brand brand = brandService.getBrand(product.getBrandId());
+            return ProductInfo.from(product, brand.getName());
+        });
     }
 }

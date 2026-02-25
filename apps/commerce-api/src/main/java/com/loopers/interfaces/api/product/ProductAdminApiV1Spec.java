@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.product;
 
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -31,4 +32,14 @@ public interface ProductAdminApiV1Spec {
             description = "상품을 삭제합니다."
     )
     ApiResponse<Void> delete(Long productId);
+
+    // Query
+
+    @Operation(
+            summary = "상품 목록 조회",
+            description = "전체 상품을 검색/필터링하여 페이징 조회합니다."
+    )
+    ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>> list(
+            ProductAdminV1Dto.ListRequest request
+    );
 }
