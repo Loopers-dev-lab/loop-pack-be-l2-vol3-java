@@ -48,10 +48,7 @@ public class AuthUserArgumentResolver implements HandlerMethodArgumentResolver {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
 
-        AuthenticateCommand command = AuthenticateCommand.builder()
-                .userId(new UserId(loginId))
-                .rawPassword(password)
-                .build();
+        AuthenticateCommand command = new AuthenticateCommand(new UserId(loginId), password);
         return userAuthenticationService.authenticate(command);
     }
 }

@@ -7,7 +7,6 @@ import com.loopers.domain.user.vo.UserId;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import lombok.Builder;
 
 public class UserDto {
 
@@ -34,24 +33,11 @@ public class UserDto {
             return "RegisterRequest[loginId=%s, password=***, name=%s, birthDate=%s, email=%s, phone=%s]"
                     .formatted(loginId, name, birthDate, email, maskedPhone);
         }
-        public String toString() {
-            return "RegisterRequest[loginId=%s, password=***, name=%s, birthDate=%s, email=%s, phone=%s]"
-                    .formatted(loginId, name, birthDate, email, phone);
-        }
-
         public RegisterCommand toCommand() {
-            return RegisterCommand.builder()
-                    .userId(loginId)
-                    .rawPassword(password)
-                    .name(name)
-                    .email(email)
-                    .birthDate(birthDate)
-                    .phone(phone)
-                    .build();
+            return new RegisterCommand(loginId, password, name, email, birthDate, phone);
         }
     }
 
-    @Builder
     public record UserResponse(
             String loginId,
             String name,
@@ -60,13 +46,13 @@ public class UserDto {
             String phone
     ) {
         public static UserResponse from(User user) {
-            return UserResponse.builder()
-                    .loginId(user.id().value())
-                    .name(user.getMaskedName())
-                    .email(user.email().value())
-                    .birthDate(user.birthDate().value().toString())
-                    .phone(user.phone() != null ? user.phone().value() : null)
-                    .build();
+            return new UserResponse(
+                    user.id().value(),
+                    user.getMaskedName(),
+                    user.email().value(),
+                    user.birthDate().value().toString(),
+                    user.phone() != null ? user.phone().value() : null
+            );
         }
     }
 
@@ -80,10 +66,7 @@ public class UserDto {
         }
 
         public ChangePasswordCommand toCommand(UserId userId) {
-            return ChangePasswordCommand.builder()
-                    .userId(userId)
-                    .newRawPassword(newPassword)
-                    .build();
+            return new ChangePasswordCommand(userId, newPassword);
         }
     }
 

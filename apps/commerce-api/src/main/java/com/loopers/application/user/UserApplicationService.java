@@ -38,9 +38,16 @@ public class UserApplicationService {
             throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 아이디입니다.");
         }
 
-        User user = new User(userId, rawPassword, name, email, phone);
+        User user = new User(userId, rawPassword, name, email, birthDate, phone);
         Password encodedPassword = Password.ofEncoded(passwordEncoder.encode(user.password().value()));
-        User userWithEncodedPassword = new User(user.id(), encodedPassword, user.name(), user.email(), user.phone());
+        User userWithEncodedPassword = new User(
+                user.id(),
+                encodedPassword,
+                user.name(),
+                user.email(),
+                user.birthDate(),
+                user.phone()
+        );
 
         try {
             return userRepository.save(userWithEncodedPassword);
@@ -65,9 +72,16 @@ public class UserApplicationService {
         }
 
         Password newRawPassword = new Password(command.newRawPassword());
-        new User(user.id(), newRawPassword, user.name(), user.email(), user.phone());
+        new User(user.id(), newRawPassword, user.name(), user.email(), user.birthDate(), user.phone());
         Password encodedPassword = Password.ofEncoded(passwordEncoder.encode(newRawPassword.value()));
-        User updatedUser = new User(user.id(), encodedPassword, user.name(), user.email(), user.phone());
+        User updatedUser = new User(
+                user.id(),
+                encodedPassword,
+                user.name(),
+                user.email(),
+                user.birthDate(),
+                user.phone()
+        );
         userRepository.save(updatedUser);
     }
 }

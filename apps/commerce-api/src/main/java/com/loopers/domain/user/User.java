@@ -13,12 +13,17 @@ public record User(
         Password password,
         Name name,
         Email email,
+        BirthDate birthDate,
         Phone phone
 ) {
     private static final String ERROR_PASSWORD_CONTAINS_BIRTHDATE = "비밀번호에 생년월일을 포함할 수 없습니다";
 
+    public User(UserId id, Password password, Name name, Email email, Phone phone) {
+        this(id, password, name, email, null, phone);
+    }
+
     public User {
-        if (phone != null) {
+        if (birthDate != null && phone != null) {
             validatePasswordNotContainsBirthDate(password, birthDate);
         }
     }
@@ -45,5 +50,9 @@ public record User(
 
     public Phone phone() {
         return phone;
+    }
+
+    public BirthDate birthDate() {
+        return birthDate;
     }
 }

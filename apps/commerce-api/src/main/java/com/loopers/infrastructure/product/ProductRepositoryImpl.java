@@ -1,0 +1,38 @@
+package com.loopers.infrastructure.product;
+
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+@RequiredArgsConstructor
+public class ProductRepositoryImpl implements ProductRepository {
+
+    private final ProductJpaRepository productJpaRepository;
+
+    @Override
+    public Product save(Product product) {
+        ProductEntity entity = ProductEntity.from(product);
+        ProductEntity saved = productJpaRepository.save(entity);
+        return saved.toDomain();
+    }
+
+    @Override
+    public Optional<Product> findById(Long id) {
+        return productJpaRepository.findByIdAndDeletedAtIsNull(id)
+                .map(ProductEntity::toDomain);
+    }
+
+    @Override
+    public Page<Product> findAll(Long brandId, Pageable pageable) {
+        if (brandId == null) {
+            return productJpaRepository.findAllByDeletedAtIsNull(pageable).map(ProductEntity::toDomain);
+        }
+        return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId, pageable).map(ProductEntity::toDomain);
+    }
+}
