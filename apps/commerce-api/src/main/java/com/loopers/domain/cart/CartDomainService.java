@@ -4,8 +4,6 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 
 @RequiredArgsConstructor
@@ -31,10 +29,9 @@ public class CartDomainService {
         cartRepository.save(cart);
     }
 
-    public List<CartItem> getCartItems(Long userId) {
+    public Cart getCart(Long userId) {
         return cartRepository.findByUserId(userId)
-            .map(Cart::getItems)
-            .orElse(Collections.emptyList());
+            .orElseGet(() -> new Cart(userId));
     }
 
     public void clearCart(Long userId) {
@@ -44,11 +41,9 @@ public class CartDomainService {
         });
     }
 
-    public void removeUnavailableItems(Long userId, Set<Long> availableProductIds) {
-        cartRepository.findByUserId(userId).ifPresent(cart -> {
-            cart.removeUnavailableItems(availableProductIds);
-            cartRepository.save(cart);
-        });
+    public void removeUnavailableItems(Cart cart, Set<Long> availableProductIds) {
+        cart.removeUnavailableItems(availableProductIds);
+        cartRepository.save(cart);
     }
 
     private Cart getOrCreateCart(Long userId) {

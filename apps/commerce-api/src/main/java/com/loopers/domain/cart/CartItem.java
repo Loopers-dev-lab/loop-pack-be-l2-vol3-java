@@ -56,7 +56,7 @@ public class CartItem {
         this.quantity = getQuantity().add(amount).value();
     }
 
-    public void updateQuantity(int quantity) {
+    public void changeQuantity(int quantity) {
         this.quantity = new Quantity(quantity).value();
     }
 

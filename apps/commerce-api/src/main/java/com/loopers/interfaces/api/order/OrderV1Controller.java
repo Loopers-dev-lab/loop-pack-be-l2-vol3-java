@@ -1,12 +1,12 @@
 package com.loopers.interfaces.api.order;
 
+import com.loopers.application.order.CreateOrderCommand;
 import com.loopers.application.order.OrderApplicationService;
 import com.loopers.domain.PageResult;
 import com.loopers.domain.order.Order;
-import com.loopers.domain.order.OrderLineItem;
-import com.loopers.domain.user.User;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.AuthUser;
+import com.loopers.interfaces.api.auth.AuthenticatedUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
@@ -31,43 +30,46 @@ public class OrderV1Controller implements OrderV1ApiSpec {
     @PostMapping
     @Override
     public ApiResponse<OrderV1Dto.OrderDetailResponse> createOrder(
-        @AuthUser User user,
+        @AuthUser AuthenticatedUser authUser,
         @Valid @RequestBody OrderV1Dto.CreateOrderRequest request
     ) {
-        List<OrderLineItem> items = request.items().stream()
-            .map(i -> new OrderLineItem(i.productId(), i.quantity()))
-            .toList();
-        Order order = orderApplicationService.createOrder(user.getId(), items);
+        CreateOrderCommand command = new CreateOrderCommand(
+            authUser.userId(),
+            request.items().stream()
+                .map(i -> new CreateOrderCommand.LineItem(i.productId(), i.quantity()))
+                .toList()
+        );
+        Order order = orderApplicationService.createOrder(command);
         return ApiResponse.success(OrderV1Dto.OrderDetailResponse.from(order));
     }
 
     @PostMapping("/cart")
     @Override
-    public ApiResponse<OrderV1Dto.OrderDetailResponse> createOrderFromCart(@AuthUser User user) {
-        Order order = orderApplicationService.createOrderFromCart(user.getId());
+    public ApiResponse<OrderV1Dto.OrderDetailResponse> createOrderFromCart(@AuthUser AuthenticatedUser authUser) {
+        Order order = orderApplicationService.createOrderFromCart(authUser.userId());
         return ApiResponse.success(OrderV1Dto.OrderDetailResponse.from(order));
     }
 
     @GetMapping
     @Override
     public ApiResponse<OrderV1Dto.OrderPageResponse> getMyOrders(
-        @AuthUser User user,
+        @AuthUser AuthenticatedUser authUser,
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startAt,
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endAt,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
-        PageResult<Order> result = orderApplicationService.getMyOrders(user.getId(), startAt, endAt, page, size);
+        PageResult<Order> result = orderApplicationService.getMyOrders(authUser.userId(), startAt, endAt, page, size);
         return ApiResponse.success(OrderV1Dto.OrderPageResponse.from(result));
     }
 
     @GetMapping("/{orderId}")
     @Override
     public ApiResponse<OrderV1Dto.OrderDetailResponse> getMyOrderDetail(
-        @AuthUser User user,
+        @AuthUser AuthenticatedUser authUser,
         @PathVariable Long orderId
     ) {
-        Order order = orderApplicationService.getMyOrder(user.getId(), orderId);
+        Order order = orderApplicationService.getMyOrder(authUser.userId(), orderId);
         return ApiResponse.success(OrderV1Dto.OrderDetailResponse.from(order));
     }
 }

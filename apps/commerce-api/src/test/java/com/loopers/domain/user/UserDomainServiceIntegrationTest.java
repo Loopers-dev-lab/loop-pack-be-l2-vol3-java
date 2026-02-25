@@ -1,6 +1,5 @@
 package com.loopers.domain.user;
 
-import com.loopers.infrastructure.user.UserJpaRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
@@ -22,9 +21,6 @@ class UserDomainServiceIntegrationTest {
 
     @Autowired
     private UserDomainService userService;
-
-    @Autowired
-    private UserJpaRepository userJpaRepository;
 
     @Autowired
     private PasswordEncryptor passwordEncryptor;

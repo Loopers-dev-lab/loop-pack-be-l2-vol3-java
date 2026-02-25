@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -87,10 +88,18 @@ class CartTest {
 
         @DisplayName("존재하는 항목이면, 삭제된다.")
         @Test
-        void removesItem_whenItemExists() {
+        void removesItem_whenItemExists() throws Exception {
             Cart cart = new Cart(1L);
             cart.addItem(100L, 2);
-            // CartItem doesn't have ID without persistence, so we test through clear
+
+            CartItem cartItem = cart.getItems().get(0);
+            Field idField = CartItem.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(cartItem, 1L);
+
+            cart.removeItem(1L);
+
+            assertThat(cart.getItems()).isEmpty();
         }
 
         @DisplayName("존재하지 않는 항목이면, NOT_FOUND 예외가 발생한다.")

@@ -60,7 +60,7 @@ class CartDomainServiceIntegrationTest {
         void createsCartItem_whenNewProduct() {
             cartService.addToCart(1L, productId, 2);
 
-            List<CartItem> items = cartService.getCartItems(1L);
+            List<CartItem> items = cartService.getCart(1L).getItems();
             assertAll(
                 () -> assertThat(items).hasSize(1),
                 () -> assertThat(items.get(0).getProductId()).isEqualTo(productId),
@@ -75,7 +75,7 @@ class CartDomainServiceIntegrationTest {
 
             cartService.addToCart(1L, productId, 3);
 
-            List<CartItem> items = cartService.getCartItems(1L);
+            List<CartItem> items = cartService.getCart(1L).getItems();
             assertAll(
                 () -> assertThat(items).hasSize(1),
                 () -> assertThat(items.get(0).getQuantity()).isEqualTo(new Quantity(5))
@@ -91,11 +91,11 @@ class CartDomainServiceIntegrationTest {
         @Test
         void updatesQuantity_whenValid() {
             cartService.addToCart(1L, productId, 2);
-            Long cartItemId = cartService.getCartItems(1L).get(0).getId();
+            Long cartItemId = cartService.getCart(1L).getItems().get(0).getId();
 
             cartService.updateItemQuantity(1L, cartItemId, 5);
 
-            List<CartItem> items = cartService.getCartItems(1L);
+            List<CartItem> items = cartService.getCart(1L).getItems();
             assertThat(items.get(0).getQuantity()).isEqualTo(new Quantity(5));
         }
 
@@ -126,11 +126,11 @@ class CartDomainServiceIntegrationTest {
         @Test
         void removesItem_whenItemExists() {
             cartService.addToCart(1L, productId, 2);
-            Long cartItemId = cartService.getCartItems(1L).get(0).getId();
+            Long cartItemId = cartService.getCart(1L).getItems().get(0).getId();
 
             cartService.removeItem(1L, cartItemId);
 
-            List<CartItem> items = cartService.getCartItems(1L);
+            List<CartItem> items = cartService.getCart(1L).getItems();
             assertThat(items).isEmpty();
         }
 
@@ -154,7 +154,7 @@ class CartDomainServiceIntegrationTest {
             cartService.addToCart(1L, productId, 2);
             cartService.addToCart(1L, product2.getId(), 1);
 
-            List<CartItem> result = cartService.getCartItems(1L);
+            List<CartItem> result = cartService.getCart(1L).getItems();
 
             assertThat(result).hasSize(2);
         }
@@ -162,7 +162,7 @@ class CartDomainServiceIntegrationTest {
         @DisplayName("항목이 없으면, 빈 목록을 반환한다.")
         @Test
         void returnsEmptyList_whenNoItems() {
-            List<CartItem> result = cartService.getCartItems(1L);
+            List<CartItem> result = cartService.getCart(1L).getItems();
 
             assertThat(result).isEmpty();
         }
@@ -181,7 +181,7 @@ class CartDomainServiceIntegrationTest {
 
             cartService.clearCart(1L);
 
-            List<CartItem> result = cartService.getCartItems(1L);
+            List<CartItem> result = cartService.getCart(1L).getItems();
             assertThat(result).isEmpty();
         }
     }

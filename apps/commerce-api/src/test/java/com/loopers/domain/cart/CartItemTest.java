@@ -49,16 +49,16 @@ class CartItemTest {
 
     @DisplayName("수량을 변경할 때, ")
     @Nested
-    class UpdateQuantity {
+    class ChangeQuantity {
 
         @DisplayName("1 이상이면, 수량이 변경된다.")
         @Test
-        void updatesQuantity_whenValueIsPositive() {
+        void changesQuantity_whenValueIsPositive() {
             Cart cart = createCart();
             cart.addItem(100L, 2);
 
             CartItem cartItem = cart.getItems().get(0);
-            cartItem.updateQuantity(5);
+            cartItem.changeQuantity(5);
 
             assertThat(cartItem.getQuantity()).isEqualTo(new Quantity(5));
         }

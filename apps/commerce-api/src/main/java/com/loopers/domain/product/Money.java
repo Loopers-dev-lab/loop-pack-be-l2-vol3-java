@@ -16,6 +16,9 @@ public record Money(int amount) {
     }
 
     public Money minus(Money other) {
+        if (this.amount < other.amount) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "금액은 음수가 될 수 없습니다.");
+        }
         return new Money(this.amount - other.amount);
     }
 

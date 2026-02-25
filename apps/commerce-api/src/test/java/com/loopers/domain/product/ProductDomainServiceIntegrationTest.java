@@ -13,8 +13,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -31,6 +30,9 @@ class ProductDomainServiceIntegrationTest {
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     private Long brandId;
 
@@ -154,9 +156,11 @@ class ProductDomainServiceIntegrationTest {
         void sortsByLikesDesc() {
             Product p1 = productService.register(brandId, "인기없는상품", 129000, 100);
             Product p2 = productService.register(brandId, "인기상품", 159000, 50);
-            productService.incrementLikeCount(p2.getId());
-            productService.incrementLikeCount(p2.getId());
-            productService.incrementLikeCount(p1.getId());
+            transactionTemplate.executeWithoutResult(status -> {
+                productService.incrementLikeCount(p2.getId());
+                productService.incrementLikeCount(p2.getId());
+                productService.incrementLikeCount(p1.getId());
+            });
 
             PageResult<Product> result = productService.getAll(null, ProductSortType.LIKES_DESC, 0, 20);
 
@@ -239,12 +243,13 @@ class ProductDomainServiceIntegrationTest {
 
         @DisplayName("해당 브랜드의 모든 상품이 삭제된다.")
         @Test
-        @Transactional
         void deletesAllProductsOfBrand() {
             productService.register(brandId, "에어맥스", 129000, 100);
             productService.register(brandId, "에어포스1", 109000, 200);
 
-            productService.deleteAllByBrandId(brandId);
+            transactionTemplate.executeWithoutResult(status ->
+                productService.deleteAllByBrandId(brandId)
+            );
 
             PageResult<Product> result = productService.getAll(brandId, ProductSortType.LATEST, 0, 20);
             assertThat(result.items()).isEmpty();
@@ -257,11 +262,12 @@ class ProductDomainServiceIntegrationTest {
 
         @DisplayName("좋아요 수가 1 증가한다.")
         @Test
-        @Transactional
         void incrementsLikeCount() {
             Product product = productService.register(brandId, "에어맥스", 129000, 100);
 
-            productService.incrementLikeCount(product.getId());
+            transactionTemplate.executeWithoutResult(status ->
+                productService.incrementLikeCount(product.getId())
+            );
 
             Product result = productService.getById(product.getId());
             assertThat(result.getLikeCount()).isEqualTo(1);
@@ -274,12 +280,15 @@ class ProductDomainServiceIntegrationTest {
 
         @DisplayName("좋아요 수가 1 감소한다.")
         @Test
-        @Transactional
         void decrementsLikeCount() {
             Product product = productService.register(brandId, "에어맥스", 129000, 100);
-            productService.incrementLikeCount(product.getId());
+            transactionTemplate.executeWithoutResult(status ->
+                productService.incrementLikeCount(product.getId())
+            );
 
-            productService.decrementLikeCount(product.getId());
+            transactionTemplate.executeWithoutResult(status ->
+                productService.decrementLikeCount(product.getId())
+            );
 
             Product result = productService.getById(product.getId());
             assertThat(result.getLikeCount()).isEqualTo(0);
@@ -287,12 +296,13 @@ class ProductDomainServiceIntegrationTest {
 
         @DisplayName("좋아요 수가 0이면, BAD_REQUEST 예외가 발생한다.")
         @Test
-        @Transactional
         void throwsBadRequest_whenLikeCountIsZero() {
             Product product = productService.register(brandId, "에어맥스", 129000, 100);
 
             CoreException result = assertThrows(CoreException.class,
-                () -> productService.decrementLikeCount(product.getId()));
+                () -> transactionTemplate.executeWithoutResult(status ->
+                    productService.decrementLikeCount(product.getId())
+                ));
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }

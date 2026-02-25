@@ -1,16 +1,10 @@
 package com.loopers.interfaces.api.cart;
 
-import com.loopers.application.brand.BrandApplicationService;
 import com.loopers.application.cart.CartApplicationService;
-import com.loopers.application.product.ProductApplicationService;
-import com.loopers.domain.brand.Brand;
-import com.loopers.domain.cart.CartItem;
-import com.loopers.domain.product.Product;
-import com.loopers.domain.user.User;
+import com.loopers.application.cart.CartItemDetail;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.AuthUser;
-import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
+import com.loopers.interfaces.api.auth.AuthenticatedUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -23,9 +17,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @RestController
@@ -33,45 +24,21 @@ import java.util.stream.Collectors;
 public class CartV1Controller implements CartV1ApiSpec {
 
     private final CartApplicationService cartApplicationService;
-    private final ProductApplicationService productApplicationService;
-    private final BrandApplicationService brandApplicationService;
 
     @PostMapping("/items")
     @Override
-    public ApiResponse<Void> addToCart(@AuthUser User user, @Valid @RequestBody CartV1Dto.AddRequest request) {
-        cartApplicationService.addToCart(user.getId(), request.productId(), request.quantity());
+    public ApiResponse<Void> addToCart(@AuthUser AuthenticatedUser authUser, @Valid @RequestBody CartV1Dto.AddRequest request) {
+        cartApplicationService.addToCart(authUser.userId(), request.productId(), request.quantity());
         return ApiResponse.success();
     }
 
     @GetMapping
     @Override
-    public ApiResponse<CartV1Dto.CartResponse> getMyCart(@AuthUser User user) {
-        List<CartItem> cartItems = cartApplicationService.getMyCart(user.getId());
+    public ApiResponse<CartV1Dto.CartResponse> getMyCart(@AuthUser AuthenticatedUser authUser) {
+        List<CartItemDetail> details = cartApplicationService.getMyCartWithDetails(authUser.userId());
 
-        Set<Long> productIds = cartItems.stream()
-            .map(CartItem::getProductId)
-            .collect(Collectors.toSet());
-        Map<Long, Product> productMap = productApplicationService.getByIds(productIds);
-
-        Set<Long> brandIds = productMap.values().stream()
-            .map(Product::getBrandId)
-            .collect(Collectors.toSet());
-        Map<Long, Brand> brandMap = brandApplicationService.getByIds(brandIds);
-
-        List<CartV1Dto.CartItemResponse> itemResponses = cartItems.stream()
-            .map(cartItem -> {
-                Product product = productMap.get(cartItem.getProductId());
-                if (product == null) {
-                    throw new CoreException(ErrorType.INTERNAL_ERROR,
-                        "상품을 찾을 수 없습니다. productId=" + cartItem.getProductId());
-                }
-                Brand brand = brandMap.get(product.getBrandId());
-                if (brand == null) {
-                    throw new CoreException(ErrorType.INTERNAL_ERROR,
-                        "브랜드를 찾을 수 없습니다. brandId=" + product.getBrandId());
-                }
-                return CartV1Dto.CartItemResponse.from(cartItem, product, brand);
-            })
+        List<CartV1Dto.CartItemResponse> itemResponses = details.stream()
+            .map(detail -> CartV1Dto.CartItemResponse.from(detail.cartItem(), detail.product(), detail.brand()))
             .toList();
 
         return ApiResponse.success(CartV1Dto.CartResponse.from(itemResponses));
@@ -80,18 +47,18 @@ public class CartV1Controller implements CartV1ApiSpec {
     @PutMapping("/items/{cartItemId}")
     @Override
     public ApiResponse<Void> updateQuantity(
-        @AuthUser User user,
+        @AuthUser AuthenticatedUser authUser,
         @PathVariable Long cartItemId,
         @Valid @RequestBody CartV1Dto.UpdateQuantityRequest request
     ) {
-        cartApplicationService.updateQuantity(cartItemId, user.getId(), request.quantity());
+        cartApplicationService.updateQuantity(cartItemId, authUser.userId(), request.quantity());
         return ApiResponse.success();
     }
 
     @DeleteMapping("/items/{cartItemId}")
     @Override
-    public ApiResponse<Void> removeItem(@AuthUser User user, @PathVariable Long cartItemId) {
-        cartApplicationService.removeItem(cartItemId, user.getId());
+    public ApiResponse<Void> removeItem(@AuthUser AuthenticatedUser authUser, @PathVariable Long cartItemId) {
+        cartApplicationService.removeItem(cartItemId, authUser.userId());
         return ApiResponse.success();
     }
 }

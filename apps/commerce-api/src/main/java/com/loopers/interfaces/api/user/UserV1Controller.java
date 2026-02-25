@@ -4,6 +4,7 @@ import com.loopers.application.user.UserApplicationService;
 import com.loopers.domain.user.User;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.AuthUser;
+import com.loopers.interfaces.api.auth.AuthenticatedUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,14 +36,15 @@ public class UserV1Controller implements UserV1ApiSpec {
 
     @GetMapping("/me")
     @Override
-    public ApiResponse<UserV1Dto.MeResponse> getMe(@AuthUser User user) {
+    public ApiResponse<UserV1Dto.MeResponse> getMe(@AuthUser AuthenticatedUser authUser) {
+        User user = userApplicationService.getById(authUser.userId());
         return ApiResponse.success(UserV1Dto.MeResponse.from(user));
     }
 
     @PutMapping("/password")
     @Override
-    public ApiResponse<Void> changePassword(@AuthUser User user, @Valid @RequestBody UserV1Dto.ChangePasswordRequest request) {
-        userApplicationService.changePassword(user.getId(), request.currentPassword(), request.newPassword());
+    public ApiResponse<Void> changePassword(@AuthUser AuthenticatedUser authUser, @Valid @RequestBody UserV1Dto.ChangePasswordRequest request) {
+        userApplicationService.changePassword(authUser.userId(), request.currentPassword(), request.newPassword());
         return ApiResponse.success();
     }
 }

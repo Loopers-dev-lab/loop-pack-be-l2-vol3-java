@@ -1,5 +1,6 @@
 package com.loopers.domain.order;
 
+import com.loopers.domain.BaseEntity;
 import com.loopers.domain.Quantity;
 import com.loopers.domain.product.Money;
 import com.loopers.support.error.CoreException;
@@ -7,23 +8,13 @@ import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-
-import java.time.ZonedDateTime;
 
 @Entity
 @Table(name = "order_items")
-public class OrderItem {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class OrderItem extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
@@ -44,9 +35,6 @@ public class OrderItem {
     @Column(name = "quantity", nullable = false)
     private int quantity;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private ZonedDateTime createdAt;
-
     protected OrderItem() {}
 
     OrderItem(Order order, Long productId, String productName, Money productPrice, String brandName, int quantity) {
@@ -59,18 +47,11 @@ public class OrderItem {
         this.quantity = new Quantity(quantity).value();
     }
 
-    public Long getId() { return id; }
     public Long getProductId() { return productId; }
     public String getProductName() { return productName; }
     public Money getProductPrice() { return new Money(productPrice); }
     public String getBrandName() { return brandName; }
     public Quantity getQuantity() { return new Quantity(quantity); }
-    public ZonedDateTime getCreatedAt() { return createdAt; }
-
-    @PrePersist
-    private void prePersist() {
-        this.createdAt = ZonedDateTime.now();
-    }
 
     private void validate(Order order, Long productId, String productName, Money productPrice, String brandName) {
         if (order == null) {

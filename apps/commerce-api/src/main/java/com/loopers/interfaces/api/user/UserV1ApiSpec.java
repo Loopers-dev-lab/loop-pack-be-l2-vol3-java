@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.user;
 
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.auth.AuthenticatedUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,11 +19,11 @@ public interface UserV1ApiSpec {
         summary = "내 정보 조회",
         description = "로그인한 유저의 정보를 조회합니다. 이름은 마지막 글자가 마스킹됩니다."
     )
-    ApiResponse<UserV1Dto.MeResponse> getMe(@Parameter(hidden = true) com.loopers.domain.user.User user);
+    ApiResponse<UserV1Dto.MeResponse> getMe(@Parameter(hidden = true) AuthenticatedUser authUser);
 
     @Operation(
         summary = "비밀번호 변경",
         description = "로그인한 유저의 비밀번호를 변경합니다."
     )
-    ApiResponse<Void> changePassword(@Parameter(hidden = true) com.loopers.domain.user.User user, UserV1Dto.ChangePasswordRequest request);
+    ApiResponse<Void> changePassword(@Parameter(hidden = true) AuthenticatedUser authUser, UserV1Dto.ChangePasswordRequest request);
 }

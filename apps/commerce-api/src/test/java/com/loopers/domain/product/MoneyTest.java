@@ -64,6 +64,7 @@ class MoneyTest {
             Money b = new Money(3000);
             CoreException result = assertThrows(CoreException.class, () -> a.minus(b));
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(result.getMessage()).isEqualTo("금액은 음수가 될 수 없습니다.");
         }
 
         @DisplayName("곱하면, 곱셈된 금액을 반환한다.")

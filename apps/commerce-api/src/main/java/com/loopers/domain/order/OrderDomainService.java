@@ -1,9 +1,7 @@
 package com.loopers.domain.order;
 
 import com.loopers.domain.PageResult;
-import com.loopers.domain.brand.Brand;
 import com.loopers.domain.product.Money;
-import com.loopers.domain.product.Product;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -11,43 +9,20 @@ import lombok.RequiredArgsConstructor;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 @RequiredArgsConstructor
 public class OrderDomainService {
 
     private final OrderRepository orderRepository;
 
-    public Order createOrder(Long userId, List<OrderLineItem> items, List<Product> products, Map<Long, Brand> brandMap) {
-        List<OrderItemCommand> itemCommands = new ArrayList<>();
-        for (int i = 0; i < items.size(); i++) {
-            OrderLineItem item = items.get(i);
-            Product product = products.get(i);
-            Brand brand = brandMap.get(product.getBrandId());
-            if (brand == null) {
-                throw new CoreException(ErrorType.NOT_FOUND,
-                    "브랜드를 찾을 수 없습니다. brandId=" + product.getBrandId());
-            }
-
-            itemCommands.add(new OrderItemCommand(
-                product.getId(), product.getName(), product.getPrice(),
-                brand.getName(), item.quantity()
-            ));
-        }
-
-        return createOrder(userId, itemCommands);
-    }
-
     public Order createOrder(Long userId, List<OrderItemCommand> itemCommands) {
         if (itemCommands == null || itemCommands.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목은 하나 이상이어야 합니다.");
         }
 
-        validateNoDuplicateProducts(itemCommands);
+        List<Long> productIds = itemCommands.stream().map(OrderItemCommand::productId).toList();
+        OrderPolicy.validateNoDuplicateProducts(productIds);
 
         Money totalPrice = calculateTotalPrice(itemCommands);
 
@@ -55,15 +30,6 @@ public class OrderDomainService {
         order.addItems(itemCommands);
 
         return orderRepository.save(order);
-    }
-
-    private void validateNoDuplicateProducts(List<OrderItemCommand> itemCommands) {
-        Set<Long> uniqueProductIds = new HashSet<>();
-        for (OrderItemCommand cmd : itemCommands) {
-            if (!uniqueProductIds.add(cmd.productId())) {
-                throw new CoreException(ErrorType.BAD_REQUEST, "중복된 상품이 포함되어 있습니다.");
-            }
-        }
     }
 
     private Money calculateTotalPrice(List<OrderItemCommand> itemCommands) {

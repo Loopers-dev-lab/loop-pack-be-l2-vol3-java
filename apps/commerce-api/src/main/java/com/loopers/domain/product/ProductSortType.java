@@ -1,5 +1,8 @@
 package com.loopers.domain.product;
 
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
+
 public enum ProductSortType {
     LATEST,
     PRICE_ASC,
@@ -12,7 +15,7 @@ public enum ProductSortType {
         try {
             return valueOf(value.toUpperCase());
         } catch (IllegalArgumentException e) {
-            return LATEST;
+            throw new CoreException(ErrorType.BAD_REQUEST, "지원하지 않는 정렬 기준입니다: " + value);
         }
     }
 }

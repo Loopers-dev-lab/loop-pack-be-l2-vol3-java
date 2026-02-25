@@ -51,6 +51,13 @@ public class Order extends BaseEntity {
         }
     }
 
+    public void cancel() {
+        if (this.status != OrderStatus.ORDERED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문 취소가 불가능한 상태입니다.");
+        }
+        this.status = OrderStatus.CANCELLED;
+    }
+
     public Long getUserId() { return userId; }
     public Money getTotalPrice() { return new Money(totalPrice); }
     public OrderStatus getStatus() { return status; }

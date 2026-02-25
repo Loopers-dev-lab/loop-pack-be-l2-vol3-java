@@ -12,6 +12,11 @@ public class UserDomainService {
     private final UserRepository userRepository;
     private final PasswordEncryptor passwordEncryptor;
 
+    public User getById(Long id) {
+        return userRepository.findById(id)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+    }
+
     public User signup(String loginId, String rawPassword, String name, LocalDate birthDate, String email) {
         if (userRepository.existsByLoginId(loginId)) {
             throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.");

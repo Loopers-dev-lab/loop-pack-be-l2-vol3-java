@@ -24,11 +24,11 @@ public class AuthUserArgumentResolver implements HandlerMethodArgumentResolver {
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
         return parameter.hasParameterAnnotation(AuthUser.class)
-            && parameter.getParameterType().equals(User.class);
+            && parameter.getParameterType().equals(AuthenticatedUser.class);
     }
 
     @Override
-    public User resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
+    public AuthenticatedUser resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
                                 NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
         String loginId = webRequest.getHeader(HEADER_LOGIN_ID);
         String password = webRequest.getHeader(HEADER_LOGIN_PW);
@@ -37,6 +37,7 @@ public class AuthUserArgumentResolver implements HandlerMethodArgumentResolver {
             throw new CoreException(ErrorType.UNAUTHORIZED, "인증 헤더가 누락되었습니다.");
         }
 
-        return userApplicationService.authenticate(loginId, password);
+        User user = userApplicationService.authenticate(loginId, password);
+        return new AuthenticatedUser(user.getId(), user.getLoginId());
     }
 }

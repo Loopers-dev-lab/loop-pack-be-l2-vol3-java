@@ -75,7 +75,7 @@ public class Cart {
             .findFirst()
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "장바구니 항목을 찾을 수 없습니다."));
 
-        cartItem.updateQuantity(quantity);
+        cartItem.changeQuantity(quantity);
     }
 
     public void clear() {

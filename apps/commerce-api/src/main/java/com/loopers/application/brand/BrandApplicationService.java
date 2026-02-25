@@ -52,7 +52,7 @@ public class BrandApplicationService {
      */
     @Transactional
     public void delete(Long id) {
-        productService.deleteAllByBrandId(id);
         brandService.delete(id);
+        productService.deleteAllByBrandId(id);
     }
 }

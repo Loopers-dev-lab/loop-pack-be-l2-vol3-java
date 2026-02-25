@@ -14,6 +14,11 @@ public class UserApplicationService {
 
     private final UserDomainService userService;
 
+    @Transactional(readOnly = true)
+    public User getById(Long id) {
+        return userService.getById(id);
+    }
+
     @Transactional
     public User signup(String loginId, String rawPassword, String name, LocalDate birthDate, String email) {
         return userService.signup(loginId, rawPassword, name, birthDate, email);
