@@ -51,7 +51,7 @@ public class UserFacade {
 
     /**
      * 로그인 ID로 고객의 PK를 조회한다.
-     * Like·Order 등 도메인에서 사용할 userId(Long) 변환용.
+     * Like·Cart·Order 등 도메인에서 사용할 userId(Long) 변환용.
      */
     public Optional<Long> findUserIdByLoginId(String loginId) {
         return userService.getMyInfo(loginId).map(UserModel::getId);
