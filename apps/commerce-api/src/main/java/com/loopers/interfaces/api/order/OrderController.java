@@ -7,6 +7,7 @@ import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthUser;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.OrderErrorType;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -63,10 +64,10 @@ public class OrderController implements OrderApiSpec {
     @Override
     public ApiResponse<OrderResponse.OrderListResponse> getOrders(
             @AuthUser User user,
-            @RequestParam(required = false) String startAt,
-            @RequestParam(required = false) String endAt) {
-        ZonedDateTime start = startAt != null ? ZonedDateTime.parse(startAt) : ZonedDateTime.now().minusMonths(3);
-        ZonedDateTime end = endAt != null ? ZonedDateTime.parse(endAt) : ZonedDateTime.now();
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime startAt,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime endAt) {
+        ZonedDateTime start = startAt != null ? startAt : ZonedDateTime.now().minusMonths(3);
+        ZonedDateTime end = endAt != null ? endAt : ZonedDateTime.now();
 
         OrderFacade.OrderListResult result = orderFacade.getOrders(user.getId(), start, end);
 

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 
 @Component
 public class CouponService {
@@ -51,6 +52,14 @@ public class CouponService {
     }
 
     @Transactional(readOnly = true)
+    public IssuedCoupon getIssuedCoupon(Long issuedCouponId, Long userId) {
+        IssuedCoupon issuedCoupon = issuedCouponRepository.findById(issuedCouponId)
+                .orElseThrow(() -> new CoreException(CouponErrorType.COUPON_NOT_FOUND));
+        issuedCoupon.validateOwnership(userId);
+        return issuedCoupon;
+    }
+
+    @Transactional(readOnly = true)
     public List<IssuedCoupon> getUserCoupons(Long userId) {
         return issuedCouponRepository.findAllByUserId(userId);
     }
@@ -59,6 +68,11 @@ public class CouponService {
     public CouponTemplate getTemplate(Long templateId) {
         return couponTemplateRepository.findById(templateId)
                 .orElseThrow(() -> new CoreException(CouponErrorType.TEMPLATE_NOT_FOUND));
+    }
+
+    @Transactional(readOnly = true)
+    public List<CouponTemplate> getTemplatesByIds(Set<Long> ids) {
+        return couponTemplateRepository.findAllByIdIn(ids);
     }
 
     // --- 어드민 기능 ---

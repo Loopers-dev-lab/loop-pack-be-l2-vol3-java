@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Repository
@@ -33,6 +34,13 @@ public class CouponTemplateRepositoryImpl implements CouponTemplateRepository {
     public Optional<CouponTemplate> findById(Long id) {
         return couponTemplateJpaRepository.findById(id)
                 .map(couponTemplateMapper::toDomain);
+    }
+
+    @Override
+    public List<CouponTemplate> findAllByIdIn(Set<Long> ids) {
+        return couponTemplateJpaRepository.findAllByIdIn(ids).stream()
+                .map(couponTemplateMapper::toDomain)
+                .collect(Collectors.toList());
     }
 
     @Override

@@ -57,12 +57,7 @@ public class PaymentFacade {
 
         int discountAmount = 0;
         if (issuedCouponId != null) {
-            IssuedCoupon issuedCoupon = couponService.getUserCoupons(userId).stream()
-                    .filter(c -> c.getId().equals(issuedCouponId))
-                    .findFirst()
-                    .orElseThrow(() -> new com.loopers.support.error.CoreException(
-                            com.loopers.support.error.CouponErrorType.COUPON_NOT_FOUND));
-            issuedCoupon.validateOwnership(userId);
+            IssuedCoupon issuedCoupon = couponService.getIssuedCoupon(issuedCouponId, userId);
 
             CouponTemplate template = couponService.getTemplate(issuedCoupon.getCouponTemplateId());
             if (!template.isApplicable(order.getSubtotalAmount(), java.time.ZonedDateTime.now())) {

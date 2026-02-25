@@ -10,6 +10,7 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -42,8 +43,8 @@ public class CouponFacade {
                 .map(IssuedCoupon::getCouponTemplateId)
                 .collect(Collectors.toSet());
 
-        Map<Long, CouponTemplate> templateMap = templateIds.stream()
-                .collect(Collectors.toMap(id -> id, couponService::getTemplate));
+        Map<Long, CouponTemplate> templateMap = couponService.getTemplatesByIds(templateIds).stream()
+                .collect(Collectors.toMap(CouponTemplate::getId, Function.identity()));
 
         List<IssuedCouponDetail> details = coupons.stream()
                 .map(c -> {

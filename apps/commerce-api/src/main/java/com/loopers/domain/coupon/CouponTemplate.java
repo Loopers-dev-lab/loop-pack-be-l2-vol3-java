@@ -109,7 +109,12 @@ public class CouponTemplate {
         this.status = status;
     }
 
-    /** 쿠폰 템플릿 부분 수정 (null이면 기존값 유지, 빈값이면 검증 에러) */
+    /**
+     * 쿠폰 템플릿 부분 수정 (null이면 기존값 유지, 빈값이면 검증 에러)
+     *
+     * maxIssueCount, maxIssueCountPerUser, validFrom, validTo는 발급 계약 조건이므로
+     * 이미 발급된 쿠폰과의 정합성을 위해 수정 불가. status는 changeStatus()로 별도 관리.
+     */
     public void update(String name, String description, DiscountType discountType, Integer discountValue,
                        Integer maxDiscountAmount, Integer minOrderAmount) {
         if (name != null) {
