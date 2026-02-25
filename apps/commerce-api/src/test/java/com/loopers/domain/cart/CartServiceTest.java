@@ -29,6 +29,7 @@ class CartServiceTest {
     private static final Long CART_ITEM_ID = 10L;
     private static final Long PRODUCT_ID = 100L;
     private static final Long OPTION_ID = 5L;
+    private static final Long NON_EXISTENT_CART_ITEM_ID = 999L;
     private static final int QUANTITY = 2;
 
     @Mock
@@ -212,13 +213,13 @@ class CartServiceTest {
             // given: 첫 번째는 존재, 두 번째는 없음 → 첫 번째 delete 후 두 번째 조회 시 예외
             CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
             when(cartRepository.findByUserIdAndCartItemId(USER_ID, CART_ITEM_ID)).thenReturn(Optional.of(item));
-            when(cartRepository.findByUserIdAndCartItemId(USER_ID, 999L)).thenReturn(Optional.empty());
+            when(cartRepository.findByUserIdAndCartItemId(USER_ID, NON_EXISTENT_CART_ITEM_ID)).thenReturn(Optional.empty());
 
             // when & then
             CoreException ex = assertThrows(CoreException.class, () ->
-                cartService.removeItems(USER_ID, List.of(CART_ITEM_ID, 999L)));
+                cartService.removeItems(USER_ID, List.of(CART_ITEM_ID, NON_EXISTENT_CART_ITEM_ID)));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
-            assertThat(ex.getMessage()).contains("999");
+            assertThat(ex.getMessage()).contains(String.valueOf(NON_EXISTENT_CART_ITEM_ID));
             verify(cartRepository).delete(item);
         }
     }

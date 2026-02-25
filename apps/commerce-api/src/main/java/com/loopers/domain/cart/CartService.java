@@ -11,6 +11,9 @@ import java.util.List;
 @Service
 public class CartService {
 
+    private static final String CART_ITEM_NOT_FOUND = "장바구니 항목을 찾을 수 없습니다.";
+    private static final String CART_ITEM_NOT_FOUND_WITH_ID = "장바구니 항목을 찾을 수 없습니다: %d";
+
     private final CartRepository cartRepository;
     private final ProductService productService;
 
@@ -27,10 +30,7 @@ public class CartService {
         productService.validateProductAvailability(productId, quantity, optionId);
 
         List<CartItemModel> items = cartRepository.findByUserId(userId);
-        CartItemModel existing = items.stream()
-            .filter(item -> item.isSameProduct(productId, optionId))
-            .findFirst()
-            .orElse(null);
+        CartItemModel existing = findExistingSameProduct(items, productId, optionId);
 
         if (existing != null) {
             int newQuantity = existing.getQuantity() + quantity;
@@ -41,6 +41,13 @@ public class CartService {
 
         CartItemModel newItem = CartItemModel.create(userId, productId, optionId, quantity);
         return cartRepository.save(newItem);
+    }
+
+    private CartItemModel findExistingSameProduct(List<CartItemModel> items, Long productId, Long optionId) {
+        return items.stream()
+            .filter(item -> item.isSameProduct(productId, optionId))
+            .findFirst()
+            .orElse(null);
     }
 
     /**
@@ -57,7 +64,7 @@ public class CartService {
     @Transactional
     public CartItemModel updateItem(Long userId, Long cartItemId, int quantity, Long optionId) {
         CartItemModel item = cartRepository.findByUserIdAndCartItemId(userId, cartItemId)
-            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "장바구니 항목을 찾을 수 없습니다."));
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, CART_ITEM_NOT_FOUND));
 
         productService.validateProductAvailability(item.getProductId(), quantity, optionId);
         item.updateQuantityAndOption(quantity, optionId);
@@ -74,7 +81,7 @@ public class CartService {
         }
         for (Long cartItemId : cartItemIds) {
             CartItemModel item = cartRepository.findByUserIdAndCartItemId(userId, cartItemId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "장바구니 항목을 찾을 수 없습니다: " + cartItemId));
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, String.format(CART_ITEM_NOT_FOUND_WITH_ID, cartItemId)));
             cartRepository.delete(item);
         }
     }

@@ -26,6 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @Import(MySqlTestContainersConfig.class)
 class CartServiceIntegrationTest {
 
+    private static final Long TEST_USER_ID = 1L;
+    private static final Long NON_EXISTENT_ID = 999_999L;
+
     @Autowired
     private CartService cartService;
 
@@ -58,14 +61,13 @@ class CartServiceIntegrationTest {
         void addItem_whenValid_shouldSave() {
             // given
             Long productId = saveProduct();
-            Long userId = 1L;
 
             // when
-            CartItemModel saved = cartService.addItem(userId, productId, null, 2);
+            CartItemModel saved = cartService.addItem(TEST_USER_ID, productId, null, 2);
 
             // then
             assertThat(saved.getId()).isNotNull();
-            assertThat(saved.getUserId()).isEqualTo(userId);
+            assertThat(saved.getUserId()).isEqualTo(TEST_USER_ID);
             assertThat(saved.getProductId()).isEqualTo(productId);
             assertThat(saved.getQuantity()).isEqualTo(2);
         }
@@ -75,22 +77,21 @@ class CartServiceIntegrationTest {
         void addItem_whenSameProductAndOption_shouldMergeQuantity() {
             // given
             Long productId = saveProduct();
-            Long userId = 1L;
-            cartService.addItem(userId, productId, 10L, 1);
+            cartService.addItem(TEST_USER_ID, productId, 10L, 1);
 
             // when
-            CartItemModel saved = cartService.addItem(userId, productId, 10L, 2);
+            CartItemModel saved = cartService.addItem(TEST_USER_ID, productId, 10L, 2);
 
             // then
             assertThat(saved.getQuantity()).isEqualTo(3);
-            assertThat(cartService.getItems(userId)).hasSize(1);
+            assertThat(cartService.getItems(TEST_USER_ID)).hasSize(1);
         }
 
         @DisplayName("존재하지 않는 상품이면 NOT_FOUND 예외가 발생한다.")
         @Test
         void addItem_whenProductNotFound_shouldThrowNotFound() {
             CoreException ex = assertThrows(CoreException.class, () ->
-                cartService.addItem(1L, 999_999L, null, 1));
+                cartService.addItem(TEST_USER_ID, NON_EXISTENT_ID, null, 1));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
@@ -104,7 +105,7 @@ class CartServiceIntegrationTest {
 
             // when & then
             CoreException ex = assertThrows(CoreException.class, () ->
-                cartService.addItem(1L, productId, null, 10));
+                cartService.addItem(TEST_USER_ID, productId, null, 10));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
@@ -118,11 +119,10 @@ class CartServiceIntegrationTest {
         void getItems_shouldReturnUserItems() {
             // given
             Long productId = saveProduct();
-            Long userId = 1L;
-            cartService.addItem(userId, productId, null, 1);
+            cartService.addItem(TEST_USER_ID, productId, null, 1);
 
             // when
-            List<CartItemModel> items = cartService.getItems(userId);
+            List<CartItemModel> items = cartService.getItems(TEST_USER_ID);
 
             // then
             assertThat(items).hasSize(1);
@@ -134,7 +134,7 @@ class CartServiceIntegrationTest {
         void getItems_whenEmpty_shouldReturnEmpty() {
             // given - 장바구니에 항목 없음
             // when
-            List<CartItemModel> items = cartService.getItems(1L);
+            List<CartItemModel> items = cartService.getItems(TEST_USER_ID);
 
             // then
             assertThat(items).isEmpty();
@@ -150,11 +150,10 @@ class CartServiceIntegrationTest {
         void updateItem_whenValid_shouldUpdate() {
             // given
             Long productId = saveProduct();
-            Long userId = 1L;
-            CartItemModel added = cartService.addItem(userId, productId, 5L, 2);
+            CartItemModel added = cartService.addItem(TEST_USER_ID, productId, 5L, 2);
 
             // when
-            CartItemModel updated = cartService.updateItem(userId, added.getId(), 5, 10L);
+            CartItemModel updated = cartService.updateItem(TEST_USER_ID, added.getId(), 5, 10L);
 
             // then
             assertThat(updated.getQuantity()).isEqualTo(5);
@@ -165,7 +164,7 @@ class CartServiceIntegrationTest {
         @Test
         void updateItem_whenNotFound_shouldThrowNotFound() {
             CoreException ex = assertThrows(CoreException.class, () ->
-                cartService.updateItem(1L, 999_999L, 1, null));
+                cartService.updateItem(TEST_USER_ID, NON_EXISTENT_ID, 1, null));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
     }
@@ -179,21 +178,20 @@ class CartServiceIntegrationTest {
         void removeItems_whenExists_shouldDelete() {
             // given
             Long productId = saveProduct();
-            Long userId = 1L;
-            CartItemModel added = cartService.addItem(userId, productId, null, 1);
+            CartItemModel added = cartService.addItem(TEST_USER_ID, productId, null, 1);
 
             // when
-            cartService.removeItems(userId, List.of(added.getId()));
+            cartService.removeItems(TEST_USER_ID, List.of(added.getId()));
 
             // then
-            assertThat(cartService.getItems(userId)).isEmpty();
+            assertThat(cartService.getItems(TEST_USER_ID)).isEmpty();
         }
 
         @DisplayName("항목이 없으면 NOT_FOUND 예외가 발생한다.")
         @Test
         void removeItems_whenNotFound_shouldThrowNotFound() {
             CoreException ex = assertThrows(CoreException.class, () ->
-                cartService.removeItems(1L, List.of(999_999L)));
+                cartService.removeItems(TEST_USER_ID, List.of(NON_EXISTENT_ID)));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
     }
