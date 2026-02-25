@@ -49,4 +49,11 @@ public class CartItemService {
     public List<CartItem> getCartItems(Long userId) {
         return cartItemRepository.findAllByUserId(userId);
     }
+
+    /** 상품 삭제 시 해당 상품을 참조하는 장바구니 아이템 일괄 소프트 삭제 */
+    @Transactional
+    public void deleteByProductId(Long productId) {
+        List<CartItem> cartItems = cartItemRepository.findAllByProductId(productId);
+        cartItems.forEach(CartItem::delete);
+    }
 }

@@ -4,6 +4,7 @@ import com.loopers.application.product.ProductInfo;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.brand.BrandStatus;
+import com.loopers.domain.cart.CartItemService;
 import com.loopers.domain.inventory.InventoryService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
@@ -24,12 +25,14 @@ public class BrandAdminFacade {
     private final BrandService brandService;
     private final ProductService productService;
     private final InventoryService inventoryService;
+    private final CartItemService cartItemService;
 
     public BrandAdminFacade(BrandService brandService, ProductService productService,
-                            InventoryService inventoryService) {
+                            InventoryService inventoryService, CartItemService cartItemService) {
         this.brandService = brandService;
         this.productService = productService;
         this.inventoryService = inventoryService;
+        this.cartItemService = cartItemService;
     }
 
     /** 어드민 브랜드 상세 조회 (브랜드 + 전체 상품 목록, status 포함) */
@@ -45,7 +48,7 @@ public class BrandAdminFacade {
         return new BrandAdminDetailResult(BrandInfo.from(brand), productInfos);
     }
 
-    /** 브랜드 삭제 + 소속 상품/재고 연쇄 삭제 */
+    /** 브랜드 삭제 + 소속 상품/재고/장바구니 연쇄 삭제 */
     @Transactional
     public void deleteBrand(Long brandId) {
         brandService.delete(brandId);
@@ -54,6 +57,7 @@ public class BrandAdminFacade {
         for (Product product : products) {
             product.delete();
             inventoryService.delete(product.getId());
+            cartItemService.deleteByProductId(product.getId());
         }
     }
 

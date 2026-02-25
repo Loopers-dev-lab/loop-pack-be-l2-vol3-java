@@ -4,6 +4,7 @@ import com.loopers.application.brand.BrandInfo;
 import com.loopers.application.inventory.InventoryInfo;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.cart.CartItemService;
 import com.loopers.domain.inventory.Inventory;
 import com.loopers.domain.inventory.InventoryService;
 import com.loopers.domain.product.Product;
@@ -27,12 +28,14 @@ public class ProductAdminFacade {
     private final ProductService productService;
     private final BrandService brandService;
     private final InventoryService inventoryService;
+    private final CartItemService cartItemService;
 
     public ProductAdminFacade(ProductService productService, BrandService brandService,
-                              InventoryService inventoryService) {
+                              InventoryService inventoryService, CartItemService cartItemService) {
         this.productService = productService;
         this.brandService = brandService;
         this.inventoryService = inventoryService;
+        this.cartItemService = cartItemService;
     }
 
     /** 상품 등록 (브랜드 ACTIVE 검증 + 상품 생성 + 재고 생성) */
@@ -76,11 +79,12 @@ public class ProductAdminFacade {
         return new ProductAdminListResult(productInfos, page, size, totalElements, totalPages);
     }
 
-    /** 상품 삭제 (상품 + 재고 연쇄 soft delete) */
+    /** 상품 삭제 (상품 + 재고 + 장바구니 연쇄 soft delete) */
     @Transactional
     public void deleteProduct(Long productId) {
         productService.delete(productId);
         inventoryService.delete(productId);
+        cartItemService.deleteByProductId(productId);
     }
 
     /** 상품 부분 수정 */

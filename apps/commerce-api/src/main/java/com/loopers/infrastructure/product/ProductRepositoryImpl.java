@@ -1,9 +1,11 @@
 package com.loopers.infrastructure.product;
 
+import com.loopers.domain.brand.BrandStatus;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.ProductSortType;
 import com.loopers.domain.product.ProductStatus;
+import com.loopers.infrastructure.brand.QBrandEntity;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -85,16 +87,20 @@ public class ProductRepositoryImpl implements ProductRepository {
         return count != null ? count : 0L;
     }
 
-    /** 고객 노출 가능 상품 페이지 조회 (ACTIVE, SOLDOUT만, 삭제 제외) */
+    /** 고객 노출 가능 상품 페이지 조회 (ACTIVE, SOLDOUT만, 삭제 제외, 브랜드 ACTIVE만) */
     @Override
     public List<Product> findAllDisplayable(Long brandId, ProductSortType sort, int page, int size) {
         QProductEntity product = QProductEntity.productEntity;
+        QBrandEntity brand = QBrandEntity.brandEntity;
 
         return queryFactory
                 .selectFrom(product)
+                .innerJoin(brand).on(product.brandId.eq(brand.id))
                 .where(
                         product.deletedAt.isNull(),
                         product.status.in(ProductStatus.ACTIVE.name(), ProductStatus.SOLDOUT.name()),
+                        brand.deletedAt.isNull(),
+                        brand.status.eq(BrandStatus.ACTIVE.name()),
                         brandIdEq(product, brandId)
                 )
                 .orderBy(toOrderSpecifier(product, sort))
@@ -109,13 +115,17 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public long countDisplayable(Long brandId) {
         QProductEntity product = QProductEntity.productEntity;
+        QBrandEntity brand = QBrandEntity.brandEntity;
 
         Long count = queryFactory
                 .select(product.count())
                 .from(product)
+                .innerJoin(brand).on(product.brandId.eq(brand.id))
                 .where(
                         product.deletedAt.isNull(),
                         product.status.in(ProductStatus.ACTIVE.name(), ProductStatus.SOLDOUT.name()),
+                        brand.deletedAt.isNull(),
+                        brand.status.eq(BrandStatus.ACTIVE.name()),
                         brandIdEq(product, brandId)
                 )
                 .fetchOne();
@@ -160,12 +170,25 @@ public class ProductRepositoryImpl implements ProductRepository {
                 .toList();
     }
 
+    /** 좋아요 목록용: ID 목록으로 상품 조회 (브랜드 ACTIVE + 미삭제 필터) */
     @Override
     public List<Product> findAllByIdIn(List<Long> ids) {
-        return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids)
-            .stream()
-            .map(productMapper::toDomain)
-            .toList();
+        QProductEntity product = QProductEntity.productEntity;
+        QBrandEntity brand = QBrandEntity.brandEntity;
+
+        return queryFactory
+                .selectFrom(product)
+                .innerJoin(brand).on(product.brandId.eq(brand.id))
+                .where(
+                        product.id.in(ids),
+                        product.deletedAt.isNull(),
+                        brand.deletedAt.isNull(),
+                        brand.status.eq(BrandStatus.ACTIVE.name())
+                )
+                .fetch()
+                .stream()
+                .map(productMapper::toDomain)
+                .toList();
     }
 
     /** brandId가 null이면 필터 미적용 */

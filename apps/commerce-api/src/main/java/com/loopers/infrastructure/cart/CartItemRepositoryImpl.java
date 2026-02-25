@@ -47,4 +47,12 @@ public class CartItemRepositoryImpl implements CartItemRepository {
             .map(cartItemMapper::toDomain)
             .toList();
     }
+
+    @Override
+    public List<CartItem> findAllByProductId(Long productId) {
+        return cartItemJpaRepository.findAllByProductIdAndDeletedAtIsNull(productId)
+            .stream()
+            .map(cartItemMapper::toDomain)
+            .toList();
+    }
 }
