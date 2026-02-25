@@ -46,6 +46,24 @@ public record Product(
         return new Product(id, name, price, stock, description, categoryId, brandId, likeCount + 1, deletedAt);
     }
 
+    public Product decreaseStock(int quantity) {
+        if (quantity <= 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "수량은 1 이상이어야 합니다.");
+        }
+        int nextStock = stock - quantity;
+        if (nextStock < 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.");
+        }
+        return new Product(id, name, price, nextStock, description, categoryId, brandId, likeCount, deletedAt);
+    }
+
+    public Product increaseStock(int quantity) {
+        if (quantity <= 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "수량은 1 이상이어야 합니다.");
+        }
+        return new Product(id, name, price, stock + quantity, description, categoryId, brandId, likeCount, deletedAt);
+    }
+
     public Product decreaseLikeCount() {
         int nextLikeCount = Math.max(likeCount - 1, 0);
         return new Product(id, name, price, stock, description, categoryId, brandId, nextLikeCount, deletedAt);

@@ -11,4 +11,6 @@ public interface UserRepository {
     boolean existsByUserId(UserId userId);
 
     User save(User user);
+
+    Optional<Long> findDbIdByUserId(UserId userId);
 }
