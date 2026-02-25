@@ -105,6 +105,13 @@ public class CouponTemplate {
         return true;
     }
 
+    /** 발급 가능 기간인지 단언 (validFrom ~ validTo) */
+    public void assertIssuable(ZonedDateTime now) {
+        if (now.isBefore(this.validFrom) || now.isAfter(this.validTo)) {
+            throw new CoreException(CouponErrorType.TEMPLATE_NOT_IN_VALID_PERIOD);
+        }
+    }
+
     public void changeStatus(CouponTemplateStatus status) {
         this.status = status;
     }

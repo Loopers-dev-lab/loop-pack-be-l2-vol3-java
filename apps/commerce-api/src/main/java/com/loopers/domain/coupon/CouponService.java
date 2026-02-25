@@ -28,6 +28,7 @@ public class CouponService {
         if (template.getStatus() != CouponTemplateStatus.ACTIVE) {
             throw new CoreException(CouponErrorType.INVALID_TEMPLATE);
         }
+        template.assertIssuable(java.time.ZonedDateTime.now());
 
         long totalIssued = issuedCouponRepository.countByCouponTemplateId(templateId);
         if (totalIssued >= template.getMaxIssueCount()) {
