@@ -1,0 +1,313 @@
+package com.loopers.application.order;
+
+import com.loopers.domain.common.Money;
+import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderItem;
+import com.loopers.domain.order.OrderRepository;
+import com.loopers.domain.order.OrderStatus;
+import com.loopers.support.error.CoreException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
+@DisplayName("OrderAppService 단위 테스트")
+class OrderAppServiceTest {
+
+    private OrderAppService orderAppService;
+    private OrderRepository orderRepository;
+
+    @BeforeEach
+    void setUp() {
+        orderRepository = mock(OrderRepository.class);
+        orderAppService = new OrderAppService(orderRepository);
+    }
+
+    private OrderItem createTestOrderItem() {
+        return OrderItem.of(1L, "테스트 상품", "기본 옵션", Money.of(10000L), 2);
+    }
+
+    private Order createPendingOrder() {
+        return Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.PENDING);
+    }
+
+    @Nested
+    @DisplayName("주문 생성")
+    class CreateTest {
+
+        @Test
+        @DisplayName("유효한 정보로 주문을 생성할 수 있다")
+        void create_success() {
+            // given
+            Long userId = 1L;
+            List<OrderItem> items = List.of(createTestOrderItem());
+            Order savedOrder = Order.of(1L, userId, items, OrderStatus.PENDING);
+
+            given(orderRepository.save(any(Order.class))).willReturn(savedOrder);
+
+            // when
+            Order result = orderAppService.create(userId, items);
+
+            // then
+            assertThat(result.getId()).isEqualTo(1L);
+            assertThat(result.getUserId()).isEqualTo(userId);
+            assertThat(result.getStatus()).isEqualTo(OrderStatus.PENDING);
+            verify(orderRepository).save(any(Order.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("주문 조회")
+    class GetByIdTest {
+
+        @Test
+        @DisplayName("ID로 주문을 조회할 수 있다")
+        void getById_found() {
+            // given
+            Order order = createPendingOrder();
+            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+
+            // when
+            Order result = orderAppService.getById(1L);
+
+            // then
+            assertThat(result.getId()).isEqualTo(1L);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 ID로 조회하면 예외가 발생한다")
+        void getById_notFound() {
+            // given
+            given(orderRepository.findById(999L)).willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> orderAppService.getById(999L))
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining("주문을 찾을 수 없습니다.");
+        }
+    }
+
+    @Nested
+    @DisplayName("주문 상태 전이 - 결제")
+    class PayTest {
+
+        @Test
+        @DisplayName("PENDING 상태에서 결제할 수 있다")
+        void pay_success() {
+            // given
+            Order order = createPendingOrder();
+            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.save(any(Order.class))).willReturn(order);
+
+            // when
+            Order result = orderAppService.pay(1L);
+
+            // then
+            assertThat(result.getStatus()).isEqualTo(OrderStatus.PAID);
+            verify(orderRepository).save(order);
+        }
+
+        @Test
+        @DisplayName("PENDING이 아닌 상태에서 결제하면 예외가 발생한다")
+        void pay_invalidState() {
+            // given
+            Order order = Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.PAID);
+            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderAppService.pay(1L))
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining("결제 대기 상태에서만 결제할 수 있습니다.");
+        }
+    }
+
+    @Nested
+    @DisplayName("주문 상태 전이 - 준비")
+    class PrepareTest {
+
+        @Test
+        @DisplayName("PAID 상태에서 준비할 수 있다")
+        void prepare_success() {
+            // given
+            Order order = Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.PAID);
+            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.save(any(Order.class))).willReturn(order);
+
+            // when
+            Order result = orderAppService.prepare(1L);
+
+            // then
+            assertThat(result.getStatus()).isEqualTo(OrderStatus.PREPARING);
+        }
+
+        @Test
+        @DisplayName("PAID가 아닌 상태에서 준비하면 예외가 발생한다")
+        void prepare_invalidState() {
+            // given
+            Order order = createPendingOrder();
+            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderAppService.prepare(1L))
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining("결제 완료 상태에서만 준비할 수 있습니다.");
+        }
+    }
+
+    @Nested
+    @DisplayName("주문 상태 전이 - 배송")
+    class ShipTest {
+
+        @Test
+        @DisplayName("PREPARING 상태에서 배송을 시작할 수 있다")
+        void ship_success() {
+            // given
+            Order order = Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.PREPARING);
+            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.save(any(Order.class))).willReturn(order);
+
+            // when
+            Order result = orderAppService.ship(1L);
+
+            // then
+            assertThat(result.getStatus()).isEqualTo(OrderStatus.SHIPPED);
+        }
+
+        @Test
+        @DisplayName("PREPARING이 아닌 상태에서 배송하면 예외가 발생한다")
+        void ship_invalidState() {
+            // given
+            Order order = createPendingOrder();
+            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderAppService.ship(1L))
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining("준비 완료 상태에서만 배송을 시작할 수 있습니다.");
+        }
+    }
+
+    @Nested
+    @DisplayName("주문 상태 전이 - 배송 완료")
+    class DeliverTest {
+
+        @Test
+        @DisplayName("SHIPPED 상태에서 배송 완료할 수 있다")
+        void deliver_success() {
+            // given
+            Order order = Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.SHIPPED);
+            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.save(any(Order.class))).willReturn(order);
+
+            // when
+            Order result = orderAppService.deliver(1L);
+
+            // then
+            assertThat(result.getStatus()).isEqualTo(OrderStatus.DELIVERED);
+        }
+
+        @Test
+        @DisplayName("SHIPPED가 아닌 상태에서 배송 완료하면 예외가 발생한다")
+        void deliver_invalidState() {
+            // given
+            Order order = createPendingOrder();
+            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderAppService.deliver(1L))
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining("배송 중 상태에서만 배송 완료 처리할 수 있습니다.");
+        }
+    }
+
+    @Nested
+    @DisplayName("주문 취소")
+    class CancelTest {
+
+        @Test
+        @DisplayName("PENDING 상태에서 취소할 수 있다")
+        void cancel_fromPending() {
+            // given
+            Order order = createPendingOrder();
+            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.save(any(Order.class))).willReturn(order);
+
+            // when
+            Order result = orderAppService.cancel(1L);
+
+            // then
+            assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCELED);
+        }
+
+        @Test
+        @DisplayName("PAID 상태에서 취소할 수 있다")
+        void cancel_fromPaid() {
+            // given
+            Order order = Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.PAID);
+            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.save(any(Order.class))).willReturn(order);
+
+            // when
+            Order result = orderAppService.cancel(1L);
+
+            // then
+            assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCELED);
+        }
+
+        @Test
+        @DisplayName("PREPARING 상태에서는 취소할 수 없다")
+        void cancel_fromPreparing_fails() {
+            // given
+            Order order = Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.PREPARING);
+            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderAppService.cancel(1L))
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining("취소할 수 없는 주문 상태입니다.");
+        }
+
+        @Test
+        @DisplayName("SHIPPED 상태에서는 취소할 수 없다")
+        void cancel_fromShipped_fails() {
+            // given
+            Order order = Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.SHIPPED);
+            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+
+            // when & then
+            assertThatThrownBy(() -> orderAppService.cancel(1L))
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining("취소할 수 없는 주문 상태입니다.");
+        }
+    }
+
+    @Nested
+    @DisplayName("사용자별 주문 조회")
+    class GetByUserIdTest {
+
+        @Test
+        @DisplayName("사용자의 주문 목록을 반환한다")
+        void getByUserId() {
+            // given
+            Long userId = 1L;
+            List<Order> orders = List.of(createPendingOrder());
+            given(orderRepository.findByUserId(userId)).willReturn(orders);
+
+            // when
+            List<Order> result = orderAppService.getByUserId(userId);
+
+            // then
+            assertThat(result).hasSize(1);
+        }
+    }
+}
