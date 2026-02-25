@@ -76,6 +76,10 @@ public class User extends BaseEntity {
         if (birthDate == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "생년월일은 필수값입니다.");
         }
+
+        if (birthDate.isAfter(LocalDate.now())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "생년월일은 미래일 수 없습니다.");
+        }
     }
 
     private void validateEmail(String email) {

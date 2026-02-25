@@ -144,5 +144,22 @@ public class UserTest {
             // assert
             assertThat(user.getBirthDate()).isEqualTo(birthDate);
         }
+
+        @DisplayName("birthDate가 미래이면 BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequestException_whenBirthDateIsInFuture() {
+            // arrange
+            LocalDate futureDate = LocalDate.now().plusDays(1);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                UserFixture.builder()
+                           .birthDate(futureDate)
+                           .build();
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
     }
 }
