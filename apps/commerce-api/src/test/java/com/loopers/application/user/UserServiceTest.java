@@ -40,7 +40,7 @@ public class UserServiceTest {
         userRepository.save(user);
 
         // when
-        UserInfo myInfo = userService.getMyInfo(user.getLoginId());
+        UserInfo myInfo = userService.getMyInfo(user.getId());
 
         // then
         assertThat(myInfo.name()).isEqualTo("테스*");
@@ -60,7 +60,7 @@ public class UserServiceTest {
                                .build();
         userRepository.save(user);
 
-        UpdatePasswordCommand command = new UpdatePasswordCommand(user.getLoginId(), "WrongPass1!", "NewPass1!");
+        UpdatePasswordCommand command = new UpdatePasswordCommand(user.getId(), "WrongPass1!", "NewPass1!");
 
         // when
         CoreException result = assertThrows(CoreException.class, () -> {
@@ -82,7 +82,7 @@ public class UserServiceTest {
                                .build();
         userRepository.save(user);
 
-        UpdatePasswordCommand command = new UpdatePasswordCommand(user.getLoginId(), rawPassword, rawPassword);
+        UpdatePasswordCommand command = new UpdatePasswordCommand(user.getId(), rawPassword, rawPassword);
 
         // when
         CoreException result = assertThrows(CoreException.class, () -> {

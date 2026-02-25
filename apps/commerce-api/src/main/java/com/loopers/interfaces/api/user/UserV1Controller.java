@@ -4,6 +4,7 @@ import com.loopers.application.user.UserInfo;
 import com.loopers.application.user.UpdatePasswordCommand;
 import com.loopers.application.user.UserService;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.auth.LoginUser;
 import com.loopers.interfaces.api.user.dto.UserV1Dto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,18 +23,18 @@ public class UserV1Controller {
     private final UserService userService;
 
     @GetMapping("/me")
-    public ApiResponse<UserV1Dto.UserResponse> getMyInfo(@RequestHeader("X-Loopers-LoginId") String loginId) {
-        UserInfo userInfo = userService.getMyInfo(loginId);
+    public ApiResponse<UserV1Dto.UserResponse> getMyInfo(@LoginUser Long userId) {
+        UserInfo userInfo = userService.getMyInfo(userId);
         return ApiResponse.success(UserV1Dto.UserResponse.from(userInfo));
     }
 
     @PatchMapping("/me/password")
     public ApiResponse<Void> updatePassword(
-            @RequestHeader("X-Loopers-LoginId") String loginId,
+            @LoginUser Long userId,
             @RequestHeader("X-Loopers-LoginPw") String currentPassword,
             @Valid @RequestBody UserV1Dto.UpdatePasswordRequest request
     ) {
-        userService.updatePassword(UpdatePasswordCommand.from(loginId, currentPassword, request));
+        userService.updatePassword(UpdatePasswordCommand.from(userId, currentPassword, request));
         return ApiResponse.success(null);
     }
 }

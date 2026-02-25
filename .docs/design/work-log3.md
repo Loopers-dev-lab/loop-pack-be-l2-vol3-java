@@ -314,9 +314,9 @@ REST DELETE는 멱등이 원칙. 이미 없는 리소스에 DELETE해도 결과�
 #### LikeFacade 책임
 
 ```
-register:            ProductService.getVisibleProduct() 검증 → LikeService.register()
-cancel:              LikeService.cancel() 직접 위임
-getLikesByUserId:    LikeService.getLikesByUserId() 직접 위임
+register:               ProductService.getVisibleProduct() 검증 → LikeService.register()
+cancel:                 LikeService.cancel() 직접 위임
+getLikedProductsByUserId: LikeService.getLikesByUserId() → getVisibleProductsByIds()로 Map 조합 → LikedProductInfo 반환
 ```
 
 #### BrandFacade.delete() 연쇄 삭제 흐름
@@ -336,6 +336,76 @@ BrandFacade.delete(brandId)
 - HIDDEN / 삭제된 상품에 좋아요 등록 시 → NOT_FOUND
 - 좋아요/취소는 본인만 가능
 - 취소 시 이력 미보존 (hard delete)
+
+### Like 도메인 후속 개선 (2026-02-25)
+
+#### BrandFacadeTest — 좋아요 연쇄 삭제 실제 검증으로 전환
+
+기존: `LikeService`를 `mock(LikeService.class)`으로 주입해 연쇄 삭제 미검증
+변경: `InMemoryLikeRepository` + `LikeService` 실제 인스턴스 사용, `deletesAllLikes_whenBrandIsDeleted` 케이스 추가
+
+assertion 원칙 정리:
+- `containsExactly` → `doesNotContain` 으로 변경 — 테스트 의도("삭제됐는가")에 집중, 순서/부수 검증 배제
+- userId `1L` 리터럴 → `long userId = 1L;` 변수 추출 (의미 명확화)
+
+#### 좋아요 목록 조회 — 삭제/HIDDEN 상품 필터링 추가
+
+요구사항 4.2항: "삭제된 상품에 대한 좋아요는 목록에서 제외한다"
+
+- `ProductService.getProductsByIds` → `getVisibleProductsByIds`로 리네이밍
+- 변경 이유: HIDDEN 상태 상품도 필터링 필요 — 관리자가 HIDDEN으로 설정한 의도는 "사용자에게 노출 안 함"이며 좋아요 목록도 포함
+- 구현: `findAllByIdInAndDeletedAtIsNull` 결과에 `.filter(p -> visibility == VISIBLE)` 추가 (service layer 필터링)
+- `LikeFacadeTest` 신설 — 삭제/HIDDEN 상품 좋아요 제외 단위 테스트
+- `LikeV1ApiE2ETest` — 삭제/HIDDEN 상품 좋아요 제외 E2E 케이스 추가
+
+#### 좋아요 목록 응답 — 상품 정보 포함으로 변경
+
+요구사항: "사용자가 좋아요한 **상품 목록**을 확인할 수 있다"
+
+기존 응답: `LikeResponse(id, userId, productId, createdAt)` — like 메타데이터만
+변경 응답: `LikedProductResponse(likeId, productId, productName, price, likedAt)` — 상품 정보 포함
+
+| 파일 | 변경 |
+|------|------|
+| `LikedProductInfo.java` (신규) | application 레이어 조합 DTO `(likeId, ProductInfo product, likedAt)` |
+| `LikeV1Dto.LikedProductResponse` (신규) | interfaces 레이어 응답 DTO |
+| `LikeFacade.getLikedProductsByUserId` | `List<LikeInfo>` → `List<LikedProductInfo>` 반환, Map으로 N+1 없이 조합 |
+| `LikeV1Controller.getLikes` | 반환 타입 변경 |
+
+설계 결정 — Facade 레벨 조합:
+- `LikeInfo`는 Like 메타데이터 역할 유지 (단일 책임)
+- Facade에서 `likeService.getLikesByUserId` + `productService.getVisibleProductsByIds` 결과를 Map으로 조합
+- `getVisibleProductsByIds`가 이미 삭제/HIDDEN 필터링을 담당하므로 조합과 필터링이 한 번에 처리됨
+- N+1 없이 IN 쿼리 한 번으로 처리
+
+---
+
+### SignUpValidator 제거 — 검증 로직 레이어 분리 (2026-02-25)
+
+#### 배경
+
+`SignUpValidator` (`domain/user/`)는 성격이 다른 검증 두 가지를 혼합:
+1. `userRepository.findByLoginId()` — DB 조회 필요한 애플리케이션 레벨 제약
+2. `birthDate.isAfter(now())` — 외부 상태 없는 순수 도메인 규칙
+3. `PasswordPolicyValidator.validate()` — 순수 도메인 규칙
+
+#### 변경 내용
+
+| 검증 | 이전 위치 | 이후 위치 | 이유 |
+|------|-----------|-----------|------|
+| birthDate 미래 검증 | `SignUpValidator` | `User.validateBirthDate()` | 엔티티 불변식, User 생성 시점에 항상 적용 |
+| loginId 중복 확인 | `SignUpValidator` | `SignUpService.signUp()` | DB 조회 필요, 트랜잭션 내 처리 |
+| 비밀번호 정책 | `SignUpValidator` | `SignUpService.signUp()` | 유스케이스 흐름의 일부 |
+
+#### 파일 변경
+
+| 파일 | 변경 |
+|------|------|
+| `SignUpValidator.java` | 삭제 |
+| `SignUpValidatorTest.java` | 삭제 |
+| `SignUpService.java` | `SignUpValidator` 의존 제거, loginId 중복/비밀번호 정책 직접 처리 |
+| `SignUpServiceTest.java` | `SignUpValidator` 제거, Nested 구조로 개편, 5개 케이스 추가 |
+| `UserTest.java` | birthDate 미래 케이스 추가 |
 
 ---
 
@@ -840,32 +910,90 @@ assertThat(response.getBody().data().name()).isEqualTo("나이키");
 
 ---
 
-## TODO
+---
 
-### 1. 인증 — HandlerInterceptor + ArgumentResolver
+## 5. 인증 — HandlerInterceptor + ArgumentResolver (2026-02-25)
 
-**현재 문제:**
-- `X-Loopers-LoginId` + `X-Loopers-LoginPw` 헤더 처리가 각 Controller에 분산
-- Controller마다 `UserService.getUserId(loginId, loginPw)` 호출 반복
-- 인증 책임이 Controller 레이어에 산재
+### 배경 (보안 취약점 + 인증 책임 분산)
 
-**목표 구조:**
-```java
-// Controller
-public ApiResponse<...> register(
-    @LoginUser Long userId,   // ArgumentResolver가 인증 후 주입
-    @PathVariable Long productId
-) { ... }
+**문제 1 — IDOR (Insecure Direct Object Reference)**
+`UserV1Controller.getMyInfo`가 `X-Loopers-LoginId` 헤더만으로 타인의 정보를 조회할 수 있었음.
+비밀번호 검증 없이 loginId만 알면 누구든 조회 가능한 상태였음.
+
+**문제 2 — 인증 로직 분산**
+`LikeV1Controller` 3개 메서드 모두 `userService.getUserId(loginId, loginPw)` 반복 호출.
+Controller가 `UserService`를 직접 의존해 인증 책임이 산재.
+
+### 구현 내용
+
+#### 신규 파일
+
+| 파일 | 패키지 | 설명 |
+|------|--------|------|
+| `LoginUser.java` | `interfaces/api/auth/` | `@Target(PARAMETER)` 커스텀 어노테이션 |
+| `LoginUserInterceptor.java` | `interfaces/api/auth/` | `preHandle`에서 헤더 검증 + 인증 처리 |
+| `LoginUserArgumentResolver.java` | `interfaces/api/auth/` | `@LoginUser Long userId` 파라미터 주입 |
+| `WebConfig.java` | `interfaces/config/` | `WebMvcConfigurer` 구현 — 인터셉터/리졸버 등록 |
+
+#### 기존 파일 수정
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `UserRepository.java` | `findById(Long id)` 추가 |
+| `UserRepositoryImpl.java` | `findById` 구현 → `userJpaRepository.findById(id)` 위임 |
+| `UserService.java` | `getUserId(loginId, loginPw): Long` → `authenticate(loginId, loginPw): User`, `getMyInfo(String loginId)` → `getMyInfo(Long userId)`, `getUserById(Long)` 추가 |
+| `UpdatePasswordCommand.java` | `String loginId` → `Long userId` |
+| `UserV1Controller.java` | `@RequestHeader loginId` 제거, `@LoginUser Long userId` 추가 |
+| `LikeV1Controller.java` | `UserService` 의존 제거, 3개 메서드 모두 `@LoginUser Long userId`로 교체 |
+
+#### 테스트 수정
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `InMemoryUserRepository.java` | reflection으로 ID 할당 + `findById` 구현 추가 (InMemoryBrandRepository와 동일 패턴) |
+| `UserServiceTest.java` | `getMyInfo(user.getLoginId())` → `getMyInfo(user.getId())`, UpdatePasswordCommand에서 `loginId` → `userId` |
+| `UserServiceIntegrationTest.java` | `userJpaRepository.save()` 반환값 캡처 → `user.getId()` 사용 |
+| `UserV1ApiE2ETest.java` | `GetMyInfo.returnsOk_whenUserExists`: BCrypt 인코딩 password + `X-Loopers-LoginPw` 헤더 추가 |
+| `UserV1ApiE2ETest.java` | `returnsBadRequest_whenCurrentPasswordNotMatches`: 기댓값 BAD_REQUEST → NOT_FOUND |
+
+### 인터셉터 동작 흐름
+
+```
+preHandle
+  1. X-Loopers-LoginId, X-Loopers-LoginPw 헤더 확인
+  2. 하나라도 없으면 CoreException(NOT_FOUND) throw
+  3. userService.authenticate(loginId, loginPw) → 비밀번호 불일치 시 NOT_FOUND
+  4. request.setAttribute("userId", user.getId())
+
+LoginUserArgumentResolver
+  5. @LoginUser + Long 타입 파라미터 감지
+  6. request.getAttribute("userId") 반환
 ```
 
-**구현 내용:**
-- `HandlerInterceptor` — 헤더 존재 여부 + 자격증명 검증
-- `LoginUserArgumentResolver` — `@LoginUser` 어노테이션으로 userId 주입
-- 완료 시 `LikeV1Controller`, `UserV1Controller` 등에서 `UserService` 의존 제거
+### 인터셉터 적용 경로
+
+```
+/api/v1/users/me/**      → getMyInfo, updatePassword, getLikes
+/api/v1/products/*/likes → register, cancel
+```
+
+`/api/v1/**` + excludePathPatterns 방식은 Brand/Product 등 인증 불필요 엔드포인트까지 가로채므로 사용 금지. 인증이 필요한 경로만 명시적으로 지정.
+
+### authenticate() 반환 타입 — User vs Long
+
+기존 `getUserId()` → `Long` 반환: userId만 필요하므로 충분했으나, 이름에서 "인증"의 의미가 드러나지 않음.
+변경 후 `authenticate()` → `User` 반환: 메서드명이 인증 의도를 명확히 표현, 인터셉터에서 `user.getId()`로 userId 추출.
+
+### updatePassword — 이중 비밀번호 검증
+
+인터셉터: `X-Loopers-LoginPw`로 1차 인증 통과 → 서비스 레이어: `currentPassword` 헤더로 2차 검증.
+1차가 통과된 시점에서 2차는 항상 통과하지만, 서비스 레이어의 비즈니스 검증을 Controller가 bypass할 수 없도록 서비스 레이어 검증을 유지.
 
 ---
 
-### 2. likeCount — 상품 좋아요 수 카운터
+## TODO
+
+### 1. likeCount — 상품 좋아요 수 카운터
 
 **현재 문제:**
 - `Product` 엔티티에 `likeCount` 필드 없음
