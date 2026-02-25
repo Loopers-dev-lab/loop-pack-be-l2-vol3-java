@@ -15,4 +15,10 @@ public interface LikeApiV1Spec {
             description = "상품에 좋아요를 등록합니다. 이미 좋아요한 상품이면 현재 상태를 유지합니다."
     )
     ApiResponse<Void> like(Long productId, AuthenticatedUser authUser);
+
+    @Operation(
+            summary = "상품 좋아요 취소",
+            description = "상품의 좋아요를 취소합니다. 좋아요하지 않은 상품이면 현재 상태를 유지합니다."
+    )
+    ApiResponse<Void> unlike(Long productId, AuthenticatedUser authUser);
 }

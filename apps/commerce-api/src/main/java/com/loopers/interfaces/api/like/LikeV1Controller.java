@@ -6,6 +6,7 @@ import com.loopers.interfaces.api.auth.AuthUser;
 import com.loopers.interfaces.api.auth.AuthenticatedUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,6 +26,15 @@ public class LikeV1Controller implements LikeApiV1Spec {
             @PathVariable Long productId,
             @AuthUser AuthenticatedUser authUser) {
         likeFacade.like(authUser.id(), productId);
+        return ApiResponse.success();
+    }
+
+    @DeleteMapping
+    @Override
+    public ApiResponse<Void> unlike(
+            @PathVariable Long productId,
+            @AuthUser AuthenticatedUser authUser) {
+        likeFacade.unlike(authUser.id(), productId);
         return ApiResponse.success();
     }
 }

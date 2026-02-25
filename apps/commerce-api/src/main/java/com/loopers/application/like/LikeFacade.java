@@ -24,4 +24,14 @@ public class LikeFacade {
             productService.incrementLikeCount(productId);
         }
     }
+
+    @Transactional
+    public void unlike(Long userId, Long productId) {
+        productService.getActiveProduct(productId);
+
+        boolean deleted = likeService.unlike(userId, productId);
+        if (deleted) {
+            productService.decrementLikeCount(productId);
+        }
+    }
 }
