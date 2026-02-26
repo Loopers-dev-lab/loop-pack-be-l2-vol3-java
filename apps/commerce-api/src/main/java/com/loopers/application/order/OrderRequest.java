@@ -65,4 +65,19 @@ public record OrderRequest() {
                     ? endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()) : null;
         }
     }
+
+    public record ListAll(
+            @PositiveOrZero(message = "페이지 번호는 0 이상이어야 합니다") Integer page,
+            @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다")
+            @Max(value = 100, message = "페이지 크기는 100 이하여야 합니다") Integer size
+    ) {
+        public ListAll {
+            page = Objects.requireNonNullElse(page, 0);
+            size = Objects.requireNonNullElse(size, 20);
+        }
+
+        public Pageable toPageable() {
+            return PageRequest.of(page, size);
+        }
+    }
 }

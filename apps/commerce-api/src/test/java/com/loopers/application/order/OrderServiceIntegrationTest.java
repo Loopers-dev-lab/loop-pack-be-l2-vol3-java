@@ -153,4 +153,65 @@ class OrderServiceIntegrationTest {
             assertThat(result.getTotalPages()).isEqualTo(3);
         }
     }
+
+    @Nested
+    class 주문_상세_조회_Admin {
+
+        @Test
+        void 주문_ID로_조회하면_주문_정보를_반환한다() {
+            Order created = orderService.createOrder(OrderCommand.Create.of(1L, List.of(
+                    OrderCommand.CreateItem.of(1L, "운동화", new BigDecimal("50000"), 2)
+            )));
+
+            Order order = orderService.findOrderById(created.getId());
+
+            assertThat(order.getId()).isEqualTo(created.getId());
+            assertThat(order.getOrderItems()).hasSize(1);
+            assertThat(order.getTotalAmount()).isEqualByComparingTo(new BigDecimal("100000"));
+        }
+
+        @Test
+        void 존재하지_않는_주문이면_예외() {
+            assertThatThrownBy(() -> orderService.findOrderById(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
+                            .isEqualTo(ErrorType.NOT_FOUND));
+        }
+    }
+
+    @Nested
+    class 전체_주문_목록_조회_Admin {
+
+        @Test
+        void 모든_사용자의_주문을_반환한다() {
+            orderService.createOrder(OrderCommand.Create.of(1L, List.of(
+                    OrderCommand.CreateItem.of(1L, "운동화", new BigDecimal("50000"), 1)
+            )));
+            orderService.createOrder(OrderCommand.Create.of(2L, List.of(
+                    OrderCommand.CreateItem.of(2L, "셔츠", new BigDecimal("30000"), 1)
+            )));
+            orderService.createOrder(OrderCommand.Create.of(3L, List.of(
+                    OrderCommand.CreateItem.of(3L, "바지", new BigDecimal("40000"), 1)
+            )));
+
+            Page<Order> result = orderService.findAllOrders(PageRequest.of(0, 20));
+
+            assertThat(result.getContent()).hasSize(3);
+        }
+
+        @Test
+        void 페이징이_올바르게_동작한다() {
+            for (int i = 0; i < 5; i++) {
+                orderService.createOrder(OrderCommand.Create.of((long) (i + 1), List.of(
+                        OrderCommand.CreateItem.of((long) (i + 1), "상품" + i, new BigDecimal("10000"), 1)
+                )));
+            }
+
+            Page<Order> result = orderService.findAllOrders(PageRequest.of(0, 2));
+
+            assertThat(result.getContent()).hasSize(2);
+            assertThat(result.getTotalElements()).isEqualTo(5);
+            assertThat(result.getTotalPages()).isEqualTo(3);
+        }
+    }
 }

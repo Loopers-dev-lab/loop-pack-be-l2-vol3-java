@@ -81,4 +81,14 @@ public class OrderFacade {
         Page<Order> orders = orderService.findOrdersByUserIdAndDateRange(userId, request.startDateTime(), request.endDateTime(), request.toPageable());
         return orders.map(OrderInfo.OrderSummary::from);
     }
+
+    public OrderInfo getAdminOrderDetail(Long orderId) {
+        Order order = orderService.findOrderById(orderId);
+        return OrderInfo.from(order);
+    }
+
+    public Page<OrderInfo.OrderAdminSummary> getAdminOrderList(@Valid OrderRequest.ListAll request) {
+        Page<Order> orders = orderService.findAllOrders(request.toPageable());
+        return orders.map(OrderInfo.OrderAdminSummary::from);
+    }
 }

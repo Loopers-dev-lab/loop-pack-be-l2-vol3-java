@@ -9,6 +9,7 @@ import java.util.List;
 
 public record OrderInfo(
         Long id,
+        Long userId,
         BigDecimal totalAmount,
         List<OrderItemInfo> orderItems,
         LocalDateTime createdAt
@@ -39,6 +40,7 @@ public record OrderInfo(
                 .toList();
         return new OrderInfo(
                 order.getId(),
+                order.getUserId(),
                 order.getTotalAmount(),
                 items,
                 order.getCreatedAt().toLocalDateTime()
@@ -54,6 +56,23 @@ public record OrderInfo(
         public static OrderSummary from(Order order) {
             return new OrderSummary(
                     order.getId(),
+                    order.getTotalAmount(),
+                    order.getCreatedAt().toLocalDateTime()
+            );
+        }
+    }
+
+    public record OrderAdminSummary(
+            Long id,
+            Long userId,
+            BigDecimal totalAmount,
+            LocalDateTime createdAt
+    ) {
+
+        public static OrderAdminSummary from(Order order) {
+            return new OrderAdminSummary(
+                    order.getId(),
+                    order.getUserId(),
                     order.getTotalAmount(),
                     order.getCreatedAt().toLocalDateTime()
             );

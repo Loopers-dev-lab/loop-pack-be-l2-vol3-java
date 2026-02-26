@@ -27,4 +27,8 @@ public interface OrderJpaRepository extends JpaRepository<Order, Long> {
                                                    @Param("startDate") ZonedDateTime startDate,
                                                    @Param("endDate") ZonedDateTime endDate,
                                                    Pageable pageable);
+
+    @Query(value = "SELECT o FROM Order o ORDER BY o.createdAt DESC",
+           countQuery = "SELECT COUNT(o) FROM Order o")
+    Page<Order> findAllByOrderByCreatedAtDesc(Pageable pageable);
 }

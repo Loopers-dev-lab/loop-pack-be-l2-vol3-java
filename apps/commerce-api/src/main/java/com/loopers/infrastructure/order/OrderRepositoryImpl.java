@@ -32,4 +32,9 @@ public class OrderRepositoryImpl implements OrderRepository {
     public Page<Order> findAllByUserIdAndCreatedAtBetween(Long userId, ZonedDateTime startDate, ZonedDateTime endDate, Pageable pageable) {
         return orderJpaRepository.findAllByUserIdAndCreatedAtBetween(userId, startDate, endDate, pageable);
     }
+
+    @Override
+    public Page<Order> findAll(Pageable pageable) {
+        return orderJpaRepository.findAllByOrderByCreatedAtDesc(pageable);
+    }
 }
