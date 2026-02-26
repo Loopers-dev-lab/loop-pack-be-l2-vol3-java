@@ -17,60 +17,40 @@ public class ProductRepositoryImpl implements ProductRepository {
 
     @Override
     public Product save(Product product) {
-        if (product.getId() == null) {
-            ProductJpaEntity entity = ProductJpaEntity.from(product);
-            ProductJpaEntity saved = productJpaRepository.save(entity);
-            return saved.toDomain();
-        }
-
-        ProductJpaEntity entity = productJpaRepository.findById(product.getId())
-                .orElseThrow(() -> new IllegalStateException("Product not found: " + product.getId()));
-        entity.update(product);
-        return entity.toDomain();
+        return productJpaRepository.save(product);
     }
 
     @Override
     public Optional<Product> findById(Long id) {
-        return productJpaRepository.findByIdAndDeletedFalse(id)
-                .map(ProductJpaEntity::toDomain);
+        return productJpaRepository.findByIdAndDeletedFalse(id);
     }
 
     @Override
     public List<Product> findAll(ProductSortCondition condition) {
         if (condition == null) {
-            return productJpaRepository.findByDeletedFalse(Sort.unsorted()).stream()
-                    .map(ProductJpaEntity::toDomain)
-                    .toList();
+            return productJpaRepository.findByDeletedFalse(Sort.unsorted());
         }
 
         if (condition == ProductSortCondition.LIKES_DESC) {
-            return productJpaRepository.findAllOrderByLikesDescAndDeletedFalse().stream()
-                    .map(ProductJpaEntity::toDomain)
-                    .toList();
+            return productJpaRepository.findAllOrderByLikesDescAndDeletedFalse();
         }
 
         Sort sort = switch (condition) {
             case LATEST -> Sort.by(Sort.Direction.DESC, "createdAt");
-            case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "basePrice.amount");
+            case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "basePrice");
             default -> Sort.by(Sort.Direction.DESC, "createdAt");
         };
 
-        return productJpaRepository.findByDeletedFalse(sort).stream()
-                .map(ProductJpaEntity::toDomain)
-                .toList();
+        return productJpaRepository.findByDeletedFalse(sort);
     }
 
     @Override
     public List<Product> findByBrandId(Long brandId) {
-        return productJpaRepository.findByBrandIdAndDeletedFalse(brandId).stream()
-                .map(ProductJpaEntity::toDomain)
-                .toList();
+        return productJpaRepository.findByBrandIdAndDeletedFalse(brandId);
     }
 
     @Override
     public List<Product> findByIdIn(List<Long> productIds) {
-        return productJpaRepository.findByIdInAndDeletedFalse(productIds).stream()
-                .map(ProductJpaEntity::toDomain)
-                .toList();
+        return productJpaRepository.findByIdInAndDeletedFalse(productIds);
     }
 }

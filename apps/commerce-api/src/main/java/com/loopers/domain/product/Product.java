@@ -1,21 +1,39 @@
 package com.loopers.domain.product;
 
+import com.loopers.domain.BaseEntity;
 import com.loopers.domain.common.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Entity
+@Table(name = "products")
 @Getter
-public class Product {
-    private final Long id;
-    private final Long brandId;
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Product extends BaseEntity {
+
+    @Column(name = "brand_id", nullable = false)
+    private Long brandId;
+
+    @Column(name = "name", nullable = false)
     private String name;
+
+    @Embedded
+    @AttributeOverride(name = "amount", column = @Column(name = "base_price", nullable = false))
     private Money basePrice;
+
+    @Column(name = "deleted", nullable = false)
     private boolean deleted;
 
-    private Product(Long id, Long brandId, String name, Money basePrice, boolean deleted) {
+    private Product(Long brandId, String name, Money basePrice, boolean deleted) {
         validateName(name);
-        this.id = id;
         this.brandId = brandId;
         this.name = name;
         this.basePrice = basePrice;
@@ -23,11 +41,7 @@ public class Product {
     }
 
     public static Product create(Long brandId, String name, Money basePrice) {
-        return new Product(null, brandId, name, basePrice, false);
-    }
-
-    public static Product of(Long id, Long brandId, String name, Money basePrice, boolean deleted) {
-        return new Product(id, brandId, name, basePrice, deleted);
+        return new Product(brandId, name, basePrice, false);
     }
 
     public void update(String name, Money basePrice) {
@@ -36,10 +50,12 @@ public class Product {
         this.basePrice = basePrice;
     }
 
+    @Override
     public void delete() {
         this.deleted = true;
     }
 
+    @Override
     public void restore() {
         this.deleted = false;
     }

@@ -2,13 +2,36 @@ package com.loopers.domain.cart;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Entity
+@Table(name = "cart_items", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"user_id", "option_id"})
+})
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CartItem {
-    private final Long id;
-    private final Long userId;
-    private final Long optionId;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @Column(name = "option_id", nullable = false)
+    private Long optionId;
+
+    @Column(name = "quantity", nullable = false)
     private int quantity;
 
     private CartItem(Long id, Long userId, Long optionId, int quantity) {
@@ -27,6 +50,12 @@ public class CartItem {
 
     public static CartItem of(Long id, Long userId, Long optionId, int quantity) {
         return new CartItem(id, userId, optionId, quantity);
+    }
+
+    public void validateOwner(Long userId) {
+        if (!this.userId.equals(userId)) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "본인의 장바구니 항목만 수정할 수 있습니다.");
+        }
     }
 
     public void addQuantity(int quantity) {

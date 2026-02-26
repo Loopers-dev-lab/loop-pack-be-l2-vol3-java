@@ -2,16 +2,21 @@ package com.loopers.domain.member.vo;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.persistence.Embeddable;
+import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Embeddable
 @Getter
 @EqualsAndHashCode
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Name {
 
     private static final int MAX_LENGTH = 20;
 
-    private final String value;
+    private String value;
 
     public Name(String value) {
         String trimmed = value != null ? value.trim() : null;

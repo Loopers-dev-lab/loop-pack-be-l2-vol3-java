@@ -1,24 +1,44 @@
 package com.loopers.domain.product;
 
+import com.loopers.domain.BaseEntity;
 import com.loopers.domain.common.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Entity
+@Table(name = "options")
 @Getter
-public class Option {
-    private final Long id;
-    private final Long productId;
-    private final String name;
-    private final Money additionalPrice;
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Option extends BaseEntity {
+
+    @Column(name = "product_id", nullable = false)
+    private Long productId;
+
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Embedded
+    @AttributeOverride(name = "amount", column = @Column(name = "additional_price", nullable = false))
+    private Money additionalPrice;
+
+    @Column(name = "stock", nullable = false)
     private int stock;
+
+    @Column(name = "deleted", nullable = false)
     private boolean deleted;
 
-    private Option(Long id, Long productId, String name, Money additionalPrice, int stock, boolean deleted) {
+    private Option(Long productId, String name, Money additionalPrice, int stock, boolean deleted) {
         validateProductId(productId);
         validateName(name);
         validateStock(stock);
-        this.id = id;
         this.productId = productId;
         this.name = name;
         this.additionalPrice = additionalPrice != null ? additionalPrice : Money.zero();
@@ -27,17 +47,15 @@ public class Option {
     }
 
     public static Option create(Long productId, String name, Money additionalPrice, int stock) {
-        return new Option(null, productId, name, additionalPrice, stock, false);
+        return new Option(productId, name, additionalPrice, stock, false);
     }
 
-    public static Option of(Long id, Long productId, String name, Money additionalPrice, int stock, boolean deleted) {
-        return new Option(id, productId, name, additionalPrice, stock, deleted);
-    }
-
+    @Override
     public void delete() {
         this.deleted = true;
     }
 
+    @Override
     public void restore() {
         this.deleted = false;
     }

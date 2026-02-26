@@ -15,48 +15,32 @@ public class CartRepositoryImpl implements CartRepository {
 
     @Override
     public CartItem save(CartItem cartItem) {
-        if (cartItem.getId() == null) {
-            CartItemJpaEntity entity = CartItemJpaEntity.from(cartItem);
-            CartItemJpaEntity saved = cartJpaRepository.save(entity);
-            return saved.toDomain();
-        }
-
-        CartItemJpaEntity entity = cartJpaRepository.findById(cartItem.getId())
-                .orElseThrow(() -> new IllegalStateException("CartItem not found: " + cartItem.getId()));
-        entity.update(cartItem);
-        return entity.toDomain();
+        return cartJpaRepository.save(cartItem);
     }
 
     @Override
     public Optional<CartItem> findById(Long id) {
-        return cartJpaRepository.findById(id)
-                .map(CartItemJpaEntity::toDomain);
+        return cartJpaRepository.findById(id);
     }
 
     @Override
     public Optional<CartItem> findByUserIdAndOptionId(Long userId, Long optionId) {
-        return cartJpaRepository.findByUserIdAndOptionId(userId, optionId)
-                .map(CartItemJpaEntity::toDomain);
+        return cartJpaRepository.findByUserIdAndOptionId(userId, optionId);
     }
 
     @Override
     public List<CartItem> findByUserId(Long userId) {
-        return cartJpaRepository.findByUserId(userId).stream()
-                .map(CartItemJpaEntity::toDomain)
-                .toList();
+        return cartJpaRepository.findByUserId(userId);
     }
 
     @Override
     public List<CartItem> findByIds(List<Long> ids) {
-        return cartJpaRepository.findByIdIn(ids).stream()
-                .map(CartItemJpaEntity::toDomain)
-                .toList();
+        return cartJpaRepository.findByIdIn(ids);
     }
 
     @Override
     public void delete(CartItem cartItem) {
-        cartJpaRepository.findById(cartItem.getId())
-                .ifPresent(cartJpaRepository::delete);
+        cartJpaRepository.delete(cartItem);
     }
 
     @Override

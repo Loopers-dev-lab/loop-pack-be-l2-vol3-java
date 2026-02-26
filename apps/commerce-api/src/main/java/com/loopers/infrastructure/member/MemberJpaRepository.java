@@ -1,10 +1,11 @@
 package com.loopers.infrastructure.member;
 
+import com.loopers.domain.member.Member;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
-public interface MemberJpaRepository extends JpaRepository<MemberJpaEntity, Long> {
-    Optional<MemberJpaEntity> findByMemberId(String memberId);
-    boolean existsByMemberId(String memberId);
+public interface MemberJpaRepository extends JpaRepository<Member, Long> {
+    Optional<Member> findByMemberIdValue(String value);
+    boolean existsByMemberIdValue(String value);
 }

@@ -15,42 +15,26 @@ public class OptionRepositoryImpl implements OptionRepository {
 
     @Override
     public Option save(Option option) {
-        if (option.getId() == null) {
-            OptionJpaEntity entity = OptionJpaEntity.from(option);
-            OptionJpaEntity saved = optionJpaRepository.save(entity);
-            return saved.toDomain();
-        }
-
-        OptionJpaEntity entity = optionJpaRepository.findById(option.getId())
-                .orElseThrow(() -> new IllegalStateException("Option not found: " + option.getId()));
-        entity.update(option);
-        return entity.toDomain();
+        return optionJpaRepository.save(option);
     }
 
     @Override
     public Optional<Option> findById(Long id) {
-        return optionJpaRepository.findByIdAndDeletedFalse(id)
-                .map(OptionJpaEntity::toDomain);
+        return optionJpaRepository.findByIdAndDeletedFalse(id);
     }
 
     @Override
     public List<Option> findByProductId(Long productId) {
-        return optionJpaRepository.findByProductIdAndDeletedFalse(productId).stream()
-                .map(OptionJpaEntity::toDomain)
-                .toList();
+        return optionJpaRepository.findByProductIdAndDeletedFalse(productId);
     }
 
     @Override
     public List<Option> findByProductIdIn(List<Long> productIds) {
-        return optionJpaRepository.findByProductIdInAndDeletedFalse(productIds).stream()
-                .map(OptionJpaEntity::toDomain)
-                .toList();
+        return optionJpaRepository.findByProductIdInAndDeletedFalse(productIds);
     }
 
     @Override
     public List<Option> findByIdIn(List<Long> optionIds) {
-        return optionJpaRepository.findByIdInAndDeletedFalse(optionIds).stream()
-                .map(OptionJpaEntity::toDomain)
-                .toList();
+        return optionJpaRepository.findByIdInAndDeletedFalse(optionIds);
     }
 }

@@ -1,28 +1,35 @@
 package com.loopers.domain.brand;
 
+import com.loopers.domain.BaseEntity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Entity
+@Table(name = "brands")
 @Getter
-public class Brand {
-    private final Long id;
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Brand extends BaseEntity {
+
+    @Column(name = "name", nullable = false)
     private String name;
+
+    @Column(name = "deleted", nullable = false)
     private boolean deleted;
 
-    private Brand(Long id, String name, boolean deleted) {
+    private Brand(String name, boolean deleted) {
         validateName(name);
-        this.id = id;
         this.name = name;
         this.deleted = deleted;
     }
 
     public static Brand create(String name) {
-        return new Brand(null, name, false);
-    }
-
-    public static Brand of(Long id, String name, boolean deleted) {
-        return new Brand(id, name, deleted);
+        return new Brand(name, false);
     }
 
     public void update(String name) {
@@ -30,10 +37,12 @@ public class Brand {
         this.name = name;
     }
 
+    @Override
     public void delete() {
         this.deleted = true;
     }
 
+    @Override
     public void restore() {
         this.deleted = false;
     }

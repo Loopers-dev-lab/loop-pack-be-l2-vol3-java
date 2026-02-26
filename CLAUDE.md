@@ -175,15 +175,25 @@ Grafana: http://localhost:3000 (admin/admin)
     - 불필요한 주석이나 설명으로 답변 길게 하지 말 것.
     - 존재하지 않는 라이브러리를 임의로 추가하지 말 것.
 
-## Round 3 도메인 & 객체 설계 전략 (Strict Rules)
-- **순수 도메인 지향:** `domain` 패키지 내의 Entity와 VO는 `@Entity`, `@Table`, `BaseEntity` 등 JPA나 DB 관련 기술을 전혀 가지지 않는 순수 Java 객체로 작성한다.
-- **물리적 제약 지양:** 데이터베이스 레벨의 물리적 FK(Foreign Key) 제약조건은 배제하고, 논리적 연관관계만 식별자(ID)로 가진다.
-- **VO(Value Object) 적극 활용:** 금액(`Money`), 주문 시점의 스냅샷 데이터(`OrderItem`)는 식별자가 없는 불변 객체(VO)로 설계한다.
-- **상태 관리:** 객체의 상태 변경(예: 재고 차감)은 무조건 도메인 엔티티 내부의 메서드로 구현하며, 실패 시 `CoreException`을 던진다.
-
 ## 아키텍처 및 계층별 책임 분리 (Layered + DIP)
-이 프로젝트는 철저한 책임 분리를 위해 Application 계층을 AppService와 Facade로 나눈다.
-1. **Domain Layer (`~DomainService`, Entity, VO):** 스프링 프레임워크 기술(`@Transactional` 등)과 DB(`Repository.save()` 등)를 전혀 모른 채, 순수하게 비즈니스 규칙 검증과 객체 상태 변경만 담당한다. Repository 인터페이스도 이곳에 위치한다.
-2. **Application Layer (`~AppService`):** 스프링 프레임워크에 의존하며 트랜잭션을 제어(`@Transactional`)한다. Repository를 주입받아 데이터를 꺼내오고(findById), 도메인 객체에 행위를 지시한 뒤, 변경된 상태를 저장(save)한다.
-3. **Orchestration Layer (`~Facade`):** Repository를 직접 호출하지 않는다. 복잡한 유스케이스 발생 시 여러 `AppService`를 모아서 조립(Orchestration)하는 역할을 수행한다. (단일 흐름일 때는 AppService로 단순 패스스루)
-4. **Infrastructure Layer:** JPA 엔티티(`~JpaEntity`)와 Repository 구현체(`~RepositoryImpl`)가 위치한다. DB의 생성일/수정일 관리를 위한 `BaseEntity`는 오직 이 계층의 JPA 엔티티에서만 상속받아 사용한다. 조회 시 반드시 JPA 엔티티를 순수 도메인 모델로 매핑하여 반환한다.
+이 프로젝트는 **Rich Domain Entity** 방식을 채택한다. Domain 클래스가 JPA `@Entity`를 직접 보유하여 별도의 JpaEntity 계층을 두지 않는다.
+
+### 엔티티 분류
+
+| 분류 | 대상 | ID 선언 방식 |
+|------|------|-------------|
+| **핵심 자산** | `Member`, `Brand`, `Product`, `Option`, `Order` | `extends BaseEntity` |
+| **임시·매핑** | `CartItem`, `Like`, `OrderItem` | 클래스 내 직접 `@Id @GeneratedValue` |
+
+- **핵심 자산 엔티티**: `of(id, ...)` 팩토리 없음. `create(...)` 팩토리만 사용. 단위 테스트에서는 `mock(Xxx.class)`로 대체.
+- **임시·매핑 엔티티**: `of(id, ...)` / `create(...)` 팩토리 모두 유지.
+- **Money/VO 변환**: VO 클래스(`Money`, `MemberId`, `Password` 등)에 `@Embeddable` 적용. 엔티티에서는 `@Embedded` + `@AttributeOverride`로 컬럼명 지정. `@Convert` 방식 사용 금지.
+- **물리적 FK 제약 지양:** DB 레벨 FK 없이 논리적 연관관계만 ID로 가진다.
+- **상태 관리:** 객체 상태 변경은 도메인 엔티티 내부 메서드로 구현하며, 실패 시 `CoreException`을 던진다.
+
+### 계층별 책임
+
+1. **Domain Layer (Entity, VO, Repository 인터페이스):** 비즈니스 규칙 검증과 객체 상태 변경 담당. Repository 인터페이스도 이곳에 위치한다.
+2. **Application Layer (`~AppService`):** `@Transactional` 트랜잭션 제어. Repository로 데이터를 꺼내고 도메인 메서드를 호출한 뒤 저장한다.
+3. **Orchestration Layer (`~Facade`):** Repository 직접 호출 금지. 복잡한 유스케이스에서 여러 `AppService`를 조립(Orchestration)한다.
+4. **Infrastructure Layer:** Repository 구현체(`~RepositoryImpl`)와 JpaRepository 인터페이스가 위치한다. `BaseEntity`는 핵심 자산 Domain 클래스에서 상속받아 사용한다.

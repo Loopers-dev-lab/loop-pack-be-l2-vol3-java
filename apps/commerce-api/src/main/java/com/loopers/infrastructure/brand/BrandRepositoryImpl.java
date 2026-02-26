@@ -15,35 +15,21 @@ public class BrandRepositoryImpl implements BrandRepository {
 
     @Override
     public Brand save(Brand brand) {
-        if (brand.getId() == null) {
-            BrandJpaEntity entity = BrandJpaEntity.from(brand);
-            BrandJpaEntity saved = brandJpaRepository.save(entity);
-            return saved.toDomain();
-        }
-
-        BrandJpaEntity entity = brandJpaRepository.findById(brand.getId())
-                .orElseThrow(() -> new IllegalStateException("Brand not found: " + brand.getId()));
-        entity.update(brand);
-        return entity.toDomain();
+        return brandJpaRepository.save(brand);
     }
 
     @Override
     public Optional<Brand> findById(Long id) {
-        return brandJpaRepository.findByIdAndDeletedFalse(id)
-                .map(BrandJpaEntity::toDomain);
+        return brandJpaRepository.findByIdAndDeletedFalse(id);
     }
 
     @Override
     public List<Brand> findAll() {
-        return brandJpaRepository.findByDeletedFalse().stream()
-                .map(BrandJpaEntity::toDomain)
-                .toList();
+        return brandJpaRepository.findByDeletedFalse();
     }
 
     @Override
     public List<Brand> findByIdIn(List<Long> ids) {
-        return brandJpaRepository.findByIdInAndDeletedFalse(ids).stream()
-                .map(BrandJpaEntity::toDomain)
-                .toList();
+        return brandJpaRepository.findByIdInAndDeletedFalse(ids);
     }
 }

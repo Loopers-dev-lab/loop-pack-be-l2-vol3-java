@@ -15,35 +15,21 @@ public class OrderRepositoryImpl implements OrderRepository {
 
     @Override
     public Order save(Order order) {
-        if (order.getId() == null) {
-            OrderJpaEntity entity = OrderJpaEntity.from(order);
-            OrderJpaEntity saved = orderJpaRepository.save(entity);
-            return saved.toDomain();
-        }
-
-        OrderJpaEntity entity = orderJpaRepository.findById(order.getId())
-                .orElseThrow(() -> new IllegalStateException("Order not found: " + order.getId()));
-        entity.update(order);
-        return entity.toDomain();
+        return orderJpaRepository.save(order);
     }
 
     @Override
     public Optional<Order> findById(Long id) {
-        return orderJpaRepository.findById(id)
-                .map(OrderJpaEntity::toDomain);
+        return orderJpaRepository.findById(id);
     }
 
     @Override
     public List<Order> findByUserId(Long userId) {
-        return orderJpaRepository.findByUserId(userId).stream()
-                .map(OrderJpaEntity::toDomain)
-                .toList();
+        return orderJpaRepository.findByUserId(userId);
     }
 
     @Override
     public List<Order> findAll() {
-        return orderJpaRepository.findAll().stream()
-                .map(OrderJpaEntity::toDomain)
-                .toList();
+        return orderJpaRepository.findAll();
     }
 }

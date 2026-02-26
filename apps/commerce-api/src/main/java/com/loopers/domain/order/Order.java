@@ -1,36 +1,53 @@
 package com.loopers.domain.order;
 
+import com.loopers.domain.BaseEntity;
 import com.loopers.domain.common.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+@Entity
+@Table(name = "orders")
 @Getter
-public class Order {
-    private final Long id;
-    private final Long userId;
-    private final List<OrderItem> orderItems;
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Order extends BaseEntity {
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
     private OrderStatus status;
 
-    private Order(Long id, Long userId, List<OrderItem> orderItems, OrderStatus status) {
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<OrderItem> orderItems = new ArrayList<>();
+
+    private Order(Long userId, List<OrderItem> orderItems, OrderStatus status) {
         validateUserId(userId);
         validateOrderItems(orderItems);
-        this.id = id;
         this.userId = userId;
         this.orderItems = new ArrayList<>(orderItems);
         this.status = status;
     }
 
     public static Order create(Long userId, List<OrderItem> orderItems) {
-        return new Order(null, userId, orderItems, OrderStatus.PENDING);
-    }
-
-    public static Order of(Long id, Long userId, List<OrderItem> orderItems, OrderStatus status) {
-        return new Order(id, userId, orderItems, status);
+        Order order = new Order(userId, orderItems, OrderStatus.PENDING);
+        orderItems.forEach(item -> item.setOrder(order));
+        return order;
     }
 
     public List<OrderItem> getOrderItems() {
@@ -76,6 +93,12 @@ public class Order {
             throw new CoreException(ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다. 현재 상태: " + this.status);
         }
         this.status = OrderStatus.CANCELED;
+    }
+
+    public void validateOwner(Long userId) {
+        if (!this.userId.equals(userId)) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "본인의 주문만 조회/취소할 수 있습니다.");
+        }
     }
 
     private void validateUserId(Long userId) {
