@@ -1,5 +1,6 @@
 package com.loopers.domain.brand;
 
+import com.loopers.domain.product.ProductService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.springframework.stereotype.Service;
@@ -11,9 +12,11 @@ import java.util.Optional;
 public class BrandService {
 
     private final BrandRepository brandRepository;
+    private final ProductService productService;
 
-    public BrandService(BrandRepository brandRepository) {
+    public BrandService(BrandRepository brandRepository, ProductService productService) {
         this.brandRepository = brandRepository;
+        this.productService = productService;
     }
 
     @Transactional
@@ -48,6 +51,7 @@ public class BrandService {
     public void delete(Long id) {
         BrandModel brand = brandRepository.findById(id)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: " + id));
+        productService.softDeleteByBrandId(id);
         brand.delete();
         brandRepository.save(brand);
     }

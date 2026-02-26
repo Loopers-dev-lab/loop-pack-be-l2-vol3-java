@@ -127,4 +127,17 @@ public class ProductService {
             productRepository.save(product);
         }
     }
+
+    /**
+     * 해당 브랜드에 속한 모든 미삭제 상품을 soft delete한다.
+     * 브랜드 삭제 시 연쇄 삭제에 사용한다 (01 §3.5).
+     */
+    @Transactional
+    public void softDeleteByBrandId(Long brandId) {
+        List<ProductModel> products = productRepository.findByBrandIdAndNotDeleted(brandId);
+        for (ProductModel product : products) {
+            product.delete();
+            productRepository.save(product);
+        }
+    }
 }

@@ -4,6 +4,7 @@ import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -23,6 +24,16 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public Optional<ProductModel> findByIdAndNotDeleted(Long id) {
         return productJpaRepository.findByIdAndDeletedAtIsNull(id);
+    }
+
+    @Override
+    public List<ProductModel> findByBrandIdAndNotDeleted(Long brandId) {
+        return productJpaRepository.findByBrandIdAndDeletedAtIsNull(brandId);
+    }
+
+    @Override
+    public Optional<ProductModel> findByIdForUpdate(Long id) {
+        return productJpaRepository.findByIdForUpdate(id);
     }
 
     @Override

@@ -1,5 +1,7 @@
 package com.loopers.domain.brand;
 
+import com.loopers.domain.product.ProductModel;
+import com.loopers.domain.product.ProductService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
@@ -12,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,6 +26,9 @@ class BrandServiceIntegrationTest {
 
     @Autowired
     private BrandService brandService;
+
+    @Autowired
+    private ProductService productService;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -173,6 +179,31 @@ class BrandServiceIntegrationTest {
             Optional<BrandModel> byId = brandService.findById(saved.getId());
             assertThat(byId).isPresent();
             assertThat(byId.get().isDeleted()).isTrue();
+        }
+
+        @DisplayName("브랜드 삭제 시 해당 브랜드의 모든 상품도 연쇄 soft delete된다.")
+        @Test
+        void delete_whenBrandHasProducts_shouldCascadeSoftDeleteProducts() {
+            // given
+            BrandModel brand = brandService.register("연쇄삭제 대상 브랜드");
+            Long brandId = brand.getId();
+            ProductModel p1 = productService.register(brandId, "상품1", new BigDecimal("1000"), 5);
+            ProductModel p2 = productService.register(brandId, "상품2", new BigDecimal("2000"), 10);
+
+            // when
+            brandService.delete(brandId);
+
+            // then: 브랜드 soft delete
+            assertThat(brandService.findByIdAndNotDeleted(brandId)).isEmpty();
+            // then: 해당 브랜드 상품들도 soft delete (findByIdAndNotDeleted empty, findById로는 deletedAt 설정됨)
+            assertThat(productService.findByIdAndNotDeleted(p1.getId())).isEmpty();
+            assertThat(productService.findByIdAndNotDeleted(p2.getId())).isEmpty();
+            Optional<ProductModel> found1 = productService.findById(p1.getId());
+            Optional<ProductModel> found2 = productService.findById(p2.getId());
+            assertThat(found1).isPresent();
+            assertThat(found1.get().isDeleted()).isTrue();
+            assertThat(found2).isPresent();
+            assertThat(found2.get().isDeleted()).isTrue();
         }
     }
 }
