@@ -53,16 +53,6 @@ public class FakeProductRepository implements ProductRepository {
     }
 
     @Override
-    public Optional<ProductWithBrand> findByIdWithBrand(Long id) {
-        return Optional.ofNullable(store.get(id))
-                .filter(product -> product.getDeletedAt() == null)
-                .map(product -> {
-                    String brandName = resolveBrandName(product.getBrandId());
-                    return new ProductWithBrand(product, brandName);
-                });
-    }
-
-    @Override
     public List<ProductWithBrand> findAllWithBrand() {
         return store.values().stream()
                 .filter(product -> product.getDeletedAt() == null)

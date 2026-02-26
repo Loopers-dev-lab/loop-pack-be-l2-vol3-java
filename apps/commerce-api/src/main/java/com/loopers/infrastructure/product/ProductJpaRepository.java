@@ -15,10 +15,6 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
     List<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId);
 
     @Query("SELECT p, b.name FROM Product p LEFT JOIN Brand b ON b.id = p.brandId"
-        + " WHERE p.id = :id AND p.deletedAt IS NULL AND (b.deletedAt IS NULL OR b.id IS NULL)")
-    List<Object[]> findByIdWithBrand(@Param("id") Long id);
-
-    @Query("SELECT p, b.name FROM Product p LEFT JOIN Brand b ON b.id = p.brandId"
         + " WHERE p.deletedAt IS NULL AND (b.deletedAt IS NULL OR b.id IS NULL)")
     List<Object[]> findAllWithBrand();
 

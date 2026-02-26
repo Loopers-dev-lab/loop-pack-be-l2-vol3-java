@@ -37,13 +37,6 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public Optional<ProductWithBrand> findByIdWithBrand(Long id) {
-        return productJpaRepository.findByIdWithBrand(id).stream()
-            .map(this::toProductWithBrand)
-            .findFirst();
-    }
-
-    @Override
     public List<ProductWithBrand> findAllWithBrand() {
         return productJpaRepository.findAllWithBrand().stream()
             .map(this::toProductWithBrand)
