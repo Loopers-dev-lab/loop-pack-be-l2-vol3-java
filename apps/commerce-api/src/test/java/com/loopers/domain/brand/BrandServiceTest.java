@@ -1,5 +1,6 @@
 package com.loopers.domain.brand;
 
+import com.loopers.domain.product.ProductService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +16,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,6 +25,9 @@ class BrandServiceTest {
 
     @Mock
     private BrandRepository brandRepository;
+
+    @Mock
+    private ProductService productService;
 
     @InjectMocks
     private BrandService brandService;
@@ -210,7 +215,8 @@ class BrandServiceTest {
             // when
             brandService.delete(id);
 
-            // then
+            // then: 연쇄 삭제 후 브랜드 삭제
+            verify(productService).softDeleteByBrandId(eq(id));
             assertThat(brand.isDeleted()).isTrue();
             verify(brandRepository).save(brand);
         }
