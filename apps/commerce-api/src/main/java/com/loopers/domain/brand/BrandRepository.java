@@ -17,6 +17,8 @@ public interface BrandRepository {
 
     Optional<Brand> findById(Long id);
 
+    Optional<Brand> findActiveById(Long id);
+
     boolean existsByName(String name);
 
     boolean existsByNameAndIdNot(String name, Long id);

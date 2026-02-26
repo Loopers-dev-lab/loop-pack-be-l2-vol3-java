@@ -67,10 +67,8 @@ public class BrandService {
     }
 
     public Brand getActiveBrand(Long brandId) {
-        Brand brand = brandRepository.findById(brandId)
+        return brandRepository.findActiveById(brandId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다"));
-        brand.validateNotDeleted();
-        return brand;
     }
 
     public List<Brand> getBrands(List<Long> brandIds) {

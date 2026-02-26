@@ -17,6 +17,9 @@ import java.util.Optional;
 public interface ProductJpaRepository extends JpaRepository<Product, Long> {
 
     // Query
+    @Query("SELECT p FROM Product p WHERE p.id = :id AND p.deletedAt IS NULL")
+    Optional<Product> findActiveById(@Param("id") Long id);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Product p WHERE p.id = :id")
     Optional<Product> findByIdForUpdate(@Param("id") Long id);

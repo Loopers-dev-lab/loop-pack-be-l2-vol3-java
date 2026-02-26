@@ -93,10 +93,8 @@ public class ProductService {
     }
 
     public Product getActiveProduct(Long productId) {
-        Product product = productRepository.findById(productId)
+        return productRepository.findActiveById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
-        product.validateNotDeleted();
-        return product;
     }
 
     public Page<Product> findProducts(String name, Long brandId, Boolean deleted, Pageable pageable) {

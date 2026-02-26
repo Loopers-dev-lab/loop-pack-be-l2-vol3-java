@@ -9,10 +9,14 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface BrandJpaRepository extends JpaRepository<Brand, Long> {
 
     // Query
+
+    @Query("SELECT b FROM Brand b WHERE b.id = :id AND b.deletedAt IS NULL")
+    Optional<Brand> findActiveById(@Param("id") Long id);
 
     boolean existsByName(String name);
 

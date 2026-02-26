@@ -14,6 +14,7 @@ public interface ProductRepository {
 
     // Query
     Optional<Product> findById(Long id);
+    Optional<Product> findActiveById(Long id);
     Optional<Product> findByIdForUpdate(Long id);
     List<Product> findAllByBrandId(Long brandId);
 
