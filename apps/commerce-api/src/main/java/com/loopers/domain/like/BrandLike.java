@@ -1,5 +1,7 @@
 package com.loopers.domain.like;
 
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.LikeErrorType;
 import java.time.ZonedDateTime;
 
 /**
@@ -16,6 +18,9 @@ public class BrandLike {
     protected BrandLike() {}
 
     private BrandLike(Long userId, Long brandId) {
+        if (userId == null || brandId == null) {
+            throw new CoreException(LikeErrorType.INVALID_LIKE_REQUEST);
+        }
         this.userId = userId;
         this.brandId = brandId;
         this.createdAt = ZonedDateTime.now();

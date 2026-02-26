@@ -32,6 +32,9 @@ public class CouponTemplate {
     private CouponTemplate(String name, String description, DiscountType discountType, int discountValue,
                            Integer maxDiscountAmount, int minOrderAmount, int maxIssueCount,
                            int maxIssueCountPerUser, ZonedDateTime validFrom, ZonedDateTime validTo) {
+        if (name == null || name.isBlank()) {
+            throw new CoreException(CouponErrorType.INVALID_TEMPLATE_NAME);
+        }
         this.name = name;
         this.description = description;
         this.discountType = discountType;

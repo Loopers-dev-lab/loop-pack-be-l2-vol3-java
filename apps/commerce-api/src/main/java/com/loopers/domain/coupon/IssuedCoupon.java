@@ -23,6 +23,9 @@ public class IssuedCoupon {
     protected IssuedCoupon() {}
 
     private IssuedCoupon(Long couponTemplateId, Long userId) {
+        if (couponTemplateId == null || userId == null) {
+            throw new CoreException(CouponErrorType.INVALID_COUPON_ISSUE);
+        }
         this.couponTemplateId = couponTemplateId;
         this.userId = userId;
         this.status = IssuedCouponStatus.ISSUED;
