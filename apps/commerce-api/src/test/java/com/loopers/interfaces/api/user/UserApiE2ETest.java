@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.user;
 
+import com.loopers.application.user.UserRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -46,7 +47,7 @@ class UserApiE2ETest {
 
         @Test
         void 유효한_정보로_회원가입하면_회원정보가_반환된다() {
-            UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
+            UserRequest.SignUp request = new UserRequest.SignUp(
                     "testuser", "Test1234!", "홍길동",
                     LocalDate.of(2000, 1, 15), "test@example.com"
             );
@@ -64,27 +65,24 @@ class UserApiE2ETest {
 
         @Test
         void 이미_존재하는_로그인ID로_가입하면_409_응답() {
-            // arrange
             signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
 
-            UserV1Dto.SignUpRequest duplicateRequest = new UserV1Dto.SignUpRequest(
+            UserRequest.SignUp duplicateRequest = new UserRequest.SignUp(
                     "testuser", "Test5678!", "김철수",
                     LocalDate.of(1995, 5, 20), "other@example.com"
             );
 
-            // act
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(duplicateRequest),
                     new ParameterizedTypeReference<>() {}
             );
 
-            // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         }
 
         @Test
         void 유효하지_않은_입력이면_400_응답() {
-            UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
+            UserRequest.SignUp request = new UserRequest.SignUp(
                     "test-user!", "Test1234!", "홍길동",
                     LocalDate.of(2000, 1, 15), "test@example.com"
             );
@@ -99,7 +97,7 @@ class UserApiE2ETest {
 
         @Test
         void 비밀번호에_생년월일이_포함되면_400_응답() {
-            UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
+            UserRequest.SignUp request = new UserRequest.SignUp(
                     "testuser", "Abcd20000115!", "홍길동",
                     LocalDate.of(2000, 1, 15), "test@example.com"
             );
@@ -172,65 +170,55 @@ class UserApiE2ETest {
 
         @Test
         void 유효한_새_비밀번호로_변경하면_새_비밀번호로_인증할_수_있다() {
-            // arrange
             signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
 
-            UserV1Dto.ChangePasswordRequest request = new UserV1Dto.ChangePasswordRequest("NewPass123!");
+            UserRequest.ChangePassword request = new UserRequest.ChangePassword("NewPass123!");
 
-            // act
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     CHANGE_PASSWORD_ENDPOINT, HttpMethod.PATCH,
                     new HttpEntity<>(request, authHeaders("testuser", "Test1234!")),
                     new ParameterizedTypeReference<>() {}
             );
 
-            // assert - 변경 성공
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
-            // assert - 새 비밀번호로 인증 가능
             ResponseEntity<ApiResponse<UserV1Dto.UserResponse>> verifyResponse = getMyInfo("testuser", "NewPass123!");
             assertThat(verifyResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         }
 
         @Test
         void 현재_비밀번호와_동일한_비밀번호로_변경하면_400_응답() {
-            // arrange
             signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
 
-            UserV1Dto.ChangePasswordRequest request = new UserV1Dto.ChangePasswordRequest("Test1234!");
+            UserRequest.ChangePassword request = new UserRequest.ChangePassword("Test1234!");
 
-            // act
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     CHANGE_PASSWORD_ENDPOINT, HttpMethod.PATCH,
                     new HttpEntity<>(request, authHeaders("testuser", "Test1234!")),
                     new ParameterizedTypeReference<>() {}
             );
 
-            // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
 
         @Test
         void 인증_실패하면_401_응답() {
-            // arrange
             signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
 
-            UserV1Dto.ChangePasswordRequest request = new UserV1Dto.ChangePasswordRequest("NewPass123!");
+            UserRequest.ChangePassword request = new UserRequest.ChangePassword("NewPass123!");
 
-            // act
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     CHANGE_PASSWORD_ENDPOINT, HttpMethod.PATCH,
                     new HttpEntity<>(request, authHeaders("testuser", "WrongPass1!")),
                     new ParameterizedTypeReference<>() {}
             );
 
-            // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
 
         @Test
         void 인증헤더가_누락되면_401_응답() {
-            UserV1Dto.ChangePasswordRequest request = new UserV1Dto.ChangePasswordRequest("NewPass123!");
+            UserRequest.ChangePassword request = new UserRequest.ChangePassword("NewPass123!");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     CHANGE_PASSWORD_ENDPOINT, HttpMethod.PATCH,
@@ -245,7 +233,7 @@ class UserApiE2ETest {
         void 비밀번호에_생년월일이_포함되면_400_응답() {
             signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
 
-            UserV1Dto.ChangePasswordRequest request = new UserV1Dto.ChangePasswordRequest("Abcd20000115!");
+            UserRequest.ChangePassword request = new UserRequest.ChangePassword("Abcd20000115!");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     CHANGE_PASSWORD_ENDPOINT, HttpMethod.PATCH,
@@ -260,7 +248,7 @@ class UserApiE2ETest {
         void 유효하지_않은_비밀번호면_400_응답() {
             signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
 
-            UserV1Dto.ChangePasswordRequest request = new UserV1Dto.ChangePasswordRequest("short");
+            UserRequest.ChangePassword request = new UserRequest.ChangePassword("short");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     CHANGE_PASSWORD_ENDPOINT, HttpMethod.PATCH,
@@ -275,11 +263,11 @@ class UserApiE2ETest {
     // --- 헬퍼 메서드 ---
 
     private void signUp(String loginId, String password, String name, LocalDate birthDate, String email) {
-        UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(loginId, password, name, birthDate, email);
+        UserRequest.SignUp request = new UserRequest.SignUp(loginId, password, name, birthDate, email);
         postSignUp(request);
     }
 
-    private ResponseEntity<ApiResponse<UserV1Dto.UserResponse>> postSignUp(UserV1Dto.SignUpRequest request) {
+    private ResponseEntity<ApiResponse<UserV1Dto.UserResponse>> postSignUp(UserRequest.SignUp request) {
         return testRestTemplate.exchange(
                 SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request),
                 new ParameterizedTypeReference<>() {}

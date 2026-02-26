@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.user;
 
+import com.loopers.application.user.UserRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.AuthenticatedUser;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,7 +16,7 @@ public interface UserApiV1Spec {
             summary = "회원가입",
             description = "새로운 회원을 등록합니다. 이름은 마지막 글자가 마스킹되어 반환됩니다."
     )
-    ApiResponse<UserV1Dto.UserResponse> signUp(UserV1Dto.SignUpRequest request);
+    ApiResponse<UserV1Dto.UserResponse> signUp(UserRequest.SignUp request);
 
     @Operation(
             summary = "비밀번호 변경",
@@ -23,7 +24,7 @@ public interface UserApiV1Spec {
     )
     ApiResponse<Void> changePassword(
             @Parameter(hidden = true) AuthenticatedUser authUser,
-            UserV1Dto.ChangePasswordRequest request
+            UserRequest.ChangePassword request
     );
 
     // Query
