@@ -3,6 +3,7 @@ package com.loopers.domain.user.vo;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
 
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
@@ -37,6 +38,19 @@ public class UserName {
 
     public String getMaskedValue() {
         return value.substring(0, value.length() - 1) + "*";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        UserName userName = (UserName) o;
+        return Objects.equals(value, userName.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(value);
     }
 
     private void validate(String value) {
