@@ -3,6 +3,7 @@ package com.loopers.application.order;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderService;
 import com.loopers.domain.product.ProductValidationRequest;
+import com.loopers.domain.product.Quantity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,8 +28,8 @@ public class OrderFacade {
     @Transactional
     public OrderInfo create(Long userId, List<CreateOrderItemParam> params) {
         List<ProductValidationRequest> requests = params.stream()
-            .map(p -> new ProductValidationRequest(p.productId(), p.quantity(), p.optionId()))
-            .toList();
+                .map(p -> new ProductValidationRequest(p.productId(), Quantity.of(p.quantity()), p.optionId()))
+                .toList();
         OrderModel order = orderService.create(userId, requests);
         return OrderInfo.from(order);
     }
@@ -41,8 +42,8 @@ public class OrderFacade {
     @Transactional(readOnly = true)
     public List<OrderInfo> findOrders(Long userId, ZonedDateTime start, ZonedDateTime end, int page, int size) {
         return orderService.findOrders(userId, start, end, page, size).stream()
-            .map(OrderInfo::from)
-            .toList();
+                .map(OrderInfo::from)
+                .toList();
     }
 
     @Transactional

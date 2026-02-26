@@ -2,6 +2,7 @@ package com.loopers.domain.order;
 
 import com.loopers.domain.BaseEntity;
 import com.loopers.domain.product.ProductSnapshot;
+import com.loopers.domain.product.Quantity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -44,7 +45,7 @@ public class OrderItemModel extends BaseEntity {
     private Long optionId;
 
     private OrderItemModel(OrderModel order, Long productId, String productNameSnapshot,
-                          BigDecimal priceSnapshot, int quantity, Long optionId) {
+            BigDecimal priceSnapshot, int quantity, Long optionId) {
         this.order = order;
         this.productId = productId;
         this.productNameSnapshot = productNameSnapshot;
@@ -61,21 +62,20 @@ public class OrderItemModel extends BaseEntity {
      * @param optionId 옵션 ID (null 가능)
      * @return 주문 항목 (order는 호출 측에서 set)
      */
-    public static OrderItemModel of(ProductSnapshot snapshot, int quantity, Long optionId) {
+    public static OrderItemModel of(ProductSnapshot snapshot, Quantity quantity, Long optionId) {
         if (snapshot == null) {
             throw new IllegalArgumentException("스냅샷은 null일 수 없습니다.");
         }
-        if (quantity < 1) {
-            throw new IllegalArgumentException("수량은 1 이상이어야 합니다.");
+        if (quantity == null) {
+            throw new IllegalArgumentException("수량은 null일 수 없습니다.");
         }
         return new OrderItemModel(
-            null,
-            snapshot.productId(),
-            snapshot.productName(),
-            snapshot.price(),
-            quantity,
-            optionId
-        );
+                null,
+                snapshot.productId(),
+                snapshot.productName(),
+                snapshot.price().value(),
+                quantity.value(),
+                optionId);
     }
 
     void setOrder(OrderModel order) {

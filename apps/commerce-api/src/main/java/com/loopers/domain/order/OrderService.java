@@ -3,6 +3,7 @@ package com.loopers.domain.order;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductSnapshot;
 import com.loopers.domain.product.ProductValidationRequest;
+import com.loopers.domain.product.Quantity;
 import com.loopers.domain.product.RestoreStockItem;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -53,7 +54,7 @@ public class OrderService {
     @Transactional(readOnly = true)
     public Optional<OrderModel> findById(Long userId, Long orderId) {
         return orderRepository.findById(orderId)
-            .filter(order -> order.getUserId().equals(userId));
+                .filter(order -> order.getUserId().equals(userId));
     }
 
     /**
@@ -71,7 +72,7 @@ public class OrderService {
     @Transactional
     public OrderModel cancel(Long userId, Long orderId) {
         OrderModel order = orderRepository.findById(orderId)
-            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
         if (!order.getUserId().equals(userId)) {
             throw new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.");
         }
@@ -80,8 +81,8 @@ public class OrderService {
         }
         if (order.getStatus() == OrderStatus.PAID) {
             List<RestoreStockItem> items = order.getOrderItems().stream()
-                .map(item -> new RestoreStockItem(item.getProductId(), item.getQuantity()))
-                .toList();
+                    .map(item -> new RestoreStockItem(item.getProductId(), Quantity.of(item.getQuantity())))
+                    .toList();
             productService.restoreStock(items);
         }
         order.cancel();
