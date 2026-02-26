@@ -36,6 +36,9 @@ public class Order extends BaseEntity {
     private List<OrderItem> items = new ArrayList<>();
 
     public static Order create(Long memberId, List<ItemSnapshot> snapshots) {
+        if (snapshots == null || snapshots.isEmpty()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목은 1개 이상이어야 합니다.");
+        }
         Order order = new Order();
         order.memberId = memberId;
         order.status = OrderStatus.CREATED;

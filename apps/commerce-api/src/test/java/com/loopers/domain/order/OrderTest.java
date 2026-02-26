@@ -17,6 +17,24 @@ class OrderTest {
     @DisplayName("Order 생성")
     class Create {
 
+        @DisplayName("주문 항목이 비어있으면 예외가 발생한다")
+        @Test
+        void create_withEmptyItems_throwsException() {
+            assertThatThrownBy(() -> Order.create(1L, List.of()))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("주문 항목이 null이면 예외가 발생한다")
+        @Test
+        void create_withNullItems_throwsException() {
+            assertThatThrownBy(() -> Order.create(1L, null))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
         @DisplayName("주문 항목들의 소계 합산으로 totalPrice가 계산된다")
         @Test
         void create_withItems_calculatesTotalPrice() {
