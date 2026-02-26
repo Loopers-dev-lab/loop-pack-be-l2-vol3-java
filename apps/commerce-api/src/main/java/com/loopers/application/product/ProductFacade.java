@@ -5,11 +5,16 @@ import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ProductSortOrder;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * 상품 유스케이스 조율.
@@ -66,6 +71,35 @@ public class ProductFacade {
             product.getStockQuantity(),
             likeCount
         ));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ProductListItemInfo> getProductList(Long brandId, String sortParam, int page, int size) {
+        ProductSortOrder sortOrder = ProductSortOrder.fromParam(sortParam);
+        Page<ProductModel> productPage = productService.findNotDeletedForList(sortOrder, brandId, page, size);
+        List<ProductModel> products = productPage.getContent();
+        if (products.isEmpty()) {
+            return new PageImpl<>(List.of(), productPage.getPageable(), productPage.getTotalElements());
+        }
+        List<Long> productIds = products.stream().map(ProductModel::getId).toList();
+        var likeCountMap = likeRepository.countByProductIds(productIds);
+        List<ProductListItemInfo> items = products.stream()
+            .map(p -> {
+                String brandName = brandService.findByIdAndNotDeleted(p.getBrandId())
+                    .map(BrandModel::getName)
+                    .orElse("");
+                long likeCount = likeCountMap.getOrDefault(p.getId(), 0L);
+                return new ProductListItemInfo(
+                    p.getId(),
+                    p.getName(),
+                    p.getPrice(),
+                    p.getBrandId(),
+                    brandName,
+                    likeCount
+                );
+            })
+            .collect(Collectors.toList());
+        return new PageImpl<>(items, productPage.getPageable(), productPage.getTotalElements());
     }
 
     @Transactional
