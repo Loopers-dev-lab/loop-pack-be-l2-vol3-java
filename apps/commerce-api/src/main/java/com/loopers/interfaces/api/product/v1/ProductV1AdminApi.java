@@ -1,7 +1,5 @@
 package com.loopers.interfaces.api.product.v1;
 
-import java.util.Objects;
-
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
@@ -16,10 +14,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.loopers.application.product.DeleteProductUseCase;
 import com.loopers.application.product.ProductResult;
-import com.loopers.application.product.ProductService;
+import com.loopers.application.product.ReadProductDetailUseCase;
+import com.loopers.application.product.ReadProductsUseCase;
+import com.loopers.application.product.RegisterProductUseCase;
+import com.loopers.application.product.UpdateProductUseCase;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
+import com.loopers.support.page.Page;
 import com.loopers.support.page.PageSize;
 
 import lombok.RequiredArgsConstructor;
@@ -29,7 +32,11 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api-admin/v1/products")
 public class ProductV1AdminApi implements ProductV1AdminApiSpec {
 
-    private final ProductService productService;
+    private final RegisterProductUseCase registerProductUseCase;
+    private final ReadProductsUseCase readProductsUseCase;
+    private final ReadProductDetailUseCase readProductDetailUseCase;
+    private final UpdateProductUseCase updateProductUseCase;
+    private final DeleteProductUseCase deleteProductUseCase;
 
     @PostMapping
     @ResponseStatus(code = HttpStatus.CREATED)
@@ -37,7 +44,7 @@ public class ProductV1AdminApi implements ProductV1AdminApiSpec {
     public ApiResponse<ProductDto.CreateProductResponse> createProduct(
             @RequestBody @Valid ProductDto.CreateProductRequest request
     ) {
-        Long productId = productService.createProduct(request.toCreateProductCommand());
+        Long productId = registerProductUseCase.execute(request.toCreateProductCommand());
         return ApiResponse.success(ProductDto.CreateProductResponse.from(productId));
     }
 
@@ -49,9 +56,7 @@ public class ProductV1AdminApi implements ProductV1AdminApiSpec {
             @RequestParam(defaultValue = "20") int size
     ) {
         var pageSize = new PageSize(page, size);
-        var products = Objects.isNull(brandId)
-                ? productService.getProducts(pageSize)
-                : productService.getProductsByBrandId(brandId, pageSize);
+        Page<ProductResult> products = readProductsUseCase.execute(brandId, pageSize);
 
         return ApiResponse.success(
                 new PageResponse<>(
@@ -64,7 +69,7 @@ public class ProductV1AdminApi implements ProductV1AdminApiSpec {
     @GetMapping("/{productId}")
     @Override
     public ApiResponse<ProductDto.ProductResponse> getProduct(@PathVariable Long productId) {
-        ProductResult result = productService.getProduct(productId);
+        ProductResult result = readProductDetailUseCase.execute(productId);
         return ApiResponse.success(ProductDto.ProductResponse.from(result));
     }
 
@@ -74,14 +79,14 @@ public class ProductV1AdminApi implements ProductV1AdminApiSpec {
             @PathVariable Long productId,
             @RequestBody @Valid ProductDto.UpdateProductRequest request
     ) {
-        productService.updateProduct(request.toUpdateProductCommand(productId));
+        updateProductUseCase.execute(productId, request.toUpdateProductCommand(productId));
         return ApiResponse.success();
     }
 
     @DeleteMapping("/{productId}")
     @Override
     public ApiResponse<Object> deleteProduct(@PathVariable Long productId) {
-        productService.deleteProduct(productId);
+        deleteProductUseCase.execute(productId);
         return ApiResponse.success();
     }
 }

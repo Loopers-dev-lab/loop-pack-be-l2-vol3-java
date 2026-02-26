@@ -18,17 +18,13 @@ public interface ProductRepository {
 
     List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> productIds);
 
-    List<Product> findAllByIdInAndDeletedAtIsNullForUpdate(List<Long> productIds);
+    Slice<Product> findAll(Long brandId, Pageable pageable);
 
-    Slice<Product> findAllBy(Pageable pageable);
-
-    Slice<Product> findAllByDeletedAtIsNull(ProductSortType sortType, Pageable pageable);
-
-    Slice<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId, ProductSortType sortType, Pageable pageable);
-
-    Slice<Product> findAllByBrandId(Long brandId, Pageable pageable);
+    Slice<Product> findAllActiveProducts(Long brandId, ProductSortType sortType, Pageable pageable);
 
     List<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId);
 
     void softDeleteAllByBrandId(Long brandId);
+
+    boolean existsByIdAndDeletedAtIsNull(Long productId);
 }

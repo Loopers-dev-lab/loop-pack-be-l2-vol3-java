@@ -1,7 +1,5 @@
 package com.loopers.application.product;
 
-import java.time.ZonedDateTime;
-
 import com.loopers.domain.product.Product;
 
 public record ProductResult(
@@ -11,9 +9,7 @@ public record ProductResult(
         String thumbnailUrl,
         Long price,
         Long stock,
-        String description,
-        ZonedDateTime createdAt,
-        ZonedDateTime deletedAt
+        String description
 ) {
 
     public static ProductResult from(Product product) {
@@ -24,9 +20,7 @@ public record ProductResult(
                 product.getThumbnailUrl().getValue(),
                 product.getPrice().getAmount(),
                 product.getStock().getValue(),
-                product.getDescription(),
-                product.getCreatedAt(),
-                product.getDeletedAt()
+                product.getDescription()
         );
     }
 }

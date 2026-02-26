@@ -15,10 +15,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.loopers.application.order.OrderService;
+import com.loopers.application.order.OrderDetailResult;
+import com.loopers.application.order.OrderResult;
+import com.loopers.application.order.PlaceOrderUseCase;
+import com.loopers.application.order.ReadMyOrderDetailUseCase;
+import com.loopers.application.order.ReadMyOrdersUseCase;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.auth.LoginUser;
+import com.loopers.support.page.Page;
 import com.loopers.support.page.PageSize;
 
 import lombok.RequiredArgsConstructor;
@@ -28,7 +33,9 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/v1/orders")
 public class OrderV1Api implements OrderV1ApiSpec {
 
-    private final OrderService orderService;
+    private final PlaceOrderUseCase placeOrderUseCase;
+    private final ReadMyOrdersUseCase readMyOrdersUseCase;
+    private final ReadMyOrderDetailUseCase readMyOrderDetailUseCase;
 
     @PostMapping
     @ResponseStatus(code = HttpStatus.CREATED)
@@ -37,7 +44,7 @@ public class OrderV1Api implements OrderV1ApiSpec {
             @LoginUser Long userId,
             @RequestBody @Valid OrderDto.CreateOrderRequest request
     ) {
-        Long orderId = orderService.createOrder(request.toCart(userId));
+        Long orderId = placeOrderUseCase.execute(request.toPlaceOrderCommand(userId));
         return ApiResponse.success(OrderDto.CreateOrderResponse.from(orderId));
     }
 
@@ -50,7 +57,7 @@ public class OrderV1Api implements OrderV1ApiSpec {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        var orders = orderService.getMyOrders(userId, startDate, endDate, new PageSize(page,size));
+        Page<OrderResult> orders = readMyOrdersUseCase.execute(userId, startDate, endDate, new PageSize(page, size));
         return ApiResponse.success(new PageResponse<>(
                 orders.content()
                         .stream()
@@ -66,7 +73,7 @@ public class OrderV1Api implements OrderV1ApiSpec {
             @LoginUser Long userId,
             @PathVariable Long orderId
     ) {
-        var result = orderService.getMyOrder(userId, orderId);
+        OrderDetailResult result = readMyOrderDetailUseCase.execute(userId, orderId);
         return ApiResponse.success(OrderDto.OrderDetailResponse.from(result));
     }
 }

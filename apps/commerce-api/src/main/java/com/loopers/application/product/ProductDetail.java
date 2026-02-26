@@ -1,7 +1,5 @@
 package com.loopers.application.product;
 
-import java.time.ZonedDateTime;
-
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.product.Product;
 
@@ -12,7 +10,6 @@ public record ProductDetail(
         Long price,
         Long stock,
         String description,
-        ZonedDateTime createdAt,
         Long brandId,
         String brandName,
         String brandLogoUrl,
@@ -28,7 +25,6 @@ public record ProductDetail(
                 product.getPrice().getAmount(),
                 product.getStock().getValue(),
                 product.getDescription(),
-                product.getCreatedAt(),
                 brand.getId(),
                 brand.getName(),
                 brand.getLogoUrl(),

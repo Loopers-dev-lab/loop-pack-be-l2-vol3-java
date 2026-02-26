@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import com.loopers.application.user.UserService;
+import com.loopers.domain.user.UserService;
 import com.loopers.interfaces.api.config.WebMvcConfig;
 import com.loopers.support.error.CoreException;
 

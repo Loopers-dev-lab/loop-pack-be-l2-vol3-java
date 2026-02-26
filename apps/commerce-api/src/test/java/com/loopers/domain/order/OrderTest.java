@@ -26,12 +26,12 @@ class OrderTest {
         @Test
         void setsOrderName_whenSingleItem() {
             // arrange
-            var items = List.of(
-                    OrderItem.create(1L, "테스트 상품", "https://thumb.png", Money.wons(10000L), 2L)
-            );
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "테스트 상품", "https://thumb.png", Money.wons(10000L), 2L)
+            ));
 
             // act
-            var order = Order.create(1L, items);
+            var order = Order.create(cart);
 
             // assert
             assertThat(order.getName()).isEqualTo("테스트 상품");
@@ -41,14 +41,14 @@ class OrderTest {
         @Test
         void setsOrderName_whenMultipleItems() {
             // arrange
-            var items = List.of(
-                    OrderItem.create(1L, "첫 번째 상품", "https://thumb1.png", Money.wons(10000L), 1L),
-                    OrderItem.create(2L, "두 번째 상품", "https://thumb2.png", Money.wons(20000L), 1L),
-                    OrderItem.create(3L, "세 번째 상품", "https://thumb3.png", Money.wons(30000L), 1L)
-            );
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "첫 번째 상품", "https://thumb1.png", Money.wons(10000L), 1L),
+                    new Cart.CartItem(2L, "두 번째 상품", "https://thumb2.png", Money.wons(20000L), 1L),
+                    new Cart.CartItem(3L, "세 번째 상품", "https://thumb3.png", Money.wons(30000L), 1L)
+            ));
 
             // act
-            var order = Order.create(1L, items);
+            var order = Order.create(cart);
 
             // assert
             assertThat(order.getName()).isEqualTo("첫 번째 상품 외 2건");
@@ -58,13 +58,13 @@ class OrderTest {
         @Test
         void calculatesTotalPrice() {
             // arrange
-            var items = List.of(
-                    OrderItem.create(1L, "상품A", "https://a.png", Money.wons(10000L), 2L),
-                    OrderItem.create(2L, "상품B", "https://b.png", Money.wons(5000L), 3L)
-            );
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품A", "https://a.png", Money.wons(10000L), 2L),
+                    new Cart.CartItem(2L, "상품B", "https://b.png", Money.wons(5000L), 3L)
+            ));
 
             // act
-            var order = Order.create(1L, items);
+            var order = Order.create(cart);
 
             // assert
             assertThat(order.getTotalPrice()).isEqualTo(Money.wons(35000L));
@@ -74,12 +74,12 @@ class OrderTest {
         @Test
         void setsStatusToCreated() {
             // arrange
-            var items = List.of(
-                    OrderItem.create(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
-            );
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
 
             // act
-            var order = Order.create(1L, items);
+            var order = Order.create(cart);
 
             // assert
             assertThat(order.getStatus()).isEqualTo(OrderStatus.CREATED);
@@ -89,12 +89,12 @@ class OrderTest {
         @Test
         void setsOrderedAt() {
             // arrange
-            var items = List.of(
-                    OrderItem.create(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
-            );
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
 
             // act
-            var order = Order.create(1L, items);
+            var order = Order.create(cart);
 
             // assert
             assertThat(order.getOrderedAt()).isNotNull();
@@ -104,13 +104,13 @@ class OrderTest {
         @Test
         void associatesItemsWithOrder() {
             // arrange
-            var items = List.of(
-                    OrderItem.create(1L, "상품A", "https://a.png", Money.wons(10000L), 2L),
-                    OrderItem.create(2L, "상품B", "https://b.png", Money.wons(5000L), 1L)
-            );
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품A", "https://a.png", Money.wons(10000L), 2L),
+                    new Cart.CartItem(2L, "상품B", "https://b.png", Money.wons(5000L), 1L)
+            ));
 
             // act
-            var order = Order.create(1L, items);
+            var order = Order.create(cart);
 
             // assert
             assertAll(
@@ -124,7 +124,11 @@ class OrderTest {
         @DisplayName("주문 항목이 없으면, REQUIRED_ORDER_ITEM 예외가 발생한다.")
         @Test
         void throwsException_whenNoOrderItems() {
-            assertThatThrownBy(() -> Order.create(1L, Collections.emptyList()))
+            // arrange
+            var cart = new Cart(1L, Collections.emptyList());
+
+            // act & assert
+            assertThatThrownBy(() -> Order.create(cart))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.REQUIRED_ORDER_ITEM.getMessage());
         }
@@ -133,13 +137,13 @@ class OrderTest {
         @Test
         void throwsException_whenDuplicateProduct() {
             // arrange
-            var items = List.of(
-                    OrderItem.create(1L, "상품A", "https://a.png", Money.wons(10000L), 1L),
-                    OrderItem.create(1L, "상품A", "https://a.png", Money.wons(10000L), 2L)
-            );
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품A", "https://a.png", Money.wons(10000L), 1L),
+                    new Cart.CartItem(1L, "상품A", "https://a.png", Money.wons(10000L), 2L)
+            ));
 
             // act & assert
-            assertThatThrownBy(() -> Order.create(1L, items))
+            assertThatThrownBy(() -> Order.create(cart))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.DUPLICATE_ORDER_PRODUCT.getMessage());
         }
@@ -153,9 +157,10 @@ class OrderTest {
         @Test
         void doesNotThrow_whenOwnerMatches() {
             // arrange
-            var order = Order.create(1L, List.of(
-                    OrderItem.create(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
             ));
+            var order = Order.create(cart);
 
             // act & assert
             assertThatCode(() -> order.validateOwner(1L)).doesNotThrowAnyException();
@@ -165,9 +170,10 @@ class OrderTest {
         @Test
         void throwsException_whenOwnerDoesNotMatch() {
             // arrange
-            var order = Order.create(1L, List.of(
-                    OrderItem.create(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
             ));
+            var order = Order.create(cart);
 
             // act & assert
             assertThatThrownBy(() -> order.validateOwner(999L))

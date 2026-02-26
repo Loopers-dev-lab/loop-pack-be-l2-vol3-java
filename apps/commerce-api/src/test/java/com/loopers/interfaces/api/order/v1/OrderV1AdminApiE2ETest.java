@@ -55,7 +55,7 @@ class OrderV1AdminApiE2ETest extends BaseE2ETest {
 
     @DisplayName("GET /api-admin/v1/orders")
     @Nested
-    class GetOrders {
+    class ReadOrders {
 
         @DisplayName("주문이 존재하면, 전체 주문 목록이 반환된다.")
         @Test
@@ -179,7 +179,7 @@ class OrderV1AdminApiE2ETest extends BaseE2ETest {
 
     @DisplayName("GET /api-admin/v1/orders/{orderId}")
     @Nested
-    class GetOrder {
+    class ReadOrderDetail {
 
         @DisplayName("주문이 존재하면, 주문 상세 정보와 마스킹된 주문자 이름이 반환된다.")
         @Test

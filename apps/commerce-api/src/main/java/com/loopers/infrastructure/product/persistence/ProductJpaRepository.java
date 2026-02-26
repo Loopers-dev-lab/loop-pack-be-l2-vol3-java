@@ -26,10 +26,6 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
 
     List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> productIds);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM Product p WHERE p.id IN :productIds AND p.deletedAt IS NULL")
-    List<Product> findAllByIdInAndDeletedAtIsNullForUpdate(@Param("productIds") List<Long> productIds);
-
     Slice<Product> findAllBy(Pageable pageable);
 
     Slice<Product> findAllByDeletedAtIsNull(Pageable pageable);
@@ -43,4 +39,6 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
     @Modifying
     @Query("UPDATE Product p SET p.deletedAt = :now WHERE p.brandId = :brandId AND p.deletedAt IS NULL")
     void softDeleteAllByBrandId(@Param("brandId") Long brandId, @Param("now") ZonedDateTime now);
+
+    boolean existsByIdAndDeletedAtIsNull(Long productId);
 }

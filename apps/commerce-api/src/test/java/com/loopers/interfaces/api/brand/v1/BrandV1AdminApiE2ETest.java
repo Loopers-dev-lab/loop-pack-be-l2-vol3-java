@@ -32,7 +32,7 @@ class BrandV1AdminApiE2ETest extends BaseE2ETest {
 
     @DisplayName("POST /api-admin/v1/brands")
     @Nested
-    class CreateBrand {
+    class RegisterBrand {
 
         @DisplayName("유효한 정보를 입력하면, 브랜드 생성에 성공한다.")
         @Test
@@ -137,7 +137,7 @@ class BrandV1AdminApiE2ETest extends BaseE2ETest {
 
     @DisplayName("GET /api-admin/v1/brands")
     @Nested
-    class getBrands {
+    class ReadBrands {
 
         @DisplayName("브랜드가 존재하면, 브랜드 목록을 조회할 수 있다.")
         @Test
@@ -323,7 +323,7 @@ class BrandV1AdminApiE2ETest extends BaseE2ETest {
 
     @DisplayName("GET /api-admin/v1/brands/{brandId}")
     @Nested
-    class GetBrand {
+    class ReadBrandDetail {
 
         @DisplayName("존재하는 브랜드 ID로 조회하면, 브랜드 정보를 반환한다.")
         @Test

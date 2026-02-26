@@ -20,7 +20,7 @@ class BrandV1ApiE2ETest extends BaseE2ETest {
 
     @DisplayName("GET /api/v1/brands/{brandId}")
     @Nested
-    class GetActiveBrand {
+    class ReadActiveBrandDetail {
 
         @DisplayName("활성 브랜드가 존재하면, 브랜드 정보를 반환한다.")
         @Test

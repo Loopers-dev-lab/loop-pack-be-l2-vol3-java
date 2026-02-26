@@ -6,9 +6,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.loopers.application.order.OrderService;
+import com.loopers.application.order.AdminOrderDetailResult;
+import com.loopers.application.order.OrderResult;
+import com.loopers.application.order.ReadOrderDetailUseCase;
+import com.loopers.application.order.ReadOrdersUseCase;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
+import com.loopers.support.page.Page;
 import com.loopers.support.page.PageSize;
 
 import lombok.RequiredArgsConstructor;
@@ -18,7 +22,8 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api-admin/v1/orders")
 public class OrderV1AdminApi implements OrderV1AdminApiSpec {
 
-    private final OrderService orderService;
+    private final ReadOrdersUseCase readOrdersUseCase;
+    private final ReadOrderDetailUseCase readOrderDetailUseCase;
 
     @GetMapping
     @Override
@@ -26,7 +31,7 @@ public class OrderV1AdminApi implements OrderV1AdminApiSpec {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        var orders = orderService.getOrders(new PageSize(page, size));
+        Page<OrderResult> orders = readOrdersUseCase.execute(new PageSize(page, size));
         return ApiResponse.success(
                 new PageResponse<>(
                         orders.content().stream()
@@ -42,7 +47,7 @@ public class OrderV1AdminApi implements OrderV1AdminApiSpec {
     public ApiResponse<AdminOrderDto.OrderDetailResponse> getOrder(
             @PathVariable Long orderId
     ) {
-        var result = orderService.getOrder(orderId);
+        AdminOrderDetailResult result = readOrderDetailUseCase.execute(orderId);
         return ApiResponse.success(AdminOrderDto.OrderDetailResponse.from(result));
     }
 }

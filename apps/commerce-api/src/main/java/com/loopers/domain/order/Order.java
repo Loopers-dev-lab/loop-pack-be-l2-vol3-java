@@ -49,14 +49,18 @@ public class Order extends BaseEntity {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems = new ArrayList<>();
 
-    public static Order create(Long userId, List<OrderItem> orderItems) {
+    public static Order create(Cart cart) {
+        List<OrderItem> orderItems = cart.cartItems().stream()
+                .map(OrderItem::create)
+                .toList();
+
         if (orderItems.isEmpty()) {
             throw new CoreException(ErrorType.REQUIRED_ORDER_ITEM);
         }
         validateNoDuplicateProducts(orderItems);
 
         Order order = new Order();
-        order.userId = userId;
+        order.userId = cart.userId();
         order.orderedAt = LocalDateTime.now();
         order.status = OrderStatus.CREATED;
         orderItems.forEach(order::addItem);

@@ -289,7 +289,7 @@ class UserV1ApiE2ETest extends BaseE2ETest {
 
     @DisplayName("GET /api/v1/users/me")
     @Nested
-    class GetMyInfo {
+    class ReadUserInfo {
 
         private static final String ME_ENDPOINT = "/api/v1/users/me";
 

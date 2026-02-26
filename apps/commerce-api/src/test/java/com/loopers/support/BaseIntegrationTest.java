@@ -4,9 +4,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import com.loopers.application.brand.BrandService;
-import com.loopers.application.product.ProductCommand;
-import com.loopers.application.product.ProductService;
+import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.product.ProductService;
 import com.loopers.utils.DatabaseCleanUp;
 
 @SpringBootTest
@@ -22,7 +21,7 @@ public abstract class BaseIntegrationTest {
     protected DatabaseCleanUp databaseCleanUp;
 
     protected Long initDefaultBrand() {
-        return brandService.createBrand("브랜드명", "https://example.com/logo.png", "브랜드 설명").id();
+        return brandService.create("브랜드명", "https://example.com/logo.png", "브랜드 설명").getId();
     }
 
     @AfterEach
@@ -35,8 +34,6 @@ public abstract class BaseIntegrationTest {
     }
 
     protected Long createProduct(Long brandId, String name, Long price, Long stock) {
-        return productService.createProduct(new ProductCommand.CreateProductCommand(
-                brandId, name, "https://example.com/thumb.png", price, stock, "상품 설명"
-        ));
+        return productService.create(brandId, name, "https://example.com/thumb.png", price, stock, "상품 설명").getId();
     }
 }

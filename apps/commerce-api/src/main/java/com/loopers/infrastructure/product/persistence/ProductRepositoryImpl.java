@@ -7,7 +7,6 @@ import java.util.Optional;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 import com.loopers.domain.product.Product;
@@ -48,33 +47,20 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public List<Product> findAllByIdInAndDeletedAtIsNullForUpdate(List<Long> productIds) {
-        return productJpaRepository.findAllByIdInAndDeletedAtIsNullForUpdate(productIds);
-    }
-
-    @Override
-    public Slice<Product> findAllBy(Pageable pageable) {
-        return productJpaRepository.findAllBy(pageable);
-    }
-
-    @Override
-    public Slice<Product> findAllByDeletedAtIsNull(ProductSortType sortType, Pageable pageable) {
-        return productJpaRepository.findAllByDeletedAtIsNull(
-                PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), toSort(sortType))
-        );
-    }
-
-    @Override
-    public Slice<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId, ProductSortType sortType, Pageable pageable) {
-        return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(
-                brandId,
-                PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), toSort(sortType))
-        );
-    }
-
-    @Override
-    public Slice<Product> findAllByBrandId(Long brandId, Pageable pageable) {
+    public Slice<Product> findAll(Long brandId, Pageable pageable) {
+        if (brandId == null) {
+            return productJpaRepository.findAllBy(pageable);
+        }
         return productJpaRepository.findAllByBrandId(brandId, pageable);
+    }
+
+    @Override
+    public Slice<Product> findAllActiveProducts(Long brandId, ProductSortType sortType, Pageable pageable) {
+        Pageable sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sortType.getSort());
+        if (brandId == null) {
+            return productJpaRepository.findAllByDeletedAtIsNull(sorted);
+        }
+        return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId, sorted);
     }
 
     @Override
@@ -87,13 +73,8 @@ public class ProductRepositoryImpl implements ProductRepository {
         productJpaRepository.softDeleteAllByBrandId(brandId, ZonedDateTime.now());
     }
 
-    private Sort toSort(ProductSortType sortType) {
-        return switch (sortType) {
-            case CREATED_AT_DESC -> Sort.by(Sort.Direction.DESC, "createdAt");
-            case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price.amount")
-                    .and(Sort.by(Sort.Direction.DESC, "createdAt"));
-            case LIKE_COUNT_DESC -> Sort.by(Sort.Direction.DESC, "likeCount")
-                    .and(Sort.by(Sort.Direction.DESC, "createdAt"));
-        };
+    @Override
+    public boolean existsByIdAndDeletedAtIsNull(Long productId) {
+        return productJpaRepository.existsByIdAndDeletedAtIsNull(productId);
     }
 }

@@ -28,7 +28,6 @@ public enum ErrorType {
     INVALID_LOGIN_ID_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_LOGIN_ID_FORMAT", "로그인 ID는 영문과 숫자만 허용됩니다."),
     INVALID_PASSWORD_LENGTH(HttpStatus.BAD_REQUEST, "INVALID_PASSWORD_LENGTH", "비밀번호는 8~16자여야 합니다."),
     INVALID_PASSWORD_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_PASSWORD_FORMAT", "비밀번호는 영문 대소문자, 숫자, 특수문자만 허용됩니다."),
-    INVALID_USER_NAME(HttpStatus.BAD_REQUEST, "INVALID_USER_NAME", "이름은 빈 값일 수 없습니다."),
     INVALID_BIRTH_DATE_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_BIRTH_DATE_FORMAT", "생년월일은 yyyy-MM-dd 형식이어야 합니다."),
     DUPLICATE_LOGIN_ID(HttpStatus.BAD_REQUEST, "DUPLICATE_LOGIN_ID", "이미 가입된 로그인 ID입니다."),
     PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "PASSWORD_MISMATCH", "기존 비밀번호가 일치하지 않습니다."),

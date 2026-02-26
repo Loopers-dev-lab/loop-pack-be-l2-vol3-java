@@ -7,8 +7,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.loopers.application.like.LikeService;
+import com.loopers.application.like.LikeProductUseCase;
 import com.loopers.application.like.LikedProductResult;
+import com.loopers.application.like.ReadLikedProductsUseCase;
+import com.loopers.application.like.UnlikeProductUseCase;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.auth.LoginUser;
@@ -22,19 +24,21 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class LikeV1Api implements LikeV1ApiSpec {
 
-    private final LikeService likeService;
+    private final LikeProductUseCase likeProductUseCase;
+    private final UnlikeProductUseCase unlikeProductUseCase;
+    private final ReadLikedProductsUseCase readLikedProductsUseCase;
 
     @PostMapping("/api/v1/products/{productId}/likes")
     @Override
     public ApiResponse<Object> likeProduct(@LoginUser Long userId, @PathVariable Long productId) {
-        likeService.likeProduct(userId, productId);
+        likeProductUseCase.execute(userId, productId);
         return ApiResponse.success();
     }
 
     @DeleteMapping("/api/v1/products/{productId}/likes")
     @Override
     public ApiResponse<Object> unlikeProduct(@LoginUser Long userId, @PathVariable Long productId) {
-        likeService.unlikeProduct(userId, productId);
+        unlikeProductUseCase.execute(userId, productId);
         return ApiResponse.success();
     }
 
@@ -45,7 +49,7 @@ public class LikeV1Api implements LikeV1ApiSpec {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        Page<LikedProductResult> results = likeService.getLikedProducts(userId, new PageSize(page, size));
+        Page<LikedProductResult> results = readLikedProductsUseCase.execute(userId, new PageSize(page, size));
         return ApiResponse.success(
                 new PageResponse<>(
                         results.content()

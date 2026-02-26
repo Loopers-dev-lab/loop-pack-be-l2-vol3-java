@@ -35,7 +35,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
 
     @DisplayName("POST /api-admin/v1/products")
     @Nested
-    class CreateProduct {
+    class RegisterProduct {
 
         @DisplayName("유효한 정보를 입력하면, 상품 생성에 성공한다.")
         @Test
@@ -239,7 +239,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
 
     @DisplayName("GET /api-admin/v1/products")
     @Nested
-    class GetProducts {
+    class ReadProducts {
 
         @DisplayName("brandId 없이 전체 상품을 조회할 수 있다.")
         @Test
@@ -406,7 +406,7 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
 
     @DisplayName("GET /api-admin/v1/products/{productId}")
     @Nested
-    class GetProduct {
+    class ReadProductDetail {
 
         @DisplayName("존재하는 상품이면, 상품 정보를 조회할 수 있다.")
         @Test

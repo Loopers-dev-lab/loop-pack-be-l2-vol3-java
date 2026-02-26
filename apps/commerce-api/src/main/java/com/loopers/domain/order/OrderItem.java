@@ -40,17 +40,17 @@ public class OrderItem extends BaseEntity {
     @Column(nullable = false)
     private Long quantity;
 
-    public static OrderItem create(Long productId, String productName, String productThumbnailUrl, Money productPrice, Long quantity) {
-        if (quantity <= 0) {
+    public static OrderItem create(Cart.CartItem cartItem) {
+        if (cartItem.quantity() <= 0) {
             throw new CoreException(ErrorType.INVALID_ORDER_ITEM_QUANTITY);
         }
 
         OrderItem orderItem = new OrderItem();
-        orderItem.productId = productId;
-        orderItem.productName = productName;
-        orderItem.productThumbnailUrl = productThumbnailUrl;
-        orderItem.productPrice = productPrice;
-        orderItem.quantity = quantity;
+        orderItem.productId = cartItem.productId();
+        orderItem.productName = cartItem.productName();
+        orderItem.productThumbnailUrl = cartItem.productThumbnailUrl();
+        orderItem.productPrice = cartItem.productPrice();
+        orderItem.quantity = cartItem.quantity();
         return orderItem;
     }
 

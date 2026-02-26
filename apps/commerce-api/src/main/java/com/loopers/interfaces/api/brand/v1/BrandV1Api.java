@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.loopers.application.brand.BrandResult;
-import com.loopers.application.brand.BrandService;
+import com.loopers.application.brand.ReadActiveBrandDetailUseCase;
 import com.loopers.interfaces.api.ApiResponse;
 
 import lombok.RequiredArgsConstructor;
@@ -16,12 +16,12 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/v1/brands")
 public class BrandV1Api implements BrandV1ApiSpec {
 
-    private final BrandService brandService;
+    private final ReadActiveBrandDetailUseCase readActiveBrandDetailUseCase;
 
     @GetMapping("/{brandId}")
     @Override
     public ApiResponse<BrandDto.BrandResponse> getActiveBrand(@PathVariable Long brandId) {
-        BrandResult result = brandService.getActiveBrand(brandId);
+        BrandResult result = readActiveBrandDetailUseCase.execute(brandId);
         return ApiResponse.success(BrandDto.BrandResponse.from(result));
     }
 }

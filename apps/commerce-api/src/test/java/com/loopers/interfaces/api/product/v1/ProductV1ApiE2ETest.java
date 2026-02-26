@@ -48,7 +48,7 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
 
     @DisplayName("GET /api/v1/products")
     @Nested
-    class GetActiveProducts {
+    class ReadActiveProducts {
 
         @DisplayName("brandId가 전달된 경우, 해당 브랜드의 활성 상품만 필터링하여 반환한다.")
         @Test
@@ -319,7 +319,7 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
 
     @DisplayName("GET /api/v1/products/{productId}")
     @Nested
-    class GetActiveProduct {
+    class ReadActiveProductDetail {
 
         @DisplayName("비로그인 사용자가 상품을 조회하면, 상품 상세 정보와 liked=false를 반환한다.")
         @Test

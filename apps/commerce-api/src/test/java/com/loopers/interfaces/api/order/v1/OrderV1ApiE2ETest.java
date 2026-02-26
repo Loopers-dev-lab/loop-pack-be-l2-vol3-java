@@ -53,7 +53,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
 
     @DisplayName("POST /api/v1/orders")
     @Nested
-    class CreateOrder {
+    class PlaceOrder {
 
         @DisplayName("유효한 상품과 수량으로 주문하면, 주문이 생성된다.")
         @Test
@@ -76,7 +76,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
 
     @DisplayName("GET /api/v1/orders")
     @Nested
-    class GetMyOrders {
+    class ReadMyOrders {
 
         private static final String ORDER_ENDPOINT = "/api/v1/orders";
 
@@ -163,7 +163,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
 
     @DisplayName("GET /api/v1/orders/{orderId}")
     @Nested
-    class GetMyOrder {
+    class ReadMyOrderDetail {
 
         @DisplayName("주문 상세 정보를 조회하면, 주문 정보와 주문 항목이 반환된다.")
         @Test

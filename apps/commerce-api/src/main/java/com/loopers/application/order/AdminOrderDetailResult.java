@@ -17,7 +17,7 @@ public record AdminOrderDetailResult(
         Orderer orderer
 ) {
 
-    public static AdminOrderDetailResult of(Order order, String maskedOrdererName) {
+    public static AdminOrderDetailResult from(Order order, String maskedOrdererName) {
         return new AdminOrderDetailResult(
                 order.getId(),
                 order.getName(),

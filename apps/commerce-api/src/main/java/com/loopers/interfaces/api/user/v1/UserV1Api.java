@@ -11,8 +11,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.loopers.application.user.ReadUserInfoUseCase;
+import com.loopers.application.user.SignUpUseCase;
+import com.loopers.application.user.UpdatePasswordUseCase;
 import com.loopers.application.user.UserResult;
-import com.loopers.application.user.UserService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.LoginUser;
 
@@ -23,13 +25,15 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class UserV1Api implements UserV1ApiSpec {
 
-    private final UserService userService;
+    private final SignUpUseCase signUpUseCase;
+    private final ReadUserInfoUseCase getUserInfoUseCase;
+    private final UpdatePasswordUseCase updatePasswordUseCase;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Override
     public ApiResponse<UserV1Dto.SignUpResponse> signUp(@Valid @RequestBody UserV1Dto.SignUpRequest request) {
-        UserResult userResult = userService.signUp(
+        UserResult userResult = signUpUseCase.execute(
                 request.loginId(),
                 request.password(),
                 request.name(),
@@ -43,7 +47,7 @@ public class UserV1Api implements UserV1ApiSpec {
     @GetMapping("/me")
     @Override
     public ApiResponse<UserV1Dto.MeResponse> getMyInfo(@LoginUser Long userId) {
-        UserResult userResult = userService.getMyInfo(userId);
+        UserResult userResult = getUserInfoUseCase.execute(userId);
         return ApiResponse.success(UserV1Dto.MeResponse.from(userResult));
     }
 
@@ -53,7 +57,7 @@ public class UserV1Api implements UserV1ApiSpec {
             @LoginUser Long userId,
             @Valid @RequestBody UserV1Dto.UpdatePasswordRequest request
     ) {
-        userService.updatePassword(userId, request.oldPassword(), request.newPassword());
+        updatePasswordUseCase.execute(userId, request.oldPassword(), request.newPassword());
         return ApiResponse.success();
     }
 }

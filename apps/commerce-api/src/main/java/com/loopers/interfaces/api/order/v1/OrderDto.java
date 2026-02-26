@@ -6,10 +6,9 @@ import java.util.List;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
-import com.loopers.application.order.Cart;
-import com.loopers.application.order.Cart.CartItem;
 import com.loopers.application.order.OrderDetailResult;
 import com.loopers.application.order.OrderResult;
+import com.loopers.application.order.PlaceOrderCommand;
 import com.loopers.domain.order.OrderStatus;
 
 public class OrderDto {
@@ -18,11 +17,11 @@ public class OrderDto {
             @NotEmpty(message = "주문 항목은 필수입니다.") List<OrderItemRequest> orderItems
     ) {
 
-        public Cart toCart(Long userId) {
-            List<CartItem> items = orderItems.stream()
-                    .map(OrderItemRequest::toCartItem)
+        public PlaceOrderCommand toPlaceOrderCommand(Long userId) {
+            List<PlaceOrderCommand.OrderItemCommand> items = orderItems.stream()
+                    .map(OrderItemRequest::toOrderItemCommand)
                     .toList();
-            return new Cart(userId, items);
+            return new PlaceOrderCommand(userId, items);
         }
     }
 
@@ -31,8 +30,8 @@ public class OrderDto {
             @NotNull(message = "수량은 필수입니다.") Long quantity
     ) {
 
-        public CartItem toCartItem() {
-            return new CartItem(productId, quantity);
+        public PlaceOrderCommand.OrderItemCommand toOrderItemCommand() {
+            return new PlaceOrderCommand.OrderItemCommand(productId, quantity);
         }
     }
 

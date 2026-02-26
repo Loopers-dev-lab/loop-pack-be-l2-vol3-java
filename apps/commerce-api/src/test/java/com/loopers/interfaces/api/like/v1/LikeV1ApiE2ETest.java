@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.like.v1;
 import static com.loopers.interfaces.api.like.v1.LikeSteps.getLikedProducts;
 import static com.loopers.interfaces.api.like.v1.LikeSteps.likeProduct;
 import static com.loopers.interfaces.api.like.v1.LikeSteps.unlikeProduct;
+import static com.loopers.interfaces.api.product.v1.ProductSteps.getActiveProduct;
 import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
 import static com.loopers.support.E2ETestHelper.assertErrorResponse;
 import static com.loopers.support.E2ETestHelper.userAuthHeaders;
@@ -66,21 +67,18 @@ class LikeV1ApiE2ETest extends BaseE2ETest {
             );
         }
 
-        @DisplayName("이미 좋아요가 등록된 상품에 다시 요청하면, 200 성공 응답을 받는다. (멱등성)")
+        @DisplayName("이미 좋아요가 등록된 상품에 다시 요청하면, 200 성공 응답을 받고 likeCount는 증가하지 않는다. (멱등성)")
         @Test
-        void returnsSuccess_whenLikeAlreadyExists() {
+        void returnsSuccessAndLikeCountUnchanged_whenLikeAlreadyExists() {
             // arrange
             likeProduct(testRestTemplate, productId, userHeaders);
 
             // act
-            var response = likeProduct(testRestTemplate, productId, userHeaders);
+            likeProduct(testRestTemplate, productId, userHeaders);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isNull()
-            );
+            var productResponse = getActiveProduct(testRestTemplate, productId, userHeaders);
+            assertThat(productResponse.getBody().data().likeCount()).isEqualTo(1L);
         }
 
         @DisplayName("존재하지 않는 상품이면, 404 PRODUCT_NOT_FOUND 에러 응답을 받는다.")
@@ -125,18 +123,15 @@ class LikeV1ApiE2ETest extends BaseE2ETest {
             );
         }
 
-        @DisplayName("좋아요가 존재하지 않는 상품에 취소 요청하면, 200 성공 응답을 받는다. (멱등성)")
+        @DisplayName("좋아요가 존재하지 않는 상품에 취소 요청하면, 200 성공 응답을 받고 likeCount는 0을 유지한다. (멱등성)")
         @Test
-        void returnsSuccess_whenLikeDoesNotExist() {
+        void returnsSuccessAndLikeCountUnchanged_whenLikeDoesNotExist() {
             // act
-            var response = unlikeProduct(testRestTemplate, productId, userHeaders);
+            unlikeProduct(testRestTemplate, productId, userHeaders);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isNull()
-            );
+            var productResponse = getActiveProduct(testRestTemplate, productId, userHeaders);
+            assertThat(productResponse.getBody().data().likeCount()).isZero();
         }
 
         @DisplayName("존재하지 않는 상품이면, 404 PRODUCT_NOT_FOUND 에러 응답을 받는다.")
@@ -162,7 +157,7 @@ class LikeV1ApiE2ETest extends BaseE2ETest {
 
     @DisplayName("GET /api/v1/users/me/likes")
     @Nested
-    class GetLikedProducts {
+    class ReadLikedProducts {
 
         private static final String LIKED_PRODUCTS_ENDPOINT = "/api/v1/users/me/likes";
 

@@ -10,8 +10,6 @@ public interface OrderRepository {
 
     Order save(Order order);
 
-    Optional<Order> findById(Long orderId);
-
     Optional<Order> findByIdWithItems(Long orderId);
 
     Slice<Order> findAll(Pageable pageable);

@@ -15,7 +15,11 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.loopers.application.brand.BrandResult;
-import com.loopers.application.brand.BrandService;
+import com.loopers.application.brand.DeleteBrandUseCase;
+import com.loopers.application.brand.ReadBrandDetailUseCase;
+import com.loopers.application.brand.ReadBrandsUseCase;
+import com.loopers.application.brand.RegisterBrandUseCase;
+import com.loopers.application.brand.UpdateBrandUseCase;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.support.page.Page;
@@ -28,13 +32,17 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api-admin/v1/brands")
 public class BrandV1AdminApi implements BrandV1AdminApiSpec {
 
-    private final BrandService brandService;
+    private final RegisterBrandUseCase registerBrandUseCase;
+    private final ReadBrandsUseCase readBrandsUseCase;
+    private final ReadBrandDetailUseCase readBrandDetailUseCase;
+    private final UpdateBrandUseCase updateBrandUseCase;
+    private final DeleteBrandUseCase deleteBrandUseCase;
 
     @PostMapping
     @ResponseStatus(code = HttpStatus.CREATED)
     @Override
     public ApiResponse<BrandDto.CreateBrandResponse> createBrand(@RequestBody @Valid BrandDto.CreateBrandRequest request) {
-        BrandResult result = brandService.createBrand(request.name(), request.logoUrl(), request.description());
+        BrandResult result = registerBrandUseCase.execute(request.name(), request.logoUrl(), request.description());
         return ApiResponse.success(BrandDto.CreateBrandResponse.from(result));
     }
 
@@ -44,28 +52,28 @@ public class BrandV1AdminApi implements BrandV1AdminApiSpec {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        Page<BrandResult> result = brandService.getBrands(new PageSize(page, size));
+        Page<BrandResult> result = readBrandsUseCase.execute(new PageSize(page, size));
         return ApiResponse.success(new PageResponse<>(BrandDto.BrandResponse.from(result.content()), result.hasNext()));
     }
 
     @GetMapping("/{brandId}")
     @Override
     public ApiResponse<BrandDto.BrandResponse> getBrand(@PathVariable Long brandId) {
-        BrandResult result = brandService.getBrand(brandId);
+        BrandResult result = readBrandDetailUseCase.execute(brandId);
         return ApiResponse.success(BrandDto.BrandResponse.from(result));
     }
 
     @PutMapping("/{brandId}")
     @Override
     public ApiResponse<Object> updateBrand(@PathVariable Long brandId, @RequestBody @Valid BrandDto.UpdateBrandRequest request) {
-        brandService.updateBrand(brandId, request.name(), request.logoUrl(), request.description());
+        updateBrandUseCase.execute(brandId, request.name(), request.logoUrl(), request.description());
         return ApiResponse.success();
     }
 
     @DeleteMapping("/{brandId}")
     @Override
     public ApiResponse<Object> deleteBrand(@PathVariable Long brandId) {
-        brandService.deleteBrand(brandId);
+        deleteBrandUseCase.execute(brandId);
         return ApiResponse.success();
     }
 }

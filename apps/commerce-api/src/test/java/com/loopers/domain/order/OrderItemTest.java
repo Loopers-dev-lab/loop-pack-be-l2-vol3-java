@@ -20,7 +20,11 @@ class OrderItemTest {
         @DisplayName("수량이 0이면, INVALID_ORDER_ITEM_QUANTITY 예외가 발생한다.")
         @Test
         void throwsException_whenQuantityIsZero() {
-            assertThatThrownBy(() -> OrderItem.create(1L, "상품", "https://thumb.png", Money.wons(10000L), 0L))
+            // arrange
+            var cartItem = new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 0L);
+
+            // act & assert
+            assertThatThrownBy(() -> OrderItem.create(cartItem))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.INVALID_ORDER_ITEM_QUANTITY.getMessage());
         }
@@ -28,7 +32,11 @@ class OrderItemTest {
         @DisplayName("수량이 음수이면, INVALID_ORDER_ITEM_QUANTITY 예외가 발생한다.")
         @Test
         void throwsException_whenQuantityIsNegative() {
-            assertThatThrownBy(() -> OrderItem.create(1L, "상품", "https://thumb.png", Money.wons(10000L), -1L))
+            // arrange
+            var cartItem = new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), -1L);
+
+            // act & assert
+            assertThatThrownBy(() -> OrderItem.create(cartItem))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.INVALID_ORDER_ITEM_QUANTITY.getMessage());
         }
@@ -42,7 +50,8 @@ class OrderItemTest {
         @Test
         void returnsProductPriceMultipliedByQuantity() {
             // arrange
-            var item = OrderItem.create(1L, "상품", "https://thumb.png", Money.wons(10000L), 3L);
+            var cartItem = new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 3L);
+            var item = OrderItem.create(cartItem);
 
             // act
             var subtotal = item.calculateSubtotal();

@@ -1,6 +1,6 @@
 # Sequence Diagrams
 
-LAST UPDATED: 2026-02-22
+LAST UPDATED: 2026-02-26
 
 ## 목차
 - [개요](#개요)
@@ -43,8 +43,9 @@ LAST UPDATED: 2026-02-22
 
 ### 다이어그램 작성 원칙
 
-- **핵심 컴포넌트만 표현**: 각 API 흐름의 주요 참여자(Api, Service, Repository)만 다이어그램에 포함한다.
-- **연관 도메인은 Repository 레벨로 표현**: 여러 도메인 조율 시 주 Service가 타 도메인의 Repository를 직접 사용한다. (예: 브랜드 삭제 시 `BrandService`가 `ProductRepository`, `LikeRepository`를 직접 호출)
+- **핵심 컴포넌트만 표현**: 각 API 흐름의 주요 참여자(Api, UseCase, DomainService, Repository)만 다이어그램에 포함한다.
+- **크로스 도메인은 UseCase가 오케스트레이션**: 여러 도메인 조율 시 UseCase가 각 도메인의 DomainService를 호출한다. (예: 좋아요 등록 시 `LikeProductUseCase`가 `ProductService`, `LikeService`를 순차 호출)
+- **단순 조회는 Repository 직접 접근**: UseCase가 DomainService 없이 Repository를 직접 호출하는 것도 허용한다. DomainService가 단순히 Repository 호출을 감싸는 것에 불과하다면 UseCase가 Repository를 직접 사용하는 것이 더 낫다.
 - **인증 흐름 분리**: 인증(Interceptor → UserService) 흐름은 별도 섹션에서 정의하며, 각 API 다이어그램에서는 생략한다.
 - **Actor 구분**: 어드민 API는 `Admin`, 대고객 API는 `Client` actor로 구분한다.
 - **예외 흐름 포함**: 정상 흐름(happy path)과 주요 예외 흐름(break)을 함께 표현한다. 예외 발생 시 나머지 흐름을 건너뛰는 경우 `break`를, 여러 대안 중 하나를 선택하는 경우 `alt`를 사용한다.
@@ -52,20 +53,23 @@ LAST UPDATED: 2026-02-22
 
 ### 참여 컴포넌트 정의
 
-| 컴포넌트             | 역할                                   |
-|------------------|--------------------------------------|
-| Api (Controller) | 클라이언트 요청 수신, 응답 반환                   |
-| Service          | 비즈니스 로직 수행 (여러 도메인 조율 포함)            |
-| Repository       | 데이터 영속화                              |
+| 컴포넌트 | 역할 |
+|----------|------|
+| Api (Controller) | 클라이언트 요청 수신, 응답 반환 |
+| UseCase (`@UseCase`) | 트랜잭션 관리, 크로스 도메인 오케스트레이션, DTO 변환 |
+| DomainService (`@DomainService`) | 자기 도메인의 Repository + Entity를 조작하는 완결된 오퍼레이션 |
+| Repository | 데이터 영속화 |
 
 ### 의존성 방향
 
 ```
-Api → Service → Repository
+Api → UseCase → DomainService → Repository
+                 └→ Repository (단순 조회 시 직접 접근 가능)
 ```
 
 - 의존성은 항상 상위 → 하위 방향이며, 역방향 의존은 허용하지 않는다.
-- 여러 도메인을 조율할 때 주 Service가 타 도메인의 Repository를 직접 사용한다 (Service 간 의존 없음).
+- 여러 도메인을 조율할 때 UseCase가 각 도메인의 DomainService를 호출하여 오케스트레이션한다.
+- DomainService는 자기 도메인의 Repository만 의존한다.
 
 ## Authentication (대고객 인증)
 
@@ -129,15 +133,18 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant BrandApi
+    participant RegisterBrandUseCase
     participant BrandService
     participant BrandRepository
 
     Admin ->>+ BrandApi: POST /api-admin/v1/brands
-    BrandApi ->>+ BrandService: 브랜드 등록
+    BrandApi ->>+ RegisterBrandUseCase: 브랜드 등록
+    RegisterBrandUseCase ->>+ BrandService: 브랜드 생성
     BrandService ->> BrandService: 브랜드명 유효성 검증
 
     break 브랜드명 유효성 검증에 실패할 경우
-        BrandService -->> BrandApi: 유효성 검증 실패
+        BrandService -->> RegisterBrandUseCase: 유효성 검증 실패
+        RegisterBrandUseCase -->> BrandApi: 유효성 검증 실패
         BrandApi -->> Admin: 400 Bad Request
     end
 
@@ -145,14 +152,16 @@ sequenceDiagram
     BrandRepository -->>- BrandService: boolean
 
     break 활성 상태의 동일 이름 브랜드가 존재할 경우
-        BrandService -->> BrandApi: 중복 검증 실패
+        BrandService -->> RegisterBrandUseCase: 중복 검증 실패
+        RegisterBrandUseCase -->> BrandApi: 중복 검증 실패
         BrandApi -->> Admin: 400 Bad Request
     end
 
     BrandService ->> BrandService: 브랜드 생성
     BrandService ->>+ BrandRepository: 브랜드 저장
     BrandRepository -->>- BrandService: Brand
-    BrandService -->>- BrandApi: BrandResult
+    BrandService -->>- RegisterBrandUseCase: Brand
+    RegisterBrandUseCase -->>- BrandApi: BrandResult
     BrandApi -->>- Admin: 201 Created
 ```
 
@@ -162,14 +171,14 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant BrandApi
-    participant BrandService
+    participant ReadBrandsUseCase
     participant BrandRepository
 
     Admin ->>+ BrandApi: GET /api-admin/v1/brands
-    BrandApi ->>+ BrandService: 브랜드 목록 조회
-    BrandService ->>+ BrandRepository: 브랜드 페이지 조회
-    BrandRepository -->>- BrandService: Slice<Brand>
-    BrandService -->>- BrandApi: Page<BrandResult>
+    BrandApi ->>+ ReadBrandsUseCase: 브랜드 목록 조회
+    ReadBrandsUseCase ->>+ BrandRepository: 브랜드 페이지 조회
+    BrandRepository -->>- ReadBrandsUseCase: Slice<Brand>
+    ReadBrandsUseCase -->>- BrandApi: Page<BrandResult>
     BrandApi -->>- Admin: 200 OK + 브랜드 목록 페이지
 ```
 
@@ -179,20 +188,20 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant BrandApi
-    participant BrandService
+    participant ReadBrandDetailUseCase
     participant BrandRepository
 
     Admin ->>+ BrandApi: GET /api-admin/v1/brands/{brandId}
-    BrandApi ->>+ BrandService: 브랜드 조회
-    BrandService ->>+ BrandRepository: 브랜드 조회
-    BrandRepository -->>- BrandService: Optional<Brand>
+    BrandApi ->>+ ReadBrandDetailUseCase: 브랜드 조회
+    ReadBrandDetailUseCase ->>+ BrandRepository: 브랜드 조회
+    BrandRepository -->>- ReadBrandDetailUseCase: Optional<Brand>
 
     break 브랜드가 존재하지 않을 경우
-        BrandService -->> BrandApi: 조회 실패
+        ReadBrandDetailUseCase -->> BrandApi: 조회 실패
         BrandApi -->> Admin: 404 Not Found
     end
 
-    BrandService -->>- BrandApi: BrandResult
+    ReadBrandDetailUseCase -->>- BrandApi: BrandResult
     BrandApi -->>- Admin: 200 OK + 브랜드 상세 정보
 ```
 
@@ -202,16 +211,19 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant BrandApi
+    participant UpdateBrandUseCase
     participant BrandService
     participant BrandRepository
 
     Admin ->>+ BrandApi: PUT /api-admin/v1/brands/{brandId}
-    BrandApi ->>+ BrandService: 브랜드 정보 수정
+    BrandApi ->>+ UpdateBrandUseCase: 브랜드 정보 수정
+    UpdateBrandUseCase ->>+ BrandService: 브랜드 수정
     BrandService ->>+ BrandRepository: 브랜드 조회
     BrandRepository -->>- BrandService: Optional<Brand>
 
     break 브랜드가 존재하지 않을 경우
-        BrandService -->> BrandApi: 조회 실패
+        BrandService -->> UpdateBrandUseCase: 조회 실패
+        UpdateBrandUseCase -->> BrandApi: 조회 실패
         BrandApi -->> Admin: 404 Not Found
     end
 
@@ -219,18 +231,21 @@ sequenceDiagram
     BrandRepository -->>- BrandService: boolean
 
     break 활성 상태의 동일 이름 브랜드가 존재할 경우
-        BrandService -->> BrandApi: 중복 검증 실패
+        BrandService -->> UpdateBrandUseCase: 중복 검증 실패
+        UpdateBrandUseCase -->> BrandApi: 중복 검증 실패
         BrandApi -->> Admin: 400 Bad Request
     end
 
     BrandService ->> BrandService: 브랜드 정보 수정
 
     break 이미 삭제된 브랜드일 경우
-        BrandService -->> BrandApi: 수정 실패
+        BrandService -->> UpdateBrandUseCase: 수정 실패
+        UpdateBrandUseCase -->> BrandApi: 수정 실패
         BrandApi -->> Admin: 400 Bad Request
     end
 
-    BrandService -->>- BrandApi: BrandResult
+    BrandService -->>- UpdateBrandUseCase: void
+    UpdateBrandUseCase -->>- BrandApi: 수정 완료
     BrandApi -->>- Admin: 200 OK
 ```
 
@@ -240,34 +255,43 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant BrandApi
+    participant DeleteBrandUseCase
     participant BrandService
     participant BrandRepository
-    participant ProductRepository
-    participant LikeRepository
+    participant ProductService
+    participant LikeService
 
     Admin ->>+ BrandApi: DELETE /api-admin/v1/brands/{brandId}
-    BrandApi ->>+ BrandService: 브랜드 삭제 요청
+    BrandApi ->>+ DeleteBrandUseCase: 브랜드 삭제 요청
 
+    DeleteBrandUseCase ->>+ BrandService: 브랜드 삭제
     BrandService ->>+ BrandRepository: 브랜드 조회
     BrandRepository -->>- BrandService: Optional<Brand>
 
     break 브랜드가 존재하지 않을 경우
-        BrandService -->> BrandApi: 조회 실패
+        BrandService -->> DeleteBrandUseCase: 조회 실패
+        DeleteBrandUseCase -->> BrandApi: 조회 실패
         BrandApi -->> Admin: 404 Not Found
     end
 
-    alt 이미 삭제된 브랜드일 경우
-        BrandService -->>- BrandApi: 삭제 완료 (멱등)
+    BrandService ->> BrandService: 삭제 여부 확인
+
+    break 이미 삭제된 브랜드일 경우
+        BrandService -->> DeleteBrandUseCase: false (삭제 스킵, 멱등)
+        DeleteBrandUseCase -->> BrandApi: 삭제 완료
         BrandApi -->> Admin: 200 OK
-    else 활성 브랜드일 경우
     end
 
-    BrandService ->>+ ProductRepository: 브랜드 소속 상품 ID 목록 조회
-    ProductRepository -->>- BrandService: List~Long~ productIds
-    BrandService ->> LikeRepository: 상품 연관 좋아요 삭제
-    BrandService ->> ProductRepository: 브랜드 연관 상품 삭제
-    BrandService ->> BrandRepository: 브랜드 삭제
-    BrandService -->>- BrandApi: 삭제 완료
+    BrandService ->> BrandService: 브랜드 삭제
+    BrandService -->>- DeleteBrandUseCase: true (삭제 완료)
+
+    DeleteBrandUseCase ->>+ ProductService: 브랜드 소속 활성 상품 ID 목록 조회
+    ProductService -->>- DeleteBrandUseCase: List~Long~ productIds
+    DeleteBrandUseCase ->>+ ProductService: 브랜드 연관 상품 일괄 삭제
+    ProductService -->>- DeleteBrandUseCase: void
+    DeleteBrandUseCase ->>+ LikeService: 상품 연관 좋아요 삭제
+    LikeService -->>- DeleteBrandUseCase: void
+    DeleteBrandUseCase -->>- BrandApi: 삭제 완료
     BrandApi -->>- Admin: 200 OK
 ```
 
@@ -277,22 +301,22 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant BrandApi
-    participant BrandService
+    participant ReadActiveBrandDetailUseCase
     participant BrandRepository
 
     Client ->>+ BrandApi: GET /api/v1/brands/{brandId}
-    BrandApi ->>+ BrandService: 브랜드 조회
+    BrandApi ->>+ ReadActiveBrandDetailUseCase: 브랜드 조회
 
-    Note over BrandService, BrandRepository: 활성 브랜드만 조회
-    BrandService ->>+ BrandRepository: 브랜드 조회
-    BrandRepository -->>- BrandService: Optional<Brand>
+    Note over ReadActiveBrandDetailUseCase, BrandRepository: 활성 브랜드만 조회
+    ReadActiveBrandDetailUseCase ->>+ BrandRepository: 브랜드 조회
+    BrandRepository -->>- ReadActiveBrandDetailUseCase: Optional<Brand>
 
     break 브랜드가 존재하지 않을 경우
-        BrandService -->> BrandApi: 조회 실패
+        ReadActiveBrandDetailUseCase -->> BrandApi: 조회 실패
         BrandApi -->> Client: 404 Not Found
     end
 
-    BrandService -->>- BrandApi: BrandResult
+    ReadActiveBrandDetailUseCase -->>- BrandApi: BrandResult
     BrandApi -->>- Client: 200 OK + 브랜드 상세 정보
 ```
 
@@ -304,32 +328,36 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant ProductApi
+    participant RegisterProductUseCase
+    participant BrandService
     participant ProductService
-    participant BrandRepository
     participant ProductRepository
 
     Admin ->>+ ProductApi: POST /api-admin/v1/products
-    ProductApi ->>+ ProductService: 상품 등록 요청
+    ProductApi ->>+ RegisterProductUseCase: 상품 등록 요청
 
-    ProductService ->>+ BrandRepository: 브랜드 조회
-    BrandRepository -->>- ProductService: Optional<Brand>
+    RegisterProductUseCase ->>+ BrandService: 브랜드 존재 검증
+    BrandService -->>- RegisterProductUseCase: void
 
     break 브랜드가 존재하지 않을 경우
-        ProductService -->> ProductApi: 등록 실패
+        RegisterProductUseCase -->> ProductApi: 등록 실패
         ProductApi -->> Admin: 404 Not Found
     end
 
+    RegisterProductUseCase ->>+ ProductService: 상품 생성
     ProductService ->> ProductService: 상품 정보 유효성 검증
 
     break 상품 정보 유효성 검증에 실패할 경우
-        ProductService -->> ProductApi: 유효성 검증 실패
+        ProductService -->> RegisterProductUseCase: 유효성 검증 실패
+        RegisterProductUseCase -->> ProductApi: 유효성 검증 실패
         ProductApi -->> Admin: 400 Bad Request
     end
 
     ProductService ->> ProductService: 상품 생성
     ProductService ->>+ ProductRepository: 상품 저장
     ProductRepository -->>- ProductService: Product
-    ProductService -->>- ProductApi: ProductResult
+    ProductService -->>- RegisterProductUseCase: Product
+    RegisterProductUseCase -->>- ProductApi: ProductResult
     ProductApi -->>- Admin: 201 Created
 ```
 
@@ -339,26 +367,30 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant ProductApi
+    participant ReadProductsUseCase
+    participant BrandService
     participant ProductService
-    participant BrandRepository
     participant ProductRepository
 
     Admin ->>+ ProductApi: GET /api-admin/v1/products
-    ProductApi ->>+ ProductService: 상품 목록 조회 요청
+    ProductApi ->>+ ReadProductsUseCase: 상품 목록 조회 요청
 
-    opt brandId가 전달된 경우
-        ProductService ->>+ BrandRepository: 브랜드 조회
-        BrandRepository -->>- ProductService: Optional<Brand>
+    alt brandId가 전달된 경우
+        ReadProductsUseCase ->>+ BrandService: 브랜드 존재 검증
+        BrandService -->>- ReadProductsUseCase: void
 
         break 브랜드가 존재하지 않을 경우
-            ProductService -->> ProductApi: 조회 실패
+            ReadProductsUseCase -->> ProductApi: 조회 실패
             ProductApi -->> Admin: 404 Not Found
         end
     end
 
+    ReadProductsUseCase ->>+ ProductService: 상품 목록 조회
     ProductService ->>+ ProductRepository: 상품 페이지 조회
-    ProductRepository -->>- ProductService: Page<Product>
-    ProductService -->>- ProductApi: Page<ProductResult>
+    ProductRepository -->>- ProductService: Slice<Product>
+    ProductService -->>- ReadProductsUseCase: Page<Product>
+
+    ReadProductsUseCase -->>- ProductApi: Page<ProductResult>
     ProductApi -->>- Admin: 200 OK + 상품 목록 페이지
 ```
 
@@ -368,20 +400,20 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant ProductApi
-    participant ProductService
+    participant ReadProductDetailUseCase
     participant ProductRepository
 
     Admin ->>+ ProductApi: GET /api-admin/v1/products/{productId}
-    ProductApi ->>+ ProductService: 상품 조회
-    ProductService ->>+ ProductRepository: 상품 조회
-    ProductRepository -->>- ProductService: Optional<Product>
+    ProductApi ->>+ ReadProductDetailUseCase: 상품 조회
+    ReadProductDetailUseCase ->>+ ProductRepository: 상품 조회
+    ProductRepository -->>- ReadProductDetailUseCase: Optional<Product>
 
     break 상품이 존재하지 않을 경우
-        ProductService -->> ProductApi: 조회 실패
+        ReadProductDetailUseCase -->> ProductApi: 조회 실패
         ProductApi -->> Admin: 404 Not Found
     end
 
-    ProductService -->>- ProductApi: ProductResult
+    ReadProductDetailUseCase -->>- ProductApi: ProductResult
     ProductApi -->>- Admin: 200 OK + 상품 상세 정보
 ```
 
@@ -391,26 +423,32 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant ProductApi
+    participant UpdateProductUseCase
     participant ProductService
     participant ProductRepository
 
     Admin ->>+ ProductApi: PUT /api-admin/v1/products/{productId}
-    ProductApi ->>+ ProductService: 상품 정보 수정
+    ProductApi ->>+ UpdateProductUseCase: 상품 정보 수정
+    UpdateProductUseCase ->>+ ProductService: 상품 수정
     ProductService ->>+ ProductRepository: 상품 조회
     ProductRepository -->>- ProductService: Optional<Product>
 
     break 상품이 존재하지 않을 경우
-        ProductService -->> ProductApi: 조회 실패
+        ProductService -->> UpdateProductUseCase: 조회 실패
+        UpdateProductUseCase -->> ProductApi: 조회 실패
         ProductApi -->> Admin: 404 Not Found
     end
 
     ProductService ->> ProductService: 상품 정보 수정
 
     break 이미 삭제된 상품일 경우
-        ProductService -->> ProductApi: 수정 실패
+        ProductService -->> UpdateProductUseCase: 수정 실패
+        UpdateProductUseCase -->> ProductApi: 수정 실패
         ProductApi -->> Admin: 400 Bad Request
     end
-    ProductService -->>- ProductApi: 수정 완료
+
+    ProductService -->>- UpdateProductUseCase: 수정 완료
+    UpdateProductUseCase -->>- ProductApi: 수정 완료
     ProductApi -->>- Admin: 200 OK
 ```
 
@@ -420,30 +458,36 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant ProductApi
+    participant DeleteProductUseCase
     participant ProductService
-    participant ProductRepository
-    participant LikeRepository
+    participant LikeService
 
     Admin ->>+ ProductApi: DELETE /api-admin/v1/products/{productId}
-    ProductApi ->>+ ProductService: 상품 삭제 요청
+    ProductApi ->>+ DeleteProductUseCase: 상품 삭제 요청
 
-    ProductService ->>+ ProductRepository: 상품 조회
-    ProductRepository -->>- ProductService: Optional<Product>
+    DeleteProductUseCase ->>+ ProductService: 상품 삭제
+    ProductService ->> ProductService: 상품 조회
 
     break 상품이 존재하지 않을 경우
-        ProductService -->> ProductApi: 조회 실패
+        ProductService -->> DeleteProductUseCase: 조회 실패
+        DeleteProductUseCase -->> ProductApi: 조회 실패
         ProductApi -->> Admin: 404 Not Found
     end
 
-    alt 이미 삭제된 상품일 경우
-        ProductService -->>- ProductApi: 삭제 완료 (멱등)
+    ProductService ->> ProductService: 삭제 여부 확인
+
+    break 이미 삭제된 상품일 경우
+        ProductService -->> DeleteProductUseCase: false (삭제 스킵, 멱등)
+        DeleteProductUseCase -->> ProductApi: 삭제 완료
         ProductApi -->> Admin: 200 OK
-    else 활성 상품일 경우
     end
 
-    ProductService ->> LikeRepository: 상품 연관 좋아요 삭제
-    ProductService ->> ProductRepository: 상품 삭제
-    ProductService -->>- ProductApi: 삭제 완료
+    ProductService ->> ProductService: 상품 삭제
+    ProductService -->>- DeleteProductUseCase: true (삭제 완료)
+
+    DeleteProductUseCase ->>+ LikeService: 상품 연관 좋아요 삭제
+    LikeService -->>- DeleteProductUseCase: void
+    DeleteProductUseCase -->>- ProductApi: 삭제 완료
     ProductApi -->>- Admin: 200 OK
 ```
 
@@ -453,43 +497,37 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant ProductApi
+    participant ReadActiveProductsUseCase
+    participant BrandService
     participant ProductService
-    participant BrandRepository
-    participant ProductRepository
-    participant LikeRepository
+    participant ProductDetailAssembler
+    participant LikeService
 
     Client ->>+ ProductApi: GET /api/v1/products
-    ProductApi ->>+ ProductService: 상품 목록 조회 요청 (brandId, sort, pageSize, userId)
+    ProductApi ->>+ ReadActiveProductsUseCase: 상품 목록 조회 요청 (brandId, sort, pageSize, userId)
 
     alt brandId가 전달된 경우
-        ProductService ->>+ BrandRepository: 브랜드 조회
-        BrandRepository -->>- ProductService: Optional<Brand>
+        ReadActiveProductsUseCase ->>+ BrandService: 활성 브랜드 존재 검증
+        BrandService -->>- ReadActiveProductsUseCase: void
 
         break 브랜드가 존재하지 않거나 삭제된 경우
-            ProductService -->> ProductApi: 조회 실패
+            ReadActiveProductsUseCase -->> ProductApi: 조회 실패
             ProductApi -->> Client: 404 Not Found
         end
-
-        Note over ProductService, ProductRepository: 활성 상품만 페이지 조회
-        ProductService ->>+ ProductRepository: 브랜드별 활성 상품 페이지 조회
-        ProductRepository -->>- ProductService: Slice<Product>
-    else brandId가 전달되지 않은 경우
-        ProductService ->>+ ProductRepository: 전체 활성 상품 페이지 조회
-        ProductRepository -->>- ProductService: Slice<Product>
     end
 
-    ProductService ->>+ BrandRepository: 브랜드 조회
-    BrandRepository -->>- ProductService: List<Brand>
+    ReadActiveProductsUseCase ->>+ ProductService: 활성 상품 페이지 조회
+    ProductService -->>- ReadActiveProductsUseCase: Page<Product>
 
-    ProductService ->>+ LikeRepository: 상품별 좋아요 수 조회 (productIds)
-    LikeRepository -->>- ProductService: Map<Long, Long>
+    ReadActiveProductsUseCase ->>+ ProductDetailAssembler: 상품 상세 조합
+    Note over ProductDetailAssembler: 브랜드 배치 조회 + 좋아요 여부 배치 조회
+    ProductDetailAssembler ->>+ BrandService: 브랜드 배치 조회
+    BrandService -->>- ProductDetailAssembler: Map<Long, Brand>
+    ProductDetailAssembler ->>+ LikeService: 사용자 좋아요 여부 배치 조회
+    LikeService -->>- ProductDetailAssembler: Set<Long> likedProductIds
+    ProductDetailAssembler -->>- ReadActiveProductsUseCase: List<ProductDetail>
 
-    opt userId가 존재할 경우
-        ProductService ->>+ LikeRepository: 사용자 좋아요 여부 조회 (userId, productIds)
-        LikeRepository -->>- ProductService: List<Like>
-    end
-
-    ProductService -->>- ProductApi: Page<ProductResult>
+    ReadActiveProductsUseCase -->>- ProductApi: Page<ProductDetail>
     ProductApi -->>- Client: 200 OK + 상품 목록 페이지
 ```
 
@@ -499,40 +537,34 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant ProductApi
+    participant ReadActiveProductDetailUseCase
     participant ProductService
-    participant ProductRepository
-    participant BrandRepository
-    participant LikeRepository
+    participant BrandService
+    participant LikeService
 
     Client ->>+ ProductApi: GET /api/v1/products/{productId}
-    ProductApi ->>+ ProductService: 상품 상세 조회 요청 (productId, userId)
+    ProductApi ->>+ ReadActiveProductDetailUseCase: 상품 상세 조회 요청 (productId, userId)
 
-    ProductService ->>+ ProductRepository: 상품 조회
-    ProductRepository -->>- ProductService: Optional<Product>
+    ReadActiveProductDetailUseCase ->>+ ProductService: 활성 상품 조회
+    ProductService -->>- ReadActiveProductDetailUseCase: Product
 
     break 상품이 존재하지 않거나 삭제된 경우
-        ProductService -->> ProductApi: 조회 실패
+        ReadActiveProductDetailUseCase -->> ProductApi: 조회 실패
         ProductApi -->> Client: 404 Not Found
     end
 
-    Note over ProductService, BrandRepository: 활성 브랜드만 조회
-    ProductService ->>+ BrandRepository: 브랜드 조회
-    BrandRepository -->>- ProductService: Optional<Brand>
+    ReadActiveProductDetailUseCase ->>+ BrandService: 활성 브랜드 조회
+    BrandService -->>- ReadActiveProductDetailUseCase: Brand
 
     break 브랜드가 존재하지 않거나 삭제된 경우
-        ProductService -->> ProductApi: 조회 실패
+        ReadActiveProductDetailUseCase -->> ProductApi: 조회 실패
         ProductApi -->> Client: 404 Not Found
     end
 
-    ProductService ->>+ LikeRepository: 상품 좋아요 수 조회
-    LikeRepository -->>- ProductService: Map<Long, Long>
+    ReadActiveProductDetailUseCase ->>+ LikeService: 사용자 좋아요 여부 조회
+    LikeService -->>- ReadActiveProductDetailUseCase: boolean
 
-    opt userId가 존재할 경우
-        ProductService ->>+ LikeRepository: 사용자 좋아요 여부 조회
-        LikeRepository -->>- ProductService: boolean
-    end
-
-    ProductService -->>- ProductApi: ProductResult
+    ReadActiveProductDetailUseCase -->>- ProductApi: ProductDetail
     ProductApi -->>- Client: 200 OK + 상품 상세 정보
 ```
 
@@ -544,32 +576,31 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant LikeApi
+    participant LikeProductUseCase
+    participant ProductService
     participant LikeService
-    participant ProductRepository
-    participant LikeRepository
 
     Client ->>+ LikeApi: POST /api/v1/products/{productId}/likes
-    LikeApi ->>+ LikeService: 상품 좋아요 등록 요청
+    LikeApi ->>+ LikeProductUseCase: 상품 좋아요 등록 요청
 
-    LikeService ->>+ ProductRepository: 상품 조회
-    ProductRepository -->>- LikeService: Optional<Product>
+    LikeProductUseCase ->>+ ProductService: 활성 상품 존재 검증
+    ProductService -->>- LikeProductUseCase: void
 
-    break 상품이 존재하지 않을 경우
-        LikeService -->> LikeApi: 등록 실패
+    break 상품이 존재하지 않거나 삭제된 경우
+        LikeProductUseCase -->> LikeApi: 등록 실패
         LikeApi -->> Client: 404 Not Found
     end
 
-    LikeService ->>+ LikeRepository: 좋아요 조회
-    LikeRepository -->>- LikeService: Optional<Like>
+    LikeProductUseCase ->>+ LikeService: 좋아요 등록
+    LikeService ->> LikeService: 중복 여부 확인 (멱등)
+    LikeService -->>- LikeProductUseCase: boolean (새로 등록 여부)
 
-    alt 좋아요가 존재하지 않을 경우
-        LikeService ->> LikeRepository: 좋아요 저장
-        LikeRepository -->> LikeService: Like
-    else 좋아요가 이미 존재할 경우
-        LikeService ->> LikeService: 이미 등록됨
+    alt 새로 등록된 경우
+        LikeProductUseCase ->>+ ProductService: 좋아요 수 증가
+        ProductService -->>- LikeProductUseCase: void
     end
 
-    LikeService -->>- LikeApi: 등록 완료
+    LikeProductUseCase -->>- LikeApi: 등록 완료
     LikeApi -->>- Client: 200 OK
 ```
 
@@ -579,31 +610,31 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant LikeApi
+    participant UnlikeProductUseCase
+    participant ProductService
     participant LikeService
-    participant ProductRepository
-    participant LikeRepository
 
     Client ->>+ LikeApi: DELETE /api/v1/products/{productId}/likes
-    LikeApi ->>+ LikeService: 상품 좋아요 취소 요청
+    LikeApi ->>+ UnlikeProductUseCase: 상품 좋아요 취소 요청
 
-    LikeService ->>+ ProductRepository: 상품 조회
-    ProductRepository -->>- LikeService: Optional<Product>
+    UnlikeProductUseCase ->>+ ProductService: 활성 상품 존재 검증
+    ProductService -->>- UnlikeProductUseCase: void
 
-    break 상품이 존재하지 않을 경우
-        LikeService -->> LikeApi: 취소 실패
+    break 상품이 존재하지 않거나 삭제된 경우
+        UnlikeProductUseCase -->> LikeApi: 취소 실패
         LikeApi -->> Client: 404 Not Found
     end
 
-    LikeService ->>+ LikeRepository: 좋아요 조회
-    LikeRepository -->>- LikeService: Optional<Like>
+    UnlikeProductUseCase ->>+ LikeService: 좋아요 취소
+    LikeService ->> LikeService: 존재 여부 확인 (멱등)
+    LikeService -->>- UnlikeProductUseCase: boolean (실제 취소 여부)
 
-    alt 좋아요가 존재할 경우
-        LikeService ->> LikeRepository: 좋아요 삭제
-    else 좋아요가 존재하지 않을 경우
-        LikeService ->> LikeService: 이미 취소됨
+    alt 실제 취소된 경우
+        UnlikeProductUseCase ->>+ ProductService: 좋아요 수 감소
+        ProductService -->>- UnlikeProductUseCase: void
     end
 
-    LikeService -->>- LikeApi: 취소 완료
+    UnlikeProductUseCase -->>- LikeApi: 취소 완료
     LikeApi -->>- Client: 200 OK
 ```
 
@@ -613,23 +644,20 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant LikeApi
+    participant ReadLikedProductsUseCase
     participant LikeService
-    participant LikeRepository
-    participant ProductRepository
+    participant ProductService
 
     Client ->>+ LikeApi: GET /api/v1/users/me/likes
-    LikeApi ->>+ LikeService: 좋아요한 상품 목록 조회
+    LikeApi ->>+ ReadLikedProductsUseCase: 좋아요한 상품 목록 조회
 
-    LikeService ->>+ LikeRepository: 좋아요 페이지 조회
-    LikeRepository -->>- LikeService: Slice<Like>
-    
-    LikeService ->>+ LikeRepository: 상품별 좋아요 수 조회
-    LikeRepository -->>- LikeService: Map<Long, Long> (productId → likeCount)
+    ReadLikedProductsUseCase ->>+ LikeService: 좋아요 페이지 조회
+    LikeService -->>- ReadLikedProductsUseCase: Page<Like>
 
-    LikeService ->>+ ProductRepository: 상품 목록 조회 (productIds)
-    ProductRepository -->>- LikeService: List<Product>
+    ReadLikedProductsUseCase ->>+ ProductService: 상품 목록 조회
+    ProductService -->>- ReadLikedProductsUseCase: Map<Long, Product>
 
-    LikeService -->>- LikeApi: Page<LikedProductResult>
+    ReadLikedProductsUseCase -->>- LikeApi: Page<LikedProductResult>
     LikeApi -->>- Client: 200 OK + 좋아요한 상품 목록 페이지
 ```
 
@@ -641,14 +669,14 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant OrderApi
-    participant OrderService
+    participant ReadOrdersUseCase
     participant OrderRepository
 
     Admin ->>+ OrderApi: GET /api-admin/v1/orders
-    OrderApi ->>+ OrderService: 주문 목록 조회
-    OrderService ->>+ OrderRepository: 주문 페이지 조회
-    OrderRepository -->>- OrderService: Page<Order>
-    OrderService -->>- OrderApi: Page<OrderResult>
+    OrderApi ->>+ ReadOrdersUseCase: 주문 목록 조회
+    ReadOrdersUseCase ->>+ OrderRepository: 주문 페이지 조회
+    OrderRepository -->>- ReadOrdersUseCase: Slice<Order>
+    ReadOrdersUseCase -->>- OrderApi: Page<OrderResult>
     OrderApi -->>- Admin: 200 OK + 주문 목록 페이지
 ```
 
@@ -658,32 +686,30 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant OrderApi
-    participant OrderService
+    participant ReadOrderDetailUseCase
     participant OrderRepository
     participant UserRepository
 
     Admin ->>+ OrderApi: GET /api-admin/v1/orders/{orderId}
-    OrderApi ->>+ OrderService: 주문 조회
+    OrderApi ->>+ ReadOrderDetailUseCase: 주문 조회
 
-    OrderService ->>+ OrderRepository: 주문 조회
-    OrderRepository -->>- OrderService: Optional<Order>
+    ReadOrderDetailUseCase ->>+ OrderRepository: 주문 조회
+    OrderRepository -->>- ReadOrderDetailUseCase: Optional<Order>
 
     break 주문이 존재하지 않을 경우
-        OrderService -->> OrderApi: 조회 실패
+        ReadOrderDetailUseCase -->> OrderApi: 조회 실패
         OrderApi -->> Admin: 404 Not Found
     end
 
-    OrderService ->>+ UserRepository: 주문자 조회
-    UserRepository -->>- OrderService: Optional<User>
+    ReadOrderDetailUseCase ->>+ UserRepository: 주문자 조회
+    UserRepository -->>- ReadOrderDetailUseCase: Optional<User>
 
     break 주문자가 존재하지 않을 경우
-        OrderService -->> OrderApi: 조회 실패
+        ReadOrderDetailUseCase -->> OrderApi: 조회 실패
         OrderApi -->> Admin: 404 Not Found
     end
 
-    OrderService ->> OrderService: 주문자 이름 마스킹
-
-    OrderService -->>- OrderApi: AdminOrderDetailResult
+    ReadOrderDetailUseCase -->>- OrderApi: AdminOrderDetailResult
     OrderApi -->>- Admin: 200 OK + 주문 상세 정보
 ```
 
@@ -693,38 +719,46 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant OrderApi
+    participant PlaceOrderUseCase
+    participant ProductService
     participant OrderService
-    participant ProductRepository
     participant OrderRepository
 
     Client ->>+ OrderApi: POST /api/v1/orders
-    OrderApi ->>+ OrderService: 주문 요청
+    OrderApi ->>+ PlaceOrderUseCase: 주문 요청
 
-    OrderService ->>+ ProductRepository: 주문 상품 조회
-    ProductRepository -->>- OrderService: List<Product>
+    PlaceOrderUseCase ->>+ ProductService: 주문 상품 조회
+    ProductService -->>- PlaceOrderUseCase: Map<Long, Product>
 
     break 유효하지 않은 상품이 포함된 경우
-        OrderService -->> OrderApi: 주문 실패
+        PlaceOrderUseCase -->> OrderApi: 주문 실패
         OrderApi -->> Client: 400 Bad Request
     end
 
-    break 재고가 부족한 상품이 존재할 경우
-        OrderService -->> OrderApi: 주문 실패
+    Note over PlaceOrderUseCase, ProductService: 비관적 락으로 상품별 순차 재고 차감
+
+    PlaceOrderUseCase ->>+ ProductService: 재고 차감 (상품별 순차)
+    ProductService -->>- PlaceOrderUseCase: void
+
+    break 품절 또는 재고 부족인 경우
+        PlaceOrderUseCase -->> OrderApi: 주문 실패
         OrderApi -->> Client: 400 Bad Request
     end
 
-    OrderService ->> OrderService: 재고 차감
+    PlaceOrderUseCase ->>+ OrderService: 주문 생성
     OrderService ->> OrderService: 주문 유효성 검증
 
     break 주문 유효성 검증에 실패할 경우
-        OrderService -->> OrderApi: 주문 실패
+        OrderService -->> PlaceOrderUseCase: 주문 실패
+        PlaceOrderUseCase -->> OrderApi: 주문 실패
         OrderApi -->> Client: 400 Bad Request
     end
 
-    OrderService ->> OrderService: 주문 생성
     OrderService ->>+ OrderRepository: 주문 저장
     OrderRepository -->>- OrderService: Order
-    OrderService -->>- OrderApi: OrderResult
+    OrderService -->>- PlaceOrderUseCase: Order
+
+    PlaceOrderUseCase -->>- OrderApi: Long (orderId)
     OrderApi -->>- Client: 201 Created
 ```
 
@@ -734,14 +768,14 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant OrderApi
-    participant OrderService
+    participant ReadMyOrdersUseCase
     participant OrderRepository
 
     Client ->>+ OrderApi: GET /api/v1/orders
-    OrderApi ->>+ OrderService: 주문 목록 조회
-    OrderService ->>+ OrderRepository: 주문 페이지 조회
-    OrderRepository -->>- OrderService: Page<Order>
-    OrderService -->>- OrderApi: Page<OrderResult>
+    OrderApi ->>+ ReadMyOrdersUseCase: 주문 목록 조회
+    ReadMyOrdersUseCase ->>+ OrderRepository: 주문 페이지 조회
+    OrderRepository -->>- ReadMyOrdersUseCase: Slice<Order>
+    ReadMyOrdersUseCase -->>- OrderApi: Page<OrderResult>
     OrderApi -->>- Client: 200 OK + 주문 목록 페이지
 ```
 
@@ -751,27 +785,32 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant OrderApi
+    participant ReadMyOrderDetailUseCase
     participant OrderService
     participant OrderRepository
 
     Client ->>+ OrderApi: GET /api/v1/orders/{orderId}
-    OrderApi ->>+ OrderService: 주문 조회
+    OrderApi ->>+ ReadMyOrderDetailUseCase: 주문 조회
 
+    ReadMyOrderDetailUseCase ->>+ OrderService: 내 주문 조회
     OrderService ->>+ OrderRepository: 주문 조회
     OrderRepository -->>- OrderService: Optional<Order>
 
     break 주문이 존재하지 않을 경우
-        OrderService -->> OrderApi: 조회 실패
+        OrderService -->> ReadMyOrderDetailUseCase: 조회 실패
+        ReadMyOrderDetailUseCase -->> OrderApi: 조회 실패
         OrderApi -->> Client: 404 Not Found
     end
 
     OrderService ->> OrderService: 주문 소유권 검증
 
     break 본인의 주문이 아닐 경우
-        OrderService -->> OrderApi: 소유권 검증 실패
+        OrderService -->> ReadMyOrderDetailUseCase: 소유권 검증 실패
+        ReadMyOrderDetailUseCase -->> OrderApi: 소유권 검증 실패
         OrderApi -->> Client: 403 Forbidden
     end
 
-    OrderService -->>- OrderApi: OrderResult
+    OrderService -->>- ReadMyOrderDetailUseCase: Order
+    ReadMyOrderDetailUseCase -->>- OrderApi: OrderDetailResult
     OrderApi -->>- Client: 200 OK + 주문 상세 정보
 ```
