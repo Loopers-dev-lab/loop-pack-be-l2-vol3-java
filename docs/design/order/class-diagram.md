@@ -11,16 +11,16 @@ classDiagram
         -Long userId
         -BigDecimal totalAmount
         -List~OrderItem~ orderItems
-        +create(userId, orderItems)$ Order
+        +create(userId)$ Order
+        +addItem(productId, productName, price, quantity)
     }
 
     class OrderItem {
         -Long productId
         -String productName
-        -String brandName
         -BigDecimal price
         -int quantity
-        +create(productId, productName, brandName, price, quantity)$ OrderItem
+        +create(productId, productName, price, quantity)$ OrderItem
         +getOrderPrice() BigDecimal
     }
 

@@ -23,7 +23,6 @@ Admin
 | orderItems[] | Array | 주문 상품 목록 |
 | orderItems[].productId | Long | 상품 ID |
 | orderItems[].productName | String | 상품명 (스냅샷) |
-| orderItems[].brandName | String | 브랜드명 (스냅샷) |
 | orderItems[].price | BigDecimal | 상품 가격 (스냅샷) |
 | orderItems[].quantity | Integer | 주문 수량 |
 | orderItems[].orderPrice | BigDecimal | 주문 금액 (price × quantity) |
@@ -31,7 +30,7 @@ Admin
 
 ## 인수 조건
 - [ ] 주문을 조회하면 200 응답과 주문 상세 정보를 반환한다
-- [ ] 주문 상품은 스냅샷 정보(상품명, 가격, 브랜드명)로 반환한다
+- [ ] 주문 상품은 스냅샷 정보(상품명, 가격)로 반환한다
 - [ ] 해당 ID의 주문 데이터가 존재하지 않으면 404 응답, 메시지: "존재하지 않는 주문입니다"
 - [ ] 인증 헤더가 누락되면 401 응답, 메시지: "인증 헤더가 필요합니다"
 - [ ] 인증에 실패하면 401 응답, 메시지: "인증에 실패했습니다"
