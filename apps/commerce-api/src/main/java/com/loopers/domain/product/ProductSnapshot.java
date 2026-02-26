@@ -7,7 +7,13 @@ import java.math.BigDecimal;
  * OrderItem 생성 시 사용한다.
  */
 public record ProductSnapshot(
-    Long productId,
-    String productName,
-    BigDecimal price
-) {}
+        Long productId,
+        String productName,
+        Money price) {
+    /**
+     * JPA/직렬화용 BigDecimal 가격. 스냅샷 생성 경로에서는 Money로 검증된 값이다.
+     */
+    public BigDecimal priceValue() {
+        return price.value();
+    }
+}

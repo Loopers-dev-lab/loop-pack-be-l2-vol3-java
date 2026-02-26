@@ -5,7 +5,7 @@ package com.loopers.domain.product;
  * 도메인·application 전용 타입.
  *
  * @param productId 상품 ID
- * @param quantity  복구할 수량
+ * @param quantity  복구할 수량 (1 이상)
  */
-public record RestoreStockItem(Long productId, int quantity) {
+public record RestoreStockItem(Long productId, Quantity quantity) {
 }

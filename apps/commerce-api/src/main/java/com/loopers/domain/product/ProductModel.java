@@ -45,11 +45,11 @@ public class ProductModel extends BaseEntity {
      *
      * @param brandId       브랜드 ID (not null)
      * @param name          상품명 (null·빈 문자열·공백만 불가)
-     * @param price         가격 (null 불가, 0 이상)
+     * @param price         가격 (0 이상)
      * @param stockQuantity 재고 수량 (0 이상)
      * @return 생성된 ProductModel
      */
-    public static ProductModel create(Long brandId, String name, BigDecimal price, int stockQuantity) {
+    public static ProductModel create(Long brandId, String name, Money price, StockQuantity stockQuantity) {
         if (brandId == null) {
             throw new IllegalArgumentException("브랜드 ID는 null일 수 없습니다.");
         }
@@ -62,23 +62,20 @@ public class ProductModel extends BaseEntity {
         if (price == null) {
             throw new IllegalArgumentException("가격은 null일 수 없습니다.");
         }
-        if (price.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("가격은 0 이상이어야 합니다.");
+        if (stockQuantity == null) {
+            throw new IllegalArgumentException("재고 수량은 null일 수 없습니다.");
         }
-        if (stockQuantity < 0) {
-            throw new IllegalArgumentException("재고 수량은 0 이상이어야 합니다.");
-        }
-        return new ProductModel(brandId, name.trim(), price, stockQuantity);
+        return new ProductModel(brandId, name.trim(), price.value(), stockQuantity.value());
     }
 
     /**
      * 재고가 주어진 수량 이상인지 확인한다.
      */
-    public boolean hasStock(int quantity) {
-        if (quantity < 0) {
-            throw new IllegalArgumentException("수량은 0 이상이어야 합니다.");
+    public boolean hasStock(Quantity quantity) {
+        if (quantity == null) {
+            throw new IllegalArgumentException("수량은 null일 수 없습니다.");
         }
-        return this.stockQuantity >= quantity;
+        return this.stockQuantity >= quantity.value();
     }
 
     /**
@@ -97,34 +94,31 @@ public class ProductModel extends BaseEntity {
     /**
      * 가격을 수정한다.
      */
-    public void updatePrice(BigDecimal price) {
+    public void updatePrice(Money price) {
         if (price == null) {
             throw new IllegalArgumentException("가격은 null일 수 없습니다.");
         }
-        if (price.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("가격은 0 이상이어야 합니다.");
-        }
-        this.price = price;
+        this.price = price.value();
     }
 
     /**
      * 재고 수량을 수정한다.
      */
-    public void updateStockQuantity(int stockQuantity) {
-        if (stockQuantity < 0) {
-            throw new IllegalArgumentException("재고 수량은 0 이상이어야 합니다.");
+    public void updateStockQuantity(StockQuantity stockQuantity) {
+        if (stockQuantity == null) {
+            throw new IllegalArgumentException("재고 수량은 null일 수 없습니다.");
         }
-        this.stockQuantity = stockQuantity;
+        this.stockQuantity = stockQuantity.value();
     }
 
     /**
      * 재고를 복구(증가)한다. 취소 등으로 재고를 되돌릴 때 사용.
      */
-    public void increaseStock(int quantity) {
-        if (quantity <= 0) {
-            throw new IllegalArgumentException("복구 수량은 1 이상이어야 합니다.");
+    public void increaseStock(Quantity quantity) {
+        if (quantity == null) {
+            throw new IllegalArgumentException("복구 수량은 null일 수 없습니다.");
         }
-        this.stockQuantity += quantity;
+        this.stockQuantity += quantity.value();
     }
 
     /**
@@ -138,6 +132,6 @@ public class ProductModel extends BaseEntity {
      * 주문용 스냅샷(상품 ID, 이름, 가격)을 반환한다.
      */
     public ProductSnapshot snapshotForOrder() {
-        return new ProductSnapshot(getId(), name, price);
+        return new ProductSnapshot(getId(), name, Money.of(price));
     }
 }

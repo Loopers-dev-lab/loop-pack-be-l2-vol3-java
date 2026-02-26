@@ -29,9 +29,13 @@ public class ProductService {
     @Transactional
     public ProductModel register(Long brandId, String name, BigDecimal price, int stockQuantity) {
         brandRepository.findByIdAndNotDeleted(brandId)
-            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: " + brandId));
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: " + brandId));
         try {
-            ProductModel product = ProductModel.create(brandId, name, price, stockQuantity);
+            ProductModel product = ProductModel.create(
+                    brandId,
+                    name,
+                    Money.of(price),
+                    StockQuantity.of(stockQuantity));
             return productRepository.save(product);
         } catch (IllegalArgumentException e) {
             throw new CoreException(ErrorType.BAD_REQUEST, e.getMessage());
@@ -61,11 +65,11 @@ public class ProductService {
     @Transactional
     public ProductModel update(Long id, String name, BigDecimal price, int stockQuantity) {
         ProductModel product = productRepository.findByIdAndNotDeleted(id)
-            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + id));
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + id));
         try {
             product.updateName(name);
-            product.updatePrice(price);
-            product.updateStockQuantity(stockQuantity);
+            product.updatePrice(Money.of(price));
+            product.updateStockQuantity(StockQuantity.of(stockQuantity));
             return productRepository.save(product);
         } catch (IllegalArgumentException e) {
             throw new CoreException(ErrorType.BAD_REQUEST, e.getMessage());
@@ -78,7 +82,7 @@ public class ProductService {
     @Transactional
     public void delete(Long id) {
         ProductModel product = productRepository.findByIdAndNotDeleted(id)
-            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + id));
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + id));
         product.delete();
         productRepository.save(product);
     }
@@ -88,9 +92,9 @@ public class ProductService {
      * optionId는 값 보존만 하며 옵션 테이블 검증은 하지 않는다.
      */
     @Transactional(readOnly = true)
-    public void validateProductAvailability(Long productId, int quantity, Long optionId) {
+    public void validateProductAvailability(Long productId, Quantity quantity, Long optionId) {
         ProductModel product = productRepository.findByIdAndNotDeleted(productId)
-            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + productId));
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + productId));
         if (product.isDeleted()) {
             throw new CoreException(ErrorType.NOT_FOUND, "삭제된 상품입니다: " + productId);
         }
@@ -125,7 +129,7 @@ public class ProductService {
         List<ProductSnapshot> snapshots = new ArrayList<>();
         for (ProductValidationRequest req : requests) {
             ProductModel product = productRepository.findByIdAndNotDeleted(req.productId())
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + req.productId()));
+                    .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + req.productId()));
             if (product.isDeleted()) {
                 throw new CoreException(ErrorType.NOT_FOUND, "삭제된 상품입니다: " + req.productId());
             }
@@ -148,7 +152,7 @@ public class ProductService {
         }
         for (RestoreStockItem item : items) {
             ProductModel product = productRepository.findByIdForUpdate(item.productId())
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + item.productId()));
+                    .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + item.productId()));
             product.increaseStock(item.quantity());
             productRepository.save(product);
         }
