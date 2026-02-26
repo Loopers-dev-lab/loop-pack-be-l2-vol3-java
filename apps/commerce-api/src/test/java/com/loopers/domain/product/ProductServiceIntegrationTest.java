@@ -69,8 +69,8 @@ class ProductServiceIntegrationTest {
         @DisplayName("존재하지 않는 브랜드 ID면 NOT_FOUND 예외가 발생한다.")
         @Test
         void register_withNonExistentBrandId_shouldThrowNotFound() {
-            CoreException ex = assertThrows(CoreException.class, () ->
-                productService.register(999_999L, "상품", new BigDecimal("1000"), 1));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> productService.register(999_999L, "상품", new BigDecimal("1000"), 1));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
     }
@@ -118,8 +118,8 @@ class ProductServiceIntegrationTest {
 
         @Test
         void update_withNonExistentId_shouldThrowNotFound() {
-            CoreException ex = assertThrows(CoreException.class, () ->
-                productService.update(999_999L, "이름", new BigDecimal("1000"), 1));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> productService.update(999_999L, "이름", new BigDecimal("1000"), 1));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
@@ -145,8 +145,8 @@ class ProductServiceIntegrationTest {
 
         @Test
         void validateProductAvailability_whenProductNotFound_shouldThrowNotFound() {
-            CoreException ex = assertThrows(CoreException.class, () ->
-                productService.validateProductAvailability(999_999L, 1, null));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> productService.validateProductAvailability(999_999L, Quantity.of(1), null));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
@@ -155,8 +155,8 @@ class ProductServiceIntegrationTest {
             Long brandId = saveBrand("브랜드");
             ProductModel saved = productService.register(brandId, "상품", new BigDecimal("1000"), 2);
 
-            CoreException ex = assertThrows(CoreException.class, () ->
-                productService.validateProductAvailability(saved.getId(), 10, null));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> productService.validateProductAvailability(saved.getId(), Quantity.of(10), null));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
@@ -164,7 +164,7 @@ class ProductServiceIntegrationTest {
         void validateProductAvailability_whenValid_shouldNotThrow() {
             Long brandId = saveBrand("브랜드");
             ProductModel saved = productService.register(brandId, "상품", new BigDecimal("1000"), 10);
-            productService.validateProductAvailability(saved.getId(), 5, 100L);
+            productService.validateProductAvailability(saved.getId(), Quantity.of(5), 100L);
         }
     }
 
@@ -177,9 +177,8 @@ class ProductServiceIntegrationTest {
             Long brandId = saveBrand("브랜드");
             ProductModel p = productService.register(brandId, "상품", new BigDecimal("1000"), 10);
             productService.validateProducts(List.of(
-                new ProductValidationRequest(p.getId(), 2, null),
-                new ProductValidationRequest(p.getId(), 3, 1L)
-            ));
+                    new ProductValidationRequest(p.getId(), Quantity.of(2), null),
+                    new ProductValidationRequest(p.getId(), Quantity.of(3), 1L)));
         }
     }
 
@@ -189,8 +188,8 @@ class ProductServiceIntegrationTest {
 
         @Test
         void restoreStock_whenProductNotFound_shouldThrowNotFound() {
-            CoreException ex = assertThrows(CoreException.class, () ->
-                productService.restoreStock(List.of(new RestoreStockItem(999_999L, 1))));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> productService.restoreStock(List.of(new RestoreStockItem(999_999L, Quantity.of(1)))));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
@@ -199,7 +198,7 @@ class ProductServiceIntegrationTest {
             Long brandId = saveBrand("브랜드");
             ProductModel saved = productService.register(brandId, "상품", new BigDecimal("1000"), 5);
 
-            productService.restoreStock(List.of(new RestoreStockItem(saved.getId(), 3)));
+            productService.restoreStock(List.of(new RestoreStockItem(saved.getId(), Quantity.of(3))));
 
             Optional<ProductModel> found = productService.findById(saved.getId());
             assertThat(found).isPresent();
@@ -222,7 +221,8 @@ class ProductServiceIntegrationTest {
                 executor.submit(() -> {
                     try {
                         start.await();
-                        productService.restoreStock(List.of(new RestoreStockItem(productId, quantityPerThread)));
+                        productService
+                                .restoreStock(List.of(new RestoreStockItem(productId, Quantity.of(quantityPerThread))));
                     } catch (Exception e) {
                         errors.incrementAndGet();
                     } finally {

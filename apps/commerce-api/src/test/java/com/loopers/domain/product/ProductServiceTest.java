@@ -2,6 +2,8 @@ package com.loopers.domain.product;
 
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.product.Money;
+import com.loopers.domain.product.StockQuantity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
@@ -55,7 +57,7 @@ class ProductServiceTest {
             // given
             BrandModel brand = BrandModel.create("브랜드");
             when(brandRepository.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.of(brand));
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, Money.of(PRICE), StockQuantity.of(STOCK));
             when(productRepository.save(any(ProductModel.class))).thenReturn(product);
 
             // when
@@ -74,8 +76,8 @@ class ProductServiceTest {
             when(brandRepository.findByIdAndNotDeleted(999L)).thenReturn(Optional.empty());
 
             // when & then
-            CoreException ex = assertThrows(CoreException.class, () ->
-                productService.register(999L, NAME, PRICE, STOCK));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> productService.register(999L, NAME, PRICE, STOCK));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
@@ -86,8 +88,8 @@ class ProductServiceTest {
             when(brandRepository.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.of(BrandModel.create("브랜드")));
 
             // when & then
-            CoreException ex = assertThrows(CoreException.class, () ->
-                productService.register(BRAND_ID, null, PRICE, STOCK));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> productService.register(BRAND_ID, null, PRICE, STOCK));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
@@ -100,7 +102,7 @@ class ProductServiceTest {
         void findById_withExistingId_shouldReturnPresent() {
             // given
             Long id = 1L;
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, Money.of(PRICE), StockQuantity.of(STOCK));
             when(productRepository.findById(id)).thenReturn(Optional.of(product));
 
             // when
@@ -125,7 +127,7 @@ class ProductServiceTest {
         @Test
         void findByIdAndNotDeleted_withExistingNotDeleted_shouldReturnPresent() {
             Long id = 1L;
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, Money.of(PRICE), StockQuantity.of(STOCK));
             when(productRepository.findByIdAndNotDeleted(id)).thenReturn(Optional.of(product));
             assertThat(productService.findByIdAndNotDeleted(id)).isPresent();
         }
@@ -143,10 +145,10 @@ class ProductServiceTest {
 
         @Test
         void findNotDeletedForList_shouldCallRepositoryAndReturnPage() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, Money.of(PRICE), StockQuantity.of(STOCK));
             Pageable pageable = PageRequest.of(0, 20);
             when(productRepository.findNotDeleted(ProductSortOrder.LATEST, null, pageable))
-                .thenReturn(new PageImpl<>(List.of(product), pageable, 1));
+                    .thenReturn(new PageImpl<>(List.of(product), pageable, 1));
 
             var result = productService.findNotDeletedForList(ProductSortOrder.LATEST, null, 0, 20);
 
@@ -158,13 +160,14 @@ class ProductServiceTest {
         @Test
         void findNotDeletedForList_withBrandId_shouldPassBrandIdToRepository() {
             when(productRepository.findNotDeleted(ProductSortOrder.PRICE_ASC, BRAND_ID, PageRequest.of(1, 10)))
-                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 10), 0));
+                    .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 10), 0));
 
             var result = productService.findNotDeletedForList(ProductSortOrder.PRICE_ASC, BRAND_ID, 1, 10);
 
             assertThat(result.getContent()).isEmpty();
             ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-            verify(productRepository).findNotDeleted(eq(ProductSortOrder.PRICE_ASC), eq(BRAND_ID), pageableCaptor.capture());
+            verify(productRepository).findNotDeleted(eq(ProductSortOrder.PRICE_ASC), eq(BRAND_ID),
+                    pageableCaptor.capture());
             Pageable captured = pageableCaptor.getValue();
             assertThat(captured.getPageNumber()).isEqualTo(1);
             assertThat(captured.getPageSize()).isEqualTo(10);
@@ -178,15 +181,14 @@ class ProductServiceTest {
         @Test
         void update_withNonExistentId_shouldThrowNotFound() {
             when(productRepository.findByIdAndNotDeleted(999L)).thenReturn(Optional.empty());
-            CoreException ex = assertThrows(CoreException.class, () ->
-                productService.update(999L, NAME, PRICE, STOCK));
+            CoreException ex = assertThrows(CoreException.class, () -> productService.update(999L, NAME, PRICE, STOCK));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
         @Test
         void update_withValidInputs_shouldUpdateAndSave() {
             Long id = 1L;
-            ProductModel product = ProductModel.create(BRAND_ID, "기존명", PRICE, 5);
+            ProductModel product = ProductModel.create(BRAND_ID, "기존명", Money.of(PRICE), StockQuantity.of(5));
             when(productRepository.findByIdAndNotDeleted(id)).thenReturn(Optional.of(product));
             when(productRepository.save(product)).thenReturn(product);
 
@@ -199,10 +201,9 @@ class ProductServiceTest {
         @Test
         void update_withNullName_shouldThrowBadRequest() {
             Long id = 1L;
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, Money.of(PRICE), StockQuantity.of(STOCK));
             when(productRepository.findByIdAndNotDeleted(id)).thenReturn(Optional.of(product));
-            CoreException ex = assertThrows(CoreException.class, () ->
-                productService.update(id, null, PRICE, STOCK));
+            CoreException ex = assertThrows(CoreException.class, () -> productService.update(id, null, PRICE, STOCK));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
@@ -214,27 +215,27 @@ class ProductServiceTest {
         @Test
         void validateProductAvailability_whenProductNotFound_shouldThrowNotFound() {
             when(productRepository.findByIdAndNotDeleted(999L)).thenReturn(Optional.empty());
-            CoreException ex = assertThrows(CoreException.class, () ->
-                productService.validateProductAvailability(999L, 1, null));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> productService.validateProductAvailability(999L, Quantity.of(1), null));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
         @Test
         void validateProductAvailability_whenInsufficientStock_shouldThrowBadRequest() {
             Long id = 1L;
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, 2);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, Money.of(PRICE), StockQuantity.of(2));
             when(productRepository.findByIdAndNotDeleted(id)).thenReturn(Optional.of(product));
-            CoreException ex = assertThrows(CoreException.class, () ->
-                productService.validateProductAvailability(id, 10, null));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> productService.validateProductAvailability(id, Quantity.of(10), null));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
         @Test
         void validateProductAvailability_whenValid_shouldNotThrow() {
             Long id = 1L;
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, 10);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, Money.of(PRICE), StockQuantity.of(10));
             when(productRepository.findByIdAndNotDeleted(id)).thenReturn(Optional.of(product));
-            productService.validateProductAvailability(id, 5, 100L);
+            productService.validateProductAvailability(id, Quantity.of(5), 100L);
         }
     }
 
@@ -255,7 +256,7 @@ class ProductServiceTest {
         @Test
         void validateProducts_whenOneItemInvalid_shouldThrow() {
             when(productRepository.findByIdAndNotDeleted(1L)).thenReturn(Optional.empty());
-            List<ProductValidationRequest> requests = List.of(new ProductValidationRequest(1L, 1, null));
+            List<ProductValidationRequest> requests = List.of(new ProductValidationRequest(1L, Quantity.of(1), null));
             assertThrows(CoreException.class, () -> productService.validateProducts(requests));
         }
     }
@@ -266,44 +267,44 @@ class ProductServiceTest {
 
         @Test
         void validateAndGetSnapshots_whenNull_shouldThrowBadRequest() {
-            CoreException ex = assertThrows(CoreException.class, () ->
-                productService.validateAndGetSnapshots(null));
+            CoreException ex = assertThrows(CoreException.class, () -> productService.validateAndGetSnapshots(null));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
         @Test
         void validateAndGetSnapshots_whenEmpty_shouldThrowBadRequest() {
-            CoreException ex = assertThrows(CoreException.class, () ->
-                productService.validateAndGetSnapshots(List.of()));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> productService.validateAndGetSnapshots(List.of()));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
         @Test
         void validateAndGetSnapshots_whenProductNotFound_shouldThrowNotFound() {
             when(productRepository.findByIdAndNotDeleted(1L)).thenReturn(Optional.empty());
-            List<ProductValidationRequest> requests = List.of(new ProductValidationRequest(1L, 1, null));
-            CoreException ex = assertThrows(CoreException.class, () ->
-                productService.validateAndGetSnapshots(requests));
+            List<ProductValidationRequest> requests = List.of(new ProductValidationRequest(1L, Quantity.of(1), null));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> productService.validateAndGetSnapshots(requests));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
         @Test
         void validateAndGetSnapshots_whenInsufficientStock_shouldThrowBadRequest() {
             Long id = 1L;
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, 2);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, Money.of(PRICE), StockQuantity.of(2));
             when(productRepository.findByIdAndNotDeleted(id)).thenReturn(Optional.of(product));
-            List<ProductValidationRequest> requests = List.of(new ProductValidationRequest(id, 10, null));
-            CoreException ex = assertThrows(CoreException.class, () ->
-                productService.validateAndGetSnapshots(requests));
+            List<ProductValidationRequest> requests = List.of(new ProductValidationRequest(id, Quantity.of(10), null));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> productService.validateAndGetSnapshots(requests));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
         @Test
         void validateAndGetSnapshots_whenValid_shouldReturnSnapshots() {
             Long requestedId = 1L;
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, 10);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, Money.of(PRICE), StockQuantity.of(10));
             when(productRepository.findByIdAndNotDeleted(requestedId)).thenReturn(Optional.of(product));
-            List<ProductValidationRequest> requests = List.of(new ProductValidationRequest(requestedId, 2, null));
+            List<ProductValidationRequest> requests = List
+                    .of(new ProductValidationRequest(requestedId, Quantity.of(2), null));
 
             List<ProductSnapshot> result = productService.validateAndGetSnapshots(requests);
 
@@ -311,7 +312,7 @@ class ProductServiceTest {
             // Mock된 product는 persist되지 않아 BaseEntity 기본 id(0L)를 가짐
             assertThat(result.get(0).productId()).isEqualTo(0L);
             assertThat(result.get(0).productName()).isEqualTo(NAME);
-            assertThat(result.get(0).price()).isEqualByComparingTo(PRICE);
+            assertThat(result.get(0).price().value()).isEqualByComparingTo(PRICE);
         }
     }
 
@@ -322,7 +323,7 @@ class ProductServiceTest {
         @Test
         void restoreStock_whenProductNotFound_shouldThrowNotFound() {
             when(productRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
-            List<RestoreStockItem> items = List.of(new RestoreStockItem(999L, 1));
+            List<RestoreStockItem> items = List.of(new RestoreStockItem(999L, Quantity.of(1)));
             CoreException ex = assertThrows(CoreException.class, () -> productService.restoreStock(items));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
@@ -340,11 +341,11 @@ class ProductServiceTest {
         @Test
         void restoreStock_whenValid_shouldIncreaseAndSave() {
             Long id = 1L;
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, 5);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, Money.of(PRICE), StockQuantity.of(5));
             when(productRepository.findByIdForUpdate(id)).thenReturn(Optional.of(product));
             when(productRepository.save(product)).thenReturn(product);
 
-            productService.restoreStock(List.of(new RestoreStockItem(id, 3)));
+            productService.restoreStock(List.of(new RestoreStockItem(id, Quantity.of(3))));
 
             assertThat(product.getStockQuantity()).isEqualTo(8);
             verify(productRepository).save(product);

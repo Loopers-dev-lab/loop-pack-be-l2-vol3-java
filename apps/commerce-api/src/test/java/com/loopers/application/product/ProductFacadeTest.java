@@ -6,6 +6,8 @@ import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductSortOrder;
+import com.loopers.domain.product.Money;
+import com.loopers.domain.product.StockQuantity;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -66,7 +68,8 @@ class ProductFacadeTest {
         @Test
         @DisplayName("브랜드가 없거나 삭제되었으면 empty를 반환한다.")
         void getProductDetail_whenBrandNotFound_shouldReturnEmpty() {
-            ProductModel product = ProductModel.create(BRAND_ID, PRODUCT_NAME, PRICE, STOCK_QUANTITY);
+            ProductModel product = ProductModel.create(BRAND_ID, PRODUCT_NAME, Money.of(PRICE),
+                    StockQuantity.of(STOCK_QUANTITY));
             when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.of(product));
             when(brandService.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.empty());
 
@@ -80,7 +83,8 @@ class ProductFacadeTest {
         @Test
         @DisplayName("상품·브랜드가 있으면 ProductDetailInfo에 브랜드명·좋아요 수를 포함해 반환한다.")
         void getProductDetail_whenValid_shouldReturnProductDetailInfoWithBrandAndLikeCount() {
-            ProductModel product = ProductModel.create(BRAND_ID, PRODUCT_NAME, PRICE, STOCK_QUANTITY);
+            ProductModel product = ProductModel.create(BRAND_ID, PRODUCT_NAME, Money.of(PRICE),
+                    StockQuantity.of(STOCK_QUANTITY));
             BrandModel brand = BrandModel.create(BRAND_NAME);
             when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.of(product));
             when(brandService.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.of(brand));
@@ -109,13 +113,15 @@ class ProductFacadeTest {
         @Test
         @DisplayName("정렬·페이징·브랜드 필터로 목록을 반환하고, likeCount를 채운다.")
         void getProductList_shouldReturnPagedListWithBrandAndLikeCount() {
-            ProductModel product = ProductModel.create(BRAND_ID, PRODUCT_NAME, PRICE, STOCK_QUANTITY);
+            ProductModel product = ProductModel.create(BRAND_ID, PRODUCT_NAME, Money.of(PRICE),
+                    StockQuantity.of(STOCK_QUANTITY));
             BrandModel brand = BrandModel.create(BRAND_NAME);
             Pageable pageable = PageRequest.of(0, 20);
             when(productService.findNotDeletedForList(ProductSortOrder.LATEST, null, 0, 20))
-                .thenReturn(new PageImpl<>(List.of(product), pageable, 1));
+                    .thenReturn(new PageImpl<>(List.of(product), pageable, 1));
             when(brandService.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.of(brand));
-            when(likeRepository.countByProductIds(List.of(product.getId()))).thenReturn(Map.of(product.getId(), LIKE_COUNT));
+            when(likeRepository.countByProductIds(List.of(product.getId())))
+                    .thenReturn(Map.of(product.getId(), LIKE_COUNT));
 
             var result = productFacade.getProductList(null, "latest", 0, 20);
 
@@ -132,7 +138,7 @@ class ProductFacadeTest {
         @DisplayName("brandId가 있으면 해당 브랜드만 조회한다.")
         void getProductList_withBrandId_shouldFilterByBrand() {
             when(productService.findNotDeletedForList(ProductSortOrder.LATEST, BRAND_ID, 0, 20))
-                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+                    .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
             var result = productFacade.getProductList(BRAND_ID, "latest", 0, 20);
 

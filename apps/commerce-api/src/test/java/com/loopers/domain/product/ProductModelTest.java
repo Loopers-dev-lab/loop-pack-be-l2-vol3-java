@@ -16,15 +16,22 @@ class ProductModelTest {
     private static final BigDecimal PRICE = new BigDecimal("10000");
     private static final int STOCK = 10;
 
+    private static Money money(BigDecimal value) {
+        return Money.of(value);
+    }
+
+    private static StockQuantity stock(int value) {
+        return StockQuantity.of(value);
+    }
+
     @DisplayName("create 시")
     @Nested
     class Create {
 
-        @DisplayName("유효한 값이 주어지면 생성된다.")
         @Test
         void create_withValidInputs_shouldSucceed() {
             // when
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
 
             // then
             assertThat(product.getBrandId()).isEqualTo(BRAND_ID);
@@ -37,49 +44,48 @@ class ProductModelTest {
         @DisplayName("brandId가 null이면 IllegalArgumentException이 발생한다.")
         @Test
         void create_withNullBrandId_shouldThrow() {
-            assertThrows(IllegalArgumentException.class, () ->
-                ProductModel.create(null, NAME, PRICE, STOCK));
+            assertThrows(IllegalArgumentException.class,
+                    () -> ProductModel.create(null, NAME, money(PRICE), stock(STOCK)));
         }
 
         @DisplayName("name이 null이면 IllegalArgumentException이 발생한다.")
         @Test
         void create_withNullName_shouldThrow() {
-            assertThrows(IllegalArgumentException.class, () ->
-                ProductModel.create(BRAND_ID, null, PRICE, STOCK));
+            assertThrows(IllegalArgumentException.class,
+                    () -> ProductModel.create(BRAND_ID, null, money(PRICE), stock(STOCK)));
         }
 
         @DisplayName("name이 빈 문자열이면 IllegalArgumentException이 발생한다.")
         @Test
         void create_withBlankName_shouldThrow() {
-            assertThrows(IllegalArgumentException.class, () ->
-                ProductModel.create(BRAND_ID, "", PRICE, STOCK));
+            assertThrows(IllegalArgumentException.class,
+                    () -> ProductModel.create(BRAND_ID, "", money(PRICE), stock(STOCK)));
         }
 
         @DisplayName("price가 null이면 IllegalArgumentException이 발생한다.")
         @Test
         void create_withNullPrice_shouldThrow() {
-            assertThrows(IllegalArgumentException.class, () ->
-                ProductModel.create(BRAND_ID, NAME, null, STOCK));
+            assertThrows(IllegalArgumentException.class, () -> ProductModel.create(BRAND_ID, NAME, null, stock(STOCK)));
         }
 
         @DisplayName("price가 음수면 IllegalArgumentException이 발생한다.")
         @Test
         void create_withNegativePrice_shouldThrow() {
-            assertThrows(IllegalArgumentException.class, () ->
-                ProductModel.create(BRAND_ID, NAME, new BigDecimal("-1"), STOCK));
+            assertThrows(IllegalArgumentException.class,
+                    () -> ProductModel.create(BRAND_ID, NAME, money(new BigDecimal("-1")), stock(STOCK)));
         }
 
         @DisplayName("stockQuantity가 음수면 IllegalArgumentException이 발생한다.")
         @Test
         void create_withNegativeStock_shouldThrow() {
-            assertThrows(IllegalArgumentException.class, () ->
-                ProductModel.create(BRAND_ID, NAME, PRICE, -1));
+            assertThrows(IllegalArgumentException.class,
+                    () -> ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(-1)));
         }
 
         @DisplayName("가격 0과 재고 0은 허용된다.")
         @Test
         void create_withZeroPriceAndStock_shouldSucceed() {
-            ProductModel product = ProductModel.create(BRAND_ID, "무료상품", BigDecimal.ZERO, 0);
+            ProductModel product = ProductModel.create(BRAND_ID, "무료상품", money(BigDecimal.ZERO), stock(0));
             assertThat(product.getPrice()).isEqualByComparingTo(BigDecimal.ZERO);
             assertThat(product.getStockQuantity()).isZero();
         }
@@ -87,15 +93,15 @@ class ProductModelTest {
         @DisplayName("상품명 앞뒤 공백은 trim되어 저장된다.")
         @Test
         void create_withLeadingTrailingSpaces_shouldTrimName() {
-            ProductModel product = ProductModel.create(BRAND_ID, "  상품  ", PRICE, STOCK);
+            ProductModel product = ProductModel.create(BRAND_ID, "  상품  ", money(PRICE), stock(STOCK));
             assertThat(product.getName()).isEqualTo("상품");
         }
 
         @DisplayName("상품명이 공백만 있으면 IllegalArgumentException이 발생한다.")
         @Test
         void create_withWhitespaceOnlyName_shouldThrow() {
-            assertThrows(IllegalArgumentException.class, () ->
-                ProductModel.create(BRAND_ID, "   ", PRICE, STOCK));
+            assertThrows(IllegalArgumentException.class,
+                    () -> ProductModel.create(BRAND_ID, "   ", money(PRICE), stock(STOCK)));
         }
     }
 
@@ -106,24 +112,23 @@ class ProductModelTest {
         @DisplayName("재고가 수량 이상이면 true를 반환한다.")
         @Test
         void hasStock_whenStockGreaterOrEqual_shouldReturnTrue() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, 10);
-            assertThat(product.hasStock(0)).isTrue();
-            assertThat(product.hasStock(10)).isTrue();
-            assertThat(product.hasStock(5)).isTrue();
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(10));
+            assertThat(product.hasStock(Quantity.of(10))).isTrue();
+            assertThat(product.hasStock(Quantity.of(5))).isTrue();
         }
 
         @DisplayName("재고가 수량 미만이면 false를 반환한다.")
         @Test
         void hasStock_whenStockLessThanQuantity_shouldReturnFalse() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, 10);
-            assertThat(product.hasStock(11)).isFalse();
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(10));
+            assertThat(product.hasStock(Quantity.of(11))).isFalse();
         }
 
-        @DisplayName("수량이 음수면 IllegalArgumentException이 발생한다.")
+        @DisplayName("수량이 null이면 IllegalArgumentException이 발생한다.")
         @Test
-        void hasStock_withNegativeQuantity_shouldThrow() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
-            assertThrows(IllegalArgumentException.class, () -> product.hasStock(-1));
+        void hasStock_withNullQuantity_shouldThrow() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
+            assertThrows(IllegalArgumentException.class, () -> product.hasStock(null));
         }
     }
 
@@ -134,10 +139,10 @@ class ProductModelTest {
         @DisplayName("상품명과 가격이 포함된 스냅샷을 반환한다.")
         @Test
         void snapshotForOrder_shouldReturnNameAndPrice() {
-            ProductModel product = ProductModel.create(BRAND_ID, "스냅샷상품", new BigDecimal("9999"), 1);
+            ProductModel product = ProductModel.create(BRAND_ID, "스냅샷상품", money(new BigDecimal("9999")), stock(1));
             ProductSnapshot snapshot = product.snapshotForOrder();
             assertThat(snapshot.productName()).isEqualTo("스냅샷상품");
-            assertThat(snapshot.price()).isEqualByComparingTo(new BigDecimal("9999"));
+            assertThat(snapshot.price().value()).isEqualByComparingTo(new BigDecimal("9999"));
             assertThat(snapshot.productId()).isEqualTo(product.getId());
         }
     }
@@ -149,14 +154,14 @@ class ProductModelTest {
         @DisplayName("생성 직후에는 삭제되지 않은 상태이다.")
         @Test
         void isDeleted_whenNotDeleted_shouldReturnFalse() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
             assertThat(product.isDeleted()).isFalse();
         }
 
         @DisplayName("delete() 호출 후에는 삭제된 상태이다.")
         @Test
         void isDeleted_afterDelete_shouldReturnTrue() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
             product.delete();
             assertThat(product.isDeleted()).isTrue();
         }
@@ -168,26 +173,26 @@ class ProductModelTest {
 
         @Test
         void updateName_withValidName_shouldUpdate() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
             product.updateName("새 상품명");
             assertThat(product.getName()).isEqualTo("새 상품명");
         }
 
         @Test
         void updateName_withNull_shouldThrow() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
             assertThrows(IllegalArgumentException.class, () -> product.updateName(null));
         }
 
         @Test
         void updateName_withBlank_shouldThrow() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
             assertThrows(IllegalArgumentException.class, () -> product.updateName(""));
         }
 
         @Test
         void updateName_withWhitespaceOnly_shouldThrow() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
             assertThrows(IllegalArgumentException.class, () -> product.updateName("   "));
         }
     }
@@ -198,21 +203,21 @@ class ProductModelTest {
 
         @Test
         void updatePrice_withValidPrice_shouldUpdate() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
-            product.updatePrice(new BigDecimal("20000"));
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
+            product.updatePrice(money(new BigDecimal("20000")));
             assertThat(product.getPrice()).isEqualByComparingTo("20000");
         }
 
         @Test
         void updatePrice_withNull_shouldThrow() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
             assertThrows(IllegalArgumentException.class, () -> product.updatePrice(null));
         }
 
         @Test
         void updatePrice_withNegative_shouldThrow() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
-            assertThrows(IllegalArgumentException.class, () -> product.updatePrice(new BigDecimal("-1")));
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
+            assertThrows(IllegalArgumentException.class, () -> product.updatePrice(money(new BigDecimal("-1"))));
         }
     }
 
@@ -222,22 +227,22 @@ class ProductModelTest {
 
         @Test
         void updateStockQuantity_withValidValue_shouldUpdate() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
-            product.updateStockQuantity(20);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
+            product.updateStockQuantity(stock(20));
             assertThat(product.getStockQuantity()).isEqualTo(20);
         }
 
         @Test
         void updateStockQuantity_withNegative_shouldThrow() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
-            assertThrows(IllegalArgumentException.class, () -> product.updateStockQuantity(-1));
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
+            assertThrows(IllegalArgumentException.class, () -> product.updateStockQuantity(StockQuantity.of(-1)));
         }
 
         @DisplayName("재고 0은 허용된다.")
         @Test
         void updateStockQuantity_withZero_shouldSucceed() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, 5);
-            product.updateStockQuantity(0);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(5));
+            product.updateStockQuantity(stock(0));
             assertThat(product.getStockQuantity()).isZero();
         }
     }
@@ -248,21 +253,21 @@ class ProductModelTest {
 
         @Test
         void increaseStock_withValidQuantity_shouldAdd() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, 5);
-            product.increaseStock(3);
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(5));
+            product.increaseStock(Quantity.of(3));
             assertThat(product.getStockQuantity()).isEqualTo(8);
         }
 
         @Test
         void increaseStock_withZero_shouldThrow() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
-            assertThrows(IllegalArgumentException.class, () -> product.increaseStock(0));
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
+            assertThrows(IllegalArgumentException.class, () -> product.increaseStock(Quantity.of(0)));
         }
 
         @Test
         void increaseStock_withNegative_shouldThrow() {
-            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
-            assertThrows(IllegalArgumentException.class, () -> product.increaseStock(-1));
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
+            assertThrows(IllegalArgumentException.class, () -> product.increaseStock(Quantity.of(-1)));
         }
     }
 }
