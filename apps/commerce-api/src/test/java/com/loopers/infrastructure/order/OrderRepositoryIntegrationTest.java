@@ -5,6 +5,8 @@ import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.product.ProductSnapshot;
+import com.loopers.domain.product.Money;
+import com.loopers.domain.product.Quantity;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -27,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OrderRepositoryIntegrationTest {
 
     private static final Long USER_ID = 1L;
-    private static final ProductSnapshot SNAPSHOT = new ProductSnapshot(100L, "상품", new BigDecimal("5000"));
+    private static final ProductSnapshot SNAPSHOT = new ProductSnapshot(100L, "상품", Money.of(new BigDecimal("5000")));
 
     @Autowired
     private OrderRepository orderRepository;
@@ -42,7 +44,7 @@ class OrderRepositoryIntegrationTest {
 
     private OrderModel createOrderWithOneItem(Long userId) {
         OrderModel order = OrderModel.create(userId);
-        order.addItem(OrderItemModel.of(SNAPSHOT, 2, null));
+        order.addItem(OrderItemModel.of(SNAPSHOT, Quantity.of(2), null));
         order.validateHasItems();
         return order;
     }

@@ -5,6 +5,9 @@ import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.ProductValidationRequest;
+import com.loopers.domain.product.Quantity;
+import com.loopers.domain.product.Money;
+import com.loopers.domain.product.StockQuantity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
@@ -55,7 +58,8 @@ class OrderServiceIntegrationTest {
     private Long saveProduct(String name, int stock) {
         BrandModel brand = BrandModel.create("브랜드");
         brandRepository.save(brand);
-        ProductModel product = ProductModel.create(brand.getId(), name, new BigDecimal("10000"), stock);
+        ProductModel product = ProductModel.create(brand.getId(), name, Money.of(new BigDecimal("10000")),
+                StockQuantity.of(stock));
         return productRepository.save(product).getId();
     }
 
@@ -67,7 +71,8 @@ class OrderServiceIntegrationTest {
         void create_withValidRequests_shouldSaveAndReturnOrder() {
             // given
             Long productId = saveProduct("상품", 10);
-            List<ProductValidationRequest> requests = List.of(new ProductValidationRequest(productId, 2, null));
+            List<ProductValidationRequest> requests = List
+                    .of(new ProductValidationRequest(productId, Quantity.of(2), null));
 
             // when
             OrderModel saved = orderService.create(USER_ID, requests);
@@ -86,7 +91,8 @@ class OrderServiceIntegrationTest {
 
         @Test
         void create_whenProductNotFound_shouldThrowNotFound() {
-            List<ProductValidationRequest> requests = List.of(new ProductValidationRequest(999_999L, 1, null));
+            List<ProductValidationRequest> requests = List
+                    .of(new ProductValidationRequest(999_999L, Quantity.of(1), null));
             CoreException ex = assertThrows(CoreException.class, () -> orderService.create(USER_ID, requests));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
@@ -94,7 +100,8 @@ class OrderServiceIntegrationTest {
         @Test
         void create_whenInsufficientStock_shouldThrowBadRequest() {
             Long productId = saveProduct("상품", 1);
-            List<ProductValidationRequest> requests = List.of(new ProductValidationRequest(productId, 10, null));
+            List<ProductValidationRequest> requests = List
+                    .of(new ProductValidationRequest(productId, Quantity.of(10), null));
             CoreException ex = assertThrows(CoreException.class, () -> orderService.create(USER_ID, requests));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
@@ -113,7 +120,8 @@ class OrderServiceIntegrationTest {
         @Test
         void findById_whenOwner_shouldReturnPresent() {
             Long productId = saveProduct("상품", 10);
-            OrderModel order = orderService.create(USER_ID, List.of(new ProductValidationRequest(productId, 1, null)));
+            OrderModel order = orderService.create(USER_ID,
+                    List.of(new ProductValidationRequest(productId, Quantity.of(1), null)));
 
             Optional<OrderModel> result = orderService.findById(USER_ID, order.getId());
 
@@ -124,7 +132,8 @@ class OrderServiceIntegrationTest {
         @Test
         void findById_whenWrongUser_shouldReturnEmpty() {
             Long productId = saveProduct("상품", 10);
-            OrderModel order = orderService.create(USER_ID, List.of(new ProductValidationRequest(productId, 1, null)));
+            OrderModel order = orderService.create(USER_ID,
+                    List.of(new ProductValidationRequest(productId, Quantity.of(1), null)));
 
             Optional<OrderModel> result = orderService.findById(OTHER_USER_ID, order.getId());
 
@@ -145,7 +154,7 @@ class OrderServiceIntegrationTest {
         @Test
         void findOrders_shouldReturnOrdersInPeriod() {
             Long productId = saveProduct("상품", 10);
-            orderService.create(USER_ID, List.of(new ProductValidationRequest(productId, 1, null)));
+            orderService.create(USER_ID, List.of(new ProductValidationRequest(productId, Quantity.of(1), null)));
             ZonedDateTime start = ZonedDateTime.now().minusMinutes(1);
             ZonedDateTime end = ZonedDateTime.now().plusMinutes(1);
 
@@ -157,7 +166,7 @@ class OrderServiceIntegrationTest {
         @Test
         void findOrders_whenDifferentUser_shouldNotReturnOthersOrders() {
             Long productId = saveProduct("상품", 10);
-            orderService.create(USER_ID, List.of(new ProductValidationRequest(productId, 1, null)));
+            orderService.create(USER_ID, List.of(new ProductValidationRequest(productId, Quantity.of(1), null)));
             ZonedDateTime start = ZonedDateTime.now().minusMinutes(1);
             ZonedDateTime end = ZonedDateTime.now().plusMinutes(1);
 
@@ -174,7 +183,8 @@ class OrderServiceIntegrationTest {
         @Test
         void cancel_whenOrdered_shouldPersistCancelled() {
             Long productId = saveProduct("상품", 10);
-            OrderModel order = orderService.create(USER_ID, List.of(new ProductValidationRequest(productId, 1, null)));
+            OrderModel order = orderService.create(USER_ID,
+                    List.of(new ProductValidationRequest(productId, Quantity.of(1), null)));
 
             OrderModel cancelled = orderService.cancel(USER_ID, order.getId());
 
@@ -187,28 +197,28 @@ class OrderServiceIntegrationTest {
         @Test
         void cancel_whenWrongUser_shouldThrowNotFound() {
             Long productId = saveProduct("상품", 10);
-            OrderModel order = orderService.create(USER_ID, List.of(new ProductValidationRequest(productId, 1, null)));
+            OrderModel order = orderService.create(USER_ID,
+                    List.of(new ProductValidationRequest(productId, Quantity.of(1), null)));
 
-            CoreException ex = assertThrows(CoreException.class, () ->
-                orderService.cancel(OTHER_USER_ID, order.getId()));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> orderService.cancel(OTHER_USER_ID, order.getId()));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
         @Test
         void cancel_whenOrderNotExists_shouldThrowNotFound() {
-            CoreException ex = assertThrows(CoreException.class, () ->
-                orderService.cancel(USER_ID, 999_999L));
+            CoreException ex = assertThrows(CoreException.class, () -> orderService.cancel(USER_ID, 999_999L));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
         @Test
         void cancel_whenAlreadyCancelled_shouldThrowBadRequest() {
             Long productId = saveProduct("상품", 10);
-            OrderModel order = orderService.create(USER_ID, List.of(new ProductValidationRequest(productId, 1, null)));
+            OrderModel order = orderService.create(USER_ID,
+                    List.of(new ProductValidationRequest(productId, Quantity.of(1), null)));
             orderService.cancel(USER_ID, order.getId());
 
-            CoreException ex = assertThrows(CoreException.class, () ->
-                orderService.cancel(USER_ID, order.getId()));
+            CoreException ex = assertThrows(CoreException.class, () -> orderService.cancel(USER_ID, order.getId()));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
@@ -218,10 +228,10 @@ class OrderServiceIntegrationTest {
             Long productId = saveProduct("상품", 10);
             ProductModel product = productRepository.findById(productId).orElseThrow();
             OrderModel order = OrderModel.withStatus(USER_ID, OrderStatus.PAID, ZonedDateTime.now());
-            order.addItem(OrderItemModel.of(product.snapshotForOrder(), 2, null));
+            order.addItem(OrderItemModel.of(product.snapshotForOrder(), Quantity.of(2), null));
             order.validateHasItems();
             OrderModel savedOrder = orderRepository.save(order);
-            product.updateStockQuantity(8);
+            product.updateStockQuantity(StockQuantity.of(8));
             productRepository.save(product);
 
             // when

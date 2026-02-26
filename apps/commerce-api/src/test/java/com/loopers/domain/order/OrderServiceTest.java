@@ -2,8 +2,9 @@ package com.loopers.domain.order;
 
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductSnapshot;
-import com.loopers.domain.product.RestoreStockItem;
 import com.loopers.domain.product.ProductValidationRequest;
+import com.loopers.domain.product.Quantity;
+import com.loopers.domain.product.RestoreStockItem;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
@@ -18,6 +19,8 @@ import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
+
+import com.loopers.domain.product.Money;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -34,10 +37,9 @@ class OrderServiceTest {
     private static final Long USER_ID = 1L;
     private static final Long ORDER_ID = 100L;
     private static final Long OTHER_USER_ID = 999L;
-    private static final ProductSnapshot SNAPSHOT = new ProductSnapshot(10L, "상품", new BigDecimal("5000"));
+    private static final ProductSnapshot SNAPSHOT = new ProductSnapshot(10L, "상품", Money.of(new BigDecimal("5000")));
     private static final List<ProductValidationRequest> REQUESTS = List.of(
-        new ProductValidationRequest(10L, 2, null)
-    );
+            new ProductValidationRequest(10L, Quantity.of(2), null));
 
     @Mock
     private OrderRepository orderRepository;
@@ -57,7 +59,7 @@ class OrderServiceTest {
             // given
             when(productService.validateAndGetSnapshots(REQUESTS)).thenReturn(List.of(SNAPSHOT));
             OrderModel order = OrderModel.create(USER_ID);
-            order.addItem(OrderItemModel.of(SNAPSHOT, 2, null));
+            order.addItem(OrderItemModel.of(SNAPSHOT, Quantity.of(2), null));
             when(orderRepository.save(any(OrderModel.class))).thenReturn(order);
 
             // when
@@ -71,8 +73,7 @@ class OrderServiceTest {
 
         @Test
         void create_withNullUserId_shouldThrowBadRequest() {
-            CoreException ex = assertThrows(CoreException.class, () ->
-                orderService.create(null, REQUESTS));
+            CoreException ex = assertThrows(CoreException.class, () -> orderService.create(null, REQUESTS));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
             verify(productService, never()).validateAndGetSnapshots(any());
             verify(orderRepository, never()).save(any());
@@ -80,16 +81,14 @@ class OrderServiceTest {
 
         @Test
         void create_withNullRequests_shouldThrowBadRequest() {
-            CoreException ex = assertThrows(CoreException.class, () ->
-                orderService.create(USER_ID, null));
+            CoreException ex = assertThrows(CoreException.class, () -> orderService.create(USER_ID, null));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
             verify(productService, never()).validateAndGetSnapshots(any());
         }
 
         @Test
         void create_withEmptyRequests_shouldThrowBadRequest() {
-            CoreException ex = assertThrows(CoreException.class, () ->
-                orderService.create(USER_ID, List.of()));
+            CoreException ex = assertThrows(CoreException.class, () -> orderService.create(USER_ID, List.of()));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
             verify(productService, never()).validateAndGetSnapshots(any());
         }
@@ -97,9 +96,8 @@ class OrderServiceTest {
         @Test
         void create_whenProductServiceThrowsNotFound_shouldPropagate() {
             when(productService.validateAndGetSnapshots(REQUESTS))
-                .thenThrow(new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
-            CoreException ex = assertThrows(CoreException.class, () ->
-                orderService.create(USER_ID, REQUESTS));
+                    .thenThrow(new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
+            CoreException ex = assertThrows(CoreException.class, () -> orderService.create(USER_ID, REQUESTS));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
             verify(orderRepository, never()).save(any());
         }
@@ -147,7 +145,7 @@ class OrderServiceTest {
             ZonedDateTime end = ZonedDateTime.now();
             List<OrderModel> orders = List.of(OrderModel.create(USER_ID));
             when(orderRepository.findByUserIdAndOrderedAtBetween(eq(USER_ID), eq(start), eq(end), eq(0), eq(10)))
-                .thenReturn(orders);
+                    .thenReturn(orders);
 
             List<OrderModel> result = orderService.findOrders(USER_ID, start, end, 0, 10);
 
@@ -164,7 +162,7 @@ class OrderServiceTest {
         void cancel_whenOrdered_shouldCancelWithoutRestoreStock() {
             // given
             OrderModel order = OrderModel.create(USER_ID);
-            order.addItem(OrderItemModel.of(SNAPSHOT, 1, null));
+            order.addItem(OrderItemModel.of(SNAPSHOT, Quantity.of(1), null));
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
             when(orderRepository.save(any(OrderModel.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -181,7 +179,7 @@ class OrderServiceTest {
         void cancel_whenPaid_shouldRestoreStockThenCancel() {
             // given: PAID 상태 주문
             OrderModel order = OrderModel.withStatus(USER_ID, OrderStatus.PAID, java.time.ZonedDateTime.now());
-            order.addItem(OrderItemModel.of(SNAPSHOT, 2, null));
+            order.addItem(OrderItemModel.of(SNAPSHOT, Quantity.of(2), null));
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
             when(orderRepository.save(any(OrderModel.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -190,19 +188,19 @@ class OrderServiceTest {
 
             // then: 재고 복구 호출 후 취소
             assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCELLED);
-            verify(productService).restoreStock(argThat((List<RestoreStockItem> items) ->
-                items.size() == 1 && items.get(0).productId().equals(10L) && items.get(0).quantity() == 2));
+            verify(productService).restoreStock(argThat((List<RestoreStockItem> items) -> items.size() == 1
+                    && items.get(0).productId().equals(10L) && items.get(0).quantity().value() == 2));
             verify(orderRepository).save(order);
         }
 
         @Test
         void cancel_whenPaidWithMultipleItems_shouldRestoreStockForAllItemsThenCancel() {
             // given: PAID 주문에 항목 2개
-            ProductSnapshot snap1 = new ProductSnapshot(10L, "상품1", new BigDecimal("5000"));
-            ProductSnapshot snap2 = new ProductSnapshot(20L, "상품2", new BigDecimal("3000"));
+            ProductSnapshot snap1 = new ProductSnapshot(10L, "상품1", Money.of(new BigDecimal("5000")));
+            ProductSnapshot snap2 = new ProductSnapshot(20L, "상품2", Money.of(new BigDecimal("3000")));
             OrderModel order = OrderModel.withStatus(USER_ID, OrderStatus.PAID, java.time.ZonedDateTime.now());
-            order.addItem(OrderItemModel.of(snap1, 1, null));
-            order.addItem(OrderItemModel.of(snap2, 3, null));
+            order.addItem(OrderItemModel.of(snap1, Quantity.of(1), null));
+            order.addItem(OrderItemModel.of(snap2, Quantity.of(3), null));
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
             when(orderRepository.save(any(OrderModel.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -211,18 +209,16 @@ class OrderServiceTest {
 
             // then
             assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCELLED);
-            verify(productService).restoreStock(argThat((List<RestoreStockItem> items) ->
-                items.size() == 2
-                    && items.stream().anyMatch(i -> i.productId().equals(10L) && i.quantity() == 1)
-                    && items.stream().anyMatch(i -> i.productId().equals(20L) && i.quantity() == 3)));
+            verify(productService).restoreStock(argThat((List<RestoreStockItem> items) -> items.size() == 2
+                    && items.stream().anyMatch(i -> i.productId().equals(10L) && i.quantity().value() == 1)
+                    && items.stream().anyMatch(i -> i.productId().equals(20L) && i.quantity().value() == 3)));
             verify(orderRepository).save(order);
         }
 
         @Test
         void cancel_whenOrderNotFound_shouldThrowNotFound() {
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.empty());
-            CoreException ex = assertThrows(CoreException.class, () ->
-                orderService.cancel(USER_ID, ORDER_ID));
+            CoreException ex = assertThrows(CoreException.class, () -> orderService.cancel(USER_ID, ORDER_ID));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
             verify(orderRepository, never()).save(any());
         }
@@ -231,8 +227,7 @@ class OrderServiceTest {
         void cancel_whenWrongUser_shouldThrowNotFound() {
             OrderModel order = OrderModel.create(OTHER_USER_ID);
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
-            CoreException ex = assertThrows(CoreException.class, () ->
-                orderService.cancel(USER_ID, ORDER_ID));
+            CoreException ex = assertThrows(CoreException.class, () -> orderService.cancel(USER_ID, ORDER_ID));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
             verify(orderRepository, never()).save(any());
         }
@@ -240,11 +235,10 @@ class OrderServiceTest {
         @Test
         void cancel_whenAlreadyCancelled_shouldThrowBadRequest() {
             OrderModel order = OrderModel.create(USER_ID);
-            order.addItem(OrderItemModel.of(SNAPSHOT, 1, null));
+            order.addItem(OrderItemModel.of(SNAPSHOT, Quantity.of(1), null));
             order.cancel();
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
-            CoreException ex = assertThrows(CoreException.class, () ->
-                orderService.cancel(USER_ID, ORDER_ID));
+            CoreException ex = assertThrows(CoreException.class, () -> orderService.cancel(USER_ID, ORDER_ID));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
             verify(orderRepository, never()).save(any());
         }

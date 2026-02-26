@@ -1,11 +1,16 @@
 package com.loopers.domain.order;
 
 import com.loopers.domain.product.ProductSnapshot;
+import com.loopers.domain.product.Quantity;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+
+import com.loopers.domain.product.Money;
+import com.loopers.domain.product.Quantity;
+import com.loopers.domain.product.StockQuantity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -13,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class OrderModelTest {
 
     private static final Long USER_ID = 1L;
-    private static final ProductSnapshot SNAPSHOT = new ProductSnapshot(100L, "상품", new BigDecimal("5000"));
+    private static final ProductSnapshot SNAPSHOT = new ProductSnapshot(100L, "상품", Money.of(new BigDecimal("5000")));
 
     @DisplayName("create 시")
     @Nested
@@ -48,7 +53,7 @@ class OrderModelTest {
         void addItem_withValidItem_shouldAdd() {
             // given
             OrderModel order = OrderModel.create(USER_ID);
-            OrderItemModel item = OrderItemModel.of(SNAPSHOT, 2, null);
+            OrderItemModel item = OrderItemModel.of(SNAPSHOT, Quantity.of(2), null);
 
             // when
             order.addItem(item);
@@ -87,7 +92,7 @@ class OrderModelTest {
         @Test
         void validateHasItems_whenHasItems_shouldPass() {
             OrderModel order = OrderModel.create(USER_ID);
-            order.addItem(OrderItemModel.of(SNAPSHOT, 1, null));
+            order.addItem(OrderItemModel.of(SNAPSHOT, Quantity.of(1), null));
             order.validateHasItems();
         }
     }
@@ -114,7 +119,7 @@ class OrderModelTest {
         void canCancel_whenCancelled_shouldReturnFalse() {
             // given
             OrderModel order = OrderModel.create(USER_ID);
-            order.addItem(OrderItemModel.of(SNAPSHOT, 1, null));
+            order.addItem(OrderItemModel.of(SNAPSHOT, Quantity.of(1), null));
             order.cancel();
 
             // when
@@ -134,7 +139,7 @@ class OrderModelTest {
         void cancel_whenOrdered_shouldChangeToCancelled() {
             // given
             OrderModel order = OrderModel.create(USER_ID);
-            order.addItem(OrderItemModel.of(SNAPSHOT, 1, null));
+            order.addItem(OrderItemModel.of(SNAPSHOT, Quantity.of(1), null));
 
             // when
             order.cancel();
@@ -147,7 +152,7 @@ class OrderModelTest {
         @Test
         void cancel_whenAlreadyCancelled_shouldThrow() {
             OrderModel order = OrderModel.create(USER_ID);
-            order.addItem(OrderItemModel.of(SNAPSHOT, 1, null));
+            order.addItem(OrderItemModel.of(SNAPSHOT, Quantity.of(1), null));
             order.cancel();
             assertThrows(IllegalStateException.class, order::cancel);
         }
