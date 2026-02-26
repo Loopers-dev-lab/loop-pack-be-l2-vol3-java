@@ -348,21 +348,14 @@ class ProductAdminApiE2ETest {
         }
 
         @Test
-        void 삭제된_상품이면_404_응답() {
+        void 이미_삭제된_상품을_다시_삭제해도_200_응답() {
             Long brandId = registerBrand("나이키", "스포츠 브랜드");
             Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
             deleteProduct(productId);
 
-            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
-                    ENDPOINT + "/" + productId, HttpMethod.DELETE,
-                    new HttpEntity<>(adminHeaders()),
-                    new ParameterizedTypeReference<>() {}
-            );
+            ResponseEntity<ApiResponse<Void>> response = deleteRequest(productId);
 
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
-                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 상품입니다")
-            );
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         }
 
         @Test

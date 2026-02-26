@@ -118,14 +118,15 @@ class ProductServiceIntegrationTest {
         }
 
         @Test
-        void 삭제된_상품이면_예외() {
+        void 이미_삭제된_상품을_다시_삭제해도_정상_처리된다() {
             Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
             productService.delete(product.getId());
 
-            assertThatThrownBy(() -> productService.delete(product.getId()))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
-                    .hasMessageContaining("존재하지 않는 상품입니다");
+            assertThatCode(() -> productService.delete(product.getId()))
+                    .doesNotThrowAnyException();
+
+            Product found = productRepository.findById(product.getId()).orElseThrow();
+            assertThat(found.isDeleted()).isTrue();
         }
     }
 

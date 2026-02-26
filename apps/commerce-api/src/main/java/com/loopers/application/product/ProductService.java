@@ -46,7 +46,6 @@ public class ProductService {
     public void delete(Long productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
-        product.validateNotDeleted();
         product.delete();
     }
 
