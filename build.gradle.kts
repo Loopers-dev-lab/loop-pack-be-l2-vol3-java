@@ -60,10 +60,14 @@ subprojects {
         testRuntimeOnly("org.junit.platform:junit-platform-launcher")
         // testcontainers:mysql 이 jdbc 사용함
         testRuntimeOnly("com.mysql:mysql-connector-j")
+        // H2 for testing
+        testRuntimeOnly("com.h2database:h2")
         testImplementation("org.springframework.boot:spring-boot-starter-test")
         testImplementation("com.ninja-squad:springmockk:${project.properties["springMockkVersion"]}")
         testImplementation("org.mockito:mockito-core:${project.properties["mockitoVersion"]}")
         testImplementation("org.instancio:instancio-junit:${project.properties["instancioJUnitVersion"]}")
+        // ArchUnit
+        testImplementation("com.tngtech.archunit:archunit-junit5:${project.properties["archunitVersion"]}")
         // Testcontainers
         testImplementation("org.springframework.boot:spring-boot-testcontainers")
         testImplementation("org.testcontainers:testcontainers")
@@ -83,6 +87,9 @@ subprojects {
         useJUnitPlatform()
         systemProperty("user.timezone", "Asia/Seoul")
         systemProperty("spring.profiles.active", "test")
+        environment("DOCKER_HOST", "unix://${System.getProperty("user.home")}/.colima/default/docker.sock")
+        environment("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", "/var/run/docker.sock")
+        environment("TESTCONTAINERS_RYUK_DISABLED", "true")
         jvmArgs("-Xshare:off")
     }
 
