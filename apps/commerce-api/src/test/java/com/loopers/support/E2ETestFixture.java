@@ -9,7 +9,6 @@ import com.loopers.interfaces.api.product.ProductAdminV1Dto;
 import com.loopers.interfaces.api.user.UserV1Dto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.stereotype.Component;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -19,7 +18,6 @@ import org.springframework.http.ResponseEntity;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-@Component
 public class E2ETestFixture {
 
     private static final String BRAND_ENDPOINT = "/api-admin/v1/brands";
