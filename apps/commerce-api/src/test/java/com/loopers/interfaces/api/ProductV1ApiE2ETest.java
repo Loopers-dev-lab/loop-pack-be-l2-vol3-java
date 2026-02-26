@@ -250,6 +250,45 @@ class ProductV1ApiE2ETest {
             );
         }
 
+        @DisplayName("sort=LIKES_DESC로 조회하면, 좋아요 많은순으로 반환한다.")
+        @Test
+        void returnsSortedByLikesDesc() {
+            // arrange
+            Brand brand = saveBrand("TEST_BRAND");
+            Product lowLikes = saveProduct(brand.getId(), "좋아요적은상품", 100000, 10);
+            Product middleLikes = saveProduct(brand.getId(), "좋아요중간상품", 120000, 10);
+            Product highLikes = saveProduct(brand.getId(), "좋아요많은상품", 140000, 10);
+
+            lowLikes.increaseLikeCount();
+            middleLikes.increaseLikeCount();
+            middleLikes.increaseLikeCount();
+            highLikes.increaseLikeCount();
+            highLikes.increaseLikeCount();
+            highLikes.increaseLikeCount();
+
+            productJpaRepository.save(lowLikes);
+            productJpaRepository.save(middleLikes);
+            productJpaRepository.save(highLikes);
+
+            // act
+            ResponseEntity<ApiResponse<PageResponse<ProductV1Dto.ProductResponse>>> response =
+                    testRestTemplate.exchange(
+                            ENDPOINT + "?sort=LIKES_DESC",
+                            HttpMethod.GET, null, new ParameterizedTypeReference<>() {}
+                    );
+
+            List<Long> ids = response.getBody().data().content().stream()
+                                     .map(ProductV1Dto.ProductResponse::id)
+                                     .toList();
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(ids.indexOf(highLikes.getId()))
+                            .isLessThan(ids.indexOf(middleLikes.getId()))
+                            .isLessThan(ids.indexOf(lowLikes.getId()))
+            );
+        }
+
         @DisplayName("삭제된 상품은 목록에서 제외된다.")
         @Test
         void excludesDeletedProducts() {

@@ -46,7 +46,7 @@ public class ProductRepositoryImpl implements ProductRepository {
 
         OrderSpecifier<?> orderSpecifier = switch (order) {
             case PRICE_ASC -> product.price.asc();
-            case LIKES_DESC -> product.id.desc(); // Like 도메인 구현 후 집계 쿼리로 교체 예정
+            case LIKES_DESC -> product.likeCount.desc();
             case LATEST -> product.id.desc();
         };
 
