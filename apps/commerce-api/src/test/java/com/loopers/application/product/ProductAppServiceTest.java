@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -45,7 +46,9 @@ class ProductAppServiceTest {
         @DisplayName("유효한 정보로 상품을 생성할 수 있다")
         void create_success() {
             // given
-            Product savedProduct = Product.of(1L, 1L, "테스트 상품", Money.of(10000L), false);
+            Product savedProduct = mock(Product.class);
+            given(savedProduct.getId()).willReturn(1L);
+            given(savedProduct.getName()).willReturn("테스트 상품");
             given(productRepository.save(any(Product.class))).willReturn(savedProduct);
 
             // when
@@ -66,7 +69,8 @@ class ProductAppServiceTest {
         @DisplayName("ID로 상품을 조회할 수 있다")
         void getById_found() {
             // given
-            Product product = Product.of(1L, 1L, "테스트 상품", Money.of(10000L), false);
+            Product product = mock(Product.class);
+            given(product.getId()).willReturn(1L);
             given(productRepository.findById(1L)).willReturn(Optional.of(product));
 
             // when
@@ -97,11 +101,9 @@ class ProductAppServiceTest {
         @DisplayName("정렬 조건으로 상품 목록을 조회할 수 있다")
         void getProducts() {
             // given
-            List<Product> products = List.of(
-                    Product.of(1L, 1L, "상품A", Money.of(10000L), false),
-                    Product.of(2L, 1L, "상품B", Money.of(20000L), false)
-            );
-            given(productRepository.findAll(ProductSortCondition.LATEST)).willReturn(products);
+            Product p1 = mock(Product.class);
+            Product p2 = mock(Product.class);
+            given(productRepository.findAll(ProductSortCondition.LATEST)).willReturn(List.of(p1, p2));
 
             // when
             List<Product> result = productAppService.getProducts(ProductSortCondition.LATEST);
@@ -119,7 +121,8 @@ class ProductAppServiceTest {
         @DisplayName("ID로 옵션을 조회할 수 있다")
         void getOptionById_found() {
             // given
-            Option option = Option.of(1L, 1L, "기본 옵션", Money.of(1000L), 100, false);
+            Option option = mock(Option.class);
+            given(option.getId()).willReturn(1L);
             given(optionRepository.findById(1L)).willReturn(Optional.of(option));
 
             // when
@@ -151,12 +154,13 @@ class ProductAppServiceTest {
         void getOptionsByProductIds() {
             // given
             List<Long> productIds = List.of(1L, 2L);
-            List<Option> options = List.of(
-                    Option.of(1L, 1L, "옵션A", Money.of(0L), 10, false),
-                    Option.of(2L, 1L, "옵션B", Money.of(500L), 20, false),
-                    Option.of(3L, 2L, "옵션C", Money.of(1000L), 5, false)
-            );
-            given(optionRepository.findByProductIdIn(productIds)).willReturn(options);
+            Option o1 = mock(Option.class);
+            given(o1.getProductId()).willReturn(1L);
+            Option o2 = mock(Option.class);
+            given(o2.getProductId()).willReturn(1L);
+            Option o3 = mock(Option.class);
+            given(o3.getProductId()).willReturn(2L);
+            given(optionRepository.findByProductIdIn(productIds)).willReturn(List.of(o1, o2, o3));
 
             // when
             Map<Long, List<Option>> result = productAppService.getOptionsByProductIds(productIds);
@@ -172,11 +176,13 @@ class ProductAppServiceTest {
         void getOptionsByIds() {
             // given
             List<Long> optionIds = List.of(1L, 2L);
-            List<Option> options = List.of(
-                    Option.of(1L, 1L, "옵션A", Money.of(0L), 10, false),
-                    Option.of(2L, 1L, "옵션B", Money.of(500L), 20, false)
-            );
-            given(optionRepository.findByIdIn(optionIds)).willReturn(options);
+            Option o1 = mock(Option.class);
+            given(o1.getId()).willReturn(1L);
+            given(o1.getName()).willReturn("옵션A");
+            Option o2 = mock(Option.class);
+            given(o2.getId()).willReturn(2L);
+            given(o2.getName()).willReturn("옵션B");
+            given(optionRepository.findByIdIn(optionIds)).willReturn(List.of(o1, o2));
 
             // when
             Map<Long, Option> result = productAppService.getOptionsByIds(optionIds);
@@ -192,11 +198,13 @@ class ProductAppServiceTest {
         void getByIds() {
             // given
             List<Long> productIds = List.of(1L, 2L);
-            List<Product> products = List.of(
-                    Product.of(1L, 1L, "상품A", Money.of(10000L), false),
-                    Product.of(2L, 1L, "상품B", Money.of(20000L), false)
-            );
-            given(productRepository.findByIdIn(productIds)).willReturn(products);
+            Product p1 = mock(Product.class);
+            given(p1.getId()).willReturn(1L);
+            given(p1.getName()).willReturn("상품A");
+            Product p2 = mock(Product.class);
+            given(p2.getId()).willReturn(2L);
+            given(p2.getName()).willReturn("상품B");
+            given(productRepository.findByIdIn(productIds)).willReturn(List.of(p1, p2));
 
             // when
             Map<Long, Product> result = productAppService.getByIds(productIds);
@@ -215,7 +223,8 @@ class ProductAppServiceTest {
         @DisplayName("재고를 차감할 수 있다")
         void decreaseStock_success() {
             // given
-            Option option = Option.of(1L, 1L, "기본 옵션", Money.of(0L), 100, false);
+            Option option = mock(Option.class);
+            given(option.getStock()).willReturn(90);
             given(optionRepository.findById(1L)).willReturn(Optional.of(option));
             given(optionRepository.save(any(Option.class))).willReturn(option);
 
@@ -224,6 +233,7 @@ class ProductAppServiceTest {
 
             // then
             assertThat(result.getStock()).isEqualTo(90);
+            verify(option).decreaseStock(10);
             verify(optionRepository).save(option);
         }
 
@@ -231,7 +241,9 @@ class ProductAppServiceTest {
         @DisplayName("재고보다 많은 수량을 차감하면 예외가 발생한다")
         void decreaseStock_insufficientStock() {
             // given
-            Option option = Option.of(1L, 1L, "기본 옵션", Money.of(0L), 5, false);
+            Option option = mock(Option.class);
+            doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "재고가 부족합니다."))
+                    .when(option).decreaseStock(10);
             given(optionRepository.findById(1L)).willReturn(Optional.of(option));
 
             // when & then
@@ -249,7 +261,8 @@ class ProductAppServiceTest {
         @DisplayName("재고를 복원할 수 있다")
         void increaseStock_success() {
             // given
-            Option option = Option.of(1L, 1L, "기본 옵션", Money.of(0L), 90, false);
+            Option option = mock(Option.class);
+            given(option.getStock()).willReturn(100);
             given(optionRepository.findById(1L)).willReturn(Optional.of(option));
             given(optionRepository.save(any(Option.class))).willReturn(option);
 
@@ -258,6 +271,7 @@ class ProductAppServiceTest {
 
             // then
             assertThat(result.getStock()).isEqualTo(100);
+            verify(option).increaseStock(10);
             verify(optionRepository).save(option);
         }
     }
@@ -270,8 +284,11 @@ class ProductAppServiceTest {
         @DisplayName("옵션을 생성할 수 있다")
         void createOption_success() {
             // given
-            Product product = Product.of(1L, 1L, "테스트 상품", Money.of(10000L), false);
-            Option savedOption = Option.of(1L, 1L, "새 옵션", Money.of(500L), 50, false);
+            Product product = mock(Product.class);
+            given(product.getId()).willReturn(1L);
+            Option savedOption = mock(Option.class);
+            given(savedOption.getId()).willReturn(1L);
+            given(savedOption.getName()).willReturn("새 옵션");
 
             given(productRepository.findById(1L)).willReturn(Optional.of(product));
             given(optionRepository.save(any(Option.class))).willReturn(savedOption);

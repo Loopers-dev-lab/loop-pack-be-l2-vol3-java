@@ -45,7 +45,8 @@ class CartFacadeTest {
             Long userId = 1L;
             Long optionId = 100L;
             int quantity = 2;
-            Option option = Option.of(optionId, 10L, "기본 옵션", Money.of(1000L), 50, false);
+            Option option = mock(Option.class);
+            given(option.getId()).willReturn(optionId);
             CartItem savedItem = CartItem.of(1L, userId, optionId, quantity);
 
             given(productAppService.getOptionById(optionId)).willReturn(option);
@@ -96,12 +97,34 @@ class CartFacadeTest {
                     CartItem.of(2L, userId, optionId2, 1)
             );
 
-            Option option1 = Option.of(optionId1, productId1, "옵션A", Money.of(1000L), 50, false);
-            Option option2 = Option.of(optionId2, productId2, "옵션B", Money.of(2000L), 30, false);
+            Option option1 = mock(Option.class);
+            given(option1.getId()).willReturn(optionId1);
+            given(option1.getProductId()).willReturn(productId1);
+            given(option1.getName()).willReturn("옵션A");
+            given(option1.getAdditionalPrice()).willReturn(Money.of(1000L));
+            given(option1.getStock()).willReturn(50);
+            given(option1.isSoldOut()).willReturn(false);
+
+            Option option2 = mock(Option.class);
+            given(option2.getId()).willReturn(optionId2);
+            given(option2.getProductId()).willReturn(productId2);
+            given(option2.getName()).willReturn("옵션B");
+            given(option2.getAdditionalPrice()).willReturn(Money.of(2000L));
+            given(option2.getStock()).willReturn(30);
+            given(option2.isSoldOut()).willReturn(false);
+
             Map<Long, Option> optionMap = Map.of(optionId1, option1, optionId2, option2);
 
-            Product product1 = Product.of(productId1, 1L, "상품A", Money.of(10000L), false);
-            Product product2 = Product.of(productId2, 1L, "상품B", Money.of(20000L), false);
+            Product product1 = mock(Product.class);
+            given(product1.getId()).willReturn(productId1);
+            given(product1.getName()).willReturn("상품A");
+            given(product1.getBasePrice()).willReturn(Money.of(10000L));
+
+            Product product2 = mock(Product.class);
+            given(product2.getId()).willReturn(productId2);
+            given(product2.getName()).willReturn("상품B");
+            given(product2.getBasePrice()).willReturn(Money.of(20000L));
+
             Map<Long, Product> productMap = Map.of(productId1, product1, productId2, product2);
 
             given(cartAppService.getCartItems(userId)).willReturn(cartItems);
@@ -125,8 +148,19 @@ class CartFacadeTest {
             Long productId = 10L;
 
             List<CartItem> cartItems = List.of(CartItem.of(1L, userId, optionId, 5));
-            Option soldOutOption = Option.of(optionId, productId, "품절 옵션", Money.of(0L), 0, false);
-            Product product = Product.of(productId, 1L, "상품", Money.of(10000L), false);
+
+            Option soldOutOption = mock(Option.class);
+            given(soldOutOption.getId()).willReturn(optionId);
+            given(soldOutOption.getProductId()).willReturn(productId);
+            given(soldOutOption.getName()).willReturn("품절 옵션");
+            given(soldOutOption.getAdditionalPrice()).willReturn(Money.of(0L));
+            given(soldOutOption.getStock()).willReturn(0);
+            given(soldOutOption.isSoldOut()).willReturn(true);
+
+            Product product = mock(Product.class);
+            given(product.getId()).willReturn(productId);
+            given(product.getName()).willReturn("상품");
+            given(product.getBasePrice()).willReturn(Money.of(10000L));
 
             given(cartAppService.getCartItems(userId)).willReturn(cartItems);
             given(productAppService.getOptionsByIds(List.of(optionId))).willReturn(Map.of(optionId, soldOutOption));

@@ -51,11 +51,24 @@ class ProductFacadeTest {
             Long brandId = 10L;
             Long userId = 100L;
 
-            Product product = Product.of(productId, brandId, "테스트 상품", Money.of(10000L), false);
-            Brand brand = Brand.of(brandId, "테스트 브랜드", false);
-            List<Option> options = List.of(
-                    Option.of(1L, productId, "기본", Money.of(0L), 50, false)
-            );
+            Product product = mock(Product.class);
+            given(product.getId()).willReturn(productId);
+            given(product.getBrandId()).willReturn(brandId);
+            given(product.getName()).willReturn("테스트 상품");
+            given(product.getBasePrice()).willReturn(Money.of(10000L));
+            given(product.isDeleted()).willReturn(false);
+
+            Brand brand = mock(Brand.class);
+            given(brand.getId()).willReturn(brandId);
+            given(brand.getName()).willReturn("테스트 브랜드");
+
+            Option option = mock(Option.class);
+            given(option.getId()).willReturn(1L);
+            given(option.getName()).willReturn("기본");
+            given(option.getAdditionalPrice()).willReturn(Money.of(0L));
+            given(option.getStock()).willReturn(50);
+            given(option.isSoldOut()).willReturn(false);
+            List<Option> options = List.of(option);
 
             given(productAppService.getById(productId)).willReturn(product);
             given(brandAppService.getById(brandId)).willReturn(brand);
@@ -81,8 +94,16 @@ class ProductFacadeTest {
             Long productId = 1L;
             Long brandId = 10L;
 
-            Product product = Product.of(productId, brandId, "테스트 상품", Money.of(10000L), false);
-            Brand brand = Brand.of(brandId, "테스트 브랜드", false);
+            Product product = mock(Product.class);
+            given(product.getId()).willReturn(productId);
+            given(product.getBrandId()).willReturn(brandId);
+            given(product.getName()).willReturn("테스트 상품");
+            given(product.getBasePrice()).willReturn(Money.of(10000L));
+            given(product.isDeleted()).willReturn(false);
+
+            Brand brand = mock(Brand.class);
+            given(brand.getId()).willReturn(brandId);
+            given(brand.getName()).willReturn("테스트 브랜드");
 
             given(productAppService.getById(productId)).willReturn(product);
             given(brandAppService.getById(brandId)).willReturn(brand);
@@ -126,21 +147,47 @@ class ProductFacadeTest {
             Long brandId = 10L;
             Long userId = 100L;
 
-            List<Product> products = List.of(
-                    Product.of(productId1, brandId, "상품A", Money.of(10000L), false),
-                    Product.of(productId2, brandId, "상품B", Money.of(20000L), false)
-            );
+            Product p1 = mock(Product.class);
+            given(p1.getId()).willReturn(productId1);
+            given(p1.getBrandId()).willReturn(brandId);
+            given(p1.getName()).willReturn("상품A");
+            given(p1.getBasePrice()).willReturn(Money.of(10000L));
+            given(p1.isDeleted()).willReturn(false);
 
-            Brand brand = Brand.of(brandId, "테스트 브랜드", false);
+            Product p2 = mock(Product.class);
+            given(p2.getId()).willReturn(productId2);
+            given(p2.getBrandId()).willReturn(brandId);
+            given(p2.getName()).willReturn("상품B");
+            given(p2.getBasePrice()).willReturn(Money.of(20000L));
+            given(p2.isDeleted()).willReturn(false);
+
+            Brand brand = mock(Brand.class);
+            given(brand.getId()).willReturn(brandId);
+            given(brand.getName()).willReturn("테스트 브랜드");
             Map<Long, Brand> brandMap = Map.of(brandId, brand);
+
+            Option opt1 = mock(Option.class);
+            given(opt1.getId()).willReturn(1L);
+            given(opt1.getName()).willReturn("옵션1");
+            given(opt1.getAdditionalPrice()).willReturn(Money.of(0L));
+            given(opt1.getStock()).willReturn(10);
+            given(opt1.isSoldOut()).willReturn(false);
+
+            Option opt2 = mock(Option.class);
+            given(opt2.getId()).willReturn(2L);
+            given(opt2.getName()).willReturn("옵션2");
+            given(opt2.getAdditionalPrice()).willReturn(Money.of(500L));
+            given(opt2.getStock()).willReturn(20);
+            given(opt2.isSoldOut()).willReturn(false);
+
             Map<Long, List<Option>> optionMap = Map.of(
-                    productId1, List.of(Option.of(1L, productId1, "옵션1", Money.of(0L), 10, false)),
-                    productId2, List.of(Option.of(2L, productId2, "옵션2", Money.of(500L), 20, false))
+                    productId1, List.of(opt1),
+                    productId2, List.of(opt2)
             );
             Map<Long, Long> likeCountMap = Map.of(productId1, 5L, productId2, 10L);
             Set<Long> likedProductIds = Set.of(productId1);
 
-            given(productAppService.getProducts(ProductSortCondition.LATEST)).willReturn(products);
+            given(productAppService.getProducts(ProductSortCondition.LATEST)).willReturn(List.of(p1, p2));
             given(brandAppService.getByIds(List.of(brandId))).willReturn(brandMap);
             given(productAppService.getOptionsByProductIds(List.of(productId1, productId2))).willReturn(optionMap);
             given(likeAppService.countByProductIds(List.of(productId1, productId2))).willReturn(likeCountMap);
@@ -164,12 +211,18 @@ class ProductFacadeTest {
             Long productId = 1L;
             Long brandId = 10L;
 
-            List<Product> products = List.of(
-                    Product.of(productId, brandId, "상품", Money.of(10000L), false)
-            );
-            Brand brand = Brand.of(brandId, "브랜드", false);
+            Product product = mock(Product.class);
+            given(product.getId()).willReturn(productId);
+            given(product.getBrandId()).willReturn(brandId);
+            given(product.getName()).willReturn("상품");
+            given(product.getBasePrice()).willReturn(Money.of(10000L));
+            given(product.isDeleted()).willReturn(false);
 
-            given(productAppService.getProducts(ProductSortCondition.LATEST)).willReturn(products);
+            Brand brand = mock(Brand.class);
+            given(brand.getId()).willReturn(brandId);
+            given(brand.getName()).willReturn("브랜드");
+
+            given(productAppService.getProducts(ProductSortCondition.LATEST)).willReturn(List.of(product));
             given(brandAppService.getByIds(List.of(brandId))).willReturn(Map.of(brandId, brand));
             given(productAppService.getOptionsByProductIds(List.of(productId))).willReturn(Map.of());
             given(likeAppService.countByProductIds(List.of(productId))).willReturn(Map.of());

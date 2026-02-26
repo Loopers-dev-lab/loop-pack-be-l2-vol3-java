@@ -80,12 +80,15 @@ class OrderItemTest {
     class EqualityTest {
 
         @Test
-        @DisplayName("같은 정보를 가진 주문 항목은 동등하다")
+        @DisplayName("같은 정보를 가진 주문 항목은 같은 필드 값을 가진다")
         void sameOrderItemsAreEqual() {
             OrderItem item1 = OrderItem.of(1L, "테스트 상품", "기본 옵션", Money.of(10000L), 2);
             OrderItem item2 = OrderItem.of(1L, "테스트 상품", "기본 옵션", Money.of(10000L), 2);
 
-            assertThat(item1).isEqualTo(item2);
+            assertThat(item1.getOptionId()).isEqualTo(item2.getOptionId());
+            assertThat(item1.getProductName()).isEqualTo(item2.getProductName());
+            assertThat(item1.getOptionName()).isEqualTo(item2.getOptionName());
+            assertThat(item1.getQuantity()).isEqualTo(item2.getQuantity());
         }
     }
 }

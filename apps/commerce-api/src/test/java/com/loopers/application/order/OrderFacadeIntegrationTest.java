@@ -2,13 +2,11 @@ package com.loopers.application.order;
 
 import com.loopers.application.product.ProductAppService;
 import com.loopers.domain.brand.Brand;
+import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.common.Money;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.product.Option;
-import com.loopers.domain.product.Product;
-import com.loopers.infrastructure.brand.BrandJpaEntity;
-import com.loopers.infrastructure.brand.BrandJpaRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
@@ -36,7 +34,7 @@ class OrderFacadeIntegrationTest {
     private ProductAppService productAppService;
 
     @Autowired
-    private BrandJpaRepository brandJpaRepository;
+    private BrandRepository brandRepository;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -47,14 +45,14 @@ class OrderFacadeIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        Brand brand = Brand.create("테스트 브랜드");
-        BrandJpaEntity brandEntity = brandJpaRepository.save(BrandJpaEntity.from(brand));
-        brandId = brandEntity.getId();
+        Brand brand = brandRepository.save(Brand.create("테스트 브랜드"));
+        brandId = brand.getId();
 
-        Product product = productAppService.create(brandId, "테스트 상품", Money.of(10000L));
-        productId = product.getId();
-
-        Option option = productAppService.createOption(productId, "기본 옵션", Money.of(1000L), 100);
+        Option option = productAppService.createOption(
+                productAppService.create(brandId, "테스트 상품", Money.of(10000L)).getId(),
+                "기본 옵션", Money.of(1000L), 100
+        );
+        productId = option.getProductId();
         optionId = option.getId();
     }
 

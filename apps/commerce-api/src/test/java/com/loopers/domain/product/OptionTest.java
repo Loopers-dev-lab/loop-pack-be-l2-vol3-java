@@ -21,7 +21,7 @@ class OptionTest {
         void createOption() {
             Option option = Option.create(1L, "기본 옵션", Money.of(0L), 100);
 
-            assertThat(option.getId()).isNull();
+            assertThat(option.getId()).isEqualTo(0L);
             assertThat(option.getProductId()).isEqualTo(1L);
             assertThat(option.getName()).isEqualTo("기본 옵션");
             assertThat(option.getAdditionalPrice().getAmount()).isEqualByComparingTo("0");

@@ -7,7 +7,6 @@ import com.loopers.domain.product.Option;
 import com.loopers.domain.product.OptionRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
-import com.loopers.infrastructure.product.ProductJpaEntity;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.utils.DatabaseCleanUp;
@@ -183,7 +182,7 @@ class AdminProductApiE2ETest {
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            ProductJpaEntity deletedEntity = productJpaRepository.findById(product.getId()).orElseThrow();
+            Product deletedEntity = productJpaRepository.findById(product.getId()).orElseThrow();
             assertThat(deletedEntity.isDeleted()).isTrue();
         }
     }

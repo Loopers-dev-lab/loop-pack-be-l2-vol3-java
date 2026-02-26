@@ -21,7 +21,7 @@ class ProductTest {
         void createProduct() {
             Product product = Product.create(1L, "테스트 상품", Money.of(10000L));
 
-            assertThat(product.getId()).isNull();
+            assertThat(product.getId()).isEqualTo(0L);
             assertThat(product.getBrandId()).isEqualTo(1L);
             assertThat(product.getName()).isEqualTo("테스트 상품");
             assertThat(product.getBasePrice().getAmount()).isEqualByComparingTo("10000");

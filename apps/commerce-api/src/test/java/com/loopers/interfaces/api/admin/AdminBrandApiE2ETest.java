@@ -7,14 +7,11 @@ import com.loopers.domain.product.Option;
 import com.loopers.domain.product.OptionRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
-import com.loopers.infrastructure.brand.BrandJpaEntity;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
-import com.loopers.infrastructure.product.ProductJpaEntity;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -153,10 +150,10 @@ class AdminBrandApiE2ETest {
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
-            BrandJpaEntity deletedBrand = brandJpaRepository.findById(brand.getId()).orElseThrow();
+            Brand deletedBrand = brandJpaRepository.findById(brand.getId()).orElseThrow();
             assertThat(deletedBrand.isDeleted()).isTrue();
 
-            ProductJpaEntity deletedProduct = productJpaRepository.findById(product.getId()).orElseThrow();
+            Product deletedProduct = productJpaRepository.findById(product.getId()).orElseThrow();
             assertThat(deletedProduct.isDeleted()).isTrue();
         }
     }

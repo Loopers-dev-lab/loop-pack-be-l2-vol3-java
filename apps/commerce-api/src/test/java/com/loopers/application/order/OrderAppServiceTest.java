@@ -38,7 +38,12 @@ class OrderAppServiceTest {
     }
 
     private Order createPendingOrder() {
-        return Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.PENDING);
+        Order order = mock(Order.class);
+        given(order.getId()).willReturn(1L);
+        given(order.getUserId()).willReturn(1L);
+        given(order.getStatus()).willReturn(OrderStatus.PENDING);
+        given(order.getOrderItems()).willReturn(List.of(createTestOrderItem()));
+        return order;
     }
 
     @Nested
@@ -51,7 +56,10 @@ class OrderAppServiceTest {
             // given
             Long userId = 1L;
             List<OrderItem> items = List.of(createTestOrderItem());
-            Order savedOrder = Order.of(1L, userId, items, OrderStatus.PENDING);
+            Order savedOrder = mock(Order.class);
+            given(savedOrder.getId()).willReturn(1L);
+            given(savedOrder.getUserId()).willReturn(userId);
+            given(savedOrder.getStatus()).willReturn(OrderStatus.PENDING);
 
             given(orderRepository.save(any(Order.class))).willReturn(savedOrder);
 
@@ -107,6 +115,7 @@ class OrderAppServiceTest {
             // given
             Order order = createPendingOrder();
             given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(order.getStatus()).willReturn(OrderStatus.PAID);
             given(orderRepository.save(any(Order.class))).willReturn(order);
 
             // when
@@ -121,8 +130,11 @@ class OrderAppServiceTest {
         @DisplayName("PENDING이 아닌 상태에서 결제하면 예외가 발생한다")
         void pay_invalidState() {
             // given
-            Order order = Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.PAID);
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(1L);
             given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "결제 대기 상태에서만 결제할 수 있습니다."))
+                    .when(order).pay();
 
             // when & then
             assertThatThrownBy(() -> orderAppService.pay(1L))
@@ -139,7 +151,9 @@ class OrderAppServiceTest {
         @DisplayName("PAID 상태에서 준비할 수 있다")
         void prepare_success() {
             // given
-            Order order = Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.PAID);
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(1L);
+            given(order.getStatus()).willReturn(OrderStatus.PREPARING);
             given(orderRepository.findById(1L)).willReturn(Optional.of(order));
             given(orderRepository.save(any(Order.class))).willReturn(order);
 
@@ -154,8 +168,11 @@ class OrderAppServiceTest {
         @DisplayName("PAID가 아닌 상태에서 준비하면 예외가 발생한다")
         void prepare_invalidState() {
             // given
-            Order order = createPendingOrder();
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(1L);
             given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "결제 완료 상태에서만 준비할 수 있습니다."))
+                    .when(order).prepare();
 
             // when & then
             assertThatThrownBy(() -> orderAppService.prepare(1L))
@@ -172,7 +189,9 @@ class OrderAppServiceTest {
         @DisplayName("PREPARING 상태에서 배송을 시작할 수 있다")
         void ship_success() {
             // given
-            Order order = Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.PREPARING);
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(1L);
+            given(order.getStatus()).willReturn(OrderStatus.SHIPPED);
             given(orderRepository.findById(1L)).willReturn(Optional.of(order));
             given(orderRepository.save(any(Order.class))).willReturn(order);
 
@@ -187,8 +206,11 @@ class OrderAppServiceTest {
         @DisplayName("PREPARING이 아닌 상태에서 배송하면 예외가 발생한다")
         void ship_invalidState() {
             // given
-            Order order = createPendingOrder();
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(1L);
             given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "준비 완료 상태에서만 배송을 시작할 수 있습니다."))
+                    .when(order).ship();
 
             // when & then
             assertThatThrownBy(() -> orderAppService.ship(1L))
@@ -205,7 +227,9 @@ class OrderAppServiceTest {
         @DisplayName("SHIPPED 상태에서 배송 완료할 수 있다")
         void deliver_success() {
             // given
-            Order order = Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.SHIPPED);
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(1L);
+            given(order.getStatus()).willReturn(OrderStatus.DELIVERED);
             given(orderRepository.findById(1L)).willReturn(Optional.of(order));
             given(orderRepository.save(any(Order.class))).willReturn(order);
 
@@ -220,8 +244,11 @@ class OrderAppServiceTest {
         @DisplayName("SHIPPED가 아닌 상태에서 배송 완료하면 예외가 발생한다")
         void deliver_invalidState() {
             // given
-            Order order = createPendingOrder();
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(1L);
             given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "배송 중 상태에서만 배송 완료 처리할 수 있습니다."))
+                    .when(order).deliver();
 
             // when & then
             assertThatThrownBy(() -> orderAppService.deliver(1L))
@@ -240,6 +267,7 @@ class OrderAppServiceTest {
             // given
             Order order = createPendingOrder();
             given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(order.getStatus()).willReturn(OrderStatus.CANCELED);
             given(orderRepository.save(any(Order.class))).willReturn(order);
 
             // when
@@ -253,7 +281,9 @@ class OrderAppServiceTest {
         @DisplayName("PAID 상태에서 취소할 수 있다")
         void cancel_fromPaid() {
             // given
-            Order order = Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.PAID);
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(1L);
+            given(order.getStatus()).willReturn(OrderStatus.CANCELED);
             given(orderRepository.findById(1L)).willReturn(Optional.of(order));
             given(orderRepository.save(any(Order.class))).willReturn(order);
 
@@ -268,8 +298,11 @@ class OrderAppServiceTest {
         @DisplayName("PREPARING 상태에서는 취소할 수 없다")
         void cancel_fromPreparing_fails() {
             // given
-            Order order = Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.PREPARING);
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(1L);
             given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다."))
+                    .when(order).cancel();
 
             // when & then
             assertThatThrownBy(() -> orderAppService.cancel(1L))
@@ -281,8 +314,11 @@ class OrderAppServiceTest {
         @DisplayName("SHIPPED 상태에서는 취소할 수 없다")
         void cancel_fromShipped_fails() {
             // given
-            Order order = Order.of(1L, 1L, List.of(createTestOrderItem()), OrderStatus.SHIPPED);
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(1L);
             given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다."))
+                    .when(order).cancel();
 
             // when & then
             assertThatThrownBy(() -> orderAppService.cancel(1L))
@@ -300,8 +336,8 @@ class OrderAppServiceTest {
         void getByUserId() {
             // given
             Long userId = 1L;
-            List<Order> orders = List.of(createPendingOrder());
-            given(orderRepository.findByUserId(userId)).willReturn(orders);
+            Order order = createPendingOrder();
+            given(orderRepository.findByUserId(userId)).willReturn(List.of(order));
 
             // when
             List<Order> result = orderAppService.getByUserId(userId);

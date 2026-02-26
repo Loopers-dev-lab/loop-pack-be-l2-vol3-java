@@ -20,18 +20,7 @@ class BrandTest {
         void createBrand() {
             Brand brand = Brand.create("나이키");
 
-            assertThat(brand.getId()).isNull();
             assertThat(brand.getName()).isEqualTo("나이키");
-            assertThat(brand.isDeleted()).isFalse();
-        }
-
-        @Test
-        @DisplayName("ID를 포함하여 브랜드 객체를 복원할 수 있다")
-        void createBrandWithId() {
-            Brand brand = Brand.of(1L, "아디다스", false);
-
-            assertThat(brand.getId()).isEqualTo(1L);
-            assertThat(brand.getName()).isEqualTo("아디다스");
             assertThat(brand.isDeleted()).isFalse();
         }
 

@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -45,11 +46,22 @@ class OrderFacadeTest {
     }
 
     private Option createOption(Long optionId, Long productId, int stock) {
-        return Option.of(optionId, productId, "기본 옵션", Money.of(1000L), stock, false);
+        Option option = mock(Option.class);
+        given(option.getId()).willReturn(optionId);
+        given(option.getProductId()).willReturn(productId);
+        given(option.getName()).willReturn("기본 옵션");
+        given(option.getAdditionalPrice()).willReturn(Money.of(1000L));
+        given(option.getStock()).willReturn(stock);
+        return option;
     }
 
     private Product createProduct(Long productId, Long brandId) {
-        return Product.of(productId, brandId, "테스트 상품", Money.of(10000L), false);
+        Product product = mock(Product.class);
+        given(product.getId()).willReturn(productId);
+        given(product.getBrandId()).willReturn(brandId);
+        given(product.getName()).willReturn("테스트 상품");
+        given(product.getBasePrice()).willReturn(Money.of(10000L));
+        return product;
     }
 
     @Nested
@@ -67,9 +79,9 @@ class OrderFacadeTest {
 
             Option option = createOption(optionId, productId, 98);
             Product product = createProduct(productId, 1L);
-            Order savedOrder = Order.of(1L, userId,
-                    List.of(OrderItem.of(optionId, "테스트 상품", "기본 옵션", Money.of(11000L), quantity)),
-                    OrderStatus.PENDING);
+            Order savedOrder = mock(Order.class);
+            given(savedOrder.getId()).willReturn(1L);
+            given(savedOrder.getStatus()).willReturn(OrderStatus.PENDING);
 
             OrderCreateCommand command = new OrderCreateCommand(userId,
                     List.of(new OrderCreateCommand.OrderItemCommand(optionId, quantity)));
@@ -106,9 +118,8 @@ class OrderFacadeTest {
             CartItem cartItem = CartItem.of(cartItemId, userId, optionId, quantity);
             Option option = createOption(optionId, productId, 97);
             Product product = createProduct(productId, 1L);
-            Order savedOrder = Order.of(1L, userId,
-                    List.of(OrderItem.of(optionId, "테스트 상품", "기본 옵션", Money.of(11000L), quantity)),
-                    OrderStatus.PENDING);
+            Order savedOrder = mock(Order.class);
+            given(savedOrder.getId()).willReturn(1L);
 
             given(cartAppService.getByIds(List.of(cartItemId))).willReturn(List.of(cartItem));
             given(productAppService.decreaseStock(optionId, quantity)).willReturn(option);
@@ -137,7 +148,7 @@ class OrderFacadeTest {
             // when & then
             assertThatThrownBy(() -> orderFacade.createOrderFromCart(userId, List.of(1L)))
                     .isInstanceOf(CoreException.class)
-                    .hasMessageContaining("본인의 장바구니 항목만 주문할 수 있습니다.");
+                    .hasMessageContaining("본인의 장바구니 항목");
 
             verify(productAppService, never()).decreaseStock(anyLong(), anyInt());
         }
@@ -156,12 +167,15 @@ class OrderFacadeTest {
             Long optionId = 100L;
             int quantity = 5;
 
-            Order order = Order.of(orderId, userId,
-                    List.of(OrderItem.of(optionId, "테스트 상품", "기본 옵션", Money.of(11000L), quantity)),
-                    OrderStatus.PENDING);
-            Order canceledOrder = Order.of(orderId, userId,
-                    List.of(OrderItem.of(optionId, "테스트 상품", "기본 옵션", Money.of(11000L), quantity)),
-                    OrderStatus.CANCELED);
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(orderId);
+            given(order.getUserId()).willReturn(userId);
+            given(order.getOrderItems()).willReturn(
+                    List.of(OrderItem.of(optionId, "테스트 상품", "기본 옵션", Money.of(11000L), quantity))
+            );
+
+            Order canceledOrder = mock(Order.class);
+            given(canceledOrder.getStatus()).willReturn(OrderStatus.CANCELED);
 
             given(orderAppService.getById(orderId)).willReturn(order);
             given(orderAppService.cancel(orderId)).willReturn(canceledOrder);
@@ -181,9 +195,10 @@ class OrderFacadeTest {
             // given
             Long userId = 1L;
             Long orderId = 1L;
-            Order order = Order.of(orderId, 999L,
-                    List.of(OrderItem.of(100L, "상품", "옵션", Money.of(10000L), 1)),
-                    OrderStatus.PENDING);
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(orderId);
+            doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "본인의 주문만 조회/취소할 수 있습니다."))
+                    .when(order).validateOwner(userId);
 
             given(orderAppService.getById(orderId)).willReturn(order);
 
@@ -207,9 +222,9 @@ class OrderFacadeTest {
             // given
             Long userId = 1L;
             Long orderId = 1L;
-            Order order = Order.of(orderId, userId,
-                    List.of(OrderItem.of(100L, "상품", "옵션", Money.of(10000L), 1)),
-                    OrderStatus.PENDING);
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(orderId);
+            given(order.getUserId()).willReturn(userId);
 
             given(orderAppService.getById(orderId)).willReturn(order);
 
@@ -224,9 +239,10 @@ class OrderFacadeTest {
         @DisplayName("타인의 주문을 조회하면 예외가 발생한다")
         void getOrder_notOwner() {
             // given
-            Order order = Order.of(1L, 999L,
-                    List.of(OrderItem.of(100L, "상품", "옵션", Money.of(10000L), 1)),
-                    OrderStatus.PENDING);
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(1L);
+            doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "본인의 주문만 조회/취소할 수 있습니다."))
+                    .when(order).validateOwner(1L);
             given(orderAppService.getById(1L)).willReturn(order);
 
             // when & then
@@ -244,9 +260,8 @@ class OrderFacadeTest {
         @DisplayName("주문 결제 처리를 위임한다")
         void payOrder() {
             // given
-            Order paidOrder = Order.of(1L, 1L,
-                    List.of(OrderItem.of(100L, "상품", "옵션", Money.of(10000L), 1)),
-                    OrderStatus.PAID);
+            Order paidOrder = mock(Order.class);
+            given(paidOrder.getStatus()).willReturn(OrderStatus.PAID);
             given(orderAppService.pay(1L)).willReturn(paidOrder);
 
             // when
@@ -261,9 +276,8 @@ class OrderFacadeTest {
         @DisplayName("주문 준비 처리를 위임한다")
         void prepareOrder() {
             // given
-            Order preparingOrder = Order.of(1L, 1L,
-                    List.of(OrderItem.of(100L, "상품", "옵션", Money.of(10000L), 1)),
-                    OrderStatus.PREPARING);
+            Order preparingOrder = mock(Order.class);
+            given(preparingOrder.getStatus()).willReturn(OrderStatus.PREPARING);
             given(orderAppService.prepare(1L)).willReturn(preparingOrder);
 
             // when
@@ -277,9 +291,8 @@ class OrderFacadeTest {
         @DisplayName("주문 배송 처리를 위임한다")
         void shipOrder() {
             // given
-            Order shippedOrder = Order.of(1L, 1L,
-                    List.of(OrderItem.of(100L, "상품", "옵션", Money.of(10000L), 1)),
-                    OrderStatus.SHIPPED);
+            Order shippedOrder = mock(Order.class);
+            given(shippedOrder.getStatus()).willReturn(OrderStatus.SHIPPED);
             given(orderAppService.ship(1L)).willReturn(shippedOrder);
 
             // when
@@ -293,9 +306,8 @@ class OrderFacadeTest {
         @DisplayName("주문 배송 완료 처리를 위임한다")
         void deliverOrder() {
             // given
-            Order deliveredOrder = Order.of(1L, 1L,
-                    List.of(OrderItem.of(100L, "상품", "옵션", Money.of(10000L), 1)),
-                    OrderStatus.DELIVERED);
+            Order deliveredOrder = mock(Order.class);
+            given(deliveredOrder.getStatus()).willReturn(OrderStatus.DELIVERED);
             given(orderAppService.deliver(1L)).willReturn(deliveredOrder);
 
             // when

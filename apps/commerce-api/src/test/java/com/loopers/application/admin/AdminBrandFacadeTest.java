@@ -38,7 +38,8 @@ class AdminBrandFacadeTest {
         @DisplayName("브랜드를 생성하면 AdminBrandAppService에 위임한다")
         void create() {
             // given
-            Brand brand = Brand.of(1L, "테스트 브랜드", false);
+            Brand brand = mock(Brand.class);
+            given(brand.getName()).willReturn("테스트 브랜드");
             given(adminBrandAppService.create("테스트 브랜드")).willReturn(brand);
 
             // when
@@ -57,7 +58,8 @@ class AdminBrandFacadeTest {
         @DisplayName("브랜드를 수정하면 AdminBrandAppService에 위임한다")
         void update() {
             // given
-            Brand updatedBrand = Brand.of(1L, "수정된 브랜드", false);
+            Brand updatedBrand = mock(Brand.class);
+            given(updatedBrand.getName()).willReturn("수정된 브랜드");
             given(adminBrandAppService.update(1L, "수정된 브랜드")).willReturn(updatedBrand);
 
             // when
@@ -92,7 +94,8 @@ class AdminBrandFacadeTest {
         @DisplayName("ID로 브랜드를 조회한다")
         void getById() {
             // given
-            Brand brand = Brand.of(1L, "테스트 브랜드", false);
+            Brand brand = mock(Brand.class);
+            given(brand.getId()).willReturn(1L);
             given(adminBrandAppService.getById(1L)).willReturn(brand);
 
             // when
@@ -106,11 +109,9 @@ class AdminBrandFacadeTest {
         @DisplayName("전체 브랜드를 조회한다")
         void getAll() {
             // given
-            List<Brand> brands = List.of(
-                    Brand.of(1L, "브랜드A", false),
-                    Brand.of(2L, "브랜드B", false)
-            );
-            given(adminBrandAppService.getAll()).willReturn(brands);
+            Brand brandA = mock(Brand.class);
+            Brand brandB = mock(Brand.class);
+            given(adminBrandAppService.getAll()).willReturn(List.of(brandA, brandB));
 
             // when
             List<Brand> result = adminBrandFacade.getAll();
