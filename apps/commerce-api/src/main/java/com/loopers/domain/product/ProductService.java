@@ -11,6 +11,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
 @Service
 public class ProductService {
 
@@ -42,6 +46,16 @@ public class ProductService {
     @Transactional(readOnly = true)
     public Optional<ProductModel> findByIdAndNotDeleted(Long id) {
         return productRepository.findByIdAndNotDeleted(id);
+    }
+
+    /**
+     * 미삭제 상품 목록을 정렬·페이징하여 조회한다.
+     * 좋아요 수는 채우지 않으며, Application 레이어에서 조합한다.
+     */
+    @Transactional(readOnly = true)
+    public Page<ProductModel> findNotDeletedForList(ProductSortOrder sortOrder, Long brandId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return productRepository.findNotDeleted(sortOrder, brandId, pageable);
     }
 
     @Transactional

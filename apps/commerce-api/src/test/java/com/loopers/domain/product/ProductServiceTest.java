@@ -8,6 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -16,9 +17,14 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -128,6 +134,40 @@ class ProductServiceTest {
         void findByIdAndNotDeleted_withNonExistent_shouldReturnEmpty() {
             when(productRepository.findByIdAndNotDeleted(999L)).thenReturn(Optional.empty());
             assertThat(productService.findByIdAndNotDeleted(999L)).isEmpty();
+        }
+    }
+
+    @DisplayName("findNotDeletedForList 시")
+    @Nested
+    class FindNotDeletedForList {
+
+        @Test
+        void findNotDeletedForList_shouldCallRepositoryAndReturnPage() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, STOCK);
+            Pageable pageable = PageRequest.of(0, 20);
+            when(productRepository.findNotDeleted(ProductSortOrder.LATEST, null, pageable))
+                .thenReturn(new PageImpl<>(List.of(product), pageable, 1));
+
+            var result = productService.findNotDeletedForList(ProductSortOrder.LATEST, null, 0, 20);
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getTotalElements()).isEqualTo(1);
+            verify(productRepository).findNotDeleted(ProductSortOrder.LATEST, null, pageable);
+        }
+
+        @Test
+        void findNotDeletedForList_withBrandId_shouldPassBrandIdToRepository() {
+            when(productRepository.findNotDeleted(ProductSortOrder.PRICE_ASC, BRAND_ID, PageRequest.of(1, 10)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 10), 0));
+
+            var result = productService.findNotDeletedForList(ProductSortOrder.PRICE_ASC, BRAND_ID, 1, 10);
+
+            assertThat(result.getContent()).isEmpty();
+            ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+            verify(productRepository).findNotDeleted(eq(ProductSortOrder.PRICE_ASC), eq(BRAND_ID), pageableCaptor.capture());
+            Pageable captured = pageableCaptor.getValue();
+            assertThat(captured.getPageNumber()).isEqualTo(1);
+            assertThat(captured.getPageSize()).isEqualTo(10);
         }
     }
 
