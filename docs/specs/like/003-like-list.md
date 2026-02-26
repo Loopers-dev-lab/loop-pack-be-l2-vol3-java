@@ -24,11 +24,8 @@ User
 | content[].brandName | String | 소속 브랜드명 |
 | content[].name | String | 상품명 |
 | content[].price | BigDecimal | 가격 |
-| content[].stockQuantity | Integer | 재고 수량 |
-| content[].description | String | 상품 설명 |
 | content[].likeCount | Integer | 좋아요 수 |
 | content[].createdAt | LocalDateTime | 등록일시 |
-| content[].updatedAt | LocalDateTime | 수정일시 |
 | page | Integer | 현재 페이지 번호 |
 | size | Integer | 페이지 크기 |
 | totalElements | Long | 전체 데이터 수 |
