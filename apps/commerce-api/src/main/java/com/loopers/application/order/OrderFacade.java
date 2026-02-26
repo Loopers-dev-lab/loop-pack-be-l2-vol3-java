@@ -61,8 +61,47 @@ public class OrderFacade {
      * 5. Order(PENDING) + OrderItem 스냅샷 생성
      */
     @Transactional
-    public Order createOrder(Long userId, String userName, String ordererPhone,
-                             List<OrderItemCommand> itemCommands, Long addressId) {
+    public OrderCreateResult createOrder(Long userId, String userName, String ordererPhone,
+                                          List<OrderItemCommand> itemCommands, Long addressId) {
+        Order order = doCreateOrder(userId, userName, ordererPhone, itemCommands, addressId);
+        return new OrderCreateResult(
+                order.getId(), order.getOrderNumber(), order.getStatus().name(), order.getExpiresAt());
+    }
+
+    /**
+     * 장바구니 기반 주문 생성
+     *
+     * 1. 장바구니 아이템 조회 + 소유권 검증
+     * 2. CartItem → OrderItemCommand 변환
+     * 3. 기존 주문 생성 로직 재사용 (상품 검증 → 재고 예약 → Order 생성)
+     * 4. 주문 성공 시 장바구니 아이템 소프트 삭제
+     */
+    @Transactional
+    public OrderCreateResult createOrderFromCart(Long userId, String userName, String ordererPhone,
+                                                  List<Long> cartItemIds, Long addressId) {
+        if (cartItemIds == null || cartItemIds.isEmpty()) {
+            throw new CoreException(OrderErrorType.EMPTY_ORDER_ITEMS);
+        }
+
+        List<CartItem> cartItems = cartItemService.getCartItemsByIds(cartItemIds, userId);
+
+        List<OrderItemCommand> itemCommands = cartItems.stream()
+                .map(item -> new OrderItemCommand(item.getProductId(), item.getQuantity()))
+                .toList();
+
+        Order order = doCreateOrder(userId, userName, ordererPhone, itemCommands, addressId);
+
+        cartItemService.deleteAll(cartItemIds, userId);
+
+        return new OrderCreateResult(
+                order.getId(), order.getOrderNumber(), order.getStatus().name(), order.getExpiresAt());
+    }
+
+    /**
+     * 주문 생성 내부 로직 (공통)
+     */
+    private Order doCreateOrder(Long userId, String userName, String ordererPhone,
+                                List<OrderItemCommand> itemCommands, Long addressId) {
         if (itemCommands == null || itemCommands.isEmpty()) {
             throw new CoreException(OrderErrorType.EMPTY_ORDER_ITEMS);
         }
@@ -98,34 +137,6 @@ public class OrderFacade {
                 address.getReceiverName(), address.getPhone(),
                 address.getZipCode(), address.getAddressLine1(), address.getAddressLine2()
         );
-    }
-
-    /**
-     * 장바구니 기반 주문 생성
-     *
-     * 1. 장바구니 아이템 조회 + 소유권 검증
-     * 2. CartItem → OrderItemCommand 변환
-     * 3. 기존 주문 생성 로직 재사용 (상품 검증 → 재고 예약 → Order 생성)
-     * 4. 주문 성공 시 장바구니 아이템 소프트 삭제
-     */
-    @Transactional
-    public Order createOrderFromCart(Long userId, String userName, String ordererPhone,
-                                     List<Long> cartItemIds, Long addressId) {
-        if (cartItemIds == null || cartItemIds.isEmpty()) {
-            throw new CoreException(OrderErrorType.EMPTY_ORDER_ITEMS);
-        }
-
-        List<CartItem> cartItems = cartItemService.getCartItemsByIds(cartItemIds, userId);
-
-        List<OrderItemCommand> itemCommands = cartItems.stream()
-                .map(item -> new OrderItemCommand(item.getProductId(), item.getQuantity()))
-                .toList();
-
-        Order order = createOrder(userId, userName, ordererPhone, itemCommands, addressId);
-
-        cartItemService.deleteAll(cartItemIds, userId);
-
-        return order;
     }
 
     /**
@@ -181,6 +192,9 @@ public class OrderFacade {
                 order.getPointUsedAmount(), order.getShippingFee(), order.getTotalAmount(),
                 items, order.getCreatedAt());
     }
+
+    public record OrderCreateResult(
+            Long orderId, String orderNumber, String status, ZonedDateTime expiresAt) {}
 
     public record OrderItemCommand(Long productId, int quantity) {}
 

@@ -3,6 +3,7 @@ package com.loopers.support.error;
 import org.springframework.http.HttpStatus;
 
 public enum LikeErrorType implements ErrorType {
+    INVALID_LIKE_REQUEST(HttpStatus.BAD_REQUEST, "좋아요 요청이 유효하지 않습니다."),
     ALREADY_LIKED(HttpStatus.CONFLICT, "이미 좋아요한 항목입니다."),
     LIKE_NOT_FOUND(HttpStatus.NOT_FOUND, "좋아요가 존재하지 않습니다.");
 

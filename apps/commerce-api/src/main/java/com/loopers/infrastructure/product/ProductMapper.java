@@ -22,7 +22,7 @@ public class ProductMapper {
         entity.setName(product.getName());
         entity.setDescription(product.getDescription());
         entity.setBasePrice(product.getBasePrice()); // Money → Integer
-        entity.setStatus(product.getStatus().name());
+        entity.setStatus(product.getStatus());
         entity.setLikeCount(product.getLikeCount());
         entity.setCreatedAt(product.getCreatedAt());
         entity.setUpdatedAt(product.getUpdatedAt());
@@ -40,7 +40,7 @@ public class ProductMapper {
             entity.getName(),
             entity.getDescription(),
             new Money(entity.getBasePrice()), // Integer → Money
-            ProductStatus.valueOf(entity.getStatus()),
+            entity.getStatus(),
             entity.getLikeCount(),
             entity.getCreatedAt(),
             entity.getUpdatedAt(),

@@ -52,7 +52,7 @@ public class PaymentFacade {
      * 4. 주문 금액 재계산
      */
     @Transactional
-    public Order applyDiscount(Long orderId, Long userId, Long issuedCouponId, int pointAmount) {
+    public DiscountAppliedResult applyDiscount(Long orderId, Long userId, Long issuedCouponId, int pointAmount) {
         Order order = orderService.getOrder(orderId, userId);
 
         int discountAmount = 0;
@@ -77,7 +77,9 @@ public class PaymentFacade {
         }
 
         order.applyDiscount(discountAmount, pointAmount, 0);
-        return order;
+        return new DiscountAppliedResult(
+                order.getId(), order.getSubtotalAmount(), order.getDiscountAmount(),
+                order.getPointUsedAmount(), order.getShippingFee(), order.getTotalAmount());
     }
 
     /**
@@ -90,8 +92,8 @@ public class PaymentFacade {
      * 5. 실패 시: Payment→FAILED, reserved_qty 복구
      */
     @Transactional
-    public Payment requestPayment(Long orderId, Long userId, String paymentMethod,
-                                   Long issuedCouponId) {
+    public PaymentRequestResult requestPayment(Long orderId, Long userId, String paymentMethod,
+                                                Long issuedCouponId) {
         Order order = orderService.getOrder(orderId, userId);
         order.validateOwnership(userId);
 
@@ -139,7 +141,10 @@ public class PaymentFacade {
             inventoryService.releaseAll(productQtyMap);
         }
 
-        return payment;
+        return new PaymentRequestResult(
+                payment.getId(), payment.getOrderId(), payment.getStatus().name(),
+                payment.getPaymentMethod(), payment.getRequestedAmount(),
+                payment.getApprovedAmount(), payment.getPgTxnId(), payment.getApprovedAt());
     }
 
     private boolean simulatePgApproval(Payment payment) {
@@ -150,4 +155,13 @@ public class PaymentFacade {
     private String generateIdempotencyKey() {
         return "PAY-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase();
     }
+
+    public record DiscountAppliedResult(
+            Long orderId, int subtotalAmount, int discountAmount,
+            int pointUsedAmount, int shippingFee, int totalAmount) {}
+
+    public record PaymentRequestResult(
+            Long paymentId, Long orderId, String status,
+            String paymentMethod, int requestedAmount,
+            Integer approvedAmount, String pgTxnId, java.time.ZonedDateTime approvedAt) {}
 }

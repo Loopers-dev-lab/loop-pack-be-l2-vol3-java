@@ -1,8 +1,6 @@
 package com.loopers.interfaces.api.payment;
 
 import com.loopers.application.payment.PaymentFacade;
-import com.loopers.domain.order.Order;
-import com.loopers.domain.payment.Payment;
 import com.loopers.domain.user.User;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthUser;
@@ -29,12 +27,12 @@ public class PaymentController implements PaymentApiSpec {
             @AuthUser User user,
             @PathVariable Long orderId,
             @RequestBody PaymentRequest.ApplyDiscountRequest request) {
-        Order order = paymentFacade.applyDiscount(
+        PaymentFacade.DiscountAppliedResult result = paymentFacade.applyDiscount(
                 orderId, user.getId(), request.issuedCouponId(), request.pointAmount());
 
         return ApiResponse.success(new PaymentResponse.DiscountAppliedResponse(
-                order.getId(), order.getSubtotalAmount(), order.getDiscountAmount(),
-                order.getPointUsedAmount(), order.getShippingFee(), order.getTotalAmount()));
+                result.orderId(), result.subtotalAmount(), result.discountAmount(),
+                result.pointUsedAmount(), result.shippingFee(), result.totalAmount()));
     }
 
     @PostMapping("/{orderId}/pay")
@@ -43,12 +41,12 @@ public class PaymentController implements PaymentApiSpec {
             @AuthUser User user,
             @PathVariable Long orderId,
             @RequestBody PaymentRequest.PayRequest request) {
-        Payment payment = paymentFacade.requestPayment(
+        PaymentFacade.PaymentRequestResult result = paymentFacade.requestPayment(
                 orderId, user.getId(), request.paymentMethod(), request.issuedCouponId());
 
         return ApiResponse.success(new PaymentResponse.PaymentResult(
-                payment.getId(), payment.getOrderId(), payment.getStatus().name(),
-                payment.getPaymentMethod(), payment.getRequestedAmount(),
-                payment.getApprovedAmount(), payment.getPgTxnId(), payment.getApprovedAt()));
+                result.paymentId(), result.orderId(), result.status(),
+                result.paymentMethod(), result.requestedAmount(),
+                result.approvedAmount(), result.pgTxnId(), result.approvedAt()));
     }
 }

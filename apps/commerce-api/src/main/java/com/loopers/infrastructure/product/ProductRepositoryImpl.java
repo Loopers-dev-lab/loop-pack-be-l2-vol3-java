@@ -98,9 +98,9 @@ public class ProductRepositoryImpl implements ProductRepository {
                 .innerJoin(brand).on(product.brandId.eq(brand.id))
                 .where(
                         product.deletedAt.isNull(),
-                        product.status.in(ProductStatus.ACTIVE.name(), ProductStatus.SOLDOUT.name()),
+                        product.status.in(ProductStatus.ACTIVE, ProductStatus.SOLDOUT),
                         brand.deletedAt.isNull(),
-                        brand.status.eq(BrandStatus.ACTIVE.name()),
+                        brand.status.eq(BrandStatus.ACTIVE),
                         brandIdEq(product, brandId)
                 )
                 .orderBy(toOrderSpecifier(product, sort))
@@ -123,9 +123,9 @@ public class ProductRepositoryImpl implements ProductRepository {
                 .innerJoin(brand).on(product.brandId.eq(brand.id))
                 .where(
                         product.deletedAt.isNull(),
-                        product.status.in(ProductStatus.ACTIVE.name(), ProductStatus.SOLDOUT.name()),
+                        product.status.in(ProductStatus.ACTIVE, ProductStatus.SOLDOUT),
                         brand.deletedAt.isNull(),
-                        brand.status.eq(BrandStatus.ACTIVE.name()),
+                        brand.status.eq(BrandStatus.ACTIVE),
                         brandIdEq(product, brandId)
                 )
                 .fetchOne();
@@ -143,7 +143,7 @@ public class ProductRepositoryImpl implements ProductRepository {
                 .where(
                         product.deletedAt.isNull(),
                         product.brandId.eq(brandId),
-                        product.status.eq(ProductStatus.ACTIVE.name())
+                        product.status.eq(ProductStatus.ACTIVE)
                 )
                 .orderBy(product.createdAt.desc())
                 .fetch()
@@ -183,7 +183,7 @@ public class ProductRepositoryImpl implements ProductRepository {
                         product.id.in(ids),
                         product.deletedAt.isNull(),
                         brand.deletedAt.isNull(),
-                        brand.status.eq(BrandStatus.ACTIVE.name())
+                        brand.status.eq(BrandStatus.ACTIVE)
                 )
                 .fetch()
                 .stream()

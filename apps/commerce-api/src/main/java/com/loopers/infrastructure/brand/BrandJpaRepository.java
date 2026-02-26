@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.brand;
 
+import com.loopers.domain.brand.BrandStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -9,6 +10,6 @@ import java.util.List;
  * BrandEntity 기준
  */
 public interface BrandJpaRepository extends JpaRepository<BrandEntity, Long> {
-    List<BrandEntity> findAllByStatusAndDeletedAtIsNull(String status);
+    List<BrandEntity> findAllByStatusAndDeletedAtIsNull(BrandStatus status);
     List<BrandEntity> findAllByIdInAndDeletedAtIsNull(List<Long> ids);
 }

@@ -19,7 +19,7 @@ public class BrandMapper {
         entity.setId(brand.getId());
         entity.setName(brand.getName());
         entity.setDescription(brand.getDescription());
-        entity.setStatus(brand.getStatus().name());
+        entity.setStatus(brand.getStatus());
         entity.setCreatedAt(brand.getCreatedAt());
         entity.setUpdatedAt(brand.getUpdatedAt());
         entity.setDeletedAt(brand.getDeletedAt());
@@ -34,7 +34,7 @@ public class BrandMapper {
             entity.getId(),
             entity.getName(),
             entity.getDescription(),
-            BrandStatus.valueOf(entity.getStatus()),
+            entity.getStatus(),
             entity.getCreatedAt(),
             entity.getUpdatedAt(),
             entity.getDeletedAt()

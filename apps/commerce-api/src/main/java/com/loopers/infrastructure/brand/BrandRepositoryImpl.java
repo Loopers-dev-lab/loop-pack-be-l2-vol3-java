@@ -71,7 +71,7 @@ public class BrandRepositoryImpl implements BrandRepository {
 
     @Override
     public List<Brand> findAllActive() {
-        return brandJpaRepository.findAllByStatusAndDeletedAtIsNull(BrandStatus.ACTIVE.name()).stream()
+        return brandJpaRepository.findAllByStatusAndDeletedAtIsNull(BrandStatus.ACTIVE).stream()
             .map(brandMapper::toDomain)  // Entity → Domain
             .collect(Collectors.toList());
     }

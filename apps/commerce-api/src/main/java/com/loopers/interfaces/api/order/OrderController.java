@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.order;
 
 import com.loopers.application.order.OrderFacade;
-import com.loopers.domain.order.Order;
 import com.loopers.domain.user.User;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthUser;
@@ -35,20 +34,20 @@ public class OrderController implements OrderApiSpec {
     public ApiResponse<OrderResponse.OrderCreateResponse> createOrder(
             @AuthUser User user,
             @RequestBody OrderRequest.CreateOrderRequest request) {
-        Order order;
+        OrderFacade.OrderCreateResult result;
 
         boolean hasCartItems = request.cartItemIds() != null && !request.cartItemIds().isEmpty();
         boolean hasItems = request.items() != null && !request.items().isEmpty();
 
         if (hasCartItems) {
-            order = orderFacade.createOrderFromCart(
+            result = orderFacade.createOrderFromCart(
                     user.getId(), user.getName().getValue(), request.ordererPhone(),
                     request.cartItemIds(), request.addressId());
         } else if (hasItems) {
             List<OrderFacade.OrderItemCommand> commands = request.items().stream()
                     .map(item -> new OrderFacade.OrderItemCommand(item.productId(), item.quantity()))
                     .toList();
-            order = orderFacade.createOrder(
+            result = orderFacade.createOrder(
                     user.getId(), user.getName().getValue(), request.ordererPhone(),
                     commands, request.addressId());
         } else {
@@ -57,7 +56,7 @@ public class OrderController implements OrderApiSpec {
         }
 
         return ApiResponse.success(new OrderResponse.OrderCreateResponse(
-                order.getId(), order.getOrderNumber(), order.getStatus().name(), order.getExpiresAt()));
+                result.orderId(), result.orderNumber(), result.status(), result.expiresAt()));
     }
 
     @GetMapping
