@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.admin;
 
-import com.loopers.application.admin.product.AdminProductFacade;
+import com.loopers.application.admin.product.AdminProductAppService;
 import com.loopers.domain.product.Option;
 import com.loopers.domain.product.Product;
 import com.loopers.interfaces.api.ApiResponse;
@@ -21,13 +21,13 @@ import java.util.List;
 @RequestMapping("/api/admin/v1/products")
 @RequiredArgsConstructor
 public class AdminProductController {
-    private final AdminProductFacade adminProductFacade;
+    private final AdminProductAppService adminProductAppService;
 
     @PostMapping
     public ApiResponse<AdminProductDto.ProductResponse> create(
             @LoginAdmin String adminId,
             @RequestBody AdminProductDto.CreateRequest request) {
-        Product product = adminProductFacade.create(request.brandId(), request.name(), request.toBasePrice());
+        Product product = adminProductAppService.create(request.brandId(), request.name(), request.toBasePrice());
         return ApiResponse.success(AdminProductDto.ProductResponse.from(product));
     }
 
@@ -36,7 +36,7 @@ public class AdminProductController {
             @LoginAdmin String adminId,
             @PathVariable Long productId,
             @RequestBody AdminProductDto.CreateOptionRequest request) {
-        Option option = adminProductFacade.createOption(
+        Option option = adminProductAppService.createOption(
                 productId, request.name(), request.toAdditionalPrice(), request.stock());
         return ApiResponse.success(AdminProductDto.OptionResponse.from(option));
     }
@@ -46,7 +46,7 @@ public class AdminProductController {
             @LoginAdmin String adminId,
             @PathVariable Long id,
             @RequestBody AdminProductDto.UpdateRequest request) {
-        Product product = adminProductFacade.update(id, request.name(), request.toBasePrice());
+        Product product = adminProductAppService.update(id, request.name(), request.toBasePrice());
         return ApiResponse.success(AdminProductDto.ProductResponse.from(product));
     }
 
@@ -54,13 +54,13 @@ public class AdminProductController {
     public ApiResponse<Void> delete(
             @LoginAdmin String adminId,
             @PathVariable Long id) {
-        adminProductFacade.delete(id);
+        adminProductAppService.delete(id);
         return ApiResponse.success(null);
     }
 
     @GetMapping
     public ApiResponse<AdminProductDto.ProductListResponse> getAll(@LoginAdmin String adminId) {
-        List<Product> products = adminProductFacade.getAll();
+        List<Product> products = adminProductAppService.getAll();
         return ApiResponse.success(AdminProductDto.ProductListResponse.from(products));
     }
 
@@ -68,8 +68,8 @@ public class AdminProductController {
     public ApiResponse<AdminProductDto.ProductDetailResponse> getById(
             @LoginAdmin String adminId,
             @PathVariable Long id) {
-        Product product = adminProductFacade.getById(id);
-        List<Option> options = adminProductFacade.getOptionsByProductId(id);
+        Product product = adminProductAppService.getById(id);
+        List<Option> options = adminProductAppService.getOptionsByProductId(id);
         return ApiResponse.success(AdminProductDto.ProductDetailResponse.of(product, options));
     }
 
@@ -79,7 +79,7 @@ public class AdminProductController {
             @PathVariable Long productId,
             @PathVariable Long optionId,
             @RequestBody AdminProductDto.UpdateStockRequest request) {
-        Option option = adminProductFacade.updateOptionStock(productId, optionId, request.stock());
+        Option option = adminProductAppService.updateOptionStock(productId, optionId, request.stock());
         return ApiResponse.success(AdminProductDto.OptionResponse.from(option));
     }
 }

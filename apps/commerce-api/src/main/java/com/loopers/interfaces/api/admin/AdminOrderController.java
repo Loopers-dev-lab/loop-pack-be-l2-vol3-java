@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.admin;
 
-import com.loopers.application.order.OrderAppService;
 import com.loopers.application.order.OrderFacade;
 import com.loopers.application.order.OrderInfo;
 import com.loopers.domain.order.Order;
@@ -19,12 +18,11 @@ import java.util.List;
 @RequestMapping("/api/admin/v1/orders")
 @RequiredArgsConstructor
 public class AdminOrderController {
-    private final OrderAppService orderAppService;
     private final OrderFacade orderFacade;
 
     @GetMapping
     public ApiResponse<AdminOrderDto.OrderListResponse> getAll(@LoginAdmin String adminId) {
-        List<Order> orders = orderAppService.getAll();
+        List<Order> orders = orderFacade.getAll();
         List<OrderInfo> orderInfos = orders.stream().map(OrderInfo::from).toList();
         return ApiResponse.success(AdminOrderDto.OrderListResponse.from(orderInfos));
     }
@@ -34,7 +32,7 @@ public class AdminOrderController {
             @LoginAdmin String adminId,
             @PathVariable Long id
     ) {
-        Order order = orderAppService.getById(id);
+        Order order = orderFacade.getById(id);
         return ApiResponse.success(AdminOrderDto.OrderResponse.from(OrderInfo.from(order)));
     }
 

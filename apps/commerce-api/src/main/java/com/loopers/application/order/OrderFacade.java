@@ -8,8 +8,6 @@ import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.product.Option;
 import com.loopers.domain.product.Product;
-import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +22,7 @@ public class OrderFacade {
     private final ProductAppService productAppService;
     private final CartAppService cartAppService;
 
+    @Transactional
     public Order createOrder(OrderCreateCommand command) {
         List<OrderItem> orderItems = new ArrayList<>();
 
@@ -54,9 +53,7 @@ public class OrderFacade {
         List<CartItem> cartItems = cartAppService.getByIds(cartItemIds);
 
         for (CartItem cartItem : cartItems) {
-            if (!cartItem.getUserId().equals(userId)) {
-                throw new CoreException(ErrorType.BAD_REQUEST, "본인의 장바구니 항목만 주문할 수 있습니다.");
-            }
+            cartItem.validateOwner(userId);
         }
 
         List<OrderItem> orderItems = new ArrayList<>();
@@ -89,7 +86,7 @@ public class OrderFacade {
     @Transactional
     public Order cancelOrder(Long userId, Long orderId) {
         Order order = orderAppService.getById(orderId);
-        validateOwnership(order, userId);
+        order.validateOwner(userId);
 
         for (OrderItem item : order.getOrderItems()) {
             productAppService.increaseStock(item.getOptionId(), item.getQuantity());
@@ -100,7 +97,7 @@ public class OrderFacade {
 
     public Order getOrder(Long userId, Long orderId) {
         Order order = orderAppService.getById(orderId);
-        validateOwnership(order, userId);
+        order.validateOwner(userId);
         return order;
     }
 
@@ -108,10 +105,12 @@ public class OrderFacade {
         return orderAppService.getByUserId(userId);
     }
 
-    private void validateOwnership(Order order, Long userId) {
-        if (!order.getUserId().equals(userId)) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "본인의 주문만 조회/취소할 수 있습니다.");
-        }
+    public List<Order> getAll() {
+        return orderAppService.getAll();
+    }
+
+    public Order getById(Long orderId) {
+        return orderAppService.getById(orderId);
     }
 
     public Order payOrder(Long orderId) {

@@ -47,7 +47,7 @@ public class CartAppService {
     @Transactional
     public CartItem updateQuantity(Long userId, Long cartItemId, int quantity) {
         CartItem cartItem = getById(cartItemId);
-        validateOwnership(cartItem, userId);
+        cartItem.validateOwner(userId);
         cartItem.updateQuantity(quantity);
         return cartRepository.save(cartItem);
     }
@@ -55,18 +55,12 @@ public class CartAppService {
     @Transactional
     public void delete(Long userId, Long cartItemId) {
         CartItem cartItem = getById(cartItemId);
-        validateOwnership(cartItem, userId);
+        cartItem.validateOwner(userId);
         cartRepository.delete(cartItem);
     }
 
     @Transactional
     public void deleteByIds(List<Long> ids) {
         cartRepository.deleteByIds(ids);
-    }
-
-    private void validateOwnership(CartItem cartItem, Long userId) {
-        if (!cartItem.getUserId().equals(userId)) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "본인의 장바구니 항목만 수정할 수 있습니다.");
-        }
     }
 }
