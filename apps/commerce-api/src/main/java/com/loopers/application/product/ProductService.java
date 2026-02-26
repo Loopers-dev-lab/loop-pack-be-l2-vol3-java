@@ -2,6 +2,7 @@ package com.loopers.application.product;
 
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.application.order.OrderItemCommand;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -101,6 +103,20 @@ public class ProductService {
         product.decreaseLikeCount();
     }
 
+    @Transactional
+    public void decreaseStock(List<OrderItemCommand> items) {
+        List<OrderItemCommand> sorted = items.stream()
+                                             .sorted(Comparator.comparing(OrderItemCommand::productId))
+                                             .toList();
+
+        for (OrderItemCommand item : sorted) {
+            boolean decreased = productRepository.decreaseStockIfEnough(item.productId(), item.quantity());
+            if (!decreased) {
+                throw new CoreException(ErrorType.INSUFFICIENT_STOCK, "재고가 부족한 상품이 있습니다.");
+            }
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<ProductInfo> getVisibleProductsByIds(List<Long> ids) {
         return productRepository.findAllByIdInAndDeletedAtIsNull(ids)
@@ -108,6 +124,19 @@ public class ProductService {
                                 .filter(p -> p.getVisibility() == Product.Visibility.VISIBLE)
                                 .map(ProductInfo::from)
                                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductInfo> getVisibleProductsByIdsOrThrow(List<Long> ids) {
+        List<Long> distinctIds = ids.stream().distinct().toList();
+
+        List<ProductInfo> products = getVisibleProductsByIds(distinctIds);
+
+        if (products.size() != distinctIds.size()) {
+            throw new CoreException(ErrorType.NOT_FOUND, "주문 상품이 올바르지 않습니다.");
+        }
+
+        return products;
     }
 
     private Product findNonDeletedById(Long id) {

@@ -13,4 +13,5 @@ public interface ProductRepository {
     Page<Product> findAllProducts(Long brandId, Pageable pageable);
     List<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId);
     List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> ids);
+    boolean decreaseStockIfEnough(Long productId, Integer quantity);
 }

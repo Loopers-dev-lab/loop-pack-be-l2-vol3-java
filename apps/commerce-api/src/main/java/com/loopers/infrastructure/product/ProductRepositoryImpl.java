@@ -103,4 +103,9 @@ public class ProductRepositoryImpl implements ProductRepository {
     public List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> ids) {
         return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids);
     }
+
+    @Override
+    public boolean decreaseStockIfEnough(Long productId, Integer quantity) {
+        return productJpaRepository.decreaseStockIfEnough(productId, quantity, Product.Visibility.VISIBLE) > 0;
+    }
 }

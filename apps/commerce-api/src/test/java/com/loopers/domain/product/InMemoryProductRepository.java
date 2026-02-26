@@ -84,4 +84,23 @@ public class InMemoryProductRepository implements ProductRepository {
                 .filter(p -> ids.contains(p.getId()) && p.getDeletedAt() == null)
                 .toList();
     }
+
+    @Override
+    public boolean decreaseStockIfEnough(Long productId, Integer quantity) {
+        Product product = store.get(productId);
+        if (product == null) {
+            return false;
+        }
+        if (product.getDeletedAt() != null) {
+            return false;
+        }
+        if (product.getVisibility() != Product.Visibility.VISIBLE) {
+            return false;
+        }
+        if (product.getStockQuantity() < quantity) {
+            return false;
+        }
+        product.decreaseStock(quantity);
+        return true;
+    }
 }
