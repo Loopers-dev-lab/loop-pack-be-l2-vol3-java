@@ -17,6 +17,19 @@ public class ProductV1Controller implements ProductV1ApiSpec {
         this.productFacade = productFacade;
     }
 
+    @GetMapping
+    @Override
+    public ResponseEntity<ApiResponse<ProductV1Dto.ListResponse>> getProductList(
+        @RequestParam(required = false) Long brandId,
+        @RequestParam(required = false, defaultValue = "latest") String sort,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size
+    ) {
+        return ResponseEntity.ok(
+            ApiResponse.success(ProductV1Dto.ListResponse.from(productFacade.getProductList(brandId, sort, page, size)))
+        );
+    }
+
     @GetMapping("/{productId}")
     @Override
     public ResponseEntity<ApiResponse<ProductV1Dto.DetailResponse>> getProductDetail(

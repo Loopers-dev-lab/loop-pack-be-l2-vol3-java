@@ -126,4 +126,65 @@ class ProductV1ApiE2ETest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
+
+    @Test
+    @DisplayName("GET /api/v1/products - 목록 조회 시 200 OK, content·페이징 정보·brandName·likeCount 포함")
+    void getProductList_shouldReturn200WithPagedContentAndBrandNameAndLikeCount() {
+        ResponseEntity<ApiResponse<ProductV1Dto.ListResponse>> response = testRestTemplate.exchange(
+            ENDPOINT_PRODUCTS + "?page=0&size=20", HttpMethod.GET, new HttpEntity<>(null),
+            new ParameterizedTypeReference<>() {});
+
+        assertAll(
+            () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+            () -> assertThat(response.getBody()).isNotNull(),
+            () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.SUCCESS),
+            () -> assertThat(response.getBody().data().content()).isNotEmpty(),
+            () -> assertThat(response.getBody().data().content().get(0).brandName()).isEqualTo(brandName),
+            () -> assertThat(response.getBody().data().content().get(0).likeCount()).isGreaterThanOrEqualTo(0),
+            () -> assertThat(response.getBody().data().totalElements()).isGreaterThanOrEqualTo(1)
+        );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/products - sort=price_asc 시 가격 오름차순으로 반환된다")
+    void getProductList_withPriceAsc_shouldReturnOrderedByPriceAsc() {
+        ProductModel cheap = productService.register(brandId, "저가상품", new BigDecimal("5000"), 5);
+        ProductModel expensive = productService.register(brandId, "고가상품", new BigDecimal("50000"), 5);
+
+        ResponseEntity<ApiResponse<ProductV1Dto.ListResponse>> response = testRestTemplate.exchange(
+            ENDPOINT_PRODUCTS + "?sort=price_asc&page=0&size=20", HttpMethod.GET, new HttpEntity<>(null),
+            new ParameterizedTypeReference<>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        var content = response.getBody().data().content();
+        int cheapIdx = content.stream().map(ProductV1Dto.ListItemResponse::id).toList().indexOf(cheap.getId());
+        int expensiveIdx = content.stream().map(ProductV1Dto.ListItemResponse::id).toList().indexOf(expensive.getId());
+        assertThat(cheapIdx).isLessThan(expensiveIdx);
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/products - sort=likes_desc 시 좋아요 많은 순으로 반환된다")
+    void getProductList_withLikesDesc_shouldReturnOrderedByLikesDesc() {
+        Long productId2 = productService.register(brandId, "두번째상품", new BigDecimal("20000"), 5).getId();
+        UserModel user = userService.signUp(
+            new UserId("likeuser2"),
+            new Email("like2@test.com"),
+            new BirthDate("1990-01-15"),
+            Password.of("SecurePass1!", new BirthDate("1990-01-15")),
+            Gender.MALE
+        );
+        likeFacade.addLike(user.getId(), productId2);
+
+        ResponseEntity<ApiResponse<ProductV1Dto.ListResponse>> response = testRestTemplate.exchange(
+            ENDPOINT_PRODUCTS + "?sort=likes_desc&page=0&size=20", HttpMethod.GET, new HttpEntity<>(null),
+            new ParameterizedTypeReference<>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        var content = response.getBody().data().content();
+        assertThat(content).isNotEmpty();
+        assertThat(content.get(0).id()).isEqualTo(productId2);
+        assertThat(content.get(0).likeCount()).isEqualTo(1L);
+    }
 }
