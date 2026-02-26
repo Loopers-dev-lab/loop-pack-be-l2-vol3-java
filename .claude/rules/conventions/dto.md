@@ -61,8 +61,8 @@ Command는 도메인별로 하나의 클래스에 중첩 record로 정의한다.
 Facade가 Request를 DB 조회 결과 등으로 보강하여 생성한다.
 ```java
 public record OrderCommand() {
-    public record Create(Long userId, List<CreateOrderItem> items) {}
-    public record CreateOrderItem(Long productId, String productName, BigDecimal price, int quantity) {}
+    public record Create(Long userId, List<CreateItem> items) {}
+    public record CreateItem(Long productId, String productName, BigDecimal price, int quantity) {}
     public record Cancel(Long userId, Long orderId, String cancelReason) {}
 }
 ```
