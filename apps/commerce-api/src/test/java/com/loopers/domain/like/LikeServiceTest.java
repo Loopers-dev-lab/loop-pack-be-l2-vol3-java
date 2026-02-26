@@ -2,6 +2,8 @@ package com.loopers.domain.like;
 
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.Money;
+import com.loopers.domain.product.StockQuantity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
@@ -51,8 +53,7 @@ class LikeServiceTest {
             when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.empty());
 
             // when & then
-            CoreException ex = assertThrows(CoreException.class, () ->
-                likeService.addLike(USER_ID, PRODUCT_ID));
+            CoreException ex = assertThrows(CoreException.class, () -> likeService.addLike(USER_ID, PRODUCT_ID));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
@@ -60,12 +61,12 @@ class LikeServiceTest {
         @Test
         void addLike_whenAlreadyExists_shouldThrowConflict() {
             // given
-            when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.of(ProductModel.create(1L, "상품", java.math.BigDecimal.ONE, 1)));
+            when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional
+                    .of(ProductModel.create(1L, "상품", Money.of(java.math.BigDecimal.ONE), StockQuantity.of(1))));
             when(likeRepository.existsByUserIdAndProductId(USER_ID, PRODUCT_ID)).thenReturn(true);
 
             // when & then
-            CoreException ex = assertThrows(CoreException.class, () ->
-                likeService.addLike(USER_ID, PRODUCT_ID));
+            CoreException ex = assertThrows(CoreException.class, () -> likeService.addLike(USER_ID, PRODUCT_ID));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.CONFLICT);
         }
 
@@ -73,7 +74,8 @@ class LikeServiceTest {
         @Test
         void addLike_whenValid_shouldSaveAndReturn() {
             // given
-            when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.of(ProductModel.create(1L, "상품", java.math.BigDecimal.ONE, 1)));
+            when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional
+                    .of(ProductModel.create(1L, "상품", Money.of(java.math.BigDecimal.ONE), StockQuantity.of(1))));
             when(likeRepository.existsByUserIdAndProductId(USER_ID, PRODUCT_ID)).thenReturn(false);
             LikeModel like = LikeModel.create(USER_ID, PRODUCT_ID);
             when(likeRepository.save(any(LikeModel.class))).thenReturn(like);
@@ -100,8 +102,7 @@ class LikeServiceTest {
             when(likeRepository.findByUserIdAndProductId(USER_ID, PRODUCT_ID)).thenReturn(Optional.empty());
 
             // when & then
-            CoreException ex = assertThrows(CoreException.class, () ->
-                likeService.removeLike(USER_ID, PRODUCT_ID));
+            CoreException ex = assertThrows(CoreException.class, () -> likeService.removeLike(USER_ID, PRODUCT_ID));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
