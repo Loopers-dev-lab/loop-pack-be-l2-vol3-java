@@ -14,6 +14,9 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -104,7 +107,12 @@ public class ProductService {
         return productRepository.findAll(name, brandId, deleted, pageable);
     }
 
-    public List<Product> getProducts(List<Long> productIds) {
-        return productRepository.findAllByIdIn(productIds);
+    public Page<Product> findActiveProducts(Long brandId, Pageable pageable) {
+        return productRepository.findAllActive(brandId, pageable);
+    }
+
+    public Map<Long, Product> getProductsMapByIds(Set<Long> productIds) {
+        return productRepository.findAllByIdIn(productIds).stream()
+                .collect(Collectors.toMap(Product::getId, Function.identity()));
     }
 }

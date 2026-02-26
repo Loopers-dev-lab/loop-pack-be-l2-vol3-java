@@ -10,12 +10,13 @@ import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Lock;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface ProductJpaRepository extends JpaRepository<Product, Long> {
 
     // Query
-    List<Product> findAllByIdIn(List<Long> ids);
+    List<Product> findAllByIdIn(Collection<Long> ids);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Product p WHERE p.id IN :ids")
@@ -34,4 +35,12 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
                       + "AND (:brandId IS NULL OR p.brandId = :brandId) "
                       + "AND (:deleted IS NULL OR (:deleted = true AND p.deletedAt IS NOT NULL) OR (:deleted = false AND p.deletedAt IS NULL))")
     Page<Product> findAll(@Param("name") String name, @Param("brandId") Long brandId, @Param("deleted") Boolean deleted, Pageable pageable);
+
+    @Query(value = "SELECT p FROM Product p "
+                 + "WHERE p.deletedAt IS NULL "
+                 + "AND (:brandId IS NULL OR p.brandId = :brandId)",
+           countQuery = "SELECT COUNT(p) FROM Product p "
+                      + "WHERE p.deletedAt IS NULL "
+                      + "AND (:brandId IS NULL OR p.brandId = :brandId)")
+    Page<Product> findAllActive(@Param("brandId") Long brandId, Pageable pageable);
 }
