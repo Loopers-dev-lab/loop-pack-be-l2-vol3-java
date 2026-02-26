@@ -17,6 +17,10 @@ import org.springframework.context.annotation.Import;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -200,6 +204,40 @@ class ProductServiceIntegrationTest {
             Optional<ProductModel> found = productService.findById(saved.getId());
             assertThat(found).isPresent();
             assertThat(found.get().getStockQuantity()).isEqualTo(8);
+        }
+
+        @Test
+        void restoreStock_concurrentCalls_shouldNotLoseQuantity() throws InterruptedException {
+            Long brandId = saveBrand("브랜드");
+            ProductModel saved = productService.register(brandId, "상품", new BigDecimal("1000"), 0);
+            Long productId = saved.getId();
+            int threadCount = 10;
+            int quantityPerThread = 1;
+            ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch start = new CountDownLatch(1);
+            CountDownLatch done = new CountDownLatch(threadCount);
+            AtomicInteger errors = new AtomicInteger(0);
+
+            for (int i = 0; i < threadCount; i++) {
+                executor.submit(() -> {
+                    try {
+                        start.await();
+                        productService.restoreStock(List.of(new RestoreStockItem(productId, quantityPerThread)));
+                    } catch (Exception e) {
+                        errors.incrementAndGet();
+                    } finally {
+                        done.countDown();
+                    }
+                });
+            }
+            start.countDown();
+            done.await();
+            executor.shutdown();
+
+            assertThat(errors.get()).isZero();
+            Optional<ProductModel> found = productService.findById(productId);
+            assertThat(found).isPresent();
+            assertThat(found.get().getStockQuantity()).isEqualTo(threadCount * quantityPerThread);
         }
     }
 }

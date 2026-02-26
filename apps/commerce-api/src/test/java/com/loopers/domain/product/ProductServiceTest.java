@@ -281,7 +281,7 @@ class ProductServiceTest {
 
         @Test
         void restoreStock_whenProductNotFound_shouldThrowNotFound() {
-            when(productRepository.findById(999L)).thenReturn(Optional.empty());
+            when(productRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
             List<RestoreStockItem> items = List.of(new RestoreStockItem(999L, 1));
             CoreException ex = assertThrows(CoreException.class, () -> productService.restoreStock(items));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
@@ -301,7 +301,7 @@ class ProductServiceTest {
         void restoreStock_whenValid_shouldIncreaseAndSave() {
             Long id = 1L;
             ProductModel product = ProductModel.create(BRAND_ID, NAME, PRICE, 5);
-            when(productRepository.findById(id)).thenReturn(Optional.of(product));
+            when(productRepository.findByIdForUpdate(id)).thenReturn(Optional.of(product));
             when(productRepository.save(product)).thenReturn(product);
 
             productService.restoreStock(List.of(new RestoreStockItem(id, 3)));

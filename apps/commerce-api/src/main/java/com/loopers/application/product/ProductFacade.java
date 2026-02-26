@@ -43,4 +43,9 @@ public class ProductFacade {
         ProductModel product = productService.update(id, name, price, stockQuantity);
         return ProductInfo.from(product);
     }
+
+    @Transactional
+    public void delete(Long id) {
+        productService.delete(id);
+    }
 }

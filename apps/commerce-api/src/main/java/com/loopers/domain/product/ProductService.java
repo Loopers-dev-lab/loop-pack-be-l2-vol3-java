@@ -59,7 +59,18 @@ public class ProductService {
     }
 
     /**
-     * 상품 판매 가능 여부를 검증한다. (존재·미삭제·재고 충분)
+     * 상품을 soft delete한다. (어드민 삭제)
+     */
+    @Transactional
+    public void delete(Long id) {
+        ProductModel product = productRepository.findByIdAndNotDeleted(id)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + id));
+        product.delete();
+        productRepository.save(product);
+    }
+
+    /**
+     * 상품 판매 가능 여부를 검증한다. (존재·미삭제·재고 충분) (존재·미삭제·재고 충분)
      * optionId는 값 보존만 하며 옵션 테이블 검증은 하지 않는다.
      */
     @Transactional(readOnly = true)
@@ -114,6 +125,7 @@ public class ProductService {
 
     /**
      * 재고를 복구한다. (주문 취소 등)
+     * 비관적 락으로 동시성 보장 (04-erd §0).
      */
     @Transactional
     public void restoreStock(List<RestoreStockItem> items) {
@@ -121,7 +133,7 @@ public class ProductService {
             return;
         }
         for (RestoreStockItem item : items) {
-            ProductModel product = productRepository.findById(item.productId())
+            ProductModel product = productRepository.findByIdForUpdate(item.productId())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + item.productId()));
             product.increaseStock(item.quantity());
             productRepository.save(product);
