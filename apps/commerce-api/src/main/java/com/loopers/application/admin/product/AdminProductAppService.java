@@ -98,4 +98,13 @@ public class AdminProductAppService {
     public List<Option> getOptionsByProductId(Long productId) {
         return optionRepository.findByProductId(productId);
     }
+
+    @Transactional(readOnly = true)
+    public ProductWithOptions getProductWithOptions(Long id) {
+        Product product = getById(id);
+        List<Option> options = getOptionsByProductId(id);
+        return new ProductWithOptions(product, options);
+    }
+
+    public record ProductWithOptions(Product product, List<Option> options) {}
 }

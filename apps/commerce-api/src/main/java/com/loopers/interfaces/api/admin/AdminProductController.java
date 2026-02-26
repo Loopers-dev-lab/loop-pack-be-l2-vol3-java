@@ -68,9 +68,8 @@ public class AdminProductController {
     public ApiResponse<AdminProductDto.ProductDetailResponse> getById(
             @LoginAdmin String adminId,
             @PathVariable Long id) {
-        Product product = adminProductAppService.getById(id);
-        List<Option> options = adminProductAppService.getOptionsByProductId(id);
-        return ApiResponse.success(AdminProductDto.ProductDetailResponse.of(product, options));
+        AdminProductAppService.ProductWithOptions result = adminProductAppService.getProductWithOptions(id);
+        return ApiResponse.success(AdminProductDto.ProductDetailResponse.of(result.product(), result.options()));
     }
 
     @PutMapping("/{productId}/options/{optionId}/stock")
