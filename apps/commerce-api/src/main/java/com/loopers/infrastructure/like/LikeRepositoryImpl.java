@@ -6,6 +6,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -45,5 +49,19 @@ public class LikeRepositoryImpl implements LikeRepository {
     @Override
     public long countByProductId(Long productId) {
         return likeJpaRepository.countByProductId(productId);
+    }
+
+    @Override
+    public Map<Long, Long> countByProductIds(Collection<Long> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> ids = productIds instanceof List<?> ? (List<Long>) productIds : List.copyOf(productIds);
+        List<Object[]> rows = likeJpaRepository.countGroupByProductId(ids);
+        Map<Long, Long> map = new HashMap<>();
+        for (Object[] row : rows) {
+            map.put((Long) row[0], ((Number) row[1]).longValue());
+        }
+        return map;
     }
 }
