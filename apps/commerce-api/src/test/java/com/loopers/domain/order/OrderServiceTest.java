@@ -2,6 +2,7 @@ package com.loopers.domain.order;
 
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductSnapshot;
+import com.loopers.domain.product.RestoreStockItem;
 import com.loopers.domain.product.ProductValidationRequest;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -21,6 +22,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -172,6 +174,47 @@ class OrderServiceTest {
             // then
             assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCELLED);
             verify(productService, never()).restoreStock(any());
+            verify(orderRepository).save(order);
+        }
+
+        @Test
+        void cancel_whenPaid_shouldRestoreStockThenCancel() {
+            // given: PAID 상태 주문
+            OrderModel order = OrderModel.withStatus(USER_ID, OrderStatus.PAID, java.time.ZonedDateTime.now());
+            order.addItem(OrderItemModel.of(SNAPSHOT, 2, null));
+            when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
+            when(orderRepository.save(any(OrderModel.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            // when
+            OrderModel result = orderService.cancel(USER_ID, ORDER_ID);
+
+            // then: 재고 복구 호출 후 취소
+            assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+            verify(productService).restoreStock(argThat((List<RestoreStockItem> items) ->
+                items.size() == 1 && items.get(0).productId().equals(10L) && items.get(0).quantity() == 2));
+            verify(orderRepository).save(order);
+        }
+
+        @Test
+        void cancel_whenPaidWithMultipleItems_shouldRestoreStockForAllItemsThenCancel() {
+            // given: PAID 주문에 항목 2개
+            ProductSnapshot snap1 = new ProductSnapshot(10L, "상품1", new BigDecimal("5000"));
+            ProductSnapshot snap2 = new ProductSnapshot(20L, "상품2", new BigDecimal("3000"));
+            OrderModel order = OrderModel.withStatus(USER_ID, OrderStatus.PAID, java.time.ZonedDateTime.now());
+            order.addItem(OrderItemModel.of(snap1, 1, null));
+            order.addItem(OrderItemModel.of(snap2, 3, null));
+            when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
+            when(orderRepository.save(any(OrderModel.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            // when
+            OrderModel result = orderService.cancel(USER_ID, ORDER_ID);
+
+            // then
+            assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+            verify(productService).restoreStock(argThat((List<RestoreStockItem> items) ->
+                items.size() == 2
+                    && items.stream().anyMatch(i -> i.productId().equals(10L) && i.quantity() == 1)
+                    && items.stream().anyMatch(i -> i.productId().equals(20L) && i.quantity() == 3)));
             verify(orderRepository).save(order);
         }
 

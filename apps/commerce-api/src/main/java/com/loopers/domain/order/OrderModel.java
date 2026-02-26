@@ -58,6 +58,22 @@ public class OrderModel extends BaseEntity {
     }
 
     /**
+     * 지정한 상태로 주문을 생성한다. 영속 계층에서 재구성하거나 테스트에서 사용.
+     */
+    public static OrderModel withStatus(Long userId, OrderStatus status, ZonedDateTime orderedAt) {
+        if (userId == null) {
+            throw new IllegalArgumentException("사용자 ID는 null일 수 없습니다.");
+        }
+        if (status == null) {
+            throw new IllegalArgumentException("상태는 null일 수 없습니다.");
+        }
+        if (orderedAt == null) {
+            throw new IllegalArgumentException("주문 시각은 null일 수 없습니다.");
+        }
+        return new OrderModel(userId, status, orderedAt);
+    }
+
+    /**
      * 주문 항목을 추가한다.
      */
     public void addItem(OrderItemModel item) {
