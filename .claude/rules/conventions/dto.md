@@ -59,11 +59,24 @@ public record OrderRequest() {
 
 Command는 도메인별로 하나의 클래스에 중첩 record로 정의한다.
 Facade가 Request를 DB 조회 결과 등으로 보강하여 생성한다.
+`of(...)` 정적 팩토리 메서드로 생성한다.
 ```java
 public record OrderCommand() {
-    public record Create(Long userId, List<CreateItem> items) {}
-    public record CreateItem(Long productId, String productName, BigDecimal price, int quantity) {}
-    public record Cancel(Long userId, Long orderId, String cancelReason) {}
+    public record Create(Long userId, List<CreateItem> items) {
+        public static Create of(Long userId, List<CreateItem> items) {
+            return new Create(userId, items);
+        }
+    }
+    public record CreateItem(Long productId, String productName, BigDecimal price, int quantity) {
+        public static CreateItem of(Long productId, String productName, BigDecimal price, int quantity) {
+            return new CreateItem(productId, productName, price, quantity);
+        }
+    }
+    public record Cancel(Long userId, Long orderId, String cancelReason) {
+        public static Cancel of(Long userId, Long orderId, String cancelReason) {
+            return new Cancel(userId, orderId, cancelReason);
+        }
+    }
 }
 ```
 

@@ -26,25 +26,25 @@ public class BrandService {
     // Command
 
     @Transactional
-    public Brand register(String name, String description) {
-        if (brandRepository.existsByName(name)) {
+    public Brand register(BrandCommand.Create command) {
+        if (brandRepository.existsByName(command.name())) {
             throw new CoreException(ErrorType.CONFLICT, "이미 등록된 브랜드입니다");
         }
 
-        Brand brand = Brand.create(name, description);
+        Brand brand = Brand.create(command.name(), command.description());
         return brandRepository.save(brand);
     }
 
     @Transactional
-    public Brand update(Long brandId, String name, String description) {
+    public Brand update(Long brandId, BrandCommand.Update command) {
         Brand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다"));
 
-        if (brandRepository.existsByNameAndIdNot(name, brand.getId())) {
+        if (brandRepository.existsByNameAndIdNot(command.name(), brand.getId())) {
             throw new CoreException(ErrorType.CONFLICT, "이미 등록된 브랜드입니다");
         }
 
-        brand.update(name, description);
+        brand.update(command.name(), command.description());
         return brand;
     }
 

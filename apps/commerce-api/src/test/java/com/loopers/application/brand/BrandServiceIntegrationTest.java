@@ -42,7 +42,7 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 유효한_정보로_등록하면_브랜드가_생성된다() {
-            Brand result = brandService.register("나이키", "스포츠 브랜드");
+            Brand result = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
 
             assertThat(result.getId()).isNotNull();
             assertThat(result.getName()).isEqualTo("나이키");
@@ -51,9 +51,9 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 이미_존재하는_브랜드명으로_등록하면_예외() {
-            brandService.register("나이키", "스포츠 브랜드");
+            brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
 
-            assertThatThrownBy(() -> brandService.register("나이키", "다른 설명"))
+            assertThatThrownBy(() -> brandService.register(BrandCommand.Create.of("나이키", "다른 설명")))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT))
                     .hasMessageContaining("이미 등록된 브랜드입니다");
@@ -61,11 +61,11 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 삭제된_브랜드와_동일한_이름으로_등록하면_예외() {
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+            Brand brand = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
             brand.delete();
             brandRepository.save(brand);
 
-            assertThatThrownBy(() -> brandService.register("나이키", "새 설명"))
+            assertThatThrownBy(() -> brandService.register(BrandCommand.Create.of("나이키", "새 설명")))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT))
                     .hasMessageContaining("이미 등록된 브랜드입니다");
@@ -77,9 +77,9 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 유효한_정보로_수정하면_성공한다() {
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+            Brand brand = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
 
-            Brand result = brandService.update(brand.getId(), "아디다스", "독일 스포츠 브랜드");
+            Brand result = brandService.update(brand.getId(), BrandCommand.Update.of("아디다스", "독일 스포츠 브랜드"));
 
             assertThat(result.getName()).isEqualTo("아디다스");
             assertThat(result.getDescription()).isEqualTo("독일 스포츠 브랜드");
@@ -87,7 +87,7 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 미존재_브랜드면_예외() {
-            assertThatThrownBy(() -> brandService.update(999L, "나이키", null))
+            assertThatThrownBy(() -> brandService.update(999L, BrandCommand.Update.of("나이키", null)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
                     .hasMessageContaining("존재하지 않는 브랜드입니다");
@@ -95,10 +95,10 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 삭제된_브랜드를_수정하면_예외() {
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+            Brand brand = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
             brandService.delete(brand.getId());
 
-            assertThatThrownBy(() -> brandService.update(brand.getId(), "아디다스", null))
+            assertThatThrownBy(() -> brandService.update(brand.getId(), BrandCommand.Update.of("아디다스", null)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
                     .hasMessageContaining("존재하지 않는 브랜드입니다");
@@ -106,10 +106,10 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 다른_브랜드와_이름이_중복이면_예외() {
-            brandService.register("나이키", "스포츠 브랜드");
-            Brand adidas = brandService.register("아디다스", "독일 스포츠 브랜드");
+            brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
+            Brand adidas = brandService.register(BrandCommand.Create.of("아디다스", "독일 스포츠 브랜드"));
 
-            assertThatThrownBy(() -> brandService.update(adidas.getId(), "나이키", null))
+            assertThatThrownBy(() -> brandService.update(adidas.getId(), BrandCommand.Update.of("나이키", null)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT))
                     .hasMessageContaining("이미 등록된 브랜드입니다");
@@ -117,13 +117,13 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 삭제된_브랜드와_이름이_중복이면_예외() {
-            Brand nike = brandService.register("나이키", "스포츠 브랜드");
+            Brand nike = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
             nike.delete();
             brandRepository.save(nike);
 
-            Brand adidas = brandService.register("아디다스", "독일 스포츠 브랜드");
+            Brand adidas = brandService.register(BrandCommand.Create.of("아디다스", "독일 스포츠 브랜드"));
 
-            assertThatThrownBy(() -> brandService.update(adidas.getId(), "나이키", null))
+            assertThatThrownBy(() -> brandService.update(adidas.getId(), BrandCommand.Update.of("나이키", null)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT))
                     .hasMessageContaining("이미 등록된 브랜드입니다");
@@ -131,9 +131,9 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 자기_자신_이름으로_수정하면_정상_처리된다() {
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+            Brand brand = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
 
-            Brand result = brandService.update(brand.getId(), "나이키", "변경된 설명");
+            Brand result = brandService.update(brand.getId(), BrandCommand.Update.of("나이키", "변경된 설명"));
 
             assertThat(result.getName()).isEqualTo("나이키");
             assertThat(result.getDescription()).isEqualTo("변경된 설명");
@@ -146,7 +146,7 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 활성_브랜드를_삭제하면_삭제_상태로_변경된다() {
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+            Brand brand = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
 
             brandService.delete(brand.getId());
 
@@ -156,7 +156,7 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 이미_삭제된_브랜드를_삭제해도_성공한다() {
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+            Brand brand = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
             brandService.delete(brand.getId());
 
             assertThatCode(() -> brandService.delete(brand.getId()))
@@ -185,7 +185,7 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 삭제된_브랜드도_조회된다() {
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+            Brand brand = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
             brand.delete();
             brandRepository.save(brand);
 
@@ -201,9 +201,9 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 조건_없이_조회하면_전체_브랜드가_최신순으로_반환된다() {
-            brandService.register("나이키", "스포츠 브랜드");
-            brandService.register("아디다스", "독일 스포츠 브랜드");
-            brandService.register("뉴발란스", "미국 스포츠 브랜드");
+            brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
+            brandService.register(BrandCommand.Create.of("아디다스", "독일 스포츠 브랜드"));
+            brandService.register(BrandCommand.Create.of("뉴발란스", "미국 스포츠 브랜드"));
 
             Page<Brand> result = brandService.findBrands(null, null, PageRequest.of(0, 20));
 
@@ -215,9 +215,9 @@ class BrandServiceIntegrationTest {
 
         @Test
         void name_키워드로_검색하면_부분_일치하는_브랜드만_반환된다() {
-            brandService.register("나이키 에어", "에어 시리즈");
-            brandService.register("나이키 조던", "조던 시리즈");
-            brandService.register("아디다스", "독일 스포츠 브랜드");
+            brandService.register(BrandCommand.Create.of("나이키 에어", "에어 시리즈"));
+            brandService.register(BrandCommand.Create.of("나이키 조던", "조던 시리즈"));
+            brandService.register(BrandCommand.Create.of("아디다스", "독일 스포츠 브랜드"));
 
             Page<Brand> result = brandService.findBrands("나이키", null, PageRequest.of(0, 20));
 
@@ -228,8 +228,8 @@ class BrandServiceIntegrationTest {
 
         @Test
         void deleted_false면_활성_브랜드만_반환된다() {
-            brandService.register("나이키", "스포츠 브랜드");
-            Brand adidas = brandService.register("아디다스", "독일 스포츠 브랜드");
+            brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
+            Brand adidas = brandService.register(BrandCommand.Create.of("아디다스", "독일 스포츠 브랜드"));
             adidas.delete();
             brandRepository.save(adidas);
 
@@ -241,8 +241,8 @@ class BrandServiceIntegrationTest {
 
         @Test
         void deleted_true면_삭제된_브랜드만_반환된다() {
-            brandService.register("나이키", "스포츠 브랜드");
-            Brand adidas = brandService.register("아디다스", "독일 스포츠 브랜드");
+            brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
+            Brand adidas = brandService.register(BrandCommand.Create.of("아디다스", "독일 스포츠 브랜드"));
             adidas.delete();
             brandRepository.save(adidas);
 
@@ -254,11 +254,11 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 복합_조건_name과_deleted_적용_시_모두_반영된다() {
-            brandService.register("나이키 에어", "에어 시리즈");
-            Brand deletedNike = brandService.register("나이키 조던", "조던 시리즈");
+            brandService.register(BrandCommand.Create.of("나이키 에어", "에어 시리즈"));
+            Brand deletedNike = brandService.register(BrandCommand.Create.of("나이키 조던", "조던 시리즈"));
             deletedNike.delete();
             brandRepository.save(deletedNike);
-            brandService.register("아디다스", "독일 스포츠 브랜드");
+            brandService.register(BrandCommand.Create.of("아디다스", "독일 스포츠 브랜드"));
 
             Page<Brand> result = brandService.findBrands("나이키", false, PageRequest.of(0, 20));
 
@@ -280,9 +280,9 @@ class BrandServiceIntegrationTest {
 
         @Test
         void ID_목록에_해당하는_브랜드들이_반환된다() {
-            Brand nike = brandService.register("나이키", "스포츠 브랜드");
-            Brand adidas = brandService.register("아디다스", "독일 스포츠 브랜드");
-            brandService.register("뉴발란스", "미국 스포츠 브랜드");
+            Brand nike = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
+            Brand adidas = brandService.register(BrandCommand.Create.of("아디다스", "독일 스포츠 브랜드"));
+            brandService.register(BrandCommand.Create.of("뉴발란스", "미국 스포츠 브랜드"));
 
             List<Brand> result = brandService.getBrands(List.of(nike.getId(), adidas.getId()));
 
@@ -300,7 +300,7 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 존재하지_않는_ID가_포함되면_존재하는_것만_반환된다() {
-            Brand nike = brandService.register("나이키", "스포츠 브랜드");
+            Brand nike = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
 
             List<Brand> result = brandService.getBrands(List.of(nike.getId(), 999L));
 
@@ -314,7 +314,7 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 활성_브랜드를_조회하면_성공한다() {
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+            Brand brand = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
 
             Brand result = brandService.getActiveBrand(brand.getId());
 
@@ -324,7 +324,7 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 삭제된_브랜드를_조회하면_예외() {
-            Brand brand = brandService.register("나이키", "스포츠 브랜드");
+            Brand brand = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
             brand.delete();
             brandRepository.save(brand);
 
@@ -348,9 +348,9 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 활성_브랜드만_이름_오름차순으로_반환된다() {
-            brandService.register("다나이키", "스포츠 브랜드");
-            brandService.register("가아디다스", "독일 스포츠 브랜드");
-            brandService.register("나뉴발란스", "미국 스포츠 브랜드");
+            brandService.register(BrandCommand.Create.of("다나이키", "스포츠 브랜드"));
+            brandService.register(BrandCommand.Create.of("가아디다스", "독일 스포츠 브랜드"));
+            brandService.register(BrandCommand.Create.of("나뉴발란스", "미국 스포츠 브랜드"));
 
             Page<Brand> result = brandService.findActiveBrands(null, PageRequest.of(0, 20));
 
@@ -362,8 +362,8 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 삭제된_브랜드는_제외된다() {
-            brandService.register("나이키", "스포츠 브랜드");
-            Brand adidas = brandService.register("아디다스", "독일 스포츠 브랜드");
+            brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
+            Brand adidas = brandService.register(BrandCommand.Create.of("아디다스", "독일 스포츠 브랜드"));
             adidas.delete();
             brandRepository.save(adidas);
 
@@ -375,9 +375,9 @@ class BrandServiceIntegrationTest {
 
         @Test
         void name_키워드로_검색하면_활성_브랜드_중_부분_일치하는_것만_반환된다() {
-            brandService.register("나이키 에어", "에어 시리즈");
-            brandService.register("나이키 조던", "조던 시리즈");
-            brandService.register("아디다스", "독일 스포츠 브랜드");
+            brandService.register(BrandCommand.Create.of("나이키 에어", "에어 시리즈"));
+            brandService.register(BrandCommand.Create.of("나이키 조던", "조던 시리즈"));
+            brandService.register(BrandCommand.Create.of("아디다스", "독일 스포츠 브랜드"));
 
             Page<Brand> result = brandService.findActiveBrands("나이키", PageRequest.of(0, 20));
 

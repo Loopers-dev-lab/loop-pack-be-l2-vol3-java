@@ -22,13 +22,15 @@ public class BrandFacade {
 
     @Transactional
     public BrandInfo register(@Valid BrandRequest.Register request) {
-        Brand brand = brandService.register(request.name(), request.description());
+        BrandCommand.Create command = BrandCommand.Create.of(request.name(), request.description());
+        Brand brand = brandService.register(command);
         return BrandInfo.from(brand);
     }
 
     @Transactional
     public BrandInfo update(Long brandId, @Valid BrandRequest.Update request) {
-        Brand brand = brandService.update(brandId, request.name(), request.description());
+        BrandCommand.Update command = BrandCommand.Update.of(request.name(), request.description());
+        Brand brand = brandService.update(brandId, command);
         return BrandInfo.from(brand);
     }
 
