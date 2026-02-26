@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.product;
 
+import com.loopers.application.product.ProductRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,7 +16,7 @@ public interface ProductAdminApiV1Spec {
             description = "특정 브랜드에 속한 신규 상품을 등록합니다."
     )
     ApiResponse<ProductAdminV1Dto.ProductResponse> register(
-            ProductAdminV1Dto.RegisterRequest request
+            ProductRequest.Register request
     );
 
     @Operation(
@@ -24,7 +25,7 @@ public interface ProductAdminApiV1Spec {
     )
     ApiResponse<ProductAdminV1Dto.ProductResponse> update(
             Long productId,
-            ProductAdminV1Dto.UpdateRequest request
+            ProductRequest.Update request
     );
 
     @Operation(
@@ -46,6 +47,6 @@ public interface ProductAdminApiV1Spec {
             description = "전체 상품을 검색/필터링하여 페이징 조회합니다."
     )
     ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>> list(
-            ProductAdminV1Dto.ListRequest request
+            ProductRequest.ListAll request
     );
 }

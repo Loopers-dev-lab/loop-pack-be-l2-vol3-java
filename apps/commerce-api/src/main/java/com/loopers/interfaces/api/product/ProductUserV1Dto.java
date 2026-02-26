@@ -5,7 +5,7 @@ import com.loopers.application.product.ProductInfo;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-public class ProductAdminV1Dto {
+public class ProductUserV1Dto {
 
     // Response
 
@@ -18,10 +18,8 @@ public class ProductAdminV1Dto {
             Integer stockQuantity,
             String description,
             Integer likeCount,
-            String status,
             LocalDateTime createdAt,
-            LocalDateTime updatedAt,
-            LocalDateTime deletedAt
+            LocalDateTime updatedAt
     ) {
         public static ProductResponse from(ProductInfo info) {
             return new ProductResponse(
@@ -33,10 +31,8 @@ public class ProductAdminV1Dto {
                     info.stockQuantity(),
                     info.description(),
                     info.likeCount(),
-                    info.status().name(),
                     info.createdAt(),
-                    info.updatedAt(),
-                    info.deletedAt()
+                    info.updatedAt()
             );
         }
     }

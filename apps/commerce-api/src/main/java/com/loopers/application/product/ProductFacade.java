@@ -5,19 +5,20 @@ import com.loopers.domain.brand.Brand;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.domain.product.Product;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
+@Validated
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ProductFacade {
@@ -28,15 +29,19 @@ public class ProductFacade {
     // Command
 
     @Transactional
-    public ProductInfo register(Long brandId, String name, BigDecimal price, Integer stockQuantity, String description) {
-        Brand brand = brandService.getActiveBrand(brandId);
-        Product product = productService.register(brandId, name, price, stockQuantity, description);
+    public ProductInfo register(@Valid ProductRequest.Register request) {
+        Brand brand = brandService.getActiveBrand(request.brandId());
+        Product product = productService.register(
+                request.brandId(), request.name(), request.price(),
+                request.stockQuantity(), request.description());
         return ProductInfo.from(product, brand.getName());
     }
 
     @Transactional
-    public ProductInfo update(Long productId, String name, BigDecimal price, Integer stockQuantity, String description) {
-        Product product = productService.update(productId, name, price, stockQuantity, description);
+    public ProductInfo update(Long productId, @Valid ProductRequest.Update request) {
+        Product product = productService.update(
+                productId, request.name(), request.price(),
+                request.stockQuantity(), request.description());
         Brand brand = brandService.getBrand(product.getBrandId());
         return ProductInfo.from(product, brand.getName());
     }
@@ -54,8 +59,35 @@ public class ProductFacade {
         return ProductInfo.from(product, brand.getName());
     }
 
-    public Page<ProductInfo> getList(String name, Long brandId, Boolean deleted, Pageable pageable) {
-        Page<Product> products = productService.findProducts(name, brandId, deleted, pageable);
+    public ProductInfo getActiveDetail(Long productId) {
+        Product product = productService.getActiveProduct(productId);
+        Brand brand = brandService.getBrand(product.getBrandId());
+        return ProductInfo.from(product, brand.getName());
+    }
+
+    public Page<ProductInfo> getActiveList(@Valid ProductRequest.ListActive request) {
+        Page<Product> products = productService.findActiveProducts(request.brandId(), request.toPageable());
+
+        List<Long> brandIds = products.getContent().stream()
+                .map(Product::getBrandId)
+                .distinct()
+                .toList();
+
+        Map<Long, Brand> brandMap = brandService.getBrands(brandIds).stream()
+                .collect(Collectors.toMap(Brand::getId, Function.identity()));
+
+        return products.map(product -> {
+            Brand brand = brandMap.get(product.getBrandId());
+            if (brand == null) {
+                throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다");
+            }
+            return ProductInfo.from(product, brand.getName());
+        });
+    }
+
+    public Page<ProductInfo> getList(@Valid ProductRequest.ListAll request) {
+        Page<Product> products = productService.findProducts(
+                request.name(), request.brandId(), request.toDeleted(), request.toPageable());
 
         List<Long> brandIds = products.getContent().stream()
                 .map(Product::getBrandId)

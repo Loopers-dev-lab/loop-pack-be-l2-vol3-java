@@ -1,5 +1,7 @@
 package com.loopers.interfaces.api.product;
 
+import com.loopers.application.brand.BrandRequest;
+import com.loopers.application.product.ProductRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.brand.BrandAdminV1Dto;
@@ -49,7 +51,7 @@ class ProductAdminApiE2ETest {
         @Test
         void 유효한_정보로_등록하면_상품_정보가_반환된다() {
             Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            ProductAdminV1Dto.RegisterRequest request = new ProductAdminV1Dto.RegisterRequest(
+            ProductRequest.Register request = new ProductRequest.Register(
                     brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화"
             );
 
@@ -73,7 +75,7 @@ class ProductAdminApiE2ETest {
 
         @Test
         void 미존재_브랜드면_404_응답() {
-            ProductAdminV1Dto.RegisterRequest request = new ProductAdminV1Dto.RegisterRequest(
+            ProductRequest.Register request = new ProductRequest.Register(
                     999L, "운동화", new BigDecimal("50000"), 100, "설명"
             );
 
@@ -94,7 +96,7 @@ class ProductAdminApiE2ETest {
             Long brandId = registerBrand("나이키", "스포츠 브랜드");
             deleteBrand(brandId);
 
-            ProductAdminV1Dto.RegisterRequest request = new ProductAdminV1Dto.RegisterRequest(
+            ProductRequest.Register request = new ProductRequest.Register(
                     brandId, "운동화", new BigDecimal("50000"), 100, "설명"
             );
 
@@ -110,7 +112,7 @@ class ProductAdminApiE2ETest {
         @Test
         void 요청_필드_규칙_위반_시_400_응답() {
             Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            ProductAdminV1Dto.RegisterRequest request = new ProductAdminV1Dto.RegisterRequest(
+            ProductRequest.Register request = new ProductRequest.Register(
                     brandId, "", new BigDecimal("50000"), 100, "설명"
             );
 
@@ -125,7 +127,7 @@ class ProductAdminApiE2ETest {
 
         @Test
         void 인증_헤더가_누락되면_401_응답() {
-            ProductAdminV1Dto.RegisterRequest request = new ProductAdminV1Dto.RegisterRequest(
+            ProductRequest.Register request = new ProductRequest.Register(
                     1L, "운동화", new BigDecimal("50000"), 100, "설명"
             );
 
@@ -143,7 +145,7 @@ class ProductAdminApiE2ETest {
 
         @Test
         void 인증에_실패하면_401_응답() {
-            ProductAdminV1Dto.RegisterRequest request = new ProductAdminV1Dto.RegisterRequest(
+            ProductRequest.Register request = new ProductRequest.Register(
                     1L, "운동화", new BigDecimal("50000"), 100, "설명"
             );
 
@@ -170,7 +172,7 @@ class ProductAdminApiE2ETest {
         void 유효한_정보로_수정하면_200_응답과_수정된_정보를_반환한다() {
             Long brandId = registerBrand("나이키", "스포츠 브랜드");
             Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            ProductAdminV1Dto.UpdateRequest request = new ProductAdminV1Dto.UpdateRequest(
+            ProductRequest.Update request = new ProductRequest.Update(
                     "런닝화", new BigDecimal("60000"), 200, "가벼운 런닝화"
             );
 
@@ -192,7 +194,7 @@ class ProductAdminApiE2ETest {
         void 상품명만_보내면_상품명만_수정된다() {
             Long brandId = registerBrand("나이키", "스포츠 브랜드");
             Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            ProductAdminV1Dto.UpdateRequest request = new ProductAdminV1Dto.UpdateRequest(
+            ProductRequest.Update request = new ProductRequest.Update(
                     "런닝화", null, null, null
             );
 
@@ -211,7 +213,7 @@ class ProductAdminApiE2ETest {
         void 소속_브랜드는_변경되지_않는다() {
             Long brandId = registerBrand("나이키", "스포츠 브랜드");
             Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            ProductAdminV1Dto.UpdateRequest request = new ProductAdminV1Dto.UpdateRequest(
+            ProductRequest.Update request = new ProductRequest.Update(
                     "런닝화", null, null, null
             );
 
@@ -226,7 +228,7 @@ class ProductAdminApiE2ETest {
 
         @Test
         void 미존재_상품이면_404_응답() {
-            ProductAdminV1Dto.UpdateRequest request = new ProductAdminV1Dto.UpdateRequest(
+            ProductRequest.Update request = new ProductRequest.Update(
                     "런닝화", null, null, null
             );
 
@@ -248,7 +250,7 @@ class ProductAdminApiE2ETest {
             Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
             deleteProduct(productId);
 
-            ProductAdminV1Dto.UpdateRequest request = new ProductAdminV1Dto.UpdateRequest(
+            ProductRequest.Update request = new ProductRequest.Update(
                     "런닝화", null, null, null
             );
 
@@ -265,7 +267,7 @@ class ProductAdminApiE2ETest {
         void 요청_필드_규칙_위반_시_400_응답() {
             Long brandId = registerBrand("나이키", "스포츠 브랜드");
             Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            ProductAdminV1Dto.UpdateRequest request = new ProductAdminV1Dto.UpdateRequest(
+            ProductRequest.Update request = new ProductRequest.Update(
                     "", null, null, null
             );
 
@@ -280,7 +282,7 @@ class ProductAdminApiE2ETest {
 
         @Test
         void 인증_헤더가_누락되면_401_응답() {
-            ProductAdminV1Dto.UpdateRequest request = new ProductAdminV1Dto.UpdateRequest(
+            ProductRequest.Update request = new ProductRequest.Update(
                     "런닝화", null, null, null
             );
 
@@ -298,7 +300,7 @@ class ProductAdminApiE2ETest {
 
         @Test
         void 인증에_실패하면_401_응답() {
-            ProductAdminV1Dto.UpdateRequest request = new ProductAdminV1Dto.UpdateRequest(
+            ProductRequest.Update request = new ProductRequest.Update(
                     "런닝화", null, null, null
             );
 
@@ -689,7 +691,7 @@ class ProductAdminApiE2ETest {
     // --- 헬퍼 메서드 ---
 
     private Long registerBrand(String name, String description) {
-        BrandAdminV1Dto.RegisterRequest request = new BrandAdminV1Dto.RegisterRequest(name, description);
+        BrandRequest.Register request = new BrandRequest.Register(name, description);
         ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = testRestTemplate.exchange(
                 BRAND_ENDPOINT, HttpMethod.POST,
                 new HttpEntity<>(request, adminHeaders()),
@@ -707,7 +709,7 @@ class ProductAdminApiE2ETest {
     }
 
     private Long registerProduct(Long brandId, String name, BigDecimal price, Integer stockQuantity, String description) {
-        ProductAdminV1Dto.RegisterRequest request = new ProductAdminV1Dto.RegisterRequest(
+        ProductRequest.Register request = new ProductRequest.Register(
                 brandId, name, price, stockQuantity, description
         );
         ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> response = postRegister(request);
@@ -731,7 +733,7 @@ class ProductAdminApiE2ETest {
     }
 
     private ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> postRegister(
-            ProductAdminV1Dto.RegisterRequest request) {
+            ProductRequest.Register request) {
         return testRestTemplate.exchange(
                 ENDPOINT, HttpMethod.POST,
                 new HttpEntity<>(request, adminHeaders()),
@@ -740,7 +742,7 @@ class ProductAdminApiE2ETest {
     }
 
     private ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> patchUpdate(
-            Long productId, ProductAdminV1Dto.UpdateRequest request) {
+            Long productId, ProductRequest.Update request) {
         return testRestTemplate.exchange(
                 ENDPOINT + "/" + productId, HttpMethod.PATCH,
                 new HttpEntity<>(request, adminHeaders()),

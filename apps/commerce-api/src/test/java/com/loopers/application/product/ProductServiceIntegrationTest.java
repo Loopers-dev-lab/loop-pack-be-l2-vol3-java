@@ -16,8 +16,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -239,6 +241,114 @@ class ProductServiceIntegrationTest {
     }
 
     @Nested
+    class 활성_상품_조회 {
+
+        @Test
+        void 활성_상품을_조회하면_성공한다() {
+            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+
+            Product result = productService.getActiveProduct(product.getId());
+
+            assertThat(result.getId()).isEqualTo(product.getId());
+            assertThat(result.getName()).isEqualTo("운동화");
+        }
+
+        @Test
+        void 삭제된_상품을_조회하면_예외() {
+            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            product.delete();
+            productRepository.save(product);
+
+            assertThatThrownBy(() -> productService.getActiveProduct(product.getId()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
+                    .hasMessageContaining("존재하지 않는 상품입니다");
+        }
+
+        @Test
+        void 미존재_상품을_조회하면_예외() {
+            assertThatThrownBy(() -> productService.getActiveProduct(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
+                    .hasMessageContaining("존재하지 않는 상품입니다");
+        }
+    }
+
+    @Nested
+    class 활성_상품_목록_조회 {
+
+        @Test
+        void 조건_없이_조회하면_활성_상품만_최신순으로_반환한다() {
+            productService.register(1L, "운동화A", new BigDecimal("10000"), 10, "설명A");
+            productService.register(1L, "운동화B", new BigDecimal("20000"), 20, "설명B");
+            Product deleted = productService.register(1L, "운동화C", new BigDecimal("30000"), 30, "설명C");
+            deleted.delete();
+            productRepository.save(deleted);
+
+            Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+            Page<Product> result = productService.findActiveProducts(null, pageable);
+
+            assertThat(result.getContent()).hasSize(2);
+            assertThat(result.getContent()).extracting(Product::getName)
+                    .containsExactly("운동화B", "운동화A");
+        }
+
+        @Test
+        void brandId로_필터링하면_해당_브랜드의_활성_상품만_반환한다() {
+            productService.register(1L, "나이키 운동화", new BigDecimal("10000"), 10, "설명");
+            productService.register(2L, "아디다스 운동화", new BigDecimal("20000"), 20, "설명");
+
+            Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+            Page<Product> result = productService.findActiveProducts(1L, pageable);
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getBrandId()).isEqualTo(1L);
+        }
+
+        @Test
+        void 가격_오름차순으로_정렬할_수_있다() {
+            productService.register(1L, "비싼 운동화", new BigDecimal("90000"), 10, "설명");
+            productService.register(1L, "싼 운동화", new BigDecimal("10000"), 10, "설명");
+            productService.register(1L, "중간 운동화", new BigDecimal("50000"), 10, "설명");
+
+            Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "price"));
+            Page<Product> result = productService.findActiveProducts(null, pageable);
+
+            assertThat(result.getContent()).extracting(Product::getName)
+                    .containsExactly("싼 운동화", "중간 운동화", "비싼 운동화");
+        }
+
+        @Test
+        void 좋아요_내림차순으로_정렬할_수_있다() {
+            Product p1 = productService.register(1L, "인기 상품", new BigDecimal("10000"), 10, "설명");
+            productService.register(1L, "보통 상품", new BigDecimal("20000"), 20, "설명");
+            Product p3 = productService.register(1L, "최고 인기", new BigDecimal("30000"), 30, "설명");
+            p1.incrementLikeCount();
+            p1.incrementLikeCount();
+            productRepository.save(p1);
+            p3.incrementLikeCount();
+            p3.incrementLikeCount();
+            p3.incrementLikeCount();
+            productRepository.save(p3);
+
+            Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "likeCount"));
+            Page<Product> result = productService.findActiveProducts(null, pageable);
+
+            assertThat(result.getContent()).extracting(Product::getName)
+                    .containsExactly("최고 인기", "인기 상품", "보통 상품");
+        }
+
+        @Test
+        void 결과가_없으면_빈_페이지를_반환한다() {
+            Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+            Page<Product> result = productService.findActiveProducts(null, pageable);
+
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isEqualTo(0);
+        }
+    }
+
+    @Nested
     class 브랜드별_상품_일괄_삭제 {
 
         @Test
@@ -280,6 +390,69 @@ class ProductServiceIntegrationTest {
 
             Product found = productRepository.findById(otherBrandProduct.getId()).orElseThrow();
             assertThat(found.isDeleted()).isFalse();
+        }
+    }
+
+    @Nested
+    class 재고_일괄_차감 {
+
+        @Test
+        void 유효한_상품에_재고를_차감하면_차감된다() {
+            Product product1 = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Product product2 = productService.register(1L, "셔츠", new BigDecimal("30000"), 50, "멋진 셔츠");
+
+            productService.deductStocks(Map.of(product1.getId(), 10, product2.getId(), 5));
+
+            Product found1 = productRepository.findById(product1.getId()).orElseThrow();
+            Product found2 = productRepository.findById(product2.getId()).orElseThrow();
+            assertThat(found1.getStockQuantity()).isEqualTo(90);
+            assertThat(found2.getStockQuantity()).isEqualTo(45);
+        }
+
+        @Test
+        void 미존재_상품이_포함되면_예외() {
+            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+
+            assertThatThrownBy(() -> productService.deductStocks(Map.of(product.getId(), 10, 999L, 5)))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
+                    .hasMessageContaining("존재하지 않는 상품이 포함되어 있습니다");
+        }
+
+        @Test
+        void 삭제된_상품이_포함되면_예외() {
+            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            product.delete();
+            productRepository.save(product);
+
+            assertThatThrownBy(() -> productService.deductStocks(Map.of(product.getId(), 10)))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
+                    .hasMessageContaining("존재하지 않는 상품이 포함되어 있습니다");
+        }
+
+        @Test
+        void 재고가_부족한_상품이_있으면_예외() {
+            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 10, "편한 운동화");
+
+            assertThatThrownBy(() -> productService.deductStocks(Map.of(product.getId(), 11)))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
+                    .hasMessageContaining("재고가 부족한 상품이 있습니다");
+        }
+
+        @Test
+        void 재고_부족_시_어떤_상품의_재고도_차감되지_않는다() {
+            Product product1 = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Product product2 = productService.register(1L, "셔츠", new BigDecimal("30000"), 5, "멋진 셔츠");
+
+            assertThatThrownBy(() -> productService.deductStocks(Map.of(product1.getId(), 10, product2.getId(), 10)))
+                    .isInstanceOf(CoreException.class);
+
+            Product found1 = productRepository.findById(product1.getId()).orElseThrow();
+            Product found2 = productRepository.findById(product2.getId()).orElseThrow();
+            assertThat(found1.getStockQuantity()).isEqualTo(100);
+            assertThat(found2.getStockQuantity()).isEqualTo(5);
         }
     }
 }
