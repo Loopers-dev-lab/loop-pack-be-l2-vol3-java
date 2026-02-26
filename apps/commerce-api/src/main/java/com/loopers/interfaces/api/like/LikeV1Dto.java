@@ -15,11 +15,8 @@ public class LikeV1Dto {
             String brandName,
             String name,
             BigDecimal price,
-            Integer stockQuantity,
-            String description,
             Integer likeCount,
-            LocalDateTime createdAt,
-            LocalDateTime updatedAt
+            LocalDateTime createdAt
     ) {
         public static LikeProductResponse from(LikeProductInfo info) {
             return new LikeProductResponse(
@@ -28,11 +25,8 @@ public class LikeV1Dto {
                     info.brandName(),
                     info.name(),
                     info.price(),
-                    info.stockQuantity(),
-                    info.description(),
                     info.likeCount(),
-                    info.createdAt(),
-                    info.updatedAt()
+                    info.createdAt()
             );
         }
     }

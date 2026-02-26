@@ -5,6 +5,8 @@ import com.loopers.application.product.ProductService;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.product.Product;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -65,10 +67,23 @@ public class LikeFacade {
 
         Map<Long, Brand> brandMap = brandService.getBrandsMapByIds(brandIds);
 
+        for (Like like : likes.getContent()) {
+            if (!productMap.containsKey(like.getProductId())) {
+                throw new CoreException(ErrorType.NOT_FOUND,
+                        "상품 매핑 누락. likeId=" + like.getId() + ", productId=" + like.getProductId());
+            }
+        }
+
+        for (Product product : productMap.values()) {
+            if (!brandMap.containsKey(product.getBrandId())) {
+                throw new CoreException(ErrorType.NOT_FOUND,
+                        "브랜드 매핑 누락. productId=" + product.getId() + ", brandId=" + product.getBrandId());
+            }
+        }
+
         return likes.map(like -> {
             Product product = productMap.get(like.getProductId());
-            Brand brand = brandMap.get(product.getBrandId());
-            return LikeProductInfo.from(product, brand.getName());
+            return LikeProductInfo.from(product, brandMap.get(product.getBrandId()).getName());
         });
     }
 }

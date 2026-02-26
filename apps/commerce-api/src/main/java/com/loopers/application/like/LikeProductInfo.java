@@ -11,11 +11,8 @@ public record LikeProductInfo(
         String brandName,
         String name,
         BigDecimal price,
-        Integer stockQuantity,
-        String description,
         Integer likeCount,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime createdAt
 ) {
 
     public static LikeProductInfo from(Product product, String brandName) {
@@ -25,11 +22,8 @@ public record LikeProductInfo(
                 brandName,
                 product.getName(),
                 product.getPrice(),
-                product.getStockQuantity(),
-                product.getDescription(),
                 product.getLikeCount(),
-                product.getCreatedAt().toLocalDateTime(),
-                product.getUpdatedAt().toLocalDateTime()
+                product.getCreatedAt().toLocalDateTime()
         );
     }
 }

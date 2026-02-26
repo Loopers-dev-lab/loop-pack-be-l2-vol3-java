@@ -12,10 +12,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
@@ -77,13 +75,14 @@ public class ProductFacade {
 
         Map<Long, Brand> brandMap = brandService.getBrandsMapByIds(brandIds);
 
-        return products.map(product -> {
-            Brand brand = brandMap.get(product.getBrandId());
-            if (brand == null) {
-                throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다");
+        for (Product product : products.getContent()) {
+            if (!brandMap.containsKey(product.getBrandId())) {
+                throw new CoreException(ErrorType.NOT_FOUND,
+                        "브랜드 매핑 누락. productId=" + product.getId() + ", brandId=" + product.getBrandId());
             }
-            return ProductInfo.from(product, brand.getName());
-        });
+        }
+
+        return products.map(product -> ProductInfo.from(product, brandMap.get(product.getBrandId()).getName()));
     }
 
     public Page<ProductInfo> getList(@Valid ProductRequest.ListAll request) {
@@ -96,12 +95,13 @@ public class ProductFacade {
 
         Map<Long, Brand> brandMap = brandService.getBrandsMapByIds(brandIds);
 
-        return products.map(product -> {
-            Brand brand = brandMap.get(product.getBrandId());
-            if (brand == null) {
-                throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다");
+        for (Product product : products.getContent()) {
+            if (!brandMap.containsKey(product.getBrandId())) {
+                throw new CoreException(ErrorType.NOT_FOUND,
+                        "브랜드 매핑 누락. productId=" + product.getId() + ", brandId=" + product.getBrandId());
             }
-            return ProductInfo.from(product, brand.getName());
-        });
+        }
+
+        return products.map(product -> ProductInfo.from(product, brandMap.get(product.getBrandId()).getName()));
     }
 }
