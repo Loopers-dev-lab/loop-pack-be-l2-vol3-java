@@ -211,5 +211,30 @@ class OrderServiceIntegrationTest {
                 orderService.cancel(USER_ID, order.getId()));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
+
+        @Test
+        void cancel_whenPaid_shouldRestoreStockThenPersistCancelled() {
+            // given: 상품 재고 10, PAID 상태 주문(수량 2)을 직접 저장하고, 재고를 8로 줄여 결제 완료 상태를 시뮬레이션
+            Long productId = saveProduct("상품", 10);
+            ProductModel product = productRepository.findById(productId).orElseThrow();
+            OrderModel order = OrderModel.withStatus(USER_ID, OrderStatus.PAID, ZonedDateTime.now());
+            order.addItem(OrderItemModel.of(product.snapshotForOrder(), 2, null));
+            order.validateHasItems();
+            OrderModel savedOrder = orderRepository.save(order);
+            product.updateStockQuantity(8);
+            productRepository.save(product);
+
+            // when
+            OrderModel cancelled = orderService.cancel(USER_ID, savedOrder.getId());
+
+            // then: 주문 CANCELLED, 재고 10으로 복구
+            assertThat(cancelled.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+            Optional<OrderModel> found = orderRepository.findById(savedOrder.getId());
+            assertThat(found).isPresent();
+            assertThat(found.get().getStatus()).isEqualTo(OrderStatus.CANCELLED);
+            Optional<ProductModel> productAfter = productRepository.findById(productId);
+            assertThat(productAfter).isPresent();
+            assertThat(productAfter.get().getStockQuantity()).isEqualTo(10);
+        }
     }
 }
