@@ -147,6 +147,16 @@ class BrandTest {
         }
 
         @Test
+        void name이_100자이면_성공() {
+            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            String maxName = "a".repeat(100);
+
+            brand.update(maxName, null);
+
+            assertThat(brand.getName()).isEqualTo(maxName);
+        }
+
+        @Test
         void description이_500자를_초과하면_예외() {
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
             String longDescription = "a".repeat(501);
@@ -155,6 +165,16 @@ class BrandTest {
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
                     .hasMessageContaining("브랜드 설명은 500자 이하여야 합니다");
+        }
+
+        @Test
+        void description이_500자이면_성공() {
+            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            String maxDescription = "a".repeat(500);
+
+            brand.update(null, maxDescription);
+
+            assertThat(brand.getDescription()).isEqualTo(maxDescription);
         }
     }
 

@@ -117,6 +117,21 @@ class UserServiceIntegrationTest {
             assertThatThrownBy(() -> userService.authenticate(loginId, "Test1234!"))
                     .isInstanceOf(CoreException.class);
         }
+
+        @Test
+        void 존재하지_않는_회원이면_예외() {
+            assertThatThrownBy(() -> userService.changePassword(UserCommand.ChangePassword.of(999L, "NewPass123!")))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+
+        @Test
+        void 현재_비밀번호와_동일하면_예외() {
+            User user = signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
+
+            assertThatThrownBy(() -> userService.changePassword(UserCommand.ChangePassword.of(user.getId(), "Test1234!")))
+                    .isInstanceOf(CoreException.class);
+        }
     }
 
     @Nested

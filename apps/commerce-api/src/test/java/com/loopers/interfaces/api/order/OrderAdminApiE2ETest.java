@@ -57,7 +57,7 @@ class OrderAdminApiE2ETest {
     }
 
     @Nested
-    class 주문_목록_조회_Admin {
+    class 주문_목록_조회_관리자 {
 
         @Test
         void 전체_주문을_최신순으로_페이징하여_200_응답한다() {
@@ -162,7 +162,7 @@ class OrderAdminApiE2ETest {
     }
 
     @Nested
-    class 주문_상세_조회_Admin {
+    class 주문_상세_조회_관리자 {
 
         @Test
         void 주문을_조회하면_200_응답과_주문_상세_정보를_반환한다() {

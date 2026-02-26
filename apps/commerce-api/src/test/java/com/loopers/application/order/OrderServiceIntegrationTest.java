@@ -155,7 +155,7 @@ class OrderServiceIntegrationTest {
     }
 
     @Nested
-    class 주문_상세_조회_Admin {
+    class 주문_상세_조회_관리자 {
 
         @Test
         void 주문_ID로_조회하면_주문_정보를_반환한다() {
@@ -180,7 +180,7 @@ class OrderServiceIntegrationTest {
     }
 
     @Nested
-    class 전체_주문_목록_조회_Admin {
+    class 전체_주문_목록_조회_관리자 {
 
         @Test
         void 모든_사용자의_주문을_반환한다() {

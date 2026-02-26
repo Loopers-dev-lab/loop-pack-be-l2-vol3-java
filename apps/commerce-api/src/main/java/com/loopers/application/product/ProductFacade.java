@@ -14,6 +14,7 @@ import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -68,13 +69,11 @@ public class ProductFacade {
     public Page<ProductInfo> getActiveList(@Valid ProductRequest.ListActive request) {
         Page<Product> products = productService.findActiveProducts(request.brandId(), request.toPageable());
 
-        List<Long> brandIds = products.getContent().stream()
+        Set<Long> brandIds = products.getContent().stream()
                 .map(Product::getBrandId)
-                .distinct()
-                .toList();
+                .collect(Collectors.toSet());
 
-        Map<Long, Brand> brandMap = brandService.getBrands(brandIds).stream()
-                .collect(Collectors.toMap(Brand::getId, Function.identity()));
+        Map<Long, Brand> brandMap = brandService.getBrandsMapByIds(brandIds);
 
         return products.map(product -> {
             Brand brand = brandMap.get(product.getBrandId());
@@ -89,13 +88,11 @@ public class ProductFacade {
         Page<Product> products = productService.findProducts(
                 request.name(), request.brandId(), request.toDeleted(), request.toPageable());
 
-        List<Long> brandIds = products.getContent().stream()
+        Set<Long> brandIds = products.getContent().stream()
                 .map(Product::getBrandId)
-                .distinct()
-                .toList();
+                .collect(Collectors.toSet());
 
-        Map<Long, Brand> brandMap = brandService.getBrands(brandIds).stream()
-                .collect(Collectors.toMap(Brand::getId, Function.identity()));
+        Map<Long, Brand> brandMap = brandService.getBrandsMapByIds(brandIds);
 
         return products.map(product -> {
             Brand brand = brandMap.get(product.getBrandId());
