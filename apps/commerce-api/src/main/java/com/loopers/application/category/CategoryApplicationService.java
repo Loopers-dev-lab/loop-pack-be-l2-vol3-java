@@ -5,6 +5,8 @@ import com.loopers.domain.category.CategoryRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -15,5 +17,9 @@ public class CategoryApplicationService {
     public Category findById(Long categoryId) {
         return categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new CoreException(ErrorType.BAD_REQUEST, "카테고리를 찾을 수 없습니다."));
+    }
+
+    public Page<Category> list(Pageable pageable) {
+        return categoryRepository.findAll(pageable);
     }
 }
