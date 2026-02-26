@@ -1,6 +1,7 @@
 package com.loopers.domain.cart;
 
 import com.loopers.domain.BaseEntity;
+import com.loopers.domain.product.Quantity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -49,17 +50,17 @@ public class CartItemModel extends BaseEntity {
      * @param quantity  수량 (1 이상)
      * @return 생성된 CartItemModel
      */
-    public static CartItemModel create(Long userId, Long productId, Long optionId, int quantity) {
+    public static CartItemModel create(Long userId, Long productId, Long optionId, Quantity quantity) {
         if (userId == null) {
             throw new IllegalArgumentException("사용자 ID는 null일 수 없습니다.");
         }
         if (productId == null) {
             throw new IllegalArgumentException("상품 ID는 null일 수 없습니다.");
         }
-        if (quantity < 1) {
-            throw new IllegalArgumentException("수량은 1 이상이어야 합니다.");
+        if (quantity == null) {
+            throw new IllegalArgumentException("수량은 null일 수 없습니다.");
         }
-        return new CartItemModel(userId, productId, optionId, quantity);
+        return new CartItemModel(userId, productId, optionId, quantity.value());
     }
 
     /**
@@ -77,11 +78,11 @@ public class CartItemModel extends BaseEntity {
      *
      * @param quantity 1 이상
      */
-    public void updateQuantity(int quantity) {
-        if (quantity < 1) {
-            throw new IllegalArgumentException("수량은 1 이상이어야 합니다.");
+    public void updateQuantity(Quantity quantity) {
+        if (quantity == null) {
+            throw new IllegalArgumentException("수량은 null일 수 없습니다.");
         }
-        this.quantity = quantity;
+        this.quantity = quantity.value();
     }
 
     /**
@@ -90,11 +91,11 @@ public class CartItemModel extends BaseEntity {
      * @param quantity 1 이상
      * @param optionId 옵션 ID (null 가능)
      */
-    public void updateQuantityAndOption(int quantity, Long optionId) {
-        if (quantity < 1) {
-            throw new IllegalArgumentException("수량은 1 이상이어야 합니다.");
+    public void updateQuantityAndOption(Quantity quantity, Long optionId) {
+        if (quantity == null) {
+            throw new IllegalArgumentException("수량은 null일 수 없습니다.");
         }
-        this.quantity = quantity;
+        this.quantity = quantity.value();
         this.optionId = optionId;
     }
 }

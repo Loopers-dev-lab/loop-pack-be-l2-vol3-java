@@ -1,6 +1,7 @@
 package com.loopers.domain.cart;
 
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.Quantity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.springframework.stereotype.Service;
@@ -27,27 +28,28 @@ public class CartService {
      */
     @Transactional
     public CartItemModel addItem(Long userId, Long productId, Long optionId, int quantity) {
-        productService.validateProductAvailability(productId, quantity, optionId);
+        Quantity q = Quantity.of(quantity);
+        productService.validateProductAvailability(productId, q, optionId);
 
         List<CartItemModel> items = cartRepository.findByUserId(userId);
         CartItemModel existing = findExistingSameProduct(items, productId, optionId);
 
         if (existing != null) {
-            int newQuantity = existing.getQuantity() + quantity;
-            productService.validateProductAvailability(productId, newQuantity, optionId);
-            existing.updateQuantity(newQuantity);
+            Quantity newQ = Quantity.of(existing.getQuantity() + quantity);
+            productService.validateProductAvailability(productId, newQ, optionId);
+            existing.updateQuantity(newQ);
             return cartRepository.save(existing);
         }
 
-        CartItemModel newItem = CartItemModel.create(userId, productId, optionId, quantity);
+        CartItemModel newItem = CartItemModel.create(userId, productId, optionId, q);
         return cartRepository.save(newItem);
     }
 
     private CartItemModel findExistingSameProduct(List<CartItemModel> items, Long productId, Long optionId) {
         return items.stream()
-            .filter(item -> item.isSameProduct(productId, optionId))
-            .findFirst()
-            .orElse(null);
+                .filter(item -> item.isSameProduct(productId, optionId))
+                .findFirst()
+                .orElse(null);
     }
 
     /**
@@ -64,10 +66,11 @@ public class CartService {
     @Transactional
     public CartItemModel updateItem(Long userId, Long cartItemId, int quantity, Long optionId) {
         CartItemModel item = cartRepository.findByUserIdAndCartItemId(userId, cartItemId)
-            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, CART_ITEM_NOT_FOUND));
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, CART_ITEM_NOT_FOUND));
 
-        productService.validateProductAvailability(item.getProductId(), quantity, optionId);
-        item.updateQuantityAndOption(quantity, optionId);
+        Quantity q = Quantity.of(quantity);
+        productService.validateProductAvailability(item.getProductId(), q, optionId);
+        item.updateQuantityAndOption(q, optionId);
         return cartRepository.save(item);
     }
 
@@ -81,7 +84,8 @@ public class CartService {
         }
         for (Long cartItemId : cartItemIds) {
             CartItemModel item = cartRepository.findByUserIdAndCartItemId(userId, cartItemId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, String.format(CART_ITEM_NOT_FOUND_WITH_ID, cartItemId)));
+                    .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND,
+                            String.format(CART_ITEM_NOT_FOUND_WITH_ID, cartItemId)));
             cartRepository.delete(item);
         }
     }
