@@ -38,13 +38,10 @@ public class OrderV1Controller implements OrderV1ApiSpec {
     ) {
         Long userId = userFacade.findUserIdByLoginId(loginId)
             .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "로그인이 필요합니다."));
-        if (request.items() == null || request.items().isEmpty()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목이 없습니다.");
-        }
         List<CreateOrderItemParam> params = request.items().stream()
             .map(item -> new CreateOrderItemParam(
                 item.productId(),
-                item.quantity() != null ? item.quantity() : 1,
+                item.quantity(),
                 item.optionId()
             ))
             .toList();
