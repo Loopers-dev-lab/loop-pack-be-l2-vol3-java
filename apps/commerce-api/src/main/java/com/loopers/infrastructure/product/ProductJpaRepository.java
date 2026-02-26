@@ -12,10 +12,15 @@ import org.springframework.data.jpa.repository.Lock;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface ProductJpaRepository extends JpaRepository<Product, Long> {
 
     // Query
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Product p WHERE p.id = :id")
+    Optional<Product> findByIdForUpdate(@Param("id") Long id);
+
     List<Product> findAllByIdIn(Collection<Long> ids);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
