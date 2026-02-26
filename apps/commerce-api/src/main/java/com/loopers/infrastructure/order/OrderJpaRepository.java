@@ -13,7 +13,7 @@ public interface OrderJpaRepository extends JpaRepository<OrderEntity, Long> {
     @Query("SELECT o FROM OrderEntity o LEFT JOIN FETCH o.items WHERE o.id = :id")
     Optional<OrderEntity> findByIdWithItems(@Param("id") Long id);
 
-    @Query("SELECT o FROM OrderEntity o WHERE o.userId = :userId " +
+    @Query("SELECT o FROM OrderEntity o LEFT JOIN FETCH o.items WHERE o.userId = :userId " +
             "AND o.createdAt >= :startAt AND o.createdAt < :endAt " +
             "ORDER BY o.createdAt DESC")
     List<OrderEntity> findAllByUserIdAndCreatedAtBetween(

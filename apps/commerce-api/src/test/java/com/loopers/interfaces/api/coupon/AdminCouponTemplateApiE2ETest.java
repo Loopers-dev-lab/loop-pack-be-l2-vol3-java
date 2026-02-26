@@ -105,7 +105,7 @@ class AdminCouponTemplateApiE2ETest {
         }
     }
 
-    @DisplayName("PUT /api-admin/v1/coupon-templates/{templateId}")
+    @DisplayName("PATCH /api-admin/v1/coupon-templates/{templateId}")
     @Nested
     class 템플릿_수정 {
 
@@ -119,7 +119,7 @@ class AdminCouponTemplateApiE2ETest {
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    "/api-admin/v1/coupon-templates/" + template.getId(), HttpMethod.PUT,
+                    "/api-admin/v1/coupon-templates/" + template.getId(), HttpMethod.PATCH,
                     new HttpEntity<>(request, adminHeaders()), ApiResponse.class);
 
             // assert
@@ -133,7 +133,7 @@ class AdminCouponTemplateApiE2ETest {
                     new AdminCouponTemplateRequest.UpdateTemplateRequest(
                             "수정", "설명", "FIXED", 1000, null, 5000);
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    "/api-admin/v1/coupon-templates/999", HttpMethod.PUT,
+                    "/api-admin/v1/coupon-templates/999", HttpMethod.PATCH,
                     new HttpEntity<>(request, adminHeaders()), ApiResponse.class);
 
             // assert

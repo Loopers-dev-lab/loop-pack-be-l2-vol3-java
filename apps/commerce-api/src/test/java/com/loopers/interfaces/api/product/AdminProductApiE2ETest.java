@@ -104,11 +104,11 @@ class AdminProductApiE2ETest {
             // arrange
             Brand brand = Brand.create("비활성", "설명");
             brand.changeStatus(BrandStatus.INACTIVE);
-            brandRepository.save(brand);
+            Brand saved = brandRepository.save(brand);
 
             AdminProductRequest.CreateProductRequest request =
                     new AdminProductRequest.CreateProductRequest(
-                            brand.getId(), "에어맥스", "나이키 에어맥스", 150000, 100);
+                            saved.getId(), "에어맥스", "나이키 에어맥스", 150000, 100);
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
@@ -186,7 +186,7 @@ class AdminProductApiE2ETest {
         }
     }
 
-    @DisplayName("PUT /api-admin/v1/products/{productId}")
+    @DisplayName("PATCH /api-admin/v1/products/{productId}")
     @Nested
     class 상품_수정 {
 
@@ -201,7 +201,7 @@ class AdminProductApiE2ETest {
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
                     ADMIN_PRODUCTS_URL + "/" + product.getId(),
-                    HttpMethod.PUT, adminEntity(request), ApiResponse.class);
+                    HttpMethod.PATCH, adminEntity(request), ApiResponse.class);
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);

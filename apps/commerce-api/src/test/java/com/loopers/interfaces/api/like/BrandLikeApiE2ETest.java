@@ -101,11 +101,11 @@ class BrandLikeApiE2ETest {
             // arrange
             Brand brand = Brand.create("비활성", "설명");
             brand.changeStatus(BrandStatus.INACTIVE);
-            brandRepository.save(brand);
+            Brand saved = brandRepository.save(brand);
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    likeUrl(brand.getId()), HttpMethod.POST, new HttpEntity<>(authHeaders()), ApiResponse.class);
+                    likeUrl(saved.getId()), HttpMethod.POST, new HttpEntity<>(authHeaders()), ApiResponse.class);
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);

@@ -5,6 +5,7 @@ import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -54,8 +55,9 @@ public class OrderMapper {
         entity.setOrderedAt(domain.getOrderedAt());
         entity.setExpiresAt(domain.getExpiresAt());
         entity.setCanceledAt(domain.getCanceledAt());
-        entity.setCreatedAt(domain.getCreatedAt());
-        entity.setUpdatedAt(domain.getUpdatedAt());
+        ZonedDateTime now = ZonedDateTime.now();
+        entity.setCreatedAt(domain.getCreatedAt() != null ? domain.getCreatedAt() : now);
+        entity.setUpdatedAt(now);
         entity.setDeletedAt(domain.getDeletedAt());
 
         return entity;

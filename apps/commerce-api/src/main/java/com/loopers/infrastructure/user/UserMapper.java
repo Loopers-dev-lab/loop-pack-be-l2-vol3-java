@@ -7,6 +7,8 @@ import com.loopers.domain.user.vo.LoginId;
 import com.loopers.domain.user.vo.UserName;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
+
 /**
  * UserMapper
  * Domain POJO ↔ JPA Entity 변환
@@ -28,8 +30,9 @@ public class UserMapper {
         entity.setBirthDate(domain.getBirthDate().getValue());
         entity.setEmail(domain.getEmail().getValue());
 
-        entity.setCreatedAt(domain.getCreatedAt());
-        entity.setUpdatedAt(domain.getUpdatedAt());
+        ZonedDateTime now = ZonedDateTime.now();
+        entity.setCreatedAt(domain.getCreatedAt() != null ? domain.getCreatedAt() : now);
+        entity.setUpdatedAt(now);
         entity.setDeletedAt(domain.getDeletedAt());
 
         return entity;

@@ -55,7 +55,7 @@ public class BrandAdminFacade {
 
         List<Product> products = productService.getAllProductsByBrandId(brandId);
         for (Product product : products) {
-            product.delete();
+            productService.delete(product.getId());
             inventoryService.delete(product.getId());
             cartItemService.deleteByProductId(product.getId());
         }

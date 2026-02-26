@@ -3,6 +3,8 @@ package com.loopers.infrastructure.inventory;
 import com.loopers.domain.inventory.Inventory;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
+
 /**
  * InventoryMapper
  * Domain POJO ↔ JPA Entity 변환
@@ -19,8 +21,9 @@ public class InventoryMapper {
         entity.setProductId(inventory.getProductId());
         entity.setQuantity(inventory.getQuantity());
         entity.setReservedQty(inventory.getReservedQty());
-        entity.setCreatedAt(inventory.getCreatedAt());
-        entity.setUpdatedAt(inventory.getUpdatedAt());
+        ZonedDateTime now = ZonedDateTime.now();
+        entity.setCreatedAt(inventory.getCreatedAt() != null ? inventory.getCreatedAt() : now);
+        entity.setUpdatedAt(now);
         entity.setDeletedAt(inventory.getDeletedAt());
         return entity;
     }

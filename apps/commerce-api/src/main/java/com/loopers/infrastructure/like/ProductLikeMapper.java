@@ -3,6 +3,8 @@ package com.loopers.infrastructure.like;
 import com.loopers.domain.like.ProductLike;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
+
 /**
  * ProductLikeMapper
  * Domain POJO ↔ JPA Entity 변환
@@ -18,7 +20,7 @@ public class ProductLikeMapper {
         entity.setId(domain.getId());
         entity.setUserId(domain.getUserId());
         entity.setProductId(domain.getProductId());
-        entity.setCreatedAt(domain.getCreatedAt());
+        entity.setCreatedAt(domain.getCreatedAt() != null ? domain.getCreatedAt() : ZonedDateTime.now());
         return entity;
     }
 

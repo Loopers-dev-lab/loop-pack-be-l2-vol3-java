@@ -158,6 +158,7 @@ class BrandServiceTest {
             // arrange
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
             when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
+            when(brandRepository.save(any(Brand.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // act
             Brand result = brandService.update(1L, "아디다스", "독일 브랜드");

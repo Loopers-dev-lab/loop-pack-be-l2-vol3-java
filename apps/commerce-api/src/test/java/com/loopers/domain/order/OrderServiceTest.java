@@ -146,6 +146,7 @@ class OrderServiceTest {
             // arrange
             Order order = createOrder();
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+            when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // act
             Order result = orderService.cancel(1L, 1L);

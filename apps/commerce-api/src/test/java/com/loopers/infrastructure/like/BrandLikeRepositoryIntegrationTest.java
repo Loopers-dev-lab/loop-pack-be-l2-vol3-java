@@ -130,10 +130,10 @@ class BrandLikeRepositoryIntegrationTest {
             Brand active = createActiveBrand("나이키");
             Brand inactive = Brand.create("비활성", "설명");
             inactive.changeStatus(BrandStatus.INACTIVE);
-            brandRepository.save(inactive);
+            Brand savedInactive = brandRepository.save(inactive);
 
             brandLikeRepository.save(BrandLike.create(1L, active.getId()));
-            brandLikeRepository.save(BrandLike.create(1L, inactive.getId()));
+            brandLikeRepository.save(BrandLike.create(1L, savedInactive.getId()));
 
             // act
             List<BrandLike> result = brandLikeRepository.findActiveByUserId(1L, 0, 20);
@@ -149,10 +149,10 @@ class BrandLikeRepositoryIntegrationTest {
             Brand active = createActiveBrand("나이키");
             Brand deleted = Brand.create("삭제됨", "설명");
             deleted.delete();
-            brandRepository.save(deleted);
+            Brand savedDeleted = brandRepository.save(deleted);
 
             brandLikeRepository.save(BrandLike.create(1L, active.getId()));
-            brandLikeRepository.save(BrandLike.create(1L, deleted.getId()));
+            brandLikeRepository.save(BrandLike.create(1L, savedDeleted.getId()));
 
             // act
             List<BrandLike> result = brandLikeRepository.findActiveByUserId(1L, 0, 20);
@@ -190,10 +190,10 @@ class BrandLikeRepositoryIntegrationTest {
             Brand active = createActiveBrand("나이키");
             Brand inactive = Brand.create("비활성", "설명");
             inactive.changeStatus(BrandStatus.INACTIVE);
-            brandRepository.save(inactive);
+            Brand savedInactive = brandRepository.save(inactive);
 
             brandLikeRepository.save(BrandLike.create(1L, active.getId()));
-            brandLikeRepository.save(BrandLike.create(1L, inactive.getId()));
+            brandLikeRepository.save(BrandLike.create(1L, savedInactive.getId()));
 
             // act
             long count = brandLikeRepository.countActiveByUserId(1L);

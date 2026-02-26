@@ -42,19 +42,20 @@ public class LikeFacade {
     /** 상품 좋아요 (상품 검증 → 좋아요 생성 → likeCount 증가) */
     @Transactional
     public LikeResult likeProduct(Long userId, Long productId) {
-        Product product = productService.getDisplayableProduct(productId);
+        productService.getDisplayableProduct(productId);
         likeService.like(userId, productId);
-        product.incrementLikeCount();
-        return new LikeResult(product.getLikeCount());
+        productService.incrementLikeCount(productId);
+        Product updated = productService.getById(productId);
+        return new LikeResult(updated.getLikeCount());
     }
 
     /** 상품 좋아요 취소 (좋아요 삭제 → likeCount 감소) */
     @Transactional
     public LikeResult unlikeProduct(Long userId, Long productId) {
         likeService.unlike(userId, productId);
-        Product product = productService.getById(productId);
-        product.decrementLikeCount();
-        return new LikeResult(product.getLikeCount());
+        productService.decrementLikeCount(productId);
+        Product updated = productService.getById(productId);
+        return new LikeResult(updated.getLikeCount());
     }
 
     /** 브랜드 좋아요 (활성 브랜드 검증 → 좋아요 생성) */

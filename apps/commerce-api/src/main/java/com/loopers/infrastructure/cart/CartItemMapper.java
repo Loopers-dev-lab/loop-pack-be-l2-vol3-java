@@ -4,6 +4,8 @@ import com.loopers.domain.cart.CartItem;
 import com.loopers.domain.common.vo.Quantity;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
+
 /**
  * CartItemMapper
  * Domain POJO ↔ JPA Entity 변환
@@ -20,8 +22,9 @@ public class CartItemMapper {
         entity.setUserId(cartItem.getUserId());
         entity.setProductId(cartItem.getProductId());
         entity.setQuantity(cartItem.getQuantity()); // Quantity → Integer
-        entity.setCreatedAt(cartItem.getCreatedAt());
-        entity.setUpdatedAt(cartItem.getUpdatedAt());
+        ZonedDateTime now = ZonedDateTime.now();
+        entity.setCreatedAt(cartItem.getCreatedAt() != null ? cartItem.getCreatedAt() : now);
+        entity.setUpdatedAt(now);
         entity.setDeletedAt(cartItem.getDeletedAt());
         return entity;
     }

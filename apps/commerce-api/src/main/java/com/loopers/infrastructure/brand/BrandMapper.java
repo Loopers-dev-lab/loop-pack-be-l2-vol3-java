@@ -4,6 +4,8 @@ import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandStatus;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
+
 /**
  * BrandMapper
  * Domain POJO ↔ JPA Entity 변환
@@ -20,8 +22,9 @@ public class BrandMapper {
         entity.setName(brand.getName());
         entity.setDescription(brand.getDescription());
         entity.setStatus(brand.getStatus());
-        entity.setCreatedAt(brand.getCreatedAt());
-        entity.setUpdatedAt(brand.getUpdatedAt());
+        ZonedDateTime now = ZonedDateTime.now();
+        entity.setCreatedAt(brand.getCreatedAt() != null ? brand.getCreatedAt() : now);
+        entity.setUpdatedAt(now);
         entity.setDeletedAt(brand.getDeletedAt());
         return entity;
     }

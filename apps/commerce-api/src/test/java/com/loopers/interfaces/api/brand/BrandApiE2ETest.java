@@ -141,11 +141,11 @@ class BrandApiE2ETest {
             // arrange
             Brand brand = Brand.create("비활성", "설명");
             brand.changeStatus(BrandStatus.INACTIVE);
-            brandRepository.save(brand);
+            Brand saved = brandRepository.save(brand);
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.getForEntity(
-                    "/api/v1/brands/" + brand.getId(), ApiResponse.class);
+                    "/api/v1/brands/" + saved.getId(), ApiResponse.class);
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -156,11 +156,11 @@ class BrandApiE2ETest {
             // arrange
             Brand brand = Brand.create("삭제됨", "설명");
             brand.delete();
-            brandRepository.save(brand);
+            Brand saved = brandRepository.save(brand);
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.getForEntity(
-                    "/api/v1/brands/" + brand.getId(), ApiResponse.class);
+                    "/api/v1/brands/" + saved.getId(), ApiResponse.class);
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);

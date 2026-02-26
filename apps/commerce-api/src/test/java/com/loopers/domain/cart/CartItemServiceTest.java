@@ -39,7 +39,8 @@ class CartItemServiceTest {
         void 이미_존재하는_상품이면_수량이_합산된다() {
             // arrange
             CartItem existing = CartItem.create(1L, 100L, 3);
-            when(cartItemRepository.findByUserIdAndProductId(1L, 100L)).thenReturn(Optional.of(existing));
+            when(cartItemRepository.findByUserIdAndProductIdIncludeDeleted(1L, 100L)).thenReturn(Optional.of(existing));
+            when(cartItemRepository.save(any(CartItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // act
             CartItem result = cartItemService.addToCart(1L, 100L, 2);
@@ -51,7 +52,7 @@ class CartItemServiceTest {
         @Test
         void 새로운_상품이면_새_CartItem이_생성된다() {
             // arrange
-            when(cartItemRepository.findByUserIdAndProductId(1L, 100L)).thenReturn(Optional.empty());
+            when(cartItemRepository.findByUserIdAndProductIdIncludeDeleted(1L, 100L)).thenReturn(Optional.empty());
             when(cartItemRepository.save(any(CartItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // act
@@ -66,7 +67,7 @@ class CartItemServiceTest {
         @Test
         void 생성_시_save가_호출된다() {
             // arrange
-            when(cartItemRepository.findByUserIdAndProductId(1L, 100L)).thenReturn(Optional.empty());
+            when(cartItemRepository.findByUserIdAndProductIdIncludeDeleted(1L, 100L)).thenReturn(Optional.empty());
             when(cartItemRepository.save(any(CartItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // act

@@ -160,6 +160,7 @@ class ProductServiceTest {
             // arrange
             Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+            when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // act
             Product result = productService.update(1L, "에어포스", "나이키 에어포스", 120000);
@@ -180,6 +181,7 @@ class ProductServiceTest {
             // arrange
             Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+            when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // act
             Product result = productService.changeStatus(1L, ProductStatus.SOLDOUT);

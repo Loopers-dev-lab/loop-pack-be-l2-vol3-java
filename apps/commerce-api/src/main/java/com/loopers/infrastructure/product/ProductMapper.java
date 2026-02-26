@@ -5,6 +5,8 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductStatus;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
+
 /**
  * ProductMapper
  * Domain POJO ↔ JPA Entity 변환
@@ -24,8 +26,9 @@ public class ProductMapper {
         entity.setBasePrice(product.getBasePrice()); // Money → Integer
         entity.setStatus(product.getStatus());
         entity.setLikeCount(product.getLikeCount());
-        entity.setCreatedAt(product.getCreatedAt());
-        entity.setUpdatedAt(product.getUpdatedAt());
+        ZonedDateTime now = ZonedDateTime.now();
+        entity.setCreatedAt(product.getCreatedAt() != null ? product.getCreatedAt() : now);
+        entity.setUpdatedAt(now);
         entity.setDeletedAt(product.getDeletedAt());
         return entity;
     }

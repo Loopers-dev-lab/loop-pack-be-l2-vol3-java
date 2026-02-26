@@ -177,7 +177,7 @@ class AdminBrandApiE2ETest {
         }
     }
 
-    @DisplayName("PUT /api-admin/v1/brands/{brandId}")
+    @DisplayName("PATCH /api-admin/v1/brands/{brandId}")
     @Nested
     class 브랜드_수정 {
 
@@ -191,7 +191,7 @@ class AdminBrandApiE2ETest {
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
                     ADMIN_BRANDS_URL + "/" + brand.getId(),
-                    HttpMethod.PUT, adminEntity(request), ApiResponse.class);
+                    HttpMethod.PATCH, adminEntity(request), ApiResponse.class);
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -210,7 +210,7 @@ class AdminBrandApiE2ETest {
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
                     ADMIN_BRANDS_URL + "/999",
-                    HttpMethod.PUT, adminEntity(request), ApiResponse.class);
+                    HttpMethod.PATCH, adminEntity(request), ApiResponse.class);
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -312,11 +312,11 @@ class AdminBrandApiE2ETest {
             // arrange
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
             brand.delete();
-            brandRepository.save(brand);
+            Brand saved = brandRepository.save(brand);
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    ADMIN_BRANDS_URL + "/" + brand.getId(),
+                    ADMIN_BRANDS_URL + "/" + saved.getId(),
                     HttpMethod.DELETE, adminEntity(), ApiResponse.class);
 
             // assert

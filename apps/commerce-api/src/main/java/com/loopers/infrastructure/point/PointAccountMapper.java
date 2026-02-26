@@ -3,6 +3,8 @@ package com.loopers.infrastructure.point;
 import com.loopers.domain.point.PointAccount;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
+
 /**
  * PointAccountMapper
  * Domain POJO ↔ JPA Entity 변환
@@ -18,8 +20,9 @@ public class PointAccountMapper {
         entity.setId(pointAccount.getId());
         entity.setUserId(pointAccount.getUserId());
         entity.setBalance(pointAccount.getBalance());
-        entity.setCreatedAt(pointAccount.getCreatedAt());
-        entity.setUpdatedAt(pointAccount.getUpdatedAt());
+        ZonedDateTime now = ZonedDateTime.now();
+        entity.setCreatedAt(pointAccount.getCreatedAt() != null ? pointAccount.getCreatedAt() : now);
+        entity.setUpdatedAt(now);
         entity.setDeletedAt(pointAccount.getDeletedAt());
         return entity;
     }

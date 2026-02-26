@@ -138,16 +138,18 @@ class CartItemRepositoryIntegrationTest {
             // arrange
             CartItem saved = cartItemRepository.save(CartItem.create(1L, 100L, 3));
             saved.delete();
-            cartItemRepository.save(saved);
+            CartItem deleted = cartItemRepository.save(saved);
 
-            // act
-            CartItem newItem = cartItemRepository.save(CartItem.create(1L, 100L, 5));
+            // act - 소프트 삭제된 항목을 restore하여 재추가
+            CartItem found = cartItemRepository.findByUserIdAndProductIdIncludeDeleted(1L, 100L).orElseThrow();
+            found.restore(5);
+            CartItem restored = cartItemRepository.save(found);
 
             // assert
             Optional<CartItem> result = cartItemRepository.findByUserIdAndProductId(1L, 100L);
             assertThat(result).isPresent();
             assertThat(result.get().getQuantity()).isEqualTo(5);
-            assertThat(result.get().getId()).isEqualTo(newItem.getId());
+            assertThat(result.get().getId()).isEqualTo(restored.getId());
         }
     }
 

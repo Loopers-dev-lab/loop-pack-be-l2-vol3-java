@@ -82,11 +82,13 @@ class PaymentApiE2ETest {
         inventoryRepository.save(Inventory.create(savedProduct.getId(), 100));
         UserAddress address = UserAddress.create(userId, "홍길동", "010-1234-5678",
                 "12345", "서울시 강남구 테헤란로 123", "4층 401호");
-        userAddressRepository.save(address);
+        UserAddress savedAddress = userAddressRepository.save(address);
 
         OrderRequest.CreateOrderRequest orderRequest = new OrderRequest.CreateOrderRequest(
                 List.of(new OrderRequest.OrderItemRequest(savedProduct.getId(), 2)),
-                address.getId());
+                List.of(),
+                savedAddress.getId(),
+                "010-1234-5678");
         testRestTemplate.exchange("/api/v1/orders", HttpMethod.POST,
                 new HttpEntity<>(orderRequest, authHeaders()), ApiResponse.class);
 

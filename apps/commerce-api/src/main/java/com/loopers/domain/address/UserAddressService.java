@@ -36,6 +36,7 @@ public class UserAddressService {
                 .orElseThrow(() -> new CoreException(UserAddressErrorType.ADDRESS_NOT_FOUND));
         address.validateOwnership(userId);
         address.update(receiverName, phone, zipCode, addressLine1, addressLine2);
+        userAddressRepository.save(address);
     }
 
     @Transactional
@@ -43,12 +44,19 @@ public class UserAddressService {
         UserAddress address = userAddressRepository.findById(addressId)
                 .orElseThrow(() -> new CoreException(UserAddressErrorType.ADDRESS_NOT_FOUND));
         address.validateOwnership(userId);
+        boolean wasDefault = address.isDefault();
         address.delete();
-
-        if (address.isDefault()) {
+        if (wasDefault) {
             address.unsetDefault();
+        }
+        userAddressRepository.save(address);
+
+        if (wasDefault) {
             userAddressRepository.findFirstByUserIdAndDeletedAtIsNullAndIdNot(userId, addressId)
-                    .ifPresent(UserAddress::setAsDefault);
+                    .ifPresent(nextDefault -> {
+                        nextDefault.setAsDefault();
+                        userAddressRepository.save(nextDefault);
+                    });
         }
     }
 

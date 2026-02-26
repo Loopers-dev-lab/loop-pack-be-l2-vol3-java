@@ -3,6 +3,8 @@ package com.loopers.infrastructure.coupon;
 import com.loopers.domain.coupon.CouponTemplate;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
+
 /**
  * CouponTemplateMapper
  * Domain POJO ↔ JPA Entity 변환
@@ -27,8 +29,9 @@ public class CouponTemplateMapper {
         entity.setValidFrom(domain.getValidFrom());
         entity.setValidTo(domain.getValidTo());
         entity.setStatus(domain.getStatus());
-        entity.setCreatedAt(domain.getCreatedAt());
-        entity.setUpdatedAt(domain.getUpdatedAt());
+        ZonedDateTime now = ZonedDateTime.now();
+        entity.setCreatedAt(domain.getCreatedAt() != null ? domain.getCreatedAt() : now);
+        entity.setUpdatedAt(now);
         entity.setDeletedAt(domain.getDeletedAt());
         return entity;
     }

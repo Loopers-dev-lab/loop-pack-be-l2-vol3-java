@@ -4,6 +4,8 @@ import com.loopers.domain.address.UserAddress;
 import com.loopers.domain.common.vo.Address;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
+
 /**
  * UserAddressMapper
  * Domain POJO ↔ JPA Entity 변환
@@ -27,8 +29,9 @@ public class UserAddressMapper {
         entity.setAddressLine2(domain.getAddressLine2());
 
         entity.setIsDefault(domain.isDefault());
-        entity.setCreatedAt(domain.getCreatedAt());
-        entity.setUpdatedAt(domain.getUpdatedAt());
+        ZonedDateTime now = ZonedDateTime.now();
+        entity.setCreatedAt(domain.getCreatedAt() != null ? domain.getCreatedAt() : now);
+        entity.setUpdatedAt(now);
         entity.setDeletedAt(domain.getDeletedAt());
 
         return entity;

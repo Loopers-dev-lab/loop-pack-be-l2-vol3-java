@@ -4,6 +4,8 @@ import com.loopers.domain.common.vo.Money;
 import com.loopers.domain.payment.Payment;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
+
 /**
  * PaymentMapper
  * Domain POJO ↔ JPA Entity 변환
@@ -31,8 +33,9 @@ public class PaymentMapper {
         entity.setApprovedAt(domain.getApprovedAt());
         entity.setFailedAt(domain.getFailedAt());
         entity.setCanceledAt(domain.getCanceledAt());
-        entity.setCreatedAt(domain.getCreatedAt());
-        entity.setUpdatedAt(domain.getUpdatedAt());
+        ZonedDateTime now = ZonedDateTime.now();
+        entity.setCreatedAt(domain.getCreatedAt() != null ? domain.getCreatedAt() : now);
+        entity.setUpdatedAt(now);
         entity.setDeletedAt(domain.getDeletedAt());
 
         return entity;

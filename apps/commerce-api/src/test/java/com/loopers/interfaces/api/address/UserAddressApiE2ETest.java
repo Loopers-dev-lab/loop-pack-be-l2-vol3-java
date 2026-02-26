@@ -183,7 +183,7 @@ class UserAddressApiE2ETest {
             UserAddressRequest.UpdateAddressRequest updateRequest =
                     new UserAddressRequest.UpdateAddressRequest("김철수", "010-9876-5432", "54321", "부산시", "3층");
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    "/api/v1/users/me/addresses/" + address.getId(), HttpMethod.PUT,
+                    "/api/v1/users/me/addresses/" + address.getId(), HttpMethod.PATCH,
                     new HttpEntity<>(updateRequest, authHeaders()),
                     ApiResponse.class);
 
@@ -197,7 +197,7 @@ class UserAddressApiE2ETest {
             UserAddressRequest.UpdateAddressRequest updateRequest =
                     new UserAddressRequest.UpdateAddressRequest("김철수", "010-9876-5432", "54321", "부산시", null);
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    "/api/v1/users/me/addresses/999", HttpMethod.PUT,
+                    "/api/v1/users/me/addresses/999", HttpMethod.PATCH,
                     new HttpEntity<>(updateRequest, authHeaders()),
                     ApiResponse.class);
 
@@ -215,7 +215,7 @@ class UserAddressApiE2ETest {
             UserAddressRequest.UpdateAddressRequest updateRequest =
                     new UserAddressRequest.UpdateAddressRequest("김철수", "010-9876-5432", "54321", "부산시", null);
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    "/api/v1/users/me/addresses/" + otherAddress.getId(), HttpMethod.PUT,
+                    "/api/v1/users/me/addresses/" + otherAddress.getId(), HttpMethod.PATCH,
                     new HttpEntity<>(updateRequest, authHeaders()),
                     ApiResponse.class);
 
