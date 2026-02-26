@@ -1,10 +1,10 @@
 package com.loopers.interfaces.api.brand;
 
 import com.loopers.application.brand.BrandRequest;
-import com.loopers.application.product.ProductRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.product.ProductAdminV1Dto;
+import com.loopers.support.E2ETestFixture;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
@@ -31,14 +31,15 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class BrandAdminApiE2ETest {
 
     private static final String ENDPOINT = "/api-admin/v1/brands";
-    private static final String PRODUCT_ENDPOINT = "/api-admin/v1/products";
-    private static final String VALID_LDAP = "admin-ldap";
 
     @Autowired
     private TestRestTemplate testRestTemplate;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
+
+    @Autowired
+    private E2ETestFixture fixture;
 
     @AfterEach
     void tearDown() {
@@ -73,7 +74,7 @@ class BrandAdminApiE2ETest {
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT, HttpMethod.POST,
-                    new HttpEntity<>(duplicateRequest, adminHeaders()),
+                    new HttpEntity<>(duplicateRequest, fixture.adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -86,7 +87,7 @@ class BrandAdminApiE2ETest {
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT, HttpMethod.POST,
-                    new HttpEntity<>(request, adminHeaders()),
+                    new HttpEntity<>(request, fixture.adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -124,12 +125,12 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 삭제된_브랜드와_동일한_이름으로_등록하면_409_응답() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            deleteBrand(brandId);
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            fixture.deleteBrand(brandId);
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT, HttpMethod.POST,
-                    new HttpEntity<>(new BrandRequest.Register("나이키", "다른 설명"), adminHeaders()),
+                    new HttpEntity<>(new BrandRequest.Register("나이키", "다른 설명"), fixture.adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -142,7 +143,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 유효한_정보로_수정하면_200_응답과_수정된_정보를_반환한다() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             BrandRequest.Update request = new BrandRequest.Update("아디다스", "독일 스포츠 브랜드");
 
             ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
@@ -156,7 +157,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void name만_보내면_name만_수정된다() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             BrandRequest.Update request = new BrandRequest.Update("아디다스", null);
 
             ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
@@ -170,7 +171,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void description만_보내면_description만_수정된다() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             BrandRequest.Update request = new BrandRequest.Update(null, "변경된 설명");
 
             ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
@@ -184,13 +185,13 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 중복_브랜드명이면_409_응답() {
-            registerBrand("나이키", "스포츠 브랜드");
-            Long adidasId = registerBrand("아디다스", "독일 스포츠 브랜드");
+            fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long adidasId = fixture.registerBrand("아디다스", "독일 스포츠 브랜드");
             BrandRequest.Update request = new BrandRequest.Update("나이키", null);
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/" + adidasId, HttpMethod.PATCH,
-                    new HttpEntity<>(request, adminHeaders()),
+                    new HttpEntity<>(request, fixture.adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -203,7 +204,7 @@ class BrandAdminApiE2ETest {
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/999", HttpMethod.PATCH,
-                    new HttpEntity<>(request, adminHeaders()),
+                    new HttpEntity<>(request, fixture.adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -212,12 +213,12 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 입력_규칙_위반_시_400_응답() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             BrandRequest.Update request = new BrandRequest.Update("", null);
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/" + brandId, HttpMethod.PATCH,
-                    new HttpEntity<>(request, adminHeaders()),
+                    new HttpEntity<>(request, fixture.adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -255,13 +256,13 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 삭제된_브랜드와_동일한_이름으로_변경하면_409_응답() {
-            Long nikeId = registerBrand("나이키", "스포츠 브랜드");
-            deleteBrand(nikeId);
-            Long adidasId = registerBrand("아디다스", "독일 스포츠 브랜드");
+            Long nikeId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            fixture.deleteBrand(nikeId);
+            Long adidasId = fixture.registerBrand("아디다스", "독일 스포츠 브랜드");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/" + adidasId, HttpMethod.PATCH,
-                    new HttpEntity<>(new BrandRequest.Update("나이키", null), adminHeaders()),
+                    new HttpEntity<>(new BrandRequest.Update("나이키", null), fixture.adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -270,7 +271,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 자기_자신의_현재_이름과_동일한_이름으로_수정하면_200_응답() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             BrandRequest.Update request = new BrandRequest.Update("나이키", "변경된 설명");
 
             ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
@@ -284,12 +285,12 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 삭제된_브랜드를_수정하면_404_응답() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            deleteBrand(brandId);
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            fixture.deleteBrand(brandId);
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/" + brandId, HttpMethod.PATCH,
-                    new HttpEntity<>(new BrandRequest.Update("변경이름", null), adminHeaders()),
+                    new HttpEntity<>(new BrandRequest.Update("변경이름", null), fixture.adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -302,7 +303,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 활성_브랜드를_삭제하면_200_응답() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
 
             ResponseEntity<ApiResponse<Void>> response = deleteRequest(brandId);
 
@@ -311,7 +312,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 이미_삭제된_브랜드를_다시_삭제해도_200_응답() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             deleteRequest(brandId);
 
             ResponseEntity<ApiResponse<Void>> response = deleteRequest(brandId);
@@ -353,9 +354,9 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 브랜드_삭제_시_해당_브랜드의_활성_상품도_삭제_상태로_변경된다() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            registerProduct(brandId, "런닝화", new BigDecimal("60000"), 200, "가벼운 런닝화");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.registerProduct(brandId, "런닝화", new BigDecimal("60000"), 200, "가벼운 런닝화");
 
             deleteRequest(brandId);
 
@@ -376,9 +377,9 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 조건_없이_조회하면_전체_브랜드를_최신_등록순으로_페이징하여_200_응답한다() {
-            registerBrand("나이키", "스포츠 브랜드");
-            registerBrand("아디다스", "독일 스포츠 브랜드");
-            registerBrand("뉴발란스", "미국 스포츠 브랜드");
+            fixture.registerBrand("나이키", "스포츠 브랜드");
+            fixture.registerBrand("아디다스", "독일 스포츠 브랜드");
+            fixture.registerBrand("뉴발란스", "미국 스포츠 브랜드");
 
             ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> response = getList("");
 
@@ -396,9 +397,9 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 삭제된_브랜드도_포함하여_반환한다() {
-            registerBrand("나이키", "스포츠 브랜드");
-            Long deletedBrandId = registerBrand("아디다스", "독일 스포츠 브랜드");
-            deleteBrand(deletedBrandId);
+            fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long deletedBrandId = fixture.registerBrand("아디다스", "독일 스포츠 브랜드");
+            fixture.deleteBrand(deletedBrandId);
 
             ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> response = getList("");
 
@@ -413,9 +414,9 @@ class BrandAdminApiE2ETest {
 
         @Test
         void name_키워드로_검색하면_해당_키워드가_포함된_브랜드만_반환한다() {
-            registerBrand("나이키", "스포츠 브랜드");
-            registerBrand("아디다스", "독일 스포츠 브랜드");
-            registerBrand("뉴발란스", "미국 스포츠 브랜드");
+            fixture.registerBrand("나이키", "스포츠 브랜드");
+            fixture.registerBrand("아디다스", "독일 스포츠 브랜드");
+            fixture.registerBrand("뉴발란스", "미국 스포츠 브랜드");
 
             ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> response =
                     getList("?name=나이키");
@@ -429,9 +430,9 @@ class BrandAdminApiE2ETest {
 
         @Test
         void status_ACTIVE로_필터링하면_활성_브랜드만_반환한다() {
-            registerBrand("나이키", "스포츠 브랜드");
-            Long deletedBrandId = registerBrand("아디다스", "독일 스포츠 브랜드");
-            deleteBrand(deletedBrandId);
+            fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long deletedBrandId = fixture.registerBrand("아디다스", "독일 스포츠 브랜드");
+            fixture.deleteBrand(deletedBrandId);
 
             ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> response =
                     getList("?status=ACTIVE");
@@ -446,9 +447,9 @@ class BrandAdminApiE2ETest {
 
         @Test
         void status_DELETED로_필터링하면_삭제된_브랜드만_반환한다() {
-            registerBrand("나이키", "스포츠 브랜드");
-            Long deletedBrandId = registerBrand("아디다스", "독일 스포츠 브랜드");
-            deleteBrand(deletedBrandId);
+            fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long deletedBrandId = fixture.registerBrand("아디다스", "독일 스포츠 브랜드");
+            fixture.deleteBrand(deletedBrandId);
 
             ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> response =
                     getList("?status=DELETED");
@@ -465,7 +466,7 @@ class BrandAdminApiE2ETest {
         void status에_유효하지_않은_값을_보내면_400_응답() {
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "?status=INVALID", HttpMethod.GET,
-                    new HttpEntity<>(adminHeaders()),
+                    new HttpEntity<>(fixture.adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -474,10 +475,10 @@ class BrandAdminApiE2ETest {
 
         @Test
         void name_검색과_status_필터를_동시에_적용할_수_있다() {
-            registerBrand("나이키 에어", "에어 시리즈");
-            Long deletedId = registerBrand("나이키 조던", "조던 시리즈");
-            deleteBrand(deletedId);
-            registerBrand("아디다스", "독일 스포츠 브랜드");
+            fixture.registerBrand("나이키 에어", "에어 시리즈");
+            Long deletedId = fixture.registerBrand("나이키 조던", "조던 시리즈");
+            fixture.deleteBrand(deletedId);
+            fixture.registerBrand("아디다스", "독일 스포츠 브랜드");
 
             ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> response =
                     getList("?name=나이키&status=ACTIVE");
@@ -530,7 +531,7 @@ class BrandAdminApiE2ETest {
         void 요청_필드_규칙_위반_시_400_응답() {
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "?page=-1", HttpMethod.GET,
-                    new HttpEntity<>(adminHeaders()),
+                    new HttpEntity<>(fixture.adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -543,7 +544,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 활성_브랜드를_조회하면_200_응답과_상세_정보를_반환한다() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
 
             ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = getDetail(brandId);
 
@@ -561,8 +562,8 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 삭제된_브랜드도_조회할_수_있으며_status가_DELETED로_표시된다() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            deleteBrand(brandId);
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            fixture.deleteBrand(brandId);
 
             ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = getDetail(brandId);
 
@@ -577,7 +578,7 @@ class BrandAdminApiE2ETest {
         void 미존재_브랜드면_404_응답() {
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/999", HttpMethod.GET,
-                    new HttpEntity<>(adminHeaders()),
+                    new HttpEntity<>(fixture.adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -612,20 +613,10 @@ class BrandAdminApiE2ETest {
 
     // --- 헬퍼 메서드 ---
 
-    private Long registerBrand(String name, String description) {
-        BrandRequest.Register request = new BrandRequest.Register(name, description);
-        ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = postRegister(request);
-        return response.getBody().data().id();
-    }
-
-    private void deleteBrand(Long brandId) {
-        deleteRequest(brandId);
-    }
-
     private ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> postRegister(BrandRequest.Register request) {
         return testRestTemplate.exchange(
                 ENDPOINT, HttpMethod.POST,
-                new HttpEntity<>(request, adminHeaders()),
+                new HttpEntity<>(request, fixture.adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
     }
@@ -633,7 +624,7 @@ class BrandAdminApiE2ETest {
     private ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> patchUpdate(Long brandId, BrandRequest.Update request) {
         return testRestTemplate.exchange(
                 ENDPOINT + "/" + brandId, HttpMethod.PATCH,
-                new HttpEntity<>(request, adminHeaders()),
+                new HttpEntity<>(request, fixture.adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
     }
@@ -641,7 +632,7 @@ class BrandAdminApiE2ETest {
     private ResponseEntity<ApiResponse<Void>> deleteRequest(Long brandId) {
         return testRestTemplate.exchange(
                 ENDPOINT + "/" + brandId, HttpMethod.DELETE,
-                new HttpEntity<>(adminHeaders()),
+                new HttpEntity<>(fixture.adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
     }
@@ -649,7 +640,7 @@ class BrandAdminApiE2ETest {
     private ResponseEntity<ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>>> getList(String queryString) {
         return testRestTemplate.exchange(
                 ENDPOINT + queryString, HttpMethod.GET,
-                new HttpEntity<>(adminHeaders()),
+                new HttpEntity<>(fixture.adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
     }
@@ -657,34 +648,16 @@ class BrandAdminApiE2ETest {
     private ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> getDetail(Long brandId) {
         return testRestTemplate.exchange(
                 ENDPOINT + "/" + brandId, HttpMethod.GET,
-                new HttpEntity<>(adminHeaders()),
+                new HttpEntity<>(fixture.adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
-    }
-
-    private Long registerProduct(Long brandId, String name, BigDecimal price, Integer stockQuantity, String description) {
-        ProductRequest.Register request = new ProductRequest.Register(
-                brandId, name, price, stockQuantity, description
-        );
-        ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> response = testRestTemplate.exchange(
-                PRODUCT_ENDPOINT, HttpMethod.POST,
-                new HttpEntity<>(request, adminHeaders()),
-                new ParameterizedTypeReference<>() {}
-        );
-        return response.getBody().data().id();
     }
 
     private ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> getProductList(String queryString) {
         return testRestTemplate.exchange(
-                PRODUCT_ENDPOINT + queryString, HttpMethod.GET,
-                new HttpEntity<>(adminHeaders()),
+                "/api-admin/v1/products" + queryString, HttpMethod.GET,
+                new HttpEntity<>(fixture.adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
-    }
-
-    private HttpHeaders adminHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Loopers-Ldap", VALID_LDAP);
-        return headers;
     }
 }

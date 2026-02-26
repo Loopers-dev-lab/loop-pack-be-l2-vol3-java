@@ -1,14 +1,10 @@
 package com.loopers.interfaces.api.order;
 
-import com.loopers.application.brand.BrandRequest;
 import com.loopers.application.order.OrderRequest;
-import com.loopers.application.product.ProductRequest;
-import com.loopers.application.user.UserRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
-import com.loopers.interfaces.api.brand.BrandAdminV1Dto;
 import com.loopers.interfaces.api.product.ProductAdminV1Dto;
-import com.loopers.interfaces.api.user.UserV1Dto;
+import com.loopers.support.E2ETestFixture;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
@@ -37,10 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class OrderApiE2ETest {
 
     private static final String ENDPOINT = "/api/v1/orders";
-    private static final String BRAND_ENDPOINT = "/api-admin/v1/brands";
-    private static final String PRODUCT_ENDPOINT = "/api-admin/v1/products";
-    private static final String USER_ENDPOINT = "/api/v1/users";
-    private static final String VALID_LDAP = "admin-ldap";
     private static final String USER_LOGIN_ID = "testuser";
     private static final String USER_PASSWORD = "Test1234!";
 
@@ -49,6 +41,9 @@ class OrderApiE2ETest {
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
+
+    @Autowired
+    private E2ETestFixture fixture;
 
     @AfterEach
     void tearDown() {
@@ -60,10 +55,10 @@ class OrderApiE2ETest {
 
         @Test
         void 유효한_정보로_주문하면_200_응답과_생성된_주문_정보를_반환한다() {
-            signUp();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId1 = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Long productId2 = registerProduct(brandId, "셔츠", new BigDecimal("30000"), 50, "멋진 셔츠");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId1 = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long productId2 = fixture.registerProduct(brandId, "셔츠", new BigDecimal("30000"), 50, "멋진 셔츠");
 
             OrderRequest.Place request = new OrderRequest.Place(List.of(
                     new OrderRequest.PlaceItem(productId1, 2),
@@ -83,9 +78,9 @@ class OrderApiE2ETest {
 
         @Test
         void 주문_시_스냅샷_정보가_올바르게_저장된다() {
-            signUp();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
 
             OrderRequest.Place request = new OrderRequest.Place(List.of(
                     new OrderRequest.PlaceItem(productId, 3)
@@ -106,9 +101,9 @@ class OrderApiE2ETest {
 
         @Test
         void 주문_시_해당_상품의_재고가_주문_수량만큼_차감된다() {
-            signUp();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
 
             OrderRequest.Place request = new OrderRequest.Place(List.of(
                     new OrderRequest.PlaceItem(productId, 3)
@@ -129,7 +124,7 @@ class OrderApiE2ETest {
 
         @Test
         void 미존재_상품이_포함되면_404_응답() {
-            signUp();
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
 
             OrderRequest.Place request = new OrderRequest.Place(List.of(
                     new OrderRequest.PlaceItem(999L, 1)
@@ -149,9 +144,9 @@ class OrderApiE2ETest {
 
         @Test
         void 재고가_부족하면_400_응답() {
-            signUp();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 5, "편한 운동화");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 5, "편한 운동화");
 
             OrderRequest.Place request = new OrderRequest.Place(List.of(
                     new OrderRequest.PlaceItem(productId, 10)
@@ -171,10 +166,10 @@ class OrderApiE2ETest {
 
         @Test
         void 재고_부족_시_전체_주문이_실패하며_어떤_상품의_재고도_차감되지_않는다() {
-            signUp();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId1 = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Long productId2 = registerProduct(brandId, "셔츠", new BigDecimal("30000"), 3, "멋진 셔츠");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId1 = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long productId2 = fixture.registerProduct(brandId, "셔츠", new BigDecimal("30000"), 3, "멋진 셔츠");
 
             OrderRequest.Place request = new OrderRequest.Place(List.of(
                     new OrderRequest.PlaceItem(productId1, 2),
@@ -207,9 +202,9 @@ class OrderApiE2ETest {
 
         @Test
         void 동일_상품ID가_중복으로_포함되면_400_응답() {
-            signUp();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
 
             OrderRequest.Place request = new OrderRequest.Place(List.of(
                     new OrderRequest.PlaceItem(productId, 1),
@@ -230,7 +225,7 @@ class OrderApiE2ETest {
 
         @Test
         void 요청_필드_규칙_위반_시_400_응답() {
-            signUp();
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
 
             OrderRequest.Place request = new OrderRequest.Place(List.of(
                     new OrderRequest.PlaceItem(1L, 0)
@@ -288,10 +283,10 @@ class OrderApiE2ETest {
 
         @Test
         void 조건_없이_조회하면_본인의_주문만_최신순으로_페이징하여_200_응답한다() {
-            signUp();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId1 = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Long productId2 = registerProduct(brandId, "셔츠", new BigDecimal("30000"), 100, "멋진 셔츠");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId1 = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long productId2 = fixture.registerProduct(brandId, "셔츠", new BigDecimal("30000"), 100, "멋진 셔츠");
 
             postOrder(new OrderRequest.Place(List.of(new OrderRequest.PlaceItem(productId1, 1))));
             postOrder(new OrderRequest.Place(List.of(new OrderRequest.PlaceItem(productId2, 2))));
@@ -310,10 +305,10 @@ class OrderApiE2ETest {
 
         @Test
         void 타인의_주문은_반환하지_않는다() {
-            signUp();
-            signUp("otheruser", "Other1234!", "김철수", "other@example.com");
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            fixture.signUp("otheruser", "Other1234!", "김철수", "other@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
 
             postOrder(new OrderRequest.Place(List.of(new OrderRequest.PlaceItem(productId, 1))));
             postOrderAs("otheruser", "Other1234!",
@@ -330,9 +325,9 @@ class OrderApiE2ETest {
 
         @Test
         void 시작일만_지정하면_해당일_이후_주문만_반환한다() {
-            signUp();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
             postOrder(new OrderRequest.Place(List.of(new OrderRequest.PlaceItem(productId, 1))));
 
             LocalDate today = LocalDate.now();
@@ -353,9 +348,9 @@ class OrderApiE2ETest {
 
         @Test
         void 종료일만_지정하면_해당일_이전_주문만_반환한다() {
-            signUp();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
             postOrder(new OrderRequest.Place(List.of(new OrderRequest.PlaceItem(productId, 1))));
 
             LocalDate today = LocalDate.now();
@@ -376,9 +371,9 @@ class OrderApiE2ETest {
 
         @Test
         void 시작일과_종료일을_모두_지정하면_해당_기간_내_주문만_반환한다() {
-            signUp();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
             postOrder(new OrderRequest.Place(List.of(new OrderRequest.PlaceItem(productId, 1))));
 
             LocalDate today = LocalDate.now();
@@ -398,7 +393,7 @@ class OrderApiE2ETest {
 
         @Test
         void 시작일이_종료일보다_미래이면_400_응답() {
-            signUp();
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
 
             LocalDate today = LocalDate.now();
 
@@ -417,7 +412,7 @@ class OrderApiE2ETest {
 
         @Test
         void 결과가_없으면_빈_목록을_반환한다() {
-            signUp();
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
 
             ResponseEntity<ApiResponse<PageResponse<OrderV1Dto.OrderListResponse>>> response =
                     getOrderList("");
@@ -431,7 +426,7 @@ class OrderApiE2ETest {
 
         @Test
         void 요청_필드_규칙_위반_시_400_응답() {
-            signUp();
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "?page=-1",
@@ -480,10 +475,10 @@ class OrderApiE2ETest {
 
         @Test
         void 본인의_주문을_조회하면_200_응답과_주문_상세_정보를_반환한다() {
-            signUp();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId1 = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Long productId2 = registerProduct(brandId, "셔츠", new BigDecimal("30000"), 100, "멋진 셔츠");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId1 = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long productId2 = fixture.registerProduct(brandId, "셔츠", new BigDecimal("30000"), 100, "멋진 셔츠");
 
             ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> createResponse = postOrder(
                     new OrderRequest.Place(List.of(
@@ -506,9 +501,9 @@ class OrderApiE2ETest {
 
         @Test
         void 주문_상품은_스냅샷_정보로_반환한다() {
-            signUp();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
 
             ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> createResponse = postOrder(
                     new OrderRequest.Place(List.of(new OrderRequest.PlaceItem(productId, 3)))
@@ -530,7 +525,7 @@ class OrderApiE2ETest {
 
         @Test
         void 존재하지_않는_주문이면_404_응답() {
-            signUp();
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/999",
@@ -547,10 +542,10 @@ class OrderApiE2ETest {
 
         @Test
         void 본인의_주문이_아니면_404_응답() {
-            signUp();
-            signUp("otheruser", "Other1234!", "김철수", "other@example.com");
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            fixture.signUp("otheruser", "Other1234!", "김철수", "other@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
 
             ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> createResponse = postOrderAs(
                     "otheruser", "Other1234!",
@@ -605,47 +600,10 @@ class OrderApiE2ETest {
 
     // --- 헬퍼 메서드 ---
 
-    private void signUp() {
-        signUp(USER_LOGIN_ID, USER_PASSWORD, "홍길동", "test@example.com");
-    }
-
-    private void signUp(String loginId, String password, String name, String email) {
-        UserRequest.SignUp request = new UserRequest.SignUp(
-                loginId, password, name,
-                LocalDate.of(2000, 1, 15), email
-        );
-        testRestTemplate.exchange(
-                USER_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request),
-                new ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
-        );
-    }
-
-    private Long registerBrand(String name, String description) {
-        BrandRequest.Register request = new BrandRequest.Register(name, description);
-        ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = testRestTemplate.exchange(
-                BRAND_ENDPOINT, HttpMethod.POST,
-                new HttpEntity<>(request, adminHeaders()),
-                new ParameterizedTypeReference<>() {}
-        );
-        return response.getBody().data().id();
-    }
-
-    private Long registerProduct(Long brandId, String name, BigDecimal price, Integer stockQuantity, String description) {
-        ProductRequest.Register request = new ProductRequest.Register(
-                brandId, name, price, stockQuantity, description
-        );
-        ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> response = testRestTemplate.exchange(
-                PRODUCT_ENDPOINT, HttpMethod.POST,
-                new HttpEntity<>(request, adminHeaders()),
-                new ParameterizedTypeReference<>() {}
-        );
-        return response.getBody().data().id();
-    }
-
     private List<ProductAdminV1Dto.ProductResponse> getProductList() {
         ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> response = testRestTemplate.exchange(
-                PRODUCT_ENDPOINT, HttpMethod.GET,
-                new HttpEntity<>(adminHeaders()),
+                "/api-admin/v1/products", HttpMethod.GET,
+                new HttpEntity<>(fixture.adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
         return response.getBody().data().content();
@@ -661,12 +619,9 @@ class OrderApiE2ETest {
 
     private ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> postOrderAs(
             String loginId, String password, OrderRequest.Place request) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Loopers-LoginId", loginId);
-        headers.set("X-Loopers-LoginPw", password);
         return testRestTemplate.exchange(
                 ENDPOINT, HttpMethod.POST,
-                new HttpEntity<>(request, headers),
+                new HttpEntity<>(request, fixture.userHeaders(loginId, password)),
                 new ParameterizedTypeReference<>() {}
         );
     }
@@ -689,16 +644,7 @@ class OrderApiE2ETest {
         );
     }
 
-    private HttpHeaders adminHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Loopers-Ldap", VALID_LDAP);
-        return headers;
-    }
-
     private HttpHeaders userHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Loopers-LoginId", USER_LOGIN_ID);
-        headers.set("X-Loopers-LoginPw", USER_PASSWORD);
-        return headers;
+        return fixture.userHeaders(USER_LOGIN_ID, USER_PASSWORD);
     }
 }

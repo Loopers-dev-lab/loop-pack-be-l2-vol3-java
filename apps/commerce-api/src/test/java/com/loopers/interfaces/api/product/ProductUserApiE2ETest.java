@@ -1,12 +1,8 @@
 package com.loopers.interfaces.api.product;
 
-import com.loopers.application.brand.BrandRequest;
-import com.loopers.application.product.ProductRequest;
-import com.loopers.application.user.UserRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
-import com.loopers.interfaces.api.brand.BrandAdminV1Dto;
-import com.loopers.interfaces.api.user.UserV1Dto;
+import com.loopers.support.E2ETestFixture;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
@@ -24,7 +20,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -34,15 +29,15 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class ProductUserApiE2ETest {
 
     private static final String ENDPOINT = "/api/v1/products";
-    private static final String ADMIN_PRODUCT_ENDPOINT = "/api-admin/v1/products";
-    private static final String ADMIN_BRAND_ENDPOINT = "/api-admin/v1/brands";
-    private static final String VALID_LDAP = "admin-ldap";
 
     @Autowired
     private TestRestTemplate testRestTemplate;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
+
+    @Autowired
+    private E2ETestFixture fixture;
 
     @AfterEach
     void tearDown() {
@@ -54,10 +49,10 @@ class ProductUserApiE2ETest {
 
         @Test
         void 조건_없이_조회하면_활성_상품만_최신순으로_페이징하여_200_응답한다() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            registerProduct(brandId, "운동화A", new BigDecimal("10000"), 10, "설명A");
-            registerProduct(brandId, "운동화B", new BigDecimal("20000"), 20, "설명B");
-            registerProduct(brandId, "운동화C", new BigDecimal("30000"), 30, "설명C");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            fixture.registerProduct(brandId, "운동화A", new BigDecimal("10000"), 10, "설명A");
+            fixture.registerProduct(brandId, "운동화B", new BigDecimal("20000"), 20, "설명B");
+            fixture.registerProduct(brandId, "운동화C", new BigDecimal("30000"), 30, "설명C");
 
             ResponseEntity<ApiResponse<PageResponse<ProductUserV1Dto.ProductResponse>>> response = getList("");
 
@@ -75,10 +70,10 @@ class ProductUserApiE2ETest {
 
         @Test
         void 삭제된_상품은_반환하지_않는다() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            registerProduct(brandId, "운동화A", new BigDecimal("10000"), 10, "설명A");
-            Long deletedProductId = registerProduct(brandId, "운동화B", new BigDecimal("20000"), 20, "설명B");
-            deleteProduct(deletedProductId);
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            fixture.registerProduct(brandId, "운동화A", new BigDecimal("10000"), 10, "설명A");
+            Long deletedProductId = fixture.registerProduct(brandId, "운동화B", new BigDecimal("20000"), 20, "설명B");
+            fixture.deleteProduct(deletedProductId);
 
             ResponseEntity<ApiResponse<PageResponse<ProductUserV1Dto.ProductResponse>>> response = getList("");
 
@@ -91,11 +86,11 @@ class ProductUserApiE2ETest {
 
         @Test
         void brandId로_필터링하면_해당_브랜드에_속한_활성_상품만_반환한다() {
-            Long nikeId = registerBrand("나이키", "스포츠 브랜드");
-            Long adidasId = registerBrand("아디다스", "독일 브랜드");
-            registerProduct(nikeId, "나이키 운동화", new BigDecimal("10000"), 10, "설명");
-            registerProduct(adidasId, "아디다스 운동화", new BigDecimal("20000"), 20, "설명");
-            registerProduct(nikeId, "나이키 런닝화", new BigDecimal("30000"), 30, "설명");
+            Long nikeId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long adidasId = fixture.registerBrand("아디다스", "독일 브랜드");
+            fixture.registerProduct(nikeId, "나이키 운동화", new BigDecimal("10000"), 10, "설명");
+            fixture.registerProduct(adidasId, "아디다스 운동화", new BigDecimal("20000"), 20, "설명");
+            fixture.registerProduct(nikeId, "나이키 런닝화", new BigDecimal("30000"), 30, "설명");
 
             ResponseEntity<ApiResponse<PageResponse<ProductUserV1Dto.ProductResponse>>> response =
                     getList("?brandId=" + nikeId);
@@ -111,10 +106,10 @@ class ProductUserApiE2ETest {
 
         @Test
         void sort_RECENT이면_최신_등록순으로_정렬한다() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            registerProduct(brandId, "운동화A", new BigDecimal("10000"), 10, "설명A");
-            registerProduct(brandId, "운동화B", new BigDecimal("20000"), 20, "설명B");
-            registerProduct(brandId, "운동화C", new BigDecimal("30000"), 30, "설명C");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            fixture.registerProduct(brandId, "운동화A", new BigDecimal("10000"), 10, "설명A");
+            fixture.registerProduct(brandId, "운동화B", new BigDecimal("20000"), 20, "설명B");
+            fixture.registerProduct(brandId, "운동화C", new BigDecimal("30000"), 30, "설명C");
 
             ResponseEntity<ApiResponse<PageResponse<ProductUserV1Dto.ProductResponse>>> response =
                     getList("?sort=RECENT");
@@ -130,10 +125,10 @@ class ProductUserApiE2ETest {
 
         @Test
         void sort_PRICE_ASC이면_가격_오름차순으로_정렬한다() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            registerProduct(brandId, "비싼 운동화", new BigDecimal("90000"), 10, "설명");
-            registerProduct(brandId, "싼 운동화", new BigDecimal("10000"), 10, "설명");
-            registerProduct(brandId, "중간 운동화", new BigDecimal("50000"), 10, "설명");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            fixture.registerProduct(brandId, "비싼 운동화", new BigDecimal("90000"), 10, "설명");
+            fixture.registerProduct(brandId, "싼 운동화", new BigDecimal("10000"), 10, "설명");
+            fixture.registerProduct(brandId, "중간 운동화", new BigDecimal("50000"), 10, "설명");
 
             ResponseEntity<ApiResponse<PageResponse<ProductUserV1Dto.ProductResponse>>> response =
                     getList("?sort=PRICE_ASC");
@@ -148,14 +143,14 @@ class ProductUserApiE2ETest {
 
         @Test
         void sort_LIKES_DESC이면_좋아요_내림차순으로_정렬한다() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long p1 = registerProduct(brandId, "인기 상품", new BigDecimal("10000"), 10, "설명");
-            registerProduct(brandId, "보통 상품", new BigDecimal("20000"), 20, "설명");
-            Long p3 = registerProduct(brandId, "최고 인기", new BigDecimal("30000"), 30, "설명");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long p1 = fixture.registerProduct(brandId, "인기 상품", new BigDecimal("10000"), 10, "설명");
+            fixture.registerProduct(brandId, "보통 상품", new BigDecimal("20000"), 20, "설명");
+            Long p3 = fixture.registerProduct(brandId, "최고 인기", new BigDecimal("30000"), 30, "설명");
 
-            signUpUser("user1", "Pass1234!");
-            signUpUser("user2", "Pass1234!");
-            signUpUser("user3", "Pass1234!");
+            fixture.signUp("user1", "Pass1234!", "홍길동", "user1@example.com");
+            fixture.signUp("user2", "Pass1234!", "홍길동", "user2@example.com");
+            fixture.signUp("user3", "Pass1234!", "홍길동", "user3@example.com");
 
             likeProduct(p1, "user1", "Pass1234!");
             likeProduct(p1, "user2", "Pass1234!");
@@ -176,9 +171,9 @@ class ProductUserApiE2ETest {
 
         @Test
         void sort를_지정하지_않으면_기본값_RECENT로_정렬한다() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            registerProduct(brandId, "운동화A", new BigDecimal("10000"), 10, "설명A");
-            registerProduct(brandId, "운동화B", new BigDecimal("20000"), 20, "설명B");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            fixture.registerProduct(brandId, "운동화A", new BigDecimal("10000"), 10, "설명A");
+            fixture.registerProduct(brandId, "운동화B", new BigDecimal("20000"), 20, "설명B");
 
             ResponseEntity<ApiResponse<PageResponse<ProductUserV1Dto.ProductResponse>>> response = getList("");
 
@@ -230,8 +225,8 @@ class ProductUserApiE2ETest {
 
         @Test
         void 활성_상품을_조회하면_200_응답과_상품_상세_정보를_반환한다() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
 
             ResponseEntity<ApiResponse<ProductUserV1Dto.ProductResponse>> response = getDetail(productId);
 
@@ -252,9 +247,9 @@ class ProductUserApiE2ETest {
 
         @Test
         void 삭제된_상품을_조회하면_404_응답() {
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            deleteProduct(productId);
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.deleteProduct(productId);
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/" + productId, HttpMethod.GET,
@@ -285,51 +280,8 @@ class ProductUserApiE2ETest {
 
     // --- 헬퍼 메서드 ---
 
-    private Long registerBrand(String name, String description) {
-        BrandRequest.Register request = new BrandRequest.Register(name, description);
-        ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = testRestTemplate.exchange(
-                ADMIN_BRAND_ENDPOINT, HttpMethod.POST,
-                new HttpEntity<>(request, adminHeaders()),
-                new ParameterizedTypeReference<>() {}
-        );
-        return response.getBody().data().id();
-    }
-
-    private Long registerProduct(Long brandId, String name, BigDecimal price, Integer stockQuantity, String description) {
-        ProductRequest.Register request = new ProductRequest.Register(
-                brandId, name, price, stockQuantity, description
-        );
-        ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> response = testRestTemplate.exchange(
-                ADMIN_PRODUCT_ENDPOINT, HttpMethod.POST,
-                new HttpEntity<>(request, adminHeaders()),
-                new ParameterizedTypeReference<>() {}
-        );
-        return response.getBody().data().id();
-    }
-
-    private void deleteProduct(Long productId) {
-        testRestTemplate.exchange(
-                ADMIN_PRODUCT_ENDPOINT + "/" + productId, HttpMethod.DELETE,
-                new HttpEntity<>(adminHeaders()),
-                new ParameterizedTypeReference<ApiResponse<Void>>() {}
-        );
-    }
-
-    private void signUpUser(String loginId, String password) {
-        UserRequest.SignUp request = new UserRequest.SignUp(
-                loginId, password, "홍길동",
-                LocalDate.of(2000, 1, 15), loginId + "@example.com"
-        );
-        testRestTemplate.exchange(
-                "/api/v1/users", HttpMethod.POST, new HttpEntity<>(request),
-                new ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
-        );
-    }
-
     private void likeProduct(Long productId, String loginId, String password) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Loopers-LoginId", loginId);
-        headers.set("X-Loopers-LoginPw", password);
+        HttpHeaders headers = fixture.userHeaders(loginId, password);
         testRestTemplate.exchange(
                 "/api/v1/products/" + productId + "/likes", HttpMethod.POST,
                 new HttpEntity<>(headers),
@@ -351,12 +303,6 @@ class ProductUserApiE2ETest {
                 new HttpEntity<>(new HttpHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
-    }
-
-    private HttpHeaders adminHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Loopers-Ldap", VALID_LDAP);
-        return headers;
     }
 
 }

@@ -1,13 +1,9 @@
 package com.loopers.interfaces.api.like;
 
-import com.loopers.application.brand.BrandRequest;
-import com.loopers.application.product.ProductRequest;
-import com.loopers.application.user.UserRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
-import com.loopers.interfaces.api.brand.BrandAdminV1Dto;
 import com.loopers.interfaces.api.product.ProductAdminV1Dto;
-import com.loopers.interfaces.api.user.UserV1Dto;
+import com.loopers.support.E2ETestFixture;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
@@ -25,7 +21,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -36,10 +31,6 @@ class LikeApiE2ETest {
 
     private static final String LIKE_ENDPOINT = "/api/v1/products/{productId}/likes";
     private static final String LIKE_LIST_ENDPOINT = "/api/v1/likes";
-    private static final String BRAND_ENDPOINT = "/api-admin/v1/brands";
-    private static final String PRODUCT_ENDPOINT = "/api-admin/v1/products";
-    private static final String USER_ENDPOINT = "/api/v1/users";
-    private static final String VALID_LDAP = "admin-ldap";
 
     private static final String LOGIN_ID = "testuser";
     private static final String LOGIN_PW = "Test1234!";
@@ -49,6 +40,9 @@ class LikeApiE2ETest {
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
+
+    @Autowired
+    private E2ETestFixture fixture;
 
     @AfterEach
     void tearDown() {
@@ -60,9 +54,9 @@ class LikeApiE2ETest {
 
         @Test
         void 활성_상품에_좋아요를_등록하면_200_응답() {
-            signUpUser();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
 
             ResponseEntity<ApiResponse<Void>> response = postLike(productId);
 
@@ -71,9 +65,9 @@ class LikeApiE2ETest {
 
         @Test
         void 좋아요_등록_시_해당_상품의_좋아요_수가_1_증가한다() {
-            signUpUser();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
 
             ResponseEntity<ApiResponse<Void>> response = postLike(productId);
 
@@ -85,9 +79,9 @@ class LikeApiE2ETest {
 
         @Test
         void 이미_좋아요한_상품에_재요청하면_200_응답하고_좋아요_수가_변동되지_않는다() {
-            signUpUser();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
 
             postLike(productId);
             ResponseEntity<ApiResponse<Void>> response = postLike(productId);
@@ -102,10 +96,10 @@ class LikeApiE2ETest {
 
         @Test
         void 삭제된_상품에_좋아요_등록하면_404_응답() {
-            signUpUser();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            deleteProduct(productId);
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.deleteProduct(productId);
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     LIKE_ENDPOINT, HttpMethod.POST,
@@ -122,7 +116,7 @@ class LikeApiE2ETest {
 
         @Test
         void 미존재_상품에_좋아요_등록하면_404_응답() {
-            signUpUser();
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     LIKE_ENDPOINT, HttpMethod.POST,
@@ -177,9 +171,9 @@ class LikeApiE2ETest {
 
         @Test
         void 좋아요한_상품의_좋아요를_취소하면_200_응답() {
-            signUpUser();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
             postLike(productId);
 
             ResponseEntity<ApiResponse<Void>> response = deleteLike(productId);
@@ -189,9 +183,9 @@ class LikeApiE2ETest {
 
         @Test
         void 좋아요_취소_시_해당_상품의_좋아요_수가_1_감소한다() {
-            signUpUser();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
             postLike(productId);
 
             ResponseEntity<ApiResponse<Void>> response = deleteLike(productId);
@@ -204,9 +198,9 @@ class LikeApiE2ETest {
 
         @Test
         void 좋아요하지_않은_상품에_취소_요청하면_200_응답하고_좋아요_수가_변동되지_않는다() {
-            signUpUser();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
 
             ResponseEntity<ApiResponse<Void>> response = deleteLike(productId);
 
@@ -220,10 +214,10 @@ class LikeApiE2ETest {
 
         @Test
         void 삭제된_상품에_좋아요_취소하면_404_응답() {
-            signUpUser();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            deleteProduct(productId);
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.deleteProduct(productId);
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     LIKE_ENDPOINT, HttpMethod.DELETE,
@@ -240,7 +234,7 @@ class LikeApiE2ETest {
 
         @Test
         void 미존재_상품에_좋아요_취소하면_404_응답() {
-            signUpUser();
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     LIKE_ENDPOINT, HttpMethod.DELETE,
@@ -295,10 +289,10 @@ class LikeApiE2ETest {
 
         @Test
         void 좋아요한_상품_목록을_좋아요_등록순으로_페이징하여_200_응답() {
-            signUpUser();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId1 = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Long productId2 = registerProduct(brandId, "슬리퍼", new BigDecimal("30000"), 50, "편한 슬리퍼");
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId1 = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long productId2 = fixture.registerProduct(brandId, "슬리퍼", new BigDecimal("30000"), 50, "편한 슬리퍼");
             postLike(productId1);
             postLike(productId2);
 
@@ -316,13 +310,13 @@ class LikeApiE2ETest {
 
         @Test
         void 활성_상품만_반환한다() {
-            signUpUser();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId1 = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Long productId2 = registerProduct(brandId, "슬리퍼", new BigDecimal("30000"), 50, "편한 슬리퍼");
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId1 = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long productId2 = fixture.registerProduct(brandId, "슬리퍼", new BigDecimal("30000"), 50, "편한 슬리퍼");
             postLike(productId1);
             postLike(productId2);
-            deleteProduct(productId2);
+            fixture.deleteProduct(productId2);
 
             ResponseEntity<ApiResponse<PageResponse<LikeV1Dto.LikeProductResponse>>> response = getLikeList("");
 
@@ -336,7 +330,7 @@ class LikeApiE2ETest {
 
         @Test
         void 결과가_없으면_빈_목록을_반환한다() {
-            signUpUser();
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
 
             ResponseEntity<ApiResponse<PageResponse<LikeV1Dto.LikeProductResponse>>> response = getLikeList("");
 
@@ -349,7 +343,7 @@ class LikeApiE2ETest {
 
         @Test
         void 요청_필드_규칙_위반_시_400_응답() {
-            signUpUser();
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     LIKE_LIST_ENDPOINT + "?page=-1", HttpMethod.GET,
@@ -395,59 +389,18 @@ class LikeApiE2ETest {
 
     // --- 헬퍼 메서드 ---
 
-    private void signUpUser() {
-        UserRequest.SignUp request = new UserRequest.SignUp(
-                LOGIN_ID, LOGIN_PW, "홍길동",
-                LocalDate.of(2000, 1, 15), "test@example.com"
-        );
-        testRestTemplate.exchange(
-                USER_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request),
-                new ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
-        );
-    }
-
-    private Long registerBrand(String name, String description) {
-        BrandRequest.Register request = new BrandRequest.Register(name, description);
-        ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = testRestTemplate.exchange(
-                BRAND_ENDPOINT, HttpMethod.POST,
-                new HttpEntity<>(request, adminHeaders()),
-                new ParameterizedTypeReference<>() {}
-        );
-        return response.getBody().data().id();
-    }
-
-    private Long registerProduct(Long brandId, String name, BigDecimal price, Integer stockQuantity, String description) {
-        ProductRequest.Register request = new ProductRequest.Register(
-                brandId, name, price, stockQuantity, description
-        );
-        ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> response = testRestTemplate.exchange(
-                PRODUCT_ENDPOINT, HttpMethod.POST,
-                new HttpEntity<>(request, adminHeaders()),
-                new ParameterizedTypeReference<>() {}
-        );
-        return response.getBody().data().id();
-    }
-
-    private void deleteProduct(Long productId) {
-        testRestTemplate.exchange(
-                PRODUCT_ENDPOINT + "/" + productId, HttpMethod.DELETE,
-                new HttpEntity<>(adminHeaders()),
-                new ParameterizedTypeReference<ApiResponse<Void>>() {}
-        );
-    }
-
-    private ResponseEntity<ApiResponse<Void>> deleteLike(Long productId) {
+    private ResponseEntity<ApiResponse<Void>> postLike(Long productId) {
         return testRestTemplate.exchange(
-                LIKE_ENDPOINT, HttpMethod.DELETE,
+                LIKE_ENDPOINT, HttpMethod.POST,
                 new HttpEntity<>(userHeaders()),
                 new ParameterizedTypeReference<>() {},
                 productId
         );
     }
 
-    private ResponseEntity<ApiResponse<Void>> postLike(Long productId) {
+    private ResponseEntity<ApiResponse<Void>> deleteLike(Long productId) {
         return testRestTemplate.exchange(
-                LIKE_ENDPOINT, HttpMethod.POST,
+                LIKE_ENDPOINT, HttpMethod.DELETE,
                 new HttpEntity<>(userHeaders()),
                 new ParameterizedTypeReference<>() {},
                 productId
@@ -464,22 +417,13 @@ class LikeApiE2ETest {
 
     private ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> getProductList(String queryString) {
         return testRestTemplate.exchange(
-                PRODUCT_ENDPOINT + queryString, HttpMethod.GET,
-                new HttpEntity<>(adminHeaders()),
+                "/api-admin/v1/products" + queryString, HttpMethod.GET,
+                new HttpEntity<>(fixture.adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
     }
 
     private HttpHeaders userHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Loopers-LoginId", LOGIN_ID);
-        headers.set("X-Loopers-LoginPw", LOGIN_PW);
-        return headers;
-    }
-
-    private HttpHeaders adminHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Loopers-Ldap", VALID_LDAP);
-        return headers;
+        return fixture.userHeaders(LOGIN_ID, LOGIN_PW);
     }
 }

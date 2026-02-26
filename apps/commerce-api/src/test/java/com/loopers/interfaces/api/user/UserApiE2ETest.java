@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.user;
 
 import com.loopers.application.user.UserRequest;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.support.E2ETestFixture;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
@@ -37,6 +38,9 @@ class UserApiE2ETest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
+    @Autowired
+    private E2ETestFixture fixture;
+
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
@@ -65,7 +69,7 @@ class UserApiE2ETest {
 
         @Test
         void 이미_존재하는_로그인ID로_가입하면_409_응답() {
-            signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
 
             UserRequest.SignUp duplicateRequest = new UserRequest.SignUp(
                     "testuser", "Test5678!", "김철수",
@@ -119,7 +123,7 @@ class UserApiE2ETest {
 
         @Test
         void 유효한_인증정보로_조회하면_마스킹된_이름과_함께_정보가_반환된다() {
-            signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
 
             ResponseEntity<ApiResponse<UserV1Dto.UserResponse>> response = getMyInfo("testuser", "Test1234!");
 
@@ -136,7 +140,7 @@ class UserApiE2ETest {
         void 존재하지_않는_로그인ID로_조회하면_401_응답() {
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     MY_INFO_ENDPOINT, HttpMethod.GET,
-                    new HttpEntity<>(authHeaders("notexist", "Test1234!")),
+                    new HttpEntity<>(fixture.userHeaders("notexist", "Test1234!")),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -148,11 +152,11 @@ class UserApiE2ETest {
 
         @Test
         void 비밀번호가_일치하지_않으면_401_응답() {
-            signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     MY_INFO_ENDPOINT, HttpMethod.GET,
-                    new HttpEntity<>(authHeaders("testuser", "WrongPass1!")),
+                    new HttpEntity<>(fixture.userHeaders("testuser", "WrongPass1!")),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -182,13 +186,13 @@ class UserApiE2ETest {
 
         @Test
         void 유효한_새_비밀번호로_변경하면_새_비밀번호로_인증할_수_있다() {
-            signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
 
             UserRequest.ChangePassword request = new UserRequest.ChangePassword("NewPass123!");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     CHANGE_PASSWORD_ENDPOINT, HttpMethod.PATCH,
-                    new HttpEntity<>(request, authHeaders("testuser", "Test1234!")),
+                    new HttpEntity<>(request, fixture.userHeaders("testuser", "Test1234!")),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -200,13 +204,13 @@ class UserApiE2ETest {
 
         @Test
         void 현재_비밀번호와_동일한_비밀번호로_변경하면_400_응답() {
-            signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
 
             UserRequest.ChangePassword request = new UserRequest.ChangePassword("Test1234!");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     CHANGE_PASSWORD_ENDPOINT, HttpMethod.PATCH,
-                    new HttpEntity<>(request, authHeaders("testuser", "Test1234!")),
+                    new HttpEntity<>(request, fixture.userHeaders("testuser", "Test1234!")),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -218,13 +222,13 @@ class UserApiE2ETest {
 
         @Test
         void 인증_실패하면_401_응답() {
-            signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
 
             UserRequest.ChangePassword request = new UserRequest.ChangePassword("NewPass123!");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     CHANGE_PASSWORD_ENDPOINT, HttpMethod.PATCH,
-                    new HttpEntity<>(request, authHeaders("testuser", "WrongPass1!")),
+                    new HttpEntity<>(request, fixture.userHeaders("testuser", "WrongPass1!")),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -252,13 +256,13 @@ class UserApiE2ETest {
 
         @Test
         void 비밀번호에_생년월일이_포함되면_400_응답() {
-            signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
 
             UserRequest.ChangePassword request = new UserRequest.ChangePassword("Abcd20000115!");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     CHANGE_PASSWORD_ENDPOINT, HttpMethod.PATCH,
-                    new HttpEntity<>(request, authHeaders("testuser", "Test1234!")),
+                    new HttpEntity<>(request, fixture.userHeaders("testuser", "Test1234!")),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -267,13 +271,13 @@ class UserApiE2ETest {
 
         @Test
         void 유효하지_않은_비밀번호면_400_응답() {
-            signUp("testuser", "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
 
             UserRequest.ChangePassword request = new UserRequest.ChangePassword("short");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     CHANGE_PASSWORD_ENDPOINT, HttpMethod.PATCH,
-                    new HttpEntity<>(request, authHeaders("testuser", "Test1234!")),
+                    new HttpEntity<>(request, fixture.userHeaders("testuser", "Test1234!")),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -282,11 +286,6 @@ class UserApiE2ETest {
     }
 
     // --- 헬퍼 메서드 ---
-
-    private void signUp(String loginId, String password, String name, LocalDate birthDate, String email) {
-        UserRequest.SignUp request = new UserRequest.SignUp(loginId, password, name, birthDate, email);
-        postSignUp(request);
-    }
 
     private ResponseEntity<ApiResponse<UserV1Dto.UserResponse>> postSignUp(UserRequest.SignUp request) {
         return testRestTemplate.exchange(
@@ -298,15 +297,8 @@ class UserApiE2ETest {
     private ResponseEntity<ApiResponse<UserV1Dto.UserResponse>> getMyInfo(String loginId, String password) {
         return testRestTemplate.exchange(
                 MY_INFO_ENDPOINT, HttpMethod.GET,
-                new HttpEntity<>(authHeaders(loginId, password)),
+                new HttpEntity<>(fixture.userHeaders(loginId, password)),
                 new ParameterizedTypeReference<>() {}
         );
-    }
-
-    private HttpHeaders authHeaders(String loginId, String password) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Loopers-LoginId", loginId);
-        headers.set("X-Loopers-LoginPw", password);
-        return headers;
     }
 }

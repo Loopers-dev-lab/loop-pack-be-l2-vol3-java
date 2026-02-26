@@ -1,14 +1,9 @@
 package com.loopers.interfaces.api.order;
 
-import com.loopers.application.brand.BrandRequest;
 import com.loopers.application.order.OrderRequest;
-import com.loopers.application.product.ProductRequest;
-import com.loopers.application.user.UserRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
-import com.loopers.interfaces.api.brand.BrandAdminV1Dto;
-import com.loopers.interfaces.api.product.ProductAdminV1Dto;
-import com.loopers.interfaces.api.user.UserV1Dto;
+import com.loopers.support.E2ETestFixture;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
@@ -26,7 +21,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,11 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class OrderAdminApiE2ETest {
 
     private static final String ENDPOINT = "/api-admin/v1/orders";
-    private static final String ORDER_USER_ENDPOINT = "/api/v1/orders";
-    private static final String BRAND_ENDPOINT = "/api-admin/v1/brands";
-    private static final String PRODUCT_ENDPOINT = "/api-admin/v1/products";
-    private static final String USER_ENDPOINT = "/api/v1/users";
-    private static final String VALID_LDAP = "admin-ldap";
     private static final String USER_LOGIN_ID = "testuser";
     private static final String USER_PASSWORD = "Test1234!";
 
@@ -50,6 +39,9 @@ class OrderAdminApiE2ETest {
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
+
+    @Autowired
+    private E2ETestFixture fixture;
 
     @AfterEach
     void tearDown() {
@@ -61,10 +53,10 @@ class OrderAdminApiE2ETest {
 
         @Test
         void 전체_주문을_최신순으로_페이징하여_200_응답한다() {
-            signUp();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId1 = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Long productId2 = registerProduct(brandId, "셔츠", new BigDecimal("30000"), 100, "멋진 셔츠");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId1 = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long productId2 = fixture.registerProduct(brandId, "셔츠", new BigDecimal("30000"), 100, "멋진 셔츠");
 
             placeOrder(new OrderRequest.Place(List.of(new OrderRequest.PlaceItem(productId1, 1))));
             placeOrder(new OrderRequest.Place(List.of(new OrderRequest.PlaceItem(productId2, 2))));
@@ -85,10 +77,10 @@ class OrderAdminApiE2ETest {
 
         @Test
         void 모든_사용자의_주문이_포함된다() {
-            signUp();
-            signUp("otheruser", "Other1234!", "김철수", "other@example.com");
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            fixture.signUp("otheruser", "Other1234!", "김철수", "other@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
 
             placeOrder(new OrderRequest.Place(List.of(new OrderRequest.PlaceItem(productId, 1))));
             placeOrderAs("otheruser", "Other1234!",
@@ -122,7 +114,7 @@ class OrderAdminApiE2ETest {
         void 요청_필드_규칙_위반_시_400_응답() {
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "?page=-1", HttpMethod.GET,
-                    new HttpEntity<>(adminHeaders()),
+                    new HttpEntity<>(fixture.adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -166,10 +158,10 @@ class OrderAdminApiE2ETest {
 
         @Test
         void 주문을_조회하면_200_응답과_주문_상세_정보를_반환한다() {
-            signUp();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId1 = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Long productId2 = registerProduct(brandId, "셔츠", new BigDecimal("30000"), 100, "멋진 셔츠");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId1 = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long productId2 = fixture.registerProduct(brandId, "셔츠", new BigDecimal("30000"), 100, "멋진 셔츠");
 
             Long orderId = placeOrder(new OrderRequest.Place(List.of(
                     new OrderRequest.PlaceItem(productId1, 2),
@@ -190,9 +182,9 @@ class OrderAdminApiE2ETest {
 
         @Test
         void 주문_상품은_스냅샷_정보로_반환한다() {
-            signUp();
-            Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            Long productId = registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
 
             Long orderId = placeOrder(new OrderRequest.Place(List.of(
                     new OrderRequest.PlaceItem(productId, 3)
@@ -215,7 +207,7 @@ class OrderAdminApiE2ETest {
         void 존재하지_않는_주문이면_404_응답() {
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/999", HttpMethod.GET,
-                    new HttpEntity<>(adminHeaders()),
+                    new HttpEntity<>(fixture.adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -259,46 +251,9 @@ class OrderAdminApiE2ETest {
 
     // --- 헬퍼 메서드 ---
 
-    private void signUp() {
-        signUp(USER_LOGIN_ID, USER_PASSWORD, "홍길동", "test@example.com");
-    }
-
-    private void signUp(String loginId, String password, String name, String email) {
-        UserRequest.SignUp request = new UserRequest.SignUp(
-                loginId, password, name,
-                LocalDate.of(2000, 1, 15), email
-        );
-        testRestTemplate.exchange(
-                USER_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request),
-                new ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
-        );
-    }
-
-    private Long registerBrand(String name, String description) {
-        BrandRequest.Register request = new BrandRequest.Register(name, description);
-        ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = testRestTemplate.exchange(
-                BRAND_ENDPOINT, HttpMethod.POST,
-                new HttpEntity<>(request, adminHeaders()),
-                new ParameterizedTypeReference<>() {}
-        );
-        return response.getBody().data().id();
-    }
-
-    private Long registerProduct(Long brandId, String name, BigDecimal price, Integer stockQuantity, String description) {
-        ProductRequest.Register request = new ProductRequest.Register(
-                brandId, name, price, stockQuantity, description
-        );
-        ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> response = testRestTemplate.exchange(
-                PRODUCT_ENDPOINT, HttpMethod.POST,
-                new HttpEntity<>(request, adminHeaders()),
-                new ParameterizedTypeReference<>() {}
-        );
-        return response.getBody().data().id();
-    }
-
     private Long placeOrder(OrderRequest.Place request) {
         ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> response = testRestTemplate.exchange(
-                ORDER_USER_ENDPOINT, HttpMethod.POST,
+                "/api/v1/orders", HttpMethod.POST,
                 new HttpEntity<>(request, userHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
@@ -306,12 +261,9 @@ class OrderAdminApiE2ETest {
     }
 
     private void placeOrderAs(String loginId, String password, OrderRequest.Place request) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Loopers-LoginId", loginId);
-        headers.set("X-Loopers-LoginPw", password);
         testRestTemplate.exchange(
-                ORDER_USER_ENDPOINT, HttpMethod.POST,
-                new HttpEntity<>(request, headers),
+                "/api/v1/orders", HttpMethod.POST,
+                new HttpEntity<>(request, fixture.userHeaders(loginId, password)),
                 new ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {}
         );
     }
@@ -319,7 +271,7 @@ class OrderAdminApiE2ETest {
     private ResponseEntity<ApiResponse<OrderAdminV1Dto.OrderResponse>> getDetail(Long orderId) {
         return testRestTemplate.exchange(
                 ENDPOINT + "/" + orderId, HttpMethod.GET,
-                new HttpEntity<>(adminHeaders()),
+                new HttpEntity<>(fixture.adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
     }
@@ -327,21 +279,12 @@ class OrderAdminApiE2ETest {
     private ResponseEntity<ApiResponse<PageResponse<OrderAdminV1Dto.OrderListResponse>>> getList(String queryString) {
         return testRestTemplate.exchange(
                 ENDPOINT + queryString, HttpMethod.GET,
-                new HttpEntity<>(adminHeaders()),
+                new HttpEntity<>(fixture.adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
     }
 
-    private HttpHeaders adminHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Loopers-Ldap", VALID_LDAP);
-        return headers;
-    }
-
     private HttpHeaders userHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Loopers-LoginId", USER_LOGIN_ID);
-        headers.set("X-Loopers-LoginPw", USER_PASSWORD);
-        return headers;
+        return fixture.userHeaders(USER_LOGIN_ID, USER_PASSWORD);
     }
 }
