@@ -2,9 +2,9 @@ package com.loopers.interfaces.api.brand;
 
 import com.loopers.application.brand.BrandFacade;
 import com.loopers.application.brand.BrandInfo;
+import com.loopers.application.brand.BrandRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -28,8 +28,8 @@ public class BrandAdminV1Controller implements BrandAdminApiV1Spec {
     @PostMapping
     @Override
     public ApiResponse<BrandAdminV1Dto.BrandResponse> register(
-            @Valid @RequestBody BrandAdminV1Dto.RegisterRequest request) {
-        BrandInfo info = brandFacade.register(request.name(), request.description());
+            @RequestBody BrandRequest.Register request) {
+        BrandInfo info = brandFacade.register(request);
         return ApiResponse.success(BrandAdminV1Dto.BrandResponse.from(info));
     }
 
@@ -37,8 +37,8 @@ public class BrandAdminV1Controller implements BrandAdminApiV1Spec {
     @Override
     public ApiResponse<BrandAdminV1Dto.BrandResponse> update(
             @PathVariable Long brandId,
-            @Valid @RequestBody BrandAdminV1Dto.UpdateRequest request) {
-        BrandInfo info = brandFacade.update(brandId, request.name(), request.description());
+            @RequestBody BrandRequest.Update request) {
+        BrandInfo info = brandFacade.update(brandId, request);
         return ApiResponse.success(BrandAdminV1Dto.BrandResponse.from(info));
     }
 
@@ -54,8 +54,8 @@ public class BrandAdminV1Controller implements BrandAdminApiV1Spec {
     @GetMapping
     @Override
     public ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>> list(
-            @Valid BrandAdminV1Dto.ListRequest request) {
-        Page<BrandInfo> brands = brandFacade.getList(request.name(), request.toDeleted(), request.toPageable());
+            BrandRequest.ListAll request) {
+        Page<BrandInfo> brands = brandFacade.getList(request);
         PageResponse<BrandAdminV1Dto.BrandResponse> pageResponse =
                 PageResponse.from(brands, BrandAdminV1Dto.BrandResponse::from);
         return ApiResponse.success(pageResponse);

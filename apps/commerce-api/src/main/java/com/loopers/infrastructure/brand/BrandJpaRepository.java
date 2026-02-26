@@ -7,6 +7,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
+
 public interface BrandJpaRepository extends JpaRepository<Brand, Long> {
 
     // Query
@@ -32,4 +35,6 @@ public interface BrandJpaRepository extends JpaRepository<Brand, Long> {
                       + "WHERE b.deletedAt IS NULL "
                       + "AND (:name IS NULL OR b.name LIKE %:name%)")
     Page<Brand> findAllActive(@Param("name") String name, Pageable pageable);
+
+    List<Brand> findAllByIdIn(Collection<Long> ids);
 }

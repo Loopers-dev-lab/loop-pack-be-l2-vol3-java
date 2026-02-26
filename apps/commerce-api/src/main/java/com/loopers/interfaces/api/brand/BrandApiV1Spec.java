@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.brand;
 
+import com.loopers.application.brand.BrandRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,7 +16,7 @@ public interface BrandApiV1Spec {
             description = "활성 브랜드 목록을 이름 오름차순으로 페이징 조회합니다."
     )
     ApiResponse<PageResponse<BrandV1Dto.BrandResponse>> list(
-            BrandV1Dto.ListRequest request
+            BrandRequest.ListActive request
     );
 
     @Operation(

@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.brand;
 
+import com.loopers.application.brand.BrandRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.utils.DatabaseCleanUp;
@@ -72,6 +73,7 @@ class BrandApiE2ETest {
             ResponseEntity<ApiResponse<PageResponse<BrandV1Dto.BrandResponse>>> response = getList("");
 
             assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content()).hasSize(1),
                     () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("나이키")
             );
@@ -87,6 +89,7 @@ class BrandApiE2ETest {
                     getList("?name=나이키");
 
             assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content()).hasSize(1),
                     () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("나이키")
             );
@@ -164,7 +167,7 @@ class BrandApiE2ETest {
     // --- 헬퍼 메서드 ---
 
     private Long registerBrand(String name, String description) {
-        BrandAdminV1Dto.RegisterRequest request = new BrandAdminV1Dto.RegisterRequest(name, description);
+        BrandRequest.Register request = new BrandRequest.Register(name, description);
         ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = testRestTemplate.exchange(
                 ADMIN_ENDPOINT, HttpMethod.POST,
                 new HttpEntity<>(request, adminHeaders()),

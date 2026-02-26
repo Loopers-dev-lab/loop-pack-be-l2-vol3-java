@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.brand;
 
+import com.loopers.application.brand.BrandRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,7 +16,7 @@ public interface BrandAdminApiV1Spec {
             description = "새로운 입점 브랜드를 등록합니다."
     )
     ApiResponse<BrandAdminV1Dto.BrandResponse> register(
-            BrandAdminV1Dto.RegisterRequest request
+            BrandRequest.Register request
     );
 
     @Operation(
@@ -24,7 +25,7 @@ public interface BrandAdminApiV1Spec {
     )
     ApiResponse<BrandAdminV1Dto.BrandResponse> update(
             Long brandId,
-            BrandAdminV1Dto.UpdateRequest request
+            BrandRequest.Update request
     );
 
     @Operation(
@@ -40,7 +41,7 @@ public interface BrandAdminApiV1Spec {
             description = "브랜드 목록을 검색 조건과 함께 페이징 조회합니다."
     )
     ApiResponse<PageResponse<BrandAdminV1Dto.BrandResponse>> list(
-            BrandAdminV1Dto.ListRequest request
+            BrandRequest.ListAll request
     );
 
     @Operation(

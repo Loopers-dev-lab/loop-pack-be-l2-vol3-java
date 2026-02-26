@@ -11,6 +11,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -75,5 +79,10 @@ public class BrandService {
 
     public Page<Brand> findActiveBrands(String name, Pageable pageable) {
         return brandRepository.findAllActive(name, pageable);
+    }
+
+    public Map<Long, Brand> getBrandsMapByIds(Set<Long> brandIds) {
+        return brandRepository.findAllByIdIn(brandIds).stream()
+                .collect(Collectors.toMap(Brand::getId, Function.identity()));
     }
 }

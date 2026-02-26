@@ -1,5 +1,7 @@
 package com.loopers.interfaces.api.brand;
 
+import com.loopers.application.brand.BrandRequest;
+import com.loopers.application.product.ProductRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.product.ProductAdminV1Dto;
@@ -48,7 +50,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 유효한_정보로_등록하면_브랜드_정보가_반환된다() {
-            BrandAdminV1Dto.RegisterRequest request = new BrandAdminV1Dto.RegisterRequest("나이키", "스포츠 브랜드");
+            BrandRequest.Register request = new BrandRequest.Register("나이키", "스포츠 브랜드");
 
             ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = postRegister(request);
 
@@ -65,9 +67,9 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 이미_존재하는_브랜드명이면_409_응답() {
-            postRegister(new BrandAdminV1Dto.RegisterRequest("나이키", "스포츠 브랜드"));
+            postRegister(new BrandRequest.Register("나이키", "스포츠 브랜드"));
 
-            BrandAdminV1Dto.RegisterRequest duplicateRequest = new BrandAdminV1Dto.RegisterRequest("나이키", "다른 설명");
+            BrandRequest.Register duplicateRequest = new BrandRequest.Register("나이키", "다른 설명");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT, HttpMethod.POST,
@@ -80,7 +82,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 브랜드명이_빈값이면_400_응답() {
-            BrandAdminV1Dto.RegisterRequest request = new BrandAdminV1Dto.RegisterRequest("", "설명");
+            BrandRequest.Register request = new BrandRequest.Register("", "설명");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT, HttpMethod.POST,
@@ -93,7 +95,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 인증헤더가_누락되면_401_응답() {
-            BrandAdminV1Dto.RegisterRequest request = new BrandAdminV1Dto.RegisterRequest("나이키", "스포츠 브랜드");
+            BrandRequest.Register request = new BrandRequest.Register("나이키", "스포츠 브랜드");
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT, HttpMethod.POST,
@@ -106,7 +108,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 인증에_실패하면_401_응답() {
-            BrandAdminV1Dto.RegisterRequest request = new BrandAdminV1Dto.RegisterRequest("나이키", "스포츠 브랜드");
+            BrandRequest.Register request = new BrandRequest.Register("나이키", "스포츠 브랜드");
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Loopers-Ldap", "wrong-ldap");
@@ -127,7 +129,7 @@ class BrandAdminApiE2ETest {
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT, HttpMethod.POST,
-                    new HttpEntity<>(new BrandAdminV1Dto.RegisterRequest("나이키", "다른 설명"), adminHeaders()),
+                    new HttpEntity<>(new BrandRequest.Register("나이키", "다른 설명"), adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -141,7 +143,7 @@ class BrandAdminApiE2ETest {
         @Test
         void 유효한_정보로_수정하면_200_응답과_수정된_정보를_반환한다() {
             Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("아디다스", "독일 스포츠 브랜드");
+            BrandRequest.Update request = new BrandRequest.Update("아디다스", "독일 스포츠 브랜드");
 
             ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
 
@@ -155,7 +157,7 @@ class BrandAdminApiE2ETest {
         @Test
         void name만_보내면_name만_수정된다() {
             Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("아디다스", null);
+            BrandRequest.Update request = new BrandRequest.Update("아디다스", null);
 
             ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
 
@@ -169,7 +171,7 @@ class BrandAdminApiE2ETest {
         @Test
         void description만_보내면_description만_수정된다() {
             Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest(null, "변경된 설명");
+            BrandRequest.Update request = new BrandRequest.Update(null, "변경된 설명");
 
             ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
 
@@ -184,7 +186,7 @@ class BrandAdminApiE2ETest {
         void 중복_브랜드명이면_409_응답() {
             registerBrand("나이키", "스포츠 브랜드");
             Long adidasId = registerBrand("아디다스", "독일 스포츠 브랜드");
-            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("나이키", null);
+            BrandRequest.Update request = new BrandRequest.Update("나이키", null);
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/" + adidasId, HttpMethod.PATCH,
@@ -197,7 +199,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 미존재_브랜드면_404_응답() {
-            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("나이키", null);
+            BrandRequest.Update request = new BrandRequest.Update("나이키", null);
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/999", HttpMethod.PATCH,
@@ -211,7 +213,7 @@ class BrandAdminApiE2ETest {
         @Test
         void 입력_규칙_위반_시_400_응답() {
             Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("", null);
+            BrandRequest.Update request = new BrandRequest.Update("", null);
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/" + brandId, HttpMethod.PATCH,
@@ -224,7 +226,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 인증_누락이면_401_응답() {
-            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("나이키", null);
+            BrandRequest.Update request = new BrandRequest.Update("나이키", null);
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/1", HttpMethod.PATCH,
@@ -237,7 +239,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 인증_실패이면_401_응답() {
-            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("나이키", null);
+            BrandRequest.Update request = new BrandRequest.Update("나이키", null);
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Loopers-Ldap", "wrong-ldap");
@@ -259,7 +261,7 @@ class BrandAdminApiE2ETest {
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/" + adidasId, HttpMethod.PATCH,
-                    new HttpEntity<>(new BrandAdminV1Dto.UpdateRequest("나이키", null), adminHeaders()),
+                    new HttpEntity<>(new BrandRequest.Update("나이키", null), adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -269,7 +271,7 @@ class BrandAdminApiE2ETest {
         @Test
         void 자기_자신의_현재_이름과_동일한_이름으로_수정하면_200_응답() {
             Long brandId = registerBrand("나이키", "스포츠 브랜드");
-            BrandAdminV1Dto.UpdateRequest request = new BrandAdminV1Dto.UpdateRequest("나이키", "변경된 설명");
+            BrandRequest.Update request = new BrandRequest.Update("나이키", "변경된 설명");
 
             ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
 
@@ -287,7 +289,7 @@ class BrandAdminApiE2ETest {
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/" + brandId, HttpMethod.PATCH,
-                    new HttpEntity<>(new BrandAdminV1Dto.UpdateRequest("변경이름", null), adminHeaders()),
+                    new HttpEntity<>(new BrandRequest.Update("변경이름", null), adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -611,7 +613,7 @@ class BrandAdminApiE2ETest {
     // --- 헬퍼 메서드 ---
 
     private Long registerBrand(String name, String description) {
-        BrandAdminV1Dto.RegisterRequest request = new BrandAdminV1Dto.RegisterRequest(name, description);
+        BrandRequest.Register request = new BrandRequest.Register(name, description);
         ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = postRegister(request);
         return response.getBody().data().id();
     }
@@ -620,7 +622,7 @@ class BrandAdminApiE2ETest {
         deleteRequest(brandId);
     }
 
-    private ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> postRegister(BrandAdminV1Dto.RegisterRequest request) {
+    private ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> postRegister(BrandRequest.Register request) {
         return testRestTemplate.exchange(
                 ENDPOINT, HttpMethod.POST,
                 new HttpEntity<>(request, adminHeaders()),
@@ -628,7 +630,7 @@ class BrandAdminApiE2ETest {
         );
     }
 
-    private ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> patchUpdate(Long brandId, BrandAdminV1Dto.UpdateRequest request) {
+    private ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> patchUpdate(Long brandId, BrandRequest.Update request) {
         return testRestTemplate.exchange(
                 ENDPOINT + "/" + brandId, HttpMethod.PATCH,
                 new HttpEntity<>(request, adminHeaders()),
@@ -661,7 +663,7 @@ class BrandAdminApiE2ETest {
     }
 
     private Long registerProduct(Long brandId, String name, BigDecimal price, Integer stockQuantity, String description) {
-        ProductAdminV1Dto.RegisterRequest request = new ProductAdminV1Dto.RegisterRequest(
+        ProductRequest.Register request = new ProductRequest.Register(
                 brandId, name, price, stockQuantity, description
         );
         ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> response = testRestTemplate.exchange(
