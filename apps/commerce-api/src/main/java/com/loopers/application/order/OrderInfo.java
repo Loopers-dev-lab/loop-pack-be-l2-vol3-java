@@ -4,14 +4,14 @@ import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 
 import java.math.BigDecimal;
-import java.time.ZonedDateTime;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record OrderInfo(
         Long id,
         BigDecimal totalAmount,
         List<OrderItemInfo> orderItems,
-        ZonedDateTime createdAt
+        LocalDateTime createdAt
 ) {
 
     public record OrderItemInfo(
@@ -41,7 +41,22 @@ public record OrderInfo(
                 order.getId(),
                 order.getTotalAmount(),
                 items,
-                order.getCreatedAt()
+                order.getCreatedAt().toLocalDateTime()
         );
+    }
+
+    public record OrderSummary(
+            Long id,
+            BigDecimal totalAmount,
+            LocalDateTime createdAt
+    ) {
+
+        public static OrderSummary from(Order order) {
+            return new OrderSummary(
+                    order.getId(),
+                    order.getTotalAmount(),
+                    order.getCreatedAt().toLocalDateTime()
+            );
+        }
     }
 }

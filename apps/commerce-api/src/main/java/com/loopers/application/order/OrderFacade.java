@@ -7,6 +7,7 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -64,5 +65,20 @@ public class OrderFacade {
 
         Order order = orderService.createOrder(OrderCommand.Create.of(userId, orderItems));
         return OrderInfo.from(order);
+    }
+
+    // Query
+
+    public OrderInfo getOrderDetail(Long userId, Long orderId) {
+        Order order = orderService.findOrderById(orderId, userId);
+        return OrderInfo.from(order);
+    }
+
+    public Page<OrderInfo.OrderSummary> getOrderList(Long userId, @Valid OrderRequest.ListByUser request) {
+        if (request.startDate() != null && request.endDate() != null && request.startDate().isAfter(request.endDate())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "시작일은 종료일 이전이어야 합니다");
+        }
+        Page<Order> orders = orderService.findOrdersByUserIdAndDateRange(userId, request.startDateTime(), request.endDateTime(), request.toPageable());
+        return orders.map(OrderInfo.OrderSummary::from);
     }
 }

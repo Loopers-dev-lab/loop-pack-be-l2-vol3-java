@@ -3,7 +3,7 @@ package com.loopers.interfaces.api.order;
 import com.loopers.application.order.OrderInfo;
 
 import java.math.BigDecimal;
-import java.time.ZonedDateTime;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class OrderV1Dto {
@@ -14,7 +14,7 @@ public class OrderV1Dto {
             Long id,
             BigDecimal totalAmount,
             List<OrderItemResponse> orderItems,
-            ZonedDateTime createdAt
+            LocalDateTime createdAt
     ) {
 
         public static OrderResponse from(OrderInfo info) {
@@ -45,6 +45,21 @@ public class OrderV1Dto {
                     item.price(),
                     item.quantity(),
                     item.orderPrice()
+            );
+        }
+    }
+
+    public record OrderListResponse(
+            Long id,
+            BigDecimal totalAmount,
+            LocalDateTime createdAt
+    ) {
+
+        public static OrderListResponse from(OrderInfo.OrderSummary summary) {
+            return new OrderListResponse(
+                    summary.id(),
+                    summary.totalAmount(),
+                    summary.createdAt()
             );
         }
     }
