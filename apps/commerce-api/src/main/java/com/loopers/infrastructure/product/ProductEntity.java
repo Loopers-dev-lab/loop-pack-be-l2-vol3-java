@@ -1,7 +1,10 @@
 package com.loopers.infrastructure.product;
 
+import com.loopers.domain.product.ProductStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -32,8 +35,9 @@ public class ProductEntity {
     @Column(name = "base_price", nullable = false)
     private Integer basePrice;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private String status;
+    private ProductStatus status;
 
     @Column(name = "like_count", nullable = false)
     private Integer likeCount;
@@ -89,11 +93,11 @@ public class ProductEntity {
         this.basePrice = basePrice;
     }
 
-    public String getStatus() {
+    public ProductStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(ProductStatus status) {
         this.status = status;
     }
 
