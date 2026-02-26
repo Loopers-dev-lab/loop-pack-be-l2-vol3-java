@@ -8,7 +8,6 @@
 ## 계층별 적용 (ApplicationService, Facade, Controller, Repository 등)
 
 - 구분 주석: `// Command` → `// Query` 순서
-- DTO는 `// Command` → `// Query` → `// Response`
 
 | 계층 | 순서 | 비고 |
 |------|------|------|
@@ -19,7 +18,9 @@
 | Repository (interface) | `// Command` → `// Query` | save → find, exists |
 | RepositoryImpl | `// Command` → `// Query` | Repository 인터페이스와 동일 순서 |
 | JpaRepository | `// Query` 만 | 상속 메서드 생략, 직접 정의한 메서드만 기재 |
-| DTO | `// Command` → `// Query` → `// Response` | Request → Query 파라미터 → Response |
+| Request | `// Command` → `// Query` | Place, Cancel → ListByUser |
+| Command | 구분 주석 없음 | 기능별 나열 |
+| V1Dto | `// Response` 만 | Response 전용 |
 
 ## Entity 멤버 순서
 
