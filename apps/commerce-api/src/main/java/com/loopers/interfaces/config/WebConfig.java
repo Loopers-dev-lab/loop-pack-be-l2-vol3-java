@@ -1,6 +1,6 @@
 package com.loopers.interfaces.config;
 
-import com.loopers.interfaces.auth.AuthUserArgumentResolver;
+import com.loopers.interfaces.auth.AuthMemberArgumentResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
@@ -12,10 +12,10 @@ import java.util.List;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    private final AuthUserArgumentResolver authUserArgumentResolver;
+    private final AuthMemberArgumentResolver authMemberArgumentResolver;
 
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
-        resolvers.add(authUserArgumentResolver);
+        resolvers.add(authMemberArgumentResolver);
     }
 }

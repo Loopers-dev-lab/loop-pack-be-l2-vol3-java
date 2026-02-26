@@ -22,7 +22,7 @@
 
 ## 도메인별 레시피
 - 공통 인덱스: `/Users/anseonghun/Documents/project/loop-pack-be-l2-vol3-java/docs/ai-rules/testing-recipes/README.md`
-- 사용자 도메인: `/Users/anseonghun/Documents/project/loop-pack-be-l2-vol3-java/docs/ai-rules/testing-recipes/user.md`
+- 멤버 도메인: `/Users/anseonghun/Documents/project/loop-pack-be-l2-vol3-java/docs/ai-rules/testing-recipes/member.md`
 - 주문 도메인: `/Users/anseonghun/Documents/project/loop-pack-be-l2-vol3-java/docs/ai-rules/testing-recipes/order.md`
 - 상품/좋아요 도메인: `/Users/anseonghun/Documents/project/loop-pack-be-l2-vol3-java/docs/ai-rules/testing-recipes/product-like.md`
 

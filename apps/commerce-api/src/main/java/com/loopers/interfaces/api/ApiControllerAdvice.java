@@ -3,7 +3,7 @@ package com.loopers.interfaces.api;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
-import com.loopers.domain.user.exception.UserValidationException;
+import com.loopers.domain.member.exception.MemberValidationException;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.slf4j.Logger;
@@ -34,8 +34,8 @@ public class ApiControllerAdvice {
     }
 
     @ExceptionHandler
-    public ResponseEntity<ApiResponse<?>> handle(UserValidationException e) {
-        log.warn("UserValidationException : {}", e.getMessage(), e);
+    public ResponseEntity<ApiResponse<?>> handle(MemberValidationException e) {
+        log.warn("MemberValidationException : {}", e.getMessage(), e);
         return failureResponse(ErrorType.BAD_REQUEST);
     }
 

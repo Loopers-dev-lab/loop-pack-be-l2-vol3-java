@@ -1,10 +1,19 @@
 package com.loopers.interfaces.api.product;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.loopers.domain.brand.Brand;
+import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.brand.vo.BrandName;
+import com.loopers.domain.category.Category;
+import com.loopers.domain.category.CategoryRepository;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.api.user.UserDto;
+import com.loopers.interfaces.api.member.MemberDto;
+import com.loopers.infrastructure.product.ProductEntity;
+import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -12,12 +21,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,21 +39,38 @@ class LikeApiE2ETest {
 
     private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
     private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
-    private static final long ACTIVE_PRODUCT_ID = 1L;
-    private static final long DELETED_PRODUCT_ID = 2L;
-    private static final long NOT_FOUND_PRODUCT_ID = 9_999L;
-
     private static final String ENDPOINT_PRODUCTS = "/api/v1/products";
     private static final String ENDPOINT_LIKES = "/likes";
     private static final String ENDPOINT_ME_LIKES = "/api/v1/me/likes";
 
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
+    private final BrandRepository brandRepository;
+    private final CategoryRepository categoryRepository;
+    private final ProductJpaRepository productJpaRepository;
+
+    private Long brandId;
+    private Long categoryId;
 
     @Autowired
-    public LikeApiE2ETest(TestRestTemplate testRestTemplate, DatabaseCleanUp databaseCleanUp) {
+    public LikeApiE2ETest(
+            TestRestTemplate testRestTemplate,
+            DatabaseCleanUp databaseCleanUp,
+            BrandRepository brandRepository,
+            CategoryRepository categoryRepository,
+            ProductJpaRepository productJpaRepository
+    ) {
         this.testRestTemplate = testRestTemplate;
         this.databaseCleanUp = databaseCleanUp;
+        this.brandRepository = brandRepository;
+        this.categoryRepository = categoryRepository;
+        this.productJpaRepository = productJpaRepository;
+    }
+
+    @BeforeEach
+    void setUp() {
+        brandId = createBrand("LIKE_TEST_BRAND");
+        categoryId = createCategory("LIKE_TEST_CATEGORY");
     }
 
     @AfterEach
@@ -58,38 +84,46 @@ class LikeApiE2ETest {
 
         @Test
         @DisplayName("인증된 사용자가 활성 상품에 좋아요를 누르면 201을 반환한다")
-        void registerLike_whenActiveProductAndAuthenticatedUser_returnsCreated() {
-            registerUser("likeApiUser", "Password1!", "홍길동", "19900101", "api-like@example.com", "010-1234-5678");
+        void registerLike_whenActiveProductAndAuthenticatedMember_returnsCreated() {
+            registerMember("likeApiMember", "Password1!", "홍길동", "19900101", "api-like@example.com", "010-1234-5678");
+            Long productId = createProduct("좋아요 상품", 10_000, 50);
 
-            HttpHeaders headers = headers("likeApiUser", "Password1!");
+            HttpHeaders headers = headers("likeApiMember", "Password1!");
+            int beforeLikeCount = getProductLikeCount(productId);
 
             ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
-                    productLikesUrl(ACTIVE_PRODUCT_ID),
+                    productLikesUrl(productId),
                     HttpMethod.POST,
                     new HttpEntity<>(headers),
-                    new ParameterizedTypeReference<>() {}
+                    new ParameterizedTypeReference<>() {
+                    }
             );
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            assertThat(getProductLikeCount(productId)).isEqualTo(beforeLikeCount + 1);
         }
 
         @Test
         @DisplayName("이미 좋아요한 상품을 다시 누르면 409을 반환한다")
         void registerLike_whenAlreadyLikedProduct_returnsConflict() {
-            registerUser("likeApiConflictUser", "Password1!", "홍길동", "19900101", "api-like-conflict@example.com", "010-2345-6789");
-            HttpHeaders headers = headers("likeApiConflictUser", "Password1!");
+            registerMember("likeApiConfMem", "Password1!", "홍길동", "19900101", "api-like-conflict@example.com", "010-2345-6789");
+            Long productId = createProduct("좋아요 상품", 10_000, 50);
+            HttpHeaders headers = headers("likeApiConfMem", "Password1!");
 
             testRestTemplate.exchange(
-                    productLikesUrl(ACTIVE_PRODUCT_ID),
+                    productLikesUrl(productId),
                     HttpMethod.POST,
                     new HttpEntity<>(headers),
-                    new ParameterizedTypeReference<ApiResponse<Void>>() {}
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {
+                    }
             );
+
             ResponseEntity<ApiResponse<Void>> secondResponse = testRestTemplate.exchange(
-                    productLikesUrl(ACTIVE_PRODUCT_ID),
+                    productLikesUrl(productId),
                     HttpMethod.POST,
                     new HttpEntity<>(headers),
-                    new ParameterizedTypeReference<ApiResponse<Void>>() {}
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {
+                    }
             );
 
             assertThat(secondResponse.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
@@ -98,14 +132,18 @@ class LikeApiE2ETest {
         @Test
         @DisplayName("삭제된 상품에 대해 좋아요 요청을 보내면 400을 반환한다")
         void registerLike_whenDeletedProduct_returnsBadRequest() {
-            registerUser("likeApiDeletedProductUser", "Password1!", "홍길동", "19900101", "api-like-deleted@example.com", "010-3456-7890");
-            HttpHeaders headers = headers("likeApiDeletedProductUser", "Password1!");
+            registerMember("likeApiDelMem", "Password1!", "홍길동", "19900101", "api-like-deleted@example.com", "010-3456-7890");
+            Long productId = createProduct("삭제될 상품", 10_000, 50);
+            deleteProductAsAdmin(productId);
+
+            HttpHeaders headers = headers("likeApiDelMem", "Password1!");
 
             ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
-                    productLikesUrl(DELETED_PRODUCT_ID),
+                    productLikesUrl(productId),
                     HttpMethod.POST,
                     new HttpEntity<>(headers),
-                    new ParameterizedTypeReference<ApiResponse<Void>>() {}
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {
+                    }
             );
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -114,14 +152,15 @@ class LikeApiE2ETest {
         @Test
         @DisplayName("존재하지 않는 상품에 좋아요를 누르면 404를 반환한다")
         void registerLike_whenProductNotFound_returnsNotFound() {
-            registerUser("likeApiMissingProductUser", "Password1!", "홍길동", "19900101", "api-like-missing@example.com", "010-4567-8901");
-            HttpHeaders headers = headers("likeApiMissingProductUser", "Password1!");
+            registerMember("likeApiMissMem", "Password1!", "홍길동", "19900101", "api-like-missing@example.com", "010-4567-8901");
+            HttpHeaders headers = headers("likeApiMissMem", "Password1!");
 
             ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
-                    productLikesUrl(NOT_FOUND_PRODUCT_ID),
+                    productLikesUrl(0L),
                     HttpMethod.POST,
                     new HttpEntity<>(headers),
-                    new ParameterizedTypeReference<ApiResponse<Void>>() {}
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {
+                    }
             );
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -130,11 +169,14 @@ class LikeApiE2ETest {
         @Test
         @DisplayName("인증 정보가 없으면 401을 반환한다")
         void registerLike_whenNoAuthentication_returnsUnauthorized() {
+            Long productId = createProduct("좋아요 상품", 10_000, 50);
+
             ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
-                    productLikesUrl(ACTIVE_PRODUCT_ID),
+                    productLikesUrl(productId),
                     HttpMethod.POST,
                     new HttpEntity<>(null),
-                    new ParameterizedTypeReference<ApiResponse<Void>>() {}
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {
+                    }
             );
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
@@ -148,37 +190,44 @@ class LikeApiE2ETest {
         @Test
         @DisplayName("좋아요 상태에서 삭제 요청하면 200을 반환한다")
         void cancelLike_whenLikedProduct_returnsOk() {
-            registerUser("likeApiCancelUser", "Password1!", "홍길동", "19900101", "api-like-cancel@example.com", "010-6789-0123");
-            HttpHeaders headers = headers("likeApiCancelUser", "Password1!");
+            registerMember("likeApiCancelMem", "Password1!", "홍길동", "19900101", "api-like-cancel@example.com", "010-6789-0123");
+            Long productId = createProduct("좋아요 상품", 10_000, 50);
+            HttpHeaders headers = headers("likeApiCancelMem", "Password1!");
+            int beforeLikeCount = getProductLikeCount(productId);
 
             testRestTemplate.exchange(
-                    productLikesUrl(ACTIVE_PRODUCT_ID),
+                    productLikesUrl(productId),
                     HttpMethod.POST,
                     new HttpEntity<>(headers),
-                    new ParameterizedTypeReference<ApiResponse<Void>>() {}
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {
+                    }
             );
 
             ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
-                    productLikesUrl(ACTIVE_PRODUCT_ID),
+                    productLikesUrl(productId),
                     HttpMethod.DELETE,
                     new HttpEntity<>(headers),
-                    new ParameterizedTypeReference<ApiResponse<Void>>() {}
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {
+                    }
             );
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(getProductLikeCount(productId)).isEqualTo(beforeLikeCount);
         }
 
         @Test
         @DisplayName("좋아요가 없는 상품 취소 요청은 404을 반환한다")
         void cancelLike_whenNotLikedProduct_returnsNotFound() {
-            registerUser("likeApiCancelMissingUser", "Password1!", "홍길동", "19900101", "api-like-cancel-missing@example.com", "010-7890-1234");
-            HttpHeaders headers = headers("likeApiCancelMissingUser", "Password1!");
+            registerMember("likeApiCancelMissMem", "Password1!", "홍길동", "19900101", "api-like-cancel-missing@example.com", "010-7890-1233");
+            Long productId = createProduct("좋아요 상품", 10_000, 50);
+            HttpHeaders headers = headers("likeApiCancelMissMem", "Password1!");
 
             ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
-                    productLikesUrl(ACTIVE_PRODUCT_ID),
+                    productLikesUrl(productId),
                     HttpMethod.DELETE,
                     new HttpEntity<>(headers),
-                    new ParameterizedTypeReference<ApiResponse<Void>>() {}
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {
+                    }
             );
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -187,11 +236,14 @@ class LikeApiE2ETest {
         @Test
         @DisplayName("인증 정보가 없으면 401을 반환한다")
         void cancelLike_whenNoAuthentication_returnsUnauthorized() {
+            Long productId = createProduct("좋아요 상품", 10_000, 50);
+
             ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
-                    productLikesUrl(ACTIVE_PRODUCT_ID),
+                    productLikesUrl(productId),
                     HttpMethod.DELETE,
                     new HttpEntity<>(null),
-                    new ParameterizedTypeReference<ApiResponse<Void>>() {}
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {
+                    }
             );
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
@@ -204,25 +256,79 @@ class LikeApiE2ETest {
 
         @Test
         @DisplayName("인증된 사용자가 기본 페이지/사이즈로 조회하면 200을 반환한다")
-        void getMyLikes_whenAuthenticatedUserAndDefaultPagination_returnsOk() {
-            registerUser("likeApiMeLikesUser", "Password1!", "홍길동", "19900101", "api-like-mylikes@example.com", "010-9012-3456");
-            HttpHeaders headers = headers("likeApiMeLikesUser", "Password1!");
+        void getMyLikes_whenAuthenticatedMemberAndDefaultPagination_returnsOk() {
+            registerMember("likeApiMeLikes", "Password1!", "홍길동", "19900101", "api-like-mylikes@example.com", "010-9012-3456");
+            Long productId = createProduct("좋아요 상품", 10_000, 50);
+            HttpHeaders headers = headers("likeApiMeLikes", "Password1!");
 
             testRestTemplate.exchange(
-                    productLikesUrl(ACTIVE_PRODUCT_ID),
+                    productLikesUrl(productId),
                     HttpMethod.POST,
                     new HttpEntity<>(headers),
-                    new ParameterizedTypeReference<ApiResponse<Void>>() {}
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {
+                    }
             );
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT_ME_LIKES,
                     HttpMethod.GET,
                     new HttpEntity<>(headers),
-                    new ParameterizedTypeReference<>() {}
+                    new ParameterizedTypeReference<>() {
+                    }
             );
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().data()).isInstanceOf(java.util.Map.class);
+
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> data = (java.util.Map<String, Object>) response.getBody().data();
+            assertThat(data.get("page")).isEqualTo(0);
+            assertThat(data.get("size")).isEqualTo(20);
+            assertThat(data.get("totalElements")).isEqualTo(1);
+
+            @SuppressWarnings("unchecked")
+            java.util.List<java.util.Map<String, Object>> items = (java.util.List<java.util.Map<String, Object>>) data.get("items");
+            assertThat(items).hasSize(1);
+            assertThat(((Number) items.get(0).get("id")).longValue()).isEqualTo(productId);
+        }
+
+        @Test
+        @DisplayName("좋아요한 상품이 삭제되면 내 좋아요 목록에서 제외된다")
+        void getMyLikes_whenLikedProductDeleted_excludesDeletedProduct() {
+            registerMember("likeApiMeDeleted", "Password1!", "홍길동", "19900101", "api-like-mylikes-deleted@example.com", "010-9022-3456");
+            Long productId = createProduct("삭제될 상품", 10_000, 50);
+            HttpHeaders headers = headers("likeApiMeDeleted", "Password1!");
+
+            testRestTemplate.exchange(
+                    productLikesUrl(productId),
+                    HttpMethod.POST,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {
+                    }
+            );
+
+            deleteProductAsAdmin(productId);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT_ME_LIKES,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {
+                    }
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().data()).isInstanceOf(java.util.Map.class);
+
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> data = (java.util.Map<String, Object>) response.getBody().data();
+            assertThat(data.get("totalElements")).isEqualTo(0);
+
+            @SuppressWarnings("unchecked")
+            java.util.List<java.util.Map<String, Object>> items = (java.util.List<java.util.Map<String, Object>>) data.get("items");
+            assertThat(items).isEmpty();
         }
 
         @Test
@@ -232,7 +338,8 @@ class LikeApiE2ETest {
                     ENDPOINT_ME_LIKES,
                     HttpMethod.GET,
                     new HttpEntity<>(null),
-                    new ParameterizedTypeReference<>() {}
+                    new ParameterizedTypeReference<>() {
+                    }
             );
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
@@ -250,8 +357,29 @@ class LikeApiE2ETest {
         return ENDPOINT_PRODUCTS + "/" + productId + ENDPOINT_LIKES;
     }
 
-    private void registerUser(String loginId, String password, String name, String birthDate, String email, String phone) {
-        UserDto.RegisterRequest request = new UserDto.RegisterRequest(
+    private int getProductLikeCount(long productId) {
+        ResponseEntity<ApiResponse<JsonNode>> response = testRestTemplate.exchange(
+                ENDPOINT_PRODUCTS + "/" + productId,
+                HttpMethod.GET,
+                new HttpEntity<>(null),
+                new ParameterizedTypeReference<>() {
+                }
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        return response.getBody().data().path("likeCount").asInt();
+    }
+
+    private void deleteProductAsAdmin(long productId) {
+        ProductEntity product = productJpaRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("product not found: " + productId));
+        product.delete();
+        productJpaRepository.save(product);
+    }
+
+    private void registerMember(String loginId, String password, String name, String birthDate, String email, String phone) {
+        MemberDto.RegisterRequest request = new MemberDto.RegisterRequest(
                 loginId,
                 password,
                 name,
@@ -259,11 +387,45 @@ class LikeApiE2ETest {
                 email,
                 phone
         );
-        testRestTemplate.exchange(
-                "/api/v1/users",
+        ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
+                "/api/v1/members",
                 HttpMethod.POST,
                 new HttpEntity<>(request),
-                new ParameterizedTypeReference<ApiResponse<Void>>() {}
+                new ParameterizedTypeReference<ApiResponse<Void>>() {
+                }
         );
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    }
+
+    private Long createProduct(String name, int price, int stock) {
+        ProductDto.CreateProductRequest request = new ProductDto.CreateProductRequest(
+                name,
+                price,
+                stock,
+                "desc",
+                categoryId,
+                brandId
+        );
+
+        ResponseEntity<ApiResponse<ProductDto.ProductResponse>> response = testRestTemplate.exchange(
+                ENDPOINT_PRODUCTS,
+                HttpMethod.POST,
+                new HttpEntity<>(request),
+                new ParameterizedTypeReference<>() {
+                }
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data()).isNotNull();
+        return response.getBody().data().id();
+    }
+
+    private Long createCategory(String name) {
+        return categoryRepository.save(new Category(name)).id();
+    }
+
+    private Long createBrand(String name) {
+        return brandRepository.save(new Brand(new BrandName(name), "", "")).id();
     }
 }

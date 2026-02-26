@@ -2,7 +2,9 @@ package com.loopers.interfaces.api.order;
 
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.product.ProductDto;
-import com.loopers.interfaces.api.user.UserDto;
+import com.loopers.interfaces.api.member.MemberDto;
+import com.loopers.domain.category.Category;
+import com.loopers.domain.category.CategoryRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -32,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OrderApiE2ETest {
 
     private static final String ENDPOINT_ORDERS = "/api/v1/orders";
+    private static final String ENDPOINT_BRANDS = "/api-admin/v1/brands";
     private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
     private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
     private static final String TEST_LOGIN_ID = "orderuser1";
@@ -39,25 +42,32 @@ class OrderApiE2ETest {
 
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
+    private final CategoryRepository categoryRepository;
+    private Long brandId;
+    private Long categoryId;
 
     @Autowired
-    public OrderApiE2ETest(TestRestTemplate testRestTemplate, DatabaseCleanUp databaseCleanUp) {
+    public OrderApiE2ETest(TestRestTemplate testRestTemplate, DatabaseCleanUp databaseCleanUp, CategoryRepository categoryRepository) {
         this.testRestTemplate = testRestTemplate;
         this.databaseCleanUp = databaseCleanUp;
+        this.categoryRepository = categoryRepository;
     }
 
     @BeforeEach
     void setUp() {
         // 테스트 유저 생성
-        UserDto.RegisterRequest registerRequest = new UserDto.RegisterRequest(
+        MemberDto.RegisterRequest registerRequest = new MemberDto.RegisterRequest(
                 TEST_LOGIN_ID, TEST_PASSWORD, "주문자", "19900101", "order@test.com", "010-1234-5678"
         );
         testRestTemplate.exchange(
-                "/api/v1/users",
+                "/api/v1/members",
                 HttpMethod.POST,
                 new HttpEntity<>(registerRequest),
                 new ParameterizedTypeReference<ApiResponse<Void>>() {}
         );
+
+        brandId = createBrand("ORDER_TEST_BRAND");
+        categoryId = createCategory("ORDER_TEST_CATEGORY");
     }
 
     @AfterEach
@@ -74,7 +84,7 @@ class OrderApiE2ETest {
 
     private Long createProduct(String name, int price, int stock) {
         ProductDto.CreateProductRequest request = new ProductDto.CreateProductRequest(
-                name, price, stock, "설명", 1L, 10L
+                name, price, stock, "설명", categoryId, brandId
         );
         ResponseEntity<ApiResponse<ProductDto.ProductResponse>> response = testRestTemplate.exchange(
                 "/api/v1/products",
@@ -82,7 +92,36 @@ class OrderApiE2ETest {
                 new HttpEntity<>(request),
                 new ParameterizedTypeReference<>() {}
         );
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data()).isNotNull();
         return response.getBody().data().id();
+    }
+
+    private Long createBrand(String name) {
+        var request = new com.loopers.interfaces.api.brand.BrandDto.CreateBrandRequest(
+                name,
+                "테스트 브랜드",
+                "https://example.com/logo.png"
+        );
+
+        ResponseEntity<com.loopers.interfaces.api.ApiResponse<com.loopers.interfaces.api.brand.BrandDto.BrandResponse>> response =
+                testRestTemplate.exchange(
+                        ENDPOINT_BRANDS,
+                        HttpMethod.POST,
+                        new HttpEntity<>(request),
+                        new ParameterizedTypeReference<>() {}
+                );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data()).isNotNull();
+
+        return response.getBody().data().id();
+    }
+
+    private Long createCategory(String name) {
+        return categoryRepository.save(new Category(name)).id();
     }
 
     @Nested

@@ -30,11 +30,11 @@
 ## Domain Constraints
 - 결제 시스템 없음: 주문 완료 = 결제 완료
 - 주문 시점 상품 정보 스냅샷 저장
-- 어드민 인증은 `X-ROOPERS-LDAP` 헤더 기반
+- 어드민 인증은 `X-Loopers-Ldap` 헤더 기반
 - 포인트 충전 기능은 Scope-out
 
 ## Project-specific Guardrails
 - `password`/`token`/`secret` 필드는 `toString()`에서 마스킹
 - 비밀번호 정책 검증은 raw password에서만 수행 (encoded password 제외)
-- 비밀번호 변경은 `@AuthUser` 단일 인증 사용 (body 재인증 금지)
+- 비밀번호 변경은 `@AuthMember` 단일 인증 사용 (body 재인증 금지)
 - 예약어/문자열 케이스 변환은 `Locale.ROOT` 사용

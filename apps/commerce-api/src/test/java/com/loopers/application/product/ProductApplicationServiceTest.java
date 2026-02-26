@@ -1,6 +1,11 @@
 package com.loopers.application.product;
 
 import com.loopers.application.product.command.CreateProductCommand;
+import com.loopers.domain.brand.Brand;
+import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.brand.vo.BrandName;
+import com.loopers.domain.category.Category;
+import com.loopers.domain.category.CategoryRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
@@ -22,6 +27,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,6 +36,10 @@ class ProductApplicationServiceTest {
 
     @Mock
     private ProductRepository productRepository;
+    @Mock
+    private BrandRepository brandRepository;
+    @Mock
+    private CategoryRepository categoryRepository;
 
     @InjectMocks
     private ProductApplicationService productApplicationService;
@@ -49,6 +59,9 @@ class ProductApplicationServiceTest {
                     1L,
                     1L
             );
+            when(brandRepository.findById(1L)).thenReturn(Optional.of(new Brand(1L, new BrandName("퍼피박스"), "", "")));
+            when(categoryRepository.findById(1L)).thenReturn(Optional.of(new Category(1L, "푸드")));
+
             Product saved = new Product(1L, "강아지 사료", 10000, 20, "소형견용", 1L, 1L, 0, null);
             when(productRepository.save(any(Product.class))).thenReturn(saved);
 
@@ -57,6 +70,83 @@ class ProductApplicationServiceTest {
             assertThat(result.id()).isEqualTo(1L);
             assertThat(result.name()).isEqualTo("강아지 사료");
             verify(productRepository).save(any(Product.class));
+        }
+
+        @Test
+        @DisplayName("실패 - 브랜드가 존재하지 않음")
+        void createFailWhenBrandNotFound() {
+            CreateProductCommand command = new CreateProductCommand(
+                    "강아지 사료",
+                    10000,
+                    20,
+                    "소형견용",
+                    1L,
+                    1L
+            );
+
+            when(brandRepository.findById(1L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> productApplicationService.create(command))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+            verify(productRepository, never()).save(any(Product.class));
+        }
+
+        @Test
+        @DisplayName("실패 - 카테고리가 존재하지 않음")
+        void createFailWhenCategoryNotFound() {
+            CreateProductCommand command = new CreateProductCommand(
+                    "강아지 사료",
+                    10000,
+                    20,
+                    "소형견용",
+                    1L,
+                    1L
+            );
+
+            when(brandRepository.findById(1L)).thenReturn(Optional.of(new Brand(1L, new BrandName("퍼피박스"), "", "")));
+            when(categoryRepository.findById(1L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> productApplicationService.create(command))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+            verify(productRepository, never()).save(any(Product.class));
+        }
+
+        @Test
+        @DisplayName("실패 - 카테고리 ID 누락")
+        void createFailWhenCategoryIdMissing() {
+            CreateProductCommand command = new CreateProductCommand(
+                    "강아지 사료",
+                    10000,
+                    20,
+                    "소형견용",
+                    null,
+                    10L
+            );
+
+            assertThatThrownBy(() -> productApplicationService.create(command))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+            verify(productRepository, never()).save(any(Product.class));
+        }
+
+        @Test
+        @DisplayName("실패 - 브랜드 ID 누락")
+        void createFailWhenBrandIdMissing() {
+            CreateProductCommand command = new CreateProductCommand(
+                    "강아지 사료",
+                    10000,
+                    20,
+                    "소형견용",
+                    1L,
+                    null
+            );
+
+            assertThatThrownBy(() -> productApplicationService.create(command))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+            verify(productRepository, never()).save(any(Product.class));
         }
     }
 

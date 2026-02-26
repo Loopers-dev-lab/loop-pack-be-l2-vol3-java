@@ -13,6 +13,8 @@ public interface ProductRepository {
 
     List<Product> findAllByIdInWithLock(List<Long> ids);
 
+    Optional<Product> findByIdIncludingDeleted(Long id);
+
     Page<Product> findAll(Long brandId, Pageable pageable);
 
-    }
+}

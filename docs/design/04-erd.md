@@ -53,7 +53,7 @@ erDiagram
 ```
 
 ## 핵심 포인트
-- **Like = User-Product N:M 조인 엔티티**: User와 Product 간 N:M 관계를 Like 엔티티로 풀어냈다. DB에서 (userId + productId) Unique 제약조건으로 중복 방지. Like 자체에 비즈니스 속성은 없으므로 속성 블록을 생략했다.
+- **Like = Member-Product N:M 조인 엔티티**: Member와 Product 간 N:M 관계를 Like 엔티티로 풀어냈다. DB에서 (memberId + productId) Unique 제약조건으로 중복 방지. Like 자체에 비즈니스 속성은 없으므로 속성 블록을 생략했다.
 - **OrderItem 스냅샷 비정규화**: OrderItem은 Product와 FK 관계가 없다. 주문 시점의 상품명/가격/브랜드명을 자체 필드에 복사하여, Product 변경/삭제에 영향받지 않는 독립적 데이터로 존재한다. ERD에서 Product-OrderItem 간 관계선이 없는 이유.
 - **Order-OrderItem 컴포지션**: Order 삭제 시 OrderItem도 함께 삭제되는 강한 소유 관계. 최소 1개 이상의 OrderItem이 필요하다 (`||--|{`).
 

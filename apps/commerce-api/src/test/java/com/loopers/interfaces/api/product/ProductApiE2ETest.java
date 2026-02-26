@@ -1,6 +1,11 @@
 package com.loopers.interfaces.api.product;
 
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.domain.brand.Brand;
+import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.brand.vo.BrandName;
+import com.loopers.domain.category.Category;
+import com.loopers.domain.category.CategoryRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -29,11 +34,20 @@ class ProductApiE2ETest {
 
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
+    private final BrandRepository brandRepository;
+    private final CategoryRepository categoryRepository;
 
     @Autowired
-    public ProductApiE2ETest(TestRestTemplate testRestTemplate, DatabaseCleanUp databaseCleanUp) {
+    public ProductApiE2ETest(
+            TestRestTemplate testRestTemplate,
+            DatabaseCleanUp databaseCleanUp,
+            BrandRepository brandRepository,
+            CategoryRepository categoryRepository
+    ) {
         this.testRestTemplate = testRestTemplate;
         this.databaseCleanUp = databaseCleanUp;
+        this.brandRepository = brandRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     @AfterEach
@@ -48,13 +62,15 @@ class ProductApiE2ETest {
         @Test
         @DisplayName("상품 생성 후 상세 조회에 성공한다")
         void createAndGetDetail() {
+            Long categoryId = createCategory("푸드");
+            Long brandId = createBrand("퍼피박스");
             ProductDto.CreateProductRequest create = new ProductDto.CreateProductRequest(
                     "강아지 샴푸",
                     8900,
                     50,
                     "저자극",
-                    1L,
-                    10L
+                    categoryId,
+                    brandId
             );
 
             ResponseEntity<ApiResponse<ProductDto.ProductResponse>> created = testRestTemplate.exchange(
@@ -83,20 +99,23 @@ class ProductApiE2ETest {
         @Test
         @DisplayName("브랜드 필터로 목록 조회에 성공한다")
         void listWithBrandFilter() {
-            create("상품A", 1000, 1L, 10L);
-            create("상품B", 2000, 1L, 20L);
+            Long categoryId = createCategory("푸드");
+            Long brandIdForList = createBrand("퍼피박스");
+            Long otherBrandId = createBrand("포메피아");
+            create("상품A", 1000, categoryId, brandIdForList);
+            create("상품B", 2000, categoryId, otherBrandId);
 
             ResponseEntity<ApiResponse<ProductDto.ProductListResponse>> list = testRestTemplate.exchange(
-                    ENDPOINT_PRODUCTS + "?brandId=10&sort=latest&page=0&size=20",
+                    ENDPOINT_PRODUCTS + "?brandId=" + brandIdForList + "&sort=latest&page=0&size=20",
                     HttpMethod.GET,
                     new HttpEntity<>(null),
                     new ParameterizedTypeReference<>() {
                     }
-            );
+                );
 
             assertThat(list.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(list.getBody().data().totalElements()).isEqualTo(1);
-            assertThat(list.getBody().data().items().get(0).brandId()).isEqualTo(10L);
+            assertThat(list.getBody().data().items().get(0).brandId()).isEqualTo(brandIdForList);
         }
     }
 
@@ -117,5 +136,13 @@ class ProductApiE2ETest {
                 new ParameterizedTypeReference<ApiResponse<ProductDto.ProductResponse>>() {
                 }
         );
+    }
+
+    private Long createCategory(String name) {
+        return categoryRepository.save(new Category(name)).id();
+    }
+
+    private Long createBrand(String name) {
+        return brandRepository.save(new Brand(new BrandName(name), "", "")).id();
     }
 }

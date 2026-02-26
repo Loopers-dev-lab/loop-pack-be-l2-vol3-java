@@ -38,6 +38,12 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public Optional<Product> findByIdIncludingDeleted(Long id) {
+        return productJpaRepository.findById(id)
+                .map(ProductEntity::toDomain);
+    }
+
+    @Override
     public Page<Product> findAll(Long brandId, Pageable pageable) {
         if (brandId == null) {
             return productJpaRepository.findAllByDeletedAtIsNull(pageable).map(ProductEntity::toDomain);

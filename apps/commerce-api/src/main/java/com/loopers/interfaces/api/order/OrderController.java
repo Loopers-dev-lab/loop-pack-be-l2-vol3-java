@@ -2,12 +2,10 @@ package com.loopers.interfaces.api.order;
 
 import com.loopers.application.order.OrderApplicationService;
 import com.loopers.domain.order.Order;
-import com.loopers.domain.user.User;
-import com.loopers.domain.user.UserRepository;
+import com.loopers.domain.member.Member;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.auth.AuthUser;
-import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
+import com.loopers.interfaces.auth.AuthMember;
+import com.loopers.application.member.MemberAuthenticationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -34,55 +32,54 @@ import java.time.LocalDate;
 public class OrderController {
 
     private final OrderApplicationService orderApplicationService;
-    private final UserRepository userRepository;
+    private final MemberAuthenticationService memberAuthenticationService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<OrderDto.OrderResponse> createOrder(
-            @AuthUser User user,
+            @AuthMember Member member,
             @Valid @RequestBody OrderDto.CreateOrderRequest request
     ) {
-        Long userId = resolveUserId(user);
+        Long userId = resolveUserId(member);
         Order order = orderApplicationService.create(request.toCommand(userId));
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
     }
 
     @PatchMapping("/{orderId}/cancel")
     public ApiResponse<OrderDto.OrderResponse> cancelOrder(
-            @AuthUser User user,
+            @AuthMember Member member,
             @PathVariable Long orderId
     ) {
-        Long userId = resolveUserId(user);
+        Long userId = resolveUserId(member);
         Order order = orderApplicationService.cancel(orderId, userId, false);
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
     }
 
     @GetMapping("/{orderId}")
     public ApiResponse<OrderDto.OrderResponse> getOrder(
-            @AuthUser User user,
+            @AuthMember Member member,
             @PathVariable Long orderId
     ) {
-        Long userId = resolveUserId(user);
+        Long userId = resolveUserId(member);
         Order order = orderApplicationService.getById(orderId, userId, false);
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
     }
 
     @GetMapping
     public ApiResponse<OrderDto.OrderListResponse> listOrders(
-            @AuthUser User user,
+            @AuthMember Member member,
             @RequestParam @NotNull @DateTimeFormat(pattern = "yyyyMMdd") LocalDate startAt,
             @RequestParam @NotNull @DateTimeFormat(pattern = "yyyyMMdd") LocalDate endAt,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        Long userId = resolveUserId(user);
+        Long userId = resolveUserId(member);
         Pageable pageable = PageRequest.of(page, size);
         Page<Order> orders = orderApplicationService.listByUser(userId, startAt, endAt, pageable);
         return ApiResponse.success(OrderDto.OrderListResponse.from(orders));
     }
 
-    private Long resolveUserId(User user) {
-        return userRepository.findDbIdByUserId(user.id())
-                .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "사용자를 찾을 수 없습니다."));
+    private Long resolveUserId(Member member) {
+        return memberAuthenticationService.findDbIdByMemberId(member.id());
     }
 }

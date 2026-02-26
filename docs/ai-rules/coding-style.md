@@ -44,7 +44,7 @@
 - `password`, `token`, `secret` 필드가 있는 Command/DTO는 `toString()`에서 민감정보를 반드시 마스킹한다
 - 평문 비밀번호를 로그/예외 메시지에 노출하지 않는다
 - 비밀번호 정책 검증(예: 생년월일 포함 금지)은 raw password에서만 수행하고, encoded password는 정책 검증 대상에서 제외한다
-- 비밀번호 변경은 `@AuthUser` 기반 단일 인증만 사용한다 (동일 유스케이스에서 body 재인증 금지)
+- 비밀번호 변경은 `@AuthMember` 기반 단일 인증만 사용한다 (동일 유스케이스에서 body 재인증 금지)
 - 문자열 정규화/예약어 검증 시 Locale 의존 로직을 금지하고 `Locale.ROOT`를 사용한다
 
 ## 금지

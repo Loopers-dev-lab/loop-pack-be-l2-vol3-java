@@ -1,12 +1,12 @@
 # PawShop 요구사항 명세서
 
 > 생성일: 2026-02-11
-> 핵심 가치: 브랜드별 애견용품을 탐색-좋아요-주문하는 핵심 쇼핑 플로우를 제공하고, 유저 행동 데이터를 축적하는 이커머스 백엔드 시스템 구축
+> 핵심 가치: 브랜드별 애견용품을 탐색-좋아요-주문하는 핵심 쇼핑 플로우를 제공하고, 멤버 행동 데이터를 축적하는 이커머스 백엔드 시스템 구축
 
 ## 1. 문제 정의
 
 - **사용자 관점**: 여러 브랜드의 애견용품을 한 곳에서 비교/선택하고, 관심 상품을 관리(좋아요)하며 편리하게 주문하고 싶다.
-- **비즈니스 관점**: 브랜드별 상품 큐레이션과 유저 행동 데이터(좋아요, 주문)를 축적하여 추후 추천/랭킹 기능의 기반을 마련한다.
+- **비즈니스 관점**: 브랜드별 상품 큐레이션과 멤버 행동 데이터(좋아요, 주문)를 축적하여 추후 추천/랭킹 기능의 기반을 마련한다.
 - **시스템 관점**: 주문 시 상품 스냅샷과 재고 차감의 데이터 일관성을 보장하면서, 쿠폰/결제/추천 등의 확장에 대비한 백엔드 구조가 아직 없다.
 
 ## 2. 개념 모델
@@ -18,20 +18,20 @@
 
 ### 핵심 도메인
 
-- **User** - 회원가입, 인증, 프로필 관리
+- **Member** - 회원가입, 인증, 프로필 관리
 - **Brand** - 브랜드 정보 관리 (이름 불변)
 - **Category** - 상품 카테고리 관리 (Seed 데이터 기반 조회 전용 테이블)
 - **Product** - 상품 정보 관리 (재고, 가격, 카테고리 참조)
-- **Like** - 상품 좋아요 (유저 행동 데이터 축적)
+- **Like** - 상품 좋아요 (멤버 행동 데이터 축적)
 - **Order** - 주문 처리 (스냅샷, 재고 차감, 상태 관리)
 
 ### 보조/외부 시스템
 
 - 없음 (모놀리식, 외부 결제 없음)
 
-## 3. User Stories
+## 3. Member Stories
 
-### 도메인 1: User
+### 도메인 1: Member
 
 **기존 구현 완료** (loginId, password, name, email, birthDate). phone 필드 추가 예정.
 
@@ -42,9 +42,9 @@
 **So that** PawShop에서 좋아요/주문 등 회원 전용 기능을 이용할 수 있다
 
 **수용 기준 (AC):**
-- [ ] AC1: Given 유효한 입력값, When POST /api/v1/users, Then 201 Created + 유저 생성
-- [ ] AC2: Given 이미 존재하는 loginId, When POST /api/v1/users, Then 409 Conflict
-- [ ] AC3: Given 필수값 누락 또는 형식 오류(email, phone), When POST /api/v1/users, Then 400 Bad Request
+- [ ] AC1: Given 유효한 입력값, When POST /api/v1/members, Then 201 Created + 멤버 생성
+- [ ] AC2: Given 이미 존재하는 loginId, When POST /api/v1/members, Then 409 Conflict
+- [ ] AC3: Given 필수값 누락 또는 형식 오류(email, phone), When POST /api/v1/members, Then 400 Bad Request
 - [ ] AC4: Given loginId, When GET 중복검사 API, Then 사용 가능/불가능 응답
 
 **비즈니스 규칙:**
@@ -62,8 +62,8 @@
 **So that** 내 계정 정보를 확인할 수 있다
 
 **수용 기준 (AC):**
-- [ ] AC1: Given 유효한 인증 헤더, When GET /api/v1/users/me, Then 200 + 내 정보 반환 (password 제외, 이름 마스킹)
-- [ ] AC2: Given 잘못된 인증 헤더, When GET /api/v1/users/me, Then 401
+- [ ] AC1: Given 유효한 인증 헤더, When GET /api/v1/members/me, Then 200 + 내 정보 반환 (password 제외, 이름 마스킹)
+- [ ] AC2: Given 잘못된 인증 헤더, When GET /api/v1/members/me, Then 401
 
 **비즈니스 규칙:**
 - 이름은 마지막 글자를 *로 마스킹 (예: "홍길동" → "홍길*")
@@ -75,7 +75,7 @@
 **So that** 계정 보안을 유지할 수 있다
 
 **수용 기준 (AC):**
-- [ ] AC1: Given 유효한 인증 + 현재PW 일치 + 유효한 새PW, When PATCH /api/v1/users/me/password, Then 200
+- [ ] AC1: Given 유효한 인증 + 현재PW 일치 + 유효한 새PW, When PATCH /api/v1/members/me/password, Then 200
 - [ ] AC2: Given 현재 비밀번호 불일치, When PATCH, Then 400
 - [ ] AC3: Given 새 비밀번호가 현재와 동일, When PATCH, Then 400
 - [ ] AC4: Given 새 비밀번호가 규칙 미충족, When PATCH, Then 400
@@ -219,13 +219,13 @@
 **So that** 관심 상품을 기록하고 나중에 다시 찾을 수 있다
 
 **수용 기준 (AC):**
-- [ ] AC1: Given 인증된 유저 + 활성 상품, When POST /api/v1/products/{productId}/likes, Then 201 + 상품 likeCount 증가
+- [ ] AC1: Given 인증된 멤버 + 활성 상품, When POST /api/v1/products/{productId}/likes, Then 201 + 상품 likeCount 증가
 - [ ] AC2: Given 이미 좋아요한 상품, When POST, Then 409 Conflict
 - [ ] AC3: Given 삭제된 상품, When POST, Then 400 Bad Request
 - [ ] AC4: Given 존재하지 않는 productId, When POST, Then 404
 
 **비즈니스 규칙:**
-- DB에 user_id + product_id Unique 제약조건
+- DB에 member_id + product_id Unique 제약조건
 - Product 테이블의 likeCount 필드 업데이트
 
 #### US-13: 상품 좋아요 취소
@@ -245,7 +245,7 @@
 **So that** 관심 상품을 한눈에 볼 수 있다
 
 **수용 기준 (AC):**
-- [ ] AC1: Given 인증된 유저, When GET /api/v1/me/likes?page=0&size=20, Then 200 + 좋아요한 활성 상품 목록 (페이지네이션)
+- [ ] AC1: Given 인증된 멤버, When GET /api/v1/me/likes?page=0&size=20, Then 200 + 좋아요한 활성 상품 목록 (페이지네이션)
 - [ ] AC2: Given 좋아요한 상품 중 삭제된 상품, Then 목록에서 제외
 
 **쿼리 파라미터:**
@@ -288,7 +288,7 @@
 - 하나의 트랜잭션에서 재고 확인 → 차감 → 주문 생성 처리
 - 결제 없음 (주문 완료 = 결제 완료)
 
-#### US-16: 유저 주문 취소
+#### US-16: 멤버 주문 취소
 
 **As a** 로그인한 회원
 **I want to** 내 주문을 취소
@@ -300,7 +300,7 @@
 - [ ] AC3: Given 이미 CANCELLED 상태, When PATCH, Then 409 Conflict
 - [ ] AC4: Given 존재하지 않는 orderId, When PATCH, Then 404
 
-#### US-17: 유저 주문 목록 조회
+#### US-17: 멤버 주문 목록 조회
 
 **As a** 로그인한 회원
 **I want to** 날짜 범위로 내 주문 목록을 조회
@@ -387,11 +387,11 @@
 
 | 용어 | 정의 |
 |------|------|
-| loginId | 사용자 로그인 식별자 (영문 소문자 + 숫자) |
+| loginId | 멤버 로그인 식별자 (영문 소문자 + 숫자) |
 | Brand | 브랜드 (애견용품 제조/판매 브랜드) |
 | Category | 상품 카테고리 (Seed 데이터 기반 조회 전용 테이블) |
 | Product | 상품 (개별 애견용품) |
-| Like | 좋아요 (사용자의 상품 관심 표시) |
+| Like | 좋아요 (멤버의 상품 관심 표시) |
 | Order | 주문 (하나 이상의 상품을 포함하는 구매 요청) |
 | OrderItem | 주문 항목 (주문 내 개별 상품 + 수량 + 스냅샷) |
 | Snapshot | 스냅샷 (주문 시점의 상품 정보 사본 — 주문 번호, 상품명, 가격, 브랜드명) |

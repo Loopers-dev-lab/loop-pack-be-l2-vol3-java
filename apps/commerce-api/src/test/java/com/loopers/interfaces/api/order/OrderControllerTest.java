@@ -47,10 +47,10 @@ class OrderControllerTest {
     @BeforeEach
     void setUp() throws Exception {
         // 테스트 유저 등록
-        var registerRequest = new com.loopers.interfaces.api.user.UserDto.RegisterRequest(
+        var registerRequest = new com.loopers.interfaces.api.member.MemberDto.RegisterRequest(
                 TEST_LOGIN_ID, TEST_PASSWORD, "테스터", "19900101", "test@example.com", "010-1234-5678"
         );
-        mockMvc.perform(post("/api/v1/users")
+        mockMvc.perform(post("/api/v1/members")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(registerRequest)));
     }

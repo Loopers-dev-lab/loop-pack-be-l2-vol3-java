@@ -29,6 +29,22 @@ class ProductTest {
                 .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
     }
 
+    @Test
+    @DisplayName("카테고리 ID가 없으면 예외가 발생한다")
+    void categoryIdMissingFails() {
+        assertThatThrownBy(() -> new Product("사료", 1000, 10, "desc", null, 1L))
+                .isInstanceOf(CoreException.class)
+                .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+    }
+
+    @Test
+    @DisplayName("브랜드 ID가 없으면 예외가 발생한다")
+    void brandIdMissingFails() {
+        assertThatThrownBy(() -> new Product("사료", 1000, 10, "desc", 1L, null))
+                .isInstanceOf(CoreException.class)
+                .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+    }
+
     @Nested
     @DisplayName("재고 차감")
     class DecreaseStock {
