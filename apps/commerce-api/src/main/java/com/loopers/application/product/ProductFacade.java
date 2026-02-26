@@ -32,17 +32,19 @@ public class ProductFacade {
     @Transactional
     public ProductInfo register(@Valid ProductRequest.Register request) {
         Brand brand = brandService.getActiveBrand(request.brandId());
-        Product product = productService.register(
+        ProductCommand.Create command = ProductCommand.Create.of(
                 request.brandId(), request.name(), request.price(),
                 request.stockQuantity(), request.description());
+        Product product = productService.register(command);
         return ProductInfo.from(product, brand.getName());
     }
 
     @Transactional
     public ProductInfo update(Long productId, @Valid ProductRequest.Update request) {
-        Product product = productService.update(
-                productId, request.name(), request.price(),
+        ProductCommand.Update command = ProductCommand.Update.of(
+                request.name(), request.price(),
                 request.stockQuantity(), request.description());
+        Product product = productService.update(productId, command);
         Brand brand = brandService.getBrand(product.getBrandId());
         return ProductInfo.from(product, brand.getName());
     }

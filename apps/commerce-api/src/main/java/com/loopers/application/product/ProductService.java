@@ -10,7 +10,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,17 +27,18 @@ public class ProductService {
     // Command
 
     @Transactional
-    public Product register(Long brandId, String name, BigDecimal price, Integer stockQuantity, String description) {
-        Product product = Product.create(brandId, name, price, stockQuantity, description);
+    public Product register(ProductCommand.Create command) {
+        Product product = Product.create(command.brandId(), command.name(), command.price(),
+                command.stockQuantity(), command.description());
         return productRepository.save(product);
     }
 
     @Transactional
-    public Product update(Long productId, String name, BigDecimal price, Integer stockQuantity, String description) {
+    public Product update(Long productId, ProductCommand.Update command) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
 
-        product.update(name, price, stockQuantity, description);
+        product.update(command.name(), command.price(), command.stockQuantity(), command.description());
         return product;
     }
 
@@ -73,9 +73,6 @@ public class ProductService {
         }
 
         for (Product product : products) {
-            if (product.isDeleted()) {
-                throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품이 포함되어 있습니다");
-            }
             product.deductStock(productQuantities.get(product.getId()));
         }
 

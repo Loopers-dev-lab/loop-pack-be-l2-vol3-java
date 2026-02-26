@@ -48,7 +48,7 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 유효한_정보로_등록하면_상품이_생성된다() {
-            Product result = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Product result = productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
 
             assertThat(result.getId()).isNotNull();
             assertThat(result.getBrandId()).isEqualTo(1L);
@@ -65,9 +65,9 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 유효한_정보로_수정하면_성공한다() {
-            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Product product = productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
 
-            Product result = productService.update(product.getId(), "런닝화", new BigDecimal("60000"), 200, "가벼운 런닝화");
+            Product result = productService.update(product.getId(), ProductCommand.Update.of("런닝화", new BigDecimal("60000"), 200, "가벼운 런닝화"));
 
             assertThat(result.getName()).isEqualTo("런닝화");
             assertThat(result.getPrice()).isEqualByComparingTo(new BigDecimal("60000"));
@@ -77,7 +77,7 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 미존재_상품이면_예외() {
-            assertThatThrownBy(() -> productService.update(999L, "런닝화", null, null, null))
+            assertThatThrownBy(() -> productService.update(999L, ProductCommand.Update.of("런닝화", null, null, null)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
                     .hasMessageContaining("존재하지 않는 상품입니다");
@@ -85,11 +85,11 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 삭제된_상품을_수정하면_예외() {
-            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Product product = productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
             product.delete();
             productRepository.save(product);
 
-            assertThatThrownBy(() -> productService.update(product.getId(), "런닝화", null, null, null))
+            assertThatThrownBy(() -> productService.update(product.getId(), ProductCommand.Update.of("런닝화", null, null, null)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
                     .hasMessageContaining("존재하지 않는 상품입니다");
@@ -101,7 +101,7 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 활성_상품을_삭제하면_삭제_상태로_변경된다() {
-            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Product product = productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
 
             productService.delete(product.getId());
 
@@ -119,7 +119,7 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 이미_삭제된_상품을_다시_삭제해도_정상_처리된다() {
-            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Product product = productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
             productService.delete(product.getId());
 
             assertThatCode(() -> productService.delete(product.getId()))
@@ -137,9 +137,9 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 조건_없이_조회하면_전체_상품을_최신_등록순으로_페이징하여_반환한다() {
-            productService.register(1L, "운동화A", new BigDecimal("10000"), 10, "설명A");
-            productService.register(1L, "운동화B", new BigDecimal("20000"), 20, "설명B");
-            productService.register(1L, "운동화C", new BigDecimal("30000"), 30, "설명C");
+            productService.register(ProductCommand.Create.of(1L, "운동화A", new BigDecimal("10000"), 10, "설명A"));
+            productService.register(ProductCommand.Create.of(1L, "운동화B", new BigDecimal("20000"), 20, "설명B"));
+            productService.register(ProductCommand.Create.of(1L, "운동화C", new BigDecimal("30000"), 30, "설명C"));
 
             Page<Product> result = productService.findProducts(null, null, null, DEFAULT_PAGEABLE);
 
@@ -152,8 +152,8 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 삭제된_상품도_포함하여_반환한다() {
-            productService.register(1L, "운동화A", new BigDecimal("10000"), 10, "설명A");
-            Product deleted = productService.register(1L, "운동화B", new BigDecimal("20000"), 20, "설명B");
+            productService.register(ProductCommand.Create.of(1L, "운동화A", new BigDecimal("10000"), 10, "설명A"));
+            Product deleted = productService.register(ProductCommand.Create.of(1L, "운동화B", new BigDecimal("20000"), 20, "설명B"));
             deleted.delete();
             productRepository.save(deleted);
 
@@ -166,9 +166,9 @@ class ProductServiceIntegrationTest {
 
         @Test
         void name_키워드로_검색하면_상품명에_해당_키워드가_포함된_상품만_반환한다() {
-            productService.register(1L, "런닝화", new BigDecimal("10000"), 10, "설명A");
-            productService.register(1L, "운동화", new BigDecimal("20000"), 20, "설명B");
-            productService.register(1L, "런닝 슈즈", new BigDecimal("30000"), 30, "설명C");
+            productService.register(ProductCommand.Create.of(1L, "런닝화", new BigDecimal("10000"), 10, "설명A"));
+            productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("20000"), 20, "설명B"));
+            productService.register(ProductCommand.Create.of(1L, "런닝 슈즈", new BigDecimal("30000"), 30, "설명C"));
 
             Page<Product> result = productService.findProducts("런닝", null, null, DEFAULT_PAGEABLE);
 
@@ -179,9 +179,9 @@ class ProductServiceIntegrationTest {
 
         @Test
         void brandId로_필터링하면_해당_브랜드에_속한_상품만_반환한다() {
-            productService.register(1L, "나이키 운동화", new BigDecimal("10000"), 10, "설명");
-            productService.register(2L, "아디다스 운동화", new BigDecimal("20000"), 20, "설명");
-            productService.register(1L, "나이키 런닝화", new BigDecimal("30000"), 30, "설명");
+            productService.register(ProductCommand.Create.of(1L, "나이키 운동화", new BigDecimal("10000"), 10, "설명"));
+            productService.register(ProductCommand.Create.of(2L, "아디다스 운동화", new BigDecimal("20000"), 20, "설명"));
+            productService.register(ProductCommand.Create.of(1L, "나이키 런닝화", new BigDecimal("30000"), 30, "설명"));
 
             Page<Product> result = productService.findProducts(null, 1L, null, DEFAULT_PAGEABLE);
 
@@ -192,8 +192,8 @@ class ProductServiceIntegrationTest {
 
         @Test
         void deleted_true로_필터링하면_삭제된_상품만_반환한다() {
-            productService.register(1L, "운동화A", new BigDecimal("10000"), 10, "설명A");
-            Product deleted = productService.register(1L, "운동화B", new BigDecimal("20000"), 20, "설명B");
+            productService.register(ProductCommand.Create.of(1L, "운동화A", new BigDecimal("10000"), 10, "설명A"));
+            Product deleted = productService.register(ProductCommand.Create.of(1L, "운동화B", new BigDecimal("20000"), 20, "설명B"));
             deleted.delete();
             productRepository.save(deleted);
 
@@ -206,8 +206,8 @@ class ProductServiceIntegrationTest {
 
         @Test
         void deleted_false로_필터링하면_활성_상품만_반환한다() {
-            productService.register(1L, "운동화A", new BigDecimal("10000"), 10, "설명A");
-            Product deleted = productService.register(1L, "운동화B", new BigDecimal("20000"), 20, "설명B");
+            productService.register(ProductCommand.Create.of(1L, "운동화A", new BigDecimal("10000"), 10, "설명A"));
+            Product deleted = productService.register(ProductCommand.Create.of(1L, "운동화B", new BigDecimal("20000"), 20, "설명B"));
             deleted.delete();
             productRepository.save(deleted);
 
@@ -220,11 +220,11 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 복합_필터를_동시에_적용할_수_있다() {
-            productService.register(1L, "나이키 에어맥스", new BigDecimal("10000"), 10, "설명");
-            Product deleted = productService.register(1L, "나이키 조던", new BigDecimal("20000"), 20, "설명");
+            productService.register(ProductCommand.Create.of(1L, "나이키 에어맥스", new BigDecimal("10000"), 10, "설명"));
+            Product deleted = productService.register(ProductCommand.Create.of(1L, "나이키 조던", new BigDecimal("20000"), 20, "설명"));
             deleted.delete();
             productRepository.save(deleted);
-            productService.register(2L, "나이키 콜라보", new BigDecimal("30000"), 30, "설명");
+            productService.register(ProductCommand.Create.of(2L, "나이키 콜라보", new BigDecimal("30000"), 30, "설명"));
 
             Page<Product> result = productService.findProducts("나이키", 1L, false, DEFAULT_PAGEABLE);
 
@@ -246,7 +246,7 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 활성_상품을_조회하면_성공한다() {
-            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Product product = productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
 
             Product result = productService.getActiveProduct(product.getId());
 
@@ -256,7 +256,7 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 삭제된_상품을_조회하면_예외() {
-            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Product product = productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
             product.delete();
             productRepository.save(product);
 
@@ -280,9 +280,9 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 조건_없이_조회하면_활성_상품만_최신순으로_반환한다() {
-            productService.register(1L, "운동화A", new BigDecimal("10000"), 10, "설명A");
-            productService.register(1L, "운동화B", new BigDecimal("20000"), 20, "설명B");
-            Product deleted = productService.register(1L, "운동화C", new BigDecimal("30000"), 30, "설명C");
+            productService.register(ProductCommand.Create.of(1L, "운동화A", new BigDecimal("10000"), 10, "설명A"));
+            productService.register(ProductCommand.Create.of(1L, "운동화B", new BigDecimal("20000"), 20, "설명B"));
+            Product deleted = productService.register(ProductCommand.Create.of(1L, "운동화C", new BigDecimal("30000"), 30, "설명C"));
             deleted.delete();
             productRepository.save(deleted);
 
@@ -296,8 +296,8 @@ class ProductServiceIntegrationTest {
 
         @Test
         void brandId로_필터링하면_해당_브랜드의_활성_상품만_반환한다() {
-            productService.register(1L, "나이키 운동화", new BigDecimal("10000"), 10, "설명");
-            productService.register(2L, "아디다스 운동화", new BigDecimal("20000"), 20, "설명");
+            productService.register(ProductCommand.Create.of(1L, "나이키 운동화", new BigDecimal("10000"), 10, "설명"));
+            productService.register(ProductCommand.Create.of(2L, "아디다스 운동화", new BigDecimal("20000"), 20, "설명"));
 
             Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
             Page<Product> result = productService.findActiveProducts(1L, pageable);
@@ -308,9 +308,9 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 가격_오름차순으로_정렬할_수_있다() {
-            productService.register(1L, "비싼 운동화", new BigDecimal("90000"), 10, "설명");
-            productService.register(1L, "싼 운동화", new BigDecimal("10000"), 10, "설명");
-            productService.register(1L, "중간 운동화", new BigDecimal("50000"), 10, "설명");
+            productService.register(ProductCommand.Create.of(1L, "비싼 운동화", new BigDecimal("90000"), 10, "설명"));
+            productService.register(ProductCommand.Create.of(1L, "싼 운동화", new BigDecimal("10000"), 10, "설명"));
+            productService.register(ProductCommand.Create.of(1L, "중간 운동화", new BigDecimal("50000"), 10, "설명"));
 
             Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "price"));
             Page<Product> result = productService.findActiveProducts(null, pageable);
@@ -321,9 +321,9 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 좋아요_내림차순으로_정렬할_수_있다() {
-            Product p1 = productService.register(1L, "인기 상품", new BigDecimal("10000"), 10, "설명");
-            productService.register(1L, "보통 상품", new BigDecimal("20000"), 20, "설명");
-            Product p3 = productService.register(1L, "최고 인기", new BigDecimal("30000"), 30, "설명");
+            Product p1 = productService.register(ProductCommand.Create.of(1L, "인기 상품", new BigDecimal("10000"), 10, "설명"));
+            productService.register(ProductCommand.Create.of(1L, "보통 상품", new BigDecimal("20000"), 20, "설명"));
+            Product p3 = productService.register(ProductCommand.Create.of(1L, "최고 인기", new BigDecimal("30000"), 30, "설명"));
             p1.incrementLikeCount();
             p1.incrementLikeCount();
             productRepository.save(p1);
@@ -354,8 +354,8 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 해당_브랜드의_활성_상품이_모두_삭제_상태로_변경된다() {
-            Product product1 = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Product product2 = productService.register(1L, "런닝화", new BigDecimal("60000"), 200, "가벼운 런닝화");
+            Product product1 = productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+            Product product2 = productService.register(ProductCommand.Create.of(1L, "런닝화", new BigDecimal("60000"), 200, "가벼운 런닝화"));
 
             productService.deleteAllByBrandId(1L);
 
@@ -373,7 +373,7 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 이미_삭제된_상품도_삭제_상태를_유지한다() {
-            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Product product = productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
             productService.delete(product.getId());
 
             productService.deleteAllByBrandId(1L);
@@ -384,8 +384,8 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 다른_브랜드의_상품은_영향받지_않는다() {
-            productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Product otherBrandProduct = productService.register(2L, "샌들", new BigDecimal("30000"), 50, "여름 샌들");
+            productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+            Product otherBrandProduct = productService.register(ProductCommand.Create.of(2L, "샌들", new BigDecimal("30000"), 50, "여름 샌들"));
 
             productService.deleteAllByBrandId(1L);
 
@@ -399,8 +399,8 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 유효한_상품에_재고를_차감하면_차감된다() {
-            Product product1 = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Product product2 = productService.register(1L, "셔츠", new BigDecimal("30000"), 50, "멋진 셔츠");
+            Product product1 = productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+            Product product2 = productService.register(ProductCommand.Create.of(1L, "셔츠", new BigDecimal("30000"), 50, "멋진 셔츠"));
 
             productService.deductStocks(Map.of(product1.getId(), 10, product2.getId(), 5));
 
@@ -412,7 +412,7 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 미존재_상품이_포함되면_예외() {
-            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Product product = productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
 
             assertThatThrownBy(() -> productService.deductStocks(Map.of(product.getId(), 10, 999L, 5)))
                     .isInstanceOf(CoreException.class)
@@ -422,19 +422,19 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 삭제된_상품이_포함되면_예외() {
-            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Product product = productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
             product.delete();
             productRepository.save(product);
 
             assertThatThrownBy(() -> productService.deductStocks(Map.of(product.getId(), 10)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
-                    .hasMessageContaining("존재하지 않는 상품이 포함되어 있습니다");
+                    .hasMessageContaining("존재하지 않는 상품입니다");
         }
 
         @Test
         void 재고가_부족한_상품이_있으면_예외() {
-            Product product = productService.register(1L, "운동화", new BigDecimal("50000"), 10, "편한 운동화");
+            Product product = productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 10, "편한 운동화"));
 
             assertThatThrownBy(() -> productService.deductStocks(Map.of(product.getId(), 11)))
                     .isInstanceOf(CoreException.class)
@@ -444,8 +444,8 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 재고_부족_시_어떤_상품의_재고도_차감되지_않는다() {
-            Product product1 = productService.register(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Product product2 = productService.register(1L, "셔츠", new BigDecimal("30000"), 5, "멋진 셔츠");
+            Product product1 = productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+            Product product2 = productService.register(ProductCommand.Create.of(1L, "셔츠", new BigDecimal("30000"), 5, "멋진 셔츠"));
 
             assertThatThrownBy(() -> productService.deductStocks(Map.of(product1.getId(), 10, product2.getId(), 10)))
                     .isInstanceOf(CoreException.class);
