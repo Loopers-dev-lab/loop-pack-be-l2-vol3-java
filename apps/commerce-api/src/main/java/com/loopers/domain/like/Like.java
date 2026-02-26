@@ -1,5 +1,7 @@
 package com.loopers.domain.like;
 
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -41,7 +43,21 @@ public class Like {
     }
 
     public static Like create(Long userId, Long productId) {
+        validateUserId(userId);
+        validateProductId(productId);
         return new Like(userId, productId);
+    }
+
+    private static void validateUserId(Long userId) {
+        if (userId == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "사용자 ID는 필수입니다");
+        }
+    }
+
+    private static void validateProductId(Long productId) {
+        if (productId == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "상품 ID는 필수입니다");
+        }
     }
 
     @PrePersist

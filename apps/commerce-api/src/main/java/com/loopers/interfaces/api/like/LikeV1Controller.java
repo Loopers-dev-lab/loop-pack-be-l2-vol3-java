@@ -2,11 +2,11 @@ package com.loopers.interfaces.api.like;
 
 import com.loopers.application.like.LikeFacade;
 import com.loopers.application.like.LikeProductInfo;
+import com.loopers.application.like.LikeRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.auth.AuthUser;
 import com.loopers.interfaces.api.auth.AuthenticatedUser;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -46,9 +46,9 @@ public class LikeV1Controller implements LikeApiV1Spec {
     @GetMapping("/api/v1/likes")
     @Override
     public ApiResponse<PageResponse<LikeV1Dto.LikeProductResponse>> list(
-            @Valid LikeV1Dto.ListRequest request,
+            LikeRequest.ListLiked request,
             @AuthUser AuthenticatedUser authUser) {
-        Page<LikeProductInfo> likedProducts = likeFacade.getLikedProducts(authUser.id(), request.toPageable());
+        Page<LikeProductInfo> likedProducts = likeFacade.getLikedProducts(authUser.id(), request);
         return ApiResponse.success(PageResponse.from(likedProducts, LikeV1Dto.LikeProductResponse::from));
     }
 }

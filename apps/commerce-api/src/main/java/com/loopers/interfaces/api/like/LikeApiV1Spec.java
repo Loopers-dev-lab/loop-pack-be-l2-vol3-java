@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.like;
 
+import com.loopers.application.like.LikeRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.auth.AuthenticatedUser;
@@ -30,5 +31,5 @@ public interface LikeApiV1Spec {
             description = "사용자가 좋아요한 상품 목록을 좋아요 등록순(최신순)으로 페이징하여 조회합니다."
     )
     ApiResponse<PageResponse<LikeV1Dto.LikeProductResponse>> list(
-            LikeV1Dto.ListRequest request, AuthenticatedUser authUser);
+            LikeRequest.ListLiked request, AuthenticatedUser authUser);
 }

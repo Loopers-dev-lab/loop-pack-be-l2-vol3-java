@@ -97,7 +97,7 @@ class LikeServiceIntegrationTest {
             likeService.like(1L, product1.getId());
             likeService.like(1L, product2.getId());
 
-            Page<Like> result = likeService.findLikedProducts(1L, PageRequest.of(0, 10));
+            Page<Like> result = likeService.findLikedActiveProducts(1L, PageRequest.of(0, 10));
 
             assertThat(result.getContent()).hasSize(2);
             assertThat(result.getContent().get(0).getProductId()).isEqualTo(product2.getId());
@@ -113,7 +113,7 @@ class LikeServiceIntegrationTest {
             product2.delete();
             productRepository.save(product2);
 
-            Page<Like> result = likeService.findLikedProducts(1L, PageRequest.of(0, 10));
+            Page<Like> result = likeService.findLikedActiveProducts(1L, PageRequest.of(0, 10));
 
             assertThat(result.getContent()).hasSize(1);
             assertThat(result.getContent().get(0).getProductId()).isEqualTo(product1.getId());
@@ -122,7 +122,7 @@ class LikeServiceIntegrationTest {
 
         @Test
         void 좋아요가_없으면_빈_목록을_반환한다() {
-            Page<Like> result = likeService.findLikedProducts(1L, PageRequest.of(0, 10));
+            Page<Like> result = likeService.findLikedActiveProducts(1L, PageRequest.of(0, 10));
 
             assertThat(result.getContent()).isEmpty();
             assertThat(result.getTotalElements()).isZero();

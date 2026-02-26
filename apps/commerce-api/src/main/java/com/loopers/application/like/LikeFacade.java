@@ -5,18 +5,19 @@ import com.loopers.application.product.ProductService;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.product.Product;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 
-import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
+@Validated
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class LikeFacade {
@@ -49,23 +50,20 @@ public class LikeFacade {
 
     // Query
 
-    public Page<LikeProductInfo> getLikedProducts(Long userId, Pageable pageable) {
-        Page<Like> likes = likeService.findLikedProducts(userId, pageable);
+    public Page<LikeProductInfo> getLikedProducts(Long userId, @Valid LikeRequest.ListLiked request) {
+        Page<Like> likes = likeService.findLikedActiveProducts(userId, request.toPageable());
 
-        List<Long> productIds = likes.getContent().stream()
+        Set<Long> productIds = likes.getContent().stream()
                 .map(Like::getProductId)
-                .toList();
+                .collect(Collectors.toSet());
 
-        Map<Long, Product> productMap = productService.getProducts(productIds).stream()
-                .collect(Collectors.toMap(Product::getId, Function.identity()));
+        Map<Long, Product> productMap = productService.getProductsMapByIds(productIds);
 
-        List<Long> brandIds = productMap.values().stream()
+        Set<Long> brandIds = productMap.values().stream()
                 .map(Product::getBrandId)
-                .distinct()
-                .toList();
+                .collect(Collectors.toSet());
 
-        Map<Long, Brand> brandMap = brandService.getBrands(brandIds).stream()
-                .collect(Collectors.toMap(Brand::getId, Function.identity()));
+        Map<Long, Brand> brandMap = brandService.getBrandsMapByIds(brandIds);
 
         return likes.map(like -> {
             Product product = productMap.get(like.getProductId());

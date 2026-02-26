@@ -1,5 +1,8 @@
 package com.loopers.interfaces.api.like;
 
+import com.loopers.application.brand.BrandRequest;
+import com.loopers.application.product.ProductRequest;
+import com.loopers.application.user.UserRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.brand.BrandAdminV1Dto;
@@ -89,13 +92,11 @@ class LikeApiE2ETest {
             postLike(productId);
             ResponseEntity<ApiResponse<Void>> response = postLike(productId);
 
+            ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> productResponse =
+                    getProductList("?status=ACTIVE");
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> {
-                        ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> productResponse =
-                                getProductList("?status=ACTIVE");
-                        assertThat(productResponse.getBody().data().content().get(0).likeCount()).isEqualTo(1);
-                    }
+                    () -> assertThat(productResponse.getBody().data().content().get(0).likeCount()).isEqualTo(1)
             );
         }
 
@@ -209,13 +210,11 @@ class LikeApiE2ETest {
 
             ResponseEntity<ApiResponse<Void>> response = deleteLike(productId);
 
+            ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> productResponse =
+                    getProductList("?status=ACTIVE");
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> {
-                        ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> productResponse =
-                                getProductList("?status=ACTIVE");
-                        assertThat(productResponse.getBody().data().content().get(0).likeCount()).isEqualTo(0);
-                    }
+                    () -> assertThat(productResponse.getBody().data().content().get(0).likeCount()).isEqualTo(0)
             );
         }
 
@@ -397,7 +396,7 @@ class LikeApiE2ETest {
     // --- 헬퍼 메서드 ---
 
     private void signUpUser() {
-        UserV1Dto.SignUpRequest request = new UserV1Dto.SignUpRequest(
+        UserRequest.SignUp request = new UserRequest.SignUp(
                 LOGIN_ID, LOGIN_PW, "홍길동",
                 LocalDate.of(2000, 1, 15), "test@example.com"
         );
@@ -408,7 +407,7 @@ class LikeApiE2ETest {
     }
 
     private Long registerBrand(String name, String description) {
-        BrandAdminV1Dto.RegisterRequest request = new BrandAdminV1Dto.RegisterRequest(name, description);
+        BrandRequest.Register request = new BrandRequest.Register(name, description);
         ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = testRestTemplate.exchange(
                 BRAND_ENDPOINT, HttpMethod.POST,
                 new HttpEntity<>(request, adminHeaders()),
@@ -418,7 +417,7 @@ class LikeApiE2ETest {
     }
 
     private Long registerProduct(Long brandId, String name, BigDecimal price, Integer stockQuantity, String description) {
-        ProductAdminV1Dto.RegisterRequest request = new ProductAdminV1Dto.RegisterRequest(
+        ProductRequest.Register request = new ProductRequest.Register(
                 brandId, name, price, stockQuantity, description
         );
         ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> response = testRestTemplate.exchange(

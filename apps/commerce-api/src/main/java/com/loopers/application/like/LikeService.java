@@ -44,7 +44,7 @@ public class LikeService {
 
     // Query
 
-    public Page<Like> findLikedProducts(Long userId, Pageable pageable) {
+    public Page<Like> findLikedActiveProducts(Long userId, Pageable pageable) {
         return likeRepository.findAllByUserIdWithActiveProduct(userId, pageable);
     }
 }

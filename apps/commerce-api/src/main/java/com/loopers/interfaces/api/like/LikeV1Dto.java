@@ -1,32 +1,11 @@
 package com.loopers.interfaces.api.like;
 
 import com.loopers.application.like.LikeProductInfo;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.PositiveOrZero;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class LikeV1Dto {
-
-    // Query
-
-    public record ListRequest(
-            @PositiveOrZero Integer page,
-            @Min(1) @Max(100) Integer size
-    ) {
-        public ListRequest {
-            if (page == null) page = 0;
-            if (size == null) size = 20;
-        }
-
-        public Pageable toPageable() {
-            return PageRequest.of(page, size);
-        }
-    }
 
     // Response
 
