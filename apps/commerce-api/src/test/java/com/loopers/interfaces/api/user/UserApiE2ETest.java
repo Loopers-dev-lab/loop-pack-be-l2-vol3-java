@@ -77,7 +77,10 @@ class UserApiE2ETest {
                     new ParameterizedTypeReference<>() {}
             );
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT),
+                    () -> assertThat(response.getBody().meta().message()).contains("이미 사용 중인 로그인 ID입니다")
+            );
         }
 
         @Test
@@ -137,7 +140,10 @@ class UserApiE2ETest {
                     new ParameterizedTypeReference<>() {}
             );
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증에 실패했습니다")
+            );
         }
 
         @Test
@@ -150,7 +156,10 @@ class UserApiE2ETest {
                     new ParameterizedTypeReference<>() {}
             );
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증에 실패했습니다")
+            );
         }
 
         @Test
@@ -161,7 +170,10 @@ class UserApiE2ETest {
                     new ParameterizedTypeReference<>() {}
             );
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증 헤더가 필요합니다")
+            );
         }
     }
 
@@ -198,7 +210,10 @@ class UserApiE2ETest {
                     new ParameterizedTypeReference<>() {}
             );
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody().meta().message()).contains("현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다")
+            );
         }
 
         @Test
@@ -213,7 +228,10 @@ class UserApiE2ETest {
                     new ParameterizedTypeReference<>() {}
             );
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증에 실패했습니다")
+            );
         }
 
         @Test
@@ -226,7 +244,10 @@ class UserApiE2ETest {
                     new ParameterizedTypeReference<>() {}
             );
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증 헤더가 필요합니다")
+            );
         }
 
         @Test

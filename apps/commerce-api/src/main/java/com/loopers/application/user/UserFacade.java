@@ -19,15 +19,17 @@ public class UserFacade {
 
     @Transactional
     public UserInfo signUp(@Valid UserRequest.SignUp request) {
-        User user = userService.signUp(
+        UserCommand.SignUp command = UserCommand.SignUp.of(
                 request.loginId(), request.password(), request.name(),
                 request.birthDate(), request.email());
+        User user = userService.signUp(command);
         return UserInfo.from(user);
     }
 
     @Transactional
     public void changePassword(Long id, @Valid UserRequest.ChangePassword request) {
-        userService.changePassword(id, request.newPassword());
+        UserCommand.ChangePassword command = UserCommand.ChangePassword.of(id, request.newPassword());
+        userService.changePassword(command);
     }
 
     // Query

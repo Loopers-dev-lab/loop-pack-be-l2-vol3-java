@@ -9,8 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -22,20 +20,21 @@ public class UserService {
     // Command
 
     @Transactional
-    public User signUp(String loginId, String rawPassword, String name, LocalDate birthDate, String email) {
-        if (userRepository.existsByLoginId(loginId)) {
+    public User signUp(UserCommand.SignUp command) {
+        if (userRepository.existsByLoginId(command.loginId())) {
             throw new CoreException(ErrorType.CONFLICT, "이미 사용 중인 로그인 ID입니다");
         }
 
-        User user = User.create(loginId, rawPassword, name, birthDate, email, passwordEncoder);
+        User user = User.create(command.loginId(), command.rawPassword(), command.name(),
+                command.birthDate(), command.email(), passwordEncoder);
         return userRepository.save(user);
     }
 
     @Transactional
-    public void changePassword(Long id, String newRawPassword) {
-        User user = userRepository.findById(id)
+    public void changePassword(UserCommand.ChangePassword command) {
+        User user = userRepository.findById(command.id())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다"));
-        user.changePassword(newRawPassword, passwordEncoder);
+        user.changePassword(command.newRawPassword(), passwordEncoder);
     }
 
     // Query
