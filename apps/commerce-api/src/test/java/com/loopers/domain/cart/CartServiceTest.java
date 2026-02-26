@@ -1,5 +1,8 @@
 package com.loopers.domain.cart;
 
+import com.loopers.domain.product.Quantity;
+import com.loopers.domain.cart.CartItemModel;
+import com.loopers.domain.cart.CartRepository;
 import com.loopers.domain.product.ProductService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -50,14 +53,14 @@ class CartServiceTest {
         void addItem_whenNoExistingSameProduct_shouldCreateAndSave() {
             // given
             when(cartRepository.findByUserId(USER_ID)).thenReturn(List.of());
-            CartItemModel newItem = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
+            CartItemModel newItem = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, Quantity.of(QUANTITY));
             when(cartRepository.save(any(CartItemModel.class))).thenReturn(newItem);
 
             // when
             CartItemModel result = cartService.addItem(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
 
             // then
-            verify(productService).validateProductAvailability(PRODUCT_ID, QUANTITY, OPTION_ID);
+            verify(productService).validateProductAvailability(PRODUCT_ID, Quantity.of(QUANTITY), OPTION_ID);
             verify(cartRepository).save(any(CartItemModel.class));
             assertThat(result.getProductId()).isEqualTo(PRODUCT_ID);
         }
@@ -66,7 +69,7 @@ class CartServiceTest {
         @Test
         void addItem_whenExistingSameProduct_shouldMergeAndSave() {
             // given
-            CartItemModel existing = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, 1);
+            CartItemModel existing = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, Quantity.of(1));
             when(cartRepository.findByUserId(USER_ID)).thenReturn(List.of(existing));
             when(cartRepository.save(existing)).thenReturn(existing);
 
@@ -74,8 +77,8 @@ class CartServiceTest {
             cartService.addItem(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
 
             // then
-            verify(productService).validateProductAvailability(PRODUCT_ID, QUANTITY, OPTION_ID);
-            verify(productService).validateProductAvailability(PRODUCT_ID, 3, OPTION_ID);
+            verify(productService).validateProductAvailability(PRODUCT_ID, Quantity.of(QUANTITY), OPTION_ID);
+            verify(productService).validateProductAvailability(PRODUCT_ID, Quantity.of(3), OPTION_ID);
             verify(cartRepository).save(existing);
             assertThat(existing.getQuantity()).isEqualTo(3);
         }
@@ -83,13 +86,13 @@ class CartServiceTest {
         @DisplayName("상품 검증 실패 시 예외가 전파된다.")
         @Test
         void addItem_whenProductValidationFails_shouldThrow() {
-            // given: addItem은 먼저 validateProductAvailability를 호출하므로, 실패 시 repository는 호출되지 않음
+            // given: addItem은 먼저 validateProductAvailability를 호출하므로, 실패 시 repository는 호출되지
+            // 않음
             doThrow(new CoreException(ErrorType.NOT_FOUND, "상품 없음"))
-                .when(productService).validateProductAvailability(PRODUCT_ID, QUANTITY, OPTION_ID);
+                    .when(productService).validateProductAvailability(PRODUCT_ID, Quantity.of(QUANTITY), OPTION_ID);
 
             // when & then
-            assertThrows(CoreException.class, () ->
-                cartService.addItem(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY));
+            assertThrows(CoreException.class, () -> cartService.addItem(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY));
         }
     }
 
@@ -101,7 +104,8 @@ class CartServiceTest {
         @Test
         void getItems_shouldReturnList() {
             // given
-            List<CartItemModel> items = List.of(CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY));
+            List<CartItemModel> items = List
+                    .of(CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, Quantity.of(QUANTITY)));
             when(cartRepository.findByUserId(USER_ID)).thenReturn(items);
 
             // when
@@ -124,8 +128,8 @@ class CartServiceTest {
             when(cartRepository.findByUserIdAndCartItemId(USER_ID, CART_ITEM_ID)).thenReturn(Optional.empty());
 
             // when & then
-            CoreException ex = assertThrows(CoreException.class, () ->
-                cartService.updateItem(USER_ID, CART_ITEM_ID, 3, OPTION_ID));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> cartService.updateItem(USER_ID, CART_ITEM_ID, 3, OPTION_ID));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
@@ -133,7 +137,7 @@ class CartServiceTest {
         @Test
         void updateItem_whenValid_shouldUpdateAndSave() {
             // given
-            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
+            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, Quantity.of(QUANTITY));
             when(cartRepository.findByUserIdAndCartItemId(USER_ID, CART_ITEM_ID)).thenReturn(Optional.of(item));
             when(cartRepository.save(item)).thenReturn(item);
 
@@ -141,7 +145,7 @@ class CartServiceTest {
             CartItemModel result = cartService.updateItem(USER_ID, CART_ITEM_ID, 5, 20L);
 
             // then
-            verify(productService).validateProductAvailability(PRODUCT_ID, 5, 20L);
+            verify(productService).validateProductAvailability(PRODUCT_ID, Quantity.of(5), 20L);
             verify(cartRepository).save(item);
             assertThat(item.getQuantity()).isEqualTo(5);
             assertThat(item.getOptionId()).isEqualTo(20L);
@@ -151,14 +155,13 @@ class CartServiceTest {
         @Test
         void updateItem_whenProductValidationFails_shouldThrow() {
             // given
-            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
+            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, Quantity.of(QUANTITY));
             when(cartRepository.findByUserIdAndCartItemId(USER_ID, CART_ITEM_ID)).thenReturn(Optional.of(item));
             doThrow(new CoreException(ErrorType.BAD_REQUEST, "재고 부족"))
-                .when(productService).validateProductAvailability(PRODUCT_ID, 10, 20L);
+                    .when(productService).validateProductAvailability(PRODUCT_ID, Quantity.of(10), 20L);
 
             // when & then
-            assertThrows(CoreException.class, () ->
-                cartService.updateItem(USER_ID, CART_ITEM_ID, 10, 20L));
+            assertThrows(CoreException.class, () -> cartService.updateItem(USER_ID, CART_ITEM_ID, 10, 20L));
             verify(cartRepository, never()).save(any());
         }
     }
@@ -192,8 +195,8 @@ class CartServiceTest {
             when(cartRepository.findByUserIdAndCartItemId(USER_ID, CART_ITEM_ID)).thenReturn(Optional.empty());
 
             // when & then
-            CoreException ex = assertThrows(CoreException.class, () ->
-                cartService.removeItems(USER_ID, List.of(CART_ITEM_ID)));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> cartService.removeItems(USER_ID, List.of(CART_ITEM_ID)));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
@@ -201,7 +204,7 @@ class CartServiceTest {
         @Test
         void removeItems_whenExists_shouldDelete() {
             // given
-            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
+            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, Quantity.of(QUANTITY));
             when(cartRepository.findByUserIdAndCartItemId(USER_ID, CART_ITEM_ID)).thenReturn(Optional.of(item));
 
             // when
@@ -215,13 +218,14 @@ class CartServiceTest {
         @Test
         void removeItems_whenOneOfMultipleNotFound_shouldThrowNotFound() {
             // given: 첫 번째는 존재, 두 번째는 없음 → 첫 번째 delete 후 두 번째 조회 시 예외
-            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
+            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, Quantity.of(QUANTITY));
             when(cartRepository.findByUserIdAndCartItemId(USER_ID, CART_ITEM_ID)).thenReturn(Optional.of(item));
-            when(cartRepository.findByUserIdAndCartItemId(USER_ID, NON_EXISTENT_CART_ITEM_ID)).thenReturn(Optional.empty());
+            when(cartRepository.findByUserIdAndCartItemId(USER_ID, NON_EXISTENT_CART_ITEM_ID))
+                    .thenReturn(Optional.empty());
 
             // when & then
-            CoreException ex = assertThrows(CoreException.class, () ->
-                cartService.removeItems(USER_ID, List.of(CART_ITEM_ID, NON_EXISTENT_CART_ITEM_ID)));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> cartService.removeItems(USER_ID, List.of(CART_ITEM_ID, NON_EXISTENT_CART_ITEM_ID)));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
             assertThat(ex.getMessage()).contains(String.valueOf(NON_EXISTENT_CART_ITEM_ID));
             verify(cartRepository).delete(item);

@@ -2,6 +2,7 @@ package com.loopers.infrastructure.cart;
 
 import com.loopers.domain.cart.CartItemModel;
 import com.loopers.domain.cart.CartRepository;
+import com.loopers.domain.product.Quantity;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -46,7 +47,7 @@ class CartRepositoryIntegrationTest {
         @Test
         void save_shouldPersist() {
             // given
-            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
+            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, Quantity.of(QUANTITY));
 
             // when
             CartItemModel saved = cartRepository.save(item);
@@ -71,8 +72,8 @@ class CartRepositoryIntegrationTest {
         @Test
         void findByUserId_shouldReturnUserItems() {
             // given
-            cartRepository.save(CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY));
-            cartRepository.save(CartItemModel.create(USER_ID, PRODUCT_ID + 1, null, 1));
+            cartRepository.save(CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, Quantity.of(QUANTITY)));
+            cartRepository.save(CartItemModel.create(USER_ID, PRODUCT_ID + 1, null, Quantity.of(1)));
 
             // when
             List<CartItemModel> items = cartRepository.findByUserId(USER_ID);
@@ -101,7 +102,7 @@ class CartRepositoryIntegrationTest {
         @Test
         void findByUserIdAndCartItemId_whenExists_shouldReturnPresent() {
             // given
-            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
+            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, Quantity.of(QUANTITY));
             CartItemModel saved = cartRepository.save(item);
 
             // when
@@ -127,7 +128,7 @@ class CartRepositoryIntegrationTest {
         @Test
         void findByUserIdAndCartItemId_whenOtherUserItem_shouldReturnEmpty() {
             // given
-            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
+            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, Quantity.of(QUANTITY));
             CartItemModel saved = cartRepository.save(item);
 
             // when
@@ -146,7 +147,7 @@ class CartRepositoryIntegrationTest {
         @Test
         void delete_shouldRemoveItem() {
             // given
-            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY);
+            CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, Quantity.of(QUANTITY));
             CartItemModel saved = cartRepository.save(item);
 
             // when
