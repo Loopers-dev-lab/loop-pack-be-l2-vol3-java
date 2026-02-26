@@ -20,6 +20,9 @@ public class PointAccount {
     protected PointAccount() {}
 
     private PointAccount(Long userId) {
+        if (userId == null) {
+            throw new CoreException(PointErrorType.INVALID_AMOUNT);
+        }
         this.userId = userId;
         this.balance = Money.zero();
     }
@@ -71,6 +74,31 @@ public class PointAccount {
         }
         this.balance = this.balance.minus(amountMoney);
         this.updatedAt = ZonedDateTime.now();
+    }
+
+    /**
+     * 주문 금액 기반 포인트 적립
+     *
+     * 적립률:
+     * - 10만원 이상: 3%
+     * - 5만원 이상: 2%
+     * - 그 외: 1%
+     */
+    public void earn(int orderAmount) {
+        int earnRate;
+        if (orderAmount >= 100_000) {
+            earnRate = 3;
+        } else if (orderAmount >= 50_000) {
+            earnRate = 2;
+        } else {
+            earnRate = 1;
+        }
+
+        int earnedPoints = orderAmount * earnRate / 100;
+        if (earnedPoints > 0) {
+            this.balance = this.balance.plus(new Money(earnedPoints));
+            this.updatedAt = ZonedDateTime.now();
+        }
     }
 
     public void refund(int amount) {

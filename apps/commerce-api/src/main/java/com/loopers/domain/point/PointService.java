@@ -43,18 +43,7 @@ public class PointService {
     @Transactional
     public void earn(Long userId, int orderAmount) {
         PointAccount account = getAccount(userId);
-
-        int earnRate;
-        if (orderAmount >= 100_000) {
-            earnRate = 3;
-        } else if (orderAmount >= 50_000) {
-            earnRate = 2;
-        } else {
-            earnRate = 1;
-        }
-
-        int earnedPoints = orderAmount * earnRate / 100;
-        account.charge(earnedPoints);
+        account.earn(orderAmount);
         pointAccountRepository.save(account);
     }
 }
