@@ -104,6 +104,32 @@ docker-compose -f ./docker/monitoring-compose.yml up
 - **버전**: Git hash 기반 자동 생성
 - **패키지 구조**: `com.loopers.*`
 
+## 도메인 & 객체 설계 전략
+
+아래 설계 문서를 기반으로 구현하며, 구현 규칙은 Skills에 정의되어 있다.
+
+**설계 문서:**
+- `도메인 모델링.md` — 13개 Aggregate Root 정의, Entity/VO/Enum 분류 기준, Aggregate 경계와 설계 근거, 도메인 간 관계(ID 참조)
+- `Usecase 중심 객체 협력 설계.md` — 유스케이스별 객체 협력 흐름, Facade/Service/Entity 책임 분배, 크로스체크 결과
+
+**구현 규칙 (Skills):**
+- `ddd-dev-guidelines` — Entity/VO/Domain Service 구분, 유스케이스 기반 객체 협력, 계층별 책임
+- `project-confirmed-rules` — Blue Book 스타일, Facade 판정 확정표, 행위 배치 플로우차트, 핵심 도메인 모델 상세
+- `aggregate-rules` — Aggregate 경계 확정표(12개 도메인), Root 접근, ID 참조, 트랜잭션 단위
+- `domain-boundary-rules` — Domain Service 경계 가두기, 의사결정 플로우차트, What/When/How 프레임워크
+
+## 아키텍처, 패키지 구성 전략
+
+아래 설계 문서를 기반으로 구현하며, 구현 규칙은 Skills에 정의되어 있다.
+
+**설계 문서:**
+- `유연한 소프트웨어 아키텍처 DIP 적용 v2.md` — Entity-level DIP 구조 설계 (순수 POJO 도메인 + Infrastructure JPA Entity/Mapper 분리), 13개 도메인 적용 계획, Mapper 패턴 가이드, 비용/편익 분석
+
+**구현 규칙 (Skills):**
+- `api-dev-guidelines` — API 구현 규칙, RESTful 컨벤션, DTO 분리, Lombok 금지, 에러 처리 철학
+- `repository-rules` — Repository 도메인 언어, Spring 기술 의존성 금지, 조회 전용 경로 분리, 정렬 DIP
+- `test-code-guidelines` — 테스트 코드 작성 규칙, TDD Red-Green-Refactor, 테스트 피라미드
+
 ## 주요 패턴
 
 ### 테스트 패턴
