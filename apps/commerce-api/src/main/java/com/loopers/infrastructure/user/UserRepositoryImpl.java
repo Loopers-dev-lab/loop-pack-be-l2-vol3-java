@@ -43,4 +43,9 @@ public class UserRepositoryImpl implements UserRepository {
         UserEntity newModel = com.loopers.infrastructure.user.UserEntity.from(user);
         return userJpaRepository.save(newModel).toDomain();
     }
+
+    @Override
+    public Optional<Long> findDbIdByUserId(UserId userId) {
+        return userJpaRepository.findIdByUserId(userId.value());
+    }
 }

@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -17,6 +18,14 @@ public class ProductRepositoryImpl implements ProductRepository {
 
     @Override
     public Product save(Product product) {
+        if (product.id() != null) {
+            return productJpaRepository.findById(product.id())
+                    .map(entity -> {
+                        entity.updateFrom(product);
+                        return productJpaRepository.save(entity).toDomain();
+                    })
+                    .orElseGet(() -> productJpaRepository.save(ProductEntity.from(product)).toDomain());
+        }
         ProductEntity entity = ProductEntity.from(product);
         ProductEntity saved = productJpaRepository.save(entity);
         return saved.toDomain();
@@ -35,4 +44,11 @@ public class ProductRepositoryImpl implements ProductRepository {
         }
         return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId, pageable).map(ProductEntity::toDomain);
     }
-}
+
+    @Override
+    public List<Product> findAllByIdInWithLock(List<Long> ids) {
+        return productJpaRepository.findAllByIdInWithLock(ids)
+                .stream().map(ProductEntity::toDomain).toList();
+    }
+
+    }

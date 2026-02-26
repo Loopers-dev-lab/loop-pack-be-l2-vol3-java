@@ -77,4 +77,12 @@ public class ProductEntity extends BaseEntity {
                 getDeletedAt()
         );
     }
+
+    public void updateFrom(Product product) {
+        this.name = product.name();
+        this.price = product.price();
+        this.stock = product.stock();
+        this.description = product.description();
+        this.likeCount = product.likeCount();
+    }
 }
