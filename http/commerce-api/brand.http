@@ -1,0 +1,37 @@
+### [Admin] 브랜드 등록
+POST {{commerce-api}}/api-admin/v1/brands
+Content-Type: application/json
+X-Loopers-Ldap: admin-ldap
+
+{
+  "name": "나이키",
+  "description": "글로벌 스포츠 브랜드"
+}
+
+### [Admin] 브랜드 수정
+PATCH {{commerce-api}}/api-admin/v1/brands/1
+Content-Type: application/json
+X-Loopers-Ldap: admin-ldap
+
+{
+  "name": "나이키 코리아",
+  "description": "나이키 한국 공식 브랜드"
+}
+
+### [Admin] 브랜드 삭제
+DELETE {{commerce-api}}/api-admin/v1/brands/1
+X-Loopers-Ldap: admin-ldap
+
+### [Admin] 브랜드 목록 조회
+GET {{commerce-api}}/api-admin/v1/brands?name=나이키&status=ACTIVE&page=0&size=20
+X-Loopers-Ldap: admin-ldap
+
+### [Admin] 브랜드 상세 조회
+GET {{commerce-api}}/api-admin/v1/brands/1
+X-Loopers-Ldap: admin-ldap
+
+### 브랜드 목록 조회
+GET {{commerce-api}}/api/v1/brands?name=나이키&page=0&size=20
+
+### 브랜드 상세 조회
+GET {{commerce-api}}/api/v1/brands/1
