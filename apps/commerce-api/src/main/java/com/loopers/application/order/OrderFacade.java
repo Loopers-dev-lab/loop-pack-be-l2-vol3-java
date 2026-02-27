@@ -36,6 +36,7 @@ public class OrderFacade {
      */
     @Transactional
     public OrderInfo create(Long userId, OrderCreateCommand command) {
+        // Quantity VO 통해서 수량 검증
         Map<Long, Quantity> quantityByProductId = command.items().stream()
                 .collect(Collectors.toMap(
                         OrderCreateCommand.Item::productId,

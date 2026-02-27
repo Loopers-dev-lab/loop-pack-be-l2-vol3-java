@@ -93,7 +93,7 @@ public class ProductService {
     }
 
     // 비관적 락으로 재고 확인 + 차감 원자적 수행 (US-O01, BR-O03, BR-O04)
-    // 동시 주문 시 SELECT FOR UPDATE로 행 잠금 → 재고 확인 후 즉시 차감 → TOCTOU 문제 방지
+    // 동시 주문 시 SELECT FOR UPDATE로 행 잠금 → 재고 확인 후 즉시 차감 → TOCTOU(Time Of Check To Time Of Use) 문제 방지
     @Transactional
     public List<Product> verifyAndDecreaseStock(Map<Long, Quantity> quantityByProductId) {
         List<Long> productIds = new ArrayList<>(quantityByProductId.keySet());
@@ -109,6 +109,7 @@ public class ProductService {
                 throw new CoreException(ErrorType.BAD_REQUEST,
                         "상품의 재고가 부족합니다: " + product.getName());
             }
+            // 더티 체킹
             product.decreaseStock(quantity);
         }
 
