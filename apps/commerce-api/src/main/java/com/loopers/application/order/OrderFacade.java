@@ -35,6 +35,7 @@ public class OrderFacade {
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다"));
 
             product.decreaseStock(req.quantity());
+            productRepository.save(product);
 
             OrderItem orderItem = new OrderItem(
                 product.getId(),
@@ -47,6 +48,7 @@ public class OrderFacade {
 
         Order order = new Order(userId, orderItems);
         user.deductPoint(order.getTotalPrice());
+        userRepository.save(user);
 
         return OrderInfo.from(orderService.createOrder(order));
     }

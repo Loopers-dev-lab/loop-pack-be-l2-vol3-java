@@ -46,6 +46,8 @@ subprojects {
         }
     }
 
+    extra["testcontainers.version"] = "1.21.0"
+
     dependencies {
         // Web
         runtimeOnly("org.springframework.boot:spring-boot-starter-validation")
@@ -66,8 +68,8 @@ subprojects {
         testImplementation("org.instancio:instancio-junit:${project.properties["instancioJUnitVersion"]}")
         // Testcontainers
         testImplementation("org.springframework.boot:spring-boot-testcontainers")
-        testImplementation("org.testcontainers:testcontainers")
-        testImplementation("org.testcontainers:junit-jupiter")
+        testImplementation("org.testcontainers:testcontainers:1.21.0")
+        testImplementation("org.testcontainers:junit-jupiter:1.21.0")
     }
 
     tasks.withType(Jar::class) { enabled = true }

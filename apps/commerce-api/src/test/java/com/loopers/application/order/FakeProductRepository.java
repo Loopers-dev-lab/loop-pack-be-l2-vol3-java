@@ -23,6 +23,11 @@ class FakeProductRepository implements ProductRepository {
     }
 
     @Override
+    public Product save(Product product) {
+        return product;
+    }
+
+    @Override
     public Optional<Product> findById(Long id) {
         return Optional.ofNullable(store.get(id));
     }
