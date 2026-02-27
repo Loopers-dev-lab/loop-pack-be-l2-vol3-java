@@ -32,7 +32,11 @@
 - Application Service 간 직접 호출 금지 → 크로스 도메인 협력은 Facade 경유
 - Domain Service → 순수 비즈니스 규칙만 수행 (저장/외부 I/O/트랜잭션 금지)
 - Controller → 요청/응답 변환만, 비즈니스 로직 금지
+- Controller 조합/오케스트레이션 로직 금지 (여러 도메인 데이터 결합/매핑은 Facade 또는 Service로 이동)
 - `@Transactional` → Application Service에만 (Facade/Domain Service 절대 금지)
+- Application Service private 메서드 금지
+- Domain Service private 메서드 금지
+- Application/Domain Service는 같은 클래스의 다른 메서드를 직접 호출하지 않는다
 
 ## Validation & Consistency
 - API DTO에서 기본 Bean Validation(`@NotBlank`, `@Pattern`, `@Email`)은 허용한다
@@ -50,5 +54,6 @@
 ## 금지
 - `System.out.println` 남기지 말 것
 - `@SuppressWarnings` 남용 금지
-- 불필요한 `private` 함수 지양 → 객체지향적 설계로 대체
+- Application/Domain Service의 `private` 메서드 선언 금지
+- Application/Domain Service 내부 메서드 간 직접 호출 금지
 - unused import 즉시 제거
