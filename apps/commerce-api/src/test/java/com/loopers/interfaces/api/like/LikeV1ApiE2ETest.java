@@ -93,6 +93,7 @@ class LikeV1ApiE2ETest {
                 .orElseThrow().getId();
     }
 
+    // 사용자 헤더 생성 메서드
     HttpHeaders createUserHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.set(HEADER_LOGIN_ID, VALID_LOGIN_ID);

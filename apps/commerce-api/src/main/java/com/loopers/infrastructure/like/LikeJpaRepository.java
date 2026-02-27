@@ -8,11 +8,8 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 public interface LikeJpaRepository extends JpaRepository<Like, Long> {
-
-    Optional<Like> findByUserIdAndProductId(Long userId, Long productId);
 
     List<Like> findAllByUserIdOrderByCreatedAtDesc(Long userId);
 
