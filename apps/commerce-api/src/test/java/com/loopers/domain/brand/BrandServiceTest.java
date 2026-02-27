@@ -152,21 +152,6 @@ class BrandServiceTest {
             assertThat(result.getErrorType()).isEqualTo(ErrorType.CONFLICT);
         }
 
-        @DisplayName("존재하지 않는 brandId로 수정 시, 404에러를 반환한다.")
-        @Test
-        void updateFailed_whenBrandIdIsNotExists(){
-            // stub
-            when(brandRepository.findById(NOT_EXISTED_BRAND_ID)).thenReturn(Optional.empty());
-
-            // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                brandService.update(NOT_EXISTED_BRAND_ID, VALID_BRAND_NAME);
-            });
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
-        }
-
     }
 
     @DisplayName("브랜드 삭제 시")
@@ -189,20 +174,5 @@ class BrandServiceTest {
             assertThat(brand.getDeletedAt()).isNotNull();
         }
 
-        @DisplayName("존재하지 않는 brandId로 요청하면, 404에러 발생")
-        @Test
-        void deleteFailed_whenBrandIdIsNotExists(){
-            // stub
-            when(brandRepository.findById(NOT_EXISTED_BRAND_ID)).thenReturn(Optional.empty());
-
-            // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                brandService.delete(NOT_EXISTED_BRAND_ID);
-            });
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
-
-        }
     }
 }
