@@ -13,7 +13,8 @@ public class ProductV1Dto {
             String brandName,
             String name,
             int price,
-            boolean inStock  // BR-P05: 고객에게는 재고 여부(있음/없음)만 노출
+            boolean inStock,  // BR-P05: 고객에게는 재고 여부(있음/없음)만 노출
+            int likeCount
     ) {
         public static ProductResponse from(ProductInfo info) {
             return new ProductResponse(
@@ -22,7 +23,8 @@ public class ProductV1Dto {
                     info.brandName(),
                     info.name(),
                     info.price(),
-                    info.stock() > 0
+                    info.stock() > 0,
+                    info.likeCount()
             );
         }
     }

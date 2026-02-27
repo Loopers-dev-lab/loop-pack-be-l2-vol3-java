@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @RequiredArgsConstructor
@@ -37,6 +38,21 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public List<Product> findAllByIds(List<Long> ids) {
+        return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids);
+    }
+
+    @Override
+    public List<Product> findAllByIdsForUpdate(List<Long> ids) {
+        return productJpaRepository.findAllByIdsForUpdate(ids);
+    }
+
+    @Override
+    public List<Long> findIdsByBrandId(Long brandId) {
+        return productJpaRepository.findIdsByBrandIdAndDeletedAtIsNull(brandId);
+    }
+
+    @Override
     public boolean existsByBrandIdAndName(Long brandId, String name) {
         return productJpaRepository.existsByBrandIdAndNameAndDeletedAtIsNull(brandId, name);
     }
@@ -49,5 +65,15 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public void deleteAllByBrandId(Long brandId) {
         productJpaRepository.softDeleteAllByBrandId(brandId, ZonedDateTime.now());
+    }
+
+    @Override
+    public void incrementLikeCount(Long productId) {
+        productJpaRepository.incrementLikeCount(productId);
+    }
+
+    @Override
+    public void decrementLikeCount(Long productId) {
+        productJpaRepository.decrementLikeCount(productId);
     }
 }

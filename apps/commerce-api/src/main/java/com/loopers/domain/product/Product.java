@@ -63,6 +63,7 @@ public class Product extends BaseEntity {
         this.stock = stock.decrease(quantity);
     }
 
+    // 주문 취소가 없어서 아직 쓰이진 않지만, 추후에 주문 취소 기능이 생기면 사용하게 될 예정
     public void increaseStock(Quantity quantity) {
         this.stock = stock.increase(quantity);
     }

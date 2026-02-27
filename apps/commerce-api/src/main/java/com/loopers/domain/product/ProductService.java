@@ -8,6 +8,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 @RequiredArgsConstructor
 @Component
 public class ProductService {
@@ -62,5 +66,52 @@ public class ProductService {
     @Transactional
     public void deleteAllByBrandId(Long brandId) {
         productRepository.deleteAllByBrandId(brandId);
+    }
+
+    // 브랜드 삭제 시 좋아요 cascade를 위한 상품 ID 목록 조회
+    @Transactional(readOnly = true)
+    public List<Long> findIdsByBrandId(Long brandId) {
+        return productRepository.findIdsByBrandId(brandId);
+    }
+
+    // ID 목록으로 상품 일괄 조회 (좋아요 목록에서 상품 정보 조합 시 사용)
+    @Transactional(readOnly = true)
+    public List<Product> findAllByIds(List<Long> ids) {
+        return productRepository.findAllByIds(ids);
+    }
+
+    // 원자적 좋아요 수 증가 (US-L01) - DB 레벨 UPDATE로 동시성 보장
+    @Transactional
+    public void increaseLikeCount(Long productId) {
+        productRepository.incrementLikeCount(productId);
+    }
+
+    // 원자적 좋아요 수 감소 (US-L02) - DB 레벨 UPDATE로 동시성 보장
+    @Transactional
+    public void decreaseLikeCount(Long productId) {
+        productRepository.decrementLikeCount(productId);
+    }
+
+    // 비관적 락으로 재고 확인 + 차감 원자적 수행 (US-O01, BR-O03, BR-O04)
+    // 동시 주문 시 SELECT FOR UPDATE로 행 잠금 → 재고 확인 후 즉시 차감 → TOCTOU 문제 방지
+    @Transactional
+    public List<Product> verifyAndDecreaseStock(Map<Long, Quantity> quantityByProductId) {
+        List<Long> productIds = new ArrayList<>(quantityByProductId.keySet());
+        List<Product> products = productRepository.findAllByIdsForUpdate(productIds);
+
+        if (products.size() != productIds.size()) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품이 포함되어 있습니다.");
+        }
+
+        for (Product product : products) {
+            Quantity quantity = quantityByProductId.get(product.getId());
+            if (!product.getStock().hasEnough(quantity)) {
+                throw new CoreException(ErrorType.BAD_REQUEST,
+                        "상품의 재고가 부족합니다: " + product.getName());
+            }
+            product.decreaseStock(quantity);
+        }
+
+        return products;
     }
 }

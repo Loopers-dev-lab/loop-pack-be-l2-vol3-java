@@ -11,6 +11,7 @@ public enum ProductSortType {
     PRICE_ASC,  // 가격 오름차순
     LIKES_DESC; // 좋아요 많은 순
 
+    // 허용되는 정렬 기준으로 전달 받았는지 확인
     public static ProductSortType from(String value) {
         try {
             return valueOf(value.toUpperCase());
@@ -20,6 +21,7 @@ public enum ProductSortType {
         }
     }
 
+    // JPA에서 사용되는 Sort 객체로 변환
     public Sort toSort() {
         return switch (this) {
             case PRICE_ASC -> Sort.by("price.amount").ascending();

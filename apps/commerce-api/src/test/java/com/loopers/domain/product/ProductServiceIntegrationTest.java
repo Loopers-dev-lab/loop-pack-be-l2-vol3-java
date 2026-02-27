@@ -16,6 +16,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
+import java.util.List;
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -259,6 +262,70 @@ public class ProductServiceIntegrationTest {
             // assert
             assertThat(result.getTotalElements()).isEqualTo(1);
             assertThat(result.getContent().get(0).getBrandId()).isEqualTo(brand1.getId());
+        }
+    }
+
+    @DisplayName("재고 확인 및 차감 시 (비관적 락)")
+    @Nested
+    class VerifyAndDecreaseStock {
+
+        @DisplayName("모든 상품이 존재하고 재고가 충분하면, 재고가 차감된 상품 목록을 반환한다.")
+        @Test
+        void decreasesStockAndReturnsProducts_whenAllStocksAreSufficient() {
+            // arrange
+            Brand brand = brandJpaRepository.save(new Brand("나이키"));
+            Product product1 = productJpaRepository.save(
+                    new Product(brand.getId(), VALID_PRODUCT_NAME, VALID_PRICE, new Stock(10)));
+            Product product2 = productJpaRepository.save(
+                    new Product(brand.getId(), NEW_PRODUCT_NAME, VALID_PRICE, new Stock(5)));
+            Map<Long, Quantity> quantityMap = Map.of(
+                    product1.getId(), new Quantity(2),
+                    product2.getId(), new Quantity(3)
+            );
+
+            // act
+            List<Product> result = productService.verifyAndDecreaseStock(quantityMap);
+
+            // assert - 반환값 확인
+            assertThat(result).hasSize(2);
+            assertThat(result).extracting(Product::getId)
+                    .containsExactlyInAnyOrder(product1.getId(), product2.getId());
+
+            // assert - DB에 재고 차감 반영 확인
+            assertThat(productJpaRepository.findById(product1.getId()).orElseThrow().getStock().getQuantity()).isEqualTo(8);
+            assertThat(productJpaRepository.findById(product2.getId()).orElseThrow().getStock().getQuantity()).isEqualTo(2);
+        }
+
+        @DisplayName("주문 항목에 존재하지 않는 상품이 포함되면, NOT_FOUND 에러가 발생한다.")
+        @Test
+        void throwsNotFound_whenProductDoesNotExist() {
+            // arrange
+            Long notExistedProductId = 999L;
+            Map<Long, Quantity> quantityMap = Map.of(notExistedProductId, new Quantity(1));
+
+            // act
+            CoreException result = assertThrows(CoreException.class,
+                    () -> productService.verifyAndDecreaseStock(quantityMap));
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+        }
+
+        @DisplayName("재고가 부족한 상품이 포함되면, BAD_REQUEST 에러가 발생한다.")
+        @Test
+        void throwsBadRequest_whenStockIsInsufficient() {
+            // arrange
+            Brand brand = brandJpaRepository.save(new Brand("나이키"));
+            Product product = productJpaRepository.save(
+                    new Product(brand.getId(), VALID_PRODUCT_NAME, VALID_PRICE, new Stock(1)));
+            Map<Long, Quantity> quantityMap = Map.of(product.getId(), new Quantity(5)); // 재고(1) < 주문(5)
+
+            // act
+            CoreException result = assertThrows(CoreException.class,
+                    () -> productService.verifyAndDecreaseStock(quantityMap));
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
 }
