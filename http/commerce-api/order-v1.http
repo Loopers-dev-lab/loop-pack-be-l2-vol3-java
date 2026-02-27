@@ -1,0 +1,39 @@
+### 바로 주문
+POST {{commerce-api}}/api/v1/orders
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!@#
+
+{
+  "orderType": "DIRECT",
+  "items": [
+    { "productId": "{{productId}}", "quantity": 2 }
+  ]
+}
+
+### 장바구니 주문
+POST {{commerce-api}}/api/v1/orders/cart
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!@#
+
+{
+  "items": [
+    { "productId": "{{productId}}", "quantity": 1 }
+  ]
+}
+
+### 내 주문 목록
+GET {{commerce-api}}/api/v1/orders?startAt=2026-01-01&endAt=2026-12-31
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!@#
+
+### 주문 상세
+GET {{commerce-api}}/api/v1/orders/{{orderId}}
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!@#
+
+### 주문 취소
+POST {{commerce-api}}/api/v1/orders/{{orderId}}/cancel
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!@#

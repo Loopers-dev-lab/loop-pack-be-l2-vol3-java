@@ -1,0 +1,11 @@
+### 상품 목록 조회 (고객)
+GET {{commerce-api}}/api/v1/products
+
+### 상품 키워드 검색
+GET {{commerce-api}}/api/v1/products?q=신상품
+
+### 상품 브랜드 필터
+GET {{commerce-api}}/api/v1/products?brandId={{brandId}}
+
+### 상품 상세 조회
+GET {{commerce-api}}/api/v1/products/{{productId}}

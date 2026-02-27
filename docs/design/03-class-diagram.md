@@ -171,31 +171,88 @@ Order "1" *-- "1..*" OrderItem : contains
 Order "1" --> "0..1" OrderCartRestore : restoredOnce
 
 %% =========================
-%% Services (Use-case orchestration)
+%% Info DTOs (domain 패키지에 위치)
 %% =========================
-class OrderFacade {
-  +createDirectOrder(userId, items)
-  +createCartOrder(userId, items)
-  +cancelOrder(userId, orderId)
-  +getOrders(userId, period)
-  +getOrderDetail(userId, orderId)
+class UserInfo {
+  <<record>>
+  +from(UserModel) UserInfo
 }
 
-class ProductQueryService {
-  +getProduct(productId)
-  +listProducts(filters, sort, page)
-  +listProductsByKeyword(keyword, brandId, sort, page)
-  +getBrand(brandId)
-  +resolveUnavailableReason(productId, qty)
+class BrandInfo {
+  <<record>>
+  +from(BrandModel) BrandInfo
 }
 
-class CartService {
-  +getCart(userId)
-  +addItem(userId, productId, qty)
-  +removeItem(userId, productId)
-  +changeQty(userId, productId, qty)
-  +deletePurchasedItems(userId, orderId)
-  +restoreFromOrder(orderId)
+class ProductInfo {
+  <<record>>
+  +from(ProductModel, ProductStockModel) ProductInfo
+}
+
+class LikeInfo {
+  <<record>>
+  +from(LikeModel) LikeInfo
+}
+
+class CartInfo {
+  <<record>>
+  +from(CartItemModel, ProductModel, BrandModel, ProductStockModel) CartInfo
+}
+
+class OrderInfo {
+  <<record>>
+  +from(OrderModel, List~OrderItemModel~) OrderInfo
+}
+
+class StatsInfo {
+  <<record>>
+  +from(집계결과) StatsInfo
+}
+
+%% =========================
+%% Services — 단순 도메인 (Controller가 직접 호출)
+%% =========================
+class UserService {
+  +register(loginId, rawPw, ...) UserInfo
+  +authenticate(loginId, rawPw) UserInfo
+  +getMyInfo(loginId) UserInfo
+  +changePassword(loginId, currentPw, newPw)
+}
+
+class BrandService {
+  +createBrand(...) BrandInfo
+  +updateBrand(...) BrandInfo
+  +softDeleteBrand(brandId)
+  +findVisibleById(brandId) BrandInfo
+  +findAllVisible(keyword, page) List~BrandInfo~
+}
+
+class LikeService {
+  +addLike(userId, productId)
+  +removeLike(userId, productId)
+  +getMyLikes(userId) List~LikeInfo~
+  +countByProductId(productId) long
+}
+
+class StatsService {
+  +getOverview(startAt,endAt) StatsInfo
+  +getDailyOrderStats(startAt,endAt) StatsInfo
+  +getTopLikedProducts(startAt,endAt,limit) StatsInfo
+  +getTopOrderedProducts(startAt,endAt,limit) StatsInfo
+  +getLowStock(threshold,limit) StatsInfo
+}
+
+%% =========================
+%% Services — 복잡한 도메인 (Facade 경유)
+%% =========================
+class ProductService {
+  +createProduct(...) ProductInfo
+  +updateProduct(...) ProductInfo
+  +findById(productId) ProductModel
+  +findOrderableById(productId) ProductModel
+  +findAllForCustomer(filters) List~ProductModel~
+  +softDeleteProduct(productId)
+  +softDeleteByBrandId(brandId)
+  +getRevisions(productId) List
 }
 
 class StockService {
@@ -204,61 +261,94 @@ class StockService {
   +commit(productId, qty) bool
 }
 
+class CartService {
+  +getCart(userId) List~CartInfo~
+  +addItem(userId, productId, qty)
+  +removeItem(userId, productId)
+  +changeQty(userId, productId, qty)
+  +deletePurchasedItems(userId, orderId)
+  +restoreFromOrder(orderId)
+}
+
+class OrderService {
+  +createDirectOrder(userId, items) OrderInfo
+  +createCartOrder(userId, items) OrderInfo
+  +cancelOrder(userId, orderId) OrderInfo
+  +expireOrder(orderId)
+  +getOrders(userId, period) List~OrderInfo~
+  +getOrderDetail(userId, orderId) OrderInfo
+}
+
+%% =========================
+%% Facades — 복잡한 도메인만 (3개)
+%% =========================
+class ProductFacade {
+  +getProductDetail(productId) ProductInfo
+  +listProducts(filters) List~ProductInfo~
+  +createProduct(...) ProductInfo
+  +updateProduct(...) ProductInfo
+  +deleteProduct(productId)
+}
+
+class CartFacade {
+  +getCart(loginId, loginPw) List~CartInfo~
+  +addItem(loginId, loginPw, productId, qty)
+  +changeQty(loginId, loginPw, productId, qty)
+  +removeItem(loginId, loginPw, productId)
+}
+
+class OrderFacade {
+  +createDirectOrder(loginId, loginPw, items) OrderInfo
+  +createCartOrder(loginId, loginPw, selectedIds) OrderInfo
+  +cancelOrder(loginId, loginPw, orderId) OrderInfo
+  +getOrders(loginId, loginPw, period) List~OrderInfo~
+  +getOrderDetail(loginId, loginPw, orderId) OrderInfo
+}
+
 class PaymentService {
   +completePayment(orderId, paymentTxId)
   +failPayment(orderId, reason)
 }
 
-class AdminCatalogService {
-  +createBrand()
-  +updateBrand()
-  +softDeleteBrand()
-  +createProduct()
-  +updateProduct()
-  +changeProductSaleStatus()
-  +changeProductDisplayStatus()
-  +softDeleteProduct()
-  +restoreProduct()
-  +getProductRevisions(productId)
-}
+%% Facade 의존
+ProductFacade ..> ProductService
+ProductFacade ..> StockService
+ProductFacade ..> BrandService
 
-class AdminStatsService {
-  +getOverview(startAt,endAt)
-  +getDailyOrderStats(startAt,endAt)
-  +getTopLikedProducts(startAt,endAt,limit)
-  +getTopOrderedProducts(startAt,endAt,limit)
-  +getLowStock(threshold,limit)
-}
+CartFacade ..> CartService
+CartFacade ..> UserService
+CartFacade ..> ProductService
+CartFacade ..> StockService
 
-OrderFacade ..> ProductQueryService
-OrderFacade ..> CartService
+OrderFacade ..> OrderService
+OrderFacade ..> UserService
+OrderFacade ..> ProductService
 OrderFacade ..> StockService
-OrderFacade ..> OrderRepository
-OrderFacade ..> OrderItemRepository
-OrderFacade ..> OrderCartRestoreRepository
+OrderFacade ..> CartService
 
-PaymentService ..> OrderRepository
-PaymentService ..> OrderItemRepository
+PaymentService ..> OrderService
 PaymentService ..> StockService
 PaymentService ..> CartService
-PaymentService ..> OrderCartRestoreRepository
 
-CartService ..> CartRepository
-CartService ..> OrderItemRepository
-CartService ..> OrderCartRestoreRepository
+%% Service → Repository 의존
+UserService ..> UserRepository
+BrandService ..> BrandRepository
+ProductService ..> ProductRepository
+ProductService ..> ProductRevisionRepository
+ProductService ..> BrandService
 StockService ..> StockRepository
-ProductQueryService ..> ProductRepository
-ProductQueryService ..> BrandRepository
-ProductQueryService ..> StockRepository
-AdminCatalogService ..> BrandRepository
-AdminCatalogService ..> ProductRepository
-AdminCatalogService ..> StockRepository
-AdminCatalogService ..> ProductRevisionRepository
-AdminStatsService ..> OrderRepository
-AdminStatsService ..> OrderItemRepository
-AdminStatsService ..> LikeRepository
-AdminStatsService ..> ProductRepository
-AdminStatsService ..> StockRepository
+LikeService ..> LikeRepository
+LikeService ..> ProductService
+CartService ..> CartRepository
+CartService ..> ProductService
+CartService ..> StockService
+CartService ..> BrandService
+OrderService ..> OrderRepository
+OrderService ..> OrderItemRepository
+OrderService ..> OrderCartRestoreRepository
+OrderService ..> StockService
+OrderService ..> CartService
+StatsService ..> StatsRepository
 
 %% =========================
 %% Repositories
@@ -363,3 +453,9 @@ class Json
 - `OrderCartRestore`는 "바로주문 실패/만료/취소 후 장바구니 복원"의 **멱등 보장**을 위한 안전장치다.
     - 구현 시에는 `order_cart_restore` 기록을 먼저 생성(중복 체크)한 뒤 `cart_items` 복원을 수행한다.
 - `UnavailableReason`는 DB 컬럼이 아니라, `displayStatus / saleStatus / delYn+deletedAt / product_stocks(onHand,reserved)`를 기반으로 서비스가 계산하는 응답 코드다.
+
+### 설계 메모 (Facade 개선 — [07-facade-analysis.md](./07-facade-analysis.md))
+
+- **Info DTO는 `domain/` 패키지에 위치**한다. Service가 직접 Info를 반환하여, 단순 도메인(User, Brand, Like, Stats)은 Facade 없이 Controller → Service 직접 호출이 가능하다.
+- **Facade는 여러 서비스 조합이 필요한 경우에만 사용**한다: `ProductFacade`(3개 서비스), `CartFacade`(4개 서비스), `OrderFacade`(5개 서비스).
+- 의존 방향: `Controller → domain/Info` (interfaces → domain 방향으로 정상), `Controller → domain/Model` (금지 — Entity 노출 금지).

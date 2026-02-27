@@ -1,13 +1,28 @@
 ### 4.4 ERD (Entity Relationship Diagram)
-### 제약 최소화(복합 PK 중심) 
+### 제약 최소화(복합 PK 중심)
 **왜 이 다이어그램이 필요한가:**
 영속성 구조, 관계의 주인, 인덱스 전략을 검증하기 위해 필요하다. 특히 **재고 테이블의 분리**, **주문 만료 인덱스**, **좋아요/장바구니의 복합 PK(중복 방지)** 등 DB 설계의 핵심 결정을 확인한다.
+
+#### 핵심 설계 결정: products와 product_stocks 테이블 분리
+
+`products`(상품 마스터)와 `product_stocks`(재고)를 1:1 관계로 분리한 이유는 **변경 빈도와 잠금 범위가 완전히 다르기 때문**이다.
+
+| 구분 | products | product_stocks |
+|------|----------|----------------|
+| 변경 빈도 | 낮음 (관리자 수정 시만) | 매우 높음 (주문마다 reserved 변경) |
+| 잠금 범위 | 넓음 (name, price, desc 등 다수 컬럼) | 좁음 (on_hand, reserved 2개 컬럼) |
+| 접근 패턴 | 읽기 위주 (목록/상세 조회) | 쓰기 위주 (CAS UPDATE) |
+
+같은 테이블에 있으면 재고 CAS UPDATE가 상품 행 전체에 Row Lock을 걸어, 관리자의 상품 정보 수정과 **락 경합**이 발생한다. 분리하면 재고 갱신(Hot Row)이 상품 마스터(Cold Row)에 영향을 주지 않으므로, 동시성이 높은 이커머스 환경에서 필수적인 **Hot Row 격리** 전략이다.
+
+> 상세 분석은 [ANALYSIS.md - 7. 재고 테이블 분리 근거](./ANALYSIS.md) 참조
 
 ```mermaid
 
 erDiagram
-    users { 
+    users {
         varchar user_id PK
+        varchar login_id "unique, 인증용"
         varchar password "bcrypt"
         varchar user_name
         varchar birthday
