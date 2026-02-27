@@ -49,7 +49,7 @@ sequenceDiagram
     participant FavoriteRepository
 
     User->>Controller: GET /api/v1/products?brandId=&sort=&page=&size=
-    Controller->>Controller: 로그인 헤더 확인 (선택)
+    Controller->>Controller: 로그인 헤더 확인 (선택, loginId + password)
 
     Controller->>Facade: getProducts(loginId?, params)
     Facade->>ProductService: getProducts(brandId, sort, page, size)
@@ -63,7 +63,7 @@ sequenceDiagram
     end
 
     alt 로그인 상태
-        Facade->>MemberService: getMember(loginId)
+        Facade->>MemberService: findMember(loginId, password)
         MemberService->>MemberRepository: findByLoginId(loginId)
         alt 존재하지 않는 회원
             MemberRepository-->>MemberService: empty
@@ -111,7 +111,7 @@ sequenceDiagram
     participant FavoriteRepository
 
     User->>Controller: GET /api/v1/products/{productId}
-    Controller->>Controller: 로그인 헤더 확인 (선택)
+    Controller->>Controller: 로그인 헤더 확인 (선택, loginId + password)
 
     Controller->>Facade: getProduct(loginId?, productId)
 
@@ -129,7 +129,7 @@ sequenceDiagram
     ProductService-->>Facade: product
 
     alt 로그인 상태
-        Facade->>MemberService: getMember(loginId)
+        Facade->>MemberService: findMember(loginId, password)
         MemberService->>MemberRepository: findByLoginId(loginId)
         alt 존재하지 않는 회원
             MemberRepository-->>MemberService: empty
@@ -220,10 +220,10 @@ sequenceDiagram
         Controller-->>User: 401
     end
 
-    Controller->>Facade: addFavorite(loginId, productId)
+    Controller->>Facade: addFavorite(loginId, password, productId)
     Note over Facade: @Transactional
 
-    Facade->>MemberService: getMember(loginId)
+    Facade->>MemberService: findMember(loginId, password)
     MemberService->>MemberRepository: findByLoginId(loginId)
     alt 존재하지 않는 회원
         MemberRepository-->>MemberService: empty
@@ -296,10 +296,10 @@ sequenceDiagram
         Controller-->>User: 401
     end
 
-    Controller->>Facade: removeFavorite(loginId, productId)
+    Controller->>Facade: removeFavorite(loginId, password, productId)
     Note over Facade: @Transactional
 
-    Facade->>MemberService: getMember(loginId)
+    Facade->>MemberService: findMember(loginId, password)
     MemberService->>MemberRepository: findByLoginId(loginId)
     alt 존재하지 않는 회원
         MemberRepository-->>MemberService: empty
@@ -371,9 +371,9 @@ sequenceDiagram
         Controller-->>User: 401
     end
 
-    Controller->>Facade: getFavoriteProducts(loginId)
+    Controller->>Facade: getFavoriteProducts(loginId, password)
 
-    Facade->>MemberService: getMember(loginId)
+    Facade->>MemberService: findMember(loginId, password)
     MemberService->>MemberRepository: findByLoginId(loginId)
     alt 존재하지 않는 회원
         MemberRepository-->>MemberService: empty
@@ -429,11 +429,11 @@ sequenceDiagram
         Controller-->>User: 401
     end
 
-    Controller->>Facade: createOrder(loginId, items)
+    Controller->>Facade: createOrder(loginId, password, items)
     Facade->>Facade: DTO → VO 변환
     Note over Facade: @Transactional
 
-    Facade->>MemberService: getMember(loginId)
+    Facade->>MemberService: findMember(loginId, password)
     MemberService->>MemberRepository: findByLoginId(loginId)
     alt 존재하지 않는 회원
         MemberRepository-->>MemberService: empty
@@ -507,7 +507,7 @@ sequenceDiagram
         Controller-->>User: 401
     end
 
-    Controller->>Facade: getOrders(loginId, startAt, endAt)
+    Controller->>Facade: getOrders(loginId, password, startAt, endAt)
     Facade->>Facade: DTO → VO 변환
 
     alt 날짜 파라미터가 유효하지 않음
@@ -515,7 +515,7 @@ sequenceDiagram
         Controller-->>User: 4xx
     end
 
-    Facade->>MemberService: getMember(loginId)
+    Facade->>MemberService: findMember(loginId, password)
     MemberService->>MemberRepository: findByLoginId(loginId)
     alt 존재하지 않는 회원
         MemberRepository-->>MemberService: empty
@@ -563,9 +563,9 @@ sequenceDiagram
         Controller-->>User: 401
     end
 
-    Controller->>Facade: getOrder(loginId, orderId)
+    Controller->>Facade: getOrder(loginId, password, orderId)
 
-    Facade->>MemberService: getMember(loginId)
+    Facade->>MemberService: findMember(loginId, password)
     MemberService->>MemberRepository: findByLoginId(loginId)
     alt 존재하지 않는 회원
         MemberRepository-->>MemberService: empty
