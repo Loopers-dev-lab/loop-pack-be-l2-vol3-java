@@ -59,6 +59,7 @@ public class InMemoryProductRepository implements ProductRepository {
     @Override
     public Page<Product> findAllProducts(Long brandId, Pageable pageable) {
         List<Product> list = store.values().stream()
+                                  .filter(p -> p.getDeletedAt() == null)
                                   .filter(p -> brandId == null || p.getBrandId().equals(brandId))
                                   .sorted(Comparator.comparing(Product::getId).reversed())
                                   .toList();

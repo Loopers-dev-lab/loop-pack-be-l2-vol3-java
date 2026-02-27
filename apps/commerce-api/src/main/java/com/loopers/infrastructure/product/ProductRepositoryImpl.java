@@ -72,6 +72,7 @@ public class ProductRepositoryImpl implements ProductRepository {
         QProduct product = QProduct.product;
 
         BooleanBuilder builder = new BooleanBuilder();
+        builder.and(product.deletedAt.isNull());
 
         if (brandId != null) {
             builder.and(product.brandId.eq(brandId));

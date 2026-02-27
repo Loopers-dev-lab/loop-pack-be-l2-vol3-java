@@ -293,6 +293,36 @@ class AdminProductV1ApiE2ETest {
             );
         }
 
+        @DisplayName("삭제된 상품은 목록에 포함되지 않는다.")
+        @Test
+        void excludesDeletedProducts() {
+            // arrange
+            Brand brand = saveBrand("나이키");
+            Product active = saveProduct(brand.getId(), "에어맥스", 150000, 10);
+            Product deleted = saveProduct(brand.getId(), "조던", 200000, 5);
+            deleted.delete();
+            productJpaRepository.save(deleted);
+            HttpEntity<Void> entity = new HttpEntity<>(adminHeaders());
+
+            // act
+            ResponseEntity<ApiResponse<PageResponse<ProductV1Dto.AdminProductResponse>>> response =
+                    testRestTemplate.exchange(
+                            ENDPOINT + "?page=0&size=20",
+                            HttpMethod.GET, entity, new ParameterizedTypeReference<>() {}
+                    );
+
+            // assert
+            List<Long> ids = response.getBody().data().content().stream()
+                                     .map(ProductV1Dto.AdminProductResponse::id)
+                                     .toList();
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(ids).contains(active.getId()),
+                    () -> assertThat(ids).doesNotContain(deleted.getId())
+            );
+        }
+
         @DisplayName("brandId로 필터링하면, 해당 브랜드 상품만 반환한다.")
         @Test
         void returnsFilteredByBrandId() {
