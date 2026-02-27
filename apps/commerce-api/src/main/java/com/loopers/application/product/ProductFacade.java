@@ -27,16 +27,18 @@ public class ProductFacade {
 
     public ProductInfo getActiveProduct(Long id) {
         ProductInfo product = productService.getActiveProduct(id);
-        String brandName = brandService.getBrandNameMap(List.of(product.brandId()))
-                                       .get(product.brandId());
-        return product.withBrandName(brandName);
+        String brandName = brandService.getBrandNameMap(List.of(product.brand().id()))
+                                       .get(product.brand().id());
+        return product.withBrand(new ProductInfo.BrandSummary(product.brand().id(), brandName));
     }
 
     public Page<ProductInfo> getActiveProducts(Long brandId, ProductSort sort, Pageable pageable) {
         Page<ProductInfo> products = productService.getActiveProducts(brandId, sort, pageable);
-        Set<Long> brandIds = products.stream().map(ProductInfo::brandId).collect(Collectors.toSet());
+        Set<Long> brandIds = products.stream().map(p -> p.brand().id()).collect(Collectors.toSet());
         Map<Long, String> brandNameMap = brandService.getBrandNameMap(brandIds);
-        return products.map(p -> p.withBrandName(brandNameMap.getOrDefault(p.brandId(), null)));
+        return products.map(p -> p.withBrand(
+                new ProductInfo.BrandSummary(p.brand().id(), brandNameMap.getOrDefault(p.brand().id(), null))
+        ));
     }
 
     public ProductInfo getProduct(Long id) {

@@ -39,7 +39,7 @@ public class ProductServiceTest {
 
             // assert
             assertAll(
-                () -> assertThat(product.brandId()).isEqualTo(BRAND_ID),
+                () -> assertThat(product.brand().id()).isEqualTo(BRAND_ID),
                 () -> assertThat(product.name()).isEqualTo("에어맥스"),
                 () -> assertThat(product.price()).isEqualTo(150000),
                 () -> assertThat(product.stockQuantity()).isEqualTo(10)

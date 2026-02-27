@@ -11,17 +11,19 @@ public class ProductV1Dto {
 
     public record ProductResponse(
             Long id,
-            String brandName,
+            BrandInfo brand,
             String name,
             String description,
             Integer price,
             Integer stockQuantity,
             Integer likeCount
     ) {
+        public record BrandInfo(String name) {}
+
         public static ProductResponse from(ProductInfo productInfo) {
             return new ProductResponse(
                     productInfo.id(),
-                    productInfo.brandName(),
+                    new BrandInfo(productInfo.brand().name()),
                     productInfo.name(),
                     productInfo.description(),
                     productInfo.price(),
@@ -46,7 +48,7 @@ public class ProductV1Dto {
         public static AdminProductResponse from(ProductInfo productInfo) {
             return new AdminProductResponse(
                     productInfo.id(),
-                    productInfo.brandId(),
+                    productInfo.brand().id(),
                     productInfo.name(),
                     productInfo.description(),
                     productInfo.price(),

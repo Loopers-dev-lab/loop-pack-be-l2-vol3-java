@@ -76,7 +76,7 @@ class OrderServiceTest {
             // arrange
             long userId = 1L;
             ProductInfo product = new ProductInfo(
-                    1L, 1L, null, "에어맥스", null, 150000, 10, 0,
+                    1L, new ProductInfo.BrandSummary(1L, null), "에어맥스", null, 150000, 10, 0,
                     Product.Visibility.VISIBLE, null, null, null
             );
             List<OrderItemCommand> items = List.of(new OrderItemCommand(product.id(), 2));
@@ -104,7 +104,7 @@ class OrderServiceTest {
             // arrange
             long ownerId = 1L;
             ProductInfo product = new ProductInfo(
-                    1L, 1L, null, "에어맥스", null, 150000, 10, 0,
+                    1L, new ProductInfo.BrandSummary(1L, null), "에어맥스", null, 150000, 10, 0,
                     Product.Visibility.VISIBLE, null, null, null
             );
             List<OrderItemCommand> items = List.of(new OrderItemCommand(product.id(), 1));

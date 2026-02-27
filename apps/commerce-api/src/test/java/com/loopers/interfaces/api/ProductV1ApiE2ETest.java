@@ -108,7 +108,7 @@ class ProductV1ApiE2ETest {
             // assert
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(response.getBody().data().brandName()).isEqualTo(brandName)
+                    () -> assertThat(response.getBody().data().brand().name()).isEqualTo(brandName)
             );
         }
 
@@ -213,7 +213,7 @@ class ProductV1ApiE2ETest {
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content())
-                            .extracting(ProductV1Dto.ProductResponse::brandName)
+                            .extracting(p -> p.brand().name())
                             .containsExactlyInAnyOrder("나이키", "아디다스")
             );
         }

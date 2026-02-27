@@ -51,7 +51,7 @@ public class ProductFacadeTest {
             ProductInfo result = productFacade.getActiveProduct(product.id());
 
             // assert
-            assertThat(result.brandName()).isEqualTo("나이키");
+            assertThat(result.brand().name()).isEqualTo("나이키");
         }
     }
 
@@ -72,7 +72,7 @@ public class ProductFacadeTest {
 
             // assert
             assertAll(
-                    () -> assertThat(result.getContent()).extracting(ProductInfo::brandName)
+                    () -> assertThat(result.getContent()).extracting(p -> p.brand().name())
                             .containsExactlyInAnyOrder("나이키", "아디다스")
             );
         }
@@ -89,7 +89,7 @@ public class ProductFacadeTest {
             Page<ProductInfo> result = productFacade.getActiveProducts(null, ProductSort.LATEST, PageRequest.of(0, 20));
 
             // assert
-            assertThat(result.getContent()).extracting(ProductInfo::brandName)
+            assertThat(result.getContent()).extracting(p -> p.brand().name())
                     .containsOnly("나이키");
         }
     }
