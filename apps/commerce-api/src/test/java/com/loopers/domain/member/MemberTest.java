@@ -18,11 +18,11 @@ class MemberTest {
         @DisplayName("유효한 정보가 주어지면 성공한다")
         @Test
         void success() {
-            String loginId = "testuser123";
-            String password = "password123";
-            String name = "홍길동";
-            String birthDate = "1990-01-01";
-            String email = "test@example.com";
+            String loginId = "ymcho";
+            String password = "ymcho123";
+            String name = "조용민";
+            String birthDate = "1991-07-03";
+            String email = "ymcho@example.com";
             
             Member member = new Member(loginId, password, name, birthDate, email);
             
@@ -38,7 +38,7 @@ class MemberTest {
         @Test
         void failsWhenLoginIdIsNull() {
             assertThatThrownBy(() -> 
-                new Member(null, "pw", "name", "1990-01-01", "email@test.com")
+                new Member(null, "ymcho123", "조용민", "1991-07-03", "ymcho@example.com")
             )
             .isInstanceOf(CoreException.class)
             .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST);
@@ -48,7 +48,7 @@ class MemberTest {
         @Test
         void failsWhenLoginIdIsBlank() {
             assertThatThrownBy(() -> 
-                new Member("  ", "pw", "name", "1990-01-01", "email@test.com")
+                new Member("  ", "ymcho123", "조용민", "1991-07-03", "ymcho@example.com")
             )
             .isInstanceOf(CoreException.class);
         }
@@ -57,7 +57,7 @@ class MemberTest {
         @Test
         void failsWhenPasswordIsNull() {
             assertThatThrownBy(() -> 
-                new Member("loginId", null, "name", "1990-01-01", "email@test.com")
+                new Member("ymcho", null, "조용민", "1991-07-03", "ymcho@example.com")
             )
             .isInstanceOf(CoreException.class);
         }
@@ -66,7 +66,7 @@ class MemberTest {
         @Test
         void failsWhenNameIsNull() {
             assertThatThrownBy(() -> 
-                new Member("loginId", "pw", null, "1990-01-01", "email@test.com")
+                new Member("ymcho", "ymcho123", null, "1991-07-03", "ymcho@example.com")
             )
             .isInstanceOf(CoreException.class);
         }
@@ -75,7 +75,7 @@ class MemberTest {
         @Test
         void failsWhenBirthDateIsNull() {
             assertThatThrownBy(() -> 
-                new Member("loginId", "pw", "name", null, "email@test.com")
+                new Member("ymcho", "ymcho123", "조용민", null, "ymcho@example.com")
             )
             .isInstanceOf(CoreException.class);
         }
@@ -84,7 +84,7 @@ class MemberTest {
         @Test
         void failsWhenEmailIsNull() {
             assertThatThrownBy(() -> 
-                new Member("loginId", "pw", "name", "1990-01-01", null)
+                new Member("ymcho", "ymcho123", "조용민", "1991-07-03", null)
             )
             .isInstanceOf(CoreException.class);
         }
