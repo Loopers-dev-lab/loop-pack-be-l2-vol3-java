@@ -1,6 +1,6 @@
 package com.loopers.domain.member.vo;
 
-import com.loopers.domain.member.exception.MemberValidationException;
+import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -39,8 +39,7 @@ public class MemberIdTest {
         @ValueSource(strings = {"   "})
         void emptyOrNullMemberId(String memberId) {
             // when & then
-            assertThatThrownBy(() -> new MemberId(memberId))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new MemberId(memberId)).isInstanceOf(CoreException.class);
         }
 
         @ParameterizedTest
@@ -48,8 +47,7 @@ public class MemberIdTest {
         @ValueSource(strings = {"a", "ab", "abc"})
         void memberIdTooShort(String memberId) {
             // when & then
-            assertThatThrownBy(() -> new MemberId(memberId))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new MemberId(memberId)).isInstanceOf(CoreException.class);
         }
 
         @Test
@@ -59,8 +57,7 @@ public class MemberIdTest {
             String longMemberId = "a".repeat(21);
 
             // when & then
-            assertThatThrownBy(() -> new MemberId(longMemberId))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new MemberId(longMemberId)).isInstanceOf(CoreException.class);
         }
 
         @Test
@@ -87,8 +84,7 @@ public class MemberIdTest {
         @ValueSource(strings = {"1member", "123member", "1234"})
         void memberIdStartsWithDigit(String memberId) {
             // when & then
-            assertThatThrownBy(() -> new MemberId(memberId))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new MemberId(memberId)).isInstanceOf(CoreException.class);
         }
 
         @ParameterizedTest
@@ -107,8 +103,7 @@ public class MemberIdTest {
         })
         void memberIdWithSpecialChars(String memberId) {
             // when & then
-            assertThatThrownBy(() -> new MemberId(memberId))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new MemberId(memberId)).isInstanceOf(CoreException.class);
         }
 
         @ParameterizedTest
@@ -116,8 +111,7 @@ public class MemberIdTest {
         @ValueSource(strings = {"member한글", "한글member", "유저이름"})
         void memberIdWithKorean(String memberId) {
             // when & then
-            assertThatThrownBy(() -> new MemberId(memberId))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new MemberId(memberId)).isInstanceOf(CoreException.class);
         }
 
         @ParameterizedTest
@@ -129,8 +123,7 @@ public class MemberIdTest {
         })
         void memberIdWithReservedWord(String memberId) {
             // when & then
-            assertThatThrownBy(() -> new MemberId(memberId))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new MemberId(memberId)).isInstanceOf(CoreException.class);
         }
 
         @ParameterizedTest

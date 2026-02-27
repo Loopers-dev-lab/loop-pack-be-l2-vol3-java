@@ -1,6 +1,7 @@
 package com.loopers.domain.member.vo;
 
-import com.loopers.domain.member.exception.MemberValidationException;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -18,10 +19,10 @@ public record Phone(String value) {
 
     private void validate(String phone) {
         if (phone == null || phone.isBlank()) {
-            throw new MemberValidationException(ERROR_NULL_OR_EMPTY);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_NULL_OR_EMPTY);
         }
         if (!PHONE_PATTERN.matcher(phone).matches()) {
-            throw new MemberValidationException(ERROR_INVALID_FORMAT);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_INVALID_FORMAT);
         }
     }
 }

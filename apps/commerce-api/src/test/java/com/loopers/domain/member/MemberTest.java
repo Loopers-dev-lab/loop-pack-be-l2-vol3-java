@@ -1,6 +1,6 @@
 package com.loopers.domain.member;
 
-import com.loopers.domain.member.exception.MemberValidationException;
+import com.loopers.support.error.CoreException;
 import com.loopers.domain.member.vo.BirthDate;
 import com.loopers.domain.member.vo.Email;
 import com.loopers.domain.member.vo.Name;
@@ -60,8 +60,7 @@ public class MemberTest {
             Phone phone = new Phone("010-1234-5678");
 
             // when & then
-            assertThatThrownBy(() -> new Member(memberId, password, name, email, birthDate, phone))
-                    .isInstanceOf(MemberValidationException.class)
+            assertThatThrownBy(() -> new Member(memberId, password, name, email, birthDate, phone)).isInstanceOf(CoreException.class)
                     .hasMessage("비밀번호에 생년월일을 포함할 수 없습니다");
         }
 
@@ -77,8 +76,7 @@ public class MemberTest {
             Phone phone = new Phone("010-1234-5678");
 
             // when & then
-            assertThatThrownBy(() -> new Member(memberId, password, name, email, birthDate, phone))
-                    .isInstanceOf(MemberValidationException.class)
+            assertThatThrownBy(() -> new Member(memberId, password, name, email, birthDate, phone)).isInstanceOf(CoreException.class)
                     .hasMessage("비밀번호에 생년월일을 포함할 수 없습니다");
         }
 
@@ -94,8 +92,7 @@ public class MemberTest {
             Phone phone = new Phone("010-1234-5678");
 
             // when & then
-            assertThatThrownBy(() -> new Member(memberId, password, name, email, birthDate, phone))
-                    .isInstanceOf(MemberValidationException.class)
+            assertThatThrownBy(() -> new Member(memberId, password, name, email, birthDate, phone)).isInstanceOf(CoreException.class)
                     .hasMessage("비밀번호에 생년월일을 포함할 수 없습니다");
         }
 

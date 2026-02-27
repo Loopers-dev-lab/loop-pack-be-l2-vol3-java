@@ -1,6 +1,7 @@
 package com.loopers.domain.member.vo;
 
-import com.loopers.domain.member.exception.MemberValidationException;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 import java.util.Locale;
 import java.util.Set;
@@ -31,19 +32,19 @@ public record MemberId(String value) {
 
     private void validate(String memberId) {
         if (memberId == null || memberId.isBlank()) {
-            throw new MemberValidationException(ERROR_NULL_OR_EMPTY);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_NULL_OR_EMPTY);
         }
         if (memberId.length() < MIN_LENGTH) {
-            throw new MemberValidationException(ERROR_MIN_LENGTH);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_MIN_LENGTH);
         }
         if (memberId.length() > MAX_LENGTH) {
-            throw new MemberValidationException(ERROR_MAX_LENGTH);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_MAX_LENGTH);
         }
         if (!ALLOWED_CHARS_PATTERN.matcher(memberId).matches()) {
-            throw new MemberValidationException(ERROR_INVALID_FORMAT);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_INVALID_FORMAT);
         }
         if (RESERVED_WORDS.contains(memberId.toLowerCase(Locale.ROOT))) {
-            throw new MemberValidationException(ERROR_RESERVED_WORD);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_RESERVED_WORD);
         }
     }
 }

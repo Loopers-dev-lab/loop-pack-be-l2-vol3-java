@@ -1,6 +1,7 @@
 package com.loopers.domain.member.vo;
 
-import com.loopers.domain.member.exception.MemberValidationException;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 import java.util.regex.Pattern;
 
@@ -28,24 +29,24 @@ public record Name(String value) {
 
     private void validateNotEmpty(String name) {
         if (name == null || name.isBlank()) {
-            throw new MemberValidationException(ERROR_NULL_OR_EMPTY);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_NULL_OR_EMPTY);
         }
     }
 
     private void validateFormat(String name) {
         if (isKoreanOnly(name) && name.length() > KOREAN_MAX_LENGTH) {
-            throw new MemberValidationException(ERROR_KOREAN_MAX_LENGTH);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_KOREAN_MAX_LENGTH);
         }
         if (isKoreanOnly(name)) {
             return;
         }
         if (isEnglishOnly(name) && name.length() > ENGLISH_MAX_LENGTH) {
-            throw new MemberValidationException(ERROR_ENGLISH_MAX_LENGTH);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_ENGLISH_MAX_LENGTH);
         }
         if (isEnglishOnly(name)) {
             return;
         }
-        throw new MemberValidationException(ERROR_INVALID_FORMAT);
+        throw new CoreException(ErrorType.BAD_REQUEST, ERROR_INVALID_FORMAT);
     }
 
     private boolean isKoreanOnly(String name) {

@@ -1,6 +1,6 @@
 package com.loopers.domain.member.vo;
 
-import com.loopers.domain.member.exception.MemberValidationException;
+import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -40,8 +40,7 @@ public class NameTest {
         @ValueSource(strings = {"   "})
         void emptyOrNullName(String name) {
             // when & then
-            assertThatThrownBy(() -> new Name(name))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Name(name)).isInstanceOf(CoreException.class);
         }
 
         @ParameterizedTest
@@ -49,8 +48,7 @@ public class NameTest {
         @ValueSource(strings = {"홍길동John", "John홍길동", "김John", "Hong길동"})
         void mixedName(String name) {
             // when & then
-            assertThatThrownBy(() -> new Name(name))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Name(name)).isInstanceOf(CoreException.class);
         }
 
         @ParameterizedTest
@@ -58,8 +56,7 @@ public class NameTest {
         @ValueSource(strings = {"홍길동1", "John123", "123"})
         void nameWithNumbers(String name) {
             // when & then
-            assertThatThrownBy(() -> new Name(name))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Name(name)).isInstanceOf(CoreException.class);
         }
 
         @ParameterizedTest
@@ -67,8 +64,7 @@ public class NameTest {
         @ValueSource(strings = {"홍길동!", "John@", "김-철수", "Jane.Doe"})
         void nameWithSpecialChars(String name) {
             // when & then
-            assertThatThrownBy(() -> new Name(name))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Name(name)).isInstanceOf(CoreException.class);
         }
 
         @ParameterizedTest
@@ -76,8 +72,7 @@ public class NameTest {
         @ValueSource(strings = {"홍 길동", "John Doe", "Kim Cheol Su"})
         void nameWithSpaces(String name) {
             // when & then
-            assertThatThrownBy(() -> new Name(name))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Name(name)).isInstanceOf(CoreException.class);
         }
 
         @Test
@@ -92,8 +87,7 @@ public class NameTest {
         @DisplayName("한글 이름 형식 오류 - 4자 초과")
         void koreanNameExceeds4Chars() {
             // when & then
-            assertThatThrownBy(() -> new Name("홍길동님이"))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Name("홍길동님이")).isInstanceOf(CoreException.class);
         }
 
         @Test
@@ -114,8 +108,7 @@ public class NameTest {
             String name = "a".repeat(51);
 
             // when & then
-            assertThatThrownBy(() -> new Name(name))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Name(name)).isInstanceOf(CoreException.class);
         }
     }
 }

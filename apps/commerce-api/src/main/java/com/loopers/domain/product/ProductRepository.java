@@ -17,4 +17,12 @@ public interface ProductRepository {
 
     Page<Product> findAll(Long brandId, Pageable pageable);
 
+    Page<Product> findAllIncludingDeleted(Long brandId, Pageable pageable);
+
+    List<Long> findIdsByBrandId(Long brandId);
+
+    void softDeleteByBrandId(Long brandId);
+
+    void delete(Product product);
+
 }

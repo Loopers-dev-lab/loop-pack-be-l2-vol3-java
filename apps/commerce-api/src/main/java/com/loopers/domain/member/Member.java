@@ -1,6 +1,7 @@
 package com.loopers.domain.member;
 
-import com.loopers.domain.member.exception.MemberValidationException;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import com.loopers.domain.member.vo.BirthDate;
 import com.loopers.domain.member.vo.Email;
 import com.loopers.domain.member.vo.Name;
@@ -36,7 +37,7 @@ public record Member(
             return;
         }
         if (password.containsDate(birthDate.value())) {
-            throw new MemberValidationException(ERROR_PASSWORD_CONTAINS_BIRTHDATE);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_PASSWORD_CONTAINS_BIRTHDATE);
         }
     }
 

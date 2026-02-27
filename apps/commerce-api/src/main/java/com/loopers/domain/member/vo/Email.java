@@ -1,6 +1,7 @@
 package com.loopers.domain.member.vo;
 
-import com.loopers.domain.member.exception.MemberValidationException;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 import java.util.regex.Pattern;
 
@@ -30,36 +31,36 @@ public record Email(String value) {
 
     private void validate(String email) {
         if (email == null || email.isBlank()) {
-            throw new MemberValidationException(ERROR_NULL_OR_EMPTY);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_NULL_OR_EMPTY);
         }
         if (email.length() > MAX_LENGTH) {
-            throw new MemberValidationException(ERROR_MAX_LENGTH);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_MAX_LENGTH);
         }
 
         int atIndex = email.indexOf('@');
         if (atIndex == -1) {
-            throw new MemberValidationException(ERROR_INVALID_FORMAT);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_INVALID_FORMAT);
         }
 
         String localPart = email.substring(0, atIndex);
 
         if (localPart.length() > LOCAL_PART_MAX_LENGTH) {
-            throw new MemberValidationException(ERROR_LOCAL_PART_MAX_LENGTH);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_LOCAL_PART_MAX_LENGTH);
         }
         if (localPart.startsWith(".")) {
-            throw new MemberValidationException(ERROR_STARTS_WITH_DOT);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_STARTS_WITH_DOT);
         }
         if (localPart.endsWith(".")) {
-            throw new MemberValidationException(ERROR_ENDS_WITH_DOT);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_ENDS_WITH_DOT);
         }
         if (CONSECUTIVE_DOTS_PATTERN.matcher(email).find()) {
-            throw new MemberValidationException(ERROR_CONSECUTIVE_DOTS);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_CONSECUTIVE_DOTS);
         }
         if (INVALID_LOCAL_CHARS_PATTERN.matcher(localPart).find()) {
-            throw new MemberValidationException(ERROR_INVALID_LOCAL_CHARS);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_INVALID_LOCAL_CHARS);
         }
         if (!EMAIL_PATTERN.matcher(email).matches()) {
-            throw new MemberValidationException(ERROR_INVALID_FORMAT);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_INVALID_FORMAT);
         }
     }
 }

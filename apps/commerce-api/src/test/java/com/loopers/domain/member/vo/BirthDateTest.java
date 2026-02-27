@@ -1,6 +1,6 @@
 package com.loopers.domain.member.vo;
 
-import com.loopers.domain.member.exception.MemberValidationException;
+import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -40,16 +40,14 @@ public class BirthDateTest {
         @ValueSource(strings = {"   "})
         void emptyOrNullBirthDate(String dateString) {
             // when & then
-            assertThatThrownBy(() -> BirthDate.of(dateString))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> BirthDate.of(dateString)).isInstanceOf(CoreException.class);
         }
 
         @Test
         @DisplayName("생년월일 형식 오류 - null LocalDate")
         void nullLocalDate() {
             // when & then
-            assertThatThrownBy(() -> new BirthDate(null))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new BirthDate(null)).isInstanceOf(CoreException.class);
         }
 
         @ParameterizedTest
@@ -57,8 +55,7 @@ public class BirthDateTest {
         @ValueSource(strings = {"1999-01-15", "99/01/15", "15011999", "abcdefgh"})
         void invalidFormat(String dateString) {
             // when & then
-            assertThatThrownBy(() -> BirthDate.of(dateString))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> BirthDate.of(dateString)).isInstanceOf(CoreException.class);
         }
 
         @ParameterizedTest
@@ -66,8 +63,7 @@ public class BirthDateTest {
         @ValueSource(strings = {"19990230", "19991301", "19990132"})
         void invalidDate(String dateString) {
             // when & then
-            assertThatThrownBy(() -> BirthDate.of(dateString))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> BirthDate.of(dateString)).isInstanceOf(CoreException.class);
         }
 
         @Test
@@ -77,8 +73,7 @@ public class BirthDateTest {
             LocalDate futureDate = LocalDate.now().plusDays(1);
 
             // when & then
-            assertThatThrownBy(() -> new BirthDate(futureDate))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new BirthDate(futureDate)).isInstanceOf(CoreException.class);
         }
     }
 

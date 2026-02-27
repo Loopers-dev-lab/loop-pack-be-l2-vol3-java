@@ -1,6 +1,6 @@
 package com.loopers.domain.member.vo;
 
-import com.loopers.domain.member.exception.MemberValidationException;
+import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -40,40 +40,35 @@ public class EmailTest {
         @DisplayName("이메일 형식 오류 - '@' 누락")
         void emailWithoutAtSign() {
             // when & then
-            assertThatThrownBy(() -> new Email("memberexample.com"))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Email("memberexample.com")).isInstanceOf(CoreException.class);
         }
 
         @Test
         @DisplayName("이메일 형식 오류 - 도메인 부분 누락")
         void emailWithoutDomain() {
             // when & then
-            assertThatThrownBy(() -> new Email("member@"))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Email("member@")).isInstanceOf(CoreException.class);
         }
 
         @Test
         @DisplayName("이메일 형식 오류 - 로컬 부분 누락")
         void emailWithoutLocalPart() {
             // when & then
-            assertThatThrownBy(() -> new Email("@example.com"))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Email("@example.com")).isInstanceOf(CoreException.class);
         }
 
         @Test
         @DisplayName("이메일 형식 오류 - 도메인에 '.' 누락")
         void emailWithoutDotInDomain() {
             // when & then
-            assertThatThrownBy(() -> new Email("member@examplecom"))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Email("member@examplecom")).isInstanceOf(CoreException.class);
         }
 
         @Test
         @DisplayName("이메일 형식 오류 - TLD 누락 (마지막 '.' 뒤에 아무것도 없음)")
         void emailWithoutTld() {
             // when & then
-            assertThatThrownBy(() -> new Email("member@example."))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Email("member@example.")).isInstanceOf(CoreException.class);
         }
 
         @ParameterizedTest
@@ -90,32 +85,28 @@ public class EmailTest {
         })
         void emailWithInvalidSpecialCharsInLocalPart(String email) {
             // when & then
-            assertThatThrownBy(() -> new Email(email))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Email(email)).isInstanceOf(CoreException.class);
         }
 
         @Test
         @DisplayName("이메일 형식 오류 - 연속된 '.' 포함")
         void emailWithConsecutiveDots() {
             // when & then
-            assertThatThrownBy(() -> new Email("member..name@example.com"))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Email("member..name@example.com")).isInstanceOf(CoreException.class);
         }
 
         @Test
         @DisplayName("이메일 형식 오류 - 로컬 부분이 '.'으로 시작")
         void emailStartsWithDot() {
             // when & then
-            assertThatThrownBy(() -> new Email(".member@example.com"))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Email(".member@example.com")).isInstanceOf(CoreException.class);
         }
 
         @Test
         @DisplayName("이메일 형식 오류 - 로컬 부분이 '.'으로 끝남")
         void emailLocalPartEndsWithDot() {
             // when & then
-            assertThatThrownBy(() -> new Email("member.@example.com"))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Email("member.@example.com")).isInstanceOf(CoreException.class);
         }
 
         @ParameterizedTest
@@ -124,16 +115,14 @@ public class EmailTest {
         @ValueSource(strings = {"   "})
         void emptyOrNullEmail(String email) {
             // when & then
-            assertThatThrownBy(() -> new Email(email))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Email(email)).isInstanceOf(CoreException.class);
         }
 
         @Test
         @DisplayName("이메일 형식 오류 - '@'가 여러 개")
         void emailWithMultipleAtSigns() {
             // when & then
-            assertThatThrownBy(() -> new Email("member@@example.com"))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Email("member@@example.com")).isInstanceOf(CoreException.class);
         }
 
         @Test
@@ -143,8 +132,7 @@ public class EmailTest {
             String longLocalPart = "a".repeat(65) + "@example.com";
 
             // when & then
-            assertThatThrownBy(() -> new Email(longLocalPart))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Email(longLocalPart)).isInstanceOf(CoreException.class);
         }
 
         @Test
@@ -154,8 +142,7 @@ public class EmailTest {
             String longEmail = "a".repeat(64) + "@" + "b".repeat(189) + ".com";
 
             // when & then
-            assertThatThrownBy(() -> new Email(longEmail))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Email(longEmail)).isInstanceOf(CoreException.class);
         }
 
         @Test

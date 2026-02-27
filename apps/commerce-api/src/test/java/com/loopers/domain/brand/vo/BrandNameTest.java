@@ -1,6 +1,7 @@
 package com.loopers.domain.brand.vo;
 
-import com.loopers.domain.brand.exception.BrandValidationException;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,8 @@ public class BrandNameTest {
         void nullOrEmptyBrandName(String name) {
             // when & then
             assertThatThrownBy(() -> new BrandName(name))
-                    .isInstanceOf(BrandValidationException.class);
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
 
         @Test
@@ -45,7 +47,8 @@ public class BrandNameTest {
 
             // when & then
             assertThatThrownBy(() -> new BrandName(name))
-                    .isInstanceOf(BrandValidationException.class);
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
 
         @Test

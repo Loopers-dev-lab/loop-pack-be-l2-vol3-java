@@ -1,6 +1,5 @@
 package com.loopers.domain.brand;
 
-import com.loopers.domain.brand.exception.BrandValidationException;
 import com.loopers.domain.brand.vo.BrandName;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

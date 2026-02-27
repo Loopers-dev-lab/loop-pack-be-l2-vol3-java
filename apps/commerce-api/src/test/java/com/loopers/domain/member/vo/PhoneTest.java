@@ -1,6 +1,6 @@
 package com.loopers.domain.member.vo;
 
-import com.loopers.domain.member.exception.MemberValidationException;
+import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -33,8 +33,7 @@ public class PhoneTest {
         @DisplayName("전화번호 형식 오류 - 하이픈 누락")
         void phoneWithoutHyphen() {
             // when & then
-            assertThatThrownBy(() -> new Phone("01012345678"))
-                    .isInstanceOf(MemberValidationException.class)
+            assertThatThrownBy(() -> new Phone("01012345678")).isInstanceOf(CoreException.class)
                     .hasMessage("전화번호는 010-XXXX-XXXX 형식이어야 합니다");
         }
 
@@ -49,8 +48,7 @@ public class PhoneTest {
         })
         void invalidPhonePrefix(String phone) {
             // when & then
-            assertThatThrownBy(() -> new Phone(phone))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Phone(phone)).isInstanceOf(CoreException.class);
         }
 
         @ParameterizedTest
@@ -59,8 +57,7 @@ public class PhoneTest {
         @ValueSource(strings = {"   "})
         void emptyOrNullPhone(String phone) {
             // when & then
-            assertThatThrownBy(() -> new Phone(phone))
-                    .isInstanceOf(MemberValidationException.class)
+            assertThatThrownBy(() -> new Phone(phone)).isInstanceOf(CoreException.class)
                     .hasMessage("전화번호는 필수 입력값입니다");
         }
 
@@ -75,8 +72,7 @@ public class PhoneTest {
         })
         void completelyInvalidFormat(String phone) {
             // when & then
-            assertThatThrownBy(() -> new Phone(phone))
-                    .isInstanceOf(MemberValidationException.class);
+            assertThatThrownBy(() -> new Phone(phone)).isInstanceOf(CoreException.class);
         }
     }
 }

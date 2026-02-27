@@ -1,6 +1,7 @@
 package com.loopers.domain.member.vo;
 
-import com.loopers.domain.member.exception.MemberValidationException;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -40,7 +41,7 @@ public final class Password {
 
     public static Password ofEncoded(String encodedPassword) {
         if (!isEncodedFormat(encodedPassword)) {
-            throw new MemberValidationException(ERROR_NOT_ENCODED);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_NOT_ENCODED);
         }
         return new Password(encodedPassword, EncodedMarker.INSTANCE);
     }
@@ -51,22 +52,22 @@ public final class Password {
 
     private void validate(String password) {
         if (password == null || password.length() < MIN_LENGTH) {
-            throw new MemberValidationException(ERROR_MIN_LENGTH);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_MIN_LENGTH);
         }
         if (password.length() > MAX_LENGTH) {
-            throw new MemberValidationException(ERROR_MAX_LENGTH);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_MAX_LENGTH);
         }
         if (!UPPERCASE_PATTERN.matcher(password).find()) {
-            throw new MemberValidationException(ERROR_UPPERCASE_REQUIRED);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_UPPERCASE_REQUIRED);
         }
         if (!LOWERCASE_PATTERN.matcher(password).find()) {
-            throw new MemberValidationException(ERROR_LOWERCASE_REQUIRED);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_LOWERCASE_REQUIRED);
         }
         if (!DIGIT_PATTERN.matcher(password).find()) {
-            throw new MemberValidationException(ERROR_DIGIT_REQUIRED);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_DIGIT_REQUIRED);
         }
         if (!SPECIAL_CHAR_PATTERN.matcher(password).find()) {
-            throw new MemberValidationException(ERROR_SPECIAL_CHAR_REQUIRED);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_SPECIAL_CHAR_REQUIRED);
         }
     }
 

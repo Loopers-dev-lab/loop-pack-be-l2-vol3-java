@@ -1,6 +1,7 @@
 package com.loopers.domain.member.vo;
 
-import com.loopers.domain.member.exception.MemberValidationException;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -18,22 +19,22 @@ public record BirthDate(LocalDate value) {
 
     public BirthDate {
         if (value == null) {
-            throw new MemberValidationException(ERROR_NULL_OR_EMPTY);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_NULL_OR_EMPTY);
         }
         if (value.isAfter(LocalDate.now())) {
-            throw new MemberValidationException(ERROR_FUTURE_DATE);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_FUTURE_DATE);
         }
     }
 
     public static BirthDate of(String dateString) {
         if (dateString == null || dateString.isBlank()) {
-            throw new MemberValidationException(ERROR_NULL_OR_EMPTY);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_NULL_OR_EMPTY);
         }
         try {
             LocalDate date = LocalDate.parse(dateString, FORMATTER);
             return new BirthDate(date);
         } catch (DateTimeParseException e) {
-            throw new MemberValidationException(ERROR_INVALID_FORMAT);
+            throw new CoreException(ErrorType.BAD_REQUEST, ERROR_INVALID_FORMAT);
         }
     }
 
