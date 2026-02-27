@@ -4,7 +4,7 @@ import com.loopers.application.order.OrderCreateCommand;
 import com.loopers.application.order.OrderFacade;
 import com.loopers.application.order.OrderInfo;
 import com.loopers.application.order.OrderItemInfo;
-import com.loopers.application.order.OrderService;
+import com.loopers.application.order.OrderApplicationService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.LoginUser;
 import jakarta.validation.Valid;
@@ -29,7 +29,7 @@ import java.util.List;
 public class OrderV1Controller {
 
     private final OrderFacade orderFacade;
-    private final OrderService orderService;
+    private final OrderApplicationService orderService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)

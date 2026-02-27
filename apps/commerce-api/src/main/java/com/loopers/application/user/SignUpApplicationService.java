@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 @Service
 @Transactional
 @RequiredArgsConstructor
-public class SignUpService {
+public class SignUpApplicationService {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
 

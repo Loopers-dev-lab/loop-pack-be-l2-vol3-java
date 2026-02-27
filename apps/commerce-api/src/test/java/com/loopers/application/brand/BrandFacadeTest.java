@@ -1,9 +1,9 @@
 package com.loopers.application.brand;
 
-import com.loopers.application.like.LikeService;
+import com.loopers.application.like.LikeApplicationService;
 import com.loopers.application.product.ProductCreateCommand;
 import com.loopers.application.product.ProductInfo;
-import com.loopers.application.product.ProductService;
+import com.loopers.application.product.ProductApplicationService;
 import com.loopers.domain.brand.InMemoryBrandRepository;
 import com.loopers.domain.like.InMemoryLikeRepository;
 import com.loopers.domain.product.InMemoryProductRepository;
@@ -18,9 +18,9 @@ public class BrandFacadeTest {
     private InMemoryBrandRepository brandRepository;
     private InMemoryProductRepository productRepository;
     private InMemoryLikeRepository likeRepository;
-    private BrandService brandService;
-    private ProductService productService;
-    private LikeService likeService;
+    private BrandApplicationService brandService;
+    private ProductApplicationService productService;
+    private LikeApplicationService likeService;
     private BrandFacade brandFacade;
 
     @BeforeEach
@@ -28,9 +28,9 @@ public class BrandFacadeTest {
         brandRepository = new InMemoryBrandRepository();
         productRepository = new InMemoryProductRepository();
         likeRepository = new InMemoryLikeRepository();
-        brandService = new BrandService(brandRepository);
-        productService = new ProductService(productRepository);
-        likeService = new LikeService(likeRepository);
+        brandService = new BrandApplicationService(brandRepository);
+        productService = new ProductApplicationService(productRepository);
+        likeService = new LikeApplicationService(likeRepository);
         brandFacade = new BrandFacade(brandService, productService, likeService);
     }
 

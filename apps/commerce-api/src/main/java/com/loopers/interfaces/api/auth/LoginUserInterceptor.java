@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.auth;
 
-import com.loopers.application.user.UserService;
+import com.loopers.application.user.UserApplicationService;
 import com.loopers.domain.user.User;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -14,7 +14,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 @Component
 public class LoginUserInterceptor implements HandlerInterceptor {
 
-    private final UserService userService;
+    private final UserApplicationService userService;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {

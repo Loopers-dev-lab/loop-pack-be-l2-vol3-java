@@ -1,7 +1,7 @@
 package com.loopers.application.like;
 
 import com.loopers.application.product.ProductInfo;
-import com.loopers.application.product.ProductService;
+import com.loopers.application.product.ProductApplicationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
 @Service
 @Transactional(readOnly = true)
 public class LikeFacade {
-    private final LikeService likeService;
-    private final ProductService productService;
+    private final LikeApplicationService likeService;
+    private final ProductApplicationService productService;
 
     @Transactional
     public LikeInfo register(Long userId, Long productId) {

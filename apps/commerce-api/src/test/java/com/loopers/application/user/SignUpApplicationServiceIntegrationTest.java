@@ -2,7 +2,7 @@ package com.loopers.application.user;
 
 import com.loopers.domain.user.User;
 import com.loopers.application.user.SignUpCommand;
-import com.loopers.application.user.SignUpService;
+import com.loopers.application.user.SignUpApplicationService;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,9 +16,9 @@ import java.time.LocalDate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-public class SignUpServiceIntegrationTest {
+public class SignUpApplicationServiceIntegrationTest {
     @Autowired
-    private SignUpService signUpService;
+    private SignUpApplicationService signUpService;
 
     @Autowired
     private UserJpaRepository userJpaRepository;

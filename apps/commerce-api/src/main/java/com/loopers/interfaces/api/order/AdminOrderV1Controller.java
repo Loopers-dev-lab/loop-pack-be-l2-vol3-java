@@ -2,7 +2,7 @@ package com.loopers.interfaces.api.order;
 
 import com.loopers.application.order.OrderInfo;
 import com.loopers.application.order.OrderItemInfo;
-import com.loopers.application.order.OrderService;
+import com.loopers.application.order.OrderApplicationService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +22,7 @@ import java.util.List;
 @RequestMapping("/api-admin/v1/orders")
 public class AdminOrderV1Controller {
 
-    private final OrderService orderService;
+    private final OrderApplicationService orderService;
 
     @GetMapping
     public ApiResponse<PageResponse<OrderV1Dto.OrderResponse>> getOrders(

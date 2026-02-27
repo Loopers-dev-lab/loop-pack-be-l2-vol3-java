@@ -16,16 +16,16 @@ import java.time.LocalDate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class SignUpServiceTest {
+public class SignUpApplicationServiceTest {
     private InMemoryUserRepository userRepository;
     private PasswordEncoder passwordEncoder;
-    private SignUpService signUpService;
+    private SignUpApplicationService signUpService;
 
     @BeforeEach
     void setUp() {
         userRepository = new InMemoryUserRepository();
         passwordEncoder = new BcryptPasswordEncoder();
-        signUpService = new SignUpService(passwordEncoder, userRepository);
+        signUpService = new SignUpApplicationService(passwordEncoder, userRepository);
     }
 
     @DisplayName("회원가입 시, ")

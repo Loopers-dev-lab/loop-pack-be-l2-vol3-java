@@ -2,7 +2,7 @@ package com.loopers.application.like;
 
 import com.loopers.application.product.ProductCreateCommand;
 import com.loopers.application.product.ProductInfo;
-import com.loopers.application.product.ProductService;
+import com.loopers.application.product.ProductApplicationService;
 import com.loopers.application.product.ProductUpdateCommand;
 import com.loopers.domain.like.InMemoryLikeRepository;
 import com.loopers.domain.product.InMemoryProductRepository;
@@ -23,16 +23,16 @@ public class LikeFacadeTest {
 
     private InMemoryLikeRepository likeRepository;
     private InMemoryProductRepository productRepository;
-    private LikeService likeService;
-    private ProductService productService;
+    private LikeApplicationService likeService;
+    private ProductApplicationService productService;
     private LikeFacade likeFacade;
 
     @BeforeEach
     void setUp() {
         likeRepository = new InMemoryLikeRepository();
         productRepository = new InMemoryProductRepository();
-        likeService = new LikeService(likeRepository);
-        productService = new ProductService(productRepository);
+        likeService = new LikeApplicationService(likeRepository);
+        productService = new ProductApplicationService(productRepository);
         likeFacade = new LikeFacade(likeService, productService);
     }
 

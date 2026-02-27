@@ -16,16 +16,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class ProductServiceTest {
+public class ProductApplicationServiceTest {
     private static final Long BRAND_ID = 1L;
 
     private InMemoryProductRepository productRepository;
-    private ProductService productService;
+    private ProductApplicationService productService;
 
     @BeforeEach
     void setUp() {
         productRepository = new InMemoryProductRepository();
-        productService = new ProductService(productRepository);
+        productService = new ProductApplicationService(productRepository);
     }
 
     @DisplayName("상품 등록 시, ")

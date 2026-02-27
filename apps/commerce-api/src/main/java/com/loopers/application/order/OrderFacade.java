@@ -1,7 +1,7 @@
 package com.loopers.application.order;
 
 import com.loopers.application.product.ProductInfo;
-import com.loopers.application.product.ProductService;
+import com.loopers.application.product.ProductApplicationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,8 +11,8 @@ import java.util.List;
 @RequiredArgsConstructor
 @Service
 public class OrderFacade {
-    private final OrderService orderService;
-    private final ProductService productService;
+    private final OrderApplicationService orderService;
+    private final ProductApplicationService productService;
 
     @Transactional
     public OrderInfo createOrder(OrderCreateCommand command) {

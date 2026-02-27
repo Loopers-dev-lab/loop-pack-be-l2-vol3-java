@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
-public class OrderService {
+public class OrderApplicationService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
 
