@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.member;
 
 import com.loopers.application.member.MemberFacade;
-import com.loopers.application.member.dto.PutMemberPasswordReqDto;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.member.dto.AddMemberApiReqDto;
 import com.loopers.interfaces.api.member.dto.FindMemberApiResDto;
@@ -28,7 +27,7 @@ public class MemberV1Controller implements MemberV1ApiSpec {
     @PostMapping
     @Override
     public ApiResponse<Void> addMember(@RequestBody AddMemberApiReqDto request) {
-        memberFacade.addMember(request.toCommand());
+        memberFacade.addMember(request.toDto());
         return ApiResponse.successNoContent();
     }
 
@@ -36,7 +35,7 @@ public class MemberV1Controller implements MemberV1ApiSpec {
     @Override
     public ApiResponse<FindMemberApiResDto> findMember(@RequestHeader(HEADER_LOGIN_ID) String loginId,
                                                        @RequestHeader(HEADER_LOGIN_PW) String password) {
-        return ApiResponse.success(memberFacade.findMember(loginId, password));
+        return ApiResponse.success(FindMemberApiResDto.from(memberFacade.findMember(loginId, password)));
     }
 
     @PutMapping("/password")
@@ -44,7 +43,7 @@ public class MemberV1Controller implements MemberV1ApiSpec {
     public ApiResponse<Void> putPassword(@RequestHeader(HEADER_LOGIN_ID) String loginId,
                                          @RequestHeader(HEADER_LOGIN_PW) String password,
                                          @RequestBody PutMemberPasswordApiReqDto request) {
-        memberFacade.putPassword(request.toCommand(loginId, password));
+        memberFacade.putPassword(request.toDto(loginId, password));
         return ApiResponse.successNoContent();
     }
 }

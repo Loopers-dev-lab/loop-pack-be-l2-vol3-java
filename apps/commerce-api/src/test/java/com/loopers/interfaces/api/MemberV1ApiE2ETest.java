@@ -1,14 +1,13 @@
 package com.loopers.interfaces.api;
 
-import com.loopers.domain.member.MemberModel;
-import com.loopers.domain.member.vo.BirthDate;
-import com.loopers.domain.member.vo.Email;
-import com.loopers.domain.member.vo.LoginId;
-import com.loopers.domain.member.vo.MemberName;
-import com.loopers.domain.member.vo.Password;
+import com.loopers.domain.member.model.Member;
+import com.loopers.domain.member.model.MemberCommand;
+import com.loopers.domain.member.service.PasswordEncryptor;
 import com.loopers.infrastructure.member.entity.MemberEntity;
 import com.loopers.infrastructure.member.repository.MemberJpaRepository;
-import com.loopers.interfaces.api.member.MemberV1Dto;
+import com.loopers.interfaces.api.member.dto.AddMemberApiReqDto;
+import com.loopers.interfaces.api.member.dto.FindMemberApiResDto;
+import com.loopers.interfaces.api.member.dto.PutMemberPasswordApiReqDto;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,7 +22,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
 
@@ -42,19 +40,19 @@ class MemberV1ApiE2ETest {
 
     private final TestRestTemplate testRestTemplate;
     private final MemberJpaRepository memberJpaRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final PasswordEncryptor passwordEncryptor;
     private final DatabaseCleanUp databaseCleanUp;
 
     @Autowired
     public MemberV1ApiE2ETest(
         TestRestTemplate testRestTemplate,
         MemberJpaRepository memberJpaRepository,
-        PasswordEncoder passwordEncoder,
+        PasswordEncryptor passwordEncryptor,
         DatabaseCleanUp databaseCleanUp
     ) {
         this.testRestTemplate = testRestTemplate;
         this.memberJpaRepository = memberJpaRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.passwordEncryptor = passwordEncryptor;
         this.databaseCleanUp = databaseCleanUp;
     }
 
@@ -71,13 +69,8 @@ class MemberV1ApiE2ETest {
     }
 
     private MemberEntity saveMember(String loginId, String rawPassword, String name, LocalDate birthDate, String email) {
-        MemberModel model = MemberModel.signUp(
-            new LoginId(loginId),
-            new Password(passwordEncoder.encode(rawPassword)),
-            new MemberName(name),
-            new BirthDate(birthDate),
-            new Email(email)
-        );
+        MemberCommand.SignUp command = new MemberCommand.SignUp(loginId, rawPassword, name, birthDate, email);
+        Member model = Member.signUp(command, passwordEncryptor);
         return memberJpaRepository.save(MemberEntity.toEntity(model));
     }
 
@@ -89,7 +82,7 @@ class MemberV1ApiE2ETest {
         @Test
         void signUp_success() {
             // arrange
-            MemberV1Dto.SignUpRequest request = new MemberV1Dto.SignUpRequest(
+            AddMemberApiReqDto request = new AddMemberApiReqDto(
                 "testuser",
                 "Password123!",
                 "홍길동",
@@ -110,7 +103,7 @@ class MemberV1ApiE2ETest {
             assertThat(saved.getLoginId()).isEqualTo("testuser");
             assertThat(saved.getName()).isEqualTo("홍길동");
             assertThat(saved.getEmail()).isEqualTo("test@example.com");
-            assertThat(passwordEncoder.matches("Password123!", saved.getPassword())).isTrue();
+            assertThat(passwordEncryptor.matches("Password123!", saved.getPassword())).isTrue();
         }
 
         @DisplayName("이미 존재하는 로그인 ID로 가입하면 409 CONFLICT 응답을 받는다")
@@ -119,7 +112,7 @@ class MemberV1ApiE2ETest {
             // arrange - 먼저 회원 생성
             saveMember("existinguser", "Pass1234!", "홍길동", LocalDate.of(1990, 1, 15), "existing@example.com");
 
-            MemberV1Dto.SignUpRequest request = new MemberV1Dto.SignUpRequest(
+            AddMemberApiReqDto request = new AddMemberApiReqDto(
                 "existinguser",
                 "Password123!",
                 "김철수",
@@ -145,7 +138,7 @@ class MemberV1ApiE2ETest {
             // arrange - 먼저 회원 생성
             saveMember("firstuser", "Pass1234!", "홍길동", LocalDate.of(1990, 1, 15), "duplicate@example.com");
 
-            MemberV1Dto.SignUpRequest request = new MemberV1Dto.SignUpRequest(
+            AddMemberApiReqDto request = new AddMemberApiReqDto(
                 "newuser",
                 "Password123!",
                 "김철수",
@@ -180,8 +173,8 @@ class MemberV1ApiE2ETest {
             HttpHeaders headers = createAuthHeaders("testuser", password);
 
             // act
-            ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>> responseType = new ParameterizedTypeReference<>() {};
-            ResponseEntity<ApiResponse<MemberV1Dto.MemberResponse>> response =
+            ParameterizedTypeReference<ApiResponse<FindMemberApiResDto>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<FindMemberApiResDto>> response =
                 testRestTemplate.exchange(ENDPOINT_MEMBER, HttpMethod.GET, new HttpEntity<>(headers), responseType);
 
             // assert
@@ -201,8 +194,8 @@ class MemberV1ApiE2ETest {
             HttpHeaders headers = createAuthHeaders("nonexistent", "Password123!");
 
             // act
-            ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>> responseType = new ParameterizedTypeReference<>() {};
-            ResponseEntity<ApiResponse<MemberV1Dto.MemberResponse>> response =
+            ParameterizedTypeReference<ApiResponse<FindMemberApiResDto>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<FindMemberApiResDto>> response =
                 testRestTemplate.exchange(ENDPOINT_MEMBER, HttpMethod.GET, new HttpEntity<>(headers), responseType);
 
             // assert
@@ -221,8 +214,8 @@ class MemberV1ApiE2ETest {
             HttpHeaders headers = createAuthHeaders("testuser", "Wrong12345!");
 
             // act
-            ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>> responseType = new ParameterizedTypeReference<>() {};
-            ResponseEntity<ApiResponse<MemberV1Dto.MemberResponse>> response =
+            ParameterizedTypeReference<ApiResponse<FindMemberApiResDto>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<FindMemberApiResDto>> response =
                 testRestTemplate.exchange(ENDPOINT_MEMBER, HttpMethod.GET, new HttpEntity<>(headers), responseType);
 
             // assert
@@ -247,7 +240,7 @@ class MemberV1ApiE2ETest {
             saveMember("testuser", currentPassword, "홍길동", LocalDate.of(1990, 1, 15), "test@example.com");
 
             HttpHeaders headers = createAuthHeaders("testuser", currentPassword);
-            MemberV1Dto.ChangePasswordRequest request = new MemberV1Dto.ChangePasswordRequest(
+            PutMemberPasswordApiReqDto request = new PutMemberPasswordApiReqDto(
                 currentPassword,
                 newPassword
             );
@@ -262,8 +255,8 @@ class MemberV1ApiE2ETest {
 
             // DB 검증
             MemberEntity updated = memberJpaRepository.findByLoginId("testuser").orElseThrow();
-            assertThat(passwordEncoder.matches(newPassword, updated.getPassword())).isTrue();
-            assertThat(passwordEncoder.matches(currentPassword, updated.getPassword())).isFalse();
+            assertThat(passwordEncryptor.matches(newPassword, updated.getPassword())).isTrue();
+            assertThat(passwordEncryptor.matches(currentPassword, updated.getPassword())).isFalse();
         }
 
         @DisplayName("헤더 인증 비밀번호가 틀리면 401 UNAUTHORIZED 응답을 받는다")
@@ -273,7 +266,7 @@ class MemberV1ApiE2ETest {
             saveMember("testuser", "Correct1234!", "홍길동", LocalDate.of(1990, 1, 15), "test@example.com");
 
             HttpHeaders headers = createAuthHeaders("testuser", "Wrong12345!");
-            MemberV1Dto.ChangePasswordRequest request = new MemberV1Dto.ChangePasswordRequest(
+            PutMemberPasswordApiReqDto request = new PutMemberPasswordApiReqDto(
                 "Correct1234!",
                 "NewPass1234!"
             );
@@ -298,7 +291,7 @@ class MemberV1ApiE2ETest {
             saveMember("testuser", actualPassword, "홍길동", LocalDate.of(1990, 1, 15), "test@example.com");
 
             HttpHeaders headers = createAuthHeaders("testuser", actualPassword);
-            MemberV1Dto.ChangePasswordRequest request = new MemberV1Dto.ChangePasswordRequest(
+            PutMemberPasswordApiReqDto request = new PutMemberPasswordApiReqDto(
                 "Wrong12345!",
                 "NewPass1234!"
             );
@@ -324,7 +317,7 @@ class MemberV1ApiE2ETest {
             saveMember("testuser", samePassword, "홍길동", LocalDate.of(1990, 1, 15), "test@example.com");
 
             HttpHeaders headers = createAuthHeaders("testuser", samePassword);
-            MemberV1Dto.ChangePasswordRequest request = new MemberV1Dto.ChangePasswordRequest(
+            PutMemberPasswordApiReqDto request = new PutMemberPasswordApiReqDto(
                 samePassword,
                 samePassword
             );
@@ -350,7 +343,7 @@ class MemberV1ApiE2ETest {
             saveMember("testuser", currentPassword, "홍길동", LocalDate.of(1990, 1, 15), "test@example.com");
 
             HttpHeaders headers = createAuthHeaders("testuser", currentPassword);
-            MemberV1Dto.ChangePasswordRequest request = new MemberV1Dto.ChangePasswordRequest(
+            PutMemberPasswordApiReqDto request = new PutMemberPasswordApiReqDto(
                 currentPassword,
                 "short1!"
             );

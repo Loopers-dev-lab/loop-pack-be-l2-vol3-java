@@ -1,5 +1,6 @@
 package com.loopers.domain.member.vo;
 
+import com.loopers.domain.member.service.PasswordEncryptor;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +16,17 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 class PasswordTest {
 
     private static final String BIRTH_DATE_STRING = new BirthDate(LocalDate.of(1990, 1, 15)).toFormattedString();
+    private static final PasswordEncryptor STUB_ENCRYPTOR = new PasswordEncryptor() {
+        @Override
+        public String encode(String rawPassword) {
+            return "encoded_" + rawPassword;
+        }
+
+        @Override
+        public boolean matches(String rawPassword, String encodedPassword) {
+            return encodedPassword.equals("encoded_" + rawPassword);
+        }
+    };
 
     @DisplayName("Password를 생성할 때, ")
     @Nested
@@ -44,9 +56,9 @@ class PasswordTest {
         }
     }
 
-    @DisplayName("평문 비밀번호 규칙 검증 시, ")
+    @DisplayName("Password.create()로 평문 비밀번호 생성 시, ")
     @Nested
-    class ValidateRawPassword {
+    class CreateFromRaw {
 
         @DisplayName("비밀번호 길이 검증")
         @Nested
@@ -55,7 +67,7 @@ class PasswordTest {
             @DisplayName("8자 미만이면 예외가 발생한다")
             @Test
             void throwsException_whenLessThan8() {
-                assertThatThrownBy(() -> Password.validateRawPassword("Abc123!", BIRTH_DATE_STRING))
+                assertThatThrownBy(() -> Password.create("Abc123!", BIRTH_DATE_STRING, STUB_ENCRYPTOR))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
             }
@@ -63,21 +75,23 @@ class PasswordTest {
             @DisplayName("16자 초과면 예외가 발생한다")
             @Test
             void throwsException_whenMoreThan16() {
-                assertThatThrownBy(() -> Password.validateRawPassword("Abcdefgh12345678!", BIRTH_DATE_STRING))
+                assertThatThrownBy(() -> Password.create("Abcdefgh12345678!", BIRTH_DATE_STRING, STUB_ENCRYPTOR))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
             }
 
-            @DisplayName("정확히 8자면 예외가 발생하지 않는다")
+            @DisplayName("정확히 8자면 정상 생성된다")
             @Test
             void success_whenExactly8() {
-                assertDoesNotThrow(() -> Password.validateRawPassword("Abcd123!", BIRTH_DATE_STRING));
+                Password password = assertDoesNotThrow(() -> Password.create("Abcd123!", BIRTH_DATE_STRING, STUB_ENCRYPTOR));
+                assertThat(password.value()).isEqualTo("encoded_Abcd123!");
             }
 
-            @DisplayName("정확히 16자면 예외가 발생하지 않는다")
+            @DisplayName("정확히 16자면 정상 생성된다")
             @Test
             void success_whenExactly16() {
-                assertDoesNotThrow(() -> Password.validateRawPassword("Abcdefg1234567!@", BIRTH_DATE_STRING));
+                Password password = assertDoesNotThrow(() -> Password.create("Abcdefg1234567!@", BIRTH_DATE_STRING, STUB_ENCRYPTOR));
+                assertThat(password.value()).isEqualTo("encoded_Abcdefg1234567!@");
             }
         }
 
@@ -88,7 +102,7 @@ class PasswordTest {
             @DisplayName("영문이 없으면 예외가 발생한다")
             @Test
             void throwsException_whenNoLetter() {
-                assertThatThrownBy(() -> Password.validateRawPassword("12345678!@", BIRTH_DATE_STRING))
+                assertThatThrownBy(() -> Password.create("12345678!@", BIRTH_DATE_STRING, STUB_ENCRYPTOR))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
             }
@@ -96,7 +110,7 @@ class PasswordTest {
             @DisplayName("숫자가 없으면 예외가 발생한다")
             @Test
             void throwsException_whenNoDigit() {
-                assertThatThrownBy(() -> Password.validateRawPassword("Abcdefgh!@", BIRTH_DATE_STRING))
+                assertThatThrownBy(() -> Password.create("Abcdefgh!@", BIRTH_DATE_STRING, STUB_ENCRYPTOR))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
             }
@@ -104,7 +118,7 @@ class PasswordTest {
             @DisplayName("특수문자가 없으면 예외가 발생한다")
             @Test
             void throwsException_whenNoSpecialChar() {
-                assertThatThrownBy(() -> Password.validateRawPassword("Abcdefgh12", BIRTH_DATE_STRING))
+                assertThatThrownBy(() -> Password.create("Abcdefgh12", BIRTH_DATE_STRING, STUB_ENCRYPTOR))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
             }
@@ -117,7 +131,7 @@ class PasswordTest {
             @DisplayName("생년월일(yyyyMMdd)이 포함되면 예외가 발생한다")
             @Test
             void throwsException_whenContainsBirthDate() {
-                assertThatThrownBy(() -> Password.validateRawPassword("Abc19900115!", BIRTH_DATE_STRING))
+                assertThatThrownBy(() -> Password.create("Abc19900115!", BIRTH_DATE_STRING, STUB_ENCRYPTOR))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
             }
@@ -130,7 +144,7 @@ class PasswordTest {
             @DisplayName("한글이 포함되면 예외가 발생한다")
             @Test
             void throwsException_whenContainsKorean() {
-                assertThatThrownBy(() -> Password.validateRawPassword("Abcd1234한글!", BIRTH_DATE_STRING))
+                assertThatThrownBy(() -> Password.create("Abcd1234한글!", BIRTH_DATE_STRING, STUB_ENCRYPTOR))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
             }
@@ -138,7 +152,7 @@ class PasswordTest {
             @DisplayName("공백이 포함되면 예외가 발생한다")
             @Test
             void throwsException_whenContainsSpace() {
-                assertThatThrownBy(() -> Password.validateRawPassword("Abcd 1234!", BIRTH_DATE_STRING))
+                assertThatThrownBy(() -> Password.create("Abcd 1234!", BIRTH_DATE_STRING, STUB_ENCRYPTOR))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
             }
@@ -148,11 +162,20 @@ class PasswordTest {
         @Nested
         class ValidPassword {
 
-            @DisplayName("모든 조건을 만족하면 예외가 발생하지 않는다")
+            @DisplayName("모든 조건을 만족하면 인코딩된 Password가 생성된다")
             @Test
             void success_whenValid() {
-                assertDoesNotThrow(() -> Password.validateRawPassword("Abcd1234!", BIRTH_DATE_STRING));
+                Password password = assertDoesNotThrow(() -> Password.create("Abcd1234!", BIRTH_DATE_STRING, STUB_ENCRYPTOR));
+                assertThat(password.value()).isEqualTo("encoded_Abcd1234!");
             }
+        }
+
+        @DisplayName("matches()로 평문과 인코딩된 비밀번호를 비교할 수 있다")
+        @Test
+        void matches_success() {
+            Password password = Password.create("Abcd1234!", BIRTH_DATE_STRING, STUB_ENCRYPTOR);
+            assertThat(password.matches("Abcd1234!", STUB_ENCRYPTOR)).isTrue();
+            assertThat(password.matches("Wrong1234!", STUB_ENCRYPTOR)).isFalse();
         }
     }
 }

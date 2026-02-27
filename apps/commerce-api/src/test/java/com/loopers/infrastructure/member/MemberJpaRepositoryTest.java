@@ -1,12 +1,7 @@
 package com.loopers.infrastructure.member;
 
 import com.loopers.infrastructure.member.entity.MemberEntity;
-import com.loopers.domain.member.MemberModel;
-import com.loopers.domain.member.vo.BirthDate;
-import com.loopers.domain.member.vo.Email;
-import com.loopers.domain.member.vo.LoginId;
-import com.loopers.domain.member.vo.MemberName;
-import com.loopers.domain.member.vo.Password;
+import com.loopers.domain.member.model.Member;
 import com.loopers.infrastructure.member.repository.MemberJpaRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import org.junit.jupiter.api.DisplayName;
@@ -31,13 +26,7 @@ class MemberJpaRepositoryTest {
     private MemberJpaRepository memberJpaRepository;
 
     private MemberEntity createEntity(String loginId, String email) {
-        MemberModel model = MemberModel.signUp(
-            new LoginId(loginId),
-            new Password("Password123!"),
-            new MemberName("홍길동"),
-            new BirthDate(LocalDate.of(1990, 1, 15)),
-            new Email(email)
-        );
+        Member model = Member.reconstruct(null, loginId, "Password123!", "홍길동", LocalDate.of(1990, 1, 15), email);
         return MemberEntity.toEntity(model);
     }
 

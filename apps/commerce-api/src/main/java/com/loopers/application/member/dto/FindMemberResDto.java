@@ -1,6 +1,6 @@
 package com.loopers.application.member.dto;
 
-import com.loopers.domain.member.MemberModel;
+import com.loopers.domain.member.model.Member;
 
 import java.time.LocalDate;
 
@@ -10,10 +10,10 @@ public record FindMemberResDto(
         LocalDate birthDate,
         String email
 ) {
-    public static FindMemberResDto from(MemberModel model) {
+    public static FindMemberResDto from(Member model) {
         return new FindMemberResDto(
                 model.getLoginId().value(),
-                model.getName().value(),
+                model.getName().masked(),
                 model.getBirthDate().value(),
                 model.getEmail().value()
         );

@@ -1,9 +1,14 @@
 package com.loopers.infrastructure.member.repository.impl;
 
-import com.loopers.domain.member.MemberModel;
-import com.loopers.domain.member.MemberRepository;
+import com.loopers.domain.member.model.Member;
+import com.loopers.domain.member.repository.MemberRepository;
+import com.loopers.domain.member.vo.Email;
+import com.loopers.domain.member.vo.LoginId;
+import com.loopers.domain.member.vo.Password;
 import com.loopers.infrastructure.member.entity.MemberEntity;
 import com.loopers.infrastructure.member.repository.MemberJpaRepository;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -16,36 +21,29 @@ public class MemberRepositoryImpl implements MemberRepository {
     private final MemberJpaRepository memberJpaRepository;
 
     @Override
-    public MemberModel save(MemberModel member) {
+    public Member save(Member member) {
         MemberEntity entity = MemberEntity.toEntity(member);
         return memberJpaRepository.save(entity).toModel();
     }
 
     @Override
-    public void updatePassword(String loginId, String encodedPassword) {
-        MemberEntity entity = memberJpaRepository.findByLoginId(loginId).orElseThrow();
-        entity.changePassword(encodedPassword);
+    public void updatePassword(LoginId loginId, Password password) {
+        MemberEntity entity = memberJpaRepository.findByLoginId(loginId.value()).orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다."));
+        entity.changePassword(password.value());
     }
 
     @Override
-    public Optional<MemberModel> findByLoginId(String loginId) {
-        return memberJpaRepository.findByLoginId(loginId)
-            .map(MemberEntity::toModel);
+    public Optional<Member> findByLoginId(LoginId loginId) {
+        return memberJpaRepository.findByLoginId(loginId.value()).map(MemberEntity::toModel);
     }
 
     @Override
-    public Optional<MemberModel> findByEmail(String email) {
-        return memberJpaRepository.findByEmail(email)
-            .map(MemberEntity::toModel);
+    public boolean existsByLoginId(LoginId loginId) {
+        return memberJpaRepository.existsByLoginId(loginId.value());
     }
 
     @Override
-    public boolean existsByLoginId(String loginId) {
-        return memberJpaRepository.existsByLoginId(loginId);
-    }
-
-    @Override
-    public boolean existsByEmail(String email) {
-        return memberJpaRepository.existsByEmail(email);
+    public boolean existsByEmail(Email email) {
+        return memberJpaRepository.existsByEmail(email.value());
     }
 }
