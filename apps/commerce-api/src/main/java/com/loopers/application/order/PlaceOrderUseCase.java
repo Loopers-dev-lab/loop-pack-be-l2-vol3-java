@@ -36,7 +36,7 @@ public class PlaceOrderUseCase {
     @Transactional
     public Long execute(PlaceOrderCommand command) {
         List<Long> productIds = command.getProductIds();
-        Map<Long, Product> products = productService.getProductsByIds(productIds);
+        Map<Long, Product> products = productService.getActiveProductsByIds(productIds);
         if (products.size() != productIds.size()) {
             throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
         }

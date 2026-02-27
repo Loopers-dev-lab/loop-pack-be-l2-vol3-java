@@ -99,7 +99,7 @@ public class ProductService {
      * @return 상품 ID를 키로 하는 상품 맵
      */
     @Transactional(readOnly = true)
-    public Map<Long, Product> getProductsByIds(List<Long> productIds) {
+    public Map<Long, Product> getActiveProductsByIds(List<Long> productIds) {
         return productRepository.findAllByIdInAndDeletedAtIsNull(productIds)
                 .stream()
                 .collect(Collectors.toMap(Product::getId, Function.identity()));
