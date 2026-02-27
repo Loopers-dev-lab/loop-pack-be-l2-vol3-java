@@ -17,7 +17,8 @@
 
 인증 헤더: `X-Loopers-Ldap`
 
-- [x] `X-Loopers-Ldap` 헤더가 없거나 값이 `loopers.admin`과 일치하지 않으면 `401 Unauthorized`를 반환한다
+- [x] `X-Loopers-Ldap` 헤더의 값이 `loopers.admin`과 일치하는지 확인한다
+- [x] 헤더가 없거나 값이 일치하지 않으면 `401 Unauthorized`를 반환한다
 - [x] `/api-admin/v1/**` 경로에 어드민 인증을 적용한다
 
 ---
