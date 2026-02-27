@@ -23,6 +23,7 @@ class MemberRepositoryTest {
     private DatabaseCleanUp databaseCleanUp;
     
     @AfterEach
+    void tearDown() {
         databaseCleanUp.truncateAllTables();
     }
     

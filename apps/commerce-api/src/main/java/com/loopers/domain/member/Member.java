@@ -18,16 +18,16 @@ public class Member extends BaseEntity {
     
     protected Member() {}
     
-    public Member(String loginId, String rawPassword, String name, 
+    public Member(String loginId, String encryptedPassword, String name,
                   String birthDate, String email) {
         validateLoginId(loginId);
-        validatePassword(rawPassword);
+        validatePassword(encryptedPassword);
         validateName(name);
         validateBirthDate(birthDate);
         validateEmail(email);
-        
+
         this.loginId = loginId;
-        this.encryptedPassword = rawPassword;
+        this.encryptedPassword = encryptedPassword;
         this.name = name;
         this.birthDate = birthDate;
         this.email = email;
