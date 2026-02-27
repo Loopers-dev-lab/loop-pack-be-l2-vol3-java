@@ -55,6 +55,14 @@ public class Product extends BaseEntity {
         this.stockQuantity = new StockQuantity(current + quantity);
     }
 
+    public String getName() {
+        return name;
+    }
+
+    public Long getPrice() {
+        return price;
+    }
+
     public StockQuantity getStockQuantity() {
         return stockQuantity;
     }
