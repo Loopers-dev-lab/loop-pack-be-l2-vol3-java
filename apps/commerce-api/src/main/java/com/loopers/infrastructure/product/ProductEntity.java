@@ -83,6 +83,7 @@ public class ProductEntity extends BaseEntity {
         this.price = product.price();
         this.stock = product.stock();
         this.description = product.description();
+        this.categoryId = product.categoryId();
         this.likeCount = product.likeCount();
     }
 }

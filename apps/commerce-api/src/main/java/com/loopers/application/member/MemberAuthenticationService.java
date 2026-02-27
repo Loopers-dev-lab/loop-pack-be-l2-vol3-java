@@ -34,4 +34,9 @@ public class MemberAuthenticationService {
         return memberRepository.findDbIdByMemberId(memberId)
                 .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "회원을 찾을 수 없습니다."));
     }
+
+    public Long findDbIdByMember(Member member) {
+        return memberRepository.findDbIdByMemberId(member.id())
+                .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "회원을 찾을 수 없습니다."));
+    }
 }

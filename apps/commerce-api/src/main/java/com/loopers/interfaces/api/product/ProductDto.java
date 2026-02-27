@@ -1,12 +1,16 @@
 package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.command.CreateProductCommand;
+import com.loopers.application.product.command.UpdateProductCommand;
+import com.loopers.application.product.view.ProductListView;
+import com.loopers.application.product.view.ProductView;
 import com.loopers.domain.product.Product;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.domain.Page;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 
 public class ProductDto {
@@ -39,9 +43,30 @@ public class ProductDto {
             String description,
             Long categoryId,
             Long brandId,
-            Integer likeCount
+            BrandInfo brand,
+            Integer likeCount,
+            ZonedDateTime deletedAt
     ) {
         public static ProductResponse from(Product product) {
+            return from(product, null);
+        }
+
+        public static ProductResponse from(ProductView productView) {
+            return new ProductResponse(
+                    productView.id(),
+                    productView.name(),
+                    productView.price(),
+                    productView.stock(),
+                    productView.description(),
+                    productView.categoryId(),
+                    productView.brandId(),
+                    new BrandInfo(productView.brandId(), productView.brandName()),
+                    productView.likeCount(),
+                    productView.deletedAt()
+            );
+        }
+
+        public static ProductResponse from(Product product, String brandName) {
             return new ProductResponse(
                     product.id(),
                     product.name(),
@@ -50,8 +75,35 @@ public class ProductDto {
                     product.description(),
                     product.categoryId(),
                     product.brandId(),
-                    product.likeCount()
+                    new BrandInfo(product.brandId(), brandName),
+                    product.likeCount(),
+                    product.deletedAt()
             );
+        }
+    }
+
+    public record BrandInfo(
+            Long id,
+            String name
+    ) {
+    }
+
+    public record UpdateProductRequest(
+            @NotBlank(message = "상품명은 필수입니다")
+            String name,
+            @NotNull(message = "가격은 필수입니다")
+            @Min(value = 0, message = "가격은 0 이상이어야 합니다")
+            Integer price,
+            @NotNull(message = "재고는 필수입니다")
+            @Min(value = 0, message = "재고는 0 이상이어야 합니다")
+            Integer stock,
+            String description,
+            @NotNull(message = "카테고리 ID는 필수입니다")
+            Long categoryId,
+            Long brandId
+    ) {
+        public UpdateProductCommand toCommand() {
+            return new UpdateProductCommand(name, price, stock, description, categoryId, brandId);
         }
     }
 
@@ -62,10 +114,7 @@ public class ProductDto {
             long totalElements,
             int totalPages
     ) {
-        public static ProductListResponse from(Page<Product> pageData) {
-            List<ProductResponse> items = pageData.getContent().stream()
-                    .map(ProductResponse::from)
-                    .toList();
+        public static ProductListResponse from(Page<?> pageData, List<ProductResponse> items) {
             return new ProductListResponse(
                     items,
                     pageData.getNumber(),
@@ -73,6 +122,20 @@ public class ProductDto {
                     pageData.getTotalElements(),
                     pageData.getTotalPages()
             );
+        }
+
+        public static ProductListResponse from(Page<Product> pageData) {
+            List<ProductResponse> items = pageData.getContent().stream()
+                    .map(ProductResponse::from)
+                    .toList();
+            return from(pageData, items);
+        }
+
+        public static ProductListResponse from(ProductListView view) {
+            List<ProductResponse> items = view.items().stream()
+                    .map(ProductResponse::from)
+                    .toList();
+            return new ProductListResponse(items, view.page(), view.size(), view.totalElements(), view.totalPages());
         }
     }
 }

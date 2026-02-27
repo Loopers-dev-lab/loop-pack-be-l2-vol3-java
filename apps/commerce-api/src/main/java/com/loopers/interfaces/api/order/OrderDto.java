@@ -1,14 +1,19 @@
 package com.loopers.interfaces.api.order;
 
 import com.loopers.application.order.command.CreateOrderCommand;
+import com.loopers.application.order.query.OrderListByUserRequest;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.PageRequest;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.List;
 
@@ -91,6 +96,27 @@ public class OrderDto {
                     pageData.getTotalElements(),
                     pageData.getTotalPages()
             );
+        }
+    }
+
+    public record ListOrdersRequest(
+            @NotNull(message = "시작일은 필수입니다")
+            @DateTimeFormat(pattern = "yyyyMMdd")
+            LocalDate startAt,
+            @NotNull(message = "종료일은 필수입니다")
+            @DateTimeFormat(pattern = "yyyyMMdd")
+            LocalDate endAt,
+            Integer page,
+            Integer size
+    ) {
+        private static final int DEFAULT_PAGE = 0;
+        private static final int DEFAULT_SIZE = 20;
+
+        public OrderListByUserRequest toQuery(Long userId) {
+            int resolvedPage = page == null ? DEFAULT_PAGE : page;
+            int resolvedSize = size == null ? DEFAULT_SIZE : size;
+            Pageable pageable = PageRequest.of(resolvedPage, resolvedSize);
+            return new OrderListByUserRequest(userId, startAt, endAt, pageable);
         }
     }
 }

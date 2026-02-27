@@ -1,11 +1,15 @@
 package com.loopers.interfaces.api.admin;
 
 import com.loopers.application.brand.BrandApplicationService;
+import com.loopers.application.brand.BrandAdminFacade;
 import com.loopers.domain.brand.Brand;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.brand.BrandDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +19,17 @@ import org.springframework.web.bind.annotation.*;
 public class AdminBrandController {
 
     private final BrandApplicationService brandApplicationService;
+    private final BrandAdminFacade brandAdminFacade;
+
+    @GetMapping
+    public ApiResponse<BrandDto.BrandListResponse> listBrands(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Brand> brands = brandApplicationService.list(pageable);
+        return ApiResponse.success(BrandDto.BrandListResponse.from(brands));
+    }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -42,7 +57,7 @@ public class AdminBrandController {
 
     @DeleteMapping("/{brandId}")
     public ApiResponse<Void> deleteBrand(@PathVariable Long brandId) {
-        brandApplicationService.delete(brandId);
+        brandAdminFacade.delete(brandId);
         return ApiResponse.success();
     }
 }

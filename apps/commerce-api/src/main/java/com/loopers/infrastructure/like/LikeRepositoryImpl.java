@@ -7,6 +7,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 @RequiredArgsConstructor
 public class LikeRepositoryImpl implements LikeRepository {
@@ -27,6 +29,11 @@ public class LikeRepositoryImpl implements LikeRepository {
     @Override
     public void deleteByMemberIdAndProductId(String memberId, Long productId) {
         likeJpaRepository.deleteByMemberIdAndProductId(memberId, productId);
+    }
+
+    @Override
+    public void deleteByProductIds(List<Long> productIds) {
+        likeJpaRepository.deleteByProductIdIn(productIds);
     }
 
     @Override

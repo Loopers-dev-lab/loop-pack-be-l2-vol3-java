@@ -1,9 +1,13 @@
 package com.loopers.interfaces.api.product;
 
-import com.loopers.application.like.LikeApplicationService;
+import com.loopers.application.like.LikeFacade;
+import com.loopers.application.product.ProductQueryFacade;
+import com.loopers.domain.product.Product;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.auth.AuthMember;
 import com.loopers.domain.member.Member;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,24 +21,22 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1")
+@RequiredArgsConstructor
 public class LikeController {
 
-    private final LikeApplicationService likeApplicationService;
-
-    public LikeController(LikeApplicationService likeApplicationService) {
-        this.likeApplicationService = likeApplicationService;
-    }
+    private final LikeFacade likeFacade;
+    private final ProductQueryFacade productQueryFacade;
 
     @PostMapping("/products/{productId}/likes")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Void> registerLike(@PathVariable Long productId, @AuthMember Member member) {
-        likeApplicationService.register(productId, member);
+        likeFacade.register(productId, member);
         return ApiResponse.success();
     }
 
     @DeleteMapping("/products/{productId}/likes")
     public ApiResponse<Void> cancelLike(@PathVariable Long productId, @AuthMember Member member) {
-        likeApplicationService.cancel(productId, member);
+        likeFacade.cancel(productId, member);
         return ApiResponse.success();
     }
 
@@ -44,8 +46,7 @@ public class LikeController {
             @RequestParam(defaultValue = "20") int size,
             @AuthMember Member member
     ) {
-        return ApiResponse.success(ProductDto.ProductListResponse.from(
-                likeApplicationService.getMyLikes(member.id().value(), PageRequest.of(page, size))
-        ));
+        Page<Product> likedProducts = likeFacade.getMyLikes(member.id().value(), PageRequest.of(page, size));
+        return ApiResponse.success(ProductDto.ProductListResponse.from(productQueryFacade.toListView(likedProducts)));
     }
 }

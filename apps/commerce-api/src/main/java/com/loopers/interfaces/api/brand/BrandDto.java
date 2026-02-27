@@ -6,6 +6,9 @@ import com.loopers.domain.brand.Brand;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Builder;
+import org.springframework.data.domain.Page;
+
+import java.util.List;
 
 public class BrandDto {
 
@@ -65,6 +68,28 @@ public class BrandDto {
                     .description(brand.description())
                     .imageUrl(brand.imageUrl())
                     .build();
+        }
+    }
+
+    public record BrandListResponse(
+            List<BrandResponse> items,
+            int page,
+            int size,
+            long totalElements,
+            int totalPages
+    ) {
+        public static BrandListResponse from(Page<Brand> pageData) {
+            List<BrandResponse> items = pageData.getContent().stream()
+                    .map(BrandResponse::from)
+                    .toList();
+
+            return new BrandListResponse(
+                    items,
+                    pageData.getNumber(),
+                    pageData.getSize(),
+                    pageData.getTotalElements(),
+                    pageData.getTotalPages()
+            );
         }
     }
 }

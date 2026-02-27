@@ -35,6 +35,8 @@ class OrderApiE2ETest {
 
     private static final String ENDPOINT_ORDERS = "/api/v1/orders";
     private static final String ENDPOINT_BRANDS = "/api-admin/v1/brands";
+    private static final String HEADER_ADMIN_LDAP = "X-Loopers-Ldap";
+    private static final String ADMIN_LDAP_VALUE = "loopers.admin";
     private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
     private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
     private static final String TEST_LOGIN_ID = "orderuser1";
@@ -105,11 +107,14 @@ class OrderApiE2ETest {
                 "https://example.com/logo.png"
         );
 
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HEADER_ADMIN_LDAP, ADMIN_LDAP_VALUE);
+
         ResponseEntity<com.loopers.interfaces.api.ApiResponse<com.loopers.interfaces.api.brand.BrandDto.BrandResponse>> response =
                 testRestTemplate.exchange(
                         ENDPOINT_BRANDS,
                         HttpMethod.POST,
-                        new HttpEntity<>(request),
+                        new HttpEntity<>(request, headers),
                         new ParameterizedTypeReference<>() {}
                 );
 

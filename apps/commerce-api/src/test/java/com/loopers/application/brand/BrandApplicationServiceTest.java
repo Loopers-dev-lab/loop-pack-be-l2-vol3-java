@@ -20,14 +20,11 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.inOrder;
 
 @ExtendWith(MockitoExtension.class)
 class BrandApplicationServiceTest {
@@ -127,20 +124,17 @@ class BrandApplicationServiceTest {
     class DeleteTest {
 
         @Test
-        @DisplayName("브랜드 삭제 시 관련 상품 soft-delete와 함께 삭제한다")
-        void deleteAlsoDeletesRelatedProducts() {
+        @DisplayName("브랜드 삭제 성공")
+        void deleteSuccess() {
             Brand target = new Brand(1L, new BrandName("퍼피박스"), "설명", "https://example.com/brand.png");
 
             when(brandRepository.findById(1L)).thenReturn(Optional.of(target));
-            doNothing().when(brandRepository).deleteRelatedProducts(1L);
             doNothing().when(brandRepository).delete(target);
 
             brandApplicationService.delete(1L);
 
-            InOrder inOrder = inOrder(brandRepository);
-            inOrder.verify(brandRepository).deleteRelatedProducts(1L);
-            inOrder.verify(brandRepository).delete(target);
-            verifyNoMoreInteractions(brandRepository);
+            verify(brandRepository).findById(1L);
+            verify(brandRepository).delete(target);
         }
 
         @Test
@@ -153,7 +147,6 @@ class BrandApplicationServiceTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
 
             verify(brandRepository).findById(99L);
-            verify(brandRepository, never()).deleteRelatedProducts(anyLong());
             verify(brandRepository, never()).delete(any(Brand.class));
         }
     }

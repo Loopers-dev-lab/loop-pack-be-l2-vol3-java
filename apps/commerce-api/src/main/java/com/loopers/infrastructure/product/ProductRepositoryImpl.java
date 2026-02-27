@@ -22,6 +22,9 @@ public class ProductRepositoryImpl implements ProductRepository {
             return productJpaRepository.findById(product.id())
                     .map(entity -> {
                         entity.updateFrom(product);
+                        if (product.deletedAt() != null) {
+                            entity.delete();
+                        }
                         return productJpaRepository.save(entity).toDomain();
                     })
                     .orElseGet(() -> productJpaRepository.save(ProductEntity.from(product)).toDomain());
@@ -52,9 +55,32 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public Page<Product> findAllIncludingDeleted(Long brandId, Pageable pageable) {
+        if (brandId == null) {
+            return productJpaRepository.findAll(pageable).map(ProductEntity::toDomain);
+        }
+        return productJpaRepository.findAllByBrandId(brandId, pageable).map(ProductEntity::toDomain);
+    }
+
+    @Override
+    public List<Long> findIdsByBrandId(Long brandId) {
+        return productJpaRepository.findIdsByBrandIdAndDeletedAtIsNull(brandId);
+    }
+
+    @Override
+    public void softDeleteByBrandId(Long brandId) {
+        productJpaRepository.softDeleteByBrandId(brandId);
+    }
+
+    @Override
     public List<Product> findAllByIdInWithLock(List<Long> ids) {
         return productJpaRepository.findAllByIdInWithLock(ids)
                 .stream().map(ProductEntity::toDomain).toList();
     }
 
+    @Override
+    public void delete(Product product) {
+        productJpaRepository.findById(product.id())
+                .ifPresent(ProductEntity::delete);
     }
+}

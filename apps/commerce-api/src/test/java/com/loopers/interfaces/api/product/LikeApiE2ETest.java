@@ -8,6 +8,7 @@ import com.loopers.domain.category.Category;
 import com.loopers.domain.category.CategoryRepository;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.member.MemberDto;
+import com.loopers.infrastructure.like.LikeJpaRepository;
 import com.loopers.infrastructure.product.ProductEntity;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
@@ -42,12 +43,16 @@ class LikeApiE2ETest {
     private static final String ENDPOINT_PRODUCTS = "/api/v1/products";
     private static final String ENDPOINT_LIKES = "/likes";
     private static final String ENDPOINT_ME_LIKES = "/api/v1/me/likes";
+    private static final String ENDPOINT_ADMIN_BRANDS = "/api-admin/v1/brands";
+    private static final String HEADER_ADMIN_LDAP = "X-Loopers-Ldap";
+    private static final String ADMIN_LDAP_VALUE = "loopers.admin";
 
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
     private final BrandRepository brandRepository;
     private final CategoryRepository categoryRepository;
     private final ProductJpaRepository productJpaRepository;
+    private final LikeJpaRepository likeJpaRepository;
 
     private Long brandId;
     private Long categoryId;
@@ -58,13 +63,15 @@ class LikeApiE2ETest {
             DatabaseCleanUp databaseCleanUp,
             BrandRepository brandRepository,
             CategoryRepository categoryRepository,
-            ProductJpaRepository productJpaRepository
+            ProductJpaRepository productJpaRepository,
+            LikeJpaRepository likeJpaRepository
     ) {
         this.testRestTemplate = testRestTemplate;
         this.databaseCleanUp = databaseCleanUp;
         this.brandRepository = brandRepository;
         this.categoryRepository = categoryRepository;
         this.productJpaRepository = productJpaRepository;
+        this.likeJpaRepository = likeJpaRepository;
     }
 
     @BeforeEach
@@ -332,6 +339,48 @@ class LikeApiE2ETest {
         }
 
         @Test
+        @DisplayName("브랜드 삭제 시 관련 상품 좋아요가 삭제되고 내 좋아요 목록에서 제외된다")
+        void getMyLikes_whenBrandDeleted_removesRelatedLikesAndExcludesProducts() {
+            registerMember("likeApiBrandDeleted", "Password1!", "홍길동", "19900101", "api-like-brand-deleted@example.com", "010-9032-3456");
+            Long productId = createProduct("브랜드 삭제 대상 상품", 10_000, 50);
+            HttpHeaders headers = headers("likeApiBrandDeleted", "Password1!");
+
+            testRestTemplate.exchange(
+                    productLikesUrl(productId),
+                    HttpMethod.POST,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {
+                    }
+            );
+
+            assertThat(likeJpaRepository.existsByMemberIdAndProductId("likeApiBrandDeleted", productId)).isTrue();
+
+            deleteBrandAsAdmin(brandId);
+
+            assertThat(likeJpaRepository.existsByMemberIdAndProductId("likeApiBrandDeleted", productId)).isFalse();
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT_ME_LIKES,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {
+                    }
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().data()).isInstanceOf(java.util.Map.class);
+
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> data = (java.util.Map<String, Object>) response.getBody().data();
+            assertThat(data.get("totalElements")).isEqualTo(0);
+
+            @SuppressWarnings("unchecked")
+            java.util.List<java.util.Map<String, Object>> items = (java.util.List<java.util.Map<String, Object>>) data.get("items");
+            assertThat(items).isEmpty();
+        }
+
+        @Test
         @DisplayName("인증 정보가 없으면 401을 반환한다")
         void getMyLikes_whenNoAuthentication_returnsUnauthorized() {
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
@@ -376,6 +425,21 @@ class LikeApiE2ETest {
                 .orElseThrow(() -> new IllegalArgumentException("product not found: " + productId));
         product.delete();
         productJpaRepository.save(product);
+    }
+
+    private void deleteBrandAsAdmin(long targetBrandId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HEADER_ADMIN_LDAP, ADMIN_LDAP_VALUE);
+
+        ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
+                ENDPOINT_ADMIN_BRANDS + "/" + targetBrandId,
+                HttpMethod.DELETE,
+                new HttpEntity<>(headers),
+                new ParameterizedTypeReference<>() {
+                }
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
     private void registerMember(String loginId, String password, String name, String birthDate, String email, String phone) {
