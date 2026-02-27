@@ -89,6 +89,29 @@ class ProductV1ApiE2ETest {
             );
         }
 
+        @DisplayName("상품 조회 시 brandName이 포함되어 반환된다.")
+        @Test
+        void returnsOk_withBrandName() {
+            // arrange
+            String brandName = "나이키";
+            Brand brand = saveBrand(brandName);
+            Product saved = saveProduct(brand.getId(), "에어맥스", 150000, 10);
+
+            // act
+            ResponseEntity<ApiResponse<ProductV1Dto.ProductResponse>> response =
+                    testRestTemplate.exchange(
+                            ENDPOINT + "/" + saved.getId(),
+                            HttpMethod.GET, null,
+                            new ParameterizedTypeReference<>() {}
+                    );
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().brandName()).isEqualTo(brandName)
+            );
+        }
+
         @DisplayName("상품 조회 시 likeCount가 포함되어 반환된다")
         @Test
         void returnsOk_withLikeCountDefault() {
@@ -172,6 +195,28 @@ class ProductV1ApiE2ETest {
     @DisplayName("상품 목록 조회 시")
     @Nested
     class GetProducts {
+
+        @DisplayName("상품 목록 조회 시 각 상품에 brandName이 포함되어 반환된다.")
+        @Test
+        void returnsOk_withBrandNameInList() {
+            // arrange
+            Brand nike = saveBrand("나이키");
+            Brand adidas = saveBrand("아디다스");
+            saveProduct(nike.getId(), "에어맥스", 150000, 10);
+            saveProduct(adidas.getId(), "슈퍼스타", 120000, 8);
+
+            // act
+            ResponseEntity<ApiResponse<PageResponse<ProductV1Dto.ProductResponse>>> response =
+                    testRestTemplate.exchange(ENDPOINT, HttpMethod.GET, null, new ParameterizedTypeReference<>() {});
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content())
+                            .extracting(ProductV1Dto.ProductResponse::brandName)
+                            .containsExactlyInAnyOrder("나이키", "아디다스")
+            );
+        }
 
         @DisplayName("파라미터 없이 조회하면, 200 OK와 상품 목록을 반환한다.")
         @Test

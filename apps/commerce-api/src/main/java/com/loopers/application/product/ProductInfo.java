@@ -7,6 +7,7 @@ import java.time.ZonedDateTime;
 public record ProductInfo(
         Long id,
         Long brandId,
+        String brandName,
         String name,
         String description,
         Integer price,
@@ -21,6 +22,7 @@ public record ProductInfo(
         return new ProductInfo(
                 product.getId(),
                 product.getBrandId(),
+                null,
                 product.getName(),
                 product.getDescription(),
                 product.getPrice(),
@@ -30,6 +32,14 @@ public record ProductInfo(
                 product.getCreatedAt(),
                 product.getUpdatedAt(),
                 product.getDeletedAt()
+        );
+    }
+
+    public ProductInfo withBrandName(String brandName) {
+        return new ProductInfo(
+                id, brandId, brandName, name, description,
+                price, stockQuantity, likeCount, visibility,
+                createdAt, updatedAt, deletedAt
         );
     }
 }

@@ -10,6 +10,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 @RequiredArgsConstructor
 @Service
 public class BrandService {
@@ -40,6 +44,12 @@ public class BrandService {
         Brand brand = findNonDeletedById(id);
         brand.update(name, description);
         return BrandInfo.from(brand);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, String> getBrandNameMap(Collection<Long> brandIds) {
+        return brandRepository.findAllByIdIn(brandIds).stream()
+                              .collect(Collectors.toMap(Brand::getId, Brand::getName));
     }
 
     @Transactional

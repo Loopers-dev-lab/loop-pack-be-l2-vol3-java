@@ -12,8 +12,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class ProductFacadeTest {
@@ -32,6 +35,63 @@ public class ProductFacadeTest {
         productService = new ProductService(productRepository);
         likeService = new LikeService(likeRepository);
         productFacade = new ProductFacade(brandService, productService, likeService);
+    }
+
+    @DisplayName("활성 상품 단건 조회 시, ")
+    @Nested
+    class GetActiveProduct {
+        @DisplayName("상품 응답에 브랜드 이름이 포함된다.")
+        @Test
+        void returnsBrandName_whenProductIsActive() {
+            // arrange
+            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
+            ProductInfo product = productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
+
+            // act
+            ProductInfo result = productFacade.getActiveProduct(product.id());
+
+            // assert
+            assertThat(result.brandName()).isEqualTo("나이키");
+        }
+    }
+
+    @DisplayName("활성 상품 목록 조회 시, ")
+    @Nested
+    class GetActiveProducts {
+        @DisplayName("각 상품 응답에 브랜드 이름이 포함된다.")
+        @Test
+        void returnsBrandName_forEachProduct() {
+            // arrange
+            BrandInfo nike = brandService.register("나이키", "스포츠 브랜드");
+            BrandInfo adidas = brandService.register("아디다스", "스포츠 브랜드");
+            productService.register(new ProductCreateCommand(nike.id(), "에어맥스", "신발", 150000, 10));
+            productService.register(new ProductCreateCommand(adidas.id(), "슈퍼스타", "신발", 120000, 8));
+
+            // act
+            Page<ProductInfo> result = productFacade.getActiveProducts(null, ProductSort.LATEST, PageRequest.of(0, 20));
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.getContent()).extracting(ProductInfo::brandName)
+                            .containsExactlyInAnyOrder("나이키", "아디다스")
+            );
+        }
+
+        @DisplayName("같은 브랜드의 여러 상품 조회 시 브랜드 이름이 모두 일치한다.")
+        @Test
+        void returnsSameBrandName_whenMultipleProductsOfSameBrand() {
+            // arrange
+            BrandInfo brand = brandService.register("나이키", "스포츠 브랜드");
+            productService.register(new ProductCreateCommand(brand.id(), "에어맥스", "신발", 150000, 10));
+            productService.register(new ProductCreateCommand(brand.id(), "조던", "농구화", 200000, 5));
+
+            // act
+            Page<ProductInfo> result = productFacade.getActiveProducts(null, ProductSort.LATEST, PageRequest.of(0, 20));
+
+            // assert
+            assertThat(result.getContent()).extracting(ProductInfo::brandName)
+                    .containsOnly("나이키");
+        }
     }
 
     @DisplayName("상품 삭제 시, ")

@@ -4,7 +4,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -39,5 +41,12 @@ public class InMemoryBrandRepository implements BrandRepository {
                         .filter(b -> b.getDeletedAt() == null)
                         .toList();
         return new PageImpl<>(list, pageable, list.size());
+    }
+
+    @Override
+    public List<Brand> findAllByIdIn(Collection<Long> ids) {
+        return store.values().stream()
+                    .filter(b -> ids.contains(b.getId()))
+                    .toList();
     }
 }

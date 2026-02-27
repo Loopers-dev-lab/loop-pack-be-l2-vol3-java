@@ -11,7 +11,7 @@ public class ProductV1Dto {
 
     public record ProductResponse(
             Long id,
-            Long brandId,
+            String brandName,
             String name,
             String description,
             Integer price,
@@ -21,7 +21,7 @@ public class ProductV1Dto {
         public static ProductResponse from(ProductInfo productInfo) {
             return new ProductResponse(
                     productInfo.id(),
-                    productInfo.brandId(),
+                    productInfo.brandName(),
                     productInfo.name(),
                     productInfo.description(),
                     productInfo.price(),

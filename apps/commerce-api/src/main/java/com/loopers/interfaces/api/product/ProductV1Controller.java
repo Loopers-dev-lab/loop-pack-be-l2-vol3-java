@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.product;
 
+import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
-import com.loopers.application.product.ProductService;
 import com.loopers.application.product.ProductSort;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
@@ -21,11 +21,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/products")
 public class ProductV1Controller {
 
-    private final ProductService productService;
+    private final ProductFacade productFacade;
 
     @GetMapping("/{productId}")
     public ApiResponse<ProductV1Dto.ProductResponse> getProduct(@PathVariable Long productId) {
-        ProductInfo product = productService.getActiveProduct(productId);
+        ProductInfo product = productFacade.getActiveProduct(productId);
         return ApiResponse.success(ProductV1Dto.ProductResponse.from(product));
     }
 
@@ -35,8 +35,8 @@ public class ProductV1Controller {
             @RequestParam(defaultValue = "LATEST") ProductSort sort,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        Page<ProductV1Dto.ProductResponse> page = productService.getActiveProducts(brandId, sort, pageable)
-                                                                .map(ProductV1Dto.ProductResponse::from);
+        Page<ProductV1Dto.ProductResponse> page = productFacade.getActiveProducts(brandId, sort, pageable)
+                                                               .map(ProductV1Dto.ProductResponse::from);
 
         return ApiResponse.success(PageResponse.from(page));
     }
