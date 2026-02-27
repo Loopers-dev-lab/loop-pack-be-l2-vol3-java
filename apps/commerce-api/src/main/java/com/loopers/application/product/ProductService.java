@@ -27,26 +27,33 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public ProductInfo getProduct(Long id) {
-        return ProductInfo.from(findNonDeletedById(id));
+        Product product = findById(id);
+        if (product.getDeletedAt() != null) {
+            throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + id + "] 를 찾을 수 없습니다.");
+        }
+
+        return ProductInfo.from(product);
+
     }
 
     @Transactional(readOnly = true)
-    public ProductInfo getVisibleProduct(Long id) {
-        Product product = findNonDeletedById(id);
-        if (product.getVisibility() == Product.Visibility.HIDDEN) {
+    public ProductInfo getActiveProduct(Long id) {
+        Product product = findById(id);
+        if (!product.isActive()) {
             throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + id + "] 를 찾을 수 없습니다.");
         }
+
         return ProductInfo.from(product);
     }
 
     @Transactional(readOnly = true)
-    public void ensureVisibleProduct(Long id) {
-        getVisibleProduct(id);
+    public void ensureActiveProduct(Long id) {
+        getActiveProduct(id);
     }
 
     @Transactional(readOnly = true)
-    public Page<ProductInfo> getVisibleProducts(Long brandId, ProductSort sort, Pageable pageable) {
-        return productRepository.findVisibleProducts(brandId, sort.toOrder(), pageable).map(ProductInfo::from);
+    public Page<ProductInfo> getActiveProducts(Long brandId, ProductSort sort, Pageable pageable) {
+        return productRepository.findActiveProducts(brandId, sort.toOrder(), pageable).map(ProductInfo::from);
     }
 
     @Transactional(readOnly = true)
@@ -56,18 +63,16 @@ public class ProductService {
 
     @Transactional
     public ProductInfo update(Long id, ProductUpdateCommand command) {
-        Product product = findNonDeletedById(id);
+        Product product = findById(id);
+        if (product.getDeletedAt() != null) {
+            throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + id + "] 를 찾을 수 없습니다.");
+        }
+
         product.update(command.name(), command.description(), command.price(), command.stockQuantity());
         if (command.visibility() != null) {
             product.changeVisibility(command.visibility());
         }
-        return ProductInfo.from(product);
-    }
 
-    @Transactional
-    public ProductInfo changeVisibility(Long id, Product.Visibility visibility) {
-        Product product = findNonDeletedById(id);
-        product.changeVisibility(visibility);
         return ProductInfo.from(product);
     }
 
@@ -118,33 +123,24 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public List<ProductInfo> getVisibleProductsByIds(List<Long> ids) {
+    public List<ProductInfo> getActiveProductsByIds(List<Long> ids) {
         return productRepository.findAllByIdInAndDeletedAtIsNull(ids)
                                 .stream()
-                                .filter(p -> p.getVisibility() == Product.Visibility.VISIBLE)
+                                .filter(Product::isActive)
                                 .map(ProductInfo::from)
                                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<ProductInfo> getVisibleProductsByIdsOrThrow(List<Long> ids) {
+    public List<ProductInfo> getActiveProductsByIdsOrThrow(List<Long> ids) {
         List<Long> distinctIds = ids.stream().distinct().toList();
-
-        List<ProductInfo> products = getVisibleProductsByIds(distinctIds);
+        List<ProductInfo> products = getActiveProductsByIds(distinctIds);
 
         if (products.size() != distinctIds.size()) {
             throw new CoreException(ErrorType.NOT_FOUND, "주문 상품이 올바르지 않습니다.");
         }
 
         return products;
-    }
-
-    private Product findNonDeletedById(Long id) {
-        Product product = findById(id);
-        if (product.getDeletedAt() != null) {
-            throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + id + "] 를 찾을 수 없습니다.");
-        }
-        return product;
     }
 
     private Product findById(Long id) {

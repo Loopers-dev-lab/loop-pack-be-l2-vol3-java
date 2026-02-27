@@ -92,35 +92,6 @@ public class ProductServiceTest {
         }
     }
 
-    @DisplayName("노출 여부 변경 시, ")
-    @Nested
-    class ChangeVisibility {
-        @DisplayName("정상적으로 변경된다.")
-        @Test
-        void changesVisibility() {
-            // arrange
-            ProductInfo saved = productService.register(new ProductCreateCommand(BRAND_ID, "에어맥스", "신발", 150000, 10));
-
-            // act
-            ProductInfo updated = productService.changeVisibility(saved.id(), Product.Visibility.HIDDEN);
-
-            // assert
-            assertThat(updated.visibility()).isEqualTo(Product.Visibility.HIDDEN);
-        }
-
-        @DisplayName("존재하지 않는 상품의 노출 여부를 변경하면 NOT_FOUND 예외가 발생한다.")
-        @Test
-        void throwsNotFoundException_whenNotExists() {
-            // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                productService.changeVisibility(Long.MAX_VALUE, Product.Visibility.HIDDEN);
-            });
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
-        }
-    }
-
     @DisplayName("상품 수정 시, ")
     @Nested
     class Update {
@@ -205,13 +176,13 @@ public class ProductServiceTest {
 
     @DisplayName("상품 목록 조회(주문용) 시, ")
     @Nested
-    class GetVisibleProductsByIdsOrThrow {
+    class GetActiveProductsByIdsOrThrow {
         @DisplayName("존재하지 않는 상품이 포함되면 NOT_FOUND 예외가 발생한다.")
         @Test
         void throwsNotFound_whenProductNotExists() {
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
-                productService.getVisibleProductsByIdsOrThrow(List.of(Long.MAX_VALUE));
+                productService.getActiveProductsByIdsOrThrow(List.of(Long.MAX_VALUE));
             });
 
             // assert

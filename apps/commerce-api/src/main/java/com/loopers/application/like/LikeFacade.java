@@ -16,7 +16,7 @@ public class LikeFacade {
     private final ProductService productService;
 
     public LikeInfo register(Long userId, Long productId) {
-        productService.ensureVisibleProduct(productId);
+        productService.ensureActiveProduct(productId);
         LikeInfo like = likeService.register(userId, productId);
         productService.increaseLikeCount(productId);
         return like;
@@ -33,7 +33,7 @@ public class LikeFacade {
         if (likes.isEmpty()) return List.of();
 
         List<Long> productIds = likes.stream().map(LikeInfo::productId).toList();
-        Map<Long, ProductInfo> productMap = productService.getVisibleProductsByIds(productIds)
+        Map<Long, ProductInfo> productMap = productService.getActiveProductsByIds(productIds)
                                                           .stream()
                                                           .collect(Collectors.toMap(ProductInfo::id, p -> p));
 

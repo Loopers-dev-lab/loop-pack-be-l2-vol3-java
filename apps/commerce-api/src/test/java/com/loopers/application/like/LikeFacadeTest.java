@@ -3,6 +3,7 @@ package com.loopers.application.like;
 import com.loopers.application.product.ProductCreateCommand;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.application.product.ProductService;
+import com.loopers.application.product.ProductUpdateCommand;
 import com.loopers.domain.like.InMemoryLikeRepository;
 import com.loopers.domain.product.InMemoryProductRepository;
 import com.loopers.domain.product.Product;
@@ -148,7 +149,7 @@ public class LikeFacadeTest {
             likeService.register(userId, activeProduct.id());
             likeService.register(userId, hiddenProduct.id());
 
-            productService.changeVisibility(hiddenProduct.id(), Product.Visibility.HIDDEN);
+            productService.update(hiddenProduct.id(), new ProductUpdateCommand(hiddenProduct.name(), hiddenProduct.description(), hiddenProduct.price(), hiddenProduct.stockQuantity(), Product.Visibility.HIDDEN));
 
             // act
             List<LikedProductInfo> likes = likeFacade.getLikedProductsByUserId(userId);

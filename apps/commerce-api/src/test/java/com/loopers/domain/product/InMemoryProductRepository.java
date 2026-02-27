@@ -38,10 +38,9 @@ public class InMemoryProductRepository implements ProductRepository {
     }
 
     @Override
-    public Page<Product> findVisibleProducts(Long brandId, ProductOrder sort, Pageable pageable) {
+    public Page<Product> findActiveProducts(Long brandId, ProductOrder sort, Pageable pageable) {
         Stream<Product> stream = store.values().stream()
-                .filter(p -> p.getDeletedAt() == null)
-                .filter(p -> p.getVisibility() == Product.Visibility.VISIBLE);
+                .filter(Product::isActive);
 
         if (brandId != null) {
             stream = stream.filter(p -> p.getBrandId().equals(brandId));

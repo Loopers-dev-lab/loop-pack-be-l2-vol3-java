@@ -20,7 +20,7 @@ public class OrderFacade {
         List<Long> productIds = command.items().stream()
                                        .map(OrderItemCommand::productId)
                                        .toList();
-        List<ProductInfo> products = productService.getVisibleProductsByIdsOrThrow(productIds);
+        List<ProductInfo> products = productService.getActiveProductsByIdsOrThrow(productIds);
 
         productService.decreaseStock(command.items());
 

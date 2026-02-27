@@ -25,7 +25,7 @@ public class ProductV1Controller {
 
     @GetMapping("/{productId}")
     public ApiResponse<ProductV1Dto.ProductResponse> getProduct(@PathVariable Long productId) {
-        ProductInfo product = productService.getVisibleProduct(productId);
+        ProductInfo product = productService.getActiveProduct(productId);
         return ApiResponse.success(ProductV1Dto.ProductResponse.from(product));
     }
 
@@ -35,7 +35,7 @@ public class ProductV1Controller {
             @RequestParam(defaultValue = "LATEST") ProductSort sort,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        Page<ProductV1Dto.ProductResponse> page = productService.getVisibleProducts(brandId, sort, pageable)
+        Page<ProductV1Dto.ProductResponse> page = productService.getActiveProducts(brandId, sort, pageable)
                                                                 .map(ProductV1Dto.ProductResponse::from);
 
         return ApiResponse.success(PageResponse.from(page));

@@ -65,6 +65,10 @@ public class Product extends BaseEntity {
         this.stockQuantity = stockQuantity;
     }
 
+    public boolean isActive() {
+        return this.visibility == Visibility.VISIBLE && getDeletedAt() == null;
+    }
+
     public void changeVisibility(Visibility visibility) {
         this.visibility = visibility;
     }

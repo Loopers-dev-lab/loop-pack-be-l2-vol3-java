@@ -33,7 +33,7 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public Page<Product> findVisibleProducts(Long brandId, ProductOrder order, Pageable pageable) {
+    public Page<Product> findActiveProducts(Long brandId, ProductOrder order, Pageable pageable) {
         QProduct product = QProduct.product;
 
         BooleanBuilder builder = new BooleanBuilder();

@@ -9,7 +9,7 @@ import java.util.Optional;
 public interface ProductRepository {
     Product save(Product product);
     Optional<Product> findById(Long id);
-    Page<Product> findVisibleProducts(Long brandId, ProductOrder order, Pageable pageable);
+    Page<Product> findActiveProducts(Long brandId, ProductOrder order, Pageable pageable);
     Page<Product> findAllProducts(Long brandId, Pageable pageable);
     List<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId);
     List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> ids);
