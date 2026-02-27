@@ -15,11 +15,13 @@ import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
+@Transactional(readOnly = true)
 public class ProductFacade {
     private final BrandService brandService;
     private final ProductService productService;
     private final LikeService likeService;
 
+    @Transactional
     public ProductInfo register(ProductCreateCommand command) {
         brandService.getBrand(command.brandId());
         return productService.register(command);
@@ -45,10 +47,11 @@ public class ProductFacade {
         return productService.getProduct(id);
     }
 
-    public Page<ProductInfo> getAllProducts(Long brandId, Pageable pageable) {
-        return productService.getAllProducts(brandId, pageable);
+    public Page<ProductInfo> getProducts(Long brandId, Pageable pageable) {
+        return productService.getProducts(brandId, pageable);
     }
 
+    @Transactional
     public ProductInfo update(Long id, ProductUpdateCommand command) {
         return productService.update(id, command);
     }

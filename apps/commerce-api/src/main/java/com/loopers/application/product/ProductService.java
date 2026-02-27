@@ -26,6 +26,16 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
+    public ProductInfo getActiveProduct(Long id) {
+        Product product = findById(id);
+        if (!product.isActive()) {
+            throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + id + "] 를 찾을 수 없습니다.");
+        }
+
+        return ProductInfo.from(product);
+    }
+
+    @Transactional(readOnly = true)
     public ProductInfo getProduct(Long id) {
         Product product = findById(id);
         if (product.getDeletedAt() != null) {
@@ -37,27 +47,12 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public ProductInfo getActiveProduct(Long id) {
-        Product product = findById(id);
-        if (!product.isActive()) {
-            throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + id + "] 를 찾을 수 없습니다.");
-        }
-
-        return ProductInfo.from(product);
-    }
-
-    @Transactional(readOnly = true)
-    public void ensureActiveProduct(Long id) {
-        getActiveProduct(id);
-    }
-
-    @Transactional(readOnly = true)
     public Page<ProductInfo> getActiveProducts(Long brandId, ProductSort sort, Pageable pageable) {
         return productRepository.findActiveProducts(brandId, sort.toOrder(), pageable).map(ProductInfo::from);
     }
 
     @Transactional(readOnly = true)
-    public Page<ProductInfo> getAllProducts(Long brandId, Pageable pageable) {
+    public Page<ProductInfo> getProducts(Long brandId, Pageable pageable) {
         return productRepository.findAllProducts(brandId, pageable).map(ProductInfo::from);
     }
 
@@ -99,12 +94,19 @@ public class ProductService {
     @Transactional
     public void increaseLikeCount(Long productId) {
         Product product = findById(productId);
+        if (!product.isActive()) {
+            throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + productId + "] 를 찾을 수 없습니다.");
+        }
+
         product.increaseLikeCount();
     }
 
     @Transactional
     public void decreaseLikeCount(Long productId) {
         Product product = findById(productId);
+        if (!product.isActive()) {
+            throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + productId + "] 를 찾을 수 없습니다.");
+        }
         product.decreaseLikeCount();
     }
 

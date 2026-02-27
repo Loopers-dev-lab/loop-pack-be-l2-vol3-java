@@ -4,6 +4,7 @@ import com.loopers.application.product.ProductInfo;
 import com.loopers.application.product.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -11,17 +12,19 @@ import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
+@Transactional(readOnly = true)
 public class LikeFacade {
     private final LikeService likeService;
     private final ProductService productService;
 
+    @Transactional
     public LikeInfo register(Long userId, Long productId) {
-        productService.ensureActiveProduct(productId);
         LikeInfo like = likeService.register(userId, productId);
         productService.increaseLikeCount(productId);
         return like;
     }
 
+    @Transactional
     public void cancel(Long userId, Long productId) {
         if (likeService.cancel(userId, productId)) {
             productService.decreaseLikeCount(productId);
