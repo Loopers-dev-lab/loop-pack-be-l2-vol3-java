@@ -22,6 +22,13 @@ class FakeLikeRepository implements LikeRepository {
     }
 
     @Override
+    public List<Like> findByUserId(Long userId) {
+        return store.stream()
+            .filter(l -> l.getUserId().equals(userId))
+            .toList();
+    }
+
+    @Override
     public void delete(Like like) {
         store.remove(like);
     }
