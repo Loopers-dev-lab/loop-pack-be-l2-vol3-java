@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.brand.persistence;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
@@ -11,6 +12,8 @@ import com.loopers.domain.brand.Brand;
 public interface BrandJpaRepository extends JpaRepository<Brand, Long> {
 
     Optional<Brand> findByIdAndDeletedAtIsNull(Long brandId);
+
+    List<Brand> findAllByIdInAndDeletedAtIsNull(List<Long> brandIds);
 
     Slice<Brand> findAllBy(Pageable pageable);
 

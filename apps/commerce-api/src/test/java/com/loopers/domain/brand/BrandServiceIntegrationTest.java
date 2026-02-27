@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -73,6 +76,56 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
                     () -> assertThat(result.getId()).isNotNull(),
                     () -> assertThat(result.getName()).isEqualTo(name)
             );
+        }
+    }
+
+    @DisplayName("활성 브랜드 맵을 조회할 때,")
+    @Nested
+    class GetActiveBrandMap {
+
+        @DisplayName("활성 브랜드만 맵에 포함된다.")
+        @Test
+        void returnsOnlyActiveBrands() {
+            // arrange
+            var activeBrand = brandService.create("활성 브랜드", "logo1", "설명1");
+            var deletedBrand = brandService.create("삭제 브랜드", "logo2", "설명2");
+            brandService.delete(deletedBrand.getId());
+
+            // act
+            Map<Long, Brand> result = brandService.getActiveBrandMap(
+                    List.of(activeBrand.getId(), deletedBrand.getId())
+            );
+
+            // assert
+            assertAll(
+                    () -> assertThat(result).hasSize(1),
+                    () -> assertThat(result).containsKey(activeBrand.getId()),
+                    () -> assertThat(result).doesNotContainKey(deletedBrand.getId())
+            );
+        }
+
+        @DisplayName("모든 브랜드가 삭제되면, 빈 맵이 반환된다.")
+        @Test
+        void returnsEmptyMap_whenAllBrandsDeleted() {
+            // arrange
+            var brand = brandService.create("브랜드명", "logo", "설명");
+            brandService.delete(brand.getId());
+
+            // act
+            Map<Long, Brand> result = brandService.getActiveBrandMap(List.of(brand.getId()));
+
+            // assert
+            assertThat(result).isEmpty();
+        }
+
+        @DisplayName("빈 ID 목록이면, 빈 맵이 반환된다.")
+        @Test
+        void returnsEmptyMap_whenEmptyIdList() {
+            // act
+            Map<Long, Brand> result = brandService.getActiveBrandMap(List.of());
+
+            // assert
+            assertThat(result).isEmpty();
         }
     }
 

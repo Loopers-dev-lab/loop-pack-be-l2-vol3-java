@@ -29,8 +29,8 @@ public class BrandRepositoryImpl implements BrandRepository {
     }
 
     @Override
-    public List<Brand> findAllByIdIn(List<Long> brandIds) {
-        return brandJpaRepository.findAllById(brandIds);
+    public List<Brand> findAllByIdInAndDeletedAtIsNull(List<Long> brandIds) {
+        return brandJpaRepository.findAllByIdInAndDeletedAtIsNull(brandIds);
     }
 
     @Override

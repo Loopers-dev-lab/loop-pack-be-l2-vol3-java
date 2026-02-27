@@ -57,7 +57,12 @@ public class OrderV1Api implements OrderV1ApiSpec {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        Page<OrderResult> orders = readMyOrdersUseCase.execute(userId, startDate, endDate, new PageSize(page, size));
+        Page<OrderResult> orders = readMyOrdersUseCase.execute(
+                userId,
+                startDate,
+                endDate,
+                PageSize.withMaxSize(page, size)
+        );
         return ApiResponse.success(new PageResponse<>(
                 orders.content()
                         .stream()

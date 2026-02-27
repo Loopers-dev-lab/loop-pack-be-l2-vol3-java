@@ -49,7 +49,7 @@ public class LikeV1Api implements LikeV1ApiSpec {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        Page<LikedProductResult> results = readLikedProductsUseCase.execute(userId, new PageSize(page, size));
+        Page<LikedProductResult> results = readLikedProductsUseCase.execute(userId, PageSize.withMaxSize(page, size));
         return ApiResponse.success(
                 new PageResponse<>(
                         results.content()

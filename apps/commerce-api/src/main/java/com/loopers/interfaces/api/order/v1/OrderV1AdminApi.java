@@ -31,7 +31,7 @@ public class OrderV1AdminApi implements OrderV1AdminApiSpec {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        Page<OrderResult> orders = readOrdersUseCase.execute(new PageSize(page, size));
+        Page<OrderResult> orders = readOrdersUseCase.execute(PageSize.withMaxSize(page, size));
         return ApiResponse.success(
                 new PageResponse<>(
                         orders.content().stream()

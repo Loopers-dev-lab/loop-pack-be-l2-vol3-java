@@ -39,7 +39,7 @@ public class ProductDetailAssembler {
                 .distinct()
                 .toList();
 
-        Map<Long, Brand> brands = brandService.getBrandMap(brandIds);
+        Map<Long, Brand> brands = brandService.getActiveBrandMap(brandIds);
         Set<Long> likedProductIds = likeService.getLikedProductIds(userId, productIds);
 
         return products.stream()

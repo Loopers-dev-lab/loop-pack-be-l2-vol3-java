@@ -12,7 +12,7 @@ public interface BrandRepository {
 
     Optional<Brand> findById(Long brandId);
 
-    List<Brand> findAllByIdIn(List<Long> brandIds);
+    List<Brand> findAllByIdInAndDeletedAtIsNull(List<Long> brandIds);
 
     Optional<Brand> findByIdAndDeletedAtIsNull(Long brandId);
 

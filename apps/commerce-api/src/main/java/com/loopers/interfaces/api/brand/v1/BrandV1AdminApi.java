@@ -52,7 +52,7 @@ public class BrandV1AdminApi implements BrandV1AdminApiSpec {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        Page<BrandResult> result = readBrandsUseCase.execute(new PageSize(page, size));
+        Page<BrandResult> result = readBrandsUseCase.execute(PageSize.withMaxSize(page, size));
         return ApiResponse.success(new PageResponse<>(BrandDto.BrandResponse.from(result.content()), result.hasNext()));
     }
 

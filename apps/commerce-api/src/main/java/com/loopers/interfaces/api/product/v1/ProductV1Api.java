@@ -38,7 +38,7 @@ public class ProductV1Api implements ProductV1ApiSpec {
             @RequestParam(defaultValue = "20") int size
     ) {
         ProductSortType sortType = ProductSortType.from(sort);
-        PageSize pageSize = new PageSize(page, size);
+        PageSize pageSize = PageSize.withMaxSize(page, size);
         Page<ProductDetail> products = readActiveProductsUseCase.execute(userId, brandId, sortType, pageSize);
         List<ProductDto.ProductDetailResponse> content = products.content().stream()
                 .map(ProductDto.ProductDetailResponse::from)

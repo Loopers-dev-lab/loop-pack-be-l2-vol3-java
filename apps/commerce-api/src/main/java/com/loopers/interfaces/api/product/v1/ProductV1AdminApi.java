@@ -55,8 +55,7 @@ public class ProductV1AdminApi implements ProductV1AdminApiSpec {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        var pageSize = new PageSize(page, size);
-        Page<ProductResult> products = readProductsUseCase.execute(brandId, pageSize);
+        Page<ProductResult> products = readProductsUseCase.execute(brandId, PageSize.withMaxSize(page, size));
 
         return ApiResponse.success(
                 new PageResponse<>(

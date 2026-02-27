@@ -54,15 +54,16 @@ public class BrandService {
     }
 
     /**
-     * 브랜드 ID 목록으로 브랜드 맵을 조회한다.
+     * 브랜드 ID 목록으로 활성 브랜드 맵을 조회한다.
      *
      * @param brandIds 조회할 브랜드 ID 목록
-     * @return 브랜드 ID를 키로 하는 브랜드 맵
+     * @return 브랜드 ID를 키로 하는 활성 브랜드 맵
      */
     @Transactional(readOnly = true)
-    public Map<Long, Brand> getBrandMap(List<Long> brandIds) {
-        return brandRepository.findAllByIdIn(brandIds)
+    public Map<Long, Brand> getActiveBrandMap(List<Long> brandIds) {
+        return brandRepository.findAllByIdInAndDeletedAtIsNull(brandIds)
                 .stream()
+                .filter(brand -> !brand.isDeleted())
                 .collect(Collectors.toMap(Brand::getId, Function.identity()));
     }
 
