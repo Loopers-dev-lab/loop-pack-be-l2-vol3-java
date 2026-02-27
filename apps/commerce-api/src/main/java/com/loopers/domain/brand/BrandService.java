@@ -1,5 +1,7 @@
 package com.loopers.domain.brand;
 
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -10,7 +12,11 @@ public class BrandService {
     private final BrandRepository brandRepository;
 
     public Brand register(String name) {
-        // Red 단계: 로직 미구현
-        return null;
+        BrandName brandName = new BrandName(name);
+        if (brandRepository.existsByName(brandName)) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 등록된 브랜드 이름입니다");
+        }
+        Brand brand = new Brand(name);
+        return brandRepository.save(brand);
     }
 }
