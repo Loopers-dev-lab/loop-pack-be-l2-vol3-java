@@ -134,7 +134,7 @@ class ProductV1ApiE2ETest {
                     () -> assertThat(response.getBody().meta().result()).isEqualTo(ApiResponse.Metadata.Result.SUCCESS),
                     () -> assertThat(response.getBody().data().id()).isEqualTo(product.getId()),
                     () -> assertThat(response.getBody().data().name()).isEqualTo(VALID_PRODUCT_NAME),
-                    () -> assertThat(response.getBody().data().inStock()).isTrue()
+                    () -> assertThat(response.getBody().data().stock()).isEqualTo(VALID_STOCK)
             );
         }
 
