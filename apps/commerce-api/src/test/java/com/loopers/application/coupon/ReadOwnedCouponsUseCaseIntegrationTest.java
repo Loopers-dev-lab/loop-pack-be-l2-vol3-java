@@ -46,17 +46,20 @@ class ReadOwnedCouponsUseCaseIntegrationTest extends BaseIntegrationTest {
             ownedCouponService.issue(coupon.getId(), user.getId());
 
             // act
-            Page<OwnedCouponResult> result = readOwnedCouponsUseCase.execute(coupon.getId(), PageSize.withMaxSize(0, 20));
+            Page<ReadOwnedCouponsUseCase.Result> result = readOwnedCouponsUseCase.execute(coupon.getId(), PageSize.withMaxSize(0, 20));
 
             // assert
             assertAll(
                     () -> assertThat(result.content()).hasSize(1),
-                    () -> assertThat(result.content().get(0).couponId()).isEqualTo(coupon.getId()),
                     () -> assertThat(result.content().get(0).userId()).isEqualTo(user.getId()),
                     () -> assertThat(result.content().get(0).loginId()).isEqualTo("testuser1"),
                     () -> assertThat(result.content().get(0).userName()).isEqualTo("홍길동"),
                     () -> assertThat(result.content().get(0).status()).isEqualTo(OwnedCouponStatus.AVAILABLE),
-                    () -> assertThat(result.content().get(0).createdAt()).isNotNull()
+                    () -> assertThat(result.content().get(0).createdAt()).isNotNull(),
+                    () -> assertThat(result.content().get(0).name()).isEqualTo("테스트 쿠폰"),
+                    () -> assertThat(result.content().get(0).couponType()).isEqualTo(CouponType.FIXED),
+                    () -> assertThat(result.content().get(0).discountValue()).isEqualTo(5000L),
+                    () -> assertThat(result.content().get(0).minOrderPrice()).isEqualTo(10000L)
             );
         }
 
@@ -67,7 +70,7 @@ class ReadOwnedCouponsUseCaseIntegrationTest extends BaseIntegrationTest {
             var coupon = couponService.create("빈 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30));
 
             // act
-            Page<OwnedCouponResult> result = readOwnedCouponsUseCase.execute(coupon.getId(), PageSize.withMaxSize(0, 20));
+            Page<ReadOwnedCouponsUseCase.Result> result = readOwnedCouponsUseCase.execute(coupon.getId(), PageSize.withMaxSize(0, 20));
 
             // assert
             assertAll(

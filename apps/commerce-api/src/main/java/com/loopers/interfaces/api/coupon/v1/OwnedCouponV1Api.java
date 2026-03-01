@@ -21,12 +21,12 @@ public class OwnedCouponV1Api implements OwnedCouponV1ApiSpec {
 
     @GetMapping("/api/v1/owned-coupons")
     @Override
-    public ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponResponse>> getMyOwnedCoupons(
+    public ApiResponse<PageResponse<OwnedCouponDto.MyOwnedCouponsResponse>> getMyOwnedCoupons(
             @LoginUser Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         Page<ReadMyOwnedCouponsUseCase.Result> result = readMyOwnedCouponsUseCase.execute(userId, PageSize.withMaxSize(page, size));
-        return ApiResponse.success(new PageResponse<>(OwnedCouponDto.OwnedCouponResponse.from(result.content()), result.hasNext()));
+        return ApiResponse.success(new PageResponse<>(OwnedCouponDto.MyOwnedCouponsResponse.from(result.content()), result.hasNext()));
     }
 }

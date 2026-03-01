@@ -131,12 +131,12 @@ public class CouponSteps {
         );
     }
 
-    public static ResponseEntity<ApiResponse<PageResponse<CouponDto.CouponIssuanceResponse>>> getCouponIssuances(
+    public static ResponseEntity<ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponsResponse>>> getCouponIssuances(
             TestRestTemplate testRestTemplate,
             String url,
             HttpHeaders headers
     ) {
-        ParameterizedTypeReference<ApiResponse<PageResponse<CouponDto.CouponIssuanceResponse>>> responseType = new ParameterizedTypeReference<>() {
+        ParameterizedTypeReference<ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponsResponse>>> responseType = new ParameterizedTypeReference<>() {
         };
         return testRestTemplate.exchange(
                 url,
@@ -146,19 +146,19 @@ public class CouponSteps {
         );
     }
 
-    public static ResponseEntity<ApiResponse<PageResponse<CouponDto.CouponIssuanceResponse>>> getCouponIssuances(
+    public static ResponseEntity<ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponsResponse>>> getCouponIssuances(
             TestRestTemplate testRestTemplate,
             String url
     ) {
         return getCouponIssuances(testRestTemplate, url, adminAuthHeaders());
     }
 
-    public static ResponseEntity<ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponResponse>>> getMyOwnedCoupons(
+    public static ResponseEntity<ApiResponse<PageResponse<OwnedCouponDto.MyOwnedCouponsResponse>>> getMyOwnedCoupons(
             TestRestTemplate testRestTemplate,
             String url,
             HttpHeaders headers
     ) {
-        ParameterizedTypeReference<ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponResponse>>> responseType = new ParameterizedTypeReference<>() {
+        ParameterizedTypeReference<ApiResponse<PageResponse<OwnedCouponDto.MyOwnedCouponsResponse>>> responseType = new ParameterizedTypeReference<>() {
         };
         return testRestTemplate.exchange(
                 url,
@@ -168,7 +168,7 @@ public class CouponSteps {
         );
     }
 
-    public static ResponseEntity<ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponResponse>>> getMyOwnedCoupons(
+    public static ResponseEntity<ApiResponse<PageResponse<OwnedCouponDto.MyOwnedCouponsResponse>>> getMyOwnedCoupons(
             TestRestTemplate testRestTemplate,
             HttpHeaders headers
     ) {

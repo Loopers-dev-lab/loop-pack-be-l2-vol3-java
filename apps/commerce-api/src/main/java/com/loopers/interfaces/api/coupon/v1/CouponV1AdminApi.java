@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.loopers.application.coupon.CouponResult;
 import com.loopers.application.coupon.DeleteCouponUseCase;
-import com.loopers.application.coupon.OwnedCouponResult;
 import com.loopers.application.coupon.ReadCouponDetailUseCase;
 import com.loopers.application.coupon.ReadOwnedCouponsUseCase;
 import com.loopers.application.coupon.ReadCouponsUseCase;
@@ -85,12 +84,12 @@ public class CouponV1AdminApi implements CouponV1AdminApiSpec {
 
     @GetMapping("/{couponId}/issuances")
     @Override
-    public ApiResponse<PageResponse<CouponDto.CouponIssuanceResponse>> getCouponIssuances(
+    public ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponsResponse>> getCouponIssuances(
             @PathVariable Long couponId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        Page<OwnedCouponResult> result = readOwnedCouponsByCouponUseCase.execute(couponId, PageSize.withMaxSize(page, size));
-        return ApiResponse.success(new PageResponse<>(CouponDto.CouponIssuanceResponse.from(result.content()), result.hasNext()));
+        Page<ReadOwnedCouponsUseCase.Result> result = readOwnedCouponsByCouponUseCase.execute(couponId, PageSize.withMaxSize(page, size));
+        return ApiResponse.success(new PageResponse<>(OwnedCouponDto.OwnedCouponsResponse.from(result.content()), result.hasNext()));
     }
 }

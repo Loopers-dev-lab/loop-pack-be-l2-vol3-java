@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.time.ZonedDateTime;
 
+import com.loopers.domain.coupon.OwnedCouponStatus;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -28,7 +30,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.coupon.CouponType;
-import com.loopers.interfaces.api.coupon.v1.CouponDto.CouponIssuanceResponse;
+import com.loopers.interfaces.api.coupon.v1.OwnedCouponDto.OwnedCouponsResponse;
 import com.loopers.interfaces.api.coupon.v1.CouponDto.CouponResponse;
 import com.loopers.interfaces.api.user.v1.UserV1Dto;
 import com.loopers.support.BaseE2ETest;
@@ -620,10 +622,9 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody()).isNotNull(),
                     () -> assertThat(response.getBody().data().content()).hasSize(1),
-                    () -> assertThat(response.getBody().data().content().get(0).couponId()).isEqualTo(couponId),
-                    () -> assertThat(response.getBody().data().content().get(0).loginId()).isEqualTo("testuser1"),
-                    () -> assertThat(response.getBody().data().content().get(0).userName()).isEqualTo("홍길동"),
-                    () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo("AVAILABLE"),
+                    () -> assertThat(response.getBody().data().content().get(0).user().loginId()).isEqualTo("testuser1"),
+                    () -> assertThat(response.getBody().data().content().get(0).user().userName()).isEqualTo("홍길동"),
+                    () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo(OwnedCouponStatus.AVAILABLE),
                     () -> assertThat(response.getBody().data().hasNext()).isFalse()
             );
         }

@@ -1,5 +1,6 @@
 package com.loopers.application.coupon;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -10,8 +11,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.application.shared.annotation.UseCase;
+import com.loopers.domain.coupon.Coupon;
+import com.loopers.domain.coupon.CouponType;
 import com.loopers.domain.coupon.OwnedCoupon;
 import com.loopers.domain.coupon.OwnedCouponRepository;
+import com.loopers.domain.coupon.OwnedCouponStatus;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserRepository;
 import com.loopers.support.error.CoreException;
@@ -29,7 +33,7 @@ public class ReadOwnedCouponsUseCase {
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public Page<OwnedCouponResult> execute(Long couponId, PageSize pageSize) {
+    public Page<Result> execute(Long couponId, PageSize pageSize) {
         Slice<OwnedCoupon> ownedCoupons = ownedCouponRepository.findAllByCouponId(
                 couponId,
                 pageSize.toPageable(Sort.by(Sort.Direction.DESC, "createdAt"))
@@ -49,10 +53,44 @@ public class ReadOwnedCouponsUseCase {
                             if (user == null) {
                                 throw new CoreException(ErrorType.USER_NOT_FOUND);
                             }
-                            return OwnedCouponResult.from(ownedCoupon, user);
+                            return Result.from(ownedCoupon, user);
                         })
                         .toList(),
                 ownedCoupons.hasNext()
         );
+    }
+
+    public record Result(
+            Long id,
+            OwnedCouponStatus status,
+            ZonedDateTime createdAt,
+            Long userId,
+            String loginId,
+            String userName,
+            String name,
+            CouponType couponType,
+            Long discountValue,
+            Long maxDiscountPrice,
+            Long minOrderPrice,
+            ZonedDateTime expiredAt
+    ) {
+
+        public static Result from(OwnedCoupon ownedCoupon, User user) {
+            Coupon coupon = ownedCoupon.getCoupon();
+            return new Result(
+                    ownedCoupon.getId(),
+                    ownedCoupon.getStatus(),
+                    ownedCoupon.getCreatedAt(),
+                    ownedCoupon.getUserId(),
+                    user.getLoginId().getValue(),
+                    user.getName().getValue(),
+                    coupon.getName().getValue(),
+                    coupon.getType(),
+                    coupon.getDiscountValue(),
+                    coupon.getMaxDiscountPriceAmount(),
+                    coupon.getMinOrderPrice().getAmount(),
+                    coupon.getExpiredAt()
+            );
+        }
     }
 }

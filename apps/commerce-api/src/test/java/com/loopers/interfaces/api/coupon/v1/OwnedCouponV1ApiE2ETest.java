@@ -85,8 +85,8 @@ class OwnedCouponV1ApiE2ETest extends BaseE2ETest {
             var body = response.getBody().data();
             assertAll(
                     () -> assertThat(body.content()).hasSize(2),
-                    () -> assertThat(body.content().get(0).status()).isEqualTo(OwnedCouponStatus.EXPIRED.name()),
-                    () -> assertThat(body.content().get(1).status()).isEqualTo(OwnedCouponStatus.AVAILABLE.name()),
+                    () -> assertThat(body.content().get(0).status()).isEqualTo(OwnedCouponStatus.EXPIRED),
+                    () -> assertThat(body.content().get(1).status()).isEqualTo(OwnedCouponStatus.AVAILABLE),
                     () -> assertThat(body.hasNext()).isFalse()
             );
         }

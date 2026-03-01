@@ -13,5 +13,5 @@ public interface OwnedCouponV1ApiSpec {
             summary = "내 쿠폰 목록 조회",
             description = "인증된 사용자가 보유한 쿠폰 목록을 페이지 단위로 조회합니다."
     )
-    ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponResponse>> getMyOwnedCoupons(Long userId, int page, int size);
+    ApiResponse<PageResponse<OwnedCouponDto.MyOwnedCouponsResponse>> getMyOwnedCoupons(Long userId, int page, int size);
 }
