@@ -28,6 +28,11 @@ public class CouponRepositoryImpl implements CouponRepository {
     }
 
     @Override
+    public Optional<Coupon> findByIdAndDeletedAtIsNull(Long couponId) {
+        return couponJpaRepository.findByIdAndDeletedAtIsNull(couponId);
+    }
+
+    @Override
     public Slice<Coupon> findAllBy(Pageable pageable) {
         return couponJpaRepository.findAllBy(pageable);
     }

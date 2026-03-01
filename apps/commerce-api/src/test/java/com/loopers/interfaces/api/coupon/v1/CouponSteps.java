@@ -15,6 +15,22 @@ import com.loopers.interfaces.api.PageResponse;
 public class CouponSteps {
 
     private static final String COUPON_ADMIN_ENDPOINT = "/api-admin/v1/coupons";
+    private static final String COUPON_ENDPOINT = "/api/v1/coupons";
+
+    public static ResponseEntity<ApiResponse<Void>> issueCoupon(
+            TestRestTemplate testRestTemplate,
+            Long couponId,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                COUPON_ENDPOINT + "/" + couponId + "/issue",
+                HttpMethod.POST,
+                new HttpEntity<>(headers),
+                responseType
+        );
+    }
 
     public static ResponseEntity<ApiResponse<CouponDto.CreateCouponResponse>> createCoupon(
             TestRestTemplate testRestTemplate,
@@ -29,6 +45,14 @@ public class CouponSteps {
                 new HttpEntity<>(request, headers),
                 responseType
         );
+    }
+
+    public static Long createCoupon(
+            TestRestTemplate testRestTemplate,
+            CouponDto.CreateCouponRequest request
+    ) {
+        return createCoupon(testRestTemplate, request, adminAuthHeaders())
+                .getBody().data().couponId();
     }
 
     public static ResponseEntity<ApiResponse<PageResponse<CouponDto.CouponResponse>>> getCoupons(

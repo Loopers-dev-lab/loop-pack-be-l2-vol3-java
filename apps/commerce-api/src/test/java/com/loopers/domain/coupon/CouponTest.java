@@ -166,6 +166,39 @@ class CouponTest {
         }
     }
 
+    @DisplayName("쿠폰 만료 여부를 확인할 때,")
+    @Nested
+    class IsExpired {
+
+        @DisplayName("만료일이 현재 시점 이후이면, false를 반환한다.")
+        @Test
+        void returnsFalse_whenNotExpired() {
+            // arrange
+            var coupon = Coupon.create("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE);
+
+            // act & assert
+            assertThat(coupon.isExpired()).isFalse();
+        }
+
+        @DisplayName("만료일이 현재 시점 이전이면, true를 반환한다.")
+        @Test
+        void returnsTrue_whenExpired() {
+            // arrange
+            var coupon = Coupon.create("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE);
+            // 리플렉션으로 expiredAt을 과거로 변경
+            try {
+                var field = Coupon.class.getDeclaredField("expiredAt");
+                field.setAccessible(true);
+                field.set(coupon, ZonedDateTime.now().minusDays(1));
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+            // act & assert
+            assertThat(coupon.isExpired()).isTrue();
+        }
+    }
+
     @DisplayName("쿠폰을 수정할 때,")
     @Nested
     class Update {

@@ -90,6 +90,10 @@ public class Coupon extends BaseEntity {
         this.expiredAt = expiredAt;
     }
 
+    public boolean isExpired() {
+        return !expiredAt.isAfter(ZonedDateTime.now());
+    }
+
     private static void validateType(CouponType type) {
         if (Objects.isNull(type)) {
             throw new CoreException(ErrorType.REQUIRED_COUPON_TYPE);

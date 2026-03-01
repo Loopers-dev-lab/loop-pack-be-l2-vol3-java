@@ -11,5 +11,7 @@ public interface CouponRepository {
 
     Optional<Coupon> findById(Long couponId);
 
+    Optional<Coupon> findByIdAndDeletedAtIsNull(Long couponId);
+
     Slice<Coupon> findAllBy(Pageable pageable);
 }

@@ -98,6 +98,7 @@ classDiagram
         ZonedDateTime expiredAt
         +create(...)$ Coupon
         +update(...) void
+        +isExpired() boolean
     }
 
     class CouponType {

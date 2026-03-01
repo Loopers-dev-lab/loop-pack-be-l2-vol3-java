@@ -865,16 +865,16 @@ sequenceDiagram
         CouponApi -->> Client: 400 Bad Request
     end
 
-    break 쿠폰이 만료된 경우
+    CouponService ->>+ OwnedCouponRepository: 중복 발급 검증
+    OwnedCouponRepository -->>- CouponService: boolean
+
+    break 중복 발급인 경우
         CouponService -->> IssueCouponUseCase: 발급 실패
         IssueCouponUseCase -->> CouponApi: 발급 실패
         CouponApi -->> Client: 400 Bad Request
     end
 
-    CouponService ->>+ OwnedCouponRepository: 중복 발급 검증
-    OwnedCouponRepository -->>- CouponService: boolean
-
-    break 중복 발급인 경우
+    break 쿠폰이 만료된 경우
         CouponService -->> IssueCouponUseCase: 발급 실패
         IssueCouponUseCase -->> CouponApi: 발급 실패
         CouponApi -->> Client: 400 Bad Request
