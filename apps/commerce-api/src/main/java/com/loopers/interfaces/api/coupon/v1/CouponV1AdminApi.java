@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -16,6 +17,7 @@ import com.loopers.application.coupon.CouponResult;
 import com.loopers.application.coupon.ReadCouponDetailUseCase;
 import com.loopers.application.coupon.ReadCouponsUseCase;
 import com.loopers.application.coupon.RegisterCouponUseCase;
+import com.loopers.application.coupon.UpdateCouponUseCase;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.support.page.Page;
@@ -31,6 +33,7 @@ public class CouponV1AdminApi implements CouponV1AdminApiSpec {
     private final RegisterCouponUseCase registerCouponUseCase;
     private final ReadCouponsUseCase readCouponsUseCase;
     private final ReadCouponDetailUseCase readCouponDetailUseCase;
+    private final UpdateCouponUseCase updateCouponUseCase;
 
     @PostMapping
     @ResponseStatus(code = HttpStatus.CREATED)
@@ -55,5 +58,15 @@ public class CouponV1AdminApi implements CouponV1AdminApiSpec {
     public ApiResponse<CouponDto.CouponResponse> getCoupon(@PathVariable Long couponId) {
         CouponResult result = readCouponDetailUseCase.execute(couponId);
         return ApiResponse.success(CouponDto.CouponResponse.from(result));
+    }
+
+    @PutMapping("/{couponId}")
+    @Override
+    public ApiResponse<Void> updateCoupon(
+            @PathVariable Long couponId,
+            @RequestBody @Valid CouponDto.UpdateCouponRequest request
+    ) {
+        updateCouponUseCase.execute(request.toUpdateCouponCommand(couponId));
+        return ApiResponse.success(null);
     }
 }

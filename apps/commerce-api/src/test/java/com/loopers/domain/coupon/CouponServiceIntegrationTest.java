@@ -82,4 +82,39 @@ class CouponServiceIntegrationTest extends BaseIntegrationTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_EXPIRED_AT));
         }
     }
+
+    @DisplayName("쿠폰을 수정할 때,")
+    @Nested
+    class Update {
+
+        @DisplayName("유효한 정보를 입력하면, 쿠폰 정보가 DB에 반영된다.")
+        @Test
+        void updatesCouponInDatabase_whenValidInputProvided() {
+            // arrange
+            var expiredAt = ZonedDateTime.now().plusDays(30);
+            var coupon = couponService.create("기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, expiredAt);
+            var newExpiredAt = ZonedDateTime.now().plusDays(60);
+
+            // act
+            couponService.update(coupon.getId(), "수정된 쿠폰", 3000L, null, 20000L, newExpiredAt);
+
+            // assert
+            var updatedCoupon = couponRepository.findById(coupon.getId()).orElseThrow();
+            assertAll(
+                    () -> assertThat(updatedCoupon.getName()).isEqualTo(new CouponName("수정된 쿠폰")),
+                    () -> assertThat(updatedCoupon.getDiscountValue()).isEqualTo(3000L),
+                    () -> assertThat(updatedCoupon.getMinOrderPrice()).isEqualTo(Money.wons(20000L)),
+                    () -> assertThat(updatedCoupon.getExpiredAt()).isEqualTo(newExpiredAt)
+            );
+        }
+
+        @DisplayName("존재하지 않는 쿠폰을 수정하면, COUPON_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenCouponNotFound() {
+            // act & assert
+            assertThatThrownBy(() -> couponService.update(999L, "쿠폰", 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.COUPON_NOT_FOUND));
+        }
+    }
 }

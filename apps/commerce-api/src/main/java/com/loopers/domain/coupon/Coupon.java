@@ -71,6 +71,25 @@ public class Coupon extends BaseEntity {
         return coupon;
     }
 
+    public void update(
+            String name,
+            Long discountValue,
+            Long maxDiscountPrice,
+            Long minOrderPrice,
+            ZonedDateTime expiredAt
+    ) {
+        validateDiscountValue(this.type, discountValue);
+        validateMaxDiscountPrice(this.type, maxDiscountPrice);
+        validateMinOrderPrice(minOrderPrice);
+        validateExpiredAt(expiredAt);
+
+        this.name = new CouponName(name);
+        this.discountValue = discountValue;
+        this.maxDiscountPrice = maxDiscountPrice != null ? Money.wons(maxDiscountPrice) : null;
+        this.minOrderPrice = Money.wons(minOrderPrice);
+        this.expiredAt = expiredAt;
+    }
+
     private static void validateType(CouponType type) {
         if (Objects.isNull(type)) {
             throw new CoreException(ErrorType.REQUIRED_COUPON_TYPE);

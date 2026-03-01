@@ -30,4 +30,10 @@ public interface CouponV1AdminApiSpec {
             description = "특정 쿠폰의 상세 정보를 조회합니다."
     )
     ApiResponse<CouponDto.CouponResponse> getCoupon(Long couponId);
+
+    @Operation(
+            summary = "쿠폰 수정",
+            description = "쿠폰 정보를 수정합니다."
+    )
+    ApiResponse<Void> updateCoupon(Long couponId, CouponDto.UpdateCouponRequest request);
 }

@@ -15,4 +15,14 @@ public class CouponCommand {
             ZonedDateTime expiredAt
     ) {
     }
+
+    public record UpdateCouponCommand(
+            Long couponId,
+            String name,
+            Long discountValue,
+            Long maxDiscountPrice,
+            Long minOrderPrice,
+            ZonedDateTime expiredAt
+    ) {
+    }
 }

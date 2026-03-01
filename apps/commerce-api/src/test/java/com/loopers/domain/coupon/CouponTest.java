@@ -165,4 +165,107 @@ class CouponTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_EXPIRED_AT));
         }
     }
+
+    @DisplayName("쿠폰을 수정할 때,")
+    @Nested
+    class Update {
+
+        @DisplayName("정액(FIXED) 쿠폰의 정보를 수정하면, 정상적으로 수정된다.")
+        @Test
+        void updatesFixedCoupon_whenAllValuesAreValid() {
+            // arrange
+            var coupon = Coupon.create("기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE);
+            var newExpiredAt = ZonedDateTime.now().plusDays(60);
+
+            // act
+            coupon.update("수정된 쿠폰", 3000L, null, 20000L, newExpiredAt);
+
+            // assert
+            assertAll(
+                    () -> assertThat(coupon.getName()).isEqualTo(new CouponName("수정된 쿠폰")),
+                    () -> assertThat(coupon.getType()).isEqualTo(CouponType.FIXED),
+                    () -> assertThat(coupon.getDiscountValue()).isEqualTo(3000L),
+                    () -> assertThat(coupon.getMaxDiscountPrice()).isNull(),
+                    () -> assertThat(coupon.getMinOrderPrice()).isEqualTo(Money.wons(20000L)),
+                    () -> assertThat(coupon.getExpiredAt()).isEqualTo(newExpiredAt)
+            );
+        }
+
+        @DisplayName("정률(RATE) 쿠폰의 정보를 수정하면, 정상적으로 수정된다.")
+        @Test
+        void updatesRateCoupon_whenAllValuesAreValid() {
+            // arrange
+            var coupon = Coupon.create("기존 쿠폰", CouponType.RATE, 10L, 5000L, 10000L, FUTURE);
+            var newExpiredAt = ZonedDateTime.now().plusDays(60);
+
+            // act
+            coupon.update("수정된 쿠폰", 20L, 8000L, 15000L, newExpiredAt);
+
+            // assert
+            assertAll(
+                    () -> assertThat(coupon.getName()).isEqualTo(new CouponName("수정된 쿠폰")),
+                    () -> assertThat(coupon.getType()).isEqualTo(CouponType.RATE),
+                    () -> assertThat(coupon.getDiscountValue()).isEqualTo(20L),
+                    () -> assertThat(coupon.getMaxDiscountPrice()).isEqualTo(Money.wons(8000L)),
+                    () -> assertThat(coupon.getMinOrderPrice()).isEqualTo(Money.wons(15000L)),
+                    () -> assertThat(coupon.getExpiredAt()).isEqualTo(newExpiredAt)
+            );
+        }
+
+        @DisplayName("삭제된 쿠폰도 정상적으로 수정된다.")
+        @Test
+        void updatesDeletedCoupon_whenAllValuesAreValid() {
+            // arrange
+            var coupon = Coupon.create("기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE);
+            coupon.delete();
+            var newExpiredAt = ZonedDateTime.now().plusDays(60);
+
+            // act
+            coupon.update("수정된 쿠폰", 3000L, null, 20000L, newExpiredAt);
+
+            // assert
+            assertAll(
+                    () -> assertThat(coupon.getName()).isEqualTo(new CouponName("수정된 쿠폰")),
+                    () -> assertThat(coupon.getDiscountValue()).isEqualTo(3000L),
+                    () -> assertThat(coupon.getDeletedAt()).isNotNull()
+            );
+        }
+
+        @DisplayName("할인값이 1 미만이면, INVALID_DISCOUNT_VALUE 예외가 발생한다.")
+        @Test
+        void throwsException_whenDiscountValueIsLessThanOne() {
+            // arrange
+            var coupon = Coupon.create("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE);
+
+            // act & assert
+            assertThatThrownBy(() -> coupon.update("수정 쿠폰", 0L, null, 10000L, FUTURE))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_DISCOUNT_VALUE));
+        }
+
+        @DisplayName("정률 쿠폰의 최대 할인 금액이 null이면, REQUIRED_MAX_DISCOUNT_AMOUNT 예외가 발생한다.")
+        @Test
+        void throwsException_whenRateCouponMaxDiscountAmountIsNull() {
+            // arrange
+            var coupon = Coupon.create("쿠폰명", CouponType.RATE, 10L, 5000L, 10000L, FUTURE);
+
+            // act & assert
+            assertThatThrownBy(() -> coupon.update("수정 쿠폰", 20L, null, 10000L, FUTURE))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.REQUIRED_MAX_DISCOUNT_AMOUNT));
+        }
+
+        @DisplayName("만료일이 현재 시점 이전이면, INVALID_EXPIRED_AT 예외가 발생한다.")
+        @Test
+        void throwsException_whenExpiredAtIsInThePast() {
+            // arrange
+            var coupon = Coupon.create("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE);
+            var pastDate = ZonedDateTime.now().minusDays(1);
+
+            // act & assert
+            assertThatThrownBy(() -> coupon.update("수정 쿠폰", 3000L, null, 10000L, pastDate))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_EXPIRED_AT));
+        }
+    }
 }

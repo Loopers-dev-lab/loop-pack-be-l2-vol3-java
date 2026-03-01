@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.coupon.v1;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.createCoupon;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getCoupon;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getCoupons;
+import static com.loopers.interfaces.api.coupon.v1.CouponSteps.updateCoupon;
 import static com.loopers.support.E2ETestHelper.adminAuthHeaders;
 import static com.loopers.support.E2ETestHelper.assertErrorResponse;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -372,6 +373,150 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
 
             // assert
             assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.COUPON_NOT_FOUND);
+        }
+    }
+
+    @DisplayName("PUT /api-admin/v1/coupons/{couponId}")
+    @Nested
+    class UpdateCoupon {
+
+        @DisplayName("정액 쿠폰 정보를 수정하면, 수정에 성공한다.")
+        @Test
+        void updatesFixedCoupon_whenValidInputProvided() {
+            // arrange
+            var createRequest = new CouponDto.CreateCouponRequest(
+                    "기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+            );
+            var couponId = createCoupon(testRestTemplate, createRequest, adminAuthHeaders())
+                    .getBody().data().couponId();
+
+            var updateRequest = new CouponDto.UpdateCouponRequest(
+                    "수정된 쿠폰", 3000L, null, 20000L, FUTURE
+            );
+
+            // act
+            var response = updateCoupon(testRestTemplate, couponId, updateRequest, adminAuthHeaders());
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+            var detail = getCoupon(testRestTemplate, couponId);
+            assertAll(
+                    () -> assertThat(detail.getBody().data().name()).isEqualTo("수정된 쿠폰"),
+                    () -> assertThat(detail.getBody().data().discountValue()).isEqualTo(3000L),
+                    () -> assertThat(detail.getBody().data().maxDiscountPrice()).isNull(),
+                    () -> assertThat(detail.getBody().data().minOrderPrice()).isEqualTo(20000L),
+                    () -> assertThat(detail.getBody().data().type()).isEqualTo(CouponType.FIXED)
+            );
+        }
+
+        @DisplayName("정률 쿠폰 정보를 수정하면, 수정에 성공한다.")
+        @Test
+        void updatesRateCoupon_whenValidInputProvided() {
+            // arrange
+            var createRequest = new CouponDto.CreateCouponRequest(
+                    "기존 쿠폰", CouponType.RATE, 10L, 5000L, 10000L, FUTURE
+            );
+            var couponId = createCoupon(testRestTemplate, createRequest, adminAuthHeaders())
+                    .getBody().data().couponId();
+
+            var updateRequest = new CouponDto.UpdateCouponRequest(
+                    "수정된 쿠폰", 20L, 8000L, 15000L, FUTURE
+            );
+
+            // act
+            var response = updateCoupon(testRestTemplate, couponId, updateRequest, adminAuthHeaders());
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+            var detail = getCoupon(testRestTemplate, couponId);
+            assertAll(
+                    () -> assertThat(detail.getBody().data().name()).isEqualTo("수정된 쿠폰"),
+                    () -> assertThat(detail.getBody().data().discountValue()).isEqualTo(20L),
+                    () -> assertThat(detail.getBody().data().maxDiscountPrice()).isEqualTo(8000L),
+                    () -> assertThat(detail.getBody().data().minOrderPrice()).isEqualTo(15000L),
+                    () -> assertThat(detail.getBody().data().type()).isEqualTo(CouponType.RATE)
+            );
+        }
+
+        @DisplayName("X-Loopers-Ldap 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        void returnsUnauthorized_whenNoLdapHeader() {
+            // arrange
+            var updateRequest = new CouponDto.UpdateCouponRequest(
+                    "수정 쿠폰", 3000L, null, 10000L, FUTURE
+            );
+
+            // act
+            var response = updateCoupon(testRestTemplate, 1L, updateRequest, new HttpHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("존재하지 않는 쿠폰을 수정하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        void returnsNotFound_whenCouponDoesNotExist() {
+            // arrange
+            var updateRequest = new CouponDto.UpdateCouponRequest(
+                    "수정 쿠폰", 3000L, null, 10000L, FUTURE
+            );
+
+            // act
+            var response = updateCoupon(testRestTemplate, 999L, updateRequest, adminAuthHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.COUPON_NOT_FOUND);
+        }
+
+        @DisplayName("삭제된 쿠폰을 수정하면, 수정에 성공한다.")
+        @Test
+        void updatesDeletedCoupon_whenValidInputProvided() {
+            // arrange
+            var createRequest = new CouponDto.CreateCouponRequest(
+                    "기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+            );
+            var couponId = createCoupon(testRestTemplate, createRequest, adminAuthHeaders())
+                    .getBody().data().couponId();
+
+            var coupon = couponRepository.findById(couponId).orElseThrow();
+            coupon.delete();
+            couponRepository.save(coupon);
+
+            var updateRequest = new CouponDto.UpdateCouponRequest(
+                    "수정된 쿠폰", 3000L, null, 20000L, FUTURE
+            );
+
+            // act
+            var response = updateCoupon(testRestTemplate, couponId, updateRequest, adminAuthHeaders());
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+            var detail = getCoupon(testRestTemplate, couponId);
+            assertThat(detail.getBody().data().name()).isEqualTo("수정된 쿠폰");
+        }
+
+        @DisplayName("쿠폰명이 빈 값이면, 400 BAD_REQUEST 응답을 받는다.")
+        @Test
+        void returnsBadRequest_whenNameIsBlank() {
+            // arrange
+            var createRequest = new CouponDto.CreateCouponRequest(
+                    "기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+            );
+            var couponId = createCoupon(testRestTemplate, createRequest, adminAuthHeaders())
+                    .getBody().data().couponId();
+
+            var updateRequest = new CouponDto.UpdateCouponRequest(
+                    "", 3000L, null, 10000L, FUTURE
+            );
+
+            // act
+            var response = updateCoupon(testRestTemplate, couponId, updateRequest, adminAuthHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.BAD_REQUEST);
         }
     }
 }

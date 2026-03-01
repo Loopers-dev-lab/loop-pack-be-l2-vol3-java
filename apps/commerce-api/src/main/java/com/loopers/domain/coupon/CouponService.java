@@ -5,6 +5,8 @@ import java.time.ZonedDateTime;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.domain.shared.annotation.DomainService;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,5 +27,20 @@ public class CouponService {
     ) {
         Coupon coupon = Coupon.create(name, type, discountValue, maxDiscountPrice, minOrderPrice, expiredAt);
         return couponRepository.save(coupon);
+    }
+
+    @Transactional
+    public Coupon update(
+            Long couponId,
+            String name,
+            Long discountValue,
+            Long maxDiscountPrice,
+            Long minOrderPrice,
+            ZonedDateTime expiredAt
+    ) {
+        Coupon coupon = couponRepository.findById(couponId)
+                .orElseThrow(() -> new CoreException(ErrorType.COUPON_NOT_FOUND));
+        coupon.update(name, discountValue, maxDiscountPrice, minOrderPrice, expiredAt);
+        return coupon;
     }
 }

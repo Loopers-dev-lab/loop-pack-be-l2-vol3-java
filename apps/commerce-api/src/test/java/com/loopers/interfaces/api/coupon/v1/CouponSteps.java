@@ -60,6 +60,22 @@ public class CouponSteps {
         return getCoupon(testRestTemplate, couponId, adminAuthHeaders());
     }
 
+    public static ResponseEntity<ApiResponse<Void>> updateCoupon(
+            TestRestTemplate testRestTemplate,
+            Long couponId,
+            CouponDto.UpdateCouponRequest request,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                COUPON_ADMIN_ENDPOINT + "/" + couponId,
+                HttpMethod.PUT,
+                new HttpEntity<>(request, headers),
+                responseType
+        );
+    }
+
     public static ResponseEntity<ApiResponse<CouponDto.CouponResponse>> getCoupon(
             TestRestTemplate testRestTemplate,
             Long couponId,
