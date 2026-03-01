@@ -13,11 +13,17 @@ public class AdminOrderV1Dto {
         Long orderId,
         Long userId,
         int totalPrice,
+        int originalPrice,
+        int discountAmount,
         String status,
         ZonedDateTime createdAt
     ) {
         public static OrderResponse from(Order order) {
-            return new OrderResponse(order.getId(), order.getUserId(), order.getTotalPrice().amount(), order.getStatus().name(), order.getCreatedAt());
+            return new OrderResponse(
+                order.getId(), order.getUserId(), order.getTotalPrice().amount(),
+                order.getOriginalPrice().amount(), order.getDiscountAmount().amount(),
+                order.getStatus().name(), order.getCreatedAt()
+            );
         }
     }
 
@@ -25,6 +31,8 @@ public class AdminOrderV1Dto {
         Long orderId,
         Long userId,
         int totalPrice,
+        int originalPrice,
+        int discountAmount,
         String status,
         ZonedDateTime createdAt,
         List<OrderItemResponse> items
@@ -34,7 +42,9 @@ public class AdminOrderV1Dto {
                 .map(OrderItemResponse::from)
                 .toList();
             return new OrderDetailResponse(
-                order.getId(), order.getUserId(), order.getTotalPrice().amount(), order.getStatus().name(), order.getCreatedAt(), items
+                order.getId(), order.getUserId(), order.getTotalPrice().amount(),
+                order.getOriginalPrice().amount(), order.getDiscountAmount().amount(),
+                order.getStatus().name(), order.getCreatedAt(), items
             );
         }
     }

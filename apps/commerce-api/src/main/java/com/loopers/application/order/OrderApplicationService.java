@@ -6,10 +6,15 @@ import com.loopers.domain.brand.BrandDomainService;
 import com.loopers.domain.cart.Cart;
 import com.loopers.domain.cart.CartDomainService;
 import com.loopers.domain.cart.CartItem;
+import com.loopers.domain.coupon.Coupon;
+import com.loopers.domain.coupon.CouponDomainService;
+import com.loopers.domain.coupon.CouponIssue;
+import com.loopers.domain.coupon.CouponIssueDomainService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderDomainService;
 import com.loopers.domain.order.OrderItemCommand;
 import com.loopers.domain.order.OrderPolicy;
+import com.loopers.domain.product.Money;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductDomainService;
 import com.loopers.support.error.CoreException;
@@ -35,10 +40,12 @@ public class OrderApplicationService {
     private final ProductDomainService productService;
     private final BrandDomainService brandService;
     private final CartDomainService cartService;
+    private final CouponDomainService couponDomainService;
+    private final CouponIssueDomainService couponIssueDomainService;
 
     @Transactional
     public Order createOrder(CreateOrderCommand command) {
-        return processOrder(command.userId(), command.items());
+        return processOrder(command.userId(), command.items(), command.couponId());
     }
 
     /**
@@ -77,8 +84,20 @@ public class OrderApplicationService {
             .map(ci -> new CreateOrderCommand.LineItem(ci.getProductId(), ci.getQuantity().value()))
             .toList();
 
-        Order order = processOrder(userId, lineItems);
+        Order order = processOrder(userId, lineItems, null);
         cartService.clearCart(userId);
+        return order;
+    }
+
+    @Transactional
+    public Order cancelOrder(Long userId, Long orderId) {
+        Order order = orderService.getByIdAndUserId(orderId, userId);
+        order.cancel();
+
+        if (order.getCouponIssueId() != null) {
+            couponIssueDomainService.restoreCoupon(order.getCouponIssueId());
+        }
+
         return order;
     }
 
@@ -108,7 +127,7 @@ public class OrderApplicationService {
      * 재고 차감과 주문 생성은 원자적으로 처리되어야 하며,
      * 분리 시 재고 불일치 또는 유령 주문이 발생할 수 있다.
      */
-    private Order processOrder(Long userId, List<CreateOrderCommand.LineItem> lineItems) {
+    private Order processOrder(Long userId, List<CreateOrderCommand.LineItem> lineItems, Long couponId) {
         // 0. 중복 상품 조기 차단 (의도적 이중 검증)
         // OrderDomainService.createOrder()에도 동일 검증이 존재하나,
         // Application 레벨에서 먼저 차단하여 불필요한 pessimistic lock/재고 차감 DB 호출을 방지한다.
@@ -148,7 +167,31 @@ public class OrderApplicationService {
             ));
         }
 
-        // 5. 주문 생성 (도메인 서비스 위임)
+        // 5. 총 금액 계산
+        Money originalPrice = calculateOriginalPrice(itemCommands);
+
+        // 6. 쿠폰 처리
+        if (couponId != null) {
+            CouponIssue couponIssue = couponIssueDomainService.getByIdAndUserId(couponId, userId);
+            Coupon coupon = couponDomainService.getById(couponIssue.getCouponId());
+
+            coupon.validateApplicable(originalPrice);
+            Money discountAmount = coupon.calculateDiscount(originalPrice);
+
+            couponIssueDomainService.useCoupon(couponIssue.getId(), userId);
+
+            return orderService.createOrder(userId, itemCommands, originalPrice, discountAmount, couponId);
+        }
+
+        // 7. 주문 생성 (쿠폰 없음)
         return orderService.createOrder(userId, itemCommands);
+    }
+
+    private Money calculateOriginalPrice(List<OrderItemCommand> itemCommands) {
+        Money total = new Money(0);
+        for (OrderItemCommand cmd : itemCommands) {
+            total = total.plus(cmd.productPrice().multiply(cmd.quantity()));
+        }
+        return total;
     }
 }

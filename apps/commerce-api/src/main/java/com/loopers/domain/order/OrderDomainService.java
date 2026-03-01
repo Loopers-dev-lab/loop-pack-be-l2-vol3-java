@@ -32,6 +32,21 @@ public class OrderDomainService {
         return orderRepository.save(order);
     }
 
+    public Order createOrder(Long userId, List<OrderItemCommand> itemCommands,
+                             Money originalPrice, Money discountAmount, Long couponIssueId) {
+        if (itemCommands == null || itemCommands.isEmpty()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목은 하나 이상이어야 합니다.");
+        }
+
+        List<Long> productIds = itemCommands.stream().map(OrderItemCommand::productId).toList();
+        OrderPolicy.validateNoDuplicateProducts(productIds);
+
+        Order order = new Order(userId, originalPrice, discountAmount, couponIssueId);
+        order.addItems(itemCommands);
+
+        return orderRepository.save(order);
+    }
+
     private Money calculateTotalPrice(List<OrderItemCommand> itemCommands) {
         Money total = new Money(0);
         for (OrderItemCommand cmd : itemCommands) {

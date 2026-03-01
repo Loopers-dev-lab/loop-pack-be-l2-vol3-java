@@ -105,7 +105,7 @@ class OrderV1ApiE2ETest {
 
     private OrderV1Dto.OrderDetailResponse createOrder(Long pId, int quantity) {
         OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
-            List.of(new OrderV1Dto.OrderItemRequest(pId, quantity))
+            List.of(new OrderV1Dto.OrderItemRequest(pId, quantity)), null
         );
         ResponseEntity<ApiResponse<OrderV1Dto.OrderDetailResponse>> response = testRestTemplate.exchange(
             ORDER_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request, authHeaders()),
@@ -125,7 +125,7 @@ class OrderV1ApiE2ETest {
                 List.of(
                     new OrderV1Dto.OrderItemRequest(productId, 2),
                     new OrderV1Dto.OrderItemRequest(productId2, 1)
-                )
+                ), null
             );
 
             ResponseEntity<ApiResponse<OrderV1Dto.OrderDetailResponse>> response = testRestTemplate.exchange(
@@ -162,7 +162,7 @@ class OrderV1ApiE2ETest {
                 List.of(
                     new OrderV1Dto.OrderItemRequest(productId, 2),
                     new OrderV1Dto.OrderItemRequest(productId, 3)
-                )
+                ), null
             );
 
             ResponseEntity<ApiResponse<OrderV1Dto.OrderDetailResponse>> response = testRestTemplate.exchange(
@@ -177,7 +177,7 @@ class OrderV1ApiE2ETest {
         @Test
         void returnsBadRequest_whenStockInsufficient() {
             OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
-                List.of(new OrderV1Dto.OrderItemRequest(productId, 999))
+                List.of(new OrderV1Dto.OrderItemRequest(productId, 999)), null
             );
 
             ResponseEntity<ApiResponse<OrderV1Dto.OrderDetailResponse>> response = testRestTemplate.exchange(
@@ -192,7 +192,7 @@ class OrderV1ApiE2ETest {
         @Test
         void returnsNotFound_whenProductDoesNotExist() {
             OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
-                List.of(new OrderV1Dto.OrderItemRequest(999L, 1))
+                List.of(new OrderV1Dto.OrderItemRequest(999L, 1)), null
             );
 
             ResponseEntity<ApiResponse<OrderV1Dto.OrderDetailResponse>> response = testRestTemplate.exchange(
@@ -207,7 +207,7 @@ class OrderV1ApiE2ETest {
         @Test
         void returnsUnauthorized_whenNotAuthenticated() {
             OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
-                List.of(new OrderV1Dto.OrderItemRequest(productId, 1))
+                List.of(new OrderV1Dto.OrderItemRequest(productId, 1)), null
             );
 
             ResponseEntity<ApiResponse<OrderV1Dto.OrderDetailResponse>> response = testRestTemplate.exchange(

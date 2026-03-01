@@ -4,6 +4,10 @@ import com.loopers.domain.brand.BrandDomainService;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.cart.CartDomainService;
 import com.loopers.domain.cart.CartRepository;
+import com.loopers.domain.coupon.CouponDomainService;
+import com.loopers.domain.coupon.CouponIssueDomainService;
+import com.loopers.domain.coupon.CouponIssueRepository;
+import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.like.LikeDomainService;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.order.OrderDomainService;
@@ -47,5 +51,15 @@ public class DomainServiceConfig {
     @Bean
     public OrderDomainService orderDomainService(OrderRepository orderRepository) {
         return new OrderDomainService(orderRepository);
+    }
+
+    @Bean
+    public CouponDomainService couponDomainService(CouponRepository couponRepository) {
+        return new CouponDomainService(couponRepository);
+    }
+
+    @Bean
+    public CouponIssueDomainService couponIssueDomainService(CouponIssueRepository couponIssueRepository) {
+        return new CouponIssueDomainService(couponIssueRepository);
     }
 }
