@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.coupon.v1;
 
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.createCoupon;
+import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getCoupon;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getCoupons;
 import static com.loopers.support.E2ETestHelper.adminAuthHeaders;
 import static com.loopers.support.E2ETestHelper.assertErrorResponse;
@@ -327,6 +328,50 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
 
             // assert
             assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
+        }
+    }
+
+    @DisplayName("GET /api-admin/v1/coupons/{couponId}")
+    @Nested
+    class ReadCouponDetail {
+
+        @DisplayName("존재하는 쿠폰 ID로 조회하면, 쿠폰 상세 정보를 반환한다.")
+        @Test
+        void returnsCouponDetail_whenCouponExists() {
+            // arrange
+            var request = new CouponDto.CreateCouponRequest(
+                    "여름 할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+            );
+            var createResponse = createCoupon(testRestTemplate, request, adminAuthHeaders());
+            var couponId = createResponse.getBody().data().couponId();
+
+            // act
+            var response = getCoupon(testRestTemplate, couponId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().id()).isEqualTo(couponId),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("여름 할인 쿠폰"),
+                    () -> assertThat(response.getBody().data().type()).isEqualTo(CouponType.FIXED),
+                    () -> assertThat(response.getBody().data().discountValue()).isEqualTo(5000L),
+                    () -> assertThat(response.getBody().data().maxDiscountPrice()).isNull(),
+                    () -> assertThat(response.getBody().data().minOrderPrice()).isEqualTo(10000L),
+                    () -> assertThat(response.getBody().data().expiredAt()).isNotNull(),
+                    () -> assertThat(response.getBody().data().createdAt()).isNotNull(),
+                    () -> assertThat(response.getBody().data().deletedAt()).isNull()
+            );
+        }
+
+        @DisplayName("존재하지 않는 쿠폰 ID로 조회하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        void returnsNotFound_whenCouponDoesNotExist() {
+            // act
+            var response = getCoupon(testRestTemplate, 999L);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.COUPON_NOT_FOUND);
         }
     }
 }

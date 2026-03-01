@@ -24,4 +24,10 @@ public interface CouponV1AdminApiSpec {
             description = "등록된 쿠폰 목록을 조회합니다."
     )
     ApiResponse<PageResponse<CouponDto.CouponResponse>> getCoupons(int page, int size);
+
+    @Operation(
+            summary = "쿠폰 상세 조회",
+            description = "특정 쿠폰의 상세 정보를 조회합니다."
+    )
+    ApiResponse<CouponDto.CouponResponse> getCoupon(Long couponId);
 }

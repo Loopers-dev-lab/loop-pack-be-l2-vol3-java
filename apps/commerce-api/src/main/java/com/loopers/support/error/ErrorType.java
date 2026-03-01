@@ -77,7 +77,8 @@ public enum ErrorType {
     REQUIRED_MAX_DISCOUNT_AMOUNT(HttpStatus.BAD_REQUEST, "REQUIRED_MAX_DISCOUNT_AMOUNT", "정률 쿠폰의 최대 할인 금액은 필수 값입니다."),
     REQUIRED_MIN_ORDER_PRICE(HttpStatus.BAD_REQUEST, "REQUIRED_MIN_ORDER_PRICE", "최소 주문 금액은 필수 값입니다."),
     REQUIRED_EXPIRED_AT(HttpStatus.BAD_REQUEST, "REQUIRED_EXPIRED_AT", "만료일은 필수 값입니다."),
-    INVALID_EXPIRED_AT(HttpStatus.BAD_REQUEST, "INVALID_EXPIRED_AT", "만료일은 현재 시점 이후여야 합니다.");
+    INVALID_EXPIRED_AT(HttpStatus.BAD_REQUEST, "INVALID_EXPIRED_AT", "만료일은 현재 시점 이후여야 합니다."),
+    COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND", "쿠폰을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

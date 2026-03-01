@@ -52,4 +52,26 @@ public class CouponSteps {
     ) {
         return getCoupons(testRestTemplate, url, adminAuthHeaders());
     }
+
+    public static ResponseEntity<ApiResponse<CouponDto.CouponResponse>> getCoupon(
+            TestRestTemplate testRestTemplate,
+            Long couponId
+    ) {
+        return getCoupon(testRestTemplate, couponId, adminAuthHeaders());
+    }
+
+    public static ResponseEntity<ApiResponse<CouponDto.CouponResponse>> getCoupon(
+            TestRestTemplate testRestTemplate,
+            Long couponId,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<CouponDto.CouponResponse>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                COUPON_ADMIN_ENDPOINT + "/" + couponId,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                responseType
+        );
+    }
 }
