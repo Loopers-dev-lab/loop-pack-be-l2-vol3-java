@@ -1,0 +1,209 @@
+package com.loopers.interfaces.api.coupon.v1;
+
+import static com.loopers.interfaces.api.coupon.v1.CouponSteps.createCoupon;
+import static com.loopers.support.E2ETestHelper.adminAuthHeaders;
+import static com.loopers.support.E2ETestHelper.assertErrorResponse;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
+
+import java.time.ZonedDateTime;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+
+import com.loopers.domain.coupon.CouponType;
+import com.loopers.support.BaseE2ETest;
+import com.loopers.support.error.ErrorType;
+
+class CouponV1AdminApiE2ETest extends BaseE2ETest {
+
+    private static final ZonedDateTime FUTURE = ZonedDateTime.now().plusDays(30);
+
+    @DisplayName("POST /api-admin/v1/coupons")
+    @Nested
+    class RegisterCoupon {
+
+        @DisplayName("유효한 정액 쿠폰 정보를 입력하면, 쿠폰 생성에 성공한다.")
+        @Test
+        void createsFixedCoupon_whenValidInputProvided() {
+            // arrange
+            var request = new CouponDto.CreateCouponRequest(
+                    "여름 할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+            );
+
+            // act
+            var response = createCoupon(testRestTemplate, request, adminAuthHeaders());
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().couponId()).isNotNull()
+            );
+        }
+
+        @DisplayName("유효한 정률 쿠폰 정보를 입력하면, 쿠폰 생성에 성공한다.")
+        @Test
+        void createsRateCoupon_whenValidInputProvided() {
+            // arrange
+            var request = new CouponDto.CreateCouponRequest(
+                    "10% 할인 쿠폰", CouponType.RATE, 10L, 5000L, 10000L, FUTURE
+            );
+
+            // act
+            var response = createCoupon(testRestTemplate, request, adminAuthHeaders());
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().couponId()).isNotNull()
+            );
+        }
+
+        @DisplayName("X-Loopers-Ldap 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        void returnsUnauthorized_whenNoLdapHeader() {
+            // arrange
+            var request = new CouponDto.CreateCouponRequest(
+                    "여름 할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+            );
+
+            // act
+            var response = createCoupon(testRestTemplate, request, new HttpHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("X-Loopers-Ldap 헤더 값이 잘못되면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        void returnsUnauthorized_whenLdapHeaderValueIsWrong() {
+            // arrange
+            var request = new CouponDto.CreateCouponRequest(
+                    "여름 할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+            );
+            var headers = new HttpHeaders();
+            headers.set("X-Loopers-Ldap", "wrong.value");
+
+            // act
+            var response = createCoupon(testRestTemplate, request, headers);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
+        }
+
+        @DisplayName("쿠폰명이 빈 값이면, 400 BAD_REQUEST 응답을 받는다.")
+        @Test
+        void returnsBadRequest_whenNameIsBlank() {
+            // arrange
+            var request = new CouponDto.CreateCouponRequest(
+                    "", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+            );
+
+            // act
+            var response = createCoupon(testRestTemplate, request, adminAuthHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("쿠폰명 길이가 유효하지 않으면, INVALID_COUPON_NAME 에러 응답을 받는다.")
+        @ParameterizedTest(name = "길이가 {0}인 쿠폰명")
+        @ValueSource(ints = {1, 51})
+        void returnsInvalidCouponName_whenNameLengthIsInvalid(int length) {
+            // arrange
+            var name = "a".repeat(length);
+            var request = new CouponDto.CreateCouponRequest(
+                    name, CouponType.FIXED, 5000L, null, 10000L, FUTURE
+            );
+
+            // act
+            var response = createCoupon(testRestTemplate, request, adminAuthHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.INVALID_COUPON_NAME);
+        }
+
+        @DisplayName("정액 할인값이 1 미만이면, INVALID_DISCOUNT_VALUE 에러 응답을 받는다.")
+        @Test
+        void returnsInvalidDiscountValue_whenFixedDiscountValueIsLessThanOne() {
+            // arrange
+            var request = new CouponDto.CreateCouponRequest(
+                    "쿠폰명입니다", CouponType.FIXED, 0L, null, 10000L, FUTURE
+            );
+
+            // act
+            var response = createCoupon(testRestTemplate, request, adminAuthHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.INVALID_DISCOUNT_VALUE);
+        }
+
+        @DisplayName("정률 할인값이 1 미만이면, INVALID_DISCOUNT_VALUE 에러 응답을 받는다.")
+        @Test
+        void returnsInvalidDiscountValue_whenRateDiscountValueIsLessThanOne() {
+            // arrange
+            var request = new CouponDto.CreateCouponRequest(
+                    "쿠폰명입니다", CouponType.RATE, 0L, 5000L, 10000L, FUTURE
+            );
+
+            // act
+            var response = createCoupon(testRestTemplate, request, adminAuthHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.INVALID_DISCOUNT_VALUE);
+        }
+
+        @DisplayName("정률 할인값이 100 초과이면, INVALID_RATE_DISCOUNT_VALUE 에러 응답을 받는다.")
+        @Test
+        void returnsInvalidRateDiscountValue_whenDiscountValueExceeds100() {
+            // arrange
+            var request = new CouponDto.CreateCouponRequest(
+                    "쿠폰명입니다", CouponType.RATE, 101L, 5000L, 10000L, FUTURE
+            );
+
+            // act
+            var response = createCoupon(testRestTemplate, request, adminAuthHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.INVALID_RATE_DISCOUNT_VALUE);
+        }
+
+        @DisplayName("정률 쿠폰의 최대 할인 금액이 없으면, REQUIRED_MAX_DISCOUNT_AMOUNT 에러 응답을 받는다.")
+        @Test
+        void returnsRequiredMaxDiscountAmount_whenRateCouponWithoutMaxDiscount() {
+            // arrange
+            var request = new CouponDto.CreateCouponRequest(
+                    "쿠폰명입니다", CouponType.RATE, 10L, null, 10000L, FUTURE
+            );
+
+            // act
+            var response = createCoupon(testRestTemplate, request, adminAuthHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.REQUIRED_MAX_DISCOUNT_AMOUNT);
+        }
+
+        @DisplayName("만료일이 과거이면, INVALID_EXPIRED_AT 에러 응답을 받는다.")
+        @Test
+        void returnsInvalidExpiredAt_whenExpiredAtIsInThePast() {
+            // arrange
+            var pastDate = ZonedDateTime.now().minusDays(1);
+            var request = new CouponDto.CreateCouponRequest(
+                    "쿠폰명입니다", CouponType.FIXED, 5000L, null, 10000L, pastDate
+            );
+
+            // act
+            var response = createCoupon(testRestTemplate, request, adminAuthHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.INVALID_EXPIRED_AT);
+        }
+    }
+}
