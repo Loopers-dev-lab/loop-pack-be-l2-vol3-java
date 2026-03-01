@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.coupon.v1;
 
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.createCoupon;
+import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getCoupons;
 import static com.loopers.support.E2ETestHelper.adminAuthHeaders;
 import static com.loopers.support.E2ETestHelper.assertErrorResponse;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -13,16 +14,24 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.coupon.CouponType;
+import com.loopers.interfaces.api.coupon.v1.CouponDto.CouponResponse;
 import com.loopers.support.BaseE2ETest;
 import com.loopers.support.error.ErrorType;
 
 class CouponV1AdminApiE2ETest extends BaseE2ETest {
 
+    private static final String COUPON_ADMIN_ENDPOINT = "/api-admin/v1/coupons";
     private static final ZonedDateTime FUTURE = ZonedDateTime.now().plusDays(30);
+
+    @Autowired
+    private CouponRepository couponRepository;
 
     @DisplayName("POST /api-admin/v1/coupons")
     @Nested
@@ -204,6 +213,120 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
 
             // assert
             assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.INVALID_EXPIRED_AT);
+        }
+    }
+
+    @DisplayName("GET /api-admin/v1/coupons")
+    @Nested
+    class ReadCoupons {
+
+        @DisplayName("삭제된 쿠폰을 포함한 쿠폰 목록이 생성일 내림차순으로 반환된다.")
+        @Test
+        void returnsCouponList_whenCouponsExist() {
+            // arrange
+            createCoupon(testRestTemplate,
+                    new CouponDto.CreateCouponRequest("정액 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE),
+                    adminAuthHeaders()
+            );
+            var coupon = couponRepository.findById(1L).orElseThrow();
+            coupon.delete();
+            couponRepository.save(coupon);
+
+            createCoupon(testRestTemplate,
+                    new CouponDto.CreateCouponRequest("정률 쿠폰", CouponType.RATE, 10L, 5000L, 10000L, FUTURE),
+                    adminAuthHeaders()
+            );
+
+            var url = UriComponentsBuilder.fromPath(COUPON_ADMIN_ENDPOINT)
+                    .queryParam("page", 0)
+                    .queryParam("size", 10)
+                    .toUriString();
+
+            // act
+            var response = getCoupons(testRestTemplate, url);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().content()).hasSize(2),
+                    () -> assertThat(response.getBody().data().content()).extracting(CouponResponse::name)
+                            .containsExactly("정률 쿠폰", "정액 쿠폰"),
+                    () -> assertThat(response.getBody().data().content()).extracting(CouponResponse::createdAt)
+                            .doesNotContainNull(),
+                    () -> assertThat(response.getBody().data().content().get(1).deletedAt()).isNotNull()
+            );
+        }
+
+        @DisplayName("쿠폰이 없으면, 빈 목록이 반환된다.")
+        @Test
+        void returnsEmptyList_whenNoCouponsExist() {
+            // arrange
+            var url = UriComponentsBuilder.fromPath(COUPON_ADMIN_ENDPOINT)
+                    .queryParam("page", 0)
+                    .queryParam("size", 10)
+                    .toUriString();
+
+            // act
+            var response = getCoupons(testRestTemplate, url);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().content()).isEmpty(),
+                    () -> assertThat(response.getBody().data().hasNext()).isFalse()
+            );
+        }
+
+        @DisplayName("페이지 크기보다 쿠폰이 많으면, hasNext가 true이다.")
+        @Test
+        void returnsHasNextTrue_whenMoreCouponsExist() {
+            // arrange
+            createCoupon(testRestTemplate,
+                    new CouponDto.CreateCouponRequest("쿠폰1", CouponType.FIXED, 1000L, null, 5000L, FUTURE),
+                    adminAuthHeaders()
+            );
+            createCoupon(testRestTemplate,
+                    new CouponDto.CreateCouponRequest("쿠폰2", CouponType.FIXED, 2000L, null, 5000L, FUTURE),
+                    adminAuthHeaders()
+            );
+            createCoupon(testRestTemplate,
+                    new CouponDto.CreateCouponRequest("쿠폰3", CouponType.FIXED, 3000L, null, 5000L, FUTURE),
+                    adminAuthHeaders()
+            );
+
+            var url = UriComponentsBuilder.fromPath(COUPON_ADMIN_ENDPOINT)
+                    .queryParam("page", 0)
+                    .queryParam("size", 2)
+                    .toUriString();
+
+            // act
+            var response = getCoupons(testRestTemplate, url);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().content()).hasSize(2),
+                    () -> assertThat(response.getBody().data().hasNext()).isTrue()
+            );
+        }
+
+        @DisplayName("X-Loopers-Ldap 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        void returnsUnauthorized_whenNoLdapHeader() {
+            // arrange
+            var url = UriComponentsBuilder.fromPath(COUPON_ADMIN_ENDPOINT)
+                    .queryParam("page", 0)
+                    .queryParam("size", 10)
+                    .toUriString();
+
+            // act
+            var response = getCoupons(testRestTemplate, url, new HttpHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
         }
     }
 }

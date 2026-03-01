@@ -13,7 +13,8 @@ public record CouponResult(
         Long maxDiscountPrice,
         Long minOrderPrice,
         ZonedDateTime expiredAt,
-        ZonedDateTime createdAt
+        ZonedDateTime createdAt,
+        ZonedDateTime deletedAt
 ) {
 
     public static CouponResult from(Coupon coupon) {
@@ -25,7 +26,8 @@ public record CouponResult(
                 coupon.getMaxDiscountPrice() != null ? coupon.getMaxDiscountPrice().getAmount() : null,
                 coupon.getMinOrderPrice().getAmount(),
                 coupon.getExpiredAt(),
-                coupon.getCreatedAt()
+                coupon.getCreatedAt(),
+                coupon.getDeletedAt()
         );
     }
 }

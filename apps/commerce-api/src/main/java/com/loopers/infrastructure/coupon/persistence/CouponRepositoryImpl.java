@@ -2,6 +2,8 @@ package com.loopers.infrastructure.coupon.persistence;
 
 import java.util.Optional;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Repository;
 
 import com.loopers.domain.coupon.Coupon;
@@ -23,5 +25,10 @@ public class CouponRepositoryImpl implements CouponRepository {
     @Override
     public Optional<Coupon> findById(Long couponId) {
         return couponJpaRepository.findById(couponId);
+    }
+
+    @Override
+    public Slice<Coupon> findAllBy(Pageable pageable) {
+        return couponJpaRepository.findAllBy(pageable);
     }
 }

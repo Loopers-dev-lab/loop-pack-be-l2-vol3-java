@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.coupon.v1;
 
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.PageResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -17,4 +18,10 @@ public interface CouponV1AdminApiSpec {
             @Schema(description = "쿠폰 등록 요청 정보")
             CouponDto.CreateCouponRequest request
     );
+
+    @Operation(
+            summary = "쿠폰 목록 조회",
+            description = "등록된 쿠폰 목록을 조회합니다."
+    )
+    ApiResponse<PageResponse<CouponDto.CouponResponse>> getCoupons(int page, int size);
 }

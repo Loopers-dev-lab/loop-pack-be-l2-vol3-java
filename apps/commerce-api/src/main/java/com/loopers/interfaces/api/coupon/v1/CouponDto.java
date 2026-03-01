@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.coupon.v1;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -29,6 +30,39 @@ public class CouponDto {
 
         public static CreateCouponResponse from(CouponResult result) {
             return new CreateCouponResponse(result.id());
+        }
+    }
+
+    public record CouponResponse(
+            Long id,
+            String name,
+            CouponType type,
+            Long discountValue,
+            Long maxDiscountPrice,
+            Long minOrderPrice,
+            ZonedDateTime expiredAt,
+            ZonedDateTime createdAt,
+            ZonedDateTime deletedAt
+    ) {
+
+        public static CouponResponse from(CouponResult result) {
+            return new CouponResponse(
+                    result.id(),
+                    result.name(),
+                    result.type(),
+                    result.discountValue(),
+                    result.maxDiscountPrice(),
+                    result.minOrderPrice(),
+                    result.expiredAt(),
+                    result.createdAt(),
+                    result.deletedAt()
+            );
+        }
+
+        public static List<CouponResponse> from(List<CouponResult> results) {
+            return results.stream()
+                    .map(CouponResponse::from)
+                    .toList();
         }
     }
 }
