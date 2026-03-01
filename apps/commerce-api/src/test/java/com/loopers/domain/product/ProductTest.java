@@ -113,6 +113,21 @@ class ProductTest {
         }
     }
 
+    @DisplayName("재고를 복원할 때, ")
+    @Nested
+    class RestoreStock {
+
+        @DisplayName("유효한 수량이면, 재고가 복원된다.")
+        @Test
+        void restoresStock_whenValidQuantity() {
+            Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(97));
+
+            product.restoreStock(3);
+
+            assertThat(product.getStock()).isEqualTo(new Stock(100));
+        }
+    }
+
     @DisplayName("좋아요 수를 증가시킬 때, ")
     @Nested
     class IncrementLikeCount {

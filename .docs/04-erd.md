@@ -79,6 +79,7 @@ erDiagram
         bigint user_id
         varchar status
         timestamp used_at
+        bigint version
         timestamp created_at
         timestamp updated_at
         timestamp deleted_at
@@ -166,6 +167,7 @@ erDiagram
 |---|---|---|
 | Product.stock | 비관적 락 | 주문 시 재고 차감. 동시 주문에도 재고가 음수가 되어서는 안 된다 |
 | Product.like_count | 비관적 락 + in-memory 증감 | 좋아요 등록/취소 시 비관적 락으로 Product를 조회한 뒤 incrementLikeCount()/decrementLikeCount()로 카운터를 증감한다 |
+| CouponIssue.status | 낙관적 락 (@Version) | 동일 쿠폰의 동시 사용 방지. 극히 드문 경합이며 실패 시 재시도 불필요 (이미 사용된 쿠폰) |
 
 ---
 

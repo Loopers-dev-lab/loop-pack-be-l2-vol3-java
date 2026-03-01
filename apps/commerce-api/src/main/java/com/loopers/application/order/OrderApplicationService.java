@@ -12,6 +12,7 @@ import com.loopers.domain.coupon.CouponIssue;
 import com.loopers.domain.coupon.CouponIssueDomainService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderDomainService;
+import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderItemCommand;
 import com.loopers.domain.order.OrderPolicy;
 import com.loopers.domain.product.Money;
@@ -89,11 +90,26 @@ public class OrderApplicationService {
         return order;
     }
 
+    /**
+     * 단일 트랜잭션에서 Order aggregate(취소), Product aggregate(재고 복원),
+     * CouponIssue aggregate(쿠폰 복원)를 함께 수정한다.
+     * "하나의 트랜잭션 = 하나의 Aggregate" 원칙의 의도적 예외:
+     * 주문 취소 시 재고 복원과 쿠폰 복원을 원자적으로 처리하여 일관성을 보장한다.
+     */
     @Transactional
     public Order cancelOrder(Long userId, Long orderId) {
-        Order order = orderService.getByIdAndUserId(orderId, userId);
+        Order order = orderService.getByIdAndUserIdWithItems(orderId, userId);
         order.cancel();
 
+        // 재고 복원 (deadlock 방지를 위해 productId 기준 정렬)
+        List<OrderItem> sortedItems = order.getItems().stream()
+            .sorted(Comparator.comparing(OrderItem::getProductId))
+            .toList();
+        for (OrderItem item : sortedItems) {
+            productService.restoreStockWithLock(item.getProductId(), item.getQuantity().value());
+        }
+
+        // 쿠폰 복원
         if (order.getCouponIssueId() != null) {
             couponIssueDomainService.restoreCoupon(order.getCouponIssueId());
         }

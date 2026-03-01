@@ -50,6 +50,10 @@ public class Product extends BaseEntity {
         this.stock = deducted.quantity();
     }
 
+    public void restoreStock(int quantity) {
+        this.stock += quantity;
+    }
+
     public void incrementLikeCount() {
         this.likeCount++;
     }

@@ -9,6 +9,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 
 import java.time.ZonedDateTime;
 import java.util.Objects;
@@ -31,6 +32,10 @@ public class CouponIssue extends BaseEntity {
 
     @Column(name = "used_at")
     private ZonedDateTime usedAt;
+
+    @Version
+    @Column(name = "version")
+    private Long version;
 
     protected CouponIssue() {}
 

@@ -60,6 +60,12 @@ public class ProductDomainService {
         return productRepository.save(product);
     }
 
+    public Product restoreStockWithLock(Long productId, int quantity) {
+        Product product = getByIdWithLock(productId);
+        product.restoreStock(quantity);
+        return productRepository.save(product);
+    }
+
     public void incrementLikeCount(Long productId) {
         Product product = getByIdWithLock(productId);
         product.incrementLikeCount();

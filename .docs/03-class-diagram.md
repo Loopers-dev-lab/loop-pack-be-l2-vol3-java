@@ -31,6 +31,7 @@ classDiagram
         int likeCount
         +changeDetails(String, Money, Stock) void
         +deductStock(int) void
+        +restoreStock(int) void
         +incrementLikeCount() void
         +decrementLikeCount() void
     }
@@ -99,6 +100,7 @@ classDiagram
         Long userId
         CouponIssueStatus status
         ZonedDateTime usedAt
+        Long version
         +use() void
         +restore() void
     }
@@ -165,6 +167,7 @@ classDiagram
 | Brand | rename(String) | 브랜드명 변경 |
 | Product | changeDetails(String, Money, Stock) | 상품 정보(이름, 가격, 재고) 변경 |
 | Product | deductStock(int) | 재고 부족 시 CoreException(BAD_REQUEST) |
+| Product | restoreStock(int) | 주문 취소 시 재고 복원 |
 | Product | incrementLikeCount() | 좋아요 수 1 증가 |
 | Product | decrementLikeCount() | 좋아요 수 1 감소, 0 미만 불가 |
 | Cart | addItem(Long, int) | 이미 담긴 상품이면 수량 합산, 새 상품이면 항목 추가 |
