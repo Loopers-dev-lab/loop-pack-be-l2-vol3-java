@@ -16,6 +16,7 @@ public class CouponSteps {
 
     private static final String COUPON_ADMIN_ENDPOINT = "/api-admin/v1/coupons";
     private static final String COUPON_ENDPOINT = "/api/v1/coupons";
+    private static final String OWNED_COUPON_ENDPOINT = "/api/v1/owned-coupons";
 
     public static ResponseEntity<ApiResponse<Void>> issueCoupon(
             TestRestTemplate testRestTemplate,
@@ -150,5 +151,27 @@ public class CouponSteps {
             String url
     ) {
         return getCouponIssuances(testRestTemplate, url, adminAuthHeaders());
+    }
+
+    public static ResponseEntity<ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponResponse>>> getMyOwnedCoupons(
+            TestRestTemplate testRestTemplate,
+            String url,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponResponse>>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                responseType
+        );
+    }
+
+    public static ResponseEntity<ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponResponse>>> getMyOwnedCoupons(
+            TestRestTemplate testRestTemplate,
+            HttpHeaders headers
+    ) {
+        return getMyOwnedCoupons(testRestTemplate, OWNED_COUPON_ENDPOINT, headers);
     }
 }

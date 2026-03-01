@@ -26,6 +26,11 @@ public class OwnedCouponRepositoryImpl implements OwnedCouponRepository {
     }
 
     @Override
+    public Slice<OwnedCoupon> findAllByUserId(Long userId, Pageable pageable) {
+        return ownedCouponJpaRepository.findAllByUserId(userId, pageable);
+    }
+
+    @Override
     public boolean existsByCouponIdAndUserId(Long couponId, Long userId) {
         return ownedCouponJpaRepository.existsByCouponIdAndUserId(couponId, userId);
     }

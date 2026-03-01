@@ -9,5 +9,7 @@ public interface OwnedCouponRepository {
 
     Slice<OwnedCoupon> findAllByCouponId(Long couponId, Pageable pageable);
 
+    Slice<OwnedCoupon> findAllByUserId(Long userId, Pageable pageable);
+
     boolean existsByCouponIdAndUserId(Long couponId, Long userId);
 }

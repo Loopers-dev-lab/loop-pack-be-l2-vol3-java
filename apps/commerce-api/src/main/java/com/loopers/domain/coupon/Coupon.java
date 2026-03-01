@@ -94,6 +94,13 @@ public class Coupon extends BaseEntity {
         return !expiredAt.isAfter(ZonedDateTime.now());
     }
 
+    public Long getMaxDiscountPriceAmount() {
+        if (maxDiscountPrice == null) {
+            return null;
+        }
+        return maxDiscountPrice.getAmount();
+    }
+
     private static void validateType(CouponType type) {
         if (Objects.isNull(type)) {
             throw new CoreException(ErrorType.REQUIRED_COUPON_TYPE);
