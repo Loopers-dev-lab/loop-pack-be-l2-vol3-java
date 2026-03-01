@@ -286,6 +286,12 @@ sequenceDiagram
 
     Controller->>Facade: 인증된 Member + 장바구니 담기 요청
     Facade->>CartService: 장바구니에 상품 추가
+
+    alt 수량이 0 이하
+        CartService-->>Controller: 수량 오류 예외
+        Controller-->>Client: 400 Bad Request "수량은 1개 이상이어야 합니다"
+    end
+
     CartService->>ProductRepository: 상품+옵션 ID로 조회
 
     alt 상품 또는 옵션이 존재하지 않는 경우
@@ -322,6 +328,7 @@ sequenceDiagram
 ```
 
 **설계 포인트**
+- 수량 검증이 가장 먼저 수행: 0 이하 수량은 재고 조회 없이 즉시 거부
 - 재고 검증이 두 번 발생: 신규 담기 시 `요청 수량 > 재고`, 기존 상품 병합 시 `합산 수량 > 재고`
 - 장바구니 단위는 **상품+옵션 조합**: 같은 상품이라도 옵션이 다르면 별도 CartItem
 - 동일 옵션이 이미 있으면 수량만 증가 (옵션 없는 구조이므로 수량 병합)
@@ -338,11 +345,18 @@ sequenceDiagram
     participant Controller as OrderV1Controller
     participant Facade as OrderFacade
     participant OrderService as OrderService
+    participant CouponService as CouponService
+    participant PointService as PointService
+    participant CartService as CartService
     participant ProductRepository as ProductRepository
     participant OrderRepository as OrderRepository
+    participant CouponRepository as CouponRepository
+    participant MemberCouponRepository as MemberCouponRepository
+    participant PointRepository as PointRepository
+    participant PointHistoryRepository as PointHistoryRepository
     participant CartRepository as CartRepository
 
-    Client->>Controller: POST /api/v1/orders<br/>Headers: X-Loopers-LoginId, X-Loopers-LoginPw<br/>Body: cartItemIds[] 또는 productId+optionId+quantity
+    Client->>Controller: POST /api/v1/orders<br/>Headers: X-Loopers-LoginId, X-Loopers-LoginPw<br/>Body: cartItemIds[] 또는 productId+optionId+quantity, usedPoints, memberCouponId
 
     Note over Controller: MemberAuthInterceptor 인증 처리 → @LoginMember Member 주입
     alt 인증 실패 (헤더 누락 또는 인증 오류)
@@ -350,7 +364,8 @@ sequenceDiagram
     end
 
     Controller->>Facade: 인증된 Member + 주문 생성 요청
-    Facade->>OrderService: 주문 생성
+    Note over Facade: @Transactional 시작 — 전체 트랜잭션 관리
+    Facade->>OrderService: prepareOrderItems (재고 검증/차감 + 스냅샷 생성)
 
     loop 주문 항목별 재고 검증 및 차감
         OrderService->>ProductRepository: 상품+옵션 ID로 조회
@@ -371,30 +386,79 @@ sequenceDiagram
         OrderService->>ProductRepository: 재고 차감
     end
 
-    Note over OrderService: 주문 데이터 + 스냅샷 생성<br/>상품명, 옵션명, 브랜드명,<br/>판매가, 공급가, 배송비, 수량
+    Note over OrderService: 주문 데이터 + 스냅샷 생성<br/>상품명, 옵션명, 브랜드명, 브랜드ID,<br/>판매가, 공급가, 배송비, 수량
 
-    OrderService->>OrderRepository: 주문 + 주문항목 저장
-    OrderRepository-->>OrderService: 저장된 주문 정보
+    OrderService-->>Facade: 주문 항목(OrderItem) 목록 + totalAmount
 
-    opt 장바구니에서 주문한 경우 (cartItemIds 존재)
-        OrderService->>CartRepository: 해당 장바구니 항목 삭제
+    opt memberCouponId가 존재하는 경우 (쿠폰 사용)
+        Note over Facade: 할인 적용 대상 금액 산정 (couponScope별)<br/>CART: totalAmount<br/>PRODUCT: targetId 일치 OrderItem subtotal 합<br/>BRAND: targetId(brandId) 일치 OrderItem subtotal 합
+        Facade->>CouponService: calculateCouponDiscount(memberId, memberCouponId, applicableAmount)
+        Note over CouponService: 소유 검증 + 사용 가능 여부 + 유효기간 + 최소 주문 금액 검증
+        CouponService-->>Facade: 할인 금액 (discountAmount)
     end
 
+    Facade->>OrderService: createOrder(memberId, orderItems, discountAmount, memberCouponId, usedPoints)
+    OrderService->>OrderRepository: 주문 + 주문항목 저장
+    OrderRepository-->>OrderService: 저장된 주문 정보
     OrderService-->>Facade: 주문 정보
+
+    opt memberCouponId가 존재하는 경우
+        Facade->>CouponService: 쿠폰 사용 처리 (memberCouponId, orderId)
+        Note over CouponService: MemberCoupon.use(orderId) - AVAILABLE → USED
+        CouponService->>MemberCouponRepository: 회원 쿠폰 상태 업데이트
+    end
+
+    opt usedPoints > 0인 경우
+        Facade->>PointService: 포인트 사용 (memberId, usedPoints, orderId)
+        PointService->>PointRepository: 회원 포인트 조회
+        PointRepository-->>PointService: 포인트 정보
+
+        alt 포인트 잔액 부족
+            PointService-->>Controller: 포인트 부족 예외
+            Controller-->>Client: 400 Bad Request "포인트가 부족합니다"
+        end
+
+        PointService->>PointRepository: 포인트 잔액 차감
+        PointService->>PointHistoryRepository: 사용 이력 저장
+    end
+
+    opt 장바구니에서 주문한 경우 (cartItemIds 존재)
+        Facade->>CartService: 해당 장바구니 항목 삭제
+        CartService->>CartRepository: 장바구니 항목 삭제
+    end
+
     Facade-->>Controller: 주문 응답 정보
     Controller-->>Client: 200 OK (OrderResponse)
 ```
 
 **설계 포인트**
-- 결제 없이 주문 단계에서 완료: 재고 검증 → 차감 → 주문 생성 → 장바구니 삭제
+- 결제 없이 주문 단계에서 완료: prepareOrderItems(재고 검증/차감/스냅샷) → calculateCouponDiscount → createOrder → useCoupon → usePoint → deleteCart
+- 실결제금액 = totalAmount - discountAmount - usedPoints
 - 단건/장바구니 주문 통합 엔드포인트: body 내용으로 분기 (cartItemIds[] 또는 productId+optionId+quantity)
-- 실패 시 @Transactional 롤백으로 재고 자동 복원 (명시적 보상 로직 불필요)
-- 스냅샷 필드: 상품명, 옵션명, 브랜드명, 판매가, 공급가, 배송비, 수량
-- 장바구니 주문 완료 후 해당 CartItem 삭제
-- OrderService 의존 범위: ProductRepository, OrderRepository, CartRepository
+- Facade의 @Transactional로 전체 트랜잭션 관리. 실패 시 재고 + 쿠폰 + 포인트 자동 롤백
+- **OrderService를 2단계로 분리**: `prepareOrderItems()`(재고 검증/차감 + 스냅샷 생성) → `createOrder()`(주문 저장). 각 단계의 책임 명확화
+- **쿠폰 할인 계산은 CouponService.calculateCouponDiscount()에 위임**: 소유 검증, 사용 가능 여부, 유효기간, 최소 주문 금액 검증 + 할인 금액 계산을 도메인 서비스가 담당
+- **적용 대상 금액(applicableAmount) 산정은 Facade에 유지**: 주문 아이템(OrderItem) 정보가 필요하므로 쿠폰 도메인이 주문 도메인에 의존하지 않도록 함
+- 장바구니 삭제, 포인트 사용, 쿠폰 사용 처리는 Facade에서 각 Service를 호출하여 조율
+- 주문당 쿠폰 1장만 사용 가능 (포인트와 중복 사용은 가능)
+- OrderService 의존 범위: ProductRepository(재고 검증/차감), OrderRepository(주문 저장)
+
+### 할인 금액 계산 로직
+```
+1. applicableAmount 산정 (couponScope별):
+   - CART: totalAmount (전체 주문 금액)
+   - PRODUCT: targetId와 일치하는 OrderItem들의 subtotal 합
+   - BRAND: targetId(brandId)와 일치하는 OrderItem들의 subtotal 합
+2. discount 계산 (discountType별):
+   - FIXED_AMOUNT: discount = discountValue
+   - FIXED_RATE: discount = applicableAmount × discountValue / 100
+3. 상한 적용:
+   - FIXED_RATE이면: discount = min(discount, maxDiscountAmount)
+   - 공통: discount = min(discount, applicableAmount)
+```
 
 ### 잠재 리스크
-- **트랜잭션 비대화**: 재고 차감 ~ 주문 저장 ~ 장바구니 삭제가 하나의 트랜잭션. 현재 단계에서는 단일 트랜잭션으로 진행하되, 추후 트래픽 증가 시 분리 고려
+- **트랜잭션 비대화**: 재고 차감 ~ 주문 저장 ~ 쿠폰 사용 ~ 포인트 차감이 하나의 트랜잭션. 현재 단계에서는 단일 트랜잭션으로 진행하되, 추후 트래픽 증가 시 분리 고려
 
 ---
 
@@ -464,24 +528,176 @@ sequenceDiagram
 
     Controller->>Facade: 인증된 Member + 주문 상세 조회 요청
     Facade->>OrderService: 주문 상세 조회
-    OrderService->>OrderRepository: 주문 ID + 회원 ID로 조회
+    OrderService->>OrderRepository: 주문 ID로 조회
 
-    alt 주문이 존재하지 않거나 본인 주문이 아닌 경우
+    alt 주문이 존재하지 않는 경우
         OrderRepository-->>OrderService: 조회 결과 없음
         OrderService-->>Controller: 주문 없음 예외
         Controller-->>Client: 404 Not Found
     end
 
     OrderRepository-->>OrderService: 주문 정보 (주문항목 스냅샷 포함)
+
+    Note over OrderService: Order.validateOwner(memberId) 호출
+    alt 본인 주문이 아닌 경우
+        OrderService-->>Controller: 주문 없음 예외
+        Controller-->>Client: 404 Not Found
+    end
+
     OrderService-->>Facade: 주문 정보
     Facade-->>Controller: 주문 상세 응답 정보
     Controller-->>Client: 200 OK (OrderDetailResponse)
 ```
 
 **설계 포인트**
-- 권한 검증 + 조회를 쿼리 한 번으로 해결: `findByIdAndMemberId`로 본인 주문이 아니면 NOT_FOUND
-- 타인에게 주문 존재 여부조차 노출하지 않음
+- 조회와 인가를 분리: `findById`로 조회 후 `Order.validateOwner(memberId)`로 소유권 검증
+- 존재하지 않거나 본인 주문이 아니면 동일하게 404 — 리소스 존재 여부를 비노출하여 주문 ID 열거 공격 방지
+- 도메인 객체가 자기 보호 책임을 가짐 (Order가 소유권 검증 로직 보유)
 - Order + OrderItem(스냅샷) 함께 조회하여 응답
+
+---
+
+## (11) 쿠폰 목록 조회
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Controller as CouponV1Controller
+    participant Facade as CouponFacade
+    participant Service as CouponService
+    participant Repository as CouponRepository
+
+    Client->>Controller: GET /api/v1/coupons
+
+    Controller->>Facade: 쿠폰 목록 조회 요청
+    Facade->>Service: 유효 쿠폰 목록 조회
+    Service->>Repository: 유효기간 내 + 수량 남은 쿠폰 조회
+    Repository-->>Service: 쿠폰 목록 (빈 리스트 가능)
+
+    alt 조회 결과가 빈 리스트인 경우
+        Service-->>Facade: 빈 리스트
+        Facade-->>Controller: "조회된 내역이 없습니다."
+        Controller-->>Client: 200 OK ("조회된 내역이 없습니다.")
+    end
+
+    Service-->>Facade: 쿠폰 목록
+    Facade-->>Controller: 쿠폰 응답 목록
+    Controller-->>Client: 200 OK (쿠폰 목록)
+```
+
+**설계 포인트**
+- 인증 불필요: 누구나 조회 가능
+- 유효기간 내(`validFrom ≤ now ≤ validTo`) + 잔여 수량(`issuedQuantity < totalQuantity`)이 있는 쿠폰만 반환
+- 결과 0건이어도 200 반환, 메시지로 "조회된 내역이 없습니다." 응답
+
+---
+
+## (12) 쿠폰 다운로드
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Controller as CouponV1Controller
+    participant Facade as CouponFacade
+    participant Service as CouponService
+    participant CouponRepo as CouponRepository
+    participant MemberCouponRepo as MemberCouponRepository
+
+    Client->>Controller: POST /api/v1/coupons/{couponId}/download<br/>Headers: X-Loopers-LoginId, X-Loopers-LoginPw
+
+    Note over Controller: MemberAuthInterceptor 인증 처리 → @LoginMember Member 주입
+    alt 인증 실패 (헤더 누락 또는 인증 오류)
+        Controller-->>Client: 401 Unauthorized
+    end
+
+    Controller->>Facade: 인증된 Member + 쿠폰 다운로드 요청
+    Facade->>Service: 쿠폰 다운로드 (memberId, couponId)
+    Service->>CouponRepo: 쿠폰 ID로 조회
+
+    alt 쿠폰이 존재하지 않는 경우
+        CouponRepo-->>Service: 조회 결과 없음
+        Service-->>Controller: 쿠폰 없음 예외
+        Controller-->>Client: 404 Not Found
+    end
+
+    CouponRepo-->>Service: 쿠폰 정보
+
+    Service->>MemberCouponRepo: 회원+쿠폰으로 중복 다운로드 확인
+    alt 이미 다운로드한 경우
+        MemberCouponRepo-->>Service: 기존 발급 내역
+        Service-->>Controller: 중복 다운로드 예외
+        Controller-->>Client: 409 Conflict "이미 다운로드한 쿠폰입니다"
+    end
+
+    MemberCouponRepo-->>Service: 조회 결과 없음
+
+    alt 발급 불가 (수량 초과 또는 유효기간 외)
+        Note over Service: Coupon.isIssuable() 확인
+        Service-->>Controller: 발급 불가 예외
+        Controller-->>Client: 400 Bad Request "쿠폰 발급이 불가합니다"
+    end
+
+    Note over Service: Coupon.issue() - issuedQuantity 증가
+    Service->>CouponRepo: 쿠폰 발급 수량 업데이트
+
+    Note over Service: MemberCoupon.create(memberId, couponId) - status=AVAILABLE
+    Service->>MemberCouponRepo: 회원 쿠폰 저장
+
+    Service-->>Facade: 발급된 회원 쿠폰 정보
+    Facade-->>Controller: 쿠폰 다운로드 응답
+    Controller-->>Client: 200 OK (MemberCouponResponse)
+```
+
+**설계 포인트**
+- 인증 필요: 로그인한 회원만 다운로드 가능
+- 중복 다운로드 방지: `member_id + coupon_id` UNIQUE 제약 + 애플리케이션 레벨 검증 (409 Conflict)
+- 발급 가능 여부: `Coupon.isIssuable()`에서 수량(`issuedQuantity < totalQuantity`) + 유효기간(`validFrom ≤ now ≤ validTo`) 확인
+- `Coupon.issue()`: issuedQuantity 증가. 동시성은 추후 optimistic locking 또는 DB 원자적 업데이트로 개선
+- MemberCoupon 생성 시 status는 AVAILABLE
+
+---
+
+## (13) 내 쿠폰 목록 조회
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Controller as CouponV1Controller
+    participant Facade as CouponFacade
+    participant Service as CouponService
+    participant Repository as MemberCouponRepository
+
+    Client->>Controller: GET /api/v1/coupons/me<br/>Headers: X-Loopers-LoginId, X-Loopers-LoginPw
+
+    Note over Controller: MemberAuthInterceptor 인증 처리 → @LoginMember Member 주입
+    alt 인증 실패 (헤더 누락 또는 인증 오류)
+        Controller-->>Client: 401 Unauthorized
+    end
+
+    Controller->>Facade: 인증된 Member + 내 쿠폰 목록 조회 요청
+    Facade->>Service: 내 사용 가능 쿠폰 조회 (memberId)
+    Service->>Repository: 회원 ID + AVAILABLE 상태로 조회
+    Repository-->>Service: 회원 쿠폰 목록 (빈 리스트 가능)
+
+    alt 조회 결과가 빈 리스트인 경우
+        Service-->>Facade: 빈 리스트
+        Facade-->>Controller: "조회된 내역이 없습니다."
+        Controller-->>Client: 200 OK ("조회된 내역이 없습니다.")
+    end
+
+    Service-->>Facade: 회원 쿠폰 목록
+    Facade-->>Controller: 내 쿠폰 응답 목록
+    Controller-->>Client: 200 OK (내 쿠폰 목록)
+```
+
+**설계 포인트**
+- 인증 필요: 로그인한 회원의 쿠폰만 조회
+- AVAILABLE 상태의 쿠폰만 반환 (USED 제외)
+- 결과 0건이어도 200 반환, 메시지로 "조회된 내역이 없습니다." 응답
+- 쿠폰 정보(쿠폰명, 할인 유형, 할인 값, 유효기간 등)를 함께 반환하여 주문 시 선택에 활용
 
 ---
 ---
@@ -678,7 +894,9 @@ sequenceDiagram
     participant Client
     participant Controller as AdminBrandV1Controller
     participant Facade as AdminBrandFacade
-    participant Service as BrandService
+    participant BrandService as BrandService
+    participant ProductService as ProductService
+    participant CartService as CartService
     participant BrandRepo as BrandRepository
     participant ProductRepo as ProductRepository
     participant CartRepo as CartRepository
@@ -691,38 +909,37 @@ sequenceDiagram
     end
 
     Controller->>Facade: 인증된 Admin + 브랜드 삭제 요청
-    Facade->>Service: 브랜드 삭제
-    Service->>BrandRepo: 브랜드 ID로 조회
+
+    Facade->>BrandService: 브랜드 조회
+    BrandService->>BrandRepo: 브랜드 ID로 조회
 
     alt 브랜드가 존재하지 않는 경우
-        BrandRepo-->>Service: 조회 결과 없음
-        Service-->>Controller: 브랜드 없음 예외
+        BrandRepo-->>BrandService: 조회 결과 없음
+        BrandService-->>Controller: 브랜드 없음 예외
         Controller-->>Client: 404 Not Found
     end
 
-    BrandRepo-->>Service: 브랜드 정보
+    BrandRepo-->>BrandService: 브랜드 정보
+    BrandService-->>Facade: 브랜드 정보
 
-    Service->>ProductRepo: 브랜드 소속 전체 상품 조회
-    ProductRepo-->>Service: 상품 목록
+    Facade->>CartService: 브랜드 소속 상품 옵션의 장바구니 항목 삭제
+    CartService->>CartRepo: 장바구니 항목 삭제
 
-    loop 브랜드 소속 상품별 처리
-        Service->>CartRepo: 해당 상품 옵션의 장바구니 항목 삭제
-        Note over Service: 상품 soft delete (deletedAt 세팅)
-        Service->>ProductRepo: 상품 soft delete 처리
-    end
+    Facade->>ProductService: 브랜드 소속 전체 상품 soft delete
+    ProductService->>ProductRepo: 상품 soft delete 처리
 
-    Note over Service: 브랜드 soft delete (deletedAt 세팅)
-    Service->>BrandRepo: 브랜드 soft delete 처리
+    Facade->>BrandService: 브랜드 soft delete
+    BrandService->>BrandRepo: 브랜드 soft delete 처리
 
-    Service-->>Facade: 처리 완료
     Facade-->>Controller: 처리 완료
     Controller-->>Client: 200 OK
 ```
 
 **설계 포인트**
+- **Facade가 크로스 도메인 조율 담당**: AdminBrandFacade가 BrandService + ProductService + CartService를 조율
 - 삭제 전파: 브랜드 → 상품 → 장바구니. 좋아요는 유지
 - 상품/브랜드는 soft delete (deletedAt), 장바구니는 hard delete
-- BrandService 삭제 시에만 ProductRepository, CartRepository에 의존
+- 각 Domain Service는 자기 도메인 Repository만 의존
 
 ### 잠재 리스크
 - 트랜잭션 비대화: 상품이 많은 브랜드 삭제 시 트랜잭션이 커질 수 있음
@@ -818,7 +1035,8 @@ sequenceDiagram
     participant Client
     participant Controller as AdminProductV1Controller
     participant Facade as AdminProductFacade
-    participant Service as ProductService
+    participant BrandService as BrandService
+    participant ProductService as ProductService
     participant BrandRepo as BrandRepository
     participant ProductRepo as ProductRepository
 
@@ -830,40 +1048,43 @@ sequenceDiagram
     end
 
     Controller->>Facade: 인증된 Admin + 상품 등록 요청
-    Facade->>Service: 상품 생성
-    Service->>BrandRepo: 브랜드 ID로 조회
+
+    Facade->>BrandService: 브랜드 조회
+    BrandService->>BrandRepo: 브랜드 ID로 조회
 
     alt 브랜드가 존재하지 않는 경우
-        BrandRepo-->>Service: 조회 결과 없음
-        Service-->>Controller: 브랜드 없음 예외
+        BrandRepo-->>BrandService: 조회 결과 없음
+        BrandService-->>Controller: 브랜드 없음 예외
         Controller-->>Client: 404 Not Found
     end
 
-    BrandRepo-->>Service: 브랜드 정보
+    BrandRepo-->>BrandService: 브랜드 정보
+    BrandService-->>Facade: 브랜드 정보
 
-    Service->>ProductRepo: 같은 브랜드 내 상품명 중복 확인
+    Facade->>ProductService: 상품 생성 (Brand 전달)
+
+    ProductService->>ProductRepo: 같은 브랜드 내 상품명 중복 확인
 
     alt 같은 브랜드 내 상품명 중복
-        ProductRepo-->>Service: 존재함
-        Service-->>Controller: 중복 예외
+        ProductRepo-->>ProductService: 존재함
+        ProductService-->>Controller: 중복 예외
         Controller-->>Client: 409 Conflict
     end
 
-    ProductRepo-->>Service: 존재하지 않음
+    ProductRepo-->>ProductService: 존재하지 않음
 
-    Note over Service: marginType에 따라 supplyPrice 자동 계산<br/>AMOUNT: price - marginValue<br/>RATE: price - (price × marginRate / 100)
-    Note over Service: 상품 + 상품옵션 생성
-    Service->>ProductRepo: 상품 저장 (옵션 포함)
-    ProductRepo-->>Service: 저장된 상품 정보
-    Service-->>Facade: 상품 정보
+    Note over ProductService: marginType에 따라 supplyPrice 자동 계산<br/>AMOUNT: price - marginValue<br/>RATE: price - (price × marginRate / 100)
+    Note over ProductService: 상품 + 상품옵션 생성
+    ProductService->>ProductRepo: 상품 저장 (옵션 포함)
+    ProductRepo-->>ProductService: 저장된 상품 정보
+    ProductService-->>Facade: 상품 정보
     Facade-->>Controller: 상품 상세 응답 정보
     Controller-->>Client: 201 Created (ProductDetailResponse)
 ```
 
 **설계 포인트**
-- 브랜드 존재 확인 → 상품명 중복 확인 → 공급가 계산 → 저장 순서
+- **Facade가 브랜드 존재 확인을 BrandService에 위임 후 ProductService에 Brand를 전달**: ProductService는 BrandRepository에 의존하지 않음
 - supplyPrice는 입력받지 않고 marginType + marginValue로 자동 계산 (Service 책임)
-- ProductService → BrandRepository 의존: 브랜드 존재 확인
 - 상품 + 옵션 한 번에 저장 (cascade)
 - 같은 브랜드 내 상품명 중복 검증
 
@@ -932,7 +1153,8 @@ sequenceDiagram
     participant Client
     participant Controller as AdminProductV1Controller
     participant Facade as AdminProductFacade
-    participant Service as ProductService
+    participant ProductService as ProductService
+    participant CartService as CartService
     participant ProductRepo as ProductRepository
     participant CartRepo as CartRepository
 
@@ -944,28 +1166,205 @@ sequenceDiagram
     end
 
     Controller->>Facade: 인증된 Admin + 상품 삭제 요청
-    Facade->>Service: 상품 삭제
-    Service->>ProductRepo: 상품 ID로 조회
+
+    Facade->>ProductService: 상품 조회
+    ProductService->>ProductRepo: 상품 ID로 조회
 
     alt 상품이 존재하지 않는 경우
-        ProductRepo-->>Service: 조회 결과 없음
-        Service-->>Controller: 상품 없음 예외
+        ProductRepo-->>ProductService: 조회 결과 없음
+        ProductService-->>Controller: 상품 없음 예외
         Controller-->>Client: 404 Not Found
     end
 
-    ProductRepo-->>Service: 상품 정보 (옵션 목록 포함)
+    ProductRepo-->>ProductService: 상품 정보 (옵션 목록 포함)
+    ProductService-->>Facade: 상품 정보
 
-    Service->>CartRepo: 해당 상품 옵션의 장바구니 항목 삭제
+    Facade->>CartService: 해당 상품 옵션의 장바구니 항목 삭제
+    CartService->>CartRepo: 장바구니 항목 삭제
 
-    Note over Service: 상품 옵션 soft delete
-    Note over Service: 상품 soft delete
-    Service->>ProductRepo: 상품 soft delete 처리
+    Facade->>ProductService: 상품 soft delete
+    Note over ProductService: 상품 옵션 soft delete
+    Note over ProductService: 상품 soft delete
+    ProductService->>ProductRepo: 상품 soft delete 처리
 
-    Service-->>Facade: 처리 완료
     Facade-->>Controller: 처리 완료
     Controller-->>Client: 200 OK
 ```
 
 **설계 포인트**
+- **Facade가 크로스 도메인 조율 담당**: AdminProductFacade가 ProductService + CartService를 조율
 - 브랜드 삭제 (5)와 동일 정책: 장바구니 hard delete, 좋아요 유지, 상품+옵션 soft delete
-- ProductService → CartRepository 의존: 삭제 시에만 필요
+- 각 Domain Service는 자기 도메인 Repository만 의존
+
+---
+
+## 어드민 (11) 포인트 지급
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Controller as AdminPointV1Controller
+    participant Facade as AdminPointFacade
+    participant PointService as PointService
+    participant PointRepository as PointRepository
+    participant PointHistoryRepository as PointHistoryRepository
+
+    Client->>Controller: POST /api-admin/v1/points<br/>Header: X-Loopers-Ldap<br/>Body: memberId, amount, description
+
+    Note over Controller: AdminAuthInterceptor 인증 처리 → @LoginAdmin Admin 주입
+    alt 인증 실패 (헤더 누락 또는 인증 오류)
+        Controller-->>Client: 401 Unauthorized
+    end
+
+    alt 금액이 0 이하인 경우
+        Controller-->>Client: 400 Bad Request "충전 금액은 양수여야 합니다"
+    end
+
+    Controller->>Facade: 인증된 Admin + 포인트 지급 요청
+    Facade->>PointService: 포인트 충전 (memberId, amount, description)
+    PointService->>PointRepository: 회원 포인트 조회
+
+    alt 회원 포인트가 존재하지 않는 경우
+        PointRepository-->>PointService: 조회 결과 없음
+        PointService-->>Controller: 회원 없음 예외
+        Controller-->>Client: 404 Not Found
+    end
+
+    PointRepository-->>PointService: 포인트 정보
+    Note over PointService: Point.charge(amount) - 잔액 증가
+    PointService->>PointRepository: 포인트 잔액 업데이트
+    PointService->>PointHistoryRepository: 충전 이력 저장
+
+    PointService-->>Facade: 처리 완료
+    Facade-->>Controller: 처리 완료
+    Controller-->>Client: 200 OK
+```
+
+**설계 포인트**
+- AdminPointFacade는 PointService에 단순 위임
+- 금액 검증: 0 이하 금액은 400 Bad Request
+- 회원이 존재하지 않으면 (Point 데이터가 없으면) 404 Not Found
+- 충전 이력을 POINT_HISTORY에 기록하여 감사 추적 가능
+
+---
+
+## 어드민 (12) 쿠폰 생성
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Controller as AdminCouponV1Controller
+    participant Facade as AdminCouponFacade
+    participant Service as CouponService
+    participant Repository as CouponRepository
+
+    Client->>Controller: POST /api-admin/v1/coupons<br/>Header: X-Loopers-Ldap<br/>Body: name, couponScope, targetId, discountType, discountValue, minOrderAmount, maxDiscountAmount, totalQuantity, validFrom, validTo
+
+    Note over Controller: AdminAuthInterceptor 인증 처리 → @LoginAdmin Admin 주입
+    alt 인증 실패 (헤더 누락 또는 인증 오류)
+        Controller-->>Client: 401 Unauthorized
+    end
+
+    alt 입력값 검증 실패
+        Note over Controller: CART일 때 targetId가 있으면 실패<br/>PRODUCT/BRAND일 때 targetId가 없으면 실패<br/>FIXED_RATE일 때 maxDiscountAmount가 없으면 실패
+        Controller-->>Client: 400 Bad Request
+    end
+
+    Controller->>Facade: 인증된 Admin + 쿠폰 생성 요청
+    Facade->>Service: 쿠폰 생성
+    Note over Service: Coupon.create(...) - 정적 팩토리 메서드로 생성
+    Service->>Repository: 쿠폰 저장
+    Repository-->>Service: 저장된 쿠폰 정보
+    Service-->>Facade: 쿠폰 정보
+    Facade-->>Controller: 쿠폰 응답 정보
+    Controller-->>Client: 201 Created (CouponResponse)
+```
+
+**설계 포인트**
+- 입력값 검증: couponScope에 따른 targetId 필수/null 검증, discountType에 따른 maxDiscountAmount 필수 검증
+- Coupon.create() 정적 팩토리 메서드로 도메인 객체 생성
+- issuedQuantity는 0으로 초기화
+- 201 Created 반환
+
+---
+
+## 어드민 (13) 쿠폰 목록 조회
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Controller as AdminCouponV1Controller
+    participant Facade as AdminCouponFacade
+    participant Service as CouponService
+    participant Repository as CouponRepository
+
+    Client->>Controller: GET /api-admin/v1/coupons?page=&size=<br/>Header: X-Loopers-Ldap
+
+    Note over Controller: AdminAuthInterceptor 인증 처리 → @LoginAdmin Admin 주입
+    alt 인증 실패 (헤더 누락 또는 인증 오류)
+        Controller-->>Client: 401 Unauthorized
+    end
+
+    Controller->>Facade: 인증된 Admin + 쿠폰 목록 조회 요청
+    Facade->>Service: 쿠폰 목록 조회
+    Service->>Repository: 전체 쿠폰 페이징 조회
+    Repository-->>Service: 쿠폰 목록 (빈 리스트 가능)
+
+    alt 조회 결과가 빈 리스트인 경우
+        Service-->>Facade: 빈 리스트
+        Facade-->>Controller: "조회된 내역이 없습니다."
+        Controller-->>Client: 200 OK ("조회된 내역이 없습니다.")
+    end
+
+    Service-->>Facade: 쿠폰 목록
+    Facade-->>Controller: 쿠폰 응답 목록
+    Controller-->>Client: 200 OK (페이징된 쿠폰 목록)
+```
+
+**설계 포인트**
+- 전체 쿠폰 페이징 조회 (유효기간 무관)
+- 발급 현황(totalQuantity, issuedQuantity) 포함
+- 결과 0건이어도 200 반환, 메시지로 "조회된 내역이 없습니다." 응답
+
+---
+
+## 어드민 (14) 쿠폰 상세 조회
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Controller as AdminCouponV1Controller
+    participant Facade as AdminCouponFacade
+    participant Service as CouponService
+    participant Repository as CouponRepository
+
+    Client->>Controller: GET /api-admin/v1/coupons/{couponId}<br/>Header: X-Loopers-Ldap
+
+    Note over Controller: AdminAuthInterceptor 인증 처리 → @LoginAdmin Admin 주입
+    alt 인증 실패 (헤더 누락 또는 인증 오류)
+        Controller-->>Client: 401 Unauthorized
+    end
+
+    Controller->>Facade: 인증된 Admin + 쿠폰 상세 조회 요청
+    Facade->>Service: 쿠폰 조회
+    Service->>Repository: 쿠폰 ID로 조회
+
+    alt 쿠폰이 존재하지 않는 경우
+        Repository-->>Service: 조회 결과 없음
+        Service-->>Controller: 쿠폰 없음 예외
+        Controller-->>Client: 404 Not Found
+    end
+
+    Repository-->>Service: 쿠폰 정보
+    Service-->>Facade: 쿠폰 정보
+    Facade-->>Controller: 쿠폰 상세 응답 정보 (발급 현황 포함)
+    Controller-->>Client: 200 OK (CouponDetailResponse)
+```
+
+**설계 포인트**
+- targetId, totalQuantity, issuedQuantity 등 어드민 전용 상세 정보 포함
+- 존재하지 않으면 404 Not Found
