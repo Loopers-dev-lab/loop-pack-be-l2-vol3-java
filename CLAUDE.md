@@ -45,10 +45,14 @@
 - Controller Request DTO에 Spring Validation(`@NotNull`, `@NotBlank`, `@Min`, `@Valid` 등)을 적극 활용하여 간단한 유효성 검증은 Interfaces 계층에서 처리한다
 - `@OneToMany`, `@ManyToOne`등 물리적 매핑 금지. pk만 갖는 논리적 매핑만 허용한다. 
 
+## 계층 제한
+- 계층별 역할/책임/경계/협력은 다음의 링크를 참조하여 반드시 지키도록 한다. [Layered Rule](.docs/align.md)
+
 ## 테스트 (TDD)
 - TDD 원칙: 테스트 먼저 작성 → 구현 → 리팩터링
 - 테스트 비중: 도메인 단위 테스트 > Integration > E2E
 - 단위 테스트: 외부 의존 없이 Fake/Stub 사용
+- ArchUnit 테스트도 진행한다.
 - JUnit 5 + AssertJ
 - `@Nested` + `@DisplayName("...할 때, ")`로 계층 구조
 - 메서드명: 영문 서술형 (예: `throwsBadRequest_whenLoginIdIsNull`)

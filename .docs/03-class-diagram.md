@@ -60,6 +60,9 @@ classDiagram
     class Order {
         Long userId
         Money totalPrice
+        Money originalPrice
+        Money discountAmount
+        Long couponIssueId
         OrderStatus status
         +addItems(List~OrderItemCommand~) void
         +cancel() void
@@ -78,6 +81,45 @@ classDiagram
         ORDERED
         CANCELLED
     }
+
+    class Coupon {
+        String name
+        CouponType type
+        int value
+        int minOrderAmount
+        ZonedDateTime expiredAt
+        +changeDetails(String, CouponType, int, int, ZonedDateTime) void
+        +isExpired() boolean
+        +calculateDiscount(Money) Money
+        +validateApplicable(Money) void
+    }
+
+    class CouponIssue {
+        Long couponId
+        Long userId
+        CouponIssueStatus status
+        ZonedDateTime usedAt
+        +use() void
+        +restore() void
+    }
+
+    class CouponType {
+        <<enumeration>>
+        FIXED
+        RATE
+    }
+
+    class CouponIssueStatus {
+        <<enumeration>>
+        AVAILABLE
+        USED
+    }
+
+    Coupon --> CouponType
+    CouponIssue --> CouponIssueStatus
+    CouponIssue "*" --> "1" Coupon : couponId
+    CouponIssue "*" --> "1" User : userId
+    Order "*" --> "0..1" CouponIssue : couponIssueId
 
     Product "*" --> "1" Brand : brandId
     Like "*" --> "1" User : userId
@@ -131,6 +173,12 @@ classDiagram
 | CartItem | changeQuantity(int) | 수량 변경, 0 이하 불가 |
 | Order | addItems(List&lt;OrderItemCommand&gt;) | 주문 항목 추가 |
 | Order | cancel() | ORDERED 상태에서만 CANCELLED로 전이. 그 외 상태에서는 CoreException(BAD_REQUEST) |
+| Coupon | calculateDiscount(Money) | FIXED: min(value, orderAmount), RATE: orderAmount * value / 100 |
+| Coupon | validateApplicable(Money) | 만료 검증 + minOrderAmount 검증. 위반 시 CoreException(BAD_REQUEST) |
+| Coupon | isExpired() | 현재 시간 기준 만료 여부 판단 |
+| Coupon | changeDetails(...) | 쿠폰 정보(이름, 타입, 값, 최소 주문 금액, 만료일) 변경 |
+| CouponIssue | use() | AVAILABLE → USED 전이, usedAt 기록. AVAILABLE이 아니면 CoreException(BAD_REQUEST) |
+| CouponIssue | restore() | USED → AVAILABLE 전이, usedAt 초기화. USED가 아니면 CoreException(BAD_REQUEST) |
 
 ---
 
@@ -146,6 +194,9 @@ classDiagram
 | Product → CartItem | 1 : N | 한 상품이 여러 장바구니에 담김 |
 | User → Order | 1 : N | 한 유저가 여러 주문 |
 | Order → OrderItem | 1 : N | 한 주문에 여러 주문 항목 (Aggregate 내부) |
+| Coupon → CouponIssue | 1 : N | 하나의 쿠폰 템플릿에 여러 발급 |
+| User → CouponIssue | 1 : N | 한 유저가 여러 쿠폰 발급 |
+| Order → CouponIssue | N : 0..1 | 주문에 쿠폰이 적용될 수 있음 (nullable) |
 
 ---
 

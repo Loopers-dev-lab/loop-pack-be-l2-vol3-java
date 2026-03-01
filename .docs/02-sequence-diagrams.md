@@ -101,20 +101,70 @@ sequenceDiagram
 
 ---
 
-## 주문하기
+## 쿠폰 발급
 
-> 시나리오 2.4 - 고객은 여러 상품을 한 번에 주문한다. 주문 후 자신의 주문 내역을 조회할 수 있다.
+> 시나리오 2.8 — 고객이 쿠폰 발급을 요청한다.
 
 **다이어그램이 필요한 이유**
-- 조건 분기: 상품 유효성 검증, 재고 부족 검증, 중복 상품 검증
-- 도메인 간 협력: 주문이 상품과 브랜드의 상태를 확인해야 한다
-- 도메인 책임: 재고 차감은 Product, 중복 검증과 금액 계산은 OrderDomainService의 책임
+- 조건 분기: 쿠폰 유효성 검증(만료, 삭제), 중복 발급 검증
+- 도메인 간 협력: CouponIssue가 Coupon의 상태를 확인해야 한다
+
+```mermaid
+sequenceDiagram
+    actor 고객
+    participant CouponV1Controller
+    participant CouponApplicationService
+    participant CouponDomainService
+    participant CouponIssueDomainService
+    participant CouponIssue
+
+    Note right of 고객: 인증된 고객
+
+    고객->>+CouponV1Controller: 쿠폰 발급 요청
+    CouponV1Controller->>+CouponApplicationService: 쿠폰 발급
+
+    CouponApplicationService->>+CouponDomainService: 쿠폰 조회
+    alt 쿠폰이 존재하지 않거나 삭제됨
+        CouponDomainService-->>고객: 실패
+    end
+    CouponDomainService-->>-CouponApplicationService: 쿠폰
+
+    CouponApplicationService->>+CouponIssueDomainService: 쿠폰 발급
+    CouponIssueDomainService->>CouponIssueDomainService: 중복 발급 확인
+    alt 이미 발급된 쿠폰
+        CouponIssueDomainService-->>고객: 실패
+    end
+    CouponIssueDomainService->>CouponIssueDomainService: 만료 확인
+    alt 만료된 쿠폰
+        CouponIssueDomainService-->>고객: 실패
+    end
+    CouponIssueDomainService->>+CouponIssue: 발급 생성
+    CouponIssue-->>-CouponIssueDomainService: 쿠폰 발급
+
+    CouponIssueDomainService-->>-CouponApplicationService: 결과 반환
+    CouponApplicationService-->>-CouponV1Controller: 결과 반환
+    CouponV1Controller-->>-고객: 성공
+```
+
+---
+
+## 주문하기 (쿠폰 포함)
+
+> 시나리오 2.4 - 고객은 여러 상품을 한 번에 주문한다. 쿠폰을 적용하여 할인을 받을 수 있다.
+
+**다이어그램이 필요한 이유**
+- 조건 분기: 상품 유효성 검증, 재고 부족 검증, 중복 상품 검증, 쿠폰 검증
+- 도메인 간 협력: 주문이 상품, 브랜드, 쿠폰의 상태를 확인해야 한다
+- 도메인 책임: 재고 차감은 Product, 쿠폰 할인 계산은 Coupon, 중복 검증과 금액 계산은 OrderDomainService의 책임
 
 ```mermaid
 sequenceDiagram
     actor 고객
     participant OrderV1Controller
     participant OrderApplicationService
+    participant CouponIssueDomainService
+    participant CouponDomainService
+    participant Coupon
     participant ProductDomainService
     participant Product
     participant BrandDomainService
@@ -123,8 +173,25 @@ sequenceDiagram
 
     Note right of 고객: 인증된 고객
 
-    고객->>+OrderV1Controller: 주문 요청
+    고객->>+OrderV1Controller: 주문 요청 (쿠폰 포함)
     OrderV1Controller->>+OrderApplicationService: 주문 요청
+
+    opt 쿠폰 적용 시
+        OrderApplicationService->>+CouponIssueDomainService: 쿠폰 발급 조회 (본인 확인)
+        alt 쿠폰이 존재하지 않거나 타인 소유
+            CouponIssueDomainService-->>고객: 실패
+        end
+        CouponIssueDomainService-->>-OrderApplicationService: 쿠폰 발급
+
+        OrderApplicationService->>+CouponDomainService: 쿠폰 템플릿 조회
+        CouponDomainService-->>-OrderApplicationService: 쿠폰
+
+        OrderApplicationService->>+Coupon: 적용 가능 여부 검증 (만료, 최소 주문 금액)
+        alt 적용 불가
+            Coupon-->>고객: 실패
+        end
+        Coupon-->>-OrderApplicationService: 검증 완료
+    end
 
     loop 각 주문 항목 (productId 순으로 정렬)
         OrderApplicationService->>+ProductDomainService: 상품 조회 (비관적 락)
@@ -142,7 +209,14 @@ sequenceDiagram
     OrderApplicationService->>+BrandDomainService: 브랜드 정보 조회 (스냅샷용)
     BrandDomainService-->>-OrderApplicationService: 브랜드 목록
 
-    OrderApplicationService->>+OrderDomainService: 주문 생성 (스냅샷 데이터 전달)
+    opt 쿠폰 적용 시
+        OrderApplicationService->>+Coupon: 할인 금액 계산
+        Coupon-->>-OrderApplicationService: 할인 금액
+        OrderApplicationService->>+CouponIssueDomainService: 쿠폰 사용 처리
+        CouponIssueDomainService-->>-OrderApplicationService: 완료
+    end
+
+    OrderApplicationService->>+OrderDomainService: 주문 생성 (스냅샷 + 할인 데이터 전달)
     OrderDomainService->>OrderDomainService: 중복 상품 검증
     alt 중복 상품 존재
         OrderDomainService-->>고객: 실패
@@ -277,12 +351,13 @@ sequenceDiagram
 
 ---
 
-## 주문 취소
+## 주문 취소 (쿠폰 복원)
 
-> 시나리오 2.4 — 고객이 주문을 취소한다.
+> 시나리오 2.4 — 고객이 주문을 취소한다. 쿠폰이 적용된 주문이면 쿠폰을 복원한다.
 
 **다이어그램이 필요한 이유**
 - 조건 분기: 주문 상태에 따른 취소 가능 여부 검증
+- 도메인 간 협력: 주문 취소 시 쿠폰 복원이 필요할 수 있다
 - 도메인 로직: ORDERED 상태에서만 CANCELLED로 전이 가능
 
 ```mermaid
@@ -292,6 +367,7 @@ sequenceDiagram
     participant OrderApplicationService
     participant OrderDomainService
     participant Order
+    participant CouponIssueDomainService
 
     Note right of 고객: 인증된 고객
 
@@ -309,6 +385,11 @@ sequenceDiagram
         Order-->>고객: 실패
     end
     Order-->>-OrderApplicationService: 완료
+
+    opt 쿠폰이 적용된 주문
+        OrderApplicationService->>+CouponIssueDomainService: 쿠폰 복원
+        CouponIssueDomainService-->>-OrderApplicationService: 완료
+    end
 
     OrderApplicationService-->>-OrderV1Controller: 결과 반환
     OrderV1Controller-->>-고객: 성공

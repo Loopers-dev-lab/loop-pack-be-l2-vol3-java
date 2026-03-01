@@ -61,10 +61,36 @@ erDiagram
         timestamp created_at
     }
 
+    coupons {
+        bigint id PK
+        varchar name
+        varchar type
+        int value
+        int min_order_amount
+        timestamp expired_at
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    coupon_issues {
+        bigint id PK
+        bigint coupon_id
+        bigint user_id
+        varchar status
+        timestamp used_at
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
     orders {
         bigint id PK
         bigint user_id
+        bigint coupon_issue_id
         int total_price
+        int original_price
+        int discount_amount
         varchar status
         timestamp created_at
         timestamp updated_at
@@ -92,6 +118,9 @@ erDiagram
     products ||--o{ cart_items : ""
     users ||--o{ orders : ""
     orders ||--|{ order_items : ""
+    coupons ||--o{ coupon_issues : ""
+    users ||--o{ coupon_issues : ""
+    coupon_issues ||--o{ orders : ""
 ```
 
 ---
@@ -103,6 +132,7 @@ erDiagram
 | users | UNIQUE(login_id) | 로그인 ID 중복 방지 |
 | likes | UNIQUE(user_id, product_id) | 1인 1좋아요 보장 |
 | carts | UNIQUE(user_id) | 1인 1장바구니 보장 |
+| coupon_issues | UNIQUE(coupon_id, user_id) | 1인 1발급 보장 |
 
 ---
 
@@ -115,6 +145,8 @@ erDiagram
 | cart_items | cart_id | 장바구니의 항목 조회 |
 | orders | (user_id, created_at) | 유저의 주문 목록 조회 (날짜 범위 필터링) |
 | order_items | order_id | 주문의 상세 항목 조회 |
+| coupon_issues | user_id | 유저의 쿠폰 목록 조회 |
+| coupon_issues | coupon_id | 쿠폰별 발급 내역 조회 |
 
 ---
 
