@@ -90,4 +90,19 @@ public class CouponSteps {
                 responseType
         );
     }
+
+    public static ResponseEntity<ApiResponse<Void>> deleteCoupon(
+            TestRestTemplate testRestTemplate,
+            Long couponId,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<Void>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                COUPON_ADMIN_ENDPOINT + "/" + couponId,
+                HttpMethod.DELETE,
+                new HttpEntity<>(headers),
+                responseType
+        );
+    }
 }

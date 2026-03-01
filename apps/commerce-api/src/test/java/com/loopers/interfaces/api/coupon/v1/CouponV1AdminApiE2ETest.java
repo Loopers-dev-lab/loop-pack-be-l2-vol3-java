@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.coupon.v1;
 
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.createCoupon;
+import static com.loopers.interfaces.api.coupon.v1.CouponSteps.deleteCoupon;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getCoupon;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getCoupons;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.updateCoupon;
@@ -517,6 +518,69 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
 
             // assert
             assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.BAD_REQUEST);
+        }
+    }
+
+    @DisplayName("DELETE /api-admin/v1/coupons/{couponId}")
+    @Nested
+    class DeleteCoupon {
+
+        @DisplayName("유효한 쿠폰을 삭제하면, 200 OK 응답을 받는다.")
+        @Test
+        void returnsOk_whenCouponExists() {
+            // arrange
+            var request = new CouponDto.CreateCouponRequest(
+                    "삭제 대상 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+            );
+            var couponId = createCoupon(testRestTemplate, request, adminAuthHeaders())
+                    .getBody().data().couponId();
+
+            // act
+            var response = deleteCoupon(testRestTemplate, couponId, adminAuthHeaders());
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+            var detail = getCoupon(testRestTemplate, couponId);
+            assertThat(detail.getBody().data().deletedAt()).isNotNull();
+        }
+
+        @DisplayName("존재하지 않는 쿠폰을 삭제하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        void returnsNotFound_whenCouponDoesNotExist() {
+            // act
+            var response = deleteCoupon(testRestTemplate, 999L, adminAuthHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.COUPON_NOT_FOUND);
+        }
+
+        @DisplayName("이미 삭제된 쿠폰을 재삭제하면, 200 OK 응답을 받는다.")
+        @Test
+        void returnsOk_whenCouponAlreadyDeleted() {
+            // arrange
+            var request = new CouponDto.CreateCouponRequest(
+                    "삭제 대상 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+            );
+            var couponId = createCoupon(testRestTemplate, request, adminAuthHeaders())
+                    .getBody().data().couponId();
+            deleteCoupon(testRestTemplate, couponId, adminAuthHeaders());
+
+            // act
+            var response = deleteCoupon(testRestTemplate, couponId, adminAuthHeaders());
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @DisplayName("X-Loopers-Ldap 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        void returnsUnauthorized_whenNoLdapHeader() {
+            // act
+            var response = deleteCoupon(testRestTemplate, 1L, new HttpHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
         }
     }
 }

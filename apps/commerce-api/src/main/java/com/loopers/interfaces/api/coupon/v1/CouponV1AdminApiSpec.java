@@ -36,4 +36,10 @@ public interface CouponV1AdminApiSpec {
             description = "쿠폰 정보를 수정합니다."
     )
     ApiResponse<Void> updateCoupon(Long couponId, CouponDto.UpdateCouponRequest request);
+
+    @Operation(
+            summary = "쿠폰 삭제",
+            description = "쿠폰을 삭제합니다."
+    )
+    ApiResponse<Void> deleteCoupon(Long couponId);
 }

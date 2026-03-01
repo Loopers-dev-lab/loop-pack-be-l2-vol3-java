@@ -43,4 +43,15 @@ public class CouponService {
         coupon.update(name, discountValue, maxDiscountPrice, minOrderPrice, expiredAt);
         return coupon;
     }
+
+    @Transactional
+    public boolean delete(Long couponId) {
+        Coupon coupon = couponRepository.findById(couponId)
+                .orElseThrow(() -> new CoreException(ErrorType.COUPON_NOT_FOUND));
+        if (coupon.isDeleted()) {
+            return false;
+        }
+        coupon.delete();
+        return true;
+    }
 }

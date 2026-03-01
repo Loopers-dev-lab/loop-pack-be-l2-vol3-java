@@ -117,4 +117,49 @@ class CouponServiceIntegrationTest extends BaseIntegrationTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.COUPON_NOT_FOUND));
         }
     }
+
+    @DisplayName("쿠폰을 삭제할 때,")
+    @Nested
+    class Delete {
+
+        @DisplayName("존재하는 쿠폰을 삭제하면, deletedAt이 설정된다.")
+        @Test
+        void setsDeletedAt_whenCouponExists() {
+            // arrange
+            var coupon = couponService.create("삭제 대상 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30));
+
+            // act
+            var result = couponService.delete(coupon.getId());
+
+            // assert
+            var deletedCoupon = couponRepository.findById(coupon.getId()).orElseThrow();
+            assertAll(
+                    () -> assertThat(result).isTrue(),
+                    () -> assertThat(deletedCoupon.getDeletedAt()).isNotNull()
+            );
+        }
+
+        @DisplayName("존재하지 않는 쿠폰을 삭제하면, COUPON_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenCouponNotFound() {
+            // act & assert
+            assertThatThrownBy(() -> couponService.delete(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.COUPON_NOT_FOUND));
+        }
+
+        @DisplayName("이미 삭제된 쿠폰을 삭제하면, false를 반환한다.")
+        @Test
+        void returnsFalse_whenCouponAlreadyDeleted() {
+            // arrange
+            var coupon = couponService.create("삭제 대상 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30));
+            couponService.delete(coupon.getId());
+
+            // act
+            var result = couponService.delete(coupon.getId());
+
+            // assert
+            assertThat(result).isFalse();
+        }
+    }
 }
