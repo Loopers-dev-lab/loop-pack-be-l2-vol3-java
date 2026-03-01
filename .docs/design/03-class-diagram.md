@@ -1,6 +1,6 @@
 # Class Diagram
 
-LAST UPDATED: 2026-02-14
+LAST UPDATED: 2026-02-24
 
 ## 목차
 - [개요](#개요)
@@ -39,7 +39,9 @@ classDiagram
     %% ── 공통 ──
     class Money {
         <<Value Object>>
-        Long value
+        Long amount
+        +wons(Long amount)$ Money
+        +sum(Collection~T~ bags, Function~T·Money~ monetary)$ Money
         +plus(Money other) Money
         +multiply(Long multiplier) Money
     }
@@ -63,11 +65,14 @@ classDiagram
         String thumbnailUrl
         Money price
         Long stock
+        long likeCount
         String description
         Long brandId
         +create(...)$ Product
         +update(...) void
         +deductStock(Long quantity) void
+        +increaseLikeCount() void
+        +decreaseLikeCount() void
     }
 
     %% ── Like ──
@@ -76,7 +81,7 @@ classDiagram
         Long id
         Long userId
         Long productId
-        LocalDateTime likedAt
+        ZonedDateTime likedAt
         +create(Long userId, Long productId)$ Like
     }
 
@@ -91,7 +96,7 @@ classDiagram
         Money totalPrice
         List~OrderItem~ orderItems
         +create(Long userId, List~OrderItem~ orderItems)$ Order
-        +verifyOwner(Long userId) void
+        +validateOwner(Long userId) void
     }
 
     class OrderItem {
@@ -103,7 +108,7 @@ classDiagram
         Money productPrice
         Long quantity
         +create(...)$ OrderItem
-        +getSubtotal() Money
+        +calculateSubtotal() Money
     }
 
     %% ── Product 관계 ──

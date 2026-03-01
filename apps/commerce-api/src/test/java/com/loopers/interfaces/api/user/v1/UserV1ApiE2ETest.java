@@ -1,5 +1,8 @@
 package com.loopers.interfaces.api.user.v1;
 
+import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
+import static com.loopers.support.E2ETestHelper.assertErrorResponse;
+import static com.loopers.support.E2ETestHelper.userAuthHeaders;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -8,16 +11,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -29,28 +28,15 @@ import com.loopers.domain.user.UserName;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.user.v1.UserV1Dto.MeResponse;
 import com.loopers.interfaces.api.user.v1.UserV1Dto.SignUpResponse;
+import com.loopers.support.BaseE2ETest;
 import com.loopers.support.error.ErrorType;
-import com.loopers.utils.DatabaseCleanUp;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class UserV1ApiE2ETest {
+class UserV1ApiE2ETest extends BaseE2ETest {
 
     private static final String SIGNUP_ENDPOINT = "/api/v1/users";
 
-    private final TestRestTemplate testRestTemplate;
-    private final DatabaseCleanUp databaseCleanUp;
-
     private UserV1Dto.SignUpRequest signUpRequest;
     private HttpHeaders headers;
-
-    @Autowired
-    public UserV1ApiE2ETest(
-            TestRestTemplate testRestTemplate,
-            DatabaseCleanUp databaseCleanUp
-    ) {
-        this.testRestTemplate = testRestTemplate;
-        this.databaseCleanUp = databaseCleanUp;
-    }
 
     @BeforeEach
     void setUp() {
@@ -61,18 +47,9 @@ class UserV1ApiE2ETest {
                 "1990-01-15",
                 "test@example.com"
         );
-        ParameterizedTypeReference<ApiResponse<SignUpResponse>> signUpResponseType = new ParameterizedTypeReference<>() {
-        };
-        testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(signUpRequest), signUpResponseType);
+        signUp(testRestTemplate, signUpRequest);
 
-        headers = new HttpHeaders();
-        headers.set("X-Loopers-LoginId", signUpRequest.loginId());
-        headers.set("X-Loopers-LoginPw", signUpRequest.password());
-    }
-
-    @AfterEach
-    void tearDown() {
-        databaseCleanUp.truncateAllTables();
+        headers = userAuthHeaders(signUpRequest.loginId(), signUpRequest.password());
     }
 
     @DisplayName("POST /api/v1/users")
@@ -126,11 +103,7 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(duplicateRequest), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.DUPLICATE_LOGIN_ID.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.DUPLICATE_LOGIN_ID);
         }
 
         @DisplayName("동일한 로그인 ID로 동시에 가입 요청하면, 하나만 성공하고 나머지는 DUPLICATE_LOGIN_ID 에러 응답을 받는다.")
@@ -200,11 +173,7 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.INVALID_LOGIN_ID_FORMAT);
         }
 
         @DisplayName("유효하지 않은 이메일 형식이면, INVALID_EMAIL_FORMAT 에러 응답을 받는다.")
@@ -226,11 +195,7 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.INVALID_EMAIL_FORMAT.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.INVALID_EMAIL_FORMAT);
         }
 
         @DisplayName("비밀번호 길이가 유효하지 않으면, INVALID_PASSWORD_LENGTH 에러 응답을 받는다.")
@@ -252,11 +217,7 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.INVALID_PASSWORD_LENGTH.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.INVALID_PASSWORD_LENGTH);
         }
 
         @DisplayName("비밀번호에 생년월일이 포함되면, BIRTH_DATE_IN_PASSWORD_NOT_ALLOWED 에러 응답을 받는다.")
@@ -278,11 +239,7 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.BIRTH_DATE_IN_PASSWORD_NOT_ALLOWED.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.BIRTH_DATE_IN_PASSWORD_NOT_ALLOWED);
         }
 
         @DisplayName("이름이 빈 값이면, BAD_REQUEST 에러 응답을 받는다.")
@@ -304,11 +261,7 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.BAD_REQUEST.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.BAD_REQUEST);
         }
 
         @DisplayName("유효하지 않은 생년월일 형식이면, INVALID_BIRTH_DATE_FORMAT 에러 응답을 받는다.")
@@ -330,17 +283,13 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.INVALID_BIRTH_DATE_FORMAT.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.INVALID_BIRTH_DATE_FORMAT);
         }
     }
 
     @DisplayName("GET /api/v1/users/me")
     @Nested
-    class GetMyInfo {
+    class ReadUserInfo {
 
         private static final String ME_ENDPOINT = "/api/v1/users/me";
 
@@ -374,20 +323,14 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(ME_ENDPOINT, HttpMethod.GET, null, responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.UNAUTHORIZED.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
         }
 
         @DisplayName("존재하지 않는 로그인 ID로 인증하면, 401 UNAUTHORIZED 응답을 받는다.")
         @Test
         void getMyInfo_unauthorized_whenLoginIdNotFound() {
             // arrange
-            HttpHeaders invalidHeaders = new HttpHeaders();
-            invalidHeaders.set("X-Loopers-LoginId", "nonexistent");
-            invalidHeaders.set("X-Loopers-LoginPw", "Password1!");
+            HttpHeaders invalidHeaders = userAuthHeaders("nonexistent", "Password1!");
 
             // act
             ParameterizedTypeReference<ApiResponse<MeResponse>> responseType = new ParameterizedTypeReference<>() {
@@ -396,20 +339,14 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(ME_ENDPOINT, HttpMethod.GET, new HttpEntity<>(invalidHeaders), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.UNAUTHORIZED.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
         }
 
         @DisplayName("비밀번호가 일치하지 않으면, 401 UNAUTHORIZED 응답을 받는다.")
         @Test
         void getMyInfo_unauthorized_whenPasswordMismatch() {
             // arrange
-            HttpHeaders invalidHeaders = new HttpHeaders();
-            invalidHeaders.set("X-Loopers-LoginId", signUpRequest.loginId());
-            invalidHeaders.set("X-Loopers-LoginPw", "WrongPassword1!");
+            HttpHeaders invalidHeaders = userAuthHeaders(signUpRequest.loginId(), "WrongPassword1!");
 
             // act
             ParameterizedTypeReference<ApiResponse<MeResponse>> responseType = new ParameterizedTypeReference<>() {
@@ -418,11 +355,7 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(ME_ENDPOINT, HttpMethod.GET, new HttpEntity<>(invalidHeaders), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.UNAUTHORIZED.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
         }
     }
 
@@ -467,20 +400,14 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.UNAUTHORIZED.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
         }
 
         @DisplayName("존재하지 않는 로그인 ID로 인증하면, 401 UNAUTHORIZED 응답을 받는다.")
         @Test
         void updatePassword_unauthorized_whenLoginIdNotFound() {
             // arrange
-            HttpHeaders invalidHeaders = new HttpHeaders();
-            invalidHeaders.set("X-Loopers-LoginId", "nonexistent");
-            invalidHeaders.set("X-Loopers-LoginPw", "Password1!");
+            HttpHeaders invalidHeaders = userAuthHeaders("nonexistent", "Password1!");
 
             UserV1Dto.UpdatePasswordRequest updatePasswordRequest = new UserV1Dto.UpdatePasswordRequest(
                     "Password1!",
@@ -494,20 +421,14 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest, invalidHeaders), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.UNAUTHORIZED.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
         }
 
         @DisplayName("비밀번호가 일치하지 않으면, 401 UNAUTHORIZED 응답을 받는다.")
         @Test
         void updatePassword_unauthorized_whenPasswordMismatch() {
             // arrange
-            HttpHeaders invalidHeaders = new HttpHeaders();
-            invalidHeaders.set("X-Loopers-LoginId", signUpRequest.loginId());
-            invalidHeaders.set("X-Loopers-LoginPw", "WrongPassword1!");
+            HttpHeaders invalidHeaders = userAuthHeaders(signUpRequest.loginId(), "WrongPassword1!");
 
             UserV1Dto.UpdatePasswordRequest updatePasswordRequest = new UserV1Dto.UpdatePasswordRequest(
                     "Password1!",
@@ -521,11 +442,7 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest, invalidHeaders), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.UNAUTHORIZED.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
         }
 
         @DisplayName("기존 비밀번호가 빈 값이거나 null이면, 400 BAD_REQUEST 응답을 받는다.")
@@ -545,11 +462,7 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest, headers), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.BAD_REQUEST.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.BAD_REQUEST);
         }
 
         @DisplayName("새 비밀번호가 빈 값이거나 null이면, 400 BAD_REQUEST 응답을 받는다.")
@@ -569,11 +482,7 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest, headers), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.BAD_REQUEST.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.BAD_REQUEST);
         }
 
         @DisplayName("기존 비밀번호가 일치하지 않으면, PASSWORD_MISMATCH 에러 응답을 받는다.")
@@ -592,11 +501,7 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest, headers), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.PASSWORD_MISMATCH.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.PASSWORD_MISMATCH);
         }
 
         @DisplayName("현재 비밀번호와 동일한 비밀번호로 수정하면, PASSWORD_REUSE_NOT_ALLOWED 에러 응답을 받는다.")
@@ -615,11 +520,7 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest, headers), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.PASSWORD_REUSE_NOT_ALLOWED.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.PASSWORD_REUSE_NOT_ALLOWED);
         }
 
         @DisplayName("새 비밀번호에 생년월일이 포함되면, BIRTH_DATE_IN_PASSWORD_NOT_ALLOWED 에러 응답을 받는다.")
@@ -638,11 +539,7 @@ class UserV1ApiE2ETest {
                     testRestTemplate.exchange(UPDATE_PASSWORD_ENDPOINT, HttpMethod.PUT, new HttpEntity<>(updatePasswordRequest, headers), responseType);
 
             // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isEqualTo(ErrorType.BIRTH_DATE_IN_PASSWORD_NOT_ALLOWED.getCode())
-            );
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.BIRTH_DATE_IN_PASSWORD_NOT_ALLOWED);
         }
     }
 }

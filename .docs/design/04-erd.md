@@ -1,6 +1,6 @@
 # ERD (Entity Relationship Diagram)
 
-LAST UPDATED: 2026-02-13
+LAST UPDATED: 2026-02-22
 
 ## 목차
 - [개요](#개요)
@@ -19,20 +19,21 @@ LAST UPDATED: 2026-02-13
 
 ```mermaid
 erDiagram
-    products {
+    product {
         bigint id PK "not null"
         bigint brand_id FK "not null"
         varchar name "not null"
         varchar thumbnail_url "not null"
         bigint price "not null"
         bigint stock "not null"
+        bigint like_count "not null, default 0"
         text description "null"
         timestamp created_at "not null"
         timestamp updated_at "not null"
         timestamp deleted_at "null"
     }
     
-    brands {
+    brand {
         bigint id PK "not null"
         varchar name "not null"
         varchar logo_url "not null"
@@ -47,9 +48,6 @@ erDiagram
         bigint user_id FK "not null"
         bigint product_id FK "not null"
         timestamp liked_at "not null"
-        timestamp created_at "not null"
-        timestamp updated_at "not null"
-        timestamp deleted_at "null"
     }
     
     orders {
@@ -64,7 +62,7 @@ erDiagram
         timestamp deleted_at "null"
     }
     
-    order_items {
+    order_item {
         bigint id PK "not null"
         bigint order_id FK "not null"
         bigint product_id FK "not null"
@@ -77,22 +75,25 @@ erDiagram
         timestamp deleted_at "null"
     }
     
-    brands ||--o{ products: ""
-    products ||--o{ likes: ""
-    products ||--o{ order_items: ""
-    orders ||--|{ order_items: ""
+    brand ||--o{ product: ""
+    product ||--o{ likes: ""
+    product ||--o{ order_item: ""
+    orders ||--|{ order_item: ""
 ```
 
 ## 설계 포인트
 
-### 좋아요 수
+### 좋아요 수 비정규화
 
-- 좋아요 수는 상품 테이블에 별도의 컬럼으로 저장하지 않고, likes 테이블에서 집계하여 조회한다.
-- 추후 과제를 진행하면서 성능 이슈가 있을 경우 비정규화를 고려한다.
+- 좋아요 수를 `product.like_count` 컬럼에 비정규화하여 저장한다.
+- 좋아요 등록/취소 시 `likes` 테이블과 `product.like_count`를 동일 트랜잭션에서 동기화한다.
+- 조회 시 likes 테이블을 집계하지 않고 `product.like_count`를 직접 읽는다.
+- 동시성 제어: 비관적 락(`SELECT FOR UPDATE`)으로 lost update를 방지한다.
+- 결정 배경과 상세: [ADR - likeCount 비정규화](../adr/01-like-count-denormalization.md) 참고.
 
 ### 좋아요 삭제 방식
 
-- likes 테이블은 BaseEntity를 상속하여 `deleted_at` 컬럼이 존재하지만, 좋아요 취소 시 **물리 삭제(hard delete)**를 사용한다.
+- likes 테이블은 BaseEntity를 상속하지 않으며, 좋아요 취소 시 **물리 삭제(hard delete)**를 사용한다.
 - 좋아요는 등록/취소가 빈번하고 이력 보존이 불필요하므로, insert/delete로 단순하게 처리한다.
 
 ### 유니크 제약 조건
