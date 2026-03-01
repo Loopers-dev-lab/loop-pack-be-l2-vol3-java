@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotNull;
 import com.loopers.application.coupon.CouponCommand.CreateCouponCommand;
 import com.loopers.application.coupon.CouponCommand.UpdateCouponCommand;
 import com.loopers.application.coupon.CouponResult;
+import com.loopers.application.coupon.OwnedCouponResult;
 import com.loopers.domain.coupon.CouponType;
 
 public class CouponDto {
@@ -76,6 +77,35 @@ public class CouponDto {
         public static List<CouponResponse> from(List<CouponResult> results) {
             return results.stream()
                     .map(CouponResponse::from)
+                    .toList();
+        }
+    }
+
+    public record CouponIssuanceResponse(
+            Long id,
+            Long couponId,
+            Long userId,
+            String loginId,
+            String userName,
+            String status,
+            ZonedDateTime createdAt
+    ) {
+
+        public static CouponIssuanceResponse from(OwnedCouponResult result) {
+            return new CouponIssuanceResponse(
+                    result.id(),
+                    result.couponId(),
+                    result.userId(),
+                    result.loginId(),
+                    result.userName(),
+                    result.status().name(),
+                    result.createdAt()
+            );
+        }
+
+        public static List<CouponIssuanceResponse> from(List<OwnedCouponResult> results) {
+            return results.stream()
+                    .map(CouponIssuanceResponse::from)
                     .toList();
         }
     }

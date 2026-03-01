@@ -3,10 +3,14 @@ package com.loopers.interfaces.api.coupon.v1;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.createCoupon;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.deleteCoupon;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getCoupon;
+import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getCouponIssuances;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getCoupons;
+import static com.loopers.interfaces.api.coupon.v1.CouponSteps.issueCoupon;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.updateCoupon;
+import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
 import static com.loopers.support.E2ETestHelper.adminAuthHeaders;
 import static com.loopers.support.E2ETestHelper.assertErrorResponse;
+import static com.loopers.support.E2ETestHelper.userAuthHeaders;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -24,7 +28,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.coupon.CouponType;
+import com.loopers.interfaces.api.coupon.v1.CouponDto.CouponIssuanceResponse;
 import com.loopers.interfaces.api.coupon.v1.CouponDto.CouponResponse;
+import com.loopers.interfaces.api.user.v1.UserV1Dto;
 import com.loopers.support.BaseE2ETest;
 import com.loopers.support.error.ErrorType;
 
@@ -578,6 +584,85 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsUnauthorized_whenNoLdapHeader() {
             // act
             var response = deleteCoupon(testRestTemplate, 1L, new HttpHeaders());
+
+            // assert
+            assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);
+        }
+    }
+
+    @DisplayName("GET /api-admin/v1/coupons/{couponId}/issuances")
+    @Nested
+    class ReadOwnedCoupons {
+
+        @DisplayName("발급 내역이 있으면, 유저 정보가 포함된 페이지를 반환한다.")
+        @Test
+        void returnsOwnedCouponsWithUserInfo_whenIssuancesExist() {
+            // arrange
+            var couponId = createCoupon(testRestTemplate,
+                    new CouponDto.CreateCouponRequest("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+
+            var signUpRequest = new UserV1Dto.SignUpRequest(
+                    "testuser1", "Password1!", "홍길동", "1990-01-15", "test@example.com"
+            );
+            signUp(testRestTemplate, signUpRequest);
+            issueCoupon(testRestTemplate, couponId, userAuthHeaders(signUpRequest.loginId(), signUpRequest.password()));
+
+            var url = UriComponentsBuilder.fromPath(COUPON_ADMIN_ENDPOINT + "/" + couponId + "/issuances")
+                    .queryParam("page", 0)
+                    .queryParam("size", 20)
+                    .toUriString();
+
+            // act
+            var response = getCouponIssuances(testRestTemplate, url);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().content().get(0).couponId()).isEqualTo(couponId),
+                    () -> assertThat(response.getBody().data().content().get(0).loginId()).isEqualTo("testuser1"),
+                    () -> assertThat(response.getBody().data().content().get(0).userName()).isEqualTo("홍길동"),
+                    () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo("AVAILABLE"),
+                    () -> assertThat(response.getBody().data().hasNext()).isFalse()
+            );
+        }
+
+        @DisplayName("발급 내역이 없으면, 빈 페이지를 반환한다.")
+        @Test
+        void returnsEmptyPage_whenNoIssuancesExist() {
+            // arrange
+            var couponId = createCoupon(testRestTemplate,
+                    new CouponDto.CreateCouponRequest("빈 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+
+            var url = UriComponentsBuilder.fromPath(COUPON_ADMIN_ENDPOINT + "/" + couponId + "/issuances")
+                    .queryParam("page", 0)
+                    .queryParam("size", 20)
+                    .toUriString();
+
+            // act
+            var response = getCouponIssuances(testRestTemplate, url);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().data().content()).isEmpty(),
+                    () -> assertThat(response.getBody().data().hasNext()).isFalse()
+            );
+        }
+
+        @DisplayName("X-Loopers-Ldap 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        void returnsUnauthorized_whenNoLdapHeader() {
+            // arrange
+            var url = UriComponentsBuilder.fromPath(COUPON_ADMIN_ENDPOINT + "/1/issuances")
+                    .queryParam("page", 0)
+                    .queryParam("size", 20)
+                    .toUriString();
+
+            // act
+            var response = getCouponIssuances(testRestTemplate, url, new HttpHeaders());
 
             // assert
             assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);

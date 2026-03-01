@@ -819,25 +819,20 @@ sequenceDiagram
 sequenceDiagram
     actor Admin
     participant CouponAdminApi
-    participant ReadCouponIssuesUseCase
-    participant CouponRepository
+    participant ReadOwnedCouponsUseCase
     participant OwnedCouponRepository
+    participant UserRepository
 
     Admin ->>+ CouponAdminApi: GET /api-admin/v1/coupons/{couponId}/issues
-    CouponAdminApi ->>+ ReadCouponIssuesUseCase: 발급 내역 조회
+    CouponAdminApi ->>+ ReadOwnedCouponsUseCase: 발급 내역 조회
 
-    ReadCouponIssuesUseCase ->>+ CouponRepository: 쿠폰 존재 확인
-    CouponRepository -->>- ReadCouponIssuesUseCase: Optional<Coupon>
+    ReadOwnedCouponsUseCase ->>+ OwnedCouponRepository: 발급 내역 페이지 조회
+    OwnedCouponRepository -->>- ReadOwnedCouponsUseCase: Slice<OwnedCoupon>
 
-    break 쿠폰이 존재하지 않을 경우
-        ReadCouponIssuesUseCase -->> CouponAdminApi: 조회 실패
-        CouponAdminApi -->> Admin: 404 Not Found
-    end
+    ReadOwnedCouponsUseCase ->>+ UserRepository: 발급 대상 유저 조회
+    UserRepository -->>- ReadOwnedCouponsUseCase: List<User>
 
-    ReadCouponIssuesUseCase ->>+ OwnedCouponRepository: 발급 내역 페이지 조회
-    OwnedCouponRepository -->>- ReadCouponIssuesUseCase: Slice<OwnedCoupon>
-
-    ReadCouponIssuesUseCase -->>- CouponAdminApi: Page<CouponIssueResult>
+    ReadOwnedCouponsUseCase -->>- CouponAdminApi: Page<CouponIssueResult>
     CouponAdminApi -->>- Admin: 200 OK + 발급 내역 페이지
 ```
 

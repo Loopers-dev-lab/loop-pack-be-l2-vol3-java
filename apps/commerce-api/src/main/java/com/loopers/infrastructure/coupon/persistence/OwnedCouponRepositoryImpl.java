@@ -1,5 +1,7 @@
 package com.loopers.infrastructure.coupon.persistence;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Repository;
 
 import com.loopers.domain.coupon.OwnedCoupon;
@@ -16,6 +18,11 @@ public class OwnedCouponRepositoryImpl implements OwnedCouponRepository {
     @Override
     public OwnedCoupon save(OwnedCoupon ownedCoupon) {
         return ownedCouponJpaRepository.save(ownedCoupon);
+    }
+
+    @Override
+    public Slice<OwnedCoupon> findAllByCouponId(Long couponId, Pageable pageable) {
+        return ownedCouponJpaRepository.findAllByCouponId(couponId, pageable);
     }
 
     @Override

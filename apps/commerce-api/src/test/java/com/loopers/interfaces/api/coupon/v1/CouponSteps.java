@@ -129,4 +129,26 @@ public class CouponSteps {
                 responseType
         );
     }
+
+    public static ResponseEntity<ApiResponse<PageResponse<CouponDto.CouponIssuanceResponse>>> getCouponIssuances(
+            TestRestTemplate testRestTemplate,
+            String url,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<PageResponse<CouponDto.CouponIssuanceResponse>>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                responseType
+        );
+    }
+
+    public static ResponseEntity<ApiResponse<PageResponse<CouponDto.CouponIssuanceResponse>>> getCouponIssuances(
+            TestRestTemplate testRestTemplate,
+            String url
+    ) {
+        return getCouponIssuances(testRestTemplate, url, adminAuthHeaders());
+    }
 }

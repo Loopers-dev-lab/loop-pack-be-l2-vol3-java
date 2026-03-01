@@ -1,0 +1,58 @@
+package com.loopers.application.coupon;
+
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.Sort;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.loopers.application.shared.annotation.UseCase;
+import com.loopers.domain.coupon.OwnedCoupon;
+import com.loopers.domain.coupon.OwnedCouponRepository;
+import com.loopers.domain.user.User;
+import com.loopers.domain.user.UserRepository;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
+import com.loopers.support.page.Page;
+import com.loopers.support.page.PageSize;
+
+import lombok.RequiredArgsConstructor;
+
+@UseCase
+@RequiredArgsConstructor
+public class ReadOwnedCouponsUseCase {
+
+    private final OwnedCouponRepository ownedCouponRepository;
+    private final UserRepository userRepository;
+
+    @Transactional(readOnly = true)
+    public Page<OwnedCouponResult> execute(Long couponId, PageSize pageSize) {
+        Slice<OwnedCoupon> ownedCoupons = ownedCouponRepository.findAllByCouponId(
+                couponId,
+                pageSize.toPageable(Sort.by(Sort.Direction.DESC, "createdAt"))
+        );
+
+        List<Long> userIds = ownedCoupons.getContent().stream()
+                .map(OwnedCoupon::getUserId)
+                .distinct()
+                .toList();
+        Map<Long, User> users = userRepository.findAllByIdIn(userIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+
+        return new Page<>(
+                ownedCoupons.getContent().stream()
+                        .map(ownedCoupon -> {
+                            User user = users.get(ownedCoupon.getUserId());
+                            if (user == null) {
+                                throw new CoreException(ErrorType.USER_NOT_FOUND);
+                            }
+                            return OwnedCouponResult.from(ownedCoupon, user);
+                        })
+                        .toList(),
+                ownedCoupons.hasNext()
+        );
+    }
+}

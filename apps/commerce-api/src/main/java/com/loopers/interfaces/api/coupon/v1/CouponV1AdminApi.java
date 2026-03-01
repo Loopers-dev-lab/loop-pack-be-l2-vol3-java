@@ -16,7 +16,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.loopers.application.coupon.CouponResult;
 import com.loopers.application.coupon.DeleteCouponUseCase;
+import com.loopers.application.coupon.OwnedCouponResult;
 import com.loopers.application.coupon.ReadCouponDetailUseCase;
+import com.loopers.application.coupon.ReadOwnedCouponsUseCase;
 import com.loopers.application.coupon.ReadCouponsUseCase;
 import com.loopers.application.coupon.RegisterCouponUseCase;
 import com.loopers.application.coupon.UpdateCouponUseCase;
@@ -35,6 +37,7 @@ public class CouponV1AdminApi implements CouponV1AdminApiSpec {
     private final RegisterCouponUseCase registerCouponUseCase;
     private final ReadCouponsUseCase readCouponsUseCase;
     private final ReadCouponDetailUseCase readCouponDetailUseCase;
+    private final ReadOwnedCouponsUseCase readOwnedCouponsByCouponUseCase;
     private final UpdateCouponUseCase updateCouponUseCase;
     private final DeleteCouponUseCase deleteCouponUseCase;
 
@@ -78,5 +81,16 @@ public class CouponV1AdminApi implements CouponV1AdminApiSpec {
     public ApiResponse<Void> deleteCoupon(@PathVariable Long couponId) {
         deleteCouponUseCase.execute(couponId);
         return ApiResponse.success(null);
+    }
+
+    @GetMapping("/{couponId}/issuances")
+    @Override
+    public ApiResponse<PageResponse<CouponDto.CouponIssuanceResponse>> getCouponIssuances(
+            @PathVariable Long couponId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Page<OwnedCouponResult> result = readOwnedCouponsByCouponUseCase.execute(couponId, PageSize.withMaxSize(page, size));
+        return ApiResponse.success(new PageResponse<>(CouponDto.CouponIssuanceResponse.from(result.content()), result.hasNext()));
     }
 }
