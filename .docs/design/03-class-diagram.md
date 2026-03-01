@@ -1,6 +1,6 @@
 # Class Diagram
 
-LAST UPDATED: 2026-02-24
+LAST UPDATED: 2026-03-01
 
 ## 목차
 - [개요](#개요)
@@ -15,7 +15,7 @@ LAST UPDATED: 2026-02-24
 각 도메인의 엔티티, 값 객체(Value Object), 열거형(Enum)과 이들의 관계를 Mermaid 클래스 다이어그램으로 표현한다.
 용어 정의는 [00-glossary.md](./00-glossary.md)를 참고한다.
 
-- 대상 도메인: 회원, 브랜드, 상품, 좋아요, 주문
+- 대상 도메인: 회원, 브랜드, 상품, 좋아요, 쿠폰, 주문
 
 ---
 
@@ -23,9 +23,10 @@ LAST UPDATED: 2026-02-24
 
 ![도메인 개념도](./images/domain-boundary.png)
 
-시스템의 도메인을 **주문 영역**과 **상품 영역**으로 분리한다.
+시스템의 도메인을 **주문 영역**, **쿠폰 영역**, **상품 영역**으로 분리한다.
 
 - **주문 영역**: Order, OrderItem
+- **쿠폰 영역**: Coupon, OwnedCoupon
 - **상품 영역**: Brand, Product, Like
 - **점선 화살표**: 도메인 경계를 넘는 ID 기반 참조
 - 도메인 내부 객체는 직접 참조하고, 도메인 간에는 ID로만 참조하여 경계를 명확히 유지한다.
@@ -85,13 +86,50 @@ classDiagram
         +create(Long userId, Long productId)$ Like
     }
 
+    %% ── Coupon ──
+    class Coupon {
+        <<Entity>>
+        Long id
+        String name
+        CouponType type
+        Long discountValue
+        Money maxDiscountPrice
+        Money minOrderPrice
+        ZonedDateTime expiredAt
+        +create(...)$ Coupon
+        +update(...) void
+    }
+
+    class CouponType {
+        <<Enum>>
+        FIXED
+        RATE
+    }
+
+    class OwnedCoupon {
+        <<Entity>>
+        Long id
+        Coupon coupon
+        Long userId
+        OwnedCouponStatus status
+        +create(Long couponId, Long userId)$ OwnedCoupon
+        +use() void
+    }
+
+    class OwnedCouponStatus {
+        <<Enum>>
+        AVAILABLE
+        USED
+        EXPIRED
+    }
+
     %% ── Order ──
     class Order {
         <<Entity>>
         Long id
         Long userId
         String name
-        LocalDateTime orderedAt
+        ZonedDateTime orderedAt
         OrderStatus status
         Money totalPrice
         List~OrderItem~ orderItems
@@ -117,6 +155,12 @@ classDiagram
 
     %% ── Like 관계 ──
     Like ..> Product
+
+    %% ── Coupon 관계 ──
+    Coupon --> CouponType
+    Coupon --> Money
+    OwnedCoupon --> OwnedCouponStatus
+    OwnedCoupon ..> Coupon
 
     %% ── Order 관계 ──
     Order *-- OrderItem
