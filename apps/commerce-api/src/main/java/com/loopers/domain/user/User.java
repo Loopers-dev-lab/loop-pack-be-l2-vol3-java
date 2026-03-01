@@ -1,7 +1,6 @@
 package com.loopers.domain.user;
 
 import com.loopers.domain.BaseEntity;
-import com.loopers.support.security.PasswordEncryptor;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -16,7 +15,6 @@ import java.util.regex.Pattern;
 public class User extends BaseEntity {
 
     private static final Pattern ID_PATTERN = Pattern.compile("^[a-zA-Z0-9]{1,10}$");
-    private static final Pattern PASSWORD_PATTERN = Pattern.compile("^[a-zA-Z0-9!@#$%^&*(),.?\":{}|<>]{8,16}$");
     private static final Pattern NAME_PATTERN = Pattern.compile("^[가-힣a-zA-Z]+$");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9][a-zA-Z0-9-]*\\.[a-zA-Z]{2,}$");
 
@@ -49,16 +47,26 @@ public class User extends BaseEntity {
         this.gender = gender;
     }
 
-    public static User register(String loginId, String password, String name, LocalDate birthDate, String email, Gender gender, PasswordEncryptor encryptor) {
+    public static User create(
+        String loginId,
+        RawPassword rawPassword,
+        EncryptedPassword encryptedPassword,
+        String name,
+        LocalDate birthDate,
+        String email,
+        Gender gender
+    ) {
         validateLoginId(loginId);
         validateName(name);
         validateBirthDate(birthDate);
-        validatePassword(password, birthDate);
+        if (rawPassword == null || encryptedPassword == null) {
+            throw new IllegalArgumentException("비밀번호 형식이 올바르지 않습니다");
+        }
+        rawPassword.validateNotContainingBirthDate(birthDate);
         validateEmail(email);
         validateGender(gender);
 
-        String encryptedPassword = encryptor.encode(password);
-        return new User(loginId, encryptedPassword, name, birthDate, email, gender);
+        return new User(loginId, encryptedPassword.value(), name, birthDate, email, gender);
     }
 
     private static void validateGender(Gender gender) {
@@ -96,17 +104,6 @@ public class User extends BaseEntity {
         }
     }
 
-    private static void validatePassword(String password, LocalDate birthDate) {
-        String birthDateStr = birthDate.toString().replace("-", "");
-        if (password.contains(birthDateStr)) {
-            throw new IllegalArgumentException("생년월일은 비밀번호 내에 포함될 수 없습니다");
-        }
-
-        if (!PASSWORD_PATTERN.matcher(password).matches()) {
-            throw new IllegalArgumentException("비밀번호 형식이 올바르지 않습니다");
-        }
-    }
-
     private static void validateEmail(String email) {
         if (email == null || !email.contains("@") || !email.contains(".")) {
             throw new IllegalArgumentException("이메일 형식이 올바르지 않습니다");
@@ -127,14 +124,11 @@ public class User extends BaseEntity {
         }
     }
 
-    public void changePassword(String oldPassword, String newPassword, PasswordEncryptor encryptor) {
-        if (!encryptor.matches(oldPassword, this.password)) {
-            throw new IllegalArgumentException("기존 비밀번호가 일치하지 않습니다");
+    public void changePassword(RawPassword newPassword, EncryptedPassword encryptedPassword) {
+        if (newPassword == null || encryptedPassword == null) {
+            throw new IllegalArgumentException("비밀번호 형식이 올바르지 않습니다");
         }
-
-        validatePassword(newPassword, this.birthDate);
-        this.password = encryptor.encode(newPassword);
+        newPassword.validateNotContainingBirthDate(this.birthDate);
+        this.password = encryptedPassword.value();
     }
 }
-
-

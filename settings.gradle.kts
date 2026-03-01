@@ -10,7 +10,6 @@ include(
     ":supports:jackson",
     ":supports:logging",
     ":supports:monitoring",
-    ":supports:security",
 )
 
 // configurations

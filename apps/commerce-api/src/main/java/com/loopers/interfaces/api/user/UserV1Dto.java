@@ -1,16 +1,23 @@
 package com.loopers.interfaces.api.user;
 
+import com.loopers.application.user.UserDto;
 import com.loopers.domain.user.Gender;
-import com.loopers.domain.user.User;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
 
+/**
+ * User V1 API DTO
+ *
+ * Interface Layer의 HTTP API 스펙을 정의합니다.
+ * - Application Layer의 UserDto로부터 생성
+ * - API 버전별로 독립적인 스펙 유지
+ */
 public class UserV1Dto {
 
-    public record RegisterRequest(
+    public record CreateRequest(
         @NotBlank(message = "이름은 필수입니다")
         String name,
 
@@ -26,7 +33,7 @@ public class UserV1Dto {
     ) {
     }
 
-    public record RegisterResponse(
+    public record CreateResponse(
         Long id,
         String loginId,
         String name,
@@ -34,14 +41,20 @@ public class UserV1Dto {
         String email,
         Gender gender
     ) {
-        public static RegisterResponse from(User user) {
-            return new RegisterResponse(
-                user.getId(),
-                user.getLoginId(),
-                user.getName(),
-                user.getBirthDate(),
-                user.getEmail(),
-                user.getGender()
+        /**
+         * Application DTO(UserInfo)로부터 API Response를 생성합니다.
+         *
+         * @param userInfo Application Layer의 UserInfo DTO
+         * @return API Response DTO
+         */
+        public static CreateResponse from(UserDto.UserInfo userInfo) {
+            return new CreateResponse(
+                userInfo.id(),
+                userInfo.loginId(),
+                userInfo.name(),
+                userInfo.birthDate(),
+                userInfo.email(),
+                userInfo.gender()
             );
         }
     }
@@ -54,14 +67,20 @@ public class UserV1Dto {
         String email,
         Gender gender
     ) {
-        public static UserInfoResponse from(User user) {
+        /**
+         * Application DTO(UserInfo)로부터 API Response를 생성합니다.
+         *
+         * @param userInfo Application Layer의 UserInfo DTO
+         * @return API Response DTO
+         */
+        public static UserInfoResponse from(UserDto.UserInfo userInfo) {
             return new UserInfoResponse(
-                user.getId(),
-                user.getLoginId(),
-                user.getName(),
-                user.getBirthDate(),
-                user.getEmail(),
-                user.getGender()
+                userInfo.id(),
+                userInfo.loginId(),
+                userInfo.name(),
+                userInfo.birthDate(),
+                userInfo.email(),
+                userInfo.gender()
             );
         }
     }

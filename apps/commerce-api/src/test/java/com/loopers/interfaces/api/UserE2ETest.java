@@ -48,7 +48,7 @@ class UserE2ETest {
         requestMap.put("gender", "MALE");
 
         // when & then
-        mockMvc.perform(post("/api/users/register")
+        mockMvc.perform(post("/api/users")
                         .header("X-Loopers-LoginId", "tester01")
                         .header("X-Loopers-LoginPw", "Password123!")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -72,7 +72,7 @@ class UserE2ETest {
         // gender 필드 누락
 
         // when & then
-        mockMvc.perform(post("/api/users/register")
+        mockMvc.perform(post("/api/users")
                         .header("X-Loopers-LoginId", "tester02")
                         .header("X-Loopers-LoginPw", "Password123!")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -91,7 +91,7 @@ class UserE2ETest {
         registerRequest.put("email", "info@example.com");
         registerRequest.put("gender", "MALE");
 
-        String registerResponse = mockMvc.perform(post("/api/users/register")
+        String registerResponse = mockMvc.perform(post("/api/users")
                         .header("X-Loopers-LoginId", "infotest")
                         .header("X-Loopers-LoginPw", "Password123!")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -111,7 +111,7 @@ class UserE2ETest {
                 .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
                 .andExpect(jsonPath("$.data.id").value(userId))
                 .andExpect(jsonPath("$.data.loginId").value("infotest"))
-                .andExpect(jsonPath("$.data.name").value("정보조*"))
+                .andExpect(jsonPath("$.data.name").value("정보조회"))
                 .andExpect(jsonPath("$.data.email").value("info@example.com"))
                 .andExpect(jsonPath("$.data.gender").value("MALE"));
     }
@@ -135,7 +135,7 @@ class UserE2ETest {
         registerRequest.put("email", "change@example.com");
         registerRequest.put("gender", "FEMALE");
 
-        String registerResponse = mockMvc.perform(post("/api/users/register")
+        String registerResponse = mockMvc.perform(post("/api/users")
                         .header("X-Loopers-LoginId", "changetest")
                         .header("X-Loopers-LoginPw", "password1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -170,7 +170,7 @@ class UserE2ETest {
         registerRequest.put("email", "fail@example.com");
         registerRequest.put("gender", "MALE");
 
-        String registerResponse = mockMvc.perform(post("/api/users/register")
+        String registerResponse = mockMvc.perform(post("/api/users")
                         .header("X-Loopers-LoginId", "failtest")
                         .header("X-Loopers-LoginPw", "password1")
                         .contentType(MediaType.APPLICATION_JSON)

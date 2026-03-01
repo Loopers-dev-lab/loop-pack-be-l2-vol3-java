@@ -5,7 +5,9 @@ dependencies {
     implementation(project(":supports:jackson"))
     implementation(project(":supports:logging"))
     implementation(project(":supports:monitoring"))
-    implementation(project(":supports:security"))
+    implementation("org.springframework.security:spring-security-crypto")
+    implementation("org.springframework.retry:spring-retry")
+    implementation("org.springframework.boot:spring-boot-starter-aop")
 
     // web
     implementation("org.springframework.boot:spring-boot-starter-web")

@@ -4,10 +4,12 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
+import org.springframework.retry.annotation.EnableRetry;
 import java.util.TimeZone;
 
 @ConfigurationPropertiesScan
 @SpringBootApplication
+@EnableRetry
 public class CommerceApiApplication {
 
     @PostConstruct
