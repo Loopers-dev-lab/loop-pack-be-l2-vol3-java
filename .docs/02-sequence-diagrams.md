@@ -9,40 +9,45 @@
 
 > 시나리오 2.2 — 고객이 마음에 드는 상품에 좋아요를 누른다.
 
-> 취소도 같은 흐름이라고 생각하면 된다.
+> 취소도 같은 흐름이라고 생각하면 된다. (incrementLikeCount → decrementLikeCount)
 
 ```mermaid
 sequenceDiagram
     actor 고객
     participant LikeV1Controller
-    participant LikeFacade
-    participant ProductService
-    participant LikeService
+    participant LikeApplicationService
+    participant LikeDomainService
     participant Like
     participant LikeRepository
+    participant ProductDomainService
+    participant Product
 
     Note right of 고객: 인증된 고객
 
-    고객->>LikeV1Controller: 좋아요 등록 요청
-    LikeV1Controller->>LikeFacade: 좋아요 등록
+    고객->>+LikeV1Controller: 좋아요 등록 요청
+    LikeV1Controller->>+LikeApplicationService: 좋아요 등록
 
-    LikeFacade->>ProductService: 상품 조회
-    alt 상품이 존재하지 않거나 삭제됨
-        ProductService-->>고객: 실패
-    end
-
-    LikeFacade->>LikeService: 좋아요 등록
-    LikeService->>LikeRepository: 중복 좋아요 확인
+    LikeApplicationService->>+LikeDomainService: 좋아요 등록
+    LikeDomainService->>+LikeRepository: 중복 좋아요 확인
+    LikeRepository-->>-LikeDomainService: 결과
     alt 이미 좋아요한 상품
-        LikeService-->>고객: 실패
+        LikeDomainService-->>고객: 실패
     end
 
-    LikeService->>Like: 좋아요 생성
-    LikeService->>LikeRepository: 좋아요 저장
+    LikeDomainService->>+Like: 좋아요 생성
+    Like-->>-LikeDomainService: 좋아요
+    LikeDomainService->>+LikeRepository: 좋아요 저장
+    LikeRepository-->>-LikeDomainService: 완료
 
-    LikeService-->>LikeFacade: 결과 반환
-    LikeFacade-->>LikeV1Controller: 결과 반환
-    LikeV1Controller-->>고객: 성공
+    LikeDomainService-->>-LikeApplicationService: 결과 반환
+
+    LikeApplicationService->>+ProductDomainService: 좋아요 수 증가 (비관적 락)
+    ProductDomainService->>+Product: incrementLikeCount()
+    Product-->>-ProductDomainService: 완료
+    ProductDomainService-->>-LikeApplicationService: 완료
+
+    LikeApplicationService-->>-LikeV1Controller: 결과 반환
+    LikeV1Controller-->>-고객: 성공
 ```
 
 ---
@@ -59,34 +64,96 @@ sequenceDiagram
 sequenceDiagram
     actor 고객
     participant CartV1Controller
-    participant CartFacade
-    participant ProductService
-    participant CartService
+    participant CartApplicationService
+    participant ProductDomainService
+    participant CartDomainService
     participant CartItem
     participant CartRepository
 
     Note right of 고객: 인증된 고객
 
-    고객->>CartV1Controller: 장바구니 담기 요청
-    CartV1Controller->>CartFacade: 장바구니 담기
+    고객->>+CartV1Controller: 장바구니 담기 요청
+    CartV1Controller->>+CartApplicationService: 장바구니 담기
 
-    CartFacade->>ProductService: 상품 조회
+    CartApplicationService->>+ProductDomainService: 상품 조회
     alt 상품이 존재하지 않거나 삭제됨
-        ProductService-->>고객: 실패
+        ProductDomainService-->>고객: 실패
     end
+    ProductDomainService-->>-CartApplicationService: 상품
 
-    CartFacade->>CartService: 장바구니에 상품 담기
-    CartService->>CartRepository: 기존 장바구니 항목 조회
+    CartApplicationService->>+CartDomainService: 장바구니에 상품 담기
+    CartDomainService->>+CartRepository: 기존 장바구니 항목 조회
+    CartRepository-->>-CartDomainService: 항목
     alt 이미 담긴 상품
-        CartService->>CartItem: 수량 합산
+        CartDomainService->>+CartItem: 수량 합산
+        CartItem-->>-CartDomainService: 완료
     else 새로운 상품
-        CartService->>CartItem: 항목 생성
+        CartDomainService->>+CartItem: 항목 생성
+        CartItem-->>-CartDomainService: 항목
     end
-    CartService->>CartRepository: 저장
+    CartDomainService->>+CartRepository: 저장
+    CartRepository-->>-CartDomainService: 완료
 
-    CartService-->>CartFacade: 결과 반환
-    CartFacade-->>CartV1Controller: 결과 반환
-    CartV1Controller-->>고객: 성공
+    CartDomainService-->>-CartApplicationService: 결과 반환
+    CartApplicationService-->>-CartV1Controller: 결과 반환
+    CartV1Controller-->>-고객: 성공
+```
+
+---
+
+## 주문하기
+
+> 시나리오 2.4 - 고객은 여러 상품을 한 번에 주문한다. 주문 후 자신의 주문 내역을 조회할 수 있다.
+
+**다이어그램이 필요한 이유**
+- 조건 분기: 상품 유효성 검증, 재고 부족 검증, 중복 상품 검증
+- 도메인 간 협력: 주문이 상품과 브랜드의 상태를 확인해야 한다
+- 도메인 책임: 재고 차감은 Product, 중복 검증과 금액 계산은 OrderDomainService의 책임
+
+```mermaid
+sequenceDiagram
+    actor 고객
+    participant OrderV1Controller
+    participant OrderApplicationService
+    participant ProductDomainService
+    participant Product
+    participant BrandDomainService
+    participant OrderDomainService
+    participant Order
+
+    Note right of 고객: 인증된 고객
+
+    고객->>+OrderV1Controller: 주문 요청
+    OrderV1Controller->>+OrderApplicationService: 주문 요청
+
+    loop 각 주문 항목 (productId 순으로 정렬)
+        OrderApplicationService->>+ProductDomainService: 상품 조회 (비관적 락)
+        alt 상품이 존재하지 않거나 삭제됨
+            ProductDomainService-->>고객: 실패
+        end
+        ProductDomainService-->>-OrderApplicationService: 상품
+        OrderApplicationService->>+Product: 재고 차감
+        alt 재고 부족
+            Product-->>고객: 실패
+        end
+        Product-->>-OrderApplicationService: 완료
+    end
+
+    OrderApplicationService->>+BrandDomainService: 브랜드 정보 조회 (스냅샷용)
+    BrandDomainService-->>-OrderApplicationService: 브랜드 목록
+
+    OrderApplicationService->>+OrderDomainService: 주문 생성 (스냅샷 데이터 전달)
+    OrderDomainService->>OrderDomainService: 중복 상품 검증
+    alt 중복 상품 존재
+        OrderDomainService-->>고객: 실패
+    end
+    OrderDomainService->>OrderDomainService: 총 금액 계산
+    OrderDomainService->>+Order: 주문 및 주문 항목 생성
+    Order-->>-OrderDomainService: 주문
+
+    OrderDomainService-->>-OrderApplicationService: 결과 반환
+    OrderApplicationService-->>-OrderV1Controller: 결과 반환
+    OrderV1Controller-->>-고객: 성공
 ```
 
 ---
@@ -96,7 +163,7 @@ sequenceDiagram
 > 시나리오 2.3 / 2.4 — 고객이 장바구니의 모든 항목을 한 번에 주문한다.
 
 **다이어그램이 필요한 이유**
-- 도메인 간 협력: Cart → Product → Order 세 도메인이 협력
+- 도메인 간 협력: Cart → Product → Brand → Order 네 도메인이 협력
 - 조건 분기: 장바구니 비어있음, 상품 유효성, 재고 부족
 - 주문 성공 후 장바구니 비우기까지 하나의 트랜잭션
 
@@ -104,41 +171,65 @@ sequenceDiagram
 sequenceDiagram
     actor 고객
     participant OrderV1Controller
-    participant OrderFacade
-    participant CartService
-    participant ProductService
+    participant OrderApplicationService
+    participant CartDomainService
+    participant ProductDomainService
     participant Product
-    participant OrderService
+    participant BrandDomainService
+    participant OrderDomainService
     participant Order
 
     Note right of 고객: 인증된 고객
 
-    고객->>OrderV1Controller: 장바구니 주문 요청
-    OrderV1Controller->>OrderFacade: 장바구니 주문
+    고객->>+OrderV1Controller: 장바구니 주문 요청
+    OrderV1Controller->>+OrderApplicationService: 장바구니 주문
 
-    OrderFacade->>CartService: 장바구니 조회
+    OrderApplicationService->>+CartDomainService: 장바구니 조회
+    CartDomainService-->>-OrderApplicationService: 장바구니
     alt 장바구니가 비어있음
-        CartService-->>고객: 실패
+        OrderApplicationService-->>고객: 실패
     end
 
-    OrderFacade->>ProductService: 상품 유효성 확인
-    alt 판매 불가 상품 존재
-        ProductService-->>고객: 실패
+    OrderApplicationService->>+ProductDomainService: 장바구니 상품 일괄 조회
+    ProductDomainService-->>-OrderApplicationService: 유효한 상품 목록
+
+    alt 유효하지 않은 상품이 포함됨
+        OrderApplicationService->>+CartDomainService: 유효하지 않은 상품 제거
+        CartDomainService-->>-OrderApplicationService: 완료
+        alt 유효한 상품이 하나도 없음
+            OrderApplicationService-->>고객: 실패
+        end
     end
 
-    OrderFacade->>ProductService: 재고 확인 및 차감
-    ProductService->>Product: 재고 차감
-    alt 재고 부족
-        ProductService-->>고객: 실패
+    loop 각 장바구니 항목 (productId 순으로 정렬)
+        OrderApplicationService->>+ProductDomainService: 상품 조회 (비관적 락)
+        alt 상품이 존재하지 않거나 삭제됨
+            ProductDomainService-->>고객: 실패
+        end
+        ProductDomainService-->>-OrderApplicationService: 상품
+        OrderApplicationService->>+Product: 재고 차감
+        alt 재고 부족
+            Product-->>고객: 실패
+        end
+        Product-->>-OrderApplicationService: 완료
     end
 
-    OrderFacade->>OrderService: 주문 생성 (스냅샷 포함)
-    OrderService->>Order: 주문 생성
+    OrderApplicationService->>+BrandDomainService: 브랜드 정보 조회 (스냅샷용)
+    BrandDomainService-->>-OrderApplicationService: 브랜드 목록
 
-    OrderFacade->>CartService: 장바구니 비우기
+    OrderApplicationService->>+OrderDomainService: 주문 생성 (스냅샷 데이터 전달)
+    OrderDomainService->>OrderDomainService: 중복 상품 검증
+    OrderDomainService->>OrderDomainService: 총 금액 계산
+    OrderDomainService->>+Order: 주문 및 주문 항목 생성
+    Order-->>-OrderDomainService: 주문
 
-    OrderFacade-->>OrderV1Controller: 결과 반환
-    OrderV1Controller-->>고객: 성공
+    OrderDomainService-->>-OrderApplicationService: 결과 반환
+
+    OrderApplicationService->>+CartDomainService: 장바구니 비우기
+    CartDomainService-->>-OrderApplicationService: 완료
+
+    OrderApplicationService-->>-OrderV1Controller: 결과 반환
+    OrderV1Controller-->>-고객: 성공
 ```
 
 ---
@@ -149,79 +240,76 @@ sequenceDiagram
 
 **다이어그램이 필요한 이유**
 - 도메인 간 협력: Brand 삭제가 Product 연쇄 삭제를 트리거한다
-- 삭제 순서: 상품을 먼저 삭제한 뒤 브랜드를 삭제해야 정합성이 유지된다
+- 삭제 순서: 브랜드를 먼저 삭제한 뒤 해당 브랜드의 상품을 삭제한다
 
 ```mermaid
 sequenceDiagram
     actor 어드민
     participant AdminBrandV1Controller
-    participant BrandFacade
-    participant BrandService
-    participant ProductService
+    participant BrandApplicationService
+    participant BrandDomainService
+    participant ProductDomainService
     participant Brand
     participant Product
 
     Note right of 어드민: 인증된 어드민
 
-    어드민->>AdminBrandV1Controller: 브랜드 삭제 요청
-    AdminBrandV1Controller->>BrandFacade: 브랜드 삭제
+    어드민->>+AdminBrandV1Controller: 브랜드 삭제 요청
+    AdminBrandV1Controller->>+BrandApplicationService: 브랜드 삭제
 
-    BrandFacade->>BrandService: 브랜드 조회
+    BrandApplicationService->>+BrandDomainService: 브랜드 삭제
+    BrandDomainService->>BrandDomainService: 브랜드 조회
     alt 브랜드가 존재하지 않거나 삭제됨
-        BrandService-->>어드민: 실패
+        BrandDomainService-->>어드민: 실패
     end
+    BrandDomainService->>+Brand: 논리 삭제 (soft delete)
+    Brand-->>-BrandDomainService: 완료
+    BrandDomainService-->>-BrandApplicationService: 완료
 
-    BrandFacade->>ProductService: 해당 브랜드의 상품 전체 삭제
-    ProductService->>Product: 논리 삭제 (soft delete)
+    BrandApplicationService->>+ProductDomainService: 해당 브랜드의 상품 전체 삭제
+    ProductDomainService->>+Product: 논리 삭제 (soft delete)
+    Product-->>-ProductDomainService: 완료
+    ProductDomainService-->>-BrandApplicationService: 완료
 
-    BrandFacade->>BrandService: 브랜드 삭제
-    BrandService->>Brand: 논리 삭제 (soft delete)
-
-    BrandFacade-->>AdminBrandV1Controller: 결과 반환
-    AdminBrandV1Controller-->>어드민: 성공
+    BrandApplicationService-->>-AdminBrandV1Controller: 결과 반환
+    AdminBrandV1Controller-->>-어드민: 성공
 ```
 
 ---
 
-### 주문하기
+## 주문 취소
 
-> 시나리오 2.4 - 고객은 여러 상품을 한 번에 주문한다. 주문 후 자신의 주문 내역을 조회할 수 있다.
+> 시나리오 2.4 — 고객이 주문을 취소한다.
 
 **다이어그램이 필요한 이유**
-- 조건 분기: 상품 유효성 검증, 재고 부족 검증
-- 도메인 간 협력: 주문이 상품의 상태/재고를 확인해야 한다
-- 도메인 책임: 가격 정보 제공은 Product, 금액 계산은 Order의 책임
+- 조건 분기: 주문 상태에 따른 취소 가능 여부 검증
+- 도메인 로직: ORDERED 상태에서만 CANCELLED로 전이 가능
 
 ```mermaid
 sequenceDiagram
     actor 고객
     participant OrderV1Controller
-    participant OrderFacade
-    participant ProductService
-    participant Product
-    participant OrderService
+    participant OrderApplicationService
+    participant OrderDomainService
     participant Order
 
     Note right of 고객: 인증된 고객
 
-    고객->>OrderV1Controller: 주문 요청
-    OrderV1Controller->>OrderFacade: 주문 요청
+    고객->>+OrderV1Controller: 주문 취소 요청
+    OrderV1Controller->>+OrderApplicationService: 주문 취소
 
-    OrderFacade->>ProductService: 상품 유효성 확인
-    alt 판매 불가 상품 존재
-        ProductService-->>고객: 실패
+    OrderApplicationService->>+OrderDomainService: 주문 조회 (본인 확인)
+    alt 주문이 존재하지 않거나 본인의 주문이 아님
+        OrderDomainService-->>고객: 실패
     end
+    OrderDomainService-->>-OrderApplicationService: 주문
 
-    OrderFacade->>ProductService: 재고 확인 및 차감
-    ProductService->>Product: 재고 차감
-    alt 재고 부족
-        ProductService-->>고객: 실패
+    OrderApplicationService->>+Order: cancel()
+    alt ORDERED 상태가 아님
+        Order-->>고객: 실패
     end
+    Order-->>-OrderApplicationService: 완료
 
-    OrderFacade->>OrderService: 주문 생성
-    OrderService->>Order: 주문 생성 (스냅샷 포함)
-
-    OrderService-->>OrderFacade: 결과 반환
-    OrderFacade-->>OrderV1Controller: 결과 반환
-    OrderV1Controller-->>고객: 성공
+    OrderApplicationService-->>-OrderV1Controller: 결과 반환
+    OrderV1Controller-->>-고객: 성공
 ```

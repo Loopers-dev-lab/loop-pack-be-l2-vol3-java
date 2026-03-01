@@ -1,6 +1,5 @@
 package com.loopers.domain.user;
 
-import com.loopers.infrastructure.user.UserJpaRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
@@ -18,13 +17,10 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
-class UserServiceIntegrationTest {
+class UserDomainServiceIntegrationTest {
 
     @Autowired
-    private UserService userService;
-
-    @Autowired
-    private UserJpaRepository userJpaRepository;
+    private UserDomainService userService;
 
     @Autowired
     private PasswordEncryptor passwordEncryptor;
@@ -105,7 +101,7 @@ class UserServiceIntegrationTest {
             String newPassword = "NewPass123!";
 
             // act
-            userService.changePassword(user, RAW_PASSWORD, newPassword);
+            userService.changePassword(user.getId(), RAW_PASSWORD, newPassword);
 
             // assert
             User updated = userService.authenticate(LOGIN_ID, newPassword);
@@ -120,7 +116,7 @@ class UserServiceIntegrationTest {
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
-                userService.changePassword(user, "WrongPass1!", "NewPass123!");
+                userService.changePassword(user.getId(), "WrongPass1!", "NewPass123!");
             });
 
             // assert
@@ -135,7 +131,7 @@ class UserServiceIntegrationTest {
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
-                userService.changePassword(user, RAW_PASSWORD, RAW_PASSWORD);
+                userService.changePassword(user.getId(), RAW_PASSWORD, RAW_PASSWORD);
             });
 
             // assert
@@ -150,7 +146,7 @@ class UserServiceIntegrationTest {
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
-                userService.changePassword(user, RAW_PASSWORD, "short");
+                userService.changePassword(user.getId(), RAW_PASSWORD, "short");
             });
 
             // assert

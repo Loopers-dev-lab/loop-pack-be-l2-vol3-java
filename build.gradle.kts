@@ -48,7 +48,7 @@ subprojects {
 
     dependencies {
         // Web
-        runtimeOnly("org.springframework.boot:spring-boot-starter-validation")
+        implementation("org.springframework.boot:spring-boot-starter-validation")
         // Spring
         implementation("org.springframework.boot:spring-boot-starter")
         // Serialize
@@ -64,6 +64,7 @@ subprojects {
         testImplementation("com.ninja-squad:springmockk:${project.properties["springMockkVersion"]}")
         testImplementation("org.mockito:mockito-core:${project.properties["mockitoVersion"]}")
         testImplementation("org.instancio:instancio-junit:${project.properties["instancioJUnitVersion"]}")
+        testImplementation("com.tngtech.archunit:archunit-junit5:${project.properties["archunitVersion"]}")
         // Testcontainers
         testImplementation("org.springframework.boot:spring-boot-testcontainers")
         testImplementation("org.testcontainers:testcontainers:1.21.4")

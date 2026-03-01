@@ -7,10 +7,15 @@ import lombok.RequiredArgsConstructor;
 import java.time.LocalDate;
 
 @RequiredArgsConstructor
-public class UserService {
+public class UserDomainService {
 
     private final UserRepository userRepository;
     private final PasswordEncryptor passwordEncryptor;
+
+    public User getById(Long id) {
+        return userRepository.findById(id)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+    }
 
     public User signup(String loginId, String rawPassword, String name, LocalDate birthDate, String email) {
         if (userRepository.existsByLoginId(loginId)) {
@@ -25,7 +30,10 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    public void changePassword(User user, String currentRawPassword, String newRawPassword) {
+    public void changePassword(Long userId, String currentRawPassword, String newRawPassword) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+
         if (!passwordEncryptor.matches(currentRawPassword, user.getPassword())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "기존 비밀번호가 올바르지 않습니다.");
         }
