@@ -1,16 +1,15 @@
 package com.loopers.interfaces.api.user;
 
+import com.loopers.application.product.ProductInfo;
 import com.loopers.application.user.UserFacade;
 import com.loopers.application.user.UserInfo;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.product.ProductV1Dto;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -62,9 +61,19 @@ public class UserV1Controller {
         @RequestHeader("X-Loopers-LoginPw") String currentPassword,
         @RequestBody UserV1Dto.UpdatePasswordRequest request
     ) {
-        UserInfo userInfo = userFacade.getUserInfo(loginId, currentPassword);
-        userFacade.updatePassword(loginId, currentPassword, request.newPassword(), userInfo.birthDate());
+        userFacade.updatePassword(loginId, currentPassword, request.newPassword());
 
         return ApiResponse.success(null);
+    }
+
+    @GetMapping("/me/likes")
+    public ApiResponse<ProductV1Dto.PageResponse> getLikedProducts(
+            @RequestHeader(value = "X-User-Id") Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<ProductInfo> products = userFacade.getLikedProducts(userId, pageable);
+        return ApiResponse.success(ProductV1Dto.PageResponse.from(products));
     }
 }

@@ -338,7 +338,7 @@ class UserServiceTest {
             when(passwordEncoder.encode(newPassword)).thenReturn(encodedNewPassword);
 
             // when
-            userService.updatePassword(loginId, currentPassword, newPassword, birthDate);
+            userService.updatePassword(loginId, currentPassword, newPassword);
 
             // then
             verify(userRepository).findByLoginId(loginId);
@@ -358,8 +358,7 @@ class UserServiceTest {
             assertThatThrownBy(() -> userService.updatePassword(
                 loginId,
                 "Password1!",
-                "NewPassword2!",
-                LocalDate.of(1990, 1, 15)
+                "NewPassword2!"
             ))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.NOT_FOUND)
@@ -385,8 +384,7 @@ class UserServiceTest {
             assertThatThrownBy(() -> userService.updatePassword(
                 loginId,
                 currentPassword,
-                "NewPassword2!",
-                LocalDate.of(1990, 1, 15)
+                "NewPassword2!"
             ))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
@@ -415,8 +413,7 @@ class UserServiceTest {
             assertThatThrownBy(() -> userService.updatePassword(
                 loginId,
                 currentPassword,
-                newPassword,
-                LocalDate.of(1990, 1, 15)
+                newPassword
             ))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
@@ -444,8 +441,7 @@ class UserServiceTest {
             assertThatThrownBy(() -> userService.updatePassword(
                 loginId,
                 currentPassword,
-                newPassword,
-                LocalDate.of(1990, 1, 15)
+                newPassword
             ))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
@@ -472,8 +468,7 @@ class UserServiceTest {
             assertThatThrownBy(() -> userService.updatePassword(
                 loginId,
                 currentPassword,
-                newPassword,
-                birthDate
+                newPassword
             ))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)

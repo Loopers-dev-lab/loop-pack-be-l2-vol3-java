@@ -43,14 +43,14 @@ public class UserService {
     }
 
     @Transactional
-    public void updatePassword(String loginId, String currentPassword, String newPassword, LocalDate birthDate) {
+    public void updatePassword(String loginId, String currentPassword, String newPassword) {
         User user = findUserAndValidatePassword(loginId, currentPassword);
 
         if (passwordEncoder.matches(newPassword, user.getPassword())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.");
         }
 
-        validatePassword(newPassword, birthDate);
+        validatePassword(newPassword, user.getBirthDate());
 
         String encryptedPassword = passwordEncoder.encode(newPassword);
         user.updatePassword(encryptedPassword);
@@ -68,14 +68,6 @@ public class UserService {
     }
 
     private void validateRegisterRequest(String loginId, String password, String name, LocalDate birthDate, String email) {
-        if (loginId == null || loginId.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 필수입니다.");
-        }
-
-        if (name == null || name.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "이름은 필수입니다.");
-        }
-
         if (birthDate == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "생년월일은 필수입니다.");
         }
