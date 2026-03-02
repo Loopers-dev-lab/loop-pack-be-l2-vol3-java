@@ -25,6 +25,11 @@ import com.loopers.support.page.PageSize;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * 어드민이 특정 쿠폰의 발급 내역을 조회합니다.
+ *
+ * <p>발급 내역에 사용자 정보를 포함하여 반환한다.</p>
+ */
 @UseCase
 @RequiredArgsConstructor
 public class ReadOwnedCouponsUseCase {
@@ -32,6 +37,11 @@ public class ReadOwnedCouponsUseCase {
     private final OwnedCouponRepository ownedCouponRepository;
     private final UserRepository userRepository;
 
+    /**
+     * @param couponId 쿠폰 ID
+     * @param pageSize 페이징 조건
+     * @return 발급 내역 페이지
+     */
     @Transactional(readOnly = true)
     public Page<Result> execute(Long couponId, PageSize pageSize) {
         Slice<OwnedCoupon> ownedCoupons = ownedCouponRepository.findAllByCouponId(

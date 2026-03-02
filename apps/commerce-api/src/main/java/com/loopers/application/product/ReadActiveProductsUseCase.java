@@ -29,8 +29,8 @@ public class ReadActiveProductsUseCase {
     private final ProductDetailAssembler productDetailAssembler;
 
     /**
-     * @param userId 사용자 ID (비로그인 시 null)
-     * @param brandId 브랜드 ID (null이면 전체 조회)
+     * @param userId   사용자 ID (비로그인 시 null)
+     * @param brandId  브랜드 ID (null이면 전체 조회)
      * @param sortType 정렬 기준
      * @param pageSize 페이지 크기
      * @return 상품 상세 목록 페이지 (브랜드, 좋아요 정보 포함)

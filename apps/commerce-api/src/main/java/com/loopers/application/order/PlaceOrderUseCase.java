@@ -20,6 +20,11 @@ import com.loopers.support.error.ErrorType;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * 사용자가 주문을 생성합니다.
+ *
+ * <p>상품 재고 차감, 쿠폰 할인 적용, 주문 생성을 하나의 트랜잭션으로 처리한다.</p>
+ */
 @UseCase
 @RequiredArgsConstructor
 public class PlaceOrderUseCase {
@@ -28,6 +33,10 @@ public class PlaceOrderUseCase {
     private final ProductService productService;
     private final OwnedCouponService ownedCouponService;
 
+    /**
+     * @param command 주문 생성 커맨드
+     * @return 생성된 주문 ID
+     */
     @Transactional
     public Long execute(PlaceOrderCommand command) {
         List<Long> productIds = command.getProductIds();

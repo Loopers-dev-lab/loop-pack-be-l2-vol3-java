@@ -18,7 +18,7 @@ public class UpdateProductUseCase {
 
     /**
      * @param productId 수정할 상품 ID
-     * @param command 상품 수정 커맨드
+     * @param command   상품 수정 커맨드
      */
     public void execute(Long productId, ProductCommand.UpdateProductCommand command) {
         productService.update(

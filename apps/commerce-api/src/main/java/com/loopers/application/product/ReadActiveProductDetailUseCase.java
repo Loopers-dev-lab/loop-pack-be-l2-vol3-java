@@ -25,7 +25,7 @@ public class ReadActiveProductDetailUseCase {
     private final LikeService likeService;
 
     /**
-     * @param userId 사용자 ID (비로그인 시 null)
+     * @param userId    사용자 ID (비로그인 시 null)
      * @param productId 상품 ID
      * @return 상품 상세 정보 (브랜드, 좋아요 정보 포함)
      */

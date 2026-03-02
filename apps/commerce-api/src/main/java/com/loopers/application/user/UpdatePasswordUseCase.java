@@ -17,7 +17,7 @@ public class UpdatePasswordUseCase {
     private final UserService userService;
 
     /**
-     * @param userId 사용자 ID
+     * @param userId      사용자 ID
      * @param oldPassword 현재 비밀번호
      * @param newPassword 새 비밀번호
      */

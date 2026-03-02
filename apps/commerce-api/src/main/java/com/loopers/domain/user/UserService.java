@@ -22,11 +22,11 @@ public class UserService {
     /**
      * 새로운 사용자를 등록한다.
      *
-     * @param loginId 로그인 ID
-     * @param password 비밀번호
-     * @param name 이름
+     * @param loginId   로그인 ID
+     * @param password  비밀번호
+     * @param name      이름
      * @param birthDate 생년월일
-     * @param email 이메일
+     * @param email     이메일
      * @return 등록된 사용자
      * @throws CoreException 이미 존재하는 로그인 ID인 경우
      */
@@ -67,7 +67,7 @@ public class UserService {
     /**
      * 사용자의 비밀번호를 변경한다.
      *
-     * @param userId 사용자 ID
+     * @param userId      사용자 ID
      * @param oldPassword 현재 비밀번호
      * @param newPassword 새 비밀번호
      * @throws CoreException 사용자가 존재하지 않거나 현재 비밀번호가 일치하지 않는 경우

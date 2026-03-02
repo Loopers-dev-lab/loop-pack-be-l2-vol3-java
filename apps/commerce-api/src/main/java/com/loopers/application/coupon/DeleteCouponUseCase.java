@@ -5,12 +5,18 @@ import com.loopers.domain.coupon.CouponService;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * 어드민이 쿠폰을 삭제합니다.
+ */
 @UseCase
 @RequiredArgsConstructor
 public class DeleteCouponUseCase {
 
     private final CouponService couponService;
 
+    /**
+     * @param couponId 삭제할 쿠폰 ID
+     */
     public void execute(Long couponId) {
         couponService.delete(couponId);
     }

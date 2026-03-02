@@ -11,6 +11,11 @@ import com.loopers.domain.coupon.OwnedCouponRepository;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * {@link OwnedCouponRepository}의 인프라스트럭처 구현체.
+ *
+ * <p>{@link OwnedCouponJpaRepository}에 위임하여 보유 쿠폰 영속성을 처리한다.</p>
+ */
 @Repository
 @RequiredArgsConstructor
 public class OwnedCouponRepositoryImpl implements OwnedCouponRepository {

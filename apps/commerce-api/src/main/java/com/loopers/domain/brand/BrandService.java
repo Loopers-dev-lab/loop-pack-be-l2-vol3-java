@@ -25,8 +25,8 @@ public class BrandService {
     /**
      * 새로운 브랜드를 생성한다.
      *
-     * @param name 브랜드명
-     * @param logoUrl 로고 URL
+     * @param name        브랜드명
+     * @param logoUrl     로고 URL
      * @param description 브랜드 설명
      * @return 생성된 브랜드
      * @throws CoreException 동일한 브랜드명이 이미 존재하는 경우
@@ -70,9 +70,9 @@ public class BrandService {
     /**
      * 브랜드 정보를 수정한다.
      *
-     * @param brandId 수정할 브랜드 ID
-     * @param newName 새 브랜드명
-     * @param newLogoUrl 새 로고 URL
+     * @param brandId        수정할 브랜드 ID
+     * @param newName        새 브랜드명
+     * @param newLogoUrl     새 로고 URL
      * @param newDescription 새 설명
      * @return 수정된 브랜드
      * @throws CoreException 브랜드가 존재하지 않거나 중복된 브랜드명인 경우

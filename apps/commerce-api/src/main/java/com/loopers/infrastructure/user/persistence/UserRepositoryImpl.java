@@ -11,6 +11,11 @@ import com.loopers.domain.user.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * {@link UserRepository}의 인프라스트럭처 구현체.
+ *
+ * <p>{@link UserJpaRepository}에 위임하여 사용자 영속성을 처리한다.</p>
+ */
 @Component
 @RequiredArgsConstructor
 public class UserRepositoryImpl implements UserRepository {

@@ -9,12 +9,19 @@ import com.loopers.support.error.ErrorType;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * 어드민이 쿠폰 상세 정보를 조회합니다.
+ */
 @UseCase
 @RequiredArgsConstructor
 public class ReadCouponDetailUseCase {
 
     private final CouponRepository couponRepository;
 
+    /**
+     * @param couponId 조회할 쿠폰 ID
+     * @return 쿠폰 상세 정보
+     */
     @Transactional(readOnly = true)
     public CouponResult execute(Long couponId) {
         return couponRepository.findById(couponId)

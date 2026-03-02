@@ -27,7 +27,7 @@ public class ProductDetailAssembler {
      * 상품 목록에 브랜드 정보와 사용자의 좋아요 여부를 조합한다.
      *
      * @param products 상품 목록
-     * @param userId 사용자 ID (비로그인 시 null)
+     * @param userId   사용자 ID (비로그인 시 null)
      * @return 브랜드 및 좋아요 정보가 포함된 상품 상세 목록
      */
     public List<ProductDetail> assemble(List<Product> products, Long userId) {

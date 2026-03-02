@@ -18,11 +18,11 @@ public class SignUpUseCase {
     private final UserService userService;
 
     /**
-     * @param loginId 로그인 ID
-     * @param password 비밀번호
-     * @param name 이름
+     * @param loginId   로그인 ID
+     * @param password  비밀번호
+     * @param name      이름
      * @param birthDate 생년월일
-     * @param email 이메일
+     * @param email     이메일
      * @return 가입된 사용자 정보
      */
     public UserResult execute(String loginId, String password, String name, String birthDate, String email) {

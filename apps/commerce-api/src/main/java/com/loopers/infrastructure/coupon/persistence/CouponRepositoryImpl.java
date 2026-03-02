@@ -11,6 +11,11 @@ import com.loopers.domain.coupon.CouponRepository;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * {@link CouponRepository}의 인프라스트럭처 구현체.
+ *
+ * <p>{@link CouponJpaRepository}에 위임하여 쿠폰 영속성을 처리한다.</p>
+ */
 @Repository
 @RequiredArgsConstructor
 public class CouponRepositoryImpl implements CouponRepository {

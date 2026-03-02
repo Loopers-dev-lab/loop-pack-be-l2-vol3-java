@@ -27,7 +27,7 @@ public class LikeService {
     /**
      * 상품에 좋아요를 추가한다.
      *
-     * @param userId 사용자 ID
+     * @param userId    사용자 ID
      * @param productId 상품 ID
      * @return 좋아요가 새로 생성되었으면 true, 이미 존재하면 false
      */
@@ -44,7 +44,7 @@ public class LikeService {
     /**
      * 사용자가 특정 상품에 좋아요했는지 확인한다.
      *
-     * @param userId 사용자 ID (null이면 false 반환)
+     * @param userId    사용자 ID (null이면 false 반환)
      * @param productId 상품 ID
      * @return 좋아요 여부
      */
@@ -59,7 +59,7 @@ public class LikeService {
     /**
      * 사용자의 좋아요 목록을 페이지 단위로 조회한다.
      *
-     * @param userId 사용자 ID
+     * @param userId   사용자 ID
      * @param pageSize 페이지 크기
      * @return 좋아요 목록 페이지 (최신순)
      */
@@ -75,7 +75,7 @@ public class LikeService {
     /**
      * 주어진 상품 ID 목록 중 사용자가 좋아요한 상품 ID 집합을 반환한다.
      *
-     * @param userId 사용자 ID (null이면 빈 집합 반환)
+     * @param userId     사용자 ID (null이면 빈 집합 반환)
      * @param productIds 확인할 상품 ID 목록
      * @return 좋아요한 상품 ID 집합
      */
@@ -90,7 +90,7 @@ public class LikeService {
     /**
      * 상품의 좋아요를 취소한다.
      *
-     * @param userId 사용자 ID
+     * @param userId    사용자 ID
      * @param productId 상품 ID
      * @return 좋아요가 실제로 삭제되었으면 true, 존재하지 않았으면 false
      */

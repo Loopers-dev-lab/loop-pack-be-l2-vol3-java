@@ -17,9 +17,9 @@ public class UpdateBrandUseCase {
     private final BrandService brandService;
 
     /**
-     * @param brandId 수정할 브랜드 ID
-     * @param name 새 브랜드명
-     * @param logoUrl 새 로고 URL
+     * @param brandId     수정할 브랜드 ID
+     * @param name        새 브랜드명
+     * @param logoUrl     새 로고 URL
      * @param description 새 설명
      */
     public void execute(Long brandId, String name, String logoUrl, String description) {

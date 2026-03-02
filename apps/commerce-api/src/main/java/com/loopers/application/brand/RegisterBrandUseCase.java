@@ -18,8 +18,8 @@ public class RegisterBrandUseCase {
     private final BrandService brandService;
 
     /**
-     * @param name 브랜드명
-     * @param logoUrl 로고 URL
+     * @param name        브랜드명
+     * @param logoUrl     로고 URL
      * @param description 브랜드 설명
      * @return 등록된 브랜드 정보
      */

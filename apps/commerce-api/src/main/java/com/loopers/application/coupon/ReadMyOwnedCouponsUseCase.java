@@ -17,12 +17,22 @@ import com.loopers.support.page.PageSize;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * 사용자가 본인의 보유 쿠폰 목록을 조회합니다.
+ *
+ * <p>생성일 기준 최신순으로 페이징 조회한다.</p>
+ */
 @UseCase
 @RequiredArgsConstructor
 public class ReadMyOwnedCouponsUseCase {
 
     private final OwnedCouponRepository ownedCouponRepository;
 
+    /**
+     * @param userId   사용자 ID
+     * @param pageSize 페이징 조건
+     * @return 보유 쿠폰 목록 페이지
+     */
     @Transactional(readOnly = true)
     public Page<Result> execute(Long userId, PageSize pageSize) {
         Slice<OwnedCoupon> ownedCoupons = ownedCouponRepository.findAllByUserId(

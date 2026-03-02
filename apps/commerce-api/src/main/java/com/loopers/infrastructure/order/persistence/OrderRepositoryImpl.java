@@ -12,6 +12,11 @@ import com.loopers.domain.order.OrderRepository;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * {@link OrderRepository}의 인프라스트럭처 구현체.
+ *
+ * <p>{@link OrderJpaRepository}에 위임하여 주문 영속성을 처리한다.</p>
+ */
 @Repository
 @RequiredArgsConstructor
 public class OrderRepositoryImpl implements OrderRepository {
