@@ -1,6 +1,6 @@
 # Class Diagram
 
-LAST UPDATED: 2026-03-01
+LAST UPDATED: 2026-03-02
 
 ## 목차
 - [개요](#개요)
@@ -44,7 +44,10 @@ classDiagram
         +wons(Long amount)$ Money
         +sum(Collection~T~ bags, Function~T·Money~ monetary)$ Money
         +plus(Money other) Money
+        +minus(Money other) Money
         +multiply(Long multiplier) Money
+        +min(Money a, Money b)$ Money
+        +isLessThan(Money other) boolean
     }
 
     %% ── Brand ──
@@ -87,10 +90,15 @@ classDiagram
     }
 
     %% ── Coupon ──
+    class CouponName {
+        <<Value Object>>
+        String value
+    }
+
     class Coupon {
         <<Entity>>
         Long id
-        String name
+        CouponName name
         CouponType type
         Long discountValue
         Money maxDiscountPrice
@@ -99,6 +107,8 @@ classDiagram
         +create(...)$ Coupon
         +update(...) void
         +isExpired() boolean
+        +calculateDiscount(Money orderTotal, CouponDiscountProvider provider) Money
+        +validateMinOrderPrice(Money orderTotal) void
     }
 
     class CouponType {
@@ -107,14 +117,46 @@ classDiagram
         RATE
     }
 
+    class CouponDiscountStrategy {
+        <<interface>>
+        +getType() CouponType
+        +calculate(Long discountValue, Money orderTotal, Money maxDiscountPrice) Money
+    }
+
+    class FixedCouponDiscountStrategy {
+        <<Component>>
+        +getType() CouponType
+        +calculate(Long discountValue, Money orderTotal, Money maxDiscountPrice) Money
+    }
+
+    class RateCouponDiscountStrategy {
+        <<Component>>
+        +getType() CouponType
+        +calculate(Long discountValue, Money orderTotal, Money maxDiscountPrice) Money
+    }
+
+    class CouponDiscountProvider {
+        <<Component>>
+        -Map~CouponType·CouponDiscountStrategy~ strategyMap
+        +getStrategy(CouponType type) CouponDiscountStrategy
+    }
+
+    class CouponDiscount {
+        <<record>>
+        Money discountAmount
+        Long ownedCouponId
+        +NONE$ CouponDiscount
+    }
+
     class OwnedCoupon {
         <<Entity>>
         Long id
         Coupon coupon
         Long userId
         OwnedCouponStatus status
-        +create(Long couponId, Long userId)$ OwnedCoupon
+        +create(Coupon coupon, Long userId)$ OwnedCoupon
         +use() void
+        +validateOwner(Long userId) void
     }
 
     class OwnedCouponStatus {
@@ -130,11 +172,14 @@ classDiagram
         Long id
         Long userId
         String name
-        ZonedDateTime orderedAt
+        LocalDateTime orderedAt
         OrderStatus status
+        Money originalTotalPrice
+        Money discountAmount
         Money totalPrice
+        Long ownedCouponId
         List~OrderItem~ orderItems
-        +create(Long userId, List~OrderItem~ orderItems)$ Order
+        +create(...)$ Order
         +validateOwner(Long userId) void
     }
 
@@ -158,16 +203,41 @@ classDiagram
     Like ..> Product
 
     %% ── Coupon 관계 ──
+    Coupon --> CouponName
     Coupon --> CouponType
     Coupon --> Money
+    Coupon --> CouponDiscountProvider : uses
+    CouponDiscountProvider --> CouponDiscountStrategy : resolves
+    FixedCouponDiscountStrategy ..|> CouponDiscountStrategy
+    RateCouponDiscountStrategy ..|> CouponDiscountStrategy
+    CouponDiscount --> Money
     OwnedCoupon --> OwnedCouponStatus
-    OwnedCoupon ..> Coupon
+    OwnedCoupon --> Coupon
 
     %% ── Order 관계 ──
     Order *-- OrderItem
     Order --> Money
+    Order ..> OwnedCoupon
     OrderItem --> Money
     OrderItem ..> Product
+```
+
+### 주문 처리 흐름도
+
+```mermaid
+flowchart TD
+    A[주문 요청] --> B[상품 조회 및 검증]
+    B --> C{모든 상품 유효?}
+    C -- No --> FAIL[주문 실패]
+    C -- Yes --> D[재고 차감]
+    D --> E{재고 충분?}
+    E -- No --> FAIL
+    E -- Yes --> G["쿠폰 사용 처리"]
+    G --> G1{검증 통과?}
+    G1 -- No --> FAIL
+    G1 -- Yes --> H[주문 생성]
+    H --> I[주문 저장]
+    I --> SUCCESS[성공]
 ```
 
 ### 설계 포인트

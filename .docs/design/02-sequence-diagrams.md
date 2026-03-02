@@ -1,6 +1,6 @@
 # Sequence Diagrams
 
-LAST UPDATED: 2026-03-01
+LAST UPDATED: 2026-03-02
 
 ## 목차
 - [개요](#개요)
@@ -963,6 +963,7 @@ sequenceDiagram
     participant OrderApi
     participant PlaceOrderUseCase
     participant ProductService
+    participant OwnedCouponService
     participant OrderService
     participant OrderRepository
 
@@ -977,14 +978,25 @@ sequenceDiagram
         OrderApi -->> Client: 400 Bad Request
     end
 
-    Note over PlaceOrderUseCase, ProductService: 비관적 락으로 상품별 순차 재고 차감
-
-    PlaceOrderUseCase ->>+ ProductService: 재고 차감 (상품별 순차)
+    Note over PlaceOrderUseCase,ProductService: productId 기준 정렬 후 재고 차감 (데드락 방지)
+    PlaceOrderUseCase ->>+ ProductService: 재고 차감
     ProductService -->>- PlaceOrderUseCase: void
 
     break 품절 또는 재고 부족인 경우
         PlaceOrderUseCase -->> OrderApi: 주문 실패
         OrderApi -->> Client: 400 Bad Request
+    end
+
+    PlaceOrderUseCase ->> PlaceOrderUseCase: Cart 생성 및 orderTotal 계산
+
+    opt ownedCouponId가 존재할 경우
+        PlaceOrderUseCase ->>+ OwnedCouponService: 쿠폰 사용 처리
+        OwnedCouponService -->>- PlaceOrderUseCase: CouponDiscount
+
+        break 쿠폰 검증 실패 (미존재/타인 소유/사용됨/만료/최소금액 미달)
+            PlaceOrderUseCase -->> OrderApi: 주문 실패
+            OrderApi -->> Client: 400 Bad Request
+        end
     end
 
     PlaceOrderUseCase ->>+ OrderService: 주문 생성

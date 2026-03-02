@@ -1,6 +1,6 @@
 # ERD (Entity Relationship Diagram)
 
-LAST UPDATED: 2026-03-01
+LAST UPDATED: 2026-03-02
 
 ## 목차
 - [개요](#개요)
@@ -76,8 +76,11 @@ erDiagram
     orders {
         bigint id PK "not null"
         bigint user_id FK "not null"
+        bigint owned_coupon_id FK "null"
         varchar name "not null"
         varchar status "not null"
+        bigint original_total_price "not null"
+        bigint discount_amount "not null"
         bigint total_price "not null"
         timestamp ordered_at "not null"
         timestamp created_at "not null"
@@ -102,6 +105,7 @@ erDiagram
     product ||--o{ likes: ""
     product ||--o{ order_item: ""
     orders ||--|{ order_item: ""
+    owned_coupon ||--o{ orders: ""
     coupon ||--o{ owned_coupon: ""
 ```
 
@@ -134,6 +138,14 @@ erDiagram
 ### 쿠폰 발급 동시성 제어
 
 - 1인 1매 보장: `UNIQUE(coupon_id, user_id)` + `DataIntegrityViolationException` 처리
+
+### 쿠폰 적용 스냅샷
+
+- 주문 시점의 할인 정보(원가, 할인액, 결제액)를 `orders` 테이블에 저장한다.
+- `original_total_price`: 할인 적용 전 주문 총액
+- `discount_amount`: 실제 적용된 할인 금액 (쿠폰 미적용 시 0)
+- `total_price`: 최종 결제 금액 (`original_total_price - discount_amount`)
+- `owned_coupon_id`: 사용된 `OwnedCoupon.id`를 저장하며, 쿠폰 미적용 시 NULL
 
 ### EXPIRED 실시간 판정
 
