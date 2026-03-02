@@ -2,13 +2,12 @@ package com.loopers.domain.user.vo;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
 
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
- * 이름 Value Object
+ * 이름 Value Object (순수 POJO)
  *
  * 검증 규칙:
  * - 한글, 영문만 허용
@@ -18,14 +17,12 @@ import java.util.regex.Pattern;
  * 마스킹 규칙:
  * - 마지막 1글자를 '*'로 대체
  */
-@Embeddable
 public class UserName {
 
     private static final int MIN_LENGTH = 2;
     private static final int MAX_LENGTH = 50;
     private static final Pattern PATTERN = Pattern.compile("^[가-힣a-zA-Z]+$");
 
-    @Column(name = "name")
     private String value;
 
     protected UserName() {}
@@ -41,6 +38,19 @@ public class UserName {
 
     public String getMaskedValue() {
         return value.substring(0, value.length() - 1) + "*";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        UserName userName = (UserName) o;
+        return Objects.equals(value, userName.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(value);
     }
 
     private void validate(String value) {

@@ -14,23 +14,28 @@ import java.util.Optional;
 @Repository
 public class UserRepositoryImpl implements UserRepository {
     private final UserJpaRepository userJpaRepository;
+    private final UserMapper userMapper;
 
-    public UserRepositoryImpl(UserJpaRepository userJpaRepository) {
+    public UserRepositoryImpl(UserJpaRepository userJpaRepository, UserMapper userMapper) {
         this.userJpaRepository = userJpaRepository;
+        this.userMapper = userMapper;
     }
 
     @Override
     public User save(User user) {
-        return this.userJpaRepository.save(user);
+        UserEntity entity = userMapper.toEntity(user);
+        UserEntity saved = userJpaRepository.save(entity);
+        return userMapper.toDomain(saved);
     }
 
     @Override
     public Optional<User> findByLoginId(String loginId) {
-        return this.userJpaRepository.findByLoginIdValue(loginId);
+        return userJpaRepository.findByLoginId(loginId)
+                .map(userMapper::toDomain);
     }
 
     @Override
     public boolean existsByLoginId(String loginId) {
-        return this.userJpaRepository.existsByLoginIdValue(loginId);
+        return userJpaRepository.existsByLoginId(loginId);
     }
 }

@@ -1,0 +1,39 @@
+### ========== 배송지 API ==========
+
+### 배송지 목록 조회
+GET http://localhost:8080/api/v1/users/me/addresses
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@
+
+### 배송지 등록
+POST http://localhost:8080/api/v1/users/me/addresses
+Content-Type: application/json
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@
+
+{
+  "receiverName": "홍길동",
+  "phone": "010-1234-5678",
+  "zipCode": "12345",
+  "addressLine1": "서울시 강남구 테헤란로 123",
+  "addressLine2": "4층 401호"
+}
+
+### 배송지 수정
+PUT http://localhost:8080/api/v1/users/me/addresses/1
+Content-Type: application/json
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@
+
+{
+  "receiverName": "김철수",
+  "phone": "010-9876-5432",
+  "zipCode": "54321",
+  "addressLine1": "부산시 해운대구 해운대로 456",
+  "addressLine2": "3층 302호"
+}
+
+### 배송지 삭제
+DELETE http://localhost:8080/api/v1/users/me/addresses/1
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@

@@ -1,0 +1,23 @@
+### ========== 결제 API ==========
+
+### 할인 적용 (쿠폰/포인트)
+PUT http://localhost:8080/api/v1/orders/1/discount
+Content-Type: application/json
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@
+
+{
+  "issuedCouponId": null,
+  "pointAmount": 1000
+}
+
+### 결제 요청
+POST http://localhost:8080/api/v1/orders/1/pay
+Content-Type: application/json
+X-Loopers-LoginId: nahyeon
+X-Loopers-LoginPw: Hx7!mK2@
+
+{
+  "paymentMethod": "CARD",
+  "issuedCouponId": null
+}

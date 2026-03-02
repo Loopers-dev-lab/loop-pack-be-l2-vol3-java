@@ -2,19 +2,17 @@ package com.loopers.domain.user.vo;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
 
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
- * 이메일 Value Object
+ * 이메일 Value Object (순수 POJO)
  *
  * 검증 규칙:
  * - 기본 이메일 형식 (local@domain)
  * - 최대 255자
  */
-@Embeddable
 public class Email {
 
     private static final int MAX_LENGTH = 255;
@@ -22,7 +20,6 @@ public class Email {
             "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
     );
 
-    @Column(name = "email")
     private String value;
 
     protected Email() {}
@@ -34,6 +31,19 @@ public class Email {
 
     public String getValue() {
         return value;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Email email = (Email) o;
+        return Objects.equals(value, email.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(value);
     }
 
     private void validate(String value) {

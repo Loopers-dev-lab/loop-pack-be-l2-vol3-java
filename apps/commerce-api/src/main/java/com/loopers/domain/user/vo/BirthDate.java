@@ -2,15 +2,14 @@ package com.loopers.domain.user.vo;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.UserErrorType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
 
+import java.util.Objects;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.format.DateTimeParseException;
 
 /**
- * 생년월일 Value Object
+ * 생년월일 Value Object (순수 POJO)
  *
  * 검증 규칙:
  * - YYYY-MM-DD 형식 (ISO 8601)
@@ -18,13 +17,11 @@ import java.time.format.DateTimeParseException;
  * - 실제 존재하는 날짜
  * - 만 14세 이상
  */
-@Embeddable
 public class BirthDate {
 
     private static final LocalDate MIN_DATE = LocalDate.of(1900, 1, 1);
     private static final int MIN_AGE = 14;
 
-    @Column(name = "birth_date")
     private LocalDate value;
 
     protected BirthDate() {}
@@ -37,6 +34,19 @@ public class BirthDate {
 
     public LocalDate getValue() {
         return value;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        BirthDate birthDate = (BirthDate) o;
+        return Objects.equals(value, birthDate.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(value);
     }
 
     private static void validateNotBlank(String rawValue) {
