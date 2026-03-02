@@ -197,6 +197,26 @@ class OrderV1ApiE2ETest {
                     .describedAs("meta.result (message=%s)", response.getBody().meta().message())
                     .isEqualTo(Result.SUCCESS);
         }
+
+        @Test
+        @DisplayName("종료일이 시작일보다 이전이면 400 Bad Request를 반환한다")
+        void getOrders_whenEndBeforeStart_shouldReturn400() {
+            String startStr = "2026-02-26T10:00:00.000Z";
+            String endStr = "2026-02-26T08:00:00.000Z";
+            String url = UriComponentsBuilder.fromUriString(ENDPOINT_ORDERS)
+                    .queryParam("start", startStr)
+                    .queryParam("end", endStr)
+                    .queryParam("page", 0)
+                    .queryParam("size", 20)
+                    .build()
+                    .toUriString();
+
+            ResponseEntity<ApiResponse<List<OrderV1Dto.OrderResponse>>> response = testRestTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(authHeaders()),
+                    new ParameterizedTypeReference<>() {});
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
     }
 
     @DisplayName("POST /api/v1/orders/{orderId}/cancel - 주문 취소")
