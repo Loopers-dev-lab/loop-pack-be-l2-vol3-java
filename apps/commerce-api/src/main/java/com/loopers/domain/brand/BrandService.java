@@ -42,7 +42,7 @@ public class BrandService {
         try {
             brand.updateName(name);
         } catch (IllegalArgumentException e) {
-            throw new CoreException(ErrorType.BAD_REQUEST, e.getMessage());
+            throw new CoreException(ErrorType.BAD_REQUEST, e.getMessage(), e);
         }
         return brandRepository.save(brand);
     }
