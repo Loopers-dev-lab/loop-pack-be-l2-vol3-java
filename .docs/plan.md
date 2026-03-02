@@ -261,14 +261,14 @@
 - [x] 주문 항목별 소계(가격 × 수량)와 주문 총액을 계산한다
 - [x] 주문 생성 시 상태는 CREATED로 설정한다
 - [x] 재고 차감과 주문 생성은 단일 트랜잭션으로 처리하며, 중간 실패 시 전체 롤백된다
-- [ ] 쿠폰 ID(OwnedCoupon.id)를 선택적으로 입력받아 할인을 적용한다
-- [ ] 존재하지 않거나 타인 소유이거나 사용/만료된 쿠폰으로 요청 시 주문에 실패한다
-- [ ] 주문 총액이 쿠폰의 최소 주문 금액 미만이면 주문에 실패한다
-- [ ] FIXED: 할인액은 min(discountValue, 주문총액)
-- [ ] RATE: 할인액은 min(총액×비율/100, maxDiscountPrice)
-- [ ] 주문 성공 시 쿠폰을 USED 상태로 변경한다
-- [ ] 주문 정보에 originalTotalPrice, discountAmount, totalPrice를 모두 포함한다
-- [ ] 쿠폰 미적용 시 originalTotalPrice = totalPrice, discountAmount = 0으로 저장한다
+- [x] 쿠폰 ID(OwnedCoupon.id)를 선택적으로 입력받아 할인을 적용한다
+- [x] 존재하지 않거나 타인 소유이거나 사용/만료된 쿠폰으로 요청 시 주문에 실패한다
+- [x] 주문 총액이 쿠폰의 최소 주문 금액 미만이면 주문에 실패한다
+- [x] FIXED: 할인액은 min(discountValue, 주문총액)
+- [x] RATE: 할인액은 min(총액×비율/100, maxDiscountPrice)
+- [x] 주문 성공 시 쿠폰을 USED 상태로 변경한다
+- [x] 주문 정보에 originalTotalPrice, discountAmount, totalPrice를 모두 포함한다
+- [x] 쿠폰 미적용 시 originalTotalPrice = totalPrice, discountAmount = 0으로 저장한다
 
 ---
 

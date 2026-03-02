@@ -1,17 +1,22 @@
 package com.loopers.domain.coupon;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.time.ZonedDateTime;
 
 import org.junit.jupiter.api.DisplayName;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import com.loopers.domain.coupon.discount.CouponDiscountProvider;
+import com.loopers.domain.coupon.discount.FixedCouponDiscountStrategy;
+import com.loopers.domain.coupon.discount.RateCouponDiscountStrategy;
 import com.loopers.domain.shared.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -185,17 +190,38 @@ class CouponTest {
         void returnsTrue_whenExpired() {
             // arrange
             var coupon = Coupon.create("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE);
-            // 리플렉션으로 expiredAt을 과거로 변경
-            try {
-                var field = Coupon.class.getDeclaredField("expiredAt");
-                field.setAccessible(true);
-                field.set(coupon, ZonedDateTime.now().minusDays(1));
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            ReflectionTestUtils.setField(coupon, "expiredAt", ZonedDateTime.now().minusDays(1));
 
             // act & assert
             assertThat(coupon.isExpired()).isTrue();
+        }
+    }
+
+    @DisplayName("최소 주문 금액을 검증할 때,")
+    @Nested
+    class ValidateMinOrderPrice {
+
+        @DisplayName("주문 총액이 최소 주문 금액 이상이면, 예외가 발생하지 않는다.")
+        @Test
+        void doesNotThrow_whenOrderTotalMeetsMinPrice() {
+            // arrange
+            var coupon = Coupon.create("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE);
+
+            // act & assert
+            assertThatCode(() -> coupon.validateMinOrderPrice(Money.wons(10000L)))
+                    .doesNotThrowAnyException();
+        }
+
+        @DisplayName("주문 총액이 최소 주문 금액 미만이면, COUPON_MIN_ORDER_PRICE_NOT_MET 예외가 발생한다.")
+        @Test
+        void throwsException_whenOrderTotalIsLessThanMinPrice() {
+            // arrange
+            var coupon = Coupon.create("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE);
+
+            // act & assert
+            assertThatThrownBy(() -> coupon.validateMinOrderPrice(Money.wons(9999L)))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.COUPON_MIN_ORDER_PRICE_NOT_MET));
         }
     }
 
@@ -299,6 +325,53 @@ class CouponTest {
             assertThatThrownBy(() -> coupon.update("수정 쿠폰", 3000L, null, 10000L, pastDate))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_EXPIRED_AT));
+        }
+    }
+
+    @DisplayName("쿠폰 할인액을 계산할 때,")
+    @Nested
+    class CalculateDiscount {
+
+        private final CouponDiscountProvider couponDiscountProvider =
+                new CouponDiscountProvider(java.util.List.of(new FixedCouponDiscountStrategy(), new RateCouponDiscountStrategy()));
+
+        @DisplayName("FIXED 쿠폰이면, 할인값과 주문총액 중 작은 값을 반환한다.")
+        @Test
+        void returnsFixedDiscount() {
+            // arrange
+            var coupon = Coupon.create("정액 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE);
+
+            // act
+            var discount = coupon.calculateDiscount(Money.wons(20000L), couponDiscountProvider);
+
+            // assert
+            assertThat(discount).isEqualTo(Money.wons(5000L));
+        }
+
+        @DisplayName("RATE 쿠폰이면, 비율 할인액과 최대할인가 중 작은 값을 반환한다.")
+        @Test
+        void returnsRateDiscount() {
+            // arrange
+            var coupon = Coupon.create("정률 쿠폰", CouponType.RATE, 10L, 5000L, 10000L, FUTURE);
+
+            // act
+            var discount = coupon.calculateDiscount(Money.wons(30000L), couponDiscountProvider);
+
+            // assert
+            assertThat(discount).isEqualTo(Money.wons(3000L));
+        }
+
+        @DisplayName("RATE 쿠폰의 계산 할인액이 최대할인가를 초과하면, 최대할인가를 반환한다.")
+        @Test
+        void returnsMaxDiscountPrice_whenRateDiscountExceeds() {
+            // arrange
+            var coupon = Coupon.create("정률 쿠폰", CouponType.RATE, 50L, 10000L, 10000L, FUTURE);
+
+            // act
+            var discount = coupon.calculateDiscount(Money.wons(100000L), couponDiscountProvider);
+
+            // assert
+            assertThat(discount).isEqualTo(Money.wons(10000L));
         }
     }
 }

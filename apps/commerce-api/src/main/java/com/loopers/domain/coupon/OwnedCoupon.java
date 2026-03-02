@@ -45,4 +45,20 @@ public class OwnedCoupon extends BaseEntity {
         ownedCoupon.status = OwnedCouponStatus.AVAILABLE;
         return ownedCoupon;
     }
+
+    public void use() {
+        if (this.status == OwnedCouponStatus.EXPIRED) {
+            throw new CoreException(ErrorType.EXPIRED_COUPON);
+        }
+        if (this.status != OwnedCouponStatus.AVAILABLE) {
+            throw new CoreException(ErrorType.ALREADY_USED_COUPON);
+        }
+        this.status = OwnedCouponStatus.USED;
+    }
+
+    public void validateOwner(Long userId) {
+        if (!this.userId.equals(userId)) {
+            throw new CoreException(ErrorType.FORBIDDEN_COUPON_ACCESS);
+        }
+    }
 }

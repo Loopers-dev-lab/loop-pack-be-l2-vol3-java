@@ -43,8 +43,20 @@ public class Money {
         return new Money(this.amount + other.amount);
     }
 
+    public Money minus(Money other) {
+        return wons(this.amount - other.amount);
+    }
+
     public Money multiply(Long multiplier) {
         return new Money(this.amount * multiplier);
+    }
+
+    public boolean isLessThan(Money other) {
+        return this.amount < other.amount;
+    }
+
+    public static Money min(Money a, Money b) {
+        return a.amount <= b.amount ? a : b;
     }
 
     private static void validate(Long amount) {

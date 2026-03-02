@@ -31,7 +31,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart);
+            var order = Order.create(cart, Money.ZERO, null);
 
             // assert
             assertThat(order.getName()).isEqualTo("테스트 상품");
@@ -48,7 +48,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart);
+            var order = Order.create(cart, Money.ZERO, null);
 
             // assert
             assertThat(order.getName()).isEqualTo("첫 번째 상품 외 2건");
@@ -64,7 +64,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart);
+            var order = Order.create(cart, Money.ZERO, null);
 
             // assert
             assertThat(order.getTotalPrice()).isEqualTo(Money.wons(35000L));
@@ -79,7 +79,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart);
+            var order = Order.create(cart, Money.ZERO, null);
 
             // assert
             assertThat(order.getStatus()).isEqualTo(OrderStatus.CREATED);
@@ -94,7 +94,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart);
+            var order = Order.create(cart, Money.ZERO, null);
 
             // assert
             assertThat(order.getOrderedAt()).isNotNull();
@@ -110,7 +110,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart);
+            var order = Order.create(cart, Money.ZERO, null);
 
             // assert
             assertAll(
@@ -128,7 +128,7 @@ class OrderTest {
             var cart = new Cart(1L, Collections.emptyList());
 
             // act & assert
-            assertThatThrownBy(() -> Order.create(cart))
+            assertThatThrownBy(() -> Order.create(cart, Money.ZERO, null))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.REQUIRED_ORDER_ITEM.getMessage());
         }
@@ -143,9 +143,49 @@ class OrderTest {
             ));
 
             // act & assert
-            assertThatThrownBy(() -> Order.create(cart))
+            assertThatThrownBy(() -> Order.create(cart, Money.ZERO, null))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.DUPLICATE_ORDER_PRODUCT.getMessage());
+        }
+
+        @DisplayName("쿠폰 할인을 적용하면, 세 가격 필드가 올바르게 설정된다.")
+        @Test
+        void setsPriceFields_whenCouponApplied() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품A", "https://a.png", Money.wons(10000L), 2L)
+            ));
+
+            // act
+            var order = Order.create(cart, Money.wons(5000L), 100L);
+
+            // assert
+            assertAll(
+                    () -> assertThat(order.getOriginalTotalPrice()).isEqualTo(Money.wons(20000L)),
+                    () -> assertThat(order.getDiscountAmount()).isEqualTo(Money.wons(5000L)),
+                    () -> assertThat(order.getTotalPrice()).isEqualTo(Money.wons(15000L)),
+                    () -> assertThat(order.getOwnedCouponId()).isEqualTo(100L)
+            );
+        }
+
+        @DisplayName("쿠폰 미적용이면, originalTotalPrice = totalPrice이고 discountAmount = 0이다.")
+        @Test
+        void setsPriceFieldsWithoutDiscount_whenNoCoupon() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품A", "https://a.png", Money.wons(10000L), 2L)
+            ));
+
+            // act
+            var order = Order.create(cart, Money.ZERO, null);
+
+            // assert
+            assertAll(
+                    () -> assertThat(order.getOriginalTotalPrice()).isEqualTo(Money.wons(20000L)),
+                    () -> assertThat(order.getDiscountAmount()).isEqualTo(Money.ZERO),
+                    () -> assertThat(order.getTotalPrice()).isEqualTo(Money.wons(20000L)),
+                    () -> assertThat(order.getOwnedCouponId()).isNull()
+            );
         }
     }
 
@@ -160,7 +200,7 @@ class OrderTest {
             var cart = new Cart(1L, List.of(
                     new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
             ));
-            var order = Order.create(cart);
+            var order = Order.create(cart, Money.ZERO, null);
 
             // act & assert
             assertThatCode(() -> order.validateOwner(1L)).doesNotThrowAnyException();
@@ -173,7 +213,7 @@ class OrderTest {
             var cart = new Cart(1L, List.of(
                     new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
             ));
-            var order = Order.create(cart);
+            var order = Order.create(cart, Money.ZERO, null);
 
             // act & assert
             assertThatThrownBy(() -> order.validateOwner(999L))

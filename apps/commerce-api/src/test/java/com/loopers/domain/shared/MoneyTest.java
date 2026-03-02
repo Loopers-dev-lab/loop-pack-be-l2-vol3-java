@@ -68,6 +68,38 @@ class MoneyTest {
         }
     }
 
+    @DisplayName("금액을 뺄 때,")
+    @Nested
+    class Minus {
+
+        @DisplayName("차액을 반환한다.")
+        @Test
+        void returnsDifference() {
+            // arrange
+            var money1 = Money.wons(10000L);
+            var money2 = Money.wons(3000L);
+
+            // act
+            var result = money1.minus(money2);
+
+            // assert
+            assertThat(result).isEqualTo(Money.wons(7000L));
+        }
+
+        @DisplayName("결과가 음수이면, INVALID_MONEY_AMOUNT 에러가 발생한다.")
+        @Test
+        void throwsException_whenResultIsNegative() {
+            // arrange
+            var money1 = Money.wons(3000L);
+            var money2 = Money.wons(5000L);
+
+            // act & assert
+            assertThatThrownBy(() -> money1.minus(money2))
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining(ErrorType.INVALID_MONEY_AMOUNT.getMessage());
+        }
+    }
+
     @DisplayName("금액을 곱할 때,")
     @Nested
     class Multiply {
@@ -83,6 +115,91 @@ class MoneyTest {
 
             // assert
             assertThat(result).isEqualTo(Money.wons(30000L));
+        }
+    }
+
+    @DisplayName("금액을 비교할 때,")
+    @Nested
+    class IsLessThan {
+
+        @DisplayName("자신이 더 작으면, true를 반환한다.")
+        @Test
+        void returnsTrue_whenLessThan() {
+            // arrange
+            var money1 = Money.wons(3000L);
+            var money2 = Money.wons(5000L);
+
+            // act & assert
+            assertThat(money1.isLessThan(money2)).isTrue();
+        }
+
+        @DisplayName("자신이 더 크면, false를 반환한다.")
+        @Test
+        void returnsFalse_whenGreaterThan() {
+            // arrange
+            var money1 = Money.wons(5000L);
+            var money2 = Money.wons(3000L);
+
+            // act & assert
+            assertThat(money1.isLessThan(money2)).isFalse();
+        }
+
+        @DisplayName("두 금액이 같으면, false를 반환한다.")
+        @Test
+        void returnsFalse_whenEqual() {
+            // arrange
+            var money1 = Money.wons(5000L);
+            var money2 = Money.wons(5000L);
+
+            // act & assert
+            assertThat(money1.isLessThan(money2)).isFalse();
+        }
+    }
+
+    @DisplayName("두 금액 중 작은 값을 구할 때,")
+    @Nested
+    class Min {
+
+        @DisplayName("첫 번째 금액이 작으면, 첫 번째 금액을 반환한다.")
+        @Test
+        void returnsFirst_whenFirstIsSmaller() {
+            // arrange
+            var money1 = Money.wons(3000L);
+            var money2 = Money.wons(5000L);
+
+            // act
+            var result = Money.min(money1, money2);
+
+            // assert
+            assertThat(result).isEqualTo(Money.wons(3000L));
+        }
+
+        @DisplayName("두 번째 금액이 작으면, 두 번째 금액을 반환한다.")
+        @Test
+        void returnsSecond_whenSecondIsSmaller() {
+            // arrange
+            var money1 = Money.wons(5000L);
+            var money2 = Money.wons(3000L);
+
+            // act
+            var result = Money.min(money1, money2);
+
+            // assert
+            assertThat(result).isEqualTo(Money.wons(3000L));
+        }
+
+        @DisplayName("두 금액이 같으면, 동일한 금액을 반환한다.")
+        @Test
+        void returnsSameAmount_whenEqual() {
+            // arrange
+            var money1 = Money.wons(5000L);
+            var money2 = Money.wons(5000L);
+
+            // act
+            var result = Money.min(money1, money2);
+
+            // assert
+            assertThat(result).isEqualTo(Money.wons(5000L));
         }
     }
 }

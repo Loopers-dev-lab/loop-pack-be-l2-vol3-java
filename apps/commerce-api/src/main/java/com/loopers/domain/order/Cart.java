@@ -22,5 +22,8 @@ public record Cart(
             Long quantity
     ) {
 
+        public Money totalPrice() {
+            return productPrice.multiply(quantity);
+        }
     }
 }

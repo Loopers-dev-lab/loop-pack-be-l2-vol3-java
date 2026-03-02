@@ -12,6 +12,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 
 import com.loopers.domain.BaseEntity;
+import com.loopers.domain.coupon.discount.CouponDiscountProvider;
+import com.loopers.domain.coupon.discount.CouponDiscountStrategy;
 import com.loopers.domain.shared.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -88,6 +90,17 @@ public class Coupon extends BaseEntity {
         this.maxDiscountPrice = maxDiscountPrice != null ? Money.wons(maxDiscountPrice) : null;
         this.minOrderPrice = Money.wons(minOrderPrice);
         this.expiredAt = expiredAt;
+    }
+
+    public Money calculateDiscount(Money orderTotal, CouponDiscountProvider couponDiscountProvider) {
+        CouponDiscountStrategy strategy = couponDiscountProvider.getStrategy(this.type);
+        return strategy.calculate(discountValue, orderTotal, maxDiscountPrice);
+    }
+
+    public void validateMinOrderPrice(Money orderTotal) {
+        if (orderTotal.isLessThan(this.minOrderPrice)) {
+            throw new CoreException(ErrorType.COUPON_MIN_ORDER_PRICE_NOT_MET);
+        }
     }
 
     public boolean isExpired() {

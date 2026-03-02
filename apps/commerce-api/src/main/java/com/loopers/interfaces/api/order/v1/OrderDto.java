@@ -14,14 +14,15 @@ import com.loopers.domain.order.OrderStatus;
 public class OrderDto {
 
     public record CreateOrderRequest(
-            @NotEmpty(message = "주문 항목은 필수입니다.") List<OrderItemRequest> orderItems
+            @NotEmpty(message = "주문 항목은 필수입니다.") List<OrderItemRequest> orderItems,
+            Long ownedCouponId
     ) {
 
         public PlaceOrderCommand toPlaceOrderCommand(Long userId) {
             List<PlaceOrderCommand.OrderItemCommand> items = orderItems.stream()
                     .map(OrderItemRequest::toOrderItemCommand)
                     .toList();
-            return new PlaceOrderCommand(userId, items);
+            return new PlaceOrderCommand(userId, items, ownedCouponId);
         }
     }
 
@@ -46,6 +47,8 @@ public class OrderDto {
             Long orderId,
             String name,
             OrderStatus status,
+            Long originalTotalPrice,
+            Long discountAmount,
             Long totalPrice,
             LocalDateTime orderedAt
     ) {
@@ -55,6 +58,8 @@ public class OrderDto {
                     result.id(),
                     result.name(),
                     result.status(),
+                    result.originalTotalPrice(),
+                    result.discountAmount(),
                     result.totalPrice(),
                     result.orderedAt()
             );
@@ -65,6 +70,8 @@ public class OrderDto {
             Long orderId,
             String name,
             OrderStatus status,
+            Long originalTotalPrice,
+            Long discountAmount,
             Long totalPrice,
             LocalDateTime orderedAt,
             List<OrderItemResponse> orderItems
@@ -75,6 +82,8 @@ public class OrderDto {
                     result.id(),
                     result.name(),
                     result.status(),
+                    result.originalTotalPrice(),
+                    result.discountAmount(),
                     result.totalPrice(),
                     result.orderedAt(),
                     result.orderItems().stream()

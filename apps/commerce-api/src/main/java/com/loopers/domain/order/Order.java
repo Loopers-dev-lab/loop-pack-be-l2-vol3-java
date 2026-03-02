@@ -43,13 +43,22 @@ public class Order extends BaseEntity {
     @Column(nullable = false)
     private OrderStatus status;
 
+    @AttributeOverride(name = "amount", column = @Column(name = "original_total_price", nullable = false))
+    private Money originalTotalPrice;
+
+    @AttributeOverride(name = "amount", column = @Column(name = "discount_amount", nullable = false))
+    private Money discountAmount;
+
     @AttributeOverride(name = "amount", column = @Column(name = "total_price", nullable = false))
     private Money totalPrice;
+
+    @Column(name = "owned_coupon_id")
+    private Long ownedCouponId;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems = new ArrayList<>();
 
-    public static Order create(Cart cart) {
+    public static Order create(Cart cart, Money discountAmount, Long ownedCouponId) {
         List<OrderItem> orderItems = cart.cartItems().stream()
                 .map(OrderItem::create)
                 .toList();
@@ -65,7 +74,10 @@ public class Order extends BaseEntity {
         order.status = OrderStatus.CREATED;
         orderItems.forEach(order::addItem);
         order.name = generateOrderName(order.orderItems);
-        order.totalPrice = Money.sum(order.orderItems, OrderItem::calculateSubtotal);
+        order.originalTotalPrice = Money.sum(order.orderItems, OrderItem::calculateSubtotal);
+        order.discountAmount = discountAmount;
+        order.totalPrice = order.originalTotalPrice.minus(discountAmount);
+        order.ownedCouponId = ownedCouponId;
         return order;
     }
 

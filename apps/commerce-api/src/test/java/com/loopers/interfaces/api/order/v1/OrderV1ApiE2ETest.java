@@ -1,5 +1,7 @@
 package com.loopers.interfaces.api.order.v1;
 
+import static com.loopers.interfaces.api.coupon.v1.CouponSteps.createCoupon;
+import static com.loopers.interfaces.api.coupon.v1.CouponSteps.issueCoupon;
 import static com.loopers.interfaces.api.order.v1.OrderSteps.createOrder;
 import static com.loopers.interfaces.api.order.v1.OrderSteps.getMyOrder;
 import static com.loopers.interfaces.api.order.v1.OrderSteps.getMyOrders;
@@ -9,19 +11,24 @@ import static com.loopers.support.E2ETestHelper.userAuthHeaders;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import com.loopers.domain.coupon.CouponType;
+import com.loopers.interfaces.api.coupon.v1.CouponDto;
 import com.loopers.support.error.ErrorType;
 
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import com.loopers.domain.coupon.OwnedCouponRepository;
 import com.loopers.interfaces.api.brand.v1.BrandDto;
 import com.loopers.interfaces.api.brand.v1.BrandSteps;
 import com.loopers.interfaces.api.product.v1.ProductDto;
@@ -30,6 +37,9 @@ import com.loopers.interfaces.api.user.v1.UserV1Dto;
 import com.loopers.support.BaseE2ETest;
 
 class OrderV1ApiE2ETest extends BaseE2ETest {
+
+    @Autowired
+    private OwnedCouponRepository ownedCouponRepository;
 
     private HttpHeaders userHeaders;
     private Long productId;
@@ -60,7 +70,8 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         void createsOrder_whenValidRequest() {
             // arrange
             var request = new OrderDto.CreateOrderRequest(
-                    List.of(new OrderDto.OrderItemRequest(productId, 2L))
+                    List.of(new OrderDto.OrderItemRequest(productId, 2L)),
+                    null
             );
 
             // act
@@ -71,6 +82,153 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED),
                     () -> assertThat(response.getBody().data().orderId()).isNotNull()
             );
+        }
+
+        @DisplayName("쿠폰을 적용하여 주문하면, 할인이 적용된 주문이 생성된다.")
+        @Test
+        void createsOrderWithCouponDiscount() {
+            // arrange
+            var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
+                    "5000원 할인", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)
+            ));
+            issueCoupon(testRestTemplate, couponId, userHeaders);
+            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, org.springframework.data.domain.Pageable.ofSize(1))
+                    .getContent().get(0).getId();
+
+            var request = new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(productId, 2L)),
+                    ownedCouponId
+            );
+
+            // act
+            var response = createOrder(testRestTemplate, request, userHeaders);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+            var orderId = response.getBody().data().orderId();
+            var detail = getMyOrder(testRestTemplate, orderId, userHeaders).getBody().data();
+            assertAll(
+                    () -> assertThat(detail.originalTotalPrice()).isEqualTo(20000L),
+                    () -> assertThat(detail.discountAmount()).isEqualTo(5000L),
+                    () -> assertThat(detail.totalPrice()).isEqualTo(15000L)
+            );
+        }
+
+        @DisplayName("쿠폰 없이 주문하면, discountAmount=0이고 originalTotalPrice=totalPrice이다.")
+        @Test
+        void createsOrderWithoutCoupon() {
+            // arrange
+            var request = new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(productId, 2L)),
+                    null
+            );
+
+            // act
+            var response = createOrder(testRestTemplate, request, userHeaders);
+
+            // assert
+            var orderId = response.getBody().data().orderId();
+            var detail = getMyOrder(testRestTemplate, orderId, userHeaders).getBody().data();
+            assertAll(
+                    () -> assertThat(detail.originalTotalPrice()).isEqualTo(20000L),
+                    () -> assertThat(detail.discountAmount()).isEqualTo(0L),
+                    () -> assertThat(detail.totalPrice()).isEqualTo(20000L)
+            );
+        }
+
+        @DisplayName("존재하지 않는 쿠폰으로 주문하면, 실패한다.")
+        @Test
+        void failsOrder_whenOwnedCouponNotFound() {
+            // arrange
+            var request = new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(productId, 2L)),
+                    999L
+            );
+
+            // act
+            var response = createOrder(testRestTemplate, request, userHeaders);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.OWNED_COUPON_NOT_FOUND);
+        }
+
+        @DisplayName("타인 소유 쿠폰으로 주문하면, 실패한다.")
+        @Test
+        void failsOrder_whenCouponBelongsToOtherUser() {
+            // arrange
+            var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
+                    "할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)
+            ));
+
+            signUp(testRestTemplate, new UserV1Dto.SignUpRequest("otheruser2", "Password1!", "다른유저", "1990-01-01", "other2@test.com"));
+            var otherHeaders = userAuthHeaders("otheruser2", "Password1!");
+            issueCoupon(testRestTemplate, couponId, otherHeaders);
+            var otherOwnedCouponId = ownedCouponRepository.findAllByUserId(2L, org.springframework.data.domain.Pageable.ofSize(1))
+                    .getContent().get(0).getId();
+
+            var request = new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(productId, 2L)),
+                    otherOwnedCouponId
+            );
+
+            // act
+            var response = createOrder(testRestTemplate, request, userHeaders);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.FORBIDDEN, ErrorType.FORBIDDEN_COUPON_ACCESS);
+        }
+
+        @DisplayName("이미 사용된 쿠폰으로 주문하면, 실패한다.")
+        @Test
+        void failsOrder_whenCouponAlreadyUsed() {
+            // arrange
+            var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
+                    "할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)
+            ));
+            issueCoupon(testRestTemplate, couponId, userHeaders);
+            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, org.springframework.data.domain.Pageable.ofSize(1))
+                    .getContent().get(0).getId();
+
+            // 첫 번째 주문으로 쿠폰 사용
+            createOrder(testRestTemplate, new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(productId, 1L)),
+                    ownedCouponId
+            ), userHeaders);
+
+            // act - 같은 쿠폰으로 두 번째 주문
+            var request = new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(productId, 1L)),
+                    ownedCouponId
+            );
+            var response = createOrder(testRestTemplate, request, userHeaders);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_USED_COUPON);
+        }
+
+        @DisplayName("최소 주문 금액 미달 시 쿠폰으로 주문하면, 실패한다.")
+        @Test
+        void failsOrder_whenMinOrderPriceNotMet() {
+            // arrange - 최소 주문 금액 50000원 쿠폰
+            var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
+                    "할인 쿠폰", CouponType.FIXED, 5000L, null, 50000L, ZonedDateTime.now().plusDays(30)
+            ));
+            issueCoupon(testRestTemplate, couponId, userHeaders);
+            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, org.springframework.data.domain.Pageable.ofSize(1))
+                    .getContent().get(0).getId();
+
+            // 상품 10000원 × 2 = 20000원 < 50000원
+            var request = new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(productId, 2L)),
+                    ownedCouponId
+            );
+
+            // act
+            var response = createOrder(testRestTemplate, request, userHeaders);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.COUPON_MIN_ORDER_PRICE_NOT_MET);
         }
     }
 
@@ -85,7 +243,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         void returnsOrderList_whenOrdersExist() {
             // arrange
             createOrder(testRestTemplate,
-                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 2L))),
+                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 2L)), null),
                     userHeaders);
 
             var today = LocalDate.now();
@@ -111,7 +269,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         void returnsEmptyPage_whenNoOrdersInDateRange() {
             // arrange
             createOrder(testRestTemplate,
-                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L))),
+                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L)), null),
                     userHeaders);
 
             var url = UriComponentsBuilder.fromPath(ORDER_ENDPOINT)
@@ -170,7 +328,8 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         void returnsOrderDetail_whenValidOrderId() {
             // arrange
             var request = new OrderDto.CreateOrderRequest(
-                    List.of(new OrderDto.OrderItemRequest(productId, 2L))
+                    List.of(new OrderDto.OrderItemRequest(productId, 2L)),
+                    null
             );
             var orderId = createOrder(testRestTemplate, request, userHeaders).getBody().data().orderId();
 
@@ -205,7 +364,8 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         void returnsForbidden_whenOtherUsersOrder() {
             // arrange
             var request = new OrderDto.CreateOrderRequest(
-                    List.of(new OrderDto.OrderItemRequest(productId, 1L))
+                    List.of(new OrderDto.OrderItemRequest(productId, 1L)),
+                    null
             );
             var orderId = createOrder(testRestTemplate, request, userHeaders).getBody().data().orderId();
 
