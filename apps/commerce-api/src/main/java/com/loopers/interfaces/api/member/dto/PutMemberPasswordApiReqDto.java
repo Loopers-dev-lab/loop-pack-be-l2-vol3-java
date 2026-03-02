@@ -6,7 +6,7 @@ public record PutMemberPasswordApiReqDto(
         String currentPassword,
         String newPassword
 ) {
-    public PutMemberPasswordReqDto toCommand(String loginId, String loginPassword) {
+    public PutMemberPasswordReqDto toDto(String loginId, String loginPassword) {
         return new PutMemberPasswordReqDto(
                 loginId,
                 loginPassword,

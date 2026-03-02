@@ -1,17 +1,19 @@
 package com.loopers.infrastructure.member.entity;
 
 import com.loopers.domain.BaseEntity;
-import com.loopers.domain.member.MemberModel;
+import com.loopers.domain.member.model.Member;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.Getter;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDate;
 
 @Getter
 @Entity
 @Table(name = "member")
+@SQLRestriction("deleted_at IS NULL")
 public class MemberEntity extends BaseEntity {
 
     @Column(nullable = false, unique = true)
@@ -39,7 +41,7 @@ public class MemberEntity extends BaseEntity {
         this.email = email;
     }
 
-    public static MemberEntity toEntity(MemberModel model) {
+    public static MemberEntity toEntity(Member model) {
         return new MemberEntity(
             model.getLoginId().value(),
             model.getPassword().value(),
@@ -49,8 +51,8 @@ public class MemberEntity extends BaseEntity {
         );
     }
 
-    public MemberModel toModel() {
-        return MemberModel.reconstruct(
+    public Member toModel() {
+        return Member.reconstruct(
             this.getId(),
             this.loginId,
             this.password,

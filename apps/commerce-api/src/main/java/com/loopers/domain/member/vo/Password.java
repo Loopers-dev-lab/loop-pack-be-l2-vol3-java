@@ -1,5 +1,6 @@
 package com.loopers.domain.member.vo;
 
+import com.loopers.domain.member.service.PasswordEncryptor;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 
@@ -18,7 +19,16 @@ public record Password(String value) {
         }
     }
 
-    public static void validateRawPassword(String rawPassword, String forbiddenKeyword) {
+    public static Password create(String rawPassword, String forbiddenKeyword, PasswordEncryptor encryptor) {
+        validateRawPassword(rawPassword, forbiddenKeyword);
+        return new Password(encryptor.encode(rawPassword));
+    }
+
+    public boolean matches(String rawPassword, PasswordEncryptor encryptor) {
+        return encryptor.matches(rawPassword, this.value);
+    }
+
+    private static void validateRawPassword(String rawPassword, String forbiddenKeyword) {
         if (rawPassword == null || rawPassword.isBlank()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호는 비어있을 수 없습니다.");
         }
