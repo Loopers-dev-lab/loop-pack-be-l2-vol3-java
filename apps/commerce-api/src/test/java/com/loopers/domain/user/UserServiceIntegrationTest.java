@@ -1,6 +1,5 @@
 package com.loopers.domain.user;
 
-import com.loopers.application.user.UserInfo;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
@@ -57,7 +56,7 @@ class UserServiceIntegrationTest {
             Password password1 = Password.of("Pass1234!", birthDate1);
             Gender gender1 = Gender.MALE;
 
-            userService.signUp(duplicateUserId, email1, birthDate1, password1, gender1);
+            userService.signUp(new UserId(duplicateUserId), email1, birthDate1, password1, gender1);
 
             Email email2 = new Email("user2@example.com");
             BirthDate birthDate2 = new BirthDate("1995-05-20");
@@ -66,7 +65,7 @@ class UserServiceIntegrationTest {
 
             // when & then
             CoreException exception = assertThrows(CoreException.class, () -> {
-                userService.signUp(duplicateUserId, email2, birthDate2, password2, gender2);
+                userService.signUp(new UserId(duplicateUserId), email2, birthDate2, password2, gender2);
             });
 
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.CONFLICT);
@@ -94,7 +93,7 @@ class UserServiceIntegrationTest {
                         Password password = Password.of("Pass1234!", birthDate);
                         Gender gender = Gender.MALE;
 
-                        userService.signUp(userId, email, birthDate, password, gender);
+                        userService.signUp(new UserId(userId), email, birthDate, password, gender);
                         successCount.incrementAndGet();
                     } catch (CoreException e) {
                         if (e.getErrorType() == ErrorType.CONFLICT) {
@@ -125,7 +124,7 @@ class UserServiceIntegrationTest {
             Gender gender = Gender.MALE;
 
             // when
-            UserModel savedUser = userService.signUp(userId, email, birthDate, password, gender);
+            UserModel savedUser = userService.signUp(new UserId(userId), email, birthDate, password, gender);
 
             // then
             assertThat(savedUser).isNotNull();
@@ -145,7 +144,7 @@ class UserServiceIntegrationTest {
             Gender gender = Gender.FEMALE;
 
             // when
-            UserModel savedUser = userService.signUp(userId, email, birthDate, password, gender);
+            UserModel savedUser = userService.signUp(new UserId(userId), email, birthDate, password, gender);
 
             // then
             assertThat(savedUser.getEncryptedPassword()).isNotEqualTo(rawPassword);
@@ -164,7 +163,7 @@ class UserServiceIntegrationTest {
             Gender gender = Gender.MALE;
 
             // when
-            UserModel savedUser = userService.signUp(userId, email, birthDate, password, gender);
+            UserModel savedUser = userService.signUp(new UserId(userId), email, birthDate, password, gender);
 
             // then
             boolean matches = passwordEncoder.matches(rawPassword, savedUser.getEncryptedPassword());
@@ -176,22 +175,22 @@ class UserServiceIntegrationTest {
     @Nested
     class GetMyInfo {
 
-        @DisplayName("존재하지 않는 사용자 ID로 조회하면, null을 반환한다.")
+        @DisplayName("존재하지 않는 사용자 ID로 조회하면, empty를 반환한다.")
         @Test
-        void getMyInfo_withNonExistentUserId_shouldReturnNull() {
+        void getMyInfo_withNonExistentUserId_shouldReturnEmpty() {
             // given
             String nonExistentUserId = "nouser";
 
             // when
-            UserInfo userInfo = userService.getMyInfo(nonExistentUserId);
+            var result = userService.getMyInfo(nonExistentUserId);
 
             // then
-            assertThat(userInfo).isNull();
+            assertThat(result).isEmpty();
         }
 
-        @DisplayName("존재하는 사용자 ID로 조회하면, 사용자 정보를 반환한다.")
+        @DisplayName("존재하는 사용자 ID로 조회하면, Optional에 UserModel을 담아 반환한다.")
         @Test
-        void getMyInfo_withExistingUserId_shouldReturnUserInfo() {
+        void getMyInfo_withExistingUserId_shouldReturnUserModel() {
             // given
             String userId = "testuser1";
             Email email = new Email("test@example.com");
@@ -199,36 +198,18 @@ class UserServiceIntegrationTest {
             Password password = Password.of("SecurePass1!", birthDate);
             Gender gender = Gender.MALE;
 
-            userService.signUp(userId, email, birthDate, password, gender);
+            userService.signUp(new UserId(userId), email, birthDate, password, gender);
 
             // when
-            UserInfo userInfo = userService.getMyInfo(userId);
+            var result = userService.getMyInfo(userId);
 
             // then
-            assertThat(userInfo).isNotNull();
-            assertThat(userInfo.userId()).isEqualTo(userId);
-            assertThat(userInfo.email()).isEqualTo("test@example.com");
-            assertThat(userInfo.birthDate()).isEqualTo("1990-01-15");
-            assertThat(userInfo.gender()).isEqualTo("MALE");
-        }
-
-        @DisplayName("조회된 사용자 정보의 이름은 userId를 마스킹한 값이다.")
-        @Test
-        void getMyInfo_shouldReturnMaskedName() {
-            // given
-            String userId = "johnsmith";
-            Email email = new Email("john@example.com");
-            BirthDate birthDate = new BirthDate("1992-06-10");
-            Password password = Password.of("Password2!", birthDate);
-            Gender gender = Gender.MALE;
-
-            userService.signUp(userId, email, birthDate, password, gender);
-
-            // when
-            UserInfo userInfo = userService.getMyInfo(userId);
-
-            // then
-            assertThat(userInfo.name()).isEqualTo("johnsmit*");
+            assertThat(result).isPresent();
+            UserModel user = result.get();
+            assertThat(user.getUserId()).isEqualTo(userId);
+            assertThat(user.getEmail()).isEqualTo("test@example.com");
+            assertThat(user.getBirthDate()).isEqualTo("1990-01-15");
+            assertThat(user.getGender()).isEqualTo(Gender.MALE);
         }
     }
 
@@ -259,7 +240,7 @@ class UserServiceIntegrationTest {
             Password password = Password.of("SecurePass1!", birthDate);
             Gender gender = Gender.MALE;
 
-            userService.signUp(userId, email, birthDate, password, gender);
+            userService.signUp(new UserId(userId), email, birthDate, password, gender);
 
             // when
             Long points = userService.getPoints(userId);
@@ -300,7 +281,7 @@ class UserServiceIntegrationTest {
             Password password = Password.of("OldPass123!", birthDate);
             Gender gender = Gender.MALE;
 
-            userService.signUp(userId, email, birthDate, password, gender);
+            userService.signUp(new UserId(userId), email, birthDate, password, gender);
 
             String wrongCurrentPassword = "WrongPass!";
             String newPassword = "NewPass456!";
@@ -324,7 +305,7 @@ class UserServiceIntegrationTest {
             Password password = Password.of(samePassword, birthDate);
             Gender gender = Gender.MALE;
 
-            userService.signUp(userId, email, birthDate, password, gender);
+            userService.signUp(new UserId(userId), email, birthDate, password, gender);
 
             // when & then
             CoreException exception = assertThrows(CoreException.class, () -> {
@@ -345,7 +326,7 @@ class UserServiceIntegrationTest {
             Password password = Password.of(currentPassword, birthDate);
             Gender gender = Gender.MALE;
 
-            UserModel user = userService.signUp(userId, email, birthDate, password, gender);
+            UserModel user = userService.signUp(new UserId(userId), email, birthDate, password, gender);
             String oldEncryptedPassword = user.getEncryptedPassword();
 
             String newPassword = "NewPass456!";

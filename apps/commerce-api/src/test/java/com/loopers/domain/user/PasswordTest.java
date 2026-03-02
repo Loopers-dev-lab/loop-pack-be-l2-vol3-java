@@ -236,7 +236,6 @@ class PasswordTest {
         void matches_withNullEncryptedPassword_shouldReturnFalse() {
             // when
             boolean result = Password.matches("SecurePass1!", null);
-
             // then
             assertThat(result).isFalse();
         }

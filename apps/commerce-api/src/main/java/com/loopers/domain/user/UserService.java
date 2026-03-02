@@ -1,11 +1,12 @@
 package com.loopers.domain.user;
 
-import com.loopers.application.user.UserInfo;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 @Service
 public class UserService {
@@ -18,29 +19,28 @@ public class UserService {
 
     @Transactional
     public UserModel signUp(
-        String userId,
+        UserId userId,
         Email email,
         BirthDate birthDate,
         Password password,
         Gender gender
     ) {
-        if (userRepository.existsByUserId(userId)) {
-            throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 사용자 ID입니다: " + userId);
+        String value = userId.value();
+        if (userRepository.existsByUserId(value)) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 사용자 ID입니다: " + value);
         }
 
         try {
             UserModel user = UserModel.create(userId, email, birthDate, password, gender);
             return userRepository.save(user);
         } catch (DataIntegrityViolationException e) {
-            throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 사용자 ID입니다: " + userId);
+            throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 사용자 ID입니다: " + value);
         }
     }
 
     @Transactional(readOnly = true)
-    public UserInfo getMyInfo(String userId) {
-        return userRepository.findByUserId(userId)
-            .map(UserInfo::from)
-            .orElse(null);
+    public Optional<UserModel> getMyInfo(String userId) {
+        return userRepository.findByUserId(userId);
     }
 
     @Transactional(readOnly = true)

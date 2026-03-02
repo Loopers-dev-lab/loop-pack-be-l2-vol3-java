@@ -59,15 +59,15 @@ public class UserV1Controller implements UserV1ApiSpec {
     @GetMapping("/me/points")
     @Override
     public ApiResponse<UserV1Dto.PointsResponse> getPoints(
-        @RequestHeader(value = "X-USER-ID", required = false) String userId
+        @RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId
     ) {
-        if (userId == null || userId.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "X-USER-ID 헤더가 필요합니다.");
+        if (loginId == null || loginId.isBlank()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "X-Loopers-LoginId 헤더가 필요합니다.");
         }
 
-        PointsInfo pointsInfo = userFacade.getPoints(userId);
+        PointsInfo pointsInfo = userFacade.getPoints(loginId);
         if (pointsInfo == null) {
-            throw new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다: " + userId);
+            throw new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다: " + loginId);
         }
 
         UserV1Dto.PointsResponse response = UserV1Dto.PointsResponse.from(pointsInfo);
@@ -75,6 +75,7 @@ public class UserV1Controller implements UserV1ApiSpec {
     }
 
     @PutMapping("/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     @Override
     public ApiResponse<Void> updatePassword(
         @RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,

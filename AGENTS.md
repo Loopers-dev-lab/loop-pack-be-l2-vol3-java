@@ -56,27 +56,64 @@ This is a **multi-module Gradle project** with three primary categories:
 - **`logging`**: Logback configuration, Slack appender
 - **`monitoring`**: Actuator and metrics configuration
 
-### Code Architecture Pattern
+### Domain & Object Design Strategy
 
-This project follows **Layered Architecture** with strict dependency rules:
+- **Domain objects** MUST encapsulate business rules. Entities and VOs hold validation, invariants, and domain behavior.
+- **Application services (Facades)** assemble different domains and orchestrate domain logic to provide use cases. They MUST NOT contain business rules; delegate to the domain layer.
+- If a rule appears in multiple services, it likely belongs in a **domain object** (Entity, VO, or Domain Service). Confirm responsibility and coupling with the team before implementing.
+- For each feature, clarify **responsibility and coupling** and align implementation with that intent.
+
+### Code Architecture Pattern & DIP
+
+This project follows **Layered Architecture** and **DIP (Dependency Inversion Principle)**:
+
+- **Dependency direction**: **Presentation → Application → Domain ← Infrastructure**
+  - Interfaces (Presentation) depend on Application.
+  - Application depends on Domain.
+  - **Domain does NOT depend on Infrastructure.** Repository interfaces live in Domain; Infrastructure implements them and thus depends on Domain.
 
 ```
-interfaces (Controllers, DTOs, Specs)
+interfaces (Controllers, DTOs, Specs)     [Presentation]
     ↓
-application (Facades, Info DTOs)
+application (Facades, Info DTOs)          [Application]
     ↓
-domain (Services, Models, Repositories)
-    ↓
-infrastructure (JPA Repositories, External APIs)
+domain (Services, Models, Repositories)   [Domain - center of dependencies]
+    ↑
+infrastructure (JPA, Redis, Kafka impl.)  [Infrastructure]
 ```
 
-**Key Principles**:
+- **API request/response DTOs** (interfaces layer) and **Application-layer DTOs (Info)** MUST be kept separate. Do not reuse the same type across layers.
+- **Packaging**: Four top-level layer packages, with **domain-based subpackages** under each.
+  - Example: `/interfaces/api/{domain}`, `/application/{domain}`, `/domain/{domain}`, `/infrastructure/{domain}`
+
+### Layer Responsibilities & Package Rules
+
+| Layer | Responsibility | Package rule |
+|-------|----------------|--------------|
+| **Interfaces (Presentation)** | Direct contact with users (Web/Controller). Call Application use cases only. May perform request validation and response mapping. | `/interfaces/api/{domain}` |
+| **Application** | Orchestrate flows and complete use-case functions. Delegate real business logic to the domain as much as possible. | `/application/{domain}` |
+| **Domain** | Core business logic. Must not depend on other layers. All dependency arrows point **toward** the domain. | `/domain/{domain}` |
+| **Infrastructure** | Implement persistence and external tech (JPA, Redis, Kafka). Depends on Domain interfaces; provides what the domain needs. | `/infrastructure/{domain}` |
+
+Each layer has **clear responsibility and concern**. The domain should be **self-contained** so that it is highly testable.
+
+### DIP (Dependency Inversion Principle)
+
+- Dependency is **inverted**: not **Domain → Infrastructure**, but **Domain (interfaces) ← Infrastructure (implementations)**.
+- **Benefits**:
+  - Use `FakeOrderRepository` or `InMemoryOrderRepository` for tests without real DB.
+  - Structural flexibility (e.g. swap DB or change business logic with minimal impact).
+  - Testability (e.g. mock repositories).
+- **Repository**: Define the interface in the Domain layer; put the implementation in Infrastructure. Design for testability (e.g. fakes, mocks).
+- Write **unit tests** for all core domain logic, including exception and boundary cases.
+
+### Architecture Key Principles
 
 - Domain layer MUST be infrastructure-agnostic (no Spring, JPA annotations in domain logic)
 - Facades orchestrate business flows but DO NOT contain business logic
-- Services contain all business logic and invariants
+- Services (in Domain) contain business logic and invariants
 - Models (Entities) contain domain rules and validations
-- Repository interfaces are defined in domain, implemented in infrastructure
+- Repository **interfaces** are defined in **domain**; **implementations** live in **infrastructure**
 
 ### User Domain Class Design
 
@@ -329,8 +366,8 @@ The following structures are **locked** and require explicit approval to change:
 
 4. **Authentication Headers**:
 
-   - Customer API: `X-Loopers-LoginId`, `X-Loopers-LoginPw`
-   - Admin API: `X-Loopers-Ldap`
+   - **대고객** (user_required): `X-Loopers-LoginId`, `X-Loopers-LoginPw` — 로그인 ID/비밀번호로 유저 식별. 인증/인가는 주요 스코프가 아니므로 구현하지 않으며, 유저는 타 유저 정보에 직접 접근할 수 없음.
+   - **어드민** (ldap_required): `X-Loopers-Ldap` — LDAP(회사 사내 어드민)으로 식별.
 
 5. **Shared Infrastructure Modules**:
    - `modules/jpa`, `modules/redis`, `modules/kafka`
@@ -342,10 +379,15 @@ The following structures are **locked** and require explicit approval to change:
 
 ### API Prefix & Authentication
 
-| API Type     | Prefix         | Auth Header(s)                           | Example                           |
-| ------------ | -------------- | ---------------------------------------- | --------------------------------- |
-| Customer API | `/customer/v1` | `X-Loopers-LoginId`, `X-Loopers-LoginPw` | `POST /customer/v1/users/sign-up` |
-| Admin API    | `/admin/v1`    | `X-Loopers-Ldap`                         | `GET /admin/v1/orders`            |
+| API Type     | Prefix          | Auth Header(s)                           | Example                              |
+| ------------ | --------------- | ---------------------------------------- | ------------------------------------ |
+| 대고객 (Customer) | `/api/v1`       | `X-Loopers-LoginId`, `X-Loopers-LoginPw` | `POST /api/v1/users`, `GET /api/v1/users/me` |
+| 어드민 (Admin)   | `/api-admin/v1` | `X-Loopers-Ldap`                         | `GET /api-admin/v1/orders`           |
+
+- **대고객**: user_required인 기능은 `X-Loopers-LoginId`(및 필요 시 `X-Loopers-LoginPw`)로 유저 식별. 인증/인가는 주요 스코프가 아니므로 구현하지 않음.
+- **어드민**: ldap_required인 기능은 `X-Loopers-Ldap`으로 어드민 식별.
+- **CustomerAuthInterceptor**: 로그인이 필요한 고객 API 경로에만 적용. 상품·브랜드 조회 등 비회원 허용 경로는 제외. `.docs/design/02-sequence-diagrams.md` §0, `01-requirements.md` §4.2 참조.
+- **AdminAuthInterceptor**: `/api-admin/**` 경로 전 구간 적용.
 
 ### Standard Response Format
 
@@ -401,7 +443,7 @@ After implementing an endpoint, document it in `http/commerce-api/{domain}-v1.ht
 
 ```http
 ### Sign Up
-POST http://localhost:8080/customer/v1/users/sign-up
+POST http://localhost:8080/api/v1/users
 Content-Type: application/json
 
 {
@@ -448,7 +490,7 @@ Based on `.codeguide/loopers-1-week.md` and project requirements, follow these c
   - [ ] Sign-up returns created user info on success
   - [ ] Sign-up returns `400 Bad Request` if gender is missing
 
-**Endpoint**: `POST /customer/v1/users/sign-up`
+**Endpoint**: `POST /api/v1/users`
 
 **Response**:
 
@@ -480,7 +522,7 @@ Based on `.codeguide/loopers-1-week.md` and project requirements, follow these c
   - [ ] Returns masked user info on success
   - [ ] Returns `404 Not Found` if user does not exist
 
-**Endpoint**: `GET /customer/v1/users/me`
+**Endpoint**: `GET /api/v1/users/me`
 
 **Headers**: `X-Loopers-LoginId: {userId}`
 
@@ -513,11 +555,11 @@ Based on `.codeguide/loopers-1-week.md` and project requirements, follow these c
   - [ ] Returns null if user does not exist
 - [ ] **E2E Tests**:
   - [ ] Returns point balance on success
-  - [ ] Returns `400 Bad Request` if `X-USER-ID` header is missing
+  - [ ] Returns `400 Bad Request` if `X-Loopers-LoginId` header is missing
 
-**Endpoint**: `GET /customer/v1/users/me/points`
+**Endpoint**: `GET /api/v1/users/me/points`
 
-**Headers**: `X-USER-ID: {userId}`
+**Headers**: `X-Loopers-LoginId: {userId}` (user_required)
 
 **Response**:
 
@@ -546,7 +588,7 @@ Based on `.codeguide/loopers-1-week.md` and project requirements, follow these c
 - [ ] Ensure new password differs from current password
 - [ ] Encrypt new password before saving
 
-**Endpoint**: `PATCH /customer/v1/users/me/password`
+**Endpoint**: `PUT /api/v1/users/password`
 
 **Request**:
 
@@ -557,6 +599,45 @@ Based on `.codeguide/loopers-1-week.md` and project requirements, follow these c
 }
 ```
 
+### Domain & Architecture Implementation Checklist
+
+Use this checklist to verify design and implementation alignment. **구현 시 유의**: (1) 고객 식별은 API에서 X-Loopers-LoginId(문자열); Facade에서 User.id(Long)로 변환 후 도메인/Service에 전달(01 §4.6, 04 §5). (2) Brand/Product soft-delete는 BaseEntity.deletedAt 사용, isDeleted() = getDeletedAt() != null(03 §0, 04 §5). (3) validateProducts/restoreStock 등 Service 파라미터는 도메인·application 전용 타입만 사용, interfaces DTO 재사용 금지(03 §0). (4) optionId는 option 테이블 없음—존재 검증 제외, 값 보존만(01 §4.6). (5) 도메인 구현 순서: Brand → Product(이후 Brand 연쇄 삭제 연결) → Like → Order. 상세는 03-class-diagram, 04-erd 참고.
+
+#### Product / Brand domain
+
+- [ ] Product representation includes brand information and like count where required.
+- [ ] Product list supports sort options (`latest`, `price_asc`, `likes_desc`) in the design.
+- [ ] Product has stock; **stock is decremented at payment completion** (not at order creation); order creation only validates availability (see 01-requirements §3.1).
+- [ ] Negative stock is prevented at the **domain** level (e.g. in Entity or Domain Service).
+
+#### Like domain
+
+- [ ] Like is a separate domain representing the user–product relationship.
+- [ ] Like count is provided with product detail/list responses where specified (e.g. via LikeRepository count by product).
+- [ ] Unit tests cover like add/remove flows.
+
+#### Order domain
+
+- [ ] An order can contain multiple products with explicit quantities.
+- [ ] Order creation **validates** stock; stock **decrement** happens at payment completion (01-requirements §3.1).
+- [ ] Design covers insufficient-stock exception flow.
+- [ ] Unit tests cover both success and exception order flows.
+
+#### Domain Service
+
+- [ ] Internal domain rules live in Domain Service (or Entity/VO where appropriate).
+- [ ] Product detail combining Product + Brand is handled in the **Application** layer (orchestration).
+- [ ] Complex use cases are orchestrated in the Application layer; domain logic is delegated.
+- [ ] Domain Services are stateless and collaborate with domain objects within the same bounded context.
+
+#### Software architecture & design
+
+- [ ] Overall structure follows **Presentation → Application → Domain ← Infrastructure**.
+- [ ] Application layer orchestrates domain objects and does not embed core business logic.
+- [ ] Core business logic resides in Entity, VO, and Domain Service.
+- [ ] Repository interface is in the Domain layer; implementation is in Infrastructure.
+- [ ] Packages are organized by layer and domain (e.g. `/domain/order`, `/application/like`).
+- [ ] Tests isolate external dependencies and use Fakes/Stubs so unit tests remain focused and fast.
 ---
 
 ## 6. Testing Strategy
