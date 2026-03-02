@@ -4,11 +4,14 @@ import com.loopers.application.product.ProductFacade;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/products")
+@Validated
 public class ProductV1Controller implements ProductV1ApiSpec {
 
     private final ProductFacade productFacade;
@@ -22,8 +25,8 @@ public class ProductV1Controller implements ProductV1ApiSpec {
     public ResponseEntity<ApiResponse<ProductV1Dto.ListResponse>> getProductList(
         @RequestParam(required = false) Long brandId,
         @RequestParam(required = false, defaultValue = "latest") String sort,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size
+        @RequestParam(defaultValue = "0") @Min(0) int page,
+        @RequestParam(defaultValue = "20") @Min(0) int size
     ) {
         return ResponseEntity.ok(
             ApiResponse.success(ProductV1Dto.ListResponse.from(productFacade.getProductList(brandId, sort, page, size)))

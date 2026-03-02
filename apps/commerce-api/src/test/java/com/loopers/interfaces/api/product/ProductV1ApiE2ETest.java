@@ -187,4 +187,24 @@ class ProductV1ApiE2ETest {
         assertThat(content.get(0).id()).isEqualTo(productId2);
         assertThat(content.get(0).likeCount()).isEqualTo(1L);
     }
+
+    @Test
+    @DisplayName("GET /api/v1/products - page가 음수면 400 Bad Request를 반환한다")
+    void getProductList_withNegativePage_shouldReturn400() {
+        ResponseEntity<ApiResponse<ProductV1Dto.ListResponse>> response = testRestTemplate.exchange(
+            ENDPOINT_PRODUCTS + "?page=-1&size=20", HttpMethod.GET, new HttpEntity<>(null),
+            new ParameterizedTypeReference<>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/products - size가 음수면 400 Bad Request를 반환한다")
+    void getProductList_withNegativeSize_shouldReturn400() {
+        ResponseEntity<ApiResponse<ProductV1Dto.ListResponse>> response = testRestTemplate.exchange(
+            ENDPOINT_PRODUCTS + "?page=0&size=-1", HttpMethod.GET, new HttpEntity<>(null),
+            new ParameterizedTypeReference<>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
 }

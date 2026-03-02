@@ -4,6 +4,7 @@ import com.loopers.interfaces.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 
 @Tag(name = "Product V1 API", description = "고객용 상품 조회 API (비로그인 허용)")
@@ -16,8 +17,8 @@ public interface ProductV1ApiSpec {
     ResponseEntity<ApiResponse<ProductV1Dto.ListResponse>> getProductList(
         @Parameter(description = "브랜드 ID (선택)") Long brandId,
         @Parameter(description = "정렬 기준") String sort,
-        @Parameter(description = "페이지 (0부터)") int page,
-        @Parameter(description = "페이지 크기") int size
+        @Parameter(description = "페이지 (0부터)") @Min(0) int page,
+        @Parameter(description = "페이지 크기") @Min(0) int size
     );
 
     @Operation(
