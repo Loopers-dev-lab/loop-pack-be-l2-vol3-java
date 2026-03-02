@@ -1,5 +1,6 @@
 package com.loopers.interfaces.config;
 
+import com.loopers.interfaces.resolver.AdminArgumentResolver;
 import com.loopers.interfaces.resolver.LoginUserArgumentResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
@@ -13,9 +14,11 @@ import java.util.List;
 public class WebConfig implements WebMvcConfigurer {
 
     private final LoginUserArgumentResolver loginUserArgumentResolver;
+    private final AdminArgumentResolver adminArgumentResolver;
 
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
         resolvers.add(loginUserArgumentResolver);
+        resolvers.add(adminArgumentResolver);
     }
 }

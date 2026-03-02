@@ -133,7 +133,6 @@ Grafana: http://localhost:3000 (admin/admin)
 ### Entity & Domain
 - **Entity**: `@Setter` 사용 금지. 변경 로직은 도메인 메서드(예: `updatePassword()`)로 구현.
 - **Lombok**: `@Getter`, `@NoArgsConstructor(access = AccessLevel.PROTECTED)` 기본 사용.
-- **BaseEntity**: 모든 Entity는 `com.loopers.domain.BaseEntity`를 상속받아 생성/수정 시간을 관리.
 - **Validation**: 생성자 시점에 `CoreException`을 사용하여 유효성 검증 수행.
 
 ### API & Exception
@@ -165,25 +164,6 @@ Grafana: http://localhost:3000 (admin/admin)
 - **도구**: `TestRestTemplate`
 - **검증**: 실제 HTTP Status Code와 `ApiResponse` 본문 검증.
 
-## Round 1 Quest 요구사항 (Current Context)
-
-### 1. 회원가입
-- **필수 정보**: ID, 비밀번호, 이름, 생년월일, 이메일
-- **ID 규칙**: 영문/숫자 조합 10자 이내. 중복 불가.
-- **비밀번호 규칙**:
-    - 8~16자
-    - 영문 대소문자, 숫자, 특수문자 필수 포함
-    - 생년월일 포함 불가
-    - 암호화하여 저장 필수
-- **유효성 검사**: 이메일 형식, 생년월일(`yyyy-MM-dd`) 형식 검증.
-
-### 2. 내 정보 조회
-- **마스킹**: 이름의 마지막 글자를 `*`로 마스킹하여 반환 (예: `홍길동` -> `홍길*`).
-
-### 3. 비밀번호 수정
-- 현재 비밀번호 확인 후 새 비밀번호로 변경.
-- 기존 비밀번호와 동일한 비밀번호 사용 불가.
-
 ## AI 페르소나 및 행동 지침
 - **언어**: 한국어 (기술 용어는 영어 병기 가능)
 - **우선순위**:
@@ -194,3 +174,26 @@ Grafana: http://localhost:3000 (admin/admin)
     - `System.out.println` 사용 금지 (로깅은 `@Slf4j` 사용)
     - 불필요한 주석이나 설명으로 답변 길게 하지 말 것.
     - 존재하지 않는 라이브러리를 임의로 추가하지 말 것.
+
+## 아키텍처 및 계층별 책임 분리 (Layered + DIP)
+이 프로젝트는 **Rich Domain Entity** 방식을 채택한다. Domain 클래스가 JPA `@Entity`를 직접 보유하여 별도의 JpaEntity 계층을 두지 않는다.
+
+### 엔티티 분류
+
+| 분류 | 대상 | ID 선언 방식 |
+|------|------|-------------|
+| **핵심 자산** | `Member`, `Brand`, `Product`, `Option`, `Order` | `extends BaseEntity` |
+| **임시·매핑** | `CartItem`, `Like`, `OrderItem` | 클래스 내 직접 `@Id @GeneratedValue` |
+
+- **핵심 자산 엔티티**: `of(id, ...)` 팩토리 없음. `create(...)` 팩토리만 사용. 단위 테스트에서는 `mock(Xxx.class)`로 대체.
+- **임시·매핑 엔티티**: `of(id, ...)` / `create(...)` 팩토리 모두 유지.
+- **Money/VO 변환**: VO 클래스(`Money`, `MemberId`, `Password` 등)에 `@Embeddable` 적용. 엔티티에서는 `@Embedded` + `@AttributeOverride`로 컬럼명 지정. `@Convert` 방식 사용 금지.
+- **물리적 FK 제약 지양:** DB 레벨 FK 없이 논리적 연관관계만 ID로 가진다.
+- **상태 관리:** 객체 상태 변경은 도메인 엔티티 내부 메서드로 구현하며, 실패 시 `CoreException`을 던진다.
+
+### 계층별 책임
+
+1. **Domain Layer (Entity, VO, Repository 인터페이스):** 비즈니스 규칙 검증과 객체 상태 변경 담당. Repository 인터페이스도 이곳에 위치한다.
+2. **Application Layer (`~AppService`):** `@Transactional` 트랜잭션 제어. Repository로 데이터를 꺼내고 도메인 메서드를 호출한 뒤 저장한다.
+3. **Orchestration Layer (`~Facade`):** Repository 직접 호출 금지. 복잡한 유스케이스에서 여러 `AppService`를 조립(Orchestration)한다.
+4. **Infrastructure Layer:** Repository 구현체(`~RepositoryImpl`)와 JpaRepository 인터페이스가 위치한다. `BaseEntity`는 핵심 자산 Domain 클래스에서 상속받아 사용한다.

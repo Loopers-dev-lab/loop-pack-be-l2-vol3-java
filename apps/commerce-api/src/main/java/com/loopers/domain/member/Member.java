@@ -41,12 +41,16 @@ public class Member extends BaseEntity {
     @AttributeOverride(name = "value", column = @Column(name = "birth_date", nullable = false))
     private BirthDate birthDate;
 
-    public Member(MemberId memberId, Password password, Name name, Email email, BirthDate birthDate) {
+    private Member(MemberId memberId, Password password, Name name, Email email, BirthDate birthDate) {
         this.memberId = memberId;
         this.password = password;
         this.name = name;
         this.email = email;
         this.birthDate = birthDate;
+    }
+
+    public static Member create(MemberId memberId, Password password, Name name, Email email, BirthDate birthDate) {
+        return new Member(memberId, password, name, email, birthDate);
     }
 
     public void updatePassword(String currentPassword, String newPassword, PasswordEncoder encoder) {

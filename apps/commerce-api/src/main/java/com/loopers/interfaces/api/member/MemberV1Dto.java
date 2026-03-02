@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.member;
 
+import com.loopers.application.member.MemberAppService;
 import com.loopers.domain.member.Member;
-import com.loopers.domain.member.MemberService;
 
 public class MemberV1Dto {
 
@@ -12,8 +12,8 @@ public class MemberV1Dto {
             String email,
             String birthDate
     ) {
-        public MemberService.SignupCommand toCommand() {
-            return new MemberService.SignupCommand(
+        public MemberAppService.SignupCommand toCommand() {
+            return new MemberAppService.SignupCommand(
                     memberId,
                     password,
                     name,

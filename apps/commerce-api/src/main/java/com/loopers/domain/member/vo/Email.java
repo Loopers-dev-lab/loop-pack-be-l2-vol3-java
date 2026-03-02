@@ -7,11 +7,12 @@ import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
 import java.util.regex.Pattern;
 
+@Embeddable
 @Getter
 @EqualsAndHashCode
-@Embeddable
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Email {
 

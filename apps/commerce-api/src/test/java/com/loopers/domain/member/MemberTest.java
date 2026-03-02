@@ -40,7 +40,7 @@ class MemberTest {
         Email email = new Email("test@test.com");
 
         // when
-        Member member = new Member(memberId, password, name, email, birthDate);
+        Member member = Member.create(memberId, password, name, email, birthDate);
 
         // then
         assertThat(member).isNotNull();
@@ -57,7 +57,7 @@ class MemberTest {
             String currentRaw = "OldPass123!";
             String newRaw = "NewPass456!";
             BirthDate birthDate = new BirthDate("1997-01-01");
-            Member member = new Member(
+            Member member = Member.create(
                     new MemberId("user1"),
                     Password.ofEncoded(fakeEncoder.encode(currentRaw)),
                     new Name("앤드류"),
@@ -78,7 +78,7 @@ class MemberTest {
             // given
             String currentRaw = "OldPass123!";
             BirthDate birthDate = new BirthDate("1997-01-01");
-            Member member = new Member(
+            Member member = Member.create(
                     new MemberId("user1"),
                     Password.ofEncoded(fakeEncoder.encode(currentRaw)),
                     new Name("앤드류"),
@@ -98,7 +98,7 @@ class MemberTest {
             // given
             String currentRaw = "OldPass123!";
             BirthDate birthDate = new BirthDate("1997-01-01");
-            Member member = new Member(
+            Member member = Member.create(
                     new MemberId("user1"),
                     Password.ofEncoded(fakeEncoder.encode(currentRaw)),
                     new Name("앤드류"),
@@ -118,7 +118,7 @@ class MemberTest {
             // given
             String currentRaw = "OldPass123!";
             BirthDate birthDate = new BirthDate("1997-01-01");
-            Member member = new Member(
+            Member member = Member.create(
                     new MemberId("user1"),
                     Password.ofEncoded(fakeEncoder.encode(currentRaw)),
                     new Name("앤드류"),

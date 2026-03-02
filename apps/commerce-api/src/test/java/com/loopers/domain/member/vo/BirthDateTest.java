@@ -47,7 +47,8 @@ class BirthDateTest {
     @DisplayName("null은 예외가 발생한다.")
     @Test
     void create_fail_null() {
-        assertThatThrownBy(() -> new BirthDate(null))
+        String nullValue = null;
+        assertThatThrownBy(() -> new BirthDate(nullValue))
                 .isInstanceOf(CoreException.class)
                 .extracting("errorType").isEqualTo(ErrorType.BAD_REQUEST);
     }

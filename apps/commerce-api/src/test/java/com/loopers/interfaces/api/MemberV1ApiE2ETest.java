@@ -199,7 +199,7 @@ class MemberV1ApiE2ETest {
             // arrange
             String rawPassword = "Password1!";
             String encodedPassword = passwordEncoder.encode(rawPassword);
-            Member member = new Member(
+            Member member = Member.create(
                     new MemberId("testuser"),
                     Password.ofEncoded(encodedPassword),
                     new Name("홍길동"),
@@ -235,7 +235,7 @@ class MemberV1ApiE2ETest {
             // arrange
             String rawPassword = "Password1!";
             String encodedPassword = passwordEncoder.encode(rawPassword);
-            Member member = new Member(
+            Member member = Member.create(
                     new MemberId("testuser2"),
                     Password.ofEncoded(encodedPassword),
                     new Name("홍"),
@@ -268,7 +268,7 @@ class MemberV1ApiE2ETest {
 
         private Member createMember(String memberId, String rawPassword) {
             String encodedPassword = passwordEncoder.encode(rawPassword);
-            Member member = new Member(
+            Member member = Member.create(
                     new MemberId(memberId),
                     Password.ofEncoded(encodedPassword),
                     new Name("홍길동"),

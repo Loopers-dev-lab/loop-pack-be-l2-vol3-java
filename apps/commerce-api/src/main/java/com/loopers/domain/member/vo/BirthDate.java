@@ -7,14 +7,15 @@ import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 
+@Embeddable
 @Getter
 @EqualsAndHashCode
-@Embeddable
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class BirthDate {
 
@@ -26,6 +27,11 @@ public class BirthDate {
     public BirthDate(String value) {
         this.value = parse(value);
         validateNotFuture(this.value);
+    }
+
+    public BirthDate(LocalDate value) {
+        validateNotFuture(value);
+        this.value = value;
     }
 
     private LocalDate parse(String value) {

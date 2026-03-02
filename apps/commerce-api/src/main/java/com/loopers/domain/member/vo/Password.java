@@ -9,9 +9,9 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+@Embeddable
 @Getter
 @EqualsAndHashCode
-@Embeddable
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Password {
 
