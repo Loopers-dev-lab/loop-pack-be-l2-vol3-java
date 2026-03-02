@@ -88,19 +88,21 @@ public class ProductService {
     }
 
     /**
-     * 상품 판매 가능 여부를 검증한다. (존재·미삭제·재고 충분) (존재·미삭제·재고 충분)
+     * 상품 판매 가능 여부를 검증한다. (존재·미삭제·재고 충분)
      * optionId는 값 보존만 하며 옵션 테이블 검증은 하지 않는다.
      */
     @Transactional(readOnly = true)
     public void validateProductAvailability(Long productId, Quantity quantity, Long optionId) {
+        getValidatedProduct(productId, quantity);
+    }
+
+    private ProductModel getValidatedProduct(Long productId, Quantity quantity) {
         ProductModel product = productRepository.findByIdAndNotDeleted(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + productId));
-        if (product.isDeleted()) {
-            throw new CoreException(ErrorType.NOT_FOUND, "삭제된 상품입니다: " + productId);
-        }
         if (!product.hasStock(quantity)) {
             throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다. 상품 ID: " + productId);
         }
+        return product;
     }
 
     /**
@@ -128,14 +130,7 @@ public class ProductService {
         }
         List<ProductSnapshot> snapshots = new ArrayList<>();
         for (ProductValidationRequest req : requests) {
-            ProductModel product = productRepository.findByIdAndNotDeleted(req.productId())
-                    .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + req.productId()));
-            if (product.isDeleted()) {
-                throw new CoreException(ErrorType.NOT_FOUND, "삭제된 상품입니다: " + req.productId());
-            }
-            if (!product.hasStock(req.quantity())) {
-                throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다. 상품 ID: " + req.productId());
-            }
+            ProductModel product = getValidatedProduct(req.productId(), req.quantity());
             snapshots.add(product.snapshotForOrder());
         }
         return snapshots;
