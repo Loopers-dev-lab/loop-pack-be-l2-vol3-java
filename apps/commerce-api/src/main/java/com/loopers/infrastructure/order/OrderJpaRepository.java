@@ -22,4 +22,11 @@ public interface OrderJpaRepository extends JpaRepository<OrderModel, Long> {
             ZonedDateTime end,
             Pageable pageable
     );
+
+    /** 어드민용: userId 없이 orderedAt 구간·페이징 조회. orderedAt >= start and orderedAt < end, orderedAt DESC */
+    Page<OrderModel> findByOrderedAtGreaterThanEqualAndOrderedAtLessThanOrderByOrderedAtDesc(
+            ZonedDateTime start,
+            ZonedDateTime end,
+            Pageable pageable
+    );
 }

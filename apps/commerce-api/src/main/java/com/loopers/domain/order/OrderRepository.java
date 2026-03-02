@@ -19,6 +19,8 @@ public interface OrderRepository {
             ZonedDateTime start,
             ZonedDateTime end,
             int page,
-            int size
-    );
+            int size);
+
+    /** 어드민용: 사용자 구분 없이 기간·페이징 조회. */
+    List<OrderModel> findAllByOrderedAtBetween(ZonedDateTime start, ZonedDateTime end, int page, int size);
 }
