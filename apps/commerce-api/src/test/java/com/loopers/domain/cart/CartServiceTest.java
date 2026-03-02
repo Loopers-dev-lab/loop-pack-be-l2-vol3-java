@@ -83,16 +83,17 @@ class CartServiceTest {
             assertThat(existing.getQuantity()).isEqualTo(3);
         }
 
-        @DisplayName("상품 검증 실패 시 예외가 전파된다.")
+        @DisplayName("상품 검증 실패 시 예외가 전파되고 저장소 write는 수행되지 않는다.")
         @Test
-        void addItem_whenProductValidationFails_shouldThrow() {
-            // given: addItem은 먼저 validateProductAvailability를 호출하므로, 실패 시 repository는 호출되지
-            // 않음
+        void addItem_whenProductValidationFails_shouldThrowAndNotSave() {
+            // given: addItem은 먼저 validateProductAvailability를 호출하므로, 실패 시 repository는 호출되지 않음
             doThrow(new CoreException(ErrorType.NOT_FOUND, "상품 없음"))
                     .when(productService).validateProductAvailability(PRODUCT_ID, Quantity.of(QUANTITY), OPTION_ID);
 
             // when & then
             assertThrows(CoreException.class, () -> cartService.addItem(USER_ID, PRODUCT_ID, OPTION_ID, QUANTITY));
+            verify(cartRepository, never()).findByUserId(any());
+            verify(cartRepository, never()).save(any(CartItemModel.class));
         }
     }
 
@@ -121,7 +122,7 @@ class CartServiceTest {
     @Nested
     class UpdateItem {
 
-        @DisplayName("항목이 없으면 NOT_FOUND 예외가 발생한다.")
+        @DisplayName("항목이 없으면 NOT_FOUND 예외가 발생하고 save는 수행되지 않는다.")
         @Test
         void updateItem_whenItemNotFound_shouldThrowNotFound() {
             // given
@@ -131,6 +132,7 @@ class CartServiceTest {
             CoreException ex = assertThrows(CoreException.class,
                     () -> cartService.updateItem(USER_ID, CART_ITEM_ID, 3, OPTION_ID));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+            verify(cartRepository, never()).save(any());
         }
 
         @DisplayName("유효한 요청이면 검증 후 수량·옵션을 갱신한다.")
@@ -151,9 +153,9 @@ class CartServiceTest {
             assertThat(item.getOptionId()).isEqualTo(20L);
         }
 
-        @DisplayName("상품 검증 실패 시 예외가 전파된다.")
+        @DisplayName("상품 검증 실패 시 예외가 전파되고 save는 수행되지 않는다.")
         @Test
-        void updateItem_whenProductValidationFails_shouldThrow() {
+        void updateItem_whenProductValidationFails_shouldThrowAndNotSave() {
             // given
             CartItemModel item = CartItemModel.create(USER_ID, PRODUCT_ID, OPTION_ID, Quantity.of(QUANTITY));
             when(cartRepository.findByUserIdAndCartItemId(USER_ID, CART_ITEM_ID)).thenReturn(Optional.of(item));
@@ -188,7 +190,7 @@ class CartServiceTest {
             verify(cartRepository, never()).delete(any());
         }
 
-        @DisplayName("항목이 없으면 NOT_FOUND 예외가 발생한다.")
+        @DisplayName("항목이 없으면 NOT_FOUND 예외가 발생하고 delete는 수행되지 않는다.")
         @Test
         void removeItems_whenItemNotFound_shouldThrowNotFound() {
             // given
@@ -198,6 +200,7 @@ class CartServiceTest {
             CoreException ex = assertThrows(CoreException.class,
                     () -> cartService.removeItems(USER_ID, List.of(CART_ITEM_ID)));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+            verify(cartRepository, never()).delete(any());
         }
 
         @DisplayName("존재하는 항목이면 삭제한다.")
