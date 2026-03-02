@@ -25,6 +25,9 @@ public class LikeService {
      */
     @Transactional
     public LikeModel addLike(Long userId, Long productId) {
+        if (userId == null || productId == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "사용자 ID와 상품 ID는 필수입니다.");
+        }
         productService.findByIdAndNotDeleted(productId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + productId));
         if (likeRepository.existsByUserIdAndProductId(userId, productId)) {
@@ -39,6 +42,9 @@ public class LikeService {
      */
     @Transactional
     public void removeLike(Long userId, Long productId) {
+        if (userId == null || productId == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "사용자 ID와 상품 ID는 필수입니다.");
+        }
         LikeModel like = likeRepository.findByUserIdAndProductId(userId, productId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "좋아요를 찾을 수 없습니다."));
         likeRepository.delete(like);
