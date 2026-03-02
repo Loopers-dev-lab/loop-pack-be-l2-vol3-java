@@ -14,8 +14,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -157,6 +159,24 @@ class InventoryServiceTest {
                     .extracting(Inventory::getQuantity, Inventory::getReservedQty)
                     .containsExactly(90, 0);
         }
+
+        @Test
+        void 재고가_삭제된_상품은_skip하고_나머지는_정상_확정된다() {
+            // arrange
+            Inventory inventory2 = Inventory.create(2L, 50);
+            inventory2.reserve(5);
+            when(inventoryRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.empty());
+            when(inventoryRepository.findByProductIdForUpdate(2L)).thenReturn(Optional.of(inventory2));
+
+            // act — 예외 없이 정상 수행
+            assertThatCode(() -> inventoryService.commitAll(Map.of(1L, 10, 2L, 5)))
+                    .doesNotThrowAnyException();
+
+            // assert — 삭제된 1L은 save 없이 skip, 존재하는 2L만 확정
+            assertThat(inventory2)
+                    .extracting(Inventory::getQuantity, Inventory::getReservedQty)
+                    .containsExactly(45, 0);
+        }
     }
 
     @DisplayName("일괄 해제할 때,")
@@ -177,6 +197,35 @@ class InventoryServiceTest {
             assertThat(inventory)
                     .extracting(Inventory::getQuantity, Inventory::getReservedQty)
                     .containsExactly(100, 0);
+        }
+
+        @Test
+        void 재고가_삭제된_상품은_skip하고_예외없이_완료된다() {
+            // arrange — 상품이 삭제되어 재고가 존재하지 않는 경우
+            when(inventoryRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.empty());
+
+            // act — 주문 취소 시 재고 미존재여도 예외 없이 성공해야 한다
+            assertThatCode(() -> inventoryService.releaseAll(Map.of(1L, 10)))
+                    .doesNotThrowAnyException();
+
+            // assert — save가 호출되지 않음 (skip)
+            verify(inventoryRepository, never()).save(any(Inventory.class));
+        }
+
+        @Test
+        void 복수_상품_중_일부만_삭제되었으면_존재하는_것만_해제된다() {
+            // arrange
+            Inventory inventory2 = Inventory.create(2L, 50);
+            inventory2.reserve(5);
+            when(inventoryRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.empty());
+            when(inventoryRepository.findByProductIdForUpdate(2L)).thenReturn(Optional.of(inventory2));
+
+            // act
+            assertThatCode(() -> inventoryService.releaseAll(Map.of(1L, 10, 2L, 5)))
+                    .doesNotThrowAnyException();
+
+            // assert — 1L은 skip, 2L만 해제됨
+            assertThat(inventory2.getReservedQty()).isEqualTo(0);
         }
     }
 

@@ -142,8 +142,12 @@ public class OrderFacade {
     /**
      * 주문 취소 (F-16)
      *
+     * 주문은 "당시 스냅샷" 기준의 독립 도메인이다.
+     * 상품/재고 삭제 여부와 관계없이 주문 취소는 항상 성공해야 한다.
+     *
      * 1. OrderService.cancel → 소유권 검증 + PENDING→CANCELED
      * 2. 재고 예약 해제 (order_items 기준으로 reserved_qty 복구)
+     *    - 삭제된 상품의 재고는 skip (InventoryService.releaseAll 내부 처리)
      */
     @Transactional
     public void cancelOrder(Long orderId, Long userId) {

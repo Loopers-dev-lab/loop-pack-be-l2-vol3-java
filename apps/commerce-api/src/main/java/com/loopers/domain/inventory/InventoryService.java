@@ -2,11 +2,14 @@ package com.loopers.domain.inventory;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.InventoryErrorType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -16,6 +19,8 @@ import java.util.stream.Collectors;
  */
 @Component
 public class InventoryService {
+
+    private static final Logger log = LoggerFactory.getLogger(InventoryService.class);
 
     private final InventoryRepository inventoryRepository;
 
@@ -55,7 +60,12 @@ public class InventoryService {
         }
     }
 
-    /** 일괄 확정 (결제 완료) — productId 오름차순 락 획득 */
+    /**
+     * 일괄 확정 (결제 완료) — productId 오름차순 락 획득
+     *
+     * 재고가 삭제된 상품은 skip한다.
+     * 결제 실패 시 복구 과정에서 상품이 이미 삭제되었을 수 있기 때문이다.
+     */
     @Transactional
     public void commitAll(Map<Long, Integer> productQtyMap) {
         List<Map.Entry<Long, Integer>> sortedEntries = productQtyMap.entrySet().stream()
@@ -63,14 +73,26 @@ public class InventoryService {
                 .collect(Collectors.toList());
 
         for (Map.Entry<Long, Integer> entry : sortedEntries) {
-            Inventory inventory = inventoryRepository.findByProductIdForUpdate(entry.getKey())
-                    .orElseThrow(() -> new CoreException(InventoryErrorType.INVENTORY_NOT_FOUND));
+            Optional<Inventory> inventoryOpt = inventoryRepository.findByProductIdForUpdate(entry.getKey());
+            if (inventoryOpt.isEmpty()) {
+                log.warn("재고 확정 skip — 재고 미존재 (productId={})", entry.getKey());
+                continue;
+            }
+            Inventory inventory = inventoryOpt.get();
             inventory.commit(entry.getValue());
             inventoryRepository.save(inventory);
         }
     }
 
-    /** 일괄 해제 (주문 취소) — productId 오름차순 락 획득 */
+    /**
+     * 일괄 해제 (주문 취소) — productId 오름차순 락 획득
+     *
+     * 주문은 "당시 스냅샷" 기준의 독립 도메인이므로,
+     * 상품/재고 삭제 여부와 관계없이 주문 취소는 성공해야 한다.
+     * 재고가 삭제된 상품은 skip하고 로그를 남긴다.
+     *
+     * @see <a href="멘토 피드백">앨런: "상품 삭제는 내부 정책 변경, 주문 취소는 계약 해제"</a>
+     */
     @Transactional
     public void releaseAll(Map<Long, Integer> productQtyMap) {
         List<Map.Entry<Long, Integer>> sortedEntries = productQtyMap.entrySet().stream()
@@ -78,8 +100,13 @@ public class InventoryService {
                 .collect(Collectors.toList());
 
         for (Map.Entry<Long, Integer> entry : sortedEntries) {
-            Inventory inventory = inventoryRepository.findByProductIdForUpdate(entry.getKey())
-                    .orElseThrow(() -> new CoreException(InventoryErrorType.INVENTORY_NOT_FOUND));
+            Optional<Inventory> inventoryOpt = inventoryRepository.findByProductIdForUpdate(entry.getKey());
+            if (inventoryOpt.isEmpty()) {
+                log.warn("재고 해제 skip — 재고 미존재 (productId={}, qty={}). "
+                        + "상품이 삭제되었을 수 있음", entry.getKey(), entry.getValue());
+                continue;
+            }
+            Inventory inventory = inventoryOpt.get();
             inventory.release(entry.getValue());
             inventoryRepository.save(inventory);
         }

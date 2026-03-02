@@ -7,12 +7,19 @@ import com.loopers.domain.inventory.InventoryService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentService;
+import com.loopers.domain.point.PointAccount;
 import com.loopers.domain.point.PointService;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.CouponErrorType;
+import com.loopers.support.error.OrderErrorType;
+import com.loopers.support.error.PointErrorType;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -60,19 +67,17 @@ public class PaymentFacade {
             IssuedCoupon issuedCoupon = couponService.getIssuedCoupon(issuedCouponId, userId);
 
             CouponTemplate template = couponService.getTemplate(issuedCoupon.getCouponTemplateId());
-            if (!template.isApplicable(order.getSubtotalAmount(), java.time.ZonedDateTime.now())) {
-                throw new com.loopers.support.error.CoreException(
-                        com.loopers.support.error.CouponErrorType.INVALID_TEMPLATE);
+            if (!template.isApplicable(order.getSubtotalAmount(), ZonedDateTime.now())) {
+                throw new CoreException(CouponErrorType.INVALID_TEMPLATE);
             }
             discountAmount = template.calculateDiscount(order.getSubtotalAmount());
         }
 
         if (pointAmount > 0) {
             // 잔액 검증만 — 실제 차감은 결제 성공 시
-            com.loopers.domain.point.PointAccount account = pointService.getAccount(userId);
+            PointAccount account = pointService.getAccount(userId);
             if (account.getBalance() < pointAmount) {
-                throw new com.loopers.support.error.CoreException(
-                        com.loopers.support.error.PointErrorType.INSUFFICIENT_BALANCE);
+                throw new CoreException(PointErrorType.INSUFFICIENT_BALANCE);
             }
         }
 
@@ -97,9 +102,8 @@ public class PaymentFacade {
         Order order = orderService.getOrder(orderId, userId);
         order.validateOwnership(userId);
 
-        if (order.getStatus() != com.loopers.domain.order.OrderStatus.PENDING) {
-            throw new com.loopers.support.error.CoreException(
-                    com.loopers.support.error.OrderErrorType.INVALID_ORDER_STATUS);
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new CoreException(OrderErrorType.INVALID_ORDER_STATUS);
         }
 
         Payment payment = paymentService.create(
@@ -163,5 +167,5 @@ public class PaymentFacade {
     public record PaymentRequestResult(
             Long paymentId, Long orderId, String status,
             String paymentMethod, int requestedAmount,
-            Integer approvedAmount, String pgTxnId, java.time.ZonedDateTime approvedAt) {}
+            Integer approvedAmount, String pgTxnId, ZonedDateTime approvedAt) {}
 }
