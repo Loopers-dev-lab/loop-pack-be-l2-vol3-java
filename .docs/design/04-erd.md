@@ -68,6 +68,7 @@ erDiagram
         bigint coupon_id FK "not null"
         bigint user_id FK "not null"
         varchar status "not null"
+        timestamp used_at "null"
         timestamp created_at "not null"
         timestamp updated_at "not null"
         timestamp deleted_at "null"

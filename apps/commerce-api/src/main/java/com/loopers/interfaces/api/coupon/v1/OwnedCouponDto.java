@@ -19,7 +19,8 @@ public class OwnedCouponDto {
             Long discountValue,
             Long maxDiscountPrice,
             Long minOrderPrice,
-            ZonedDateTime expiredAt
+            ZonedDateTime expiredAt,
+            ZonedDateTime usedAt
     ) {
 
         public static MyOwnedCouponsResponse from(ReadMyOwnedCouponsUseCase.Result result) {
@@ -32,7 +33,8 @@ public class OwnedCouponDto {
                     result.discountValue(),
                     result.maxDiscountPrice(),
                     result.minOrderPrice(),
-                    result.expiredAt()
+                    result.expiredAt(),
+                    result.usedAt()
             );
         }
 
@@ -53,6 +55,7 @@ public class OwnedCouponDto {
             Long maxDiscountPrice,
             Long minOrderPrice,
             ZonedDateTime expiredAt,
+            ZonedDateTime usedAt,
             UserInfo user
     ) {
 
@@ -74,6 +77,7 @@ public class OwnedCouponDto {
                     result.maxDiscountPrice(),
                     result.minOrderPrice(),
                     result.expiredAt(),
+                    result.usedAt(),
                     new UserInfo(
                             result.userId(),
                             result.loginId(),

@@ -82,7 +82,8 @@ public class ReadOwnedCouponsUseCase {
             Long discountValue,
             Long maxDiscountPrice,
             Long minOrderPrice,
-            ZonedDateTime expiredAt
+            ZonedDateTime expiredAt,
+            ZonedDateTime usedAt
     ) {
 
         public static Result from(OwnedCoupon ownedCoupon, User user) {
@@ -99,7 +100,8 @@ public class ReadOwnedCouponsUseCase {
                     coupon.getDiscountValue(),
                     coupon.getMaxDiscountPriceAmount(),
                     coupon.getMinOrderPrice().getAmount(),
-                    coupon.getExpiredAt()
+                    coupon.getExpiredAt(),
+                    ownedCoupon.getUsedAt()
             );
         }
     }

@@ -154,6 +154,7 @@ classDiagram
         Coupon coupon
         Long userId
         OwnedCouponStatus status
+        ZonedDateTime usedAt
         +create(Coupon coupon, Long userId)$ OwnedCoupon
         +use() void
         +validateOwner(Long userId) void
