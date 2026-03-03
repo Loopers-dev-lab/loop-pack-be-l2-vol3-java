@@ -21,7 +21,6 @@ import java.util.stream.Collectors;
 @Component
 @Validated
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class OrderFacade {
 
     private final OrderService orderService;
@@ -69,11 +68,13 @@ public class OrderFacade {
 
     // Query
 
+    @Transactional(readOnly = true)
     public OrderInfo getOrderDetail(Long userId, Long orderId) {
         Order order = orderService.findOrderById(orderId, userId);
         return OrderInfo.from(order);
     }
 
+    @Transactional(readOnly = true)
     public Page<OrderInfo.OrderSummary> getOrderList(Long userId, @Valid OrderRequest.ListByUser request) {
         if (request.startDate() != null && request.endDate() != null && request.startDate().isAfter(request.endDate())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "시작일은 종료일 이전이어야 합니다");
@@ -82,11 +83,13 @@ public class OrderFacade {
         return orders.map(OrderInfo.OrderSummary::from);
     }
 
+    @Transactional(readOnly = true)
     public OrderInfo getAdminOrderDetail(Long orderId) {
         Order order = orderService.findOrderById(orderId);
         return OrderInfo.from(order);
     }
 
+    @Transactional(readOnly = true)
     public Page<OrderInfo.OrderAdminSummary> getAdminOrderList(@Valid OrderRequest.ListAll request) {
         Page<Order> orders = orderService.findAllOrders(request.toPageable());
         return orders.map(OrderInfo.OrderAdminSummary::from);

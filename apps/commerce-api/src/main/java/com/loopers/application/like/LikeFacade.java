@@ -21,7 +21,6 @@ import java.util.stream.Collectors;
 @Component
 @Validated
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class LikeFacade {
 
     private final LikeService likeService;
@@ -52,6 +51,7 @@ public class LikeFacade {
 
     // Query
 
+    @Transactional(readOnly = true)
     public Page<LikeProductInfo> getLikedProducts(Long userId, @Valid LikeRequest.ListLiked request) {
         Page<Like> likes = likeService.findLikedActiveProducts(userId, request.toPageable());
 

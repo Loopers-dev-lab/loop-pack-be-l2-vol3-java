@@ -10,7 +10,6 @@ import org.springframework.validation.annotation.Validated;
 @Component
 @Validated
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class UserFacade {
 
     private final UserService userService;
@@ -34,6 +33,7 @@ public class UserFacade {
 
     // Query
 
+    @Transactional(readOnly = true)
     public UserInfo getMyInfo(Long id) {
         User user = userService.getById(id);
         return UserInfo.from(user);

@@ -12,7 +12,6 @@ import org.springframework.validation.annotation.Validated;
 @Component
 @Validated
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class BrandFacade {
 
     private final BrandService brandService;
@@ -42,21 +41,25 @@ public class BrandFacade {
 
     // Query
 
+    @Transactional(readOnly = true)
     public Page<BrandInfo> getList(@Valid BrandRequest.ListAll request) {
         Page<Brand> brands = brandService.findBrands(request.name(), request.toDeleted(), request.toPageable());
         return brands.map(BrandInfo::from);
     }
 
+    @Transactional(readOnly = true)
     public BrandInfo getDetail(Long brandId) {
         Brand brand = brandService.getBrand(brandId);
         return BrandInfo.from(brand);
     }
 
+    @Transactional(readOnly = true)
     public Page<BrandInfo> getActiveList(@Valid BrandRequest.ListActive request) {
         Page<Brand> brands = brandService.findActiveBrands(request.name(), request.toPageable());
         return brands.map(BrandInfo::from);
     }
 
+    @Transactional(readOnly = true)
     public BrandInfo getActiveDetail(Long brandId) {
         Brand brand = brandService.getActiveBrand(brandId);
         return BrandInfo.from(brand);

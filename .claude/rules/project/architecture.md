@@ -43,7 +43,7 @@ interfaces → application → domain ← infrastructure
 
 ### Facade (application)
 - 여러 도메인의 ApplicationService 호출 오케스트레이션
-- 트랜잭션 경계 (`@Transactional`)
+- 트랜잭션 경계 (메서드 레벨 선언)
 - 클래스 레벨 `@Validated`로 Request 검증 경계 역할 (상세: `conventions/validation.md`)
 - Domain Entity → Info DTO 변환
 - 다른 도메인의 **ApplicationService만** 호출 (Repository 직접 호출 금지)
@@ -101,7 +101,7 @@ interfaces → application → domain ← infrastructure
 
 ### 트랜잭션 전략
 - **ApplicationService**: 클래스 레벨 `@Transactional(readOnly = true)` 기본 적용
-    - 명령 메서드는 메서드 레벨 `@Transactional`로 오버라이드
-- **Facade**: 클래스 레벨 `@Transactional(readOnly = true)` 기본 적용
-    - 명령 메서드는 메서드 레벨 `@Transactional`로 오버라이드
+    - 재사용 단위로 조회 메서드가 압도적 — 명령 메서드만 `@Transactional`로 오버라이드
+- **Facade**: 클래스 레벨 `@Transactional` 선언 금지 — 모든 메서드에 개별 선언
+    - 유스케이스 단위로 읽기/쓰기 비율 예측 불가 — `@Transactional` 또는 `@Transactional(readOnly = true)` 명시
     - Facade가 있으면 ApplicationService의 트랜잭션은 기존 트랜잭션에 참여 (REQUIRED)

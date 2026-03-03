@@ -19,7 +19,6 @@ import java.util.stream.Collectors;
 @Component
 @Validated
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class ProductFacade {
 
     private final ProductService productService;
@@ -54,18 +53,21 @@ public class ProductFacade {
 
     // Query
 
+    @Transactional(readOnly = true)
     public ProductInfo getDetail(Long productId) {
         Product product = productService.getProduct(productId);
         Brand brand = brandService.getBrand(product.getBrandId());
         return ProductInfo.from(product, brand.getName());
     }
 
+    @Transactional(readOnly = true)
     public ProductInfo getActiveDetail(Long productId) {
         Product product = productService.getActiveProduct(productId);
         Brand brand = brandService.getBrand(product.getBrandId());
         return ProductInfo.from(product, brand.getName());
     }
 
+    @Transactional(readOnly = true)
     public Page<ProductInfo> getActiveList(@Valid ProductRequest.ListActive request) {
         Page<Product> products = productService.findActiveProducts(request.brandId(), request.toPageable());
 
@@ -85,6 +87,7 @@ public class ProductFacade {
         return products.map(product -> ProductInfo.from(product, brandMap.get(product.getBrandId()).getName()));
     }
 
+    @Transactional(readOnly = true)
     public Page<ProductInfo> getList(@Valid ProductRequest.ListAll request) {
         Page<Product> products = productService.findProducts(
                 request.name(), request.brandId(), request.toDeleted(), request.toPageable());
