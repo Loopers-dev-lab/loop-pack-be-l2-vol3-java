@@ -3,8 +3,8 @@
 ## 패키지 구조 (DDD)
 ```
 com.loopers/
-├── interfaces/          # REST 컨트롤러, Response DTO (V1Dto)
-├── application/         # Facade, ApplicationService(xxxService), Request, Command, Info
+├── interfaces/          # REST 컨트롤러, Request DTO, Response DTO (V1Dto)
+├── application/         # Facade, ApplicationService(xxxService), Command, Info
 ├── domain/              # Entity, Domain Service, Repository 인터페이스, VO
 ├── infrastructure/      # Repository 구현체, 외부 어댑터
 └── support/             # 횡단 관심사 (에러, 유틸, 글로벌 핸들러)
@@ -36,15 +36,15 @@ interfaces → application → domain ← infrastructure
 ## 계층별 역할
 
 ### Controller (interfaces)
-- HTTP 요청/응답 변환만 담당
-- `Request`를 `@RequestBody`로 직접 받아 Facade에 전달 (상세: `conventions/dto.md`)
+- HTTP 요청/응답 변환 + 입력 검증 + Facade 호출
 - API별 enum은 Response DTO 내부에 inner enum으로 정의
-- 검증 및 예외 처리 규칙은 `conventions/validation.md` 참고
+- 입출력 데이터 흐름은 `conventions/dto.md` 참고
+- 검증 규칙은 `conventions/validation.md` 참고
 
 ### Facade (application)
 - 여러 도메인의 ApplicationService 호출 오케스트레이션
 - 트랜잭션 경계 (메서드 레벨 선언)
-- 클래스 레벨 `@Validated`로 Request 검증 경계 역할 (상세: `conventions/validation.md`)
+- 명령 입력: `Command` (Controller에서 변환), 조회 입력: 개별 파라미터
 - **접근 제어 판단** — 유스케이스별 권한 검증 (상세: `conventions/validation.md`)
 - Domain Entity → Info DTO 변환
 - 다른 도메인의 **ApplicationService만** 호출 (Repository 직접 호출 금지)

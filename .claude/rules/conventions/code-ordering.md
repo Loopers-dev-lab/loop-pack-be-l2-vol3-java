@@ -18,7 +18,7 @@
 | Repository (interface) | `// Command` → `// Query` | save → find, exists |
 | RepositoryImpl | `// Command` → `// Query` | Repository 인터페이스와 동일 순서 |
 | JpaRepository | `// Query` 만 | 상속 메서드 생략, 직접 정의한 메서드만 기재 |
-| Request | `// Command` → `// Query` | Place, Cancel → ListByUser |
+| Request (interfaces) | `// Command` → `// Query` | Place, Cancel → ListByUser |
 | Command | 구분 주석 없음 | 기능별 나열 |
 | V1Dto | `// Response` 만 | Response 전용 |
 

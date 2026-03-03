@@ -4,8 +4,8 @@
 
 | DTO | 소속 | 역할 | 형태 |
 |-----|------|------|------|
-| `Request` | application | Facade 입력 (명령 + 조회) | `Place`, `Cancel`, `ListByUser` 등 |
-| `Command` | application | Service 입력 (비즈니스 보강) | `Create`, `Update` 등 |
+| `Request` | interfaces | Controller 입력 (명령 + 조회) | `Place`, `Cancel`, `ListByUser` 등 |
+| `Command` | application | Facade/Service 입력 (비즈니스 보강) | `Create`, `Update` 등 |
 | `Info` | application | Facade 출력 → Controller | 도메인 데이터의 읽기 전용 표현 |
 | `V1Dto` | interfaces | HTTP 응답 전용 | `XxxResponse` |
 
@@ -14,15 +14,16 @@
 
 ## 데이터 흐름
 ```
-Controller             Facade                Service
-Request.Place    →  @Valid Request.Place  →
-                    Command.Create       →  Command.Create  →  Entity
-                    Info                 ←  Entity          ←
-V1Dto.Response   ←  Info
+Controller                         Facade                Service
+@Valid Request.Place  →
+request.toCommand()   →  Command.Place       →
+                         Command.Create      →  Command.Create  →  Entity
+                         Info                ←  Entity          ←
+V1Dto.Response        ←  Info
 ```
 
-1. **Controller → Facade**: `Request`를 `@RequestBody`로 직접 받아 Facade에 전달
-2. **Facade → Service**: `Request`를 DB 조회 등으로 보강하여 `Command`로 재조립하여 전달
+1. **Controller**: `Request`를 `@Valid`로 검증 후, 명령은 `request.toCommand()`로 Command 변환하여 Facade에 전달, 조회는 개별 파라미터를 추출하여 Facade에 전달
+2. **Facade → Service**: Command를 DB 조회 등으로 보강하여 Service에 전달
 3. **Service → Facade**: Entity 반환
 4. **Facade → Controller**: Entity를 `Info`로 변환하여 반환
 5. **Controller → 클라이언트**: `Info`를 `V1Dto.Response`로 변환
@@ -30,7 +31,7 @@ V1Dto.Response   ←  Info
 ## Request 구조
 
 Request는 도메인별로 하나의 클래스에 중첩 record로 정의한다.
-Controller에서 `@RequestBody`로 직접 받으며, Facade에서 `@Validated`로 검증한다.
+Controller에서 `@Valid`로 검증하고, Command Request에는 `toCommand()` 메서드를 정의한다.
 ```java
 public record OrderRequest() {
 
@@ -38,12 +39,23 @@ public record OrderRequest() {
     public record Place(
             @NotNull @Size(min = 1, max = 100)
             List<@Valid PlaceItem> orderItems
-    ) {}
+    ) {
+        public OrderCommand.Place toCommand() {
+            List<OrderCommand.PlaceItem> items = orderItems.stream()
+                    .map(item -> OrderCommand.PlaceItem.of(item.productId(), item.quantity()))
+                    .toList();
+            return OrderCommand.Place.of(items);
+        }
+    }
     public record PlaceItem(
             @NotNull Long productId,
             @NotNull @Min(1) @Max(9999999) Integer quantity
     ) {}
-    public record Cancel(String cancelReason) {}
+    public record Cancel(String cancelReason) {
+        public OrderCommand.Cancel toCommand(Long userId, Long orderId) {
+            return OrderCommand.Cancel.of(userId, orderId, cancelReason);
+        }
+    }
 
     // Query
     public record ListByUser(LocalDate startDate, LocalDate endDate, Integer page, Integer size) {}
@@ -58,7 +70,7 @@ public record OrderRequest() {
 ## Command 구조
 
 Command는 도메인별로 하나의 클래스에 중첩 record로 정의한다.
-Facade가 Request를 DB 조회 결과 등으로 보강하여 생성한다.
+Controller에서 `Request.toCommand()`로 생성하거나, Facade가 DB 조회 결과 등으로 보강하여 생성한다.
 `of(...)` 정적 팩토리 메서드로 생성한다.
 ```java
 public record OrderCommand() {
@@ -105,7 +117,7 @@ public record OrderInfo(
 
 ## V1Dto 구조
 
-V1Dto는 Response 전용이다. Request는 application 계층의 `Request`를 사용한다.
+V1Dto는 Response 전용이다. Request는 같은 interfaces 계층의 `Request`를 사용한다.
 ```java
 public class OrderV1Dto {
 

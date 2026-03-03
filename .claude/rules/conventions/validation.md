@@ -4,14 +4,13 @@
 
 | 위치 | 역할 | 예시 |
 |---|---|---|
-| `@Valid` (Request) | Fail-Fast 형식 검증 | `@NotNull`, `@NotBlank`, `@Size`, `@Positive`, `@PositiveOrZero` |
-| Facade (`@Validated`) | Request 검증 경계 | 클래스 레벨 `@Validated`로 `@Valid` 트리거 |
+| Controller (`@Valid`) | Fail-Fast 형식 검증 | `@NotNull`, `@NotBlank`, `@Size`, `@Positive`, `@PositiveOrZero` |
 | Entity | 자기 데이터의 모든 비즈니스 검증 | 길이, 범위, 상태 전이 규칙, 불변 조건 |
 | ApplicationService | DB 조회가 필요한 검증 | 유일성, 존재 여부, 권한 |
 
+- Controller가 `@Valid`로 Request를 검증하고, `toCommand()`로 Command 변환 후 Facade에 전달
 - `@Valid`는 Entity 검증 중 일부를 앞단에서 선처리하는 것 (중복 검증 허용)
 - Entity가 검증의 최종 방어선 — Request 검증이 빠져도 Entity에서 반드시 잡아야 함
-- Facade에 `@Validated`를 선언하여, `@Valid` 파라미터를 Facade 진입 시점에 검증한다
 
 ## Entity의 두 가지 표현: 불변식 강제 vs 사실 제공
 

@@ -114,8 +114,8 @@ REPORT → AC 매핑 표 + 파일 목록 보고
 ```
 1. domain    → Entity, Repository 인터페이스
 2. infra     → RepositoryImpl, JpaRepository
-3. application → Service, Facade, Info DTO
-4. interfaces → Controller, ApiSpec, Request/Response DTO
+3. application → Service, Facade, Command, Info DTO
+4. interfaces → Controller, ApiSpec, Request DTO, Response DTO (V1Dto)
 ```
 
 ### 점진적 실행
