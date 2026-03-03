@@ -68,6 +68,10 @@ public class Order {
         this.createdAt = ZonedDateTime.now();
     }
 
+    public boolean isOwnedBy(Long userId) {
+        return this.userId.equals(userId);
+    }
+
     private void validateMaxSize() {
         if (orderItems.size() >= ORDER_ITEMS_MAX_SIZE) {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 상품은 100개 이하여야 합니다");

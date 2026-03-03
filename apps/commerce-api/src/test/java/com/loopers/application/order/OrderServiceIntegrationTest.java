@@ -83,12 +83,12 @@ class OrderServiceIntegrationTest {
     class 주문_상세_조회 {
 
         @Test
-        void 본인의_주문을_조회하면_주문_정보를_반환한다() {
+        void 주문_ID로_조회하면_주문_정보를_반환한다() {
             Order created = orderService.createOrder(OrderCommand.Create.of(1L, List.of(
                     OrderCommand.CreateItem.of(1L, "운동화", new BigDecimal("50000"), 2)
             )));
 
-            Order order = orderService.findOrderById(created.getId(), 1L);
+            Order order = orderService.getOrder(created.getId());
 
             assertThat(order.getId()).isEqualTo(created.getId());
             assertThat(order.getUserId()).isEqualTo(1L);
@@ -98,19 +98,7 @@ class OrderServiceIntegrationTest {
 
         @Test
         void 존재하지_않는_주문이면_예외() {
-            assertThatThrownBy(() -> orderService.findOrderById(999L, 1L))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
-                            .isEqualTo(ErrorType.NOT_FOUND));
-        }
-
-        @Test
-        void 본인의_주문이_아니면_예외() {
-            Order created = orderService.createOrder(OrderCommand.Create.of(1L, List.of(
-                    OrderCommand.CreateItem.of(1L, "운동화", new BigDecimal("50000"), 1)
-            )));
-
-            assertThatThrownBy(() -> orderService.findOrderById(created.getId(), 2L))
+            assertThatThrownBy(() -> orderService.getOrder(999L))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                             .isEqualTo(ErrorType.NOT_FOUND));
@@ -163,7 +151,7 @@ class OrderServiceIntegrationTest {
                     OrderCommand.CreateItem.of(1L, "운동화", new BigDecimal("50000"), 2)
             )));
 
-            Order order = orderService.findOrderById(created.getId());
+            Order order = orderService.getOrder(created.getId());
 
             assertThat(order.getId()).isEqualTo(created.getId());
             assertThat(order.getOrderItems()).hasSize(1);
@@ -172,7 +160,7 @@ class OrderServiceIntegrationTest {
 
         @Test
         void 존재하지_않는_주문이면_예외() {
-            assertThatThrownBy(() -> orderService.findOrderById(999L))
+            assertThatThrownBy(() -> orderService.getOrder(999L))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                             .isEqualTo(ErrorType.NOT_FOUND));

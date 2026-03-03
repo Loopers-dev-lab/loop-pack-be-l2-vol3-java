@@ -39,24 +39,13 @@ public class OrderService {
 
     // Query
 
-    public Order findOrderById(Long orderId, Long userId) {
-        Order order = orderRepository.findByIdWithItems(orderId)
+    public Order getOrder(Long orderId) {
+        return orderRepository.findByIdWithItems(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다"));
-
-        if (!order.getUserId().equals(userId)) {
-            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다");
-        }
-
-        return order;
     }
 
     public Page<Order> findOrdersByUserIdAndDateRange(Long userId, ZonedDateTime startDate, ZonedDateTime endDate, Pageable pageable) {
         return orderRepository.findAllByUserIdAndCreatedAtBetween(userId, startDate, endDate, pageable);
-    }
-
-    public Order findOrderById(Long orderId) {
-        return orderRepository.findByIdWithItems(orderId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다"));
     }
 
     public Page<Order> findAllOrders(Pageable pageable) {

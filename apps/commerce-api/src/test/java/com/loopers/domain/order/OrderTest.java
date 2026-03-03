@@ -62,6 +62,24 @@ class OrderTest {
     }
 
     @Nested
+    class 소유권_확인 {
+
+        @Test
+        void 본인의_주문이면_true를_반환한다() {
+            Order order = Order.create(1L);
+
+            assertThat(order.isOwnedBy(1L)).isTrue();
+        }
+
+        @Test
+        void 본인의_주문이_아니면_false를_반환한다() {
+            Order order = Order.create(1L);
+
+            assertThat(order.isOwnedBy(2L)).isFalse();
+        }
+    }
+
+    @Nested
     class 총_주문금액_계산 {
 
         @Test

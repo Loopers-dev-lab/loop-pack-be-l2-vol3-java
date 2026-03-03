@@ -70,7 +70,10 @@ public class OrderFacade {
 
     @Transactional(readOnly = true)
     public OrderInfo getOrderDetail(Long userId, Long orderId) {
-        Order order = orderService.findOrderById(orderId, userId);
+        Order order = orderService.getOrder(orderId);
+        if (!order.isOwnedBy(userId)) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다");
+        }
         return OrderInfo.from(order);
     }
 
@@ -85,7 +88,7 @@ public class OrderFacade {
 
     @Transactional(readOnly = true)
     public OrderInfo getAdminOrderDetail(Long orderId) {
-        Order order = orderService.findOrderById(orderId);
+        Order order = orderService.getOrder(orderId);
         return OrderInfo.from(order);
     }
 
