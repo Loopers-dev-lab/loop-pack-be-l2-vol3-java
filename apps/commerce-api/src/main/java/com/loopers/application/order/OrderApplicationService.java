@@ -28,12 +28,11 @@ public class OrderApplicationService {
         if (items == null || items.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다.");
         }
+
         long distinctCount = items.stream().map(OrderItemCommand::productId).distinct().count();
         if (distinctCount != items.size()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "중복된 상품이 포함되어 있습니다.");
         }
-
-
     }
 
     @Transactional
