@@ -25,6 +25,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import java.util.UUID;
 
 @ExtendWith(MockitoExtension.class)
 class BrandApplicationServiceTest {
@@ -126,27 +127,29 @@ class BrandApplicationServiceTest {
         @Test
         @DisplayName("브랜드 삭제 성공")
         void deleteSuccess() {
-            Brand target = new Brand(1L, new BrandName("퍼피박스"), "설명", "https://example.com/brand.png");
+            UUID brandId = UUID.randomUUID();
+            Brand target = new Brand(brandId, new BrandName("퍼피박스"), "설명", "https://example.com/brand.png");
 
-            when(brandRepository.findById(1L)).thenReturn(Optional.of(target));
+            when(brandRepository.findById(brandId)).thenReturn(Optional.of(target));
             doNothing().when(brandRepository).delete(target);
 
-            brandApplicationService.delete(1L);
+            brandApplicationService.delete(brandId);
 
-            verify(brandRepository).findById(1L);
+            verify(brandRepository).findById(brandId);
             verify(brandRepository).delete(target);
         }
 
         @Test
         @DisplayName("삭제 대상이 없으면 404 반환")
         void deleteWhenNotFound() {
-            when(brandRepository.findById(99L)).thenReturn(Optional.empty());
+            UUID brandId = UUID.randomUUID();
+            when(brandRepository.findById(brandId)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> brandApplicationService.delete(99L))
+            assertThatThrownBy(() -> brandApplicationService.delete(brandId))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
 
-            verify(brandRepository).findById(99L);
+            verify(brandRepository).findById(brandId);
             verify(brandRepository, never()).delete(any(Brand.class));
         }
     }

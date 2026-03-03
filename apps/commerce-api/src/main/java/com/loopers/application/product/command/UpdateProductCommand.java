@@ -1,11 +1,12 @@
 package com.loopers.application.product.command;
+import java.util.UUID;
 
 public record UpdateProductCommand(
         String name,
         Integer price,
         Integer stock,
         String description,
-        Long categoryId,
-        Long brandId
+        UUID categoryId,
+        UUID brandId
 ) {
 }

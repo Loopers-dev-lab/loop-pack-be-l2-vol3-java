@@ -5,11 +5,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
+import java.util.UUID;
 
-public interface CategoryJpaRepository extends JpaRepository<CategoryEntity, Long> {
-    Optional<CategoryEntity> findByIdAndDeletedAtIsNull(Long id);
+public interface CategoryJpaRepository extends JpaRepository<CategoryEntity, UUID> {
+    Optional<CategoryEntity> findByIdAndDeletedAtIsNull(UUID id);
 
     Page<CategoryEntity> findAllByDeletedAtIsNull(Pageable pageable);
 
-    boolean existsByIdAndDeletedAtIsNull(Long id);
+    boolean existsByIdAndDeletedAtIsNull(UUID id);
 }

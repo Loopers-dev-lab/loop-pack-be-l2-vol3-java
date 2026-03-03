@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -15,14 +16,14 @@ public class LikeFacade {
     private final LikeApplicationService likeApplicationService;
     private final ProductLikeAplicationService productLikeAplicationService;
 
-    public void register(Long productId, Member member) {
+    public void register(UUID productId, Member member) {
         String memberId = member.id().value();
         productLikeAplicationService.validateLikeable(productId);
         likeApplicationService.register(memberId, productId);
         productLikeAplicationService.increaseLikeCount(productId);
     }
 
-    public void cancel(Long productId, Member member) {
+    public void cancel(UUID productId, Member member) {
         String memberId = member.id().value();
         likeApplicationService.assertLiked(memberId, productId);
         productLikeAplicationService.validateCancelable(productId);
@@ -31,7 +32,7 @@ public class LikeFacade {
     }
 
     public Page<Product> getMyLikes(String memberId, Pageable pageable) {
-        Page<Long> likedProductIds = likeApplicationService.getMyLikeProductIds(memberId, pageable);
+        Page<UUID> likedProductIds = likeApplicationService.getMyLikeProductIds(memberId, pageable);
         return productLikeAplicationService.getMyLikedProducts(likedProductIds, pageable);
     }
 }

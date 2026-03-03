@@ -9,6 +9,7 @@ import lombok.Builder;
 import org.springframework.data.domain.Page;
 
 import java.util.List;
+import java.util.UUID;
 
 public class BrandDto {
 
@@ -27,11 +28,7 @@ public class BrandDto {
         }
 
         public CreateBrandCommand toCommand() {
-            return CreateBrandCommand.builder()
-                    .name(name)
-                    .description(description)
-                    .imageUrl(imageUrl)
-                    .build();
+            return new CreateBrandCommand(name, description, imageUrl);
         }
     }
 
@@ -47,27 +44,19 @@ public class BrandDto {
         }
 
         public UpdateBrandCommand toCommand() {
-            return UpdateBrandCommand.builder()
-                    .description(description)
-                    .imageUrl(imageUrl)
-                    .build();
+            return new UpdateBrandCommand(description, imageUrl);
         }
     }
 
     @Builder
     public record BrandResponse(
-            Long id,
+            UUID id,
             String name,
             String description,
             String imageUrl
     ) {
         public static BrandResponse from(Brand brand) {
-            return BrandResponse.builder()
-                    .id(brand.id())
-                    .name(brand.name().value())
-                    .description(brand.description())
-                    .imageUrl(brand.imageUrl())
-                    .build();
+            return new BrandResponse(brand.id(), brand.name().value(), brand.description(), brand.imageUrl());
         }
     }
 

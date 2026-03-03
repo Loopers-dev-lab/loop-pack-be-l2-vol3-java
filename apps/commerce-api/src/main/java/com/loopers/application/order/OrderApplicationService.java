@@ -27,7 +27,7 @@ public class OrderApplicationService {
     private final OrderRepository orderRepository;
 
     @Transactional
-    public Order create(Long userId, List<OrderItem> items) {
+    public Order create(UUID userId, List<OrderItem> items) {
         if (items == null || items.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목은 1개 이상이어야 합니다.");
         }

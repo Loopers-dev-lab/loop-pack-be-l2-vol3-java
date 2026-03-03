@@ -29,6 +29,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import java.util.UUID;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -58,8 +59,8 @@ class LikeControllerTest {
     @Autowired
     private ProductJpaRepository productJpaRepository;
 
-    private Long brandId;
-    private Long categoryId;
+    private UUID brandId;
+    private UUID categoryId;
 
     @BeforeEach
     void setUp() {
@@ -80,7 +81,7 @@ class LikeControllerTest {
         @DisplayName("인증된 사용자가 활성 상품을 좋아요하면 201을 반환한다")
         void registerLike_whenActiveProductAndAuthenticatedMember_returnsCreated() throws Exception {
             registerMember("likeMember", "Password1!", "홍길동", "19900101", "like@example.com", "010-1234-5678");
-            Long productId = createProduct("좋아요 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
+            UUID productId = createProduct("좋아요 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
 
             mockMvc.perform(post("/api/v1/products/{productId}/likes", productId)
                             .header(HEADER_LOGIN_ID, "likeMember")
@@ -93,7 +94,7 @@ class LikeControllerTest {
         @DisplayName("이미 좋아요한 상품을 다시 요청하면 409을 반환한다")
         void registerLike_whenAlreadyLikedProduct_returnsConflict() throws Exception {
             registerMember("likeConflictMember", "Password1!", "홍길동", "19900101", "like2@example.com", "010-2345-6789");
-            Long productId = createProduct("좋아요 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
+            UUID productId = createProduct("좋아요 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
 
             mockMvc.perform(post("/api/v1/products/{productId}/likes", productId)
                             .header(HEADER_LOGIN_ID, "likeConflictMember")
@@ -112,7 +113,7 @@ class LikeControllerTest {
         void registerLike_whenProductNotFound_returnsNotFound() throws Exception {
             registerMember("likeMissingMem", "Password1!", "홍길동", "19900101", "missing@example.com", "010-3456-7890");
 
-            mockMvc.perform(post("/api/v1/products/{productId}/likes", 0L)
+            mockMvc.perform(post("/api/v1/products/{productId}/likes", UUID.randomUUID())
                             .header(HEADER_LOGIN_ID, "likeMissingMem")
                             .header(HEADER_LOGIN_PW, "Password1!"))
                     .andExpect(status().isNotFound());
@@ -122,7 +123,7 @@ class LikeControllerTest {
         @DisplayName("삭제된 상품은 400 Bad Request를 반환한다")
         void registerLike_whenDeletedProduct_returnsBadRequest() throws Exception {
             registerMember("likeDeletedMem", "Password1!", "홍길동", "19900101", "deleted@example.com", "010-4567-8901");
-            Long productId = createProduct("삭제될 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
+            UUID productId = createProduct("삭제될 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
             deleteProduct(productId);
 
             mockMvc.perform(post("/api/v1/products/{productId}/likes", productId)
@@ -134,7 +135,7 @@ class LikeControllerTest {
         @Test
         @DisplayName("인증이 없으면 401을 반환한다")
         void registerLike_whenNoAuthentication_returnsUnauthorized() throws Exception {
-            Long productId = createProduct("좋아요 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
+            UUID productId = createProduct("좋아요 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
 
             mockMvc.perform(post("/api/v1/products/{productId}/likes", productId))
                     .andExpect(status().isUnauthorized());
@@ -149,7 +150,7 @@ class LikeControllerTest {
         @DisplayName("좋아요 상태면 취소하고 200을 반환한다")
         void cancelLike_whenLikedProduct_returnsOk() throws Exception {
             registerMember("cancelLikeMember", "Password1!", "홍길동", "19900101", "cancel@example.com", "010-5678-9012");
-            Long productId = createProduct("좋아요 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
+            UUID productId = createProduct("좋아요 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
 
             mockMvc.perform(post("/api/v1/products/{productId}/likes", productId)
                             .header(HEADER_LOGIN_ID, "cancelLikeMember")
@@ -166,7 +167,7 @@ class LikeControllerTest {
         @DisplayName("좋아요가 없으면 404을 반환한다")
         void cancelLike_whenNotLikedProduct_returnsNotFound() throws Exception {
             registerMember("cancelMissingMem", "Password1!", "홍길동", "19900101", "cancel-missing@example.com", "010-6789-0123");
-            Long productId = createProduct("좋아요 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
+            UUID productId = createProduct("좋아요 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
 
             mockMvc.perform(delete("/api/v1/products/{productId}/likes", productId)
                             .header(HEADER_LOGIN_ID, "cancelMissingMem")
@@ -177,7 +178,7 @@ class LikeControllerTest {
         @Test
         @DisplayName("인증이 없으면 401을 반환한다")
         void cancelLike_whenNoAuthentication_returnsUnauthorized() throws Exception {
-            Long productId = createProduct("좋아요 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
+            UUID productId = createProduct("좋아요 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
 
             mockMvc.perform(delete("/api/v1/products/{productId}/likes", productId))
                     .andExpect(status().isUnauthorized());
@@ -192,7 +193,7 @@ class LikeControllerTest {
         @DisplayName("인증된 사용자가 기본 페이지/사이즈로 조회하면 200을 반환한다")
         void getMyLikes_whenAuthenticatedMemberAndDefaultPagination_returnsOk() throws Exception {
             registerMember("myLikesMember", "Password1!", "홍길동", "19900101", "mylikes@example.com", "010-7890-1234");
-            Long productId = createProduct("좋아요 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
+            UUID productId = createProduct("좋아요 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
 
             mockMvc.perform(post("/api/v1/products/{productId}/likes", productId)
                             .header(HEADER_LOGIN_ID, "myLikesMember")
@@ -209,14 +210,14 @@ class LikeControllerTest {
                     .andExpect(jsonPath("$.data.page").value(0))
                     .andExpect(jsonPath("$.data.size").value(20))
                     .andExpect(jsonPath("$.data.totalElements").value(1))
-                    .andExpect(jsonPath("$.data.items[0].id").value(productId));
+                    .andExpect(jsonPath("$.data.items[0].id").value(productId.toString()));
         }
 
         @Test
         @DisplayName("좋아요한 상품이 삭제되면 목록에서 제외된다")
         void getMyLikes_whenLikedProductDeleted_excludesDeletedProduct() throws Exception {
             registerMember("mylikesDeletedMem", "Password1!", "홍길동", "19900101", "mylikes-deleted@example.com", "010-7890-5555");
-            Long productId = createProduct("삭제될 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
+            UUID productId = createProduct("삭제될 상품", 10_000, 50, "테스트 상품", categoryId, brandId);
 
             mockMvc.perform(post("/api/v1/products/{productId}/likes", productId)
                             .header(HEADER_LOGIN_ID, "mylikesDeletedMem")
@@ -260,14 +261,14 @@ class LikeControllerTest {
             .andExpect(status().isCreated());
     }
 
-    private void deleteProduct(long productId) {
+    private void deleteProduct(UUID productId) {
         ProductEntity product = productJpaRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("product not found: " + productId));
         product.delete();
         productJpaRepository.save(product);
     }
 
-    private Long createProduct(String name, int price, int stock, String description, Long categoryId, Long brandId) throws Exception {
+    private UUID createProduct(String name, int price, int stock, String description, UUID categoryId, UUID brandId) throws Exception {
         ProductDto.CreateProductRequest request = new ProductDto.CreateProductRequest(
                 name,
                 price,
@@ -285,14 +286,14 @@ class LikeControllerTest {
                 .getResponse()
                 .getContentAsString();
 
-        return objectMapper.readTree(body).path("data").path("id").asLong();
+        return UUID.fromString(objectMapper.readTree(body).path("data").path("id").asText());
     }
 
-    private Long createCategory(String name) {
+    private UUID createCategory(String name) {
         return categoryRepository.save(new Category(name)).id();
     }
 
-    private Long createBrand(String name) {
+    private UUID createBrand(String name) {
         return brandRepository.save(new Brand(new BrandName(name), "", "")).id();
     }
 }

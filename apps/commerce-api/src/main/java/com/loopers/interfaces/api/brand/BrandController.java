@@ -6,6 +6,7 @@ import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -15,7 +16,7 @@ public class BrandController {
     private final BrandApplicationService brandApplicationService;
 
     @GetMapping("/{brandId}")
-    public ApiResponse<BrandDto.BrandResponse> getBrand(@PathVariable Long brandId) {
+    public ApiResponse<BrandDto.BrandResponse> getBrand(@PathVariable UUID brandId) {
         Brand brand = brandApplicationService.findById(brandId);
         return ApiResponse.success(BrandDto.BrandResponse.from(brand));
     }

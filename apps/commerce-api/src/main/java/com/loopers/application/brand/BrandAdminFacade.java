@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -15,8 +16,8 @@ public class BrandAdminFacade {
     private final ProductApplicationService productApplicationService;
     private final LikeApplicationService likeApplicationService;
 
-    public void delete(Long brandId) {
-        List<Long> productIds = productApplicationService.findActiveProductIdsByBrandId(brandId);
+    public void delete(UUID brandId) {
+        List<UUID> productIds = productApplicationService.findActiveProductIdsByBrandId(brandId);
         likeApplicationService.deleteByProductIds(productIds);
         productApplicationService.deleteSoftByBrandId(brandId);
         brandApplicationService.delete(brandId);

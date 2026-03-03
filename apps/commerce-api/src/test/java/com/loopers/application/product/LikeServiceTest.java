@@ -8,18 +8,19 @@ import org.junit.jupiter.api.Test;
 import java.time.ZonedDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import java.util.UUID;
 
 @DisplayName("Like Domain Tests")
 class LikeServiceTest {
 
     private static final Product ACTIVE_PRODUCT = new Product(
-            1L,
+            UUID.randomUUID(),
             "간식",
             12_000,
             10,
             "닭가슴살 간식",
-            1L,
-            1L,
+            UUID.randomUUID(),
+            UUID.randomUUID(),
             3,
             null
     );
@@ -56,13 +57,13 @@ class LikeServiceTest {
         @DisplayName("이미 0인 likeCount는 취소 시 음수로 내려가지 않는다")
         void decreaseLikeCount_whenLikeCountZero_thenKeepsZero() {
             Product zeroLiked = new Product(
-                    2L,
+                    UUID.randomUUID(),
                     "우산",
                     20_000,
                     5,
                     "산책 우산",
-                    1L,
-                    1L,
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
                     0,
                     null
             );
@@ -75,13 +76,13 @@ class LikeServiceTest {
         @DisplayName("삭제 상품이면 삭제 상태를 판단할 수 있다")
         void isDeleted_whenDeletedAtExists_thenReturnsTrue() {
             Product deletedProduct = new Product(
-                    3L,
+                    UUID.randomUUID(),
                     "하네스",
                     15_000,
                     3,
                     "산책 하네스",
-                    1L,
-                    1L,
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
                     5,
                     ZonedDateTime.now()
             );

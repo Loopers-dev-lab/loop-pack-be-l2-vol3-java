@@ -15,6 +15,7 @@ import lombok.Getter;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "orders")
@@ -22,7 +23,7 @@ public class OrderEntity extends BaseEntity {
 
     @Column(name = "user_id", nullable = false)
     @Getter
-    private Long userId;
+    private UUID userId;
 
     @Column(name = "order_number", nullable = false, unique = true)
     @Getter
@@ -46,7 +47,7 @@ public class OrderEntity extends BaseEntity {
 
     protected OrderEntity() {}
 
-    public OrderEntity(Long userId, String orderNumber, ZonedDateTime orderDate, OrderStatus status, int totalAmount) {
+    public OrderEntity(UUID userId, String orderNumber, ZonedDateTime orderDate, OrderStatus status, int totalAmount) {
         this.userId = userId;
         this.orderNumber = orderNumber;
         this.orderDate = orderDate;

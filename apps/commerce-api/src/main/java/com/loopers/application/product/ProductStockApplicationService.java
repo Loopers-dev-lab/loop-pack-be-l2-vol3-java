@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -22,7 +23,7 @@ public class ProductStockApplicationService {
 
     @Transactional
     public List<ReservedProduct> reserveForOrder(List<CreateOrderCommand.OrderItemCommand> items) {
-        List<Long> productIds = items.stream()
+        List<UUID> productIds = items.stream()
                 .map(CreateOrderCommand.OrderItemCommand::productId)
                 .toList();
 
@@ -37,7 +38,7 @@ public class ProductStockApplicationService {
             }
         }
 
-        Map<Long, Product> productMap = products.stream()
+        Map<UUID, Product> productMap = products.stream()
                 .collect(Collectors.toMap(Product::id, product -> product));
 
         return items.stream()
@@ -67,11 +68,11 @@ public class ProductStockApplicationService {
     }
 
     public record ReservedProduct(
-            Long productId,
+            UUID productId,
             int quantity,
             String productName,
             int productPrice,
-            Long brandId
+            UUID brandId
     ) {
     }
 }

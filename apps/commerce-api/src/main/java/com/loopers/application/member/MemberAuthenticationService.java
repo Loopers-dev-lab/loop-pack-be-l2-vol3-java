@@ -10,6 +10,7 @@ import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.UUID;
 
 @RequiredArgsConstructor
 @Service
@@ -30,12 +31,12 @@ public class MemberAuthenticationService {
         return member;
     }
 
-    public Long findDbIdByMemberId(MemberId memberId) {
+    public UUID findDbIdByMemberId(MemberId memberId) {
         return memberRepository.findDbIdByMemberId(memberId)
                 .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "회원을 찾을 수 없습니다."));
     }
 
-    public Long findDbIdByMember(Member member) {
+    public UUID findDbIdByMember(Member member) {
         return memberRepository.findDbIdByMemberId(member.id())
                 .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "회원을 찾을 수 없습니다."));
     }

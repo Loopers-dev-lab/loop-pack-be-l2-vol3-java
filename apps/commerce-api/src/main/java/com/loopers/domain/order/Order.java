@@ -5,10 +5,11 @@ import com.loopers.support.error.ErrorType;
 
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.UUID;
 
 public record Order(
-        Long id,
-        Long userId,
+        UUID id,
+        UUID userId,
         String orderNumber,
         ZonedDateTime orderDate,
         OrderStatus status,
@@ -26,7 +27,7 @@ public record Order(
         }
     }
 
-    public Order(Long userId, String orderNumber, List<OrderItem> items) {
+    public Order(UUID userId, String orderNumber, List<OrderItem> items) {
         this(
                 null,
                 userId,
@@ -46,7 +47,7 @@ public record Order(
         return new Order(id, userId, orderNumber, orderDate, OrderStatus.CANCELLED, totalAmount, items, deletedAt);
     }
 
-    public boolean isOwner(Long userId) {
+    public boolean isOwner(UUID userId) {
         return this.userId.equals(userId);
     }
 

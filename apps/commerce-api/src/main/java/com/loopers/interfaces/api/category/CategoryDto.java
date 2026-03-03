@@ -4,11 +4,12 @@ import com.loopers.domain.category.Category;
 import org.springframework.data.domain.Page;
 
 import java.util.List;
+import java.util.UUID;
 
 public class CategoryDto {
 
     public record CategoryResponse(
-            Long id,
+            UUID id,
             String name
     ) {
         public static CategoryResponse from(Category category) {

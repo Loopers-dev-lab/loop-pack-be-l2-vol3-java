@@ -21,8 +21,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
+import java.util.UUID;
 
 @ExtendWith(MockitoExtension.class)
 class OrderApplicationServiceTest {
@@ -32,7 +32,7 @@ class OrderApplicationServiceTest {
 
     @InjectMocks
     private OrderApplicationService orderApplicationService;
-    private static final OrderItem SAMPLE_ORDER_ITEM = new OrderItem(1L, 2, "강아지 사료", 10000, "퍼피박스");
+    private static final OrderItem SAMPLE_ORDER_ITEM = new OrderItem(UUID.randomUUID(), 2, "강아지 사료", 10000, "퍼피박스");
 
     @Nested
     @DisplayName("주문 생성")
@@ -41,13 +41,14 @@ class OrderApplicationServiceTest {
         @Test
         @DisplayName("유효한 주문 항목으로 주문 생성 성공")
         void createOrderSuccess() {
+            UUID userId = UUID.randomUUID();
             List<OrderItem> items = List.of(SAMPLE_ORDER_ITEM);
             when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            Order result = orderApplicationService.create(1L, items);
+            Order result = orderApplicationService.create(userId, items);
 
             assertThat(result.status()).isEqualTo(OrderStatus.ORDERED);
-            assertThat(result.userId()).isEqualTo(1L);
+            assertThat(result.userId()).isEqualTo(userId);
             assertThat(result.items()).hasSize(1);
         }
 
@@ -56,7 +57,7 @@ class OrderApplicationServiceTest {
         void emptyItemsFails() {
             List<OrderItem> items = List.of();
 
-            assertThatThrownBy(() -> orderApplicationService.create(1L, items))
+            assertThatThrownBy(() -> orderApplicationService.create(UUID.randomUUID(), items))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
@@ -69,18 +70,20 @@ class OrderApplicationServiceTest {
         @Test
         @DisplayName("이미 취소된 주문 재취소는 409 예외가 발생한다")
         void cancelAlreadyCancelledOrderFails() {
+            UUID orderId = UUID.randomUUID();
+            UUID ownerId = UUID.randomUUID();
             Order cancelledOrder = new Order(
-                    1L, 1L, "ORDER-001",
+                    orderId, ownerId, "ORDER-001",
                     java.time.ZonedDateTime.now(),
                     OrderStatus.CANCELLED,
                     10000,
-                    List.of(new com.loopers.domain.order.OrderItem(1L, 1L, 1L, 1, "사료", 10000, "퍼피박스")),
+                    List.of(new com.loopers.domain.order.OrderItem(UUID.randomUUID(), orderId, UUID.randomUUID(), 1, "사료", 10000, "퍼피박스")),
                     null
             );
 
-            when(orderRepository.findById(1L)).thenReturn(Optional.of(cancelledOrder));
+            when(orderRepository.findById(orderId)).thenReturn(Optional.of(cancelledOrder));
 
-            assertThatThrownBy(() -> orderApplicationService.cancel(new OrderAccessRequest(1L, 1L, false)))
+            assertThatThrownBy(() -> orderApplicationService.cancel(new OrderAccessRequest(orderId, ownerId, false)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.CONFLICT));
         }
@@ -88,18 +91,20 @@ class OrderApplicationServiceTest {
         @Test
         @DisplayName("타인의 주문 취소 시 403 예외가 발생한다")
         void cancelOthersOrderFails() {
+            UUID orderId = UUID.randomUUID();
+            UUID ownerId = UUID.randomUUID();
             Order order = new Order(
-                    1L, 2L, "ORDER-001",
+                    orderId, ownerId, "ORDER-001",
                     java.time.ZonedDateTime.now(),
                     OrderStatus.ORDERED,
                     10000,
-                    List.of(new com.loopers.domain.order.OrderItem(1L, 1L, 1L, 1, "사료", 10000, "퍼피박스")),
+                    List.of(new com.loopers.domain.order.OrderItem(UUID.randomUUID(), orderId, UUID.randomUUID(), 1, "사료", 10000, "퍼피박스")),
                     null
             );
 
-            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+            when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
-            assertThatThrownBy(() -> orderApplicationService.cancel(new OrderAccessRequest(1L, 1L, false)))
+            assertThatThrownBy(() -> orderApplicationService.cancel(new OrderAccessRequest(orderId, UUID.randomUUID(), false)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.FORBIDDEN));
         }
@@ -107,9 +112,9 @@ class OrderApplicationServiceTest {
         @Test
         @DisplayName("존재하지 않는 주문 취소 시 404 예외가 발생한다")
         void cancelNonExistentOrderFails() {
-            when(orderRepository.findById(anyLong())).thenReturn(Optional.empty());
+            when(orderRepository.findById(any())).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> orderApplicationService.cancel(new OrderAccessRequest(99L, 1L, false)))
+            assertThatThrownBy(() -> orderApplicationService.cancel(new OrderAccessRequest(UUID.randomUUID(), UUID.randomUUID(), false)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
         }
@@ -122,18 +127,20 @@ class OrderApplicationServiceTest {
         @Test
         @DisplayName("타인의 주문 조회 시 403 예외가 발생한다")
         void getOthersOrderFails() {
+            UUID orderId = UUID.randomUUID();
+            UUID ownerId = UUID.randomUUID();
             Order order = new Order(
-                    1L, 2L, "ORDER-001",
+                    orderId, ownerId, "ORDER-001",
                     java.time.ZonedDateTime.now(),
                     OrderStatus.ORDERED,
                     10000,
-                    List.of(new com.loopers.domain.order.OrderItem(1L, 1L, 1L, 1, "사료", 10000, "퍼피박스")),
+                    List.of(new com.loopers.domain.order.OrderItem(UUID.randomUUID(), orderId, UUID.randomUUID(), 1, "사료", 10000, "퍼피박스")),
                     null
             );
 
-            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+            when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
-            assertThatThrownBy(() -> orderApplicationService.getById(new OrderAccessRequest(1L, 1L, false)))
+            assertThatThrownBy(() -> orderApplicationService.getById(new OrderAccessRequest(orderId, UUID.randomUUID(), false)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.FORBIDDEN));
         }
@@ -141,9 +148,9 @@ class OrderApplicationServiceTest {
         @Test
         @DisplayName("존재하지 않는 주문 조회 시 404 예외가 발생한다")
         void getNonExistentOrderFails() {
-            when(orderRepository.findById(anyLong())).thenReturn(Optional.empty());
+            when(orderRepository.findById(any())).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> orderApplicationService.getById(new OrderAccessRequest(99L, 1L, false)))
+            assertThatThrownBy(() -> orderApplicationService.getById(new OrderAccessRequest(UUID.randomUUID(), UUID.randomUUID(), false)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
         }
