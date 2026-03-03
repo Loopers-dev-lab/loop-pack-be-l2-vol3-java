@@ -15,7 +15,6 @@ import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
-@Transactional(readOnly = true)
 public class ProductFacade {
     private final BrandApplicationService brandService;
     private final ProductApplicationService productService;

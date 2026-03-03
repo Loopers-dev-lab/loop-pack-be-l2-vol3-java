@@ -12,7 +12,6 @@ import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
-@Transactional(readOnly = true)
 public class LikeFacade {
     private final LikeApplicationService likeService;
     private final ProductApplicationService productService;
