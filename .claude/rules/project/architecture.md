@@ -45,6 +45,7 @@ interfaces → application → domain ← infrastructure
 - 여러 도메인의 ApplicationService 호출 오케스트레이션
 - 트랜잭션 경계 (메서드 레벨 선언)
 - 클래스 레벨 `@Validated`로 Request 검증 경계 역할 (상세: `conventions/validation.md`)
+- **접근 제어 판단** — 유스케이스별 권한 검증 (상세: `conventions/validation.md`)
 - Domain Entity → Info DTO 변환
 - 다른 도메인의 **ApplicationService만** 호출 (Repository 직접 호출 금지)
 - Controller는 **항상 Facade만 호출** (일관성 유지, Entity가 Controller에 노출되지 않음)
@@ -94,6 +95,7 @@ interfaces → application → domain ← infrastructure
 - 자기 데이터의 검증, 상태 전이, 계산
 - setter 대신 의미 있는 메서드명 (`changeToFailed()`, `deductStock()`)
 - 생성자에서 필수 불변 조건(invariant) 검증
+- **불변식은 예외로 방어, 불변식이 아닌 조건은 사실만 제공** — 판단은 호출자 책임 (상세: `conventions/validation.md`)
 
 ### Repository (domain → infrastructure)
 - 인터페이스는 `domain/` 패키지에 정의
