@@ -42,19 +42,6 @@ public class ProductFacade {
         ));
     }
 
-    public ProductInfo getProduct(Long id) {
-        return productService.getProduct(id);
-    }
-
-    public Page<ProductInfo> getProducts(Long brandId, Pageable pageable) {
-        return productService.getProducts(brandId, pageable);
-    }
-
-    @Transactional
-    public ProductInfo update(Long id, ProductUpdateCommand command) {
-        return productService.update(id, command);
-    }
-
     @Transactional
     public void delete(Long id) {
         likeService.deleteAllByProductIds(List.of(id));

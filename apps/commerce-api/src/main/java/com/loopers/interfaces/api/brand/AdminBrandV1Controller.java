@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.brand;
 
+import com.loopers.application.brand.BrandApplicationService;
 import com.loopers.application.brand.BrandFacade;
 import com.loopers.application.brand.BrandInfo;
 import com.loopers.interfaces.api.ApiResponse;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api-admin/v1/brands")
 public class AdminBrandV1Controller {
 
+    private final BrandApplicationService brandService;
     private final BrandFacade brandFacade;
 
     @GetMapping
@@ -34,8 +36,8 @@ public class AdminBrandV1Controller {
             @RequestHeader("X-Loopers-Ldap") String ldap,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        Page<BrandV1Dto.AdminBrandResponse> page = brandFacade.getBrands(pageable)
-                                                              .map(BrandV1Dto.AdminBrandResponse::from);
+        Page<BrandV1Dto.AdminBrandResponse> page = brandService.getBrands(pageable)
+                                                               .map(BrandV1Dto.AdminBrandResponse::from);
         return ApiResponse.success(PageResponse.from(page));
     }
 
@@ -44,7 +46,7 @@ public class AdminBrandV1Controller {
             @RequestHeader("X-Loopers-Ldap") String ldap,
             @PathVariable Long brandId
     ) {
-        BrandInfo brand = brandFacade.getBrand(brandId);
+        BrandInfo brand = brandService.getBrand(brandId);
         return ApiResponse.success(BrandV1Dto.AdminBrandResponse.from(brand));
     }
 
@@ -54,7 +56,7 @@ public class AdminBrandV1Controller {
             @RequestHeader("X-Loopers-Ldap") String ldap,
             @Valid @RequestBody BrandV1Dto.CreateRequest request
     ) {
-        BrandInfo brand = brandFacade.register(request.name(), request.description());
+        BrandInfo brand = brandService.register(request.name(), request.description());
         return ApiResponse.success(BrandV1Dto.AdminBrandResponse.from(brand));
     }
 
@@ -64,7 +66,7 @@ public class AdminBrandV1Controller {
             @PathVariable Long brandId,
             @Valid @RequestBody BrandV1Dto.UpdateRequest request
     ) {
-        BrandInfo brand = brandFacade.update(brandId, request.name(), request.description());
+        BrandInfo brand = brandService.update(brandId, request.name(), request.description());
         return ApiResponse.success(BrandV1Dto.AdminBrandResponse.from(brand));
     }
 
