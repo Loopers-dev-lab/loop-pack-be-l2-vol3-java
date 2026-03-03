@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.order;
 
-import com.loopers.application.order.OrderRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;

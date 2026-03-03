@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.brand;
 
-import com.loopers.application.brand.BrandRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.product.ProductAdminV1Dto;

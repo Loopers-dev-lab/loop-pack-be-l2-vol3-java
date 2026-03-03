@@ -2,9 +2,9 @@ package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
-import com.loopers.application.product.ProductRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -28,8 +28,8 @@ public class ProductAdminV1Controller implements ProductAdminApiV1Spec {
     @PostMapping
     @Override
     public ApiResponse<ProductAdminV1Dto.ProductResponse> register(
-            @RequestBody ProductRequest.Register request) {
-        ProductInfo info = productFacade.register(request);
+            @RequestBody @Valid ProductRequest.Register request) {
+        ProductInfo info = productFacade.register(request.toCommand());
         return ApiResponse.success(ProductAdminV1Dto.ProductResponse.from(info));
     }
 
@@ -37,8 +37,8 @@ public class ProductAdminV1Controller implements ProductAdminApiV1Spec {
     @Override
     public ApiResponse<ProductAdminV1Dto.ProductResponse> updateInfo(
             @PathVariable Long productId,
-            @RequestBody ProductRequest.UpdateInfo request) {
-        ProductInfo info = productFacade.updateInfo(productId, request);
+            @RequestBody @Valid ProductRequest.UpdateInfo request) {
+        ProductInfo info = productFacade.updateInfo(productId, request.toCommand());
         return ApiResponse.success(ProductAdminV1Dto.ProductResponse.from(info));
     }
 
@@ -61,8 +61,9 @@ public class ProductAdminV1Controller implements ProductAdminApiV1Spec {
     @GetMapping
     @Override
     public ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>> list(
-            ProductRequest.ListAll request) {
-        Page<ProductInfo> products = productFacade.getList(request);
+            @Valid ProductRequest.ListAll request) {
+        Page<ProductInfo> products = productFacade.getList(
+                request.name(), request.brandId(), request.toDeleted(), request.toPageable());
         PageResponse<ProductAdminV1Dto.ProductResponse> pageResponse =
                 PageResponse.from(products, ProductAdminV1Dto.ProductResponse::from);
         return ApiResponse.success(pageResponse);

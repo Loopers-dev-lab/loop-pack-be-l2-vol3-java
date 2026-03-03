@@ -5,13 +5,15 @@ import com.loopers.domain.order.Order;
 import com.loopers.domain.product.Product;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.validation.annotation.Validated;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,7 +21,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
-@Validated
 @RequiredArgsConstructor
 public class OrderFacade {
 
@@ -29,11 +30,11 @@ public class OrderFacade {
     // Command
 
     @Transactional
-    public OrderInfo createOrder(Long userId, @Valid OrderRequest.Place request) {
-        var items = request.orderItems();
+    public OrderInfo createOrder(Long userId, OrderCommand.Place command) {
+        var items = command.items();
 
         Set<Long> productIds = items.stream()
-                .map(OrderRequest.PlaceItem::productId)
+                .map(OrderCommand.PlaceItem::productId)
                 .collect(Collectors.toSet());
 
         if (productIds.size() != items.size()) {
@@ -42,8 +43,8 @@ public class OrderFacade {
 
         Map<Long, Integer> productQuantities = items.stream()
                 .collect(Collectors.toMap(
-                        OrderRequest.PlaceItem::productId,
-                        OrderRequest.PlaceItem::quantity
+                        OrderCommand.PlaceItem::productId,
+                        OrderCommand.PlaceItem::quantity
                 ));
         List<Product> products = productService.deductStocks(productQuantities);
 
@@ -78,11 +79,15 @@ public class OrderFacade {
     }
 
     @Transactional(readOnly = true)
-    public Page<OrderInfo.OrderSummary> getOrderList(Long userId, @Valid OrderRequest.ListByUser request) {
-        if (request.startDate() != null && request.endDate() != null && request.startDate().isAfter(request.endDate())) {
+    public Page<OrderInfo.OrderSummary> getOrderList(Long userId, LocalDate startDate, LocalDate endDate, Pageable pageable) {
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
             throw new CoreException(ErrorType.BAD_REQUEST, "시작일은 종료일 이전이어야 합니다");
         }
-        Page<Order> orders = orderService.findOrdersByUserIdAndDateRange(userId, request.startDateTime(), request.endDateTime(), request.toPageable());
+        ZonedDateTime startDateTime = startDate != null
+                ? startDate.atStartOfDay(ZoneId.systemDefault()) : null;
+        ZonedDateTime endDateTime = endDate != null
+                ? endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()) : null;
+        Page<Order> orders = orderService.findOrdersByUserIdAndDateRange(userId, startDateTime, endDateTime, pageable);
         return orders.map(OrderInfo.OrderSummary::from);
     }
 
@@ -93,8 +98,8 @@ public class OrderFacade {
     }
 
     @Transactional(readOnly = true)
-    public Page<OrderInfo.OrderAdminSummary> getAdminOrderList(@Valid OrderRequest.ListAll request) {
-        Page<Order> orders = orderService.findAllOrders(request.toPageable());
+    public Page<OrderInfo.OrderAdminSummary> getAdminOrderList(Pageable pageable) {
+        Page<Order> orders = orderService.findAllOrders(pageable);
         return orders.map(OrderInfo.OrderAdminSummary::from);
     }
 }

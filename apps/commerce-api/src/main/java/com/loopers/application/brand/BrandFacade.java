@@ -2,15 +2,13 @@ package com.loopers.application.brand;
 
 import com.loopers.application.product.ProductService;
 import com.loopers.domain.brand.Brand;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.validation.annotation.Validated;
 
 @Component
-@Validated
 @RequiredArgsConstructor
 public class BrandFacade {
 
@@ -20,15 +18,13 @@ public class BrandFacade {
     // Command
 
     @Transactional
-    public BrandInfo register(@Valid BrandRequest.Register request) {
-        BrandCommand.Create command = BrandCommand.Create.of(request.name(), request.description());
+    public BrandInfo register(BrandCommand.Register command) {
         Brand brand = brandService.register(command);
         return BrandInfo.from(brand);
     }
 
     @Transactional
-    public BrandInfo updateInfo(Long brandId, @Valid BrandRequest.UpdateInfo request) {
-        BrandCommand.UpdateInfo command = BrandCommand.UpdateInfo.of(request.name(), request.description());
+    public BrandInfo updateInfo(Long brandId, BrandCommand.UpdateInfo command) {
         Brand brand = brandService.updateInfo(brandId, command);
         return BrandInfo.from(brand);
     }
@@ -42,8 +38,8 @@ public class BrandFacade {
     // Query
 
     @Transactional(readOnly = true)
-    public Page<BrandInfo> getList(@Valid BrandRequest.ListAll request) {
-        Page<Brand> brands = brandService.findBrands(request.name(), request.toDeleted(), request.toPageable());
+    public Page<BrandInfo> getList(String name, Boolean deleted, Pageable pageable) {
+        Page<Brand> brands = brandService.findBrands(name, deleted, pageable);
         return brands.map(BrandInfo::from);
     }
 
@@ -54,8 +50,8 @@ public class BrandFacade {
     }
 
     @Transactional(readOnly = true)
-    public Page<BrandInfo> getActiveList(@Valid BrandRequest.ListActive request) {
-        Page<Brand> brands = brandService.findActiveBrands(request.name(), request.toPageable());
+    public Page<BrandInfo> getActiveList(String name, Pageable pageable) {
+        Page<Brand> brands = brandService.findActiveBrands(name, pageable);
         return brands.map(BrandInfo::from);
     }
 

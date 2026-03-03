@@ -1,14 +1,11 @@
 package com.loopers.application.user;
 
 import com.loopers.domain.user.User;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.validation.annotation.Validated;
 
 @Component
-@Validated
 @RequiredArgsConstructor
 public class UserFacade {
 
@@ -17,17 +14,13 @@ public class UserFacade {
     // Command
 
     @Transactional
-    public UserInfo signUp(@Valid UserRequest.SignUp request) {
-        UserCommand.SignUp command = UserCommand.SignUp.of(
-                request.loginId(), request.password(), request.name(),
-                request.birthDate(), request.email());
+    public UserInfo signUp(UserCommand.SignUp command) {
         User user = userService.signUp(command);
         return UserInfo.from(user);
     }
 
     @Transactional
-    public void changePassword(Long id, @Valid UserRequest.ChangePassword request) {
-        UserCommand.ChangePassword command = UserCommand.ChangePassword.of(id, request.newPassword());
+    public void changePassword(UserCommand.ChangePassword command) {
         userService.changePassword(command);
     }
 

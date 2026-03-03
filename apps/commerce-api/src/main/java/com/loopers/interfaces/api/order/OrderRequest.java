@@ -1,5 +1,6 @@
-package com.loopers.application.order;
+package com.loopers.interfaces.api.order;
 
+import com.loopers.application.order.OrderCommand;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -24,6 +25,12 @@ public record OrderRequest() {
             @Size(min = 1, max = 100, message = "주문 상품은 1~100건이어야 합니다")
             List<@Valid PlaceItem> orderItems
     ) {
+        public OrderCommand.Place toCommand() {
+            List<OrderCommand.PlaceItem> items = orderItems.stream()
+                    .map(item -> OrderCommand.PlaceItem.of(item.productId(), item.quantity()))
+                    .toList();
+            return OrderCommand.Place.of(items);
+        }
     }
 
     public record PlaceItem(

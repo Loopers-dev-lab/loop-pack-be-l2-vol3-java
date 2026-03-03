@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.user;
 
-import com.loopers.application.user.UserRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.E2ETestFixture;
 import com.loopers.utils.DatabaseCleanUp;

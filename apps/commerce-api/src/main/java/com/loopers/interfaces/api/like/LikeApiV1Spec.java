@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.like;
 
-import com.loopers.application.like.LikeRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.auth.AuthenticatedUser;

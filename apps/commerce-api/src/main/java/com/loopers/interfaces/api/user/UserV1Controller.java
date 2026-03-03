@@ -2,10 +2,10 @@ package com.loopers.interfaces.api.user;
 
 import com.loopers.application.user.UserFacade;
 import com.loopers.application.user.UserInfo;
-import com.loopers.application.user.UserRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.AuthUser;
 import com.loopers.interfaces.api.auth.AuthenticatedUser;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -25,8 +25,9 @@ public class UserV1Controller implements UserApiV1Spec {
 
     @PostMapping
     @Override
-    public ApiResponse<UserV1Dto.UserResponse> signUp(@RequestBody UserRequest.SignUp request) {
-        UserInfo info = userFacade.signUp(request);
+    public ApiResponse<UserV1Dto.UserResponse> signUp(
+            @RequestBody @Valid UserRequest.SignUp request) {
+        UserInfo info = userFacade.signUp(request.toCommand());
         return ApiResponse.success(UserV1Dto.UserResponse.from(info));
     }
 
@@ -34,8 +35,8 @@ public class UserV1Controller implements UserApiV1Spec {
     @Override
     public ApiResponse<Void> changePassword(
             @AuthUser AuthenticatedUser authUser,
-            @RequestBody UserRequest.ChangePassword request) {
-        userFacade.changePassword(authUser.id(), request);
+            @RequestBody @Valid UserRequest.ChangePassword request) {
+        userFacade.changePassword(request.toCommand(authUser.id()));
         return ApiResponse.success();
     }
 

@@ -1,5 +1,6 @@
-package com.loopers.application.brand;
+package com.loopers.interfaces.api.brand;
 
+import com.loopers.application.brand.BrandCommand;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -20,6 +21,9 @@ public record BrandRequest() {
             @Size(max = 500, message = "브랜드 설명은 500자 이하여야 합니다")
             String description
     ) {
+        public BrandCommand.Register toCommand() {
+            return BrandCommand.Register.of(name, description);
+        }
     }
 
     public record UpdateInfo(
@@ -29,6 +33,9 @@ public record BrandRequest() {
             @Size(max = 500, message = "브랜드 설명은 500자 이하여야 합니다")
             String description
     ) {
+        public BrandCommand.UpdateInfo toCommand() {
+            return BrandCommand.UpdateInfo.of(name, description);
+        }
     }
 
     // Query

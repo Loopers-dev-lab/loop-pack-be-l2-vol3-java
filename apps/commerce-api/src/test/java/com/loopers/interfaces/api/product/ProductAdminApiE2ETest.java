@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.product;
 
-import com.loopers.application.product.ProductRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.support.E2ETestFixture;

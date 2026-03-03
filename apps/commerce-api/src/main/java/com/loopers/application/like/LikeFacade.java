@@ -7,19 +7,17 @@ import com.loopers.domain.like.Like;
 import com.loopers.domain.product.Product;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.validation.annotation.Validated;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
-@Validated
 @RequiredArgsConstructor
 public class LikeFacade {
 
@@ -52,8 +50,8 @@ public class LikeFacade {
     // Query
 
     @Transactional(readOnly = true)
-    public Page<LikeProductInfo> getLikedProducts(Long userId, @Valid LikeRequest.ListLiked request) {
-        Page<Like> likes = likeService.findLikedActiveProducts(userId, request.toPageable());
+    public Page<LikeProductInfo> getLikedProducts(Long userId, Pageable pageable) {
+        Page<Like> likes = likeService.findLikedActiveProducts(userId, pageable);
 
         Set<Long> productIds = likes.getContent().stream()
                 .map(Like::getProductId)

@@ -1,5 +1,6 @@
-package com.loopers.application.user;
+package com.loopers.interfaces.api.user;
 
+import com.loopers.application.user.UserCommand;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -24,11 +25,17 @@ public record UserRequest() {
             @NotBlank(message = "이메일은 필수입니다")
             String email
     ) {
+        public UserCommand.SignUp toCommand() {
+            return UserCommand.SignUp.of(loginId, password, name, birthDate, email);
+        }
     }
 
     public record ChangePassword(
             @NotBlank(message = "새 비밀번호는 필수입니다")
             String newPassword
     ) {
+        public UserCommand.ChangePassword toCommand(Long id) {
+            return UserCommand.ChangePassword.of(id, newPassword);
+        }
     }
 }

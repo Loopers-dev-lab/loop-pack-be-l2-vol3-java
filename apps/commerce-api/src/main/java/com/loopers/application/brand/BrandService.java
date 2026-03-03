@@ -26,7 +26,7 @@ public class BrandService {
     // Command
 
     @Transactional
-    public Brand register(BrandCommand.Create command) {
+    public Brand register(BrandCommand.Register command) {
         if (brandRepository.existsByName(command.name())) {
             throw new CoreException(ErrorType.CONFLICT, "이미 등록된 브랜드입니다");
         }

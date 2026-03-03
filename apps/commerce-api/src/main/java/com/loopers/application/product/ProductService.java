@@ -27,7 +27,7 @@ public class ProductService {
     // Command
 
     @Transactional
-    public Product register(ProductCommand.Create command) {
+    public Product register(ProductCommand.Register command) {
         Product product = Product.create(command.brandId(), command.name(), command.price(),
                 command.stockQuantity(), command.description());
         return productRepository.save(product);

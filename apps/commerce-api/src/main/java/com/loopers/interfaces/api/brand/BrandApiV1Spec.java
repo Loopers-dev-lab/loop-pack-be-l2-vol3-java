@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.brand;
 
-import com.loopers.application.brand.BrandRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;

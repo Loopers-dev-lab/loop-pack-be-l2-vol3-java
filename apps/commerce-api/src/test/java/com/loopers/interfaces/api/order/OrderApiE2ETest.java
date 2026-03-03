@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.order;
 
-import com.loopers.application.order.OrderRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.product.ProductAdminV1Dto;

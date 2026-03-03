@@ -5,19 +5,17 @@ import com.loopers.domain.brand.Brand;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.domain.product.Product;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.validation.annotation.Validated;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
-@Validated
 @RequiredArgsConstructor
 public class ProductFacade {
 
@@ -27,20 +25,14 @@ public class ProductFacade {
     // Command
 
     @Transactional
-    public ProductInfo register(@Valid ProductRequest.Register request) {
-        Brand brand = brandService.getActiveBrand(request.brandId());
-        ProductCommand.Create command = ProductCommand.Create.of(
-                request.brandId(), request.name(), request.price(),
-                request.stockQuantity(), request.description());
+    public ProductInfo register(ProductCommand.Register command) {
+        Brand brand = brandService.getActiveBrand(command.brandId());
         Product product = productService.register(command);
         return ProductInfo.from(product, brand.getName());
     }
 
     @Transactional
-    public ProductInfo updateInfo(Long productId, @Valid ProductRequest.UpdateInfo request) {
-        ProductCommand.UpdateInfo command = ProductCommand.UpdateInfo.of(
-                request.name(), request.price(),
-                request.stockQuantity(), request.description());
+    public ProductInfo updateInfo(Long productId, ProductCommand.UpdateInfo command) {
         Product product = productService.updateInfo(productId, command);
         Brand brand = brandService.getBrand(product.getBrandId());
         return ProductInfo.from(product, brand.getName());
@@ -68,8 +60,8 @@ public class ProductFacade {
     }
 
     @Transactional(readOnly = true)
-    public Page<ProductInfo> getActiveList(@Valid ProductRequest.ListActive request) {
-        Page<Product> products = productService.findActiveProducts(request.brandId(), request.toPageable());
+    public Page<ProductInfo> getActiveList(Long brandId, Pageable pageable) {
+        Page<Product> products = productService.findActiveProducts(brandId, pageable);
 
         Set<Long> brandIds = products.getContent().stream()
                 .map(Product::getBrandId)
@@ -88,9 +80,8 @@ public class ProductFacade {
     }
 
     @Transactional(readOnly = true)
-    public Page<ProductInfo> getList(@Valid ProductRequest.ListAll request) {
-        Page<Product> products = productService.findProducts(
-                request.name(), request.brandId(), request.toDeleted(), request.toPageable());
+    public Page<ProductInfo> getList(String name, Long brandId, Boolean deleted, Pageable pageable) {
+        Page<Product> products = productService.findProducts(name, brandId, deleted, pageable);
 
         Set<Long> brandIds = products.getContent().stream()
                 .map(Product::getBrandId)

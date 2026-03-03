@@ -1,8 +1,8 @@
 package com.loopers.support;
 
-import com.loopers.application.brand.BrandRequest;
-import com.loopers.application.product.ProductRequest;
-import com.loopers.application.user.UserRequest;
+import com.loopers.interfaces.api.brand.BrandRequest;
+import com.loopers.interfaces.api.product.ProductRequest;
+import com.loopers.interfaces.api.user.UserRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.brand.BrandAdminV1Dto;
 import com.loopers.interfaces.api.product.ProductAdminV1Dto;

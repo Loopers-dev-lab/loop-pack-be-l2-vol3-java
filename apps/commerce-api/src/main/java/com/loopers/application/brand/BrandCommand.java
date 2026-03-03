@@ -2,9 +2,9 @@ package com.loopers.application.brand;
 
 public record BrandCommand() {
 
-    public record Create(String name, String description) {
-        public static Create of(String name, String description) {
-            return new Create(name, description);
+    public record Register(String name, String description) {
+        public static Register of(String name, String description) {
+            return new Register(name, description);
         }
     }
 

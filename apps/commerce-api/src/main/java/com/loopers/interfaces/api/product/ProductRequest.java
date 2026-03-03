@@ -1,5 +1,6 @@
-package com.loopers.application.product;
+package com.loopers.interfaces.api.product;
 
+import com.loopers.application.product.ProductCommand;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -39,6 +40,9 @@ public record ProductRequest() {
             @Size(max = 1000, message = "상품 설명은 1,000자 이하여야 합니다")
             String description
     ) {
+        public ProductCommand.Register toCommand() {
+            return ProductCommand.Register.of(brandId, name, price, stockQuantity, description);
+        }
     }
 
     public record UpdateInfo(
@@ -56,6 +60,9 @@ public record ProductRequest() {
             @Size(max = 1000, message = "상품 설명은 1,000자 이하여야 합니다")
             String description
     ) {
+        public ProductCommand.UpdateInfo toCommand() {
+            return ProductCommand.UpdateInfo.of(name, price, stockQuantity, description);
+        }
     }
 
     // Query

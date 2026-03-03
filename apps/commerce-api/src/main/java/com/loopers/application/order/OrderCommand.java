@@ -5,6 +5,18 @@ import java.util.List;
 
 public record OrderCommand() {
 
+    public record Place(List<PlaceItem> items) {
+        public static Place of(List<PlaceItem> items) {
+            return new Place(items);
+        }
+    }
+
+    public record PlaceItem(Long productId, Integer quantity) {
+        public static PlaceItem of(Long productId, Integer quantity) {
+            return new PlaceItem(productId, quantity);
+        }
+    }
+
     public record Create(
             Long userId,
             List<CreateItem> items

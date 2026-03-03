@@ -1,4 +1,4 @@
-package com.loopers.application.like;
+package com.loopers.interfaces.api.like;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
