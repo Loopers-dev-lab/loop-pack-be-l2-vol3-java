@@ -96,6 +96,14 @@ public record OrderCommand() {
 |------|------|-------------|
 | `Create`, `Update` 등 | Facade → Service | 비즈니스 데이터 포함 (이름, 가격 등) |
 
+## Command 네이밍 규칙
+
+| 생성 경로 | 이름 기준 | 예시 |
+|----------|----------|------|
+| `toCommand()`로 생성 (Facade 진입) | Request 이름과 동일 | `Place`, `Register`, `Cancel` |
+| Facade가 보강하여 생성 (Service 진입) | 도메인 동작 | `Create`, `Update` |
+| 보강 불필요 시 | 하나의 Command가 관통 | `SignUp`, `ChangePassword` |
+
 ## Info 구조
 
 Info는 도메인별로 하나의 record에 중첩 record로 정의한다.
