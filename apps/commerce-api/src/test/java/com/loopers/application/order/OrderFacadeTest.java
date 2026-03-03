@@ -2,7 +2,7 @@ package com.loopers.application.order;
 
 import com.loopers.application.product.ProductCreateCommand;
 import com.loopers.application.product.ProductInfo;
-import com.loopers.application.product.ProductApplicationService;
+import com.loopers.application.product.ProductService;
 import com.loopers.domain.order.InMemoryOrderItemRepository;
 import com.loopers.domain.order.InMemoryOrderRepository;
 import com.loopers.domain.product.InMemoryProductRepository;
@@ -19,19 +19,19 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class OrderFacadeTest {
 
     private InMemoryProductRepository productRepository;
-    private ProductApplicationService productService;
+    private ProductService productService;
     private InMemoryOrderRepository orderRepository;
     private InMemoryOrderItemRepository orderItemRepository;
-    private OrderApplicationService orderService;
+    private OrderService orderService;
     private OrderFacade orderFacade;
 
     @BeforeEach
     void setUp() {
         productRepository = new InMemoryProductRepository();
-        productService = new ProductApplicationService(productRepository);
+        productService = new ProductService(productRepository);
         orderRepository = new InMemoryOrderRepository();
         orderItemRepository = new InMemoryOrderItemRepository();
-        orderService = new OrderApplicationService(orderRepository, orderItemRepository);
+        orderService = new OrderService(orderRepository, orderItemRepository);
         orderFacade = new OrderFacade(orderService, productService);
     }
 

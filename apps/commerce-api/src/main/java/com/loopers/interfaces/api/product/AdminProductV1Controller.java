@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.product;
 
-import com.loopers.application.product.ProductApplicationService;
+import com.loopers.application.product.ProductService;
 import com.loopers.application.product.ProductCreateCommand;
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api-admin/v1/products")
 public class AdminProductV1Controller {
 
-    private final ProductApplicationService productService;
+    private final ProductService productService;
     private final ProductFacade productFacade;
 
     @PostMapping

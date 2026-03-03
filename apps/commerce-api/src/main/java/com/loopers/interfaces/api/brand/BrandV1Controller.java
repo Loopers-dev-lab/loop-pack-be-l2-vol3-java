@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.brand;
 
 import com.loopers.application.brand.BrandInfo;
-import com.loopers.application.brand.BrandApplicationService;
+import com.loopers.application.brand.BrandService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.brand.dto.BrandV1Dto;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/brands")
 public class BrandV1Controller {
 
-    private final BrandApplicationService brandService;
+    private final BrandService brandService;
 
     @GetMapping("/{brandId}")
     public ApiResponse<BrandV1Dto.BrandResponse> getBrand(@PathVariable Long brandId) {

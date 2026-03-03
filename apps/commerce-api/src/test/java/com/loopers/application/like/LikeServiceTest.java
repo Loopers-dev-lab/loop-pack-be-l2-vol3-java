@@ -12,15 +12,15 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class LikeApplicationServiceTest {
+public class LikeServiceTest {
 
     private InMemoryLikeRepository likeRepository;
-    private LikeApplicationService likeService;
+    private LikeService likeService;
 
     @BeforeEach
     void setUp() {
         likeRepository = new InMemoryLikeRepository();
-        likeService = new LikeApplicationService(likeRepository);
+        likeService = new LikeService(likeRepository);
     }
 
     @DisplayName("좋아요 등록 시, ")

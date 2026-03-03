@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class SignUpApplicationService {
+public class SignUpService {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
 

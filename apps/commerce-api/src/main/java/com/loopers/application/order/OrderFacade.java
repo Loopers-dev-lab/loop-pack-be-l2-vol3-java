@@ -1,6 +1,6 @@
 package com.loopers.application.order;
 
-import com.loopers.application.product.ProductApplicationService;
+import com.loopers.application.product.ProductService;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.domain.order.OrderItemSnapshot;
 import lombok.RequiredArgsConstructor;
@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Service
 public class OrderFacade {
-    private final OrderApplicationService orderService;
-    private final ProductApplicationService productService;
+    private final OrderService orderService;
+    private final ProductService productService;
 
     @Transactional
     public OrderInfo createOrder(OrderCreateCommand command) {

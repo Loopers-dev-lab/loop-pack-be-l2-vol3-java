@@ -12,14 +12,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class BrandApplicationServiceTest {
+public class BrandServiceTest {
     private InMemoryBrandRepository brandRepository;
-    private BrandApplicationService brandService;
+    private BrandService brandService;
 
     @BeforeEach
     void setUp() {
         brandRepository = new InMemoryBrandRepository();
-        brandService = new BrandApplicationService(brandRepository);
+        brandService = new BrandService(brandRepository);
     }
 
     @DisplayName("브랜드 등록 시, ")

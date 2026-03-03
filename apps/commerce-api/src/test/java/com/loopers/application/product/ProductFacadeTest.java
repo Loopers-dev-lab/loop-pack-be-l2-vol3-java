@@ -1,8 +1,8 @@
 package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandInfo;
-import com.loopers.application.brand.BrandApplicationService;
-import com.loopers.application.like.LikeApplicationService;
+import com.loopers.application.brand.BrandService;
+import com.loopers.application.like.LikeService;
 import com.loopers.domain.brand.InMemoryBrandRepository;
 import com.loopers.domain.like.InMemoryLikeRepository;
 import com.loopers.domain.product.InMemoryProductRepository;
@@ -20,20 +20,20 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class ProductFacadeTest {
-    private BrandApplicationService brandService;
-    private ProductApplicationService productService;
-    private LikeApplicationService likeService;
+    private BrandService brandService;
+    private ProductService productService;
+    private LikeService likeService;
     private InMemoryLikeRepository likeRepository;
     private InMemoryProductRepository productRepository;
     private ProductFacade productFacade;
 
     @BeforeEach
     void setUp() {
-        brandService = new BrandApplicationService(new InMemoryBrandRepository());
+        brandService = new BrandService(new InMemoryBrandRepository());
         productRepository = new InMemoryProductRepository();
         likeRepository = new InMemoryLikeRepository();
-        productService = new ProductApplicationService(productRepository);
-        likeService = new LikeApplicationService(likeRepository);
+        productService = new ProductService(productRepository);
+        likeService = new LikeService(likeRepository);
         productFacade = new ProductFacade(brandService, productService, likeService);
     }
 

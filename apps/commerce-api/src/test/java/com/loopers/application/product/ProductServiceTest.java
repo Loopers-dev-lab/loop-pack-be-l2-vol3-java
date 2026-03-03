@@ -1,7 +1,6 @@
 package com.loopers.application.product;
 
 import com.loopers.domain.product.InMemoryProductRepository;
-import com.loopers.domain.product.Product;
 import com.loopers.application.order.OrderItemCommand;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -16,16 +15,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class ProductApplicationServiceTest {
+public class ProductServiceTest {
     private static final Long BRAND_ID = 1L;
 
     private InMemoryProductRepository productRepository;
-    private ProductApplicationService productService;
+    private ProductService productService;
 
     @BeforeEach
     void setUp() {
         productRepository = new InMemoryProductRepository();
-        productService = new ProductApplicationService(productRepository);
+        productService = new ProductService(productRepository);
     }
 
     @DisplayName("상품 등록 시, ")

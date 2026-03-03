@@ -18,17 +18,17 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 
-class OrderApplicationServiceTest {
+class OrderServiceTest {
 
     private InMemoryOrderRepository orderRepository;
     private InMemoryOrderItemRepository orderItemRepository;
-    private OrderApplicationService orderService;
+    private OrderService orderService;
 
     @BeforeEach
     void setUp() {
         orderRepository = new InMemoryOrderRepository();
         orderItemRepository = new InMemoryOrderItemRepository();
-        orderService = new OrderApplicationService(orderRepository, orderItemRepository);
+        orderService = new OrderService(orderRepository, orderItemRepository);
     }
 
     @DisplayName("주문 항목 검증 시, ")

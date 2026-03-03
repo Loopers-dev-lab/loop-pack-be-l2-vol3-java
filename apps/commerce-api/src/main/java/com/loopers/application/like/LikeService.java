@@ -12,7 +12,7 @@ import java.util.List;
 
 @RequiredArgsConstructor
 @Service
-public class LikeApplicationService {
+public class LikeService {
     private final LikeRepository likeRepository;
 
     @Transactional

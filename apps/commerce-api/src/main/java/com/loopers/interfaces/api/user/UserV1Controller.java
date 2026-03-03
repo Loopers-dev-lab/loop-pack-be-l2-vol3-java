@@ -2,7 +2,7 @@ package com.loopers.interfaces.api.user;
 
 import com.loopers.application.user.UserInfo;
 import com.loopers.application.user.UpdatePasswordCommand;
-import com.loopers.application.user.UserApplicationService;
+import com.loopers.application.user.UserService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.LoginUser;
 import com.loopers.interfaces.api.user.dto.UserV1Dto;
@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/users")
 public class UserV1Controller {
 
-    private final UserApplicationService userService;
+    private final UserService userService;
 
     @GetMapping("/me")
     public ApiResponse<UserV1Dto.UserResponse> getMyInfo(@LoginUser Long userId) {

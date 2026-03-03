@@ -2,9 +2,6 @@ package com.loopers.application.user;
 
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserFixture;
-import com.loopers.application.user.UpdatePasswordCommand;
-import com.loopers.application.user.UserInfo;
-import com.loopers.application.user.UserApplicationService;
 import com.loopers.infrastructure.user.UserJpaRepository;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -18,10 +15,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest
-class UserApplicationServiceIntegrationTest {
+class UserServiceIntegrationTest {
 
     @Autowired
-    private UserApplicationService userService;
+    private UserService userService;
 
     @Autowired
     private UserJpaRepository userJpaRepository;

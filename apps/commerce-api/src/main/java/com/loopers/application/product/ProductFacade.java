@@ -1,7 +1,7 @@
 package com.loopers.application.product;
 
-import com.loopers.application.brand.BrandApplicationService;
-import com.loopers.application.like.LikeApplicationService;
+import com.loopers.application.brand.BrandService;
+import com.loopers.application.like.LikeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,9 +16,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Service
 public class ProductFacade {
-    private final BrandApplicationService brandService;
-    private final ProductApplicationService productService;
-    private final LikeApplicationService likeService;
+    private final BrandService brandService;
+    private final ProductService productService;
+    private final LikeService likeService;
 
     @Transactional
     public ProductInfo register(ProductCreateCommand command) {

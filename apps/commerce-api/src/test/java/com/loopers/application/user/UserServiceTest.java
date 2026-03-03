@@ -4,9 +4,6 @@ import com.loopers.domain.user.InMemoryUserRepository;
 import com.loopers.domain.user.PasswordEncoder;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserFixture;
-import com.loopers.application.user.UpdatePasswordCommand;
-import com.loopers.application.user.UserInfo;
-import com.loopers.application.user.UserApplicationService;
 import com.loopers.infrastructure.user.BcryptPasswordEncoder;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -17,16 +14,16 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class UserApplicationServiceTest {
+public class UserServiceTest {
     private InMemoryUserRepository userRepository;
     private PasswordEncoder passwordEncoder;
-    private UserApplicationService userService;
+    private UserService userService;
 
     @BeforeEach
     void setUp() {
         userRepository = new InMemoryUserRepository();
         passwordEncoder = new BcryptPasswordEncoder();
-        userService = new UserApplicationService(userRepository, passwordEncoder);
+        userService = new UserService(userRepository, passwordEncoder);
     }
 
     @DisplayName("내 정보 조회 시 이름의 마지막 글자는 마스킹(*)되어 반환된다")
