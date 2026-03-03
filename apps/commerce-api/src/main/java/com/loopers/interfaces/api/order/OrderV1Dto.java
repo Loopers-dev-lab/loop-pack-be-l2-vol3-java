@@ -62,7 +62,7 @@ public class OrderV1Dto {
             Long id,
             Long productId,
             String productName,
-            Integer price,
+            Long price,
             Integer quantity
     ) {
         public static OrderItemResponse from(OrderItemInfo info) {

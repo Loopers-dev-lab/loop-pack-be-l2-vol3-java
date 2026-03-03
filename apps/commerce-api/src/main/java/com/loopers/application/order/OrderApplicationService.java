@@ -1,10 +1,6 @@
 package com.loopers.application.order;
 
-import com.loopers.application.product.ProductInfo;
-import com.loopers.domain.order.Order;
-import com.loopers.domain.order.OrderItem;
-import com.loopers.domain.order.OrderItemRepository;
-import com.loopers.domain.order.OrderRepository;
+import com.loopers.domain.order.*;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -15,8 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
@@ -36,24 +30,8 @@ public class OrderApplicationService {
     }
 
     @Transactional
-    public OrderInfo createOrder(Long userId, List<ProductInfo> products, List<OrderItemCommand> items) {
-        Map<Long, ProductInfo> productMap = products.stream()
-                                                    .collect(Collectors.toMap(ProductInfo::id, p -> p));
-        List<OrderItemSnapshot> snapshots = items.stream()
-                                                 .map(item -> {
-                                                     ProductInfo p = productMap.get(item.productId());
-                                                     return new OrderItemSnapshot(
-                                                             p.id(),
-                                                             p.name(),
-                                                             p.price(),
-                                                             item.quantity()
-                                                     );
-                                                 })
-                                                 .toList();
-        long totalAmount = snapshots.stream()
-                                    .mapToLong(OrderItemSnapshot::lineAmount)
-                                    .sum();
-        Order order = orderRepository.save(Order.create(userId, totalAmount));
+    public OrderInfo placeOrder(Long userId, List<OrderItemSnapshot> snapshots) {
+        Order order = orderRepository.save(Order.create(userId, snapshots));
 
         List<OrderItem> orderItems = snapshots.stream()
                                               .map(s -> OrderItem.create(
@@ -64,8 +42,7 @@ public class OrderApplicationService {
                                                       s.quantity()
                                               ))
                                               .toList();
-        orderItems.forEach(orderItemRepository::save);
-
+        orderItemRepository.saveAll(orderItems);
         return OrderInfo.from(order);
     }
 

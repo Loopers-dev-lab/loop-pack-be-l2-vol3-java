@@ -25,6 +25,11 @@ public class InMemoryOrderItemRepository implements OrderItemRepository {
     }
 
     @Override
+    public List<OrderItem> saveAll(List<OrderItem> orderItems) {
+        return orderItems.stream().map(this::save).toList();
+    }
+
+    @Override
     public List<OrderItem> findByOrderId(Long orderId) {
         return store.values().stream()
                     .filter(item -> item.getOrderId().equals(orderId))

@@ -23,23 +23,23 @@ public class OrderItem extends BaseEntity {
     private String productName;
 
     @Column(nullable = false)
-    private Integer price;
+    private long unitPrice;
 
     @Column(nullable = false)
-    private Integer quantity;
+    private int quantity;
 
     protected OrderItem() {}
 
-    private OrderItem(Long orderId, Long productId, String productName, Integer price, Integer quantity) {
+    private OrderItem(Long orderId, Long productId, String productName, long unitPrice, Integer quantity) {
         validateQuantity(quantity);
         this.orderId = orderId;
         this.productId = productId;
         this.productName = productName;
-        this.price = price;
+        this.unitPrice = unitPrice;
         this.quantity = quantity;
     }
 
-    public static OrderItem create(Long orderId, Long productId, String productName, Integer price, Integer quantity) {
+    public static OrderItem create(Long orderId, Long productId, String productName, long price, Integer quantity) {
         return new OrderItem(orderId, productId, productName, price, quantity);
     }
 

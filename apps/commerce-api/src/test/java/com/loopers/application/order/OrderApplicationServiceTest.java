@@ -1,10 +1,9 @@
 package com.loopers.application.order;
 
-import com.loopers.application.product.ProductInfo;
-import com.loopers.domain.order.Order;
 import com.loopers.domain.order.InMemoryOrderItemRepository;
 import com.loopers.domain.order.InMemoryOrderRepository;
-import com.loopers.domain.product.Product;
+import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderItemSnapshot;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +16,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
 
 class OrderApplicationServiceTest {
 
@@ -75,15 +75,11 @@ class OrderApplicationServiceTest {
         void createsOrderInfo_whenValid() {
             // arrange
             long userId = 1L;
-            ProductInfo product = new ProductInfo(
-                    1L, new ProductInfo.BrandSummary(1L, null), "에어맥스", null, 150000, 10, 0,
-                    Product.Visibility.VISIBLE, null, null, null
-            );
-            List<OrderItemCommand> items = List.of(new OrderItemCommand(product.id(), 2));
-            long expectedTotal = (long) product.price() * items.get(0).quantity();
+            List<OrderItemSnapshot> snapshots = List.of(new OrderItemSnapshot(1L, "에어맥스", 150000L, 2));
+            long expectedTotal = 150000L * 2;
 
             // act
-            OrderInfo order = orderService.createOrder(userId, List.of(product), items);
+            OrderInfo order = orderService.placeOrder(userId, snapshots);
 
             // assert
             assertAll(
@@ -103,12 +99,8 @@ class OrderApplicationServiceTest {
         void throwsNotFound_whenOrderNotOwned() {
             // arrange
             long ownerId = 1L;
-            ProductInfo product = new ProductInfo(
-                    1L, new ProductInfo.BrandSummary(1L, null), "에어맥스", null, 150000, 10, 0,
-                    Product.Visibility.VISIBLE, null, null, null
-            );
-            List<OrderItemCommand> items = List.of(new OrderItemCommand(product.id(), 1));
-            OrderInfo order = orderService.createOrder(ownerId, List.of(product), items);
+            List<OrderItemSnapshot> snapshots = List.of(new OrderItemSnapshot(1L, "에어맥스", 150000L, 1));
+            OrderInfo order = orderService.placeOrder(ownerId, snapshots);
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {

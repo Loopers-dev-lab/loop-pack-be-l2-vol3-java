@@ -7,7 +7,7 @@ public record OrderItemInfo(
         Long orderId,
         Long productId,
         String productName,
-        Integer price,
+        Long price,
         Integer quantity
 ) {
     public static OrderItemInfo from(OrderItem item) {
@@ -16,7 +16,7 @@ public record OrderItemInfo(
                 item.getOrderId(),
                 item.getProductId(),
                 item.getProductName(),
-                item.getPrice(),
+                item.getUnitPrice(),
                 item.getQuantity()
         );
     }

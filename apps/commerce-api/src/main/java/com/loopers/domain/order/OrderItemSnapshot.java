@@ -1,9 +1,9 @@
-package com.loopers.application.order;
+package com.loopers.domain.order;
 
 public record OrderItemSnapshot(
         Long productId,
         String productName,
-        int unitPrice,
+        long unitPrice,
         int quantity
 ) {
     public long lineAmount() {
