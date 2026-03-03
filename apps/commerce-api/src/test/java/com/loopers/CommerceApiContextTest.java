@@ -1,9 +1,14 @@
 package com.loopers;
 
+import com.loopers.testcontainers.MySqlTestContainersConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.context.ImportTestcontainers;
+import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
+@ImportTestcontainers(MySqlTestContainersConfig.class)
+@ActiveProfiles("test")
 class CommerceApiContextTest {
 
     @Test
