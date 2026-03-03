@@ -12,6 +12,7 @@ import org.springframework.data.domain.Page;
 
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.UUID;
 
 public class ProductDto {
 
@@ -26,9 +27,9 @@ public class ProductDto {
             Integer stock,
             String description,
             @NotNull(message = "카테고리 ID는 필수입니다")
-            Long categoryId,
+            UUID categoryId,
             @NotNull(message = "브랜드 ID는 필수입니다")
-            Long brandId
+            UUID brandId
     ) {
         public CreateProductCommand toCommand() {
             return new CreateProductCommand(name, price, stock, description, categoryId, brandId);
@@ -36,13 +37,13 @@ public class ProductDto {
     }
 
     public record ProductResponse(
-            Long id,
+            UUID id,
             String name,
             Integer price,
             Integer stock,
             String description,
-            Long categoryId,
-            Long brandId,
+            UUID categoryId,
+            UUID brandId,
             BrandInfo brand,
             Integer likeCount,
             ZonedDateTime deletedAt
@@ -83,7 +84,7 @@ public class ProductDto {
     }
 
     public record BrandInfo(
-            Long id,
+            UUID id,
             String name
     ) {
     }
@@ -99,8 +100,8 @@ public class ProductDto {
             Integer stock,
             String description,
             @NotNull(message = "카테고리 ID는 필수입니다")
-            Long categoryId,
-            Long brandId
+            UUID categoryId,
+            UUID brandId
     ) {
         public UpdateProductCommand toCommand() {
             return new UpdateProductCommand(name, price, stock, description, categoryId, brandId);

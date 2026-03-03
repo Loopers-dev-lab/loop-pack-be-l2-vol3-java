@@ -31,6 +31,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import java.util.UUID;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(MySqlTestContainersConfig.class)
@@ -54,8 +55,8 @@ class LikeApiE2ETest {
     private final ProductJpaRepository productJpaRepository;
     private final LikeJpaRepository likeJpaRepository;
 
-    private Long brandId;
-    private Long categoryId;
+    private UUID brandId;
+    private UUID categoryId;
 
     @Autowired
     public LikeApiE2ETest(
@@ -93,7 +94,7 @@ class LikeApiE2ETest {
         @DisplayName("인증된 사용자가 활성 상품에 좋아요를 누르면 201을 반환한다")
         void registerLike_whenActiveProductAndAuthenticatedMember_returnsCreated() {
             registerMember("likeApiMember", "Password1!", "홍길동", "19900101", "api-like@example.com", "010-1234-5678");
-            Long productId = createProduct("좋아요 상품", 10_000, 50);
+            UUID productId = createProduct("좋아요 상품", 10_000, 50);
 
             HttpHeaders headers = headers("likeApiMember", "Password1!");
             int beforeLikeCount = getProductLikeCount(productId);
@@ -114,7 +115,7 @@ class LikeApiE2ETest {
         @DisplayName("이미 좋아요한 상품을 다시 누르면 409을 반환한다")
         void registerLike_whenAlreadyLikedProduct_returnsConflict() {
             registerMember("likeApiConfMem", "Password1!", "홍길동", "19900101", "api-like-conflict@example.com", "010-2345-6789");
-            Long productId = createProduct("좋아요 상품", 10_000, 50);
+            UUID productId = createProduct("좋아요 상품", 10_000, 50);
             HttpHeaders headers = headers("likeApiConfMem", "Password1!");
 
             testRestTemplate.exchange(
@@ -140,7 +141,7 @@ class LikeApiE2ETest {
         @DisplayName("삭제된 상품에 대해 좋아요 요청을 보내면 400을 반환한다")
         void registerLike_whenDeletedProduct_returnsBadRequest() {
             registerMember("likeApiDelMem", "Password1!", "홍길동", "19900101", "api-like-deleted@example.com", "010-3456-7890");
-            Long productId = createProduct("삭제될 상품", 10_000, 50);
+            UUID productId = createProduct("삭제될 상품", 10_000, 50);
             deleteProductAsAdmin(productId);
 
             HttpHeaders headers = headers("likeApiDelMem", "Password1!");
@@ -163,7 +164,7 @@ class LikeApiE2ETest {
             HttpHeaders headers = headers("likeApiMissMem", "Password1!");
 
             ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
-                    productLikesUrl(0L),
+                    productLikesUrl(UUID.randomUUID()),
                     HttpMethod.POST,
                     new HttpEntity<>(headers),
                     new ParameterizedTypeReference<ApiResponse<Void>>() {
@@ -176,7 +177,7 @@ class LikeApiE2ETest {
         @Test
         @DisplayName("인증 정보가 없으면 401을 반환한다")
         void registerLike_whenNoAuthentication_returnsUnauthorized() {
-            Long productId = createProduct("좋아요 상품", 10_000, 50);
+            UUID productId = createProduct("좋아요 상품", 10_000, 50);
 
             ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
                     productLikesUrl(productId),
@@ -198,7 +199,7 @@ class LikeApiE2ETest {
         @DisplayName("좋아요 상태에서 삭제 요청하면 200을 반환한다")
         void cancelLike_whenLikedProduct_returnsOk() {
             registerMember("likeApiCancelMem", "Password1!", "홍길동", "19900101", "api-like-cancel@example.com", "010-6789-0123");
-            Long productId = createProduct("좋아요 상품", 10_000, 50);
+            UUID productId = createProduct("좋아요 상품", 10_000, 50);
             HttpHeaders headers = headers("likeApiCancelMem", "Password1!");
             int beforeLikeCount = getProductLikeCount(productId);
 
@@ -226,7 +227,7 @@ class LikeApiE2ETest {
         @DisplayName("좋아요가 없는 상품 취소 요청은 404을 반환한다")
         void cancelLike_whenNotLikedProduct_returnsNotFound() {
             registerMember("likeApiCancelMissMem", "Password1!", "홍길동", "19900101", "api-like-cancel-missing@example.com", "010-7890-1233");
-            Long productId = createProduct("좋아요 상품", 10_000, 50);
+            UUID productId = createProduct("좋아요 상품", 10_000, 50);
             HttpHeaders headers = headers("likeApiCancelMissMem", "Password1!");
 
             ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
@@ -243,7 +244,7 @@ class LikeApiE2ETest {
         @Test
         @DisplayName("인증 정보가 없으면 401을 반환한다")
         void cancelLike_whenNoAuthentication_returnsUnauthorized() {
-            Long productId = createProduct("좋아요 상품", 10_000, 50);
+            UUID productId = createProduct("좋아요 상품", 10_000, 50);
 
             ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
                     productLikesUrl(productId),
@@ -265,7 +266,7 @@ class LikeApiE2ETest {
         @DisplayName("인증된 사용자가 기본 페이지/사이즈로 조회하면 200을 반환한다")
         void getMyLikes_whenAuthenticatedMemberAndDefaultPagination_returnsOk() {
             registerMember("likeApiMeLikes", "Password1!", "홍길동", "19900101", "api-like-mylikes@example.com", "010-9012-3456");
-            Long productId = createProduct("좋아요 상품", 10_000, 50);
+            UUID productId = createProduct("좋아요 상품", 10_000, 50);
             HttpHeaders headers = headers("likeApiMeLikes", "Password1!");
 
             testRestTemplate.exchange(
@@ -297,14 +298,14 @@ class LikeApiE2ETest {
             @SuppressWarnings("unchecked")
             java.util.List<java.util.Map<String, Object>> items = (java.util.List<java.util.Map<String, Object>>) data.get("items");
             assertThat(items).hasSize(1);
-            assertThat(((Number) items.get(0).get("id")).longValue()).isEqualTo(productId);
+            assertThat(items.get(0).get("id")).isEqualTo(productId.toString());
         }
 
         @Test
         @DisplayName("좋아요한 상품이 삭제되면 내 좋아요 목록에서 제외된다")
         void getMyLikes_whenLikedProductDeleted_excludesDeletedProduct() {
             registerMember("likeApiMeDeleted", "Password1!", "홍길동", "19900101", "api-like-mylikes-deleted@example.com", "010-9022-3456");
-            Long productId = createProduct("삭제될 상품", 10_000, 50);
+            UUID productId = createProduct("삭제될 상품", 10_000, 50);
             HttpHeaders headers = headers("likeApiMeDeleted", "Password1!");
 
             testRestTemplate.exchange(
@@ -342,7 +343,7 @@ class LikeApiE2ETest {
         @DisplayName("브랜드 삭제 시 관련 상품 좋아요가 삭제되고 내 좋아요 목록에서 제외된다")
         void getMyLikes_whenBrandDeleted_removesRelatedLikesAndExcludesProducts() {
             registerMember("likeApiBrandDeleted", "Password1!", "홍길동", "19900101", "api-like-brand-deleted@example.com", "010-9032-3456");
-            Long productId = createProduct("브랜드 삭제 대상 상품", 10_000, 50);
+            UUID productId = createProduct("브랜드 삭제 대상 상품", 10_000, 50);
             HttpHeaders headers = headers("likeApiBrandDeleted", "Password1!");
 
             testRestTemplate.exchange(
@@ -402,11 +403,11 @@ class LikeApiE2ETest {
         return headers;
     }
 
-    private String productLikesUrl(long productId) {
+    private String productLikesUrl(UUID productId) {
         return ENDPOINT_PRODUCTS + "/" + productId + ENDPOINT_LIKES;
     }
 
-    private int getProductLikeCount(long productId) {
+    private int getProductLikeCount(UUID productId) {
         ResponseEntity<ApiResponse<JsonNode>> response = testRestTemplate.exchange(
                 ENDPOINT_PRODUCTS + "/" + productId,
                 HttpMethod.GET,
@@ -420,14 +421,14 @@ class LikeApiE2ETest {
         return response.getBody().data().path("likeCount").asInt();
     }
 
-    private void deleteProductAsAdmin(long productId) {
+    private void deleteProductAsAdmin(UUID productId) {
         ProductEntity product = productJpaRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("product not found: " + productId));
         product.delete();
         productJpaRepository.save(product);
     }
 
-    private void deleteBrandAsAdmin(long targetBrandId) {
+    private void deleteBrandAsAdmin(UUID targetBrandId) {
         HttpHeaders headers = new HttpHeaders();
         headers.set(HEADER_ADMIN_LDAP, ADMIN_LDAP_VALUE);
 
@@ -461,7 +462,7 @@ class LikeApiE2ETest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
     }
 
-    private Long createProduct(String name, int price, int stock) {
+    private UUID createProduct(String name, int price, int stock) {
         ProductDto.CreateProductRequest request = new ProductDto.CreateProductRequest(
                 name,
                 price,
@@ -485,11 +486,11 @@ class LikeApiE2ETest {
         return response.getBody().data().id();
     }
 
-    private Long createCategory(String name) {
+    private UUID createCategory(String name) {
         return categoryRepository.save(new Category(name)).id();
     }
 
-    private Long createBrand(String name) {
+    private UUID createBrand(String name) {
         return brandRepository.save(new Brand(new BrandName(name), "", "")).id();
     }
 }

@@ -3,15 +3,16 @@ package com.loopers.application.product.view;
 import com.loopers.domain.product.Product;
 
 import java.time.ZonedDateTime;
+import java.util.UUID;
 
 public record ProductView(
-        Long id,
+        UUID id,
         String name,
         Integer price,
         Integer stock,
         String description,
-        Long categoryId,
-        Long brandId,
+        UUID categoryId,
+        UUID brandId,
         String brandName,
         Integer likeCount,
         ZonedDateTime deletedAt

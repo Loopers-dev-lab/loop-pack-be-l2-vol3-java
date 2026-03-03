@@ -23,6 +23,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import java.util.UUID;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -68,7 +69,7 @@ class OrderControllerTest {
         @DisplayName("인증 없이 주문하면 401을 반환한다")
         void createOrderWithoutAuthFails() throws Exception {
             OrderDto.CreateOrderRequest request = new OrderDto.CreateOrderRequest(
-                    List.of(new OrderDto.OrderItemRequest(1L, 1))
+                    List.of(new OrderDto.OrderItemRequest(UUID.randomUUID(), 1))
             );
 
             mockMvc.perform(post("/api/v1/orders")
@@ -94,7 +95,7 @@ class OrderControllerTest {
         @DisplayName("존재하지 않는 상품 주문 시 404를 반환한다")
         void createOrderWithNonExistentProductFails() throws Exception {
             OrderDto.CreateOrderRequest request = new OrderDto.CreateOrderRequest(
-                    List.of(new OrderDto.OrderItemRequest(99999L, 1))
+                    List.of(new OrderDto.OrderItemRequest(UUID.randomUUID(), 1))
             );
 
             mockMvc.perform(post("/api/v1/orders")
@@ -113,7 +114,7 @@ class OrderControllerTest {
         @Test
         @DisplayName("존재하지 않는 주문 취소 시 404를 반환한다")
         void cancelNonExistentOrderFails() throws Exception {
-            mockMvc.perform(patch("/api/v1/orders/99999/cancel")
+            mockMvc.perform(patch("/api/v1/orders/{orderId}/cancel", UUID.randomUUID())
                             .header(HEADER_LOGIN_ID, TEST_LOGIN_ID)
                             .header(HEADER_LOGIN_PW, TEST_PASSWORD))
                     .andExpect(status().isNotFound());
@@ -122,7 +123,7 @@ class OrderControllerTest {
         @Test
         @DisplayName("인증 없이 취소하면 401을 반환한다")
         void cancelWithoutAuthFails() throws Exception {
-            mockMvc.perform(patch("/api/v1/orders/1/cancel"))
+            mockMvc.perform(patch("/api/v1/orders/{orderId}/cancel", UUID.randomUUID()))
                     .andExpect(status().isUnauthorized());
         }
     }
@@ -163,7 +164,7 @@ class OrderControllerTest {
         @Test
         @DisplayName("존재하지 않는 주문 조회 시 404를 반환한다")
         void getNonExistentOrderFails() throws Exception {
-            mockMvc.perform(get("/api/v1/orders/99999")
+            mockMvc.perform(get("/api/v1/orders/{orderId}", UUID.randomUUID())
                             .header(HEADER_LOGIN_ID, TEST_LOGIN_ID)
                             .header(HEADER_LOGIN_PW, TEST_PASSWORD))
                     .andExpect(status().isNotFound());

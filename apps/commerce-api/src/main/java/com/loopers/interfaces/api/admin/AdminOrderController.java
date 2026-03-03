@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -37,7 +38,7 @@ public class AdminOrderController {
 
     @GetMapping("/{orderId}")
     public ApiResponse<OrderDto.OrderResponse> getOrder(
-            @PathVariable Long orderId
+            @PathVariable UUID orderId
     ) {
         Order order = orderApplicationService.getById(new OrderAccessRequest(orderId, null, true));
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
@@ -45,7 +46,7 @@ public class AdminOrderController {
 
     @PatchMapping("/{orderId}/cancel")
     public ApiResponse<OrderDto.OrderResponse> cancelOrder(
-            @PathVariable Long orderId
+            @PathVariable UUID orderId
     ) {
         Order order = orderFacade.cancel(new OrderAccessRequest(orderId, null, true));
         return ApiResponse.success(OrderDto.OrderResponse.from(order));

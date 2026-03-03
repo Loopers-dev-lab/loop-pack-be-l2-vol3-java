@@ -5,15 +5,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public interface BrandRepository {
     Brand save(Brand brand);
 
-    Optional<Brand> findById(Long id);
+    Optional<Brand> findById(UUID id);
 
     Page<Brand> findAll(Pageable pageable);
 
-    boolean existsById(Long id);
+    boolean existsById(UUID id);
 
     boolean existsByName(BrandName name);
 

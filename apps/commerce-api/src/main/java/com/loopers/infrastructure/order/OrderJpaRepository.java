@@ -7,14 +7,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.ZonedDateTime;
+import java.util.UUID;
 
-public interface OrderJpaRepository extends JpaRepository<OrderEntity, Long> {
+public interface OrderJpaRepository extends JpaRepository<OrderEntity, UUID> {
 
     @Query("SELECT o FROM OrderEntity o WHERE o.userId = :userId " +
             "AND o.orderDate >= :startAt AND o.orderDate <= :endAt " +
             "AND o.deletedAt IS NULL")
     Page<OrderEntity> findByUserIdAndOrderDateBetween(
-            @Param("userId") Long userId,
+            @Param("userId") UUID userId,
             @Param("startAt") ZonedDateTime startAt,
             @Param("endAt") ZonedDateTime endAt,
             Pageable pageable
@@ -24,5 +25,5 @@ public interface OrderJpaRepository extends JpaRepository<OrderEntity, Long> {
     Page<OrderEntity> findAllActive(Pageable pageable);
 
     @Query("SELECT COUNT(i) > 0 FROM OrderItemEntity i WHERE i.productId = :productId")
-    boolean existsByProductId(@Param("productId") Long productId);
+    boolean existsByProductId(@Param("productId") UUID productId);
 }

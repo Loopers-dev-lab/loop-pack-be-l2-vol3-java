@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -42,7 +43,7 @@ public class BrandApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public Brand findById(Long id) {
+    public Brand findById(UUID id) {
         return brandRepository.findById(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다."));
     }
@@ -53,7 +54,7 @@ public class BrandApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public Map<Long, String> findNamesByIds(Collection<Long> brandIds) {
+    public Map<UUID, String> findNamesByIds(Collection<UUID> brandIds) {
         return brandIds.stream()
                 .distinct()
                 .collect(Collectors.toMap(
@@ -65,7 +66,7 @@ public class BrandApplicationService {
     }
 
     @Transactional
-    public Brand update(Long id, UpdateBrandCommand command) {
+    public Brand update(UUID id, UpdateBrandCommand command) {
         Brand brand = brandRepository.findById(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다."));
 
@@ -74,7 +75,7 @@ public class BrandApplicationService {
     }
 
     @Transactional
-    public void delete(Long id) {
+    public void delete(UUID id) {
         Brand brand = brandRepository.findById(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다."));
         brandRepository.delete(brand);

@@ -29,6 +29,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import java.util.UUID;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -118,13 +119,13 @@ class AdminApiControllerTest {
                     .getContentAsString();
 
             JsonNode json = objectMapper.readTree(body);
-            long brandId = json.path("data").path("id").asLong();
+            UUID brandId = UUID.fromString(json.path("data").path("id").asText());
 
             mockMvc.perform(get("/api-admin/v1/brands/{brandId}", brandId)
                             .header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
-                    .andExpect(jsonPath("$.data.id").value(brandId));
+                    .andExpect(jsonPath("$.data.id").value(brandId.toString()));
         }
     }
 
@@ -135,8 +136,8 @@ class AdminApiControllerTest {
         @Test
         @DisplayName("상품 생성/목록/상세/수정/삭제 성공")
         void productCrudSuccess() throws Exception {
-            Long categoryId = categoryRepository.save(new Category("카테고리A")).id();
-            Long brandId = brandRepository.save(new Brand(new BrandName("브랜드A"), "desc", "img")).id();
+            UUID categoryId = categoryRepository.save(new Category("카테고리A")).id();
+            UUID brandId = brandRepository.save(new Brand(new BrandName("브랜드A"), "desc", "img")).id();
 
             ProductDto.CreateProductRequest createRequest = new ProductDto.CreateProductRequest(
                     "상품A",
@@ -157,7 +158,7 @@ class AdminApiControllerTest {
                     .getResponse()
                     .getContentAsString();
 
-            long productId = objectMapper.readTree(createBody).path("data").path("id").asLong();
+            UUID productId = UUID.fromString(objectMapper.readTree(createBody).path("data").path("id").asText());
 
             mockMvc.perform(get("/api-admin/v1/products")
                             .header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE)
@@ -171,7 +172,7 @@ class AdminApiControllerTest {
                             .header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
-                    .andExpect(jsonPath("$.data.id").value(productId));
+                    .andExpect(jsonPath("$.data.id").value(productId.toString()));
 
             ProductDto.UpdateProductRequest updateRequest = new ProductDto.UpdateProductRequest(
                     "상품A-수정",
@@ -205,8 +206,8 @@ class AdminApiControllerTest {
         @Test
         @DisplayName("상품 수정 시 brandId를 보내면 400")
         void updateProductFailsWhenBrandIdProvided() throws Exception {
-            Long categoryId = categoryRepository.save(new Category("카테고리A")).id();
-            Long brandId = brandRepository.save(new Brand(new BrandName("브랜드A"), "desc", "img")).id();
+            UUID categoryId = categoryRepository.save(new Category("카테고리A")).id();
+            UUID brandId = brandRepository.save(new Brand(new BrandName("브랜드A"), "desc", "img")).id();
 
             ProductDto.CreateProductRequest createRequest = new ProductDto.CreateProductRequest(
                     "상품A",
@@ -226,7 +227,7 @@ class AdminApiControllerTest {
                     .getResponse()
                     .getContentAsString();
 
-            long productId = objectMapper.readTree(createBody).path("data").path("id").asLong();
+            UUID productId = UUID.fromString(objectMapper.readTree(createBody).path("data").path("id").asText());
 
             ProductDto.UpdateProductRequest updateRequest = new ProductDto.UpdateProductRequest(
                     "상품A-수정",

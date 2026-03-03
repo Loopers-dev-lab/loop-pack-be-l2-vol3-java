@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -20,7 +21,7 @@ public class ProductLikeAplicationService {
     private final ProductRepository productRepository;
 
     @Transactional(readOnly = true)
-    public void validateLikeable(Long productId) {
+    public void validateLikeable(UUID productId) {
         if (productRepository.findById(productId).isPresent()) {
             return;
         }
@@ -31,27 +32,27 @@ public class ProductLikeAplicationService {
     }
 
     @Transactional(readOnly = true)
-    public void validateCancelable(Long productId) {
+    public void validateCancelable(UUID productId) {
         productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
     }
 
     @Transactional
-    public void increaseLikeCount(Long productId) {
+    public void increaseLikeCount(UUID productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
         productRepository.save(product.increaseLikeCount());
     }
 
     @Transactional
-    public void decreaseLikeCount(Long productId) {
+    public void decreaseLikeCount(UUID productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
         productRepository.save(product.decreaseLikeCount());
     }
 
     @Transactional(readOnly = true)
-    public Page<Product> getMyLikedProducts(Page<Long> likedProductIds, Pageable pageable) {
+    public Page<Product> getMyLikedProducts(Page<UUID> likedProductIds, Pageable pageable) {
         List<Product> products = likedProductIds.getContent().stream()
                 .map(productRepository::findById)
                 .flatMap(java.util.Optional::stream)

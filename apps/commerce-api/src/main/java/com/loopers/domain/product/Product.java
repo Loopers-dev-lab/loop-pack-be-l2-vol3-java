@@ -4,15 +4,16 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 
 import java.time.ZonedDateTime;
+import java.util.UUID;
 
 public record Product(
-        Long id,
+        UUID id,
         String name,
         Integer price,
         Integer stock,
         String description,
-        Long categoryId,
-        Long brandId,
+        UUID categoryId,
+        UUID brandId,
         Integer likeCount,
         ZonedDateTime deletedAt
 ) {
@@ -38,7 +39,7 @@ public record Product(
         }
     }
 
-    public Product(String name, Integer price, Integer stock, String description, Long categoryId, Long brandId) {
+    public Product(String name, Integer price, Integer stock, String description, UUID categoryId, UUID brandId) {
         this(null, name, price, stock, description, categoryId, brandId, 0, null);
     }
 

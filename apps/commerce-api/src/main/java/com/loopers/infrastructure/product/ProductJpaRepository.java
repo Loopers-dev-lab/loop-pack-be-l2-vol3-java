@@ -11,25 +11,26 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
-public interface ProductJpaRepository extends JpaRepository<ProductEntity, Long> {
+public interface ProductJpaRepository extends JpaRepository<ProductEntity, UUID> {
 
-    Optional<ProductEntity> findByIdAndDeletedAtIsNull(Long id);
+    Optional<ProductEntity> findByIdAndDeletedAtIsNull(UUID id);
 
     Page<ProductEntity> findAllByDeletedAtIsNull(Pageable pageable);
 
-    Page<ProductEntity> findAllByBrandIdAndDeletedAtIsNull(Long brandId, Pageable pageable);
+    Page<ProductEntity> findAllByBrandIdAndDeletedAtIsNull(UUID brandId, Pageable pageable);
 
-    Page<ProductEntity> findAllByBrandId(Long brandId, Pageable pageable);
+    Page<ProductEntity> findAllByBrandId(UUID brandId, Pageable pageable);
 
     @Query("SELECT p.id FROM ProductEntity p WHERE p.brandId = :brandId AND p.deletedAt IS NULL")
-    List<Long> findIdsByBrandIdAndDeletedAtIsNull(@Param("brandId") Long brandId);
+    List<UUID> findIdsByBrandIdAndDeletedAtIsNull(@Param("brandId") UUID brandId);
 
     @Modifying
     @Query(value = "UPDATE products p SET p.deleted_at = CURRENT_TIMESTAMP WHERE p.brand_id = :brandId AND p.deleted_at IS NULL", nativeQuery = true)
-    int softDeleteByBrandId(@Param("brandId") Long brandId);
+    int softDeleteByBrandId(@Param("brandId") UUID brandId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM ProductEntity p WHERE p.id IN :ids AND p.deletedAt IS NULL")
-    List<ProductEntity> findAllByIdInWithLock(@Param("ids") List<Long> ids);
+    List<ProductEntity> findAllByIdInWithLock(@Param("ids") List<UUID> ids);
 }

@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import java.util.UUID;
 
 @ExtendWith(MockitoExtension.class)
 class ProductApplicationServiceTest {
@@ -51,23 +52,26 @@ class ProductApplicationServiceTest {
         @Test
         @DisplayName("성공")
         void createSuccess() {
+            UUID categoryId = UUID.randomUUID();
+            UUID brandId = UUID.randomUUID();
+            UUID savedId = UUID.randomUUID();
             CreateProductCommand command = new CreateProductCommand(
                     "강아지 사료",
                     10000,
                     20,
                     "소형견용",
-                    1L,
-                    1L
+                    categoryId,
+                    brandId
             );
-            when(brandRepository.findById(1L)).thenReturn(Optional.of(new Brand(1L, new BrandName("퍼피박스"), "", "")));
-            when(categoryRepository.findById(1L)).thenReturn(Optional.of(new Category(1L, "푸드")));
+            when(brandRepository.findById(brandId)).thenReturn(Optional.of(new Brand(brandId, new BrandName("퍼피박스"), "", "")));
+            when(categoryRepository.findById(categoryId)).thenReturn(Optional.of(new Category(categoryId, "푸드")));
 
-            Product saved = new Product(1L, "강아지 사료", 10000, 20, "소형견용", 1L, 1L, 0, null);
+            Product saved = new Product(savedId, "강아지 사료", 10000, 20, "소형견용", categoryId, brandId, 0, null);
             when(productRepository.save(any(Product.class))).thenReturn(saved);
 
             Product result = productApplicationService.create(command);
 
-            assertThat(result.id()).isEqualTo(1L);
+            assertThat(result.id()).isEqualTo(savedId);
             assertThat(result.name()).isEqualTo("강아지 사료");
             verify(productRepository).save(any(Product.class));
         }
@@ -75,16 +79,18 @@ class ProductApplicationServiceTest {
         @Test
         @DisplayName("실패 - 브랜드가 존재하지 않음")
         void createFailWhenBrandNotFound() {
+            UUID categoryId = UUID.randomUUID();
+            UUID brandId = UUID.randomUUID();
             CreateProductCommand command = new CreateProductCommand(
                     "강아지 사료",
                     10000,
                     20,
                     "소형견용",
-                    1L,
-                    1L
+                    categoryId,
+                    brandId
             );
 
-            when(brandRepository.findById(1L)).thenReturn(Optional.empty());
+            when(brandRepository.findById(brandId)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> productApplicationService.create(command))
                     .isInstanceOf(CoreException.class)
@@ -95,17 +101,19 @@ class ProductApplicationServiceTest {
         @Test
         @DisplayName("실패 - 카테고리가 존재하지 않음")
         void createFailWhenCategoryNotFound() {
+            UUID categoryId = UUID.randomUUID();
+            UUID brandId = UUID.randomUUID();
             CreateProductCommand command = new CreateProductCommand(
                     "강아지 사료",
                     10000,
                     20,
                     "소형견용",
-                    1L,
-                    1L
+                    categoryId,
+                    brandId
             );
 
-            when(brandRepository.findById(1L)).thenReturn(Optional.of(new Brand(1L, new BrandName("퍼피박스"), "", "")));
-            when(categoryRepository.findById(1L)).thenReturn(Optional.empty());
+            when(brandRepository.findById(brandId)).thenReturn(Optional.of(new Brand(brandId, new BrandName("퍼피박스"), "", "")));
+            when(categoryRepository.findById(categoryId)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> productApplicationService.create(command))
                     .isInstanceOf(CoreException.class)
@@ -122,7 +130,7 @@ class ProductApplicationServiceTest {
                     20,
                     "소형견용",
                     null,
-                    10L
+                    UUID.randomUUID()
             );
 
             assertThatThrownBy(() -> productApplicationService.create(command))
@@ -139,7 +147,7 @@ class ProductApplicationServiceTest {
                     10000,
                     20,
                     "소형견용",
-                    1L,
+                    UUID.randomUUID(),
                     null
             );
 
@@ -157,9 +165,10 @@ class ProductApplicationServiceTest {
         @Test
         @DisplayName("실패 - 존재하지 않는 상품")
         void getFailNotFound() {
-            when(productRepository.findById(999L)).thenReturn(Optional.empty());
+            UUID productId = UUID.randomUUID();
+            when(productRepository.findById(productId)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> productApplicationService.get(999L))
+            assertThatThrownBy(() -> productApplicationService.get(productId))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
         }
@@ -172,16 +181,19 @@ class ProductApplicationServiceTest {
         @Test
         @DisplayName("브랜드 필터로 조회한다")
         void listByBrand() {
+            UUID categoryId = UUID.randomUUID();
+            UUID brandId = UUID.randomUUID();
+            UUID productId = UUID.randomUUID();
             PageRequest pageable = PageRequest.of(0, 20);
             Page<Product> page = new PageImpl<>(List.of(
-                    new Product(1L, "A", 1000, 5, "d1", 1L, 10L, 0, null)
+                    new Product(productId, "A", 1000, 5, "d1", categoryId, brandId, 0, null)
             ));
-            when(productRepository.findAll(10L, pageable)).thenReturn(page);
+            when(productRepository.findAll(brandId, pageable)).thenReturn(page);
 
-            Page<Product> result = productApplicationService.list(10L, pageable);
+            Page<Product> result = productApplicationService.list(brandId, pageable);
 
             assertThat(result.getTotalElements()).isEqualTo(1);
-            assertThat(result.getContent().get(0).brandId()).isEqualTo(10L);
+            assertThat(result.getContent().get(0).brandId()).isEqualTo(brandId);
         }
     }
 }

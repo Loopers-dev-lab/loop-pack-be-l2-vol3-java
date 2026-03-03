@@ -16,6 +16,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.UUID;
 
 public class OrderDto {
 
@@ -24,7 +25,7 @@ public class OrderDto {
             @Valid
             List<OrderItemRequest> items
     ) {
-        public CreateOrderCommand toCommand(Long userId) {
+        public CreateOrderCommand toCommand(UUID userId) {
             List<CreateOrderCommand.OrderItemCommand> itemCommands = items.stream()
                     .map(i -> new CreateOrderCommand.OrderItemCommand(i.productId(), i.quantity()))
                     .toList();
@@ -34,14 +35,14 @@ public class OrderDto {
 
     public record OrderItemRequest(
             @NotNull(message = "상품 ID는 필수입니다")
-            Long productId,
+            UUID productId,
             @Min(value = 1, message = "수량은 1 이상이어야 합니다")
             int quantity
     ) {}
 
     public record OrderItemResponse(
-            Long id,
-            Long productId,
+            UUID id,
+            UUID productId,
             int quantity,
             String snapshotProductName,
             int snapshotPrice,
@@ -60,8 +61,8 @@ public class OrderDto {
     }
 
     public record OrderResponse(
-            Long id,
-            Long userId,
+            UUID id,
+            UUID userId,
             String orderNumber,
             ZonedDateTime orderDate,
             String status,
@@ -112,7 +113,7 @@ public class OrderDto {
         private static final int DEFAULT_PAGE = 0;
         private static final int DEFAULT_SIZE = 20;
 
-        public OrderListByUserRequest toQuery(Long userId) {
+        public OrderListByUserRequest toQuery(UUID userId) {
             int resolvedPage = page == null ? DEFAULT_PAGE : page;
             int resolvedSize = size == null ? DEFAULT_SIZE : size;
             Pageable pageable = PageRequest.of(resolvedPage, resolvedSize);

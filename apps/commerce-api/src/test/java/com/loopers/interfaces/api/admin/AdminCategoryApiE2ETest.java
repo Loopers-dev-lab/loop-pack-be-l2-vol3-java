@@ -23,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import java.util.UUID;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(MySqlTestContainersConfig.class)
@@ -102,7 +103,7 @@ class AdminCategoryApiE2ETest {
         @Test
         @DisplayName("존재하는 카테고리를 상세 조회한다")
         void getCategory_whenExists_returnsOk() {
-            Long categoryId = createCategory("리빙");
+            UUID categoryId = createCategory("리빙");
 
             ResponseEntity<ApiResponse<CategoryDto.CategoryResponse>> response = testRestTemplate.exchange(
                     ENDPOINT_CATEGORIES + "/" + categoryId,
@@ -140,7 +141,7 @@ class AdminCategoryApiE2ETest {
         return headers;
     }
 
-    private Long createCategory(String name) {
+    private UUID createCategory(String name) {
         return categoryRepository.save(new Category(name)).id();
     }
 }

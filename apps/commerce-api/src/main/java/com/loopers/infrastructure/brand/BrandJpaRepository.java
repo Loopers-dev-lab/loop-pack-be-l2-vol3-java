@@ -5,12 +5,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.Optional;
+import java.util.UUID;
 
-public interface BrandJpaRepository extends JpaRepository<BrandEntity, Long> {
+public interface BrandJpaRepository extends JpaRepository<BrandEntity, UUID> {
 
     Optional<BrandEntity> findByName(String name);
 
-    Optional<BrandEntity> findByIdAndDeletedAtIsNull(Long id);
+    Optional<BrandEntity> findByIdAndDeletedAtIsNull(UUID id);
 
     Page<BrandEntity> findAllByDeletedAtIsNull(Pageable pageable);
 

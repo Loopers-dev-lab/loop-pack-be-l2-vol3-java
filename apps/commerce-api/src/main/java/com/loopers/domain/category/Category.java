@@ -2,9 +2,10 @@ package com.loopers.domain.category;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import java.util.UUID;
 
 public record Category(
-        Long id,
+        UUID id,
         String name
 ) {
     public Category(String name) {

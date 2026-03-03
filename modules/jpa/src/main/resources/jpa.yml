@@ -8,6 +8,7 @@ spring:
     properties:
       hibernate:
         default_batch_fetch_size: 100
+        type.preferred_uuid_jdbc_type: BINARY
         timezone.default_storage: NORMALIZE_UTC
         jdbc.time_zone: UTC
 

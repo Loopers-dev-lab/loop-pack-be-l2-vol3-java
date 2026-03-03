@@ -6,6 +6,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.util.UUID;
 
 @Entity
 @Table(name = "likes", uniqueConstraints = @UniqueConstraint(columnNames = {"member_id", "product_id"}))
@@ -15,12 +16,12 @@ public class LikeEntity extends BaseEntity {
     private String memberId;
 
     @Column(name = "product_id", nullable = false)
-    private Long productId;
+    private UUID productId;
 
     protected LikeEntity() {
     }
 
-    public LikeEntity(String memberId, Long productId) {
+    public LikeEntity(String memberId, UUID productId) {
         this.memberId = memberId;
         this.productId = productId;
     }
@@ -37,7 +38,7 @@ public class LikeEntity extends BaseEntity {
         return memberId;
     }
 
-    public Long getProductId() {
+    public UUID getProductId() {
         return productId;
     }
 }

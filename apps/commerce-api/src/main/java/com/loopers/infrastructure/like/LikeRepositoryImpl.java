@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
@@ -22,17 +23,17 @@ public class LikeRepositoryImpl implements LikeRepository {
     }
 
     @Override
-    public boolean existsByMemberIdAndProductId(String memberId, Long productId) {
+    public boolean existsByMemberIdAndProductId(String memberId, UUID productId) {
         return likeJpaRepository.existsByMemberIdAndProductId(memberId, productId);
     }
 
     @Override
-    public void deleteByMemberIdAndProductId(String memberId, Long productId) {
+    public void deleteByMemberIdAndProductId(String memberId, UUID productId) {
         likeJpaRepository.deleteByMemberIdAndProductId(memberId, productId);
     }
 
     @Override
-    public void deleteByProductIds(List<Long> productIds) {
+    public void deleteByProductIds(List<UUID> productIds) {
         likeJpaRepository.deleteByProductIdIn(productIds);
     }
 

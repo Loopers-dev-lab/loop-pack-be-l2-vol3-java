@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -37,7 +38,7 @@ public class AdminProductController {
     }
 
     @GetMapping("/{productId}")
-    public ApiResponse<ProductDto.ProductResponse> getProduct(@PathVariable Long productId) {
+    public ApiResponse<ProductDto.ProductResponse> getProduct(@PathVariable UUID productId) {
         return ApiResponse.success(ProductDto.ProductResponse.from(productQueryFacade.getIncludingDeleted(productId)));
     }
 
@@ -52,7 +53,7 @@ public class AdminProductController {
 
     @PutMapping("/{productId}")
     public ApiResponse<ProductDto.ProductResponse> updateProduct(
-            @PathVariable Long productId,
+            @PathVariable UUID productId,
             @Valid @RequestBody ProductDto.UpdateProductRequest request
     ) {
         Product updated = productApplicationService.update(productId, request.toCommand());
@@ -60,7 +61,7 @@ public class AdminProductController {
     }
 
     @DeleteMapping("/{productId}")
-    public ApiResponse<Void> deleteProduct(@PathVariable Long productId) {
+    public ApiResponse<Void> deleteProduct(@PathVariable UUID productId) {
         productAdminFacade.delete(productId);
         return ApiResponse.success();
     }

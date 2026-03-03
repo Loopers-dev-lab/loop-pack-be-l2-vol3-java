@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -29,13 +30,13 @@ public class LikeController {
 
     @PostMapping("/products/{productId}/likes")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Void> registerLike(@PathVariable Long productId, @AuthMember Member member) {
+    public ApiResponse<Void> registerLike(@PathVariable UUID productId, @AuthMember Member member) {
         likeFacade.register(productId, member);
         return ApiResponse.success();
     }
 
     @DeleteMapping("/products/{productId}/likes")
-    public ApiResponse<Void> cancelLike(@PathVariable Long productId, @AuthMember Member member) {
+    public ApiResponse<Void> cancelLike(@PathVariable UUID productId, @AuthMember Member member) {
         likeFacade.cancel(productId, member);
         return ApiResponse.success();
     }

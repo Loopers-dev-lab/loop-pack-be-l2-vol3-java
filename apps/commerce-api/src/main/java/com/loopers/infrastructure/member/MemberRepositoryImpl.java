@@ -8,6 +8,7 @@ import com.loopers.support.error.ErrorType;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+import java.util.UUID;
 
 @RequiredArgsConstructor
 @Repository
@@ -22,7 +23,7 @@ public class MemberRepositoryImpl implements MemberRepository {
     }
 
     @Override
-    public Optional<Long> findDbIdByMemberId(MemberId memberId) {
+    public Optional<UUID> findDbIdByMemberId(MemberId memberId) {
         return memberJpaRepository.findByMemberId(memberId.value())
                 .map(com.loopers.infrastructure.member.MemberEntity::getId);
     }

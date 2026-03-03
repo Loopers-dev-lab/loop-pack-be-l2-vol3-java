@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -22,22 +23,22 @@ public class ProductQueryFacade {
     private final BrandApplicationService brandApplicationService;
     private final ProductService productService;
 
-    public ProductView get(Long productId) {
+    public ProductView get(UUID productId) {
         Product product = productApplicationService.get(productId);
-        Map<Long, String> brandNames = brandApplicationService.findNamesByIds(List.of(product.brandId()));
+        Map<UUID, String> brandNames = brandApplicationService.findNamesByIds(List.of(product.brandId()));
         return ProductView.from(product, brandNames.get(product.brandId()));
     }
 
-    public ProductView getIncludingDeleted(Long productId) {
+    public ProductView getIncludingDeleted(UUID productId) {
         Product product = productApplicationService.getIncludingDeleted(productId);
-        Map<Long, String> brandNames = brandApplicationService.findNamesByIds(List.of(product.brandId()));
+        Map<UUID, String> brandNames = brandApplicationService.findNamesByIds(List.of(product.brandId()));
         return ProductView.from(product, brandNames.get(product.brandId()));
     }
 
     public ProductListView list(ProductListQuery query) {
         ProductListCriteria criteria = productService.toCriteria(query);
         Page<Product> products = productApplicationService.list(criteria);
-        Map<Long, String> brandNames = brandApplicationService.findNamesByIds(
+        Map<UUID, String> brandNames = brandApplicationService.findNamesByIds(
                 products.getContent().stream().map(Product::brandId).toList()
         );
         List<ProductView> items = products.getContent().stream()
@@ -55,7 +56,7 @@ public class ProductQueryFacade {
     public ProductListView listIncludingDeleted(ProductListQuery query) {
         ProductListCriteria criteria = productService.toCriteria(query);
         Page<Product> products = productApplicationService.listIncludingDeleted(criteria);
-        Map<Long, String> brandNames = brandApplicationService.findNamesByIds(
+        Map<UUID, String> brandNames = brandApplicationService.findNamesByIds(
                 products.getContent().stream().map(Product::brandId).toList()
         );
         List<ProductView> items = products.getContent().stream()
@@ -71,12 +72,12 @@ public class ProductQueryFacade {
     }
 
     public ProductView toView(Product product) {
-        Map<Long, String> brandNames = brandApplicationService.findNamesByIds(List.of(product.brandId()));
+        Map<UUID, String> brandNames = brandApplicationService.findNamesByIds(List.of(product.brandId()));
         return ProductView.from(product, brandNames.get(product.brandId()));
     }
 
     public ProductListView toListView(Page<Product> products) {
-        Map<Long, String> brandNames = brandApplicationService.findNamesByIds(
+        Map<UUID, String> brandNames = brandApplicationService.findNamesByIds(
                 products.getContent().stream().map(Product::brandId).toList()
         );
         List<ProductView> items = products.getContent().stream()

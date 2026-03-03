@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -31,7 +32,7 @@ public class OrderFacade {
         List<ProductStockApplicationService.ReservedProduct> reservedProducts =
                 productStockApplicationService.reserveForOrder(command.items());
 
-        Map<Long, String> brandNames = reservedProducts.stream()
+        Map<UUID, String> brandNames = reservedProducts.stream()
                 .map(ProductStockApplicationService.ReservedProduct::brandId)
                 .distinct()
                 .collect(Collectors.toMap(

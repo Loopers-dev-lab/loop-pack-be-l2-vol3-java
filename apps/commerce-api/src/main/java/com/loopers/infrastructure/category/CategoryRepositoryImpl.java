@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
@@ -21,7 +22,7 @@ public class CategoryRepositoryImpl implements CategoryRepository {
     }
 
     @Override
-    public Optional<Category> findById(Long id) {
+    public Optional<Category> findById(UUID id) {
         return categoryJpaRepository.findByIdAndDeletedAtIsNull(id)
                 .map(CategoryEntity::toDomain);
     }
