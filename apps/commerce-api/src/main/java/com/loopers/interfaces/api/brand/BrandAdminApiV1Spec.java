@@ -23,9 +23,9 @@ public interface BrandAdminApiV1Spec {
             summary = "브랜드 수정",
             description = "브랜드 정보를 수정합니다."
     )
-    ApiResponse<BrandAdminV1Dto.BrandResponse> update(
+    ApiResponse<BrandAdminV1Dto.BrandResponse> updateInfo(
             Long brandId,
-            BrandRequest.Update request
+            BrandRequest.UpdateInfo request
     );
 
     @Operation(

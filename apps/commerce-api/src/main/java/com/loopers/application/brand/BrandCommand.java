@@ -8,9 +8,9 @@ public record BrandCommand() {
         }
     }
 
-    public record Update(String name, String description) {
-        public static Update of(String name, String description) {
-            return new Update(name, description);
+    public record UpdateInfo(String name, String description) {
+        public static UpdateInfo of(String name, String description) {
+            return new UpdateInfo(name, description);
         }
     }
 }

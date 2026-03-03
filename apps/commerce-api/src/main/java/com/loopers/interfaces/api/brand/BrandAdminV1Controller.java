@@ -35,10 +35,10 @@ public class BrandAdminV1Controller implements BrandAdminApiV1Spec {
 
     @PatchMapping("/{brandId}")
     @Override
-    public ApiResponse<BrandAdminV1Dto.BrandResponse> update(
+    public ApiResponse<BrandAdminV1Dto.BrandResponse> updateInfo(
             @PathVariable Long brandId,
-            @RequestBody BrandRequest.Update request) {
-        BrandInfo info = brandFacade.update(brandId, request);
+            @RequestBody BrandRequest.UpdateInfo request) {
+        BrandInfo info = brandFacade.updateInfo(brandId, request);
         return ApiResponse.success(BrandAdminV1Dto.BrandResponse.from(info));
     }
 

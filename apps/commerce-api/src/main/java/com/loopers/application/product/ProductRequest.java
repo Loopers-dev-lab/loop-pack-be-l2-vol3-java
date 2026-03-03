@@ -41,7 +41,7 @@ public record ProductRequest() {
     ) {
     }
 
-    public record Update(
+    public record UpdateInfo(
             @Size(min = 1, max = 200, message = "상품명은 1~200자여야 합니다")
             String name,
 

@@ -35,7 +35,7 @@ public class Brand extends BaseEntity {
         return new Brand(name, description);
     }
 
-    public void update(String name, String description) {
+    public void updateInfo(String name, String description) {
         validateNotDeleted();
         if (name != null) {
             validateName(name);

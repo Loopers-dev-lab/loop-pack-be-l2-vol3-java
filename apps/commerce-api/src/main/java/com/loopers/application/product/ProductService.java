@@ -34,11 +34,11 @@ public class ProductService {
     }
 
     @Transactional
-    public Product update(Long productId, ProductCommand.Update command) {
+    public Product updateInfo(Long productId, ProductCommand.UpdateInfo command) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
 
-        product.update(command.name(), command.price(), command.stockQuantity(), command.description());
+        product.updateInfo(command.name(), command.price(), command.stockQuantity(), command.description());
         return product;
     }
 

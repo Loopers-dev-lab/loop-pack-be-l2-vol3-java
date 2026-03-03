@@ -79,7 +79,7 @@ public class Product extends BaseEntity {
         this.stockQuantity -= quantity;
     }
 
-    public void update(String name, BigDecimal price, Integer stockQuantity, String description) {
+    public void updateInfo(String name, BigDecimal price, Integer stockQuantity, String description) {
         validateNotDeleted();
         if (name != null) {
             validateName(name);

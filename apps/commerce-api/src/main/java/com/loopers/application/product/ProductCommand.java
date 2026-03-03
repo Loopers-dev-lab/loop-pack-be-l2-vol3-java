@@ -10,9 +10,9 @@ public record ProductCommand() {
         }
     }
 
-    public record Update(String name, BigDecimal price, Integer stockQuantity, String description) {
-        public static Update of(String name, BigDecimal price, Integer stockQuantity, String description) {
-            return new Update(name, price, stockQuantity, description);
+    public record UpdateInfo(String name, BigDecimal price, Integer stockQuantity, String description) {
+        public static UpdateInfo of(String name, BigDecimal price, Integer stockQuantity, String description) {
+            return new UpdateInfo(name, price, stockQuantity, description);
         }
     }
 }

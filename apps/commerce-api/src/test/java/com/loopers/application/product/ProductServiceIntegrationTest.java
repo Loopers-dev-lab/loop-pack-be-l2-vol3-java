@@ -67,7 +67,7 @@ class ProductServiceIntegrationTest {
         void 유효한_정보로_수정하면_성공한다() {
             Product product = productService.register(ProductCommand.Create.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
 
-            Product result = productService.update(product.getId(), ProductCommand.Update.of("런닝화", new BigDecimal("60000"), 200, "가벼운 런닝화"));
+            Product result = productService.updateInfo(product.getId(), ProductCommand.UpdateInfo.of("런닝화", new BigDecimal("60000"), 200, "가벼운 런닝화"));
 
             assertThat(result.getName()).isEqualTo("런닝화");
             assertThat(result.getPrice()).isEqualByComparingTo(new BigDecimal("60000"));
@@ -77,7 +77,7 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 미존재_상품이면_예외() {
-            assertThatThrownBy(() -> productService.update(999L, ProductCommand.Update.of("런닝화", null, null, null)))
+            assertThatThrownBy(() -> productService.updateInfo(999L, ProductCommand.UpdateInfo.of("런닝화", null, null, null)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
                     .hasMessageContaining("존재하지 않는 상품입니다");
@@ -89,7 +89,7 @@ class ProductServiceIntegrationTest {
             product.delete();
             productRepository.save(product);
 
-            assertThatThrownBy(() -> productService.update(product.getId(), ProductCommand.Update.of("런닝화", null, null, null)))
+            assertThatThrownBy(() -> productService.updateInfo(product.getId(), ProductCommand.UpdateInfo.of("런닝화", null, null, null)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
                     .hasMessageContaining("존재하지 않는 상품입니다");

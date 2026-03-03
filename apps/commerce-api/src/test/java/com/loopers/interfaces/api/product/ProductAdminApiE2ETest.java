@@ -174,7 +174,7 @@ class ProductAdminApiE2ETest {
         void 유효한_정보로_수정하면_200_응답과_수정된_정보를_반환한다() {
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            ProductRequest.Update request = new ProductRequest.Update(
+            ProductRequest.UpdateInfo request = new ProductRequest.UpdateInfo(
                     "런닝화", new BigDecimal("60000"), 200, "가벼운 런닝화"
             );
 
@@ -196,7 +196,7 @@ class ProductAdminApiE2ETest {
         void 상품명만_보내면_상품명만_수정된다() {
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            ProductRequest.Update request = new ProductRequest.Update(
+            ProductRequest.UpdateInfo request = new ProductRequest.UpdateInfo(
                     "런닝화", null, null, null
             );
 
@@ -215,7 +215,7 @@ class ProductAdminApiE2ETest {
         void 소속_브랜드는_변경되지_않는다() {
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            ProductRequest.Update request = new ProductRequest.Update(
+            ProductRequest.UpdateInfo request = new ProductRequest.UpdateInfo(
                     "런닝화", null, null, null
             );
 
@@ -230,7 +230,7 @@ class ProductAdminApiE2ETest {
 
         @Test
         void 미존재_상품이면_404_응답() {
-            ProductRequest.Update request = new ProductRequest.Update(
+            ProductRequest.UpdateInfo request = new ProductRequest.UpdateInfo(
                     "런닝화", null, null, null
             );
 
@@ -252,7 +252,7 @@ class ProductAdminApiE2ETest {
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
             fixture.deleteProduct(productId);
 
-            ProductRequest.Update request = new ProductRequest.Update(
+            ProductRequest.UpdateInfo request = new ProductRequest.UpdateInfo(
                     "런닝화", null, null, null
             );
 
@@ -269,7 +269,7 @@ class ProductAdminApiE2ETest {
         void 요청_필드_규칙_위반_시_400_응답() {
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            ProductRequest.Update request = new ProductRequest.Update(
+            ProductRequest.UpdateInfo request = new ProductRequest.UpdateInfo(
                     "", null, null, null
             );
 
@@ -284,7 +284,7 @@ class ProductAdminApiE2ETest {
 
         @Test
         void 인증_헤더가_누락되면_401_응답() {
-            ProductRequest.Update request = new ProductRequest.Update(
+            ProductRequest.UpdateInfo request = new ProductRequest.UpdateInfo(
                     "런닝화", null, null, null
             );
 
@@ -302,7 +302,7 @@ class ProductAdminApiE2ETest {
 
         @Test
         void 인증에_실패하면_401_응답() {
-            ProductRequest.Update request = new ProductRequest.Update(
+            ProductRequest.UpdateInfo request = new ProductRequest.UpdateInfo(
                     "런닝화", null, null, null
             );
 
@@ -703,7 +703,7 @@ class ProductAdminApiE2ETest {
     }
 
     private ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> patchUpdate(
-            Long productId, ProductRequest.Update request) {
+            Long productId, ProductRequest.UpdateInfo request) {
         return testRestTemplate.exchange(
                 ENDPOINT + "/" + productId, HttpMethod.PATCH,
                 new HttpEntity<>(request, fixture.adminHeaders()),

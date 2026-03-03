@@ -22,7 +22,7 @@ public record BrandRequest() {
     ) {
     }
 
-    public record Update(
+    public record UpdateInfo(
             @Size(min = 1, max = 100, message = "브랜드명은 1~100자여야 합니다")
             String name,
 

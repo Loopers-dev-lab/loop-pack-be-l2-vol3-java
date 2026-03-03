@@ -36,7 +36,7 @@ public class BrandService {
     }
 
     @Transactional
-    public Brand update(Long brandId, BrandCommand.Update command) {
+    public Brand updateInfo(Long brandId, BrandCommand.UpdateInfo command) {
         Brand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다"));
 
@@ -44,7 +44,7 @@ public class BrandService {
             throw new CoreException(ErrorType.CONFLICT, "이미 등록된 브랜드입니다");
         }
 
-        brand.update(command.name(), command.description());
+        brand.updateInfo(command.name(), command.description());
         return brand;
     }
 

@@ -146,7 +146,7 @@ class BrandAdminApiE2ETest {
         @Test
         void 유효한_정보로_수정하면_200_응답과_수정된_정보를_반환한다() {
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
-            BrandRequest.Update request = new BrandRequest.Update("아디다스", "독일 스포츠 브랜드");
+            BrandRequest.UpdateInfo request = new BrandRequest.UpdateInfo("아디다스", "독일 스포츠 브랜드");
 
             ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
 
@@ -160,7 +160,7 @@ class BrandAdminApiE2ETest {
         @Test
         void name만_보내면_name만_수정된다() {
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
-            BrandRequest.Update request = new BrandRequest.Update("아디다스", null);
+            BrandRequest.UpdateInfo request = new BrandRequest.UpdateInfo("아디다스", null);
 
             ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
 
@@ -174,7 +174,7 @@ class BrandAdminApiE2ETest {
         @Test
         void description만_보내면_description만_수정된다() {
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
-            BrandRequest.Update request = new BrandRequest.Update(null, "변경된 설명");
+            BrandRequest.UpdateInfo request = new BrandRequest.UpdateInfo(null, "변경된 설명");
 
             ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
 
@@ -189,7 +189,7 @@ class BrandAdminApiE2ETest {
         void 중복_브랜드명이면_409_응답() {
             fixture.registerBrand("나이키", "스포츠 브랜드");
             Long adidasId = fixture.registerBrand("아디다스", "독일 스포츠 브랜드");
-            BrandRequest.Update request = new BrandRequest.Update("나이키", null);
+            BrandRequest.UpdateInfo request = new BrandRequest.UpdateInfo("나이키", null);
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/" + adidasId, HttpMethod.PATCH,
@@ -202,7 +202,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 미존재_브랜드면_404_응답() {
-            BrandRequest.Update request = new BrandRequest.Update("나이키", null);
+            BrandRequest.UpdateInfo request = new BrandRequest.UpdateInfo("나이키", null);
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/999", HttpMethod.PATCH,
@@ -216,7 +216,7 @@ class BrandAdminApiE2ETest {
         @Test
         void 입력_규칙_위반_시_400_응답() {
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
-            BrandRequest.Update request = new BrandRequest.Update("", null);
+            BrandRequest.UpdateInfo request = new BrandRequest.UpdateInfo("", null);
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/" + brandId, HttpMethod.PATCH,
@@ -229,7 +229,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 인증_누락이면_401_응답() {
-            BrandRequest.Update request = new BrandRequest.Update("나이키", null);
+            BrandRequest.UpdateInfo request = new BrandRequest.UpdateInfo("나이키", null);
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/1", HttpMethod.PATCH,
@@ -242,7 +242,7 @@ class BrandAdminApiE2ETest {
 
         @Test
         void 인증_실패이면_401_응답() {
-            BrandRequest.Update request = new BrandRequest.Update("나이키", null);
+            BrandRequest.UpdateInfo request = new BrandRequest.UpdateInfo("나이키", null);
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Loopers-Ldap", "wrong-ldap");
@@ -264,7 +264,7 @@ class BrandAdminApiE2ETest {
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/" + adidasId, HttpMethod.PATCH,
-                    new HttpEntity<>(new BrandRequest.Update("나이키", null), fixture.adminHeaders()),
+                    new HttpEntity<>(new BrandRequest.UpdateInfo("나이키", null), fixture.adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -274,7 +274,7 @@ class BrandAdminApiE2ETest {
         @Test
         void 자기_자신의_현재_이름과_동일한_이름으로_수정하면_200_응답() {
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
-            BrandRequest.Update request = new BrandRequest.Update("나이키", "변경된 설명");
+            BrandRequest.UpdateInfo request = new BrandRequest.UpdateInfo("나이키", "변경된 설명");
 
             ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = patchUpdate(brandId, request);
 
@@ -292,7 +292,7 @@ class BrandAdminApiE2ETest {
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT + "/" + brandId, HttpMethod.PATCH,
-                    new HttpEntity<>(new BrandRequest.Update("변경이름", null), fixture.adminHeaders()),
+                    new HttpEntity<>(new BrandRequest.UpdateInfo("변경이름", null), fixture.adminHeaders()),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -623,7 +623,7 @@ class BrandAdminApiE2ETest {
         );
     }
 
-    private ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> patchUpdate(Long brandId, BrandRequest.Update request) {
+    private ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> patchUpdate(Long brandId, BrandRequest.UpdateInfo request) {
         return testRestTemplate.exchange(
                 ENDPOINT + "/" + brandId, HttpMethod.PATCH,
                 new HttpEntity<>(request, fixture.adminHeaders()),

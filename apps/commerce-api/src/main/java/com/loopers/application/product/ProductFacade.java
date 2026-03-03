@@ -37,11 +37,11 @@ public class ProductFacade {
     }
 
     @Transactional
-    public ProductInfo update(Long productId, @Valid ProductRequest.Update request) {
-        ProductCommand.Update command = ProductCommand.Update.of(
+    public ProductInfo updateInfo(Long productId, @Valid ProductRequest.UpdateInfo request) {
+        ProductCommand.UpdateInfo command = ProductCommand.UpdateInfo.of(
                 request.name(), request.price(),
                 request.stockQuantity(), request.description());
-        Product product = productService.update(productId, command);
+        Product product = productService.updateInfo(productId, command);
         Brand brand = brandService.getBrand(product.getBrandId());
         return ProductInfo.from(product, brand.getName());
     }

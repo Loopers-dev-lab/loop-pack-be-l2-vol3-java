@@ -35,10 +35,10 @@ public class ProductAdminV1Controller implements ProductAdminApiV1Spec {
 
     @PatchMapping("/{productId}")
     @Override
-    public ApiResponse<ProductAdminV1Dto.ProductResponse> update(
+    public ApiResponse<ProductAdminV1Dto.ProductResponse> updateInfo(
             @PathVariable Long productId,
-            @RequestBody ProductRequest.Update request) {
-        ProductInfo info = productFacade.update(productId, request);
+            @RequestBody ProductRequest.UpdateInfo request) {
+        ProductInfo info = productFacade.updateInfo(productId, request);
         return ApiResponse.success(ProductAdminV1Dto.ProductResponse.from(info));
     }
 

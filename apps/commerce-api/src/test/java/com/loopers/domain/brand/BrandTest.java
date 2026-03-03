@@ -88,7 +88,7 @@ class BrandTest {
         void name만_수정하면_name만_변경된다() {
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
 
-            brand.update("아디다스", null);
+            brand.updateInfo("아디다스", null);
 
             assertThat(brand.getName()).isEqualTo("아디다스");
             assertThat(brand.getDescription()).isEqualTo("스포츠 브랜드");
@@ -98,7 +98,7 @@ class BrandTest {
         void description만_수정하면_description만_변경된다() {
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
 
-            brand.update(null, "독일 스포츠 브랜드");
+            brand.updateInfo(null, "독일 스포츠 브랜드");
 
             assertThat(brand.getName()).isEqualTo("나이키");
             assertThat(brand.getDescription()).isEqualTo("독일 스포츠 브랜드");
@@ -108,7 +108,7 @@ class BrandTest {
         void 둘_다_수정하면_둘_다_변경된다() {
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
 
-            brand.update("아디다스", "독일 스포츠 브랜드");
+            brand.updateInfo("아디다스", "독일 스포츠 브랜드");
 
             assertThat(brand.getName()).isEqualTo("아디다스");
             assertThat(brand.getDescription()).isEqualTo("독일 스포츠 브랜드");
@@ -118,7 +118,7 @@ class BrandTest {
         void 둘_다_null이면_변경되지_않는다() {
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
 
-            brand.update(null, null);
+            brand.updateInfo(null, null);
 
             assertThat(brand.getName()).isEqualTo("나이키");
             assertThat(brand.getDescription()).isEqualTo("스포츠 브랜드");
@@ -129,7 +129,7 @@ class BrandTest {
         void name이_빈값이면_예외(String name) {
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
 
-            assertThatThrownBy(() -> brand.update(name, null))
+            assertThatThrownBy(() -> brand.updateInfo(name, null))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
                     .hasMessageContaining("브랜드명은 필수입니다");
@@ -140,7 +140,7 @@ class BrandTest {
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
             String longName = "a".repeat(101);
 
-            assertThatThrownBy(() -> brand.update(longName, null))
+            assertThatThrownBy(() -> brand.updateInfo(longName, null))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
                     .hasMessageContaining("브랜드명은 100자 이하여야 합니다");
@@ -151,7 +151,7 @@ class BrandTest {
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
             String maxName = "a".repeat(100);
 
-            brand.update(maxName, null);
+            brand.updateInfo(maxName, null);
 
             assertThat(brand.getName()).isEqualTo(maxName);
         }
@@ -161,7 +161,7 @@ class BrandTest {
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
             String longDescription = "a".repeat(501);
 
-            assertThatThrownBy(() -> brand.update(null, longDescription))
+            assertThatThrownBy(() -> brand.updateInfo(null, longDescription))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
                     .hasMessageContaining("브랜드 설명은 500자 이하여야 합니다");
@@ -172,7 +172,7 @@ class BrandTest {
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
             String maxDescription = "a".repeat(500);
 
-            brand.update(null, maxDescription);
+            brand.updateInfo(null, maxDescription);
 
             assertThat(brand.getDescription()).isEqualTo(maxDescription);
         }
@@ -205,7 +205,7 @@ class BrandTest {
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
             brand.delete();
 
-            assertThatThrownBy(() -> brand.update("아디다스", "독일 스포츠 브랜드"))
+            assertThatThrownBy(() -> brand.updateInfo("아디다스", "독일 스포츠 브랜드"))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
                     .hasMessageContaining("존재하지 않는 브랜드입니다");

@@ -23,9 +23,9 @@ public interface ProductAdminApiV1Spec {
             summary = "상품 정보 수정",
             description = "등록된 상품의 정보를 수정합니다. 소속 브랜드는 변경할 수 없습니다."
     )
-    ApiResponse<ProductAdminV1Dto.ProductResponse> update(
+    ApiResponse<ProductAdminV1Dto.ProductResponse> updateInfo(
             Long productId,
-            ProductRequest.Update request
+            ProductRequest.UpdateInfo request
     );
 
     @Operation(

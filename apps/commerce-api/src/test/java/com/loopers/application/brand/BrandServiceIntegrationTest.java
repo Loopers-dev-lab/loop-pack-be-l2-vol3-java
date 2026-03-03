@@ -79,7 +79,7 @@ class BrandServiceIntegrationTest {
         void 유효한_정보로_수정하면_성공한다() {
             Brand brand = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
 
-            Brand result = brandService.update(brand.getId(), BrandCommand.Update.of("아디다스", "독일 스포츠 브랜드"));
+            Brand result = brandService.updateInfo(brand.getId(), BrandCommand.UpdateInfo.of("아디다스", "독일 스포츠 브랜드"));
 
             assertThat(result.getName()).isEqualTo("아디다스");
             assertThat(result.getDescription()).isEqualTo("독일 스포츠 브랜드");
@@ -87,7 +87,7 @@ class BrandServiceIntegrationTest {
 
         @Test
         void 미존재_브랜드면_예외() {
-            assertThatThrownBy(() -> brandService.update(999L, BrandCommand.Update.of("나이키", null)))
+            assertThatThrownBy(() -> brandService.updateInfo(999L, BrandCommand.UpdateInfo.of("나이키", null)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
                     .hasMessageContaining("존재하지 않는 브랜드입니다");
@@ -98,7 +98,7 @@ class BrandServiceIntegrationTest {
             Brand brand = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
             brandService.delete(brand.getId());
 
-            assertThatThrownBy(() -> brandService.update(brand.getId(), BrandCommand.Update.of("아디다스", null)))
+            assertThatThrownBy(() -> brandService.updateInfo(brand.getId(), BrandCommand.UpdateInfo.of("아디다스", null)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
                     .hasMessageContaining("존재하지 않는 브랜드입니다");
@@ -109,7 +109,7 @@ class BrandServiceIntegrationTest {
             brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
             Brand adidas = brandService.register(BrandCommand.Create.of("아디다스", "독일 스포츠 브랜드"));
 
-            assertThatThrownBy(() -> brandService.update(adidas.getId(), BrandCommand.Update.of("나이키", null)))
+            assertThatThrownBy(() -> brandService.updateInfo(adidas.getId(), BrandCommand.UpdateInfo.of("나이키", null)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT))
                     .hasMessageContaining("이미 등록된 브랜드입니다");
@@ -123,7 +123,7 @@ class BrandServiceIntegrationTest {
 
             Brand adidas = brandService.register(BrandCommand.Create.of("아디다스", "독일 스포츠 브랜드"));
 
-            assertThatThrownBy(() -> brandService.update(adidas.getId(), BrandCommand.Update.of("나이키", null)))
+            assertThatThrownBy(() -> brandService.updateInfo(adidas.getId(), BrandCommand.UpdateInfo.of("나이키", null)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT))
                     .hasMessageContaining("이미 등록된 브랜드입니다");
@@ -133,7 +133,7 @@ class BrandServiceIntegrationTest {
         void 자기_자신_이름으로_수정하면_정상_처리된다() {
             Brand brand = brandService.register(BrandCommand.Create.of("나이키", "스포츠 브랜드"));
 
-            Brand result = brandService.update(brand.getId(), BrandCommand.Update.of("나이키", "변경된 설명"));
+            Brand result = brandService.updateInfo(brand.getId(), BrandCommand.UpdateInfo.of("나이키", "변경된 설명"));
 
             assertThat(result.getName()).isEqualTo("나이키");
             assertThat(result.getDescription()).isEqualTo("변경된 설명");

@@ -27,9 +27,9 @@ public class BrandFacade {
     }
 
     @Transactional
-    public BrandInfo update(Long brandId, @Valid BrandRequest.Update request) {
-        BrandCommand.Update command = BrandCommand.Update.of(request.name(), request.description());
-        Brand brand = brandService.update(brandId, command);
+    public BrandInfo updateInfo(Long brandId, @Valid BrandRequest.UpdateInfo request) {
+        BrandCommand.UpdateInfo command = BrandCommand.UpdateInfo.of(request.name(), request.description());
+        Brand brand = brandService.updateInfo(brandId, command);
         return BrandInfo.from(brand);
     }
 

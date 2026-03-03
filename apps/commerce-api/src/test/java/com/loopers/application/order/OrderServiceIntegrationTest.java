@@ -67,7 +67,7 @@ class OrderServiceIntegrationTest {
             ));
             Order order = orderService.createOrder(command);
 
-            product.update("런닝화", new BigDecimal("70000"), null, null);
+            product.updateInfo("런닝화", new BigDecimal("70000"), null, null);
             productRepository.save(product);
 
             Product updatedProduct = productRepository.findById(product.getId()).orElseThrow();
