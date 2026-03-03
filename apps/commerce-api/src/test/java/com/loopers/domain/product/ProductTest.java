@@ -389,5 +389,35 @@ public class ProductTest {
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
+
+        @DisplayName("차감 수량이 0이면 BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequestException_whenQuantityIsZero() {
+            // arrange
+            Product product = Product.create(1L, "나이키 에어맥스", "신발", 150000, 10);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                product.decreaseStock(0);
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("차감 수량이 음수이면 BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequestException_whenQuantityIsNegative() {
+            // arrange
+            Product product = Product.create(1L, "나이키 에어맥스", "신발", 150000, 10);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                product.decreaseStock(-1);
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
     }
 }
