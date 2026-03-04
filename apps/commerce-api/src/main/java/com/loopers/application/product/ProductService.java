@@ -43,7 +43,6 @@ public class ProductService {
         }
 
         return ProductInfo.from(product);
-
     }
 
     @Transactional(readOnly = true)
@@ -107,6 +106,7 @@ public class ProductService {
         if (!product.isActive()) {
             throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + productId + "] 를 찾을 수 없습니다.");
         }
+
         product.decreaseLikeCount();
     }
 

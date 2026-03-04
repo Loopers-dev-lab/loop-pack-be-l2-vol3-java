@@ -47,6 +47,36 @@ class OrderServiceTest {
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
+        @DisplayName("수량이 0이면 BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenQuantityIsZero() {
+            // arrange
+            List<OrderItemCommand> items = List.of(new OrderItemCommand(1L, 0));
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                orderService.validateItems(items);
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("수량이 음수이면 BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenQuantityIsNegative() {
+            // arrange
+            List<OrderItemCommand> items = List.of(new OrderItemCommand(1L, -1));
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                orderService.validateItems(items);
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
         @DisplayName("중복 상품이 포함되면 BAD_REQUEST 예외가 발생한다.")
         @Test
         void throwsBadRequest_whenDuplicateProducts() {

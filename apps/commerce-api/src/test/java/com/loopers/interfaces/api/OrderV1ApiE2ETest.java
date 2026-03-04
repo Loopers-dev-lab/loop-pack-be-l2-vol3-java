@@ -172,6 +172,40 @@ class OrderV1ApiE2ETest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
 
+        @DisplayName("수량이 0이면, 400 Bad Request를 반환한다.")
+        @Test
+        void returnsBadRequest_whenQuantityIsZero() {
+            // arrange
+            OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
+                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 0))
+            );
+            HttpEntity<OrderV1Dto.CreateRequest> entity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
+
+            // act
+            ResponseEntity<ApiResponse<Void>> response =
+                    testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("수량이 음수이면, 400 Bad Request를 반환한다.")
+        @Test
+        void returnsBadRequest_whenQuantityIsNegative() {
+            // arrange
+            OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
+                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), -1))
+            );
+            HttpEntity<OrderV1Dto.CreateRequest> entity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
+
+            // act
+            ResponseEntity<ApiResponse<Void>> response =
+                    testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
         @DisplayName("중복 상품이 포함되면, 400 Bad Request를 반환한다.")
         @Test
         void returnsBadRequest_whenDuplicateProducts() {

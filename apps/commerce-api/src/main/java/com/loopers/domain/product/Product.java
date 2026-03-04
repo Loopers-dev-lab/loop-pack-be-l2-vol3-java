@@ -83,18 +83,6 @@ public class Product extends BaseEntity {
         }
     }
 
-    public void decreaseStock(int quantity) {
-        if (quantity <= 0) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "차감 수량은 1 이상이어야 합니다.");
-        }
-
-        if (this.stockQuantity < quantity) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.");
-        }
-
-        this.stockQuantity -= quantity;
-    }
-
     private void validateBrandId(Long brandId) {
         if (brandId == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "브랜드 ID는 필수값입니다.");
