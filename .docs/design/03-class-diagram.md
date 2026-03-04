@@ -1,4 +1,4 @@
-# 클래스 다이어그램 (도메인: Brands, Products, Likes, Cart, Orders)
+# 클래스 다이어그램 (도메인: Brands, Products, Likes, Cart, Orders, Coupons)
 
 > 본 문서는 **도메인 책임**, **의존 방향**, **응집도** 확인을 위해 클래스 다이어그램을 사용한다.  
 > 각 다이어그램은 **이유 → 다이어그램 → 해석 → 잠재 리스크** 순서로 제시한다.  
@@ -467,7 +467,7 @@ classDiagram
 
 - **봐야 할 포인트**: OrderItemModel은 주문 시점의 상품명·가격·수량·옵션을 스냅샷으로 보유한다. **스냅샷 생성**은 OrderItemModel.of(product, quantity) 등 모델/팩토리 책임으로 두어, 이후 Product가 바뀌어도 주문 내역이 변하지 않도록 한다(01 요구사항 3.2 스냅샷 보존). 재고 차감은 주문 생성 트랜잭션에 포함하지 않고, 결제 완료 시점에 처리한다(02 시퀀스 해석과 일치).
 - **구현**: **userId**는 User 엔티티의 PK(id, Long). create(userId, request)의 request(주문 항목 목록)는 **도메인 또는 application 전용 타입**을 사용하며, interfaces의 API 요청 DTO와 동일 타입을 재사용하지 않는다(§0 구현 시 유의). restoreStock의 인자(List~OrderItem~)도 도메인 타입 기준이다.
-- **설계 의도**: 주문 생성 시 validateProducts로 일괄 검증 후 Order + OrderItem 생성·저장만 담당하고, 재고 복구는 취소 시 OrderService → ProductService.restoreStock으로 처리한다.
+- **설계 의도**: 주문 생성 시 validateProducts로 일괄 검증 후 Order + OrderItem 생성·저장만 담당하고, 재고 복구는 취소 시 OrderService → ProductService.restoreStock으로 처리한다. **쿠폰 적용 시**에는 OrderFacade 트랜잭션 안에서 CouponService.validateAndUse → ProductService.decreaseStockWithLock(비관적 락) → OrderService.createOrder 순으로 호출하고, 주문 스냅샷에 할인 전 금액·할인 금액·최종 결제 금액을 포함한다. **정합성**: 한 트랜잭션으로 쿠폰/재고/주문을 묶어 하나라도 실패 시 전부 롤백. **도메인 책임**: Product는 재고 음수 방지, Order는 스냅샷 보존(AGENTS.md §5 Consistency 참고).
 
 ### 잠재 리스크
 
@@ -476,22 +476,90 @@ classDiagram
 
 ---
 
-## 7. 요약 표 (클래스 책임 · 레이어)
+## 7. Coupon 도메인 (Coupon Template · Issued Coupon)
 
-| 레이어             | 도메인  | 주요 클래스                                               | 책임                                             |
-| ------------------ | ------- | --------------------------------------------------------- | ------------------------------------------------ |
-| **domain**         | Brand   | BrandModel, BrandService, BrandRepository                 | 브랜드 CRUD, soft delete                         |
-| **domain**         | Product | ProductModel, ProductService, ProductRepository           | 상품 CRUD, 재고/옵션 검증, 스냅샷·재고 복구 지원 |
-| **domain**         | Like    | LikeModel, LikeService, LikeRepository                    | 좋아요 추가/취소, 1인 1좋아요 검증               |
-| **domain**         | Cart    | CartItemModel, CartService, CartRepository                | 장바구니 추가/수정/삭제, 동일 품목 합산          |
-| **domain**         | Order   | OrderModel, OrderItemModel, OrderService, OrderRepository | 주문 생성/조회/취소, 스냅샷 보존, 본인 검증      |
-| **application**    | 공통    | *Facade, *Info                                            | 트랜잭션 경계, 도메인 결과 → Info 변환           |
-| **interfaces**     | 공통    | *V1Controller, *V1Dto, \*V1ApiSpec                        | HTTP 요청/응답, DTO 변환, API 명세               |
-| **infrastructure** | 공통    | *JpaRepository, *RepositoryImpl                           | JPA 영속성, Repository 인터페이스 구현           |
+- 쿠폰은 **템플릿(어드민이 등록)**과 **발급 쿠폰(고객이 소유·사용)**으로 구분된다. 주문 시 발급 쿠폰 1장만 적용 가능하며, 적용 시 유효성 검증·USED 전이·스냅샷(할인 전/할인액/최종금액)이 필요하다.
+- **트랜잭션·동시성**: 쿠폰 사용 처리와 재고 차감은 OrderFacade 한 트랜잭션 내에서 수행. 동일 쿠폰 중복 사용 방지를 위해 **비관적 락 권장**(SELECT FOR UPDATE / PESSIMISTIC_WRITE). 낙관적 락도 가능하나 재시도 로직 필요(01 §3.8, AGENTS.md §5).
+
+### 다이어그램
+
+```mermaid
+classDiagram
+    direction TB
+
+    class CouponModel {
+        <<Entity / Template>>
+        +String name
+        +CouponType type
+        +int value
+        +BigDecimal minOrderAmount
+        +LocalDateTime expiredAt
+    }
+
+    class IssuedCouponModel {
+        <<Entity>>
+        +Long userId
+        +Long couponId
+        +IssuedCouponStatus status
+        +use()
+    }
+
+    class CouponService {
+        <<Service>>
+        +issue(userId, couponId)
+        +findByUserId(userId, pageable)
+        +validateAndUse(userId, issuedCouponId, orderAmount)
+    }
+
+    class IssuedCouponRepository {
+        <<interface>>
+        +findById(Long)
+        +save(IssuedCouponModel)
+    }
+
+    class CouponRepository {
+        <<interface>>
+        +findById(Long)
+    }
+
+    CouponModel --> CouponService : 템플릿 조회
+    IssuedCouponModel --> CouponService : 발급/조회/사용
+    CouponService --> CouponRepository : 템플릿 조회
+    CouponService --> IssuedCouponRepository : 발급 쿠폰 조회/저장
+```
+
+### 해석
+
+- **CouponModel(템플릿)**: 어드민이 등록·수정·삭제. type(FIXED/RATE), value(정액 원 / 정률 %), minOrderAmount(선택), expiredAt.
+- **IssuedCouponModel**: 고객이 발급받은 인스턴스. userId, couponId(템플릿 참조), status(AVAILABLE/USED/EXPIRED). use() 호출 시 USED로 전이, 재사용 불가.
+- **CouponService**: 발급(issue), 내 쿠폰 목록(findByUserId), 주문 시 유효성 검증 및 사용 처리(validateAndUse). validateAndUse는 존재·소유·미사용·미만료·최소 주문 금액 검사 후 사용 처리. 동시에 같은 발급 쿠폰 사용 요청 시 락으로 1회만 사용되도록 보장.
+- **Order와의 협력**: **OrderFacade**가 주문 생성 전 CouponService.validateAndUse를 **직접** 호출한다. CouponFacade는 주문 플로우에 개입하지 않고, 쿠폰 발급·내 쿠폰 조회·어드민 템플릿 CRUD의 Application 진입점만 담당한다. 주문 성공 시 스냅샷에 할인 전 금액·할인 금액·최종 결제 금액을 설정한 뒤 Order 저장.
+- **도메인 책임**: IssuedCoupon.use()(또는 동등 로직)에서 **AVAILABLE 여부·만료·minOrderAmount 충족**을 검증하고, 아니면 예외. 이 규칙은 Facade가 아닌 도메인에 둔다(AGENTS.md §5 Consistency).
+
+### 잠재 리스크
+
+- **리스크**: 쿠폰 사용과 재고 차감이 같은 트랜잭션에 포함되므로, 쿠폰만 사용 처리되고 재고 부족으로 주문 실패 시 롤백으로 쿠폰 상태 복구가 되어야 한다. 트랜잭션 경계를 OrderFacade에서 한 번만 잡아 All or Nothing 보장.
+- **선택지**: IssuedCoupon 조회·갱신 시 비관적 락(SELECT FOR UPDATE) 또는 버전 기반 낙관적 락 적용.
 
 ---
 
-## 8. 설계 후 점검
+## 8. 요약 표 (클래스 책임 · 레이어)
+
+| 레이어             | 도메인  | 주요 클래스                                                                             | 책임                                                                                 |
+| ------------------ | ------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| **domain**         | Brand   | BrandModel, BrandService, BrandRepository                                               | 브랜드 CRUD, soft delete                                                             |
+| **domain**         | Product | ProductModel, ProductService, ProductRepository                                         | 상품 CRUD, 재고/옵션 검증, 스냅샷·재고 복구 지원                                     |
+| **domain**         | Like    | LikeModel, LikeService, LikeRepository                                                  | 좋아요 추가/취소, 1인 1좋아요 검증                                                   |
+| **domain**         | Cart    | CartItemModel, CartService, CartRepository                                              | 장바구니 추가/수정/삭제, 동일 품목 합산                                              |
+| **domain**         | Order   | OrderModel, OrderItemModel, OrderService, OrderRepository                               | 주문 생성/조회/취소, 스냅샷 보존, 본인 검증, 쿠폰 적용 시 할인 금액·최종 금액 스냅샷 |
+| **domain**         | Coupon  | CouponModel, IssuedCouponModel, CouponService, CouponRepository, IssuedCouponRepository | 쿠폰 템플릿 CRUD(어드민), 발급·내 쿠폰 조회, 주문 시 유효성 검증·사용 처리(1회 사용) |
+| **application**    | 공통    | *Facade, *Info                                                                          | 트랜잭션 경계, 도메인 결과 → Info 변환                                               |
+| **interfaces**     | 공통    | *V1Controller, *V1Dto, \*V1ApiSpec                                                      | HTTP 요청/응답, DTO 변환, API 명세                                                   |
+| **infrastructure** | 공통    | *JpaRepository, *RepositoryImpl                                                         | JPA 영속성, Repository 인터페이스 구현                                               |
+
+---
+
+## 9. 설계 후 점검
 
 다이어그램 반영 후 아래를 점검한다.
 
