@@ -44,7 +44,6 @@ public class User extends BaseEntity {
 
     public static User create(SignUpCommand command, String encodedPassword) {
         return new User(command.loginId(), encodedPassword, command.name(), command.birthDate(), command.email());
-
     }
 
     private void validateLoginId(String loginId) {
@@ -76,6 +75,10 @@ public class User extends BaseEntity {
     private void validateBirthDate(LocalDate birthDate) {
         if (birthDate == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "생년월일은 필수값입니다.");
+        }
+
+        if (birthDate.isAfter(LocalDate.now())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "생년월일은 미래일 수 없습니다.");
         }
     }
 

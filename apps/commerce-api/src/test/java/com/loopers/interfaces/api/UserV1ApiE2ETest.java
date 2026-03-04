@@ -54,18 +54,25 @@ class UserV1ApiE2ETest {
     @Nested
     class GetMyInfo {
 
+        private final BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
+        private static final String RAW_PASSWORD = "TestPass1!";
+
         @DisplayName("존재하는 사용자를 조회하면, 200 OK와 마스킹된 이름을 반환한다.")
         @Test
         void returnsOk_whenUserExists() {
             // arrange
-            User savedUser = UserFixture.builder()
-                                        .loginId("testUser123")
-                                        .name("박자바")
-                                        .build();
-            userJpaRepository.save(savedUser);
+            String encodedPassword = bCryptPasswordEncoder.encode(RAW_PASSWORD);
+            User savedUser = userJpaRepository.save(
+                UserFixture.builder()
+                           .loginId("testUser123")
+                           .name("박자바")
+                           .password(encodedPassword)
+                           .build()
+            );
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Loopers-LoginId", savedUser.getLoginId());
+            headers.set("X-Loopers-LoginPw", RAW_PASSWORD);
             HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
 
             // act
@@ -162,7 +169,7 @@ class UserV1ApiE2ETest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         }
 
-        @DisplayName("현재 비밀번호가 일치하지 않으면, 400 Bad Request를 반환한다.")
+        @DisplayName("현재 비밀번호가 일치하지 않으면, 404 Not Found를 반환한다.")
         @Test
         void returnsBadRequest_whenCurrentPasswordNotMatches() {
             // arrange
@@ -189,7 +196,7 @@ class UserV1ApiE2ETest {
                 testRestTemplate.exchange(ENDPOINT_UPDATE_PASSWORD, HttpMethod.PATCH, requestEntity, responseType);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         }
 
         @DisplayName("현재 비밀번호와 동일한 비밀번호로 변경하면, 400 Bad Request를 반환한다.")

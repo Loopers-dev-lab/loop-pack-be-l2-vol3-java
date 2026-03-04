@@ -1,7 +1,7 @@
-package com.loopers.domain.user;
+package com.loopers.application.user;
 
-import com.loopers.application.user.UpdatePasswordCommand;
-import com.loopers.application.user.UserInfo;
+import com.loopers.domain.user.User;
+import com.loopers.domain.user.UserFixture;
 import com.loopers.infrastructure.user.UserJpaRepository;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -38,14 +38,15 @@ class UserServiceIntegrationTest {
     void getMyInfo_returnsUserInfoWithMaskedName() {
         // arrange
         String loginId = "testUser123";
-        User user = UserFixture.builder()
-                               .loginId(loginId)
-                               .name("박자바")
-                               .build();
-        userJpaRepository.save(user);
+        User user = userJpaRepository.save(
+            UserFixture.builder()
+                       .loginId(loginId)
+                       .name("박자바")
+                       .build()
+        );
 
         // act
-        UserInfo result = userService.getMyInfo(loginId);
+        UserInfo result = userService.getMyInfo(user.getId());
 
         // assert
         assertAll(
@@ -61,14 +62,15 @@ class UserServiceIntegrationTest {
         String loginId = "testUser123";
         String currentPassword = "OldPass1!";
         String encode = bCryptPasswordEncoder.encode(currentPassword);
-        User user = UserFixture.builder()
-                               .loginId(loginId)
-                               .password(encode)
-                               .build();
-        userJpaRepository.save(user);
+        User user = userJpaRepository.save(
+            UserFixture.builder()
+                       .loginId(loginId)
+                       .password(encode)
+                       .build()
+        );
 
         String newPassword = "NewPass1!";
-        UpdatePasswordCommand command = new UpdatePasswordCommand(loginId, currentPassword, newPassword);
+        UpdatePasswordCommand command = new UpdatePasswordCommand(user.getId(), currentPassword, newPassword);
 
         // act
         userService.updatePassword(command);

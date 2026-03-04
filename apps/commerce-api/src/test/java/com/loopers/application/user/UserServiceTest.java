@@ -1,7 +1,9 @@
-package com.loopers.domain.user;
+package com.loopers.application.user;
 
-import com.loopers.application.user.UpdatePasswordCommand;
-import com.loopers.application.user.UserInfo;
+import com.loopers.domain.user.InMemoryUserRepository;
+import com.loopers.domain.user.PasswordEncoder;
+import com.loopers.domain.user.User;
+import com.loopers.domain.user.UserFixture;
 import com.loopers.infrastructure.user.BcryptPasswordEncoder;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -35,7 +37,7 @@ public class UserServiceTest {
         userRepository.save(user);
 
         // when
-        UserInfo myInfo = userService.getMyInfo(user.getLoginId());
+        UserInfo myInfo = userService.getMyInfo(user.getId());
 
         // then
         assertThat(myInfo.name()).isEqualTo("테스*");
@@ -55,7 +57,7 @@ public class UserServiceTest {
                                .build();
         userRepository.save(user);
 
-        UpdatePasswordCommand command = new UpdatePasswordCommand(user.getLoginId(), "WrongPass1!", "NewPass1!");
+        UpdatePasswordCommand command = new UpdatePasswordCommand(user.getId(), "WrongPass1!", "NewPass1!");
 
         // when
         CoreException result = assertThrows(CoreException.class, () -> {
@@ -77,7 +79,7 @@ public class UserServiceTest {
                                .build();
         userRepository.save(user);
 
-        UpdatePasswordCommand command = new UpdatePasswordCommand(user.getLoginId(), rawPassword, rawPassword);
+        UpdatePasswordCommand command = new UpdatePasswordCommand(user.getId(), rawPassword, rawPassword);
 
         // when
         CoreException result = assertThrows(CoreException.class, () -> {
