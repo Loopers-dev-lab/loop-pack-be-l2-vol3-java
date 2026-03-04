@@ -383,14 +383,14 @@ class ProductTest {
         }
 
         @Test
-        void 삭제된_상품이면_예외() {
+        void 삭제된_상품도_좋아요수가_감소한다() {
             Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            product.incrementLikeCount();
             product.delete();
 
-            assertThatThrownBy(() -> product.decrementLikeCount())
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
-                    .hasMessageContaining("존재하지 않는 상품입니다");
+            product.decrementLikeCount();
+
+            assertThat(product.getLikeCount()).isEqualTo(0);
         }
     }
 

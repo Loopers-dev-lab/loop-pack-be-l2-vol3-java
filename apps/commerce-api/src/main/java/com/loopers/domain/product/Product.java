@@ -65,7 +65,6 @@ public class Product extends BaseEntity {
     }
 
     public void decrementLikeCount() {
-        validateNotDeleted();
         if (this.likeCount > 0) {
             this.likeCount--;
         }

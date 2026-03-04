@@ -19,11 +19,6 @@ sequenceDiagram
     activate LF
 
     critical @Transactional
-        LF->>PS: 활성 상품 확인
-        activate PS
-        PS-->>LF: 완료
-        deactivate PS
-
         LF->>LS: 좋아요 삭제
         activate LS
         LS-->>LF: 삭제 여부 (boolean)
@@ -46,8 +41,8 @@ sequenceDiagram
 ## 핵심 포인트
 
 - 트랜잭션 범위: Facade 메서드 전체를 `@Transactional`로 감싼다
-- 활성 상품 확인: ProductService가 미존재/삭제 시 예외를 던진다 (Facade는 분기하지 않음)
+- 활성 상품 검증 없음: 삭제된 상품도 좋아요 취소 가능 (좋아요가 걸린 채 해제 불가능한 상태 방지)
 - 좋아요 삭제 캡슐화: LikeService가 존재 여부 확인 + 물리적 삭제를 캡슐화한다. Facade는 도메인 내부 상태(Optional 등)를 직접 다루지 않는다
-- 멱등성: 좋아요가 없으면 삭제/감소 없이 200 응답한다
+- 멱등성: 좋아요가 없거나 상품이 미존재하면 삭제/감소 없이 200 응답한다
 - 좋아요 데이터는 물리적으로 삭제한다 (Soft Delete 아님)
 - 좋아요 삭제와 likeCount 감소는 같은 트랜잭션에서 처리한다

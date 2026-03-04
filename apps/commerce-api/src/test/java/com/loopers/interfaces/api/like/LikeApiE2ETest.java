@@ -215,40 +215,32 @@ class LikeApiE2ETest {
         }
 
         @Test
-        void 삭제된_상품에_좋아요_취소하면_404_응답() {
+        void 삭제된_상품에_좋아요_취소하면_200_응답하고_좋아요가_존재하면_삭제하고_likeCount를_감소한다() {
             fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            postLike(productId);
             fixture.deleteProduct(productId);
 
-            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
-                    LIKE_ENDPOINT, HttpMethod.DELETE,
-                    new HttpEntity<>(userHeaders()),
-                    new ParameterizedTypeReference<>() {},
-                    productId
-            );
+            ResponseEntity<ApiResponse<Void>> response = deleteLike(productId);
 
             assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
-                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 상품입니다")
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> {
+                        ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> productResponse =
+                                getProductList("?status=DELETED");
+                        assertThat(productResponse.getBody().data().content().get(0).likeCount()).isEqualTo(0);
+                    }
             );
         }
 
         @Test
-        void 미존재_상품에_좋아요_취소하면_404_응답() {
+        void 미존재_상품에_좋아요_취소하면_200_응답하고_상태_유지() {
             fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
 
-            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
-                    LIKE_ENDPOINT, HttpMethod.DELETE,
-                    new HttpEntity<>(userHeaders()),
-                    new ParameterizedTypeReference<>() {},
-                    999L
-            );
+            ResponseEntity<ApiResponse<Void>> response = deleteLike(999L);
 
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
-                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 상품입니다")
-            );
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         }
 
         @Test
