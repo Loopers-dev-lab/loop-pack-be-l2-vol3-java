@@ -5,6 +5,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -12,7 +14,9 @@ import com.loopers.support.error.ErrorType;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", uniqueConstraints = {
+    @UniqueConstraint(name = "uk_users_login_id", columnNames = {"login_id"})
+})
 public class User extends BaseEntity {
 
     @Embedded
@@ -29,6 +33,10 @@ public class User extends BaseEntity {
 
     @Embedded
     private Email email;
+
+    @Version
+    @Column(name = "version")
+    private Long version;
 
     protected User() {}
 

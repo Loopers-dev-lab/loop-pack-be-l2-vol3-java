@@ -6,6 +6,7 @@ import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "brands")
@@ -13,6 +14,10 @@ public class Brand extends BaseEntity {
 
     @Column(name = "name", nullable = false)
     private String name;
+
+    @Version
+    @Column(name = "version")
+    private Long version;
 
     protected Brand() {}
 

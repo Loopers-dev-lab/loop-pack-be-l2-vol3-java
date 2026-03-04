@@ -12,9 +12,6 @@ public class LikeDomainService {
     private final LikeRepository likeRepository;
 
     public void like(Long userId, Long productId) {
-        if (likeRepository.existsByUserIdAndProductId(userId, productId)) {
-            throw new CoreException(ErrorType.CONFLICT, "이미 좋아요한 상품입니다.");
-        }
         likeRepository.save(new Like(userId, productId));
     }
 

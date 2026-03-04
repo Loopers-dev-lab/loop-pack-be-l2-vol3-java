@@ -9,8 +9,6 @@ public interface LikeRepository {
 
     void delete(Like like);
 
-    boolean existsByUserIdAndProductId(Long userId, Long productId);
-
     Optional<Like> findByUserIdAndProductId(Long userId, Long productId);
 
     List<Like> findAllByUserId(Long userId);

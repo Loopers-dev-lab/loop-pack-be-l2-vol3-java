@@ -18,10 +18,6 @@ public class UserDomainService {
     }
 
     public User signup(String loginId, String rawPassword, String name, LocalDate birthDate, String email) {
-        if (userRepository.existsByLoginId(loginId)) {
-            throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.");
-        }
-
         PasswordPolicy.validate(rawPassword, birthDate);
 
         String encryptedPassword = passwordEncryptor.encrypt(rawPassword);

@@ -15,7 +15,7 @@ public class LoginId {
 
     private static final Pattern PATTERN = Pattern.compile("^[a-zA-Z0-9]+$");
 
-    @Column(name = "login_id", nullable = false, unique = true)
+    @Column(name = "login_id", nullable = false)
     private String value;
 
     protected LoginId() {}

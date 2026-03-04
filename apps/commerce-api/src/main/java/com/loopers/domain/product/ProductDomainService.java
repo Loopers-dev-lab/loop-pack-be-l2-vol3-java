@@ -67,14 +67,18 @@ public class ProductDomainService {
     }
 
     public void incrementLikeCount(Long productId) {
-        Product product = getByIdWithLock(productId);
-        product.incrementLikeCount();
-        productRepository.save(product);
+        int affected = productRepository.incrementLikeCount(productId);
+        if (affected == 0) {
+            throw new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.");
+        }
     }
 
     public void decrementLikeCount(Long productId) {
-        Product product = getByIdWithLock(productId);
-        product.decrementLikeCount();
-        productRepository.save(product);
+        int affected = productRepository.decrementLikeCount(productId);
+        if (affected == 0) {
+            productRepository.findById(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
+            throw new CoreException(ErrorType.BAD_REQUEST, "좋아요 수는 0 미만이 될 수 없습니다.");
+        }
     }
 }

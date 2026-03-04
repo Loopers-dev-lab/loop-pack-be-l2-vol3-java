@@ -3,7 +3,11 @@ package com.loopers.infrastructure.coupon;
 import com.loopers.domain.PageResult;
 import com.loopers.domain.coupon.CouponIssue;
 import com.loopers.domain.coupon.CouponIssueRepository;
+import com.loopers.infrastructure.support.ConstraintViolationHelper;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -20,17 +24,19 @@ public class CouponIssueRepositoryImpl implements CouponIssueRepository {
 
     @Override
     public CouponIssue save(CouponIssue couponIssue) {
-        return couponIssueJpaRepository.save(couponIssue);
+        try {
+            return couponIssueJpaRepository.saveAndFlush(couponIssue);
+        } catch (DataIntegrityViolationException e) {
+            if (ConstraintViolationHelper.isUniqueViolation(e, "uk_coupon_issues_coupon_user")) {
+                throw new CoreException(ErrorType.CONFLICT, "이미 발급받은 쿠폰입니다.");
+            }
+            throw e;
+        }
     }
 
     @Override
     public Optional<CouponIssue> findById(Long id) {
         return couponIssueJpaRepository.findByIdAndDeletedAtIsNull(id);
-    }
-
-    @Override
-    public boolean existsByCouponIdAndUserId(Long couponId, Long userId) {
-        return couponIssueJpaRepository.existsByCouponIdAndUserIdAndDeletedAtIsNull(couponId, userId);
     }
 
     @Override

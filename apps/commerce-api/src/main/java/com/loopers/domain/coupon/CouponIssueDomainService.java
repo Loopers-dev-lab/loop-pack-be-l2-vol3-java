@@ -19,9 +19,6 @@ public class CouponIssueDomainService {
         if (coupon.isExpired()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰은 발급할 수 없습니다.");
         }
-        if (couponIssueRepository.existsByCouponIdAndUserId(coupon.getId(), userId)) {
-            throw new CoreException(ErrorType.CONFLICT, "이미 발급받은 쿠폰입니다.");
-        }
         return couponIssueRepository.save(new CouponIssue(coupon.getId(), userId));
     }
 

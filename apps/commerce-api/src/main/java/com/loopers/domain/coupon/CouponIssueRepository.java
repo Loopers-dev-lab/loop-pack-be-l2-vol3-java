@@ -11,8 +11,6 @@ public interface CouponIssueRepository {
 
     Optional<CouponIssue> findById(Long id);
 
-    boolean existsByCouponIdAndUserId(Long couponId, Long userId);
-
     List<CouponIssue> findAllByUserId(Long userId);
 
     PageResult<CouponIssue> findByCouponId(Long couponId, int page, int size);

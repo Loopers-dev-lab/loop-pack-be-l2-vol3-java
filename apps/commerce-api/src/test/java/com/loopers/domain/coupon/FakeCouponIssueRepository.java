@@ -1,6 +1,8 @@
 package com.loopers.domain.coupon;
 
 import com.loopers.domain.PageResult;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -16,6 +18,12 @@ class FakeCouponIssueRepository implements CouponIssueRepository {
     @Override
     public CouponIssue save(CouponIssue couponIssue) {
         if (couponIssue.getId() == null || couponIssue.getId() == 0L) {
+            boolean duplicate = store.stream()
+                .anyMatch(ci -> ci.getCouponId().equals(couponIssue.getCouponId())
+                    && ci.getUserId().equals(couponIssue.getUserId()));
+            if (duplicate) {
+                throw new CoreException(ErrorType.CONFLICT, "이미 발급받은 쿠폰입니다.");
+            }
             setId(couponIssue, idGenerator.getAndIncrement());
             store.add(couponIssue);
         }
@@ -28,13 +36,6 @@ class FakeCouponIssueRepository implements CouponIssueRepository {
             .filter(ci -> ci.getId().equals(id))
             .filter(ci -> ci.getDeletedAt() == null)
             .findFirst();
-    }
-
-    @Override
-    public boolean existsByCouponIdAndUserId(Long couponId, Long userId) {
-        return store.stream()
-            .filter(ci -> ci.getDeletedAt() == null)
-            .anyMatch(ci -> ci.getCouponId().equals(couponId) && ci.getUserId().equals(userId));
     }
 
     @Override

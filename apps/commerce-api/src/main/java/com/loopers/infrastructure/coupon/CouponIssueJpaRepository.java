@@ -12,8 +12,6 @@ public interface CouponIssueJpaRepository extends JpaRepository<CouponIssue, Lon
 
     Optional<CouponIssue> findByIdAndDeletedAtIsNull(Long id);
 
-    boolean existsByCouponIdAndUserIdAndDeletedAtIsNull(Long couponId, Long userId);
-
     List<CouponIssue> findAllByUserIdAndDeletedAtIsNull(Long userId);
 
     Page<CouponIssue> findByCouponIdAndDeletedAtIsNull(Long couponId, Pageable pageable);

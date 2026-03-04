@@ -9,6 +9,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import org.springframework.util.Assert;
 
 import java.time.ZonedDateTime;
@@ -32,6 +33,10 @@ public class Coupon extends BaseEntity {
 
     @Column(name = "expired_at", nullable = false)
     private ZonedDateTime expiredAt;
+
+    @Version
+    @Column(name = "version")
+    private Long version;
 
     protected Coupon() {}
 

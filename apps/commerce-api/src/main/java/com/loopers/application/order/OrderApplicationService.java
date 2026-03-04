@@ -156,22 +156,33 @@ public class OrderApplicationService {
         List<CreateOrderCommand.LineItem> sorted = lineItems.stream()
             .sorted(Comparator.comparing(CreateOrderCommand.LineItem::productId)).toList();
 
-        // 2. 재고 차감 (pessimistic lock) — Map으로 관리
-        Map<Long, Product> productMap = new LinkedHashMap<>();
+        // 2. 쿠폰 조회 — lock 전에 완료 (상태 변경은 lock 구간에서 수행)
+        // Product pre-read는 Hibernate L1 캐시 오염으로 pessimistic lock이 stale 데이터를 반환하므로 생략
+        CouponIssue couponIssue = null;
+        Coupon coupon = null;
+        if (couponId != null) {
+            couponIssue = couponIssueDomainService.getByIdAndUserId(couponId, userId);
+            coupon = couponDomainService.getById(couponIssue.getCouponId());
+        }
+
+        // ----- lock 구간 시작 -----
+
+        // 3. 재고 차감 (pessimistic lock)
+        Map<Long, Product> lockedProducts = new LinkedHashMap<>();
         for (CreateOrderCommand.LineItem item : sorted) {
-            productMap.put(item.productId(),
+            lockedProducts.put(item.productId(),
                 productService.deductStockWithLock(item.productId(), item.quantity()));
         }
 
-        // 3. Brand 일괄 조회 (N+1 방지)
-        Set<Long> brandIds = productMap.values().stream()
+        // 4. Brand 일괄 조회 (N+1 방지)
+        Set<Long> brandIds = lockedProducts.values().stream()
             .map(Product::getBrandId).collect(Collectors.toSet());
         Map<Long, Brand> brandMap = brandService.getByIds(brandIds);
 
-        // 4. OrderItemCommand 조립 — productId 키로 안전하게 조회
+        // 5. OrderItemCommand 조립
         List<OrderItemCommand> itemCommands = new ArrayList<>();
         for (CreateOrderCommand.LineItem item : sorted) {
-            Product product = productMap.get(item.productId());
+            Product product = lockedProducts.get(item.productId());
             Brand brand = brandMap.get(product.getBrandId());
             if (brand == null) {
                 throw new CoreException(ErrorType.NOT_FOUND,
@@ -183,23 +194,18 @@ public class OrderApplicationService {
             ));
         }
 
-        // 5. 총 금액 계산
+        // 6. 총 금액 계산
         Money originalPrice = calculateOriginalPrice(itemCommands);
 
-        // 6. 쿠폰 처리
+        // 7. 쿠폰 적용 (검증 + 사용)
         if (couponId != null) {
-            CouponIssue couponIssue = couponIssueDomainService.getByIdAndUserId(couponId, userId);
-            Coupon coupon = couponDomainService.getById(couponIssue.getCouponId());
-
             coupon.validateApplicable(originalPrice);
             Money discountAmount = coupon.calculateDiscount(originalPrice);
-
             couponIssueDomainService.useCoupon(couponIssue.getId(), userId);
-
             return orderService.createOrder(userId, itemCommands, originalPrice, discountAmount, couponId);
         }
 
-        // 7. 주문 생성 (쿠폰 없음)
+        // 8. 주문 생성 (쿠폰 없음)
         return orderService.createOrder(userId, itemCommands);
     }
 

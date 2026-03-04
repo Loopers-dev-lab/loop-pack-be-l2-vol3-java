@@ -19,4 +19,8 @@ public interface ProductRepository {
     PageResult<Product> findAll(Long brandId, ProductSortType sort, int page, int size);
 
     void softDeleteAllByBrandId(Long brandId);
+
+    int incrementLikeCount(Long id);
+
+    int decrementLikeCount(Long id);
 }

@@ -16,7 +16,7 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "coupon_issues", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"coupon_id", "user_id"})
+    @UniqueConstraint(name = "uk_coupon_issues_coupon_user", columnNames = {"coupon_id", "user_id"})
 })
 public class CouponIssue extends BaseEntity {
 
