@@ -50,14 +50,14 @@ public class ProductService {
 
     @Transactional
     public void incrementLikeCount(Long productId) {
-        Product product = productRepository.findByIdForUpdate(productId)
+        Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
         product.incrementLikeCount();
     }
 
     @Transactional
     public void decrementLikeCount(Long productId) {
-        Product product = productRepository.findByIdForUpdate(productId)
+        Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
         product.decrementLikeCount();
     }
@@ -65,7 +65,7 @@ public class ProductService {
     @Transactional
     public List<Product> deductStocks(Map<Long, Integer> productQuantities) {
         List<Long> productIds = new ArrayList<>(productQuantities.keySet());
-        List<Product> products = productRepository.findAllByIdInForUpdate(productIds);
+        List<Product> products = productRepository.findAllByIdIn(productIds);
 
         if (products.size() != productIds.size()) {
             throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품이 포함되어 있습니다");

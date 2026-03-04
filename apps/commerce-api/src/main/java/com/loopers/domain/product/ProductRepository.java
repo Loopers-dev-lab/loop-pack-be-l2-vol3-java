@@ -15,11 +15,9 @@ public interface ProductRepository {
     // Query
     Optional<Product> findById(Long id);
     Optional<Product> findActiveById(Long id);
-    Optional<Product> findByIdForUpdate(Long id);
     List<Product> findAllByBrandId(Long brandId);
 
     List<Product> findAllByIdIn(Collection<Long> ids);
-    List<Product> findAllByIdInForUpdate(List<Long> ids);
 
     Page<Product> findAll(String name, Long brandId, Boolean deleted, Pageable pageable);
     Page<Product> findAllActive(Long brandId, Pageable pageable);

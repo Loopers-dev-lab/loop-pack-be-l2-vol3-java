@@ -35,11 +35,6 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public Optional<Product> findByIdForUpdate(Long id) {
-        return productJpaRepository.findByIdForUpdate(id);
-    }
-
-    @Override
     public List<Product> findAllByBrandId(Long brandId) {
         return productJpaRepository.findAllByBrandId(brandId);
     }
@@ -47,11 +42,6 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public List<Product> findAllByIdIn(Collection<Long> ids) {
         return productJpaRepository.findAllByIdIn(ids);
-    }
-
-    @Override
-    public List<Product> findAllByIdInForUpdate(List<Long> ids) {
-        return productJpaRepository.findAllByIdInForUpdate(ids);
     }
 
     @Override
