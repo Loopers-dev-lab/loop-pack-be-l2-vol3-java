@@ -47,7 +47,6 @@ public class BrandService {
      * @return 활성 브랜드
      * @throws CoreException 브랜드가 존재하지 않거나 삭제된 경우
      */
-    @Transactional(readOnly = true)
     public Brand getActiveBrand(Long brandId) {
         return brandRepository.findByIdAndDeletedAtIsNull(brandId)
                 .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
@@ -59,7 +58,6 @@ public class BrandService {
      * @param brandIds 조회할 브랜드 ID 목록
      * @return 브랜드 ID를 키로 하는 활성 브랜드 맵
      */
-    @Transactional(readOnly = true)
     public Map<Long, Brand> getActiveBrandMap(List<Long> brandIds) {
         return brandRepository.findAllByIdInAndDeletedAtIsNull(brandIds)
                 .stream()
@@ -112,7 +110,6 @@ public class BrandService {
      * @param brandId 브랜드 ID
      * @throws CoreException 브랜드가 존재하지 않는 경우
      */
-    @Transactional(readOnly = true)
     public void validateBrandExists(Long brandId) {
         if (!brandRepository.existsById(brandId)) {
             throw new CoreException(ErrorType.BRAND_NOT_FOUND);
@@ -125,7 +122,6 @@ public class BrandService {
      * @param brandId 브랜드 ID
      * @throws CoreException 브랜드가 존재하지 않거나 삭제된 경우
      */
-    @Transactional(readOnly = true)
     public void validateActiveBrandExists(Long brandId) {
         if (!brandRepository.existsByIdAndDeletedAtIsNull(brandId)) {
             throw new CoreException(ErrorType.BRAND_NOT_FOUND);

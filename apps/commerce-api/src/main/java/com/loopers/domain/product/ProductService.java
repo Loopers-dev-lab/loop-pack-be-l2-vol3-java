@@ -56,7 +56,6 @@ public class ProductService {
      * @return 활성 상품
      * @throws CoreException 상품이 존재하지 않거나 삭제된 경우
      */
-    @Transactional(readOnly = true)
     public Product getActiveProduct(Long productId) {
         return productRepository.findByIdAndDeletedAtIsNull(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
@@ -69,7 +68,6 @@ public class ProductService {
      * @param pageSize 페이지 크기
      * @return 상품 목록 페이지
      */
-    @Transactional(readOnly = true)
     public Page<Product> getProducts(Long brandId, PageSize pageSize) {
         Slice<Product> products = productRepository.findAll(
                 brandId,
@@ -86,7 +84,6 @@ public class ProductService {
      * @param pageSize 페이지 크기
      * @return 활성 상품 목록 페이지
      */
-    @Transactional(readOnly = true)
     public Page<Product> getActiveProducts(Long brandId, ProductSortType sortType, PageSize pageSize) {
         Slice<Product> products = productRepository.findAllActiveProducts(brandId, sortType, pageSize.toPageable());
         return new Page<>(products.getContent(), products.hasNext());
@@ -98,7 +95,6 @@ public class ProductService {
      * @param productIds 상품 ID 목록
      * @return 상품 ID를 키로 하는 상품 맵
      */
-    @Transactional(readOnly = true)
     public Map<Long, Product> getActiveProductsByIds(List<Long> productIds) {
         return productRepository.findAllByIdInAndDeletedAtIsNull(productIds)
                 .stream()
@@ -111,7 +107,6 @@ public class ProductService {
      * @param brandId 브랜드 ID
      * @return 활성 상품 ID 목록
      */
-    @Transactional(readOnly = true)
     public List<Long> getActiveProductIdsByBrandId(Long brandId) {
         return productRepository.findAllByBrandIdAndDeletedAtIsNull(brandId)
                 .stream()
@@ -221,7 +216,6 @@ public class ProductService {
      * @param productId 상품 ID
      * @throws CoreException 상품이 존재하지 않거나 삭제된 경우
      */
-    @Transactional(readOnly = true)
     public void validateActiveProductExists(Long productId) {
         if (!productRepository.existsByIdAndDeletedAtIsNull(productId)) {
             throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);

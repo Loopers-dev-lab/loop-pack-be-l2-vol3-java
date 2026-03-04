@@ -40,7 +40,6 @@ public class OrderService {
      * @return 주문 항목을 포함한 주문
      * @throws CoreException 주문이 존재하지 않거나 본인의 주문이 아닌 경우
      */
-    @Transactional(readOnly = true)
     public Order getMyOrder(Long userId, Long orderId) {
         Order order = orderRepository.findByIdWithItems(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));

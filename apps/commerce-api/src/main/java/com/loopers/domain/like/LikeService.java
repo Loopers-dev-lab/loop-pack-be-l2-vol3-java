@@ -48,7 +48,6 @@ public class LikeService {
      * @param productId 상품 ID
      * @return 좋아요 여부
      */
-    @Transactional(readOnly = true)
     public boolean isLiked(Long userId, Long productId) {
         if (userId == null) {
             return false;
@@ -63,7 +62,6 @@ public class LikeService {
      * @param pageSize 페이지 크기
      * @return 좋아요 목록 페이지 (최신순)
      */
-    @Transactional(readOnly = true)
     public Page<Like> getLikes(Long userId, PageSize pageSize) {
         Slice<Like> likes = likeRepository.findAllByUserId(
                 userId,
@@ -79,7 +77,6 @@ public class LikeService {
      * @param productIds 확인할 상품 ID 목록
      * @return 좋아요한 상품 ID 집합
      */
-    @Transactional(readOnly = true)
     public Set<Long> getLikedProductIds(Long userId, List<Long> productIds) {
         if (userId == null) {
             return Collections.emptySet();
