@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.order;
 
 import com.loopers.application.order.OrderCommand;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -56,6 +57,12 @@ public record OrderRequest() {
         public ListByUser {
             page = Objects.requireNonNullElse(page, 0);
             size = Objects.requireNonNullElse(size, 20);
+        }
+
+        @AssertTrue(message = "시작일은 종료일 이전이어야 합니다")
+        public boolean isStartDateBeforeEndDate() {
+            if (startDate == null || endDate == null) return true;
+            return !startDate.isAfter(endDate);
         }
 
         public Pageable toPageable() {

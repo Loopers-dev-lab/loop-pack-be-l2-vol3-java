@@ -19,7 +19,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class ProductService {
 
     private final ProductRepository productRepository;
@@ -87,24 +86,29 @@ public class ProductService {
 
     // Query
 
+    @Transactional(readOnly = true)
     public Product getProduct(Long productId) {
         return productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
     }
 
+    @Transactional(readOnly = true)
     public Product getActiveProduct(Long productId) {
         return productRepository.findActiveById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
     }
 
+    @Transactional(readOnly = true)
     public Page<Product> findProducts(String name, Long brandId, Boolean deleted, Pageable pageable) {
         return productRepository.findAll(name, brandId, deleted, pageable);
     }
 
+    @Transactional(readOnly = true)
     public Page<Product> findActiveProducts(Long brandId, Pageable pageable) {
         return productRepository.findAllActive(brandId, pageable);
     }
 
+    @Transactional(readOnly = true)
     public Map<Long, Product> getProductsMapByIds(Set<Long> productIds) {
         return productRepository.findAllByIdIn(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, Function.identity()));

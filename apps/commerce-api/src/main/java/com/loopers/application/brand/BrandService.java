@@ -18,7 +18,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class BrandService {
 
     private final BrandRepository brandRepository;
@@ -57,28 +56,34 @@ public class BrandService {
 
     // Query
 
+    @Transactional(readOnly = true)
     public Brand getBrand(Long brandId) {
         return brandRepository.findById(brandId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다"));
     }
 
+    @Transactional(readOnly = true)
     public Page<Brand> findBrands(String name, Boolean deleted, Pageable pageable) {
         return brandRepository.findAll(name, deleted, pageable);
     }
 
+    @Transactional(readOnly = true)
     public Brand getActiveBrand(Long brandId) {
         return brandRepository.findActiveById(brandId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다"));
     }
 
+    @Transactional(readOnly = true)
     public List<Brand> getBrands(List<Long> brandIds) {
         return brandRepository.findAllByIdIn(brandIds);
     }
 
+    @Transactional(readOnly = true)
     public Page<Brand> findActiveBrands(String name, Pageable pageable) {
         return brandRepository.findAllActive(name, pageable);
     }
 
+    @Transactional(readOnly = true)
     public Map<Long, Brand> getBrandsMapByIds(Set<Long> brandIds) {
         return brandRepository.findAllByIdIn(brandIds).stream()
                 .collect(Collectors.toMap(Brand::getId, Function.identity()));

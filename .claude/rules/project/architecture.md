@@ -102,8 +102,6 @@ interfaces → application → domain ← infrastructure
 - 구현체는 `infrastructure/` 패키지에 배치
 
 ### 트랜잭션 전략
-- **ApplicationService**: 클래스 레벨 `@Transactional(readOnly = true)` 기본 적용
-    - 재사용 단위로 조회 메서드가 압도적 — 명령 메서드만 `@Transactional`로 오버라이드
-- **Facade**: 클래스 레벨 `@Transactional` 선언 금지 — 모든 메서드에 개별 선언
-    - 유스케이스 단위로 읽기/쓰기 비율 예측 불가 — `@Transactional` 또는 `@Transactional(readOnly = true)` 명시
+- 클래스 레벨 `@Transactional` 선언 금지 — 모든 메서드에 개별 선언
+    - 명령: `@Transactional`, 조회: `@Transactional(readOnly = true)`
     - Facade가 있으면 ApplicationService의 트랜잭션은 기존 트랜잭션에 참여 (REQUIRED)

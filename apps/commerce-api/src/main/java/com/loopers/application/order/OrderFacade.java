@@ -11,8 +11,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
@@ -79,14 +77,7 @@ public class OrderFacade {
     }
 
     @Transactional(readOnly = true)
-    public Page<OrderInfo.OrderSummary> getOrderList(Long userId, LocalDate startDate, LocalDate endDate, Pageable pageable) {
-        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "시작일은 종료일 이전이어야 합니다");
-        }
-        ZonedDateTime startDateTime = startDate != null
-                ? startDate.atStartOfDay(ZoneId.systemDefault()) : null;
-        ZonedDateTime endDateTime = endDate != null
-                ? endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()) : null;
+    public Page<OrderInfo.OrderSummary> getOrderList(Long userId, ZonedDateTime startDateTime, ZonedDateTime endDateTime, Pageable pageable) {
         Page<Order> orders = orderService.findOrdersByUserIdAndDateRange(userId, startDateTime, endDateTime, pageable);
         return orders.map(OrderInfo.OrderSummary::from);
     }

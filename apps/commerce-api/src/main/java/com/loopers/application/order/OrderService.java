@@ -14,7 +14,6 @@ import java.time.ZonedDateTime;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class OrderService {
 
     private final OrderRepository orderRepository;
@@ -39,15 +38,18 @@ public class OrderService {
 
     // Query
 
+    @Transactional(readOnly = true)
     public Order getOrder(Long orderId) {
         return orderRepository.findByIdWithItems(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다"));
     }
 
+    @Transactional(readOnly = true)
     public Page<Order> findOrdersByUserIdAndDateRange(Long userId, ZonedDateTime startDate, ZonedDateTime endDate, Pageable pageable) {
         return orderRepository.findAllByUserIdAndCreatedAtBetween(userId, startDate, endDate, pageable);
     }
 
+    @Transactional(readOnly = true)
     public Page<Order> findAllOrders(Pageable pageable) {
         return orderRepository.findAll(pageable);
     }

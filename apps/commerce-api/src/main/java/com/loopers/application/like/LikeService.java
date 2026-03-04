@@ -12,7 +12,6 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class LikeService {
 
     private final LikeRepository likeRepository;
@@ -44,6 +43,7 @@ public class LikeService {
 
     // Query
 
+    @Transactional(readOnly = true)
     public Page<Like> findLikedActiveProducts(Long userId, Pageable pageable) {
         return likeRepository.findAllByUserIdWithActiveProduct(userId, pageable);
     }

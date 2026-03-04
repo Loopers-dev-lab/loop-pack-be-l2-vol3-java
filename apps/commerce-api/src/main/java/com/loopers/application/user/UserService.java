@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class UserService {
 
     private final UserRepository userRepository;
@@ -39,11 +38,13 @@ public class UserService {
 
     // Query
 
+    @Transactional(readOnly = true)
     public User getById(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다"));
     }
 
+    @Transactional(readOnly = true)
     public User authenticate(String loginId, String rawPassword) {
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다"));
