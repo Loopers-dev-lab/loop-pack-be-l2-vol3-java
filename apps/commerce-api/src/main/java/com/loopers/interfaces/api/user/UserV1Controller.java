@@ -3,8 +3,8 @@ package com.loopers.interfaces.api.user;
 import com.loopers.application.user.UserFacade;
 import com.loopers.application.user.UserInfo;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.support.auth.AuthUser;
-import com.loopers.support.auth.AuthenticatedUser;
+import com.loopers.interfaces.api.auth.AuthUser;
+import com.loopers.interfaces.api.auth.AuthenticatedUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,23 +21,13 @@ public class UserV1Controller implements UserApiV1Spec {
 
     private final UserFacade userFacade;
 
+    // Command
+
     @PostMapping
     @Override
-    public ApiResponse<UserV1Dto.UserResponse> signUp(@Valid @RequestBody UserV1Dto.SignUpRequest request) {
-        UserInfo info = userFacade.signUp(
-                request.loginId(),
-                request.password(),
-                request.name(),
-                request.birthDate(),
-                request.email()
-        );
-        return ApiResponse.success(UserV1Dto.UserResponse.from(info));
-    }
-
-    @GetMapping("/me")
-    @Override
-    public ApiResponse<UserV1Dto.UserResponse> getMyInfo(@AuthUser AuthenticatedUser authUser) {
-        UserInfo info = userFacade.getMyInfo(authUser.id());
+    public ApiResponse<UserV1Dto.UserResponse> signUp(
+            @RequestBody @Valid UserRequest.SignUp request) {
+        UserInfo info = userFacade.signUp(request.toCommand());
         return ApiResponse.success(UserV1Dto.UserResponse.from(info));
     }
 
@@ -45,8 +35,17 @@ public class UserV1Controller implements UserApiV1Spec {
     @Override
     public ApiResponse<Void> changePassword(
             @AuthUser AuthenticatedUser authUser,
-            @Valid @RequestBody UserV1Dto.ChangePasswordRequest request) {
-        userFacade.changePassword(authUser.id(), request.newPassword());
+            @RequestBody @Valid UserRequest.ChangePassword request) {
+        userFacade.changePassword(request.toCommand(authUser.id()));
         return ApiResponse.success();
+    }
+
+    // Query
+
+    @GetMapping("/me")
+    @Override
+    public ApiResponse<UserV1Dto.UserResponse> getMyInfo(@AuthUser AuthenticatedUser authUser) {
+        UserInfo info = userFacade.getMyInfo(authUser.id());
+        return ApiResponse.success(UserV1Dto.UserResponse.from(info));
     }
 }

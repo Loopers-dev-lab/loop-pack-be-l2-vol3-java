@@ -32,6 +32,7 @@ Admin
 | status | String | ACTIVE |
 | createdAt | LocalDateTime | 등록일시 |
 | updatedAt | LocalDateTime | 수정일시 |
+| deletedAt | LocalDateTime | 삭제일시 |
 
 ## 인수 조건
 - [ ] 유효한 정보로 수정하면 200 응답과 수정된 상품 정보를 반환한다

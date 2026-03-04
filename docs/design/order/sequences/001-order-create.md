@@ -41,5 +41,5 @@ sequenceDiagram
 - 재고 차감과 주문 생성은 같은 트랜잭션에서 처리한다
 - ProductService.재고차감이 상품 조회+활성 검증+재고 검증+차감+스냅샷 반환을 캡슐화한다 (재고 부족 시 예외)
 - 주문 상품 중 하나라도 재고가 부족하면 전체 주문이 실패한다 (부분 성공 없음)
-- 주문 시점의 상품명, 가격, 브랜드명을 OrderItem에 스냅샷으로 저장한다
+- 주문 시점의 상품명, 가격을 OrderItem에 스냅샷으로 저장한다
 - Facade가 ProductService와 OrderService를 오케스트레이션한다

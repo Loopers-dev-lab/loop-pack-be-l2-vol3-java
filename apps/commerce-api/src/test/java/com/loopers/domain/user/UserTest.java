@@ -48,6 +48,31 @@ class UserTest {
                     .hasMessageContaining("로그인 ID");
         }
 
+        @Test
+        void 로그인ID가_최소길이_미만이면_예외() {
+            String loginId = "abc"; // 3자
+
+            assertThatThrownBy(() -> User.create(loginId, "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER))
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining("로그인 ID는 4~20자여야 합니다");
+        }
+
+        @Test
+        void 로그인ID가_최대길이_초과면_예외() {
+            String loginId = "a".repeat(21); // 21자
+
+            assertThatThrownBy(() -> User.create(loginId, "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER))
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining("로그인 ID는 4~20자여야 합니다");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"abcd", "abcdefghijklmnopqrst"})
+        void 로그인ID가_경계값이면_생성된다(String loginId) {
+            assertThatCode(() -> User.create(loginId, "Test1234!", "홍길동", LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER))
+                    .doesNotThrowAnyException();
+        }
+
         @ParameterizedTest
         @ValueSource(strings = {"test user", "test@user", "test-user", "테스트유저", "test_user"})
         void 로그인ID가_영문숫자가_아니면_예외(String loginId) {
@@ -63,6 +88,31 @@ class UserTest {
             assertThatThrownBy(() -> User.create("testuser", "Test1234!", name, LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining("이름");
+        }
+
+        @Test
+        void 이름이_최소길이_미만이면_예외() {
+            String name = "홍"; // 1자
+
+            assertThatThrownBy(() -> User.create("testuser", "Test1234!", name, LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER))
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining("이름은 2~20자여야 합니다");
+        }
+
+        @Test
+        void 이름이_최대길이_초과면_예외() {
+            String name = "가".repeat(21); // 21자
+
+            assertThatThrownBy(() -> User.create("testuser", "Test1234!", name, LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER))
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining("이름은 2~20자여야 합니다");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"홍길", "가나다라마바사아자차카타파하아아아아자차"})
+        void 이름이_경계값이면_생성된다(String name) {
+            assertThatCode(() -> User.create("testuser", "Test1234!", name, LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER))
+                    .doesNotThrowAnyException();
         }
 
         @Test
@@ -114,8 +164,7 @@ class UserTest {
         @ParameterizedTest
         @CsvSource({
                 "홍길동, 홍길*",
-                "김밥, 김*",
-                "이, *"
+                "김밥, 김*"
         })
         void 마지막_글자를_마스킹한다(String name, String expected) {
             User user = User.create("testuser", "Test1234!", name, LocalDate.of(2000, 1, 15), "test@example.com", PASSWORD_ENCODER);
