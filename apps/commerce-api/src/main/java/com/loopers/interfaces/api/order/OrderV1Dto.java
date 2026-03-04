@@ -13,6 +13,9 @@ public class OrderV1Dto {
     public record OrderResponse(
             Long id,
             BigDecimal totalAmount,
+            BigDecimal discountAmount,
+            BigDecimal finalAmount,
+            Long couponId,
             List<OrderItemResponse> orderItems,
             LocalDateTime createdAt
     ) {
@@ -24,6 +27,9 @@ public class OrderV1Dto {
             return new OrderResponse(
                     info.id(),
                     info.totalAmount(),
+                    info.discountAmount(),
+                    info.finalAmount(),
+                    info.couponId(),
                     items,
                     info.createdAt()
             );
@@ -52,6 +58,9 @@ public class OrderV1Dto {
     public record OrderListResponse(
             Long id,
             BigDecimal totalAmount,
+            BigDecimal discountAmount,
+            BigDecimal finalAmount,
+            Long couponId,
             LocalDateTime createdAt
     ) {
 
@@ -59,6 +68,9 @@ public class OrderV1Dto {
             return new OrderListResponse(
                     summary.id(),
                     summary.totalAmount(),
+                    summary.discountAmount(),
+                    summary.finalAmount(),
+                    summary.couponId(),
                     summary.createdAt()
             );
         }

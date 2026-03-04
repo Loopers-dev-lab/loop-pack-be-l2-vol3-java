@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
@@ -23,6 +24,11 @@ public class IssuedCouponRepositoryImpl implements IssuedCouponRepository {
     }
 
     // Query
+
+    @Override
+    public Optional<IssuedCoupon> findByIdForUpdate(Long id) {
+        return issuedCouponJpaRepository.findByIdForUpdate(id);
+    }
 
     @Override
     public List<IssuedCoupon> findAllByCouponId(Long couponId) {

@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.order;
 
+import com.loopers.domain.coupon.CouponType;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.product.ProductAdminV1Dto;
@@ -23,7 +24,13 @@ import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -72,6 +79,9 @@ class OrderApiE2ETest {
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().id()).isNotNull(),
                     () -> assertThat(response.getBody().data().totalAmount()).isEqualByComparingTo(new BigDecimal("130000")),
+                    () -> assertThat(response.getBody().data().discountAmount()).isEqualByComparingTo(BigDecimal.ZERO),
+                    () -> assertThat(response.getBody().data().finalAmount()).isEqualByComparingTo(new BigDecimal("130000")),
+                    () -> assertThat(response.getBody().data().couponId()).isNull(),
                     () -> assertThat(response.getBody().data().orderItems()).hasSize(2),
                     () -> assertThat(response.getBody().data().createdAt()).isNotNull()
             );
@@ -221,6 +231,222 @@ class OrderApiE2ETest {
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
                     () -> assertThat(response.getBody().meta().message()).contains("주문 상품이 중복되었습니다")
+            );
+        }
+
+        @Test
+        void 정액_쿠폰_적용_시_할인_금액만큼_차감된_최종_금액을_반환한다() {
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long couponId = fixture.registerCoupon("5000원 할인", CouponType.FIXED, 5000,
+                    BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7));
+            Long issuedCouponId = fixture.issueCoupon(couponId, "testuser", "Test1234!");
+
+            OrderRequest.Place request = new OrderRequest.Place(List.of(
+                    new OrderRequest.PlaceItem(productId, 2)
+            ), issuedCouponId);
+
+            ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> response = postOrder(request);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().totalAmount()).isEqualByComparingTo(new BigDecimal("100000")),
+                    () -> assertThat(response.getBody().data().discountAmount()).isEqualByComparingTo(new BigDecimal("5000")),
+                    () -> assertThat(response.getBody().data().finalAmount()).isEqualByComparingTo(new BigDecimal("95000")),
+                    () -> assertThat(response.getBody().data().couponId()).isEqualTo(issuedCouponId)
+            );
+        }
+
+        @Test
+        void 정률_쿠폰_적용_시_비율에_따른_할인_금액을_반환한다() {
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long couponId = fixture.registerCoupon("10% 할인", CouponType.RATE, 10,
+                    null, 100, LocalDateTime.now().plusDays(7));
+            Long issuedCouponId = fixture.issueCoupon(couponId, "testuser", "Test1234!");
+
+            OrderRequest.Place request = new OrderRequest.Place(List.of(
+                    new OrderRequest.PlaceItem(productId, 2)
+            ), issuedCouponId);
+
+            ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> response = postOrder(request);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().totalAmount()).isEqualByComparingTo(new BigDecimal("100000")),
+                    () -> assertThat(response.getBody().data().discountAmount()).isEqualByComparingTo(new BigDecimal("10000")),
+                    () -> assertThat(response.getBody().data().finalAmount()).isEqualByComparingTo(new BigDecimal("90000")),
+                    () -> assertThat(response.getBody().data().couponId()).isEqualTo(issuedCouponId)
+            );
+        }
+
+        @Test
+        void 쿠폰_적용_시_해당_발급_쿠폰이_USED_상태로_변경된다() {
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long couponId = fixture.registerCoupon("5000원 할인", CouponType.FIXED, 5000,
+                    null, 100, LocalDateTime.now().plusDays(7));
+            Long issuedCouponId = fixture.issueCoupon(couponId, "testuser", "Test1234!");
+
+            postOrder(new OrderRequest.Place(List.of(
+                    new OrderRequest.PlaceItem(productId, 1)
+            ), issuedCouponId));
+
+            // 같은 쿠폰으로 재주문 시 사용 불가
+            Long productId2 = fixture.registerProduct(brandId, "셔츠", new BigDecimal("30000"), 100, "멋진 셔츠");
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT, HttpMethod.POST,
+                    new HttpEntity<>(new OrderRequest.Place(List.of(
+                            new OrderRequest.PlaceItem(productId2, 1)
+                    ), issuedCouponId), userHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody().meta().message()).contains("사용할 수 없는 쿠폰입니다")
+            );
+        }
+
+        @Test
+        void 미존재_발급_쿠폰이면_404_응답() {
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+
+            OrderRequest.Place request = new OrderRequest.Place(List.of(
+                    new OrderRequest.PlaceItem(productId, 1)
+            ), 999L);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT, HttpMethod.POST,
+                    new HttpEntity<>(request, userHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
+                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 쿠폰입니다")
+            );
+        }
+
+        @Test
+        void 타인_소유의_쿠폰이면_404_응답() {
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            fixture.signUp("otheruser", "Other1234!", "김철수", "other@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long couponId = fixture.registerCoupon("5000원 할인", CouponType.FIXED, 5000,
+                    null, 100, LocalDateTime.now().plusDays(7));
+            Long otherIssuedCouponId = fixture.issueCoupon(couponId, "otheruser", "Other1234!");
+
+            OrderRequest.Place request = new OrderRequest.Place(List.of(
+                    new OrderRequest.PlaceItem(productId, 1)
+            ), otherIssuedCouponId);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT, HttpMethod.POST,
+                    new HttpEntity<>(request, userHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
+                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 쿠폰입니다")
+            );
+        }
+
+        @Test
+        void 삭제된_상품이_포함되면_404_응답() {
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            fixture.deleteProduct(productId);
+
+            OrderRequest.Place request = new OrderRequest.Place(List.of(
+                    new OrderRequest.PlaceItem(productId, 1)
+            ));
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT, HttpMethod.POST,
+                    new HttpEntity<>(request, userHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
+                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 상품입니다")
+            );
+        }
+
+        @Test
+        void 동시에_같은_쿠폰으로_주문해도_쿠폰은_한_번만_사용된다() throws InterruptedException {
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId1 = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long productId2 = fixture.registerProduct(brandId, "셔츠", new BigDecimal("30000"), 100, "멋진 셔츠");
+            Long couponId = fixture.registerCoupon("5000원 할인", CouponType.FIXED, 5000,
+                    null, 100, LocalDateTime.now().plusDays(7));
+            Long issuedCouponId = fixture.issueCoupon(couponId, "testuser", "Test1234!");
+
+            int threadCount = 2;
+            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch latch = new CountDownLatch(threadCount);
+            List<HttpStatus> statuses = Collections.synchronizedList(new ArrayList<HttpStatus>());
+            Long[] productIds = {productId1, productId2};
+
+            for (int i = 0; i < threadCount; i++) {
+                Long productId = productIds[i];
+                executorService.submit(() -> {
+                    try {
+                        ResponseEntity<ApiResponse<Object>> res = testRestTemplate.exchange(
+                                ENDPOINT, HttpMethod.POST,
+                                new HttpEntity<>(new OrderRequest.Place(List.of(
+                                        new OrderRequest.PlaceItem(productId, 1)
+                                ), issuedCouponId), userHeaders()),
+                                new ParameterizedTypeReference<>() {}
+                        );
+                        statuses.add(HttpStatus.valueOf(res.getStatusCode().value()));
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+
+            latch.await();
+            executorService.shutdown();
+
+            assertAll(
+                    () -> assertThat(statuses).hasSize(2),
+                    () -> assertThat(statuses).containsExactlyInAnyOrder(HttpStatus.OK, HttpStatus.BAD_REQUEST)
+            );
+        }
+
+        @Test
+        void 최소_주문_금액_미달이면_400_응답() {
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("5000"), 100, "편한 운동화");
+            Long couponId = fixture.registerCoupon("5000원 할인", CouponType.FIXED, 5000,
+                    BigDecimal.valueOf(50000), 100, LocalDateTime.now().plusDays(7));
+            Long issuedCouponId = fixture.issueCoupon(couponId, "testuser", "Test1234!");
+
+            OrderRequest.Place request = new OrderRequest.Place(List.of(
+                    new OrderRequest.PlaceItem(productId, 1)
+            ), issuedCouponId);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT, HttpMethod.POST,
+                    new HttpEntity<>(request, userHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody().meta().message()).contains("최소 주문 금액 조건을 충족하지 않습니다")
             );
         }
 
@@ -495,6 +721,9 @@ class OrderApiE2ETest {
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().id()).isEqualTo(orderId),
                     () -> assertThat(response.getBody().data().totalAmount()).isEqualByComparingTo(new BigDecimal("130000")),
+                    () -> assertThat(response.getBody().data().discountAmount()).isEqualByComparingTo(BigDecimal.ZERO),
+                    () -> assertThat(response.getBody().data().finalAmount()).isEqualByComparingTo(new BigDecimal("130000")),
+                    () -> assertThat(response.getBody().data().couponId()).isNull(),
                     () -> assertThat(response.getBody().data().orderItems()).hasSize(2),
                     () -> assertThat(response.getBody().data().createdAt()).isNotNull()
             );

@@ -37,6 +37,12 @@ public class IssuedCouponService {
                 .forEach(IssuedCoupon::delete);
     }
 
+    @Transactional
+    public IssuedCoupon getIssuedCouponForUpdate(Long issuedCouponId) {
+        return issuedCouponRepository.findByIdForUpdate(issuedCouponId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
+    }
+
     // Query
 
     @Transactional(readOnly = true)

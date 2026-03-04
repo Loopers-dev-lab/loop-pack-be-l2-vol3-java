@@ -1,6 +1,10 @@
 package com.loopers.application.order;
 
+import com.loopers.application.coupon.CouponService;
+import com.loopers.application.coupon.IssuedCouponService;
 import com.loopers.application.product.ProductService;
+import com.loopers.domain.coupon.Coupon;
+import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.product.Product;
 import com.loopers.support.error.CoreException;
@@ -11,6 +15,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +29,8 @@ public class OrderFacade {
 
     private final OrderService orderService;
     private final ProductService productService;
+    private final IssuedCouponService issuedCouponService;
+    private final CouponService couponService;
 
     // Command
 
@@ -39,6 +46,24 @@ public class OrderFacade {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 상품이 중복되었습니다");
         }
 
+        // 쿠폰 검증 (락 획득)
+        IssuedCoupon issuedCoupon = null;
+        Coupon coupon = null;
+        if (command.couponId() != null) {
+            issuedCoupon = issuedCouponService.getIssuedCouponForUpdate(command.couponId());
+            if (!issuedCoupon.getUserId().equals(userId)) {
+                throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다");
+            }
+            if (issuedCoupon.isDeleted()) {
+                throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다");
+            }
+            coupon = couponService.getActiveCoupon(issuedCoupon.getCouponId());
+            if (issuedCoupon.isUsed() || coupon.isExpired()) {
+                throw new CoreException(ErrorType.BAD_REQUEST, "사용할 수 없는 쿠폰입니다");
+            }
+        }
+
+        // 재고 차감
         Map<Long, Integer> productQuantities = items.stream()
                 .collect(Collectors.toMap(
                         OrderCommand.PlaceItem::productId,
@@ -61,7 +86,20 @@ public class OrderFacade {
                 })
                 .toList();
 
+        // 주문 생성
         Order order = orderService.createOrder(OrderCommand.Create.of(userId, orderItems));
+
+        // 쿠폰 적용
+        if (issuedCoupon != null) {
+            if (coupon.getMinOrderAmount() != null
+                    && order.getTotalAmount().compareTo(coupon.getMinOrderAmount()) < 0) {
+                throw new CoreException(ErrorType.BAD_REQUEST, "최소 주문 금액 조건을 충족하지 않습니다");
+            }
+            BigDecimal discountAmount = coupon.calculateDiscount(order.getTotalAmount());
+            order.applyCoupon(issuedCoupon.getId(), discountAmount);
+            issuedCoupon.use();
+        }
+
         return OrderInfo.from(order);
     }
 

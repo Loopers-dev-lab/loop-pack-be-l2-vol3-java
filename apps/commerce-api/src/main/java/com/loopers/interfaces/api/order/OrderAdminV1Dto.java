@@ -14,6 +14,9 @@ public class OrderAdminV1Dto {
             Long id,
             Long userId,
             BigDecimal totalAmount,
+            BigDecimal discountAmount,
+            BigDecimal finalAmount,
+            Long couponId,
             List<OrderItemResponse> orderItems,
             LocalDateTime createdAt
     ) {
@@ -26,6 +29,9 @@ public class OrderAdminV1Dto {
                     info.id(),
                     info.userId(),
                     info.totalAmount(),
+                    info.discountAmount(),
+                    info.finalAmount(),
+                    info.couponId(),
                     items,
                     info.createdAt()
             );
@@ -55,6 +61,9 @@ public class OrderAdminV1Dto {
             Long id,
             Long userId,
             BigDecimal totalAmount,
+            BigDecimal discountAmount,
+            BigDecimal finalAmount,
+            Long couponId,
             LocalDateTime createdAt
     ) {
 
@@ -63,6 +72,9 @@ public class OrderAdminV1Dto {
                     summary.id(),
                     summary.userId(),
                     summary.totalAmount(),
+                    summary.discountAmount(),
+                    summary.finalAmount(),
+                    summary.couponId(),
                     summary.createdAt()
             );
         }

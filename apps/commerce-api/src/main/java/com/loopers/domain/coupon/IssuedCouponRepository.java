@@ -4,6 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface IssuedCouponRepository {
 
@@ -12,6 +13,8 @@ public interface IssuedCouponRepository {
     IssuedCoupon save(IssuedCoupon issuedCoupon);
 
     // Query
+
+    Optional<IssuedCoupon> findByIdForUpdate(Long id);
 
     List<IssuedCoupon> findAllByCouponId(Long couponId);
 

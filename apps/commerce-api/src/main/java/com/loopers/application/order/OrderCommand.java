@@ -5,9 +5,13 @@ import java.util.List;
 
 public record OrderCommand() {
 
-    public record Place(List<PlaceItem> items) {
+    public record Place(List<PlaceItem> items, Long couponId) {
         public static Place of(List<PlaceItem> items) {
-            return new Place(items);
+            return new Place(items, null);
+        }
+
+        public static Place of(List<PlaceItem> items, Long couponId) {
+            return new Place(items, couponId);
         }
     }
 
