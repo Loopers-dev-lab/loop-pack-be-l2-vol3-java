@@ -5,6 +5,8 @@ import com.loopers.application.coupon.CouponInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,6 +26,15 @@ public class CouponAdminV1Controller implements CouponAdminApiV1Spec {
     public ApiResponse<CouponAdminV1Dto.CouponResponse> register(
             @RequestBody @Valid CouponRequest.Register request) {
         CouponInfo info = couponFacade.registerCoupon(request.toCommand());
+        return ApiResponse.success(CouponAdminV1Dto.CouponResponse.from(info));
+    }
+
+    @PatchMapping("/{couponId}")
+    @Override
+    public ApiResponse<CouponAdminV1Dto.CouponResponse> update(
+            @PathVariable Long couponId,
+            @RequestBody @Valid CouponRequest.Update request) {
+        CouponInfo info = couponFacade.updateCoupon(couponId, request.toCommand());
         return ApiResponse.success(CouponAdminV1Dto.CouponResponse.from(info));
     }
 }

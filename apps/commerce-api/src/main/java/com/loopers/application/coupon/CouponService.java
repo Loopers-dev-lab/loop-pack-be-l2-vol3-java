@@ -2,6 +2,8 @@ package com.loopers.application.coupon;
 
 import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.CouponRepository;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,5 +27,14 @@ public class CouponService {
                 command.expiredAt()
         );
         return couponRepository.save(coupon);
+    }
+
+    @Transactional
+    public Coupon update(Long id, CouponCommand.Update command) {
+        Coupon coupon = couponRepository.findById(id)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
+        coupon.updateInfo(command.name(), command.value(), command.minOrderAmount(),
+                command.maxIssueCount(), command.expiredAt());
+        return coupon;
     }
 }

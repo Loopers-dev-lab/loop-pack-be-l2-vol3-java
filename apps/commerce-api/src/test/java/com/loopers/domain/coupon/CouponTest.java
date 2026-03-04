@@ -220,6 +220,51 @@ class CouponTest {
         }
 
         @Test
+        void 만료일을_현재보다_과거로_수정하면_예외() {
+            Coupon coupon = Coupon.create("쿠폰", CouponType.FIXED, 1000,
+                    null, 100, FUTURE);
+            LocalDateTime past = LocalDateTime.now().minusDays(1);
+
+            assertThatThrownBy(() -> coupon.updateInfo(null, null, null, null, past))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
+                    .hasMessageContaining("만료일은 현재 이후여야 합니다");
+        }
+
+        @Test
+        void 쿠폰명을_빈값으로_수정하면_예외() {
+            Coupon coupon = Coupon.create("쿠폰", CouponType.FIXED, 1000,
+                    null, 100, FUTURE);
+
+            assertThatThrownBy(() -> coupon.updateInfo("", null, null, null, null))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
+                    .hasMessageContaining("쿠폰명은 필수입니다");
+        }
+
+        @Test
+        void 쿠폰명을_100자_초과로_수정하면_예외() {
+            Coupon coupon = Coupon.create("쿠폰", CouponType.FIXED, 1000,
+                    null, 100, FUTURE);
+            String longName = "가".repeat(101);
+
+            assertThatThrownBy(() -> coupon.updateInfo(longName, null, null, null, null))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
+                    .hasMessageContaining("쿠폰명은 100자 이하여야 합니다");
+        }
+
+        @Test
+        void 최대_발급_수량을_현재_발급_수량과_같게_설정하면_성공() {
+            Coupon coupon = Coupon.create("쿠폰", CouponType.FIXED, 1000,
+                    null, 100, FUTURE);
+            coupon.issue();
+
+            assertThatCode(() -> coupon.updateInfo(null, null, null, 1, null))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
         void 삭제된_쿠폰을_수정하면_예외() {
             Coupon coupon = Coupon.create("쿠폰", CouponType.FIXED, 1000,
                     null, 100, FUTURE);

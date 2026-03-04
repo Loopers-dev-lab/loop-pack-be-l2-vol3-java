@@ -14,4 +14,12 @@ public record CouponCommand() {
             return new Register(name, type, value, minOrderAmount, maxIssueCount, expiredAt);
         }
     }
+
+    public record Update(CouponType type, String name, Integer value, BigDecimal minOrderAmount,
+                         Integer maxIssueCount, LocalDateTime expiredAt) {
+        public static Update of(CouponType type, String name, Integer value, BigDecimal minOrderAmount,
+                                Integer maxIssueCount, LocalDateTime expiredAt) {
+            return new Update(type, name, value, minOrderAmount, maxIssueCount, expiredAt);
+        }
+    }
 }

@@ -43,4 +43,27 @@ public record CouponRequest() {
             return CouponCommand.Register.of(name, type, value, minOrderAmount, maxIssueCount, expiredAt);
         }
     }
+
+    public record Update(
+            CouponType type,
+
+            @Size(min = 1, max = 100, message = "쿠폰명은 1~100자여야 합니다")
+            String name,
+
+            @Positive(message = "할인값은 1 이상이어야 합니다")
+            Integer value,
+
+            @PositiveOrZero(message = "최소 주문 금액은 0 이상이어야 합니다")
+            BigDecimal minOrderAmount,
+
+            @Positive(message = "최대 발급 수량은 1 이상이어야 합니다")
+            Integer maxIssueCount,
+
+            @Future(message = "만료일은 현재 이후여야 합니다")
+            LocalDateTime expiredAt
+    ) {
+        public CouponCommand.Update toCommand() {
+            return CouponCommand.Update.of(type, name, value, minOrderAmount, maxIssueCount, expiredAt);
+        }
+    }
 }
