@@ -72,7 +72,6 @@ public class LikeFacade {
     }
 
     /** 내가 좋아요한 상품 목록 조회 */
-    @Transactional(readOnly = true)
     public LikedProductListResult getMyLikedProducts(Long userId, int page, int size) {
         List<ProductLike> likes = likeService.getMyProductLikes(userId, page, size);
         long totalElements = likeService.countMyProductLikes(userId);
@@ -103,7 +102,6 @@ public class LikeFacade {
     }
 
     /** 내가 좋아요한 브랜드 목록 조회 */
-    @Transactional(readOnly = true)
     public LikedBrandListResult getMyLikedBrands(Long userId, int page, int size) {
         List<BrandLike> likes = brandLikeService.getMyBrandLikes(userId, page, size);
         long totalElements = brandLikeService.countMyBrandLikes(userId);

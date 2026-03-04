@@ -35,7 +35,6 @@ public class CouponFacade {
     }
 
     /** 내 쿠폰 목록 조회 */
-    @Transactional(readOnly = true)
     public CouponListResult getMyCoupons(Long userId) {
         List<IssuedCoupon> coupons = couponService.getUserCoupons(userId);
 

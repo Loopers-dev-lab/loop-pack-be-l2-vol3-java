@@ -7,7 +7,6 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductSortType;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -28,7 +27,6 @@ public class ProductFacade {
     }
 
     /** 고객 상품 상세 조회 (상품 + 브랜드명) */
-    @Transactional(readOnly = true)
     public ProductDetailResult getProductDetail(Long productId) {
         Product product = productService.getDisplayableProduct(productId);
         Brand brand = brandService.getActiveBrand(product.getBrandId());
@@ -36,7 +34,6 @@ public class ProductFacade {
     }
 
     /** 고객 상품 목록 조회 (상품 목록 + 브랜드명 조합) */
-    @Transactional(readOnly = true)
     public ProductListResult getDisplayableProducts(Long brandId, ProductSortType sort, int page, int size) {
         List<Product> products = productService.getDisplayableProducts(brandId, sort, page, size);
         long totalElements = productService.countDisplayableProducts(brandId);

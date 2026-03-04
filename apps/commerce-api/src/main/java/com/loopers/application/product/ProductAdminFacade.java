@@ -51,7 +51,6 @@ public class ProductAdminFacade {
     }
 
     /** 어드민 상품 상세 조회 (상품 + 브랜드 + 재고) */
-    @Transactional(readOnly = true)
     public ProductAdminDetailResult getProductDetail(Long productId) {
         Product product = productService.getById(productId);
         Brand brand = brandService.getById(product.getBrandId());
@@ -62,7 +61,6 @@ public class ProductAdminFacade {
     }
 
     /** 어드민 상품 목록 조회 (상품 목록 + 재고 수량) */
-    @Transactional(readOnly = true)
     public ProductAdminListResult getProducts(int page, int size, Long brandId) {
         List<Product> products = productService.getAllProducts(page, size, brandId);
         long totalElements = productService.countAllProducts(brandId);

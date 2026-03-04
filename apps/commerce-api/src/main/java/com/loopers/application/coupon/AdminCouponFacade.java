@@ -24,7 +24,6 @@ public class AdminCouponFacade {
     }
 
     /** 쿠폰 템플릿 목록 조회 */
-    @Transactional(readOnly = true)
     public TemplateListResult getTemplates(int page, int size) {
         List<CouponTemplate> templates = couponService.getAllTemplates(page, size);
         long totalElements = couponService.countAllTemplates();

@@ -4,7 +4,6 @@ import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderService;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -24,7 +23,6 @@ public class OrderAdminFacade {
     }
 
     /** 전체 주문 목록 페이지네이션 조회 */
-    @Transactional(readOnly = true)
     public OrderAdminListResult getOrders(int page, int size) {
         List<Order> orders = orderService.getAllOrders(page, size);
         long totalElements = orderService.countAllOrders();
@@ -40,7 +38,6 @@ public class OrderAdminFacade {
     }
 
     /** 주문 상세 조회 (소유권 검증 없음 — 어드민) */
-    @Transactional(readOnly = true)
     public OrderAdminDetailResult getOrderDetail(Long orderId) {
         Order order = orderService.getById(orderId);
 
