@@ -75,6 +75,12 @@ public class ProductService {
     }
 
     @Transactional
+    public int softDeleteByBrandIdInBatch(Long brandId, int batchSize) {
+        return productRepository.softDeleteByBrandIdInBatch(brandId, batchSize);
+    }
+
+    @Deprecated(forRemoval = true)
+    @Transactional
     public void deleteAllByBrandId(Long brandId) {
         List<Product> products = productRepository.findAllByBrandId(brandId);
         products.forEach(Product::delete);
@@ -90,7 +96,7 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Product getActiveProduct(Long productId) {
-        return productRepository.findActiveById(productId)
+        return productRepository.findActiveWithActiveBrand(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
     }
 
@@ -101,12 +107,17 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Page<Product> findActiveProducts(Long brandId, Pageable pageable) {
-        return productRepository.findAllActive(brandId, pageable);
+        return productRepository.findAllActiveWithActiveBrand(brandId, pageable);
     }
 
     @Transactional(readOnly = true)
     public Map<Long, Product> getProductsMapByIds(Set<Long> productIds) {
         return productRepository.findAllByIdIn(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, Function.identity()));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> findBrandIdsWithUncleanedProducts() {
+        return productRepository.findBrandIdsWithUncleanedProducts();
     }
 }

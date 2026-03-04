@@ -39,6 +39,11 @@ public class ProductRepositoryImpl implements ProductRepository {
         return productJpaRepository.decrementLikeCount(productId);
     }
 
+    @Override
+    public int softDeleteByBrandIdInBatch(Long brandId, int batchSize) {
+        return productJpaRepository.softDeleteByBrandIdInBatch(brandId, batchSize);
+    }
+
     // Query
     @Override
     public Optional<Product> findById(Long id) {
@@ -48,6 +53,11 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public Optional<Product> findActiveById(Long id) {
         return productJpaRepository.findActiveById(id);
+    }
+
+    @Override
+    public Optional<Product> findActiveWithActiveBrand(Long id) {
+        return productJpaRepository.findActiveWithActiveBrand(id);
     }
 
     @Override
@@ -68,5 +78,15 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public Page<Product> findAllActive(Long brandId, Pageable pageable) {
         return productJpaRepository.findAllActive(brandId, pageable);
+    }
+
+    @Override
+    public Page<Product> findAllActiveWithActiveBrand(Long brandId, Pageable pageable) {
+        return productJpaRepository.findAllActiveWithActiveBrand(brandId, pageable);
+    }
+
+    @Override
+    public List<Long> findBrandIdsWithUncleanedProducts() {
+        return productJpaRepository.findBrandIdsWithUncleanedProducts();
     }
 }
