@@ -18,12 +18,11 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
             set p.stockQuantity = p.stockQuantity - :quantity
             where p.id = :productId
               and p.deletedAt is null
-              and p.visibility = :visibility
+              and p.visibility = Product.Visibility.VISIBLE
               and p.stockQuantity >= :quantity
             """)
     int decreaseStockIfEnough(
             @Param("productId") Long productId,
-            @Param("quantity") Integer quantity,
-            @Param("visibility") Product.Visibility visibility
+            @Param("quantity") Integer quantity
     );
 }

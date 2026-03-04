@@ -107,6 +107,6 @@ public class ProductRepositoryImpl implements ProductRepository {
 
     @Override
     public boolean decreaseStockIfEnough(Long productId, Integer quantity) {
-        return productJpaRepository.decreaseStockIfEnough(productId, quantity, Product.Visibility.VISIBLE) > 0;
+        return productJpaRepository.decreaseStockIfEnough(productId, quantity) > 0;
     }
 }
