@@ -38,6 +38,12 @@ public class PointAccountRepositoryImpl implements PointAccountRepository {
     @Override
     public Optional<PointAccount> findByUserId(Long userId) {
         return pointAccountJpaRepository.findByUserId(userId)
-            .map(pointAccountMapper::toDomain);  // Entity → Domain
+            .map(pointAccountMapper::toDomain);
+    }
+
+    @Override
+    public Optional<PointAccount> findByUserIdForUpdate(Long userId) {
+        return pointAccountJpaRepository.findByUserIdForUpdate(userId)
+            .map(pointAccountMapper::toDomain);
     }
 }

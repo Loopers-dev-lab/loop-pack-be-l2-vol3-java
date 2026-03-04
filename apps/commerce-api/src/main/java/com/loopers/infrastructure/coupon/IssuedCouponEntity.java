@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.ZonedDateTime;
 
 /**
@@ -47,6 +48,10 @@ public class IssuedCouponEntity {
 
     @Column(name = "deleted_at")
     private ZonedDateTime deletedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version = 0L;
 
     protected IssuedCouponEntity() {}
 
@@ -120,5 +125,13 @@ public class IssuedCouponEntity {
 
     public void setDeletedAt(ZonedDateTime deletedAt) {
         this.deletedAt = deletedAt;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 }

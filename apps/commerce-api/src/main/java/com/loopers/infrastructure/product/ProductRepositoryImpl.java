@@ -191,6 +191,16 @@ public class ProductRepositoryImpl implements ProductRepository {
                 .toList();
     }
 
+    @Override
+    public void incrementLikeCount(Long id) {
+        productJpaRepository.incrementLikeCount(id);
+    }
+
+    @Override
+    public void decrementLikeCount(Long id) {
+        productJpaRepository.decrementLikeCount(id);
+    }
+
     /** brandId가 null이면 필터 미적용 */
     private BooleanExpression brandIdEq(QProductEntity product, Long brandId) {
         return brandId != null ? product.brandId.eq(brandId) : null;

@@ -81,7 +81,7 @@ public class PaymentFacade {
             }
         }
 
-        order.applyDiscount(discountAmount, pointAmount, 0);
+        order.applyDiscount(discountAmount, pointAmount, 0, issuedCouponId);
         return new DiscountAppliedResult(
                 order.getId(), order.getSubtotalAmount(), order.getDiscountAmount(),
                 order.getPointUsedAmount(), order.getShippingFee(), order.getTotalAmount());

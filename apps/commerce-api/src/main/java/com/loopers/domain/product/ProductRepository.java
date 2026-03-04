@@ -29,4 +29,10 @@ public interface ProductRepository {
 
     /** 좋아요 목록용: ID 목록으로 상품 조회 */
     List<Product> findAllByIdIn(List<Long> ids);
+
+    /** 원자적 좋아요 수 증가 */
+    void incrementLikeCount(Long id);
+
+    /** 원자적 좋아요 수 감소 */
+    void decrementLikeCount(Long id);
 }

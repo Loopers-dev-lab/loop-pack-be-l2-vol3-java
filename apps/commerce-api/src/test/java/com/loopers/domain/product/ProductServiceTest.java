@@ -227,15 +227,11 @@ class ProductServiceTest {
 
         @Test
         void 존재하는_상품이면_incrementLikeCount가_호출된다() {
-            // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
-            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
-
             // act
             productService.incrementLikeCount(1L);
 
             // assert
-            assertThat(product.getLikeCount()).isEqualTo(1);
+            verify(productRepository).incrementLikeCount(1L);
         }
     }
 
@@ -245,16 +241,11 @@ class ProductServiceTest {
 
         @Test
         void 존재하는_상품이면_decrementLikeCount가_호출된다() {
-            // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
-            product.incrementLikeCount();
-            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
-
             // act
             productService.decrementLikeCount(1L);
 
             // assert
-            assertThat(product.getLikeCount()).isEqualTo(0);
+            verify(productRepository).decrementLikeCount(1L);
         }
     }
 }

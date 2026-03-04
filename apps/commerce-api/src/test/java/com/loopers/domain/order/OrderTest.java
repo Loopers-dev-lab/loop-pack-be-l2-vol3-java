@@ -239,7 +239,7 @@ class OrderTest {
             order.confirm(1L, "CARD");
 
             // act & assert
-            assertThatThrownBy(() -> order.applyDiscount(10000, 5000, 3000))
+            assertThatThrownBy(() -> order.applyDiscount(10000, 5000, 3000, null))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(OrderErrorType.INVALID_ORDER_STATUS);
@@ -251,7 +251,7 @@ class OrderTest {
             Order order = createPendingOrder();
 
             // act — subtotal(420000) - discount(10000) - point(5000) + shipping(3000) = 408000
-            order.applyDiscount(10000, 5000, 3000);
+            order.applyDiscount(10000, 5000, 3000, null);
 
             // assert
             assertThat(order.getTotalAmount()).isEqualTo(408000);

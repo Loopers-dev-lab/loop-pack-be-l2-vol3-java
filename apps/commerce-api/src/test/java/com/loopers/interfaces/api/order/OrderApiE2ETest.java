@@ -8,6 +8,8 @@ import com.loopers.domain.inventory.Inventory;
 import com.loopers.domain.inventory.InventoryRepository;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderRepository;
+import com.loopers.domain.point.PointAccount;
+import com.loopers.domain.point.PointAccountRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.ProductStatus;
@@ -58,6 +60,9 @@ class OrderApiE2ETest {
     private OrderRepository orderRepository;
 
     @Autowired
+    private PointAccountRepository pointAccountRepository;
+
+    @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
     private Long userId;
@@ -73,6 +78,7 @@ class OrderApiE2ETest {
                 "testuser", "Hx7!mK2@", "테스터", "1994-11-15", "test@example.com");
         testRestTemplate.postForEntity("/api/v1/users", signupRequest, ApiResponse.class);
         userId = 1L;
+        pointAccountRepository.save(PointAccount.create(userId));
     }
 
     private HttpHeaders authHeaders() {
@@ -113,7 +119,10 @@ class OrderApiE2ETest {
                 List.of(new OrderRequest.OrderItemRequest(productId, 2)),
                 List.of(),
                 addressId,
-                "010-1234-5678");
+                "010-1234-5678",
+                null,
+                0,
+                "CARD");
     }
 
     private ResponseEntity<ApiResponse> createOrder(Long productId, Long addressId) {
@@ -148,7 +157,7 @@ class OrderApiE2ETest {
 
             // act
             OrderRequest.CreateOrderRequest request = new OrderRequest.CreateOrderRequest(
-                    List.of(), List.of(), address.getId(), "010-1234-5678");
+                    List.of(), List.of(), address.getId(), "010-1234-5678", null, 0, "CARD");
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
                     "/api/v1/orders", HttpMethod.POST,
                     new HttpEntity<>(request, authHeaders()), ApiResponse.class);
@@ -311,8 +320,8 @@ class OrderApiE2ETest {
     class 주문_취소 {
 
         @Test
-        void 취소에_성공하면_200_OK를_반환한다() {
-            // arrange
+        void PAID_상태의_주문을_취소하면_409_Conflict를_반환한다() {
+            // arrange — 1단계 트랜잭션으로 주문 즉시 PAID 확정
             Brand brand = createActiveBrand("나이키");
             Product product = createActiveProduct(brand.getId(), "에어맥스");
             UserAddress address = createAddress(userId);
@@ -325,28 +334,8 @@ class OrderApiE2ETest {
                     "/api/v1/orders/" + order.getId(), HttpMethod.DELETE,
                     new HttpEntity<>(authHeaders()), ApiResponse.class);
 
-            // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        }
-
-        @Test
-        void 취소_후_재고_예약이_해제된다() {
-            // arrange
-            Brand brand = createActiveBrand("나이키");
-            Product product = createActiveProduct(brand.getId(), "에어맥스");
-            UserAddress address = createAddress(userId);
-            createOrder(product.getId(), address.getId());
-            Order order = orderRepository.findAllByUserId(userId,
-                    java.time.ZonedDateTime.now().minusDays(1), java.time.ZonedDateTime.now().plusDays(1)).get(0);
-
-            // act
-            testRestTemplate.exchange(
-                    "/api/v1/orders/" + order.getId(), HttpMethod.DELETE,
-                    new HttpEntity<>(authHeaders()), ApiResponse.class);
-
-            // assert
-            Inventory inventory = inventoryRepository.findByProductId(product.getId()).orElseThrow();
-            assertThat(inventory.getReservedQty()).isEqualTo(0);
+            // assert — PAID 상태는 PENDING이 아니므로 취소 불가
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         }
 
         @Test
@@ -378,26 +367,20 @@ class OrderApiE2ETest {
         }
 
         @Test
-        void 이미_취소된_주문이면_409_Conflict를_반환한다() {
-            // arrange
-            Brand brand = createActiveBrand("나이키");
-            Product product = createActiveProduct(brand.getId(), "에어맥스");
-            UserAddress address = createAddress(userId);
-            createOrder(product.getId(), address.getId());
-            Order order = orderRepository.findAllByUserId(userId,
-                    java.time.ZonedDateTime.now().minusDays(1), java.time.ZonedDateTime.now().plusDays(1)).get(0);
-            // 먼저 취소
-            testRestTemplate.exchange(
-                    "/api/v1/orders/" + order.getId(), HttpMethod.DELETE,
-                    new HttpEntity<>(authHeaders()), ApiResponse.class);
+        void PENDING_주문을_취소하면_200_OK를_반환한다() {
+            // arrange — PENDING 상태 주문을 직접 생성
+            Order pendingOrder = orderRepository.save(Order.create(userId, "ORD-CANCEL-001",
+                    List.of(com.loopers.domain.order.OrderItem.create(1L, "상품", "브랜드", 10000, 1)),
+                    "테스터", "010-1234-5678", "홍길동", "010-1234-5678",
+                    "00000", "어딘가", null));
 
-            // act - 재취소 시도
+            // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    "/api/v1/orders/" + order.getId(), HttpMethod.DELETE,
+                    "/api/v1/orders/" + pendingOrder.getId(), HttpMethod.DELETE,
                     new HttpEntity<>(authHeaders()), ApiResponse.class);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         }
     }
 }

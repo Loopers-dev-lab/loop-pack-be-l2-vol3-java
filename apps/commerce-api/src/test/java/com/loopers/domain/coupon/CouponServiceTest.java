@@ -49,7 +49,7 @@ class CouponServiceTest {
         @Test
         void 존재하지_않는_템플릿이면_예외가_발생한다() {
             // arrange
-            when(couponTemplateRepository.findById(1L)).thenReturn(Optional.empty());
+            when(couponTemplateRepository.findByIdForUpdate(1L)).thenReturn(Optional.empty());
 
             // act & assert
             assertThatThrownBy(() -> couponService.issue(1L, 1L))
@@ -63,7 +63,7 @@ class CouponServiceTest {
             // arrange
             CouponTemplate template = createActiveTemplate();
             template.changeStatus(CouponTemplateStatus.INACTIVE);
-            when(couponTemplateRepository.findById(1L)).thenReturn(Optional.of(template));
+            when(couponTemplateRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(template));
 
             // act & assert
             assertThatThrownBy(() -> couponService.issue(1L, 1L))
@@ -76,7 +76,7 @@ class CouponServiceTest {
         void 전체_발급_제한_초과면_예외가_발생한다() {
             // arrange
             CouponTemplate template = createActiveTemplate();
-            when(couponTemplateRepository.findById(1L)).thenReturn(Optional.of(template));
+            when(couponTemplateRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(template));
             when(issuedCouponRepository.countByCouponTemplateId(1L)).thenReturn(100L);
 
             // act & assert
@@ -90,7 +90,7 @@ class CouponServiceTest {
         void 유저별_발급_제한_초과면_예외가_발생한다() {
             // arrange
             CouponTemplate template = createActiveTemplate();
-            when(couponTemplateRepository.findById(1L)).thenReturn(Optional.of(template));
+            when(couponTemplateRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(template));
             when(issuedCouponRepository.countByCouponTemplateId(1L)).thenReturn(50L);
             when(issuedCouponRepository.countByCouponTemplateIdAndUserId(1L, 1L)).thenReturn(1L);
 
@@ -105,7 +105,7 @@ class CouponServiceTest {
         void 유효한_요청이면_ISSUED_상태로_발급된다() {
             // arrange
             CouponTemplate template = createActiveTemplate();
-            when(couponTemplateRepository.findById(1L)).thenReturn(Optional.of(template));
+            when(couponTemplateRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(template));
             when(issuedCouponRepository.countByCouponTemplateId(1L)).thenReturn(50L);
             when(issuedCouponRepository.countByCouponTemplateIdAndUserId(1L, 1L)).thenReturn(0L);
             when(issuedCouponRepository.save(any(IssuedCoupon.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -121,7 +121,7 @@ class CouponServiceTest {
         void 발급_시_save가_호출된다() {
             // arrange
             CouponTemplate template = createActiveTemplate();
-            when(couponTemplateRepository.findById(1L)).thenReturn(Optional.of(template));
+            when(couponTemplateRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(template));
             when(issuedCouponRepository.countByCouponTemplateId(1L)).thenReturn(50L);
             when(issuedCouponRepository.countByCouponTemplateIdAndUserId(1L, 1L)).thenReturn(0L);
             when(issuedCouponRepository.save(any(IssuedCoupon.class))).thenAnswer(invocation -> invocation.getArgument(0));

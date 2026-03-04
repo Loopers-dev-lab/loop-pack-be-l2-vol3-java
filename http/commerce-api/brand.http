@@ -14,8 +14,8 @@ Content-Type: application/json
 X-Loopers-Ldap: loopers.admin
 
 {
-  "name": "나이키",
-  "description": "스포츠 브랜드"
+  "name": "시엔느",
+  "description": "시엔느 브랜드"
 }
 
 ### 브랜드 목록 조회 (페이지네이션)
@@ -23,11 +23,11 @@ GET http://localhost:8080/api-admin/v1/brands?page=0&size=20
 X-Loopers-Ldap: loopers.admin
 
 ### 브랜드 상세 조회 (상품 목록 포함)
-GET http://localhost:8080/api-admin/v1/brands/1
+GET http://localhost:8080/api-admin/v1/brands/3
 X-Loopers-Ldap: loopers.admin
 
 ### 브랜드 수정
-PUT http://localhost:8080/api-admin/v1/brands/1
+PATCH http://localhost:8080/api-admin/v1/brands/3
 Content-Type: application/json
 X-Loopers-Ldap: loopers.admin
 

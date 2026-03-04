@@ -39,24 +39,29 @@ public class OrderController implements OrderApiSpec {
         boolean hasCartItems = request.cartItemIds() != null && !request.cartItemIds().isEmpty();
         boolean hasItems = request.items() != null && !request.items().isEmpty();
 
+        String paymentMethod = request.paymentMethod() != null ? request.paymentMethod() : "CARD";
+
         if (hasCartItems) {
             result = orderFacade.createOrderFromCart(
                     user.getId(), user.getName().getValue(), request.ordererPhone(),
-                    request.cartItemIds(), request.addressId());
+                    request.cartItemIds(), request.addressId(),
+                    request.issuedCouponId(), request.pointAmount(), paymentMethod);
         } else if (hasItems) {
             List<OrderFacade.OrderItemCommand> commands = request.items().stream()
                     .map(item -> new OrderFacade.OrderItemCommand(item.productId(), item.quantity()))
                     .toList();
             result = orderFacade.createOrder(
                     user.getId(), user.getName().getValue(), request.ordererPhone(),
-                    commands, request.addressId());
+                    commands, request.addressId(),
+                    request.issuedCouponId(), request.pointAmount(), paymentMethod);
         } else {
             throw new CoreException(
                     OrderErrorType.EMPTY_ORDER_ITEMS);
         }
 
         return ApiResponse.success(new OrderResponse.OrderCreateResponse(
-                result.orderId(), result.orderNumber(), result.status(), result.expiresAt()));
+                result.orderId(), result.orderNumber(), result.status(),
+                result.totalAmount(), result.paymentId()));
     }
 
     @GetMapping

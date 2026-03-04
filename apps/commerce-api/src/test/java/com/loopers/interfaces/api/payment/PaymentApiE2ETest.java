@@ -88,7 +88,8 @@ class PaymentApiE2ETest {
                 List.of(new OrderRequest.OrderItemRequest(savedProduct.getId(), 2)),
                 List.of(),
                 savedAddress.getId(),
-                "010-1234-5678");
+                "010-1234-5678",
+                null, 0, "CARD");
         testRestTemplate.exchange("/api/v1/orders", HttpMethod.POST,
                 new HttpEntity<>(orderRequest, authHeaders()), ApiResponse.class);
 
@@ -102,18 +103,18 @@ class PaymentApiE2ETest {
     class 결제_요청 {
 
         @Test
-        void 결제에_성공하면_200_OK를_반환한다() {
-            // arrange
+        void 이미_PAID_상태이면_409_Conflict를_반환한다() {
+            // arrange — 1단계 트랜잭션으로 주문 즉시 PAID 확정
             Long orderId = createOrderAndGetId();
             PaymentRequest.PayRequest request = new PaymentRequest.PayRequest("CARD", null);
 
-            // act
+            // act — 이미 PAID인 주문에 결제 요청
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
                     "/api/v1/orders/" + orderId + "/pay", HttpMethod.POST,
                     new HttpEntity<>(request, authHeaders()), ApiResponse.class);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         }
 
         @Test
@@ -183,8 +184,8 @@ class PaymentApiE2ETest {
     class 할인_적용 {
 
         @Test
-        void 포인트_할인_적용에_성공하면_200_OK를_반환한다() {
-            // arrange
+        void 이미_PAID_상태이면_할인적용_시_409_Conflict를_반환한다() {
+            // arrange — 1단계 트랜잭션으로 주문 즉시 PAID 확정
             Long orderId = createOrderAndGetId();
             PointAccount account = pointAccountRepository.findByUserId(userId).orElseThrow();
             account.charge(10000);
@@ -193,13 +194,13 @@ class PaymentApiE2ETest {
             PaymentRequest.ApplyDiscountRequest request =
                     new PaymentRequest.ApplyDiscountRequest(null, 5000);
 
-            // act
+            // act — 이미 PAID인 주문에 할인 적용 시도
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
                     "/api/v1/orders/" + orderId + "/discount", HttpMethod.PUT,
                     new HttpEntity<>(request, authHeaders()), ApiResponse.class);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         }
 
         @Test

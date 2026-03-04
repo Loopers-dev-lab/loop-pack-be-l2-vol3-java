@@ -28,22 +28,27 @@ public class PointService {
 
     @Transactional
     public void use(Long userId, int amount) {
-        PointAccount account = getAccount(userId);
+        PointAccount account = getAccountForUpdate(userId);
         account.use(amount);
         pointAccountRepository.save(account);
     }
 
     @Transactional
     public void charge(Long userId, int amount) {
-        PointAccount account = getAccount(userId);
+        PointAccount account = getAccountForUpdate(userId);
         account.charge(amount);
         pointAccountRepository.save(account);
     }
 
     @Transactional
     public void earn(Long userId, int orderAmount) {
-        PointAccount account = getAccount(userId);
+        PointAccount account = getAccountForUpdate(userId);
         account.earn(orderAmount);
         pointAccountRepository.save(account);
+    }
+
+    private PointAccount getAccountForUpdate(Long userId) {
+        return pointAccountRepository.findByUserIdForUpdate(userId)
+                .orElseThrow(() -> new CoreException(PointErrorType.ACCOUNT_NOT_FOUND));
     }
 }

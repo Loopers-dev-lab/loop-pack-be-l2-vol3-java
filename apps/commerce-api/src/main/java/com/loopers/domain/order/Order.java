@@ -130,7 +130,7 @@ public class Order {
         this.status = OrderStatus.EXPIRED;
     }
 
-    public void applyDiscount(int discountAmount, int pointUsedAmount, int shippingFee) {
+    public void applyDiscount(int discountAmount, int pointUsedAmount, int shippingFee, Long couponId) {
         validatePending();
         int total = this.subtotalAmount.toInt() - discountAmount - pointUsedAmount + shippingFee;
         if (total < 0) {
@@ -140,6 +140,7 @@ public class Order {
         this.pointUsedAmount = new Money(pointUsedAmount);
         this.shippingFee = new Money(shippingFee);
         this.totalAmount = new Money(total);
+        this.couponId = couponId;
     }
 
     public void validateOwnership(Long userId) {

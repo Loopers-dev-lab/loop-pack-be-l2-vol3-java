@@ -19,6 +19,7 @@ public class IssuedCoupon {
     private ZonedDateTime createdAt;
     private ZonedDateTime updatedAt;
     private ZonedDateTime deletedAt;
+    private Long version;
 
     protected IssuedCoupon() {}
 
@@ -42,7 +43,7 @@ public class IssuedCoupon {
     public static IssuedCoupon reconstitute(Long id, Long couponTemplateId, Long userId,
                                              IssuedCouponStatus status, Long orderId, ZonedDateTime usedAt,
                                              ZonedDateTime createdAt, ZonedDateTime updatedAt,
-                                             ZonedDateTime deletedAt) {
+                                             ZonedDateTime deletedAt, Long version) {
         IssuedCoupon coupon = new IssuedCoupon();
         coupon.id = id;
         coupon.couponTemplateId = couponTemplateId;
@@ -53,6 +54,7 @@ public class IssuedCoupon {
         coupon.createdAt = createdAt;
         coupon.updatedAt = updatedAt;
         coupon.deletedAt = deletedAt;
+        coupon.version = version;
         return coupon;
     }
 
@@ -109,5 +111,9 @@ public class IssuedCoupon {
 
     public ZonedDateTime getDeletedAt() {
         return this.deletedAt;
+    }
+
+    public Long getVersion() {
+        return this.version;
     }
 }

@@ -30,11 +30,13 @@ public class PaymentService {
     public void approve(Long paymentId, String pgTxnId, int approvedAmount) {
         Payment payment = getById(paymentId);
         payment.approve(pgTxnId, approvedAmount);
+        paymentRepository.save(payment);
     }
 
     @Transactional
     public void fail(Long paymentId) {
         Payment payment = getById(paymentId);
         payment.fail();
+        paymentRepository.save(payment);
     }
 }

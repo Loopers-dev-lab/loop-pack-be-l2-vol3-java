@@ -37,6 +37,12 @@ public class CouponTemplateRepositoryImpl implements CouponTemplateRepository {
     }
 
     @Override
+    public Optional<CouponTemplate> findByIdForUpdate(Long id) {
+        return couponTemplateJpaRepository.findByIdForUpdate(id)
+                .map(couponTemplateMapper::toDomain);
+    }
+
+    @Override
     public List<CouponTemplate> findAllByIdIn(Set<Long> ids) {
         return couponTemplateJpaRepository.findAllByIdIn(ids).stream()
                 .map(couponTemplateMapper::toDomain)

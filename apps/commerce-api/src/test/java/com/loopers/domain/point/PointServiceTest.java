@@ -96,7 +96,7 @@ class PointServiceTest {
         @Test
         void 존재하지_않는_계정이면_예외가_발생한다() {
             // arrange
-            when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.empty());
+            when(pointAccountRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.empty());
 
             // act & assert
             assertThatThrownBy(() -> pointService.use(1L, 5000))
@@ -110,7 +110,7 @@ class PointServiceTest {
             // arrange
             PointAccount account = PointAccount.create(1L);
             account.charge(3000);
-            when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
+            when(pointAccountRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(account));
 
             // act & assert
             assertThatThrownBy(() -> pointService.use(1L, 5000))
@@ -124,7 +124,7 @@ class PointServiceTest {
             // arrange
             PointAccount account = PointAccount.create(1L);
             account.charge(10000);
-            when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
+            when(pointAccountRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(account));
 
             // act
             pointService.use(1L, 3000);
@@ -141,7 +141,7 @@ class PointServiceTest {
         @Test
         void 존재하지_않는_계정이면_예외가_발생한다() {
             // arrange
-            when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.empty());
+            when(pointAccountRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.empty());
 
             // act & assert
             assertThatThrownBy(() -> pointService.charge(1L, 5000))
@@ -154,7 +154,7 @@ class PointServiceTest {
         void 유효한_요청이면_charge가_호출된다() {
             // arrange
             PointAccount account = PointAccount.create(1L);
-            when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
+            when(pointAccountRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(account));
 
             // act
             pointService.charge(1L, 5000);
@@ -172,7 +172,7 @@ class PointServiceTest {
         void 금액_구간별_적립률이_적용된다() {
             // arrange — 100000 이상이면 3%
             PointAccount account = PointAccount.create(1L);
-            when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
+            when(pointAccountRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(account));
 
             // act
             pointService.earn(1L, 100000);

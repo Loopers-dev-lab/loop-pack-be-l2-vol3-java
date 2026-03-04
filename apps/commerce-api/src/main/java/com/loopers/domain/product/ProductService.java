@@ -123,15 +123,11 @@ public class ProductService {
 
     @Transactional
     public void incrementLikeCount(Long id) {
-        Product product = getById(id);
-        product.incrementLikeCount();
-        productRepository.save(product);
+        productRepository.incrementLikeCount(id);
     }
 
     @Transactional
     public void decrementLikeCount(Long id) {
-        Product product = getById(id);
-        product.decrementLikeCount();
-        productRepository.save(product);
+        productRepository.decrementLikeCount(id);
     }
 }

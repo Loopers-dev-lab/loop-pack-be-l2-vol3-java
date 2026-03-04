@@ -22,7 +22,7 @@ public class CouponService {
 
     @Transactional
     public IssuedCoupon issue(Long templateId, Long userId) {
-        CouponTemplate template = couponTemplateRepository.findById(templateId)
+        CouponTemplate template = couponTemplateRepository.findByIdForUpdate(templateId)
                 .orElseThrow(() -> new CoreException(CouponErrorType.TEMPLATE_NOT_FOUND));
 
         if (template.getStatus() != CouponTemplateStatus.ACTIVE) {

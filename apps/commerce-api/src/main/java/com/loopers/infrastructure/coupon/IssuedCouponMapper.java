@@ -27,6 +27,7 @@ public class IssuedCouponMapper {
         entity.setCreatedAt(domain.getCreatedAt() != null ? domain.getCreatedAt() : now);
         entity.setUpdatedAt(now);
         entity.setDeletedAt(domain.getDeletedAt());
+        entity.setVersion(domain.getVersion() != null ? domain.getVersion() : 0L);
         return entity;
     }
 
@@ -43,7 +44,8 @@ public class IssuedCouponMapper {
                 entity.getUsedAt(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
-                entity.getDeletedAt()
+                entity.getDeletedAt(),
+                entity.getVersion()
         );
     }
 }
