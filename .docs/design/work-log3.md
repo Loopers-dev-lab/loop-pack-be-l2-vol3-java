@@ -452,15 +452,17 @@ assertion 원칙 정리:
 
 ### 구현 태스크
 
-- [ ] Order 엔티티 + Order.Status inner enum ← **미구현**
-- [ ] OrderItem 엔티티 ← **미구현**
-- [ ] OrderRepository, OrderItemRepository 인터페이스 + JPA 구현체 ← **미구현**
-- [ ] OrderService (주문 구조 검증, 주문 저장) ← **미구현**
-- [ ] OrderFacade (재고 확인 + 차감 → 상품 저장 → 주문 저장 조율) ← **미구현**
-- [ ] 사용자 API (Controller, DTO) ← **미구현**
-- [ ] 어드민 API (Controller, DTO) ← **미구현**
-- [ ] 단위 테스트 ← **미구현**
-- [ ] E2E 테스트 ← **미구현**
+→ 상세 내용은 **섹션 7** 참조
+
+- [x] Order 엔티티 + Order.Status inner enum
+- [x] OrderItem 엔티티
+- [x] OrderRepository, OrderItemRepository 인터페이스 + JPA 구현체
+- [x] OrderService (주문 구조 검증, 주문 저장)
+- [x] OrderFacade (상품 조회 → 재고 차감 → 주문 저장 조율)
+- [x] 사용자 API (Controller, DTO)
+- [x] 어드민 API (Controller, DTO)
+- [x] 단위 테스트
+- [x] E2E 테스트
 - [ ] `http/commerce-api/order-v1.http` 파일 작성 ← **미작성**
 
 ### 주문 생성 흐름 (시퀀스 다이어그램 기반)
@@ -1047,3 +1049,240 @@ LoginUserArgumentResolver
 **브랜드 삭제 시 likeCount 감산 불필요**
 - `BrandFacade.delete()` 시 상품도 soft delete됨 → likeCount 값 자체가 의미 없어짐
 - 별도 감산 처리 추가하지 않음
+
+---
+
+## 7. Order 도메인 구현 (2026-02-26)
+
+### 구현 태스크 (완료)
+
+- [x] Order 엔티티 + Order.Status inner enum
+- [x] OrderItem 엔티티 (스냅샷: productName, price)
+- [x] OrderItemSnapshot record — Facade에서 Order/OrderItem 생성 시 중간 매개체
+- [x] OrderRepository, OrderItemRepository 인터페이스 + JPA 구현체
+- [x] OrderService (주문 항목 검증, 주문 저장/조회)
+- [x] OrderFacade (상품 조회 → 재고 차감 → 주문 저장 조율)
+- [x] 사용자 API (OrderV1Controller, OrderV1Dto)
+- [x] 어드민 API (AdminOrderV1Controller)
+- [x] 단위 테스트 (OrderTest, OrderItemTest, OrderServiceTest, OrderFacadeTest)
+- [x] E2E 테스트 (OrderV1ApiE2ETest, AdminOrderV1ApiE2ETest)
+- [ ] `http/commerce-api/order-v1.http` 파일 작성 ← **미작성**
+
+### 재고 차감 방식 — DB 레벨 원자적 처리
+
+초기 설계(시퀀스 다이어그램)에서는 "메모리에서 재고 검증 → saveAll"을 상정했으나 구현 시 DB 레벨 원자적 차감으로 변경.
+
+```sql
+-- ProductJpaRepository.decreaseStockIfEnough (JPQL @Modifying)
+update Product p
+   set p.stockQuantity = p.stockQuantity - :quantity
+ where p.id = :productId
+   and p.deletedAt is null
+   and p.visibility = Product.Visibility.VISIBLE
+   and p.stockQuantity >= :quantity
+```
+
+- 조건 불충족(재고 부족, HIDDEN, 삭제) 시 UPDATE 0건 → `false` 반환 → `INSUFFICIENT_STOCK` 예외
+- productId 오름차순 정렬 후 차감 — 데드락 방지 (다중 상품 주문 시 동일 순서로 락 획득)
+- InMemoryProductRepository의 `decreaseStockIfEnough`는 인터페이스 계약 충족용 stub (재고 차감 없음). 단위 테스트에서 재고 차감 동작은 검증하지 않고 E2E에서 커버.
+
+### 주문 생성 최종 흐름
+
+```
+OrderFacade.createOrder(command)
+  1. orderService.validateItems(items)          — 빈 항목, 수량≤0, 중복 상품 검증
+  2. productService.getActiveProductsByIdsOrThrow(productIds) — HIDDEN/삭제 상품 → NOT_FOUND
+  3. productService.decreaseStock(items)        — DB 원자적 차감, 재고 부족 → INSUFFICIENT_STOCK
+  4. orderService.placeOrder(userId, snapshots) — Order + OrderItem 저장
+```
+
+### 비즈니스 규칙 확정
+
+- 주문 항목 중 하나라도 재고 부족 → 전체 주문 거부 (부분 성공 없음)
+- 상품명·가격 스냅샷 저장 (`OrderItem.productName`, `OrderItem.price`)
+- 주문 생성 시 즉시 ORDERED 상태, 상태 전이는 추후 결제 연동 시 확장
+- 같은 상품 중복 주문 항목 불가 (OrderService 검증)
+- 주문 수량 1개 이상 (OrderService 검증)
+- 타인 주문 접근 시 → 404 (리소스 존재 여부 비노출)
+
+---
+
+## 8. 리팩터링 — Order 구현 전후 (2026-02-27 ~ 2026-03-04)
+
+### active 네이밍 통합 (2026-02-27)
+
+`visibility=VISIBLE && deletedAt=null` 조건이 여러 곳에 흩어져 있었음.
+
+#### 변경 내용
+
+| 변경 전 | 변경 후 |
+|---------|---------|
+| `getVisibleProduct(id)` | `getActiveProduct(id)` |
+| `getVisibleProductsByIds(ids)` | `getActiveProductsByIds(ids)` |
+| `findVisibleProducts(...)` | `findActiveProducts(...)` |
+| 메서드마다 조건 중복 | `Product.isActive()` — visibility==VISIBLE && deletedAt==null 캡슐화 |
+
+- `Product.isActive()` 도입으로 "활성 상품" 개념을 도메인 객체 내로 응집
+
+---
+
+### ProductInfo.BrandSummary VO 도입 (2026-02-27)
+
+#### 문제
+
+`ProductInfo`가 `brandId`와 `brandName`을 flat하게 들고 있어, Facade에서 브랜드명을 enrichment할 때 필드가 분산됨.
+
+#### 변경 내용
+
+```java
+// 변경 전
+public record ProductInfo(Long id, Long brandId, String brandName, ...)
+
+// 변경 후
+public record ProductInfo(Long id, BrandSummary brand, ...) {
+    public record BrandSummary(Long id, String name) {}
+}
+```
+
+- `withBrandName(String)` → `withBrand(BrandSummary)` 메서드 교체
+- 브랜드 관련 데이터를 `BrandSummary`로 캡슐화해 확장성 확보 (브랜드 필드 추가 시 ProductInfo 시그니처 불변)
+
+---
+
+### Order 주문금액 계산 책임 이전 (2026-03-03)
+
+#### 문제
+
+초기 구현에서 `OrderService.placeOrder()`가 `totalAmount`를 파라미터로 받아 저장하는 구조 → 외부에서 계산하고 전달, Order 자신이 책임지지 않음.
+
+#### 변경 내용
+
+```java
+// 변경 전: 외부에서 합산 후 전달
+Order.create(userId, totalAmount)
+
+// 변경 후: Order가 스냅샷 목록을 받아 직접 계산
+Order.create(userId, List<OrderItemSnapshot> snapshots)
+private Long calculateTotalAmount(List<OrderItemSnapshot> snapshots)
+```
+
+- `OrderItemSnapshot.lineAmount()` 추가 (price × quantity)
+- Order가 스냅샷 목록을 받아 `totalAmount` 직접 계산 — "내 금액은 내가 계산한다"
+- `OrderService`에서 totalAmount 계산 로직 제거
+
+---
+
+### ApplicationService → Service 네이밍 (2026-03-03)
+
+#### 배경
+
+`BrandApplicationService`, `ProductApplicationService` 등 `ApplicationService` suffix를 사용하다가 `Service`로 단순화.
+
+- 이미 `application/` 패키지에 위치하므로 이름에서 중복 표현 불필요
+- `BrandApplicationService` → `BrandService`, `ProductApplicationService` → `ProductService` 등 전면 변경
+
+---
+
+### Facade 단순 위임 메서드 제거 — 오케스트레이션만 담당 (2026-03-03)
+
+#### 배경
+
+`BrandFacade`에 `register`, `getBrand`, `getBrands`, `update` 등 단순히 `BrandService`를 그대로 호출하는 메서드가 생겨났음. `ProductFacade`도 마찬가지로 `getProduct`, `getProducts`, `update` 등이 있었음.
+
+#### 문제
+
+- Facade가 "무슨 일이든 다 거쳐야 하는 단일 진입점"이 되면 오케스트레이션 없는 단순 위임 메서드로 가득 찬 뚱뚱한 클래스가 됨
+- 새로운 기능 추가 시 Facade에 메서드를 무조건 추가해야 한다는 잘못된 관습 형성
+
+#### 변경 내용
+
+| Facade | 제거된 메서드 |
+|--------|-------------|
+| `BrandFacade` | `register`, `getBrand`, `getBrands`, `update` |
+| `ProductFacade` | `getProduct`, `getProducts`, `update` |
+
+#### 결과 구조 — Facade 사용 기준
+
+| 컨트롤러 | Facade 사용 (오케스트레이션) | Service 직접 사용 (단순 CRUD) |
+|----------|--------------------------|---------------------------|
+| `AdminBrandV1Controller` | `delete` (연쇄 삭제) | `register`, `getBrand`, `getBrands`, `update` |
+| `AdminProductV1Controller` | `register` (브랜드 검증), `delete` (좋아요 연쇄) | `getProduct`, `getProducts`, `update` |
+| `ProductV1Controller` | `getActiveProduct`, `getActiveProducts` (브랜드명 enrichment) | — |
+
+**원칙**: 두 개 이상의 Service를 조율하거나 복수 도메인에 걸친 트랜잭션이 필요한 경우에만 Facade를 경유. 단일 Service 위임은 Controller에서 직접 호출.
+
+---
+
+### OrderCreateCommand interfaces 계층 의존 제거 (2026-03-03)
+
+#### 문제
+
+```java
+// application/order/OrderCreateCommand.java
+public static OrderCreateCommand from(Long userId, OrderV1Dto.CreateRequest request) { ... }
+//                                                 ↑ interfaces 계층 타입 — 방향 위반
+```
+
+`application` 계층의 Command가 `interfaces` 계층의 DTO를 알고 있는 구조.
+
+#### 변경 내용
+
+- `OrderCreateCommand.from(userId, request)` 팩토리 메서드 제거
+- 매핑 책임을 `OrderV1Controller`로 이동: Controller에서 DTO → Command 변환 후 Facade 호출
+
+```java
+// interfaces 계층 (Controller) — 매핑 책임
+List<OrderItemCommand> items = request.items().stream()
+    .map(item -> new OrderItemCommand(item.productId(), item.quantity()))
+    .toList();
+orderFacade.createOrder(new OrderCreateCommand(userId, items));
+```
+
+**원칙 재확인**: `Domain → Application → Interface` 의존 방향. Command/Info 객체는 interfaces 계층을 몰라야 한다.
+
+---
+
+### Product.decreaseStock 0/음수 수량 guard 추가 (2026-03-03)
+
+```java
+public void decreaseStock(int quantity) {
+    if (quantity <= 0) {
+        throw new CoreException(ErrorType.BAD_REQUEST, "차감 수량은 1 이상이어야 합니다.");
+    }
+    ...
+}
+```
+
+- OrderService의 `validateItems`에서도 `quantity <= 0` 검증을 하지만, 도메인 객체 스스로 불변식을 지키는 것이 올바름
+- 방어 계층 이중화: Service 검증이 빠지더라도 엔티티 레벨에서 차단
+
+---
+
+### decreaseStockIfEnough — visibility 파라미터 제거 (2026-03-04)
+
+#### 문제
+
+```java
+// 변경 전
+int decreaseStockIfEnough(Long productId, Integer quantity, Product.Visibility visibility);
+// 호출부
+productJpaRepository.decreaseStockIfEnough(productId, quantity, Product.Visibility.VISIBLE);
+```
+
+visibility를 외부에서 파라미터로 넘기는 구조 → "항상 VISIBLE 상품만 차감"이라는 정책이 호출부에 노출됨.
+
+#### 변경 내용
+
+JPQL에 `and p.visibility = Product.Visibility.VISIBLE` 하드코딩, 파라미터 제거.
+
+- "재고 차감은 VISIBLE 상품에 대해서만 가능하다"는 정책이 쿼리 내부로 응집
+- 호출부에서 visibility 파라미터를 잘못 전달할 여지 제거
+
+---
+
+### @Transactional 클래스 레벨 → 메서드 레벨 이동 (2026-03-03)
+
+클래스에 `@Transactional`을 선언하면 `readOnly` 여부와 무관하게 모든 메서드에 동일 트랜잭션이 적용되어 의도를 파악하기 어려움.
+
+- 조회 메서드: `@Transactional(readOnly = true)` 명시 → DB 최적화 힌트 + 의도 명확화
+- 변경 메서드: `@Transactional` 명시 → 트랜잭션 경계를 메서드 단위로 직접 표현
