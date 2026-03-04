@@ -664,6 +664,141 @@ class CouponAdminApiE2ETest {
         }
     }
 
+    @Nested
+    class 쿠폰_발급_내역_조회 {
+
+        private static final String LOGIN_ID = "testuser";
+        private static final String LOGIN_PW = "Test1234!";
+
+        @Test
+        void 발급_내역을_최신순으로_페이징_조회하면_200_응답() {
+            Long couponId = fixture.registerCoupon(
+                    "1000원 할인", CouponType.FIXED, 1000,
+                    BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
+            );
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
+            fixture.signUp("testuser2", LOGIN_PW, "김철수", "test2@example.com");
+            fixture.issueCoupon(couponId, LOGIN_ID, LOGIN_PW);
+            fixture.issueCoupon(couponId, "testuser2", LOGIN_PW);
+
+            ResponseEntity<ApiResponse<PageResponse<CouponAdminV1Dto.IssuedCouponResponse>>> response =
+                    getIssues(couponId, 0, 20);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(2),
+                    () -> assertThat(response.getBody().data().content().get(0).loginId()).isEqualTo("testuser2"),
+                    () -> assertThat(response.getBody().data().content().get(1).loginId()).isEqualTo(LOGIN_ID),
+                    () -> assertThat(response.getBody().data().totalElements()).isEqualTo(2)
+            );
+        }
+
+        @Test
+        void 상태_AVAILABLE_USED_EXPIRED를_반환한다() {
+            Long couponId = fixture.registerCoupon(
+                    "1000원 할인", CouponType.FIXED, 1000,
+                    null, 100, LocalDateTime.now().plusDays(7)
+            );
+            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
+            fixture.issueCoupon(couponId, LOGIN_ID, LOGIN_PW);
+
+            ResponseEntity<ApiResponse<PageResponse<CouponAdminV1Dto.IssuedCouponResponse>>> response =
+                    getIssues(couponId, 0, 20);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo("AVAILABLE")
+            );
+        }
+
+        @Test
+        void 빈_목록이면_빈_배열을_반환한다() {
+            Long couponId = fixture.registerCoupon(
+                    "1000원 할인", CouponType.FIXED, 1000,
+                    null, 100, LocalDateTime.now().plusDays(7)
+            );
+
+            ResponseEntity<ApiResponse<PageResponse<CouponAdminV1Dto.IssuedCouponResponse>>> response =
+                    getIssues(couponId, 0, 20);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).isEmpty(),
+                    () -> assertThat(response.getBody().data().totalElements()).isEqualTo(0)
+            );
+        }
+
+        @Test
+        void 미존재_쿠폰이면_404_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/999/issues?page=0&size=20", HttpMethod.GET,
+                    new HttpEntity<>(fixture.adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
+                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 쿠폰입니다")
+            );
+        }
+
+        @Test
+        void 요청_필드_규칙_위반시_400_응답() {
+            Long couponId = fixture.registerCoupon(
+                    "1000원 할인", CouponType.FIXED, 1000,
+                    null, 100, LocalDateTime.now().plusDays(7)
+            );
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/" + couponId + "/issues?page=-1", HttpMethod.GET,
+                    new HttpEntity<>(fixture.adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        void 인증헤더가_누락되면_401_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1/issues?page=0&size=20", HttpMethod.GET,
+                    new HttpEntity<>(new HttpHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증 헤더가 필요합니다")
+            );
+        }
+
+        @Test
+        void 인증에_실패하면_401_응답() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-Ldap", "wrong-ldap");
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1/issues?page=0&size=20", HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증에 실패했습니다")
+            );
+        }
+    }
+
+    private ResponseEntity<ApiResponse<PageResponse<CouponAdminV1Dto.IssuedCouponResponse>>> getIssues(
+            Long couponId, int page, int size) {
+        return testRestTemplate.exchange(
+                ENDPOINT + "/" + couponId + "/issues?page=" + page + "&size=" + size, HttpMethod.GET,
+                new HttpEntity<>(fixture.adminHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
+    }
+
     private ResponseEntity<ApiResponse<PageResponse<CouponAdminV1Dto.CouponResponse>>> getList(
             int page, int size) {
         return testRestTemplate.exchange(

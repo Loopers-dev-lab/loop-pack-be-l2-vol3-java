@@ -1,25 +1,20 @@
 package com.loopers.application.coupon;
 
 import com.loopers.domain.coupon.Coupon;
-import com.loopers.domain.coupon.CouponType;
 import com.loopers.domain.coupon.IssuedCoupon;
+import com.loopers.domain.user.User;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-public record IssuedCouponInfo(
+public record IssuedCouponAdminInfo(
         Long id,
-        Long couponId,
-        String couponName,
-        CouponType type,
-        int value,
-        BigDecimal minOrderAmount,
+        Long userId,
+        String loginId,
         String status,
-        LocalDateTime expiredAt,
         LocalDateTime createdAt,
         LocalDateTime usedAt
 ) {
-    public static IssuedCouponInfo from(IssuedCoupon issuedCoupon, Coupon coupon) {
+    public static IssuedCouponAdminInfo from(IssuedCoupon issuedCoupon, User user, Coupon coupon) {
         String status;
         if (issuedCoupon.isUsed()) {
             status = "USED";
@@ -28,15 +23,11 @@ public record IssuedCouponInfo(
         } else {
             status = "AVAILABLE";
         }
-        return new IssuedCouponInfo(
+        return new IssuedCouponAdminInfo(
                 issuedCoupon.getId(),
-                coupon.getId(),
-                coupon.getName(),
-                coupon.getType(),
-                coupon.getValue(),
-                coupon.getMinOrderAmount(),
+                user.getId(),
+                user.getLoginId(),
                 status,
-                coupon.getExpiredAt(),
                 issuedCoupon.getCreatedAt().toLocalDateTime(),
                 issuedCoupon.getUsedAt()
         );

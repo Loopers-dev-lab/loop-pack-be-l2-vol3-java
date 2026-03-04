@@ -10,6 +10,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class CouponService {
@@ -65,6 +67,11 @@ public class CouponService {
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
         coupon.validateNotDeleted();
         return coupon;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Coupon> findAllByIds(List<Long> ids) {
+        return couponRepository.findAllByIds(ids);
     }
 
     @Transactional(readOnly = true)

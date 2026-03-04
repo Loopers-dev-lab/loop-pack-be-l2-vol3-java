@@ -5,6 +5,8 @@ import com.loopers.domain.coupon.IssuedCouponRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,5 +35,17 @@ public class IssuedCouponService {
         issuedCoupons.stream()
                 .filter(ic -> !ic.isUsed())
                 .forEach(IssuedCoupon::delete);
+    }
+
+    // Query
+
+    @Transactional(readOnly = true)
+    public Page<IssuedCoupon> findByCouponId(Long couponId, Pageable pageable) {
+        return issuedCouponRepository.findAllByCouponId(couponId, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<IssuedCoupon> findActiveByUserId(Long userId, Pageable pageable) {
+        return issuedCouponRepository.findActiveByUserId(userId, pageable);
     }
 }

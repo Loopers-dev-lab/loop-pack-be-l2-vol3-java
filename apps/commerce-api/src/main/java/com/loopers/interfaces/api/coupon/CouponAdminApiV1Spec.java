@@ -40,4 +40,13 @@ public interface CouponAdminApiV1Spec {
 
     @Operation(summary = "쿠폰 상세 조회")
     ApiResponse<CouponAdminV1Dto.CouponResponse> detail(Long couponId);
+
+    @Operation(
+            summary = "쿠폰 발급 내역 조회",
+            description = "특정 쿠폰의 발급 내역을 최신순으로 페이징 조회합니다."
+    )
+    ApiResponse<PageResponse<CouponAdminV1Dto.IssuedCouponResponse>> issues(
+            Long couponId,
+            CouponRequest.ListAll request
+    );
 }

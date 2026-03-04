@@ -84,4 +84,16 @@ public record CouponRequest() {
             );
         }
     }
+
+    public record ListMyCoupons(
+            @PositiveOrZero Integer page,
+            @Min(1) @Max(100) Integer size
+    ) {
+        public Pageable toPageable() {
+            return PageRequest.of(
+                    page != null ? page : 0,
+                    size != null ? size : 20
+            );
+        }
+    }
 }

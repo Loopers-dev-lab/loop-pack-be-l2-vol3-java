@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponInfo;
+import com.loopers.application.coupon.IssuedCouponAdminInfo;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -8,6 +9,26 @@ import java.time.LocalDateTime;
 public class CouponAdminV1Dto {
 
     // Response
+
+    public record IssuedCouponResponse(
+            Long id,
+            Long userId,
+            String loginId,
+            String status,
+            LocalDateTime createdAt,
+            LocalDateTime usedAt
+    ) {
+        public static IssuedCouponResponse from(IssuedCouponAdminInfo info) {
+            return new IssuedCouponResponse(
+                    info.id(),
+                    info.userId(),
+                    info.loginId(),
+                    info.status(),
+                    info.createdAt(),
+                    info.usedAt()
+            );
+        }
+    }
 
     public record CouponResponse(
             Long id,

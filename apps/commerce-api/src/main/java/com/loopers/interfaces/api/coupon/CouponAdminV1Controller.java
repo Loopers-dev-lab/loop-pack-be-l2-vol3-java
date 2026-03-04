@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponFacade;
 import com.loopers.application.coupon.CouponInfo;
+import com.loopers.application.coupon.IssuedCouponAdminInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import jakarta.validation.Valid;
@@ -64,5 +65,14 @@ public class CouponAdminV1Controller implements CouponAdminApiV1Spec {
     public ApiResponse<CouponAdminV1Dto.CouponResponse> detail(@PathVariable Long couponId) {
         CouponInfo info = couponFacade.getCoupon(couponId);
         return ApiResponse.success(CouponAdminV1Dto.CouponResponse.from(info));
+    }
+
+    @GetMapping("/{couponId}/issues")
+    @Override
+    public ApiResponse<PageResponse<CouponAdminV1Dto.IssuedCouponResponse>> issues(
+            @PathVariable Long couponId,
+            @Valid CouponRequest.ListAll request) {
+        Page<IssuedCouponAdminInfo> issues = couponFacade.getCouponIssues(couponId, request.toPageable());
+        return ApiResponse.success(PageResponse.from(issues, CouponAdminV1Dto.IssuedCouponResponse::from));
     }
 }
