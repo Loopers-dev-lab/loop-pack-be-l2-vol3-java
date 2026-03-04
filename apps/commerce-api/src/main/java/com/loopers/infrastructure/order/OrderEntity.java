@@ -79,6 +79,9 @@ public class OrderEntity {
     @Column(name = "address_line2")
     private String addressLine2;
 
+    @Column(name = "coupon_id")
+    private Long couponId;
+
     @Column(name = "payment_id")
     private Long paymentId;
 
@@ -239,6 +242,14 @@ public class OrderEntity {
 
     public void setAddressLine2(String addressLine2) {
         this.addressLine2 = addressLine2;
+    }
+
+    public Long getCouponId() {
+        return couponId;
+    }
+
+    public void setCouponId(Long couponId) {
+        this.couponId = couponId;
     }
 
     public Long getPaymentId() {

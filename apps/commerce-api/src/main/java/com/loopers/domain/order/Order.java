@@ -30,6 +30,7 @@ public class Order {
     private String receiverName;
     private String receiverPhone;
     private Address shippingAddress;
+    private Long couponId;
     private Long paymentId;
     private String paymentMethod;
     private ZonedDateTime orderedAt;
@@ -79,7 +80,7 @@ public class Order {
                                       int shippingFee, int totalAmount, OrderStatus status,
                                       String ordererName, String ordererPhone,
                                       String receiverName, String receiverPhone, Address shippingAddress,
-                                      Long paymentId, String paymentMethod,
+                                      Long couponId, Long paymentId, String paymentMethod,
                                       ZonedDateTime orderedAt, ZonedDateTime expiresAt, ZonedDateTime canceledAt,
                                       ZonedDateTime createdAt, ZonedDateTime updatedAt, ZonedDateTime deletedAt) {
         Order order = new Order();
@@ -98,6 +99,7 @@ public class Order {
         order.receiverName = receiverName;
         order.receiverPhone = receiverPhone;
         order.shippingAddress = shippingAddress;
+        order.couponId = couponId;
         order.paymentId = paymentId;
         order.paymentMethod = paymentMethod;
         order.orderedAt = orderedAt;
@@ -222,6 +224,10 @@ public class Order {
 
     public String getAddressLine2() {
         return this.shippingAddress.getAddressLine2();
+    }
+
+    public Long getCouponId() {
+        return this.couponId;
     }
 
     public Long getPaymentId() {
