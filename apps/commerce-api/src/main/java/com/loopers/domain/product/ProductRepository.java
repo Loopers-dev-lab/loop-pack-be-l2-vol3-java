@@ -11,6 +11,8 @@ public interface ProductRepository {
 
     // Command
     Product save(Product product);
+    int incrementLikeCount(Long productId);
+    int decrementLikeCount(Long productId);
 
     // Query
     Optional<Product> findById(Long id);

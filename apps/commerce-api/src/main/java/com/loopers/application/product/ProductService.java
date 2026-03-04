@@ -50,16 +50,12 @@ public class ProductService {
 
     @Transactional
     public void incrementLikeCount(Long productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
-        product.incrementLikeCount();
+        productRepository.incrementLikeCount(productId);
     }
 
     @Transactional
     public void decrementLikeCount(Long productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
-        product.decrementLikeCount();
+        productRepository.decrementLikeCount(productId);
     }
 
     @Transactional

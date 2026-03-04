@@ -18,9 +18,20 @@ public class ProductRepositoryImpl implements ProductRepository {
     private final ProductJpaRepository productJpaRepository;
 
     // Command
+
     @Override
     public Product save(Product product) {
         return productJpaRepository.save(product);
+    }
+
+    @Override
+    public int incrementLikeCount(Long productId) {
+        return productJpaRepository.incrementLikeCount(productId);
+    }
+
+    @Override
+    public int decrementLikeCount(Long productId) {
+        return productJpaRepository.decrementLikeCount(productId);
     }
 
     // Query

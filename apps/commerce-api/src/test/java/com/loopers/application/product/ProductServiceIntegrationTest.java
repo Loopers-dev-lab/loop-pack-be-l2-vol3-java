@@ -324,13 +324,11 @@ class ProductServiceIntegrationTest {
             Product p1 = productService.register(ProductCommand.Register.of(1L, "인기 상품", new BigDecimal("10000"), 10, "설명"));
             productService.register(ProductCommand.Register.of(1L, "보통 상품", new BigDecimal("20000"), 20, "설명"));
             Product p3 = productService.register(ProductCommand.Register.of(1L, "최고 인기", new BigDecimal("30000"), 30, "설명"));
-            p1.incrementLikeCount();
-            p1.incrementLikeCount();
-            productRepository.save(p1);
-            p3.incrementLikeCount();
-            p3.incrementLikeCount();
-            p3.incrementLikeCount();
-            productRepository.save(p3);
+            productService.incrementLikeCount(p1.getId());
+            productService.incrementLikeCount(p1.getId());
+            productService.incrementLikeCount(p3.getId());
+            productService.incrementLikeCount(p3.getId());
+            productService.incrementLikeCount(p3.getId());
 
             Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "likeCount"));
             Page<Product> result = productService.findActiveProducts(null, pageable);

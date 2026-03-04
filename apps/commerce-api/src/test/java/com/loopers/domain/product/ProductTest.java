@@ -337,64 +337,6 @@ class ProductTest {
     }
 
     @Nested
-    class 좋아요_증가 {
-
-        @Test
-        void 좋아요수가_1_증가한다() {
-            Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-
-            product.incrementLikeCount();
-
-            assertThat(product.getLikeCount()).isEqualTo(1);
-        }
-
-        @Test
-        void 삭제된_상품이면_예외() {
-            Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            product.delete();
-
-            assertThatThrownBy(() -> product.incrementLikeCount())
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
-                    .hasMessageContaining("존재하지 않는 상품입니다");
-        }
-    }
-
-    @Nested
-    class 좋아요_감소 {
-
-        @Test
-        void 좋아요수가_1_감소한다() {
-            Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            product.incrementLikeCount();
-
-            product.decrementLikeCount();
-
-            assertThat(product.getLikeCount()).isEqualTo(0);
-        }
-
-        @Test
-        void 좋아요수가_0이면_감소하지_않는다() {
-            Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-
-            product.decrementLikeCount();
-
-            assertThat(product.getLikeCount()).isEqualTo(0);
-        }
-
-        @Test
-        void 삭제된_상품도_좋아요수가_감소한다() {
-            Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            product.incrementLikeCount();
-            product.delete();
-
-            product.decrementLikeCount();
-
-            assertThat(product.getLikeCount()).isEqualTo(0);
-        }
-    }
-
-    @Nested
     class 재고_차감 {
 
         @Test

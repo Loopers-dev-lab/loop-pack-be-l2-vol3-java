@@ -59,17 +59,6 @@ public class Product extends BaseEntity {
         return new Product(brandId, name, price, stockQuantity, description);
     }
 
-    public void incrementLikeCount() {
-        validateNotDeleted();
-        this.likeCount++;
-    }
-
-    public void decrementLikeCount() {
-        if (this.likeCount > 0) {
-            this.likeCount--;
-        }
-    }
-
     public void deductStock(int quantity) {
         validateNotDeleted();
         if (this.stockQuantity < quantity) {

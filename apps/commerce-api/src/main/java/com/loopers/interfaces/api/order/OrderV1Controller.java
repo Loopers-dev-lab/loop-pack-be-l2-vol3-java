@@ -30,7 +30,7 @@ public class OrderV1Controller implements OrderApiV1Spec {
     public ApiResponse<OrderV1Dto.OrderResponse> createOrder(
             @AuthUser AuthenticatedUser user,
             @RequestBody @Valid OrderRequest.Place request) {
-        OrderInfo info = orderFacade.createOrder(user.id(), request.toCommand());
+        OrderInfo info = orderFacade.placeOrder(user.id(), request.toCommand());
         return ApiResponse.success(OrderV1Dto.OrderResponse.from(info));
     }
 

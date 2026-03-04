@@ -35,7 +35,7 @@ public class OrderFacade {
     // Command
 
     @Transactional
-    public OrderInfo createOrder(Long userId, OrderCommand.Place command) {
+    public OrderInfo placeOrder(Long userId, OrderCommand.Place command) {
         var items = command.items();
 
         Set<Long> productIds = items.stream()
