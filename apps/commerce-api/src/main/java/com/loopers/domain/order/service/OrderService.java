@@ -17,7 +17,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
 
     public Orders createOrder(OrderCommand.Create command) {
-        Orders orders = Orders.create(command.memberId(), command.orderProducts());
+        Orders orders = Orders.create(command.memberId(), command.orderProducts(), command.discountAmount(), command.userCouponId());
         return orderRepository.save(orders);
     }
 

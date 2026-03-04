@@ -30,7 +30,7 @@ class OrdersTest {
             OrderProduct orderProduct = OrderProduct.create(1L, "상품A", 10000, 2);
 
             // act
-            Orders orders = assertDoesNotThrow(() -> Orders.create(memberId, List.of(orderProduct)));
+            Orders orders = assertDoesNotThrow(() -> Orders.create(memberId, List.of(orderProduct), 0, null));
 
             // assert
             assertAll(
@@ -48,7 +48,7 @@ class OrdersTest {
             OrderProduct product2 = OrderProduct.create(2L, "상품B", 5000, 3);  // 5000 * 3 = 15000
 
             // act
-            Orders orders = Orders.create(memberId, List.of(product1, product2));
+            Orders orders = Orders.create(memberId, List.of(product1, product2), 0, null);
 
             // assert
             assertThat(orders.getTotalPrice().value()).isEqualTo(35000);
@@ -61,7 +61,7 @@ class OrdersTest {
             OrderProduct orderProduct = OrderProduct.create(1L, "상품A", 10000, 2);
 
             // act & assert
-            assertThatThrownBy(() -> Orders.create(null, List.of(orderProduct)))
+            assertThatThrownBy(() -> Orders.create(null, List.of(orderProduct), 0, null))
                 .isInstanceOf(CoreException.class)
                 .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
@@ -73,7 +73,7 @@ class OrdersTest {
             Long memberId = 1L;
 
             // act & assert
-            assertThatThrownBy(() -> Orders.create(memberId, null))
+            assertThatThrownBy(() -> Orders.create(memberId, null, 0, null))
                 .isInstanceOf(CoreException.class)
                 .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
@@ -85,7 +85,7 @@ class OrdersTest {
             Long memberId = 1L;
 
             // act & assert
-            assertThatThrownBy(() -> Orders.create(memberId, List.of()))
+            assertThatThrownBy(() -> Orders.create(memberId, List.of(), 0, null))
                 .isInstanceOf(CoreException.class)
                 .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
@@ -104,7 +104,7 @@ class OrdersTest {
 
             // act
             Orders orders = assertDoesNotThrow(
-                () -> Orders.reconstruct(1L, memberId, 35000, List.of(orderProduct))
+                () -> Orders.reconstruct(1L, memberId, 35000, 0, null, List.of(orderProduct))
             );
 
             // assert
@@ -125,7 +125,7 @@ class OrdersTest {
             // arrange
             Long memberId = 1L;
             OrderProduct orderProduct = OrderProduct.create(1L, "상품A", 10000, 2);
-            Orders orders = Orders.create(memberId, List.of(orderProduct));
+            Orders orders = Orders.create(memberId, List.of(orderProduct), 0, null);
 
             // act & assert
             assertThrows(

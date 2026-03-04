@@ -7,6 +7,8 @@ import java.util.List;
 public record FindOrderResDto(
         Long id,
         int totalPrice,
+        int discountAmount,
+        Long userCouponId,
         List<FindOrderProductResDto> orderProducts
 ) {
     public static FindOrderResDto from(Orders orders) {
@@ -16,6 +18,8 @@ public record FindOrderResDto(
         return new FindOrderResDto(
                 orders.getId(),
                 orders.getTotalPrice().value(),
+                orders.getDiscountAmount().value(),
+                orders.getUserCouponId(),
                 products
         );
     }

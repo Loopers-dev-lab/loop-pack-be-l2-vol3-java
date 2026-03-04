@@ -2,8 +2,11 @@ package com.loopers.infrastructure.product.entity;
 
 import com.loopers.domain.BaseEntity;
 import com.loopers.domain.product.model.Product;
+import com.loopers.domain.product.vo.DisplayStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import org.hibernate.annotations.SQLRestriction;
@@ -27,11 +30,12 @@ public class ProductEntity extends BaseEntity {
     private int stock;
 
     @Column(nullable = false)
-    private String displayStatus;
+    @Enumerated(EnumType.STRING)
+    private DisplayStatus displayStatus;
 
     protected ProductEntity() {}
 
-    private ProductEntity(Long brandId, String name, int price, int stock, String displayStatus) {
+    private ProductEntity(Long brandId, String name, int price, int stock, DisplayStatus displayStatus) {
         this.brandId = brandId;
         this.name = name;
         this.price = price;
@@ -45,7 +49,7 @@ public class ProductEntity extends BaseEntity {
                 product.getName().value(),
                 product.getPrice().value(),
                 product.getStock().value(),
-                product.getDisplayStatus().name()
+                product.getDisplayStatus()
         );
     }
 
@@ -60,7 +64,7 @@ public class ProductEntity extends BaseEntity {
         );
     }
 
-    public void update(String name, int price, int stock, String displayStatus) {
+    public void update(String name, int price, int stock, DisplayStatus displayStatus) {
         this.name = name;
         this.price = price;
         this.stock = stock;

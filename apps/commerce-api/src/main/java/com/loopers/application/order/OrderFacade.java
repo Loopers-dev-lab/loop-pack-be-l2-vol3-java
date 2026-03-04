@@ -2,6 +2,8 @@ package com.loopers.application.order;
 
 import com.loopers.application.order.dto.CreateOrderReqDto;
 import com.loopers.application.order.dto.FindOrderResDto;
+import com.loopers.domain.coupon.model.CouponTemplate;
+import com.loopers.domain.coupon.service.CouponService;
 import com.loopers.domain.member.model.Member;
 import com.loopers.domain.member.service.MemberService;
 import com.loopers.domain.order.model.OrderCommand;
@@ -17,9 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Component
@@ -30,22 +29,16 @@ public class OrderFacade {
     private final OrderProductService orderProductService;
     private final MemberService memberService;
     private final ProductService productService;
+    private final CouponService couponService;
 
     @Transactional(rollbackFor = {Exception.class})
     public FindOrderResDto createOrder(String loginId, String password, CreateOrderReqDto dto) {
         Member member = memberService.findMember(loginId, password);
 
-        List<Long> productIds = dto.items().stream()
-                .map(CreateOrderReqDto.OrderItemReqDto::productId)
-                .toList();
-        List<Product> products = productService.getProductsByIds(productIds);
-
-        Map<Long, Product> productMap = products.stream().collect(Collectors.toMap(Product::getId, Function.identity()));
-
+        // 1. 상품별 재고 확인 및 차감 (비관적 락)
         List<OrderProduct> orderProducts = dto.items().stream()
                 .map(item -> {
-                    Product product = productMap.get(item.productId());
-                    productService.decreaseStock(product, item.quantity());
+                    Product product = productService.decreaseStockWithLock(item.productId(), item.quantity());
                     return OrderProduct.create(
                             product.getId(),
                             product.getName().value(),
@@ -55,11 +48,29 @@ public class OrderFacade {
                 })
                 .toList();
 
-        OrderCommand.Create command = new OrderCommand.Create(member.getId(), orderProducts);
+        // 2. 주문 상품 합계 계산
+        int subtotal = orderProducts.stream()
+                .mapToInt(op -> op.getPrice().value() * op.getQuantity().value())
+                .sum();
+
+        // 3. 쿠폰 유효성 검증 및 사용 처리 (비관적 락)
+        int discountAmount = 0;
+        Long userCouponId = dto.userCouponId();
+        if (userCouponId != null) {
+            CouponTemplate template = couponService.useUserCoupon(userCouponId, member.getId(), subtotal);
+            discountAmount = template.calculateDiscount(subtotal);
+        }
+
+        // 4. 주문 생성 및 저장
+        OrderCommand.Create command = new OrderCommand.Create(member.getId(), orderProducts, discountAmount, userCouponId);
         Orders savedOrder = orderService.createOrder(command);
 
         List<OrderProduct> savedProducts = orderProductService.saveAll(savedOrder.getId(), orderProducts);
-        Orders result = Orders.reconstruct(savedOrder.getId(), savedOrder.getMemberId(), savedOrder.getTotalPrice().value(), savedProducts);
+        Orders result = Orders.reconstruct(
+                savedOrder.getId(), savedOrder.getMemberId(),
+                savedOrder.getTotalPrice().value(), savedOrder.getDiscountAmount().value(),
+                savedOrder.getUserCouponId(), savedProducts
+        );
         return FindOrderResDto.from(result);
     }
 
@@ -80,7 +91,11 @@ public class OrderFacade {
 
     private FindOrderResDto populateAndConvert(Orders orders) {
         List<OrderProduct> orderProducts = orderProductService.findByOrderId(orders.getId());
-        Orders populated = Orders.reconstruct(orders.getId(), orders.getMemberId(), orders.getTotalPrice().value(), orderProducts);
+        Orders populated = Orders.reconstruct(
+                orders.getId(), orders.getMemberId(),
+                orders.getTotalPrice().value(), orders.getDiscountAmount().value(),
+                orders.getUserCouponId(), orderProducts
+        );
         return FindOrderResDto.from(populated);
     }
 }

@@ -6,6 +6,7 @@ import com.loopers.domain.brand.model.Brand;
 import com.loopers.domain.brand.service.BrandService;
 import com.loopers.domain.product.model.Product;
 import com.loopers.domain.product.service.ProductService;
+import com.loopers.domain.product.vo.DisplayStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
@@ -44,7 +45,7 @@ class BrandFacadeTest {
     }
 
     private static Product createTestProduct(Long id, Long brandId) {
-        return Product.reconstruct(id, brandId, "상품A", 10000, 100, "DISPLAYING");
+        return Product.reconstruct(id, brandId, "상품A", 10000, 100, DisplayStatus.DISPLAYING);
     }
 
     @DisplayName("브랜드 상세 조회")

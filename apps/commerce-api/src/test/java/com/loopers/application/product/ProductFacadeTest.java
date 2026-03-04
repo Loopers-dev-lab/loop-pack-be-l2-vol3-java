@@ -8,6 +8,7 @@ import com.loopers.domain.favorite.service.FavoriteService;
 import com.loopers.domain.member.model.Member;
 import com.loopers.domain.member.service.MemberService;
 import com.loopers.domain.product.model.Product;
+import com.loopers.domain.product.vo.DisplayStatus;
 import com.loopers.domain.product.model.ProductItem;
 import com.loopers.domain.product.service.ProductService;
 import com.loopers.support.enums.SortFilter;
@@ -65,7 +66,7 @@ class ProductFacadeTest {
     }
 
     private static Product createTestProduct() {
-        return Product.reconstruct(1L, 1L, "상품A", 10000, 100, "DISPLAYING");
+        return Product.reconstruct(1L, 1L, "상품A", 10000, 100, DisplayStatus.DISPLAYING);
     }
 
     private static ProductItem createTestProductItem(boolean isFavorite) {
