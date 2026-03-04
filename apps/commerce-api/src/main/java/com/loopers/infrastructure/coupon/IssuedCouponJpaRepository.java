@@ -8,4 +8,5 @@ public interface IssuedCouponJpaRepository extends JpaRepository<IssuedCouponEnt
     long countByCouponTemplateId(Long couponTemplateId);
     long countByCouponTemplateIdAndUserId(Long couponTemplateId, Long userId);
     List<IssuedCouponEntity> findAllByUserIdOrderByCreatedAtDesc(Long userId);
+    List<IssuedCouponEntity> findAllByCouponTemplateIdOrderByCreatedAtDesc(Long couponTemplateId);
 }

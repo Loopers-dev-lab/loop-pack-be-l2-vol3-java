@@ -9,5 +9,6 @@ public interface CouponTemplateRepository {
     Optional<CouponTemplate> findById(Long id);
     List<CouponTemplate> findAllByIdIn(Set<Long> ids);
     List<CouponTemplate> findAll(int page, int size);
+    List<CouponTemplate> findAllIssuable();
     long count();
 }

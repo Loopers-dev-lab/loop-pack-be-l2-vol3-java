@@ -59,6 +59,19 @@ public class CouponFacade {
         return new CouponListResult(details);
     }
 
+    /** 발급 가능한 쿠폰 목록 조회 */
+    public AvailableCouponListResult getAvailableCoupons() {
+        List<CouponTemplate> templates = couponService.getIssuableTemplates();
+        List<AvailableCouponDetail> details = templates.stream()
+                .map(t -> new AvailableCouponDetail(
+                        t.getId(), t.getName(), t.getDescription(),
+                        t.getDiscountType().name(), t.getDiscountValue(),
+                        t.getMaxDiscountAmount(), t.getMinOrderAmount(),
+                        t.getValidFrom(), t.getValidTo()))
+                .toList();
+        return new AvailableCouponListResult(details);
+    }
+
     public record IssueCouponResult(Long issuedCouponId, String status) {}
 
     public record IssuedCouponDetail(
@@ -68,4 +81,12 @@ public class CouponFacade {
             String status, ZonedDateTime usedAt, ZonedDateTime createdAt) {}
 
     public record CouponListResult(List<IssuedCouponDetail> coupons) {}
+
+    public record AvailableCouponDetail(
+            Long couponTemplateId, String name, String description,
+            String discountType, int discountValue,
+            Integer maxDiscountAmount, int minOrderAmount,
+            ZonedDateTime validFrom, ZonedDateTime validTo) {}
+
+    public record AvailableCouponListResult(List<AvailableCouponDetail> coupons) {}
 }

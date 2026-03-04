@@ -20,4 +20,13 @@ public class CouponResponse {
     public record CouponListResponse(List<IssuedCouponDetail> coupons) {}
 
     public record IssueCouponResponse(Long issuedCouponId, String status) {}
+
+    public record AvailableCouponDetail(
+            Long couponTemplateId, String name, String description,
+            String discountType, int discountValue,
+            Integer maxDiscountAmount, int minOrderAmount,
+            ZonedDateTime validFrom, ZonedDateTime validTo
+    ) {}
+
+    public record AvailableCouponListResponse(List<AvailableCouponDetail> coupons) {}
 }

@@ -3,6 +3,7 @@ package com.loopers.application.coupon;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.CouponTemplate;
 import com.loopers.domain.coupon.DiscountType;
+import com.loopers.domain.coupon.IssuedCoupon;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,10 +60,31 @@ public class AdminCouponFacade {
         return toDetail(template);
     }
 
+    /** 쿠폰 템플릿 상세 조회 */
+    public TemplateDetail getTemplateDetail(Long templateId) {
+        CouponTemplate template = couponService.getTemplate(templateId);
+        return toDetail(template);
+    }
+
     /** 쿠폰 템플릿 삭제 */
     @Transactional
     public void deleteTemplate(Long templateId) {
         couponService.deleteTemplate(templateId);
+    }
+
+    /** 특정 쿠폰의 발급 내역 조회 */
+    public IssuedCouponListResult getIssuedCoupons(Long templateId, int page, int size) {
+        couponService.getTemplate(templateId);
+        List<IssuedCoupon> issuedCoupons = couponService.getIssuedCouponsByTemplateId(templateId);
+        int start = Math.min(page * size, issuedCoupons.size());
+        int end = Math.min(start + size, issuedCoupons.size());
+        List<IssuedCouponSummary> summaries = issuedCoupons.subList(start, end).stream()
+                .map(c -> new IssuedCouponSummary(
+                        c.getId(), c.getUserId(), c.getStatus().name(),
+                        c.getOrderId(), c.getUsedAt(), c.getCreatedAt()))
+                .toList();
+        return new IssuedCouponListResult(summaries, page, size, issuedCoupons.size(),
+                size > 0 ? (int) Math.ceil((double) issuedCoupons.size() / size) : 0);
     }
 
     private TemplateDetail toDetail(CouponTemplate t) {
@@ -85,5 +107,13 @@ public class AdminCouponFacade {
 
     public record TemplateListResult(
             List<TemplateDetail> templates,
+            int page, int size, long totalElements, int totalPages) {}
+
+    public record IssuedCouponSummary(
+            Long issuedCouponId, Long userId, String status,
+            Long orderId, ZonedDateTime usedAt, ZonedDateTime createdAt) {}
+
+    public record IssuedCouponListResult(
+            List<IssuedCouponSummary> issuedCoupons,
             int page, int size, long totalElements, int totalPages) {}
 }

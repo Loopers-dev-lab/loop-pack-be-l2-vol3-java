@@ -50,4 +50,12 @@ public class IssuedCouponRepositoryImpl implements IssuedCouponRepository {
                 .map(issuedCouponMapper::toDomain)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public List<IssuedCoupon> findAllByCouponTemplateId(Long couponTemplateId) {
+        return issuedCouponJpaRepository.findAllByCouponTemplateIdOrderByCreatedAtDesc(couponTemplateId)
+                .stream()
+                .map(issuedCouponMapper::toDomain)
+                .collect(Collectors.toList());
+    }
 }

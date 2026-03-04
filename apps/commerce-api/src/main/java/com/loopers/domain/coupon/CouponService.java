@@ -77,6 +77,16 @@ public class CouponService {
         return couponTemplateRepository.findAllByIdIn(ids);
     }
 
+    @Transactional(readOnly = true)
+    public List<CouponTemplate> getIssuableTemplates() {
+        return couponTemplateRepository.findAllIssuable();
+    }
+
+    @Transactional(readOnly = true)
+    public List<IssuedCoupon> getIssuedCouponsByTemplateId(Long couponTemplateId) {
+        return issuedCouponRepository.findAllByCouponTemplateId(couponTemplateId);
+    }
+
     // --- 어드민 기능 ---
 
     @Transactional(readOnly = true)

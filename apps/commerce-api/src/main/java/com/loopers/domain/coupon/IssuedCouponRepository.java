@@ -9,4 +9,5 @@ public interface IssuedCouponRepository {
     long countByCouponTemplateId(Long couponTemplateId);
     long countByCouponTemplateIdAndUserId(Long couponTemplateId, Long userId);
     List<IssuedCoupon> findAllByUserId(Long userId);
+    List<IssuedCoupon> findAllByCouponTemplateId(Long couponTemplateId);
 }

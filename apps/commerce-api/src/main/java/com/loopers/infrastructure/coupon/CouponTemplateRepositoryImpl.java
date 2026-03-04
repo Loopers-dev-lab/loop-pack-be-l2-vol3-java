@@ -54,6 +54,16 @@ public class CouponTemplateRepositoryImpl implements CouponTemplateRepository {
     }
 
     @Override
+    public List<CouponTemplate> findAllIssuable() {
+        return couponTemplateJpaRepository.findAllIssuable(
+                com.loopers.domain.coupon.CouponTemplateStatus.ACTIVE,
+                java.time.ZonedDateTime.now()
+        ).stream()
+                .map(couponTemplateMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public long count() {
         return couponTemplateJpaRepository.count();
     }
