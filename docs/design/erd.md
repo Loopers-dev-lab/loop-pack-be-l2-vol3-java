@@ -48,10 +48,37 @@ erDiagram
         datetime created_at
     }
 
+    COUPON {
+        bigint id PK
+        varchar name "쿠폰명"
+        varchar type "FIXED / RATE"
+        int value "할인값"
+        decimal min_order_amount "최소 주문 금액"
+        int max_issue_count "총 발급 수량"
+        int issued_count "현재 발급 수량"
+        datetime expired_at "만료일"
+        datetime created_at
+        datetime updated_at
+        datetime deleted_at "NULL=활성"
+    }
+
+    ISSUED_COUPON {
+        bigint id PK
+        bigint coupon_id FK "소속 쿠폰"
+        bigint user_id FK "발급 사용자"
+        datetime used_at "사용일시"
+        datetime created_at
+        datetime updated_at
+        datetime deleted_at "NULL=활성"
+    }
+
     ORDERS {
         bigint id PK
         bigint user_id FK "주문자"
-        decimal total_amount "총 주문 금액"
+        decimal total_amount "쿠폰 적용 전 금액"
+        decimal discount_amount "할인 금액"
+        decimal final_amount "최종 결제 금액"
+        bigint issued_coupon_id "적용된 발급 쿠폰"
         datetime created_at
     }
 
@@ -68,6 +95,8 @@ erDiagram
     BRAND ||--o{ PRODUCT : ""
     USER ||--o{ LIKES : ""
     PRODUCT ||--o{ LIKES : ""
+    COUPON ||--o{ ISSUED_COUPON : ""
+    USER ||--o{ ISSUED_COUPON : ""
     USER ||--o{ ORDERS : ""
     ORDERS ||--|{ ORDER_ITEM : ""
     ORDER_ITEM }o--|| PRODUCT : ""
@@ -81,6 +110,8 @@ erDiagram
 | BRAND | Brand | 입점 브랜드 정보 | Soft Delete |
 | PRODUCT | Product | 판매 상품 정보 | Soft Delete |
 | LIKES | Like | 사용자-상품 간 좋아요 | Hard Delete |
+| COUPON | Coupon | 할인 쿠폰 템플릿 | Soft Delete |
+| ISSUED_COUPON | Coupon | 사용자에게 발급된 쿠폰 | Soft Delete |
 | ORDERS | Order | 사용자의 주문 | 삭제 불가 |
 | ORDER_ITEM | Order | 주문 시점 상품 스냅샷 | 삭제 불가 |
 
@@ -91,3 +122,4 @@ erDiagram
 | USER | UNIQUE | login_id | 로그인 ID 유일성 |
 | BRAND | UNIQUE | name | 브랜드명 유일성 (삭제 포함) |
 | LIKES | UNIQUE | user_id, product_id | 1인 1좋아요 보장 |
+| ISSUED_COUPON | UNIQUE | coupon_id, user_id | 1인 1매 보장 (활성 데이터 기준) |

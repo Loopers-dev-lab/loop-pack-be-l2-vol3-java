@@ -9,6 +9,8 @@
 graph LR
     Order --> Product
     Order --> User
+    Order --> Coupon
+    Coupon --> User
     Like --> Product
     Like --> User
     Product --> Brand
@@ -22,4 +24,5 @@ graph LR
 | Brand | 상품을 그룹화하는 입점 브랜드 |
 | Product | 고객이 탐색하고 주문하는 판매 단위 |
 | Like | 사용자가 상품에 표시하는 관심 표현 |
+| Coupon | 할인 혜택을 제공하는 쿠폰 템플릿과 발급 인스턴스 |
 | Order | 사용자의 상품 구매 요청 |
