@@ -60,7 +60,6 @@ erDiagram
         bigint order_id FK "소속 주문"
         bigint product_id "원본 상품 ID"
         varchar product_name "상품명 스냅샷"
-        varchar brand_name "브랜드명 스냅샷"
         decimal price "단가 스냅샷"
         int quantity "주문 수량"
         datetime created_at
