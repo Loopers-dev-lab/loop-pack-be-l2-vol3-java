@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.coupon;
 
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -18,6 +19,12 @@ public interface CouponAdminApiV1Spec {
     );
 
     @Operation(
+            summary = "쿠폰 삭제",
+            description = "쿠폰 템플릿을 삭제합니다. 미사용 발급 쿠폰도 함께 삭제됩니다."
+    )
+    ApiResponse<Void> delete(Long couponId);
+
+    @Operation(
             summary = "쿠폰 수정",
             description = "쿠폰 템플릿 정보를 수정합니다."
     )
@@ -25,4 +32,12 @@ public interface CouponAdminApiV1Spec {
             Long couponId,
             CouponRequest.Update request
     );
+
+    // Query
+
+    @Operation(summary = "쿠폰 목록 조회")
+    ApiResponse<PageResponse<CouponAdminV1Dto.CouponResponse>> list(CouponRequest.ListAll request);
+
+    @Operation(summary = "쿠폰 상세 조회")
+    ApiResponse<CouponAdminV1Dto.CouponResponse> detail(Long couponId);
 }

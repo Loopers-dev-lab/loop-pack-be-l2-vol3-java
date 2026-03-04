@@ -82,6 +82,43 @@ class CouponServiceIntegrationTest {
     }
 
     @Nested
+    class 쿠폰_삭제 {
+
+        @Test
+        void 활성_쿠폰을_삭제하면_삭제_상태로_변경된다() {
+            Coupon coupon = couponService.register(CouponCommand.Register.of(
+                    "1000원 할인", CouponType.FIXED, 1000,
+                    BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
+            ));
+
+            couponService.delete(coupon.getId());
+
+            Coupon found = couponRepository.findById(coupon.getId()).orElseThrow();
+            assertThat(found.isDeleted()).isTrue();
+        }
+
+        @Test
+        void 미존재_쿠폰이면_예외() {
+            assertThatThrownBy(() -> couponService.delete(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+
+        @Test
+        void 삭제된_쿠폰을_다시_삭제하면_예외() {
+            Coupon coupon = couponService.register(CouponCommand.Register.of(
+                    "쿠폰", CouponType.FIXED, 1000,
+                    null, 100, LocalDateTime.now().plusDays(7)
+            ));
+            couponService.delete(coupon.getId());
+
+            assertThatThrownBy(() -> couponService.delete(coupon.getId()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+    }
+
+    @Nested
     class 쿠폰_수정 {
 
         @Test

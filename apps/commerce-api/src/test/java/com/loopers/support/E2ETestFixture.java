@@ -105,6 +105,14 @@ public class E2ETestFixture {
         );
     }
 
+    public void deleteCoupon(Long couponId) {
+        restTemplate.exchange(
+                COUPON_ENDPOINT + "/" + couponId, HttpMethod.DELETE,
+                new HttpEntity<>(adminHeaders()),
+                new ParameterizedTypeReference<ApiResponse<Void>>() {}
+        );
+    }
+
     public void deleteProduct(Long productId) {
         restTemplate.exchange(
                 PRODUCT_ENDPOINT + "/" + productId, HttpMethod.DELETE,

@@ -3,11 +3,15 @@ package com.loopers.interfaces.api.coupon;
 import com.loopers.application.coupon.CouponCommand;
 import com.loopers.domain.coupon.CouponType;
 import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -64,6 +68,20 @@ public record CouponRequest() {
     ) {
         public CouponCommand.Update toCommand() {
             return CouponCommand.Update.of(type, name, value, minOrderAmount, maxIssueCount, expiredAt);
+        }
+    }
+
+    // Query
+
+    public record ListAll(
+            @PositiveOrZero Integer page,
+            @Min(1) @Max(100) Integer size
+    ) {
+        public Pageable toPageable() {
+            return PageRequest.of(
+                    page != null ? page : 0,
+                    size != null ? size : 20
+            );
         }
     }
 }

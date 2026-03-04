@@ -4,6 +4,7 @@ import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.coupon.CouponType;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.PageResponse;
 import com.loopers.support.E2ETestFixture;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -181,6 +182,84 @@ class CouponAdminApiE2ETest {
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
                     ENDPOINT, HttpMethod.POST,
                     new HttpEntity<>(request, headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증에 실패했습니다")
+            );
+        }
+    }
+
+    @Nested
+    class 쿠폰_삭제 {
+
+        @Test
+        void 활성_쿠폰을_삭제하면_200_응답() {
+            Long couponId = fixture.registerCoupon(
+                    "1000원 할인", CouponType.FIXED, 1000,
+                    BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
+            );
+
+            ResponseEntity<ApiResponse<Void>> response = deleteRequest(couponId);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @Test
+        void 미존재_쿠폰이면_404_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/999", HttpMethod.DELETE,
+                    new HttpEntity<>(fixture.adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
+                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 쿠폰입니다")
+            );
+        }
+
+        @Test
+        void 삭제된_쿠폰을_다시_삭제하면_404_응답() {
+            Long couponId = fixture.registerCoupon(
+                    "1000원 할인", CouponType.FIXED, 1000,
+                    BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
+            );
+            fixture.deleteCoupon(couponId);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/" + couponId, HttpMethod.DELETE,
+                    new HttpEntity<>(fixture.adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        void 인증헤더가_누락되면_401_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1", HttpMethod.DELETE,
+                    new HttpEntity<>(new HttpHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증 헤더가 필요합니다")
+            );
+        }
+
+        @Test
+        void 인증에_실패하면_401_응답() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-Ldap", "wrong-ldap");
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1", HttpMethod.DELETE,
+                    new HttpEntity<>(headers),
                     new ParameterizedTypeReference<>() {}
             );
 
@@ -405,6 +484,209 @@ class CouponAdminApiE2ETest {
                     () -> assertThat(response.getBody().meta().message()).contains("인증에 실패했습니다")
             );
         }
+    }
+
+    @Nested
+    class 쿠폰_목록_조회 {
+
+        @Test
+        void 활성_쿠폰을_최신_등록순으로_페이징_조회하면_200_응답() {
+            fixture.registerCoupon("쿠폰A", CouponType.FIXED, 1000, null, 100, LocalDateTime.now().plusDays(7));
+            fixture.registerCoupon("쿠폰B", CouponType.RATE, 10, null, 50, LocalDateTime.now().plusDays(7));
+
+            ResponseEntity<ApiResponse<PageResponse<CouponAdminV1Dto.CouponResponse>>> response = getList(0, 20);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(2),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("쿠폰B"),
+                    () -> assertThat(response.getBody().data().content().get(1).name()).isEqualTo("쿠폰A"),
+                    () -> assertThat(response.getBody().data().totalElements()).isEqualTo(2)
+            );
+        }
+
+        @Test
+        void 삭제된_쿠폰은_목록에서_제외된다() {
+            fixture.registerCoupon("쿠폰A", CouponType.FIXED, 1000, null, 100, LocalDateTime.now().plusDays(7));
+            Long deletedId = fixture.registerCoupon("쿠폰B", CouponType.FIXED, 2000, null, 100, LocalDateTime.now().plusDays(7));
+            fixture.deleteCoupon(deletedId);
+
+            ResponseEntity<ApiResponse<PageResponse<CouponAdminV1Dto.CouponResponse>>> response = getList(0, 20);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("쿠폰A")
+            );
+        }
+
+        @Test
+        void 결과가_없으면_빈_목록을_반환한다() {
+            ResponseEntity<ApiResponse<PageResponse<CouponAdminV1Dto.CouponResponse>>> response = getList(0, 20);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).isEmpty(),
+                    () -> assertThat(response.getBody().data().totalElements()).isEqualTo(0)
+            );
+        }
+
+        @Test
+        void 요청_필드_규칙_위반시_400_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "?page=-1", HttpMethod.GET,
+                    new HttpEntity<>(fixture.adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        void 인증헤더가_누락되면_401_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT, HttpMethod.GET,
+                    new HttpEntity<>(new HttpHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증 헤더가 필요합니다")
+            );
+        }
+
+        @Test
+        void 인증에_실패하면_401_응답() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-Ldap", "wrong-ldap");
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT, HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증에 실패했습니다")
+            );
+        }
+    }
+
+    @Nested
+    class 쿠폰_상세_조회 {
+
+        @Test
+        void 활성_쿠폰을_조회하면_200_응답과_상세_정보를_반환한다() {
+            Long couponId = fixture.registerCoupon(
+                    "1000원 할인", CouponType.FIXED, 1000,
+                    BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
+            );
+
+            ResponseEntity<ApiResponse<CouponAdminV1Dto.CouponResponse>> response = getDetail(couponId);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().id()).isEqualTo(couponId),
+                    () -> assertThat(response.getBody().data().name()).isEqualTo("1000원 할인"),
+                    () -> assertThat(response.getBody().data().type()).isEqualTo("FIXED"),
+                    () -> assertThat(response.getBody().data().value()).isEqualTo(1000),
+                    () -> assertThat(response.getBody().data().minOrderAmount()).isEqualByComparingTo(BigDecimal.valueOf(10000)),
+                    () -> assertThat(response.getBody().data().maxIssueCount()).isEqualTo(100),
+                    () -> assertThat(response.getBody().data().issuedCount()).isEqualTo(0),
+                    () -> assertThat(response.getBody().data().expiredAt()).isNotNull(),
+                    () -> assertThat(response.getBody().data().createdAt()).isNotNull(),
+                    () -> assertThat(response.getBody().data().updatedAt()).isNotNull()
+            );
+        }
+
+        @Test
+        void 미존재_쿠폰이면_404_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/999", HttpMethod.GET,
+                    new HttpEntity<>(fixture.adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
+                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 쿠폰입니다")
+            );
+        }
+
+        @Test
+        void 삭제된_쿠폰이면_404_응답() {
+            Long couponId = fixture.registerCoupon(
+                    "1000원 할인", CouponType.FIXED, 1000,
+                    null, 100, LocalDateTime.now().plusDays(7)
+            );
+            fixture.deleteCoupon(couponId);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/" + couponId, HttpMethod.GET,
+                    new HttpEntity<>(fixture.adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        void 인증헤더가_누락되면_401_응답() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1", HttpMethod.GET,
+                    new HttpEntity<>(new HttpHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증 헤더가 필요합니다")
+            );
+        }
+
+        @Test
+        void 인증에_실패하면_401_응답() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-Ldap", "wrong-ldap");
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/1", HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat(response.getBody().meta().message()).contains("인증에 실패했습니다")
+            );
+        }
+    }
+
+    private ResponseEntity<ApiResponse<PageResponse<CouponAdminV1Dto.CouponResponse>>> getList(
+            int page, int size) {
+        return testRestTemplate.exchange(
+                ENDPOINT + "?page=" + page + "&size=" + size, HttpMethod.GET,
+                new HttpEntity<>(fixture.adminHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
+    }
+
+    private ResponseEntity<ApiResponse<CouponAdminV1Dto.CouponResponse>> getDetail(Long couponId) {
+        return testRestTemplate.exchange(
+                ENDPOINT + "/" + couponId, HttpMethod.GET,
+                new HttpEntity<>(fixture.adminHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
+    }
+
+    private ResponseEntity<ApiResponse<Void>> deleteRequest(Long couponId) {
+        return testRestTemplate.exchange(
+                ENDPOINT + "/" + couponId, HttpMethod.DELETE,
+                new HttpEntity<>(fixture.adminHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
     }
 
     private ResponseEntity<ApiResponse<CouponAdminV1Dto.CouponResponse>> postRegister(

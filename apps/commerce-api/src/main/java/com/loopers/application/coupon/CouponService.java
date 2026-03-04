@@ -5,6 +5,8 @@ import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,11 +32,34 @@ public class CouponService {
     }
 
     @Transactional
+    public void delete(Long id) {
+        Coupon coupon = couponRepository.findById(id)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
+        coupon.validateNotDeleted();
+        coupon.delete();
+    }
+
+    @Transactional
     public Coupon update(Long id, CouponCommand.Update command) {
         Coupon coupon = couponRepository.findById(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
         coupon.updateInfo(command.name(), command.value(), command.minOrderAmount(),
                 command.maxIssueCount(), command.expiredAt());
         return coupon;
+    }
+
+    // Query
+
+    @Transactional(readOnly = true)
+    public Coupon getActiveCoupon(Long id) {
+        Coupon coupon = couponRepository.findById(id)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
+        coupon.validateNotDeleted();
+        return coupon;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Coupon> findActiveCoupons(Pageable pageable) {
+        return couponRepository.findAllActive(pageable);
     }
 }
