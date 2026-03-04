@@ -38,8 +38,22 @@ public class IssuedCouponService {
     }
 
     @Transactional
+    public void markUsed(Long issuedCouponId, Long userId) {
+        int updated = issuedCouponRepository.markUsed(issuedCouponId, userId);
+        if (updated == 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "사용할 수 없는 쿠폰입니다");
+        }
+    }
+
+    @Transactional
     public IssuedCoupon getIssuedCouponForUpdate(Long issuedCouponId) {
         return issuedCouponRepository.findByIdForUpdate(issuedCouponId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
+    }
+
+    @Transactional(readOnly = true)
+    public IssuedCoupon getIssuedCoupon(Long issuedCouponId) {
+        return issuedCouponRepository.findById(issuedCouponId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
     }
 

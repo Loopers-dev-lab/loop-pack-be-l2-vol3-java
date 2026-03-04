@@ -23,7 +23,17 @@ public class IssuedCouponRepositoryImpl implements IssuedCouponRepository {
         return issuedCouponJpaRepository.save(issuedCoupon);
     }
 
+    @Override
+    public int markUsed(Long id, Long userId) {
+        return issuedCouponJpaRepository.markUsed(id, userId);
+    }
+
     // Query
+
+    @Override
+    public Optional<IssuedCoupon> findById(Long id) {
+        return issuedCouponJpaRepository.findById(id);
+    }
 
     @Override
     public Optional<IssuedCoupon> findByIdForUpdate(Long id) {

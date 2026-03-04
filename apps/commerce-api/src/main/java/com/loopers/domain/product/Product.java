@@ -6,6 +6,7 @@ import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 
 import java.math.BigDecimal;
@@ -37,6 +38,9 @@ public class Product extends BaseEntity {
 
     @Column(name = "like_count", nullable = false)
     private Integer likeCount;
+
+    @Version
+    private Long version;
 
     protected Product() {
     }

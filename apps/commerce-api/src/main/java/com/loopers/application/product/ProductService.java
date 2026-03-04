@@ -10,7 +10,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -59,19 +58,20 @@ public class ProductService {
     }
 
     @Transactional
-    public List<Product> deductStocks(Map<Long, Integer> productQuantities) {
-        List<Long> productIds = new ArrayList<>(productQuantities.keySet());
-        List<Product> products = productRepository.findAllByIdIn(productIds);
+    public void decreaseStocks(Map<Long, Integer> productQuantities) {
+        List<Long> sortedIds = productQuantities.keySet().stream()
+                .sorted()
+                .toList();
 
-        if (products.size() != productIds.size()) {
-            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품이 포함되어 있습니다");
+        for (Long productId : sortedIds) {
+            int updated = productRepository.decreaseStock(
+                    productId, productQuantities.get(productId)
+            );
+            if (updated == 0) {
+                throw new CoreException(ErrorType.BAD_REQUEST,
+                        "재고가 부족하거나 존재하지 않는 상품입니다. productId=" + productId);
+            }
         }
-
-        for (Product product : products) {
-            product.deductStock(productQuantities.get(product.getId()));
-        }
-
-        return products;
     }
 
     @Transactional
