@@ -212,7 +212,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_USED_COUPON);
         }
 
-        @DisplayName("동일 쿠폰으로 동시에 주문하면, 하나만 성공하고 나머지는 실패한다.")
+        @DisplayName("동일 쿠폰으로 동시에 주문하면, 하나만 성공하고 나머지는 500 에러로 실패한다.")
         @Test
         void onlyOneOrderSucceeds_whenConcurrentOrdersWithSameCoupon() throws InterruptedException {
             // arrange
@@ -228,6 +228,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             CountDownLatch latch = new CountDownLatch(threadCount);
             AtomicInteger successCount = new AtomicInteger(0);
             AtomicInteger failCount = new AtomicInteger(0);
+            List<HttpStatus> failStatusCodes = new java.util.concurrent.CopyOnWriteArrayList<>();
 
             // act
             for (int i = 0; i < threadCount; i++) {
@@ -242,6 +243,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
                             successCount.incrementAndGet();
                         } else {
                             failCount.incrementAndGet();
+                            failStatusCodes.add((HttpStatus) response.getStatusCode());
                         }
                     } finally {
                         latch.countDown();
@@ -254,7 +256,9 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             // assert
             assertAll(
                     () -> assertThat(successCount.get()).isEqualTo(1),
-                    () -> assertThat(failCount.get()).isEqualTo(threadCount - 1)
+                    () -> assertThat(failCount.get()).isEqualTo(threadCount - 1),
+                    () -> assertThat(failStatusCodes).allSatisfy(status ->
+                            assertThat(status).isIn(HttpStatus.INTERNAL_SERVER_ERROR, HttpStatus.BAD_REQUEST))
             );
         }
 

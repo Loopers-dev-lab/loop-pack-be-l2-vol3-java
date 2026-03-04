@@ -8,12 +8,15 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.loopers.support.BaseIntegrationTest;
 import com.loopers.support.error.CoreException;
@@ -25,6 +28,9 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     private Long brandId;
 
@@ -299,6 +305,59 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
                     () -> assertThat(successCount.get()).isEqualTo(threadCount),
                     () -> assertThat(failCount.get()).isZero(),
                     () -> assertThat(product.getStock().getValue()).isEqualTo(90L)
+            );
+        }
+
+        @DisplayName("비관적 락이 점유된 상태에서 다른 트랜잭션이 락을 요청하면, lock timeout 내에 예외가 발생한다.")
+        @Test
+        void throwsExceptionWithinLockTimeout_whenLockIsAlreadyHeld() throws InterruptedException {
+            // arrange
+            var productId = createProduct(brandId, "상품", 10000L, 100L);
+            long lockHoldTimeMs = 5000L;
+            CountDownLatch lockAcquired = new CountDownLatch(1);
+            CountDownLatch testDone = new CountDownLatch(1);
+            AtomicReference<Exception> threadBException = new AtomicReference<>();
+            AtomicLong threadBWaitTimeMs = new AtomicLong(0);
+
+            // act - Thread A: 비관적 락을 걸고 5초간 점유
+            ExecutorService executorService = Executors.newFixedThreadPool(2);
+            executorService.execute(() -> {
+                transactionTemplate.executeWithoutResult(status -> {
+                    productRepository.findByIdAndDeletedAtIsNullForUpdate(productId);
+                    lockAcquired.countDown();
+                    try {
+                        Thread.sleep(lockHoldTimeMs);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+                testDone.countDown();
+            });
+
+            // Thread B: 락 획득 대기 후 같은 상품에 락 시도
+            lockAcquired.await();
+            executorService.execute(() -> {
+                long start = System.currentTimeMillis();
+                try {
+                    transactionTemplate.executeWithoutResult(status ->
+                            productRepository.findByIdAndDeletedAtIsNullForUpdate(productId)
+                    );
+                } catch (Exception e) {
+                    threadBException.set(e);
+                }
+                threadBWaitTimeMs.set(System.currentTimeMillis() - start);
+                testDone.countDown();
+            });
+
+            testDone.await();
+            executorService.shutdown();
+
+            // assert - Thread B가 lock timeout(2초) 이내에 예외 발생해야 함
+            // MySQL이 JPA lock.timeout 힌트를 무시하면 5초 후에야 성공하므로 대기 시간으로 판별
+            long waitTime = threadBWaitTimeMs.get();
+            assertAll(
+                    () -> assertThat(threadBException.get()).isNotNull(),
+                    () -> assertThat(waitTime).isLessThan(lockHoldTimeMs)
             );
         }
     }
