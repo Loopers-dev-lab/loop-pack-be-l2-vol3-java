@@ -18,3 +18,9 @@
 - `DatabaseCleanUp`: 테스트마다 테이블 정리
 - TestContainers: 실제 MySQL, Redis, Kafka 인스턴스 제공
 - 테스트 픽스처: `supports/` 모듈
+
+## E2ETestFixture
+- 위치: `apps/commerce-api/src/test/java/com/loopers/support/E2ETestFixture.java`
+- 새 도메인 API를 추가하면 `registerXxx()` 메서드를 fixture에 추가한다
+- setup 메서드는 생성된 엔티티 ID를 반환하여 다른 테스트에서 재사용 가능하게 한다
+- E2E 테스트에서 선행 데이터 생성은 fixture 메서드를 사용한다 (인라인 HTTP 호출 금지)

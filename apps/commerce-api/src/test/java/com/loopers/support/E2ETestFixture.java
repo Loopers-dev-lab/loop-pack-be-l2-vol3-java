@@ -1,6 +1,9 @@
 package com.loopers.support;
 
+import com.loopers.domain.coupon.CouponType;
 import com.loopers.interfaces.api.brand.BrandRequest;
+import com.loopers.interfaces.api.coupon.CouponAdminV1Dto;
+import com.loopers.interfaces.api.coupon.CouponRequest;
 import com.loopers.interfaces.api.product.ProductRequest;
 import com.loopers.interfaces.api.user.UserRequest;
 import com.loopers.interfaces.api.ApiResponse;
@@ -17,10 +20,12 @@ import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public class E2ETestFixture {
 
     private static final String BRAND_ENDPOINT = "/api-admin/v1/brands";
+    private static final String COUPON_ENDPOINT = "/api-admin/v1/coupons";
     private static final String PRODUCT_ENDPOINT = "/api-admin/v1/products";
     private static final String USER_ENDPOINT = "/api/v1/users";
 
@@ -59,6 +64,19 @@ public class E2ETestFixture {
         BrandRequest.Register request = new BrandRequest.Register(name, description);
         ResponseEntity<ApiResponse<BrandAdminV1Dto.BrandResponse>> response = restTemplate.exchange(
                 BRAND_ENDPOINT, HttpMethod.POST,
+                new HttpEntity<>(request, adminHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
+        return response.getBody().data().id();
+    }
+
+    public Long registerCoupon(String name, CouponType type, int value,
+                               BigDecimal minOrderAmount, int maxIssueCount, LocalDateTime expiredAt) {
+        CouponRequest.Register request = new CouponRequest.Register(
+                name, type, value, minOrderAmount, maxIssueCount, expiredAt
+        );
+        ResponseEntity<ApiResponse<CouponAdminV1Dto.CouponResponse>> response = restTemplate.exchange(
+                COUPON_ENDPOINT, HttpMethod.POST,
                 new HttpEntity<>(request, adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
