@@ -320,6 +320,42 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
             var product = productRepository.findById(productId).orElseThrow();
             assertThat(product.getLikeCount()).isEqualTo(1L);
         }
+
+        @DisplayName("동시에 10명이 좋아요하면, 아토믹 업데이트에 의해 likeCount가 정확히 10이 된다.")
+        @Test
+        void maintainsCorrectLikeCount_whenConcurrentIncrements() throws InterruptedException {
+            // arrange
+            var productId = createProduct(brandId);
+            int threadCount = 10;
+            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch latch = new CountDownLatch(threadCount);
+            AtomicInteger successCount = new AtomicInteger(0);
+            AtomicInteger failCount = new AtomicInteger(0);
+
+            // act
+            for (int i = 0; i < threadCount; i++) {
+                executorService.execute(() -> {
+                    try {
+                        productService.increaseLikeCount(productId);
+                        successCount.incrementAndGet();
+                    } catch (Exception e) {
+                        failCount.incrementAndGet();
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+            latch.await();
+            executorService.shutdown();
+
+            // assert
+            var product = productRepository.findById(productId).orElseThrow();
+            assertAll(
+                    () -> assertThat(successCount.get()).isEqualTo(threadCount),
+                    () -> assertThat(failCount.get()).isZero(),
+                    () -> assertThat(product.getLikeCount()).isEqualTo(10L)
+            );
+        }
     }
 
     @DisplayName("좋아요 수를 감소시킬 때,")
@@ -339,6 +375,46 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
             // assert
             var product = productRepository.findById(productId).orElseThrow();
             assertThat(product.getLikeCount()).isZero();
+        }
+
+        @DisplayName("동시에 10명이 좋아요를 취소하면, 아토믹 업데이트에 의해 likeCount가 정확히 0이 된다.")
+        @Test
+        void maintainsCorrectLikeCount_whenConcurrentDecrements() throws InterruptedException {
+            // arrange
+            var productId = createProduct(brandId);
+            int threadCount = 10;
+            for (int i = 0; i < threadCount; i++) {
+                productService.increaseLikeCount(productId);
+            }
+
+            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch latch = new CountDownLatch(threadCount);
+            AtomicInteger successCount = new AtomicInteger(0);
+            AtomicInteger failCount = new AtomicInteger(0);
+
+            // act
+            for (int i = 0; i < threadCount; i++) {
+                executorService.execute(() -> {
+                    try {
+                        productService.decreaseLikeCount(productId);
+                        successCount.incrementAndGet();
+                    } catch (Exception e) {
+                        failCount.incrementAndGet();
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+            latch.await();
+            executorService.shutdown();
+
+            // assert
+            var product = productRepository.findById(productId).orElseThrow();
+            assertAll(
+                    () -> assertThat(successCount.get()).isEqualTo(threadCount),
+                    () -> assertThat(failCount.get()).isZero(),
+                    () -> assertThat(product.getLikeCount()).isZero()
+            );
         }
     }
 

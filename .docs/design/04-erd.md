@@ -1,6 +1,6 @@
 # ERD (Entity Relationship Diagram)
 
-LAST UPDATED: 2026-03-02
+LAST UPDATED: 2026-03-03
 
 ## 목차
 - [개요](#개요)
@@ -68,6 +68,7 @@ erDiagram
         bigint coupon_id FK "not null"
         bigint user_id FK "not null"
         varchar status "not null"
+        bigint version "not null, default 0"
         timestamp used_at "null"
         timestamp created_at "not null"
         timestamp updated_at "not null"
@@ -117,7 +118,7 @@ erDiagram
 - 좋아요 수를 `product.like_count` 컬럼에 비정규화하여 저장한다.
 - 좋아요 등록/취소 시 `likes` 테이블과 `product.like_count`를 동일 트랜잭션에서 동기화한다.
 - 조회 시 likes 테이블을 집계하지 않고 `product.like_count`를 직접 읽는다.
-- 동시성 제어: 비관적 락(`SELECT FOR UPDATE`)으로 lost update를 방지한다.
+- 동시성 제어: 아토믹 업데이트(`UPDATE SET likeCount = likeCount ± 1`)로 lost update를 방지한다.
 - 결정 배경과 상세: [ADR - likeCount 비정규화](../adr/01-like-count-denormalization.md) 참고.
 
 ### 좋아요 삭제 방식

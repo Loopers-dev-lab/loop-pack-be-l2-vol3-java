@@ -18,12 +18,17 @@ import com.loopers.support.error.ErrorType;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -92,7 +97,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
                     "5000원 할인", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)
             ));
             issueCoupon(testRestTemplate, couponId, userHeaders);
-            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, org.springframework.data.domain.Pageable.ofSize(1))
+            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, Pageable.ofSize(1))
                     .getContent().get(0).getId();
 
             var request = new OrderDto.CreateOrderRequest(
@@ -164,7 +169,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             signUp(testRestTemplate, new UserV1Dto.SignUpRequest("otheruser2", "Password1!", "다른유저", "1990-01-01", "other2@test.com"));
             var otherHeaders = userAuthHeaders("otheruser2", "Password1!");
             issueCoupon(testRestTemplate, couponId, otherHeaders);
-            var otherOwnedCouponId = ownedCouponRepository.findAllByUserId(2L, org.springframework.data.domain.Pageable.ofSize(1))
+            var otherOwnedCouponId = ownedCouponRepository.findAllByUserId(2L, Pageable.ofSize(1))
                     .getContent().get(0).getId();
 
             var request = new OrderDto.CreateOrderRequest(
@@ -187,7 +192,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
                     "할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)
             ));
             issueCoupon(testRestTemplate, couponId, userHeaders);
-            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, org.springframework.data.domain.Pageable.ofSize(1))
+            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, Pageable.ofSize(1))
                     .getContent().get(0).getId();
 
             // 첫 번째 주문으로 쿠폰 사용
@@ -207,15 +212,61 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_USED_COUPON);
         }
 
+        @DisplayName("동일 쿠폰으로 동시에 주문하면, 하나만 성공하고 나머지는 실패한다.")
+        @Test
+        void onlyOneOrderSucceeds_whenConcurrentOrdersWithSameCoupon() throws InterruptedException {
+            // arrange
+            var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
+                    "동시성 테스트 쿠폰", CouponType.FIXED, 1000L, null, 10000L, ZonedDateTime.now().plusDays(30)
+            ));
+            issueCoupon(testRestTemplate, couponId, userHeaders);
+            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, Pageable.ofSize(1))
+                    .getContent().get(0).getId();
+
+            int threadCount = 5;
+            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch latch = new CountDownLatch(threadCount);
+            AtomicInteger successCount = new AtomicInteger(0);
+            AtomicInteger failCount = new AtomicInteger(0);
+
+            // act
+            for (int i = 0; i < threadCount; i++) {
+                executorService.execute(() -> {
+                    try {
+                        var request = new OrderDto.CreateOrderRequest(
+                                List.of(new OrderDto.OrderItemRequest(productId, 1L)),
+                                ownedCouponId
+                        );
+                        var response = createOrder(testRestTemplate, request, userHeaders);
+                        if (response.getStatusCode().is2xxSuccessful()) {
+                            successCount.incrementAndGet();
+                        } else {
+                            failCount.incrementAndGet();
+                        }
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+            latch.await();
+            executorService.shutdown();
+
+            // assert
+            assertAll(
+                    () -> assertThat(successCount.get()).isEqualTo(1),
+                    () -> assertThat(failCount.get()).isEqualTo(threadCount - 1)
+            );
+        }
+
         @DisplayName("최소 주문 금액 미달 시 쿠폰으로 주문하면, 실패한다.")
         @Test
         void failsOrder_whenMinOrderPriceNotMet() {
-            // arrange - 최소 주문 금액 50000원 쿠폰
+            // arrange
             var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
                     "할인 쿠폰", CouponType.FIXED, 5000L, null, 50000L, ZonedDateTime.now().plusDays(30)
             ));
             issueCoupon(testRestTemplate, couponId, userHeaders);
-            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, org.springframework.data.domain.Pageable.ofSize(1))
+            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, Pageable.ofSize(1))
                     .getContent().get(0).getId();
 
             // 상품 10000원 × 2 = 20000원 < 50000원

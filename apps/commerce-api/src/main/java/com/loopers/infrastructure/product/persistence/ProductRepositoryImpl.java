@@ -82,4 +82,14 @@ public class ProductRepositoryImpl implements ProductRepository {
     public boolean existsByIdAndDeletedAtIsNull(Long productId) {
         return productJpaRepository.existsByIdAndDeletedAtIsNull(productId);
     }
+
+    @Override
+    public int incrementLikeCount(Long productId) {
+        return productJpaRepository.incrementLikeCount(productId);
+    }
+
+    @Override
+    public int decrementLikeCount(Long productId) {
+        return productJpaRepository.decrementLikeCount(productId);
+    }
 }

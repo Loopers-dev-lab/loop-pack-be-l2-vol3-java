@@ -188,29 +188,31 @@ public class ProductService {
     }
 
     /**
-     * 상품의 좋아요 수를 1 증가시킨다.
+     * 상품의 좋아요 수를 1 증가시킨다. 아토믹 업데이트로 동시성을 보장한다.
      *
      * @param productId 상품 ID
      * @throws CoreException 상품이 존재하지 않거나 삭제된 경우
      */
     @Transactional
     public void increaseLikeCount(Long productId) {
-        Product product = productRepository.findByIdAndDeletedAtIsNullForUpdate(productId)
-                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
-        product.increaseLikeCount();
+        int updated = productRepository.incrementLikeCount(productId);
+        if (updated == 0) {
+            throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
+        }
     }
 
     /**
-     * 상품의 좋아요 수를 1 감소시킨다.
+     * 상품의 좋아요 수를 1 감소시킨다. 아토믹 업데이트로 동시성을 보장한다.
      *
      * @param productId 상품 ID
      * @throws CoreException 상품이 존재하지 않거나 삭제된 경우
      */
     @Transactional
     public void decreaseLikeCount(Long productId) {
-        Product product = productRepository.findByIdAndDeletedAtIsNullForUpdate(productId)
-                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
-        product.decreaseLikeCount();
+        int updated = productRepository.decrementLikeCount(productId);
+        if (updated == 0) {
+            throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
+        }
     }
 
     /**

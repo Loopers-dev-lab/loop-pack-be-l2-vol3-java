@@ -54,9 +54,12 @@ public class OwnedCouponService {
      */
     @Transactional
     public CouponDiscount applyCoupon(Long ownedCouponId, Long userId, Money orderTotal) {
+        if (ownedCouponId == null) {
+            return CouponDiscount.NONE;
+        }
+
         OwnedCoupon ownedCoupon = ownedCouponRepository.findByIdWithCoupon(ownedCouponId)
                 .orElseThrow(() -> new CoreException(ErrorType.OWNED_COUPON_NOT_FOUND));
-
         ownedCoupon.validateOwner(userId);
         Coupon coupon = ownedCoupon.getCoupon();
         coupon.validateMinOrderPrice(orderTotal);

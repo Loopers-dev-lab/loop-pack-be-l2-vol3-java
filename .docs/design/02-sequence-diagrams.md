@@ -1,6 +1,6 @@
 # Sequence Diagrams
 
-LAST UPDATED: 2026-03-02
+LAST UPDATED: 2026-03-03
 
 ## 목차
 - [개요](#개요)
@@ -990,7 +990,7 @@ sequenceDiagram
     PlaceOrderUseCase ->> PlaceOrderUseCase: Cart 생성 및 orderTotal 계산
 
     opt ownedCouponId가 존재할 경우
-        PlaceOrderUseCase ->>+ OwnedCouponService: 쿠폰 사용 처리
+        PlaceOrderUseCase ->>+ OwnedCouponService: 쿠폰 사용 처리 (낙관적 락)
         OwnedCouponService -->>- PlaceOrderUseCase: CouponDiscount
 
         break 쿠폰 검증 실패 (미존재/타인 소유/사용됨/만료/최소금액 미달)

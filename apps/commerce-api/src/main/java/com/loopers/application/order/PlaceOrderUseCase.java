@@ -7,8 +7,8 @@ import java.util.Map;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.application.shared.annotation.UseCase;
-import com.loopers.domain.coupon.discount.CouponDiscount;
 import com.loopers.domain.coupon.OwnedCouponService;
+import com.loopers.domain.coupon.discount.CouponDiscount;
 import com.loopers.domain.order.Cart;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderService;
@@ -50,16 +50,9 @@ public class PlaceOrderUseCase {
 
         Cart cart = command.toCart(products);
         Money orderTotal = Money.sum(cart.cartItems(), Cart.CartItem::totalPrice);
-        CouponDiscount couponResult = applyCoupon(command, orderTotal);
 
+        CouponDiscount couponResult = ownedCouponService.applyCoupon(command.ownedCouponId(), command.userId(), orderTotal);
         Order order = orderService.create(cart, couponResult.discountAmount(), couponResult.ownedCouponId());
         return order.getId();
-    }
-
-    private CouponDiscount applyCoupon(PlaceOrderCommand command, Money orderTotal) {
-        if (command.ownedCouponId() == null) {
-            return CouponDiscount.NONE;
-        }
-        return ownedCouponService.applyCoupon(command.ownedCouponId(), command.userId(), orderTotal);
     }
 }

@@ -62,14 +62,6 @@ public class Product extends BaseEntity {
         this.stock.deduct(quantity);
     }
 
-    public void increaseLikeCount() {
-        this.likeCount++;
-    }
-
-    public void decreaseLikeCount() {
-        this.likeCount--;
-    }
-
     public void update(String name, String thumbnailUrl, Long price, Long stock, String description) {
         if (isDeleted()) {
             throw new CoreException(ErrorType.ALREADY_DELETED_PRODUCT);

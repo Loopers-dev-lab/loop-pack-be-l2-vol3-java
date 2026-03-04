@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
+import jakarta.persistence.QueryHint;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -12,6 +13,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
 
 import com.loopers.domain.product.Product;
@@ -21,8 +23,17 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
     Optional<Product> findByIdAndDeletedAtIsNull(Long productId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "2000"))
     @Query("SELECT p FROM Product p WHERE p.id = :productId AND p.deletedAt IS NULL")
     Optional<Product> findByIdAndDeletedAtIsNullForUpdate(@Param("productId") Long productId);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Product p SET p.likeCount = p.likeCount + 1 WHERE p.id = :productId AND p.deletedAt IS NULL")
+    int incrementLikeCount(@Param("productId") Long productId);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Product p SET p.likeCount = p.likeCount - 1 WHERE p.id = :productId AND p.deletedAt IS NULL AND p.likeCount > 0")
+    int decrementLikeCount(@Param("productId") Long productId);
 
     List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> productIds);
 

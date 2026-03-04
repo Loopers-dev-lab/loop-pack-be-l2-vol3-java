@@ -269,6 +269,9 @@
 - [x] 주문 성공 시 쿠폰을 USED 상태로 변경한다
 - [x] 주문 정보에 originalTotalPrice, discountAmount, totalPrice를 모두 포함한다
 - [x] 쿠폰 미적용 시 originalTotalPrice = totalPrice, discountAmount = 0으로 저장한다
+- [x] 동일 쿠폰으로 동시 주문 시 하나만 성공하고 나머지는 실패한다 (낙관적 락)
+- [x] OwnedCoupon에 @Version 필드를 추가한다
+- [x] OwnedCoupon에 @Version 기반 낙관적 락을 적용하여 동시 사용을 방지한다 (ADR-03 참고)
 
 ---
 
@@ -393,3 +396,26 @@
 - [ ] 각 보유 쿠폰의 상태(AVAILABLE, USED, EXPIRED)를 반환한다
 - [ ] EXPIRED는 쿠폰의 만료일 기준으로 실시간 판정한다 (DB 상태가 AVAILABLE이어도 만료일이 지났으면 EXPIRED)
 - [ ] 보유 쿠폰이 없으면 빈 페이지를 반환한다
+
+---
+
+## Concurrency Control (동시성 제어)
+
+ADR: [03-concurrency-control-strategy.md](../adr/03-concurrency-control-strategy.md)
+
+### 상품 재고 차감 — 비관적 락
+
+- [x] `SELECT FOR UPDATE`로 상품 행을 잠근 뒤 재고를 차감한다
+- [x] 동시에 재고를 차감하면 비관적 락에 의해 정확한 재고가 유지된다
+- [x] lock timeout을 2초로 설정하여 커넥션 풀 고갈을 방지한다
+
+### 좋아요 수 증감 — 아토믹 업데이트
+
+- [x] `UPDATE SET likeCount = likeCount + 1` 아토믹 쿼리로 좋아요 수를 증가시킨다
+- [x] `UPDATE SET likeCount = likeCount - 1` 아토믹 쿼리로 좋아요 수를 감소시킨다
+- [x] 동시에 좋아요하면 아토믹 업데이트에 의해 정확한 likeCount가 유지된다
+
+### 쿠폰 사용 — 낙관적 락
+
+- [x] OwnedCoupon에 `@Version` 필드를 추가하여 낙관적 락을 적용한다
+- [x] 동일 쿠폰으로 동시 주문 시 하나만 성공하고 나머지는 실패한다

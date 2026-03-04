@@ -1,6 +1,6 @@
 # Class Diagram
 
-LAST UPDATED: 2026-03-02
+LAST UPDATED: 2026-03-03
 
 ## 목차
 - [개요](#개요)
@@ -75,8 +75,6 @@ classDiagram
         +create(...)$ Product
         +update(...) void
         +deductStock(Long quantity) void
-        +increaseLikeCount() void
-        +decreaseLikeCount() void
     }
 
     %% ── Like ──
@@ -155,6 +153,7 @@ classDiagram
         Long userId
         OwnedCouponStatus status
         ZonedDateTime usedAt
+        Long version
         +create(Coupon coupon, Long userId)$ OwnedCoupon
         +use() void
         +validateOwner(Long userId) void

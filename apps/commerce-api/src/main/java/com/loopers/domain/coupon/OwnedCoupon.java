@@ -8,6 +8,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 
 import java.time.ZonedDateTime;
 
@@ -39,6 +40,9 @@ public class OwnedCoupon extends BaseEntity {
 
     @Column(name = "used_at")
     private ZonedDateTime usedAt;
+
+    @Version
+    private Long version;
 
     public static OwnedCoupon create(Coupon coupon, Long userId) {
         if (coupon.isExpired()) {

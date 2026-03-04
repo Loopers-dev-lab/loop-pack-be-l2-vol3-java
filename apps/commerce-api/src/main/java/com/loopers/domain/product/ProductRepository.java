@@ -94,4 +94,20 @@ public interface ProductRepository {
      * @return 활성 상품이 존재하면 true
      */
     boolean existsByIdAndDeletedAtIsNull(Long productId);
+
+    /**
+     * 활성 상품의 좋아요 수를 1 증가시킨다 (아토믹 업데이트).
+     *
+     * @param productId 상품 ID
+     * @return 업데이트된 행 수 (0이면 상품이 존재하지 않거나 삭제됨)
+     */
+    int incrementLikeCount(Long productId);
+
+    /**
+     * 활성 상품의 좋아요 수를 1 감소시킨다 (아토믹 업데이트).
+     *
+     * @param productId 상품 ID
+     * @return 업데이트된 행 수 (0이면 상품이 존재하지 않거나 삭제됨)
+     */
+    int decrementLikeCount(Long productId);
 }
