@@ -11,4 +11,6 @@ public interface IssuedCouponRepository {
     // Query
 
     List<IssuedCoupon> findAllByCouponId(Long couponId);
+
+    boolean existsByCouponIdAndUserId(Long couponId, Long userId);
 }

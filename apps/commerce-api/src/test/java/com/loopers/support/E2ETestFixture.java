@@ -4,6 +4,7 @@ import com.loopers.domain.coupon.CouponType;
 import com.loopers.interfaces.api.brand.BrandRequest;
 import com.loopers.interfaces.api.coupon.CouponAdminV1Dto;
 import com.loopers.interfaces.api.coupon.CouponRequest;
+import com.loopers.interfaces.api.coupon.CouponV1Dto;
 import com.loopers.interfaces.api.product.ProductRequest;
 import com.loopers.interfaces.api.user.UserRequest;
 import com.loopers.interfaces.api.ApiResponse;
@@ -26,6 +27,7 @@ public class E2ETestFixture {
 
     private static final String BRAND_ENDPOINT = "/api-admin/v1/brands";
     private static final String COUPON_ENDPOINT = "/api-admin/v1/coupons";
+    private static final String COUPON_USER_ENDPOINT = "/api/v1/coupons";
     private static final String PRODUCT_ENDPOINT = "/api-admin/v1/products";
     private static final String USER_ENDPOINT = "/api/v1/users";
 
@@ -78,6 +80,15 @@ public class E2ETestFixture {
         ResponseEntity<ApiResponse<CouponAdminV1Dto.CouponResponse>> response = restTemplate.exchange(
                 COUPON_ENDPOINT, HttpMethod.POST,
                 new HttpEntity<>(request, adminHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
+        return response.getBody().data().id();
+    }
+
+    public Long issueCoupon(Long couponId, String loginId, String password) {
+        ResponseEntity<ApiResponse<CouponV1Dto.IssuedCouponResponse>> response = restTemplate.exchange(
+                COUPON_USER_ENDPOINT + "/" + couponId + "/issue", HttpMethod.POST,
+                new HttpEntity<>(userHeaders(loginId, password)),
                 new ParameterizedTypeReference<>() {}
         );
         return response.getBody().data().id();

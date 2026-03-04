@@ -30,6 +30,11 @@ public class CouponRepositoryImpl implements CouponRepository {
     }
 
     @Override
+    public Optional<Coupon> findByIdForUpdate(Long id) {
+        return couponJpaRepository.findByIdForUpdate(id);
+    }
+
+    @Override
     public Page<Coupon> findAllActive(Pageable pageable) {
         return couponJpaRepository.findAllActive(pageable);
     }

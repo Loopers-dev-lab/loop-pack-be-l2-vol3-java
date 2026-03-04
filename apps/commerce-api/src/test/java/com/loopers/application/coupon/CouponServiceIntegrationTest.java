@@ -17,6 +17,11 @@ import com.loopers.support.error.ErrorType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -115,6 +120,99 @@ class CouponServiceIntegrationTest {
             assertThatThrownBy(() -> couponService.delete(coupon.getId()))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+    }
+
+    @Nested
+    class 쿠폰_발급 {
+
+        @Test
+        void 유효한_쿠폰에_발급하면_발급수량이_1_증가한다() {
+            Coupon coupon = couponService.register(CouponCommand.Register.of(
+                    "1000원 할인", CouponType.FIXED, 1000,
+                    BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
+            ));
+
+            couponService.issue(coupon.getId());
+
+            Coupon found = couponRepository.findById(coupon.getId()).orElseThrow();
+            assertThat(found.getIssuedCount()).isEqualTo(1);
+        }
+
+        @Test
+        void 미존재_쿠폰이면_예외() {
+            assertThatThrownBy(() -> couponService.issue(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+
+        @Test
+        void 삭제된_쿠폰이면_예외() {
+            Coupon coupon = couponService.register(CouponCommand.Register.of(
+                    "쿠폰", CouponType.FIXED, 1000,
+                    null, 100, LocalDateTime.now().plusDays(7)
+            ));
+            coupon.delete();
+            couponRepository.save(coupon);
+
+            assertThatThrownBy(() -> couponService.issue(coupon.getId()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+
+        @Test
+        void 만료된_쿠폰이면_예외() {
+            Coupon coupon = couponRepository.save(
+                    Coupon.create("쿠폰", CouponType.FIXED, 1000, null, 100, LocalDateTime.now().plusSeconds(1))
+            );
+            try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
+
+            assertThatThrownBy(() -> couponService.issue(coupon.getId()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+
+        @Test
+        void 발급_수량이_소진되면_예외() {
+            Coupon coupon = couponService.register(CouponCommand.Register.of(
+                    "쿠폰", CouponType.FIXED, 1000,
+                    null, 1, LocalDateTime.now().plusDays(7)
+            ));
+            couponService.issue(coupon.getId());
+
+            assertThatThrownBy(() -> couponService.issue(coupon.getId()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+
+        @Test
+        void 동시_발급_요청에도_발급_수량이_정확히_관리된다() throws InterruptedException {
+            Coupon coupon = couponService.register(CouponCommand.Register.of(
+                    "쿠폰", CouponType.FIXED, 1000,
+                    null, 100, LocalDateTime.now().plusDays(7)
+            ));
+            int threadCount = 10;
+            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch latch = new CountDownLatch(threadCount);
+            List<Exception> exceptions = new ArrayList<>();
+
+            for (int i = 0; i < threadCount; i++) {
+                executorService.submit(() -> {
+                    try {
+                        couponService.issue(coupon.getId());
+                    } catch (Exception e) {
+                        exceptions.add(e);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+            latch.await();
+            executorService.shutdown();
+
+            Coupon found = couponRepository.findById(coupon.getId()).orElseThrow();
+            assertThat(found.getIssuedCount()).isEqualTo(threadCount);
+            assertThat(exceptions).isEmpty();
         }
     }
 

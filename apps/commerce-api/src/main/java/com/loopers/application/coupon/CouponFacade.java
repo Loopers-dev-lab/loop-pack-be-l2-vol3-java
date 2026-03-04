@@ -1,6 +1,7 @@
 package com.loopers.application.coupon;
 
 import com.loopers.domain.coupon.Coupon;
+import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,13 @@ public class CouponFacade {
     public void deleteCoupon(Long couponId) {
         couponService.delete(couponId);
         issuedCouponService.deleteAvailableByCouponId(couponId);
+    }
+
+    @Transactional
+    public IssuedCouponInfo issueCoupon(Long couponId, Long userId) {
+        Coupon coupon = couponService.issue(couponId);
+        IssuedCoupon issuedCoupon = issuedCouponService.issue(couponId, userId);
+        return IssuedCouponInfo.from(issuedCoupon, coupon);
     }
 
     @Transactional

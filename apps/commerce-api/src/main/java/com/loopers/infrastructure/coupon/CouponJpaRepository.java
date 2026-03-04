@@ -1,14 +1,22 @@
 package com.loopers.infrastructure.coupon;
 
 import com.loopers.domain.coupon.Coupon;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+
+import java.util.Optional;
 
 public interface CouponJpaRepository extends JpaRepository<Coupon, Long> {
 
     // Query
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Coupon c WHERE c.id = :id")
+    Optional<Coupon> findByIdForUpdate(Long id);
 
     @Query(value = "SELECT c FROM Coupon c WHERE c.deletedAt IS NULL ORDER BY c.createdAt DESC",
            countQuery = "SELECT COUNT(c) FROM Coupon c WHERE c.deletedAt IS NULL")

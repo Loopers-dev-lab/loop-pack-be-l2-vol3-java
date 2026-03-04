@@ -26,4 +26,9 @@ public class IssuedCouponRepositoryImpl implements IssuedCouponRepository {
     public List<IssuedCoupon> findAllByCouponId(Long couponId) {
         return issuedCouponJpaRepository.findAllByCouponId(couponId);
     }
+
+    @Override
+    public boolean existsByCouponIdAndUserId(Long couponId, Long userId) {
+        return issuedCouponJpaRepository.existsByCouponIdAndUserId(couponId, userId);
+    }
 }
