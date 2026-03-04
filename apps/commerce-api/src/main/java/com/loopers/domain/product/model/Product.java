@@ -34,13 +34,13 @@ public class Product {
         );
     }
 
-    public static Product reconstruct(Long id, Long brandId, String name, int price, int stock, String displayStatus) {
+    public static Product reconstruct(Long id, Long brandId, String name, int price, int stock, DisplayStatus displayStatus) {
         Product product = new Product(
                 brandId,
                 new ProductName(name),
                 new Money(price),
                 new Stock(stock),
-                DisplayStatus.valueOf(displayStatus)
+                displayStatus
         );
         product.id = id;
         return product;

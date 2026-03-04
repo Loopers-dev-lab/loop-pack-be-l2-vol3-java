@@ -12,7 +12,7 @@ public final class OrderCommand {
     private OrderCommand() {
     }
 
-    public record Create(Long memberId, List<OrderProduct> orderProducts) {
+    public record Create(Long memberId, List<OrderProduct> orderProducts, int discountAmount, Long userCouponId) {
     }
 
     public record GetByPeriod(Long memberId, LocalDateTime startAt, LocalDateTime endAt) {

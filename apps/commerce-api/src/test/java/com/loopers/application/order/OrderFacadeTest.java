@@ -6,6 +6,7 @@ import com.loopers.domain.member.model.Member;
 import com.loopers.domain.member.service.MemberService;
 import com.loopers.domain.order.model.OrderCommand;
 import com.loopers.domain.order.model.OrderProduct;
+import com.loopers.domain.product.vo.DisplayStatus;
 import com.loopers.domain.order.model.Orders;
 import com.loopers.domain.order.service.OrderProductService;
 import com.loopers.domain.order.service.OrderService;
@@ -57,7 +58,7 @@ class OrderFacadeTest {
     }
 
     private static Product createTestProduct(Long id, Long brandId, String name, int price, int stock) {
-        return Product.reconstruct(id, brandId, name, price, stock, "DISPLAYING");
+        return Product.reconstruct(id, brandId, name, price, stock, DisplayStatus.DISPLAYING);
     }
 
     @DisplayName("주문 생성")
@@ -75,13 +76,13 @@ class OrderFacadeTest {
             CreateOrderReqDto dto = new CreateOrderReqDto(List.of(
                     new CreateOrderReqDto.OrderItemReqDto(1L, 2),
                     new CreateOrderReqDto.OrderItemReqDto(2L, 3)
-            ));
+            ), null);
 
             when(memberService.findMember("testuser", "password")).thenReturn(member);
             when(productService.getProductsByIds(List.of(1L, 2L))).thenReturn(List.of(product1, product2));
             when(orderService.createOrder(any(OrderCommand.Create.class))).thenAnswer(invocation -> {
                 OrderCommand.Create command = invocation.getArgument(0);
-                return Orders.reconstruct(1L, command.memberId(), 35000, command.orderProducts());
+                return Orders.reconstruct(1L, command.memberId(), 35000, 0, null, command.orderProducts());
             });
             when(orderProductService.saveAll(eq(1L), any())).thenAnswer(invocation -> {
                 List<OrderProduct> products = invocation.getArgument(1);
@@ -115,7 +116,7 @@ class OrderFacadeTest {
 
             CreateOrderReqDto dto = new CreateOrderReqDto(List.of(
                     new CreateOrderReqDto.OrderItemReqDto(999L, 1)
-            ));
+            ), null);
 
             when(memberService.findMember("testuser", "password")).thenReturn(member);
             when(productService.getProductsByIds(List.of(999L)))
@@ -136,7 +137,7 @@ class OrderFacadeTest {
 
             CreateOrderReqDto dto = new CreateOrderReqDto(List.of(
                     new CreateOrderReqDto.OrderItemReqDto(1L, 10)
-            ));
+            ), null);
 
             when(memberService.findMember("testuser", "password")).thenReturn(member);
             when(productService.getProductsByIds(List.of(1L))).thenReturn(List.of(product));
@@ -172,7 +173,7 @@ class OrderFacadeTest {
         void returnsOrdersWithProducts() {
             // arrange
             Member member = createTestMember();
-            Orders orders = Orders.reconstruct(1L, member.getId(), 10000, List.of());
+            Orders orders = Orders.reconstruct(1L, member.getId(), 10000, 0, null, List.of());
             OrderProduct orderProduct = OrderProduct.reconstruct(1L, 10L, "상품A", 10000, 1);
 
             when(memberService.findMember("testuser", "password")).thenReturn(member);
@@ -212,7 +213,7 @@ class OrderFacadeTest {
         void returnsOrderWithProducts() {
             // arrange
             Member member = createTestMember();
-            Orders orders = Orders.reconstruct(1L, member.getId(), 20000, List.of());
+            Orders orders = Orders.reconstruct(1L, member.getId(), 20000, 0, null, List.of());
             OrderProduct orderProduct1 = OrderProduct.reconstruct(1L, 10L, "상품A", 10000, 1);
             OrderProduct orderProduct2 = OrderProduct.reconstruct(2L, 11L, "상품B", 10000, 1);
 

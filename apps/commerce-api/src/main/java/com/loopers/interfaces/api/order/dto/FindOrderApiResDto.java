@@ -7,12 +7,14 @@ import java.util.List;
 public record FindOrderApiResDto(
         Long id,
         int totalPrice,
+        int discountAmount,
+        Long userCouponId,
         List<FindOrderProductApiResDto> orderProducts
 ) {
     public static FindOrderApiResDto from(FindOrderResDto dto) {
         List<FindOrderProductApiResDto> products = dto.orderProducts().stream()
                 .map(FindOrderProductApiResDto::from)
                 .toList();
-        return new FindOrderApiResDto(dto.id(), dto.totalPrice(), products);
+        return new FindOrderApiResDto(dto.id(), dto.totalPrice(), dto.discountAmount(), dto.userCouponId(), products);
     }
 }
