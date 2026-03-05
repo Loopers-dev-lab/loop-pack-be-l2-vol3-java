@@ -27,14 +27,16 @@ graph TB
         OC["OrderController\nOrderAdminController"]
         LC["LikeController"]
         MC["MemberV1Controller"]
+        CC["CouponController\nCouponAdminController"]
     end
 
     subgraph Application ["Application Layer — Facade (유스케이스 조율, 트랜잭션)"]
         BF["BrandFacade\n· 브랜드 CRUD\n· 삭제 시 상품+좋아요 연쇄 처리"]
         PF["ProductFacade\n· 상품 CRUD + 정렬 조회\n· 삭제 시 좋아요 연쇄 처리"]
-        OF["OrderFacade\n· 주문 생성 (재고 차감, 스냅샷)\n· 주문 취소 (재고 복원)\n· 권한 검증"]
-        LF["LikeFacade\n· 좋아요 추가 (멱등)\n· 좋아요 취소 (멱등)\n· likeCount 동기화"]
+        OF["OrderFacade\n· 주문 생성 (비관적 락 재고 차감 + 쿠폰 적용)\n· 주문 취소 (재고 복원 + 쿠폰 복원)\n· 권한 검증"]
+        LF["LikeFacade\n· 좋아요 추가 (멱등)\n· 좋아요 취소 (멱등)"]
         MF["MemberFacade\n· 회원가입\n· 비밀번호 변경"]
+        CF["CouponFacade\n· 쿠폰 CRUD (Admin)\n· 쿠폰 발급/조회\n· 주문 연동 (적용/복원)"]
     end
 
     subgraph Domain ["Domain Layer — Entity, VO, Repository Interface"]
@@ -44,6 +46,8 @@ graph TB
         OR["«interface»\nOrderRepository"]
         LR2["«interface»\nLikeRepository"]
         MR["«interface»\nMemberRepository"]
+        CR["«interface»\nCouponRepository"]
+        CIR["«interface»\nCouponIssueRepository"]
     end
 
     subgraph Infrastructure ["Infrastructure Layer — Repository 구현체 (JPA)"]
@@ -52,6 +56,8 @@ graph TB
         ORI["OrderRepositoryImpl\nOrderJpaRepository"]
         LRI["LikeRepositoryImpl\nLikeJpaRepository"]
         MRI["MemberRepositoryImpl\nMemberJpaRepository"]
+        CRI2["CouponRepositoryImpl\nCouponJpaRepository"]
+        CIRI["CouponIssueRepositoryImpl\nCouponIssueJpaRepository"]
     end
 
     BC --> BF
@@ -59,6 +65,7 @@ graph TB
     OC --> OF
     LC --> LF
     MC --> MF
+    CC --> CF
 
     BF --> BR
     BF --> PR
@@ -69,15 +76,20 @@ graph TB
     OF --> OR
     OF --> PR
     OF --> BR
+    OF --> CF
     LF --> LR2
     LF --> PR
     MF --> MR
+    CF --> CR
+    CF --> CIR
 
     BRI -.->|implements| BR
     PRI -.->|implements| PR
     ORI -.->|implements| OR
     LRI -.->|implements| LR2
     MRI -.->|implements| MR
+    CRI2 -.->|implements| CR
+    CIRI -.->|implements| CIR
 ```
 
 ### 의존 방향
@@ -95,8 +107,9 @@ Interfaces → Application → Domain ← Infrastructure
 |--------|----------|-------------------|
 | BrandFacade | 브랜드 CRUD, 삭제 시 상품+좋아요 연쇄 처리 | Brand, Product, Like |
 | ProductFacade | 상품 CRUD, 정렬 조회, 삭제 시 좋아요 연쇄 처리 | Product, Brand, Like |
-| OrderFacade | 주문 생성(재고 차감+스냅샷), 취소(재고 복원), 권한 검증 | Order, Product, Brand |
-| LikeFacade | 좋아요 추가/취소(멱등), likeCount 동기화 | Like, Product |
+| OrderFacade | 주문 생성(비관적 락 재고 차감 + 쿠폰 적용 + 스냅샷), 취소(재고 복원 + 쿠폰 복원), 권한 검증 | Order, Product, Brand, CouponFacade |
+| LikeFacade | 좋아요 추가/취소(멱등) | Like, Product |
+| CouponFacade | 쿠폰 템플릿 CRUD, 발급, 내 쿠폰 조회, 주문 연동(적용/복원) | Coupon, CouponIssue |
 | MemberFacade | 회원가입, 비밀번호 변경 | Member |
 
 ---
@@ -104,19 +117,27 @@ Interfaces → Application → Domain ← Infrastructure
 ## 3. Aggregate 구조 개요
 
 ```
-┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
-│   Brand Agg     │   │  Product Agg    │   │   Order Agg     │   │   Like Agg      │   │  Member Agg     │
-├─────────────────┤   ├─────────────────┤   ├─────────────────┤   ├─────────────────┤   ├─────────────────┤
-│ Brand (Root)    │   │ Product (Root)  │   │ Order (Root)    │   │ Like (Root)     │   │ Member (Root)   │
-│                 │   │ ├ Price (VO)    │   │ ├ OrderItem     │   │                 │   │ ├ LoginId (VO)  │
-│                 │   │ └ Stock (VO)    │   │ ├ ItemSnapshot  │   │                 │   │ ├ Password (VO) │
-│                 │   │                 │   │ └ OrderStatus   │   │                 │   │ ├ Email (VO)    │
-│                 │   │                 │   │                 │   │                 │   │ └ BirthDate(VO) │
-└─────────────────┘   └─────────────────┘   └─────────────────┘   └─────────────────┘   └─────────────────┘
-        │                     │                     │                     │
-        └─────────────────────┼─────────────────────┼─────────────────────┘
-                              │                     │
-                      brandId (ID 참조)      memberId, productId (ID 참조)
+┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
+│   Brand Agg     │   │  Product Agg    │   │   Order Agg     │
+├─────────────────┤   ├─────────────────┤   ├─────────────────┤
+│ Brand (Root)    │   │ Product (Root)  │   │ Order (Root)    │
+│                 │   │ ├ Price (VO)    │   │ ├ OrderItem     │
+│                 │   │ └ Stock (VO)    │   │ ├ ItemSnapshot  │
+│                 │   │                 │   │ └ OrderStatus   │
+└─────────────────┘   └─────────────────┘   └─────────────────┘
+
+┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
+│   Like Agg      │   │  Member Agg     │   │  Coupon Agg     │
+├─────────────────┤   ├─────────────────┤   ├─────────────────┤
+│ Like (Root)     │   │ Member (Root)   │   │ Coupon (Root)   │
+│                 │   │ ├ LoginId (VO)  │   │ ├ DiscountType  │
+│                 │   │ ├ Password (VO) │   │                 │
+│                 │   │ ├ Email (VO)    │   │ CouponIssue     │
+│                 │   │ └ BirthDate(VO) │   │ ├ CouponIssue   │
+│                 │   │                 │   │ │   Status       │
+└─────────────────┘   └─────────────────┘   └─────────────────┘
+
+ID 참조: brandId, memberId, productId, couponId, couponIssueId
 ```
 
 ---
@@ -147,15 +168,12 @@ classDiagram
         -String name
         -Price price
         -Stock stock
-        -int likeCount
         +Product(brandId, name, price, stock)
         +changeName(name)
         +changePrice(price)
         +changeStock(stock)
         +decreaseStock(quantity)
         +increaseStock(quantity)
-        +incrementLikeCount()
-        +decrementLikeCount()
         +delete()
     }
 
@@ -184,8 +202,11 @@ classDiagram
         -Long memberId
         -OrderStatus status
         -int totalPrice
+        -int originalTotalPrice
+        -int discountAmount
+        -Long couponIssueId
         -List~OrderItem~ items
-        +create(memberId, List~ItemSnapshot~)$ Order
+        +create(memberId, List~ItemSnapshot~, couponIssueId, discountAmount)$ Order
         +cancel()
         +getItems() List~OrderItem~
     }
@@ -230,6 +251,60 @@ classDiagram
         -Long productId
         +Like(memberId, productId)
     }
+
+    %% ===== Coupon Aggregate =====
+    class Coupon {
+        <<Aggregate Root>>
+        -Long id
+        -String name
+        -DiscountType discountType
+        -int discountValue
+        -int minOrderAmount
+        -ZonedDateTime expiredAt
+        +Coupon(name, discountType, discountValue, minOrderAmount, expiredAt)
+        +calculateDiscount(orderPrice) int
+        +validateUsable(orderPrice, now)
+        +changeName(name)
+        +changeDiscount(discountType, discountValue)
+        +changeMinOrderAmount(minOrderAmount)
+        +changeExpiredAt(expiredAt)
+        +delete()
+    }
+
+    class DiscountType {
+        <<Enumeration>>
+        FIXED
+        RATE
+    }
+
+    class CouponIssue {
+        <<Entity>>
+        -Long id
+        -Long couponId
+        -Long memberId
+        -Long usedOrderId
+        -CouponIssueStatus status
+        -ZonedDateTime expiredAt
+        +CouponIssue(couponId, memberId, expiredAt)
+        +use(orderId, now)
+        +cancelUse()
+        +isExpired(now) boolean
+        +getEffectiveStatus(now) CouponIssueStatus
+        +linkOrder(orderId)
+    }
+
+    class CouponIssueStatus {
+        <<Enumeration>>
+        AVAILABLE
+        USED
+        EXPIRED
+    }
+
+    Coupon --> DiscountType : has
+    CouponIssue --> CouponIssueStatus : has
+    CouponIssue ..> Coupon : couponId
+    CouponIssue ..> Member : memberId
+    CouponIssue ..> Order : usedOrderId
 
     %% ===== Member Aggregate =====
     class Member {
@@ -277,6 +352,7 @@ classDiagram
     %% ===== Aggregate 간 ID 참조 =====
     Product ..> Brand : brandId
     Order ..> Member : memberId
+    Order ..> CouponIssue : couponIssueId
     OrderItem ..> Product : productId
     Like ..> Member : memberId
     Like ..> Product : productId
@@ -335,9 +411,14 @@ classDiagram
 | Product → Brand | 단방향 | `brandId` (ID 참조) |
 | Order → Member | 단방향 | `memberId` (ID 참조) |
 | Order → OrderItem | Aggregate 내부 | 객체 참조 (`@OneToMany`) |
+| Order → CouponIssue | 단방향 | `couponIssueId` (ID 참조, nullable) |
 | OrderItem → Product | 단방향 | `productId` (ID 참조, 스냅샷) |
 | Like → Member | 단방향 | `memberId` (ID 참조) |
 | Like → Product | 단방향 | `productId` (ID 참조) |
+| Coupon → DiscountType | Aggregate 내부 | enum 참조 |
+| CouponIssue → Coupon | 단방향 | `couponId` (ID 참조) |
+| CouponIssue → Member | 단방향 | `memberId` (ID 참조) |
+| CouponIssue → Order | 단방향 | `usedOrderId` (ID 참조, nullable) |
 
 **원칙**:
 - **Aggregate 간 참조는 ID로**: 다른 Aggregate의 Root Entity를 직접 참조하지 않음
@@ -349,8 +430,9 @@ classDiagram
 
 | 리스크 | 현재 상태 | 대응 방안 |
 |--------|----------|----------|
-| **Stock VO 동시성** | 단순 decrease 메서드 | 락이 없으면 동시 주문 시 재고 불일치. DB 레벨 락 필요 |
+| **Stock VO 동시성** | 비관적 락 적용 (SELECT ... FOR UPDATE) | ID 정렬 후 일괄 락으로 데드락 방지 |
+| **좋아요 수 조회 비용** | COUNT(*) GROUP BY 배치 조회 | 극단적 트래픽 시 캐시 도입 고려 |
+| **쿠폰 이중 사용** | 조건부 UPDATE로 원자적 처리 | affected rows = 0이면 이미 사용/만료 |
 | **Aggregate 경계 넘는 참조** | ID로만 참조 | 성능을 위해 Join이 필요하면 읽기 전용 Query 모델 분리 고려 |
 | **OrderItem 목록 크기** | 제한 없음 | 한 주문에 너무 많은 상품 시 트랜잭션 비대화. 최대 개수 제한 권장 |
-| **likeCount와 실제 Like 수 불일치** | 트랜잭션 동기화 | 장애 상황에서 불일치 가능. 주기적 배치 보정 필요 |
 | **Order 상태 전이** | 단순 enum + cancel() 검증 | 복잡해지면 상태 머신 패턴 또는 이벤트 소싱 고려 |
