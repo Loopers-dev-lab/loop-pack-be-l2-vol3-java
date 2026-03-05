@@ -265,13 +265,13 @@ public class ProductServiceIntegrationTest {
         }
     }
 
-    @DisplayName("재고 확인 및 차감 시 (비관적 락)")
+    @DisplayName("재고 확인 시 (비관적 락, 차감 제외)")
     @Nested
-    class VerifyAndDecreaseStock {
+    class FindAllAndVerifyStock {
 
-        @DisplayName("모든 상품이 존재하고 재고가 충분하면, 재고가 차감된 상품 목록을 반환한다.")
+        @DisplayName("모든 상품이 존재하고 재고가 충분하면, 재고가 차감되지 않은 상품 목록을 반환한다.")
         @Test
-        void decreasesStockAndReturnsProducts_whenAllStocksAreSufficient() {
+        void returnsProductsWithoutDecreasingStock_whenAllStocksAreSufficient() {
             // arrange
             Brand brand = brandJpaRepository.save(new Brand("나이키"));
             Product product1 = productJpaRepository.save(
@@ -284,16 +284,16 @@ public class ProductServiceIntegrationTest {
             );
 
             // act
-            List<Product> result = productService.verifyAndDecreaseStock(quantityMap);
+            List<Product> result = productService.findAllAndVerifyStock(quantityMap);
 
             // assert - 반환값 확인
             assertThat(result).hasSize(2);
             assertThat(result).extracting(Product::getId)
                     .containsExactlyInAnyOrder(product1.getId(), product2.getId());
 
-            // assert - DB에 재고 차감 반영 확인
-            assertThat(productJpaRepository.findById(product1.getId()).orElseThrow().getStock().getQuantity()).isEqualTo(8);
-            assertThat(productJpaRepository.findById(product2.getId()).orElseThrow().getStock().getQuantity()).isEqualTo(2);
+            // assert - 재고 차감 없음 확인 (차감은 호출자 책임)
+            assertThat(productJpaRepository.findById(product1.getId()).orElseThrow().getStock().getQuantity()).isEqualTo(10);
+            assertThat(productJpaRepository.findById(product2.getId()).orElseThrow().getStock().getQuantity()).isEqualTo(5);
         }
 
         @DisplayName("주문 항목에 존재하지 않는 상품이 포함되면, NOT_FOUND 에러가 발생한다.")
@@ -305,7 +305,7 @@ public class ProductServiceIntegrationTest {
 
             // act
             CoreException result = assertThrows(CoreException.class,
-                    () -> productService.verifyAndDecreaseStock(quantityMap));
+                    () -> productService.findAllAndVerifyStock(quantityMap));
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
@@ -322,7 +322,7 @@ public class ProductServiceIntegrationTest {
 
             // act
             CoreException result = assertThrows(CoreException.class,
-                    () -> productService.verifyAndDecreaseStock(quantityMap));
+                    () -> productService.findAllAndVerifyStock(quantityMap));
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);

@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,7 @@ public class ProductFacade {
     private final BrandService brandService;
 
     // 상품 상세 조회
+    @Transactional(readOnly = true)
     public ProductInfo findById(Long id) {
         Product product = productService.findById(id);
         String brandName = brandService.findById(product.getBrandId()).getName();
@@ -26,6 +28,7 @@ public class ProductFacade {
     }
 
     // 상품 목록 조회 (brandId 필터 선택)
+    @Transactional(readOnly = true)
     public Page<ProductInfo> findAll(Long brandId, Pageable pageable) {
         Page<Product> products = productService.findAll(brandId, pageable);
         List<Long> brandIds = products.stream().map(Product::getBrandId).distinct().toList();

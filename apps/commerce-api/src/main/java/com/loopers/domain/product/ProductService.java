@@ -92,11 +92,15 @@ public class ProductService {
         productRepository.decrementLikeCount(productId);
     }
 
-    // 비관적 락으로 재고 확인 + 차감 원자적 수행 (US-O01, BR-O03, BR-O04)
-    // 동시 주문 시 SELECT FOR UPDATE로 행 잠금 → 재고 확인 후 즉시 차감 → TOCTOU(Time Of Check To Time Of Use) 문제 방지
+    /**
+     * 비관적 락으로 재고 확인만 수행 (차감 제외).
+     * 쿠폰 검증을 거친 후 재고를 차감해야 하므로 확인과 차감을 분리한다.
+     * SELECT FOR UPDATE 락은 호출한 @Transactional 컨텍스트에서 유지된다.
+     */
     @Transactional
-    public List<Product> verifyAndDecreaseStock(Map<Long, Quantity> quantityByProductId) {
+    public List<Product> findAllAndVerifyStock(Map<Long, Quantity> quantityByProductId) {
         List<Long> productIds = new ArrayList<>(quantityByProductId.keySet());
+        // 재고 확인을 위해 비관적 락으로 상품 조회
         List<Product> products = productRepository.findAllByIdsForUpdate(productIds);
 
         if (products.size() != productIds.size()) {
@@ -107,12 +111,13 @@ public class ProductService {
             Quantity quantity = quantityByProductId.get(product.getId());
             if (!product.getStock().hasEnough(quantity)) {
                 throw new CoreException(ErrorType.BAD_REQUEST,
-                        "상품의 재고가 부족합니다: " + product.getName());
+                        "상품의 재고가 부족합니다: " + product.getName()
+                        + " (현재 재고: " + product.getStock().getQuantity()
+                        + "개, 주문 수량: " + quantity.getValue() + "개)");
             }
-            // 더티 체킹
-            product.decreaseStock(quantity);
         }
 
         return products;
     }
+
 }
