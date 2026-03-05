@@ -90,15 +90,17 @@ public class ProductAppService {
 
     @Transactional
     public Option decreaseStock(Long optionId, int quantity) {
-        Option option = getOptionById(optionId);
+        Option option = optionRepository.findByIdWithLock(optionId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "옵션을 찾을 수 없습니다."));
         option.decreaseStock(quantity);
-        return optionRepository.save(option);
+        return option;
     }
 
     @Transactional
     public Option increaseStock(Long optionId, int quantity) {
-        Option option = getOptionById(optionId);
+        Option option = optionRepository.findByIdWithLock(optionId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "옵션을 찾을 수 없습니다."));
         option.increaseStock(quantity);
-        return optionRepository.save(option);
+        return option;
     }
 }

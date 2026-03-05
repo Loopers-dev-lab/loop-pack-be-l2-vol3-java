@@ -22,7 +22,7 @@ public class CartAppService {
         if (existing.isPresent()) {
             CartItem cartItem = existing.get();
             cartItem.addQuantity(quantity);
-            return cartRepository.save(cartItem);
+            return cartItem;
         }
         CartItem cartItem = CartItem.create(userId, optionId, quantity);
         return cartRepository.save(cartItem);
@@ -49,7 +49,7 @@ public class CartAppService {
         CartItem cartItem = getById(cartItemId);
         cartItem.validateOwner(userId);
         cartItem.updateQuantity(quantity);
-        return cartRepository.save(cartItem);
+        return cartItem;
     }
 
     @Transactional

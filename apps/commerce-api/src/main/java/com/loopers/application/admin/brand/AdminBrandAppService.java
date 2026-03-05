@@ -25,14 +25,13 @@ public class AdminBrandAppService {
     public Brand update(Long id, String name) {
         Brand brand = getById(id);
         brand.update(name);
-        return brandRepository.save(brand);
+        return brand;
     }
 
     @Transactional
     public void delete(Long id) {
         Brand brand = getById(id);
         brand.delete();
-        brandRepository.save(brand);
     }
 
     @Transactional(readOnly = true)

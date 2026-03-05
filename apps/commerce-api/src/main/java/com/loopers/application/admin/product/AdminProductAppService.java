@@ -36,14 +36,13 @@ public class AdminProductAppService {
     public Product update(Long id, String name, Money basePrice) {
         Product product = getById(id);
         product.update(name, basePrice);
-        return productRepository.save(product);
+        return product;
     }
 
     @Transactional
     public void delete(Long id) {
         Product product = getById(id);
         product.delete();
-        productRepository.save(product);
         deleteOptionsByProductId(id);
     }
 
@@ -52,7 +51,6 @@ public class AdminProductAppService {
         List<Product> products = productRepository.findByBrandId(brandId);
         for (Product product : products) {
             product.delete();
-            productRepository.save(product);
             deleteOptionsByProductId(product.getId());
         }
     }
@@ -62,7 +60,6 @@ public class AdminProductAppService {
         List<Option> options = optionRepository.findByProductId(productId);
         for (Option option : options) {
             option.delete();
-            optionRepository.save(option);
         }
     }
 
@@ -74,7 +71,7 @@ public class AdminProductAppService {
             throw new CoreException(ErrorType.BAD_REQUEST, "해당 상품의 옵션이 아닙니다.");
         }
         option.updateStock(stock);
-        return optionRepository.save(option);
+        return option;
     }
 
     @Transactional(readOnly = true)

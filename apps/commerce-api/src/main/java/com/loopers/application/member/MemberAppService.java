@@ -54,7 +54,6 @@ public class MemberAppService {
     public void changePassword(String memberIdValue, String currentPassword, String newPassword) {
         Member member = getByMemberId(memberIdValue);
         member.updatePassword(currentPassword, newPassword, passwordEncoder);
-        memberRepository.save(member);
     }
 
     public record SignupCommand(
