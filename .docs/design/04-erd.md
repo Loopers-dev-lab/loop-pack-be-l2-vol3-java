@@ -51,9 +51,36 @@ erDiagram
         datetime created_at
     }
 
+    coupon_templates {
+        bigint id PK
+        varchar name
+        varchar type
+        int value
+        int min_order_amount
+        datetime expired_at
+        datetime created_at
+        datetime updated_at
+        datetime deleted_at
+    }
+
+    user_coupons {
+        bigint id PK
+        bigint coupon_template_id FK
+        bigint user_id FK
+        datetime expired_at
+        datetime used_at
+        datetime created_at
+        datetime updated_at
+        datetime deleted_at
+    }
+
     orders {
         bigint id PK
         bigint user_id FK
+        bigint user_coupon_id FK
+        int original_amount
+        int discount_amount
+        int final_amount
         datetime created_at
         datetime updated_at
         datetime deleted_at
@@ -74,18 +101,23 @@ erDiagram
 
     users ||--o{ likes : ""
     users ||--o{ orders : ""
+    users ||--o{ user_coupons : ""
     brand ||--o{ product : ""
     product ||--o{ likes : ""
     product ||--o{ order_item : ""
     orders ||--|{ order_item : ""
+    coupon_templates ||--o{ user_coupons : ""
+    orders }o--o| user_coupons : ""
 ```
 
 ### 봐야 할 포인트
 
 1. **users 테이블은 기존 구현**: 회원 도메인은 이미 구현되어 있으며 본 ERD에서는 FK 참조 대상으로만 포함한다.
-2. **orders ↔ order_item**: 유일한 `||--|{` 관계(1:1이상). Order는 최소 1개의 OrderItem을 포함해야 한다 (BR-O01). 나머지는 모두 `||--o{`(1:0이상)이다.
-3. **likes에 deleted_at 없음**: hard delete 정책이므로 soft delete 컬럼이 불필요하다.
-4. **order_item의 스냅샷 컬럼**: `product_name`, `brand_name`, `price`는 주문 시점의 상품 정보 사본이다. product, brand 테이블의 현재 값과 무관하게 주문 기록을 보존한다 (BR-O05).
+2. **orders ↔ order_item**: 유일한 `||--|{` 관계(1:1이상). Order는 최소 1개의 OrderItem을 포함해야 한다 (BR-O01).
+3. **likes에만 deleted_at 없음**: likes는 hard delete 정책이므로 soft delete 컬럼이 불필요하다. user_coupons는 soft delete 정책이므로 deleted_at이 존재한다.
+4. **order_item의 스냅샷 컬럼**: `product_name`, `brand_name`, `price`는 주문 시점의 상품 정보 사본이다 (BR-O05).
+5. **orders.user_coupon_id는 nullable**: `}o--o|` 관계로 표현. 쿠폰 미적용 주문도 허용한다 (BR-O09).
+6. **user_coupons.expired_at 스냅샷**: 발급 시점의 만료일을 user_coupons에 저장한다. 이후 관리자가 coupon_templates.expired_at을 변경해도 이미 발급된 쿠폰의 만료일은 영향받지 않는다. BR-C04 만료 상태 계산은 이 스냅샷 값을 기준으로 한다.
 
 ---
 
@@ -154,12 +186,55 @@ erDiagram
 |------|------|------|------|
 | id | BIGINT | PK, AUTO_INCREMENT | |
 | user_id | BIGINT | NOT NULL, FK → users(id) | 주문한 회원 |
+| user_coupon_id | BIGINT | FK → user_coupons(id), nullable | 적용된 발급 쿠폰. 미적용 시 NULL (BR-O09) |
+| original_amount | INT | NOT NULL, >= 0 | 쿠폰 적용 전 총 금액 스냅샷 (BR-O13) |
+| discount_amount | INT | NOT NULL, >= 0, DEFAULT 0 | 할인 금액 스냅샷. 쿠폰 미적용 시 0 (BR-O13) |
+| final_amount | INT | NOT NULL, >= 0 | 최종 결제 금액 스냅샷 (= original - discount, BR-O13) |
 | created_at | DATETIME | NOT NULL | 주문 시각 |
 | updated_at | DATETIME | NOT NULL | |
 | deleted_at | DATETIME | | soft delete 마커 |
 
 **인덱스**:
 - `idx_orders_user_id_created_at` → `(user_id, created_at)`: 회원의 기간별 주문 목록 조회 (US-O02, BR-O08)
+
+---
+
+### coupon_templates
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|------|------|------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | |
+| name | VARCHAR(255) | NOT NULL | 쿠폰 템플릿명 |
+| type | VARCHAR(10) | NOT NULL | 할인 타입. FIXED(정액) 또는 RATE(정률) (BR-C01) |
+| value | INT | NOT NULL, >= 0 | 정액: 할인 금액(원), 정률: 할인 비율(%) |
+| min_order_amount | INT | nullable, >= 0 | 쿠폰 적용 최소 주문 금액. NULL이면 조건 없음 |
+| expired_at | DATETIME | NOT NULL | 쿠폰 만료일시 |
+| created_at | DATETIME | NOT NULL | |
+| updated_at | DATETIME | NOT NULL | |
+| deleted_at | DATETIME | | soft delete 마커 |
+
+---
+
+### user_coupons
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|------|------|------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | |
+| coupon_template_id | BIGINT | NOT NULL, FK → coupon_templates(id) | 발급 기반 템플릿 |
+| user_id | BIGINT | NOT NULL, FK → users(id) | 발급받은 회원 |
+| expired_at | DATETIME | NOT NULL | 발급 시점 만료일 스냅샷. 이후 템플릿 변경에 영향받지 않음 |
+| used_at | DATETIME | nullable | 사용 시각. 미사용 시 NULL. 상태는 타임스탬프 연산으로 계산 (BR-C04) |
+| created_at | DATETIME | NOT NULL | |
+| updated_at | DATETIME | NOT NULL | |
+| deleted_at | DATETIME | nullable | soft delete 마커. 템플릿 삭제 시 함께 설정됨 (BR-C05) |
+
+**유일성 제약**:
+- `(user_id, coupon_template_id)` 조합이 활성 상태(deleted_at IS NULL) 레코드 내에서 유일해야 한다 (BR-C03)
+- soft delete 테이블이므로 **DB UNIQUE 제약 미적용 → 애플리케이션 레벨에서 검증** (`existsByUserIdAndCouponTemplateIdAndDeletedAtIsNull()`)
+
+**인덱스**:
+- `idx_user_coupons_user_coupon` → `(user_id, coupon_template_id)`: 중복 발급 체크 + US-C02 내 쿠폰 목록 조회 (soft delete로 인해 DB UNIQUE 제약 대신 일반 인덱스 사용)
+- `idx_user_coupons_coupon_template_id` → `coupon_template_id`: US-C08 발급 내역 조회
 
 ---
 
@@ -195,19 +270,23 @@ erDiagram
 | likes.user_id → users(id) | 좋아요는 실존 회원만 가능 | AuthInterceptor가 인증된 회원만 허용 |
 | likes.product_id → product(id) | 좋아요는 실존 상품만 가능 | Facade가 상품 존재 확인 후 좋아요 등록 (US-L01). 상품 삭제 시 likes를 먼저 hard delete (US-P07) |
 | orders.user_id → users(id) | 주문은 실존 회원만 가능 | AuthInterceptor가 인증된 회원만 허용 |
+| orders.user_coupon_id → user_coupons(id) | 적용된 쿠폰 추적용 참조 (nullable) | Facade가 쿠폰 유효성 검증 후 주문 생성 (US-O01). 쿠폰 미적용 시 NULL |
 | order_item.order_id → orders(id) | 주문 항목은 반드시 주문에 소속 | Order Aggregate가 OrderItem 생명주기를 관리 (cascade) |
 | order_item.product_id → product(id) | 원본 상품 추적용 참조 | Facade가 상품 존재 및 재고 확인 후 주문 생성 (US-O01). 스냅샷 컬럼이 실제 데이터를 보존 |
+| user_coupons.coupon_template_id → coupon_templates(id) | 발급 쿠폰은 반드시 존재하는 템플릿 기반 | Facade가 템플릿 존재 확인 후 발급 (US-C01). 템플릿 삭제 시 user_coupons를 먼저 soft delete (US-C07) |
+| user_coupons.user_id → users(id) | 쿠폰은 실존 회원에게만 발급 | AuthInterceptor가 인증된 회원만 허용 |
 
 **삭제 시 FK 정합성 보장 순서:**
 
-상품/브랜드 삭제 시 Facade가 종속 데이터를 먼저 정리한다 (시퀀스 다이어그램 US-B06, US-P07 참고).
+상품/브랜드/쿠폰 삭제 시 Facade가 종속 데이터를 먼저 정리한다 (시퀀스 다이어그램 US-B06, US-P07, US-C07 참고).
 
 ```
-브랜드 삭제: likes(hard delete) → product(soft delete) → brand(soft delete)
-상품 삭제: likes(hard delete) → product(soft delete)
+브랜드 삭제:       likes(hard delete) → product(soft delete) → brand(soft delete)
+상품 삭제:         likes(hard delete) → product(soft delete)
+쿠폰 템플릿 삭제:  user_coupons(soft delete) → coupon_templates(soft delete)
 ```
 
-종속 데이터(likes)를 먼저 물리 삭제하므로, 상위 엔티티 soft delete 후에도 고아 FK가 남지 않는다.
+종속 데이터를 먼저 물리 삭제하므로, 상위 엔티티 soft delete 후에도 고아 FK가 남지 않는다.
 
 ### 유일성 제약
 
@@ -227,6 +306,7 @@ erDiagram
 |--------|----------|-------------|
 | brand | `name` (활성 상태 내) | US-B04: 브랜드명 중복 불가 |
 | product | `(brand_id, name)` (활성 상태 내) | US-P05: 같은 브랜드 내 상품명 중복 불가 |
+| user_coupons | `(user_id, coupon_template_id)` (활성 상태 내) | BR-C03: 회원당 쿠폰 템플릿당 발급 1개 |
 
 soft delete 테이블에서 단순 `UNIQUE(name)` 제약을 걸면 다음 문제가 발생한다:
 
@@ -263,6 +343,8 @@ VO의 검증 규칙이 DB 컬럼 제약으로도 방어된다.
 | `uk_likes_user_product` | US-L03: 내 좋아요 목록 | UNIQUE 제약이 인덱스 역할도 수행 |
 | `idx_orders_user_id_created_at` | US-O02: 기간별 주문 목록 | 복합 인덱스로 user_id 필터 + created_at 범위 검색을 커버 |
 | `idx_order_item_order_id` | US-O03, O05: 주문 상세 | 주문 ID로 주문 항목 일괄 조회 |
+| `idx_user_coupons_user_coupon` | US-C01: 중복 발급 체크, US-C02: 내 쿠폰 목록 | soft delete 테이블이므로 DB UNIQUE 미적용. 일반 복합 인덱스로 조회 성능만 지원 |
+| `idx_user_coupons_coupon_template_id` | US-C08: 발급 내역 조회 | 특정 템플릿 ID로 발급 목록 조회 |
 
 ---
 
@@ -270,7 +352,8 @@ VO의 검증 규칙이 DB 컬럼 제약으로도 방어된다.
 
 | 리스크 | 설명 | 대응 |
 |--------|------|------|
-| **soft delete 유일성 우회** | 애플리케이션 레벨 검증은 동시 요청 시 race condition이 발생할 수 있다 | 트랜잭션 격리 수준 또는 비관적 잠금으로 방어. 구현 시 결정 |
+| **soft delete 유일성 우회** | 애플리케이션 레벨 검증은 동시 요청 시 race condition이 발생할 수 있다 | 트랜잭션 격리 수준 또는 비관적 잠금으로 방어 |
 | **like_count 정합성** | Product.like_count와 likes 테이블의 실제 레코드 수가 어긋날 수 있다 | 트랜잭션 내 원자적 처리로 1차 방어. 필요 시 배치 보정으로 2차 방어 |
 | **스냅샷 시점 정합성** | 주문 생성 중 상품 정보가 변경될 수 있다 | Facade 트랜잭션 내에서 상품 조회 → 주문 생성이 원자적으로 처리됨 |
-| **재고 동시성** | 동시 주문 시 재고가 음수가 될 수 있다 | Stock >= 0 CHECK 제약이 DB 레벨 최종 방어선. 잠금 전략은 구현 시 결정 |
+| **재고 동시성** | 동시 주문 시 재고가 음수가 될 수 있다 | 비관적 락(`SELECT FOR UPDATE`)으로 제어. `stock >= 0` CHECK 제약이 DB 레벨 최종 방어선 |
+| **쿠폰 soft delete 후 재발급 불가** | soft delete된 user_coupons 레코드가 남아있어 동일 쿠폰 재발급 시 앱 레벨 중복 검증에 걸린다 | 정책상 동일 쿠폰 재발급은 허용하지 않으므로 현재 동작이 의도된 것이다 (BR-C03) |

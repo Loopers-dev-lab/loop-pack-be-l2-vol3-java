@@ -788,7 +788,7 @@ sequenceDiagram
 
 #### 검증 목적
 
-가장 복잡한 흐름이다. BR-O01~O05가 모두 적용된다. 여러 상품의 재고 확인 → 주문 생성(스냅샷 포함) → 재고 차감이 하나의 트랜잭션으로 처리되어야 하며, Facade가 ProductService와 OrderService를 조율하는 흐름을 확인한다.
+가장 복잡한 흐름이다. BR-O01~O05, BR-O09~O13이 모두 적용된다. 비관적 락으로 재고 동시성을 제어하고, 재고 확인/차감 + 쿠폰 사용 + 주문 생성이 하나의 트랜잭션으로 원자적으로 처리되어야 함을 확인한다.
 
 #### 시퀀스 다이어그램
 
@@ -800,13 +800,18 @@ sequenceDiagram
     participant Facade as OrderFacade
     participant ProductService
     participant ProductRepository
+    participant UserCouponRepository
+    participant CouponTemplateRepository
     participant OrderService
     participant OrderRepository
 
-    회원->>Controller: 주문 요청 (상품 목록, 수량)
+    회원->>Controller: 주문 요청 (상품 목록, 수량, userCouponId?)
     Controller->>Facade: 주문 생성 위임
-    Facade->>ProductService: 상품 존재 및 재고 확인
-    ProductService->>ProductRepository: 상품 존재 여부 확인
+
+    Note over Facade: @Transactional 시작
+
+    Facade->>ProductService: 상품 존재 및 재고 확인 (비관적 락)
+    ProductService->>ProductRepository: findAllByIdWithPessimisticLock(productIds)
 
     alt 상품이 존재하지 않는 경우
         ProductRepository-->>ProductService: 없음
@@ -827,23 +832,42 @@ sequenceDiagram
     end
 
     ProductService-->>Facade: 상품 정보 (스냅샷용)
-    Facade->>OrderService: 주문 생성 (스냅샷 포함)
-    OrderService->>OrderRepository: 주문 정보 저장
-    OrderRepository-->>OrderService: 저장된 주문 정보
-    OrderService-->>Facade: 주문 정보
+    Facade->>Facade: originalAmount 계산 (price × quantity 합산)
+
+    alt userCouponId 존재 (BR-O09)
+        Facade->>UserCouponRepository: findByIdAndUserId(userCouponId, userId)
+        UserCouponRepository-->>Facade: UserCoupon
+        Facade->>Facade: isAvailable() 검증 (BR-O10)
+        Facade->>CouponTemplateRepository: findById(userCoupon.couponTemplateId)
+        CouponTemplateRepository-->>Facade: CouponTemplate
+        Facade->>Facade: template.validateNotExpired() 검증 (BR-O10)
+        Facade->>Facade: template.validateMinOrderAmount(originalAmount) 검증 (BR-O11)
+        Facade->>Facade: discountAmount = template.calculateDiscount(originalAmount)
+        Facade->>UserCouponRepository: useIfAvailable(userCouponId, userId, now) (원자적 UPDATE, BR-O12)
+    end
+
+    Facade->>Facade: finalAmount = originalAmount - discountAmount
     Facade->>ProductService: 재고 차감
     ProductService->>ProductRepository: 재고 수량 업데이트
     ProductRepository-->>ProductService: 업데이트 완료
     ProductService-->>Facade: 차감 완료
+    Facade->>OrderService: 주문 생성 (스냅샷 + originalAmount/discountAmount/finalAmount 포함, BR-O13)
+    OrderService->>OrderRepository: 주문 정보 저장
+    OrderRepository-->>OrderService: 저장된 주문 정보
+    OrderService-->>Facade: 주문 정보
+
+    Note over Facade: @Transactional 커밋 (실패 시 재고 차감 + 쿠폰 사용 + 주문 생성 전체 롤백)
+
     Facade-->>Controller: 주문 정보
     Controller-->>회원: 주문 완료 응답
 ```
 
 #### 봐야 할 포인트
 
-1. **Facade의 핵심 조율**: 이 시나리오에서 Facade의 존재 의미가 가장 명확하다. 재고 확인 → 주문 생성 → 재고 차감을 하나의 유스케이스로 조율한다.
-2. **스냅샷 생성 시점**: ProductService에서 받은 상품 정보를 OrderService에 전달하여 스냅샷으로 보존한다. 스냅샷은 주문 시점의 상품명, 가격, 브랜드 등을 포함한다(BR-O05).
-3. **재고 차감 순서**: 주문 생성 후 재고를 차감한다. 만약 재고 차감이 먼저라면, 주문 생성 실패 시 차감을 복원해야 하는 보상 로직이 필요해진다.
+1. **비관적 락 배치**: 상품 조회 시 `SELECT FOR UPDATE`로 동시 주문에 의한 재고 초과 차감을 방지한다. 락이 필요한 작업을 트랜잭션 앞부분에 배치하여 락 보유 시간 내에 모든 작업을 완료한다.
+2. **쿠폰 적용 선택성**: `alt userCouponId 존재` 블록으로 표현. 쿠폰 미적용 시 `discountAmount = 0`, `finalAmount = originalAmount`로 처리된다.
+3. **원자적 트랜잭션 경계**: 재고 차감 + 쿠폰 사용 + 주문 생성이 하나의 트랜잭션. 어느 단계에서 실패해도 전체가 롤백된다.
+4. **스냅샷 생성 시점**: ProductService에서 받은 상품 정보를 OrderService에 전달하여 스냅샷으로 보존한다 (BR-O05). 주문 금액 3종도 Order에 스냅샷으로 저장된다 (BR-O13).
 
 ---
 
@@ -1007,6 +1031,330 @@ sequenceDiagram
 
 #### 주문 도메인 잠재 리스크
 
-- **재고 차감의 원자성**: US-O01에서 재고 확인 → 주문 생성 → 재고 차감이 하나의 트랜잭션이어야 한다. 동시에 여러 주문이 같은 상품을 주문하면 재고가 음수가 될 수 있으므로, 비관적 잠금(SELECT FOR UPDATE) 또는 낙관적 잠금(@Version) 전략이 필요하다.
-- **트랜잭션 범위의 비대화**: 주문 생성 트랜잭션이 ProductService(재고 확인/차감)와 OrderService(주문 생성)를 모두 포함하므로 범위가 넓다. 상품 수가 많으면 잠금 시간이 길어질 수 있다.
+- **재고 차감의 원자성**: US-O01에서 재고 확인 → 주문 생성 → 재고 차감이 하나의 트랜잭션이어야 한다. 비관적 락(`SELECT FOR UPDATE`)으로 동시 주문에 의한 재고 초과 차감을 방지한다.
+- **트랜잭션 범위의 비대화**: 주문 생성 트랜잭션이 ProductService(재고 확인/차감), 쿠폰 서비스(유효성 검증/사용), OrderService(주문 생성)를 모두 포함하므로 범위가 넓다. 락 보유 시간을 줄이기 위해 락이 필요한 작업(상품 조회)을 앞부분에 배치한다.
 - **스냅샷 데이터의 정합성**: 스냅샷은 주문 시점의 데이터 사본이다. ProductService에서 상품 정보를 조회한 시점과 실제 저장 시점 사이에 상품 정보가 변경될 가능성은 트랜잭션으로 방어한다.
+
+---
+
+## 2.5 쿠폰 (Coupon)
+
+> **삭제 정책**: 쿠폰 템플릿과 발급 쿠폰(UserCoupon) 모두 **soft delete**를 사용한다. 발급 이력 보존 및 주문(`orders.user_coupon_id`) 참조 무결성 유지를 위해 물리적 삭제를 하지 않는다.
+> **동시성**: 재고 차감에는 **비관적 락**을 적용한다.
+
+### US-C01: 쿠폰 발급 요청 (고객)
+
+#### 검증 목적
+
+중복 발급 방지(BR-C03) 흐름과 만료 상태 계산 방식(정규화, expiredAt 미저장)을 확인한다.
+
+#### 시퀀스 다이어그램
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor 회원
+    participant Controller as CouponV1Controller
+    participant Facade as CouponFacade
+    participant UserCouponRepository
+    participant CouponTemplateRepository
+
+    회원->>Controller: 쿠폰 발급 요청 (couponId)
+    Controller->>Facade: 쿠폰 발급 위임
+
+    Note over Facade: @Transactional 시작
+
+    Facade->>UserCouponRepository: existsByUserIdAndCouponTemplateId(userId, couponId)
+
+    alt 이미 발급받은 쿠폰인 경우 (BR-C03)
+        UserCouponRepository-->>Facade: 중복 발급
+        Facade->>Facade: 비즈니스 예외 발생
+        Facade-->>Controller: 예외 전파
+        Controller-->>회원: 409 Conflict (중복 발급)
+    end
+
+    UserCouponRepository-->>Facade: 발급 이력 없음
+    Facade->>CouponTemplateRepository: findById(couponId)
+
+    alt 쿠폰 템플릿이 존재하지 않는 경우
+        CouponTemplateRepository-->>Facade: 없음
+        Facade->>Facade: 비즈니스 예외 발생
+        Facade-->>Controller: 예외 전파
+        Controller-->>회원: 404 Not Found
+    end
+
+    CouponTemplateRepository-->>Facade: CouponTemplate
+    Facade->>UserCouponRepository: save(new UserCoupon)
+    UserCouponRepository-->>Facade: 발급된 UserCoupon
+
+    Facade-->>Controller: UserCouponInfo (expiredAt은 template.expiredAt에서 계산)
+    Controller-->>회원: 쿠폰 발급 완료 응답
+```
+
+#### 봐야 할 포인트
+
+1. **중복 발급 선행 검증**: 템플릿 조회 이전에 중복 여부를 먼저 확인하여 조기에 거부할 수 있다.
+2. **expiredAt 미저장(정규화)**: UserCoupon에 `expiredAt`을 저장하지 않는다. 만료일은 CouponTemplate에서 항상 읽어온다. 스냅샷이 불필요한 경우 정규화로 데이터 중복을 제거할 수 있다.
+
+---
+
+### US-C02: 내 쿠폰 목록 조회 (고객)
+
+#### 검증 목적
+
+DB에 저장되지 않은 `EXPIRED` 상태가 Application Layer에서 어떻게 계산되어 응답에 포함되는지 확인한다 (BR-C04).
+
+#### 시퀀스 다이어그램
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor 회원
+    participant Controller as CouponV1Controller
+    participant Facade as CouponFacade
+    participant UserCouponRepository
+    participant CouponTemplateRepository
+
+    회원->>Controller: 내 쿠폰 목록 조회 요청
+    Controller->>Facade: 쿠폰 목록 조회 위임
+    Facade->>UserCouponRepository: findAllByUserId(userId)
+    UserCouponRepository-->>Facade: List~UserCoupon~
+    Facade->>CouponTemplateRepository: findAllByIds(templateIds) (N+1 방지 배치 조회)
+    CouponTemplateRepository-->>Facade: Map~Long, CouponTemplate~
+    Facade->>Facade: stream().map(uc → UserCouponInfo.from(uc, template.expiredAt, now))<br/>usedAt != null → USED, expiredAt < now → EXPIRED, 그 외 → AVAILABLE
+    Facade-->>Controller: List~UserCouponInfo~ (AVAILABLE / USED / EXPIRED 포함)
+    Controller-->>회원: 내 쿠폰 목록 응답
+```
+
+#### 봐야 할 포인트
+
+1. **EXPIRED는 DB에 저장되지 않는다**: DB에는 `AVAILABLE` / `USED`만 존재한다. Facade에서 `expiredAt < LocalDateTime.now()` 조건으로 `EXPIRED`를 계산하여 응답 DTO에서만 반영한다.
+2. **UserCouponInfo.from()의 역할**: 상태 계산 책임이 여기에 집중된다. UserCoupon, template.expiredAt, 조회 시각을 함께 받아 최종 상태를 결정한다.
+3. **N+1 방지**: UserCoupon 목록의 templateId를 Set으로 수집 → `findAllByIds()`로 배치 조회 → Map으로 변환하여 UserCoupon마다 개별 조회를 방지한다.
+
+---
+
+### US-C03: 쿠폰 템플릿 목록 조회 (관리자)
+
+#### 검증 목적
+
+페이징 기반 목록 조회의 기본 흐름을 확인한다.
+
+#### 시퀀스 다이어그램
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor 관리자
+    participant Controller as CouponAdminV1Controller
+    participant Facade as CouponAdminFacade
+    participant Repository as CouponTemplateRepository
+
+    관리자->>Controller: 쿠폰 템플릿 목록 조회 요청 (page, size)
+    Controller->>Facade: 쿠폰 템플릿 목록 조회 위임
+    Facade->>Repository: 쿠폰 템플릿 목록 조회 (페이징)
+    Repository-->>Facade: Page~CouponTemplate~
+    Facade-->>Controller: 쿠폰 템플릿 목록
+    Controller-->>관리자: 쿠폰 템플릿 목록 응답
+```
+
+#### 봐야 할 포인트
+
+1. **예외 분기 없음**: 결과가 비어있어도 빈 목록으로 정상 응답한다.
+
+---
+
+### US-C04: 쿠폰 템플릿 상세 조회 (관리자)
+
+#### 검증 목적
+
+단건 조회의 존재/부재 분기를 확인한다.
+
+#### 시퀀스 다이어그램
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor 관리자
+    participant Controller as CouponAdminV1Controller
+    participant Facade as CouponAdminFacade
+    participant Repository as CouponTemplateRepository
+
+    관리자->>Controller: 쿠폰 템플릿 상세 조회 요청
+    Controller->>Facade: 쿠폰 템플릿 조회 위임
+    Facade->>Repository: 쿠폰 템플릿 존재 여부 확인
+
+    alt 쿠폰 템플릿이 존재하는 경우
+        Repository-->>Facade: 쿠폰 템플릿 정보
+        Facade-->>Controller: 쿠폰 템플릿 정보
+        Controller-->>관리자: 쿠폰 템플릿 상세 응답
+    else 쿠폰 템플릿이 존재하지 않는 경우
+        Repository-->>Facade: 없음
+        Facade->>Facade: 비즈니스 예외 발생
+        Facade-->>Controller: 예외 전파
+        Controller-->>관리자: 404 Not Found
+    end
+```
+
+#### 봐야 할 포인트
+
+1. **기존 단건 조회 패턴과 동일**: US-B01(브랜드 조회)과 동일한 흐름이다.
+
+---
+
+### US-C05: 쿠폰 템플릿 등록 (관리자)
+
+#### 검증 목적
+
+관리자가 쿠폰 템플릿을 등록하는 흐름을 확인한다.
+
+#### 시퀀스 다이어그램
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor 관리자
+    participant Controller as CouponAdminV1Controller
+    participant Facade as CouponAdminFacade
+    participant Repository as CouponTemplateRepository
+
+    관리자->>Controller: 쿠폰 템플릿 등록 요청 (name, type, value, minOrderAmount?, expiredAt)
+    Controller->>Facade: 쿠폰 템플릿 등록 위임
+    Facade->>Repository: 쿠폰 템플릿 저장
+    Repository-->>Facade: 저장된 쿠폰 템플릿
+    Facade-->>Controller: 쿠폰 템플릿 정보
+    Controller-->>관리자: 쿠폰 템플릿 등록 완료 응답
+```
+
+#### 봐야 할 포인트
+
+1. **도메인 내 이름 유일성 제약 없음**: 동일한 이름의 쿠폰 템플릿을 여러 개 등록할 수 있다. 각 템플릿은 독립적인 발급 수량과 만료일을 가진다.
+
+---
+
+### US-C06: 쿠폰 템플릿 수정 (관리자)
+
+#### 검증 목적
+
+존재 확인 → 수정의 흐름과, 스냅샷 패턴으로 인해 기발급 쿠폰에 영향이 없음을 확인한다.
+
+#### 시퀀스 다이어그램
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor 관리자
+    participant Controller as CouponAdminV1Controller
+    participant Facade as CouponAdminFacade
+    participant Repository as CouponTemplateRepository
+
+    관리자->>Controller: 쿠폰 템플릿 수정 요청
+    Controller->>Facade: 쿠폰 템플릿 수정 위임
+    Facade->>Repository: 쿠폰 템플릿 존재 여부 확인
+
+    alt 쿠폰 템플릿이 존재하지 않는 경우
+        Repository-->>Facade: 없음
+        Facade->>Facade: 비즈니스 예외 발생
+        Facade-->>Controller: 예외 전파
+        Controller-->>관리자: 404 Not Found
+    end
+
+    Repository-->>Facade: 쿠폰 템플릿 정보
+    Facade->>Facade: 템플릿 수정 (dirty checking)
+    Facade-->>Controller: 수정된 쿠폰 템플릿 정보
+    Controller-->>관리자: 쿠폰 템플릿 수정 완료 응답
+```
+
+#### 봐야 할 포인트
+
+1. **정규화 설계의 장점**: UserCoupon에 `expiredAt`을 저장하지 않으므로 템플릿 만료일 수정 시 별도 동기화 불필요. 만료일은 항상 CouponTemplate에서 단일 출처로 관리된다.
+
+---
+
+### US-C07: 쿠폰 템플릿 삭제 (관리자)
+
+#### 검증 목적
+
+BR-C05(연쇄 삭제)의 책임이 어느 계층에 있는지 확인한다. UserCoupon 전체 삭제 → CouponTemplate 삭제의 2단계 연쇄를 확인한다.
+
+#### 시퀀스 다이어그램
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor 관리자
+    participant Controller as CouponAdminV1Controller
+    participant Facade as CouponAdminFacade
+    participant CouponTemplateRepository
+    participant UserCouponRepository
+
+    관리자->>Controller: 쿠폰 템플릿 삭제 요청
+    Controller->>Facade: 쿠폰 템플릿 삭제 위임
+    Facade->>CouponTemplateRepository: 쿠폰 템플릿 존재 여부 확인
+
+    alt 쿠폰 템플릿이 존재하지 않는 경우
+        CouponTemplateRepository-->>Facade: 없음
+        Facade->>Facade: 비즈니스 예외 발생
+        Facade-->>Controller: 예외 전파
+        Controller-->>관리자: 404 Not Found
+    end
+
+    CouponTemplateRepository-->>Facade: 쿠폰 템플릿 정보
+    Facade->>UserCouponRepository: 해당 템플릿의 발급 쿠폰 전체 soft delete (BR-C05)
+    UserCouponRepository-->>Facade: 삭제 완료
+    Facade->>CouponTemplateRepository: 쿠폰 템플릿 삭제 (soft delete)
+    CouponTemplateRepository-->>Facade: 삭제 완료
+    Facade-->>Controller: 삭제 완료
+    Controller-->>관리자: 쿠폰 템플릿 삭제 완료 응답
+```
+
+#### 봐야 할 포인트
+
+1. **삭제 순서**: UserCoupon(soft delete) → CouponTemplate(soft delete). 두 엔티티 모두 soft delete로 이력을 보존한다. 종속 데이터를 먼저 처리하는 패턴은 US-P07(상품 삭제)과 동일하다.
+2. **UserCoupon도 soft delete**: 발급 이력은 물리 삭제 없이 보존된다. `orders.user_coupon_id` FK 참조 무결성 유지 및 회계/감사 이력 보존이 목적이다. (Like의 hard delete와는 달리 주문 참조 대상이므로 soft delete가 필수적이다.)
+
+---
+
+### US-C08: 특정 쿠폰의 발급 내역 조회 (관리자)
+
+#### 검증 목적
+
+특정 템플릿에 속한 발급 내역을 페이징으로 조회하는 흐름과, 템플릿 존재 선행 확인을 확인한다.
+
+#### 시퀀스 다이어그램
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor 관리자
+    participant Controller as CouponAdminV1Controller
+    participant Facade as CouponAdminFacade
+    participant CouponTemplateRepository
+    participant UserCouponRepository
+
+    관리자->>Controller: 발급 내역 조회 요청 (couponId, page, size)
+    Controller->>Facade: 발급 내역 조회 위임
+    Facade->>CouponTemplateRepository: 쿠폰 템플릿 존재 여부 확인
+
+    alt 쿠폰 템플릿이 존재하지 않는 경우
+        CouponTemplateRepository-->>Facade: 없음
+        Facade->>Facade: 비즈니스 예외 발생
+        Facade-->>Controller: 예외 전파
+        Controller-->>관리자: 404 Not Found
+    end
+
+    CouponTemplateRepository-->>Facade: 쿠폰 템플릿 정보 (expiredAt 포함)
+    Facade->>UserCouponRepository: 발급 내역 조회 (couponTemplateId, 페이징)
+    UserCouponRepository-->>Facade: Page~UserCoupon~
+    Facade->>Facade: page.map(uc → UserCouponInfo.from(uc, template.expiredAt, now))
+    Facade-->>Controller: 발급 내역 목록
+    Controller-->>관리자: 발급 내역 응답
+```
+
+#### 봐야 할 포인트
+
+1. **템플릿 존재 선행 확인**: 발급 내역 조회 전에 템플릿 존재 여부를 먼저 확인한다. 존재하지 않는 템플릿 ID로 조회 시 빈 목록이 아닌 404를 반환한다.
+
+#### 쿠폰 도메인 잠재 리스크
+
+- **EXPIRED 이중 검증**: DB에는 `AVAILABLE`이지만 실제로는 만료된 쿠폰이 존재할 수 있다. 주문 시 `CouponService.applyCoupon()`에서 `template.validateNotExpired(now)`가 반드시 수행되어야 한다.
