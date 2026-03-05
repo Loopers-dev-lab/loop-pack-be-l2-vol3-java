@@ -95,7 +95,8 @@ public class Product extends BaseEntity {
 
     public void decreaseStock(Integer quantity) {
         if (this.stock < quantity) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.");
+            throw new CoreException(ErrorType.BAD_REQUEST,
+                    String.format("재고가 부족합니다. (상품명: %s, 요청: %d, 재고: %d)", this.name, quantity, this.stock));
         }
         this.stock -= quantity;
     }

@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.order;
 
 import com.loopers.application.order.OrderFacade;
+import com.loopers.application.order.OrderHistoryInfo;
 import com.loopers.application.order.OrderInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +29,7 @@ public class OrderV1Controller {
                 .map(item -> new OrderFacade.OrderItemRequest(item.productId(), item.quantity()))
                 .toList();
 
-        OrderInfo orderInfo = orderFacade.createOrder(userId, itemRequests);
+        OrderInfo orderInfo = orderFacade.createOrder(userId, itemRequests, request.userCouponId());
         return ApiResponse.success(OrderV1Dto.Response.from(orderInfo));
     }
 
@@ -50,5 +51,17 @@ public class OrderV1Controller {
     ) {
         OrderInfo orderInfo = orderFacade.getOrder(orderId, userId);
         return ApiResponse.success(OrderV1Dto.Response.from(orderInfo));
+    }
+
+    @GetMapping("/{orderId}/histories")
+    public ApiResponse<List<OrderV1Dto.HistoryResponse>> getOrderHistories(
+            @PathVariable Long orderId,
+            @RequestHeader(value = "X-User-Id") Long userId
+    ) {
+        List<OrderHistoryInfo> histories = orderFacade.getOrderHistories(orderId, userId);
+        List<OrderV1Dto.HistoryResponse> response = histories.stream()
+                .map(OrderV1Dto.HistoryResponse::from)
+                .toList();
+        return ApiResponse.success(response);
     }
 }

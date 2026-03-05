@@ -1,7 +1,5 @@
 package com.loopers.domain.order;
 
-import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -10,34 +8,22 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class OrderService {
 
     private final OrderRepository orderRepository;
-    private final ProductService productService;
-
-    public record OrderItemRequest(Long productId, Integer quantity) {}
+    private final OrderHistoryService orderHistoryService;
 
     @Transactional
-    public Order createOrder(Long userId, List<OrderItemRequest> itemRequests) {
-        List<OrderItem> orderItems = itemRequests.stream()
-                .map(request -> {
-                    Product product = productService.decreaseStock(request.productId(), request.quantity());
-                    return OrderItem.create(
-                            product.getId(),
-                            product.getName(),
-                            product.getPrice(),
-                            request.quantity()
-                    );
-                })
-                .toList();
-
-        Order order = Order.create(userId, orderItems);
-        return orderRepository.save(order);
+    public Order createOrder(Long userId, List<OrderItem> orderItems, BigDecimal discountAmount, Long userCouponId) {
+        Order order = Order.create(userId, orderItems, discountAmount, userCouponId);
+        Order savedOrder = orderRepository.save(order);
+        orderHistoryService.recordHistory(savedOrder.getId(), null, OrderStatus.CREATED, "주문 생성");
+        return savedOrder;
     }
 
     public Order getById(Long id) {

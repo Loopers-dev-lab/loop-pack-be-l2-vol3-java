@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class ProductLikeFacade {
 
     private final ProductLikeService productLikeService;
@@ -19,28 +18,22 @@ public class ProductLikeFacade {
 
     @Transactional
     public ProductLikeInfo registerLike(Long userId, Long productId) {
-        // 상품 존재 확인
-        productService.getById(productId);
-
-        // 좋아요 등록
-        ProductLike productLike = productLikeService.registerLike(userId, productId);
-
-        // 상품 좋아요 수 증가는 Service에 위임
+        // 상품 좋아요 수 증가 (비관적 락 획득으로 동시성 제어 + 상품 존재 확인)
         productService.increaseLikes(productId);
+
+        // 좋아요 등록 (직렬화되어 중복 체크 안전)
+        ProductLike productLike = productLikeService.registerLike(userId, productId);
 
         return ProductLikeInfo.from(productLike);
     }
 
     @Transactional
     public void cancelLike(Long userId, Long productId) {
-        // 상품 존재 확인
-        productService.getById(productId);
+        // 상품 좋아요 수 감소 (비관적 락 획득으로 동시성 제어 + 상품 존재 확인)
+        productService.decreaseLikes(productId);
 
         // 좋아요 취소
         productLikeService.cancelLike(userId, productId);
-
-        // 상품 좋아요 수 감소는 Service에 위임
-        productService.decreaseLikes(productId);
     }
 
     public Page<ProductLikeInfo> getLikesByUserId(Long userId, Pageable pageable) {

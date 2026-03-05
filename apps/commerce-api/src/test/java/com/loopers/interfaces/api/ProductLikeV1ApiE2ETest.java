@@ -101,6 +101,32 @@ class ProductLikeV1ApiE2ETest {
         }
 
         @Test
+        @DisplayName("실패: 삭제된 상품에 좋아요하면 400 BAD_REQUEST를 반환한다")
+        void registerLike_DeletedProduct() {
+            // Given
+            Brand brand = brandRepository.save(Brand.create("샤넬", null, null));
+            Product product = productRepository.save(Product.create(brand.getId(), "상품명", null, new BigDecimal("10000"), 10, null));
+            product.delete();
+            productRepository.save(product);
+
+            Long userId = 1L;
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-User-Id", userId.toString());
+
+            // When
+            ResponseEntity<ApiResponse<Void>> response = restTemplate.exchange(
+                    "/api/v1/products/" + product.getId() + "/likes",
+                    HttpMethod.POST,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            // Then
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
         @DisplayName("실패: 이미 좋아요한 상품이면 409 CONFLICT를 반환한다")
         void registerLike_AlreadyLiked() {
             // Given
@@ -190,6 +216,41 @@ class ProductLikeV1ApiE2ETest {
 
             // Then
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("실패: 삭제된 상품의 좋아요를 취소하면 400 BAD_REQUEST를 반환한다")
+        void cancelLike_DeletedProduct() {
+            // Given
+            Brand brand = brandRepository.save(Brand.create("샤넬", null, null));
+            Product product = productRepository.save(Product.create(brand.getId(), "상품명", null, new BigDecimal("10000"), 10, null));
+            Long userId = 1L;
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-User-Id", userId.toString());
+
+            // 좋아요 등록
+            restTemplate.exchange(
+                    "/api/v1/products/" + product.getId() + "/likes",
+                    HttpMethod.POST,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {}
+            );
+
+            // 상품 삭제
+            product.delete();
+            productRepository.save(product);
+
+            // When - 삭제된 상품의 좋아요 취소 시도
+            ResponseEntity<ApiResponse<Void>> response = restTemplate.exchange(
+                    "/api/v1/products/" + product.getId() + "/likes",
+                    HttpMethod.DELETE,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            // Then
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
 
         @Test
