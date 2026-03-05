@@ -25,7 +25,9 @@ public interface UserCouponJpaRepository extends JpaRepository<UserCoupon, Long>
     Optional<UserCoupon> findByIdAndUserIdAndDeletedAtIsNull(Long id, Long userId);
 
     // 원자적 쿠폰 사용: WHERE used_at IS NULL 조건으로 동시 요청 중 하나만 성공
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    // flushAutomatically: UPDATE 전 pending 변경사항 flush 보장
+    // clearAutomatically 미사용: 같은 트랜잭션 내 Product 등 다른 관리 엔티티의 dirty checking을 유지하기 위함
+    @Modifying(flushAutomatically = true)
     @Query("UPDATE UserCoupon uc SET uc.usedAt = :now WHERE uc.id = :id AND uc.userId = :userId AND uc.usedAt IS NULL AND uc.deletedAt IS NULL")
     int useIfAvailable(@Param("id") Long id, @Param("userId") Long userId, @Param("now") LocalDateTime now);
 
