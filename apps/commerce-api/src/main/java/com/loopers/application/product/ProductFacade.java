@@ -4,6 +4,8 @@ import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.RegisterProductCommand;
+import com.loopers.domain.product.UpdateProductCommand;
 import com.loopers.domain.productlike.ProductLikeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -11,14 +13,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class ProductFacade {
 
     private final ProductService productService;
@@ -26,9 +26,9 @@ public class ProductFacade {
     private final BrandService brandService;
 
     @Transactional
-    public ProductInfo registerProduct(Long brandId, String name, String description, BigDecimal price, Integer stock, String imageUrl) {
-        Brand brand = brandService.getBrand(brandId);
-        Product product = productService.register(brandId, name, description, price, stock, imageUrl);
+    public ProductInfo registerProduct(RegisterProductCommand command) {
+        Brand brand = brandService.getBrand(command.brandId());
+        Product product = productService.register(command);
         return ProductInfo.from(product, brand);
     }
 
@@ -59,8 +59,8 @@ public class ProductFacade {
     }
 
     @Transactional
-    public ProductInfo updateProduct(Long id, String name, String description, BigDecimal price, Integer stock, String imageUrl) {
-        Product product = productService.update(id, name, description, price, stock, imageUrl);
+    public ProductInfo updateProduct(Long id, UpdateProductCommand command) {
+        Product product = productService.update(id, command);
         Brand brand = brandService.getBrand(product.getBrandId());
         return ProductInfo.from(product, brand);
     }

@@ -52,7 +52,7 @@ class BrandServiceTest {
             given(brandRepository.save(any(Brand.class))).willReturn(savedBrand);
 
             // When
-            Brand result = brandService.register(name, description, logoUrl);
+            Brand result = brandService.register(new BrandCommand(name, description, logoUrl));
 
             // Then
             assertThat(result).isNotNull();
@@ -79,7 +79,7 @@ class BrandServiceTest {
             given(brandRepository.save(any(Brand.class))).willReturn(savedBrand);
 
             // When
-            Brand result = brandService.register(nameWithSpaces, null, null);
+            Brand result = brandService.register(new BrandCommand(nameWithSpaces, null, null));
 
             // Then
             assertThat(result.getName()).isEqualTo(trimmedName);
@@ -90,7 +90,7 @@ class BrandServiceTest {
         @DisplayName("실패: 브랜드명이 null")
         void registerBrand_NameIsNull() {
             // When & Then
-            assertThatThrownBy(() -> brandService.register(null, null, null))
+            assertThatThrownBy(() -> brandService.register(new BrandCommand(null, null, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("브랜드명은 필수입니다.");
@@ -103,7 +103,7 @@ class BrandServiceTest {
         @DisplayName("실패: 브랜드명이 빈 문자열")
         void registerBrand_NameIsEmpty() {
             // When & Then
-            assertThatThrownBy(() -> brandService.register("", null, null))
+            assertThatThrownBy(() -> brandService.register(new BrandCommand("", null, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("브랜드명은 필수입니다.");
@@ -113,7 +113,7 @@ class BrandServiceTest {
         @DisplayName("실패: 브랜드명이 공백만")
         void registerBrand_NameIsBlank() {
             // When & Then
-            assertThatThrownBy(() -> brandService.register("   ", null, null))
+            assertThatThrownBy(() -> brandService.register(new BrandCommand("   ", null, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("브랜드명은 필수입니다.");
@@ -126,7 +126,7 @@ class BrandServiceTest {
             String longName = "a".repeat(101);
 
             // When & Then
-            assertThatThrownBy(() -> brandService.register(longName, null, null))
+            assertThatThrownBy(() -> brandService.register(new BrandCommand(longName, null, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("브랜드명은 100자를 초과할 수 없습니다.");
@@ -141,7 +141,7 @@ class BrandServiceTest {
             given(brandRepository.existsActiveByNameIgnoreCase(name)).willReturn(true);
 
             // When & Then
-            assertThatThrownBy(() -> brandService.register(name, null, null))
+            assertThatThrownBy(() -> brandService.register(new BrandCommand(name, null, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.CONFLICT)
                     .hasMessage("이미 존재하는 브랜드명입니다.");

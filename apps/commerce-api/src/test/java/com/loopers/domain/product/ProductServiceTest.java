@@ -13,6 +13,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.util.Optional;
 
+import static com.loopers.domain.product.ProductServiceTest.TestCommands.registerCommand;
+import static com.loopers.domain.product.ProductServiceTest.TestCommands.updateCommand;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -49,7 +52,7 @@ class ProductServiceTest {
             given(productRepository.save(any(Product.class))).willReturn(expectedProduct);
 
             // When
-            Product result = productService.register(brandId, name, description, price, stock, imageUrl);
+            Product result = productService.register(registerCommand(brandId, name, description, price, stock, imageUrl));
 
             // Then
             assertThat(result).isNotNull();
@@ -68,7 +71,7 @@ class ProductServiceTest {
             Integer stock = 10;
 
             // When & Then
-            assertThatThrownBy(() -> productService.register(brandId, null, null, price, stock, null))
+            assertThatThrownBy(() -> productService.register(registerCommand(brandId, null, null, price, stock, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("상품명은 필수입니다.");
@@ -83,7 +86,7 @@ class ProductServiceTest {
             Integer stock = 10;
 
             // When & Then
-            assertThatThrownBy(() -> productService.register(brandId, "", null, price, stock, null))
+            assertThatThrownBy(() -> productService.register(registerCommand(brandId, "", null, price, stock, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("상품명은 필수입니다.");
@@ -99,7 +102,7 @@ class ProductServiceTest {
             Integer stock = 10;
 
             // When & Then
-            assertThatThrownBy(() -> productService.register(brandId, name, null, price, stock, null))
+            assertThatThrownBy(() -> productService.register(registerCommand(brandId, name, null, price, stock, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("상품명은 200자를 초과할 수 없습니다.");
@@ -114,7 +117,7 @@ class ProductServiceTest {
             Integer stock = 10;
 
             // When & Then
-            assertThatThrownBy(() -> productService.register(brandId, name, null, null, stock, null))
+            assertThatThrownBy(() -> productService.register(registerCommand(brandId, name, null, null, stock, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("가격은 필수입니다.");
@@ -130,7 +133,7 @@ class ProductServiceTest {
             Integer stock = 10;
 
             // When & Then
-            assertThatThrownBy(() -> productService.register(brandId, name, null, price, stock, null))
+            assertThatThrownBy(() -> productService.register(registerCommand(brandId, name, null, price, stock, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("가격은 0보다 커야 합니다.");
@@ -145,7 +148,7 @@ class ProductServiceTest {
             BigDecimal price = new BigDecimal("10000");
 
             // When & Then
-            assertThatThrownBy(() -> productService.register(brandId, name, null, price, null, null))
+            assertThatThrownBy(() -> productService.register(registerCommand(brandId, name, null, price, null, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("재고는 필수입니다.");
@@ -161,7 +164,7 @@ class ProductServiceTest {
             Integer stock = -1;
 
             // When & Then
-            assertThatThrownBy(() -> productService.register(brandId, name, null, price, stock, null))
+            assertThatThrownBy(() -> productService.register(registerCommand(brandId, name, null, price, stock, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("재고는 0 이상이어야 합니다.");
@@ -178,7 +181,7 @@ class ProductServiceTest {
             Integer stock = 10;
 
             // When & Then
-            assertThatThrownBy(() -> productService.register(brandId, name, description, price, stock, null))
+            assertThatThrownBy(() -> productService.register(registerCommand(brandId, name, description, price, stock, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("설명은 2000자를 초과할 수 없습니다.");
@@ -195,7 +198,7 @@ class ProductServiceTest {
             String imageUrl = "https://example.com/" + "a".repeat(500);
 
             // When & Then
-            assertThatThrownBy(() -> productService.register(brandId, name, null, price, stock, imageUrl))
+            assertThatThrownBy(() -> productService.register(registerCommand(brandId, name, null, price, stock, imageUrl)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("이미지 URL은 500자를 초과할 수 없습니다.");
@@ -318,7 +321,7 @@ class ProductServiceTest {
             given(productRepository.findActiveById(productId)).willReturn(Optional.of(product));
 
             // When
-            Product result = productService.update(productId, newName, newDescription, newPrice, newStock, newImageUrl);
+            Product result = productService.update(productId, updateCommand(newName, newDescription, newPrice, newStock, newImageUrl));
 
             // Then
             assertThat(result).isNotNull();
@@ -342,7 +345,7 @@ class ProductServiceTest {
             given(productRepository.findActiveById(productId)).willReturn(Optional.of(product));
 
             // When
-            Product result = productService.update(productId, newName, null, null, null, null);
+            Product result = productService.update(productId, updateCommand(newName, null, null, null, null));
 
             // Then
             assertThat(result).isNotNull();
@@ -359,7 +362,7 @@ class ProductServiceTest {
             given(productRepository.findActiveById(productId)).willReturn(Optional.empty());
 
             // When & Then
-            assertThatThrownBy(() -> productService.update(productId, "새 이름", null, null, null, null))
+            assertThatThrownBy(() -> productService.update(productId, updateCommand("새 이름", null, null, null, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.NOT_FOUND)
                     .hasMessage("상품을 찾을 수 없습니다.");
@@ -375,7 +378,7 @@ class ProductServiceTest {
             given(productRepository.findActiveById(productId)).willReturn(Optional.of(product));
 
             // When & Then
-            assertThatThrownBy(() -> productService.update(productId, "", null, null, null, null))
+            assertThatThrownBy(() -> productService.update(productId, updateCommand("", null, null, null, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("상품명은 필수입니다.");
@@ -391,7 +394,7 @@ class ProductServiceTest {
             given(productRepository.findActiveById(productId)).willReturn(Optional.of(product));
 
             // When & Then
-            assertThatThrownBy(() -> productService.update(productId, null, null, BigDecimal.ZERO, null, null))
+            assertThatThrownBy(() -> productService.update(productId, updateCommand(null, null, BigDecimal.ZERO, null, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("가격은 0보다 커야 합니다.");
@@ -407,10 +410,20 @@ class ProductServiceTest {
             given(productRepository.findActiveById(productId)).willReturn(Optional.of(product));
 
             // When & Then
-            assertThatThrownBy(() -> productService.update(productId, null, null, null, -1, null))
+            assertThatThrownBy(() -> productService.update(productId, updateCommand(null, null, null, -1, null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("재고는 0 이상이어야 합니다.");
+        }
+    }
+
+    static class TestCommands {
+        static RegisterProductCommand registerCommand(Long brandId, String name, String description, BigDecimal price, Integer stock, String imageUrl) {
+            return new RegisterProductCommand(brandId, name, description, price, stock, imageUrl);
+        }
+
+        static UpdateProductCommand updateCommand(String name, String description, BigDecimal price, Integer stock, String imageUrl) {
+            return new UpdateProductCommand(name, description, price, stock, imageUrl);
         }
     }
 

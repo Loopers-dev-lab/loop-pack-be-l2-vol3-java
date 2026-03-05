@@ -8,12 +8,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class ProductService {
 
     private static final int MAX_NAME_LENGTH = 200;
@@ -23,12 +21,12 @@ public class ProductService {
     private final ProductRepository productRepository;
 
     @Transactional
-    public Product register(Long brandId, String name, String description, BigDecimal price, Integer stock, String imageUrl) {
-        validateNameLength(name);
-        validateDescriptionLength(description);
-        validateImageUrlLength(imageUrl);
+    public Product register(RegisterProductCommand command) {
+        validateNameLength(command.name());
+        validateDescriptionLength(command.description());
+        validateImageUrlLength(command.imageUrl());
 
-        Product product = Product.create(brandId, name, description, price, stock, imageUrl);
+        Product product = Product.create(command.brandId(), command.name(), command.description(), command.price(), command.stock(), command.imageUrl());
         return productRepository.save(product);
     }
 
@@ -54,21 +52,21 @@ public class ProductService {
     }
 
     @Transactional
-    public Product update(Long id, String name, String description, BigDecimal price, Integer stock, String imageUrl) {
+    public Product update(Long id, UpdateProductCommand command) {
         Product product = productRepository.findActiveById(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
 
-        if (name != null) {
-            validateNameLength(name);
+        if (command.name() != null) {
+            validateNameLength(command.name());
         }
-        if (description != null) {
-            validateDescriptionLength(description);
+        if (command.description() != null) {
+            validateDescriptionLength(command.description());
         }
-        if (imageUrl != null) {
-            validateImageUrlLength(imageUrl);
+        if (command.imageUrl() != null) {
+            validateImageUrlLength(command.imageUrl());
         }
 
-        product.update(name, description, price, stock, imageUrl);
+        product.update(command.name(), command.description(), command.price(), command.stock(), command.imageUrl());
         return product;
     }
 
@@ -82,20 +80,32 @@ public class ProductService {
 
     @Transactional
     public Product decreaseStock(Long productId, Integer quantity) {
-        Product product = getById(productId);
+        Product product = productRepository.findByIdWithLock(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
+        if (product.isDeleted()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "삭제된 상품은 주문할 수 없습니다.");
+        }
         product.decreaseStock(quantity);
         return product;
     }
 
     @Transactional
     public void increaseLikes(Long productId) {
-        Product product = getById(productId);
+        Product product = productRepository.findByIdWithLock(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
+        if (product.isDeleted()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "삭제된 상품에는 좋아요할 수 없습니다.");
+        }
         product.increaseLikes();
     }
 
     @Transactional
     public void decreaseLikes(Long productId) {
-        Product product = getById(productId);
+        Product product = productRepository.findByIdWithLock(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
+        if (product.isDeleted()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "삭제된 상품에는 좋아요를 취소할 수 없습니다.");
+        }
         product.decreaseLikes();
     }
 

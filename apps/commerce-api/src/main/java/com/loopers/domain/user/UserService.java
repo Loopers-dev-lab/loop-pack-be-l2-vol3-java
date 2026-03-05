@@ -24,20 +24,19 @@ public class UserService {
     private static final DateTimeFormatter YY_MM_DD_FORMATTER = DateTimeFormatter.ofPattern("yyMMdd");
 
     @Transactional
-    public User register(String loginId, String password, String name, LocalDate birthDate, String email) {
-        validateRegisterRequest(loginId, password, name, birthDate, email);
+    public User register(RegisterUserCommand command) {
+        validateRegisterRequest(command.loginId(), command.password(), command.name(), command.birthDate(), command.email());
 
-        if (userRepository.existsByLoginId(loginId)) {
+        if (userRepository.existsByLoginId(command.loginId())) {
             throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.");
         }
 
-        String encryptedPassword = passwordEncoder.encode(password);
-        User user = User.create(loginId, encryptedPassword, name, birthDate, email);
+        String encryptedPassword = passwordEncoder.encode(command.password());
+        User user = User.create(command.loginId(), encryptedPassword, command.name(), command.birthDate(), command.email());
 
         return userRepository.save(user);
     }
 
-    @Transactional(readOnly = true)
     public User getUserInfo(String loginId, String password) {
         return findUserAndValidatePassword(loginId, password);
     }

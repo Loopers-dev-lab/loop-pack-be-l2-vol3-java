@@ -7,6 +7,7 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.productlike.ProductLike;
 import com.loopers.domain.productlike.ProductLikeService;
+import com.loopers.domain.user.RegisterUserCommand;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +17,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -24,7 +24,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class UserFacade {
 
     private final UserService userService;
@@ -33,8 +32,8 @@ public class UserFacade {
     private final BrandService brandService;
 
     @Transactional
-    public UserInfo register(String loginId, String password, String name, LocalDate birthDate, String email) {
-        User user = userService.register(loginId, password, name, birthDate, email);
+    public UserInfo register(RegisterUserCommand command) {
+        User user = userService.register(command);
         return UserInfo.from(user);
     }
 

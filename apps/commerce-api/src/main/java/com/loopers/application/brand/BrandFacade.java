@@ -1,6 +1,7 @@
 package com.loopers.application.brand;
 
 import com.loopers.domain.brand.Brand;
+import com.loopers.domain.brand.BrandCommand;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.productlike.ProductLikeService;
@@ -14,7 +15,6 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class BrandFacade {
 
     private final BrandService brandService;
@@ -22,25 +22,23 @@ public class BrandFacade {
     private final ProductLikeService productLikeService;
 
     @Transactional
-    public BrandInfo registerBrand(String name, String description, String logoUrl) {
-        Brand brand = brandService.register(name, description, logoUrl);
+    public BrandInfo registerBrand(BrandCommand command) {
+        Brand brand = brandService.register(command);
         return BrandInfo.from(brand);
     }
 
-    @Transactional(readOnly = true)
     public BrandInfo getBrand(Long brandId) {
         Brand brand = brandService.getBrand(brandId);
         return BrandInfo.from(brand);
     }
 
-    @Transactional(readOnly = true)
     public Page<BrandInfo> getBrands(Pageable pageable) {
         return brandService.getBrands(pageable).map(BrandInfo::from);
     }
 
     @Transactional
-    public BrandInfo updateBrand(Long brandId, String name, String description, String logoUrl) {
-        Brand brand = brandService.updateBrand(brandId, name, description, logoUrl);
+    public BrandInfo updateBrand(Long brandId, BrandCommand command) {
+        Brand brand = brandService.updateBrand(brandId, command);
         return BrandInfo.from(brand);
     }
 
