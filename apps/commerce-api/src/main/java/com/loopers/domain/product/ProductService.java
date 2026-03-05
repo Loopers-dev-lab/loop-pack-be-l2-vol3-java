@@ -9,7 +9,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -64,7 +66,7 @@ public class ProductService {
     }
 
     @Transactional
-    public ProductModel update(Long id, String name, BigDecimal price, int stockQuantity) {
+    public ProductModel editProduct(Long id, String name, BigDecimal price, int stockQuantity) {
         ProductModel product = productRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + id));
         try {
@@ -81,7 +83,7 @@ public class ProductService {
      * 상품을 soft delete한다. (어드민 삭제)
      */
     @Transactional
-    public void delete(Long id) {
+    public void removeProduct(Long id) {
         ProductModel product = productRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + id));
         product.delete();
@@ -124,7 +126,7 @@ public class ProductService {
      * 주문 항목 목록을 검증하고, 유효 시 각 상품의 스냅샷(이름·가격) 목록을 반환한다.
      * 하나라도 미존재/삭제/재고 부족이면 예외를 던진다.
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ProductSnapshot> validateAndGetSnapshots(List<ProductValidationRequest> requests) {
         if (requests == null || requests.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목이 없습니다.");
@@ -155,6 +157,34 @@ public class ProductService {
             ProductModel product = productRepository.findByIdForUpdate(item.productId())
                     .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + item.productId()));
             product.increaseStock(item.quantity());
+            productRepository.save(product);
+        }
+    }
+
+    /**
+     * 주문 항목별 재고를 비관적 락으로 차감한다.
+     * 상품 ID 오름차순으로 락을 잡아 데드락을 방지한다. (05-transaction-query §2.1, §3.2)
+     * 동일 상품이 여러 항목에 있으면 수량을 합산해 한 번에 차감한다.
+     */
+    @Transactional
+    public void decreaseStockWithLock(List<ProductValidationRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            return;
+        }
+        Map<Long, Integer> quantityByProductId = new HashMap<>();
+        for (ProductValidationRequest req : requests) {
+            quantityByProductId.merge(req.productId(), req.quantity().value(), Integer::sum);
+        }
+        List<Long> productIds = quantityByProductId.keySet().stream().sorted().toList();
+        for (Long productId : productIds) {
+            int qty = quantityByProductId.get(productId);
+            ProductModel product = productRepository.findByIdForUpdate(productId)
+                    .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + productId));
+            try {
+                product.decreaseStock(Quantity.of(qty));
+            } catch (IllegalArgumentException e) {
+                throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다. 상품 ID: " + productId);
+            }
             productRepository.save(product);
         }
     }
