@@ -27,18 +27,8 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public List<Product> findAllByIds(List<Long> ids) {
-        return productJpaRepository.findAllByIds(ids);
-    }
-
-    @Override
-    public int decreaseStock(Long id, int quantity) {
-        return productJpaRepository.decreaseStock(id, quantity);
-    }
-
-    @Override
-    public int increaseStock(Long id, int quantity) {
-        return productJpaRepository.increaseStock(id, quantity);
+    public List<Product> findAllByIdsWithLock(List<Long> ids) {
+        return productJpaRepository.findAllByIdsWithLock(ids);
     }
 
     @Override

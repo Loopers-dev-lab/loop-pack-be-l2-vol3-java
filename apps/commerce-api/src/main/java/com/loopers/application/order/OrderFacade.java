@@ -17,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,13 +40,14 @@ public class OrderFacade {
 
     @Transactional
     public Order createOrder(Long memberId, List<OrderItemRequest> itemRequests, Long couponIssueId) {
-        // 1. 상품 조회 (스냅샷용)
-        List<Long> productIds = itemRequests.stream()
+        // 1. 상품 조회 — 비관적 락 + ID 오름차순 (데드락 방지)
+        List<Long> sortedProductIds = itemRequests.stream()
             .map(OrderItemRequest::productId)
             .distinct()
+            .sorted()
             .toList();
 
-        Map<Long, Product> productMap = productRepository.findAllByIds(productIds).stream()
+        Map<Long, Product> productMap = productRepository.findAllByIdsWithLock(sortedProductIds).stream()
             .collect(Collectors.toMap(Product::getId, Function.identity()));
 
         for (OrderItemRequest req : itemRequests) {
@@ -79,15 +79,11 @@ public class OrderFacade {
             ));
         }
 
-        // 4. 재고 차감 (조건부 UPDATE, ID 오름차순으로 데드락 방지)
-        itemRequests.stream()
-            .sorted(Comparator.comparing(OrderItemRequest::productId))
-            .forEach(req -> {
-                int updated = productRepository.decreaseStock(req.productId(), req.quantity());
-                if (updated == 0) {
-                    throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.");
-                }
-            });
+        // 4. 재고 차감 — 도메인 엔티티에 위임 (비관적 락으로 보호)
+        for (OrderItemRequest req : itemRequests) {
+            Product product = productMap.get(req.productId());
+            product.decreaseStock(req.quantity());
+        }
 
         // 5. 쿠폰 적용
         Long resolvedCouponIssueId = null;
@@ -139,10 +135,18 @@ public class OrderFacade {
         }
         order.cancel();
 
-        // 재고 복원 (조건부 UPDATE, ID 오름차순으로 데드락 방지)
-        order.getItems().stream()
-            .sorted(Comparator.comparing(OrderItem::getProductId))
-            .forEach(item -> productRepository.increaseStock(item.getProductId(), item.getQuantity()));
+        // 재고 복원 — 비관적 락 + 도메인 엔티티 위임
+        List<Long> productIds = order.getItems().stream()
+            .map(OrderItem::getProductId)
+            .distinct()
+            .sorted()
+            .toList();
+        Map<Long, Product> productMap = productRepository.findAllByIdsWithLock(productIds).stream()
+            .collect(Collectors.toMap(Product::getId, Function.identity()));
+        for (OrderItem item : order.getItems()) {
+            Product product = productMap.get(item.getProductId());
+            product.increaseStock(item.getQuantity());
+        }
 
         // 쿠폰 복원
         if (order.getCouponIssueId() != null) {

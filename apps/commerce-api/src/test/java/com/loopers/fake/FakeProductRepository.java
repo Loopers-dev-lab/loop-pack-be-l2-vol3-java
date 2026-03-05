@@ -38,29 +38,12 @@ public class FakeProductRepository implements ProductRepository {
     }
 
     @Override
-    public List<Product> findAllByIds(List<Long> ids) {
+    public List<Product> findAllByIdsWithLock(List<Long> ids) {
         return ids.stream()
             .distinct()
             .map(store::get)
             .filter(p -> p != null && p.getDeletedAt() == null)
             .toList();
-    }
-
-    @Override
-    public int decreaseStock(Long id, int quantity) {
-        Product product = store.get(id);
-        if (product == null || product.getDeletedAt() != null) return 0;
-        if (product.getStock().getQuantity() < quantity) return 0;
-        product.decreaseStock(quantity);
-        return 1;
-    }
-
-    @Override
-    public int increaseStock(Long id, int quantity) {
-        Product product = store.get(id);
-        if (product == null || product.getDeletedAt() != null) return 0;
-        product.increaseStock(quantity);
-        return 1;
     }
 
     @Override
