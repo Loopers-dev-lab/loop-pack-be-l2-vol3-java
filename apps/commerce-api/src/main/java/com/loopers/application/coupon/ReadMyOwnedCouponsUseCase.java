@@ -11,7 +11,6 @@ import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.CouponType;
 import com.loopers.domain.coupon.OwnedCoupon;
 import com.loopers.domain.coupon.OwnedCouponRepository;
-import com.loopers.domain.coupon.OwnedCouponStatus;
 import com.loopers.support.page.Page;
 import com.loopers.support.page.PageSize;
 
@@ -50,7 +49,7 @@ public class ReadMyOwnedCouponsUseCase {
 
     public record Result(
             Long id,
-            OwnedCouponStatus status,
+            String status,
             ZonedDateTime createdAt,
             String name,
             CouponType couponType,

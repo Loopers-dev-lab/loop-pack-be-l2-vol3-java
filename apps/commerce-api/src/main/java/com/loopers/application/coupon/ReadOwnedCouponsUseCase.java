@@ -15,7 +15,6 @@ import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.CouponType;
 import com.loopers.domain.coupon.OwnedCoupon;
 import com.loopers.domain.coupon.OwnedCouponRepository;
-import com.loopers.domain.coupon.OwnedCouponStatus;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserRepository;
 import com.loopers.support.error.CoreException;
@@ -72,7 +71,7 @@ public class ReadOwnedCouponsUseCase {
 
     public record Result(
             Long id,
-            OwnedCouponStatus status,
+            String status,
             ZonedDateTime createdAt,
             Long userId,
             String loginId,

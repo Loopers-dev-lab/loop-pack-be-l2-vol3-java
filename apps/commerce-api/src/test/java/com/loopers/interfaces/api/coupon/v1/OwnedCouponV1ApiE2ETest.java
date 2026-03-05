@@ -15,14 +15,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.coupon.CouponType;
-import com.loopers.domain.coupon.OwnedCouponRepository;
-import com.loopers.domain.coupon.OwnedCouponStatus;
 import com.loopers.interfaces.api.coupon.v1.CouponDto.CreateCouponRequest;
 import com.loopers.interfaces.api.user.v1.UserV1Dto;
 import com.loopers.support.BaseE2ETest;
@@ -30,7 +28,7 @@ import com.loopers.support.BaseE2ETest;
 class OwnedCouponV1ApiE2ETest extends BaseE2ETest {
 
     @Autowired
-    private OwnedCouponRepository ownedCouponRepository;
+    private CouponRepository couponRepository;
 
     private HttpHeaders userHeaders;
 
@@ -70,12 +68,9 @@ class OwnedCouponV1ApiE2ETest extends BaseE2ETest {
             issueCoupon(testRestTemplate, couponId1, userHeaders);
             issueCoupon(testRestTemplate, couponId2, userHeaders);
 
-            var expiredCoupon = ownedCouponRepository.findAllByCouponId(
-                    couponId2,
-                    Pageable.unpaged()
-            ).getContent().getFirst();
-            ReflectionTestUtils.setField(expiredCoupon, "status", OwnedCouponStatus.EXPIRED);
-            ownedCouponRepository.save(expiredCoupon);
+            var coupon2 = couponRepository.findById(couponId2).orElseThrow();
+            ReflectionTestUtils.setField(coupon2, "expiredAt", ZonedDateTime.now().minusDays(1));
+            couponRepository.save(coupon2);
 
             // act
             var response = getMyOwnedCoupons(testRestTemplate, userHeaders);
@@ -85,8 +80,8 @@ class OwnedCouponV1ApiE2ETest extends BaseE2ETest {
             var body = response.getBody().data();
             assertAll(
                     () -> assertThat(body.content()).hasSize(2),
-                    () -> assertThat(body.content().get(0).status()).isEqualTo(OwnedCouponStatus.EXPIRED),
-                    () -> assertThat(body.content().get(1).status()).isEqualTo(OwnedCouponStatus.AVAILABLE),
+                    () -> assertThat(body.content().get(0).status()).isEqualTo("EXPIRED"),
+                    () -> assertThat(body.content().get(1).status()).isEqualTo("AVAILABLE"),
                     () -> assertThat(body.hasNext()).isFalse()
             );
         }

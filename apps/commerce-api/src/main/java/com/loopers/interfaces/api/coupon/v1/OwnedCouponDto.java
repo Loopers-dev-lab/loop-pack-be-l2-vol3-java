@@ -6,13 +6,12 @@ import java.util.List;
 import com.loopers.application.coupon.ReadMyOwnedCouponsUseCase;
 import com.loopers.application.coupon.ReadOwnedCouponsUseCase;
 import com.loopers.domain.coupon.CouponType;
-import com.loopers.domain.coupon.OwnedCouponStatus;
 
 public class OwnedCouponDto {
 
     public record MyOwnedCouponsResponse(
             Long id,
-            OwnedCouponStatus status,
+            String status,
             ZonedDateTime createdAt,
             String name,
             CouponType couponType,
@@ -47,7 +46,7 @@ public class OwnedCouponDto {
 
     public record OwnedCouponsResponse(
             Long id,
-            OwnedCouponStatus status,
+            String status,
             ZonedDateTime createdAt,
             String name,
             CouponType couponType,

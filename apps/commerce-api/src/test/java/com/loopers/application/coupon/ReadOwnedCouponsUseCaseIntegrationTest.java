@@ -13,7 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.CouponType;
 import com.loopers.domain.coupon.OwnedCouponService;
-import com.loopers.domain.coupon.OwnedCouponStatus;
 import com.loopers.domain.user.UserService;
 import com.loopers.support.BaseIntegrationTest;
 import com.loopers.support.page.Page;
@@ -54,7 +53,7 @@ class ReadOwnedCouponsUseCaseIntegrationTest extends BaseIntegrationTest {
                     () -> assertThat(result.content().get(0).userId()).isEqualTo(user.getId()),
                     () -> assertThat(result.content().get(0).loginId()).isEqualTo("testuser1"),
                     () -> assertThat(result.content().get(0).userName()).isEqualTo("홍길동"),
-                    () -> assertThat(result.content().get(0).status()).isEqualTo(OwnedCouponStatus.AVAILABLE),
+                    () -> assertThat(result.content().get(0).status()).isEqualTo("AVAILABLE"),
                     () -> assertThat(result.content().get(0).createdAt()).isNotNull(),
                     () -> assertThat(result.content().get(0).name()).isEqualTo("테스트 쿠폰"),
                     () -> assertThat(result.content().get(0).couponType()).isEqualTo(CouponType.FIXED),

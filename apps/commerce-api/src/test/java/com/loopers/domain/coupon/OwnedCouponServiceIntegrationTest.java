@@ -52,7 +52,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
             assertAll(
                     () -> assertThat(result.getCoupon().getId()).isEqualTo(coupon.getId()),
                     () -> assertThat(result.getUserId()).isEqualTo(userId),
-                    () -> assertThat(result.getStatus()).isEqualTo(OwnedCouponStatus.AVAILABLE)
+                    () -> assertThat(result.getStatus()).isEqualTo("AVAILABLE")
             );
         }
 
@@ -125,7 +125,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
             assertAll(
                     () -> assertThat(result.discountAmount()).isEqualTo(Money.wons(5000L)),
                     () -> assertThat(result.ownedCouponId()).isEqualTo(ownedCoupon.getId()),
-                    () -> assertThat(saved.getStatus()).isEqualTo(OwnedCouponStatus.USED)
+                    () -> assertThat(saved.getStatus()).isEqualTo("USED")
             );
         }
 
@@ -183,8 +183,8 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
             // arrange
             var coupon = couponService.create(new CouponTerms("만료 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
             var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
-            ReflectionTestUtils.setField(ownedCoupon, "status", OwnedCouponStatus.EXPIRED);
-            ownedCouponRepository.save(ownedCoupon);
+            ReflectionTestUtils.setField(coupon, "expiredAt", ZonedDateTime.now().minusDays(1));
+            couponRepository.save(coupon);
 
             // act & assert
             assertThatThrownBy(() -> ownedCouponService.applyCoupon(ownedCoupon.getId(), 1L, Money.wons(20000L)))

@@ -11,7 +11,6 @@ import com.loopers.application.coupon.CouponCommand.UpdateCouponCommand;
 import com.loopers.application.coupon.CouponResult;
 import com.loopers.application.coupon.ReadOwnedCouponsUseCase;
 import com.loopers.domain.coupon.CouponType;
-import com.loopers.domain.coupon.OwnedCouponStatus;
 
 public class CouponDto {
 

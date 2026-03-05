@@ -2,8 +2,6 @@ package com.loopers.domain.coupon;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -11,6 +9,7 @@ import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 
 import java.time.ZonedDateTime;
+import java.util.Objects;
 
 import com.loopers.domain.BaseEntity;
 import com.loopers.support.error.CoreException;
@@ -34,10 +33,6 @@ public class OwnedCoupon extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
-    private OwnedCouponStatus status;
-
     @Column(name = "used_at")
     private ZonedDateTime usedAt;
 
@@ -51,18 +46,16 @@ public class OwnedCoupon extends BaseEntity {
         OwnedCoupon ownedCoupon = new OwnedCoupon();
         ownedCoupon.coupon = coupon;
         ownedCoupon.userId = userId;
-        ownedCoupon.status = OwnedCouponStatus.AVAILABLE;
         return ownedCoupon;
     }
 
     public void use() {
-        if (this.status == OwnedCouponStatus.EXPIRED) {
+        if (coupon.isExpired()) {
             throw new CoreException(ErrorType.EXPIRED_COUPON);
         }
-        if (this.status != OwnedCouponStatus.AVAILABLE) {
+        if (Objects.nonNull(usedAt)) {
             throw new CoreException(ErrorType.ALREADY_USED_COUPON);
         }
-        this.status = OwnedCouponStatus.USED;
         this.usedAt = ZonedDateTime.now();
     }
 
@@ -70,5 +63,15 @@ public class OwnedCoupon extends BaseEntity {
         if (!this.userId.equals(userId)) {
             throw new CoreException(ErrorType.FORBIDDEN_COUPON_ACCESS);
         }
+    }
+
+    public String getStatus() {
+        if (Objects.nonNull(usedAt)) {
+            return "USED";
+        }
+        if (coupon.isExpired()) {
+            return "EXPIRED";
+        }
+        return "AVAILABLE";
     }
 }

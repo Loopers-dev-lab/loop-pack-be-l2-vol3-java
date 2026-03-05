@@ -18,6 +18,7 @@ import com.loopers.support.error.ErrorType;
 class OwnedCouponTest {
 
     private static final ZonedDateTime FUTURE = ZonedDateTime.now().plusDays(30);
+    private static final ZonedDateTime PAST = ZonedDateTime.now().minusDays(1);
 
     @DisplayName("보유 쿠폰을 생성할 때,")
     @Nested
@@ -37,7 +38,7 @@ class OwnedCouponTest {
             assertAll(
                     () -> assertThat(ownedCoupon.getCoupon()).isEqualTo(coupon),
                     () -> assertThat(ownedCoupon.getUserId()).isEqualTo(userId),
-                    () -> assertThat(ownedCoupon.getStatus()).isEqualTo(OwnedCouponStatus.AVAILABLE)
+                    () -> assertThat(ownedCoupon.getStatus()).isEqualTo("AVAILABLE")
             );
         }
 
@@ -103,7 +104,7 @@ class OwnedCouponTest {
             ownedCoupon.use();
 
             // assert
-            assertThat(ownedCoupon.getStatus()).isEqualTo(OwnedCouponStatus.USED);
+            assertThat(ownedCoupon.getStatus()).isEqualTo("USED");
         }
 
         @DisplayName("이미 USED 상태이면, ALREADY_USED_COUPON 예외가 발생한다.")
@@ -127,13 +128,66 @@ class OwnedCouponTest {
             // arrange
             var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
             var ownedCoupon = OwnedCoupon.create(coupon, 1L);
-            ReflectionTestUtils.setField(ownedCoupon, "status", OwnedCouponStatus.EXPIRED);
+            ReflectionTestUtils.setField(ownedCoupon.getCoupon(), "expiredAt", PAST);
 
             // act & assert
             assertThatThrownBy(() -> ownedCoupon.use())
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.EXPIRED_COUPON);
+        }
+    }
+
+    @DisplayName("보유 쿠폰 상태를 조회할 때,")
+    @Nested
+    class GetStatus {
+
+        @DisplayName("사용하지 않았고 만료되지 않았으면, AVAILABLE을 반환한다.")
+        @Test
+        void returnsAvailable_whenNotUsedAndNotExpired() {
+            // arrange
+            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+
+            // assert
+            assertThat(ownedCoupon.getStatus()).isEqualTo("AVAILABLE");
+        }
+
+        @DisplayName("사용했으면, USED를 반환한다.")
+        @Test
+        void returnsUsed_whenUsed() {
+            // arrange
+            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+            ownedCoupon.use();
+
+            // assert
+            assertThat(ownedCoupon.getStatus()).isEqualTo("USED");
+        }
+
+        @DisplayName("사용하지 않았지만 쿠폰이 만료되었으면, EXPIRED를 반환한다.")
+        @Test
+        void returnsExpired_whenNotUsedButCouponExpired() {
+            // arrange
+            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+            ReflectionTestUtils.setField(coupon, "expiredAt", PAST);
+
+            // assert
+            assertThat(ownedCoupon.getStatus()).isEqualTo("EXPIRED");
+        }
+
+        @DisplayName("사용했고 쿠폰도 만료되었으면, USED를 반환한다.")
+        @Test
+        void returnsUsed_whenUsedAndExpired() {
+            // arrange
+            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+            ownedCoupon.use();
+            ReflectionTestUtils.setField(coupon, "expiredAt", PAST);
+
+            // assert
+            assertThat(ownedCoupon.getStatus()).isEqualTo("USED");
         }
     }
 }

@@ -16,8 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.time.ZonedDateTime;
 
-import com.loopers.domain.coupon.OwnedCouponStatus;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -624,7 +622,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
                     () -> assertThat(response.getBody().data().content()).hasSize(1),
                     () -> assertThat(response.getBody().data().content().get(0).user().loginId()).isEqualTo("testuser1"),
                     () -> assertThat(response.getBody().data().content().get(0).user().userName()).isEqualTo("홍길동"),
-                    () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo(OwnedCouponStatus.AVAILABLE),
+                    () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo("AVAILABLE"),
                     () -> assertThat(response.getBody().data().hasNext()).isFalse()
             );
         }
