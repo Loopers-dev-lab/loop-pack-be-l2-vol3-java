@@ -87,21 +87,6 @@ public class InMemoryProductRepository implements ProductRepository {
 
     @Override
     public boolean decreaseStockIfEnough(Long productId, Integer quantity) {
-        Product product = store.get(productId);
-        if (product == null) {
-            return false;
-        }
-        if (product.getDeletedAt() != null) {
-            return false;
-        }
-        if (product.getVisibility() != Product.Visibility.VISIBLE) {
-            return false;
-        }
-        if (product.getStockQuantity() < quantity) {
-            return false;
-        }
-
-        // 재고 차감은 디비 원자적처리에 의존하므로 통합테스트에서 커버함
-        return true;
+        throw new UnsupportedOperationException("Atomic UPDATE는 DB에 의존하므로 통합테스트에서 커버합니다.");
     }
 }
