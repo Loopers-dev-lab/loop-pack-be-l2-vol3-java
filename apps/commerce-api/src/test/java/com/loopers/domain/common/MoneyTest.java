@@ -75,6 +75,59 @@ class MoneyTest {
             assertThat(money1.isGreaterThan(money2)).isTrue();
             assertThat(money2.isGreaterThan(money1)).isFalse();
         }
+
+        @Test
+        @DisplayName("금액을 뺄 수 있다")
+        void subtractMoney() {
+            Money money1 = Money.of(1000L);
+            Money money2 = Money.of(300L);
+
+            Money result = money1.subtract(money2);
+
+            assertThat(result.getAmount()).isEqualByComparingTo(BigDecimal.valueOf(700));
+        }
+
+        @Test
+        @DisplayName("빼기 결과가 음수이면 0원을 반환한다")
+        void subtractMoneyReturnsZeroWhenNegative() {
+            Money money1 = Money.of(300L);
+            Money money2 = Money.of(1000L);
+
+            Money result = money1.subtract(money2);
+
+            assertThat(result.getAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        }
+
+        @Test
+        @DisplayName("정률 할인 계산이 가능하다")
+        void percentageMoney() {
+            Money money = Money.of(10000L);
+
+            Money result = money.percentage(10);
+
+            assertThat(result.getAmount()).isEqualByComparingTo(BigDecimal.valueOf(1000));
+        }
+
+        @Test
+        @DisplayName("잘못된 할인율은 예외가 발생한다")
+        void percentageWithInvalidRate() {
+            Money money = Money.of(10000L);
+
+            assertThatThrownBy(() -> money.percentage(101))
+                    .isInstanceOf(CoreException.class);
+            assertThatThrownBy(() -> money.percentage(-1))
+                    .isInstanceOf(CoreException.class);
+        }
+
+        @Test
+        @DisplayName("두 금액 중 작은 값을 반환한다")
+        void minMoney() {
+            Money money1 = Money.of(1000L);
+            Money money2 = Money.of(500L);
+
+            assertThat(money1.min(money2)).isEqualTo(money2);
+            assertThat(money2.min(money1)).isEqualTo(money2);
+        }
     }
 
     @Nested
