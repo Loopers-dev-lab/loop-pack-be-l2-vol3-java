@@ -6,10 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.loopers.infrastructure.like.persistence.LikeJpaRepository;
 import com.loopers.support.BaseIntegrationTest;
+import com.loopers.support.ConcurrentTestHelper;
 import com.loopers.support.page.Page;
 import com.loopers.support.page.PageSize;
 
@@ -83,29 +80,15 @@ class LikeServiceIntegrationTest extends BaseIntegrationTest {
             var productId = createProduct(brandId);
             var userId = 1L;
             int threadCount = 10;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
-            AtomicInteger successCount = new AtomicInteger(0);
-            AtomicInteger failCount = new AtomicInteger(0);
 
             // act
-            for (int i = 0; i < threadCount; i++) {
-                executorService.execute(() -> {
-                    try {
-                        likeService.like(userId, productId);
-                        successCount.incrementAndGet();
-                    } catch (Exception e) {
-                        failCount.incrementAndGet();
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            var result = ConcurrentTestHelper.executeConcurrently(
+                    threadCount,
+                    () -> likeService.like(userId, productId)
+            );
 
             // assert
-            assertThat(successCount.get() + failCount.get()).isEqualTo(threadCount);
+            assertThat(result.successCount() + result.failCount()).isEqualTo(threadCount);
             assertThat(likeJpaRepository.count()).isEqualTo(1);
         }
     }

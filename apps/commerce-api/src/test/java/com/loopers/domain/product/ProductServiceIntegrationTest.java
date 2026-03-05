@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -19,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.loopers.support.BaseIntegrationTest;
+import com.loopers.support.ConcurrentTestHelper;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.support.page.Page;
@@ -278,32 +278,18 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
             // arrange
             var productId = createProduct(brandId, "상품", 10000L, 100L);
             int threadCount = 10;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
-            AtomicInteger successCount = new AtomicInteger(0);
-            AtomicInteger failCount = new AtomicInteger(0);
 
             // act
-            for (int i = 0; i < threadCount; i++) {
-                executorService.execute(() -> {
-                    try {
-                        productService.deductStock(productId, 1L);
-                        successCount.incrementAndGet();
-                    } catch (Exception e) {
-                        failCount.incrementAndGet();
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            var result = ConcurrentTestHelper.executeConcurrently(
+                    threadCount,
+                    () -> productService.deductStock(productId, 1L)
+            );
 
             // assert
             var product = productRepository.findById(productId).orElseThrow();
             assertAll(
-                    () -> assertThat(successCount.get()).isEqualTo(threadCount),
-                    () -> assertThat(failCount.get()).isZero(),
+                    () -> assertThat(result.successCount()).isEqualTo(threadCount),
+                    () -> assertThat(result.failCount()).isZero(),
                     () -> assertThat(product.getStock().getValue()).isEqualTo(90L)
             );
         }
@@ -386,32 +372,18 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
             // arrange
             var productId = createProduct(brandId);
             int threadCount = 10;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
-            AtomicInteger successCount = new AtomicInteger(0);
-            AtomicInteger failCount = new AtomicInteger(0);
 
             // act
-            for (int i = 0; i < threadCount; i++) {
-                executorService.execute(() -> {
-                    try {
-                        productService.increaseLikeCount(productId);
-                        successCount.incrementAndGet();
-                    } catch (Exception e) {
-                        failCount.incrementAndGet();
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            var result = ConcurrentTestHelper.executeConcurrently(
+                    threadCount,
+                    () -> productService.increaseLikeCount(productId)
+            );
 
             // assert
             var product = productRepository.findById(productId).orElseThrow();
             assertAll(
-                    () -> assertThat(successCount.get()).isEqualTo(threadCount),
-                    () -> assertThat(failCount.get()).isZero(),
+                    () -> assertThat(result.successCount()).isEqualTo(threadCount),
+                    () -> assertThat(result.failCount()).isZero(),
                     () -> assertThat(product.getLikeCount()).isEqualTo(10L)
             );
         }
@@ -446,32 +418,17 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
                 productService.increaseLikeCount(productId);
             }
 
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
-            AtomicInteger successCount = new AtomicInteger(0);
-            AtomicInteger failCount = new AtomicInteger(0);
-
             // act
-            for (int i = 0; i < threadCount; i++) {
-                executorService.execute(() -> {
-                    try {
-                        productService.decreaseLikeCount(productId);
-                        successCount.incrementAndGet();
-                    } catch (Exception e) {
-                        failCount.incrementAndGet();
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            var result = ConcurrentTestHelper.executeConcurrently(
+                    threadCount,
+                    () -> productService.decreaseLikeCount(productId)
+            );
 
             // assert
             var product = productRepository.findById(productId).orElseThrow();
             assertAll(
-                    () -> assertThat(successCount.get()).isEqualTo(threadCount),
-                    () -> assertThat(failCount.get()).isZero(),
+                    () -> assertThat(result.successCount()).isEqualTo(threadCount),
+                    () -> assertThat(result.failCount()).isZero(),
                     () -> assertThat(product.getLikeCount()).isZero()
             );
         }

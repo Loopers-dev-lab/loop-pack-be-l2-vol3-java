@@ -5,12 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.time.ZonedDateTime;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -22,6 +16,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.loopers.domain.coupon.discount.CouponDiscount;
 import com.loopers.domain.shared.Money;
 import com.loopers.support.BaseIntegrationTest;
+import com.loopers.support.ConcurrentTestHelper;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 
@@ -216,40 +211,25 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
             // arrange
             var coupon = couponService.create(new CouponTerms("동시성 쿠폰", CouponType.FIXED, 1000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
             var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
-
             int threadCount = 5;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
-            AtomicInteger successCount = new AtomicInteger(0);
-            List<Exception> exceptions = new CopyOnWriteArrayList<>();
 
             // act
-            for (int i = 0; i < threadCount; i++) {
-                executorService.execute(() -> {
-                    try {
-                        ownedCouponService.applyCoupon(ownedCoupon.getId(), 1L, Money.wons(20000L));
-                        successCount.incrementAndGet();
-                    } catch (Exception e) {
-                        exceptions.add(e);
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            var result = ConcurrentTestHelper.executeConcurrently(
+                    threadCount,
+                    () -> ownedCouponService.applyCoupon(ownedCoupon.getId(), 1L, Money.wons(20000L))
+            );
 
             // assert
             assertAll(
-                    () -> assertThat(successCount.get()).isEqualTo(1),
-                    () -> assertThat(exceptions).hasSize(threadCount - 1),
-                    () -> assertThat(exceptions).allSatisfy(e ->
+                    () -> assertThat(result.successCount()).isEqualTo(1),
+                    () -> assertThat(result.exceptions()).hasSize(threadCount - 1),
+                    () -> assertThat(result.exceptions()).allSatisfy(e ->
                             assertThat(e).isInstanceOfAny(
                                     ObjectOptimisticLockingFailureException.class,
                                     CoreException.class
                             )
                     ),
-                    () -> assertThat(exceptions)
+                    () -> assertThat(result.exceptions())
                             .filteredOn(e -> e instanceof CoreException)
                             .allSatisfy(e ->
                                     assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_USED_COUPON)
