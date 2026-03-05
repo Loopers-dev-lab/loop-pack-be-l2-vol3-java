@@ -47,4 +47,27 @@ public class Money {
     public boolean isGreaterThan(Money other) {
         return this.amount.compareTo(other.amount) > 0;
     }
+
+    public boolean isGreaterThanOrEqual(Money other) {
+        return this.amount.compareTo(other.amount) >= 0;
+    }
+
+    public Money subtract(Money other) {
+        BigDecimal result = this.amount.subtract(other.amount);
+        if (result.compareTo(BigDecimal.ZERO) < 0) {
+            return Money.zero();
+        }
+        return new Money(result);
+    }
+
+    public Money percentage(int rate) {
+        if (rate < 0 || rate > 100) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "할인율은 0~100 사이여야 합니다.");
+        }
+        return new Money(this.amount.multiply(BigDecimal.valueOf(rate)).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.DOWN));
+    }
+
+    public Money min(Money other) {
+        return this.amount.compareTo(other.amount) <= 0 ? this : other;
+    }
 }

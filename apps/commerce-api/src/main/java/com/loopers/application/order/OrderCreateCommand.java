@@ -10,6 +10,11 @@ import java.util.List;
 public class OrderCreateCommand {
     private final Long userId;
     private final List<OrderItemCommand> items;
+    private final Long couponId;
+
+    public OrderCreateCommand(Long userId, List<OrderItemCommand> items) {
+        this(userId, items, null);
+    }
 
     @Getter
     @RequiredArgsConstructor

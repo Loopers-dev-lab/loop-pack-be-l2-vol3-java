@@ -26,6 +26,11 @@ public class MemberRepositoryImpl implements MemberRepository {
     }
 
     @Override
+    public Optional<Member> findById(Long id) {
+        return memberJpaRepository.findById(id);
+    }
+
+    @Override
     public Optional<Member> findByMemberIdValue(String memberIdValue) {
         return memberJpaRepository.findByMemberIdValue(memberIdValue);
     }
@@ -33,5 +38,10 @@ public class MemberRepositoryImpl implements MemberRepository {
     @Override
     public boolean existsByMemberIdValue(String memberIdValue) {
         return memberJpaRepository.existsByMemberIdValue(memberIdValue);
+    }
+
+    @Override
+    public Optional<Member> findByIdWithLock(Long id) {
+        return memberJpaRepository.findByIdWithLock(id);
     }
 }
