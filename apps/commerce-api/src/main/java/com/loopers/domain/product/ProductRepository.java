@@ -107,7 +107,7 @@ public interface ProductRepository {
      * 활성 상품의 좋아요 수를 1 감소시킨다 (아토믹 업데이트).
      *
      * @param productId 상품 ID
-     * @return 업데이트된 행 수 (0이면 상품이 존재하지 않거나 삭제됨)
+     * @return 업데이트된 행 수 (0이면 상품이 존재하지 않거나, 삭제됐거나, likeCount가 이미 0)
      */
     int decrementLikeCount(Long productId);
 }

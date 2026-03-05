@@ -175,16 +175,13 @@ public class ProductService {
 
     /**
      * 상품의 좋아요 수를 1 감소시킨다. 아토믹 업데이트로 동시성을 보장한다.
+     * likeCount가 이미 0이면 무시한다 (호출부에서 상품 존재를 검증해야 한다).
      *
      * @param productId 상품 ID
-     * @throws CoreException 상품이 존재하지 않거나 삭제된 경우
      */
     @Transactional
     public void decreaseLikeCount(Long productId) {
-        int updated = productRepository.decrementLikeCount(productId);
-        if (updated == 0) {
-            throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
-        }
+        productRepository.decrementLikeCount(productId);
     }
 
     /**
