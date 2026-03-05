@@ -1,6 +1,11 @@
 package com.loopers.domain.coupon;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -28,5 +33,13 @@ public class InMemoryCouponRepository implements CouponRepository {
     @Override
     public Optional<Coupon> findById(Long id) {
         return Optional.ofNullable(store.get(id));
+    }
+
+    @Override
+    public Page<Coupon> findAllByDeletedAtIsNull(Pageable pageable) {
+        List<Coupon> result = store.values().stream()
+            .filter(c -> c.getDeletedAt() == null)
+            .toList();
+        return new PageImpl<>(result, pageable, result.size());
     }
 }

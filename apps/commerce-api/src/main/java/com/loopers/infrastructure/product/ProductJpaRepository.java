@@ -13,14 +13,14 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
     List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> ids);
 
     @Modifying(clearAutomatically = true)
-    @Query("""
-            update Product p
-            set p.stockQuantity = p.stockQuantity - :quantity
-            where p.id = :productId
-              and p.deletedAt is null
-              and p.visibility = Product.Visibility.VISIBLE
-              and p.stockQuantity >= :quantity
-            """)
+    @Query(value = """
+            UPDATE products
+            SET stock_quantity = stock_quantity - :quantity
+            WHERE id = :productId
+              AND deleted_at IS NULL
+              AND visibility = 'VISIBLE'
+              AND stock_quantity >= :quantity
+            """, nativeQuery = true)
     int decreaseStockIfEnough(
             @Param("productId") Long productId,
             @Param("quantity") Integer quantity

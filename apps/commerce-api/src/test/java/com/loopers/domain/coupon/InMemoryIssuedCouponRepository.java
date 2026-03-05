@@ -1,7 +1,8 @@
 package com.loopers.domain.coupon;
 
-import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import java.util.HashMap;
 import java.util.List;
@@ -16,13 +17,6 @@ public class InMemoryIssuedCouponRepository implements IssuedCouponRepository {
 
     @Override
     public IssuedCoupon save(IssuedCoupon issuedCoupon) {
-        boolean alreadyIssued = store.values().stream()
-            .anyMatch(ic -> ic.getUserId().equals(issuedCoupon.getUserId())
-                && ic.getCouponId().equals(issuedCoupon.getCouponId()));
-        if (alreadyIssued) {
-            throw new CoreException(ErrorType.CONFLICT, "이미 발급된 쿠폰입니다.");
-        }
-
         if (issuedCoupon.getId() == 0L) {
             try {
                 var idField = issuedCoupon.getClass().getSuperclass().getDeclaredField("id");
@@ -51,7 +45,21 @@ public class InMemoryIssuedCouponRepository implements IssuedCouponRepository {
     }
 
     @Override
+    public boolean existsByUserIdAndCouponId(Long userId, Long couponId) {
+        return store.values().stream()
+            .anyMatch(ic -> ic.getUserId().equals(userId) && ic.getCouponId().equals(couponId));
+    }
+
+    @Override
     public int useById(Long id, Long userId) {
         throw new UnsupportedOperationException("Atomic UPDATE는 DB에 의존하므로 통합테스트에서 커버합니다.");
+    }
+
+    @Override
+    public Page<IssuedCoupon> findByCouponId(Long couponId, Pageable pageable) {
+        List<IssuedCoupon> result = store.values().stream()
+            .filter(ic -> ic.getCouponId().equals(couponId))
+            .toList();
+        return new PageImpl<>(result, pageable, result.size());
     }
 }

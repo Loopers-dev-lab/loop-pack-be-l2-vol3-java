@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class CouponV1ApiE2ETest {
 
     private static final String ENDPOINT = "/api/v1/coupons";
+    private static final String MY_COUPONS_ENDPOINT = "/api/v1/users/me/coupons";
     private static final String RAW_PASSWORD = "TestPass1!";
 
     private final TestRestTemplate testRestTemplate;
@@ -172,7 +173,7 @@ class CouponV1ApiE2ETest {
 
             // act
             ResponseEntity<ApiResponse<List<CouponV1Dto.IssuedCouponResponse>>> response =
-                testRestTemplate.exchange(ENDPOINT, HttpMethod.GET, getEntity, new ParameterizedTypeReference<>() {});
+                testRestTemplate.exchange(MY_COUPONS_ENDPOINT, HttpMethod.GET, getEntity, new ParameterizedTypeReference<>() {});
 
             // assert
             assertAll(
@@ -190,7 +191,7 @@ class CouponV1ApiE2ETest {
 
             // act
             ResponseEntity<ApiResponse<List<CouponV1Dto.IssuedCouponResponse>>> response =
-                testRestTemplate.exchange(ENDPOINT, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
+                testRestTemplate.exchange(MY_COUPONS_ENDPOINT, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
 
             // assert
             assertAll(

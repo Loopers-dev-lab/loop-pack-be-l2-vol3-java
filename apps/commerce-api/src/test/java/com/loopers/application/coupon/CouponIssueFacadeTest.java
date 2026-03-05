@@ -19,11 +19,12 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class CouponServiceTest {
+public class CouponIssueFacadeTest {
 
     private InMemoryCouponRepository couponRepository;
     private InMemoryIssuedCouponRepository issuedCouponRepository;
-    private CouponService couponService;
+    private CouponIssueFacade couponIssueFacade;
+    private IssuedCouponService issuedCouponService;
 
     private User savedUser;
 
@@ -32,7 +33,8 @@ public class CouponServiceTest {
         InMemoryUserRepository userRepository = new InMemoryUserRepository();
         couponRepository = new InMemoryCouponRepository();
         issuedCouponRepository = new InMemoryIssuedCouponRepository();
-        couponService = new CouponService(couponRepository, issuedCouponRepository);
+        couponIssueFacade = new CouponIssueFacade(couponRepository, issuedCouponRepository);
+        issuedCouponService = new IssuedCouponService(issuedCouponRepository);
 
         savedUser = UserFixture.builder().build();
         userRepository.save(savedUser);
@@ -51,7 +53,7 @@ public class CouponServiceTest {
             );
 
             // act
-            IssuedCouponInfo result = couponService.issue(savedUser.getId(), savedCoupon.getId());
+            IssuedCouponInfo result = couponIssueFacade.issue(savedUser.getId(), savedCoupon.getId());
 
             // assert
             assertThat(result.couponId()).isEqualTo(savedCoupon.getId());
@@ -66,7 +68,7 @@ public class CouponServiceTest {
 
             // act
             CoreException result = assertThrows(CoreException.class, () ->
-                couponService.issue(savedUser.getId(), invalidCouponId)
+                couponIssueFacade.issue(savedUser.getId(), invalidCouponId)
             );
 
             // assert
@@ -80,11 +82,11 @@ public class CouponServiceTest {
             Coupon savedCoupon = couponRepository.save(
                 Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30))
             );
-            couponService.issue(savedUser.getId(), savedCoupon.getId());
+            couponIssueFacade.issue(savedUser.getId(), savedCoupon.getId());
 
             // act
             CoreException result = assertThrows(CoreException.class, () ->
-                couponService.issue(savedUser.getId(), savedCoupon.getId())
+                couponIssueFacade.issue(savedUser.getId(), savedCoupon.getId())
             );
 
             // assert
@@ -106,11 +108,11 @@ public class CouponServiceTest {
             Coupon coupon2 = couponRepository.save(
                 Coupon.create("정률 할인 쿠폰", Coupon.DiscountType.RATE, 10L, 0L, LocalDateTime.now().plusDays(30))
             );
-            couponService.issue(savedUser.getId(), coupon1.getId());
-            couponService.issue(savedUser.getId(), coupon2.getId());
+            couponIssueFacade.issue(savedUser.getId(), coupon1.getId());
+            couponIssueFacade.issue(savedUser.getId(), coupon2.getId());
 
             // act
-            List<IssuedCouponInfo> result = couponService.getIssuedCoupons(savedUser.getId());
+            List<IssuedCouponInfo> result = issuedCouponService.getIssuedCoupons(savedUser.getId());
 
             // assert
             assertThat(result)
@@ -122,7 +124,7 @@ public class CouponServiceTest {
         @Test
         void returnsEmptyList_whenNoIssuedCoupons() {
             // act
-            List<IssuedCouponInfo> result = couponService.getIssuedCoupons(savedUser.getId());
+            List<IssuedCouponInfo> result = issuedCouponService.getIssuedCoupons(savedUser.getId());
 
             // assert
             assertThat(result).isEmpty();
