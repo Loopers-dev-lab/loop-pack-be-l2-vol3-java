@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -88,6 +89,39 @@ class ConcurrencyTest {
         );
     }
 
+    private void runConcurrently(
+        int threadCount,
+        Runnable task,
+        AtomicInteger successCount,
+        AtomicInteger failCount
+    ) throws InterruptedException {
+        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch readyLatch = new CountDownLatch(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch doneLatch = new CountDownLatch(threadCount);
+
+        for (int i = 0; i < threadCount; i++) {
+            executorService.submit(() -> {
+                readyLatch.countDown();
+                try {
+                    startLatch.await();
+                    task.run();
+                    successCount.incrementAndGet();
+                } catch (Exception e) {
+                    failCount.incrementAndGet();
+                } finally {
+                    doneLatch.countDown();
+                }
+            });
+        }
+
+        readyLatch.await();
+        startLatch.countDown();
+        doneLatch.await();
+        executorService.shutdown();
+        assertThat(executorService.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+    }
+
     @DisplayName("동시 재고 차감 테스트")
     @Nested
     class ConcurrentStockDeduction {
@@ -101,30 +135,20 @@ class ConcurrencyTest {
             ProductModel product = createProduct(brand, "에어맥스", 150000L, 100);
 
             int threadCount = 10;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
             AtomicInteger successCount = new AtomicInteger(0);
             AtomicInteger failCount = new AtomicInteger(0);
 
             // act
-            for (int i = 0; i < threadCount; i++) {
-                executorService.submit(() -> {
-                    try {
-                        orderFacade.placeOrder(
-                            "testuser", "Test1234!",
-                            List.of(new OrderFacade.PlaceOrderItem(product.getId(), 1)),
-                            null
-                        );
-                        successCount.incrementAndGet();
-                    } catch (Exception e) {
-                        failCount.incrementAndGet();
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            runConcurrently(
+                threadCount,
+                () -> orderFacade.placeOrder(
+                    "testuser", "Test1234!",
+                    List.of(new OrderFacade.PlaceOrderItem(product.getId(), 1)),
+                    null
+                ),
+                successCount,
+                failCount
+            );
 
             // assert
             ProductModel updatedProduct = productJpaRepository.findById(product.getId()).orElseThrow();
@@ -142,30 +166,20 @@ class ConcurrencyTest {
             ProductModel product = createProduct(brand, "에어맥스", 150000L, 5);
 
             int threadCount = 10;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
             AtomicInteger successCount = new AtomicInteger(0);
             AtomicInteger failCount = new AtomicInteger(0);
 
             // act
-            for (int i = 0; i < threadCount; i++) {
-                executorService.submit(() -> {
-                    try {
-                        orderFacade.placeOrder(
-                            "testuser", "Test1234!",
-                            List.of(new OrderFacade.PlaceOrderItem(product.getId(), 1)),
-                            null
-                        );
-                        successCount.incrementAndGet();
-                    } catch (Exception e) {
-                        failCount.incrementAndGet();
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            runConcurrently(
+                threadCount,
+                () -> orderFacade.placeOrder(
+                    "testuser", "Test1234!",
+                    List.of(new OrderFacade.PlaceOrderItem(product.getId(), 1)),
+                    null
+                ),
+                successCount,
+                failCount
+            );
 
             // assert
             ProductModel updatedProduct = productJpaRepository.findById(product.getId()).orElseThrow();
@@ -192,30 +206,20 @@ class ConcurrencyTest {
             UserCouponModel userCoupon = userCouponJpaRepository.save(new UserCouponModel(user.getId(), coupon));
 
             int threadCount = 10;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
             AtomicInteger successCount = new AtomicInteger(0);
             AtomicInteger failCount = new AtomicInteger(0);
 
             // act
-            for (int i = 0; i < threadCount; i++) {
-                executorService.submit(() -> {
-                    try {
-                        orderFacade.placeOrder(
-                            "testuser", "Test1234!",
-                            List.of(new OrderFacade.PlaceOrderItem(product.getId(), 1)),
-                            userCoupon.getId()
-                        );
-                        successCount.incrementAndGet();
-                    } catch (Exception e) {
-                        failCount.incrementAndGet();
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            runConcurrently(
+                threadCount,
+                () -> orderFacade.placeOrder(
+                    "testuser", "Test1234!",
+                    List.of(new OrderFacade.PlaceOrderItem(product.getId(), 1)),
+                    userCoupon.getId()
+                ),
+                successCount,
+                failCount
+            );
 
             // assert
             assertThat(successCount.get()).isEqualTo(1);
@@ -246,27 +250,20 @@ class ConcurrencyTest {
                 userIds[i] = user.getId();
             }
 
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
             AtomicInteger successCount = new AtomicInteger(0);
             AtomicInteger failCount = new AtomicInteger(0);
 
             // act
-            for (int i = 0; i < threadCount; i++) {
-                final int index = i;
-                executorService.submit(() -> {
-                    try {
-                        likeService.like(userIds[index], product.getId());
-                        successCount.incrementAndGet();
-                    } catch (Exception e) {
-                        failCount.incrementAndGet();
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            AtomicInteger callIndex = new AtomicInteger(0);
+            runConcurrently(
+                threadCount,
+                () -> {
+                    int index = callIndex.getAndIncrement();
+                    likeService.like(userIds[index], product.getId());
+                },
+                successCount,
+                failCount
+            );
 
             // assert
             assertThat(successCount.get()).isEqualTo(10);
@@ -283,26 +280,16 @@ class ConcurrencyTest {
             ProductModel product = createProduct(brand, "에어맥스", 150000L, 100);
 
             int threadCount = 10;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
             AtomicInteger successCount = new AtomicInteger(0);
             AtomicInteger failCount = new AtomicInteger(0);
 
             // act
-            for (int i = 0; i < threadCount; i++) {
-                executorService.submit(() -> {
-                    try {
-                        likeService.like(user.getId(), product.getId());
-                        successCount.incrementAndGet();
-                    } catch (Exception e) {
-                        failCount.incrementAndGet();
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            runConcurrently(
+                threadCount,
+                () -> likeService.like(user.getId(), product.getId()),
+                successCount,
+                failCount
+            );
 
             // assert
             assertThat(successCount.get()).isEqualTo(1);
