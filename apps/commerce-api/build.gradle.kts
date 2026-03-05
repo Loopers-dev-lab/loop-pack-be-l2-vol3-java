@@ -12,6 +12,7 @@ dependencies {
 
     // security (PasswordEncoder 사용)
     implementation("org.springframework.security:spring-security-crypto")
+
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:${project.properties["springDocOpenApiVersion"]}")
 
     // querydsl
