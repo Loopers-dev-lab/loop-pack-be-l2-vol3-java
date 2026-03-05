@@ -49,6 +49,9 @@ public class CouponTemplateEntity {
     @Column(name = "max_issue_count_per_user", nullable = false)
     private Integer maxIssueCountPerUser;
 
+    @Column(name = "issued_count", nullable = false)
+    private Integer issuedCount = 0;
+
     @Column(name = "valid_from", nullable = false)
     private ZonedDateTime validFrom;
 
@@ -140,6 +143,14 @@ public class CouponTemplateEntity {
 
     public void setMaxIssueCountPerUser(Integer maxIssueCountPerUser) {
         this.maxIssueCountPerUser = maxIssueCountPerUser;
+    }
+
+    public Integer getIssuedCount() {
+        return issuedCount;
+    }
+
+    public void setIssuedCount(Integer issuedCount) {
+        this.issuedCount = issuedCount;
     }
 
     public ZonedDateTime getValidFrom() {

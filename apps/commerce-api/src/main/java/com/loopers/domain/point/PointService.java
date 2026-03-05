@@ -14,7 +14,7 @@ public class PointService {
         this.pointAccountRepository = pointAccountRepository;
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public PointAccount createAccount(Long userId) {
         PointAccount account = PointAccount.create(userId);
         return pointAccountRepository.save(account);
@@ -26,21 +26,21 @@ public class PointService {
                 .orElseThrow(() -> new CoreException(PointErrorType.ACCOUNT_NOT_FOUND));
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public void use(Long userId, int amount) {
         PointAccount account = getAccountForUpdate(userId);
         account.use(amount);
         pointAccountRepository.save(account);
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public void charge(Long userId, int amount) {
         PointAccount account = getAccountForUpdate(userId);
         account.charge(amount);
         pointAccountRepository.save(account);
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public void earn(Long userId, int orderAmount) {
         PointAccount account = getAccountForUpdate(userId);
         account.earn(orderAmount);

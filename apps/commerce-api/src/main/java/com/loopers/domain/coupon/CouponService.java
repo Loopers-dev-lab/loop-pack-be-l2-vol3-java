@@ -20,7 +20,7 @@ public class CouponService {
         this.issuedCouponRepository = issuedCouponRepository;
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public IssuedCoupon issue(Long templateId, Long userId) {
         CouponTemplate template = couponTemplateRepository.findByIdForUpdate(templateId)
                 .orElseThrow(() -> new CoreException(CouponErrorType.TEMPLATE_NOT_FOUND));
@@ -30,11 +30,11 @@ public class CouponService {
         }
         template.assertIssuable(java.time.ZonedDateTime.now());
 
-        long totalIssued = issuedCouponRepository.countByCouponTemplateId(templateId);
-        if (totalIssued >= template.getMaxIssueCount()) {
-            throw new CoreException(CouponErrorType.ISSUE_LIMIT_EXCEEDED);
-        }
+        // 전체 발급 한도 체크 (Race Condition 해결: Template에 FOR UPDATE 락 + atomic increment)
+        template.incrementIssuedCount();
+        couponTemplateRepository.save(template);  // issuedCount 업데이트
 
+        // 사용자별 발급 한도 체크 (비관적 락 내에서 수행)
         long userIssued = issuedCouponRepository.countByCouponTemplateIdAndUserId(templateId, userId);
         if (userIssued >= template.getMaxIssueCountPerUser()) {
             throw new CoreException(CouponErrorType.USER_ISSUE_LIMIT_EXCEEDED);
@@ -44,7 +44,7 @@ public class CouponService {
         return issuedCouponRepository.save(issuedCoupon);
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public void use(Long issuedCouponId, Long userId, Long orderId) {
         IssuedCoupon issuedCoupon = issuedCouponRepository.findById(issuedCouponId)
                 .orElseThrow(() -> new CoreException(CouponErrorType.COUPON_NOT_FOUND));
@@ -99,7 +99,7 @@ public class CouponService {
         return couponTemplateRepository.count();
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public CouponTemplate createTemplate(String name, String description, DiscountType discountType,
                                           int discountValue, Integer maxDiscountAmount, int minOrderAmount,
                                           int maxIssueCount, int maxIssueCountPerUser,
@@ -109,7 +109,7 @@ public class CouponService {
         return couponTemplateRepository.save(template);
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public CouponTemplate updateTemplate(Long templateId, String name, String description,
                                           DiscountType discountType, Integer discountValue,
                                           Integer maxDiscountAmount, Integer minOrderAmount) {
@@ -118,7 +118,7 @@ public class CouponService {
         return couponTemplateRepository.save(template);
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public void deleteTemplate(Long templateId) {
         CouponTemplate template = getTemplate(templateId);
         template.delete();

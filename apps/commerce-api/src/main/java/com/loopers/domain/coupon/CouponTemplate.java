@@ -20,6 +20,7 @@ public class CouponTemplate {
     private Money minOrderAmount;
     private int maxIssueCount;
     private int maxIssueCountPerUser;
+    private int issuedCount;  // 실제 발급된 수 (Race Condition 방지용)
     private ZonedDateTime validFrom;
     private ZonedDateTime validTo;
     private CouponTemplateStatus status;
@@ -43,6 +44,7 @@ public class CouponTemplate {
         this.minOrderAmount = new Money(minOrderAmount);
         this.maxIssueCount = maxIssueCount;
         this.maxIssueCountPerUser = maxIssueCountPerUser;
+        this.issuedCount = 0;  // 초기값
         this.validFrom = validFrom;
         this.validTo = validTo;
         this.status = CouponTemplateStatus.ACTIVE;
@@ -63,7 +65,7 @@ public class CouponTemplate {
     public static CouponTemplate reconstitute(Long id, String name, String description,
                                                DiscountType discountType, int discountValue,
                                                Integer maxDiscountAmount, int minOrderAmount,
-                                               int maxIssueCount, int maxIssueCountPerUser,
+                                               int maxIssueCount, int maxIssueCountPerUser, int issuedCount,
                                                ZonedDateTime validFrom, ZonedDateTime validTo,
                                                CouponTemplateStatus status,
                                                ZonedDateTime createdAt, ZonedDateTime updatedAt,
@@ -78,6 +80,7 @@ public class CouponTemplate {
         template.minOrderAmount = new Money(minOrderAmount);
         template.maxIssueCount = maxIssueCount;
         template.maxIssueCountPerUser = maxIssueCountPerUser;
+        template.issuedCount = issuedCount;
         template.validFrom = validFrom;
         template.validTo = validTo;
         template.status = status;
@@ -113,6 +116,19 @@ public class CouponTemplate {
         if (now.isBefore(this.validFrom) || now.isAfter(this.validTo)) {
             throw new CoreException(CouponErrorType.TEMPLATE_NOT_IN_VALID_PERIOD);
         }
+    }
+
+    /**
+     * 발급 수 증가 (Race Condition 방지)
+     *
+     * Template에 FOR UPDATE 락이 걸린 상태에서 호출되어야 한다.
+     * 발급 한도를 초과하면 예외를 발생시킨다.
+     */
+    public void incrementIssuedCount() {
+        if (this.issuedCount >= this.maxIssueCount) {
+            throw new CoreException(CouponErrorType.ISSUE_LIMIT_EXCEEDED);
+        }
+        this.issuedCount++;
     }
 
     public void changeStatus(CouponTemplateStatus status) {
@@ -186,6 +202,10 @@ public class CouponTemplate {
 
     public int getMaxIssueCountPerUser() {
         return this.maxIssueCountPerUser;
+    }
+
+    public int getIssuedCount() {
+        return this.issuedCount;
     }
 
     public ZonedDateTime getValidFrom() {

@@ -81,7 +81,7 @@ public class OrderFacade {
     /**
      * 주문 생성 + 결제 확정 (1단계 트랜잭션)
      */
-    @Transactional
+    @Transactional(timeout = 30)
     public OrderCreateResult createOrder(Long userId, String userName, String ordererPhone,
                                           List<OrderItemCommand> itemCommands, Long addressId,
                                           Long issuedCouponId, int pointAmount, String paymentMethod) {
@@ -95,7 +95,7 @@ public class OrderFacade {
     /**
      * 장바구니 기반 주문 생성 + 결제 확정 (1단계 트랜잭션)
      */
-    @Transactional
+    @Transactional(timeout = 30)
     public OrderCreateResult createOrderFromCart(Long userId, String userName, String ordererPhone,
                                                   List<Long> cartItemIds, Long addressId,
                                                   Long issuedCouponId, int pointAmount, String paymentMethod) {
@@ -224,7 +224,7 @@ public class OrderFacade {
      * 2. 재고 예약 해제 (order_items 기준으로 reserved_qty 복구)
      *    - 삭제된 상품의 재고는 skip (InventoryService.releaseAll 내부 처리)
      */
-    @Transactional
+    @Transactional(timeout = 30)
     public void cancelOrder(Long orderId, Long userId) {
         Order order = orderService.cancel(orderId, userId);
 

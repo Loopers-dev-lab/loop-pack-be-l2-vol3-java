@@ -26,6 +26,7 @@ public class CouponTemplateMapper {
         entity.setMinOrderAmount(domain.getMinOrderAmount());
         entity.setMaxIssueCount(domain.getMaxIssueCount());
         entity.setMaxIssueCountPerUser(domain.getMaxIssueCountPerUser());
+        entity.setIssuedCount(domain.getIssuedCount());
         entity.setValidFrom(domain.getValidFrom());
         entity.setValidTo(domain.getValidTo());
         entity.setStatus(domain.getStatus());
@@ -50,6 +51,7 @@ public class CouponTemplateMapper {
                 entity.getMinOrderAmount(),
                 entity.getMaxIssueCount(),
                 entity.getMaxIssueCountPerUser(),
+                entity.getIssuedCount(),
                 entity.getValidFrom(),
                 entity.getValidTo(),
                 entity.getStatus(),
