@@ -1,6 +1,8 @@
-package com.loopers.config;
+package com.loopers.interfaces.interceptor;
 
-import com.loopers.domain.user.UserService;
+import com.loopers.application.user.UserFacade;
+import com.loopers.application.user.UserInfo;
+import com.loopers.interfaces.resolver.LoginUserArgumentResolver;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +15,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
@@ -24,9 +28,10 @@ class AuthInterceptorTest {
     private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
     private static final String VALID_LOGIN_ID = "namjin123";
     private static final String VALID_PASSWORD = "qwer@1234";
+    private static final UserInfo VALID_USER_INFO = new UserInfo(1L, VALID_LOGIN_ID, "테스트", LocalDate.of(2000, 1, 1), "test@test.com");
 
     @Mock
-    private UserService userService;
+    private UserFacade userFacade;
 
     @InjectMocks
     private AuthInterceptor authInterceptor;
@@ -44,14 +49,15 @@ class AuthInterceptorTest {
 
             when(request.getHeader(HEADER_LOGIN_ID)).thenReturn(VALID_LOGIN_ID);
             when(request.getHeader(HEADER_LOGIN_PW)).thenReturn(VALID_PASSWORD);
+            when(userFacade.authenticate(VALID_LOGIN_ID, VALID_PASSWORD)).thenReturn(VALID_USER_INFO);
 
             // act
             boolean result = authInterceptor.preHandle(request, response, new Object());
 
             // assert
             assertThat(result).isTrue();
-            verify(userService).authenticate(VALID_LOGIN_ID, VALID_PASSWORD);
-            verify(request).setAttribute(AuthInterceptor.ATTR_LOGIN_ID, VALID_LOGIN_ID);
+            verify(userFacade).authenticate(VALID_LOGIN_ID, VALID_PASSWORD);
+            verify(request).setAttribute(LoginUserArgumentResolver.ATTR_LOGIN_USER, VALID_USER_INFO);
         }
 
         @DisplayName("인증 헤더가 누락되면, 예외가 발생한다.")
@@ -70,7 +76,7 @@ class AuthInterceptorTest {
             });
 
             assertThat(result.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
-            verify(userService, never()).authenticate(any(), any());
+            verify(userFacade, never()).authenticate(any(), any());
         }
 
         @DisplayName("인증에 실패하면, 예외가 전파된다.")
@@ -84,7 +90,7 @@ class AuthInterceptorTest {
             when(request.getHeader(HEADER_LOGIN_PW)).thenReturn("wrongPassword");
             when(request.getRequestURI()).thenReturn("/api/v1/users/me");
 
-            when(userService.authenticate(VALID_LOGIN_ID, "wrongPassword"))
+            when(userFacade.authenticate(VALID_LOGIN_ID, "wrongPassword"))
                     .thenThrow(new CoreException(ErrorType.UNAUTHORIZED, "회원 정보가 올바르지 않습니다."));
 
             // act & assert
@@ -111,7 +117,7 @@ class AuthInterceptorTest {
             });
 
             assertThat(result.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
-            verify(userService, never()).authenticate(any(), any());
+            verify(userFacade, never()).authenticate(any(), any());
         }
     }
 }

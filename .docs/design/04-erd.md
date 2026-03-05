@@ -51,14 +51,6 @@ erDiagram
         datetime created_at
     }
 
-    cart_item {
-        bigint id PK
-        bigint user_id FK
-        bigint product_id FK
-        int quantity
-        datetime created_at
-    }
-
     orders {
         bigint id PK
         bigint user_id FK
@@ -81,11 +73,9 @@ erDiagram
     }
 
     users ||--o{ likes : ""
-    users ||--o{ cart_item : ""
     users ||--o{ orders : ""
     brand ||--o{ product : ""
     product ||--o{ likes : ""
-    product ||--o{ cart_item : ""
     product ||--o{ order_item : ""
     orders ||--|{ order_item : ""
 ```
@@ -94,7 +84,7 @@ erDiagram
 
 1. **users 테이블은 기존 구현**: 회원 도메인은 이미 구현되어 있으며 본 ERD에서는 FK 참조 대상으로만 포함한다.
 2. **orders ↔ order_item**: 유일한 `||--|{` 관계(1:1이상). Order는 최소 1개의 OrderItem을 포함해야 한다 (BR-O01). 나머지는 모두 `||--o{`(1:0이상)이다.
-3. **likes, cart_item에 deleted_at 없음**: hard delete 정책이므로 soft delete 컬럼이 불필요하다.
+3. **likes에 deleted_at 없음**: hard delete 정책이므로 soft delete 컬럼이 불필요하다.
 4. **order_item의 스냅샷 컬럼**: `product_name`, `brand_name`, `price`는 주문 시점의 상품 정보 사본이다. product, brand 테이블의 현재 값과 무관하게 주문 기록을 보존한다 (BR-O05).
 
 ---
@@ -158,25 +148,6 @@ erDiagram
 
 ---
 
-### cart_item
-
-| 컬럼 | 타입 | 제약 | 설명 |
-|------|------|------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | |
-| user_id | BIGINT | NOT NULL, FK → users(id) | 장바구니 소유 회원 |
-| product_id | BIGINT | NOT NULL, FK → product(id) | 담긴 상품 |
-| quantity | INT | NOT NULL, >= 1 | 수량 (Quantity VO) |
-| created_at | DATETIME | NOT NULL | |
-
-**유일성 제약**:
-- `uk_cart_item_user_product` → `UNIQUE(user_id, product_id)`: 회원당 상품당 하나의 장바구니 항목만 존재. 같은 상품을 다시 담으면 기존 항목의 수량을 누적한다 (BR-C02)
-- hard delete 테이블이므로 **DB UNIQUE 제약으로 완전히 보장 가능**
-
-**인덱스**:
-- `uk_cart_item_user_product`이 `(user_id, product_id)` 순서이므로, `user_id` 기준 조회(US-C02: 내 장바구니)를 커버한다
-
----
-
 ### orders
 
 | 컬럼 | 타입 | 제약 | 설명 |
@@ -223,8 +194,6 @@ erDiagram
 | product.brand_id → brand(id) | 상품은 반드시 존재하는 브랜드에 속한다 (BR-P01) | Facade가 브랜드 존재 확인 후 상품 등록 (US-P05) |
 | likes.user_id → users(id) | 좋아요는 실존 회원만 가능 | AuthInterceptor가 인증된 회원만 허용 |
 | likes.product_id → product(id) | 좋아요는 실존 상품만 가능 | Facade가 상품 존재 확인 후 좋아요 등록 (US-L01). 상품 삭제 시 likes를 먼저 hard delete (US-P07) |
-| cart_item.user_id → users(id) | 장바구니는 실존 회원만 가능 | AuthInterceptor가 인증된 회원만 허용 |
-| cart_item.product_id → product(id) | 장바구니는 실존 상품만 가능 | Facade가 상품 존재 확인 후 담기 (US-C01). 상품 삭제 시 cart_item을 먼저 hard delete (US-P07) |
 | orders.user_id → users(id) | 주문은 실존 회원만 가능 | AuthInterceptor가 인증된 회원만 허용 |
 | order_item.order_id → orders(id) | 주문 항목은 반드시 주문에 소속 | Order Aggregate가 OrderItem 생명주기를 관리 (cascade) |
 | order_item.product_id → product(id) | 원본 상품 추적용 참조 | Facade가 상품 존재 및 재고 확인 후 주문 생성 (US-O01). 스냅샷 컬럼이 실제 데이터를 보존 |
@@ -234,11 +203,11 @@ erDiagram
 상품/브랜드 삭제 시 Facade가 종속 데이터를 먼저 정리한다 (시퀀스 다이어그램 US-B06, US-P07 참고).
 
 ```
-브랜드 삭제: likes(hard delete) → cart_item(hard delete) → product(soft delete) → brand(soft delete)
-상품 삭제: likes(hard delete) → cart_item(hard delete) → product(soft delete)
+브랜드 삭제: likes(hard delete) → product(soft delete) → brand(soft delete)
+상품 삭제: likes(hard delete) → product(soft delete)
 ```
 
-종속 데이터(likes, cart_item)를 먼저 물리 삭제하므로, 상위 엔티티 soft delete 후에도 고아 FK가 남지 않는다.
+종속 데이터(likes)를 먼저 물리 삭제하므로, 상위 엔티티 soft delete 후에도 고아 FK가 남지 않는다.
 
 ### 유일성 제약
 
@@ -249,7 +218,6 @@ erDiagram
 | 테이블 | 제약 | 비즈니스 규칙 |
 |--------|------|-------------|
 | likes | `UNIQUE(user_id, product_id)` | BR-L01: 회원당 상품당 좋아요 1개 |
-| cart_item | `UNIQUE(user_id, product_id)` | BR-C02: 회원당 상품당 장바구니 항목 1개 |
 
 행이 물리적으로 삭제되므로, 삭제 후 같은 조합으로 재등록이 가능하다. DB UNIQUE 제약이 완전하게 동작한다.
 
@@ -293,7 +261,6 @@ VO의 검증 규칙이 DB 컬럼 제약으로도 방어된다.
 |--------|----------|------|
 | `idx_product_brand_id` | US-P01: 브랜드별 상품 필터링 | |
 | `uk_likes_user_product` | US-L03: 내 좋아요 목록 | UNIQUE 제약이 인덱스 역할도 수행 |
-| `uk_cart_item_user_product` | US-C02: 내 장바구니 조회 | UNIQUE 제약이 인덱스 역할도 수행 |
 | `idx_orders_user_id_created_at` | US-O02: 기간별 주문 목록 | 복합 인덱스로 user_id 필터 + created_at 범위 검색을 커버 |
 | `idx_order_item_order_id` | US-O03, O05: 주문 상세 | 주문 ID로 주문 항목 일괄 조회 |
 

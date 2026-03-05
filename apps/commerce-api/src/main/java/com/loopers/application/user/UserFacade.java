@@ -10,15 +10,15 @@ import org.springframework.stereotype.Component;
 public class UserFacade {
     private final UserService userService;
 
+    public UserInfo authenticate(String loginId, String password) {
+        UserModel user = userService.authenticate(loginId, password);
+        return UserInfo.from(user);
+    }
+
     public UserInfo signUp(SignupCommand command) {
         UserModel user = userService.signup(
             command.loginId(), command.password(), command.name(), command.birthday(), command.email()
         );
-        return UserInfo.from(user);
-    }
-
-    public UserInfo getMyInfo(String loginId) {
-        UserModel user = userService.findByLoginId(loginId);
         return UserInfo.from(user);
     }
 

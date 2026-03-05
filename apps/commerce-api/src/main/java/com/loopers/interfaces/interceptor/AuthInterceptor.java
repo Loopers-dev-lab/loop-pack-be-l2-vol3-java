@@ -1,6 +1,8 @@
-package com.loopers.config;
+package com.loopers.interfaces.interceptor;
 
-import com.loopers.domain.user.UserService;
+import com.loopers.application.user.UserFacade;
+import com.loopers.application.user.UserInfo;
+import com.loopers.interfaces.resolver.LoginUserArgumentResolver;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,9 +21,8 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
     private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
-    public static final String ATTR_LOGIN_ID = "loginId";
 
-    private final UserService userService;
+    private final UserFacade userFacade;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -33,13 +34,14 @@ public class AuthInterceptor implements HandlerInterceptor {
             throw new CoreException(ErrorType.UNAUTHORIZED, "인증 헤더가 누락되었습니다.");
         }
 
-        try{
-            userService.authenticate(loginId, loginPw);
-        }catch(CoreException e){
+        UserInfo userInfo;
+        try {
+            userInfo = userFacade.authenticate(loginId, loginPw);
+        } catch (CoreException e) {
             log.warn("인증 실패 - loginId: {}, URI: {}", loginId, request.getRequestURI());
             throw e;
         }
-        request.setAttribute(ATTR_LOGIN_ID, loginId);
+        request.setAttribute(LoginUserArgumentResolver.ATTR_LOGIN_USER, userInfo);
 
         return true;
     }

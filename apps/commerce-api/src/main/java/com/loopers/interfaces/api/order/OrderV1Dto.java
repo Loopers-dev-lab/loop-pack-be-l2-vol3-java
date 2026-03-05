@@ -1,0 +1,71 @@
+package com.loopers.interfaces.api.order;
+
+import com.loopers.application.order.OrderInfo;
+
+import java.time.ZonedDateTime;
+import java.util.List;
+
+public class OrderV1Dto {
+
+    /**
+     * 주문 생성 요청
+     */
+    public record OrderCreateRequest(
+            List<OrderItemRequest> items
+    ) {}
+
+    public record OrderItemRequest(
+            Long productId,
+            int quantity
+    ) {}
+
+    /**
+     * 주문 단건 응답 (생성/상세 조회 공용)
+     */
+    public record OrderResponse(
+            Long orderId,
+            ZonedDateTime createdAt,
+            List<OrderItemResponse> items
+    ) {
+        public static OrderResponse from(OrderInfo info) {
+            return new OrderResponse(
+                    info.id(),
+                    info.createdAt(),
+                    info.items().stream().map(OrderItemResponse::from).toList()
+            );
+        }
+    }
+
+    public record OrderItemResponse(
+            Long orderItemId,
+            Long productId,
+            String productName,
+            String brandName,
+            int price,
+            int quantity
+    ) {
+        public static OrderItemResponse from(OrderInfo.OrderItemInfo info) {
+            return new OrderItemResponse(
+                    info.orderItemId(),
+                    info.productId(),
+                    info.productName(),
+                    info.brandName(),
+                    info.price(),
+                    info.quantity()
+            );
+        }
+    }
+
+    /**
+     * 주문 목록 응답
+     */
+    public record OrderListResponse(
+            List<OrderResponse> orders
+    ) {
+        public static OrderListResponse from(List<OrderInfo> infos) {
+            return new OrderListResponse(
+                    infos.stream().map(OrderResponse::from).toList()
+            );
+        }
+    }
+}

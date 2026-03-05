@@ -117,6 +117,7 @@ Entity → ExampleInfo (application DTO) → ExampleV1Dto (API DTO) → ApiRespo
 - JaCoCo 코드 커버리지 (XML 리포트)
 - 프로파일: `test`, 순차 실행 (`maxParallelForks = 1`)
 - 테스트 데이터 중 여러 테스트에서 반복 사용되는 값은 클래스 레벨 상수(`private static final`)로 선언한다
+- 테스트 메서드 내부는 `// arrange` / `// act` / `// assert` 주석으로 단계를 구분한다. 단, 해당 단계에 작성할 코드가 없으면 주석을 생략한다.
 
 ### 코드 스타일
 - Lombok: `@RequiredArgsConstructor`, `@Getter`, `@Slf4j`
@@ -142,3 +143,35 @@ Entity → ExampleInfo (application DTO) → ExampleV1Dto (API DTO) → ApiRespo
 | `REDIS_MASTER_HOST`, `REDIS_MASTER_PORT` | Redis Master |
 | `REDIS_REPLICA_1_HOST`, `REDIS_REPLICA_1_PORT` | Redis Replica |
 | `BOOTSTRAP_SERVERS` | Kafka 브로커 |
+
+## 도메인 & 객체 설계 전략
+- 도메인 객체는 비즈니스 규칙을 캡슐화해야 합니다.
+- 애플리케이션 서비스는 서로 다른 도메인을 조립해, 도메인 로직을 조정하여 기능을 제공해야 합니다.
+- 규칙이 여러 서비스에 나타나면 도메인 객체에 속할 가능성이 높습니다.
+- 각 기능에 대한 책임과 결합도에 대해 개발자의 의도를 확인하고 개발을 진행합니다.
+
+## 아키텍처, 패키지 구성 전략
+- 본 프로젝트는 레이어드 아키텍처를 따르며, DIP (의존성 역전 원칙) 을 준수합니다.
+- API request, response DTO와 응용 레이어의 DTO는 분리해 작성하도록 합니다.
+- 패키징 전략은 4개 레이어 패키지를 두고, 하위에 도메인 별로 패키징하는 형태로 작성합니다.
+    - 예시
+      > /interfaces/api (presentation 레이어 - API)
+      /application/.. (application 레이어 - 도메인 레이어를 조합해 사용 가능한 기능을 제공)
+      /domain/.. (domain 레이어 - 도메인 객체 및 엔티티, Repository 인터페이스가 위치)
+      /infrastructure/.. (infrastructure 레이어 - JPA, Redis 등을 활용해 Repository 구현체를 제공)
+
+## 개발 규칙
+
+### 개발 Workflow - TDD (Red > Green > Refactor)
+- 모든 테스트는 3A 원칙으로 작성할 것 (Arrange - Act - Assert)
+#### 1. Red Phase : 실패하는 테스트 먼저 작성
+- 요구사항을 만족하는 기능 테스트 케이스 작성
+- 테스트 예시
+#### 2. Green Phase : 테스트를 통과하는 코드 작성
+- Red Phase 의 테스트가 모두 통과할 수 있는 코드 작성
+- 오버엔지니어링 금지
+#### 3. Refactor Phase : 불필요한 코드 제거 및 품질 개선
+- 불필요한 private 함수 지양, 객체지향적 코드 작성
+- unused import 제거
+- 성능 최적화
+- 모든 테스트 케이스가 통과해야 함
