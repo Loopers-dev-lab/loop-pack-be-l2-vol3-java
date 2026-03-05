@@ -640,7 +640,7 @@ The following describes the main implementation points for introducing the coupo
 - **Transaction**: Ensure atomicity for the full order flow. Maintain consistency across stock, coupon, and order domains. **Application layer (e.g. OrderFacade)** defines the transaction boundary.
 - **Concurrency**: Apply **optimistic or pessimistic locking** to avoid lost updates. All tests for concurrency-sensitive behaviour must pass.
 - **Order flow example**: (1) Order request → (2) Coupon validation and use (concurrency-sensitive) and product stock check and deduction (concurrency-sensitive), order of (2) irrelevant → (3) Create and persist order entity.
-- **Transaction and query review**: When implementing, apply the checklist in `skills/analize-query/SKILL.md` and refer to `.docs/review/05-transaction-query-analysis.md` for transaction boundaries, N+1, and locking.
+- **Transaction and query review**: When implementing, apply the checklist in `skills/analize-query/SKILL.md` and refer to `.docs/design/05-transaction-query.md` for transaction boundaries, N+1, locking, and coupon orchestration.
 
 #### Consistency: Stock / Coupon / Order
 
@@ -693,9 +693,38 @@ The following describes the main implementation points for introducing the coupo
 
 **Concurrency tests**
 
-- [ ] Multiple like/unlike requests for the same product result in correct like count.
-- [ ] Concurrent orders using the same coupon from multiple devices result in the coupon being used only once.
-- [ ] Concurrent orders for the same product result in correct stock deduction.
+- [ ] **Like**: Multiple users like/unlike the same product; the product's like count is reflected correctly. (05-transaction-query §12.3)
+- [ ] **Coupon**: When the same issued coupon is used for concurrent orders from multiple devices, the coupon is used only once.
+- [ ] **Stock**: When multiple orders for the same product are requested concurrently, stock is decreased correctly (never below zero).
+- [ ] Concurrency test approach: use `CountDownLatch` + `ExecutorService` or `CompletableFuture`; assert success/failure counts and final DB state. (`.docs/design/05-transaction-query.md` §12)
+
+#### 05-transaction-query.md — Exception & implementation checklist
+
+The following items are exception scenarios and implementation requirements based on `.docs/design/05-transaction-query.md`. Verify fulfillment via implementation and tests.
+
+**Lock & transaction**
+
+- [ ] Order flow execution order: coupon (lock/read) → stock (product ID ascending lock) → order creation. (§2.1)
+- [ ] Coupon use: follow document strategy (optimistic `@Version` or pessimistic lock). (§3)
+- [ ] Stock decrease/restore: pessimistic lock; acquire locks in product ID ascending order to avoid deadlock. (§3.2)
+- [ ] DB lock wait timeout (3–5s) or retry/503 guidance policy. (§9.1)
+- [ ] No `@Transactional` on Controller; transaction boundary at Facade. (§8.1)
+
+**Edge cases (§10)**
+
+- [ ] Order fails (400 etc.) when coupon min order amount is not met. Compare `minOrderAmount` with order amount.
+- [ ] Rate discount decimal handling: **floor** or round rule applied consistently per currency unit.
+- [ ] When discount exceeds product total: final payment amount **zero** (no negative). `finalAmount = max(0, orderAmount - discountAmount)`.
+
+**Read & query**
+
+- [ ] Apply `@Transactional(readOnly = true)` to read-only APIs. (§8.2)
+- [ ] Consider DTO Projection for high-traffic or highly related areas (coupon, order). (§8.2, SKILL.md)
+
+**Other**
+
+- [ ] On order cancel, coupon remains USED; do not restore. (§9.1)
+- [ ] Domain: apply expiry at read time (e.g. `getActualStatus(now)`) when not using batch for EXPIRED. (§1)
 
 ---
 

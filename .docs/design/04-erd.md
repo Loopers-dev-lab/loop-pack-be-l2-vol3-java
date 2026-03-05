@@ -113,6 +113,7 @@ erDiagram
         timestamptz expired_at
         timestamptz created_at
         timestamptz updated_at
+        timestamptz deleted_at
     }
 
     issued_coupon {
@@ -120,6 +121,8 @@ erDiagram
         bigint user_id
         bigint coupon_id
         string status
+        timestamptz expired_at
+        timestamptz used_at
         timestamptz created_at
         timestamptz updated_at
     }
