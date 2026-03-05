@@ -2,13 +2,12 @@ package com.loopers.interfaces.api.member;
 
 import com.loopers.application.member.MemberFacade;
 import com.loopers.application.member.MemberInfo;
-import com.loopers.domain.member.Member;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
+import com.loopers.support.auth.AuthUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,15 +33,17 @@ public class MemberV1Controller {
             request.password(),
             request.name(),
             request.birthDate(),
-            request.email()
+            request.gender(),
+            request.email(),
+            request.phone()
         );
         return ApiResponse.success(MemberV1Dto.MemberResponse.from(info));
     }
 
     @GetMapping("/me")
     public ApiResponse<MemberV1Dto.MemberResponse> getMe(HttpServletRequest request) {
-        Member authenticatedMember = getAuthenticatedMember(request);
-        MemberInfo info = memberFacade.getMe(authenticatedMember);
+        String loginId = AuthUtils.getAuthenticatedLoginId(request);
+        MemberInfo info = memberFacade.getMe(loginId);
         return ApiResponse.success(MemberV1Dto.MemberResponse.from(info));
     }
 
@@ -51,20 +52,32 @@ public class MemberV1Controller {
         HttpServletRequest request,
         @RequestBody MemberV1Dto.ChangePasswordRequest passwordRequest
     ) {
-        Member authenticatedMember = getAuthenticatedMember(request);
+        String loginId = AuthUtils.getAuthenticatedLoginId(request);
         memberFacade.changePassword(
-            authenticatedMember,
+            loginId,
             passwordRequest.currentPassword(),
             passwordRequest.newPassword()
         );
         return ApiResponse.success(null);
     }
 
-    private Member getAuthenticatedMember(HttpServletRequest request) {
-        Object attribute = request.getAttribute("authenticatedMember");
-        if (!(attribute instanceof Member member)) {
-            throw new CoreException(ErrorType.UNAUTHORIZED, "인증된 회원 정보가 없습니다.");
-        }
-        return member;
+    @PatchMapping("/me")
+    public ApiResponse<Void> updatePhone(
+        HttpServletRequest request,
+        @RequestBody MemberV1Dto.UpdatePhoneRequest phoneRequest
+    ) {
+        String loginId = AuthUtils.getAuthenticatedLoginId(request);
+        memberFacade.updatePhone(loginId, phoneRequest.phone());
+        return ApiResponse.success(null);
+    }
+
+    @DeleteMapping("/me")
+    public ApiResponse<Void> withdraw(
+        HttpServletRequest request,
+        @RequestBody MemberV1Dto.WithdrawRequest withdrawRequest
+    ) {
+        String loginId = AuthUtils.getAuthenticatedLoginId(request);
+        memberFacade.withdraw(loginId, withdrawRequest.password());
+        return ApiResponse.success(null);
     }
 }

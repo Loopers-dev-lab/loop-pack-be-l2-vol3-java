@@ -1,9 +1,6 @@
-package com.loopers.support.auth;
+package com.loopers.interfaces.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.domain.member.Member;
-import com.loopers.domain.member.MemberReader;
-import com.loopers.domain.member.PasswordEncoder;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.error.ErrorType;
 import jakarta.servlet.FilterChain;
@@ -19,45 +16,28 @@ import java.io.IOException;
 
 @RequiredArgsConstructor
 @Component
-public class MemberAuthFilter extends OncePerRequestFilter {
+public class AdminAuthFilter extends OncePerRequestFilter {
 
-    private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
-    private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
+    private static final String HEADER_LDAP = "X-Loopers-Ldap";
+    private static final String ADMIN_LDAP_VALUE = "loopers.admin";
 
-    private final MemberReader memberReader;
-    private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        // 인증이 필요 없는 경로는 통과
         if (!requiresAuthentication(request)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String loginId = request.getHeader(HEADER_LOGIN_ID);
-        String loginPw = request.getHeader(HEADER_LOGIN_PW);
+        String ldapValue = request.getHeader(HEADER_LDAP);
 
-        // 헤더가 없으면 401
-        if (loginId == null || loginPw == null) {
+        if (!ADMIN_LDAP_VALUE.equals(ldapValue)) {
             sendUnauthorizedResponse(response);
             return;
         }
 
-        // 회원 조회 및 비밀번호 검증
-        Member member = memberReader.findByLoginId(loginId)
-            .filter(m -> passwordEncoder.matches(loginPw, m.getPassword()))
-            .orElse(null);
-
-        if (member == null) {
-            sendUnauthorizedResponse(response);
-            return;
-        }
-
-        // 인증 성공 - 회원 정보를 request에 저장
-        request.setAttribute("authenticatedMember", member);
         filterChain.doFilter(request, response);
     }
 
@@ -71,15 +51,6 @@ public class MemberAuthFilter extends OncePerRequestFilter {
     }
 
     private boolean requiresAuthentication(HttpServletRequest request) {
-        String path = request.getRequestURI();
-        String method = request.getMethod();
-
-        // POST /api/v1/members (회원가입)는 인증 불필요
-        if ("POST".equals(method) && "/api/v1/members".equals(path)) {
-            return false;
-        }
-
-        // /api/v1/members/** 경로는 인증 필요
-        return path.startsWith("/api/v1/members/");
+        return request.getRequestURI().startsWith("/api-admin/");
     }
 }

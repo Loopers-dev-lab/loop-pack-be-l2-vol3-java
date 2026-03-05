@@ -11,12 +11,22 @@ public class MemberV1Dto {
         String password,
         String name,
         LocalDate birthDate,
-        String email
+        String gender,
+        String email,
+        String phone
     ) {}
 
     public record ChangePasswordRequest(
         String currentPassword,
         String newPassword
+    ) {}
+
+    public record UpdatePhoneRequest(
+        String phone
+    ) {}
+
+    public record WithdrawRequest(
+        String password
     ) {}
 
     public record MemberResponse(
@@ -26,7 +36,9 @@ public class MemberV1Dto {
             String loginId,
             String name,
             LocalDate birthDate,
-            String email
+            String gender,
+            String email,
+            String phone
         ) {}
 
         public static MemberResponse from(MemberInfo info) {
@@ -35,7 +47,9 @@ public class MemberV1Dto {
                     info.loginId(),
                     info.name(),
                     info.birthDate(),
-                    info.email()
+                    info.gender(),
+                    info.email(),
+                    info.phone()
                 )
             );
         }
