@@ -15,11 +15,11 @@ public record CouponCommand() {
         }
     }
 
-    public record Update(CouponType type, String name, Integer value, BigDecimal minOrderAmount,
-                         Integer maxIssueCount, LocalDateTime expiredAt) {
-        public static Update of(CouponType type, String name, Integer value, BigDecimal minOrderAmount,
-                                Integer maxIssueCount, LocalDateTime expiredAt) {
-            return new Update(type, name, value, minOrderAmount, maxIssueCount, expiredAt);
+    public record UpdateInfo(CouponType type, String name, Integer value, BigDecimal minOrderAmount,
+                             Integer maxIssueCount, LocalDateTime expiredAt) {
+        public static UpdateInfo of(CouponType type, String name, Integer value, BigDecimal minOrderAmount,
+                                    Integer maxIssueCount, LocalDateTime expiredAt) {
+            return new UpdateInfo(type, name, value, minOrderAmount, maxIssueCount, expiredAt);
         }
     }
 }

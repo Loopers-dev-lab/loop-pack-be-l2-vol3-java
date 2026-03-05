@@ -48,7 +48,7 @@ public record CouponRequest() {
         }
     }
 
-    public record Update(
+    public record UpdateInfo(
             CouponType type,
 
             @Size(min = 1, max = 100, message = "쿠폰명은 1~100자여야 합니다")
@@ -66,8 +66,8 @@ public record CouponRequest() {
             @Future(message = "만료일은 현재 이후여야 합니다")
             LocalDateTime expiredAt
     ) {
-        public CouponCommand.Update toCommand() {
-            return CouponCommand.Update.of(type, name, value, minOrderAmount, maxIssueCount, expiredAt);
+        public CouponCommand.UpdateInfo toCommand() {
+            return CouponCommand.UpdateInfo.of(type, name, value, minOrderAmount, maxIssueCount, expiredAt);
         }
     }
 

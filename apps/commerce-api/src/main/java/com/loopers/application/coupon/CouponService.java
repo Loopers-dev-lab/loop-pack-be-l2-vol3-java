@@ -51,7 +51,7 @@ public class CouponService {
     }
 
     @Transactional
-    public Coupon update(Long id, CouponCommand.Update command) {
+    public Coupon updateInfo(Long id, CouponCommand.UpdateInfo command) {
         Coupon coupon = couponRepository.findById(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
         coupon.updateInfo(command.name(), command.value(), command.minOrderAmount(),

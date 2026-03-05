@@ -43,9 +43,9 @@ public class CouponAdminV1Controller implements CouponAdminApiV1Spec {
 
     @PatchMapping("/{couponId}")
     @Override
-    public ApiResponse<CouponAdminV1Dto.CouponResponse> update(
+    public ApiResponse<CouponAdminV1Dto.CouponResponse> updateInfo(
             @PathVariable Long couponId,
-            @RequestBody @Valid CouponRequest.Update request) {
+            @RequestBody @Valid CouponRequest.UpdateInfo request) {
         CouponInfo info = couponFacade.updateCoupon(couponId, request.toCommand());
         return ApiResponse.success(CouponAdminV1Dto.CouponResponse.from(info));
     }

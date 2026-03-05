@@ -225,11 +225,11 @@ class CouponServiceIntegrationTest {
                     "1000원 할인", CouponType.FIXED, 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             ));
-            CouponCommand.Update command = CouponCommand.Update.of(
+            CouponCommand.UpdateInfo command = CouponCommand.UpdateInfo.of(
                     null, "2000원 할인", 2000, BigDecimal.valueOf(20000), null, null
             );
 
-            Coupon result = couponService.update(coupon.getId(), command);
+            Coupon result = couponService.updateInfo(coupon.getId(), command);
 
             assertAll(
                     () -> assertThat(result.getName()).isEqualTo("2000원 할인"),
@@ -241,11 +241,11 @@ class CouponServiceIntegrationTest {
 
         @Test
         void 존재하지_않는_쿠폰을_수정하면_예외() {
-            CouponCommand.Update command = CouponCommand.Update.of(
+            CouponCommand.UpdateInfo command = CouponCommand.UpdateInfo.of(
                     null, "수정된 이름", null, null, null, null
             );
 
-            assertThatThrownBy(() -> couponService.update(999L, command))
+            assertThatThrownBy(() -> couponService.updateInfo(999L, command))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
         }
@@ -258,11 +258,11 @@ class CouponServiceIntegrationTest {
             ));
             coupon.delete();
             couponRepository.save(coupon);
-            CouponCommand.Update command = CouponCommand.Update.of(
+            CouponCommand.UpdateInfo command = CouponCommand.UpdateInfo.of(
                     null, "수정된 이름", null, null, null, null
             );
 
-            assertThatThrownBy(() -> couponService.update(coupon.getId(), command))
+            assertThatThrownBy(() -> couponService.updateInfo(coupon.getId(), command))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
         }
@@ -276,11 +276,11 @@ class CouponServiceIntegrationTest {
             coupon.issue();
             coupon.issue();
             couponRepository.save(coupon);
-            CouponCommand.Update command = CouponCommand.Update.of(
+            CouponCommand.UpdateInfo command = CouponCommand.UpdateInfo.of(
                     null, null, null, null, 1, null
             );
 
-            assertThatThrownBy(() -> couponService.update(coupon.getId(), command))
+            assertThatThrownBy(() -> couponService.updateInfo(coupon.getId(), command))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }

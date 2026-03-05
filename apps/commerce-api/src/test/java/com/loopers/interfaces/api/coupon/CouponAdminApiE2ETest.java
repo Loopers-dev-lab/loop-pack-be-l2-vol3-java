@@ -279,11 +279,11 @@ class CouponAdminApiE2ETest {
                     "1000원 할인", CouponType.FIXED, 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             );
-            CouponRequest.Update request = new CouponRequest.Update(
+            CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
                     null, "2000원 할인", 2000, BigDecimal.valueOf(20000), 200, null
             );
 
-            ResponseEntity<ApiResponse<CouponAdminV1Dto.CouponResponse>> response = patchUpdate(couponId, request);
+            ResponseEntity<ApiResponse<CouponAdminV1Dto.CouponResponse>> response = patchUpdateInfo(couponId, request);
 
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
@@ -306,11 +306,11 @@ class CouponAdminApiE2ETest {
                     "1000원 할인", CouponType.FIXED, 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             );
-            CouponRequest.Update request = new CouponRequest.Update(
+            CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
                     null, "수정된 이름", null, null, null, null
             );
 
-            ResponseEntity<ApiResponse<CouponAdminV1Dto.CouponResponse>> response = patchUpdate(couponId, request);
+            ResponseEntity<ApiResponse<CouponAdminV1Dto.CouponResponse>> response = patchUpdateInfo(couponId, request);
 
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
@@ -327,7 +327,7 @@ class CouponAdminApiE2ETest {
                     "1000원 할인", CouponType.FIXED, 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
-            CouponRequest.Update request = new CouponRequest.Update(
+            CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
                     CouponType.RATE, null, null, null, null, null
             );
 
@@ -349,7 +349,7 @@ class CouponAdminApiE2ETest {
                     "10% 할인", CouponType.RATE, 10,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
-            CouponRequest.Update request = new CouponRequest.Update(
+            CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
                     null, null, 101, null, null, null
             );
 
@@ -375,7 +375,7 @@ class CouponAdminApiE2ETest {
             coupon.issue();
             coupon.issue();
             couponRepository.save(coupon);
-            CouponRequest.Update request = new CouponRequest.Update(
+            CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
                     null, null, null, null, 1, null
             );
 
@@ -397,7 +397,7 @@ class CouponAdminApiE2ETest {
                     "쿠폰", CouponType.FIXED, 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
-            CouponRequest.Update request = new CouponRequest.Update(
+            CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
                     null, null, null, null, null, LocalDateTime.now().minusDays(1)
             );
 
@@ -412,7 +412,7 @@ class CouponAdminApiE2ETest {
 
         @Test
         void 미존재_쿠폰을_수정하면_404_응답() {
-            CouponRequest.Update request = new CouponRequest.Update(
+            CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
                     null, "수정", null, null, null, null
             );
 
@@ -434,7 +434,7 @@ class CouponAdminApiE2ETest {
                     "쿠폰", CouponType.FIXED, 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
-            CouponRequest.Update request = new CouponRequest.Update(
+            CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
                     null, null, -1, null, null, null
             );
 
@@ -449,7 +449,7 @@ class CouponAdminApiE2ETest {
 
         @Test
         void 인증헤더가_누락되면_401_응답() {
-            CouponRequest.Update request = new CouponRequest.Update(
+            CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
                     null, "수정", null, null, null, null
             );
 
@@ -467,7 +467,7 @@ class CouponAdminApiE2ETest {
 
         @Test
         void 인증에_실패하면_401_응답() {
-            CouponRequest.Update request = new CouponRequest.Update(
+            CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
                     null, "수정", null, null, null, null
             );
             HttpHeaders headers = new HttpHeaders();
@@ -833,8 +833,8 @@ class CouponAdminApiE2ETest {
         );
     }
 
-    private ResponseEntity<ApiResponse<CouponAdminV1Dto.CouponResponse>> patchUpdate(
-            Long couponId, CouponRequest.Update request) {
+    private ResponseEntity<ApiResponse<CouponAdminV1Dto.CouponResponse>> patchUpdateInfo(
+            Long couponId, CouponRequest.UpdateInfo request) {
         return testRestTemplate.exchange(
                 ENDPOINT + "/" + couponId, HttpMethod.PATCH,
                 new HttpEntity<>(request, fixture.adminHeaders()),

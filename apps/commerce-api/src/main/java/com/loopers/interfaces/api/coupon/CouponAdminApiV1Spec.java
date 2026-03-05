@@ -28,9 +28,9 @@ public interface CouponAdminApiV1Spec {
             summary = "쿠폰 수정",
             description = "쿠폰 템플릿 정보를 수정합니다."
     )
-    ApiResponse<CouponAdminV1Dto.CouponResponse> update(
+    ApiResponse<CouponAdminV1Dto.CouponResponse> updateInfo(
             Long couponId,
-            CouponRequest.Update request
+            CouponRequest.UpdateInfo request
     );
 
     // Query
