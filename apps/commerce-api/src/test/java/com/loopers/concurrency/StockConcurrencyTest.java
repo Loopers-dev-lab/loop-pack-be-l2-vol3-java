@@ -46,8 +46,8 @@ class StockConcurrencyTest {
     @Test
     void concurrentOrders_decreasesStockCorrectly() throws InterruptedException {
         // arrange
-        int initialStock = 10;
-        int threadCount = 10;
+        int initialStock = 100;
+        int threadCount = 100;
         int orderQuantity = 1;
 
         Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
@@ -89,8 +89,8 @@ class StockConcurrencyTest {
     @Test
     void concurrentOrders_exceedingStock_failsGracefully() throws InterruptedException {
         // arrange
-        int initialStock = 5;
-        int threadCount = 10;
+        int initialStock = 50;
+        int threadCount = 100;
 
         Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
         Product product = productRepository.save(

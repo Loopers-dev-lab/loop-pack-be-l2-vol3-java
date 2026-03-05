@@ -54,7 +54,7 @@ class CouponUseConcurrencyTest {
     @Test
     void concurrentOrdersWithSameCoupon_onlyOneSucceeds() throws InterruptedException {
         // arrange
-        int threadCount = 10;
+        int threadCount = 100;
         Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
         Product product = productRepository.save(
             new Product(brand.getId(), "에어맥스", new Price(100000), new Stock(100)));

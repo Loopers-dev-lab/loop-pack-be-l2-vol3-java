@@ -41,21 +41,19 @@ public class OrderFacade {
 
     @Transactional
     public Order createOrder(Long memberId, List<OrderItemRequest> itemRequests, Long couponIssueId) {
-        // 1. 상품 ID 정렬 + 일괄 비관적 락 + 재고 차감
-        List<Long> sortedProductIds = itemRequests.stream()
-            .sorted(Comparator.comparing(OrderItemRequest::productId))
+        // 1. 상품 조회 (스냅샷용)
+        List<Long> productIds = itemRequests.stream()
             .map(OrderItemRequest::productId)
+            .distinct()
             .toList();
 
-        Map<Long, Product> productMap = productRepository.findAllByIdsWithLock(sortedProductIds).stream()
+        Map<Long, Product> productMap = productRepository.findAllByIds(productIds).stream()
             .collect(Collectors.toMap(Product::getId, Function.identity()));
 
         for (OrderItemRequest req : itemRequests) {
-            Product product = productMap.get(req.productId());
-            if (product == null) {
+            if (productMap.get(req.productId()) == null) {
                 throw new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.");
             }
-            product.decreaseStock(req.quantity());
         }
 
         // 2. 브랜드 한 번에 조회 (N+1 방지)
@@ -81,7 +79,17 @@ public class OrderFacade {
             ));
         }
 
-        // 4. 쿠폰 적용
+        // 4. 재고 차감 (조건부 UPDATE, ID 오름차순으로 데드락 방지)
+        itemRequests.stream()
+            .sorted(Comparator.comparing(OrderItemRequest::productId))
+            .forEach(req -> {
+                int updated = productRepository.decreaseStock(req.productId(), req.quantity());
+                if (updated == 0) {
+                    throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.");
+                }
+            });
+
+        // 5. 쿠폰 적용
         Long resolvedCouponIssueId = null;
         int discountAmount = 0;
 
@@ -96,11 +104,11 @@ public class OrderFacade {
             discountAmount = result.discountAmount();
         }
 
-        // 5. 주문 저장
+        // 6. 주문 저장
         Order order = orderRepository.save(
             Order.create(memberId, snapshots, resolvedCouponIssueId, discountAmount));
 
-        // 6. 쿠폰에 주문 ID 연결
+        // 7. 쿠폰에 주문 ID 연결
         if (resolvedCouponIssueId != null) {
             couponFacade.linkCouponToOrder(resolvedCouponIssueId, order.getId());
         }
@@ -131,21 +139,10 @@ public class OrderFacade {
         }
         order.cancel();
 
-        // 상품 ID 정렬 후 일괄 비관적 락으로 재고 복원 (교착 상태 방지)
-        List<Long> sortedProductIds = order.getItems().stream()
-            .map(OrderItem::getProductId)
-            .sorted()
-            .toList();
-        Map<Long, Product> productMap = productRepository.findAllByIdsWithLock(sortedProductIds).stream()
-            .collect(Collectors.toMap(Product::getId, Function.identity()));
-
-        for (OrderItem item : order.getItems()) {
-            Product product = productMap.get(item.getProductId());
-            if (product == null) {
-                throw new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.");
-            }
-            product.increaseStock(item.getQuantity());
-        }
+        // 재고 복원 (조건부 UPDATE, ID 오름차순으로 데드락 방지)
+        order.getItems().stream()
+            .sorted(Comparator.comparing(OrderItem::getProductId))
+            .forEach(item -> productRepository.increaseStock(item.getProductId(), item.getQuantity()));
 
         // 쿠폰 복원
         if (order.getCouponIssueId() != null) {
