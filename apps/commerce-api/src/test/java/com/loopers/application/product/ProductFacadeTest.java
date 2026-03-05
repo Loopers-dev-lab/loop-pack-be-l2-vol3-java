@@ -118,7 +118,7 @@ class ProductFacadeTest {
             Pageable pageable = PageRequest.of(0, 20);
             when(productService.findNotDeletedForList(ProductSortOrder.LATEST, null, 0, 20))
                     .thenReturn(new PageImpl<>(List.of(product), pageable, 1));
-            when(brandService.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.of(brand));
+            when(brandService.findByIdAndNotDeletedIn(List.of(BRAND_ID))).thenReturn(Map.of(BRAND_ID, brand));
             when(likeService.getLikeCountByProductIds(List.of(product.getId())))
                     .thenReturn(Map.of(product.getId(), LIKE_COUNT));
 
@@ -131,6 +131,7 @@ class ProductFacadeTest {
             assertThat(item.brandName()).isEqualTo(BRAND_NAME);
             assertThat(item.likeCount()).isEqualTo(LIKE_COUNT);
             assertThat(result.getTotalElements()).isEqualTo(1);
+            verify(brandService).findByIdAndNotDeletedIn(List.of(BRAND_ID));
         }
 
         @Test

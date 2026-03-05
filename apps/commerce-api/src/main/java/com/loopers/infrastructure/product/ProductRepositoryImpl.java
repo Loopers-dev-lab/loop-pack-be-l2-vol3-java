@@ -11,6 +11,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import jakarta.persistence.EntityManager;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,10 +24,13 @@ public class ProductRepositoryImpl implements ProductRepository {
 
     private final ProductJpaRepository productJpaRepository;
     private final JPAQueryFactory queryFactory;
+    private final EntityManager entityManager;
 
-    public ProductRepositoryImpl(ProductJpaRepository productJpaRepository, JPAQueryFactory queryFactory) {
+    public ProductRepositoryImpl(ProductJpaRepository productJpaRepository, JPAQueryFactory queryFactory,
+                                 EntityManager entityManager) {
         this.productJpaRepository = productJpaRepository;
         this.queryFactory = queryFactory;
+        this.entityManager = entityManager;
     }
 
     @Override
@@ -95,6 +100,18 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public Optional<ProductModel> findByIdForUpdate(Long id) {
         return productJpaRepository.findByIdForUpdate(id);
+    }
+
+    @Override
+    public void softDeleteByBrandIdBulk(Long brandId) {
+        ZonedDateTime now = ZonedDateTime.now();
+        queryFactory.update(productModel)
+                .set(productModel.deletedAt, now)
+                .set(productModel.updatedAt, now)
+                .where(productModel.brandId.eq(brandId), productModel.deletedAt.isNull())
+                .execute();
+        // 벌크 연산은 1차 캐시를 거치지 않으므로, 동일 트랜잭션 내 이후 조회에서 stale 상태가 나오지 않도록 비운다.
+        entityManager.clear();
     }
 
     @Override

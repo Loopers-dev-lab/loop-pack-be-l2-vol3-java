@@ -6,7 +6,11 @@ import com.loopers.support.error.ErrorType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class BrandService {
@@ -33,6 +37,15 @@ public class BrandService {
     @Transactional(readOnly = true)
     public Optional<BrandModel> findByIdAndNotDeleted(Long id) {
         return brandRepository.findByIdAndNotDeleted(id);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, BrandModel> findByIdAndNotDeletedIn(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        List<BrandModel> list = brandRepository.findByIdAndNotDeletedIn(ids);
+        return list.stream().collect(Collectors.toMap(BrandModel::getId, b -> b));
     }
 
     @Transactional

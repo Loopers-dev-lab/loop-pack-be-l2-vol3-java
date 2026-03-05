@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -86,9 +87,11 @@ public class ProductFacade {
         }
         List<Long> productIds = products.stream().map(ProductModel::getId).toList();
         var likeCountMap = likeService.getLikeCountByProductIds(productIds);
+        List<Long> brandIds = products.stream().map(ProductModel::getBrandId).distinct().toList();
+        Map<Long, BrandModel> brandMap = brandService.findByIdAndNotDeletedIn(brandIds);
         List<ProductListItemInfo> items = products.stream()
             .map(p -> {
-                String brandName = brandService.findByIdAndNotDeleted(p.getBrandId())
+                String brandName = Optional.ofNullable(brandMap.get(p.getBrandId()))
                     .map(BrandModel::getName)
                     .orElse("");
                 long likeCount = likeCountMap.getOrDefault(p.getId(), 0L);

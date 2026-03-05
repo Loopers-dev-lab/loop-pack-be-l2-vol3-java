@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -91,7 +92,7 @@ public class ProductService {
      * 상품 판매 가능 여부를 검증한다. (존재·미삭제·재고 충분)
      * optionId는 값 보존만 하며 옵션 테이블 검증은 하지 않는다.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public void validateProductAvailability(Long productId, Quantity quantity, Long optionId) {
         getValidatedProduct(productId, quantity);
     }
@@ -123,7 +124,7 @@ public class ProductService {
      * 주문 항목 목록을 검증하고, 유효 시 각 상품의 스냅샷(이름·가격) 목록을 반환한다.
      * 하나라도 미존재/삭제/재고 부족이면 예외를 던진다.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ProductSnapshot> validateAndGetSnapshots(List<ProductValidationRequest> requests) {
         if (requests == null || requests.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목이 없습니다.");
@@ -138,14 +139,19 @@ public class ProductService {
 
     /**
      * 재고를 복구한다. (주문 취소 등)
-     * 비관적 락으로 동시성 보장 (04-erd §0).
+     * 비관적 락으로 동시성 보장.
+     * 데드락 방지를 위해 productId 오름차순으로 락을 획득한다.
+     * 정합성 우선으로 단일 트랜잭션에서 주문 취소와 함께 수행한다.
      */
     @Transactional
     public void restoreStock(List<RestoreStockItem> items) {
         if (items == null || items.isEmpty()) {
             return;
         }
-        for (RestoreStockItem item : items) {
+        List<RestoreStockItem> sorted = items.stream()
+                .sorted(Comparator.comparing(RestoreStockItem::productId))
+                .toList();
+        for (RestoreStockItem item : sorted) {
             ProductModel product = productRepository.findByIdForUpdate(item.productId())
                     .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + item.productId()));
             product.increaseStock(item.quantity());
@@ -156,13 +162,10 @@ public class ProductService {
     /**
      * 해당 브랜드에 속한 모든 미삭제 상품을 soft delete한다.
      * 브랜드 삭제 시 연쇄 삭제에 사용한다 (01 §3.5).
+     * 단일 벌크 UPDATE로 트랜잭션 내 루프·save 수를 줄인다.
      */
     @Transactional
     public void softDeleteByBrandId(Long brandId) {
-        List<ProductModel> products = productRepository.findByBrandIdAndNotDeleted(brandId);
-        for (ProductModel product : products) {
-            product.delete();
-            productRepository.save(product);
-        }
+        productRepository.softDeleteByBrandIdBulk(brandId);
     }
 }

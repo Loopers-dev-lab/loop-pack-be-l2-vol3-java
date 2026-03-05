@@ -67,7 +67,7 @@ public class OrderService {
 
     /**
      * 주문을 취소한다. 없거나 타인 주문이면 NOT_FOUND, 취소 불가 상태면 BAD_REQUEST.
-     * 결제 완료(PAID) 주문은 재고 복구 후 취소한다.
+     * 결제 완료(PAID) 주문은 재고 복구 후 취소한다. 정합성 우선으로 단일 트랜잭션에서 처리한다.
      */
     @Transactional
     public OrderModel cancel(Long userId, Long orderId) {
