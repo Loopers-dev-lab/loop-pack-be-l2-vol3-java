@@ -15,7 +15,9 @@ public class OrderV1Dto {
 
     public record PlaceOrderRequest(
         @NotEmpty(message = "주문 상품은 최소 1개 이상이어야 합니다.")
-        List<@Valid PlaceOrderItemRequest> items
+        List<@Valid PlaceOrderItemRequest> items,
+
+        Long couponId
     ) {}
 
     public record PlaceOrderItemRequest(
@@ -29,6 +31,8 @@ public class OrderV1Dto {
     public record OrderSummaryResponse(
         Long id,
         Long userId,
+        Long originalAmount,
+        Long discountAmount,
         Long totalAmount,
         ZonedDateTime orderedAt
     ) {
@@ -36,6 +40,8 @@ public class OrderV1Dto {
             return new OrderSummaryResponse(
                 info.id(),
                 info.userId(),
+                info.originalAmount(),
+                info.discountAmount(),
                 info.totalAmount(),
                 info.orderedAt()
             );
@@ -45,6 +51,9 @@ public class OrderV1Dto {
     public record OrderDetailResponse(
         Long id,
         Long userId,
+        Long usedCouponId,
+        Long originalAmount,
+        Long discountAmount,
         Long totalAmount,
         ZonedDateTime orderedAt,
         List<OrderItemResponse> items
@@ -53,6 +62,9 @@ public class OrderV1Dto {
             return new OrderDetailResponse(
                 info.id(),
                 info.userId(),
+                info.usedCouponId(),
+                info.originalAmount(),
+                info.discountAmount(),
                 info.totalAmount(),
                 info.orderedAt(),
                 info.items().stream()

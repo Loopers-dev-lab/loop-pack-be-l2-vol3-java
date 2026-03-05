@@ -12,6 +12,8 @@ public class OrderAdminV1Dto {
     public record OrderSummaryResponse(
         Long id,
         Long userId,
+        Long originalAmount,
+        Long discountAmount,
         Long totalAmount,
         ZonedDateTime orderedAt
     ) {
@@ -19,6 +21,8 @@ public class OrderAdminV1Dto {
             return new OrderSummaryResponse(
                 info.id(),
                 info.userId(),
+                info.originalAmount(),
+                info.discountAmount(),
                 info.totalAmount(),
                 info.orderedAt()
             );
@@ -28,6 +32,9 @@ public class OrderAdminV1Dto {
     public record OrderDetailResponse(
         Long id,
         Long userId,
+        Long usedCouponId,
+        Long originalAmount,
+        Long discountAmount,
         Long totalAmount,
         ZonedDateTime orderedAt,
         List<OrderItemResponse> items
@@ -36,6 +43,9 @@ public class OrderAdminV1Dto {
             return new OrderDetailResponse(
                 info.id(),
                 info.userId(),
+                info.usedCouponId(),
+                info.originalAmount(),
+                info.discountAmount(),
                 info.totalAmount(),
                 info.orderedAt(),
                 info.items().stream()
