@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.coupon;
 
+import com.loopers.domain.coupon.DiscountType;
 import com.loopers.domain.coupon.IssuedCouponStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -9,7 +10,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import jakarta.persistence.Version;
 import java.time.ZonedDateTime;
 
 /**
@@ -49,9 +49,19 @@ public class IssuedCouponEntity {
     @Column(name = "deleted_at")
     private ZonedDateTime deletedAt;
 
-    @Version
-    @Column(name = "version", nullable = false)
-    private Long version = 0L;
+    // 발급 시점 스냅샷 필드
+    @Column(name = "coupon_name")
+    private String couponName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "discount_type")
+    private DiscountType discountType;
+
+    @Column(name = "discount_value")
+    private int discountValue;
+
+    @Column(name = "max_discount_amount")
+    private Integer maxDiscountAmount;
 
     protected IssuedCouponEntity() {}
 
@@ -127,11 +137,35 @@ public class IssuedCouponEntity {
         this.deletedAt = deletedAt;
     }
 
-    public Long getVersion() {
-        return version;
+    public String getCouponName() {
+        return couponName;
     }
 
-    public void setVersion(Long version) {
-        this.version = version;
+    public void setCouponName(String couponName) {
+        this.couponName = couponName;
+    }
+
+    public DiscountType getDiscountType() {
+        return discountType;
+    }
+
+    public void setDiscountType(DiscountType discountType) {
+        this.discountType = discountType;
+    }
+
+    public int getDiscountValue() {
+        return discountValue;
+    }
+
+    public void setDiscountValue(int discountValue) {
+        this.discountValue = discountValue;
+    }
+
+    public Integer getMaxDiscountAmount() {
+        return maxDiscountAmount;
+    }
+
+    public void setMaxDiscountAmount(Integer maxDiscountAmount) {
+        this.maxDiscountAmount = maxDiscountAmount;
     }
 }

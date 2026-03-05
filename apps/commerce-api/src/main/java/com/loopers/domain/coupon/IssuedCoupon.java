@@ -19,21 +19,35 @@ public class IssuedCoupon {
     private ZonedDateTime createdAt;
     private ZonedDateTime updatedAt;
     private ZonedDateTime deletedAt;
-    private Long version;
+
+    // 발급 시점 스냅샷 (어드민이 템플릿 수정해도 발급된 쿠폰에 영향 없음)
+    private String couponName;
+    private DiscountType discountType;
+    private int discountValue;
+    private Integer maxDiscountAmount;
 
     protected IssuedCoupon() {}
 
-    private IssuedCoupon(Long couponTemplateId, Long userId) {
+    private IssuedCoupon(Long couponTemplateId, Long userId,
+                         String couponName, DiscountType discountType,
+                         int discountValue, Integer maxDiscountAmount) {
         if (couponTemplateId == null || userId == null) {
             throw new CoreException(CouponErrorType.INVALID_COUPON_ISSUE);
         }
         this.couponTemplateId = couponTemplateId;
         this.userId = userId;
         this.status = IssuedCouponStatus.ISSUED;
+        this.couponName = couponName;
+        this.discountType = discountType;
+        this.discountValue = discountValue;
+        this.maxDiscountAmount = maxDiscountAmount;
     }
 
-    public static IssuedCoupon create(Long couponTemplateId, Long userId) {
-        return new IssuedCoupon(couponTemplateId, userId);
+    public static IssuedCoupon create(Long couponTemplateId, Long userId,
+                                       String couponName, DiscountType discountType,
+                                       int discountValue, Integer maxDiscountAmount) {
+        return new IssuedCoupon(couponTemplateId, userId, couponName, discountType,
+                discountValue, maxDiscountAmount);
     }
 
     /**
@@ -43,7 +57,9 @@ public class IssuedCoupon {
     public static IssuedCoupon reconstitute(Long id, Long couponTemplateId, Long userId,
                                              IssuedCouponStatus status, Long orderId, ZonedDateTime usedAt,
                                              ZonedDateTime createdAt, ZonedDateTime updatedAt,
-                                             ZonedDateTime deletedAt, Long version) {
+                                             ZonedDateTime deletedAt,
+                                             String couponName, DiscountType discountType,
+                                             int discountValue, Integer maxDiscountAmount) {
         IssuedCoupon coupon = new IssuedCoupon();
         coupon.id = id;
         coupon.couponTemplateId = couponTemplateId;
@@ -54,17 +70,21 @@ public class IssuedCoupon {
         coupon.createdAt = createdAt;
         coupon.updatedAt = updatedAt;
         coupon.deletedAt = deletedAt;
-        coupon.version = version;
+        coupon.couponName = couponName;
+        coupon.discountType = discountType;
+        coupon.discountValue = discountValue;
+        coupon.maxDiscountAmount = maxDiscountAmount;
         return coupon;
     }
 
-    public void use(Long orderId) {
+    /**
+     * 사용 가능 상태인지 검증 (POJO 빠른 실패)
+     * 실제 상태 변경은 원자적 UPDATE(SQL)가 담당한다.
+     */
+    public void validateUsable() {
         if (this.status != IssuedCouponStatus.ISSUED) {
             throw new CoreException(CouponErrorType.INVALID_COUPON_STATUS);
         }
-        this.status = IssuedCouponStatus.USED;
-        this.orderId = orderId;
-        this.usedAt = ZonedDateTime.now();
     }
 
     public void expire() {
@@ -113,7 +133,19 @@ public class IssuedCoupon {
         return this.deletedAt;
     }
 
-    public Long getVersion() {
-        return this.version;
+    public String getCouponName() {
+        return this.couponName;
+    }
+
+    public DiscountType getDiscountType() {
+        return this.discountType;
+    }
+
+    public int getDiscountValue() {
+        return this.discountValue;
+    }
+
+    public Integer getMaxDiscountAmount() {
+        return this.maxDiscountAmount;
     }
 }

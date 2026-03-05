@@ -5,6 +5,7 @@ import com.loopers.support.error.CouponErrorType;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -40,17 +41,29 @@ public class CouponService {
             throw new CoreException(CouponErrorType.USER_ISSUE_LIMIT_EXCEEDED);
         }
 
-        IssuedCoupon issuedCoupon = IssuedCoupon.create(templateId, userId);
+        IssuedCoupon issuedCoupon = IssuedCoupon.create(templateId, userId,
+                template.getName(), template.getDiscountType(),
+                template.getDiscountValue(), template.getMaxDiscountAmount());
         return issuedCouponRepository.save(issuedCoupon);
     }
 
+    /**
+     * 쿠폰 사용 (POJO 검증 + 원자적 UPDATE)
+     *
+     * POJO로 소유권/상태를 빠르게 검증한 후,
+     * SQL WHERE status='ISSUED' 조건으로 동시성을 보호한다.
+     */
     @Transactional(timeout = 30)
     public void use(Long issuedCouponId, Long userId, Long orderId) {
         IssuedCoupon issuedCoupon = issuedCouponRepository.findById(issuedCouponId)
                 .orElseThrow(() -> new CoreException(CouponErrorType.COUPON_NOT_FOUND));
         issuedCoupon.validateOwnership(userId);
-        issuedCoupon.use(orderId);
-        issuedCouponRepository.save(issuedCoupon);
+        issuedCoupon.validateUsable();
+
+        int affected = issuedCouponRepository.useAtomically(issuedCouponId, orderId, ZonedDateTime.now());
+        if (affected == 0) {
+            throw new CoreException(CouponErrorType.COUPON_ALREADY_USED);
+        }
     }
 
     @Transactional(readOnly = true)
