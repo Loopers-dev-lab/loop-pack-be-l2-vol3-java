@@ -41,7 +41,7 @@ public class OrderV1Controller {
         List<OrderItemCommand> items = request.items().stream()
                                               .map(item -> new OrderItemCommand(item.productId(), item.quantity()))
                                               .toList();
-        OrderInfo order = orderFacade.createOrder(new OrderCreateCommand(userId, items));
+        OrderInfo order = orderFacade.createOrder(new OrderCreateCommand(userId, items, request.issuedCouponId()));
         return ApiResponse.success(OrderV1Dto.OrderResponse.from(order));
     }
 

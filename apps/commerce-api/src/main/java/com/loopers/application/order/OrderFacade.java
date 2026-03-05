@@ -1,5 +1,7 @@
 package com.loopers.application.order;
 
+import com.loopers.application.coupon.CouponService;
+import com.loopers.application.coupon.IssuedCouponService;
 import com.loopers.application.product.ProductService;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.domain.order.OrderItemSnapshot;
@@ -16,24 +18,42 @@ import java.util.stream.Collectors;
 public class OrderFacade {
     private final OrderService orderService;
     private final ProductService productService;
+    private final IssuedCouponService issuedCouponService;
+    private final CouponService couponService;
 
     @Transactional
     public OrderInfo createOrder(OrderCreateCommand command) {
         orderService.validateItems(command.items());
+
         List<Long> productIds = command.items().stream()
                                        .map(OrderItemCommand::productId)
                                        .toList();
         List<ProductInfo> products = productService.getActiveProductsByIdsOrThrow(productIds);
-        productService.decreaseStock(command.items());
 
         Map<Long, ProductInfo> productMap = products.stream()
                                                     .collect(Collectors.toMap(ProductInfo::id, p -> p));
+
         List<OrderItemSnapshot> snapshots = command.items().stream()
                                                    .map(item -> {
                                                        ProductInfo p = productMap.get(item.productId());
                                                        return new OrderItemSnapshot(p.id(), p.name(), p.price(), item.quantity());
                                                    })
                                                    .toList();
-        return orderService.placeOrder(command.userId(), snapshots);
+
+        long originalAmount = snapshots.stream().mapToLong(OrderItemSnapshot::lineAmount).sum();
+
+        long discountAmount = 0L;
+        if (command.issuedCouponId() != null) {
+            Long couponId = issuedCouponService.validateAndGetCouponId(command.issuedCouponId(), command.userId());
+            discountAmount = couponService.calculateDiscount(couponId, originalAmount);
+        }
+
+        productService.decreaseStock(command.items());
+
+        if (command.issuedCouponId() != null) {
+            issuedCouponService.use(command.issuedCouponId(), command.userId());
+        }
+
+        return orderService.placeOrder(command.userId(), snapshots, discountAmount);
     }
 }

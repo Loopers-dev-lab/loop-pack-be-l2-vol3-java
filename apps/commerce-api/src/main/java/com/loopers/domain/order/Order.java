@@ -35,11 +35,11 @@ public class Order extends BaseEntity {
 
     protected Order() {}
 
-    private Order(Long userId, List<OrderItemSnapshot> orderItemSnapshots) {
+    private Order(Long userId, List<OrderItemSnapshot> orderItemSnapshots, Long discountAmount) {
         this.userId = userId;
         this.status = Status.ORDERED;
         this.originalAmount = calculateOriginalAmount(orderItemSnapshots);
-        this.discountAmount = 0L;
+        this.discountAmount = discountAmount;
         this.finalAmount = calculateFinalAmount();
     }
 
@@ -54,10 +54,14 @@ public class Order extends BaseEntity {
     }
 
     public static Order create(Long userId, List<OrderItemSnapshot> orderItemSnapshots) {
+        return create(userId, orderItemSnapshots, 0L);
+    }
+
+    public static Order create(Long userId, List<OrderItemSnapshot> orderItemSnapshots, Long discountAmount) {
         if (orderItemSnapshots == null || orderItemSnapshots.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다.");
         }
-        return new Order(userId, orderItemSnapshots);
+        return new Order(userId, orderItemSnapshots, discountAmount);
     }
 
     public enum Status {

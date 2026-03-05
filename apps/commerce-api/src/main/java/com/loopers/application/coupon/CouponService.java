@@ -54,4 +54,11 @@ public class CouponService {
         Coupon coupon = findById(couponId);
         coupon.delete();
     }
+
+    @Transactional(readOnly = true)
+    public long calculateDiscount(Long couponId, long orderAmount) {
+        Coupon coupon = couponRepository.findById(couponId)
+                                        .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[couponId = " + couponId + "] 를 찾을 수 없습니다."));
+        return coupon.calculateDiscount(orderAmount);
+    }
 }

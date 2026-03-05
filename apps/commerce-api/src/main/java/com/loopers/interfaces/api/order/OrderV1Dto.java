@@ -12,7 +12,8 @@ import java.util.List;
 public class OrderV1Dto {
 
     public record CreateRequest(
-            @NotNull @NotEmpty List<OrderItemRequest> items
+            @NotNull @NotEmpty List<OrderItemRequest> items,
+            Long issuedCouponId
     ) {}
 
     public record OrderItemRequest(

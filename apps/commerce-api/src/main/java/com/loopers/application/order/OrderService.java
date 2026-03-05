@@ -36,7 +36,12 @@ public class OrderService {
 
     @Transactional
     public OrderInfo placeOrder(Long userId, List<OrderItemSnapshot> snapshots) {
-        Order order = orderRepository.save(Order.create(userId, snapshots));
+        return placeOrder(userId, snapshots, 0L);
+    }
+
+    @Transactional
+    public OrderInfo placeOrder(Long userId, List<OrderItemSnapshot> snapshots, Long discountAmount) {
+        Order order = orderRepository.save(Order.create(userId, snapshots, discountAmount));
 
         List<OrderItem> orderItems = snapshots.stream()
                                               .map(s -> OrderItem.create(

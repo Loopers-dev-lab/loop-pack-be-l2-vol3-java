@@ -1,6 +1,9 @@
 package com.loopers.application.coupon;
 
+import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.coupon.IssuedCouponRepository;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,5 +30,21 @@ public class IssuedCouponService {
     public Page<IssuedCouponInfo> findByCouponId(Long couponId, Pageable pageable) {
         return issuedCouponRepository.findByCouponId(couponId, pageable)
                                      .map(IssuedCouponInfo::from);
+    }
+
+    @Transactional(readOnly = true)
+    public Long validateAndGetCouponId(Long issuedCouponId, Long userId) {
+        IssuedCoupon issuedCoupon = issuedCouponRepository.findByIdAndUserId(issuedCouponId, userId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[issuedCouponId = " + issuedCouponId + "] 를 찾을 수 없습니다."));
+        issuedCoupon.validate(userId);
+        return issuedCoupon.getCouponId();
+    }
+
+    @Transactional
+    public void use(Long issuedCouponId, Long userId) {
+        int affected = issuedCouponRepository.useById(issuedCouponId, userId);
+        if (affected == 0) {
+            throw new CoreException(ErrorType.COUPON_ALREADY_USED, "이미 사용된 쿠폰입니다.");
+        }
     }
 }

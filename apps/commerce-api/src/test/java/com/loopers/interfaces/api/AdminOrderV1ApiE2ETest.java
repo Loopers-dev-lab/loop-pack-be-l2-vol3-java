@@ -99,7 +99,8 @@ class AdminOrderV1ApiE2ETest {
 
     private Long createOrder() {
         OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
-                List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 1))
+                List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 1)),
+                null
         );
         HttpEntity<OrderV1Dto.CreateRequest> entity = new HttpEntity<>(request, userHeaders());
         ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> response =
