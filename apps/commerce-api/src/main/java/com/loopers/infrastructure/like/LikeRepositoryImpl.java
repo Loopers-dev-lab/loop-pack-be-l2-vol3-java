@@ -19,6 +19,11 @@ public class LikeRepositoryImpl implements LikeRepository {
     }
 
     @Override
+    public Like saveAndFlush(Like like) {
+        return likeJpaRepository.saveAndFlush(like);
+    }
+
+    @Override
     public List<Like> findAllByUserId(Long userId) {
         return likeJpaRepository.findAllByUserIdOrderByCreatedAtDesc(userId);
     }

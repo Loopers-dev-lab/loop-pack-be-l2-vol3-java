@@ -51,6 +51,7 @@ public class CouponConcurrencyTest {
     private static final int THREAD_COUNT = 10;
     private static final int ORDER_AMOUNT = 20000;
 
+
     @DisplayName("회원이 자신의 쿠폰 사용 시")
     @Nested
     class UseCoupon {

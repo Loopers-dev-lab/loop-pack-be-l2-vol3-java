@@ -4,6 +4,7 @@ import java.util.List;
 
 public interface LikeRepository {
     Like save(Like like);
+    Like saveAndFlush(Like like);
     List<Like> findAllByUserId(Long userId);
     boolean existsByUserIdAndProductId(Long userId, Long productId);
     void deleteByUserIdAndProductId(Long userId, Long productId);

@@ -17,7 +17,9 @@ public interface LikeJpaRepository extends JpaRepository<Like, Long> {
 
     void deleteByUserIdAndProductId(Long userId, Long productId);
 
-    void deleteAllByProductId(Long productId);
+    @Modifying
+    @Query("DELETE FROM Like l WHERE l.productId = :productId")
+    void deleteAllByProductId(@Param("productId") Long productId);
 
     @Modifying
     @Query("DELETE FROM Like l WHERE l.productId IN :productIds")
