@@ -1,0 +1,10 @@
+### 쿠폰 발급
+POST {{commerce-api}}/api/v1/coupons/1/issue
+Content-Type: application/json
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Password1!
+
+### 내 쿠폰 목록 조회
+GET {{commerce-api}}/api/v1/users/me/coupons
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Password1!
