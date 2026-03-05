@@ -33,6 +33,7 @@ public class OrderServiceIntegrationTest {
     private static final Long OTHER_USER_ID = 2L;
     private static final Long NOT_EXISTED_ORDER_ID = 999L;
     private static final Money VALID_PRICE = new Money(10000);
+    private static final Money ZERO_DISCOUNT = new Money(0);
     private static final Stock VALID_STOCK = new Stock(100);
     private static final Quantity ORDER_QUANTITY = new Quantity(2);
 
@@ -60,6 +61,12 @@ public class OrderServiceIntegrationTest {
         return new OrderItem(product.getId(), ORDER_QUANTITY, product.getName(), brandName, product.getPrice());
     }
 
+    private Order saveOrder(Long userId, Product product, String brandName) {
+        Money originalAmount = new Money(product.getPrice().getAmount() * ORDER_QUANTITY.getValue());
+        return orderJpaRepository.save(new Order(userId,
+                List.of(buildOrderItem(product, brandName)), null, originalAmount, ZERO_DISCOUNT));
+    }
+
     @DisplayName("주문 생성 시")
     @Nested
     class Create {
@@ -72,14 +79,18 @@ public class OrderServiceIntegrationTest {
             Product product = productJpaRepository.save(
                     new Product(brand.getId(), "나이키 에어맥스", VALID_PRICE, VALID_STOCK));
             List<OrderItem> items = List.of(buildOrderItem(product, brand.getName()));
+            Money originalAmount = new Money(VALID_PRICE.getAmount() * ORDER_QUANTITY.getValue());
 
             // act
-            Order result = orderService.create(USER_ID, items);
+            Order result = orderService.create(USER_ID, items, null, originalAmount, ZERO_DISCOUNT);
 
             // assert
             assertThat(result.getId()).isPositive();
             assertThat(result.getUserId()).isEqualTo(USER_ID);
             assertThat(result.getOrderItems()).hasSize(1);
+            assertThat(result.getOriginalAmount().getAmount()).isEqualTo(20000);
+            assertThat(result.getDiscountAmount().getAmount()).isEqualTo(0);
+            assertThat(result.getFinalAmount().getAmount()).isEqualTo(20000);
 
             // DB 저장 확인
             Order saved = orderJpaRepository.findById(result.getId()).orElseThrow();
@@ -99,8 +110,7 @@ public class OrderServiceIntegrationTest {
             Brand brand = brandJpaRepository.save(new Brand("나이키"));
             Product product = productJpaRepository.save(
                     new Product(brand.getId(), "나이키 에어맥스", VALID_PRICE, VALID_STOCK));
-            Order order = orderJpaRepository.save(
-                    new Order(USER_ID, List.of(buildOrderItem(product, brand.getName()))));
+            Order order = saveOrder(USER_ID, product, brand.getName());
 
             // act
             Order result = orderService.findById(order.getId());
@@ -133,10 +143,9 @@ public class OrderServiceIntegrationTest {
             Brand brand = brandJpaRepository.save(new Brand("나이키"));
             Product product = productJpaRepository.save(
                     new Product(brand.getId(), "나이키 에어맥스", VALID_PRICE, VALID_STOCK));
-            OrderItem item = buildOrderItem(product, brand.getName());
 
-            orderJpaRepository.save(new Order(USER_ID, List.of(item)));
-            orderJpaRepository.save(new Order(OTHER_USER_ID, List.of(item))); // 타인의 주문
+            saveOrder(USER_ID, product, brand.getName());
+            saveOrder(OTHER_USER_ID, product, brand.getName()); // 타인의 주문
 
             ZonedDateTime from = ZonedDateTime.now().minusDays(1);
             ZonedDateTime to = ZonedDateTime.now().plusDays(1);
@@ -156,7 +165,7 @@ public class OrderServiceIntegrationTest {
             Brand brand = brandJpaRepository.save(new Brand("나이키"));
             Product product = productJpaRepository.save(
                     new Product(brand.getId(), "나이키 에어맥스", VALID_PRICE, VALID_STOCK));
-            orderJpaRepository.save(new Order(USER_ID, List.of(buildOrderItem(product, brand.getName()))));
+            saveOrder(USER_ID, product, brand.getName());
 
             // 미래 기간으로 조회
             ZonedDateTime from = ZonedDateTime.now().plusDays(1);
@@ -181,10 +190,9 @@ public class OrderServiceIntegrationTest {
             Brand brand = brandJpaRepository.save(new Brand("나이키"));
             Product product = productJpaRepository.save(
                     new Product(brand.getId(), "나이키 에어맥스", VALID_PRICE, VALID_STOCK));
-            OrderItem item = buildOrderItem(product, brand.getName());
 
-            orderJpaRepository.save(new Order(USER_ID, List.of(item)));
-            orderJpaRepository.save(new Order(OTHER_USER_ID, List.of(item)));
+            saveOrder(USER_ID, product, brand.getName());
+            saveOrder(OTHER_USER_ID, product, brand.getName());
 
             // act
             Page<Order> result = orderService.findAll(PageRequest.of(0, 20));

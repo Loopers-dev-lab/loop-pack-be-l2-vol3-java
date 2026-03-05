@@ -20,11 +20,17 @@ class OrderTest {
     private static final Long PRODUCT_ID = 10L;
     private static final Quantity VALID_QUANTITY = new Quantity(2);
     private static final Money VALID_PRICE = new Money(10000);
+    private static final Money ZERO_DISCOUNT = new Money(0);
     private static final String PRODUCT_NAME = "나이키 에어맥스";
     private static final String BRAND_NAME = "나이키";
 
     private OrderItem validOrderItem() {
         return new OrderItem(PRODUCT_ID, VALID_QUANTITY, PRODUCT_NAME, BRAND_NAME, VALID_PRICE);
+    }
+
+    private Order validOrder(Long userId) {
+        Money originalAmount = new Money(VALID_PRICE.getAmount() * VALID_QUANTITY.getValue());
+        return new Order(userId, List.of(validOrderItem()), null, originalAmount, ZERO_DISCOUNT);
     }
 
     @DisplayName("Order 생성 시")
@@ -35,11 +41,14 @@ class OrderTest {
         @Test
         void createsOrder_whenValidParameters() {
             // act
-            Order order = new Order(USER_ID, List.of(validOrderItem()));
+            Order order = validOrder(USER_ID);
 
             // assert
             assertThat(order.getUserId()).isEqualTo(USER_ID);
             assertThat(order.getOrderItems()).hasSize(1);
+            assertThat(order.getOriginalAmount().getAmount()).isEqualTo(20000);
+            assertThat(order.getDiscountAmount().getAmount()).isEqualTo(0);
+            assertThat(order.getFinalAmount().getAmount()).isEqualTo(20000);
         }
 
         @DisplayName("userId가 null이면 BAD_REQUEST 에러가 발생한다.")
@@ -47,7 +56,7 @@ class OrderTest {
         void throwsBadRequest_whenUserIdIsNull() {
             // act
             CoreException result = assertThrows(CoreException.class,
-                    () -> new Order(null, List.of(validOrderItem())));
+                    () -> new Order(null, List.of(validOrderItem()), null, VALID_PRICE, ZERO_DISCOUNT));
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -58,7 +67,7 @@ class OrderTest {
         void throwsBadRequest_whenOrderItemsIsEmpty() {
             // act
             CoreException result = assertThrows(CoreException.class,
-                    () -> new Order(USER_ID, List.of()));
+                    () -> new Order(USER_ID, List.of(), null, VALID_PRICE, ZERO_DISCOUNT));
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -73,7 +82,7 @@ class OrderTest {
         @Test
         void returnsTrue_whenUserIdMatches() {
             // arrange
-            Order order = new Order(USER_ID, List.of(validOrderItem()));
+            Order order = validOrder(USER_ID);
 
             // act & assert
             assertThat(order.isOwnedBy(USER_ID)).isTrue();
@@ -83,7 +92,7 @@ class OrderTest {
         @Test
         void returnsFalse_whenUserIdDoesNotMatch() {
             // arrange
-            Order order = new Order(USER_ID, List.of(validOrderItem()));
+            Order order = validOrder(USER_ID);
 
             // act & assert
             assertThat(order.isOwnedBy(OTHER_USER_ID)).isFalse();

@@ -1,5 +1,6 @@
 package com.loopers.domain.order;
 
+import com.loopers.domain.product.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -19,8 +20,8 @@ public class OrderService {
 
     // 주문 생성 (US-O01)
     @Transactional
-    public Order create(Long userId, List<OrderItem> items) {
-        Order order = new Order(userId, items);
+    public Order create(Long userId, List<OrderItem> items, Long userCouponId, Money originalAmount, Money discountAmount) {
+        Order order = new Order(userId, items, userCouponId, originalAmount, discountAmount);
         return orderRepository.save(order);
     }
 
