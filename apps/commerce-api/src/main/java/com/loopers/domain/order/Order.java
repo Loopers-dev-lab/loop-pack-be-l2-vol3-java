@@ -24,22 +24,35 @@ public class Order extends BaseEntity {
     @Column(nullable = false)
     private Status status;
 
-    @Column(nullable = false)
-    private Long totalAmount;
+    @Column(name = "original_amount", nullable = false)
+    private Long originalAmount;
+
+    @Column(name = "discount_amount", nullable = false)
+    private Long discountAmount;
+
+    @Column(name = "final_amount", nullable = false)
+    private Long finalAmount;
 
     protected Order() {}
 
     private Order(Long userId, List<OrderItemSnapshot> orderItemSnapshots) {
         this.userId = userId;
         this.status = Status.ORDERED;
-        this.totalAmount = calculateTotalAmount(orderItemSnapshots);
+        this.originalAmount = calculateOriginalAmount(orderItemSnapshots);
+        this.discountAmount = 0L;
+        this.finalAmount = calculateFinalAmount();
     }
 
-    private Long calculateTotalAmount( List<OrderItemSnapshot> orderItemSnapshots) {
+    private Long calculateOriginalAmount(List<OrderItemSnapshot> orderItemSnapshots) {
         return orderItemSnapshots.stream()
                                  .mapToLong(OrderItemSnapshot::lineAmount)
                                  .sum();
     }
+
+    private Long calculateFinalAmount() {
+        return originalAmount - discountAmount;
+    }
+
     public static Order create(Long userId, List<OrderItemSnapshot> orderItemSnapshots) {
         if (orderItemSnapshots == null || orderItemSnapshots.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다.");

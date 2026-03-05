@@ -24,7 +24,9 @@ public class OrderV1Dto {
             Long id,
             Long userId,
             String status,
-            Long totalAmount,
+            Long originalAmount,
+            Long discountAmount,
+            Long finalAmount,
             ZonedDateTime createdAt
     ) {
         public static OrderResponse from(OrderInfo info) {
@@ -32,7 +34,9 @@ public class OrderV1Dto {
                     info.id(),
                     info.userId(),
                     info.status().name(),
-                    info.totalAmount(),
+                    info.originalAmount(),
+                    info.discountAmount(),
+                    info.finalAmount(),
                     info.createdAt()
             );
         }
@@ -42,7 +46,9 @@ public class OrderV1Dto {
             Long id,
             Long userId,
             String status,
-            Long totalAmount,
+            Long originalAmount,
+            Long discountAmount,
+            Long finalAmount,
             ZonedDateTime createdAt,
             List<OrderItemResponse> items
     ) {
@@ -51,7 +57,9 @@ public class OrderV1Dto {
                     order.id(),
                     order.userId(),
                     order.status().name(),
-                    order.totalAmount(),
+                    order.originalAmount(),
+                    order.discountAmount(),
+                    order.finalAmount(),
                     order.createdAt(),
                     items.stream().map(OrderItemResponse::from).toList()
             );

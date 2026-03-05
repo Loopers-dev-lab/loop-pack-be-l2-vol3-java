@@ -114,7 +114,9 @@ class OrderServiceTest {
             // assert
             assertAll(
                     () -> assertThat(order.userId()).isEqualTo(userId),
-                    () -> assertThat(order.totalAmount()).isEqualTo(expectedTotal),
+                    () -> assertThat(order.originalAmount()).isEqualTo(expectedTotal),
+                    () -> assertThat(order.discountAmount()).isZero(),
+                    () -> assertThat(order.finalAmount()).isEqualTo(expectedTotal),
                     () -> assertThat(order.status()).isEqualTo(Order.Status.ORDERED)
             );
         }

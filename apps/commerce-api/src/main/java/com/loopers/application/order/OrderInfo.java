@@ -8,7 +8,9 @@ public record OrderInfo(
         Long id,
         Long userId,
         Order.Status status,
-        Long totalAmount,
+        Long originalAmount,
+        Long discountAmount,
+        Long finalAmount,
         ZonedDateTime createdAt
 ) {
     public static OrderInfo from(Order order) {
@@ -16,7 +18,9 @@ public record OrderInfo(
                 order.getId(),
                 order.getUserId(),
                 order.getStatus(),
-                order.getTotalAmount(),
+                order.getOriginalAmount(),
+                order.getDiscountAmount(),
+                order.getFinalAmount(),
                 order.getCreatedAt()
         );
     }
