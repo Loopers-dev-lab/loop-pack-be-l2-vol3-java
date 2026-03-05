@@ -60,7 +60,9 @@ class CouponFacadeIntegrationTest {
             Coupon coupon = couponRepository.save(
                     Coupon.create("쿠폰", CouponType.FIXED, 1000, null, 100, LocalDateTime.now().plusSeconds(1))
             );
-            issuedCouponRepository.save(IssuedCoupon.create(coupon.getId(), user.getId()));
+            issuedCouponRepository.save(IssuedCoupon.create(coupon.getId(), user.getId(),
+                    coupon.getName(), coupon.getType(), coupon.getValue(),
+                    coupon.getMinOrderAmount(), coupon.getExpiredAt()));
 
             try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
 
@@ -78,7 +80,9 @@ class CouponFacadeIntegrationTest {
             Coupon coupon = couponRepository.save(
                     Coupon.create("쿠폰", CouponType.FIXED, 1000, null, 100, LocalDateTime.now().plusSeconds(1))
             );
-            IssuedCoupon issuedCoupon = issuedCouponRepository.save(IssuedCoupon.create(coupon.getId(), 1L));
+            issuedCouponRepository.save(IssuedCoupon.create(coupon.getId(), 1L,
+                    coupon.getName(), coupon.getType(), coupon.getValue(),
+                    coupon.getMinOrderAmount(), coupon.getExpiredAt()));
 
             try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
 

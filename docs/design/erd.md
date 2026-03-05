@@ -66,6 +66,11 @@ erDiagram
         bigint id PK
         bigint coupon_id FK "소속 쿠폰"
         bigint user_id FK "발급 사용자"
+        varchar coupon_name "쿠폰명 스냅샷"
+        varchar coupon_type "FIXED / RATE 스냅샷"
+        int coupon_value "할인값 스냅샷"
+        decimal min_order_amount "최소 주문 금액 스냅샷"
+        datetime expired_at "만료일 스냅샷"
         datetime used_at "사용일시"
         datetime created_at
         datetime updated_at

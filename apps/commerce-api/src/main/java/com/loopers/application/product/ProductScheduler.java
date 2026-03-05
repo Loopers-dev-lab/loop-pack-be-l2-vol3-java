@@ -22,22 +22,21 @@ public class ProductScheduler {
         List<Long> brandIds = productService.findBrandIdsWithUncleanedProducts();
 
         for (Long brandId : brandIds) {
-            int totalDeleted = 0;
-            int deleted;
+            try {
+                int totalDeleted = 0;
+                int deleted;
 
-            do {
-                deleted = deleteInBatch(brandId);
-                totalDeleted += deleted;
-            } while (deleted == BATCH_SIZE);
+                do {
+                    deleted = productService.softDeleteByBrandIdInBatch(brandId, BATCH_SIZE);
+                    totalDeleted += deleted;
+                } while (deleted == BATCH_SIZE);
 
-            if (totalDeleted > 0) {
-                log.info("브랜드 {} 상품 {}개 정리 완료", brandId, totalDeleted);
+                if (totalDeleted > 0) {
+                    log.info("브랜드 {} 상품 {}개 정리 완료", brandId, totalDeleted);
+                }
+            } catch (Exception e) {
+                log.error("브랜드 {} 상품 정리 실패", brandId, e);
             }
         }
-    }
-
-    @Transactional
-    public int deleteInBatch(Long brandId) {
-        return productService.softDeleteByBrandIdInBatch(brandId, BATCH_SIZE);
     }
 }

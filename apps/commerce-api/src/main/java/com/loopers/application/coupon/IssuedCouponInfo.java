@@ -1,6 +1,5 @@
 package com.loopers.application.coupon;
 
-import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.CouponType;
 import com.loopers.domain.coupon.IssuedCoupon;
 
@@ -19,24 +18,24 @@ public record IssuedCouponInfo(
         LocalDateTime createdAt,
         LocalDateTime usedAt
 ) {
-    public static IssuedCouponInfo from(IssuedCoupon issuedCoupon, Coupon coupon) {
+    public static IssuedCouponInfo from(IssuedCoupon issuedCoupon) {
         String status;
         if (issuedCoupon.isUsed()) {
             status = "USED";
-        } else if (coupon.isExpired()) {
+        } else if (issuedCoupon.isExpired()) {
             status = "EXPIRED";
         } else {
             status = "AVAILABLE";
         }
         return new IssuedCouponInfo(
                 issuedCoupon.getId(),
-                coupon.getId(),
-                coupon.getName(),
-                coupon.getType(),
-                coupon.getValue(),
-                coupon.getMinOrderAmount(),
+                issuedCoupon.getCouponId(),
+                issuedCoupon.getCouponName(),
+                issuedCoupon.getCouponType(),
+                issuedCoupon.getCouponValue(),
+                issuedCoupon.getMinOrderAmount(),
                 status,
-                coupon.getExpiredAt(),
+                issuedCoupon.getExpiredAt(),
                 issuedCoupon.getCreatedAt().toLocalDateTime(),
                 issuedCoupon.getUsedAt()
         );

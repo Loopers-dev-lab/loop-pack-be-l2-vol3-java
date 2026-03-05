@@ -1,9 +1,7 @@
 package com.loopers.application.order;
 
-import com.loopers.application.coupon.CouponService;
 import com.loopers.application.coupon.IssuedCouponService;
 import com.loopers.application.product.ProductService;
-import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.product.Product;
@@ -31,7 +29,6 @@ public class OrderFacade {
     private final OrderService orderService;
     private final ProductService productService;
     private final IssuedCouponService issuedCouponService;
-    private final CouponService couponService;
 
     // Command
 
@@ -57,12 +54,11 @@ public class OrderFacade {
             throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품이 포함되어 있습니다");
         }
 
-        Coupon coupon = null;
+        IssuedCoupon issuedCoupon = null;
         if (command.couponId() != null) {
-            IssuedCoupon issuedCoupon = issuedCouponService.getIssuedCoupon(command.couponId());
+            issuedCoupon = issuedCouponService.getIssuedCoupon(command.couponId());
             validateCouponOwnership(issuedCoupon, userId);
-            coupon = couponService.getActiveCoupon(issuedCoupon.getCouponId());
-            validateCouponUsable(issuedCoupon, coupon);
+            issuedCoupon.validateUsable();
         }
 
         // ── 2단계: 계산 (락 없음, 순수 연산) ──
@@ -71,9 +67,9 @@ public class OrderFacade {
         BigDecimal totalAmount = calculateTotalAmount(orderItems);
 
         BigDecimal discountAmount = BigDecimal.ZERO;
-        if (coupon != null) {
-            validateMinOrderAmount(coupon, totalAmount);
-            discountAmount = coupon.calculateDiscount(totalAmount);
+        if (issuedCoupon != null) {
+            issuedCoupon.validateMinOrderAmount(totalAmount);
+            discountAmount = issuedCoupon.calculateDiscount(totalAmount);
         }
 
         // ── 3단계: 상태 변경 (원자적 UPDATE, 최대한 짧게) ──
@@ -136,22 +132,6 @@ public class OrderFacade {
     private void validateCouponOwnership(IssuedCoupon issuedCoupon, Long userId) {
         if (!issuedCoupon.getUserId().equals(userId)) {
             throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다");
-        }
-    }
-
-    private void validateCouponUsable(IssuedCoupon issuedCoupon, Coupon coupon) {
-        if (issuedCoupon.isDeleted()) {
-            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다");
-        }
-        if (issuedCoupon.isUsed() || coupon.isExpired()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "사용할 수 없는 쿠폰입니다");
-        }
-    }
-
-    private void validateMinOrderAmount(Coupon coupon, BigDecimal totalAmount) {
-        if (coupon.getMinOrderAmount() != null
-                && totalAmount.compareTo(coupon.getMinOrderAmount()) < 0) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "최소 주문 금액 조건을 충족하지 않습니다");
         }
     }
 

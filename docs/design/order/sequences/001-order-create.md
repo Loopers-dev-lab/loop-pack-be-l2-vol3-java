@@ -11,7 +11,6 @@ sequenceDiagram
     participant OC as OrderController
     participant OF as OrderFacade
     participant ICS as IssuedCouponService
-    participant CS as CouponService
     participant PS as ProductService
     participant OS as OrderService
 
@@ -22,17 +21,12 @@ sequenceDiagram
 
     critical @Transactional
         opt 쿠폰 적용 시
-            OF->>ICS: 발급 쿠폰 조회 (락)
+            OF->>ICS: 발급 쿠폰 조회
             activate ICS
-            Note right of ICS: 소유 검증, 사용 여부 검증
             ICS-->>OF: IssuedCoupon
             deactivate ICS
 
-            OF->>CS: 쿠폰 조회
-            activate CS
-            Note right of CS: 만료 검증
-            CS-->>OF: Coupon
-            deactivate CS
+            Note over OF: 소유 검증 (Facade)<br/>사용 가능 검증 (IssuedCoupon.validateUsable)
         end
 
         OF->>PS: 상품 조회 + 재고 차감 (락)
@@ -41,7 +35,7 @@ sequenceDiagram
         deactivate PS
 
         opt 쿠폰 적용 시
-            Note over OF: 최소 주문 금액 검증<br/>할인 금액 계산
+            Note over OF: 최소 주문 금액 검증 (IssuedCoupon.validateMinOrderAmount)<br/>할인 금액 계산 (IssuedCoupon.calculateDiscount)
             OF->>ICS: 쿠폰 사용 처리
             activate ICS
             ICS-->>OF: void
@@ -63,7 +57,7 @@ sequenceDiagram
 ## 핵심 포인트
 - 재고 차감, 쿠폰 사용 처리, 주문 생성은 하나의 트랜잭션에서 원자적으로 처리한다
 - 쿠폰은 선택 사항 — couponId가 없으면 쿠폰 관련 단계를 건너뛴다
-- 발급 쿠폰은 비관적 락으로 조회하여 동시 주문 시 이중 사용을 방지한다
+- IssuedCoupon이 발급 시점의 Coupon 데이터를 스냅샷하므로, 주문 시 CouponService 조회가 불필요하다
+- 사용 가능 검증(`validateUsable`), 최소 주문 금액 검증(`validateMinOrderAmount`), 할인 계산(`calculateDiscount`)은 IssuedCoupon 엔티티에 위임한다
 - 상품 재고 차감은 비관적 락 + ID 정렬로 데드락을 방지한다
 - 최소 주문 금액 검증은 상품 조회 후 totalAmount가 확정된 시점에 수행한다
-- 할인 계산은 Coupon 엔티티의 `calculateDiscount(totalAmount)`에 위임한다

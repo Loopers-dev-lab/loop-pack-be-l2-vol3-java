@@ -42,8 +42,11 @@ public class CouponFacade {
     @Transactional
     public IssuedCouponInfo issueCoupon(Long couponId, Long userId) {
         Coupon coupon = couponService.issue(couponId);
-        IssuedCoupon issuedCoupon = issuedCouponService.issue(couponId, userId);
-        return IssuedCouponInfo.from(issuedCoupon, coupon);
+        IssuedCoupon issuedCoupon = issuedCouponService.issue(
+                couponId, userId, coupon.getName(), coupon.getType(),
+                coupon.getValue(), coupon.getMinOrderAmount(), coupon.getExpiredAt()
+        );
+        return IssuedCouponInfo.from(issuedCoupon);
     }
 
     @Transactional
@@ -71,7 +74,7 @@ public class CouponFacade {
 
     @Transactional(readOnly = true)
     public Page<IssuedCouponAdminInfo> getCouponIssues(Long couponId, Pageable pageable) {
-        Coupon coupon = couponService.getActiveCoupon(couponId);
+        couponService.getActiveCoupon(couponId);
         Page<IssuedCoupon> issuedCoupons = issuedCouponService.findByCouponId(couponId, pageable);
 
         List<Long> userIds = issuedCoupons.getContent().stream()
@@ -81,20 +84,12 @@ public class CouponFacade {
         Map<Long, User> userMap = userService.findAllByIds(userIds).stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
 
-        return issuedCoupons.map(ic -> IssuedCouponAdminInfo.from(ic, userMap.get(ic.getUserId()), coupon));
+        return issuedCoupons.map(ic -> IssuedCouponAdminInfo.from(ic, userMap.get(ic.getUserId())));
     }
 
     @Transactional(readOnly = true)
     public Page<IssuedCouponInfo> getMyCoupons(Long userId, Pageable pageable) {
         Page<IssuedCoupon> issuedCoupons = issuedCouponService.findActiveByUserId(userId, pageable);
-
-        List<Long> couponIds = issuedCoupons.getContent().stream()
-                .map(IssuedCoupon::getCouponId)
-                .distinct()
-                .toList();
-        Map<Long, Coupon> couponMap = couponService.findAllByIds(couponIds).stream()
-                .collect(Collectors.toMap(Coupon::getId, Function.identity()));
-
-        return issuedCoupons.map(ic -> IssuedCouponInfo.from(ic, couponMap.get(ic.getCouponId())));
+        return issuedCoupons.map(IssuedCouponInfo::from);
     }
 }
