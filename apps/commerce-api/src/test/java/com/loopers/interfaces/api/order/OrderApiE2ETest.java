@@ -149,7 +149,7 @@ class OrderApiE2ETest {
 
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
-                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 상품이 포함되어 있습니다")
+                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 상품입니다")
             );
         }
 
@@ -171,7 +171,7 @@ class OrderApiE2ETest {
 
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody().meta().message()).contains("재고가 부족한 상품이 있습니다")
+                    () -> assertThat(response.getBody().meta().message()).contains("재고가 부족하거나 존재하지 않는 상품입니다")
             );
         }
 

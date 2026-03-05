@@ -1,5 +1,7 @@
 package com.loopers.application.product;
 
+import com.loopers.domain.brand.Brand;
+import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
@@ -34,6 +36,9 @@ class ProductServiceIntegrationTest {
 
     @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private BrandRepository brandRepository;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -246,7 +251,8 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 활성_상품을_조회하면_성공한다() {
-            Product product = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Product product = productService.register(ProductCommand.Register.of(brand.getId(), "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
 
             Product result = productService.getActiveProduct(product.getId());
 
@@ -280,9 +286,10 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 조건_없이_조회하면_활성_상품만_최신순으로_반환한다() {
-            productService.register(ProductCommand.Register.of(1L, "운동화A", new BigDecimal("10000"), 10, "설명A"));
-            productService.register(ProductCommand.Register.of(1L, "운동화B", new BigDecimal("20000"), 20, "설명B"));
-            Product deleted = productService.register(ProductCommand.Register.of(1L, "운동화C", new BigDecimal("30000"), 30, "설명C"));
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            productService.register(ProductCommand.Register.of(brand.getId(), "운동화A", new BigDecimal("10000"), 10, "설명A"));
+            productService.register(ProductCommand.Register.of(brand.getId(), "운동화B", new BigDecimal("20000"), 20, "설명B"));
+            Product deleted = productService.register(ProductCommand.Register.of(brand.getId(), "운동화C", new BigDecimal("30000"), 30, "설명C"));
             deleted.delete();
             productRepository.save(deleted);
 
@@ -296,21 +303,24 @@ class ProductServiceIntegrationTest {
 
         @Test
         void brandId로_필터링하면_해당_브랜드의_활성_상품만_반환한다() {
-            productService.register(ProductCommand.Register.of(1L, "나이키 운동화", new BigDecimal("10000"), 10, "설명"));
-            productService.register(ProductCommand.Register.of(2L, "아디다스 운동화", new BigDecimal("20000"), 20, "설명"));
+            Brand brand1 = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Brand brand2 = brandRepository.save(Brand.create("아디다스", "독일 스포츠 브랜드"));
+            productService.register(ProductCommand.Register.of(brand1.getId(), "나이키 운동화", new BigDecimal("10000"), 10, "설명"));
+            productService.register(ProductCommand.Register.of(brand2.getId(), "아디다스 운동화", new BigDecimal("20000"), 20, "설명"));
 
             Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
-            Page<Product> result = productService.findActiveProducts(1L, pageable);
+            Page<Product> result = productService.findActiveProducts(brand1.getId(), pageable);
 
             assertThat(result.getContent()).hasSize(1);
-            assertThat(result.getContent().get(0).getBrandId()).isEqualTo(1L);
+            assertThat(result.getContent().get(0).getBrandId()).isEqualTo(brand1.getId());
         }
 
         @Test
         void 가격_오름차순으로_정렬할_수_있다() {
-            productService.register(ProductCommand.Register.of(1L, "비싼 운동화", new BigDecimal("90000"), 10, "설명"));
-            productService.register(ProductCommand.Register.of(1L, "싼 운동화", new BigDecimal("10000"), 10, "설명"));
-            productService.register(ProductCommand.Register.of(1L, "중간 운동화", new BigDecimal("50000"), 10, "설명"));
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            productService.register(ProductCommand.Register.of(brand.getId(), "비싼 운동화", new BigDecimal("90000"), 10, "설명"));
+            productService.register(ProductCommand.Register.of(brand.getId(), "싼 운동화", new BigDecimal("10000"), 10, "설명"));
+            productService.register(ProductCommand.Register.of(brand.getId(), "중간 운동화", new BigDecimal("50000"), 10, "설명"));
 
             Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "price"));
             Page<Product> result = productService.findActiveProducts(null, pageable);
@@ -321,9 +331,10 @@ class ProductServiceIntegrationTest {
 
         @Test
         void 좋아요_내림차순으로_정렬할_수_있다() {
-            Product p1 = productService.register(ProductCommand.Register.of(1L, "인기 상품", new BigDecimal("10000"), 10, "설명"));
-            productService.register(ProductCommand.Register.of(1L, "보통 상품", new BigDecimal("20000"), 20, "설명"));
-            Product p3 = productService.register(ProductCommand.Register.of(1L, "최고 인기", new BigDecimal("30000"), 30, "설명"));
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Product p1 = productService.register(ProductCommand.Register.of(brand.getId(), "인기 상품", new BigDecimal("10000"), 10, "설명"));
+            productService.register(ProductCommand.Register.of(brand.getId(), "보통 상품", new BigDecimal("20000"), 20, "설명"));
+            Product p3 = productService.register(ProductCommand.Register.of(brand.getId(), "최고 인기", new BigDecimal("30000"), 30, "설명"));
             productService.incrementLikeCount(p1.getId());
             productService.incrementLikeCount(p1.getId());
             productService.incrementLikeCount(p3.getId());
@@ -400,7 +411,7 @@ class ProductServiceIntegrationTest {
             Product product1 = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
             Product product2 = productService.register(ProductCommand.Register.of(1L, "셔츠", new BigDecimal("30000"), 50, "멋진 셔츠"));
 
-            productService.deductStocks(Map.of(product1.getId(), 10, product2.getId(), 5));
+            productService.decreaseStocks(Map.of(product1.getId(), 10, product2.getId(), 5));
 
             Product found1 = productRepository.findById(product1.getId()).orElseThrow();
             Product found2 = productRepository.findById(product2.getId()).orElseThrow();
@@ -412,10 +423,10 @@ class ProductServiceIntegrationTest {
         void 미존재_상품이_포함되면_예외() {
             Product product = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
 
-            assertThatThrownBy(() -> productService.deductStocks(Map.of(product.getId(), 10, 999L, 5)))
+            assertThatThrownBy(() -> productService.decreaseStocks(Map.of(product.getId(), 10, 999L, 5)))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
-                    .hasMessageContaining("존재하지 않는 상품이 포함되어 있습니다");
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
+                    .hasMessageContaining("재고가 부족하거나 존재하지 않는 상품입니다");
         }
 
         @Test
@@ -424,20 +435,20 @@ class ProductServiceIntegrationTest {
             product.delete();
             productRepository.save(product);
 
-            assertThatThrownBy(() -> productService.deductStocks(Map.of(product.getId(), 10)))
+            assertThatThrownBy(() -> productService.decreaseStocks(Map.of(product.getId(), 10)))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
-                    .hasMessageContaining("존재하지 않는 상품입니다");
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
+                    .hasMessageContaining("재고가 부족하거나 존재하지 않는 상품입니다");
         }
 
         @Test
         void 재고가_부족한_상품이_있으면_예외() {
             Product product = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 10, "편한 운동화"));
 
-            assertThatThrownBy(() -> productService.deductStocks(Map.of(product.getId(), 11)))
+            assertThatThrownBy(() -> productService.decreaseStocks(Map.of(product.getId(), 11)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
-                    .hasMessageContaining("재고가 부족한 상품이 있습니다");
+                    .hasMessageContaining("재고가 부족하거나 존재하지 않는 상품입니다");
         }
 
         @Test
@@ -445,7 +456,7 @@ class ProductServiceIntegrationTest {
             Product product1 = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
             Product product2 = productService.register(ProductCommand.Register.of(1L, "셔츠", new BigDecimal("30000"), 5, "멋진 셔츠"));
 
-            assertThatThrownBy(() -> productService.deductStocks(Map.of(product1.getId(), 10, product2.getId(), 10)))
+            assertThatThrownBy(() -> productService.decreaseStocks(Map.of(product1.getId(), 10, product2.getId(), 10)))
                     .isInstanceOf(CoreException.class);
 
             Product found1 = productRepository.findById(product1.getId()).orElseThrow();
