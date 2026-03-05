@@ -4,11 +4,12 @@ import com.loopers.domain.like.Like;
 import com.loopers.domain.like.LikeRepository;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class FakeLikeRepository implements LikeRepository {
 
@@ -60,9 +61,25 @@ public class FakeLikeRepository implements LikeRepository {
     }
 
     @Override
+    public void deleteAllByProductIdIn(Collection<Long> productIds) {
+        List<Long> keysToRemove = store.entrySet().stream()
+                .filter(entry -> productIds.contains(entry.getValue().getProductId()))
+                .map(Map.Entry::getKey)
+                .toList();
+        keysToRemove.forEach(store::remove);
+    }
+
+    @Override
     public long countByProductId(Long productId) {
         return store.values().stream()
                 .filter(like -> like.getProductId().equals(productId))
                 .count();
+    }
+
+    @Override
+    public Map<Long, Long> countByProductIds(Collection<Long> productIds) {
+        return store.values().stream()
+                .filter(like -> productIds.contains(like.getProductId()))
+                .collect(Collectors.groupingBy(Like::getProductId, Collectors.counting()));
     }
 }

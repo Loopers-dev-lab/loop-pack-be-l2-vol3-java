@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -85,10 +85,14 @@ public class ProductFacade {
     }
 
     private List<ProductWithBrand> enrichWithLikeCount(List<ProductWithBrand> products) {
+        List<Long> productIds = products.stream()
+            .map(pwb -> pwb.product().getId())
+            .toList();
+        Map<Long, Long> likeCounts = likeRepository.countByProductIds(productIds);
         return products.stream()
             .map(pwb -> new ProductWithBrand(
                 pwb.product(), pwb.brandName(),
-                likeRepository.countByProductId(pwb.product().getId())))
+                likeCounts.getOrDefault(pwb.product().getId(), 0L)))
             .toList();
     }
 }

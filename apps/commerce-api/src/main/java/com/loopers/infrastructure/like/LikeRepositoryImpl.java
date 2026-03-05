@@ -5,8 +5,12 @@ import com.loopers.domain.like.LikeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Repository
 @RequiredArgsConstructor
@@ -45,7 +49,23 @@ public class LikeRepositoryImpl implements LikeRepository {
     }
 
     @Override
+    public void deleteAllByProductIdIn(Collection<Long> productIds) {
+        if (productIds.isEmpty()) return;
+        likeJpaRepository.deleteAllByProductIdIn(productIds);
+    }
+
+    @Override
     public long countByProductId(Long productId) {
         return likeJpaRepository.countByProductId(productId);
+    }
+
+    @Override
+    public Map<Long, Long> countByProductIds(Collection<Long> productIds) {
+        if (productIds.isEmpty()) return Collections.emptyMap();
+        return likeJpaRepository.countByProductIdIn(productIds).stream()
+            .collect(Collectors.toMap(
+                row -> (Long) row[0],
+                row -> (Long) row[1]
+            ));
     }
 }
