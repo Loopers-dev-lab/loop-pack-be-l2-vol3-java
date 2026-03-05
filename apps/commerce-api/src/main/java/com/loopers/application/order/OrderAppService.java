@@ -6,6 +6,8 @@ import com.loopers.domain.order.OrderRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,11 @@ public class OrderAppService {
         return orderRepository.save(order);
     }
 
+    @Transactional
+    public Order create(Order order) {
+        return orderRepository.save(order);
+    }
+
     @Transactional(readOnly = true)
     public Order getById(Long id) {
         return orderRepository.findById(id)
@@ -30,46 +37,62 @@ public class OrderAppService {
 
     @Transactional(readOnly = true)
     public List<Order> getByUserId(Long userId) {
-        return orderRepository.findByUserId(userId);
+        List<Order> orders = orderRepository.findByUserId(userId);
+        orders.forEach(order -> order.getOrderItems().size());
+        return orders;
     }
 
     @Transactional
     public Order pay(Long orderId) {
-        Order order = getById(orderId);
+        Order order = orderRepository.findByIdWithLock(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
         order.pay();
-        return orderRepository.save(order);
+        return order;
     }
 
     @Transactional
     public Order cancel(Long orderId) {
-        Order order = getById(orderId);
+        Order order = orderRepository.findByIdWithLock(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
         order.cancel();
-        return orderRepository.save(order);
+        return order;
     }
 
     @Transactional
     public Order prepare(Long orderId) {
-        Order order = getById(orderId);
+        Order order = orderRepository.findByIdWithLock(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
         order.prepare();
-        return orderRepository.save(order);
+        return order;
     }
 
     @Transactional
     public Order ship(Long orderId) {
-        Order order = getById(orderId);
+        Order order = orderRepository.findByIdWithLock(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
         order.ship();
-        return orderRepository.save(order);
+        return order;
     }
 
     @Transactional
     public Order deliver(Long orderId) {
-        Order order = getById(orderId);
+        Order order = orderRepository.findByIdWithLock(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
         order.deliver();
-        return orderRepository.save(order);
+        return order;
     }
 
     @Transactional(readOnly = true)
     public List<Order> getAll() {
-        return orderRepository.findAll();
+        List<Order> orders = orderRepository.findAll();
+        orders.forEach(order -> order.getOrderItems().size());
+        return orders;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Order> getAll(Pageable pageable) {
+        Page<Order> orders = orderRepository.findAll(pageable);
+        orders.forEach(order -> order.getOrderItems().size());
+        return orders;
     }
 }
