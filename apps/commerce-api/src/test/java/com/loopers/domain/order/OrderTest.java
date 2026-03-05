@@ -46,7 +46,35 @@ class OrderTest {
             assertThat(order.getMemberId()).isEqualTo(1L);
             assertThat(order.getStatus()).isEqualTo(OrderStatus.CREATED);
             assertThat(order.getTotalPrice()).isEqualTo(35000);
+            assertThat(order.getOriginalTotalPrice()).isEqualTo(35000);
+            assertThat(order.getDiscountAmount()).isEqualTo(0);
             assertThat(order.getItems()).hasSize(2);
+        }
+
+        @DisplayName("쿠폰을 적용하면 할인 금액만큼 totalPrice가 차감된다")
+        @Test
+        void create_withCoupon_appliesDiscount() {
+            Order.ItemSnapshot snap = new Order.ItemSnapshot(1L, "상품A", 10000, "브랜드A", 2);
+
+            Order order = Order.create(1L, List.of(snap), 42L, 3000);
+
+            assertThat(order.getOriginalTotalPrice()).isEqualTo(20000);
+            assertThat(order.getDiscountAmount()).isEqualTo(3000);
+            assertThat(order.getTotalPrice()).isEqualTo(17000);
+            assertThat(order.getCouponIssueId()).isEqualTo(42L);
+        }
+
+        @DisplayName("쿠폰 없이 생성하면 할인 금액이 0이고 couponIssueId가 null이다")
+        @Test
+        void create_withoutCoupon_noDiscount() {
+            Order.ItemSnapshot snap = new Order.ItemSnapshot(1L, "상품A", 10000, "브랜드A", 1);
+
+            Order order = Order.create(1L, List.of(snap));
+
+            assertThat(order.getOriginalTotalPrice()).isEqualTo(10000);
+            assertThat(order.getDiscountAmount()).isEqualTo(0);
+            assertThat(order.getTotalPrice()).isEqualTo(10000);
+            assertThat(order.getCouponIssueId()).isNull();
         }
     }
 

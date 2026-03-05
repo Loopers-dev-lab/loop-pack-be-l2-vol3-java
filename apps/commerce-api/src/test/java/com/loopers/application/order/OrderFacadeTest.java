@@ -1,15 +1,14 @@
 package com.loopers.application.order;
 
 import com.loopers.domain.brand.Brand;
+import com.loopers.domain.coupon.*;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
-import com.loopers.fake.FakeBrandRepository;
-import com.loopers.fake.FakeOrderRepository;
-import com.loopers.fake.FakeProductRepository;
+import com.loopers.fake.*;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,13 +28,18 @@ class OrderFacadeTest {
     private FakeOrderRepository orderRepository;
     private FakeProductRepository productRepository;
     private FakeBrandRepository brandRepository;
+    private FakeCouponRepository couponRepository;
+    private FakeCouponIssueRepository couponIssueRepository;
 
     @BeforeEach
     void setUp() {
         orderRepository = new FakeOrderRepository();
         productRepository = new FakeProductRepository();
         brandRepository = new FakeBrandRepository();
-        orderFacade = new OrderFacade(orderRepository, productRepository, brandRepository);
+        couponRepository = new FakeCouponRepository();
+        couponIssueRepository = new FakeCouponIssueRepository();
+        orderFacade = new OrderFacade(orderRepository, productRepository, brandRepository,
+            couponRepository, couponIssueRepository);
     }
 
     @Nested
@@ -63,6 +67,9 @@ class OrderFacadeTest {
             assertThat(result.getMemberId()).isEqualTo(1L);
             assertThat(result.getStatus()).isEqualTo(OrderStatus.CREATED);
             assertThat(result.getTotalPrice()).isEqualTo(300000);
+            assertThat(result.getOriginalTotalPrice()).isEqualTo(300000);
+            assertThat(result.getDiscountAmount()).isEqualTo(0);
+            assertThat(result.getCouponIssueId()).isNull();
             assertThat(result.getItems()).hasSize(1);
 
             OrderItem item = result.getItems().get(0);
@@ -155,6 +162,145 @@ class OrderFacadeTest {
     }
 
     @Nested
+    @DisplayName("쿠폰 적용 주문")
+    class CreateOrderWithCoupon {
+
+        @DisplayName("정액 쿠폰을 적용하면 할인이 반영된 주문이 생성된다")
+        @Test
+        void createOrder_withFixedCoupon_appliesDiscount() {
+            // arrange
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product product = productRepository.save(
+                new Product(brand.getId(), "에어맥스", new Price(100000), new Stock(10)));
+            Coupon coupon = couponRepository.save(
+                new Coupon("5000원 할인", DiscountType.FIXED, 5000, 10000,
+                    ZonedDateTime.now().plusDays(30)));
+            CouponIssue couponIssue = couponIssueRepository.save(
+                new CouponIssue(coupon.getId(), 1L, coupon.getExpiredAt()));
+
+            // act
+            Order result = orderFacade.createOrder(1L,
+                List.of(new OrderFacade.OrderItemRequest(product.getId(), 1)),
+                couponIssue.getId());
+
+            // assert
+            assertThat(result.getOriginalTotalPrice()).isEqualTo(100000);
+            assertThat(result.getDiscountAmount()).isEqualTo(5000);
+            assertThat(result.getTotalPrice()).isEqualTo(95000);
+            assertThat(result.getCouponIssueId()).isEqualTo(couponIssue.getId());
+            assertThat(couponIssue.getStatus()).isEqualTo(CouponIssueStatus.USED);
+        }
+
+        @DisplayName("정률 쿠폰을 적용하면 비율에 따른 할인이 반영된다")
+        @Test
+        void createOrder_withRateCoupon_appliesPercentageDiscount() {
+            // arrange
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product product = productRepository.save(
+                new Product(brand.getId(), "에어맥스", new Price(100000), new Stock(10)));
+            Coupon coupon = couponRepository.save(
+                new Coupon("10% 할인", DiscountType.RATE, 10, 10000,
+                    ZonedDateTime.now().plusDays(30)));
+            CouponIssue couponIssue = couponIssueRepository.save(
+                new CouponIssue(coupon.getId(), 1L, coupon.getExpiredAt()));
+
+            // act
+            Order result = orderFacade.createOrder(1L,
+                List.of(new OrderFacade.OrderItemRequest(product.getId(), 1)),
+                couponIssue.getId());
+
+            // assert
+            assertThat(result.getOriginalTotalPrice()).isEqualTo(100000);
+            assertThat(result.getDiscountAmount()).isEqualTo(10000);
+            assertThat(result.getTotalPrice()).isEqualTo(90000);
+        }
+
+        @DisplayName("이미 사용된 쿠폰으로 주문하면 예외가 발생한다")
+        @Test
+        void createOrder_withUsedCoupon_throwsException() {
+            // arrange
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product product = productRepository.save(
+                new Product(brand.getId(), "에어맥스", new Price(100000), new Stock(10)));
+            Coupon coupon = couponRepository.save(
+                new Coupon("할인", DiscountType.FIXED, 5000, 0,
+                    ZonedDateTime.now().plusDays(30)));
+            CouponIssue couponIssue = couponIssueRepository.save(
+                new CouponIssue(coupon.getId(), 1L, coupon.getExpiredAt()));
+            couponIssue.use(99L);
+
+            // act & assert
+            assertThatThrownBy(() -> orderFacade.createOrder(1L,
+                List.of(new OrderFacade.OrderItemRequest(product.getId(), 1)),
+                couponIssue.getId()))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("타인의 쿠폰으로 주문하면 예외가 발생한다")
+        @Test
+        void createOrder_withOtherMemberCoupon_throwsException() {
+            // arrange
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product product = productRepository.save(
+                new Product(brand.getId(), "에어맥스", new Price(100000), new Stock(10)));
+            Coupon coupon = couponRepository.save(
+                new Coupon("할인", DiscountType.FIXED, 5000, 0,
+                    ZonedDateTime.now().plusDays(30)));
+            CouponIssue couponIssue = couponIssueRepository.save(
+                new CouponIssue(coupon.getId(), 2L, coupon.getExpiredAt()));
+
+            // act & assert
+            assertThatThrownBy(() -> orderFacade.createOrder(1L,
+                List.of(new OrderFacade.OrderItemRequest(product.getId(), 1)),
+                couponIssue.getId()))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.FORBIDDEN);
+        }
+
+        @DisplayName("만료된 쿠폰으로 주문하면 예외가 발생한다")
+        @Test
+        void createOrder_withExpiredCoupon_throwsException() {
+            // arrange
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product product = productRepository.save(
+                new Product(brand.getId(), "에어맥스", new Price(100000), new Stock(10)));
+            Coupon coupon = couponRepository.save(
+                new Coupon("할인", DiscountType.FIXED, 5000, 0,
+                    ZonedDateTime.now().minusDays(1)));
+            CouponIssue couponIssue = couponIssueRepository.save(
+                new CouponIssue(coupon.getId(), 1L, coupon.getExpiredAt()));
+
+            // act & assert
+            assertThatThrownBy(() -> orderFacade.createOrder(1L,
+                List.of(new OrderFacade.OrderItemRequest(product.getId(), 1)),
+                couponIssue.getId()))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("존재하지 않는 쿠폰으로 주문하면 예외가 발생한다")
+        @Test
+        void createOrder_withNonExistentCoupon_throwsException() {
+            // arrange
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product product = productRepository.save(
+                new Product(brand.getId(), "에어맥스", new Price(100000), new Stock(10)));
+
+            // act & assert
+            assertThatThrownBy(() -> orderFacade.createOrder(1L,
+                List.of(new OrderFacade.OrderItemRequest(product.getId(), 1)),
+                999L))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.NOT_FOUND);
+        }
+    }
+
+    @Nested
     @DisplayName("주문 단건 조회")
     class GetOrder {
 
@@ -224,6 +370,30 @@ class OrderFacadeTest {
             // assert
             assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
             assertThat(product.getStock().getQuantity()).isEqualTo(10);
+        }
+
+        @DisplayName("쿠폰 적용된 주문을 취소하면 쿠폰이 복원된다")
+        @Test
+        void cancelOrder_withCoupon_restoresCoupon() {
+            // arrange
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product product = productRepository.save(
+                new Product(brand.getId(), "에어맥스", new Price(100000), new Stock(10)));
+            Coupon coupon = couponRepository.save(
+                new Coupon("할인", DiscountType.FIXED, 5000, 0,
+                    ZonedDateTime.now().plusDays(30)));
+            CouponIssue couponIssue = couponIssueRepository.save(
+                new CouponIssue(coupon.getId(), 1L, coupon.getExpiredAt()));
+            Order order = orderFacade.createOrder(1L,
+                List.of(new OrderFacade.OrderItemRequest(product.getId(), 1)),
+                couponIssue.getId());
+            assertThat(couponIssue.getStatus()).isEqualTo(CouponIssueStatus.USED);
+
+            // act
+            orderFacade.cancelOrder(order.getId(), 1L);
+
+            // assert
+            assertThat(couponIssue.getStatus()).isEqualTo(CouponIssueStatus.AVAILABLE);
         }
 
         @DisplayName("타인의 주문을 취소하면 예외가 발생한다")

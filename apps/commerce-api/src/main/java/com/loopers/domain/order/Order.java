@@ -31,11 +31,25 @@ public class Order extends BaseEntity {
     @Column(name = "total_price", nullable = false)
     private int totalPrice;
 
+    @Column(name = "original_total_price", nullable = false)
+    private int originalTotalPrice;
+
+    @Column(name = "discount_amount", nullable = false)
+    private int discountAmount;
+
+    @Column(name = "coupon_issue_id")
+    private Long couponIssueId;
+
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "order_id")
     private List<OrderItem> items = new ArrayList<>();
 
     public static Order create(Long memberId, List<ItemSnapshot> snapshots) {
+        return create(memberId, snapshots, null, 0);
+    }
+
+    public static Order create(Long memberId, List<ItemSnapshot> snapshots,
+                                Long couponIssueId, int discountAmount) {
         if (snapshots == null || snapshots.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목은 1개 이상이어야 합니다.");
         }
@@ -47,7 +61,10 @@ public class Order extends BaseEntity {
                 s.productId(), s.productName(), s.productPrice(), s.brandName(), s.quantity()
             ));
         }
-        order.totalPrice = order.items.stream().mapToInt(OrderItem::getSubtotal).sum();
+        order.originalTotalPrice = order.items.stream().mapToInt(OrderItem::getSubtotal).sum();
+        order.discountAmount = discountAmount;
+        order.totalPrice = order.originalTotalPrice - discountAmount;
+        order.couponIssueId = couponIssueId;
         return order;
     }
 

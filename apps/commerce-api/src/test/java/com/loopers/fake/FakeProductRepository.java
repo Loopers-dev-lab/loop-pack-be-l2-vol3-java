@@ -38,6 +38,11 @@ public class FakeProductRepository implements ProductRepository {
     }
 
     @Override
+    public Optional<Product> findByIdWithLock(Long id) {
+        return findById(id);
+    }
+
+    @Override
     public List<Product> findAll() {
         return store.values().stream()
                 .filter(product -> product.getDeletedAt() == null)

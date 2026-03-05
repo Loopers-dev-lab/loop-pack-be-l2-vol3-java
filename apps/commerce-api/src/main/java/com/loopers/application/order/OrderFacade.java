@@ -2,6 +2,10 @@ package com.loopers.application.order;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.coupon.Coupon;
+import com.loopers.domain.coupon.CouponIssue;
+import com.loopers.domain.coupon.CouponIssueRepository;
+import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderRepository;
@@ -29,13 +33,20 @@ public class OrderFacade {
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
+    private final CouponRepository couponRepository;
+    private final CouponIssueRepository couponIssueRepository;
 
     @Transactional
     public Order createOrder(Long memberId, List<OrderItemRequest> itemRequests) {
-        // 1. 상품 조회 + 재고 차감 (엔티티 로드 필요)
+        return createOrder(memberId, itemRequests, null);
+    }
+
+    @Transactional
+    public Order createOrder(Long memberId, List<OrderItemRequest> itemRequests, Long couponIssueId) {
+        // 1. 상품 조회(비관적 락) + 재고 차감
         List<Product> products = new ArrayList<>();
         for (OrderItemRequest req : itemRequests) {
-            Product product = productRepository.findById(req.productId())
+            Product product = productRepository.findByIdWithLock(req.productId())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
             product.decreaseStock(req.quantity());
             products.add(product);
@@ -64,8 +75,43 @@ public class OrderFacade {
             ));
         }
 
-        // 4. 주문 저장
-        return orderRepository.save(Order.create(memberId, snapshots));
+        // 4. 쿠폰 적용
+        CouponIssue usedCouponIssue = null;
+        Long resolvedCouponIssueId = null;
+        int discountAmount = 0;
+
+        if (couponIssueId != null) {
+            usedCouponIssue = couponIssueRepository.findByIdWithLock(couponIssueId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
+
+            if (!usedCouponIssue.getMemberId().equals(memberId)) {
+                throw new CoreException(ErrorType.FORBIDDEN, "본인의 쿠폰만 사용할 수 있습니다.");
+            }
+
+            Coupon coupon = couponRepository.findById(usedCouponIssue.getCouponId())
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰 템플릿을 찾을 수 없습니다."));
+
+            int originalTotalPrice = snapshots.stream()
+                .mapToInt(s -> s.productPrice() * s.quantity())
+                .sum();
+
+            coupon.validateUsable(originalTotalPrice);
+            discountAmount = coupon.calculateDiscount(originalTotalPrice);
+
+            usedCouponIssue.use(null);
+            resolvedCouponIssueId = couponIssueId;
+        }
+
+        // 5. 주문 저장
+        Order order = orderRepository.save(
+            Order.create(memberId, snapshots, resolvedCouponIssueId, discountAmount));
+
+        // 6. 쿠폰에 주문 ID 연결
+        if (usedCouponIssue != null) {
+            usedCouponIssue.linkOrder(order.getId());
+        }
+
+        return order;
     }
 
     public Order getOrder(Long orderId) {
@@ -94,6 +140,13 @@ public class OrderFacade {
             Product product = productRepository.findById(item.getProductId())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
             product.increaseStock(item.getQuantity());
+        }
+
+        // 쿠폰 복원
+        if (order.getCouponIssueId() != null) {
+            CouponIssue couponIssue = couponIssueRepository.findById(order.getCouponIssueId())
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
+            couponIssue.cancelUse();
         }
     }
 

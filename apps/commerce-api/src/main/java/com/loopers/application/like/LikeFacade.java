@@ -23,7 +23,7 @@ public class LikeFacade {
 
     @Transactional
     public void addLike(Long memberId, Long productId) {
-        Product product = productRepository.findById(productId)
+        Product product = productRepository.findByIdWithLock(productId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
 
         if (likeRepository.existsByMemberIdAndProductId(memberId, productId)) {
@@ -43,7 +43,7 @@ public class LikeFacade {
 
         likeRepository.delete(likeOpt.get());
 
-        Product product = productRepository.findById(productId)
+        Product product = productRepository.findByIdWithLock(productId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
         product.decrementLikeCount();
     }

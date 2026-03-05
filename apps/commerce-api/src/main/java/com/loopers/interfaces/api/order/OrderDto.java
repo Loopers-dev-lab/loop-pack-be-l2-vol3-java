@@ -11,7 +11,8 @@ import java.util.List;
 public class OrderDto {
 
     public record CreateRequest(
-        @NotEmpty List<OrderItemRequest> items
+        @NotEmpty List<OrderItemRequest> items,
+        Long couponId
     ) {}
 
     public record OrderItemRequest(
@@ -24,6 +25,9 @@ public class OrderDto {
         Long memberId,
         String status,
         int totalPrice,
+        int originalTotalPrice,
+        int discountAmount,
+        Long couponIssueId,
         List<OrderItemResponse> items
     ) {
         public static OrderResponse from(Order order) {
@@ -35,6 +39,9 @@ public class OrderDto {
                 order.getMemberId(),
                 order.getStatus().name(),
                 order.getTotalPrice(),
+                order.getOriginalTotalPrice(),
+                order.getDiscountAmount(),
+                order.getCouponIssueId(),
                 itemResponses
             );
         }
