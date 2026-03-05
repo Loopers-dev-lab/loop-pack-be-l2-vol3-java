@@ -49,6 +49,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * 실제 DB(Testcontainers)를 사용하여 동시 요청 시
  * Lock 전략이 정상 동작하는지 검증한다.
+ *
+ * [동시 시작 패턴]
+ * startLatch(CountDownLatch(1))를 사용하여 모든 스레드가 동시에 출발하도록 보장한다.
+ * - 각 스레드는 submit 후 startLatch.await()에서 대기
+ * - 모든 스레드가 준비된 뒤 startLatch.countDown()으로 동시 출발
+ * - startLatch 없이 submit만 하면 for 루프 순회 + 스레드 스케줄링 차이로
+ *   수 밀리초의 시작 시차가 생겨 완벽한 동시 경합이 보장되지 않는다.
  */
 @SpringBootTest
 @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
@@ -127,6 +134,7 @@ class ConcurrencyIntegrationTest {
 
         int threadCount = 10;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch latch = new CountDownLatch(threadCount);
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failCount = new AtomicInteger(0);
@@ -135,6 +143,7 @@ class ConcurrencyIntegrationTest {
         for (int i = 0; i < threadCount; i++) {
             executor.submit(() -> {
                 try {
+                    startLatch.await();
                     inventoryService.reserveAll(Map.of(product.getId(), 1));
                     successCount.incrementAndGet();
                 } catch (Exception e) {
@@ -144,6 +153,8 @@ class ConcurrencyIntegrationTest {
                 }
             });
         }
+
+        startLatch.countDown();
 
         latch.await();
         executor.shutdown();
@@ -176,6 +187,7 @@ class ConcurrencyIntegrationTest {
 
         int threadCount = 10;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch latch = new CountDownLatch(threadCount);
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failCount = new AtomicInteger(0);
@@ -185,6 +197,7 @@ class ConcurrencyIntegrationTest {
             long orderId = 100L + i;
             executor.submit(() -> {
                 try {
+                    startLatch.await();
                     couponService.use(issuedCoupon.getId(), 1L, orderId);
                     successCount.incrementAndGet();
                 } catch (Exception e) {
@@ -194,6 +207,8 @@ class ConcurrencyIntegrationTest {
                 }
             });
         }
+
+        startLatch.countDown();
 
         latch.await();
         executor.shutdown();
@@ -217,6 +232,7 @@ class ConcurrencyIntegrationTest {
 
         int threadCount = 10;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch latch = new CountDownLatch(threadCount);
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failCount = new AtomicInteger(0);
@@ -226,6 +242,7 @@ class ConcurrencyIntegrationTest {
             long userId = i + 1L;
             executor.submit(() -> {
                 try {
+                    startLatch.await();
                     couponService.issue(template.getId(), userId);
                     successCount.incrementAndGet();
                 } catch (Exception e) {
@@ -235,6 +252,8 @@ class ConcurrencyIntegrationTest {
                 }
             });
         }
+
+        startLatch.countDown();
 
         latch.await();
         executor.shutdown();
@@ -259,6 +278,7 @@ class ConcurrencyIntegrationTest {
 
         int threadCount = 10;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch latch = new CountDownLatch(threadCount);
         AtomicInteger successCount = new AtomicInteger(0);
         List<Exception> errors = Collections.synchronizedList(new ArrayList<>());
@@ -268,6 +288,7 @@ class ConcurrencyIntegrationTest {
             long userId = i + 1L;
             executor.submit(() -> {
                 try {
+                    startLatch.await();
                     likeService.like(userId, product.getId());
                     productService.incrementLikeCount(product.getId());
                     successCount.incrementAndGet();
@@ -278,6 +299,8 @@ class ConcurrencyIntegrationTest {
                 }
             });
         }
+
+        startLatch.countDown();
 
         latch.await();
         executor.shutdown();
@@ -301,6 +324,7 @@ class ConcurrencyIntegrationTest {
 
         int threadCount = 10;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch latch = new CountDownLatch(threadCount);
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failCount = new AtomicInteger(0);
@@ -309,6 +333,7 @@ class ConcurrencyIntegrationTest {
         for (int i = 0; i < threadCount; i++) {
             executor.submit(() -> {
                 try {
+                    startLatch.await();
                     pointService.use(1L, 1000);
                     successCount.incrementAndGet();
                 } catch (Exception e) {
@@ -318,6 +343,8 @@ class ConcurrencyIntegrationTest {
                 }
             });
         }
+
+        startLatch.countDown();
 
         latch.await();
         executor.shutdown();
@@ -356,6 +383,7 @@ class ConcurrencyIntegrationTest {
         }
 
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch latch = new CountDownLatch(threadCount);
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failCount = new AtomicInteger(0);
@@ -367,6 +395,7 @@ class ConcurrencyIntegrationTest {
             long addressId = addressIds[i];
             executor.submit(() -> {
                 try {
+                    startLatch.await();
                     orderFacade.createOrder(
                             userId, "주문자" + userId, "010-0000-0000",
                             List.of(new OrderFacade.OrderItemCommand(product.getId(), 1)),
@@ -383,6 +412,8 @@ class ConcurrencyIntegrationTest {
                 }
             });
         }
+
+        startLatch.countDown();
 
         latch.await();
         executor.shutdown();
