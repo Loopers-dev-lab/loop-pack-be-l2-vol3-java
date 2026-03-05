@@ -22,21 +22,17 @@ public class UserService {
     /**
      * 새로운 사용자를 등록한다.
      *
-     * @param loginId   로그인 ID
-     * @param password  비밀번호
-     * @param name      이름
-     * @param birthDate 생년월일
-     * @param email     이메일
+     * @param newUser 회원가입 정보
      * @return 등록된 사용자
      * @throws CoreException 이미 존재하는 로그인 ID인 경우
      */
     @Transactional
-    public User register(String loginId, String password, String name, String birthDate, String email) {
-        if (userRepository.existsByLoginId(new LoginId(loginId))) {
+    public User register(NewUser newUser) {
+        if (userRepository.existsByLoginId(new LoginId(newUser.loginId()))) {
             throw new CoreException(ErrorType.DUPLICATE_LOGIN_ID);
         }
         try {
-            User user = User.signUp(loginId, password, name, birthDate, email, passwordEncoder);
+            User user = User.signUp(newUser, passwordEncoder);
             return userRepository.save(user);
         } catch (DataIntegrityViolationException e) {
             throw new CoreException(ErrorType.DUPLICATE_LOGIN_ID);

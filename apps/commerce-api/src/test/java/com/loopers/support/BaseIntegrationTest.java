@@ -5,7 +5,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.brand.NewBrand;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ProductSpec;
 import com.loopers.utils.DatabaseCleanUp;
 
 /**
@@ -32,7 +34,7 @@ public abstract class BaseIntegrationTest {
      * @return 생성된 브랜드의 ID
      */
     protected Long initDefaultBrand() {
-        return brandService.create("브랜드명", "https://example.com/logo.png", "브랜드 설명").getId();
+        return brandService.create(new NewBrand("브랜드명", "https://example.com/logo.png", "브랜드 설명")).getId();
     }
 
     /**
@@ -55,7 +57,7 @@ public abstract class BaseIntegrationTest {
      * @return 생성된 상품의 ID
      */
     protected Long createProduct(Long brandId, String name, Long price, Long stock) {
-        return productService.create(brandId, name, "https://example.com/thumb.png", price, stock, "상품 설명").getId();
+        return productService.create(new ProductSpec(brandId, name, "https://example.com/thumb.png", price, stock, "상품 설명")).getId();
     }
 
     @AfterEach

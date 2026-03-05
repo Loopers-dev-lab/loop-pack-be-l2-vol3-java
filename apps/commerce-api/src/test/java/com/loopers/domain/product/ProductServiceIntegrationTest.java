@@ -48,7 +48,7 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
         void savesProductToDatabase_whenValidInputProvided() {
             // act
             Product result = productService.create(
-                    brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"
+                    new ProductSpec(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명")
             );
 
             // assert
@@ -139,9 +139,9 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void returnsOnlyProductsOfGivenBrand() {
             // arrange
-            var otherBrandId = brandService.create("브랜드 2", "logo2.png", "설명 2").getId();
+            var otherBrandId = brandService.create(new com.loopers.domain.brand.NewBrand("브랜드 2", "logo2.png", "설명 2")).getId();
             createProduct(brandId, "상품 1", 10000L, 100L);
-            productService.create(otherBrandId, "상품 2", "thumb2.png", 20000L, 200L, "설명");
+            productService.create(new ProductSpec(otherBrandId, "상품 2", "thumb2.png", 20000L, 200L, "설명"));
 
             // act
             Page<Product> products = productService.getProducts(brandId, new PageSize(0, 10));
@@ -165,7 +165,7 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
             var productId = createProduct(brandId);
 
             // act
-            productService.update(productId, "수정된 상품명", "https://example.com/new-thumb.png", 20000L, 200L, "수정된 설명");
+            productService.update(new ModifyProduct(productId,"수정된 상품명", "https://example.com/new-thumb.png", 20000L, 200L, "수정된 설명"));
 
             // assert
             var updatedProduct = productRepository.findById(productId).orElseThrow();
@@ -182,7 +182,7 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void throwsException_whenProductNotFound() {
             // act & assert
-            assertThatThrownBy(() -> productService.update(999L, "상품명", "thumb.png", 10000L, 100L, "설명"))
+            assertThatThrownBy(() -> productService.update(new ModifyProduct(999L,"상품명", "thumb.png", 10000L, 100L, "설명")))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
         }

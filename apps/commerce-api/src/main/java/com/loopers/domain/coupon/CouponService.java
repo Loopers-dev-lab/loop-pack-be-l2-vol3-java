@@ -1,7 +1,5 @@
 package com.loopers.domain.coupon;
 
-import java.time.ZonedDateTime;
-
 import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.domain.shared.annotation.DomainService;
@@ -22,52 +20,28 @@ public class CouponService {
     /**
      * 새로운 쿠폰을 생성한다.
      *
-     * @param name             쿠폰명
-     * @param type             쿠폰 타입 (정액/정률)
-     * @param discountValue    할인 값
-     * @param maxDiscountPrice 최대 할인 금액
-     * @param minOrderPrice    최소 주문 금액
-     * @param expiredAt        만료 일시
+     * @param terms 쿠폰 생성 조건
      * @return 생성된 쿠폰
      */
     @Transactional
-    public Coupon create(
-            String name,
-            CouponType type,
-            Long discountValue,
-            Long maxDiscountPrice,
-            Long minOrderPrice,
-            ZonedDateTime expiredAt
-    ) {
-        Coupon coupon = Coupon.create(name, type, discountValue, maxDiscountPrice, minOrderPrice, expiredAt);
+    public Coupon create(CouponTerms terms) {
+        Coupon coupon = Coupon.create(terms);
         return couponRepository.save(coupon);
     }
 
     /**
      * 쿠폰 정보를 수정한다.
      *
-     * @param couponId         수정할 쿠폰 ID
-     * @param name             쿠폰명
-     * @param discountValue    할인 값
-     * @param maxDiscountPrice 최대 할인 금액
-     * @param minOrderPrice    최소 주문 금액
-     * @param expiredAt        만료 일시
+     * @param coupon 쿠폰 수정 정보 (couponId 포함)
      * @return 수정된 쿠폰
      * @throws CoreException 쿠폰이 존재하지 않는 경우
      */
     @Transactional
-    public Coupon update(
-            Long couponId,
-            String name,
-            Long discountValue,
-            Long maxDiscountPrice,
-            Long minOrderPrice,
-            ZonedDateTime expiredAt
-    ) {
-        Coupon coupon = couponRepository.findById(couponId)
+    public Coupon update(ModifyCoupon coupon) {
+        Coupon entity = couponRepository.findById(coupon.couponId())
                 .orElseThrow(() -> new CoreException(ErrorType.COUPON_NOT_FOUND));
-        coupon.update(name, discountValue, maxDiscountPrice, minOrderPrice, expiredAt);
-        return coupon;
+        entity.update(coupon);
+        return entity;
     }
 
     /**

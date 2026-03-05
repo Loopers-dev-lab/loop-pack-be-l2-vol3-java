@@ -22,7 +22,7 @@ class BrandTest {
             var description = "brand description";
 
             // act
-            var brand = Brand.create(name, logoUrl, description);
+            var brand = Brand.create(new NewBrand(name, logoUrl, description));
 
             // assert
             assertAll(
@@ -41,13 +41,13 @@ class BrandTest {
         @Test
         void updatesBrand_whenAllValuesAreValid() {
             // arrange
-            var brand = Brand.create("brand name", "logo url", "description");
+            var brand = Brand.create(new NewBrand("brand name", "logo url", "description"));
             var newName = "new brand name";
             var newLogoUrl = "new logo url";
             var newDescription = "new description";
 
             // act
-            brand.update(newName, newLogoUrl, newDescription);
+            brand.update(new ModifyBrand(null, newName, newLogoUrl, newDescription));
 
             // assert
             assertAll(

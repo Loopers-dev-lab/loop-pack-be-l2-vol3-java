@@ -47,7 +47,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void savesOwnedCouponToDatabase_whenValidCouponProvided() {
             // arrange
-            var coupon = couponService.create("발급 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30));
+            var coupon = couponService.create(new CouponTerms("발급 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
             var userId = 1L;
 
             // act
@@ -74,7 +74,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void throwsException_whenCouponIsDeleted() {
             // arrange
-            var coupon = couponService.create("삭제 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30));
+            var coupon = couponService.create(new CouponTerms("삭제 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
             couponService.delete(coupon.getId());
 
             // act & assert
@@ -87,7 +87,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void throwsException_whenCouponIsExpired() {
             // arrange
-            var coupon = couponService.create("만료 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30));
+            var coupon = couponService.create(new CouponTerms("만료 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
             ReflectionTestUtils.setField(coupon, "expiredAt", ZonedDateTime.now().minusDays(1));
             couponRepository.save(coupon);
 
@@ -101,7 +101,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void throwsException_whenDuplicateIssue() {
             // arrange
-            var coupon = couponService.create("중복 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30));
+            var coupon = couponService.create(new CouponTerms("중복 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
             ownedCouponService.issue(coupon.getId(), 1L);
 
             // act & assert
@@ -119,7 +119,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void appliesDiscountAndChangesStatusToUsed() {
             // arrange
-            var coupon = couponService.create("5000원 할인", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30));
+            var coupon = couponService.create(new CouponTerms("5000원 할인", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
             var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
 
             // act
@@ -159,7 +159,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void throwsException_whenNotOwner() {
             // arrange
-            var coupon = couponService.create("할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30));
+            var coupon = couponService.create(new CouponTerms("할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
             var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
 
             // act & assert
@@ -172,7 +172,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void throwsException_whenAlreadyUsed() {
             // arrange
-            var coupon = couponService.create("할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30));
+            var coupon = couponService.create(new CouponTerms("할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
             var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
             ownedCouponService.applyCoupon(ownedCoupon.getId(), 1L, Money.wons(20000L));
 
@@ -186,7 +186,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void throwsException_whenCouponIsExpired() {
             // arrange
-            var coupon = couponService.create("만료 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30));
+            var coupon = couponService.create(new CouponTerms("만료 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
             var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
             ReflectionTestUtils.setField(ownedCoupon, "status", OwnedCouponStatus.EXPIRED);
             ownedCouponRepository.save(ownedCoupon);
@@ -201,7 +201,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void throwsException_whenMinOrderPriceNotMet() {
             // arrange
-            var coupon = couponService.create("할인 쿠폰", CouponType.FIXED, 5000L, null, 20000L, ZonedDateTime.now().plusDays(30));
+            var coupon = couponService.create(new CouponTerms("할인 쿠폰", CouponType.FIXED, 5000L, null, 20000L, ZonedDateTime.now().plusDays(30)));
             var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
 
             // act & assert
@@ -214,7 +214,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void onlyOneSucceeds_whenConcurrentApply() throws InterruptedException {
             // arrange
-            var coupon = couponService.create("동시성 쿠폰", CouponType.FIXED, 1000L, null, 10000L, ZonedDateTime.now().plusDays(30));
+            var coupon = couponService.create(new CouponTerms("동시성 쿠폰", CouponType.FIXED, 1000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
             var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
 
             int threadCount = 5;

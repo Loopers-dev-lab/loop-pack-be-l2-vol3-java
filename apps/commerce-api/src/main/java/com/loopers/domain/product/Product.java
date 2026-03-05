@@ -43,18 +43,18 @@ public class Product extends BaseEntity {
 
     private String description;
 
-    public static Product create(Long brandId, String name, String thumbnailUrl, Long price, Long stock, String description) {
-        if (Objects.isNull(brandId)) {
+    public static Product create(ProductSpec spec) {
+        if (Objects.isNull(spec.brandId())) {
             throw new CoreException(ErrorType.REQUIRED_BRAND_ID);
         }
 
         Product product = new Product();
-        product.brandId = brandId;
-        product.name = new ProductName(name);
-        product.thumbnailUrl = new ProductThumbnailUrl(thumbnailUrl);
-        product.price = Money.wons(price);
-        product.stock = Stock.init(stock);
-        product.description = description;
+        product.brandId = spec.brandId();
+        product.name = new ProductName(spec.name());
+        product.thumbnailUrl = new ProductThumbnailUrl(spec.thumbnailUrl());
+        product.price = Money.wons(spec.price());
+        product.stock = Stock.init(spec.stock());
+        product.description = spec.description();
         return product;
     }
 
@@ -62,14 +62,14 @@ public class Product extends BaseEntity {
         this.stock.deduct(quantity);
     }
 
-    public void update(String name, String thumbnailUrl, Long price, Long stock, String description) {
+    public void update(ModifyProduct product) {
         if (isDeleted()) {
             throw new CoreException(ErrorType.ALREADY_DELETED_PRODUCT);
         }
-        this.name = new ProductName(name);
-        this.thumbnailUrl = new ProductThumbnailUrl(thumbnailUrl);
-        this.price = Money.wons(price);
-        this.stock = Stock.init(stock);
-        this.description = description;
+        this.name = new ProductName(product.name());
+        this.thumbnailUrl = new ProductThumbnailUrl(product.thumbnailUrl());
+        this.price = Money.wons(product.price());
+        this.stock = Stock.init(product.stock());
+        this.description = product.description();
     }
 }

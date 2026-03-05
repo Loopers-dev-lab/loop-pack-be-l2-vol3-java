@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.loopers.application.user.ReadUserInfoUseCase;
 import com.loopers.application.user.SignUpUseCase;
 import com.loopers.application.user.UpdatePasswordUseCase;
+import com.loopers.application.user.UserCommand;
 import com.loopers.application.user.UserResult;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.LoginUser;
@@ -33,13 +34,13 @@ public class UserV1Api implements UserV1ApiSpec {
     @ResponseStatus(HttpStatus.CREATED)
     @Override
     public ApiResponse<UserV1Dto.SignUpResponse> signUp(@Valid @RequestBody UserV1Dto.SignUpRequest request) {
-        UserResult userResult = signUpUseCase.execute(
+        UserResult userResult = signUpUseCase.execute(new UserCommand.SignUpCommand(
                 request.loginId(),
                 request.password(),
                 request.name(),
                 request.birthDate(),
                 request.email()
-        );
+        ));
 
         return ApiResponse.success(UserV1Dto.SignUpResponse.from(userResult));
     }

@@ -28,14 +28,7 @@ public class RegisterProductUseCase {
     @Transactional
     public Long execute(ProductCommand.CreateProductCommand command) {
         brandService.validateActiveBrandExists(command.brandId());
-        Product product = productService.create(
-                command.brandId(),
-                command.name(),
-                command.thumbnailUrl(),
-                command.price(),
-                command.stock(),
-                command.description()
-        );
+        Product product = productService.create(command.toProductSpec());
         return product.getId();
     }
 }

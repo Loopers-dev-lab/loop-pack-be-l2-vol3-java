@@ -1,6 +1,7 @@
 package com.loopers.application.user;
 
 import com.loopers.application.shared.annotation.UseCase;
+import com.loopers.application.user.UserCommand.SignUpCommand;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserService;
 
@@ -18,15 +19,11 @@ public class SignUpUseCase {
     private final UserService userService;
 
     /**
-     * @param loginId   로그인 ID
-     * @param password  비밀번호
-     * @param name      이름
-     * @param birthDate 생년월일
-     * @param email     이메일
+     * @param command 회원가입 커맨드
      * @return 가입된 사용자 정보
      */
-    public UserResult execute(String loginId, String password, String name, String birthDate, String email) {
-        User user = userService.register(loginId, password, name, birthDate, email);
+    public UserResult execute(SignUpCommand command) {
+        User user = userService.register(command.toNewUser());
         return UserResult.from(user);
     }
 }

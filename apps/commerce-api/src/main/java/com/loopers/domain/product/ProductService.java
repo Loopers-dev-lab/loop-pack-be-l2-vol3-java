@@ -28,24 +28,12 @@ public class ProductService {
     /**
      * 새로운 상품을 생성한다.
      *
-     * @param brandId      브랜드 ID
-     * @param name         상품명
-     * @param thumbnailUrl 썸네일 URL
-     * @param price        가격
-     * @param stock        재고 수량
-     * @param description  상품 설명
+     * @param spec 상품 생성 스펙
      * @return 생성된 상품
      */
     @Transactional
-    public Product create(Long brandId, String name, String thumbnailUrl, Long price, Long stock, String description) {
-        Product product = Product.create(
-                brandId,
-                name,
-                thumbnailUrl,
-                price,
-                stock,
-                description
-        );
+    public Product create(ProductSpec spec) {
+        Product product = Product.create(spec);
         return productRepository.save(product);
     }
 
@@ -117,25 +105,14 @@ public class ProductService {
     /**
      * 상품 정보를 수정한다.
      *
-     * @param productId    상품 ID
-     * @param name         새 상품명
-     * @param thumbnailUrl 새 썸네일 URL
-     * @param price        새 가격
-     * @param stock        새 재고 수량
-     * @param description  새 상품 설명
+     * @param product 상품 수정 정보 (productId 포함)
      * @throws CoreException 상품이 존재하지 않는 경우
      */
     @Transactional
-    public void update(Long productId, String name, String thumbnailUrl, Long price, Long stock, String description) {
-        Product product = productRepository.findById(productId)
+    public void update(ModifyProduct product) {
+        Product entity = productRepository.findById(product.productId())
                 .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
-        product.update(
-                name,
-                thumbnailUrl,
-                price,
-                stock,
-                description
-        );
+        entity.update(product);
     }
 
     /**

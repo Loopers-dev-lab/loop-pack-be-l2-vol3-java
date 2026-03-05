@@ -21,14 +21,7 @@ public class RegisterCouponUseCase {
      * @return 등록된 쿠폰 정보
      */
     public CouponResult execute(CreateCouponCommand command) {
-        Coupon coupon = couponService.create(
-                command.name(),
-                command.type(),
-                command.discountValue(),
-                command.maxDiscountPrice(),
-                command.minOrderPrice(),
-                command.expiredAt()
-        );
+        Coupon coupon = couponService.create(command.toCouponTerms());
         return CouponResult.from(coupon);
     }
 }

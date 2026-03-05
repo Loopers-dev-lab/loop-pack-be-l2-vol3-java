@@ -24,21 +24,21 @@ public class Brand extends BaseEntity {
 
     private String description;
 
-    public static Brand create(String name, String logoUrl, String description) {
+    public static Brand create(NewBrand newBrand) {
         Brand brand = new Brand();
-        brand.name = new BrandName(name);
-        brand.logoUrl = new BrandLogoUrl(logoUrl);
-        brand.description = description;
+        brand.name = new BrandName(newBrand.name());
+        brand.logoUrl = new BrandLogoUrl(newBrand.logoUrl());
+        brand.description = newBrand.description();
         return brand;
     }
 
-    public void update(String newName, String newLogoUrl, String newDescription) {
+    public void update(ModifyBrand brand) {
         if (isDeleted()) {
             throw new CoreException(ErrorType.ALREADY_DELETED_BRAND);
         }
-        this.name = new BrandName(newName);
-        this.logoUrl = new BrandLogoUrl(newLogoUrl);
-        this.description = newDescription;
+        this.name = new BrandName(brand.name());
+        this.logoUrl = new BrandLogoUrl(brand.logoUrl());
+        this.description = brand.description();
     }
 
     public String getName() {

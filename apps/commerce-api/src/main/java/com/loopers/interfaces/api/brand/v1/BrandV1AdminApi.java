@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.loopers.application.brand.BrandCommand;
 import com.loopers.application.brand.BrandResult;
 import com.loopers.application.brand.DeleteBrandUseCase;
 import com.loopers.application.brand.ReadBrandDetailUseCase;
@@ -42,7 +43,7 @@ public class BrandV1AdminApi implements BrandV1AdminApiSpec {
     @ResponseStatus(code = HttpStatus.CREATED)
     @Override
     public ApiResponse<BrandDto.CreateBrandResponse> createBrand(@RequestBody @Valid BrandDto.CreateBrandRequest request) {
-        BrandResult result = registerBrandUseCase.execute(request.name(), request.logoUrl(), request.description());
+        BrandResult result = registerBrandUseCase.execute(new BrandCommand.CreateBrandCommand(request.name(), request.logoUrl(), request.description()));
         return ApiResponse.success(BrandDto.CreateBrandResponse.from(result));
     }
 
@@ -66,7 +67,7 @@ public class BrandV1AdminApi implements BrandV1AdminApiSpec {
     @PutMapping("/{brandId}")
     @Override
     public ApiResponse<Object> updateBrand(@PathVariable Long brandId, @RequestBody @Valid BrandDto.UpdateBrandRequest request) {
-        updateBrandUseCase.execute(brandId, request.name(), request.logoUrl(), request.description());
+        updateBrandUseCase.execute(new BrandCommand.UpdateBrandCommand(brandId, request.name(), request.logoUrl(), request.description()));
         return ApiResponse.success();
     }
 

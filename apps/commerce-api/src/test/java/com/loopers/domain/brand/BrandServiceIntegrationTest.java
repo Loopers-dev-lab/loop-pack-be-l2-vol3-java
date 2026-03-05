@@ -35,7 +35,7 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
             var description = "brand description";
 
             // act
-            var result = brandService.create(name, logoUrl, description);
+            var result = brandService.create(new NewBrand(name, logoUrl, description));
 
             // assert
             var savedBrand = brandRepository.findById(result.getId()).orElseThrow();
@@ -52,10 +52,10 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
         void throwsException_whenDuplicateBrandNameProvided() {
             // arrange
             var name = "brand name";
-            brandService.create(name, "logo url", "brand description");
+            brandService.create(new NewBrand(name, "logo url", "brand description"));
 
             // act & assert
-            assertThatThrownBy(() -> brandService.create(name, "logo url", "brand description"))
+            assertThatThrownBy(() -> brandService.create(new NewBrand(name, "logo url", "brand description")))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_EXISTS_BRAND_NAME));
         }
@@ -65,11 +65,11 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
         void allowsCreatingBrandWithDeletedName() {
             // arrange
             var name = "brand name";
-            var brand = brandService.create(name, "logo url", "brand description");
+            var brand = brandService.create(new NewBrand(name, "logo url", "brand description"));
             brandService.delete(brand.getId());
 
             // act
-            var result = brandService.create(name, "logo url", "brand description");
+            var result = brandService.create(new NewBrand(name, "logo url", "brand description"));
 
             // assert
             assertAll(
@@ -87,8 +87,8 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void returnsOnlyActiveBrands() {
             // arrange
-            var activeBrand = brandService.create("활성 브랜드", "logo1", "설명1");
-            var deletedBrand = brandService.create("삭제 브랜드", "logo2", "설명2");
+            var activeBrand = brandService.create(new NewBrand("활성 브랜드", "logo1", "설명1"));
+            var deletedBrand = brandService.create(new NewBrand("삭제 브랜드", "logo2", "설명2"));
             brandService.delete(deletedBrand.getId());
 
             // act
@@ -108,7 +108,7 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void returnsEmptyMap_whenAllBrandsDeleted() {
             // arrange
-            var brand = brandService.create("브랜드명", "logo", "설명");
+            var brand = brandService.create(new NewBrand("브랜드명", "logo", "설명"));
             brandService.delete(brand.getId());
 
             // act
@@ -137,11 +137,11 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void updatesBrand_whenExistingBrandIdAndValidInputProvided() {
             // arrange
-            var created = brandService.create("brand name", "logo url", "brand description");
+            var created = brandService.create(new NewBrand("brand name", "logo url", "brand description"));
             var brandId = created.getId();
 
             // act
-            brandService.update(brandId, "new brand name", "new logo url", "new brand description");
+            brandService.update(new ModifyBrand(brandId,"new brand name", "new logo url", "new brand description"));
 
             // assert
             var updatedBrand = brandRepository.findById(brandId).orElseThrow();
@@ -156,7 +156,7 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void throwsException_whenBrandNotFound() {
             // act & assert
-            assertThatThrownBy(() -> brandService.update(999L, "new name", "new logo", "new desc"))
+            assertThatThrownBy(() -> brandService.update(new ModifyBrand(999L,"new name", "new logo", "new desc")))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BRAND_NOT_FOUND));
         }
@@ -165,11 +165,11 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void throwsException_whenDuplicateNameExists() {
             // arrange
-            brandService.create("existing brand", "logo1", "desc1");
-            var created = brandService.create("my brand", "logo2", "desc2");
+            brandService.create(new NewBrand("existing brand", "logo1", "desc1"));
+            var created = brandService.create(new NewBrand("my brand", "logo2", "desc2"));
 
             // act & assert
-            assertThatThrownBy(() -> brandService.update(created.getId(), "existing brand", "logo2", "desc2"))
+            assertThatThrownBy(() -> brandService.update(new ModifyBrand(created.getId(),"existing brand", "logo2", "desc2")))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_EXISTS_BRAND_NAME));
         }
@@ -178,10 +178,10 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void updatesBrand_whenKeepingSameName() {
             // arrange
-            var created = brandService.create("brand name", "logo url", "description");
+            var created = brandService.create(new NewBrand("brand name", "logo url", "description"));
 
             // act & assert
-            assertThatCode(() -> brandService.update(created.getId(), "brand name", "new logo url", "new description"))
+            assertThatCode(() -> brandService.update(new ModifyBrand(created.getId(),"brand name", "new logo url", "new description")))
                     .doesNotThrowAnyException();
         }
 
@@ -189,13 +189,13 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void updatesBrand_whenNameMatchesDeletedBrand() {
             // arrange
-            var deleted = brandService.create("deleted brand", "logo1", "desc1");
+            var deleted = brandService.create(new NewBrand("deleted brand", "logo1", "desc1"));
             brandService.delete(deleted.getId());
 
-            var created = brandService.create("my brand", "logo2", "desc2");
+            var created = brandService.create(new NewBrand("my brand", "logo2", "desc2"));
 
             // act
-            brandService.update(created.getId(), "deleted brand", "logo2", "desc2");
+            brandService.update(new ModifyBrand(created.getId(),"deleted brand", "logo2", "desc2"));
 
             // assert
             var updatedBrand = brandRepository.findById(created.getId()).orElseThrow();
@@ -211,7 +211,7 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void deletesBrand_whenBrandExists() {
             // arrange
-            var created = brandService.create("브랜드명", "logo url", "설명");
+            var created = brandService.create(new NewBrand("브랜드명", "logo url", "설명"));
 
             // act
             brandService.delete(created.getId());
@@ -239,7 +239,7 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void doesNotThrow_whenActiveBrandExists() {
             // arrange
-            var created = brandService.create("브랜드명", "logo url", "설명");
+            var created = brandService.create(new NewBrand("브랜드명", "logo url", "설명"));
 
             // act & assert
             assertThatCode(() -> brandService.validateBrandExists(created.getId()))
@@ -250,7 +250,7 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void doesNotThrow_whenBrandIsDeleted() {
             // arrange
-            var created = brandService.create("브랜드명", "logo url", "설명");
+            var created = brandService.create(new NewBrand("브랜드명", "logo url", "설명"));
             brandService.delete(created.getId());
 
             // act & assert
@@ -276,7 +276,7 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void doesNotThrow_whenActiveBrandExists() {
             // arrange
-            var created = brandService.create("브랜드명", "logo url", "설명");
+            var created = brandService.create(new NewBrand("브랜드명", "logo url", "설명"));
 
             // act & assert
             assertThatCode(() -> brandService.validateActiveBrandExists(created.getId()))
@@ -287,7 +287,7 @@ class BrandServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void throwsException_whenBrandIsDeleted() {
             // arrange
-            var created = brandService.create("브랜드명", "logo url", "설명");
+            var created = brandService.create(new NewBrand("브랜드명", "logo url", "설명"));
             brandService.delete(created.getId());
 
             // act & assert

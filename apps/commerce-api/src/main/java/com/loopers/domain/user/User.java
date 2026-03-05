@@ -33,23 +33,16 @@ public class User extends BaseEntity {
     @Embedded
     private Email email;
 
-    public static User signUp(
-            String loginId,
-            String password,
-            String name,
-            String birthDate,
-            String email,
-            PasswordEncoder passwordEncoder
-    ) {
+    public static User signUp(NewUser newUser, PasswordEncoder passwordEncoder) {
         User user = new User();
 
-        user.loginId = new LoginId(loginId);
-        user.name = new UserName(name);
-        user.birthDate = new BirthDate(birthDate);
-        user.email = new Email(email);
+        user.loginId = new LoginId(newUser.loginId());
+        user.name = new UserName(newUser.name());
+        user.birthDate = new BirthDate(newUser.birthDate());
+        user.email = new Email(newUser.email());
 
-        user.validatePasswordNotContainsBirthDate(password);
-        user.password = new Password(password, passwordEncoder);
+        user.validatePasswordNotContainsBirthDate(newUser.password());
+        user.password = new Password(newUser.password(), passwordEncoder);
 
         return user;
     }

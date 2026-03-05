@@ -1,5 +1,6 @@
 package com.loopers.application.brand;
 
+import com.loopers.application.brand.BrandCommand.UpdateBrandCommand;
 import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.domain.brand.BrandService;
 
@@ -17,12 +18,9 @@ public class UpdateBrandUseCase {
     private final BrandService brandService;
 
     /**
-     * @param brandId     수정할 브랜드 ID
-     * @param name        새 브랜드명
-     * @param logoUrl     새 로고 URL
-     * @param description 새 설명
+     * @param command 브랜드 수정 커맨드
      */
-    public void execute(Long brandId, String name, String logoUrl, String description) {
-        brandService.update(brandId, name, logoUrl, description);
+    public void execute(UpdateBrandCommand command) {
+        brandService.update(command.toModifyBrand());
     }
 }

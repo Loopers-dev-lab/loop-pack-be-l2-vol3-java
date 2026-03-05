@@ -21,14 +21,7 @@ public class UpdateCouponUseCase {
      * @return 수정된 쿠폰 정보
      */
     public CouponResult execute(UpdateCouponCommand command) {
-        Coupon coupon = couponService.update(
-                command.couponId(),
-                command.name(),
-                command.discountValue(),
-                command.maxDiscountPrice(),
-                command.minOrderPrice(),
-                command.expiredAt()
-        );
+        Coupon coupon = couponService.update(command.toModifyCoupon());
         return CouponResult.from(coupon);
     }
 }

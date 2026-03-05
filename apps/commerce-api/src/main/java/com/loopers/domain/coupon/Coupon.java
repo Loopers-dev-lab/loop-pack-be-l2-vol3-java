@@ -49,47 +49,34 @@ public class Coupon extends BaseEntity {
     @Column(name = "expired_at", nullable = false)
     private ZonedDateTime expiredAt;
 
-    public static Coupon create(
-            String name,
-            CouponType type,
-            Long discountValue,
-            Long maxDiscountPrice,
-            Long minOrderPrice,
-            ZonedDateTime expiredAt
-    ) {
-        validateType(type);
-        validateDiscountValue(type, discountValue);
-        validateMaxDiscountPrice(type, maxDiscountPrice);
-        validateMinOrderPrice(minOrderPrice);
-        validateExpiredAt(expiredAt);
+    public static Coupon create(CouponTerms terms) {
+        validateType(terms.type());
+        validateDiscountValue(terms.type(), terms.discountValue());
+        validateMaxDiscountPrice(terms.type(), terms.maxDiscountPrice());
+        validateMinOrderPrice(terms.minOrderPrice());
+        validateExpiredAt(terms.expiredAt());
 
         Coupon coupon = new Coupon();
-        coupon.name = new CouponName(name);
-        coupon.type = type;
-        coupon.discountValue = discountValue;
-        coupon.maxDiscountPrice = maxDiscountPrice != null ? Money.wons(maxDiscountPrice) : null;
-        coupon.minOrderPrice = Money.wons(minOrderPrice);
-        coupon.expiredAt = expiredAt;
+        coupon.name = new CouponName(terms.name());
+        coupon.type = terms.type();
+        coupon.discountValue = terms.discountValue();
+        coupon.maxDiscountPrice = terms.maxDiscountPrice() != null ? Money.wons(terms.maxDiscountPrice()) : null;
+        coupon.minOrderPrice = Money.wons(terms.minOrderPrice());
+        coupon.expiredAt = terms.expiredAt();
         return coupon;
     }
 
-    public void update(
-            String name,
-            Long discountValue,
-            Long maxDiscountPrice,
-            Long minOrderPrice,
-            ZonedDateTime expiredAt
-    ) {
-        validateDiscountValue(this.type, discountValue);
-        validateMaxDiscountPrice(this.type, maxDiscountPrice);
-        validateMinOrderPrice(minOrderPrice);
-        validateExpiredAt(expiredAt);
+    public void update(ModifyCoupon coupon) {
+        validateDiscountValue(this.type, coupon.discountValue());
+        validateMaxDiscountPrice(this.type, coupon.maxDiscountPrice());
+        validateMinOrderPrice(coupon.minOrderPrice());
+        validateExpiredAt(coupon.expiredAt());
 
-        this.name = new CouponName(name);
-        this.discountValue = discountValue;
-        this.maxDiscountPrice = maxDiscountPrice != null ? Money.wons(maxDiscountPrice) : null;
-        this.minOrderPrice = Money.wons(minOrderPrice);
-        this.expiredAt = expiredAt;
+        this.name = new CouponName(coupon.name());
+        this.discountValue = coupon.discountValue();
+        this.maxDiscountPrice = coupon.maxDiscountPrice() != null ? Money.wons(coupon.maxDiscountPrice()) : null;
+        this.minOrderPrice = Money.wons(coupon.minOrderPrice());
+        this.expiredAt = coupon.expiredAt();
     }
 
     public Money calculateDiscount(Money orderTotal, CouponDiscountProvider couponDiscountProvider) {

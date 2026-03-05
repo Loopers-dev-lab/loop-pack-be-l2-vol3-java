@@ -1,5 +1,8 @@
 package com.loopers.application.product;
 
+import com.loopers.domain.product.ModifyProduct;
+import com.loopers.domain.product.ProductSpec;
+
 public class ProductCommand {
 
     public record CreateProductCommand(
@@ -10,6 +13,10 @@ public class ProductCommand {
             Long stock,
             String description
     ) {
+
+        public ProductSpec toProductSpec() {
+            return new ProductSpec(brandId, name, thumbnailUrl, price, stock, description);
+        }
     }
 
     public record UpdateProductCommand(
@@ -20,5 +27,9 @@ public class ProductCommand {
             Long stock,
             String description
     ) {
+
+        public ModifyProduct toModifyProduct() {
+            return new ModifyProduct(productId, name, thumbnailUrl, price, stock, description);
+        }
     }
 }

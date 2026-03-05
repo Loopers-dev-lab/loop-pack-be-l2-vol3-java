@@ -17,17 +17,9 @@ public class UpdateProductUseCase {
     private final ProductService productService;
 
     /**
-     * @param productId 수정할 상품 ID
-     * @param command   상품 수정 커맨드
+     * @param command 상품 수정 커맨드
      */
-    public void execute(Long productId, ProductCommand.UpdateProductCommand command) {
-        productService.update(
-                productId,
-                command.name(),
-                command.thumbnailUrl(),
-                command.price(),
-                command.stock(),
-                command.description()
-        );
+    public void execute(ProductCommand.UpdateProductCommand command) {
+        productService.update(command.toModifyProduct());
     }
 }

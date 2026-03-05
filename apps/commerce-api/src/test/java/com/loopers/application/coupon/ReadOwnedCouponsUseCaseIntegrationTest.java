@@ -41,8 +41,8 @@ class ReadOwnedCouponsUseCaseIntegrationTest extends BaseIntegrationTest {
         @Test
         void returnsResultsWithUserInfo_whenIssuancesExist() {
             // arrange
-            var coupon = couponService.create("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30));
-            var user = userService.register("testuser1", "Password1!", "홍길동", "1990-01-15", "test@example.com");
+            var coupon = couponService.create(new com.loopers.domain.coupon.CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
+            var user = userService.register(new com.loopers.domain.user.NewUser("testuser1", "Password1!", "홍길동", "1990-01-15", "test@example.com"));
             ownedCouponService.issue(coupon.getId(), user.getId());
 
             // act
@@ -67,7 +67,7 @@ class ReadOwnedCouponsUseCaseIntegrationTest extends BaseIntegrationTest {
         @Test
         void returnsEmptyPage_whenNoIssuancesExist() {
             // arrange
-            var coupon = couponService.create("빈 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30));
+            var coupon = couponService.create(new com.loopers.domain.coupon.CouponTerms("빈 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
 
             // act
             Page<ReadOwnedCouponsUseCase.Result> result = readOwnedCouponsUseCase.execute(coupon.getId(), PageSize.withMaxSize(0, 20));
