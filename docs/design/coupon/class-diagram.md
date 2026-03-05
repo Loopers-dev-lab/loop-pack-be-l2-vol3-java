@@ -44,6 +44,7 @@ classDiagram
         +isUsed() boolean
         +isDeleted() boolean
         +isExpired() boolean
+        +isOwnedBy(userId) boolean
         +calculateDiscount(totalAmount) BigDecimal
         +validateUsable()
         +validateMinOrderAmount(totalAmount)

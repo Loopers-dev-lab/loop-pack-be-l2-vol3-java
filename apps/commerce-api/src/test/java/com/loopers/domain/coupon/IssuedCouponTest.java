@@ -101,6 +101,24 @@ class IssuedCouponTest {
     }
 
     @Nested
+    class 소유자_확인 {
+
+        @Test
+        void 동일한_사용자이면_true를_반환한다() {
+            IssuedCoupon issuedCoupon = createIssuedCoupon(CouponType.FIXED, 1000, null, FUTURE);
+
+            assertThat(issuedCoupon.isOwnedBy(100L)).isTrue();
+        }
+
+        @Test
+        void 다른_사용자이면_false를_반환한다() {
+            IssuedCoupon issuedCoupon = createIssuedCoupon(CouponType.FIXED, 1000, null, FUTURE);
+
+            assertThat(issuedCoupon.isOwnedBy(999L)).isFalse();
+        }
+    }
+
+    @Nested
     class 최소_주문_금액_검증 {
 
         @Test

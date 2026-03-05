@@ -38,7 +38,12 @@ public class OrderFacade {
 
         // ── 1단계: 검증 (락 없음, 읽기만) ──
 
-        validateNoDuplicateProducts(items);
+        Set<Long> productIds = items.stream()
+                .map(OrderCommand.PlaceItem::productId)
+                .collect(Collectors.toSet());
+        if (productIds.size() != items.size()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문 상품이 중복되었습니다");
+        }
 
         Map<Long, Integer> productQuantities = items.stream()
                 .collect(Collectors.toMap(
@@ -57,7 +62,9 @@ public class OrderFacade {
         IssuedCoupon issuedCoupon = null;
         if (command.couponId() != null) {
             issuedCoupon = issuedCouponService.getIssuedCoupon(command.couponId());
-            validateCouponOwnership(issuedCoupon, userId);
+            if (!issuedCoupon.isOwnedBy(userId)) {
+                throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다");
+            }
             issuedCoupon.validateUsable();
         }
 
@@ -118,21 +125,6 @@ public class OrderFacade {
     public Page<OrderInfo.OrderAdminSummary> getAdminOrderList(Pageable pageable) {
         Page<Order> orders = orderService.findAllOrders(pageable);
         return orders.map(OrderInfo.OrderAdminSummary::from);
-    }
-
-    private void validateNoDuplicateProducts(List<OrderCommand.PlaceItem> items) {
-        Set<Long> productIds = items.stream()
-                .map(OrderCommand.PlaceItem::productId)
-                .collect(Collectors.toSet());
-        if (productIds.size() != items.size()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "주문 상품이 중복되었습니다");
-        }
-    }
-
-    private void validateCouponOwnership(IssuedCoupon issuedCoupon, Long userId) {
-        if (!issuedCoupon.getUserId().equals(userId)) {
-            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다");
-        }
     }
 
     private List<OrderCommand.CreateItem> toOrderItems(

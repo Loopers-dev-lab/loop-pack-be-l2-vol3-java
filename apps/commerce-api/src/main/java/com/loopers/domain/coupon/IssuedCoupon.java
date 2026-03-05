@@ -84,6 +84,10 @@ public class IssuedCoupon extends BaseEntity {
         return expiredAt.isBefore(LocalDateTime.now());
     }
 
+    public boolean isOwnedBy(Long userId) {
+        return this.userId.equals(userId);
+    }
+
     public BigDecimal calculateDiscount(BigDecimal totalAmount) {
         return switch (couponType) {
             case FIXED -> totalAmount.min(BigDecimal.valueOf(couponValue));
