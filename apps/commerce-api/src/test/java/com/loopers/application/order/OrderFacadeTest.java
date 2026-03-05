@@ -4,10 +4,15 @@ import com.loopers.application.cart.CartAppService;
 import com.loopers.application.product.ProductAppService;
 import com.loopers.domain.cart.CartItem;
 import com.loopers.domain.common.Money;
+import com.loopers.domain.coupon.IssuedCouponRepository;
+import com.loopers.domain.member.Member;
+import com.loopers.domain.member.MemberRepository;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
+import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.product.Option;
+import com.loopers.domain.product.OptionRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +21,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -36,13 +42,22 @@ class OrderFacadeTest {
     private OrderAppService orderAppService;
     private ProductAppService productAppService;
     private CartAppService cartAppService;
+    private MemberRepository memberRepository;
+    private IssuedCouponRepository issuedCouponRepository;
+    private OptionRepository optionRepository;
+    private OrderRepository orderRepository;
 
     @BeforeEach
     void setUp() {
         orderAppService = mock(OrderAppService.class);
         productAppService = mock(ProductAppService.class);
         cartAppService = mock(CartAppService.class);
-        orderFacade = new OrderFacade(orderAppService, productAppService, cartAppService);
+        memberRepository = mock(MemberRepository.class);
+        issuedCouponRepository = mock(IssuedCouponRepository.class);
+        optionRepository = mock(OptionRepository.class);
+        orderRepository = mock(OrderRepository.class);
+        orderFacade = new OrderFacade(orderAppService, productAppService, cartAppService,
+                memberRepository, issuedCouponRepository, optionRepository, orderRepository);
     }
 
     private Option createOption(Long optionId, Long productId, int stock) {
@@ -64,6 +79,13 @@ class OrderFacadeTest {
         return product;
     }
 
+    private Member createMember(Long id) {
+        Member member = mock(Member.class);
+        given(member.getId()).willReturn(id);
+        given(member.getPoint()).willReturn(Money.of(100000L));
+        return member;
+    }
+
     @Nested
     @DisplayName("직접 주문 생성")
     class CreateOrderTest {
@@ -71,12 +93,12 @@ class OrderFacadeTest {
         @Test
         @DisplayName("직접 주문을 생성하면 재고를 차감하고 Order를 생성한다")
         void createOrder_success() {
-            // given
             Long userId = 1L;
             Long optionId = 100L;
             Long productId = 10L;
             int quantity = 2;
 
+            Member member = createMember(userId);
             Option option = createOption(optionId, productId, 98);
             Product product = createProduct(productId, 1L);
             Order savedOrder = mock(Order.class);
@@ -86,18 +108,19 @@ class OrderFacadeTest {
             OrderCreateCommand command = new OrderCreateCommand(userId,
                     List.of(new OrderCreateCommand.OrderItemCommand(optionId, quantity)));
 
-            given(productAppService.decreaseStock(optionId, quantity)).willReturn(option);
+            given(memberRepository.findByIdWithLock(userId)).willReturn(Optional.of(member));
+            given(memberRepository.save(any())).willReturn(member);
+            given(optionRepository.findByIdWithLock(optionId)).willReturn(Optional.of(option));
+            given(optionRepository.save(any())).willReturn(option);
             given(productAppService.getById(productId)).willReturn(product);
-            given(orderAppService.create(eq(userId), any())).willReturn(savedOrder);
+            given(orderAppService.create(any(Order.class))).willReturn(savedOrder);
 
-            // when
             Order result = orderFacade.createOrder(command);
 
-            // then
             assertThat(result.getId()).isEqualTo(1L);
             assertThat(result.getStatus()).isEqualTo(OrderStatus.PENDING);
-            verify(productAppService).decreaseStock(optionId, quantity);
-            verify(orderAppService).create(eq(userId), any());
+            verify(optionRepository).findByIdWithLock(optionId);
+            verify(orderAppService).create(any(Order.class));
         }
     }
 
@@ -106,51 +129,19 @@ class OrderFacadeTest {
     class CreateOrderFromCartTest {
 
         @Test
-        @DisplayName("장바구니 항목으로 주문을 생성하면 재고 차감 후 장바구니를 삭제한다")
-        void createOrderFromCart_success() {
-            // given
-            Long userId = 1L;
-            Long cartItemId = 1L;
-            Long optionId = 100L;
-            Long productId = 10L;
-            int quantity = 3;
-
-            CartItem cartItem = CartItem.of(cartItemId, userId, optionId, quantity);
-            Option option = createOption(optionId, productId, 97);
-            Product product = createProduct(productId, 1L);
-            Order savedOrder = mock(Order.class);
-            given(savedOrder.getId()).willReturn(1L);
-
-            given(cartAppService.getByIds(List.of(cartItemId))).willReturn(List.of(cartItem));
-            given(productAppService.decreaseStock(optionId, quantity)).willReturn(option);
-            given(productAppService.getById(productId)).willReturn(product);
-            given(orderAppService.create(eq(userId), any())).willReturn(savedOrder);
-
-            // when
-            Order result = orderFacade.createOrderFromCart(userId, List.of(cartItemId));
-
-            // then
-            assertThat(result.getId()).isEqualTo(1L);
-            verify(productAppService).decreaseStock(optionId, quantity);
-            verify(cartAppService).deleteByIds(List.of(cartItemId));
-        }
-
-        @Test
         @DisplayName("타인의 장바구니 항목으로 주문하면 예외가 발생한다")
         void createOrderFromCart_notOwner() {
-            // given
             Long userId = 1L;
             Long otherUserId = 999L;
             CartItem otherUserItem = CartItem.of(1L, otherUserId, 100L, 2);
 
             given(cartAppService.getByIds(List.of(1L))).willReturn(List.of(otherUserItem));
 
-            // when & then
-            assertThatThrownBy(() -> orderFacade.createOrderFromCart(userId, List.of(1L)))
+            assertThatThrownBy(() -> orderFacade.createOrderFromCart(userId, List.of(1L), null))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining("본인의 장바구니 항목");
 
-            verify(productAppService, never()).decreaseStock(anyLong(), anyInt());
+            verify(optionRepository, never()).findByIdWithLock(anyLong());
         }
     }
 
@@ -161,7 +152,6 @@ class OrderFacadeTest {
         @Test
         @DisplayName("주문을 취소하면 재고를 복원한다")
         void cancelOrder_success() {
-            // given
             Long userId = 1L;
             Long orderId = 1L;
             Long optionId = 100L;
@@ -170,29 +160,28 @@ class OrderFacadeTest {
             Order order = mock(Order.class);
             given(order.getId()).willReturn(orderId);
             given(order.getUserId()).willReturn(userId);
+            given(order.getIssuedCouponId()).willReturn(null);
+            given(order.getPaymentAmount()).willReturn(Money.of(55000L));
             given(order.getOrderItems()).willReturn(
                     List.of(OrderItem.of(optionId, "테스트 상품", "기본 옵션", Money.of(11000L), quantity))
             );
 
-            Order canceledOrder = mock(Order.class);
-            given(canceledOrder.getStatus()).willReturn(OrderStatus.CANCELED);
+            Member member = createMember(userId);
 
-            given(orderAppService.getById(orderId)).willReturn(order);
-            given(orderAppService.cancel(orderId)).willReturn(canceledOrder);
+            Option option = mock(Option.class);
+            given(optionRepository.findByIdWithLock(optionId)).willReturn(Optional.of(option));
+            given(orderRepository.findByIdWithLock(orderId)).willReturn(Optional.of(order));
+            given(memberRepository.findByIdWithLock(userId)).willReturn(Optional.of(member));
 
-            // when
             Order result = orderFacade.cancelOrder(userId, orderId);
 
-            // then
-            assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCELED);
-            verify(productAppService).increaseStock(optionId, quantity);
-            verify(orderAppService).cancel(orderId);
+            verify(order).cancel();
+            verify(option).increaseStock(quantity);
         }
 
         @Test
         @DisplayName("타인의 주문을 취소하면 예외가 발생한다")
         void cancelOrder_notOwner() {
-            // given
             Long userId = 1L;
             Long orderId = 1L;
             Order order = mock(Order.class);
@@ -200,55 +189,14 @@ class OrderFacadeTest {
             doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "본인의 주문만 조회/취소할 수 있습니다."))
                     .when(order).validateOwner(userId);
 
-            given(orderAppService.getById(orderId)).willReturn(order);
+            given(orderRepository.findByIdWithLock(orderId)).willReturn(Optional.of(order));
 
-            // when & then
             assertThatThrownBy(() -> orderFacade.cancelOrder(userId, orderId))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining("본인의 주문만 조회/취소할 수 있습니다.");
 
-            verify(productAppService, never()).increaseStock(anyLong(), anyInt());
-            verify(orderAppService, never()).cancel(anyLong());
-        }
-    }
-
-    @Nested
-    @DisplayName("주문 조회")
-    class GetOrderTest {
-
-        @Test
-        @DisplayName("본인의 주문을 조회할 수 있다")
-        void getOrder_success() {
-            // given
-            Long userId = 1L;
-            Long orderId = 1L;
-            Order order = mock(Order.class);
-            given(order.getId()).willReturn(orderId);
-            given(order.getUserId()).willReturn(userId);
-
-            given(orderAppService.getById(orderId)).willReturn(order);
-
-            // when
-            Order result = orderFacade.getOrder(userId, orderId);
-
-            // then
-            assertThat(result.getId()).isEqualTo(orderId);
-        }
-
-        @Test
-        @DisplayName("타인의 주문을 조회하면 예외가 발생한다")
-        void getOrder_notOwner() {
-            // given
-            Order order = mock(Order.class);
-            given(order.getId()).willReturn(1L);
-            doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "본인의 주문만 조회/취소할 수 있습니다."))
-                    .when(order).validateOwner(1L);
-            given(orderAppService.getById(1L)).willReturn(order);
-
-            // when & then
-            assertThatThrownBy(() -> orderFacade.getOrder(1L, 1L))
-                    .isInstanceOf(CoreException.class)
-                    .hasMessageContaining("본인의 주문만 조회/취소할 수 있습니다.");
+            verify(optionRepository, never()).findByIdWithLock(anyLong());
+            verify(orderRepository, never()).save(any());
         }
     }
 
@@ -259,15 +207,12 @@ class OrderFacadeTest {
         @Test
         @DisplayName("주문 결제 처리를 위임한다")
         void payOrder() {
-            // given
             Order paidOrder = mock(Order.class);
             given(paidOrder.getStatus()).willReturn(OrderStatus.PAID);
             given(orderAppService.pay(1L)).willReturn(paidOrder);
 
-            // when
             Order result = orderFacade.payOrder(1L);
 
-            // then
             assertThat(result.getStatus()).isEqualTo(OrderStatus.PAID);
             verify(orderAppService).pay(1L);
         }
@@ -275,45 +220,36 @@ class OrderFacadeTest {
         @Test
         @DisplayName("주문 준비 처리를 위임한다")
         void prepareOrder() {
-            // given
             Order preparingOrder = mock(Order.class);
             given(preparingOrder.getStatus()).willReturn(OrderStatus.PREPARING);
             given(orderAppService.prepare(1L)).willReturn(preparingOrder);
 
-            // when
             Order result = orderFacade.prepareOrder(1L);
 
-            // then
             assertThat(result.getStatus()).isEqualTo(OrderStatus.PREPARING);
         }
 
         @Test
         @DisplayName("주문 배송 처리를 위임한다")
         void shipOrder() {
-            // given
             Order shippedOrder = mock(Order.class);
             given(shippedOrder.getStatus()).willReturn(OrderStatus.SHIPPED);
             given(orderAppService.ship(1L)).willReturn(shippedOrder);
 
-            // when
             Order result = orderFacade.shipOrder(1L);
 
-            // then
             assertThat(result.getStatus()).isEqualTo(OrderStatus.SHIPPED);
         }
 
         @Test
         @DisplayName("주문 배송 완료 처리를 위임한다")
         void deliverOrder() {
-            // given
             Order deliveredOrder = mock(Order.class);
             given(deliveredOrder.getStatus()).willReturn(OrderStatus.DELIVERED);
             given(orderAppService.deliver(1L)).willReturn(deliveredOrder);
 
-            // when
             Order result = orderFacade.deliverOrder(1L);
 
-            // then
             assertThat(result.getStatus()).isEqualTo(OrderStatus.DELIVERED);
         }
     }

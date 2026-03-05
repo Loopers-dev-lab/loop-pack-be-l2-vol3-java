@@ -225,8 +225,7 @@ class ProductAppServiceTest {
             // given
             Option option = mock(Option.class);
             given(option.getStock()).willReturn(90);
-            given(optionRepository.findById(1L)).willReturn(Optional.of(option));
-            given(optionRepository.save(any(Option.class))).willReturn(option);
+            given(optionRepository.findByIdWithLock(1L)).willReturn(Optional.of(option));
 
             // when
             Option result = productAppService.decreaseStock(1L, 10);
@@ -234,7 +233,6 @@ class ProductAppServiceTest {
             // then
             assertThat(result.getStock()).isEqualTo(90);
             verify(option).decreaseStock(10);
-            verify(optionRepository).save(option);
         }
 
         @Test
@@ -244,7 +242,7 @@ class ProductAppServiceTest {
             Option option = mock(Option.class);
             doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "재고가 부족합니다."))
                     .when(option).decreaseStock(10);
-            given(optionRepository.findById(1L)).willReturn(Optional.of(option));
+            given(optionRepository.findByIdWithLock(1L)).willReturn(Optional.of(option));
 
             // when & then
             assertThatThrownBy(() -> productAppService.decreaseStock(1L, 10))
@@ -263,8 +261,7 @@ class ProductAppServiceTest {
             // given
             Option option = mock(Option.class);
             given(option.getStock()).willReturn(100);
-            given(optionRepository.findById(1L)).willReturn(Optional.of(option));
-            given(optionRepository.save(any(Option.class))).willReturn(option);
+            given(optionRepository.findByIdWithLock(1L)).willReturn(Optional.of(option));
 
             // when
             Option result = productAppService.increaseStock(1L, 10);
@@ -272,7 +269,6 @@ class ProductAppServiceTest {
             // then
             assertThat(result.getStock()).isEqualTo(100);
             verify(option).increaseStock(10);
-            verify(optionRepository).save(option);
         }
     }
 

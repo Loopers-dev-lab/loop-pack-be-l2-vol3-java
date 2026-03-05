@@ -65,14 +65,12 @@ class CartAppServiceTest {
             CartItem mergedItem = CartItem.of(1L, userId, optionId, 5);
 
             given(cartRepository.findByUserIdAndOptionId(userId, optionId)).willReturn(Optional.of(existingItem));
-            given(cartRepository.save(any(CartItem.class))).willReturn(mergedItem);
 
             // when
             CartItem result = cartAppService.addToCart(userId, optionId, 3);
 
             // then
             assertThat(existingItem.getQuantity()).isEqualTo(5);
-            verify(cartRepository).save(existingItem);
         }
     }
 
@@ -143,14 +141,12 @@ class CartAppServiceTest {
             CartItem updatedItem = CartItem.of(1L, userId, 100L, 5);
 
             given(cartRepository.findById(1L)).willReturn(Optional.of(cartItem));
-            given(cartRepository.save(any(CartItem.class))).willReturn(updatedItem);
 
             // when
             CartItem result = cartAppService.updateQuantity(userId, 1L, 5);
 
             // then
             assertThat(cartItem.getQuantity()).isEqualTo(5);
-            verify(cartRepository).save(cartItem);
         }
 
         @Test

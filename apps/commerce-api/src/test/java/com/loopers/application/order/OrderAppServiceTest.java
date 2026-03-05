@@ -114,16 +114,14 @@ class OrderAppServiceTest {
         void pay_success() {
             // given
             Order order = createPendingOrder();
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             given(order.getStatus()).willReturn(OrderStatus.PAID);
-            given(orderRepository.save(any(Order.class))).willReturn(order);
 
             // when
             Order result = orderAppService.pay(1L);
 
             // then
             assertThat(result.getStatus()).isEqualTo(OrderStatus.PAID);
-            verify(orderRepository).save(order);
         }
 
         @Test
@@ -132,7 +130,7 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "결제 대기 상태에서만 결제할 수 있습니다."))
                     .when(order).pay();
 
@@ -154,8 +152,7 @@ class OrderAppServiceTest {
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
             given(order.getStatus()).willReturn(OrderStatus.PREPARING);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
-            given(orderRepository.save(any(Order.class))).willReturn(order);
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
 
             // when
             Order result = orderAppService.prepare(1L);
@@ -170,7 +167,7 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "결제 완료 상태에서만 준비할 수 있습니다."))
                     .when(order).prepare();
 
@@ -192,8 +189,7 @@ class OrderAppServiceTest {
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
             given(order.getStatus()).willReturn(OrderStatus.SHIPPED);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
-            given(orderRepository.save(any(Order.class))).willReturn(order);
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
 
             // when
             Order result = orderAppService.ship(1L);
@@ -208,7 +204,7 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "준비 완료 상태에서만 배송을 시작할 수 있습니다."))
                     .when(order).ship();
 
@@ -230,8 +226,7 @@ class OrderAppServiceTest {
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
             given(order.getStatus()).willReturn(OrderStatus.DELIVERED);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
-            given(orderRepository.save(any(Order.class))).willReturn(order);
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
 
             // when
             Order result = orderAppService.deliver(1L);
@@ -246,7 +241,7 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "배송 중 상태에서만 배송 완료 처리할 수 있습니다."))
                     .when(order).deliver();
 
@@ -266,9 +261,8 @@ class OrderAppServiceTest {
         void cancel_fromPending() {
             // given
             Order order = createPendingOrder();
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             given(order.getStatus()).willReturn(OrderStatus.CANCELED);
-            given(orderRepository.save(any(Order.class))).willReturn(order);
 
             // when
             Order result = orderAppService.cancel(1L);
@@ -284,8 +278,7 @@ class OrderAppServiceTest {
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
             given(order.getStatus()).willReturn(OrderStatus.CANCELED);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
-            given(orderRepository.save(any(Order.class))).willReturn(order);
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
 
             // when
             Order result = orderAppService.cancel(1L);
@@ -300,7 +293,7 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다."))
                     .when(order).cancel();
 
@@ -316,7 +309,7 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다."))
                     .when(order).cancel();
 
