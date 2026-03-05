@@ -2,7 +2,6 @@ package com.loopers.application.like;
 
 import com.loopers.domain.like.Like;
 import com.loopers.domain.like.LikeRepository;
-import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -23,7 +22,7 @@ public class LikeFacade {
 
     @Transactional
     public void addLike(Long memberId, Long productId) {
-        Product product = productRepository.findByIdWithLock(productId)
+        productRepository.findById(productId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
 
         if (likeRepository.existsByMemberIdAndProductId(memberId, productId)) {
@@ -31,7 +30,6 @@ public class LikeFacade {
         }
 
         likeRepository.save(new Like(memberId, productId));
-        product.incrementLikeCount();
     }
 
     @Transactional
@@ -42,10 +40,6 @@ public class LikeFacade {
         }
 
         likeRepository.delete(likeOpt.get());
-
-        Product product = productRepository.findByIdWithLock(productId)
-            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
-        product.decrementLikeCount();
     }
 
     public List<Like> getLikesByMemberId(Long memberId) {

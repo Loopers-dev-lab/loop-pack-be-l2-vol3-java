@@ -71,7 +71,7 @@ public class FakeProductRepository implements ProductRepository {
     public List<ProductWithBrand> findAllWithBrand() {
         return store.values().stream()
                 .filter(product -> product.getDeletedAt() == null)
-                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId())))
+                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId()), 0L))
                 .toList();
     }
 
@@ -81,7 +81,7 @@ public class FakeProductRepository implements ProductRepository {
         return store.values().stream()
                 .filter(product -> product.getDeletedAt() == null)
                 .sorted(comparator)
-                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId())))
+                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId()), 0L))
                 .toList();
     }
 
@@ -90,7 +90,7 @@ public class FakeProductRepository implements ProductRepository {
         return store.values().stream()
                 .filter(product -> product.getDeletedAt() == null)
                 .filter(product -> product.getBrandId().equals(brandId))
-                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId())))
+                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId()), 0L))
                 .toList();
     }
 
@@ -111,7 +111,6 @@ public class FakeProductRepository implements ProductRepository {
         }
         return switch (sort) {
             case "price_asc" -> Comparator.comparingInt(p -> p.getPrice().getValue());
-            case "likes_desc" -> Comparator.comparingInt(Product::getLikeCount).reversed();
             default -> Comparator.comparing(Product::getId).reversed();
         };
     }

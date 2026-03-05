@@ -2,9 +2,11 @@ package com.loopers.infrastructure.coupon;
 
 import com.loopers.domain.coupon.CouponIssue;
 import com.loopers.domain.coupon.CouponIssueRepository;
+import com.loopers.domain.coupon.CouponIssueStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,8 +27,9 @@ public class CouponIssueRepositoryImpl implements CouponIssueRepository {
     }
 
     @Override
-    public Optional<CouponIssue> findByIdWithLock(Long id) {
-        return couponIssueJpaRepository.findByIdWithLock(id);
+    public int markAsUsed(Long id, ZonedDateTime now) {
+        return couponIssueJpaRepository.markAsUsed(
+            id, now, CouponIssueStatus.USED, CouponIssueStatus.AVAILABLE);
     }
 
     @Override

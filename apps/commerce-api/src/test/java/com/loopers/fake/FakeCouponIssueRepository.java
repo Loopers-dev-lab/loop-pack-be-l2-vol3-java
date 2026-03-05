@@ -2,8 +2,10 @@ package com.loopers.fake;
 
 import com.loopers.domain.coupon.CouponIssue;
 import com.loopers.domain.coupon.CouponIssueRepository;
+import com.loopers.domain.coupon.CouponIssueStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -30,8 +32,13 @@ public class FakeCouponIssueRepository implements CouponIssueRepository {
     }
 
     @Override
-    public Optional<CouponIssue> findByIdWithLock(Long id) {
-        return findById(id);
+    public int markAsUsed(Long id, ZonedDateTime now) {
+        CouponIssue issue = store.get(id);
+        if (issue == null) return 0;
+        if (issue.getStatus() != CouponIssueStatus.AVAILABLE) return 0;
+        if (issue.isExpired(now)) return 0;
+        issue.use(null, now);
+        return 1;
     }
 
     @Override

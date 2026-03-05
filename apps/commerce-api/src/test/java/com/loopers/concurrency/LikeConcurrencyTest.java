@@ -3,6 +3,7 @@ package com.loopers.concurrency;
 import com.loopers.application.like.LikeFacade;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.vo.Price;
@@ -34,6 +35,9 @@ class LikeConcurrencyTest {
     private BrandRepository brandRepository;
 
     @Autowired
+    private LikeRepository likeRepository;
+
+    @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
     @AfterEach
@@ -41,9 +45,9 @@ class LikeConcurrencyTest {
         databaseCleanUp.truncateAllTables();
     }
 
-    @DisplayName("동일 상품에 여러 명이 동시에 좋아요하면 좋아요 수가 정확히 반영된다")
+    @DisplayName("동일 상품에 여러 명이 동시에 좋아요하면 모두 성공하고 Like 레코드가 정확히 생성된다")
     @Test
-    void concurrentLikes_incrementsLikeCountCorrectly() throws InterruptedException {
+    void concurrentLikes_allSucceed_andCountIsCorrect() throws InterruptedException {
         // arrange
         int threadCount = 10;
         Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
@@ -72,13 +76,12 @@ class LikeConcurrencyTest {
         latch.await();
         executor.shutdown();
 
-        // assert
-        Product reloaded = productRepository.findById(productId).orElseThrow();
+        // assert — 락 없이 UNIQUE 제약으로 중복 방지, 모두 성공
         assertThat(successCount.get()).isEqualTo(threadCount);
-        assertThat(reloaded.getLikeCount()).isEqualTo(threadCount);
+        assertThat(likeRepository.countByProductId(productId)).isEqualTo(threadCount);
     }
 
-    @DisplayName("동일 상품에 여러 명이 동시에 좋아요/싫어요하면 최종 카운트가 정확하다")
+    @DisplayName("동일 상품에 여러 명이 좋아요 후 일부가 취소하면 Like 레코드 수가 정확하다")
     @Test
     void concurrentLikeAndUnlike_countsCorrectly() throws InterruptedException {
         // arrange
@@ -126,7 +129,6 @@ class LikeConcurrencyTest {
         executor2.shutdown();
 
         // assert
-        Product reloaded = productRepository.findById(productId).orElseThrow();
-        assertThat(reloaded.getLikeCount()).isEqualTo(likeCount - unlikeCount);
+        assertThat(likeRepository.countByProductId(productId)).isEqualTo(likeCount - unlikeCount);
     }
 }

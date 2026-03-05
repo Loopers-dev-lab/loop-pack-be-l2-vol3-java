@@ -91,7 +91,7 @@ public class CouponFacade {
     public CouponApplyResult applyCouponToOrder(Long couponIssueId, Long memberId, int orderPrice) {
         ZonedDateTime now = ZonedDateTime.now(clock);
 
-        CouponIssue couponIssue = couponIssueRepository.findByIdWithLock(couponIssueId)
+        CouponIssue couponIssue = couponIssueRepository.findById(couponIssueId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
 
         if (!couponIssue.getMemberId().equals(memberId)) {
@@ -103,9 +103,13 @@ public class CouponFacade {
 
         coupon.validateUsable(orderPrice, now);
         int discountAmount = coupon.calculateDiscount(orderPrice);
-        couponIssue.use(null, now);
 
-        return new CouponApplyResult(couponIssueId, discountAmount, couponIssue);
+        int updated = couponIssueRepository.markAsUsed(couponIssueId, now);
+        if (updated == 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "이미 사용되었거나 만료된 쿠폰입니다.");
+        }
+
+        return new CouponApplyResult(couponIssueId, discountAmount);
     }
 
     // ── 주문 연동: 쿠폰에 주문 ID 연결 ──

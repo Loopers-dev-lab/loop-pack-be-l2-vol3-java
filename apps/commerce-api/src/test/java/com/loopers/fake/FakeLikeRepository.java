@@ -58,4 +58,11 @@ public class FakeLikeRepository implements LikeRepository {
                 .toList();
         keysToRemove.forEach(store::remove);
     }
+
+    @Override
+    public long countByProductId(Long productId) {
+        return store.values().stream()
+                .filter(like -> like.getProductId().equals(productId))
+                .count();
+    }
 }
