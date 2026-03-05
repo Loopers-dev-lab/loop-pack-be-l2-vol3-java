@@ -2,54 +2,56 @@
 
 ## 주문 요청 (POST /api/v1/orders)
 
-주문 생성은 이 시스템에서 가장 복잡한 로직이다. 상품 활성 상태 확인 → 재고 확인 → 재고 차감 → 스냅샷 생성 → 주문 저장이 원자적으로 처리되는지, 실패 시 전체 롤백이 보장되는지 검증한다.
+주문 생성은 이 시스템에서 가장 복잡한 로직이다. 재고 차감, 쿠폰 사용, 주문 생성이 하나의 유스케이스 트랜잭션에서 원자적으로 처리되고, 실패 시 전체 롤백되는지 검증한다.
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant C as Client
     participant OC as OrderController
-    participant OF as OrderFacade
-    participant PS as ProductService
-    participant OS as OrderService
+    participant OU as OrderCreateUseCase
+    participant PS as ProductStockApplicationService
+    participant CS as CouponApplicationService
+    participant OS as OrderApplicationService
+    participant DB as DB
 
-    C->>OC: POST /api/v1/orders (items)
-    OC->>OF: 주문 생성 요청
+    C->>OC: POST /api/v1/orders (items, couponId?)
+    OC->>OU: 주문 생성 유스케이스 실행
+    note over OU: @Transactional 시작
 
-    loop 각 OrderItem에 대해
-        OF->>PS: 활성 상품 조회 및 재고 검증
-        PS-->>OF: 상품 정보 반환
+    OU->>PS: 재고 예약/차감(락 기반)
+    PS->>DB: 상품 행 잠금 + 재고 검증/차감
+    DB-->>PS: 예약 완료
+
+    alt couponId 있음
+        OU->>CS: 쿠폰 검증/사용
+        CS->>DB: 소유자/만료/상태 검증 + USED 전이
+        DB-->>CS: 성공 또는 실패
     end
 
-    alt 삭제된 상품 포함
-        OF-->>OC: 400 Bad Request
-        OC-->>C: 400 (삭제된 상품)
-    else 재고 부족
-        OF-->>OC: 400 Bad Request
-        OC-->>C: 400 (재고 부족)
-    else 모든 검증 통과
-        note over OF: 스냅샷 생성 (주문 번호, 상품명, 가격, 브랜드명)
+    OU->>OS: 주문 생성(스냅샷 포함)
+    OS->>DB: Order + OrderItem + CouponSnapshot 저장
+    DB-->>OS: 저장 완료
 
-        loop 각 OrderItem에 대해
-            OF->>PS: 재고 차감 요청
-            PS-->>OF: 차감 완료
-        end
-
-        OF->>OS: 주문 생성 (스냅샷 포함)
-        OS-->>OF: 주문 생성 완료
-
-        OF-->>OC: 주문 정보 반환
+    alt 중간 실패 발생
+        OU-->>OC: 예외 전달
+        note over OU: 트랜잭션 롤백
+        OC-->>C: 4xx/5xx
+    else 성공
+        note over OU: 트랜잭션 커밋
+        OU-->>OC: 주문 정보 반환
         OC-->>C: 201 Created
     end
 ```
 
 ### 핵심 포인트
 - **전체 실패 정책**: 여러 상품 중 하나라도 문제가 있으면 전체 주문이 실패한다 (부분 성공 없음).
-- **스냅샷 시점**: Facade에서 검증 완료된 상품 정보로 스냅샷을 생성한 후, OrderService에 전달.
+- **유스케이스 중심**: Controller는 유스케이스를 호출하고, 유스케이스 내부에서 재고/쿠폰/주문 흐름을 오케스트레이션한다.
+- **트랜잭션 경계**: 주문 유스케이스(`@Transactional`)에서 재고 차감 + 쿠폰 사용 + 주문 저장을 원자적으로 처리한다.
 
 ### 설계 리스크
-- **크로스 도메인 원자성**: 재고 차감과 주문 저장이 별도 트랜잭션이므로, 주문 저장 실패 시 재고 복원 보상 로직 필요.
-- **재고 동시성**: Facade의 읽기 검증과 재고 차감 사이에 갭이 존재. `WHERE stock >= quantity` 조건으로 해결 가능.
+- **락 경합**: 동시 주문이 몰리면 상품/쿠폰 락 대기가 길어질 수 있다. 락 순서 고정과 짧은 트랜잭션 유지가 필요.
+- **쿠폰 만료 판정**: 도메인 정책(상태/시간)과 저장 정책(ERD) 간 불일치가 있으면 경계 시점 버그가 발생할 수 있다.
 
 ---
 
@@ -62,42 +64,55 @@ sequenceDiagram
     autonumber
     participant C as Client
     participant OC as OrderController
-    participant OF as OrderFacade
+    participant OU as OrderCancelUseCase
     participant OS as OrderService
     participant PS as ProductService
+    participant CS as CouponApplicationService
+    participant DB as DB
 
     C->>OC: PATCH /orders/{orderId}/cancel
-    OC->>OF: 주문 취소 요청
+    OC->>OU: 주문 취소 유스케이스 실행
+    note over OU: @Transactional 시작
 
-    OF->>OS: 주문 + 주문항목 조회
-    OS-->>OF: 주문 정보 반환
+    OU->>OS: 주문 + 주문항목 조회
+    OS-->>OU: 주문 정보 반환
 
-    note over OF: 권한 확인 (고객: 본인만, 어드민: 모두)
+    note over OU: 권한 확인 (고객: 본인만, 어드민: 모두)
 
-    OF->>OS: 주문 취소 처리
+    OU->>OS: 주문 취소 처리
 
     alt 이미 CANCELLED
-        OS-->>OF: 409 Conflict
-        OF-->>OC: 409 Conflict
+        OS-->>OU: 409 Conflict
+        OU-->>OC: 409 Conflict
         OC-->>C: 409 (이미 취소됨)
     else ORDERED 상태
-        OS-->>OF: 취소 완료
+        OS-->>OU: 취소 완료
 
         loop 각 OrderItem에 대해
-            OF->>PS: 재고 복원 요청
-            PS-->>OF: 복원 완료
+            OU->>PS: 재고 복원 요청
+            PS->>DB: 재고 증가
+            DB-->>PS: 복원 완료
         end
 
-        OF-->>OC: 취소 완료
+        alt 주문에 적용된 쿠폰 있음
+            OU->>CS: 쿠폰 사용 취소(AVAILABLE 복원)
+            CS->>DB: 쿠폰 상태 복원
+            DB-->>CS: 복원 완료
+        end
+
+        note over OU: 트랜잭션 커밋
+        OU-->>OC: 취소 완료
         OC-->>C: 200 OK
     end
 ```
 
 ### 핵심 포인트
-- **권한 분기**: Facade에서 권한을 확인한 후 (고객: 본인만, 어드민: 모두), 취소 로직을 진행.
+- **유스케이스 중심**: OrderCancelUseCase가 권한 확인, 주문 취소, 재고 복원, 쿠폰 복원을 오케스트레이션한다.
+- **트랜잭션 경계**: 주문 취소 유스케이스(`@Transactional`)에서 취소/복원 동작을 원자적으로 처리한다.
 
 ### 설계 리스크
 - **삭제된 상품의 재고 복원**: 주문 후 상품이 Soft Delete된 경우, 취소 시 재고를 복원해야 하는지 정책 결정 필요. 현재는 복원하는 것으로 가정.
+- **쿠폰 복원 정책**: 주문 취소 시 쿠폰 재사용 허용 여부(AVAILABLE 복원) 정책을 명확히 합의해야 한다.
 
 ---
 
@@ -210,3 +225,5 @@ sequenceDiagram
 
 ### 설계 리스크
 - **정렬 성능**: likes_desc 정렬 시 likeCount 컬럼에 인덱스가 없으면 대량 데이터에서 성능 저하 가능. 인덱스 추가로 해결.
+
+---
