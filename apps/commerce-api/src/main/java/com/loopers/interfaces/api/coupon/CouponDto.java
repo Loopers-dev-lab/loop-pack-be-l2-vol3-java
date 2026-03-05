@@ -54,13 +54,13 @@ public class CouponDto {
         ZonedDateTime expiredAt,
         ZonedDateTime createdAt
     ) {
-        public static CouponIssueResponse from(CouponIssue issue) {
+        public static CouponIssueResponse from(CouponIssue issue, ZonedDateTime now) {
             return new CouponIssueResponse(
                 issue.getId(),
                 issue.getCouponId(),
                 issue.getMemberId(),
                 issue.getUsedOrderId(),
-                issue.getEffectiveStatus().name(),
+                issue.getEffectiveStatus(now).name(),
                 issue.getExpiredAt(),
                 issue.getCreatedAt()
             );

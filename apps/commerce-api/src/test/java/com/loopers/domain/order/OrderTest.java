@@ -64,6 +64,28 @@ class OrderTest {
             assertThat(order.getCouponIssueId()).isEqualTo(42L);
         }
 
+        @DisplayName("할인 금액이 주문 금액을 초과하면 예외가 발생한다")
+        @Test
+        void create_withExcessiveDiscount_throwsException() {
+            Order.ItemSnapshot snap = new Order.ItemSnapshot(1L, "상품A", 10000, "브랜드A", 1);
+
+            assertThatThrownBy(() -> Order.create(1L, List.of(snap), 42L, 15000))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("할인 금액이 음수이면 예외가 발생한다")
+        @Test
+        void create_withNegativeDiscount_throwsException() {
+            Order.ItemSnapshot snap = new Order.ItemSnapshot(1L, "상품A", 10000, "브랜드A", 1);
+
+            assertThatThrownBy(() -> Order.create(1L, List.of(snap), 42L, -1000))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
         @DisplayName("쿠폰 없이 생성하면 할인 금액이 0이고 couponIssueId가 null이다")
         @Test
         void create_withoutCoupon_noDiscount() {

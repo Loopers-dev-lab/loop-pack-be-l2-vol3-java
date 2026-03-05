@@ -10,6 +10,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.util.List;
 
@@ -21,12 +22,13 @@ class CouponFacadeTest {
     private CouponFacade couponFacade;
     private FakeCouponRepository couponRepository;
     private FakeCouponIssueRepository couponIssueRepository;
+    private final Clock clock = Clock.systemDefaultZone();
 
     @BeforeEach
     void setUp() {
         couponRepository = new FakeCouponRepository();
         couponIssueRepository = new FakeCouponIssueRepository();
-        couponFacade = new CouponFacade(couponRepository, couponIssueRepository);
+        couponFacade = new CouponFacade(couponRepository, couponIssueRepository, clock);
     }
 
     @Nested
@@ -217,6 +219,42 @@ class CouponFacadeTest {
                 .isInstanceOf(CoreException.class)
                 .extracting(e -> ((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("주문 연동: 쿠폰 적용")
+    class ApplyCouponToOrder {
+
+        @DisplayName("유효한 쿠폰을 적용하면 할인 금액이 반환된다")
+        @Test
+        void applyCouponToOrder_returnsDiscount() {
+            Coupon coupon = couponFacade.createCoupon(
+                "5000원 할인", DiscountType.FIXED, 5000, 10000,
+                ZonedDateTime.now().plusDays(30));
+            CouponIssue issue = couponFacade.issueCoupon(coupon.getId(), 1L);
+
+            CouponApplyResult result = couponFacade.applyCouponToOrder(
+                issue.getId(), 1L, 100000);
+
+            assertThat(result.discountAmount()).isEqualTo(5000);
+            assertThat(result.couponIssueId()).isEqualTo(issue.getId());
+            assertThat(issue.getStatus()).isEqualTo(CouponIssueStatus.USED);
+        }
+
+        @DisplayName("타인의 쿠폰을 적용하면 예외가 발생한다")
+        @Test
+        void applyCouponToOrder_withOtherMember_throwsException() {
+            Coupon coupon = couponFacade.createCoupon(
+                "할인", DiscountType.FIXED, 5000, 0,
+                ZonedDateTime.now().plusDays(30));
+            CouponIssue issue = couponFacade.issueCoupon(coupon.getId(), 2L);
+
+            assertThatThrownBy(() -> couponFacade.applyCouponToOrder(
+                issue.getId(), 1L, 100000))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.FORBIDDEN);
         }
     }
 }

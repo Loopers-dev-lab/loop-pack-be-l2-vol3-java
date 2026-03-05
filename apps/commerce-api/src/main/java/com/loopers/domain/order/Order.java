@@ -62,6 +62,10 @@ public class Order extends BaseEntity {
             ));
         }
         order.originalTotalPrice = order.items.stream().mapToInt(OrderItem::getSubtotal).sum();
+        if (discountAmount < 0 || discountAmount > order.originalTotalPrice) {
+            throw new CoreException(ErrorType.BAD_REQUEST,
+                "할인 금액이 유효하지 않습니다. (할인: " + discountAmount + ", 주문 금액: " + order.originalTotalPrice + ")");
+        }
         order.discountAmount = discountAmount;
         order.totalPrice = order.originalTotalPrice - discountAmount;
         order.couponIssueId = couponIssueId;

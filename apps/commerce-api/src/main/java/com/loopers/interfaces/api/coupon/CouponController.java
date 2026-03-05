@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 
 @RestController
@@ -24,16 +25,18 @@ public class CouponController {
         @PathVariable Long couponId
     ) {
         CouponIssue couponIssue = couponFacade.issueCoupon(couponId, member.getId());
-        return ApiResponse.success(CouponDto.CouponIssueResponse.from(couponIssue));
+        ZonedDateTime now = couponFacade.now();
+        return ApiResponse.success(CouponDto.CouponIssueResponse.from(couponIssue, now));
     }
 
     @GetMapping("/api/v1/users/me/coupons")
     public ApiResponse<List<CouponDto.CouponIssueResponse>> getMyCoupons(
         @AuthMember Member member
     ) {
+        ZonedDateTime now = couponFacade.now();
         List<CouponDto.CouponIssueResponse> responses = couponFacade.getMyCoupons(member.getId())
             .stream()
-            .map(CouponDto.CouponIssueResponse::from)
+            .map(issue -> CouponDto.CouponIssueResponse.from(issue, now))
             .toList();
         return ApiResponse.success(responses);
     }

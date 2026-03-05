@@ -49,11 +49,11 @@ public class CouponIssue {
         this.createdAt = ZonedDateTime.now();
     }
 
-    public void use(Long orderId) {
+    public void use(Long orderId, ZonedDateTime now) {
         if (this.status != CouponIssueStatus.AVAILABLE) {
             throw new CoreException(ErrorType.BAD_REQUEST, "사용할 수 없는 쿠폰입니다.");
         }
-        if (isExpired()) {
+        if (isExpired(now)) {
             throw new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.");
         }
         this.status = CouponIssueStatus.USED;
@@ -72,12 +72,12 @@ public class CouponIssue {
         this.usedOrderId = null;
     }
 
-    public boolean isExpired() {
-        return ZonedDateTime.now().isAfter(expiredAt);
+    public boolean isExpired(ZonedDateTime now) {
+        return now.isAfter(expiredAt);
     }
 
-    public CouponIssueStatus getEffectiveStatus() {
-        if (this.status == CouponIssueStatus.AVAILABLE && isExpired()) {
+    public CouponIssueStatus getEffectiveStatus(ZonedDateTime now) {
+        if (this.status == CouponIssueStatus.AVAILABLE && isExpired(now)) {
             return CouponIssueStatus.EXPIRED;
         }
         return this.status;

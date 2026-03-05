@@ -43,6 +43,16 @@ public class FakeProductRepository implements ProductRepository {
     }
 
     @Override
+    public List<Product> findAllByIdsWithLock(List<Long> ids) {
+        return ids.stream()
+            .distinct()
+            .sorted()
+            .map(store::get)
+            .filter(p -> p != null && p.getDeletedAt() == null)
+            .toList();
+    }
+
+    @Override
     public List<Product> findAll() {
         return store.values().stream()
                 .filter(product -> product.getDeletedAt() == null)

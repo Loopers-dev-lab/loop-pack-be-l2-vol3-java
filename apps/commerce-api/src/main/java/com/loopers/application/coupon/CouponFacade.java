@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.util.List;
 
@@ -17,6 +18,7 @@ public class CouponFacade {
 
     private final CouponRepository couponRepository;
     private final CouponIssueRepository couponIssueRepository;
+    private final Clock clock;
 
     // ── Admin: 쿠폰 템플릿 CRUD ──
 
@@ -69,7 +71,8 @@ public class CouponFacade {
     public CouponIssue issueCoupon(Long couponId, Long memberId) {
         Coupon coupon = couponRepository.findById(couponId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
-        if (ZonedDateTime.now().isAfter(coupon.getExpiredAt())) {
+        ZonedDateTime now = ZonedDateTime.now(clock);
+        if (now.isAfter(coupon.getExpiredAt())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰은 발급할 수 없습니다.");
         }
         CouponIssue couponIssue = new CouponIssue(couponId, memberId, coupon.getExpiredAt());
@@ -80,5 +83,50 @@ public class CouponFacade {
 
     public List<CouponIssue> getMyCoupons(Long memberId) {
         return couponIssueRepository.findAllByMemberId(memberId);
+    }
+
+    // ── 주문 연동: 쿠폰 적용 ──
+
+    @Transactional
+    public CouponApplyResult applyCouponToOrder(Long couponIssueId, Long memberId, int orderPrice) {
+        ZonedDateTime now = ZonedDateTime.now(clock);
+
+        CouponIssue couponIssue = couponIssueRepository.findByIdWithLock(couponIssueId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
+
+        if (!couponIssue.getMemberId().equals(memberId)) {
+            throw new CoreException(ErrorType.FORBIDDEN, "본인의 쿠폰만 사용할 수 있습니다.");
+        }
+
+        Coupon coupon = couponRepository.findById(couponIssue.getCouponId())
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰 템플릿을 찾을 수 없습니다."));
+
+        coupon.validateUsable(orderPrice, now);
+        int discountAmount = coupon.calculateDiscount(orderPrice);
+        couponIssue.use(null, now);
+
+        return new CouponApplyResult(couponIssueId, discountAmount, couponIssue);
+    }
+
+    // ── 주문 연동: 쿠폰에 주문 ID 연결 ──
+
+    @Transactional
+    public void linkCouponToOrder(Long couponIssueId, Long orderId) {
+        CouponIssue couponIssue = couponIssueRepository.findById(couponIssueId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
+        couponIssue.linkOrder(orderId);
+    }
+
+    // ── 주문 연동: 쿠폰 복원 ──
+
+    @Transactional
+    public void restoreCoupon(Long couponIssueId) {
+        CouponIssue couponIssue = couponIssueRepository.findById(couponIssueId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
+        couponIssue.cancelUse();
+    }
+
+    public ZonedDateTime now() {
+        return ZonedDateTime.now(clock);
     }
 }

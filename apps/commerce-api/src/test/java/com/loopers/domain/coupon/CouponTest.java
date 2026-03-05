@@ -13,6 +13,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CouponTest {
 
+    private static final ZonedDateTime NOW = ZonedDateTime.now();
+
     @Nested
     @DisplayName("할인 계산")
     class CalculateDiscount {
@@ -21,7 +23,7 @@ class CouponTest {
         @Test
         void fixed_whenDiscountLessThanOrderPrice_returnsDiscountValue() {
             Coupon coupon = new Coupon("1000원 할인", DiscountType.FIXED, 1000, 0,
-                ZonedDateTime.now().plusDays(30));
+                NOW.plusDays(30));
 
             int discount = coupon.calculateDiscount(10000);
 
@@ -32,7 +34,7 @@ class CouponTest {
         @Test
         void fixed_whenDiscountGreaterThanOrderPrice_returnsOrderPrice() {
             Coupon coupon = new Coupon("10000원 할인", DiscountType.FIXED, 10000, 0,
-                ZonedDateTime.now().plusDays(30));
+                NOW.plusDays(30));
 
             int discount = coupon.calculateDiscount(5000);
 
@@ -43,7 +45,7 @@ class CouponTest {
         @Test
         void rate_calculatesPercentageDiscount() {
             Coupon coupon = new Coupon("10% 할인", DiscountType.RATE, 10, 0,
-                ZonedDateTime.now().plusDays(30));
+                NOW.plusDays(30));
 
             int discount = coupon.calculateDiscount(20000);
 
@@ -54,7 +56,7 @@ class CouponTest {
         @Test
         void rate_fiftyPercentDiscount() {
             Coupon coupon = new Coupon("50% 할인", DiscountType.RATE, 50, 0,
-                ZonedDateTime.now().plusDays(30));
+                NOW.plusDays(30));
 
             int discount = coupon.calculateDiscount(30000);
 
@@ -70,9 +72,9 @@ class CouponTest {
         @Test
         void whenExpired_throwsException() {
             Coupon coupon = new Coupon("할인", DiscountType.FIXED, 1000, 0,
-                ZonedDateTime.now().minusDays(1));
+                NOW.minusDays(1));
 
-            assertThatThrownBy(() -> coupon.validateUsable(10000))
+            assertThatThrownBy(() -> coupon.validateUsable(10000, NOW))
                 .isInstanceOf(CoreException.class)
                 .extracting(e -> ((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.BAD_REQUEST);
@@ -82,9 +84,9 @@ class CouponTest {
         @Test
         void whenBelowMinOrderAmount_throwsException() {
             Coupon coupon = new Coupon("할인", DiscountType.FIXED, 1000, 10000,
-                ZonedDateTime.now().plusDays(30));
+                NOW.plusDays(30));
 
-            assertThatThrownBy(() -> coupon.validateUsable(5000))
+            assertThatThrownBy(() -> coupon.validateUsable(5000, NOW))
                 .isInstanceOf(CoreException.class)
                 .extracting(e -> ((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.BAD_REQUEST);
@@ -94,9 +96,9 @@ class CouponTest {
         @Test
         void whenValid_passes() {
             Coupon coupon = new Coupon("할인", DiscountType.FIXED, 1000, 10000,
-                ZonedDateTime.now().plusDays(30));
+                NOW.plusDays(30));
 
-            coupon.validateUsable(15000);
+            coupon.validateUsable(15000, NOW);
         }
     }
 
@@ -108,7 +110,7 @@ class CouponTest {
         @Test
         void whenZeroDiscountValue_throwsException() {
             assertThatThrownBy(() -> new Coupon("할인", DiscountType.FIXED, 0, 0,
-                ZonedDateTime.now().plusDays(30)))
+                NOW.plusDays(30)))
                 .isInstanceOf(CoreException.class)
                 .extracting(e -> ((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.BAD_REQUEST);
@@ -118,7 +120,7 @@ class CouponTest {
         @Test
         void whenRateExceeds100_throwsException() {
             assertThatThrownBy(() -> new Coupon("할인", DiscountType.RATE, 101, 0,
-                ZonedDateTime.now().plusDays(30)))
+                NOW.plusDays(30)))
                 .isInstanceOf(CoreException.class)
                 .extracting(e -> ((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.BAD_REQUEST);

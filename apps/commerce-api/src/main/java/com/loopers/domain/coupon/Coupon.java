@@ -48,8 +48,8 @@ public class Coupon extends BaseEntity {
         return orderPrice * discountValue / 100;
     }
 
-    public void validateUsable(int orderPrice) {
-        if (ZonedDateTime.now().isAfter(expiredAt)) {
+    public void validateUsable(int orderPrice, ZonedDateTime now) {
+        if (now.isAfter(expiredAt)) {
             throw new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.");
         }
         if (orderPrice < minOrderAmount) {

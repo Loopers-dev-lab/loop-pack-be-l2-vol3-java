@@ -126,4 +126,62 @@ class StockConcurrencyTest {
         assertThat(failCount.get()).isEqualTo(threadCount - initialStock);
         assertThat(reloaded.getStock().getQuantity()).isEqualTo(0);
     }
+
+    @DisplayName("상품을 역순으로 주문해도 데드락 없이 모두 성공한다")
+    @Test
+    void concurrentOrders_reverseProductOrder_noDeadlock() throws InterruptedException {
+        // arrange
+        Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+        Product productA = productRepository.save(
+            new Product(brand.getId(), "에어맥스", new Price(100000), new Stock(10)));
+        Product productB = productRepository.save(
+            new Product(brand.getId(), "덩크로우", new Price(120000), new Stock(10)));
+
+        Long idA = productA.getId();
+        Long idB = productB.getId();
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(2);
+        AtomicInteger successCount = new AtomicInteger(0);
+
+        // act: 유저1은 [A, B] 순서, 유저2는 [B, A] 순서로 요청
+        executor.submit(() -> {
+            ready.countDown();
+            try { start.await(); } catch (InterruptedException ignored) {}
+            try {
+                orderFacade.createOrder(1L,
+                    List.of(new OrderFacade.OrderItemRequest(idA, 1),
+                            new OrderFacade.OrderItemRequest(idB, 1)));
+                successCount.incrementAndGet();
+            } catch (Exception ignored) {
+            } finally { done.countDown(); }
+        });
+
+        executor.submit(() -> {
+            ready.countDown();
+            try { start.await(); } catch (InterruptedException ignored) {}
+            try {
+                orderFacade.createOrder(2L,
+                    List.of(new OrderFacade.OrderItemRequest(idB, 1),
+                            new OrderFacade.OrderItemRequest(idA, 1)));
+                successCount.incrementAndGet();
+            } catch (Exception ignored) {
+            } finally { done.countDown(); }
+        });
+
+        ready.await();
+        start.countDown(); // 두 스레드 동시 출발
+        done.await();
+        executor.shutdown();
+
+        // assert: 데드락 없이 둘 다 성공, 각 상품 재고 2씩 차감 (2명 × 1개)
+        assertThat(successCount.get()).isEqualTo(2);
+
+        Product reloadedA = productRepository.findById(idA).orElseThrow();
+        Product reloadedB = productRepository.findById(idB).orElseThrow();
+        assertThat(reloadedA.getStock().getQuantity()).isEqualTo(8);
+        assertThat(reloadedB.getStock().getQuantity()).isEqualTo(8);
+    }
 }
