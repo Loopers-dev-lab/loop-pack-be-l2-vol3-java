@@ -60,7 +60,7 @@ public class Coupon extends BaseEntity {
         coupon.name = new CouponName(terms.name());
         coupon.type = terms.type();
         coupon.discountValue = terms.discountValue();
-        coupon.maxDiscountPrice = terms.maxDiscountPrice() != null ? Money.wons(terms.maxDiscountPrice()) : null;
+        coupon.maxDiscountPrice = Money.wonsOrNull(terms.maxDiscountPrice());
         coupon.minOrderPrice = Money.wons(terms.minOrderPrice());
         coupon.expiredAt = terms.expiredAt();
         return coupon;
@@ -74,7 +74,7 @@ public class Coupon extends BaseEntity {
 
         this.name = new CouponName(coupon.name());
         this.discountValue = coupon.discountValue();
-        this.maxDiscountPrice = coupon.maxDiscountPrice() != null ? Money.wons(coupon.maxDiscountPrice()) : null;
+        this.maxDiscountPrice = Money.wonsOrNull(coupon.maxDiscountPrice());
         this.minOrderPrice = Money.wons(coupon.minOrderPrice());
         this.expiredAt = coupon.expiredAt();
     }

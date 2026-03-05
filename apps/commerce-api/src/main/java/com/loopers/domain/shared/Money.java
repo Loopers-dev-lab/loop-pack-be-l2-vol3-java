@@ -35,6 +35,13 @@ public class Money {
         return new Money(amount);
     }
 
+    public static Money wonsOrNull(Long amount) {
+        if (amount == null) {
+            return null;
+        }
+        return wons(amount);
+    }
+
     public static <T> Money sum(Collection<T> bags, Function<T, Money> monetary) {
         return bags.stream().map(monetary).reduce(Money.ZERO, Money::plus);
     }

@@ -23,7 +23,7 @@ public record CouponResult(
                 coupon.getName().getValue(),
                 coupon.getType(),
                 coupon.getDiscountValue(),
-                coupon.getMaxDiscountPrice() != null ? coupon.getMaxDiscountPrice().getAmount() : null,
+                coupon.getMaxDiscountPriceAmount(),
                 coupon.getMinOrderPrice().getAmount(),
                 coupon.getExpiredAt(),
                 coupon.getCreatedAt(),

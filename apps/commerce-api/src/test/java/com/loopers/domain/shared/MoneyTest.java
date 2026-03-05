@@ -1,6 +1,7 @@
 package com.loopers.domain.shared;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +45,39 @@ class MoneyTest {
         @ValueSource(longs = {-1L, -100L, -999L})
         void throwsException_whenNegative(Long amount) {
             assertThatThrownBy(() -> Money.wons(amount))
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining(ErrorType.INVALID_MONEY_AMOUNT.getMessage());
+        }
+    }
+
+    @DisplayName("nullable Money를 생성할 때,")
+    @Nested
+    class WonsOrNull {
+
+        @DisplayName("금액이 null이면, NPE 없이 null을 반환한다.")
+        @Test
+        void returnsNull_whenAmountIsNull() {
+            // act
+            var money = Money.wonsOrNull(null);
+
+            // assert
+            assertThat(money).isNull();
+        }
+
+        @DisplayName("유효한 금액이면, Money를 정상 생성한다.")
+        @Test
+        void returnsMoney_whenAmountIsValid() {
+            // act
+            var money = Money.wonsOrNull(10000L);
+
+            // assert
+            assertThat(money).isEqualTo(Money.wons(10000L));
+        }
+
+        @DisplayName("금액이 음수이면, INVALID_MONEY_AMOUNT 에러가 발생한다.")
+        @Test
+        void throwsException_whenAmountIsNegative() {
+            assertThatThrownBy(() -> Money.wonsOrNull(-1L))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.INVALID_MONEY_AMOUNT.getMessage());
         }
