@@ -127,7 +127,7 @@ public class CouponFacade {
     public void restoreCoupon(Long couponIssueId) {
         CouponIssue couponIssue = couponIssueRepository.findById(couponIssueId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
-        couponIssue.cancelUse();
+        couponIssue.cancelUse(ZonedDateTime.now(clock));
     }
 
     public ZonedDateTime now() {

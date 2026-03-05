@@ -64,11 +64,11 @@ public class CouponIssue {
         this.usedOrderId = orderId;
     }
 
-    public void cancelUse() {
+    public void cancelUse(ZonedDateTime now) {
         if (this.status != CouponIssueStatus.USED) {
             throw new CoreException(ErrorType.BAD_REQUEST, "사용된 쿠폰만 복원할 수 있습니다.");
         }
-        this.status = CouponIssueStatus.AVAILABLE;
+        this.status = isExpired(now) ? CouponIssueStatus.EXPIRED : CouponIssueStatus.AVAILABLE;
         this.usedOrderId = null;
     }
 

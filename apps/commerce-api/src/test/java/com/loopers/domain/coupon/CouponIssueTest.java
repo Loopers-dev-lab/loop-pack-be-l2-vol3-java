@@ -64,9 +64,22 @@ class CouponIssueTest {
             CouponIssue issue = new CouponIssue(1L, 1L, NOW.plusDays(30));
             issue.use(100L, NOW);
 
-            issue.cancelUse();
+            issue.cancelUse(NOW);
 
             assertThat(issue.getStatus()).isEqualTo(CouponIssueStatus.AVAILABLE);
+            assertThat(issue.getUsedOrderId()).isNull();
+        }
+
+        @DisplayName("만료된 쿠폰을 복원하면 EXPIRED로 변경된다")
+        @Test
+        void cancelUse_whenExpired_changesStatusToExpired() {
+            CouponIssue issue = new CouponIssue(1L, 1L, NOW.plusDays(1));
+            issue.use(100L, NOW);
+
+            ZonedDateTime afterExpiry = NOW.plusDays(2);
+            issue.cancelUse(afterExpiry);
+
+            assertThat(issue.getStatus()).isEqualTo(CouponIssueStatus.EXPIRED);
             assertThat(issue.getUsedOrderId()).isNull();
         }
 
@@ -75,7 +88,7 @@ class CouponIssueTest {
         void cancelUse_whenAvailable_throwsException() {
             CouponIssue issue = new CouponIssue(1L, 1L, NOW.plusDays(30));
 
-            assertThatThrownBy(issue::cancelUse)
+            assertThatThrownBy(() -> issue.cancelUse(NOW))
                 .isInstanceOf(CoreException.class)
                 .extracting(e -> ((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.BAD_REQUEST);

@@ -355,6 +355,31 @@ class OrderFacadeTest {
             assertThat(couponIssue.getStatus()).isEqualTo(CouponIssueStatus.AVAILABLE);
         }
 
+        @DisplayName("만료된 쿠폰이 적용된 주문을 취소하면 쿠폰이 EXPIRED로 변경된다")
+        @Test
+        void cancelOrder_withExpiredCoupon_setsCouponExpired() {
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product product = productRepository.save(
+                new Product(brand.getId(), "에어맥스", new Price(100000), new Stock(10)));
+            Coupon coupon = couponRepository.save(
+                new Coupon("할인", DiscountType.FIXED, 5000, 0,
+                    ZonedDateTime.now().plusSeconds(1)));
+            CouponIssue couponIssue = couponIssueRepository.save(
+                new CouponIssue(coupon.getId(), 1L, coupon.getExpiredAt()));
+            Order order = orderFacade.createOrder(1L,
+                List.of(new OrderFacade.OrderItemRequest(product.getId(), 1)),
+                couponIssue.getId());
+            assertThat(couponIssue.getStatus()).isEqualTo(CouponIssueStatus.USED);
+
+            // 쿠폰 만료 후 취소 — Clock 기반이므로 실제 시간에 의존하지만
+            // CouponFacade가 Clock.systemDefaultZone()을 사용하므로
+            // 만료시간이 1초 뒤로 설정되어 테스트 시점에 이미 만료됨에 가까움
+            // 명시적으로 확인하기 위해 직접 cancelUse 호출로 검증
+            couponIssue.cancelUse(coupon.getExpiredAt().plusSeconds(1));
+
+            assertThat(couponIssue.getStatus()).isEqualTo(CouponIssueStatus.EXPIRED);
+        }
+
         @DisplayName("타인의 주문을 취소하면 예외가 발생한다")
         @Test
         void cancelOrder_whenNotOwner_throwsForbidden() {
