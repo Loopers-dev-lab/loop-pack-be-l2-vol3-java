@@ -116,7 +116,9 @@ class BrandApiE2ETest {
                     new ParameterizedTypeReference<>() {}
             );
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST)
+            );
         }
     }
 

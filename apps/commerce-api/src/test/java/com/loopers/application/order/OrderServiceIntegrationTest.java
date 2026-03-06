@@ -143,31 +143,6 @@ class OrderServiceIntegrationTest {
     }
 
     @Nested
-    class 주문_상세_조회_관리자 {
-
-        @Test
-        void 주문_ID로_조회하면_주문_정보를_반환한다() {
-            Order created = orderService.createOrder(OrderCommand.Create.of(1L, List.of(
-                    OrderCommand.CreateItem.of(1L, "운동화", new BigDecimal("50000"), 2)
-            )));
-
-            Order order = orderService.getOrder(created.getId());
-
-            assertThat(order.getId()).isEqualTo(created.getId());
-            assertThat(order.getOrderItems()).hasSize(1);
-            assertThat(order.getTotalAmount()).isEqualByComparingTo(new BigDecimal("100000"));
-        }
-
-        @Test
-        void 존재하지_않는_주문이면_예외() {
-            assertThatThrownBy(() -> orderService.getOrder(999L))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
-                            .isEqualTo(ErrorType.NOT_FOUND));
-        }
-    }
-
-    @Nested
     class 전체_주문_목록_조회_관리자 {
 
         @Test

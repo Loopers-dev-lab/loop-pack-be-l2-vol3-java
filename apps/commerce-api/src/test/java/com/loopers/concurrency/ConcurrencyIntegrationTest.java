@@ -242,5 +242,37 @@ class ConcurrencyIntegrationTest {
             assertThat(found.getIssuedCount()).isEqualTo(threadCount);
             assertThat(exceptions).isEmpty();
         }
+
+        @Test
+        void 최대_발급_수량보다_많은_동시_발급_요청이_들어오면_일부만_성공한다() throws InterruptedException {
+            int maxIssueCount = 5;
+            Coupon coupon = couponService.register(CouponCommand.Register.of(
+                    "쿠폰", CouponType.FIXED, 1000,
+                    null, maxIssueCount, LocalDateTime.now().plusDays(7)
+            ));
+
+            int threadCount = 10;
+            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch latch = new CountDownLatch(threadCount);
+            List<Exception> exceptions = Collections.synchronizedList(new ArrayList<>());
+
+            for (int i = 0; i < threadCount; i++) {
+                executorService.submit(() -> {
+                    try {
+                        couponService.issue(coupon.getId());
+                    } catch (Exception e) {
+                        exceptions.add(e);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+            latch.await();
+            executorService.shutdown();
+
+            Coupon found = couponRepository.findById(coupon.getId()).orElseThrow();
+            assertThat(found.getIssuedCount()).isEqualTo(maxIssueCount);
+            assertThat(exceptions).hasSize(threadCount - maxIssueCount);
+        }
     }
 }
