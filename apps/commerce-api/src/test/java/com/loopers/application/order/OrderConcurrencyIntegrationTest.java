@@ -5,6 +5,8 @@ import com.loopers.domain.brand.BrandDomainService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductDomainService;
 import com.loopers.domain.product.Stock;
+import com.loopers.domain.stock.ProductStock;
+import com.loopers.domain.stock.ProductStockDomainService;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +35,9 @@ class OrderConcurrencyIntegrationTest {
     private ProductDomainService productService;
 
     @Autowired
+    private ProductStockDomainService productStockService;
+
+    @Autowired
     private BrandDomainService brandService;
 
     @Autowired
@@ -59,7 +64,8 @@ class OrderConcurrencyIntegrationTest {
         @Test
         void allOrdersSucceed_whenStockIsSufficient() throws InterruptedException {
             int threadCount = 10;
-            Product product = productService.register(brandId, "에어맥스", 129000, threadCount);
+            Product product = productService.register(brandId, "에어맥스", 129000);
+            productStockService.create(product.getId(), threadCount);
 
             ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
             CountDownLatch latch = new CountDownLatch(threadCount);
@@ -87,7 +93,7 @@ class OrderConcurrencyIntegrationTest {
             latch.await();
             executorService.shutdown();
 
-            Product result = productService.getById(product.getId());
+            ProductStock result = productStockService.getByProductId(product.getId());
             assertThat(successCount.get()).isEqualTo(threadCount);
             assertThat(failCount.get()).isEqualTo(0);
             assertThat(result.getStock()).isEqualTo(new Stock(0));
@@ -98,7 +104,8 @@ class OrderConcurrencyIntegrationTest {
         void onlyAvailableStockSucceeds_whenStockIsInsufficient() throws InterruptedException {
             int threadCount = 10;
             int availableStock = 5;
-            Product product = productService.register(brandId, "에어맥스", 129000, availableStock);
+            Product product = productService.register(brandId, "에어맥스", 129000);
+            productStockService.create(product.getId(), availableStock);
 
             ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
             CountDownLatch latch = new CountDownLatch(threadCount);
@@ -126,7 +133,7 @@ class OrderConcurrencyIntegrationTest {
             latch.await();
             executorService.shutdown();
 
-            Product result = productService.getById(product.getId());
+            ProductStock result = productStockService.getByProductId(product.getId());
             assertThat(successCount.get()).isEqualTo(availableStock);
             assertThat(failCount.get()).isEqualTo(threadCount - availableStock);
             assertThat(result.getStock()).isEqualTo(new Stock(0));

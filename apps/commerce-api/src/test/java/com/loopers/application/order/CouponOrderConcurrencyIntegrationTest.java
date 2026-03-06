@@ -11,6 +11,8 @@ import com.loopers.domain.coupon.CouponType;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductDomainService;
 import com.loopers.domain.product.Stock;
+import com.loopers.domain.stock.ProductStock;
+import com.loopers.domain.stock.ProductStockDomainService;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +40,9 @@ class CouponOrderConcurrencyIntegrationTest {
 
     @Autowired
     private ProductDomainService productService;
+
+    @Autowired
+    private ProductStockDomainService productStockService;
 
     @Autowired
     private BrandDomainService brandService;
@@ -74,7 +79,8 @@ class CouponOrderConcurrencyIntegrationTest {
             int threadCount = 10;
             Long userId = 1L;
 
-            Product product = productService.register(brandId, "에어맥스", 129000, threadCount);
+            Product product = productService.register(brandId, "에어맥스", 129000);
+            productStockService.create(product.getId(), threadCount);
 
             Coupon coupon = couponDomainService.register("10% 할인 쿠폰", CouponType.RATE, 10, 0,
                 ZonedDateTime.now().plusDays(30));
@@ -101,14 +107,14 @@ class CouponOrderConcurrencyIntegrationTest {
 
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
-            Product resultProduct = productService.getById(product.getId());
+            ProductStock resultStock = productStockService.getByProductId(product.getId());
             CouponIssue resultCoupon = couponIssueDomainService.getByIdAndUserId(couponIssue.getId(), userId);
 
             assertAll(
                 () -> assertThat(successCount.get()).isEqualTo(1),
                 () -> assertThat(failCount.get()).isEqualTo(threadCount - 1),
                 () -> assertThat(resultCoupon.getStatus()).isEqualTo(CouponIssueStatus.USED),
-                () -> assertThat(resultProduct.getStock()).isEqualTo(new Stock(threadCount - 1))
+                () -> assertThat(resultStock.getStock()).isEqualTo(new Stock(threadCount - 1))
             );
         }
     }

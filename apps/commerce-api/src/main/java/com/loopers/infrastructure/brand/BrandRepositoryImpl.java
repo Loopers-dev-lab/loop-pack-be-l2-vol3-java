@@ -29,6 +29,11 @@ public class BrandRepositoryImpl implements BrandRepository {
     }
 
     @Override
+    public Optional<Brand> findByIdWithLock(Long id) {
+        return brandJpaRepository.findByIdWithLock(id);
+    }
+
+    @Override
     public List<Brand> findAllByIds(Set<Long> ids) {
         return brandJpaRepository.findAllByIdInAndDeletedAtIsNull(ids);
     }

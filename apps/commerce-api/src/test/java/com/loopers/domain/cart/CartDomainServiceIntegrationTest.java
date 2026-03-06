@@ -42,7 +42,7 @@ class CartDomainServiceIntegrationTest {
     @BeforeEach
     void setUp() {
         brandId = brandService.register("나이키").getId();
-        Product product = productService.register(brandId, "에어맥스", 129000, 100);
+        Product product = productService.register(brandId, "에어맥스", 129000);
         productId = product.getId();
     }
 
@@ -150,7 +150,7 @@ class CartDomainServiceIntegrationTest {
         @DisplayName("항목이 있으면, 목록을 반환한다.")
         @Test
         void returnsItems_whenItemsExist() {
-            Product product2 = productService.register(brandId, "에어포스1", 109000, 200);
+            Product product2 = productService.register(brandId, "에어포스1", 109000);
             cartService.addToCart(1L, productId, 2);
             cartService.addToCart(1L, product2.getId(), 1);
 
@@ -175,7 +175,7 @@ class CartDomainServiceIntegrationTest {
         @DisplayName("모든 항목이 삭제된다.")
         @Test
         void clearsAllItems() {
-            Product product2 = productService.register(brandId, "에어포스1", 109000, 200);
+            Product product2 = productService.register(brandId, "에어포스1", 109000);
             cartService.addToCart(1L, productId, 2);
             cartService.addToCart(1L, product2.getId(), 1);
 

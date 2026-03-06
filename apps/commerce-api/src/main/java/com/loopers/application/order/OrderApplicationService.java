@@ -18,6 +18,7 @@ import com.loopers.domain.order.OrderPolicy;
 import com.loopers.domain.product.Money;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductDomainService;
+import com.loopers.domain.stock.ProductStockDomainService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,6 +39,7 @@ public class OrderApplicationService {
 
     private final OrderDomainService orderService;
     private final ProductDomainService productService;
+    private final ProductStockDomainService productStockService;
     private final BrandDomainService brandService;
     private final CartDomainService cartService;
     private final CouponDomainService couponDomainService;
@@ -50,7 +51,7 @@ public class OrderApplicationService {
     }
 
     /**
-     * 단일 트랜잭션에서 Cart aggregate(비우기), Product aggregate(재고 차감),
+     * 단일 트랜잭션에서 Cart aggregate(비우기), ProductStock aggregate(재고 차감),
      * Order aggregate(생성)를 함께 수정한다.
      * "하나의 트랜잭션 = 하나의 Aggregate" 원칙의 의도적 예외:
      * 장바구니 기반 주문 시 재고 차감, 주문 생성, 장바구니 비우기를
@@ -91,7 +92,7 @@ public class OrderApplicationService {
     }
 
     /**
-     * 단일 트랜잭션에서 Order aggregate(취소), Product aggregate(재고 복원),
+     * 단일 트랜잭션에서 Order aggregate(취소), ProductStock aggregate(재고 복원),
      * CouponIssue aggregate(쿠폰 복원)를 함께 수정한다.
      * "하나의 트랜잭션 = 하나의 Aggregate" 원칙의 의도적 예외:
      * 주문 취소 시 재고 복원과 쿠폰 복원을 원자적으로 처리하여 일관성을 보장한다.
@@ -106,7 +107,7 @@ public class OrderApplicationService {
             .sorted(Comparator.comparing(OrderItem::getProductId))
             .toList();
         for (OrderItem item : sortedItems) {
-            productService.restoreStockWithLock(item.getProductId(), item.getQuantity().value());
+            productStockService.restoreWithLock(item.getProductId(), item.getQuantity().value());
         }
 
         // 쿠폰 복원
@@ -138,16 +139,13 @@ public class OrderApplicationService {
     }
 
     /**
-     * 단일 트랜잭션에서 Product aggregate(재고 차감)와 Order aggregate(생성)를 함께 수정한다.
+     * 단일 트랜잭션에서 ProductStock aggregate(재고 차감)와 Order aggregate(생성)를 함께 수정한다.
      * "하나의 트랜잭션 = 하나의 Aggregate" 원칙의 의도적 예외:
      * 재고 차감과 주문 생성은 원자적으로 처리되어야 하며,
      * 분리 시 재고 불일치 또는 유령 주문이 발생할 수 있다.
      */
     private Order processOrder(Long userId, List<CreateOrderCommand.LineItem> lineItems, Long couponId) {
         // 0. 중복 상품 조기 차단 (의도적 이중 검증)
-        // OrderDomainService.createOrder()에도 동일 검증이 존재하나,
-        // Application 레벨에서 먼저 차단하여 불필요한 pessimistic lock/재고 차감 DB 호출을 방지한다.
-        // 도메인 레벨 검증은 다른 진입점(직접 호출 등)에 대한 안전망으로 유지.
         List<Long> productIds = lineItems.stream()
             .map(CreateOrderCommand.LineItem::productId).toList();
         OrderPolicy.validateNoDuplicateProducts(productIds);
@@ -157,7 +155,6 @@ public class OrderApplicationService {
             .sorted(Comparator.comparing(CreateOrderCommand.LineItem::productId)).toList();
 
         // 2. 쿠폰 조회 — lock 전에 완료 (상태 변경은 lock 구간에서 수행)
-        // Product pre-read는 Hibernate L1 캐시 오염으로 pessimistic lock이 stale 데이터를 반환하므로 생략
         CouponIssue couponIssue = null;
         Coupon coupon = null;
         if (couponId != null) {
@@ -167,22 +164,29 @@ public class OrderApplicationService {
 
         // ----- lock 구간 시작 -----
 
-        // 3. 재고 차감 (pessimistic lock)
-        Map<Long, Product> lockedProducts = new LinkedHashMap<>();
+        // 3. 재고 차감 (pessimistic lock on product_stocks)
         for (CreateOrderCommand.LineItem item : sorted) {
-            lockedProducts.put(item.productId(),
-                productService.deductStockWithLock(item.productId(), item.quantity()));
+            productStockService.deductWithLock(item.productId(), item.quantity());
         }
 
-        // 4. Brand 일괄 조회 (N+1 방지)
-        Set<Long> brandIds = lockedProducts.values().stream()
+        // 4. 상품 조회 + 삭제 상품 검증 (Product 행 락 없이 일반 조회)
+        Set<Long> productIdSet = sorted.stream()
+            .map(CreateOrderCommand.LineItem::productId)
+            .collect(Collectors.toSet());
+        Map<Long, Product> productMap = productService.getByIds(productIdSet);
+        if (productMap.size() != productIdSet.size()) {
+            throw new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.");
+        }
+
+        // 5. Brand 일괄 조회 (N+1 방지)
+        Set<Long> brandIds = productMap.values().stream()
             .map(Product::getBrandId).collect(Collectors.toSet());
         Map<Long, Brand> brandMap = brandService.getByIds(brandIds);
 
-        // 5. OrderItemCommand 조립
+        // 6. OrderItemCommand 조립
         List<OrderItemCommand> itemCommands = new ArrayList<>();
         for (CreateOrderCommand.LineItem item : sorted) {
-            Product product = lockedProducts.get(item.productId());
+            Product product = productMap.get(item.productId());
             Brand brand = brandMap.get(product.getBrandId());
             if (brand == null) {
                 throw new CoreException(ErrorType.NOT_FOUND,
@@ -194,10 +198,10 @@ public class OrderApplicationService {
             ));
         }
 
-        // 6. 총 금액 계산
+        // 7. 총 금액 계산
         Money originalPrice = calculateOriginalPrice(itemCommands);
 
-        // 7. 쿠폰 적용 (검증 + 사용)
+        // 8. 쿠폰 적용 (검증 + 사용)
         if (couponId != null) {
             coupon.validateApplicable(originalPrice);
             Money discountAmount = coupon.calculateDiscount(originalPrice);
@@ -205,7 +209,7 @@ public class OrderApplicationService {
             return orderService.createOrder(userId, itemCommands, originalPrice, discountAmount, couponId);
         }
 
-        // 8. 주문 생성 (쿠폰 없음)
+        // 9. 주문 생성 (쿠폰 없음)
         return orderService.createOrder(userId, itemCommands);
     }
 

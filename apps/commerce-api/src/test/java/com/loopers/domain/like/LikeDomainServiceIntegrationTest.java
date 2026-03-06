@@ -41,7 +41,7 @@ class LikeDomainServiceIntegrationTest {
     @BeforeEach
     void setUp() {
         brandId = brandService.register("나이키").getId();
-        Product product = productService.register(brandId, "에어맥스", 129000, 100);
+        Product product = productService.register(brandId, "에어맥스", 129000);
         productId = product.getId();
     }
 
@@ -107,7 +107,7 @@ class LikeDomainServiceIntegrationTest {
         @DisplayName("좋아요한 상품이 있으면, 목록을 반환한다.")
         @Test
         void returnsLikes_whenLikesExist() {
-            Product product2 = productService.register(brandId, "에어포스1", 109000, 200);
+            Product product2 = productService.register(brandId, "에어포스1", 109000);
             likeService.like(1L, productId);
             likeService.like(1L, product2.getId());
 

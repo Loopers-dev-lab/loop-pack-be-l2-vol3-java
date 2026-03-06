@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.product;
 import com.loopers.domain.PageResult;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.product.Product;
+import com.loopers.domain.stock.ProductStock;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -53,10 +54,10 @@ public class AdminProductV1Dto {
         ZonedDateTime createdAt,
         ZonedDateTime updatedAt
     ) {
-        public static ProductResponse from(Product product, Brand brand) {
+        public static ProductResponse from(Product product, Brand brand, ProductStock productStock) {
             return new ProductResponse(
                 product.getId(), product.getBrandId(), brand.getName(), product.getName(),
-                product.getPrice().amount(), product.getStock().quantity(), product.getLikeCount(),
+                product.getPrice().amount(), productStock.getStock().quantity(), product.getLikeCount(),
                 product.getCreatedAt(), product.getUpdatedAt()
             );
         }
@@ -69,9 +70,9 @@ public class AdminProductV1Dto {
         long totalElements,
         int totalPages
     ) {
-        public static ProductPageResponse from(PageResult<Product> result, Map<Long, Brand> brandMap) {
+        public static ProductPageResponse from(PageResult<Product> result, Map<Long, Brand> brandMap, Map<Long, ProductStock> stockMap) {
             List<ProductResponse> content = result.items().stream()
-                .map(product -> ProductResponse.from(product, brandMap.get(product.getBrandId())))
+                .map(product -> ProductResponse.from(product, brandMap.get(product.getBrandId()), stockMap.get(product.getId())))
                 .toList();
             return new ProductPageResponse(content, result.page(), result.size(), result.totalElements(), result.totalPages());
         }

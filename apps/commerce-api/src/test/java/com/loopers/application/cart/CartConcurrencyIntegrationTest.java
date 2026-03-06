@@ -65,7 +65,7 @@ class CartConcurrencyIntegrationTest {
 
             List<Product> products = new ArrayList<>();
             for (int i = 0; i < threadCount; i++) {
-                products.add(productService.register(brandId, "상품" + i, 10000 + i, 100));
+                products.add(productService.register(brandId, "상품" + i, 10000 + i));
             }
 
             ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
@@ -118,7 +118,7 @@ class CartConcurrencyIntegrationTest {
 
             List<Product> products = new ArrayList<>();
             for (int i = 0; i < threadCount; i++) {
-                products.add(productService.register(brandId, "상품" + i, 10000 + i, 100));
+                products.add(productService.register(brandId, "상품" + i, 10000 + i));
             }
 
             ExecutorService executorService = Executors.newFixedThreadPool(threadCount);

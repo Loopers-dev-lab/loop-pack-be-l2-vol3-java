@@ -12,8 +12,6 @@ public interface ProductRepository {
 
     Optional<Product> findById(Long id);
 
-    Optional<Product> findByIdWithLock(Long id);
-
     List<Product> findAllByIds(Collection<Long> ids);
 
     PageResult<Product> findAll(Long brandId, ProductSortType sort, int page, int size);

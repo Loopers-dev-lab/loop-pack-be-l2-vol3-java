@@ -14,6 +14,8 @@ import com.loopers.domain.order.OrderDomainService;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.product.ProductDomainService;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.stock.ProductStockDomainService;
+import com.loopers.domain.stock.ProductStockRepository;
 import com.loopers.domain.user.PasswordEncryptor;
 import com.loopers.domain.user.UserDomainService;
 import com.loopers.domain.user.UserRepository;
@@ -61,5 +63,10 @@ public class DomainServiceConfig {
     @Bean
     public CouponIssueDomainService couponIssueDomainService(CouponIssueRepository couponIssueRepository) {
         return new CouponIssueDomainService(couponIssueRepository);
+    }
+
+    @Bean
+    public ProductStockDomainService productStockDomainService(ProductStockRepository productStockRepository) {
+        return new ProductStockDomainService(productStockRepository);
     }
 }

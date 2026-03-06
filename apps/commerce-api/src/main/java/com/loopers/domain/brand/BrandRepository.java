@@ -12,6 +12,8 @@ public interface BrandRepository {
 
     Optional<Brand> findById(Long id);
 
+    Optional<Brand> findByIdWithLock(Long id);
+
     List<Brand> findAllByIds(Set<Long> ids);
 
     PageResult<Brand> findAll(int page, int size);

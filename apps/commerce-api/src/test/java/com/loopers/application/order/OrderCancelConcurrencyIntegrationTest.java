@@ -12,6 +12,8 @@ import com.loopers.domain.order.Order;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductDomainService;
 import com.loopers.domain.product.Stock;
+import com.loopers.domain.stock.ProductStock;
+import com.loopers.domain.stock.ProductStockDomainService;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +42,9 @@ class OrderCancelConcurrencyIntegrationTest {
 
     @Autowired
     private ProductDomainService productService;
+
+    @Autowired
+    private ProductStockDomainService productStockService;
 
     @Autowired
     private BrandDomainService brandService;
@@ -77,7 +82,8 @@ class OrderCancelConcurrencyIntegrationTest {
             int initialStock = 10;
             Long userId = 1L;
 
-            Product product = productService.register(brandId, "에어맥스", 129000, initialStock);
+            Product product = productService.register(brandId, "에어맥스", 129000);
+            productStockService.create(product.getId(), initialStock);
 
             Coupon coupon = couponDomainService.register("10% 할인 쿠폰", CouponType.RATE, 10, 0,
                 ZonedDateTime.now().plusDays(30));
@@ -91,7 +97,7 @@ class OrderCancelConcurrencyIntegrationTest {
             Order order = orderApplicationService.createOrder(command);
 
             // 주문 후 재고 9 확인
-            assertThat(productService.getById(product.getId()).getStock()).isEqualTo(new Stock(initialStock - 1));
+            assertThat(productStockService.getByProductId(product.getId()).getStock()).isEqualTo(new Stock(initialStock - 1));
 
             ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
             CountDownLatch readyLatch = new CountDownLatch(threadCount);
@@ -120,13 +126,13 @@ class OrderCancelConcurrencyIntegrationTest {
             doneLatch.await();
             executorService.shutdown();
 
-            Product resultProduct = productService.getById(product.getId());
+            ProductStock resultStock = productStockService.getByProductId(product.getId());
             CouponIssue resultCoupon = couponIssueDomainService.getByIdAndUserId(couponIssue.getId(), userId);
 
             assertAll(
                 () -> assertThat(successCount.get()).isEqualTo(1),
                 () -> assertThat(failCount.get()).isEqualTo(threadCount - 1),
-                () -> assertThat(resultProduct.getStock()).isEqualTo(new Stock(initialStock)),
+                () -> assertThat(resultStock.getStock()).isEqualTo(new Stock(initialStock)),
                 () -> assertThat(resultCoupon.getStatus()).isEqualTo(CouponIssueStatus.AVAILABLE)
             );
         }

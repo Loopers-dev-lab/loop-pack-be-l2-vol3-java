@@ -15,17 +15,12 @@ public class ProductDomainService {
 
     private final ProductRepository productRepository;
 
-    public Product register(Long brandId, String name, int price, int stock) {
-        return productRepository.save(new Product(brandId, name, new Money(price), new Stock(stock)));
+    public Product register(Long brandId, String name, int price) {
+        return productRepository.save(new Product(brandId, name, new Money(price)));
     }
 
     public Product getById(Long id) {
         return productRepository.findById(id)
-            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
-    }
-
-    public Product getByIdWithLock(Long id) {
-        return productRepository.findByIdWithLock(id)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
     }
 
@@ -38,9 +33,9 @@ public class ProductDomainService {
         return productRepository.findAll(brandId, sort, page, size);
     }
 
-    public Product update(Long id, String name, int price, int stock) {
+    public Product update(Long id, String name, int price) {
         Product product = getById(id);
-        product.changeDetails(name, new Money(price), new Stock(stock));
+        product.changeDetails(name, new Money(price));
         return productRepository.save(product);
     }
 
@@ -52,18 +47,6 @@ public class ProductDomainService {
 
     public void deleteAllByBrandId(Long brandId) {
         productRepository.softDeleteAllByBrandId(brandId);
-    }
-
-    public Product deductStockWithLock(Long productId, int quantity) {
-        Product product = getByIdWithLock(productId);
-        product.deductStock(quantity);
-        return productRepository.save(product);
-    }
-
-    public Product restoreStockWithLock(Long productId, int quantity) {
-        Product product = getByIdWithLock(productId);
-        product.restoreStock(quantity);
-        return productRepository.save(product);
     }
 
     public void incrementLikeCount(Long productId) {

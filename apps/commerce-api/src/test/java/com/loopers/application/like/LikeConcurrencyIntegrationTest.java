@@ -58,7 +58,7 @@ class LikeConcurrencyIntegrationTest {
         @Test
         void allLikesSucceed_whenConcurrent() throws InterruptedException {
             int threadCount = 10;
-            Product product = productService.register(brandId, "에어맥스", 129000, 100);
+            Product product = productService.register(brandId, "에어맥스", 129000);
 
             ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
             CountDownLatch latch = new CountDownLatch(threadCount);
@@ -101,7 +101,7 @@ class LikeConcurrencyIntegrationTest {
             int likeCount = 5;
             int unlikeCount = 5;
             int totalThreads = likeCount + unlikeCount;
-            Product product = productService.register(brandId, "에어맥스", 129000, 100);
+            Product product = productService.register(brandId, "에어맥스", 129000);
 
             // 먼저 unlikeCount명이 좋아요를 등록 (순차)
             for (int i = 0; i < unlikeCount; i++) {
