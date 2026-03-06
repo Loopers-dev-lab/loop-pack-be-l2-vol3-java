@@ -36,7 +36,7 @@ public class CouponV1AdminApi implements CouponV1AdminApiSpec {
     private final RegisterCouponUseCase registerCouponUseCase;
     private final ReadCouponsUseCase readCouponsUseCase;
     private final ReadCouponDetailUseCase readCouponDetailUseCase;
-    private final ReadOwnedCouponsUseCase readOwnedCouponsByCouponUseCase;
+    private final ReadOwnedCouponsUseCase readOwnedCouponsUseCase;
     private final UpdateCouponUseCase updateCouponUseCase;
     private final DeleteCouponUseCase deleteCouponUseCase;
 
@@ -82,14 +82,14 @@ public class CouponV1AdminApi implements CouponV1AdminApiSpec {
         return ApiResponse.success(null);
     }
 
-    @GetMapping("/{couponId}/issuances")
+    @GetMapping("/{couponId}/issues")
     @Override
-    public ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponsResponse>> getCouponIssuances(
+    public ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponsResponse>> getOwnedCoupons(
             @PathVariable Long couponId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        Page<ReadOwnedCouponsUseCase.Result> result = readOwnedCouponsByCouponUseCase.execute(couponId, PageSize.withMaxSize(page, size));
+        Page<ReadOwnedCouponsUseCase.Result> result = readOwnedCouponsUseCase.execute(couponId, PageSize.withMaxSize(page, size));
         return ApiResponse.success(new PageResponse<>(OwnedCouponDto.OwnedCouponsResponse.from(result.content()), result.hasNext()));
     }
 }

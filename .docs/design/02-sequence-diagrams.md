@@ -763,14 +763,7 @@ sequenceDiagram
         CouponAdminApi -->> Admin: 404 Not Found
     end
 
-    CouponService ->> CouponService: 쿠폰 정보 수정
-
-    break 이미 삭제된 쿠폰일 경우
-        CouponService -->> UpdateCouponUseCase: 수정 실패
-        UpdateCouponUseCase -->> CouponAdminApi: 수정 실패
-        CouponAdminApi -->> Admin: 400 Bad Request
-    end
-
+    CouponService ->> CouponService: 쿠폰 정보 수정 (삭제된 쿠폰도 수정 가능)
     CouponService -->>- UpdateCouponUseCase: void
     UpdateCouponUseCase -->>- CouponAdminApi: 수정 완료
     CouponAdminApi -->>- Admin: 200 OK
@@ -893,7 +886,7 @@ sequenceDiagram
     participant ReadMyCouponsUseCase
     participant OwnedCouponRepository
 
-    Client ->>+ CouponApi: GET /api/v1/users/me/coupons
+    Client ->>+ CouponApi: GET /api/v1/owned-coupons
     CouponApi ->>+ ReadMyCouponsUseCase: 내 쿠폰 목록 조회
 
     ReadMyCouponsUseCase ->>+ OwnedCouponRepository: 보유 쿠폰 조회 (쿠폰 정보 포함)

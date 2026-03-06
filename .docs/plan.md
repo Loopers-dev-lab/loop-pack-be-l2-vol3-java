@@ -392,10 +392,10 @@
 
 `GET /api/v1/owned-coupons` · 인증 필요
 
-- [ ] 인증된 유저가 보유한 쿠폰 목록을 페이지 단위로 조회한다
-- [ ] 각 보유 쿠폰의 상태(AVAILABLE, USED, EXPIRED)를 반환한다
-- [ ] EXPIRED는 쿠폰의 만료일 기준으로 실시간 판정한다 (DB 상태가 AVAILABLE이어도 만료일이 지났으면 EXPIRED)
-- [ ] 보유 쿠폰이 없으면 빈 페이지를 반환한다
+- [x] 인증된 유저가 보유한 쿠폰 목록을 페이지 단위로 조회한다
+- [x] 각 보유 쿠폰의 상태(AVAILABLE, USED, EXPIRED)를 반환한다
+- [x] EXPIRED는 쿠폰의 만료일 기준으로 실시간 판정한다 (DB 상태가 AVAILABLE이어도 만료일이 지났으면 EXPIRED)
+- [x] 보유 쿠폰이 없으면 빈 페이지를 반환한다
 
 ---
 

@@ -3,7 +3,7 @@ package com.loopers.interfaces.api.coupon.v1;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.createCoupon;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.deleteCoupon;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getCoupon;
-import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getCouponIssuances;
+import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getOwnedCoupons;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getCoupons;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.issueCoupon;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.updateCoupon;
@@ -590,7 +590,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         }
     }
 
-    @DisplayName("GET /api-admin/v1/coupons/{couponId}/issuances")
+    @DisplayName("GET /api-admin/v1/coupons/{couponId}/issues")
     @Nested
     class ReadOwnedCoupons {
 
@@ -607,13 +607,13 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
             signUp(testRestTemplate, signUpRequest);
             issueCoupon(testRestTemplate, couponId, userAuthHeaders(signUpRequest.loginId(), signUpRequest.password()));
 
-            var url = UriComponentsBuilder.fromPath(COUPON_ADMIN_ENDPOINT + "/" + couponId + "/issuances")
+            var url = UriComponentsBuilder.fromPath(COUPON_ADMIN_ENDPOINT + "/" + couponId + "/issues")
                     .queryParam("page", 0)
                     .queryParam("size", 20)
                     .toUriString();
 
             // act
-            var response = getCouponIssuances(testRestTemplate, url);
+            var response = getOwnedCoupons(testRestTemplate, url);
 
             // assert
             assertAll(
@@ -634,13 +634,13 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
             var couponId = createCoupon(testRestTemplate,
                     new CouponDto.CreateCouponRequest("빈 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
 
-            var url = UriComponentsBuilder.fromPath(COUPON_ADMIN_ENDPOINT + "/" + couponId + "/issuances")
+            var url = UriComponentsBuilder.fromPath(COUPON_ADMIN_ENDPOINT + "/" + couponId + "/issues")
                     .queryParam("page", 0)
                     .queryParam("size", 20)
                     .toUriString();
 
             // act
-            var response = getCouponIssuances(testRestTemplate, url);
+            var response = getOwnedCoupons(testRestTemplate, url);
 
             // assert
             assertAll(
@@ -655,13 +655,13 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         @Test
         void returnsUnauthorized_whenNoLdapHeader() {
             // arrange
-            var url = UriComponentsBuilder.fromPath(COUPON_ADMIN_ENDPOINT + "/1/issuances")
+            var url = UriComponentsBuilder.fromPath(COUPON_ADMIN_ENDPOINT + "/1/issues")
                     .queryParam("page", 0)
                     .queryParam("size", 20)
                     .toUriString();
 
             // act
-            var response = getCouponIssuances(testRestTemplate, url, new HttpHeaders());
+            var response = getOwnedCoupons(testRestTemplate, url, new HttpHeaders());
 
             // assert
             assertErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorType.UNAUTHORIZED);

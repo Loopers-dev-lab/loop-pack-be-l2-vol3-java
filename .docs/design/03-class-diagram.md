@@ -151,19 +151,12 @@ classDiagram
         Long id
         Coupon coupon
         Long userId
-        OwnedCouponStatus status
         ZonedDateTime usedAt
         Long version
         +create(Coupon coupon, Long userId)$ OwnedCoupon
         +use() void
         +validateOwner(Long userId) void
-    }
-
-    class OwnedCouponStatus {
-        <<Enum>>
-        AVAILABLE
-        USED
-        EXPIRED
+        +getStatus() String
     }
 
     %% ── Order ──
@@ -211,7 +204,6 @@ classDiagram
     FixedCouponDiscountStrategy ..|> CouponDiscountStrategy
     RateCouponDiscountStrategy ..|> CouponDiscountStrategy
     CouponDiscount --> Money
-    OwnedCoupon --> OwnedCouponStatus
     OwnedCoupon --> Coupon
 
     %% ── Order 관계 ──

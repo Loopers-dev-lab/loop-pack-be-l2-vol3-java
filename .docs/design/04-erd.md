@@ -67,7 +67,6 @@ erDiagram
         bigint id PK "not null"
         bigint coupon_id FK "not null"
         bigint user_id FK "not null"
-        varchar status "not null"
         bigint version "not null, default 0"
         timestamp used_at "null"
         timestamp created_at "not null"
@@ -149,8 +148,11 @@ erDiagram
 - `total_price`: 최종 결제 금액 (`original_total_price - discount_amount`)
 - `owned_coupon_id`: 사용된 `OwnedCoupon.id`를 저장하며, 쿠폰 미적용 시 NULL
 
-### EXPIRED 실시간 판정
+### 보유 쿠폰 상태 동적 판정
 
-- DB에 EXPIRED 상태를 저장하지 않고, `coupon.expired_at` 기준으로 조회 시 실시간 판정한다.
+- `owned_coupon` 테이블에 `status` 컬럼을 두지 않는다. 상태는 `OwnedCoupon.getStatus()`에서 `used_at`과 `coupon.expired_at` 기준으로 실시간 판정한다.
+  - `used_at IS NOT NULL` → USED
+  - `coupon.expired_at` 경과 → EXPIRED
+  - 그 외 → AVAILABLE
 - 만료일 변경 시 `owned_coupon` 레코드를 일괄 업데이트할 필요가 없다.
 

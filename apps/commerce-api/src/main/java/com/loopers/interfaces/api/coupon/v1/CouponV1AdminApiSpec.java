@@ -47,5 +47,5 @@ public interface CouponV1AdminApiSpec {
             summary = "쿠폰 발급 내역 조회",
             description = "특정 쿠폰의 발급 내역을 페이지 단위로 조회합니다."
     )
-    ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponsResponse>> getCouponIssuances(Long couponId, int page, int size);
+    ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponsResponse>> getOwnedCoupons(Long couponId, int page, int size);
 }

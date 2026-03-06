@@ -131,7 +131,7 @@ public class CouponSteps {
         );
     }
 
-    public static ResponseEntity<ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponsResponse>>> getCouponIssuances(
+    public static ResponseEntity<ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponsResponse>>> getOwnedCoupons(
             TestRestTemplate testRestTemplate,
             String url,
             HttpHeaders headers
@@ -146,11 +146,11 @@ public class CouponSteps {
         );
     }
 
-    public static ResponseEntity<ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponsResponse>>> getCouponIssuances(
+    public static ResponseEntity<ApiResponse<PageResponse<OwnedCouponDto.OwnedCouponsResponse>>> getOwnedCoupons(
             TestRestTemplate testRestTemplate,
             String url
     ) {
-        return getCouponIssuances(testRestTemplate, url, adminAuthHeaders());
+        return getOwnedCoupons(testRestTemplate, url, adminAuthHeaders());
     }
 
     public static ResponseEntity<ApiResponse<PageResponse<OwnedCouponDto.MyOwnedCouponsResponse>>> getMyOwnedCoupons(
