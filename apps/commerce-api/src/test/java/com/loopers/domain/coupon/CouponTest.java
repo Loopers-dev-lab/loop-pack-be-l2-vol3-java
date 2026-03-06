@@ -185,7 +185,7 @@ class CouponTest {
         void 최대_발급_수량을_현재_발급_수량_미만으로_수정하면_예외() {
             Coupon coupon = Coupon.create("쿠폰", CouponType.FIXED, 1000,
                     null, 100, FUTURE);
-            coupon.issue();
+            ReflectionTestUtils.setField(coupon, "issuedCount", 1);
 
             assertThatThrownBy(() -> coupon.updateInfo(null, null, null, 0, null))
                     .isInstanceOf(CoreException.class)
@@ -258,7 +258,7 @@ class CouponTest {
         void 최대_발급_수량을_현재_발급_수량과_같게_설정하면_성공() {
             Coupon coupon = Coupon.create("쿠폰", CouponType.FIXED, 1000,
                     null, 100, FUTURE);
-            coupon.issue();
+            ReflectionTestUtils.setField(coupon, "issuedCount", 1);
 
             assertThatCode(() -> coupon.updateInfo(null, null, null, 1, null))
                     .doesNotThrowAnyException();
@@ -298,31 +298,6 @@ class CouponTest {
             coupon.delete();
 
             assertThat(coupon.isDeleted()).isTrue();
-        }
-    }
-
-    @Nested
-    class 발급 {
-
-        @Test
-        void 발급하면_발급_수량이_증가한다() {
-            Coupon coupon = Coupon.create("쿠폰", CouponType.FIXED, 1000,
-                    null, 5, FUTURE);
-
-            coupon.issue();
-
-            assertThat(coupon.getIssuedCount()).isEqualTo(1);
-        }
-
-        @Test
-        void 발급_수량이_최대치에_도달하면_예외() {
-            Coupon coupon = Coupon.create("쿠폰", CouponType.FIXED, 1000,
-                    null, 1, FUTURE);
-            coupon.issue();
-
-            assertThatThrownBy(() -> coupon.issue())
-                    .isInstanceOf(CoreException.class)
-                    .hasMessageContaining("발급 가능 수량이 모두 소진되었습니다");
         }
     }
 

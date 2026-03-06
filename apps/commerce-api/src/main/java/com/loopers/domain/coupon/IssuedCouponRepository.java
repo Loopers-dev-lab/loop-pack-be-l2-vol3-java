@@ -12,11 +12,11 @@ public interface IssuedCouponRepository {
 
     IssuedCoupon save(IssuedCoupon issuedCoupon);
     int markUsed(Long id, Long userId);
+    int deleteAvailableByCouponId(Long couponId);
 
     // Query
 
     Optional<IssuedCoupon> findById(Long id);
-    Optional<IssuedCoupon> findByIdForUpdate(Long id);
 
     List<IssuedCoupon> findAllByCouponId(Long couponId);
 

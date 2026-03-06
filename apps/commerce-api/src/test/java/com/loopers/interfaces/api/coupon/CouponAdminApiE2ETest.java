@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.coupon;
 
-import com.loopers.domain.coupon.Coupon;
+import com.loopers.application.coupon.CouponService;
 import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.coupon.CouponType;
 import com.loopers.interfaces.api.ApiResponse;
@@ -44,6 +44,9 @@ class CouponAdminApiE2ETest {
 
     @Autowired
     private E2ETestFixture fixture;
+
+    @Autowired
+    private CouponService couponService;
 
     @Autowired
     private CouponRepository couponRepository;
@@ -222,20 +225,16 @@ class CouponAdminApiE2ETest {
         }
 
         @Test
-        void 삭제된_쿠폰을_다시_삭제하면_404_응답() {
+        void 삭제된_쿠폰을_다시_삭제해도_200_응답() {
             Long couponId = fixture.registerCoupon(
                     "1000원 할인", CouponType.FIXED, 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             );
             fixture.deleteCoupon(couponId);
 
-            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
-                    ENDPOINT + "/" + couponId, HttpMethod.DELETE,
-                    new HttpEntity<>(fixture.adminHeaders()),
-                    new ParameterizedTypeReference<>() {}
-            );
+            ResponseEntity<ApiResponse<Void>> response = deleteRequest(couponId);
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         }
 
         @Test
@@ -371,10 +370,8 @@ class CouponAdminApiE2ETest {
                     "쿠폰", CouponType.FIXED, 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
-            Coupon coupon = couponRepository.findById(couponId).orElseThrow();
-            coupon.issue();
-            coupon.issue();
-            couponRepository.save(coupon);
+            couponService.issue(couponId);
+            couponService.issue(couponId);
             CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
                     null, null, null, null, 1, null
             );

@@ -11,14 +11,13 @@ public interface CouponRepository {
     // Command
 
     Coupon save(Coupon coupon);
+    int issue(Long id);
 
     // Query
 
     Optional<Coupon> findById(Long id);
 
-    Optional<Coupon> findByIdForUpdate(Long id);
-
-    List<Coupon> findAllByIds(List<Long> ids);
+    Optional<Coupon> findActiveById(Long id);
 
     Page<Coupon> findAllActive(Pageable pageable);
 }

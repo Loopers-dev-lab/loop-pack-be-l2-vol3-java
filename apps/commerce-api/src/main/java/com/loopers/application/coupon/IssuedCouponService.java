@@ -37,10 +37,7 @@ public class IssuedCouponService {
 
     @Transactional
     public void deleteAvailableByCouponId(Long couponId) {
-        List<IssuedCoupon> issuedCoupons = issuedCouponRepository.findAllByCouponId(couponId);
-        issuedCoupons.stream()
-                .filter(ic -> !ic.isUsed())
-                .forEach(IssuedCoupon::delete);
+        issuedCouponRepository.deleteAvailableByCouponId(couponId);
     }
 
     @Transactional
@@ -51,19 +48,18 @@ public class IssuedCouponService {
         }
     }
 
-    @Transactional
-    public IssuedCoupon getIssuedCouponForUpdate(Long issuedCouponId) {
-        return issuedCouponRepository.findByIdForUpdate(issuedCouponId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
-    }
+    // Query
 
     @Transactional(readOnly = true)
-    public IssuedCoupon getIssuedCoupon(Long issuedCouponId) {
-        return issuedCouponRepository.findById(issuedCouponId)
+    public IssuedCoupon getUsableCoupon(Long couponId, Long userId) {
+        IssuedCoupon coupon = issuedCouponRepository.findById(couponId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
+        if (!coupon.isOwnedBy(userId)) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다");
+        }
+        coupon.validateUsable();
+        return coupon;
     }
-
-    // Query
 
     @Transactional(readOnly = true)
     public Page<IssuedCoupon> findByCouponId(Long couponId, Pageable pageable) {

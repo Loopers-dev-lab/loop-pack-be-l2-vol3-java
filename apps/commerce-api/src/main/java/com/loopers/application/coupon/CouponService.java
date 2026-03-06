@@ -10,8 +10,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 public class CouponService {
@@ -37,17 +35,15 @@ public class CouponService {
     public void delete(Long id) {
         Coupon coupon = couponRepository.findById(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
-        coupon.validateNotDeleted();
         coupon.delete();
     }
 
     @Transactional
-    public Coupon issue(Long id) {
-        Coupon coupon = couponRepository.findByIdForUpdate(id)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
-        coupon.validateNotDeleted();
-        coupon.issue();
-        return coupon;
+    public void issue(Long id) {
+        int updated = couponRepository.issue(id);
+        if (updated == 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "발급할 수 없는 쿠폰입니다");
+        }
     }
 
     @Transactional
@@ -63,15 +59,8 @@ public class CouponService {
 
     @Transactional(readOnly = true)
     public Coupon getActiveCoupon(Long id) {
-        Coupon coupon = couponRepository.findById(id)
+        return couponRepository.findActiveById(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
-        coupon.validateNotDeleted();
-        return coupon;
-    }
-
-    @Transactional(readOnly = true)
-    public List<Coupon> findAllByIds(List<Long> ids) {
-        return couponRepository.findAllByIds(ids);
     }
 
     @Transactional(readOnly = true)

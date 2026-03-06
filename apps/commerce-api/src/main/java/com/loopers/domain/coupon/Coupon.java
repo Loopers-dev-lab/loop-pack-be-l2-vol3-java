@@ -3,11 +3,7 @@ package com.loopers.domain.coupon;
 import com.loopers.domain.BaseEntity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 
 import java.math.BigDecimal;
@@ -43,6 +39,9 @@ public class Coupon extends BaseEntity {
 
     @Column(name = "expired_at", nullable = false)
     private LocalDateTime expiredAt;
+
+    @Version
+    private Long version;
 
     protected Coupon() {}
 
@@ -91,14 +90,14 @@ public class Coupon extends BaseEntity {
         }
     }
 
-    public void issue() {
+    public void validateIssuable() {
+        validateNotDeleted();
         if (isExpired()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다");
         }
         if (issuedCount >= maxIssueCount) {
             throw new CoreException(ErrorType.BAD_REQUEST, "발급 가능 수량이 모두 소진되었습니다");
         }
-        this.issuedCount++;
     }
 
     public boolean isExpired() {
@@ -117,7 +116,7 @@ public class Coupon extends BaseEntity {
         };
     }
 
-    public void validateNotDeleted() {
+    private void validateNotDeleted() {
         if (isDeleted()) {
             throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다");
         }

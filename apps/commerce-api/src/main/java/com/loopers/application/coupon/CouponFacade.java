@@ -41,7 +41,13 @@ public class CouponFacade {
 
     @Transactional
     public IssuedCouponInfo issueCoupon(Long couponId, Long userId) {
-        Coupon coupon = couponService.issue(couponId);
+        // -- 1단계: 검증 (읽기만) --
+        Coupon coupon = couponService.getActiveCoupon(couponId);
+        coupon.validateIssuable();
+
+        // -- 2단계: 상태 변경 (원자적 업데이트) --
+        couponService.issue(couponId);
+
         IssuedCoupon issuedCoupon = issuedCouponService.issue(
                 couponId, userId, coupon.getName(), coupon.getType(),
                 coupon.getValue(), coupon.getMinOrderAmount(), coupon.getExpiredAt()

@@ -23,6 +23,11 @@ public class CouponRepositoryImpl implements CouponRepository {
         return couponJpaRepository.save(coupon);
     }
 
+    @Override
+    public int issue(Long id) {
+        return couponJpaRepository.issue(id);
+    }
+
     // Query
 
     @Override
@@ -31,13 +36,8 @@ public class CouponRepositoryImpl implements CouponRepository {
     }
 
     @Override
-    public Optional<Coupon> findByIdForUpdate(Long id) {
-        return couponJpaRepository.findByIdForUpdate(id);
-    }
-
-    @Override
-    public List<Coupon> findAllByIds(List<Long> ids) {
-        return couponJpaRepository.findAllById(ids);
+    public Optional<Coupon> findActiveById(Long id) {
+        return couponJpaRepository.findActiveById(id);
     }
 
     @Override

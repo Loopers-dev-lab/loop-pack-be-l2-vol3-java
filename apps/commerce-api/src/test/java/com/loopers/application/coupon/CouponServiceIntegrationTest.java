@@ -110,16 +110,17 @@ class CouponServiceIntegrationTest {
         }
 
         @Test
-        void 삭제된_쿠폰을_다시_삭제하면_예외() {
+        void 삭제된_쿠폰을_다시_삭제해도_멱등하게_처리된다() {
             Coupon coupon = couponService.register(CouponCommand.Register.of(
                     "쿠폰", CouponType.FIXED, 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             ));
             couponService.delete(coupon.getId());
 
-            assertThatThrownBy(() -> couponService.delete(coupon.getId()))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+            couponService.delete(coupon.getId());
+
+            Coupon found = couponRepository.findById(coupon.getId()).orElseThrow();
+            assertThat(found.isDeleted()).isTrue();
         }
     }
 
@@ -143,7 +144,7 @@ class CouponServiceIntegrationTest {
         void 미존재_쿠폰이면_예외() {
             assertThatThrownBy(() -> couponService.issue(999L))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
 
         @Test
@@ -157,7 +158,7 @@ class CouponServiceIntegrationTest {
 
             assertThatThrownBy(() -> couponService.issue(coupon.getId()))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
 
         @Test
@@ -273,9 +274,8 @@ class CouponServiceIntegrationTest {
                     "쿠폰", CouponType.FIXED, 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             ));
-            coupon.issue();
-            coupon.issue();
-            couponRepository.save(coupon);
+            couponService.issue(coupon.getId());
+            couponService.issue(coupon.getId());
             CouponCommand.UpdateInfo command = CouponCommand.UpdateInfo.of(
                     null, null, null, null, 1, null
             );

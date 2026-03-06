@@ -3,15 +3,12 @@ package com.loopers.infrastructure.coupon;
 import com.loopers.domain.coupon.IssuedCoupon;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface IssuedCouponJpaRepository extends JpaRepository<IssuedCoupon, Long> {
 
@@ -23,11 +20,12 @@ public interface IssuedCouponJpaRepository extends JpaRepository<IssuedCoupon, L
            "AND ic.usedAt IS NULL AND ic.deletedAt IS NULL")
     int markUsed(@Param("id") Long id, @Param("userId") Long userId);
 
-    // Query
+    @Modifying
+    @Query("UPDATE IssuedCoupon ic SET ic.deletedAt = CURRENT_TIMESTAMP " +
+           "WHERE ic.couponId = :couponId AND ic.usedAt IS NULL AND ic.deletedAt IS NULL")
+    int deleteAvailableByCouponId(@Param("couponId") Long couponId);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT ic FROM IssuedCoupon ic WHERE ic.id = :id")
-    Optional<IssuedCoupon> findByIdForUpdate(Long id);
+    // Query
 
     List<IssuedCoupon> findAllByCouponId(Long couponId);
 
