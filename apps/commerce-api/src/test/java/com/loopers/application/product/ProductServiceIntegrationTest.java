@@ -358,50 +358,6 @@ class ProductServiceIntegrationTest {
         }
     }
 
-    @Nested
-    class 브랜드별_상품_일괄_삭제 {
-
-        @Test
-        void 해당_브랜드의_활성_상품이_모두_삭제_상태로_변경된다() {
-            Product product1 = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
-            Product product2 = productService.register(ProductCommand.Register.of(1L, "런닝화", new BigDecimal("60000"), 200, "가벼운 런닝화"));
-
-            productService.deleteAllByBrandId(1L);
-
-            Product found1 = productRepository.findById(product1.getId()).orElseThrow();
-            Product found2 = productRepository.findById(product2.getId()).orElseThrow();
-            assertThat(found1.isDeleted()).isTrue();
-            assertThat(found2.isDeleted()).isTrue();
-        }
-
-        @Test
-        void 해당_브랜드에_상품이_없으면_정상_처리된다() {
-            assertThatCode(() -> productService.deleteAllByBrandId(999L))
-                    .doesNotThrowAnyException();
-        }
-
-        @Test
-        void 이미_삭제된_상품도_삭제_상태를_유지한다() {
-            Product product = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
-            productService.delete(product.getId());
-
-            productService.deleteAllByBrandId(1L);
-
-            Product found = productRepository.findById(product.getId()).orElseThrow();
-            assertThat(found.isDeleted()).isTrue();
-        }
-
-        @Test
-        void 다른_브랜드의_상품은_영향받지_않는다() {
-            productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
-            Product otherBrandProduct = productService.register(ProductCommand.Register.of(2L, "샌들", new BigDecimal("30000"), 50, "여름 샌들"));
-
-            productService.deleteAllByBrandId(1L);
-
-            Product found = productRepository.findById(otherBrandProduct.getId()).orElseThrow();
-            assertThat(found.isDeleted()).isFalse();
-        }
-    }
 
     @Nested
     class 재고_일괄_차감 {

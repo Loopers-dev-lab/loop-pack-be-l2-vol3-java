@@ -93,12 +93,12 @@ class IssuedCouponServiceIntegrationTest {
 
         @Test
         void 미사용_발급쿠폰이_삭제된다() {
-            issuedCouponRepository.save(IssuedCoupon.create(1L, 100L, "테스트 쿠폰",
+            IssuedCoupon saved = issuedCouponRepository.save(IssuedCoupon.create(1L, 100L, "테스트 쿠폰",
                     CouponType.FIXED, 1000, null, FUTURE));
 
             issuedCouponService.deleteAvailableByCouponId(1L);
 
-            IssuedCoupon found = issuedCouponRepository.findAllByCouponId(1L).get(0);
+            IssuedCoupon found = issuedCouponRepository.findById(saved.getId()).orElseThrow();
             assertThat(found.isDeleted()).isTrue();
         }
 
@@ -111,7 +111,7 @@ class IssuedCouponServiceIntegrationTest {
 
             issuedCouponService.deleteAvailableByCouponId(1L);
 
-            IssuedCoupon found = issuedCouponRepository.findAllByCouponId(1L).get(0);
+            IssuedCoupon found = issuedCouponRepository.findById(used.getId()).orElseThrow();
             assertThat(found.isDeleted()).isFalse();
         }
 

@@ -51,8 +51,6 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
             "WHERE p.id IN :ids AND p.deletedAt IS NULL AND b.deletedAt IS NULL")
     List<Product> findAllActiveWithActiveBrandByIdIn(@Param("ids") Collection<Long> ids);
 
-    List<Product> findAllByBrandId(Long brandId);
-
     @Query(value = "SELECT p FROM Product p "
                  + "WHERE (:name IS NULL OR p.name LIKE %:name%) "
                  + "AND (:brandId IS NULL OR p.brandId = :brandId) "

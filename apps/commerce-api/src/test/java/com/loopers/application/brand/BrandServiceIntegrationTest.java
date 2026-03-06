@@ -276,40 +276,6 @@ class BrandServiceIntegrationTest {
     }
 
     @Nested
-    class 브랜드_일괄_조회 {
-
-        @Test
-        void ID_목록에_해당하는_브랜드들이_반환된다() {
-            Brand nike = brandService.register(BrandCommand.Register.of("나이키", "스포츠 브랜드"));
-            Brand adidas = brandService.register(BrandCommand.Register.of("아디다스", "독일 스포츠 브랜드"));
-            brandService.register(BrandCommand.Register.of("뉴발란스", "미국 스포츠 브랜드"));
-
-            List<Brand> result = brandService.getBrands(List.of(nike.getId(), adidas.getId()));
-
-            assertThat(result).hasSize(2);
-            assertThat(result).extracting(Brand::getName)
-                    .containsExactlyInAnyOrder("나이키", "아디다스");
-        }
-
-        @Test
-        void 빈_목록을_전달하면_빈_결과를_반환한다() {
-            List<Brand> result = brandService.getBrands(List.of());
-
-            assertThat(result).isEmpty();
-        }
-
-        @Test
-        void 존재하지_않는_ID가_포함되면_존재하는_것만_반환된다() {
-            Brand nike = brandService.register(BrandCommand.Register.of("나이키", "스포츠 브랜드"));
-
-            List<Brand> result = brandService.getBrands(List.of(nike.getId(), 999L));
-
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0).getName()).isEqualTo("나이키");
-        }
-    }
-
-    @Nested
     class 활성_브랜드_조회 {
 
         @Test

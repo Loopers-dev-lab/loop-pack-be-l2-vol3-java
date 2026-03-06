@@ -8,8 +8,6 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.List;
-
 public interface IssuedCouponJpaRepository extends JpaRepository<IssuedCoupon, Long> {
 
     // Command
@@ -26,8 +24,6 @@ public interface IssuedCouponJpaRepository extends JpaRepository<IssuedCoupon, L
     int deleteAvailableByCouponId(@Param("couponId") Long couponId);
 
     // Query
-
-    List<IssuedCoupon> findAllByCouponId(Long couponId);
 
     @Query(value = "SELECT ic FROM IssuedCoupon ic WHERE ic.couponId = :couponId ORDER BY ic.createdAt DESC",
            countQuery = "SELECT COUNT(ic) FROM IssuedCoupon ic WHERE ic.couponId = :couponId")

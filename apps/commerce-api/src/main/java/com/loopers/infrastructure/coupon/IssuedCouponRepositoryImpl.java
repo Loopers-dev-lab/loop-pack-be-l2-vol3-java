@@ -7,7 +7,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -38,11 +37,6 @@ public class IssuedCouponRepositoryImpl implements IssuedCouponRepository {
     @Override
     public Optional<IssuedCoupon> findById(Long id) {
         return issuedCouponJpaRepository.findById(id);
-    }
-
-    @Override
-    public List<IssuedCoupon> findAllByCouponId(Long couponId) {
-        return issuedCouponJpaRepository.findAllByCouponId(couponId);
     }
 
     @Override

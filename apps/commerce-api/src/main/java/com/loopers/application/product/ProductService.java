@@ -78,12 +78,6 @@ public class ProductService {
         return productRepository.softDeleteByBrandIdInBatch(brandId, batchSize);
     }
 
-    @Deprecated(forRemoval = true)
-    @Transactional
-    public void deleteAllByBrandId(Long brandId) {
-        List<Product> products = productRepository.findAllByBrandId(brandId);
-        products.forEach(Product::delete);
-    }
 
     // Query
 
