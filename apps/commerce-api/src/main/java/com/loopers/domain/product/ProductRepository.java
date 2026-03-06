@@ -41,4 +41,9 @@ public interface ProductRepository {
     void softDeleteByBrandIdBulk(Long brandId);
 
     ProductModel save(ProductModel product);
+
+    /**
+     * 저장 후 즉시 flush. 비관적 락 유지 중 UPDATE를 DB에 반영할 때 사용(동시성 정합성).
+     */
+    ProductModel saveAndFlush(ProductModel product);
 }
