@@ -31,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Coupon API E2E 테스트")
 class CouponApiE2ETest {
 
-    private static final String TEST_LOGIN_ID = "coupon-e2e-user";
+    private static final String TEST_LOGIN_ID = "coupone2euser";
     private static final String TEST_PASSWORD = "Test1234!@";
     private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
     private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
@@ -47,7 +47,7 @@ class CouponApiE2ETest {
         MemberDto.RegisterRequest registerRequest = new MemberDto.RegisterRequest(
                 TEST_LOGIN_ID,
                 TEST_PASSWORD,
-                "쿠폰E2E",
+                "쿠폰이",
                 "19900101",
                 "coupon.e2e@test.com",
                 "010-9999-8888"
@@ -80,7 +80,7 @@ class CouponApiE2ETest {
         @DisplayName("존재하지 않는 쿠폰 발급 요청은 404")
         void issueInvalidCouponId() {
             ResponseEntity<ApiResponse<Map<String, Object>>> response = testRestTemplate.exchange(
-                    "/api/v1/coupons/999999/issue",
+                    "/api/v1/coupons/00000000-0000-0000-0000-000000000999/issue",
                     HttpMethod.POST,
                     new HttpEntity<>(authHeaders()),
                     new ParameterizedTypeReference<>() {}
