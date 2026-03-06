@@ -25,7 +25,7 @@ public class AdminBrandV1Controller implements AdminBrandV1ApiSpec {
     public ResponseEntity<ApiResponse<AdminBrandV1Dto.BrandResponse>> createBrand(
         @Valid @RequestBody AdminBrandV1Dto.CreateBrandRequest request
     ) {
-        var info = brandFacade.register(request.name());
+        var info = brandFacade.registerBrand(request.name());
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.success(new AdminBrandV1Dto.BrandResponse(info.id(), info.name())));
     }
@@ -42,11 +42,11 @@ public class AdminBrandV1Controller implements AdminBrandV1ApiSpec {
 
     @PutMapping("/{brandId}")
     @Override
-    public ResponseEntity<ApiResponse<AdminBrandV1Dto.BrandResponse>> updateBrand(
+    public ResponseEntity<ApiResponse<AdminBrandV1Dto.BrandResponse>> renameBrand(
         @PathVariable Long brandId,
         @Valid @RequestBody AdminBrandV1Dto.UpdateBrandRequest request
     ) {
-        var info = brandFacade.update(brandId, request.name());
+        var info = brandFacade.renameBrand(brandId, request.name());
         return ResponseEntity.ok(ApiResponse.success(new AdminBrandV1Dto.BrandResponse(info.id(), info.name())));
     }
 
@@ -56,7 +56,7 @@ public class AdminBrandV1Controller implements AdminBrandV1ApiSpec {
     public ResponseEntity<ApiResponse<Void>> deleteBrand(
         @PathVariable Long brandId
     ) {
-        brandFacade.delete(brandId);
+        brandFacade.deleteBrand(brandId);
         return ResponseEntity.noContent().build();
     }
 }

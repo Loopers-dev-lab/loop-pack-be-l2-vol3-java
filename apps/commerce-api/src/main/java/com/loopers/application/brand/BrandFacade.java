@@ -21,8 +21,8 @@ public class BrandFacade {
     }
 
     @Transactional
-    public BrandInfo register(String name) {
-        BrandModel brand = brandService.register(name);
+    public BrandInfo registerBrand(String name) {
+        BrandModel brand = brandService.registerBrand(name);
         return BrandInfo.from(brand);
     }
 
@@ -37,13 +37,13 @@ public class BrandFacade {
     }
 
     @Transactional
-    public BrandInfo update(Long id, String name) {
-        BrandModel brand = brandService.update(id, name);
+    public BrandInfo renameBrand(Long id, String name) {
+        BrandModel brand = brandService.renameBrand(id, name);
         return BrandInfo.from(brand);
     }
 
     @Transactional
-    public void delete(Long id) {
-        brandService.delete(id);
+    public void deleteBrand(Long id) {
+        brandService.deleteBrand(id);
     }
 }

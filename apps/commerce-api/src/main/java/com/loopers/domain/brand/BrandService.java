@@ -24,7 +24,7 @@ public class BrandService {
     }
 
     @Transactional
-    public BrandModel register(String name) {
+    public BrandModel registerBrand(String name) {
         BrandModel brand = BrandModel.create(name);
         return brandRepository.save(brand);
     }
@@ -49,7 +49,7 @@ public class BrandService {
     }
 
     @Transactional
-    public BrandModel update(Long id, String name) {
+    public BrandModel renameBrand(Long id, String name) {
         BrandModel brand = brandRepository.findByIdAndNotDeleted(id)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: " + id));
         try {
@@ -61,7 +61,7 @@ public class BrandService {
     }
 
     @Transactional
-    public void delete(Long id) {
+    public void deleteBrand(Long id) {
         BrandModel brand = brandRepository.findById(id)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: " + id));
         productService.softDeleteByBrandId(id);
