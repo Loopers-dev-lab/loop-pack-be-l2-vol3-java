@@ -23,13 +23,18 @@ public class OrderDto {
     public record CreateOrderRequest(
             @NotEmpty(message = "주문 항목은 1개 이상이어야 합니다")
             @Valid
-            List<OrderItemRequest> items
+            List<OrderItemRequest> items,
+            UUID couponId
     ) {
-        public CreateOrderCommand toCommand(UUID userId) {
+        public CreateOrderRequest(List<OrderItemRequest> items) {
+            this(items, null);
+        }
+
+        public CreateOrderCommand toCommand(String memberId) {
             List<CreateOrderCommand.OrderItemCommand> itemCommands = items.stream()
                     .map(i -> new CreateOrderCommand.OrderItemCommand(i.productId(), i.quantity()))
                     .toList();
-            return new CreateOrderCommand(userId, itemCommands);
+            return new CreateOrderCommand(memberId, itemCommands, couponId);
         }
     }
 
@@ -62,21 +67,23 @@ public class OrderDto {
 
     public record OrderResponse(
             UUID id,
-            UUID userId,
+            String memberId,
             String orderNumber,
             ZonedDateTime orderDate,
             String status,
             int totalAmount,
+            UUID couponId,
             List<OrderItemResponse> items
     ) {
         public static OrderResponse from(Order order) {
             return new OrderResponse(
                     order.id(),
-                    order.userId(),
+                    order.memberId(),
                     order.orderNumber(),
                     order.orderDate(),
                     order.status().name(),
                     order.totalAmount(),
+                    order.couponId(),
                     order.items().stream().map(OrderItemResponse::from).toList()
             );
         }
@@ -113,11 +120,11 @@ public class OrderDto {
         private static final int DEFAULT_PAGE = 0;
         private static final int DEFAULT_SIZE = 20;
 
-        public OrderListByUserRequest toQuery(UUID userId) {
+        public OrderListByUserRequest toQuery(String memberId) {
             int resolvedPage = page == null ? DEFAULT_PAGE : page;
             int resolvedSize = size == null ? DEFAULT_SIZE : size;
             Pageable pageable = PageRequest.of(resolvedPage, resolvedSize);
-            return new OrderListByUserRequest(userId, startAt, endAt, pageable);
+            return new OrderListByUserRequest(memberId, startAt, endAt, pageable);
         }
     }
 }

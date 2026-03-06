@@ -9,17 +9,18 @@ import java.util.UUID;
 
 public record Order(
         UUID id,
-        UUID userId,
+        String memberId,
         String orderNumber,
         ZonedDateTime orderDate,
         OrderStatus status,
         int totalAmount,
+        UUID couponId,
         List<OrderItem> items,
         ZonedDateTime deletedAt
 ) {
 
     public Order {
-        if (userId == null) {
+        if (memberId == null || memberId.isBlank()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "사용자 ID는 필수입니다.");
         }
         if (items == null || items.isEmpty()) {
@@ -27,28 +28,48 @@ public record Order(
         }
     }
 
-    public Order(UUID userId, String orderNumber, List<OrderItem> items) {
+    public Order(String memberId, String orderNumber, List<OrderItem> items) {
         this(
                 null,
-                userId,
+                memberId,
                 orderNumber,
                 ZonedDateTime.now(),
                 OrderStatus.ORDERED,
                 items.stream().mapToInt(OrderItem::totalPrice).sum(),
+                null,
                 items,
                 null
         );
+    }
+
+    public Order(String memberId, String orderNumber, List<OrderItem> items, UUID couponId) {
+        this(
+                null,
+                memberId,
+                orderNumber,
+                ZonedDateTime.now(),
+                OrderStatus.ORDERED,
+                items.stream().mapToInt(OrderItem::totalPrice).sum(),
+                couponId,
+                items,
+                null
+        );
+    }
+
+    public Order(UUID id, String memberId, String orderNumber, ZonedDateTime orderDate, OrderStatus status,
+                 int totalAmount, List<OrderItem> items, ZonedDateTime deletedAt) {
+        this(id, memberId, orderNumber, orderDate, status, totalAmount, null, items, deletedAt);
     }
 
     public Order cancel() {
         if (this.status == OrderStatus.CANCELLED) {
             throw new CoreException(ErrorType.CONFLICT, "이미 취소된 주문입니다.");
         }
-        return new Order(id, userId, orderNumber, orderDate, OrderStatus.CANCELLED, totalAmount, items, deletedAt);
+        return new Order(id, memberId, orderNumber, orderDate, OrderStatus.CANCELLED, totalAmount, couponId, items, deletedAt);
     }
 
-    public boolean isOwner(UUID userId) {
-        return this.userId.equals(userId);
+    public boolean isOwner(String memberId) {
+        return this.memberId.equals(memberId);
     }
 
     public boolean isCancelled() {
