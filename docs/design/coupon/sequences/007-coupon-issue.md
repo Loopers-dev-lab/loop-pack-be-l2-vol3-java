@@ -19,10 +19,18 @@ sequenceDiagram
     activate CF
 
     critical @Transactional
-        CF->>CS: 쿠폰 발급 처리 (락)
+        CF->>CS: 활성 쿠폰 조회
         activate CS
-        Note right of CS: 만료 검증 + 수량 검증<br/>issuedCount 증가
         CS-->>CF: Coupon
+        deactivate CS
+
+        CF->>CF: validateIssuable()
+        Note right of CF: 만료 검증 + 수량 검증<br/>(Fail-Fast)
+
+        CF->>CS: 발급 수량 증가 (atomic UPDATE)
+        activate CS
+        Note right of CS: UPDATE SET issuedCount+1<br/>WHERE id = ? AND issuedCount < maxIssueCount
+        CS-->>CF: void
         deactivate CS
 
         CF->>ICS: 발급 쿠폰 생성
@@ -39,7 +47,7 @@ sequenceDiagram
 ```
 
 ## 핵심 포인트
-- CouponService가 쿠폰을 비관적 락으로 조회하여 issuedCount의 동시성을 보장한다
-- 만료 검증, 수량 검증은 Coupon 엔티티의 `issue()` 메서드에서 처리 (불변식 강제)
+- Fail-Fast & Atomic Update 전략: 먼저 Entity에서 검증(validateIssuable)하고, 원자적 UPDATE로 issuedCount를 증가시킨다
+- 비관적 락 없이 동시성을 보장한다 — atomic UPDATE의 WHERE 조건으로 수량 초과를 방지
 - 중복 발급 검증은 IssuedCouponService에서 처리 (DB unique constraint 활용)
-- 발급 수량 차감과 발급 쿠폰 생성은 하나의 트랜잭션에서 원자적으로 처리한다
+- 발급 수량 증가와 발급 쿠폰 생성은 하나의 트랜잭션에서 원자적으로 처리한다

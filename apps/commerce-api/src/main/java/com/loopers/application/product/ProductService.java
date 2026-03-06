@@ -68,7 +68,7 @@ public class ProductService {
                     productId, productQuantities.get(productId)
             );
             if (updated == 0) {
-                throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족하거나 존재하지 않는 상품입니다");
+                throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다");
             }
         }
     }

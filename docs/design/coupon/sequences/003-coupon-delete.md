@@ -19,13 +19,9 @@ sequenceDiagram
     activate CF
 
     critical @Transactional
-        CF->>CS: 쿠폰 조회
+        CF->>CS: 쿠폰 삭제 (멱등)
         activate CS
-        CS-->>CF: Coupon
-        deactivate CS
-
-        CF->>CS: 쿠폰 삭제
-        activate CS
+        Note right of CS: 조회 후 delete()<br/>이미 삭제된 경우에도 정상 처리
         CS-->>CF: void
         deactivate CS
 
@@ -44,4 +40,4 @@ sequenceDiagram
 ## 핵심 포인트
 - 쿠폰 삭제와 발급 쿠폰 연쇄 삭제는 하나의 트랜잭션에서 원자적으로 처리한다
 - 연쇄 삭제 대상은 미사용(AVAILABLE) 발급 쿠폰만 — 이미 사용된(USED) 쿠폰은 보존
-- 삭제된 쿠폰은 미존재로 처리한다 (삭제 멱등 아님)
+- 삭제는 멱등하게 처리한다 — 이미 삭제된 쿠폰을 다시 삭제해도 정상 응답
