@@ -35,13 +35,14 @@ public IssuedCouponStatus getActualStatus(LocalDateTime now) {
 
 ## 2. 재고/주문/쿠폰 오케스트레이션 (OrderFacade)
 
-결제 도메인이 없으므로, **OrderFacade**는 "주문 확정"까지의 모든 책임을 가진다. **쿠폰 도입 후 주문 정합성**은 OrderFacade 한 트랜잭션에서 `CouponService.validateAndUse` → `ProductService.decreaseStockWithLock` → `OrderService.createOrder` 순으로 호출하며, 하나라도 실패 시 전부 롤백한다. CouponFacade는 주문 플로우에 개입하지 않고, 쿠폰 발급/조회/어드민 CRUD 진입점만 담당한다.
+결제 도메인이 없으므로, **OrderFacade**는 "주문 확정"까지의 모든 책임을 가진다. **쿠폰 도입 후 주문 정합성**은 **doPlaceOrder** 한 트랜잭션에서 `CouponService.validateAndUse` → `ProductService.decreaseStockWithLock` → `OrderService.createOrder` 순으로 호출하며, 하나라도 실패 시 전부 롤백한다. **placeOrder**는 트랜잭션 없이 재시도 루프만 담당하고, 낙관락 충돌 시 백오프 후 1회 재시도(§3.4). CouponFacade는 주문 플로우에 개입하지 않고, 쿠폰 발급/조회/어드민 CRUD 진입점만 담당한다.
 
 ### 2.1 추천 실행 순서 (Sequence)
 
 1. **쿠폰 락/조회**
    - 쿠폰 적용 시: **낙관적 락** 채택 시에는 일반 조회(`findById`). 비관적 락 채택 시에는 `IssuedCouponRepository.findByIdForUpdate(issuedCouponId)`.
    - 다른 트랜잭션이 동일 쿠폰을 먼저 사용하는 것을, 낙관적 락이면 커밋 시점에 감지하고, 비관적 락이면 이 시점에 차단한다.
+   - **낙관락 충돌 시**: `OptimisticLockException` 발생 → placeOrder에서 백오프(50ms) 후 **1회 재시도**(새 트랜잭션으로 doPlaceOrder 재호출). 재시도 후에도 실패하면 **409 CONFLICT** + "잠시 후 다시 시도해 주세요".
 2. **쿠폰 유효성 검증**
    - 소유주 확인, 사용 여부(`status == USED`), **현재 시간 기준 만료 여부**(`getActualStatus(now)` 또는 `expired_at > now`) 체크.
 3. **재고 차감**
@@ -54,8 +55,8 @@ public IssuedCouponStatus getActualStatus(LocalDateTime now) {
 
 ### 2.2 트랜잭션 경계 요약 (코드 기준)
 
-- **시작 지점**: Facade 메서드에 `@Transactional`. Service는 REQUIRED로 동일 트랜잭션 참여. Controller에는 `@Transactional` 없음.
-- **주문 생성**: OrderFacade.create() → OrderService.create() → validateAndGetSnapshots(검증·스냅샷) + OrderModel 생성 + orderRepository.save(). 결제·재고 차감은 주문 생성과 분리.
+- **시작 지점**: 주문 접수는 **placeOrder**에 `@Transactional`이 없고, **doPlaceOrder**에만 `@Transactional`이 있다. placeOrder는 재시도 루프만 담당하며 `self.doPlaceOrder()`로 호출해 **매 시도마다 새 트랜잭션**이 열린다. 낙관락 충돌 시 백오프(50ms) 후 1회 재시도, 재시도 후에도 실패하면 409 CONFLICT + "잠시 후 다시 시도해 주세요"(§3.4, §9.1). 그 외 Facade 메서드(create/cancel 등)는 해당 Facade 메서드에 `@Transactional`. Service는 REQUIRED로 동일 트랜잭션 참여. Controller에는 `@Transactional` 없음.
+- **주문 생성**: OrderFacade.placeOrder() → self.doPlaceOrder() (트랜잭션 시작) → validateAndGetSnapshots(검증·스냅샷) + (쿠폰 시) validateAndUse + decreaseStockWithLock + OrderService.create() → orderRepository.save(). 결제·재고 차감은 주문 생성과 분리하지 않음(동일 트랜잭션).
 - **주문 취소**: OrderFacade.cancel() → OrderService.cancel() → (PAID 시) restoreStock(productId 오름차순 락) + order.cancel() + save().
 - **상품 목록**: getProductList readOnly, brandId 일괄 조회 후 맵 매핑(N+1 제거 반영).
 - **브랜드 삭제**: BrandFacade.delete() → BrandService.delete() → softDeleteByBrandIdBulk(벌크 UPDATE) + brand.delete() + save().
@@ -93,7 +94,7 @@ public IssuedCouponStatus getActualStatus(LocalDateTime now) {
 | 구분 | 내용 |
 |------|------|
 | **롤백 비용** | 쿠폰 동시 사용 시 낙관적 락 실패 → 전체 롤백. 쿠폰 광클 확률이 낮다고 판단하고 감수. |
-| **재시도** | `OptimisticLockException` 포착 후 최소 횟수(예: 1회) 재시도 가능. 과도한 재시도는 제한. |
+| **재시도** | `OptimisticLockException`(또는 `ObjectOptimisticLockingFailureException`) 포착 후 **1회만 재시도**. 재시도 전 **백오프(50ms)**. 재시도 후에도 실패하면 **409 CONFLICT** + "잠시 후 다시 시도해 주세요". placeOrder는 트랜잭션 없이 재시도 루프만 담당하고, self.doPlaceOrder()로 매 시도 새 트랜잭션 수행. 쿠폰 미사용 주문은 재시도 없이 1회만 시도. |
 
 ### 3.5 DB 커넥션 유지 시간 (Connection Starvation)
 
@@ -144,7 +145,7 @@ public IssuedCouponStatus getActualStatus(LocalDateTime now) {
 | **쿠폰 발급** | **Unique Index (user_id, coupon_id)**. 선착순 상한 시 **비관적 락**. | 더블 클레임 방지. |
 | **쿠폰 사용** | **낙관적 락** 채택. (비관적 대안 가능) | 본 문서 §3. |
 | **쿠폰 만료** | **사용 시점에 만료 여부 판단**. 스케줄러로 EXPIRED 갱신하지 않음. | 01 §3.8. |
-| **주문** | **단일 트랜잭션**(OrderFacade) 안에서 쿠폰 검증·사용 → 재고 차감(비관적 락) → 주문 생성. | 본 문서 §2. |
+| **주문** | **단일 트랜잭션**(OrderFacade.doPlaceOrder) 안에서 쿠폰 검증·사용 → 재고 차감(비관적 락) → 주문 생성. placeOrder는 재시도 오케스트레이션만. | 본 문서 §2, §3. |
 
 **조언:** 재고는 비관적 락 검토. 좋아요는 원자적 업데이트 적합; 트래픽 극심 시 배치로 최종 일관성 검토. 쿠폰 만료는 사용 시점에 현재 시간과 만료 시간 비교.
 
@@ -170,11 +171,12 @@ public IssuedCouponStatus getActualStatus(LocalDateTime now) {
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| Controller에 @Transactional | ✅ 없음 | §2.2와 일치. Facade만 트랜잭션 보유. |
-| 읽기 전용 로직이 쓰기 트랜잭션에 포함 | ⚠️ 일부 | validateAndGetSnapshots는 쓰기 트랜잭션에 참여. 재고 차감 없음·검증·스냅샷만 수행한다는 의도는 Javadoc으로 명시(§8.3 개선안 4). |
+| Controller에 @Transactional | ✅ 없음 | §2.2와 일치. 트랜잭션은 Facade(또는 주문 접수 시 doPlaceOrder)만 보유. |
+| 주문 접수 트랜잭션 경계 | ✅ 반영됨 | placeOrder는 트랜잭션 없음(재시도 루프). doPlaceOrder에만 @Transactional, self 주입으로 매 시도 새 트랜잭션. |
+| 읽기 전용 로직이 쓰기 트랜잭션에 포함 | ⚠️ 일부 | validateAndGetSnapshots는 doPlaceOrder 쓰기 트랜잭션에 참여. **의도적 설계**: 스냅샷과 재고 차감·주문 생성을 동일 트랜잭션에서 처리해 정합성 확보(스냅샷 조회와 재고/주문이 분리되면 중간에 재고가 바뀔 수 있음). 재고 차감 없음·검증·스냅샷만 수행한다는 의도는 Javadoc으로 명시(§8.3 개선안 4). |
 | 외부 시스템 호출이 트랜잭션 내부에 포함 | ✅ 없음 | 결제/외부 시스템 호출 없음. 재고 차감은 주문 생성과 동일 트랜잭션 내부(§2.2). |
-| 트랜잭션 내 대량 조회/복잡 QueryDSL | ⚠️ 일부 | 브랜드 삭제는 벌크 UPDATE 반영됨. 상품 목록은 brandId 일괄 조회로 N+1 제거 반영됨(§8.3 개선안 1, 3). 대량 시 청크/배치 추가 검토(§9.1). |
-| 상태 변경 후 트랜잭션 장시간 유지 | ⚠️ 일부 | 주문 취소 시 재고 복구(restoreStock)는 정합성 우선으로 단일 트랜잭션 유지. 항목 많을 때(예: 10건 초과)는 청크/별도 트랜잭션+보상 검토(§8.3 개선안 2, §9.1). |
+| 트랜잭션 내 대량 조회/복잡 QueryDSL | ⚠️ 일부 | **현재 규모에서는 반영됨**: 브랜드 삭제는 벌크 UPDATE, 상품 목록은 brandId 일괄 조회로 N+1 제거(§8.3 개선안 1, 3). 대량(상품/주문 항목 매우 많을 때) 시에만 청크/배치 추가 검토(§9.1). |
+| 상태 변경 후 트랜잭션 장시간 유지 | ⚠️ 일부 | **의도적 설계**: 주문 취소 시 재고 복구(restoreStock)는 정합성 우선으로 **단일 트랜잭션** 유지(복구 실패 시 주문만 취소되는 불일치 방지). 항목이 매우 많을 때(예: 10건 초과)에만 청크/별도 트랜잭션+보상 검토(§8.3 개선안 2, §9.1). |
 
 **문제 후보 반영 현황:** OrderService.create(의도 Javadoc 명시), BrandService.delete(벌크 UPDATE), OrderService.cancel(productId 오름차순 락), ProductFacade.getProductList(brandId 일괄 조회).
 
@@ -183,7 +185,7 @@ public IssuedCouponStatus getActualStatus(LocalDateTime now) {
 | 체크 항목 | 상태 | 비고 |
 |-----------|------|------|
 | 단순 조회인데 Entity 반환 후 변경 가능성 | ✅ 양호 | Facade에서 Model → Info/DTO 변환, Controller는 DTO만 노출. |
-| DTO Projection 대신 Entity 조회 | ⚠️ 전반적 | 읽기 전용 API는 Projection 검토 여지 있음. |
+| DTO Projection 대신 Entity 조회 | ⚠️ 전반적 | 읽기 전용 API는 현재 Entity 조회 후 DTO 변환. **선택적 개선**: 트래픽·성능 이슈 시 DTO Projection 검토 여지 있음. |
 | @Transactional(readOnly = true) 적용 | ✅ 조회 메서드에 적용 | findById, findOrders, getProductDetail, getProductList 등. |
 
 **readOnly:** 단순 조회는 readOnly 적용됨. validateAndGetSnapshots·validateProductAvailability는 호출처가 쓰기 트랜잭션이면 readOnly 미적용 → Javadoc으로 의도 명시. **기타:** OrderService.cancel에서 order.getOrderItems() 지연 로딩 가능성 → findByIdWithOrderItems 등 연관 로딩 권장. restoreStock은 findByIdForUpdate 후 save로 변경 감지 이슈 없음.
@@ -203,7 +205,7 @@ public IssuedCouponStatus getActualStatus(LocalDateTime now) {
 
 | # | 상황 | 권장 대응 |
 |---|------|-----------|
-| 1 | **락 타임아웃·데드락** | DB 락 대기 타임아웃(3~5초) 짧게 설정. 재시도 최대 1회, 503 및 "잠시 후 다시 시도해 주세요". |
+| 1 | **락 타임아웃·데드락** | DB 락 대기 타임아웃(3~5초) 짧게 설정. **낙관락 충돌 시** 재시도 최대 1회(백오프 50ms), 실패 시 **409 CONFLICT** 및 "잠시 후 다시 시도해 주세요". (구현 반영됨.) 락 타임아웃 시 503 등 검토. |
 | 1-1 | **Connection Starvation** | 쿠폰 조회 → 재고 락 순서에서 재고 락 대기 시 커넥션 점유. **Lock Timeout 짧게 설정 필수 병행.** (§3.5) |
 | 2 | **주문 취소 시 재고 복구** | 단일 트랜잭션 유지. 항목 많을 때 청크/보상 검토. |
 | 3 | **브랜드 삭제 연쇄** | 벌크 반영됨. 상품 수 많으면 청크/배치 검토. |
@@ -237,8 +239,8 @@ public IssuedCouponStatus getActualStatus(LocalDateTime now) {
 
 - **재고**: 0 이하 불가, Read-Modify-Write → **비관적 락**. 차감·복구 시 productId 오름차순 락.
 - **쿠폰 발급**: **(user_id, coupon_id) Unique Index**. 선착순 상한 시 비관적 락.
-- **쿠폰 사용**: **낙관적 락** 채택(§3). 비관적 락 대안 가능.
-- **주문**: OrderFacade **단일 트랜잭션**으로 쿠폰 검증·사용 → 재고 차감 → 주문 생성. 정합성은 롤백으로 보장.
+- **쿠폰 사용**: **낙관적 락** 채택(§3). 충돌 시 placeOrder에서 1회 재시도(백오프 50ms), 실패 시 409. 비관적 락 대안 가능.
+- **주문**: OrderFacade **placeOrder**는 트랜잭션 없이 재시도만, **doPlaceOrder** 단일 트랜잭션으로 쿠폰 검증·사용 → 재고 차감 → 주문 생성. 정합성은 롤백으로 보장.
 - **좋아요**: Unique + 단일 트랜잭션; 원자적 업데이트 적합.
 - **비관적 락 필수**: 재고 차감/복구. 쿠폰 사용은 낙관적 락 채택.
 - **대안(§7)**: 쿠폰 원자적 UPDATE + 재고만 락 + 보상 트랜잭션 검토 가능.
