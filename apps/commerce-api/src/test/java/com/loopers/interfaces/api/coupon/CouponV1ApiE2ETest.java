@@ -170,30 +170,6 @@ class CouponV1ApiE2ETest {
             );
         }
 
-        @DisplayName("이미 발급받은 쿠폰에 재발급을 요청하면, 409 CONFLICT를 반환한다. (BR-C03)")
-        @Test
-        void returnsConflict_whenAlreadyIssued() {
-            // arrange
-            Long userId = signUpAndGetUserId(VALID_LOGIN_ID, VALID_PASSWORD, "쿠폰유저");
-            CouponTemplate template = createSavedTemplate();
-            userCouponJpaRepository.save(new UserCoupon(template.getId(), userId, template.getExpiredAt()));
-
-            // act
-            ParameterizedTypeReference<ApiResponse<CouponV1Dto.UserCouponResponse>> responseType =
-                    new ParameterizedTypeReference<>() {};
-            ResponseEntity<ApiResponse<CouponV1Dto.UserCouponResponse>> response = testRestTemplate.exchange(
-                    ENDPOINT_ISSUE_COUPON.apply(template.getId()),
-                    HttpMethod.POST,
-                    new HttpEntity<>(createUserHeaders()),
-                    responseType
-            );
-
-            // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(ErrorType.CONFLICT.getStatus()),
-                    () -> assertThat(response.getBody().meta().result()).isEqualTo(ApiResponse.Metadata.Result.FAIL)
-            );
-        }
 
     }
 

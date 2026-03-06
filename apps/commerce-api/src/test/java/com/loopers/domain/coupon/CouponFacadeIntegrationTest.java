@@ -94,20 +94,6 @@ public class CouponFacadeIntegrationTest {
             assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
-        @DisplayName("이미 발급받은 쿠폰에 재발급 요청하면 CONFLICT 에러가 발생한다. (BR-C03)")
-        @Test
-        void throwsConflict_whenAlreadyIssued() {
-            // arrange
-            CouponTemplate template = createSavedTemplate(FUTURE_EXPIRED_AT);
-            couponFacade.issue(USER_ID, template.getId());
-
-            // act
-            CoreException result = assertThrows(CoreException.class,
-                    () -> couponFacade.issue(USER_ID, template.getId()));
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.CONFLICT);
-        }
     }
 
     @DisplayName("내 쿠폰 목록 조회 시")

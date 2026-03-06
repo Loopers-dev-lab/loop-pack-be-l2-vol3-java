@@ -23,13 +23,10 @@ public class CouponService {
 
     /**
      * 쿠폰 발급 (US-C01)
-     * 중복 발급 확인(BR-C03) → 템플릿 조회 → 발급 시점의 만료일 스냅샷 저장
+     * 템플릿 조회 → 발급 시점의 만료일 스냅샷 저장
      */
     @Transactional
     public UserCoupon issue(Long userId, Long couponTemplateId) {
-        if (userCouponRepository.existsByUserIdAndCouponTemplateId(userId, couponTemplateId)) {
-            throw new CoreException(ErrorType.CONFLICT, "이미 발급받은 쿠폰입니다.");
-        }
         // 쿠폰 템플릿 존재 여부 검증
         CouponTemplate template = findTemplateById(couponTemplateId);
         return userCouponRepository.save(new UserCoupon(couponTemplateId, userId, template.getExpiredAt()));

@@ -1046,7 +1046,7 @@ sequenceDiagram
 
 #### 검증 목적
 
-중복 발급 방지(BR-C03) 흐름과 만료 상태 계산 방식(정규화, expiredAt 미저장)을 확인한다.
+템플릿 존재 여부 검증 및 발급 시점 만료일 스냅샷 저장 흐름을 확인한다.
 
 #### 시퀀스 다이어그램
 
@@ -1064,16 +1064,6 @@ sequenceDiagram
 
     Note over Facade: @Transactional 시작
 
-    Facade->>UserCouponRepository: existsByUserIdAndCouponTemplateId(userId, couponId)
-
-    alt 이미 발급받은 쿠폰인 경우 (BR-C03)
-        UserCouponRepository-->>Facade: 중복 발급
-        Facade->>Facade: 비즈니스 예외 발생
-        Facade-->>Controller: 예외 전파
-        Controller-->>회원: 409 Conflict (중복 발급)
-    end
-
-    UserCouponRepository-->>Facade: 발급 이력 없음
     Facade->>CouponTemplateRepository: findById(couponId)
 
     alt 쿠폰 템플릿이 존재하지 않는 경우
@@ -1093,8 +1083,7 @@ sequenceDiagram
 
 #### 봐야 할 포인트
 
-1. **중복 발급 선행 검증**: 템플릿 조회 이전에 중복 여부를 먼저 확인하여 조기에 거부할 수 있다.
-2. **expiredAt 미저장(정규화)**: UserCoupon에 `expiredAt`을 저장하지 않는다. 만료일은 CouponTemplate에서 항상 읽어온다. 스냅샷이 불필요한 경우 정규화로 데이터 중복을 제거할 수 있다.
+1. **expiredAt 스냅샷 저장**: 발급 시점의 템플릿 만료일을 UserCoupon에 복사한다. 이후 관리자가 템플릿 만료일을 변경해도 발급된 쿠폰에 영향을 주지 않는다.
 
 ---
 

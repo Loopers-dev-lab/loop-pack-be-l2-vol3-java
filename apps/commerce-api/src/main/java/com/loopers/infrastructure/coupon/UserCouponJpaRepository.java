@@ -15,9 +15,6 @@ import java.util.Optional;
 
 public interface UserCouponJpaRepository extends JpaRepository<UserCoupon, Long> {
 
-    // 활성 발급 쿠폰 중복 여부 (deleted_at IS NULL 기준으로 soft delete와 호환)
-    boolean existsByUserIdAndCouponTemplateIdAndDeletedAtIsNull(Long userId, Long couponTemplateId);
-
     List<UserCoupon> findAllByUserIdAndDeletedAtIsNull(Long userId);
 
     Page<UserCoupon> findAllByCouponTemplateIdAndDeletedAtIsNull(Long couponTemplateId, Pageable pageable);

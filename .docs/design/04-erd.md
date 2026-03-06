@@ -228,12 +228,8 @@ erDiagram
 | updated_at | DATETIME | NOT NULL | |
 | deleted_at | DATETIME | nullable | soft delete 마커. 템플릿 삭제 시 함께 설정됨 (BR-C05) |
 
-**유일성 제약**:
-- `(user_id, coupon_template_id)` 조합이 활성 상태(deleted_at IS NULL) 레코드 내에서 유일해야 한다 (BR-C03)
-- soft delete 테이블이므로 **DB UNIQUE 제약 미적용 → 애플리케이션 레벨에서 검증** (`existsByUserIdAndCouponTemplateIdAndDeletedAtIsNull()`)
-
 **인덱스**:
-- `idx_user_coupons_user_coupon` → `(user_id, coupon_template_id)`: 중복 발급 체크 + US-C02 내 쿠폰 목록 조회 (soft delete로 인해 DB UNIQUE 제약 대신 일반 인덱스 사용)
+- `idx_user_coupons_user_coupon` → `(user_id, coupon_template_id)`: US-C02 내 쿠폰 목록 조회
 - `idx_user_coupons_coupon_template_id` → `coupon_template_id`: US-C08 발급 내역 조회
 
 ---
@@ -306,8 +302,6 @@ erDiagram
 |--------|----------|-------------|
 | brand | `name` (활성 상태 내) | US-B04: 브랜드명 중복 불가 |
 | product | `(brand_id, name)` (활성 상태 내) | US-P05: 같은 브랜드 내 상품명 중복 불가 |
-| user_coupons | `(user_id, coupon_template_id)` (활성 상태 내) | BR-C03: 회원당 쿠폰 템플릿당 발급 1개 |
-
 soft delete 테이블에서 단순 `UNIQUE(name)` 제약을 걸면 다음 문제가 발생한다:
 
 ```
@@ -343,7 +337,7 @@ VO의 검증 규칙이 DB 컬럼 제약으로도 방어된다.
 | `uk_likes_user_product` | US-L03: 내 좋아요 목록 | UNIQUE 제약이 인덱스 역할도 수행 |
 | `idx_orders_user_id_created_at` | US-O02: 기간별 주문 목록 | 복합 인덱스로 user_id 필터 + created_at 범위 검색을 커버 |
 | `idx_order_item_order_id` | US-O03, O05: 주문 상세 | 주문 ID로 주문 항목 일괄 조회 |
-| `idx_user_coupons_user_coupon` | US-C01: 중복 발급 체크, US-C02: 내 쿠폰 목록 | soft delete 테이블이므로 DB UNIQUE 미적용. 일반 복합 인덱스로 조회 성능만 지원 |
+| `idx_user_coupons_user_coupon` | US-C02: 내 쿠폰 목록 | 복합 인덱스로 user_id 필터 + 쿠폰 목록 조회 지원 |
 | `idx_user_coupons_coupon_template_id` | US-C08: 발급 내역 조회 | 특정 템플릿 ID로 발급 목록 조회 |
 
 ---
@@ -352,8 +346,6 @@ VO의 검증 규칙이 DB 컬럼 제약으로도 방어된다.
 
 | 리스크 | 설명 | 대응 |
 |--------|------|------|
-| **soft delete 유일성 우회** | 애플리케이션 레벨 검증은 동시 요청 시 race condition이 발생할 수 있다 | 트랜잭션 격리 수준 또는 비관적 잠금으로 방어 |
 | **like_count 정합성** | Product.like_count와 likes 테이블의 실제 레코드 수가 어긋날 수 있다 | 트랜잭션 내 원자적 처리로 1차 방어. 필요 시 배치 보정으로 2차 방어 |
 | **스냅샷 시점 정합성** | 주문 생성 중 상품 정보가 변경될 수 있다 | Facade 트랜잭션 내에서 상품 조회 → 주문 생성이 원자적으로 처리됨 |
 | **재고 동시성** | 동시 주문 시 재고가 음수가 될 수 있다 | 비관적 락(`SELECT FOR UPDATE`)으로 제어. `stock >= 0` CHECK 제약이 DB 레벨 최종 방어선 |
-| **쿠폰 soft delete 후 재발급 불가** | soft delete된 user_coupons 레코드가 남아있어 동일 쿠폰 재발급 시 앱 레벨 중복 검증에 걸린다 | 정책상 동일 쿠폰 재발급은 허용하지 않으므로 현재 동작이 의도된 것이다 (BR-C03) |

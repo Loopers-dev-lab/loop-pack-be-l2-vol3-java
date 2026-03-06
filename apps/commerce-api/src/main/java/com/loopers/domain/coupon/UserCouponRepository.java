@@ -11,9 +11,6 @@ public interface UserCouponRepository {
 
     UserCoupon save(UserCoupon userCoupon);
 
-    // 활성 발급 쿠폰 중복 여부 확인 (deleted_at IS NULL 기준, BR-C03)
-    boolean existsByUserIdAndCouponTemplateId(Long userId, Long couponTemplateId);
-
     // 내 쿠폰 목록 조회 (US-C02)
     List<UserCoupon> findAllByUserId(Long userId);
 
