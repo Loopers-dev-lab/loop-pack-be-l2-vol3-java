@@ -8,6 +8,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -19,12 +20,19 @@ import static lombok.AccessLevel.PROTECTED;
 /**
  * 발급 쿠폰(고객이 소유한 인스턴스).
  * 1회 사용 후 USED. 만료일은 발급 시점 템플릿 값 스냅샷(expiredAt).
+ *
+ * <p>낙관적 락: @Version 필드로 동시 사용 시 커밋 단계에서 충돌 감지·롤백.
+ * JPA는 UPDATE 시 {@code WHERE id = ? AND version = ?}를 사용하며, 버전 불일치 시 수정 행 0 → OptimisticLockException. (05-transaction-query §3.1)
  */
 @Entity
 @Table(name = "issued_coupon")
 @Getter
 @NoArgsConstructor(access = PROTECTED)
 public class IssuedCouponModel extends BaseEntity {
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version = 0L;
 
     @Column(name = "user_id", nullable = false)
     private Long userId;

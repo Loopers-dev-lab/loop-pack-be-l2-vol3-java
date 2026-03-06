@@ -57,14 +57,15 @@ public class CouponService {
     }
 
     /**
-     * 주문 시 쿠폰 유효성 검증 후 사용 처리. 비관적 락으로 동시 사용 방지.
+     * 주문 시 쿠폰 유효성 검증 후 사용 처리. 낙관적 락(@Version)으로 동시 사용 방지.
+     * 일반 SELECT로 조회 후 상태를 USED로 변경하고, 커밋 시점에 JPA가 버전을 비교한다. 다른 트랜잭션이 먼저 사용했으면 OptimisticLockException으로 전체 롤백. (05-transaction-query §3.1)
      * 소유자 불일치·이미 사용·만료·최소 주문 금액 미충족 시 예외.
      *
      * @return 할인 결과(할인 전/할인액/최종 금액). 호출 측에서 주문 스냅샷에 반영.
      */
     @Transactional
     public CouponDiscount validateAndUse(Long issuedCouponId, Long userId, java.math.BigDecimal orderAmountBeforeDiscount) {
-        IssuedCouponModel issued = issuedCouponRepository.findByIdForUpdate(issuedCouponId)
+        IssuedCouponModel issued = issuedCouponRepository.findById(issuedCouponId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
         if (!issued.getUserId().equals(userId)) {
             throw new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다.");
