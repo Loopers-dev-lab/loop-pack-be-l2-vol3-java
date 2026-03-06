@@ -1,0 +1,32 @@
+### 쿠폰 발급 (대고객) - 성공
+POST {{commerce-api}}/api/v1/coupons/1/issue
+X-Loopers-LoginId: testuser01
+
+### 내 쿠폰 목록
+GET {{commerce-api}}/api/v1/users/me/coupons?page=0&size=20
+X-Loopers-LoginId: testuser01
+
+### 주문 생성 - 쿠폰 미적용
+POST {{commerce-api}}/api/v1/orders
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+
+{
+  "items": [
+    { "productId": 1, "quantity": 2 },
+    { "productId": 3, "quantity": 1 }
+  ]
+}
+
+### 주문 생성 - 쿠폰 적용 (couponId = 발급 쿠폰 ID)
+POST {{commerce-api}}/api/v1/orders
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+
+{
+  "items": [
+    { "productId": 1, "quantity": 2 },
+    { "productId": 3, "quantity": 1 }
+  ],
+  "couponId": 42
+}
