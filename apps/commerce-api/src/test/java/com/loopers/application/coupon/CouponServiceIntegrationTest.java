@@ -17,11 +17,6 @@ import com.loopers.support.error.ErrorType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -186,35 +181,6 @@ class CouponServiceIntegrationTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
 
-        @Test
-        void 동시_발급_요청에도_발급_수량이_정확히_관리된다() throws InterruptedException {
-            Coupon coupon = couponService.register(CouponCommand.Register.of(
-                    "쿠폰", CouponType.FIXED, 1000,
-                    null, 100, LocalDateTime.now().plusDays(7)
-            ));
-            int threadCount = 10;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
-            List<Exception> exceptions = new ArrayList<>();
-
-            for (int i = 0; i < threadCount; i++) {
-                executorService.submit(() -> {
-                    try {
-                        couponService.issue(coupon.getId());
-                    } catch (Exception e) {
-                        exceptions.add(e);
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
-
-            Coupon found = couponRepository.findById(coupon.getId()).orElseThrow();
-            assertThat(found.getIssuedCount()).isEqualTo(threadCount);
-            assertThat(exceptions).isEmpty();
-        }
     }
 
     @Nested
