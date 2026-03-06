@@ -31,7 +31,7 @@ class CouponControllerTest {
 
     private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
     private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
-    private static final String TEST_LOGIN_ID = "coupon-test-user";
+    private static final String TEST_LOGIN_ID = "coupontestuser";
     private static final String TEST_PASSWORD = "Test1234!@";
 
     @Autowired
@@ -48,7 +48,7 @@ class CouponControllerTest {
         Map<String, Object> registerRequest = Map.of(
                 "loginId", TEST_LOGIN_ID,
                 "password", TEST_PASSWORD,
-                "name", "쿠폰테스터",
+                "name", "쿠폰이",
                 "birthDate", "19900101",
                 "email", "coupon@test.com",
                 "phone", "010-1234-5678"
@@ -70,14 +70,14 @@ class CouponControllerTest {
         @Test
         @DisplayName("인증 없이 발급 요청하면 401")
         void issueWithoutAuth() throws Exception {
-            mockMvc.perform(post("/api/v1/coupons/1/issue"))
+            mockMvc.perform(post("/api/v1/coupons/00000000-0000-0000-0000-000000000001/issue"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test
         @DisplayName("존재하지 않는 couponId로 발급 요청하면 404")
         void issueInvalidCouponId() throws Exception {
-            mockMvc.perform(post("/api/v1/coupons/999999/issue")
+            mockMvc.perform(post("/api/v1/coupons/00000000-0000-0000-0000-000000000999/issue")
                             .header(HEADER_LOGIN_ID, TEST_LOGIN_ID)
                             .header(HEADER_LOGIN_PW, TEST_PASSWORD))
                     .andExpect(status().isNotFound());
