@@ -1,4 +1,4 @@
-package com.loopers.application.category;
+package com.loopers.application.coupon.category;
 
 import com.loopers.domain.category.Category;
 import com.loopers.domain.category.CategoryRepository;

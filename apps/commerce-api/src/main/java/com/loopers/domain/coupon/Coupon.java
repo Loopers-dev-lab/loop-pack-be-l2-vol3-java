@@ -1,0 +1,59 @@
+package com.loopers.domain.coupon;
+
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+public record Coupon(
+        UUID id,
+        String name,
+        CouponType type,
+        int value,
+        int minOrderAmount,
+        LocalDateTime expiredAt
+) {
+    public Coupon(String name, CouponType type, int value, int minOrderAmount, LocalDateTime expiredAt) {
+        this(null, name, type, value, minOrderAmount, expiredAt);
+    }
+
+    public Coupon {
+        if (name == null || name.isBlank()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "쿠폰 이름은 필수입니다.");
+        }
+        if (type == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "쿠폰 타입은 필수입니다.");
+        }
+        if (value <= 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "쿠폰 값은 1 이상이어야 합니다.");
+        }
+        if (type == CouponType.RATE && value > 100) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "정률 쿠폰 값은 100 이하여야 합니다.");
+        }
+        if (minOrderAmount < 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "최소 주문 금액은 0 이상이어야 합니다.");
+        }
+        if (expiredAt == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "만료 시각은 필수입니다.");
+        }
+    }
+
+    public int calculateDiscount(int orderAmount) {
+        if (orderAmount < minOrderAmount) {
+            return 0;
+        }
+        if (type == CouponType.FIXED) {
+            return Math.min(value, orderAmount);
+        }
+        return orderAmount * value / 100;
+    }
+
+    public boolean isUsableAt(LocalDateTime now) {
+        return !now.isAfter(expiredAt);
+    }
+
+    public Coupon update(String name, CouponType type, int value, int minOrderAmount, LocalDateTime expiredAt) {
+        return new Coupon(id, name, type, value, minOrderAmount, expiredAt);
+    }
+}
