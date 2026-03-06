@@ -168,6 +168,25 @@ class OrderTest {
             );
         }
 
+        @DisplayName("할인 금액이 주문 총액을 초과하면, 결제 금액은 0원이고 할인 금액은 주문 총액으로 보정된다.")
+        @Test
+        void capsDiscountToOriginalTotal_whenDiscountExceedsTotal() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품A", "https://a.png", Money.wons(8000L), 1L)
+            ));
+
+            // act
+            var order = Order.create(cart, Money.wons(10000L), 100L);
+
+            // assert
+            assertAll(
+                    () -> assertThat(order.getOriginalTotalPrice()).isEqualTo(Money.wons(8000L)),
+                    () -> assertThat(order.getDiscountAmount()).isEqualTo(Money.wons(8000L)),
+                    () -> assertThat(order.getTotalPrice()).isEqualTo(Money.ZERO)
+            );
+        }
+
         @DisplayName("쿠폰 미적용이면, originalTotalPrice = totalPrice이고 discountAmount = 0이다.")
         @Test
         void setsPriceFieldsWithoutDiscount_whenNoCoupon() {

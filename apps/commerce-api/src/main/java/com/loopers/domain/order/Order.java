@@ -75,8 +75,8 @@ public class Order extends BaseEntity {
         orderItems.forEach(order::addItem);
         order.name = generateOrderName(order.orderItems);
         order.originalTotalPrice = Money.sum(order.orderItems, OrderItem::calculateSubtotal);
-        order.discountAmount = discountAmount;
-        order.totalPrice = order.originalTotalPrice.minus(discountAmount);
+        order.discountAmount = Money.min(discountAmount, order.originalTotalPrice);
+        order.totalPrice = order.originalTotalPrice.minus(order.discountAmount);
         order.ownedCouponId = ownedCouponId;
         return order;
     }

@@ -59,7 +59,6 @@ public class BrandService {
     public Map<Long, Brand> getActiveBrandMap(List<Long> brandIds) {
         return brandRepository.findAllByIdInAndDeletedAtIsNull(brandIds)
                 .stream()
-                .filter(brand -> !brand.isDeleted())
                 .collect(Collectors.toMap(Brand::getId, Function.identity()));
     }
 
