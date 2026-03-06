@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.context.ImportTestcontainers;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -59,9 +60,9 @@ class ProductLikeAplicationServiceConcurrencyTest {
     @Test
     @DisplayName("좋아요 카운트 증가를 동시에 요청하면 요청 수만큼 정확히 증가한다")
     void increaseLikeCount_concurrentRequests_increasesExactly() throws InterruptedException {
-        Long brandId = brandRepository.save(new Brand(new BrandName("LIKE_CONC_BRAND"), "", "")).id();
-        Long categoryId = categoryRepository.save(new Category("LIKE_CONC_CATEGORY")).id();
-        Long productId = productRepository.save(new Product("동시성 증가 상품", 10_000, 10, "desc", categoryId, brandId)).id();
+        UUID brandId = brandRepository.save(new Brand(new BrandName("LIKE_CONC_BRAND"), "", "")).id();
+        UUID categoryId = categoryRepository.save(new Category("LIKE_CONC_CATEGORY")).id();
+        UUID productId = productRepository.save(new Product("동시성 증가 상품", 10_000, 10, "desc", categoryId, brandId)).id();
 
         int threadCount = 50;
         AtomicInteger failures = runConcurrently(threadCount, () -> productLikeAplicationService.increaseLikeCount(productId));
@@ -74,9 +75,9 @@ class ProductLikeAplicationServiceConcurrencyTest {
     @Test
     @DisplayName("좋아요 카운트 감소를 동시에 요청해도 0 미만으로 내려가지 않는다")
     void decreaseLikeCount_concurrentRequests_neverGoesBelowZero() throws InterruptedException {
-        Long brandId = brandRepository.save(new Brand(new BrandName("LIKE_CONC_BRAND_2"), "", "")).id();
-        Long categoryId = categoryRepository.save(new Category("LIKE_CONC_CATEGORY_2")).id();
-        Long productId = productRepository.save(new Product(null, "동시성 감소 상품", 10_000, 10, "desc", categoryId, brandId, 5, null)).id();
+        UUID brandId = brandRepository.save(new Brand(new BrandName("LIKE_CONC_BRAND_2"), "", "")).id();
+        UUID categoryId = categoryRepository.save(new Category("LIKE_CONC_CATEGORY_2")).id();
+        UUID productId = productRepository.save(new Product(null, "동시성 감소 상품", 10_000, 10, "desc", categoryId, brandId, 5, null)).id();
 
         AtomicInteger failures = runConcurrently(30, () -> productLikeAplicationService.decreaseLikeCount(productId));
 
