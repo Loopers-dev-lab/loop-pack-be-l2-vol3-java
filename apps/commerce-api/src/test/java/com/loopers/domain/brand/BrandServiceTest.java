@@ -148,7 +148,7 @@ class BrandServiceTest {
 
             // when & then
             CoreException exception = assertThrows(CoreException.class, () -> {
-                brandService.updateBrand(999L, "새 이름");
+                brandService.renameBrand(999L, "새 이름");
             });
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
@@ -163,7 +163,7 @@ class BrandServiceTest {
             when(brandRepository.save(brand)).thenReturn(brand);
 
             // when
-            BrandModel result = brandService.updateBrand(id, "새 이름");
+            BrandModel result = brandService.renameBrand(id, "새 이름");
 
             // then
             assertThat(result.getName()).isEqualTo("새 이름");
@@ -180,7 +180,7 @@ class BrandServiceTest {
 
             // when & then
             CoreException exception = assertThrows(CoreException.class, () -> {
-                brandService.updateBrand(id, null);
+                brandService.renameBrand(id, null);
             });
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
