@@ -1,5 +1,7 @@
 package com.loopers.application.user;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.application.user.UserCommand.SignUpCommand;
 import com.loopers.domain.user.User;
@@ -22,6 +24,7 @@ public class SignUpUseCase {
      * @param command 회원가입 커맨드
      * @return 가입된 사용자 정보
      */
+    @Transactional
     public UserResult execute(SignUpCommand command) {
         User user = userService.register(command.toNewUser());
         return UserResult.from(user);

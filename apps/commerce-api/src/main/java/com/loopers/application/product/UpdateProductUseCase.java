@@ -1,5 +1,7 @@
 package com.loopers.application.product;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.domain.product.ProductService;
 
@@ -19,6 +21,7 @@ public class UpdateProductUseCase {
     /**
      * @param command 상품 수정 커맨드
      */
+    @Transactional
     public void execute(ProductCommand.UpdateProductCommand command) {
         productService.update(command.toModifyProduct());
     }

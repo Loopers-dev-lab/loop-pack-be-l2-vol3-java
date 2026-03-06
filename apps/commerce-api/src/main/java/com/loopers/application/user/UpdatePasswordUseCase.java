@@ -1,5 +1,7 @@
 package com.loopers.application.user;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.domain.user.UserService;
 
@@ -21,6 +23,7 @@ public class UpdatePasswordUseCase {
      * @param oldPassword 현재 비밀번호
      * @param newPassword 새 비밀번호
      */
+    @Transactional
     public void execute(Long userId, String oldPassword, String newPassword) {
         userService.updatePassword(userId, oldPassword, newPassword);
     }

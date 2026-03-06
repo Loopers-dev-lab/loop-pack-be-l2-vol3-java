@@ -1,5 +1,7 @@
 package com.loopers.application.coupon;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.domain.coupon.OwnedCouponService;
 
@@ -18,6 +20,7 @@ public class IssueOwnedCouponUseCase {
      * @param couponId 발급할 쿠폰 ID
      * @param userId   발급 대상 사용자 ID
      */
+    @Transactional
     public void execute(Long couponId, Long userId) {
         ownedCouponService.issue(couponId, userId);
     }

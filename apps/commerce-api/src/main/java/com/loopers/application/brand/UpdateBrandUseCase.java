@@ -1,5 +1,7 @@
 package com.loopers.application.brand;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import com.loopers.application.brand.BrandCommand.UpdateBrandCommand;
 import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.domain.brand.BrandService;
@@ -20,6 +22,7 @@ public class UpdateBrandUseCase {
     /**
      * @param command 브랜드 수정 커맨드
      */
+    @Transactional
     public void execute(UpdateBrandCommand command) {
         brandService.update(command.toModifyBrand());
     }

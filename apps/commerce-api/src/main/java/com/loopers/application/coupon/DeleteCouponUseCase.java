@@ -1,5 +1,7 @@
 package com.loopers.application.coupon;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.domain.coupon.CouponService;
 
@@ -17,6 +19,7 @@ public class DeleteCouponUseCase {
     /**
      * @param couponId 삭제할 쿠폰 ID
      */
+    @Transactional
     public void execute(Long couponId) {
         couponService.delete(couponId);
     }
