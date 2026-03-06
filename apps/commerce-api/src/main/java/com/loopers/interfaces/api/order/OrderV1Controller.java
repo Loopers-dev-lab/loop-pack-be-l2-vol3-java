@@ -26,7 +26,7 @@ public class OrderV1Controller implements OrderV1ApiSpec {
         List<OrderDomainService.OrderLineRequest> items = request.items().stream()
             .map(item -> new OrderDomainService.OrderLineRequest(item.productId(), item.quantity()))
             .collect(Collectors.toList());
-        OrderService.OrderResult result = orderService.placeOrder(request.memberId(), items);
+        OrderService.OrderResult result = orderService.placeOrder(request.memberId(), items, request.couponId());
         return ApiResponse.success(OrderV1Dto.OrderCreateResponse.from(result));
     }
 }

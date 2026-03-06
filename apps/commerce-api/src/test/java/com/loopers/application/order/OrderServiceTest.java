@@ -1,5 +1,11 @@
 package com.loopers.application.order;
 
+import com.loopers.domain.coupon.CouponTemplate;
+import com.loopers.domain.coupon.CouponTemplateRepository;
+import com.loopers.domain.coupon.CouponType;
+import com.loopers.domain.coupon.IssuedCoupon;
+import com.loopers.domain.coupon.IssuedCouponRepository;
+import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderDomainService;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.product.Product;
@@ -9,8 +15,10 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -25,13 +33,17 @@ class OrderServiceTest {
     private OrderService orderService;
     private FakeProductRepository fakeProductRepository;
     private FakeOrderRepository fakeOrderRepository;
+    private FakeIssuedCouponRepository fakeIssuedCouponRepository;
+    private FakeCouponTemplateRepository fakeCouponTemplateRepository;
 
     @BeforeEach
     void setUp() {
         fakeProductRepository = new FakeProductRepository();
         fakeOrderRepository = new FakeOrderRepository();
+        fakeIssuedCouponRepository = new FakeIssuedCouponRepository();
+        fakeCouponTemplateRepository = new FakeCouponTemplateRepository();
         OrderDomainService orderDomainService = new OrderDomainService(fakeProductRepository, fakeOrderRepository);
-        orderService = new OrderService(orderDomainService);
+        orderService = new OrderService(orderDomainService, fakeIssuedCouponRepository, fakeCouponTemplateRepository);
     }
 
     @DisplayName("주문 생성")
@@ -47,11 +59,13 @@ class OrderServiceTest {
                 new OrderDomainService.OrderLineRequest(1L, 3)
             );
 
-            OrderService.OrderResult result = orderService.placeOrder(memberId, items);
+            OrderService.OrderResult result = orderService.placeOrder(memberId, items, null);
 
             assertThat(result.orderId()).isNotNull();
             assertThat(result.status()).isEqualTo("ORDERED");
             assertThat(result.totalAmount()).isEqualTo(30_000L);
+            assertThat(result.originalAmount()).isEqualTo(30_000L);
+            assertThat(result.discountAmount()).isEqualTo(0L);
             assertThat(result.orderLines()).hasSize(1);
         }
 
@@ -63,9 +77,90 @@ class OrderServiceTest {
 
             assertThatThrownBy(() -> orderService.placeOrder(memberId, List.of(
                 new OrderDomainService.OrderLineRequest(1L, 5)
-            )))
+            ), null))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.INSUFFICIENT_STOCK);
+        }
+    }
+
+    @DisplayName("쿠폰 적용 주문")
+    @Nested
+    class PlaceOrderWithCoupon {
+
+        @DisplayName("정액 쿠폰 적용 시 할인이 반영된다")
+        @Test
+        void fixedCouponDiscount() {
+            Long memberId = 1L;
+            fakeProductRepository.save(new Product(1L, "상품", 10_000L, 10));
+
+            CouponTemplate template = fakeCouponTemplateRepository.save(
+                new CouponTemplate("1000원 할인", CouponType.FIXED, 1000, null, ZonedDateTime.now().plusDays(30))
+            );
+            IssuedCoupon issued = fakeIssuedCouponRepository.save(new IssuedCoupon(1L, memberId));
+
+            OrderService.OrderResult result = orderService.placeOrder(memberId, List.of(
+                new OrderDomainService.OrderLineRequest(1L, 3)
+            ), 1L);
+
+            assertThat(result.originalAmount()).isEqualTo(30_000L);
+            assertThat(result.discountAmount()).isEqualTo(1_000L);
+            assertThat(result.totalAmount()).isEqualTo(29_000L);
+        }
+
+        @DisplayName("정률 쿠폰 적용 시 할인이 반영된다")
+        @Test
+        void rateCouponDiscount() {
+            Long memberId = 1L;
+            fakeProductRepository.save(new Product(1L, "상품", 10_000L, 10));
+
+            fakeCouponTemplateRepository.save(
+                new CouponTemplate("10% 할인", CouponType.RATE, 10, null, ZonedDateTime.now().plusDays(30))
+            );
+            fakeIssuedCouponRepository.save(new IssuedCoupon(1L, memberId));
+
+            OrderService.OrderResult result = orderService.placeOrder(memberId, List.of(
+                new OrderDomainService.OrderLineRequest(1L, 3)
+            ), 1L);
+
+            assertThat(result.originalAmount()).isEqualTo(30_000L);
+            assertThat(result.discountAmount()).isEqualTo(3_000L);
+            assertThat(result.totalAmount()).isEqualTo(27_000L);
+        }
+
+        @DisplayName("이미 사용된 쿠폰은 사용할 수 없다")
+        @Test
+        void failsWhenCouponAlreadyUsed() {
+            Long memberId = 1L;
+            fakeProductRepository.save(new Product(1L, "상품", 10_000L, 10));
+            fakeCouponTemplateRepository.save(
+                new CouponTemplate("할인", CouponType.FIXED, 1000, null, ZonedDateTime.now().plusDays(30))
+            );
+            IssuedCoupon issued = fakeIssuedCouponRepository.save(new IssuedCoupon(1L, memberId));
+            issued.use();
+
+            assertThatThrownBy(() -> orderService.placeOrder(memberId, List.of(
+                new OrderDomainService.OrderLineRequest(1L, 1)
+            ), 1L))
+                .isInstanceOf(CoreException.class)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.COUPON_UNAVAILABLE);
+        }
+
+        @DisplayName("타인 쿠폰은 사용할 수 없다")
+        @Test
+        void failsWhenNotOwned() {
+            Long memberId = 1L;
+            Long otherMemberId = 2L;
+            fakeProductRepository.save(new Product(1L, "상품", 10_000L, 10));
+            fakeCouponTemplateRepository.save(
+                new CouponTemplate("할인", CouponType.FIXED, 1000, null, ZonedDateTime.now().plusDays(30))
+            );
+            fakeIssuedCouponRepository.save(new IssuedCoupon(1L, otherMemberId));
+
+            assertThatThrownBy(() -> orderService.placeOrder(memberId, List.of(
+                new OrderDomainService.OrderLineRequest(1L, 1)
+            ), 1L))
+                .isInstanceOf(CoreException.class)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.COUPON_NOT_OWNED);
         }
     }
 
@@ -86,23 +181,98 @@ class OrderServiceTest {
         }
 
         @Override
+        public Optional<Product> findByIdForUpdate(Long id) {
+            return findById(id);
+        }
+
+        @Override
         public List<Product> findAll(SortCondition sort) {
             return new ArrayList<>(store.values());
         }
     }
 
     static class FakeOrderRepository implements OrderRepository {
-        private final List<com.loopers.domain.order.Order> store = new ArrayList<>();
+        private final List<Order> store = new ArrayList<>();
 
         @Override
-        public com.loopers.domain.order.Order save(com.loopers.domain.order.Order order) {
+        public Order save(Order order) {
             store.add(order);
             return order;
         }
 
         @Override
-        public Optional<com.loopers.domain.order.Order> findById(Long id) {
+        public Optional<Order> findById(Long id) {
             return Optional.empty();
+        }
+    }
+
+    static class FakeIssuedCouponRepository implements IssuedCouponRepository {
+        private final Map<Long, IssuedCoupon> store = new ConcurrentHashMap<>();
+        private long nextId = 1;
+
+        @Override
+        public IssuedCoupon save(IssuedCoupon issuedCoupon) {
+            long id = nextId++;
+            store.put(id, issuedCoupon);
+            return issuedCoupon;
+        }
+
+        @Override
+        public Optional<IssuedCoupon> findById(Long id) {
+            return Optional.ofNullable(store.get(id));
+        }
+
+        @Override
+        public Optional<IssuedCoupon> findByIdForUpdate(Long id) {
+            return findById(id);
+        }
+
+        @Override
+        public List<IssuedCoupon> findByMemberId(Long memberId) {
+            return store.values().stream().filter(c -> c.getMemberId().equals(memberId)).toList();
+        }
+
+        @Override
+        public boolean existsByMemberIdAndCouponTemplateId(Long memberId, Long couponTemplateId) {
+            return store.values().stream()
+                .anyMatch(c -> c.getMemberId().equals(memberId) && c.getCouponTemplateId().equals(couponTemplateId));
+        }
+
+        @Override
+        public List<IssuedCoupon> findByCouponTemplateId(Long couponTemplateId, int page, int size) {
+            return store.values().stream().filter(c -> c.getCouponTemplateId().equals(couponTemplateId)).toList();
+        }
+
+        @Override
+        public long countByCouponTemplateId(Long couponTemplateId) {
+            return store.values().stream().filter(c -> c.getCouponTemplateId().equals(couponTemplateId)).count();
+        }
+    }
+
+    static class FakeCouponTemplateRepository implements CouponTemplateRepository {
+        private final Map<Long, CouponTemplate> store = new ConcurrentHashMap<>();
+        private long nextId = 1;
+
+        @Override
+        public CouponTemplate save(CouponTemplate couponTemplate) {
+            long id = nextId++;
+            store.put(id, couponTemplate);
+            return couponTemplate;
+        }
+
+        @Override
+        public Optional<CouponTemplate> findById(Long id) {
+            return Optional.ofNullable(store.get(id));
+        }
+
+        @Override
+        public List<CouponTemplate> findAll(int page, int size) {
+            return new ArrayList<>(store.values());
+        }
+
+        @Override
+        public long count() {
+            return store.size();
         }
     }
 }

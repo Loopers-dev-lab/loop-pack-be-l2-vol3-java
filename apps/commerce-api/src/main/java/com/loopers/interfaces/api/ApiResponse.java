@@ -15,8 +15,9 @@ public record ApiResponse<T>(Metadata meta, T data) {
         }
     }
 
-    public static ApiResponse<Object> success() {
-        return new ApiResponse<>(Metadata.success(), null);
+    @SuppressWarnings("unchecked")
+    public static <T> ApiResponse<T> success() {
+        return (ApiResponse<T>) new ApiResponse<>(Metadata.success(), null);
     }
 
     public static <T> ApiResponse<T> success(T data) {
