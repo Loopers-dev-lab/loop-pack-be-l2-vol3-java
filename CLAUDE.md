@@ -89,6 +89,29 @@ Root
 - Application → Domain ← Infrastructure
 - Domain은 다른 계층에 의존하지 않는다.
 
+## 트랜잭션 & 동시성 코드 리뷰 규칙
+
+### @Transactional 경계
+- 여러 도메인을 조합하는 유스케이스 → Facade에 `@Transactional`
+- 단일 도메인 저장/변경 로직은 Service 또는 Facade 트랜잭션 참여 여부를 먼저 확인
+- 조회 전용 메서드 → `@Transactional(readOnly = true)`
+- 트랜잭션 내부에 외부 API/메시지 호출이 있으면 분리 가능성 검토
+
+### Lock 적용 기준
+- 상태가 변경되는 엔티티(Product, User, UserCoupon 등)는 동시성 위험 여부를 먼저 판단
+- 충돌 빈도 높고 retry 비용이 큰 경우 → `PESSIMISTIC_WRITE`
+- 충돌 빈도 낮고 단일 엔티티 변경인 경우 → `@Version` (낙관적 락)
+- 읽기 전용 엔티티(CouponTemplate 등)에는 락 불필요
+- 여러 테이블 락 획득 시 순서 통일 (데드락 방지)
+
+### Flush & Rollback 점검
+- save() 호출 여부는 dirty checking 의도와 팀 코드 스타일 기준으로 일관성 있게 유지
+- 모든 도메인 예외는 `CoreException`(unchecked) → 자동 롤백 대상
+- 예외 발생 시 이미 변경된 엔티티가 모두 롤백되는지 흐름 추적
+- `@Transient` 필드는 DB 미반영이 의도된 것인지 확인
+
+> 상세 분석 체크리스트: `~/.claude/skills/analyze-transaction/SKILL.md`
+
 ---
 
 ## 아키텍처 및 레이어 구조
