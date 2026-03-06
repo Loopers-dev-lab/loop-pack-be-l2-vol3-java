@@ -72,13 +72,14 @@ public class OrderFacade {
         }
     }
 
-    /** 단일 트랜잭션: 쿠폰 조회(낙관) → 재고 락(비관) → 주문 생성. 재시도 시 프록시로 새 트랜잭션. */
+    /** 단일 트랜잭션: 재고 락 선점 → 검증·스냅샷·차감 → (쿠폰 시) 검증·사용 → 주문 생성. 재시도 시 프록시로 새 트랜잭션. */
     @Transactional
     public OrderInfo doPlaceOrder(Long userId, List<CreateOrderItemParam> params, Long couponId) {
         List<ProductValidationRequest> requests = params.stream()
                 .map(p -> new ProductValidationRequest(p.productId(), Quantity.of(p.quantity()), p.optionId()))
                 .toList();
-        List<ProductSnapshot> snapshots = productService.validateAndGetSnapshots(requests);
+        // 1. 가장 먼저 락을 걸고 검증·재고 차감·스냅샷을 한 번에 수행 (영속성 컨텍스트 캐시로 락 미적용 방지)
+        List<ProductSnapshot> snapshots = productService.validateDecreaseStockAndGetSnapshots(requests);
         BigDecimal amountBeforeDiscount = computeAmountBeforeDiscount(snapshots, requests);
         Optional<CouponDiscount> couponDiscount;
         Long issuedCouponId;
@@ -90,7 +91,6 @@ public class OrderFacade {
             couponDiscount = Optional.empty();
             issuedCouponId = null;
         }
-        productService.decreaseStockWithLock(requests);
         OrderModel order = orderService.create(userId, requests, snapshots, couponDiscount, issuedCouponId);
         return OrderInfo.from(order);
     }

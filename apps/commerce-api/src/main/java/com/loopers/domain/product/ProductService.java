@@ -164,6 +164,47 @@ public class ProductService {
     }
 
     /**
+     * 주문 항목별로 비관적 락을 먼저 걸고, 검증·스냅샷·재고 차감을 한 번에 수행한다.
+     * 트랜잭션 시작 직후 락을 선점하여 영속성 컨텍스트 캐시로 인한 락 미적용을 방지한다. (05-transaction-query §2.1, §3.2)
+     * 상품 ID 오름차순으로 락을 잡아 데드락을 방지한다.
+     *
+     * @param requests 주문 항목(상품 ID, 수량, 옵션 ID)
+     * @return 요청 순서와 동일한 스냅샷 목록 (주문 생성용)
+     */
+    @Transactional
+    public List<ProductSnapshot> validateDecreaseStockAndGetSnapshots(List<ProductValidationRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목이 없습니다.");
+        }
+        Map<Long, Integer> quantityByProductId = new HashMap<>();
+        for (ProductValidationRequest req : requests) {
+            quantityByProductId.merge(req.productId(), req.quantity().value(), Integer::sum);
+        }
+        List<Long> productIds = quantityByProductId.keySet().stream().sorted().toList();
+        Map<Long, ProductSnapshot> productIdToSnapshot = new HashMap<>();
+
+        for (Long productId : productIds) {
+            int qty = quantityByProductId.get(productId);
+            ProductModel product = productRepository.findByIdForUpdate(productId)
+                    .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + productId));
+            if (!product.hasStock(Quantity.of(qty))) {
+                throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다. 상품 ID: " + productId);
+            }
+            productIdToSnapshot.put(productId, product.snapshotForOrder());
+            try {
+                product.decreaseStock(Quantity.of(qty));
+            } catch (IllegalArgumentException e) {
+                throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다. 상품 ID: " + productId);
+            }
+            productRepository.saveAndFlush(product);
+        }
+
+        return requests.stream()
+                .map(req -> productIdToSnapshot.get(req.productId()))
+                .toList();
+    }
+
+    /**
      * 주문 항목별 재고를 비관적 락으로 차감한다.
      * 상품 ID 오름차순으로 락을 잡아 데드락을 방지한다. (05-transaction-query §2.1, §3.2)
      * 동일 상품이 여러 항목에 있으면 수량을 합산해 한 번에 차감한다.
@@ -187,7 +228,7 @@ public class ProductService {
             } catch (IllegalArgumentException e) {
                 throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다. 상품 ID: " + productId);
             }
-            productRepository.save(product);
+            productRepository.saveAndFlush(product);
         }
     }
 
