@@ -30,7 +30,7 @@ public class ProductService {
     }
 
     @Transactional
-    public ProductModel register(Long brandId, String name, BigDecimal price, int stockQuantity) {
+    public ProductModel registerProduct(Long brandId, String name, BigDecimal price, int stockQuantity) {
         brandRepository.findByIdAndNotDeleted(brandId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: " + brandId));
         try {
@@ -66,7 +66,7 @@ public class ProductService {
     }
 
     @Transactional
-    public ProductModel editProduct(Long id, String name, BigDecimal price, int stockQuantity) {
+    public ProductModel updateProduct(Long id, String name, BigDecimal price, int stockQuantity) {
         ProductModel product = productRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + id));
         try {
@@ -83,7 +83,7 @@ public class ProductService {
      * 상품을 soft delete한다. (어드민 삭제)
      */
     @Transactional
-    public void removeProduct(Long id) {
+    public void deleteProduct(Long id) {
         ProductModel product = productRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + id));
         product.delete();

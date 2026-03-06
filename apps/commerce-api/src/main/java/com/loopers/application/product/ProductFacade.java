@@ -39,8 +39,8 @@ public class ProductFacade {
     }
 
     @Transactional
-    public ProductInfo register(Long brandId, String name, BigDecimal price, int stockQuantity) {
-        ProductModel product = productService.register(brandId, name, price, stockQuantity);
+    public ProductInfo registerProduct(Long brandId, String name, BigDecimal price, int stockQuantity) {
+        ProductModel product = productService.registerProduct(brandId, name, price, stockQuantity);
         return ProductInfo.from(product);
     }
 
@@ -109,13 +109,13 @@ public class ProductFacade {
     }
 
     @Transactional
-    public ProductInfo update(Long id, String name, BigDecimal price, int stockQuantity) {
-        ProductModel product = productService.update(id, name, price, stockQuantity);
+    public ProductInfo updateProduct(Long id, String name, BigDecimal price, int stockQuantity) {
+        ProductModel product = productService.updateProduct(id, name, price, stockQuantity);
         return ProductInfo.from(product);
     }
 
     @Transactional
-    public void delete(Long id) {
-        productService.delete(id);
+    public void deleteProduct(Long id) {
+        productService.deleteProduct(id);
     }
 }
