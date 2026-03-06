@@ -11,11 +11,11 @@ import java.util.UUID;
 
 public interface OrderJpaRepository extends JpaRepository<OrderEntity, UUID> {
 
-    @Query("SELECT o FROM OrderEntity o WHERE o.userId = :userId " +
+    @Query("SELECT o FROM OrderEntity o WHERE o.memberId = :memberId " +
             "AND o.orderDate >= :startAt AND o.orderDate <= :endAt " +
             "AND o.deletedAt IS NULL")
-    Page<OrderEntity> findByUserIdAndOrderDateBetween(
-            @Param("userId") UUID userId,
+    Page<OrderEntity> findByMemberIdAndOrderDateBetween(
+            @Param("memberId") String memberId,
             @Param("startAt") ZonedDateTime startAt,
             @Param("endAt") ZonedDateTime endAt,
             Pageable pageable

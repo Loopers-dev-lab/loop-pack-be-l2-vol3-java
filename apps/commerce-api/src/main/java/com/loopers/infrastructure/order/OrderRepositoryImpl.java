@@ -43,8 +43,8 @@ public class OrderRepositoryImpl implements OrderRepository {
     }
 
     @Override
-    public Page<Order> findByUserId(UUID userId, ZonedDateTime startAt, ZonedDateTime endAt, Pageable pageable) {
-        return orderJpaRepository.findByUserIdAndOrderDateBetween(userId, startAt, endAt, pageable)
+    public Page<Order> findByMemberId(String memberId, ZonedDateTime startAt, ZonedDateTime endAt, Pageable pageable) {
+        return orderJpaRepository.findByMemberIdAndOrderDateBetween(memberId, startAt, endAt, pageable)
                 .map(OrderEntity::toDomain);
     }
 

@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.admin;
 
-import com.loopers.application.category.CategoryApplicationService;
+import com.loopers.application.coupon.category.CategoryApplicationService;
 import com.loopers.domain.category.Category;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.category.CategoryDto;
@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -33,7 +35,7 @@ public class AdminCategoryController {
 
     @GetMapping("/{categoryId}")
     public ApiResponse<CategoryDto.CategoryResponse> getCategory(
-            @PathVariable Long categoryId
+            @PathVariable UUID categoryId
     ) {
         Category category = categoryApplicationService.findById(categoryId);
         return ApiResponse.success(CategoryDto.CategoryResponse.from(category));

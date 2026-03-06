@@ -12,7 +12,7 @@ public interface OrderRepository {
 
     Optional<Order> findById(UUID id);
 
-    Page<Order> findByUserId(UUID userId, ZonedDateTime startAt, ZonedDateTime endAt, Pageable pageable);
+    Page<Order> findByMemberId(String memberId, ZonedDateTime startAt, ZonedDateTime endAt, Pageable pageable);
 
     Page<Order> findAll(Pageable pageable);
     boolean existsOrderItemByProductId(UUID productId);

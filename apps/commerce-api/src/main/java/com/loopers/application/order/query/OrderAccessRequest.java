@@ -3,7 +3,10 @@ import java.util.UUID;
 
 public record OrderAccessRequest(
         UUID orderId,
-        UUID userId,
+        String memberId,
         boolean isAdmin
 ) {
+    public OrderAccessRequest(UUID orderId, boolean isAdmin) {
+        this(orderId, null, isAdmin);
+    }
 }

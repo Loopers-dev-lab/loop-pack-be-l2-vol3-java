@@ -6,7 +6,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 public record OrderListByUserRequest(
-        UUID userId,
+        String memberId,
         LocalDate startAt,
         LocalDate endAt,
         Pageable pageable

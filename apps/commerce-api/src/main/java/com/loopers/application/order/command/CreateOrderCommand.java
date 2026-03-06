@@ -4,8 +4,13 @@ import java.util.List;
 import java.util.UUID;
 
 public record CreateOrderCommand(
-        UUID userId,
-        List<OrderItemCommand> items
+        String memberId,
+        List<OrderItemCommand> items,
+        UUID couponId
 ) {
+    public CreateOrderCommand(String memberId, List<OrderItemCommand> items) {
+        this(memberId, items, null);
+    }
+
     public record OrderItemCommand(UUID productId, int quantity) {}
 }
