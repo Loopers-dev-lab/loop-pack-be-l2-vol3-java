@@ -8,6 +8,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 
 import java.math.BigDecimal;
@@ -15,7 +16,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "issued_coupons")
+@Table(name = "issued_coupons", uniqueConstraints = @UniqueConstraint(columnNames = {"coupon_id", "user_id"}))
 @Getter
 public class IssuedCoupon extends BaseEntity {
 
