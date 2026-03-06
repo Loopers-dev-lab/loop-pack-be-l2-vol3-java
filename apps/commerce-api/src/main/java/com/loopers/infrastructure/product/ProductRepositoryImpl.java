@@ -42,6 +42,14 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public List<Product> findAllByIdIn(List<UUID> ids) {
+        return productJpaRepository.findAllByIdInAndDeletedAtIsNullOrderByIdAsc(ids)
+                .stream()
+                .map(ProductEntity::toDomain)
+                .toList();
+    }
+
+    @Override
     public Optional<Product> findByIdIncludingDeleted(UUID id) {
         return productJpaRepository.findById(id)
                 .map(ProductEntity::toDomain);
@@ -69,14 +77,18 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public int updateLikeCount(UUID productId, long delta) {
+        return productJpaRepository.updateLikeCount(productId, delta);
+    }
+
+    @Override
     public void softDeleteByBrandId(UUID brandId) {
         productJpaRepository.softDeleteByBrandId(brandId);
     }
 
     @Override
-    public List<Product> findAllByIdInWithLock(List<UUID> ids) {
-        return productJpaRepository.findAllByIdInWithLock(ids)
-                .stream().map(ProductEntity::toDomain).toList();
+    public int decreaseStockAtomically(UUID productId, int quantity) {
+        return productJpaRepository.decreaseStockAtomically(productId, quantity);
     }
 
     @Override

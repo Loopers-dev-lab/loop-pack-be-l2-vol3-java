@@ -12,7 +12,9 @@ public interface ProductRepository {
 
     Optional<Product> findById(UUID id);
 
-    List<Product> findAllByIdInWithLock(List<UUID> ids);
+    List<Product> findAllByIdIn(List<UUID> ids);
+
+    int decreaseStockAtomically(UUID productId, int quantity);
 
     Optional<Product> findByIdIncludingDeleted(UUID id);
 
@@ -21,6 +23,8 @@ public interface ProductRepository {
     Page<Product> findAllIncludingDeleted(UUID brandId, Pageable pageable);
 
     List<UUID> findIdsByBrandId(UUID brandId);
+
+    int updateLikeCount(UUID productId, long delta);
 
     void softDeleteByBrandId(UUID brandId);
 

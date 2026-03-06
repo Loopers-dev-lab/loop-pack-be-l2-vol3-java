@@ -11,7 +11,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -39,23 +41,38 @@ public class ProductLikeAplicationService {
 
     @Transactional
     public void increaseLikeCount(UUID productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
-        productRepository.save(product.increaseLikeCount());
+        int updatedCount = productRepository.updateLikeCount(productId, 1);
+        if (updatedCount == 0) {
+            throw new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.");
+        }
     }
 
     @Transactional
     public void decreaseLikeCount(UUID productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
-        productRepository.save(product.decreaseLikeCount());
+        int updatedCount = productRepository.updateLikeCount(productId, -1);
+        if (updatedCount == 0) {
+            throw new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.");
+        }
+    }
+
+    @Transactional
+    public void decreaseLikeCountIfPresent(UUID productId) {
+        productRepository.updateLikeCount(productId, -1);
     }
 
     @Transactional(readOnly = true)
     public Page<Product> getMyLikedProducts(Page<UUID> likedProductIds, Pageable pageable) {
-        List<Product> products = likedProductIds.getContent().stream()
-                .map(productRepository::findById)
-                .flatMap(java.util.Optional::stream)
+        List<UUID> ids = likedProductIds.getContent();
+        if (ids.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+
+        Map<UUID, Product> productsById = productRepository.findAllByIdIn(ids).stream()
+                .collect(LinkedHashMap::new, (map, product) -> map.put(product.id(), product), LinkedHashMap::putAll);
+
+        List<Product> products = ids.stream()
+                .map(productsById::get)
+                .filter(java.util.Objects::nonNull)
                 .toList();
         return new PageImpl<>(products, pageable, products.size());
     }

@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import com.loopers.application.order.query.OrderAccessRequest;
-import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -37,7 +36,7 @@ public class OrderController {
             @AuthMember Member member,
             @Valid @RequestBody OrderDto.CreateOrderRequest request
     ) {
-        UUID userId = memberAuthenticationService.findDbIdByMember(member);
+        Long userId = memberAuthenticationService.findDbIdByMember(member);
         Order order = orderFacade.create(request.toCommand(userId));
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
     }
@@ -45,9 +44,9 @@ public class OrderController {
     @PatchMapping("/{orderId}/cancel")
     public ApiResponse<OrderDto.OrderResponse> cancelOrder(
             @AuthMember Member member,
-            @PathVariable UUID orderId
+            @PathVariable Long orderId
     ) {
-        UUID userId = memberAuthenticationService.findDbIdByMember(member);
+        Long userId = memberAuthenticationService.findDbIdByMember(member);
         Order order = orderFacade.cancel(new OrderAccessRequest(orderId, userId, false));
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
     }
@@ -55,9 +54,9 @@ public class OrderController {
     @GetMapping("/{orderId}")
     public ApiResponse<OrderDto.OrderResponse> getOrder(
             @AuthMember Member member,
-            @PathVariable UUID orderId
+            @PathVariable Long orderId
     ) {
-        UUID userId = memberAuthenticationService.findDbIdByMember(member);
+        Long userId = memberAuthenticationService.findDbIdByMember(member);
         Order order = orderApplicationService.getById(new OrderAccessRequest(orderId, userId, false));
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
     }
@@ -67,7 +66,7 @@ public class OrderController {
             @AuthMember Member member,
             @Valid OrderDto.ListOrdersRequest request
     ) {
-        UUID userId = memberAuthenticationService.findDbIdByMember(member);
+        Long userId = memberAuthenticationService.findDbIdByMember(member);
         Page<Order> orders = orderApplicationService.listByUser(request.toQuery(userId));
         return ApiResponse.success(OrderDto.OrderListResponse.from(orders));
     }
