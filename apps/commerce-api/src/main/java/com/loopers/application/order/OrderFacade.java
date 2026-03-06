@@ -54,7 +54,10 @@ public class OrderFacade {
         Map<Long, Quantity> quantityByProductId = command.items().stream()
                 .collect(Collectors.toMap(
                         OrderCreateCommand.Item::productId,
-                        item -> new Quantity(item.quantity())
+                        item -> new Quantity(item.quantity()),
+                        (existing, duplicate) -> {
+                            throw new CoreException(ErrorType.BAD_REQUEST, "동일 상품은 한 번만 주문할 수 있습니다.");
+                        }
                 ));
 
         // ① 비관적 락으로 재고 확인만 (차감 X). 이 시점부터 락 보유 (BR-O03)
