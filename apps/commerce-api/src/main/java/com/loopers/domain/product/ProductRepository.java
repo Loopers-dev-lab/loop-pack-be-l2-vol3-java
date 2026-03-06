@@ -20,9 +20,10 @@ public interface ProductRepository {
     Optional<Product> findById(Long id);
     Optional<Product> findActiveById(Long id);
     Optional<Product> findActiveWithActiveBrand(Long id);
-    List<Product> findAllByBrandId(Long brandId);
 
+    List<Product> findAllByBrandId(Long brandId);
     List<Product> findAllByIdIn(Collection<Long> ids);
+    List<Product> findAllActiveByIdIn(Collection<Long> ids);
 
     Page<Product> findAll(String name, Long brandId, Boolean deleted, Pageable pageable);
     Page<Product> findAllActive(Long brandId, Pageable pageable);

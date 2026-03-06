@@ -68,8 +68,7 @@ public class ProductService {
                     productId, productQuantities.get(productId)
             );
             if (updated == 0) {
-                throw new CoreException(ErrorType.BAD_REQUEST,
-                        "재고가 부족하거나 존재하지 않는 상품입니다. productId=" + productId);
+                throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족하거나 존재하지 않는 상품입니다");
             }
         }
     }
@@ -98,6 +97,15 @@ public class ProductService {
     public Product getActiveProduct(Long productId) {
         return productRepository.findActiveWithActiveBrand(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Product> getActiveProducts(Set<Long> productIds) {
+        List<Product> products = productRepository.findAllActiveByIdIn(productIds);
+        if (products.size() != productIds.size()) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다");
+        }
+        return products;
     }
 
     @Transactional(readOnly = true)

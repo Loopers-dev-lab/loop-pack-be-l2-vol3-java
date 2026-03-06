@@ -71,6 +71,11 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public List<Product> findAllActiveByIdIn(Collection<Long> ids) {
+        return productJpaRepository.findAllActiveWithActiveBrandByIdIn(ids);
+    }
+
+    @Override
     public Page<Product> findAll(String name, Long brandId, Boolean deleted, Pageable pageable) {
         return productJpaRepository.findAll(name, brandId, deleted, pageable);
     }

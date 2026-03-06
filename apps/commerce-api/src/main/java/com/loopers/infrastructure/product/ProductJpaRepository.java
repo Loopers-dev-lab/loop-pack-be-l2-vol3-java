@@ -46,6 +46,11 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
 
     List<Product> findAllByIdIn(Collection<Long> ids);
 
+    @Query("SELECT p FROM Product p " +
+            "JOIN Brand b ON p.brandId = b.id " +
+            "WHERE p.id IN :ids AND p.deletedAt IS NULL AND b.deletedAt IS NULL")
+    List<Product> findAllActiveWithActiveBrandByIdIn(@Param("ids") Collection<Long> ids);
+
     List<Product> findAllByBrandId(Long brandId);
 
     @Query(value = "SELECT p FROM Product p "
