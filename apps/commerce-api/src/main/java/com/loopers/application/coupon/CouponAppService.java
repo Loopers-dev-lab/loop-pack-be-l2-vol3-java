@@ -52,7 +52,8 @@ public class CouponAppService {
     public Coupon update(Long id, String name, DiscountType discountType, Money discountValue,
                          Money minOrderAmount, Money maxDiscountAmount,
                          int totalQuantity, ZonedDateTime validFrom, ZonedDateTime validUntil) {
-        Coupon coupon = getById(id);
+        Coupon coupon = couponRepository.findByIdWithLock(id)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
         coupon.update(name, discountType, discountValue, minOrderAmount, maxDiscountAmount,
                 totalQuantity, validFrom, validUntil);
         return coupon;
@@ -60,7 +61,8 @@ public class CouponAppService {
 
     @Transactional
     public void delete(Long id) {
-        Coupon coupon = getById(id);
+        Coupon coupon = couponRepository.findByIdWithLock(id)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
         coupon.delete();
     }
 
