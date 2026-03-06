@@ -1,8 +1,8 @@
 ### 장바구니 기반 주문 생성
 POST {{commerce-api}}/api/v1/orders
 Content-Type: application/json
-X-Loopers-LoginId: testuser
-X-Loopers-LoginPw: Password1!
+X-Loopers-LoginId: {{loginId}}
+X-Loopers-LoginPw: {{loginPw}}
 
 {
   "cartItemIds": [1, 2]
@@ -11,8 +11,8 @@ X-Loopers-LoginPw: Password1!
 ### 바로구매 주문 생성
 POST {{commerce-api}}/api/v1/orders/direct
 Content-Type: application/json
-X-Loopers-LoginId: testuser
-X-Loopers-LoginPw: Password1!
+X-Loopers-LoginId: {{loginId}}
+X-Loopers-LoginPw: {{loginPw}}
 
 {
   "optionId": 1,
@@ -21,15 +21,15 @@ X-Loopers-LoginPw: Password1!
 
 ### 주문 내역 조회
 GET {{commerce-api}}/api/v1/orders
-X-Loopers-LoginId: testuser
-X-Loopers-LoginPw: Password1!
+X-Loopers-LoginId: {{loginId}}
+X-Loopers-LoginPw: {{loginPw}}
 
 ### 주문 상세 조회
 GET {{commerce-api}}/api/v1/orders/1
-X-Loopers-LoginId: testuser
-X-Loopers-LoginPw: Password1!
+X-Loopers-LoginId: {{loginId}}
+X-Loopers-LoginPw: {{loginPw}}
 
 ### 주문 취소
 POST {{commerce-api}}/api/v1/orders/1/cancel
-X-Loopers-LoginId: testuser
-X-Loopers-LoginPw: Password1!
+X-Loopers-LoginId: {{loginId}}
+X-Loopers-LoginPw: {{loginPw}}
