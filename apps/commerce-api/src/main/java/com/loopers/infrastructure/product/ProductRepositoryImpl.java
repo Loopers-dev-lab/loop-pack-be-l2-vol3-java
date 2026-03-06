@@ -109,4 +109,14 @@ public class ProductRepositoryImpl implements ProductRepository {
     public boolean decreaseStockIfEnough(Long productId, Integer quantity) {
         return productJpaRepository.decreaseStockIfEnough(productId, quantity) > 0;
     }
+
+    @Override
+    public void increaseLikeCount(Long productId) {
+        productJpaRepository.increaseLikeCount(productId);
+    }
+
+    @Override
+    public void decreaseLikeCount(Long productId) {
+        productJpaRepository.decreaseLikeCount(productId);
+    }
 }

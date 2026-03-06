@@ -97,7 +97,7 @@ public class ProductService {
             throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + productId + "] 를 찾을 수 없습니다.");
         }
 
-        product.increaseLikeCount();
+        productRepository.increaseLikeCount(productId);
     }
 
     @Transactional
@@ -107,7 +107,7 @@ public class ProductService {
             throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + productId + "] 를 찾을 수 없습니다.");
         }
 
-        product.decreaseLikeCount();
+        productRepository.decreaseLikeCount(productId);
     }
 
     @Transactional

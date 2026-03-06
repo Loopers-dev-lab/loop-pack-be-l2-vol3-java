@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api;
 
+import com.loopers.application.product.ProductService;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.product.Product;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
@@ -31,6 +32,7 @@ class ProductV1ApiE2ETest {
     private final TestRestTemplate testRestTemplate;
     private final BrandJpaRepository brandJpaRepository;
     private final ProductJpaRepository productJpaRepository;
+    private final ProductService productService;
     private final DatabaseCleanUp databaseCleanUp;
 
     @Autowired
@@ -38,11 +40,13 @@ class ProductV1ApiE2ETest {
             TestRestTemplate testRestTemplate,
             BrandJpaRepository brandJpaRepository,
             ProductJpaRepository productJpaRepository,
+            ProductService productService,
             DatabaseCleanUp databaseCleanUp
     ) {
         this.testRestTemplate = testRestTemplate;
         this.brandJpaRepository = brandJpaRepository;
         this.productJpaRepository = productJpaRepository;
+        this.productService = productService;
         this.databaseCleanUp = databaseCleanUp;
     }
 
@@ -304,16 +308,12 @@ class ProductV1ApiE2ETest {
             Product middleLikes = saveProduct(brand.getId(), "좋아요중간상품", 120000, 10);
             Product highLikes = saveProduct(brand.getId(), "좋아요많은상품", 140000, 10);
 
-            lowLikes.increaseLikeCount();
-            middleLikes.increaseLikeCount();
-            middleLikes.increaseLikeCount();
-            highLikes.increaseLikeCount();
-            highLikes.increaseLikeCount();
-            highLikes.increaseLikeCount();
-
-            productJpaRepository.save(lowLikes);
-            productJpaRepository.save(middleLikes);
-            productJpaRepository.save(highLikes);
+            productService.increaseLikeCount(lowLikes.getId());
+            productService.increaseLikeCount(middleLikes.getId());
+            productService.increaseLikeCount(middleLikes.getId());
+            productService.increaseLikeCount(highLikes.getId());
+            productService.increaseLikeCount(highLikes.getId());
+            productService.increaseLikeCount(highLikes.getId());
 
             // act
             ResponseEntity<ApiResponse<PageResponse<ProductV1Dto.ProductResponse>>> response =
