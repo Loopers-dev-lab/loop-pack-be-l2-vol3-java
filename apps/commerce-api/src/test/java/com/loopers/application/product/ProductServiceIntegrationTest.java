@@ -426,7 +426,7 @@ class ProductServiceIntegrationTest {
             assertThatThrownBy(() -> productService.decreaseStocks(Map.of(product.getId(), 10, 999L, 5)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
-                    .hasMessageContaining("재고가 부족하거나 존재하지 않는 상품입니다");
+                    .hasMessageContaining("재고가 부족합니다");
         }
 
         @Test
@@ -438,7 +438,7 @@ class ProductServiceIntegrationTest {
             assertThatThrownBy(() -> productService.decreaseStocks(Map.of(product.getId(), 10)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
-                    .hasMessageContaining("재고가 부족하거나 존재하지 않는 상품입니다");
+                    .hasMessageContaining("재고가 부족합니다");
         }
 
         @Test
@@ -448,7 +448,7 @@ class ProductServiceIntegrationTest {
             assertThatThrownBy(() -> productService.decreaseStocks(Map.of(product.getId(), 11)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
-                    .hasMessageContaining("재고가 부족하거나 존재하지 않는 상품입니다");
+                    .hasMessageContaining("재고가 부족합니다");
         }
 
         @Test

@@ -37,6 +37,10 @@ public class OrderFacade {
         IssuedCoupon coupon = command.couponId() != null
                 ? issuedCouponService.getUsableCoupon(command.couponId(), userId)
                 : null;
+        for (Product product : products) {
+            int requestedQty = productQuantities.get(product.getId());
+            product.validateStockSufficient(requestedQty);
+        }
 
         // -- 2단계: 계산 (순수 연산) --
         List<OrderCommand.CreateItem> orderItems = command.toCreateItems(products);

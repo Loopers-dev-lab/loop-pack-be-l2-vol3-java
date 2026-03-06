@@ -337,45 +337,23 @@ class ProductTest {
     }
 
     @Nested
-    class 재고_차감 {
+    class 재고_검증 {
 
         @Test
-        void 재고가_충분하면_차감된다() {
+        void 재고가_충분하면_예외가_발생하지_않는다() {
             Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
 
-            product.deductStock(30);
-
-            assertThat(product.getStockQuantity()).isEqualTo(70);
-        }
-
-        @Test
-        void 재고가_정확히_일치하면_0이_된다() {
-            Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-
-            product.deductStock(100);
-
-            assertThat(product.getStockQuantity()).isEqualTo(0);
+            product.validateStockSufficient(100);
         }
 
         @Test
         void 재고가_부족하면_예외() {
             Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 10, "편한 운동화");
 
-            assertThatThrownBy(() -> product.deductStock(11))
+            assertThatThrownBy(() -> product.validateStockSufficient(11))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
-                    .hasMessageContaining("재고가 부족한 상품이 있습니다");
-        }
-
-        @Test
-        void 삭제된_상품이면_예외() {
-            Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            product.delete();
-
-            assertThatThrownBy(() -> product.deductStock(10))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
-                    .hasMessageContaining("존재하지 않는 상품입니다");
+                    .hasMessageContaining("재고가 부족합니다");
         }
     }
 
@@ -389,17 +367,6 @@ class ProductTest {
             product.delete();
 
             assertThat(product.isDeleted()).isTrue();
-        }
-
-        @Test
-        void 삭제된_상품에_삭제_검증을_호출하면_예외() {
-            Product product = Product.create(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            product.delete();
-
-            assertThatThrownBy(() -> product.validateNotDeleted())
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
-                    .hasMessageContaining("존재하지 않는 상품입니다");
         }
     }
 }

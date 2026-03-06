@@ -63,12 +63,10 @@ public class Product extends BaseEntity {
         return new Product(brandId, name, price, stockQuantity, description);
     }
 
-    public void deductStock(int quantity) {
-        validateNotDeleted();
+    public void validateStockSufficient(int quantity) {
         if (this.stockQuantity < quantity) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족한 상품이 있습니다");
+            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다");
         }
-        this.stockQuantity -= quantity;
     }
 
     public void updateInfo(String name, BigDecimal price, Integer stockQuantity, String description) {
@@ -95,7 +93,7 @@ public class Product extends BaseEntity {
         return getDeletedAt() != null;
     }
 
-    public void validateNotDeleted() {
+    private void validateNotDeleted() {
         if (isDeleted()) {
             throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다");
         }

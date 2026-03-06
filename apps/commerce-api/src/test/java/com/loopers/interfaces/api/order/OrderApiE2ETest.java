@@ -171,7 +171,7 @@ class OrderApiE2ETest {
 
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody().meta().message()).contains("재고가 부족하거나 존재하지 않는 상품입니다")
+                    () -> assertThat(response.getBody().meta().message()).contains("재고가 부족합니다")
             );
         }
 
