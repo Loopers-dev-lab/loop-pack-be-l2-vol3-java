@@ -10,6 +10,8 @@ import com.loopers.domain.coupon.service.CouponService;
 import com.loopers.support.CouponEnums;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -28,8 +30,10 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -221,6 +225,20 @@ class CouponServiceTest {
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT));
         }
+
+        @Test
+        @DisplayName("동시 요청으로 DataIntegrityViolationException 발생 시 CONFLICT 예외로 변환한다")
+        void failWhenConcurrentDuplicate() {
+            // arrange
+            given(couponTemplateRepository.findById(1L)).willReturn(Optional.of(createTestTemplate()));
+            given(userCouponRepository.existsByMemberIdAndCouponTemplateId(100L, 1L)).willReturn(false);
+            given(userCouponRepository.save(any())).willThrow(new DataIntegrityViolationException("Duplicate entry"));
+
+            // act & assert
+            assertThatThrownBy(() -> couponService.issueCoupon(1L, 100L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT));
+        }
     }
 
     @Nested
@@ -232,7 +250,7 @@ class CouponServiceTest {
         void success() {
             // arrange
             UserCoupon userCoupon = UserCoupon.issue(1L, 100L);
-            given(userCouponRepository.findByIdWithLock(1L)).willReturn(Optional.of(userCoupon));
+            given(userCouponRepository.findById(1L)).willReturn(Optional.of(userCoupon));
             given(couponTemplateRepository.findById(1L)).willReturn(Optional.of(createTestTemplate()));
 
             // act
@@ -247,7 +265,7 @@ class CouponServiceTest {
         @DisplayName("존재하지 않는 쿠폰이면 NOT_FOUND 예외가 발생한다")
         void failWhenNotFound() {
             // arrange
-            given(userCouponRepository.findByIdWithLock(1L)).willReturn(Optional.empty());
+            given(userCouponRepository.findById(1L)).willReturn(Optional.empty());
 
             // act & assert
             assertThatThrownBy(() -> couponService.useUserCoupon(1L, 100L, 50000))
@@ -260,7 +278,7 @@ class CouponServiceTest {
         void failWhenNotOwner() {
             // arrange
             UserCoupon userCoupon = UserCoupon.issue(1L, 100L);
-            given(userCouponRepository.findByIdWithLock(1L)).willReturn(Optional.of(userCoupon));
+            given(userCouponRepository.findById(1L)).willReturn(Optional.of(userCoupon));
 
             // act & assert
             assertThatThrownBy(() -> couponService.useUserCoupon(1L, 200L, 50000))
@@ -273,13 +291,29 @@ class CouponServiceTest {
         void failWhenBelowMinOrderAmount() {
             // arrange
             UserCoupon userCoupon = UserCoupon.issue(1L, 100L);
-            given(userCouponRepository.findByIdWithLock(1L)).willReturn(Optional.of(userCoupon));
+            given(userCouponRepository.findById(1L)).willReturn(Optional.of(userCoupon));
             given(couponTemplateRepository.findById(1L)).willReturn(Optional.of(createTestTemplate()));
 
             // act & assert
             assertThatThrownBy(() -> couponService.useUserCoupon(1L, 100L, 5000))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+
+        @Test
+        @DisplayName("동시 요청으로 낙관적 락 충돌 시 CONFLICT 예외가 발생한다")
+        void failWhenOptimisticLockConflict() {
+            // arrange
+            UserCoupon userCoupon = UserCoupon.issue(1L, 100L);
+            given(userCouponRepository.findById(1L)).willReturn(Optional.of(userCoupon));
+            given(couponTemplateRepository.findById(1L)).willReturn(Optional.of(createTestTemplate()));
+            willThrow(new ObjectOptimisticLockingFailureException("UserCoupon", 1L))
+                    .given(userCouponRepository).update(any());
+
+            // act & assert
+            assertThatThrownBy(() -> couponService.useUserCoupon(1L, 100L, 50000))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT));
         }
     }
 }

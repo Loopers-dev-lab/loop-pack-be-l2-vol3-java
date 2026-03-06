@@ -9,8 +9,10 @@ import com.loopers.domain.coupon.repository.UserCouponRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 @RequiredArgsConstructor
@@ -61,8 +63,12 @@ public class CouponService {
             throw new CoreException(ErrorType.CONFLICT, "이미 발급받은 쿠폰입니다.");
         }
 
-        UserCoupon userCoupon = UserCoupon.issue(couponTemplateId, memberId);
-        return userCouponRepository.save(userCoupon);
+        try {
+            UserCoupon userCoupon = UserCoupon.issue(couponTemplateId, memberId);
+            return userCouponRepository.save(userCoupon);
+        } catch (DataIntegrityViolationException e) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 발급받은 쿠폰입니다.");
+        }
     }
 
     public Page<UserCoupon> getUserCoupons(Long memberId, Pageable pageable) {
@@ -78,7 +84,7 @@ public class CouponService {
     }
 
     public CouponTemplate useUserCoupon(Long userCouponId, Long memberId, int orderAmount) {
-        UserCoupon userCoupon = userCouponRepository.findByIdWithLock(userCouponId)
+        UserCoupon userCoupon = userCouponRepository.findById(userCouponId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다."));
 
         userCoupon.validateOwnership(memberId);
@@ -94,7 +100,11 @@ public class CouponService {
         }
 
         userCoupon.use();
-        userCouponRepository.update(userCoupon);
+        try {
+            userCouponRepository.update(userCoupon);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new CoreException(ErrorType.CONFLICT, "사용할 수 없는 쿠폰입니다.");
+        }
 
         return template;
     }

@@ -13,12 +13,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,20 +53,31 @@ class FavoriteServiceTest {
             verify(favoriteRepository).save(any(Favorite.class));
         }
 
-        @DisplayName("이미 좋아요한 상품이면 예외가 발생한다")
+        @DisplayName("이미 좋아요한 상품이면 예외 없이 무시한다")
         @Test
-        void throwsException_whenAlreadyExists() {
+        void ignoresSilently_whenAlreadyExists() {
             // arrange
             FavoriteCommand.Add command = new FavoriteCommand.Add(1L, 1L);
             when(favoriteRepository.existsByMemberIdAndProductId(1L, 1L)).thenReturn(true);
 
             // act & assert
-            assertThatThrownBy(() -> favoriteService.addFavorite(command))
-                .isInstanceOf(CoreException.class)
-                .satisfies(e -> {
-                    CoreException ce = (CoreException) e;
-                    assertThat(ce.getErrorType()).isEqualTo(ErrorType.CONFLICT);
-                });
+            assertThatCode(() -> favoriteService.addFavorite(command))
+                .doesNotThrowAnyException();
+            verify(favoriteRepository, never()).save(any(Favorite.class));
+        }
+
+        @DisplayName("동시 요청으로 DataIntegrityViolationException 발생 시 예외 없이 무시한다")
+        @Test
+        void ignoresSilently_whenConcurrentDuplicate() {
+            // arrange
+            FavoriteCommand.Add command = new FavoriteCommand.Add(1L, 1L);
+            when(favoriteRepository.existsByMemberIdAndProductId(1L, 1L)).thenReturn(false);
+            doThrow(new DataIntegrityViolationException("Duplicate entry"))
+                .when(favoriteRepository).save(any(Favorite.class));
+
+            // act & assert
+            assertThatCode(() -> favoriteService.addFavorite(command))
+                .doesNotThrowAnyException();
         }
     }
 

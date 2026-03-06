@@ -48,13 +48,14 @@ class OrderProductTest {
                 .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
 
-        @DisplayName("가격이 0이면 CoreException이 발생한다.")
+        @DisplayName("가격이 0이면 정상 생성된다.")
         @Test
-        void throwsException_whenPriceIsZero() {
-            // arrange & act & assert
-            assertThatThrownBy(() -> OrderProduct.create(1L, "상품A", 0, 2))
-                .isInstanceOf(CoreException.class)
-                .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        void success_whenPriceIsZero() {
+            // arrange & act
+            OrderProduct orderProduct = OrderProduct.create(1L, "상품A", 0, 2);
+
+            // assert
+            assertThat(orderProduct.getPrice().value()).isEqualTo(0);
         }
 
         @DisplayName("수량이 0이면 CoreException이 발생한다.")

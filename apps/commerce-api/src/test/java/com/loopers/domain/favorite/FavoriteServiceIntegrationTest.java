@@ -85,9 +85,9 @@ class FavoriteServiceIntegrationTest {
     @Nested
     class AddFavorite {
 
-        @DisplayName("이미 좋아요한 상품에 다시 좋아요하면 CONFLICT 예외가 발생한다")
+        @DisplayName("이미 좋아요한 상품에 다시 좋아요하면 예외 없이 무시한다")
         @Test
-        void addFavorite_conflict() {
+        void addFavorite_duplicateIgnored() {
             // arrange
             MemberEntity member = saveMember("testuser", "test@example.com");
             BrandEntity brand = saveBrand();
@@ -95,12 +95,11 @@ class FavoriteServiceIntegrationTest {
 
             favoriteService.addFavorite(new FavoriteCommand.Add(member.getId(), product.getId()));
 
-            // act & assert
-            assertThatThrownBy(() -> favoriteService.addFavorite(
-                new FavoriteCommand.Add(member.getId(), product.getId())
-            ))
-                .isInstanceOf(CoreException.class)
-                .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT));
+            // act — 중복 등록 시도
+            favoriteService.addFavorite(new FavoriteCommand.Add(member.getId(), product.getId()));
+
+            // assert — 예외 없이 성공, 데이터는 1건만 존재
+            assertThat(favoriteJpaRepository.countByProductId(product.getId())).isEqualTo(1);
         }
 
         @DisplayName("정상적으로 좋아요를 등록하면 DB에 저장된다")
