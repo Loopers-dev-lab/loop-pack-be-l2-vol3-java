@@ -12,6 +12,7 @@ import java.util.List;
 public class OrderV1Dto {
 
     public record CreateRequest(
+        Long couponId,
         @NotEmpty List<@Valid OrderItemRequest> items
     ) {}
 
@@ -24,13 +25,15 @@ public class OrderV1Dto {
         }
     }
 
-    public record OrderResponse(Long orderId, Long userId, Long totalPrice, List<OrderItemResponse> items) {
+    public record OrderResponse(Long orderId, Long userId, Long totalPrice,
+                                Long discountAmount, Long finalPrice, List<OrderItemResponse> items) {
 
         public static OrderResponse from(OrderInfo info) {
             List<OrderItemResponse> items = info.items().stream()
                 .map(OrderItemResponse::from)
                 .toList();
-            return new OrderResponse(info.orderId(), info.userId(), info.totalPrice(), items);
+            return new OrderResponse(info.orderId(), info.userId(), info.totalPrice(),
+                info.discountAmount(), info.finalPrice(), items);
         }
     }
 

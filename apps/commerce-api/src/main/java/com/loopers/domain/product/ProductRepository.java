@@ -8,5 +8,7 @@ public interface ProductRepository {
 
     Optional<Product> findById(Long id);
 
+    Optional<Product> findByIdWithLock(Long id);
+
     boolean existsById(Long id);
 }

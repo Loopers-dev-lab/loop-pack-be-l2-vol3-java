@@ -22,21 +22,40 @@ public class Order extends BaseEntity {
     @Column(name = "total_price", nullable = false)
     private Long totalPrice;
 
+    @Column(name = "discount_amount", nullable = false)
+    private Long discountAmount;
+
+    @Column(name = "final_price", nullable = false)
+    private Long finalPrice;
+
+    @Column(name = "coupon_id")
+    private Long couponId;
+
     @Transient
     private List<OrderItem> orderItems = new ArrayList<>();
 
     protected Order() {}
 
     public Order(Long userId, List<OrderItem> orderItems) {
+        this(userId, orderItems, 0L, null);
+    }
+
+    public Order(Long userId, List<OrderItem> orderItems, Long discountAmount, Long couponId) {
         if (userId == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "userId는 필수입니다");
         }
         if (orderItems == null || orderItems.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목은 1개 이상이어야 합니다");
         }
+        if (discountAmount == null || discountAmount < 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "할인 금액은 0 이상이어야 합니다");
+        }
         this.userId = userId;
         this.orderItems = new ArrayList<>(orderItems);
         this.totalPrice = calculateTotalPrice();
+        this.discountAmount = discountAmount;
+        this.finalPrice = this.totalPrice - this.discountAmount;
+        this.couponId = couponId;
     }
 
     private long calculateTotalPrice() {
@@ -51,6 +70,18 @@ public class Order extends BaseEntity {
 
     public Long getTotalPrice() {
         return totalPrice;
+    }
+
+    public Long getDiscountAmount() {
+        return discountAmount;
+    }
+
+    public Long getFinalPrice() {
+        return finalPrice;
+    }
+
+    public Long getCouponId() {
+        return couponId;
     }
 
     public List<OrderItem> getOrderItems() {

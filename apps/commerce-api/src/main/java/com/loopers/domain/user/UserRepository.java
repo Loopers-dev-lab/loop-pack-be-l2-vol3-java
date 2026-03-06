@@ -6,5 +6,7 @@ public interface UserRepository {
 
     Optional<User> findById(Long id);
 
+    Optional<User> findByIdWithLock(Long id);
+
     User save(User user);
 }

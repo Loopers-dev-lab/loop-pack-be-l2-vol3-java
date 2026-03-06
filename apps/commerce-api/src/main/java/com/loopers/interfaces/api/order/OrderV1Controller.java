@@ -28,7 +28,7 @@ public class OrderV1Controller {
         List<OrderFacade.OrderItemRequest> itemRequests = request.items().stream()
             .map(OrderV1Dto.OrderItemRequest::toFacadeRequest)
             .toList();
-        OrderInfo info = orderFacade.createOrder(userId, itemRequests);
+        OrderInfo info = orderFacade.createOrder(userId, request.couponId(), itemRequests);
         return ApiResponse.success(OrderV1Dto.OrderResponse.from(info));
     }
 }

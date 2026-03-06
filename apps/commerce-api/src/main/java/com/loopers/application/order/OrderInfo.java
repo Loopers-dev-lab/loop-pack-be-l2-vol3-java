@@ -5,7 +5,7 @@ import com.loopers.domain.order.OrderItem;
 
 import java.util.List;
 
-public record OrderInfo(Long orderId, Long userId, Long totalPrice, List<OrderItemInfo> items) {
+public record OrderInfo(Long orderId, Long userId, Long totalPrice, Long discountAmount, Long finalPrice, List<OrderItemInfo> items) {
 
     public record OrderItemInfo(Long productId, String productName, Long productPrice, Integer quantity) {
 
@@ -27,6 +27,8 @@ public record OrderInfo(Long orderId, Long userId, Long totalPrice, List<OrderIt
             order.getId(),
             order.getUserId(),
             order.getTotalPrice(),
+            order.getDiscountAmount(),
+            order.getFinalPrice(),
             items
         );
     }

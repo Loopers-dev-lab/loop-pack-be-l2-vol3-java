@@ -24,6 +24,11 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public Optional<Product> findByIdWithLock(Long id) {
+        return productJpaRepository.findByIdWithLock(id);
+    }
+
+    @Override
     public boolean existsById(Long id) {
         return productJpaRepository.existsById(id);
     }
