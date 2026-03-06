@@ -15,12 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -34,66 +30,32 @@ public class OrderFacade {
 
     @Transactional
     public OrderInfo placeOrder(Long userId, OrderCommand.Place command) {
-        var items = command.items();
 
-        // ── 1단계: 검증 (락 없음, 읽기만) ──
+        // -- 1단계: 검증 (읽기만, 락 없음) --
+        Map<Long, Integer> productQuantities = command.toQuantityMap();
+        List<Product> products = productService.getActiveProducts(productQuantities.keySet());
+        IssuedCoupon coupon = command.couponId() != null
+                ? issuedCouponService.getUsableCoupon(command.couponId(), userId)
+                : null;
 
-        Set<Long> productIds = items.stream()
-                .map(OrderCommand.PlaceItem::productId)
-                .collect(Collectors.toSet());
-        if (productIds.size() != items.size()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "주문 상품이 중복되었습니다");
+        // -- 2단계: 계산 (순수 연산) --
+        List<OrderCommand.CreateItem> orderItems = command.toCreateItems(products);
+        BigDecimal totalAmount = OrderCommand.CreateItem.calculateTotalAmount(orderItems);
+
+        OrderCommand.CouponSnapshot couponSnapshot = null;
+        if (coupon != null) {
+            coupon.validateMinOrderAmount(totalAmount);
+            BigDecimal discountAmount = coupon.calculateDiscount(totalAmount);
+            couponSnapshot = OrderCommand.CouponSnapshot.of(command.couponId(), discountAmount);
         }
 
-        Map<Long, Integer> productQuantities = items.stream()
-                .collect(Collectors.toMap(
-                        OrderCommand.PlaceItem::productId,
-                        OrderCommand.PlaceItem::quantity
-                ));
-
-        List<Product> products = new ArrayList<>(productQuantities.keySet()).stream()
-                .map(productService::getActiveProduct)
-                .toList();
-
-        if (products.size() != productQuantities.size()) {
-            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품이 포함되어 있습니다");
-        }
-
-        IssuedCoupon issuedCoupon = null;
-        if (command.couponId() != null) {
-            issuedCoupon = issuedCouponService.getIssuedCoupon(command.couponId());
-            if (!issuedCoupon.isOwnedBy(userId)) {
-                throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다");
-            }
-            issuedCoupon.validateUsable();
-        }
-
-        // ── 2단계: 계산 (락 없음, 순수 연산) ──
-
-        List<OrderCommand.CreateItem> orderItems = toOrderItems(items, products);
-        BigDecimal totalAmount = calculateTotalAmount(orderItems);
-
-        BigDecimal discountAmount = BigDecimal.ZERO;
-        if (issuedCoupon != null) {
-            issuedCoupon.validateMinOrderAmount(totalAmount);
-            discountAmount = issuedCoupon.calculateDiscount(totalAmount);
-        }
-
-        // ── 3단계: 상태 변경 (원자적 UPDATE, 최대한 짧게) ──
-
+        // -- 3단계: 상태 변경 (원자적 UPDATE) --
         productService.decreaseStocks(productQuantities);
-
         if (command.couponId() != null) {
             issuedCouponService.markUsed(command.couponId(), userId);
         }
 
-        Order order = orderService.createOrder(
-                OrderCommand.Create.of(userId, orderItems)
-        );
-
-        if (discountAmount.compareTo(BigDecimal.ZERO) > 0) {
-            order.applyCoupon(command.couponId(), discountAmount);
-        }
+        Order order = orderService.createOrder(OrderCommand.Create.of(userId, orderItems, couponSnapshot));
 
         return OrderInfo.from(order);
     }
@@ -125,29 +87,5 @@ public class OrderFacade {
     public Page<OrderInfo.OrderAdminSummary> getAdminOrderList(Pageable pageable) {
         Page<Order> orders = orderService.findAllOrders(pageable);
         return orders.map(OrderInfo.OrderAdminSummary::from);
-    }
-
-    private List<OrderCommand.CreateItem> toOrderItems(
-            List<OrderCommand.PlaceItem> items, List<Product> products) {
-        Map<Long, Product> productMap = products.stream()
-                .collect(Collectors.toMap(Product::getId, Function.identity()));
-
-        return items.stream()
-                .map(item -> {
-                    Product product = productMap.get(item.productId());
-                    return OrderCommand.CreateItem.of(
-                            product.getId(),
-                            product.getName(),
-                            product.getPrice(),
-                            item.quantity()
-                    );
-                })
-                .toList();
-    }
-
-    private BigDecimal calculateTotalAmount(List<OrderCommand.CreateItem> items) {
-        return items.stream()
-                .map(item -> item.price().multiply(BigDecimal.valueOf(item.quantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }
