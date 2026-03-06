@@ -44,6 +44,10 @@ public class Order extends BaseEntity {
     @JoinColumn(name = "order_id")
     private List<OrderItem> items = new ArrayList<>();
 
+    @Version
+    @Column(name = "version")
+    private Long version;
+
     public static Order create(Long memberId, List<ItemSnapshot> snapshots) {
         return create(memberId, snapshots, null, 0);
     }
