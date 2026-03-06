@@ -54,12 +54,4 @@ public class OrderFacade {
 
         return orderService.placeOrder(command.userId(), orderItemSnapshots, discountAmount);
     }
-
-
-- IssuedCoupon.validate() → validateUsableBy()로 rename
-- IssuedCouponService.validateAndGetCouponId() → getUsableBy()로 rename, IssuedCouponInfo 반환
-- OrderService.validateItems() → OrderItemValidator로 이동
-- OrderV1Dto.CreateRequest에 toCommand() 추가, 컨트롤러 변환 로직 제거
-- OrderFacade: Optional<IssuedCouponInfo> 체이닝, 변수명 명확화
-- 쿠폰 할인 계산을 coupon.calculateDiscount() 직접 호출로 개선
 }
