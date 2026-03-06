@@ -33,6 +33,11 @@ class FakeProductRepository implements ProductRepository {
     }
 
     @Override
+    public Optional<Product> findByIdWithLock(Long id) {
+        return Optional.ofNullable(store.get(id));
+    }
+
+    @Override
     public boolean existsById(Long id) {
         return store.containsKey(id);
     }

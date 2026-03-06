@@ -21,6 +21,11 @@ class FakeUserRepository implements UserRepository {
     }
 
     @Override
+    public Optional<User> findByIdWithLock(Long id) {
+        return Optional.ofNullable(store.get(id));
+    }
+
+    @Override
     public User save(User user) {
         return user;
     }
