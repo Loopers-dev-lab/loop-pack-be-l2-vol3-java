@@ -42,6 +42,8 @@ public class CouponTemplate extends BaseEntity {
         validateName(name);
         validateType(type);
         validateValue(value);
+        validateRateUpperBound(type, value);
+        validateMinOrderAmountInput(minOrderAmount);
         validateExpiredAt(expiredAt);
 
         this.name = name;
@@ -56,6 +58,8 @@ public class CouponTemplate extends BaseEntity {
         validateName(name);
         validateType(type);
         validateValue(value);
+        validateRateUpperBound(type, value);
+        validateMinOrderAmountInput(minOrderAmount);
         validateExpiredAt(expiredAt);
 
         this.name = name;
@@ -105,6 +109,8 @@ public class CouponTemplate extends BaseEntity {
         validateName(this.name);
         validateType(this.type);
         validateValue(this.value);
+        validateRateUpperBound(this.type, this.value);
+        validateMinOrderAmountInput(this.minOrderAmount);
         validateExpiredAt(this.expiredAt);
     }
 
@@ -123,6 +129,18 @@ public class CouponTemplate extends BaseEntity {
     private void validateValue(int value) {
         if (value <= 0) {
             throw new CoreException(ErrorType.BAD_REQUEST, "할인 값은 0보다 커야 합니다.");
+        }
+    }
+
+    private void validateRateUpperBound(CouponType type, int value) {
+        if (type == CouponType.RATE && value > 100) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "정률 할인 값은 100%를 초과할 수 없습니다.");
+        }
+    }
+
+    private void validateMinOrderAmountInput(Integer minOrderAmount) {
+        if (minOrderAmount != null && minOrderAmount < 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "최소 주문 금액은 0 이상이어야 합니다.");
         }
     }
 

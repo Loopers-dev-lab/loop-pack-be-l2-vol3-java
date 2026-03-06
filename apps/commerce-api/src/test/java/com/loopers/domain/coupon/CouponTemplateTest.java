@@ -65,6 +65,71 @@ class CouponTemplateTest {
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
+
+        @DisplayName("RATE 타입에서 value가 100을 초과하면 BAD_REQUEST 에러가 발생한다.")
+        @Test
+        void throwsBadRequest_whenRateValueExceedsHundred() {
+            // act
+            CoreException result = assertThrows(CoreException.class,
+                    () -> new CouponTemplate(VALID_NAME, CouponType.RATE, 101, null, FUTURE_EXPIRED_AT));
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("RATE 타입에서 value가 100이면 정상 생성된다.")
+        @Test
+        void createsCouponTemplate_whenRateValueIsHundred() {
+            // act
+            CouponTemplate template = new CouponTemplate(VALID_NAME, CouponType.RATE, 100, null, FUTURE_EXPIRED_AT);
+
+            // assert
+            assertThat(template.getValue()).isEqualTo(100);
+        }
+
+        @DisplayName("minOrderAmount가 음수이면 BAD_REQUEST 에러가 발생한다.")
+        @Test
+        void throwsBadRequest_whenMinOrderAmountIsNegative() {
+            // act
+            CoreException result = assertThrows(CoreException.class,
+                    () -> new CouponTemplate(VALID_NAME, CouponType.FIXED, VALID_VALUE, -1, FUTURE_EXPIRED_AT));
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+    }
+
+    @DisplayName("CouponTemplate 수정 시")
+    @Nested
+    class Update {
+
+        @DisplayName("RATE 타입에서 value가 100을 초과하면 BAD_REQUEST 에러가 발생한다.")
+        @Test
+        void throwsBadRequest_whenRateValueExceedsHundred() {
+            // arrange
+            CouponTemplate template = new CouponTemplate(VALID_NAME, CouponType.RATE, VALID_VALUE, null, FUTURE_EXPIRED_AT);
+
+            // act
+            CoreException result = assertThrows(CoreException.class,
+                    () -> template.update(VALID_NAME, CouponType.RATE, 101, null, FUTURE_EXPIRED_AT));
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("minOrderAmount가 음수이면 BAD_REQUEST 에러가 발생한다.")
+        @Test
+        void throwsBadRequest_whenMinOrderAmountIsNegative() {
+            // arrange
+            CouponTemplate template = new CouponTemplate(VALID_NAME, CouponType.FIXED, VALID_VALUE, null, FUTURE_EXPIRED_AT);
+
+            // act
+            CoreException result = assertThrows(CoreException.class,
+                    () -> template.update(VALID_NAME, CouponType.FIXED, VALID_VALUE, -1, FUTURE_EXPIRED_AT));
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
     }
 
     @DisplayName("calculateDiscount() 시")
