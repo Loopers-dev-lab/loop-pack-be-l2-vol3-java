@@ -58,10 +58,10 @@ class ProductV1ApiE2ETest {
         testRestTemplate.exchange("/api/v1/users", HttpMethod.POST, new HttpEntity<>(signUp),
             new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {});
 
-        BrandModel brand = brandService.register("E2E상품테스트브랜드");
+        BrandModel brand = brandService.registerBrand("E2E상품테스트브랜드");
         brandId = brand.getId();
         brandName = brand.getName();
-        ProductModel product = productService.register(brandId, "E2E상품", new BigDecimal("15000"), 10);
+        ProductModel product = productService.registerProduct(brandId, "E2E상품", new BigDecimal("15000"), 10);
         productId = product.getId();
     }
 
@@ -148,8 +148,8 @@ class ProductV1ApiE2ETest {
     @Test
     @DisplayName("GET /api/v1/products - sort=price_asc 시 가격 오름차순으로 반환된다")
     void getProductList_withPriceAsc_shouldReturnOrderedByPriceAsc() {
-        ProductModel cheap = productService.register(brandId, "저가상품", new BigDecimal("5000"), 5);
-        ProductModel expensive = productService.register(brandId, "고가상품", new BigDecimal("50000"), 5);
+        ProductModel cheap = productService.registerProduct(brandId, "저가상품", new BigDecimal("5000"), 5);
+        ProductModel expensive = productService.registerProduct(brandId, "고가상품", new BigDecimal("50000"), 5);
 
         ResponseEntity<ApiResponse<ProductV1Dto.ListResponse>> response = testRestTemplate.exchange(
             ENDPOINT_PRODUCTS + "?sort=price_asc&page=0&size=20", HttpMethod.GET, new HttpEntity<>(null),
@@ -166,7 +166,7 @@ class ProductV1ApiE2ETest {
     @Test
     @DisplayName("GET /api/v1/products - sort=likes_desc 시 좋아요 많은 순으로 반환된다")
     void getProductList_withLikesDesc_shouldReturnOrderedByLikesDesc() {
-        Long productId2 = productService.register(brandId, "두번째상품", new BigDecimal("20000"), 5).getId();
+        Long productId2 = productService.registerProduct(brandId, "두번째상품", new BigDecimal("20000"), 5).getId();
         UserModel user = userService.signUp(
             new UserId("likeuser2"),
             new Email("like2@test.com"),

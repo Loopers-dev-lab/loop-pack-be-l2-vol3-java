@@ -55,8 +55,8 @@ class LikeV1ApiE2ETest {
         assertThat(signUpResponse.getBody()).isNotNull();
         assertThat(signUpResponse.getBody().meta().result()).isEqualTo(Result.SUCCESS);
 
-        BrandModel brand = brandService.register("E2E브랜드");
-        ProductModel product = productService.register(brand.getId(), "E2E상품", new BigDecimal("10000"), 5);
+        BrandModel brand = brandService.registerBrand("E2E브랜드");
+        ProductModel product = productService.registerProduct(brand.getId(), "E2E상품", new BigDecimal("10000"), 5);
         productId = product.getId();
     }
 

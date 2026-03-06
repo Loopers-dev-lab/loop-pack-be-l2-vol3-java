@@ -58,8 +58,8 @@ class OrderV1ApiE2ETest {
         testRestTemplate.exchange("/api/v1/users", HttpMethod.POST, new HttpEntity<>(otherSignUp),
                 new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {
                 });
-        BrandModel brand = brandService.register("E2E브랜드");
-        ProductModel product = productService.register(brand.getId(), "E2E상품", new BigDecimal("10000"), 10);
+        BrandModel brand = brandService.registerBrand("E2E브랜드");
+        ProductModel product = productService.registerProduct(brand.getId(), "E2E상품", new BigDecimal("10000"), 10);
         productId = product.getId();
     }
 
@@ -81,7 +81,7 @@ class OrderV1ApiE2ETest {
         @Test
         void createOrder_withValidRequest_shouldReturn201() {
             OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(productId, 2, null)));
+                    List.of(new OrderV1Dto.OrderItemRequest(productId, 2, null)), null);
 
             ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> response = testRestTemplate.exchange(
                     ENDPOINT_ORDERS, HttpMethod.POST, new HttpEntity<>(request, authHeaders()),
@@ -101,7 +101,7 @@ class OrderV1ApiE2ETest {
         @Test
         void createOrder_withoutLogin_shouldReturn401() {
             OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(productId, 1, null)));
+                    List.of(new OrderV1Dto.OrderItemRequest(productId, 1, null)), null);
 
             ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> response = testRestTemplate.exchange(
                     ENDPOINT_ORDERS, HttpMethod.POST, new HttpEntity<>(request), new ParameterizedTypeReference<>() {
@@ -118,7 +118,7 @@ class OrderV1ApiE2ETest {
         @Test
         void getOrder_withValidRequest_shouldReturn200() {
             OrderV1Dto.CreateOrderRequest createReq = new OrderV1Dto.CreateOrderRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(productId, 1, null)));
+                    List.of(new OrderV1Dto.OrderItemRequest(productId, 1, null)), null);
             ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> createRes = testRestTemplate.exchange(
                     ENDPOINT_ORDERS, HttpMethod.POST, new HttpEntity<>(createReq, authHeaders()),
                     new ParameterizedTypeReference<>() {
@@ -139,7 +139,7 @@ class OrderV1ApiE2ETest {
         @Test
         void getOrder_withWrongUser_shouldReturn404() {
             OrderV1Dto.CreateOrderRequest createReq = new OrderV1Dto.CreateOrderRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(productId, 1, null)));
+                    List.of(new OrderV1Dto.OrderItemRequest(productId, 1, null)), null);
             ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> createRes = testRestTemplate.exchange(
                     ENDPOINT_ORDERS, HttpMethod.POST, new HttpEntity<>(createReq, authHeaders()),
                     new ParameterizedTypeReference<>() {
@@ -165,7 +165,7 @@ class OrderV1ApiE2ETest {
         void getOrders_withValidRequest_shouldReturn200() {
             // 주문을 하나 생성해 두면 목록 조회 시 사용자·기간 조건이 동일하게 맞춰진다 (단일 테스트 실행 시에도 안정적)
             OrderV1Dto.CreateOrderRequest createReq = new OrderV1Dto.CreateOrderRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(productId, 1, null)));
+                    List.of(new OrderV1Dto.OrderItemRequest(productId, 1, null)), null);
             testRestTemplate.exchange(
                     ENDPOINT_ORDERS, HttpMethod.POST, new HttpEntity<>(createReq, authHeaders()),
                     new ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {});
@@ -226,7 +226,7 @@ class OrderV1ApiE2ETest {
         @Test
         void cancelOrder_withValidRequest_shouldReturn200() {
             OrderV1Dto.CreateOrderRequest createReq = new OrderV1Dto.CreateOrderRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(productId, 1, null)));
+                    List.of(new OrderV1Dto.OrderItemRequest(productId, 1, null)), null);
             ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> createRes = testRestTemplate.exchange(
                     ENDPOINT_ORDERS, HttpMethod.POST, new HttpEntity<>(createReq, authHeaders()),
                     new ParameterizedTypeReference<>() {
@@ -246,7 +246,7 @@ class OrderV1ApiE2ETest {
         @Test
         void cancelOrder_withoutLogin_shouldReturn401() {
             OrderV1Dto.CreateOrderRequest createReq = new OrderV1Dto.CreateOrderRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(productId, 1, null)));
+                    List.of(new OrderV1Dto.OrderItemRequest(productId, 1, null)), null);
             ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> createRes = testRestTemplate.exchange(
                     ENDPOINT_ORDERS, HttpMethod.POST, new HttpEntity<>(createReq, authHeaders()),
                     new ParameterizedTypeReference<>() {

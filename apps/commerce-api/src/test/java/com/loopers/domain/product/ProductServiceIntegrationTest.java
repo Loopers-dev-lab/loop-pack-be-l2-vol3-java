@@ -44,7 +44,7 @@ class ProductServiceIntegrationTest {
     }
 
     private Long saveBrand(String name) {
-        BrandModel brand = brandService.register(name);
+        BrandModel brand = brandService.registerBrand(name);
         return brand.getId();
     }
 
@@ -56,7 +56,7 @@ class ProductServiceIntegrationTest {
         @Test
         void register_withValidBrandAndInputs_shouldPersistAndReturn() {
             Long brandId = saveBrand("테스트 브랜드");
-            ProductModel saved = productService.register(brandId, "테스트 상품", new BigDecimal("10000"), 10);
+            ProductModel saved = productService.registerProduct(brandId, "테스트 상품", new BigDecimal("10000"), 10);
 
             assertThat(saved.getId()).isNotNull();
             assertThat(saved.getBrandId()).isEqualTo(brandId);
@@ -70,7 +70,7 @@ class ProductServiceIntegrationTest {
         @Test
         void register_withNonExistentBrandId_shouldThrowNotFound() {
             CoreException ex = assertThrows(CoreException.class,
-                    () -> productService.register(999_999L, "상품", new BigDecimal("1000"), 1));
+                    () -> productService.registerProduct(999_999L, "상품", new BigDecimal("1000"), 1));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
     }
@@ -82,7 +82,7 @@ class ProductServiceIntegrationTest {
         @Test
         void findById_withSavedProduct_shouldReturnPresent() {
             Long brandId = saveBrand("브랜드");
-            ProductModel saved = productService.register(brandId, "상품", new BigDecimal("5000"), 5);
+            ProductModel saved = productService.registerProduct(brandId, "상품", new BigDecimal("5000"), 5);
 
             Optional<ProductModel> result = productService.findById(saved.getId());
 
@@ -103,7 +103,7 @@ class ProductServiceIntegrationTest {
         @Test
         void findByIdAndNotDeleted_withNotDeletedProduct_shouldReturnPresent() {
             Long brandId = saveBrand("브랜드");
-            ProductModel saved = productService.register(brandId, "상품", new BigDecimal("3000"), 3);
+            ProductModel saved = productService.registerProduct(brandId, "상품", new BigDecimal("3000"), 3);
 
             Optional<ProductModel> result = productService.findByIdAndNotDeleted(saved.getId());
 
@@ -119,16 +119,16 @@ class ProductServiceIntegrationTest {
         @Test
         void update_withNonExistentId_shouldThrowNotFound() {
             CoreException ex = assertThrows(CoreException.class,
-                    () -> productService.update(999_999L, "이름", new BigDecimal("1000"), 1));
+                    () -> productService.updateProduct(999_999L, "이름", new BigDecimal("1000"), 1));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
         @Test
         void update_withValidInputs_shouldPersistUpdate() {
             Long brandId = saveBrand("브랜드");
-            ProductModel saved = productService.register(brandId, "기존명", new BigDecimal("1000"), 5);
+            ProductModel saved = productService.registerProduct(brandId, "기존명", new BigDecimal("1000"), 5);
 
-            ProductModel updated = productService.update(saved.getId(), "새이름", new BigDecimal("2000"), 10);
+            ProductModel updated = productService.updateProduct(saved.getId(), "새이름", new BigDecimal("2000"), 10);
 
             assertThat(updated.getName()).isEqualTo("새이름");
             assertThat(updated.getPrice()).isEqualByComparingTo("2000");
@@ -153,7 +153,7 @@ class ProductServiceIntegrationTest {
         @Test
         void validateProductAvailability_whenInsufficientStock_shouldThrowBadRequest() {
             Long brandId = saveBrand("브랜드");
-            ProductModel saved = productService.register(brandId, "상품", new BigDecimal("1000"), 2);
+            ProductModel saved = productService.registerProduct(brandId, "상품", new BigDecimal("1000"), 2);
 
             CoreException ex = assertThrows(CoreException.class,
                     () -> productService.validateProductAvailability(saved.getId(), Quantity.of(10), null));
@@ -163,7 +163,7 @@ class ProductServiceIntegrationTest {
         @Test
         void validateProductAvailability_whenValid_shouldNotThrow() {
             Long brandId = saveBrand("브랜드");
-            ProductModel saved = productService.register(brandId, "상품", new BigDecimal("1000"), 10);
+            ProductModel saved = productService.registerProduct(brandId, "상품", new BigDecimal("1000"), 10);
             productService.validateProductAvailability(saved.getId(), Quantity.of(5), 100L);
         }
     }
@@ -175,7 +175,7 @@ class ProductServiceIntegrationTest {
         @Test
         void validateProducts_whenAllValid_shouldNotThrow() {
             Long brandId = saveBrand("브랜드");
-            ProductModel p = productService.register(brandId, "상품", new BigDecimal("1000"), 10);
+            ProductModel p = productService.registerProduct(brandId, "상품", new BigDecimal("1000"), 10);
             productService.validateProducts(List.of(
                     new ProductValidationRequest(p.getId(), Quantity.of(2), null),
                     new ProductValidationRequest(p.getId(), Quantity.of(3), 1L)));
@@ -196,7 +196,7 @@ class ProductServiceIntegrationTest {
         @Test
         void restoreStock_whenValid_shouldIncreaseStock() {
             Long brandId = saveBrand("브랜드");
-            ProductModel saved = productService.register(brandId, "상품", new BigDecimal("1000"), 5);
+            ProductModel saved = productService.registerProduct(brandId, "상품", new BigDecimal("1000"), 5);
 
             productService.restoreStock(List.of(new RestoreStockItem(saved.getId(), Quantity.of(3))));
 
@@ -208,7 +208,7 @@ class ProductServiceIntegrationTest {
         @Test
         void restoreStock_concurrentCalls_shouldNotLoseQuantity() throws InterruptedException {
             Long brandId = saveBrand("브랜드");
-            ProductModel saved = productService.register(brandId, "상품", new BigDecimal("1000"), 0);
+            ProductModel saved = productService.registerProduct(brandId, "상품", new BigDecimal("1000"), 0);
             Long productId = saved.getId();
             int threadCount = 10;
             int quantityPerThread = 1;
