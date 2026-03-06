@@ -1,7 +1,10 @@
 package com.loopers.domain.like;
 
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,12 +14,15 @@ public class LikeService {
 
     private final LikeRepository likeRepository;
 
-    @Transactional
     public Like like(Long userId, Long productId) {
         return likeRepository.findByUserIdAndProductId(userId, productId)
             .orElseGet(() -> {
-                Like like = new Like(userId, productId);
-                return likeRepository.save(like);
+                try {
+                    return likeRepository.save(new Like(userId, productId));
+                } catch (DataIntegrityViolationException e) {
+                    return likeRepository.findByUserIdAndProductId(userId, productId)
+                        .orElseThrow(() -> new CoreException(ErrorType.INTERNAL_ERROR, "좋아요 처리 중 오류가 발생했습니다"));
+                }
             });
     }
 
