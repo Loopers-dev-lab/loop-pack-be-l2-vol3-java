@@ -25,7 +25,8 @@ public class OrderV1Dto {
     public record CreateOrderRequest(
         @NotNull(message = "주문 항목은 필수입니다.")
         @Valid
-        List<OrderItemRequest> items
+        List<OrderItemRequest> items,
+        Long couponId
     ) {
     }
 
@@ -55,6 +56,10 @@ public class OrderV1Dto {
         Long userId,
         String status,
         ZonedDateTime orderedAt,
+        Long issuedCouponId,
+        BigDecimal amountBeforeDiscount,
+        BigDecimal discountAmount,
+        BigDecimal finalAmount,
         List<OrderItemResponse> items
     ) {
         public static OrderResponse from(OrderInfo info) {
@@ -69,6 +74,10 @@ public class OrderV1Dto {
                 info.userId(),
                 info.status(),
                 info.orderedAt(),
+                info.issuedCouponId(),
+                info.amountBeforeDiscount(),
+                info.discountAmount(),
+                info.finalAmount(),
                 items
             );
         }

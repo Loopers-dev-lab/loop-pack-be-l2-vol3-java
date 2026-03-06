@@ -45,7 +45,7 @@ public class OrderV1Controller implements OrderV1ApiSpec {
                 item.optionId()
             ))
             .toList();
-        var info = orderFacade.create(userId, params);
+        var info = orderFacade.placeOrder(userId, params, request.couponId());
         return ApiResponse.success(OrderV1Dto.OrderResponse.from(info));
     }
 
