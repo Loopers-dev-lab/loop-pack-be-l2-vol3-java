@@ -28,7 +28,7 @@ public class AdminCouponV1Controller implements AdminCouponV1ApiSpec {
 
     @GetMapping
     @Override
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<AdminCouponV1Dto.CouponResponse>>> getCoupons(
+    public ResponseEntity<ApiResponse<AdminCouponV1Dto.PagedCouponsResponse>> getCoupons(
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
@@ -37,7 +37,7 @@ public class AdminCouponV1Controller implements AdminCouponV1ApiSpec {
         Pageable pageable = PageRequest.of(safePage, safeSize);
         var result = couponFacade.getTemplates(pageable)
             .map(AdminCouponV1Controller::toCouponResponse);
-        return ResponseEntity.ok(ApiResponse.success(result));
+        return ResponseEntity.ok(ApiResponse.success(AdminCouponV1Dto.PagedCouponsResponse.from(result)));
     }
 
     @GetMapping("/{couponId}")
@@ -94,7 +94,7 @@ public class AdminCouponV1Controller implements AdminCouponV1ApiSpec {
 
     @GetMapping("/{couponId}/issues")
     @Override
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<AdminCouponV1Dto.IssuedCouponResponse>>> getCouponIssues(
+    public ResponseEntity<ApiResponse<AdminCouponV1Dto.PagedIssuedCouponsResponse>> getCouponIssues(
         @PathVariable Long couponId,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
@@ -104,7 +104,7 @@ public class AdminCouponV1Controller implements AdminCouponV1ApiSpec {
         Pageable pageable = PageRequest.of(safePage, safeSize);
         var result = couponFacade.getIssueHistory(couponId, pageable)
             .map(AdminCouponV1Controller::toIssuedResponse);
-        return ResponseEntity.ok(ApiResponse.success(result));
+        return ResponseEntity.ok(ApiResponse.success(AdminCouponV1Dto.PagedIssuedCouponsResponse.from(result)));
     }
 
     private static AdminCouponV1Dto.CouponResponse toCouponResponse(CouponTemplateInfo info) {

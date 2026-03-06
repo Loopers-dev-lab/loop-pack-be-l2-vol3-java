@@ -16,7 +16,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.data.domain.Page;
 import org.springframework.http.*;
 
 import java.math.BigDecimal;
@@ -118,22 +117,22 @@ class CouponV1ApiE2ETest {
                     ENDPOINT_ISSUE + "/" + templateId + "/issue", HttpMethod.POST, new HttpEntity<>(userHeaders()),
                     new ParameterizedTypeReference<ApiResponse<CouponV1Dto.IssuedCouponResponse>>() {});
 
-            ResponseEntity<ApiResponse<Page<CouponV1Dto.IssuedCouponResponse>>> response = testRestTemplate.exchange(
+            ResponseEntity<ApiResponse<CouponV1Dto.PagedIssuedCouponsResponse>> response = testRestTemplate.exchange(
                     ENDPOINT_MY_COUPONS + "?page=0&size=20", HttpMethod.GET, new HttpEntity<>(userHeaders()),
                     new ParameterizedTypeReference<>() {});
 
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.SUCCESS),
-                    () -> assertThat(response.getBody().data().getContent()).hasSize(1),
-                    () -> assertThat(response.getBody().data().getContent().get(0).couponId()).isEqualTo(templateId),
-                    () -> assertThat(response.getBody().data().getContent().get(0).status()).isEqualTo("AVAILABLE")
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().content().get(0).couponId()).isEqualTo(templateId),
+                    () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo("AVAILABLE")
             );
         }
 
         @Test
         void getMyCoupons_withoutLogin_shouldReturn401() {
-            ResponseEntity<ApiResponse<Page<CouponV1Dto.IssuedCouponResponse>>> response = testRestTemplate.exchange(
+            ResponseEntity<ApiResponse<CouponV1Dto.PagedIssuedCouponsResponse>> response = testRestTemplate.exchange(
                     ENDPOINT_MY_COUPONS, HttpMethod.GET, new HttpEntity<>(null),
                     new ParameterizedTypeReference<>() {});
 
@@ -142,12 +141,12 @@ class CouponV1ApiE2ETest {
 
         @Test
         void getMyCoupons_whenNoCoupons_shouldReturnEmptyPage() {
-            ResponseEntity<ApiResponse<Page<CouponV1Dto.IssuedCouponResponse>>> response = testRestTemplate.exchange(
+            ResponseEntity<ApiResponse<CouponV1Dto.PagedIssuedCouponsResponse>> response = testRestTemplate.exchange(
                     ENDPOINT_MY_COUPONS, HttpMethod.GET, new HttpEntity<>(userHeaders()),
                     new ParameterizedTypeReference<>() {});
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(response.getBody().data().getContent()).isEmpty();
+            assertThat(response.getBody().data().content()).isEmpty();
         }
     }
 }

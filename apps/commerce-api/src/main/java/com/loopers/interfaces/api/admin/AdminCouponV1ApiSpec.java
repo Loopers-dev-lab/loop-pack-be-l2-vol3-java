@@ -4,7 +4,6 @@ import com.loopers.interfaces.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -16,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 public interface AdminCouponV1ApiSpec {
 
     @Operation(summary = "쿠폰 템플릿 목록 조회")
-    ResponseEntity<ApiResponse<Page<AdminCouponV1Dto.CouponResponse>>> getCoupons(
+    ResponseEntity<ApiResponse<AdminCouponV1Dto.PagedCouponsResponse>> getCoupons(
         @Parameter(description = "페이지 (0부터)") int page,
         @Parameter(description = "페이지 크기") int size
     );
@@ -43,7 +42,7 @@ public interface AdminCouponV1ApiSpec {
     );
 
     @Operation(summary = "쿠폰 발급 내역 조회")
-    ResponseEntity<ApiResponse<Page<AdminCouponV1Dto.IssuedCouponResponse>>> getCouponIssues(
+    ResponseEntity<ApiResponse<AdminCouponV1Dto.PagedIssuedCouponsResponse>> getCouponIssues(
         @PathVariable Long couponId,
         @Parameter(description = "페이지 (0부터)") int page,
         @Parameter(description = "페이지 크기") int size

@@ -15,7 +15,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.data.domain.Page;
 import org.springframework.http.*;
 
 import java.math.BigDecimal;
@@ -77,15 +76,15 @@ class AdminCouponV1ApiE2ETest {
 
         @Test
         void getCoupons_withValidAuth_shouldReturn200() {
-            ResponseEntity<ApiResponse<Page<AdminCouponV1Dto.CouponResponse>>> response = testRestTemplate.exchange(
+            ResponseEntity<ApiResponse<AdminCouponV1Dto.PagedCouponsResponse>> response = testRestTemplate.exchange(
                     ENDPOINT + "?page=0&size=20", HttpMethod.GET, new HttpEntity<>(adminHeaders()),
                     new ParameterizedTypeReference<>() {});
 
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.SUCCESS),
-                    () -> assertThat(response.getBody().data().getContent()).isNotEmpty(),
-                    () -> assertThat(response.getBody().data().getContent().get(0).name()).isEqualTo("E2E어드민쿠폰")
+                    () -> assertThat(response.getBody().data().content()).isNotEmpty(),
+                    () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("E2E어드민쿠폰")
             );
         }
     }
@@ -181,7 +180,7 @@ class AdminCouponV1ApiE2ETest {
 
         @Test
         void getCouponIssues_shouldReturn200() {
-            ResponseEntity<ApiResponse<Page<AdminCouponV1Dto.IssuedCouponResponse>>> response = testRestTemplate.exchange(
+            ResponseEntity<ApiResponse<AdminCouponV1Dto.PagedIssuedCouponsResponse>> response = testRestTemplate.exchange(
                     ENDPOINT + "/" + createdCouponId + "/issues?page=0&size=20", HttpMethod.GET,
                     new HttpEntity<>(adminHeaders()), new ParameterizedTypeReference<>() {});
 

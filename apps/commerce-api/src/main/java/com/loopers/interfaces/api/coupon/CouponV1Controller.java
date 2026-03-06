@@ -40,7 +40,7 @@ public class CouponV1Controller implements CouponV1ApiSpec {
 
     @GetMapping("/users/me/coupons")
     @Override
-    public ApiResponse<org.springframework.data.domain.Page<CouponV1Dto.IssuedCouponResponse>> getMyCoupons(
+    public ApiResponse<CouponV1Dto.PagedIssuedCouponsResponse> getMyCoupons(
         @RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
@@ -50,8 +50,7 @@ public class CouponV1Controller implements CouponV1ApiSpec {
         int safePage = Math.max(DEFAULT_PAGE, page);
         int safeSize = size <= 0 ? DEFAULT_SIZE : Math.min(size, 100);
         Pageable pageable = PageRequest.of(safePage, safeSize);
-        var result = couponFacade.getMyCoupons(userId, pageable)
-            .map(CouponV1Dto.IssuedCouponResponse::from);
-        return ApiResponse.success(result);
+        var result = couponFacade.getMyCoupons(userId, pageable);
+        return ApiResponse.success(CouponV1Dto.PagedIssuedCouponsResponse.from(result));
     }
 }

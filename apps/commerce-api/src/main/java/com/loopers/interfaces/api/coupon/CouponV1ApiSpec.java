@@ -4,7 +4,6 @@ import com.loopers.interfaces.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.data.domain.Page;
 
 @Tag(name = "Coupon V1 API", description = "쿠폰 API (대고객)")
 public interface CouponV1ApiSpec {
@@ -18,7 +17,7 @@ public interface CouponV1ApiSpec {
     );
 
     @Operation(summary = "내 쿠폰 목록", description = "보유한 쿠폰 목록을 조회합니다. 상태(AVAILABLE/USED/EXPIRED) 포함.")
-    ApiResponse<Page<CouponV1Dto.IssuedCouponResponse>> getMyCoupons(
+    ApiResponse<CouponV1Dto.PagedIssuedCouponsResponse> getMyCoupons(
         @Parameter(description = "로그인 사용자 ID (X-Loopers-LoginId)", required = true)
         String loginId,
         @Parameter(description = "페이지 (0부터)")
