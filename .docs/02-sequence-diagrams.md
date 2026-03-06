@@ -20,7 +20,6 @@ sequenceDiagram
     participant Like
     participant LikeRepository
     participant ProductDomainService
-    participant Product
 
     Note right of 고객: 인증된 고객
 
@@ -41,9 +40,8 @@ sequenceDiagram
 
     LikeDomainService-->>-LikeApplicationService: 결과 반환
 
-    LikeApplicationService->>+ProductDomainService: 좋아요 수 증가 (비관적 락)
-    ProductDomainService->>+Product: incrementLikeCount()
-    Product-->>-ProductDomainService: 완료
+    LikeApplicationService->>+ProductDomainService: 좋아요 수 증가 (@Modifying 벌크 UPDATE)
+    Note right of ProductDomainService: 엔티티 락 불필요. JPQL UPDATE로 직접 증감
     ProductDomainService-->>-LikeApplicationService: 완료
 
     LikeApplicationService-->>-LikeV1Controller: 결과 반환
@@ -194,17 +192,18 @@ sequenceDiagram
     end
 
     loop 각 주문 항목 (productId 순으로 정렬)
-        OrderApplicationService->>+ProductDomainService: 상품 조회 (비관적 락)
-        alt 상품이 존재하지 않거나 삭제됨
-            ProductDomainService-->>고객: 실패
-        end
-        ProductDomainService-->>-OrderApplicationService: 상품
-        OrderApplicationService->>+Product: 재고 차감
+        OrderApplicationService->>+ProductStockDomainService: 재고 차감 (비관적 락 on product_stocks)
         alt 재고 부족
-            Product-->>고객: 실패
+            ProductStockDomainService-->>고객: 실패
         end
-        Product-->>-OrderApplicationService: 완료
+        ProductStockDomainService-->>-OrderApplicationService: 완료
     end
+
+    OrderApplicationService->>+ProductDomainService: 상품 일괄 조회 (락 없이)
+    alt 삭제된 상품 포함
+        ProductDomainService-->>고객: 실패
+    end
+    ProductDomainService-->>-OrderApplicationService: 상품 목록
 
     OrderApplicationService->>+BrandDomainService: 브랜드 정보 조회 (스냅샷용)
     BrandDomainService-->>-OrderApplicationService: 브랜드 목록
@@ -248,7 +247,7 @@ sequenceDiagram
     participant OrderApplicationService
     participant CartDomainService
     participant ProductDomainService
-    participant Product
+    participant ProductStockDomainService
     participant BrandDomainService
     participant OrderDomainService
     participant Order
@@ -276,17 +275,18 @@ sequenceDiagram
     end
 
     loop 각 장바구니 항목 (productId 순으로 정렬)
-        OrderApplicationService->>+ProductDomainService: 상품 조회 (비관적 락)
-        alt 상품이 존재하지 않거나 삭제됨
-            ProductDomainService-->>고객: 실패
-        end
-        ProductDomainService-->>-OrderApplicationService: 상품
-        OrderApplicationService->>+Product: 재고 차감
+        OrderApplicationService->>+ProductStockDomainService: 재고 차감 (비관적 락 on product_stocks)
         alt 재고 부족
-            Product-->>고객: 실패
+            ProductStockDomainService-->>고객: 실패
         end
-        Product-->>-OrderApplicationService: 완료
+        ProductStockDomainService-->>-OrderApplicationService: 완료
     end
+
+    OrderApplicationService->>+ProductDomainService: 상품 일괄 조회 (락 없이)
+    alt 삭제된 상품 포함
+        ProductDomainService-->>고객: 실패
+    end
+    ProductDomainService-->>-OrderApplicationService: 상품 목록
 
     OrderApplicationService->>+BrandDomainService: 브랜드 정보 조회 (스냅샷용)
     BrandDomainService-->>-OrderApplicationService: 브랜드 목록
@@ -313,8 +313,9 @@ sequenceDiagram
 > 시나리오 2.5 — 어드민이 브랜드를 삭제한다. 이때 해당 브랜드의 모든 상품도 함께 삭제된다.
 
 **다이어그램이 필요한 이유**
-- 도메인 간 협력: Brand 삭제가 Product 연쇄 삭제를 트리거한다
-- 삭제 순서: 브랜드를 먼저 삭제한 뒤 해당 브랜드의 상품을 삭제한다
+- 도메인 간 협력: Brand 삭제가 Product, ProductStock 연쇄 삭제를 트리거한다
+- 삭제 순서: 비관적 락으로 브랜드를 먼저 삭제한 뒤, 재고 → 상품 순으로 삭제한다
+- 동시성: 상품 등록(registerWithStock)도 Brand 비관적 락을 사용하여, 삭제와 등록이 직렬화된다
 
 ```mermaid
 sequenceDiagram
@@ -322,17 +323,17 @@ sequenceDiagram
     participant AdminBrandV1Controller
     participant BrandApplicationService
     participant BrandDomainService
+    participant ProductStockDomainService
     participant ProductDomainService
     participant Brand
-    participant Product
 
     Note right of 어드민: 인증된 어드민
 
     어드민->>+AdminBrandV1Controller: 브랜드 삭제 요청
     AdminBrandV1Controller->>+BrandApplicationService: 브랜드 삭제
 
-    BrandApplicationService->>+BrandDomainService: 브랜드 삭제
-    BrandDomainService->>BrandDomainService: 브랜드 조회
+    BrandApplicationService->>+BrandDomainService: 브랜드 삭제 (비관적 락)
+    BrandDomainService->>BrandDomainService: 브랜드 조회 (SELECT FOR UPDATE)
     alt 브랜드가 존재하지 않거나 삭제됨
         BrandDomainService-->>어드민: 실패
     end
@@ -340,9 +341,12 @@ sequenceDiagram
     Brand-->>-BrandDomainService: 완료
     BrandDomainService-->>-BrandApplicationService: 완료
 
+    BrandApplicationService->>+ProductStockDomainService: 해당 브랜드의 재고 전체 삭제
+    Note right of ProductStockDomainService: brandId 기준 벌크 soft delete
+    ProductStockDomainService-->>-BrandApplicationService: 완료
+
     BrandApplicationService->>+ProductDomainService: 해당 브랜드의 상품 전체 삭제
-    ProductDomainService->>+Product: 논리 삭제 (soft delete)
-    Product-->>-ProductDomainService: 완료
+    Note right of ProductDomainService: brandId 기준 벌크 soft delete
     ProductDomainService-->>-BrandApplicationService: 완료
 
     BrandApplicationService-->>-AdminBrandV1Controller: 결과 반환
@@ -357,7 +361,7 @@ sequenceDiagram
 
 **다이어그램이 필요한 이유**
 - 조건 분기: 주문 상태에 따른 취소 가능 여부 검증
-- 도메인 간 협력: 주문 취소 시 쿠폰 복원이 필요할 수 있다
+- 도메인 간 협력: 주문 취소 시 재고 복원 + 쿠폰 복원이 필요할 수 있다
 - 도메인 로직: ORDERED 상태에서만 CANCELLED로 전이 가능
 
 ```mermaid
@@ -367,6 +371,7 @@ sequenceDiagram
     participant OrderApplicationService
     participant OrderDomainService
     participant Order
+    participant ProductStockDomainService
     participant CouponIssueDomainService
 
     Note right of 고객: 인증된 고객
@@ -385,6 +390,11 @@ sequenceDiagram
         Order-->>고객: 실패
     end
     Order-->>-OrderApplicationService: 완료
+
+    loop 각 주문 항목 (productId 순으로 정렬, 데드락 방지)
+        OrderApplicationService->>+ProductStockDomainService: 재고 복원 (비관적 락 on product_stocks)
+        ProductStockDomainService-->>-OrderApplicationService: 완료
+    end
 
     opt 쿠폰이 적용된 주문
         OrderApplicationService->>+CouponIssueDomainService: 쿠폰 복원

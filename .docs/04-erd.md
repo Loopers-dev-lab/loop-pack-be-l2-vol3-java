@@ -33,8 +33,16 @@ erDiagram
         bigint brand_id
         varchar name
         int price
-        int stock
         int like_count
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    product_stocks {
+        bigint id PK
+        bigint product_id UK
+        int quantity
         timestamp created_at
         timestamp updated_at
         timestamp deleted_at
@@ -112,6 +120,7 @@ erDiagram
     }
 
     brands ||--o{ products : ""
+    products ||--|| product_stocks : ""
     users ||--o{ likes : ""
     products ||--o{ likes : ""
     users ||--|| carts : ""
@@ -133,6 +142,7 @@ erDiagram
 | users | UNIQUE(login_id) | 로그인 ID 중복 방지 |
 | likes | UNIQUE(user_id, product_id) | 1인 1좋아요 보장 |
 | carts | UNIQUE(user_id) | 1인 1장바구니 보장 |
+| product_stocks | UNIQUE(product_id) | 상품당 1개의 재고 보장 |
 | coupon_issues | UNIQUE(coupon_id, user_id) | 1인 1발급 보장 |
 
 ---
@@ -142,6 +152,7 @@ erDiagram
 | 테이블 | 인덱스 컬럼 | 용도 |
 |---|---|---|
 | products | brand_id | 브랜드별 상품 필터링 |
+| product_stocks | product_id (UK) | 상품별 재고 조회 (UK이므로 자동 인덱스) |
 | likes | user_id | 유저의 좋아요 목록 조회 |
 | cart_items | cart_id | 장바구니의 항목 조회 |
 | orders | (user_id, created_at) | 유저의 주문 목록 조회 (날짜 범위 필터링) |
@@ -165,8 +176,8 @@ erDiagram
 
 | 대상 | 방식 | 이유 |
 |---|---|---|
-| Product.stock | 비관적 락 | 주문 시 재고 차감. 동시 주문에도 재고가 음수가 되어서는 안 된다 |
-| Product.like_count | 비관적 락 + in-memory 증감 | 좋아요 등록/취소 시 비관적 락으로 Product를 조회한 뒤 incrementLikeCount()/decrementLikeCount()로 카운터를 증감한다 |
+| ProductStock.quantity | 비관적 락 (product_stocks 행만 잠금) | 주문 시 재고 차감. 동시 주문에도 재고가 음수가 되어서는 안 된다. Product 행은 잠기지 않는다 |
+| Product.like_count | @Modifying 벌크 UPDATE (엔티티 락 불필요) | 좋아요 등록/취소 시 JPQL UPDATE로 직접 증감한다 |
 | CouponIssue.status | 낙관적 락 (@Version) | 동일 쿠폰의 동시 사용 방지. 극히 드문 경합이며 실패 시 재시도 불필요 (이미 사용된 쿠폰) |
 
 ---

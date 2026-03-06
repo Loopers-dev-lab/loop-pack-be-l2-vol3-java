@@ -27,13 +27,18 @@ classDiagram
         Long brandId
         String name
         Money price
-        Stock stock
         int likeCount
-        +changeDetails(String, Money, Stock) void
-        +deductStock(int) void
-        +restoreStock(int) void
+        +changeDetails(String, Money) void
         +incrementLikeCount() void
         +decrementLikeCount() void
+    }
+
+    class ProductStock {
+        Long productId
+        Stock stock
+        +deduct(int) void
+        +restore(int) void
+        +changeQuantity(Stock) void
     }
 
     class Like {
@@ -124,6 +129,7 @@ classDiagram
     Order "*" --> "0..1" CouponIssue : couponIssueId
 
     Product "*" --> "1" Brand : brandId
+    Product "1" --> "1" ProductStock : productId
     Like "*" --> "1" User : userId
     Like "*" --> "1" Product : productId
     User "1" --> "1" Cart : userId
@@ -165,11 +171,12 @@ classDiagram
 | User | changePassword(String) | 암호화된 비밀번호로 교체 |
 | User | getMaskedName() | UserName VO의 mask()를 통해 마스킹된 이름 반환 |
 | Brand | rename(String) | 브랜드명 변경 |
-| Product | changeDetails(String, Money, Stock) | 상품 정보(이름, 가격, 재고) 변경 |
-| Product | deductStock(int) | 재고 부족 시 CoreException(BAD_REQUEST) |
-| Product | restoreStock(int) | 주문 취소 시 재고 복원 |
+| Product | changeDetails(String, Money) | 상품 정보(이름, 가격) 변경 |
 | Product | incrementLikeCount() | 좋아요 수 1 증가 |
 | Product | decrementLikeCount() | 좋아요 수 1 감소, 0 미만 불가 |
+| ProductStock | deduct(int) | 재고 부족 시 CoreException(BAD_REQUEST) |
+| ProductStock | restore(int) | 주문 취소 시 재고 복원 |
+| ProductStock | changeQuantity(Stock) | 어드민 재고 수정 |
 | Cart | addItem(Long, int) | 이미 담긴 상품이면 수량 합산, 새 상품이면 항목 추가 |
 | Cart | removeUnavailableItems(Set&lt;Long&gt;) | 유효하지 않은 상품을 장바구니에서 제거 |
 | CartItem | addQuantity(int) | 이미 담긴 상품 → 수량 합산 |
@@ -190,6 +197,7 @@ classDiagram
 | 관계 | 카디널리티 | 설명 |
 |---|---|---|
 | Brand → Product | 1 : N | 하나의 브랜드에 여러 상품 |
+| Product → ProductStock | 1 : 1 | 하나의 상품에 하나의 재고 (별도 Aggregate) |
 | User → Like | 1 : N | 한 유저가 여러 좋아요 |
 | Product → Like | 1 : N | 한 상품에 여러 좋아요 (Like = 교차 테이블) |
 | User → Cart | 1 : 1 | 한 유저에 하나의 장바구니 |
@@ -209,7 +217,7 @@ classDiagram
 - **FK 미사용**: 모든 관계는 ID 참조만. FK 제약조건 없음. 참조 무결성은 애플리케이션 레벨에서 검증한다.
 - **Cart Aggregate Root**: Cart가 Aggregate Root이며, CartItem은 Cart 내부 엔티티이다. User당 하나의 Cart가 존재하며, CartItem 조작은 Cart를 통해서만 이루어진다. Aggregate 내부에서 `@OneToMany`/`@ManyToOne` 매핑을 사용한다 (Aggregate 경계 내 일관성 보장을 위해).
 - **Order Aggregate Root**: Order가 Aggregate Root이며, OrderItem은 Order 내부 엔티티이다. Aggregate 내부에서 `@OneToMany`/`@ManyToOne` 매핑을 사용한다.
-- **좋아요 수 비정규화**: Product에 likeCount 필드로 저장. LikeApplicationService에서 좋아요 등록/취소 시 비관적 락으로 Product를 조회한 뒤 in-memory에서 카운터를 증감한다.
+- **좋아요 수 비정규화**: Product에 likeCount 필드로 저장. LikeApplicationService에서 좋아요 등록/취소 시 @Modifying 벌크 UPDATE로 직접 증감한다 (엔티티 락 불필요).
 - **N:M 관계**: Like 교차 테이블로 해소한다.
 - **likes, cart_items 물리 삭제**: 이력이 필요 없는 토글/임시 데이터이므로 Soft Delete 대신 물리 삭제 처리. UNIQUE 제약조건과의 충돌을 방지한다.
 - **동일 상품 중복 방지**: 장바구니의 동일 상품 중복은 애플리케이션 레벨에서 검증한다 (Cart.addItem()에서 기존 항목이면 수량 합산).
