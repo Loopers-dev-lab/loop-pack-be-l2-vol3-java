@@ -84,9 +84,7 @@ public class Coupon extends BaseEntity {
     }
 
     public void issue() {
-        if (this.issuedQuantity >= this.totalQuantity) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "쿠폰 발급 수량이 초과되었습니다.");
-        }
+        validateIssuable();
         this.issuedQuantity++;
     }
 

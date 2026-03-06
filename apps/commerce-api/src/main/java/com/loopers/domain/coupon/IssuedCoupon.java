@@ -90,6 +90,9 @@ public class IssuedCoupon {
     }
 
     public static IssuedCoupon create(Coupon coupon, Long userId) {
+        if (coupon == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "쿠폰은 필수입니다.");
+        }
         return new IssuedCoupon(null, coupon.getId(), userId, IssuedCouponStatus.AVAILABLE,
                 null, ZonedDateTime.now(), coupon.getValidUntil(), null,
                 coupon.getDiscountType(), coupon.getDiscountValue(),
@@ -105,6 +108,9 @@ public class IssuedCoupon {
     }
 
     public void use(Long orderId) {
+        if (orderId == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문 ID는 필수입니다.");
+        }
         if (this.status != IssuedCouponStatus.AVAILABLE) {
             throw new CoreException(ErrorType.BAD_REQUEST, "사용 가능한 상태의 쿠폰이 아닙니다.");
         }

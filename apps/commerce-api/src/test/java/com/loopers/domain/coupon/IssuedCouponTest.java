@@ -52,6 +52,13 @@ class IssuedCouponTest {
             assertThatThrownBy(() -> IssuedCoupon.create(coupon, null))
                     .isInstanceOf(CoreException.class);
         }
+
+        @Test
+        @DisplayName("쿠폰이 null이면 예외가 발생한다")
+        void create_nullCoupon_throwsException() {
+            assertThatThrownBy(() -> IssuedCoupon.create(null, 1L))
+                    .isInstanceOf(CoreException.class);
+        }
     }
 
     @Nested
@@ -86,6 +93,15 @@ class IssuedCouponTest {
             IssuedCoupon issuedCoupon = IssuedCoupon.create(createExpiredCoupon(), 1L);
 
             assertThatThrownBy(() -> issuedCoupon.use(100L))
+                    .isInstanceOf(CoreException.class);
+        }
+
+        @Test
+        @DisplayName("주문 ID가 null이면 예외가 발생한다")
+        void use_nullOrderId_throwsException() {
+            IssuedCoupon issuedCoupon = IssuedCoupon.create(createTestCoupon(), 1L);
+
+            assertThatThrownBy(() -> issuedCoupon.use(null))
                     .isInstanceOf(CoreException.class);
         }
     }

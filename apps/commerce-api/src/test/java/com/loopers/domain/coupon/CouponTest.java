@@ -115,6 +115,32 @@ class CouponTest {
 
             assertThatThrownBy(coupon::issue).isInstanceOf(CoreException.class);
         }
+
+        @Test
+        @DisplayName("삭제된 쿠폰은 발급할 수 없다")
+        void issue_deletedCoupon_throwsException() {
+            Coupon coupon = createFixedCoupon(10);
+            coupon.delete();
+
+            assertThatThrownBy(coupon::issue).isInstanceOf(CoreException.class);
+        }
+
+        @Test
+        @DisplayName("발급 기간이 아닌 쿠폰은 발급할 수 없다")
+        void issue_outsidePeriod_throwsException() {
+            Coupon coupon = Coupon.create(
+                    "미래 쿠폰",
+                    DiscountType.FIXED,
+                    Money.of(1000L),
+                    Money.of(5000L),
+                    null,
+                    10,
+                    ZonedDateTime.now().plusDays(10),
+                    ZonedDateTime.now().plusDays(30)
+            );
+
+            assertThatThrownBy(coupon::issue).isInstanceOf(CoreException.class);
+        }
     }
 
     @Nested
