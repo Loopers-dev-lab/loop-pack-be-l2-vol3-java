@@ -193,5 +193,31 @@ class MemberTest {
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
+
+        @DisplayName("0 포인트를 차감하면 예외가 발생한다")
+        @Test
+        void deductPoint_zero_throwsException() {
+            Member member = createMemberWithPoint(Money.of(1000L));
+
+            assertThatThrownBy(() -> member.deductPoint(Money.zero()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+
+        @DisplayName("0 포인트를 충전하면 예외가 발생한다")
+        @Test
+        void addPoint_zero_throwsException() {
+            Member member = Member.create(
+                    new MemberId("user1"),
+                    Password.ofEncoded("encoded:Valid123!"),
+                    new Name("앤드류"),
+                    new Email("test@test.com"),
+                    new BirthDate("1997-01-01")
+            );
+
+            assertThatThrownBy(() -> member.addPoint(Money.zero()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
     }
 }

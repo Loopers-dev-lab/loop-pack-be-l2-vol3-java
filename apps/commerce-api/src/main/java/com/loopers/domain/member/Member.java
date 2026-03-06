@@ -62,6 +62,9 @@ public class Member extends BaseEntity {
     }
 
     public void deductPoint(Money amount) {
+        if (amount.equals(Money.zero())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "차감할 포인트는 0보다 커야 합니다.");
+        }
         if (!this.point.isGreaterThanOrEqual(amount)) {
             throw new CoreException(ErrorType.BAD_REQUEST, "포인트가 부족합니다.");
         }
@@ -69,6 +72,9 @@ public class Member extends BaseEntity {
     }
 
     public void addPoint(Money amount) {
+        if (amount.equals(Money.zero())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "추가할 포인트는 0보다 커야 합니다.");
+        }
         this.point = this.point.add(amount);
     }
 
