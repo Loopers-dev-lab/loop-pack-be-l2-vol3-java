@@ -17,6 +17,8 @@
 - 불필요한 private 함수 지양, 객체지향적 코드 작성
 - /application/ 내부 모든 클래스 private 함수 금지
 - domain 서비스 private 함수 금지
+- Controller 조합/오케스트레이션 로직 금지 (여러 도메인 데이터 결합/매핑은 Facade 또는 Service로 이동)
+- Application/Domain Service 내부 메서드 간 직접 호출 금지
 - unused import 제거
 - 성능 최적화
 - 모든 테스트 케이스가 통과해야 함
@@ -25,12 +27,15 @@
 - **Facade → Service만 호출**. Repository를 직접 접근하지 않는다.
 - **Service → 자기 도메인 Repository만 접근**. 다른 도메인의 Service나 Repository를 호출하지 않는다.
 - **Service 간 직접 호출 금지**. 크로스 도메인 협력은 반드시 Facade를 통해 이루어진다.
-- **트랜잭션 위치**: `@Transactional`은 Domain Service에만 위치한다. Facade에는 절대 `@Transactional`을 두지 않는다. 크로스 도메인 쓰기 시 각 Service가 자기 도메인 내에서 개별 트랜잭션을 관리하고, 실패 시 Facade에서 보상 로직을 처리한다.
+- **Controller 조합/오케스트레이션 로직 금지**. Controller는 요청/응답 변환만 수행한다.
+- **Application/Domain Service private 메서드 금지**.
+- **Application/Domain Service 내부 메서드 간 직접 호출 금지**.
+- **트랜잭션 위치**: `@Transactional`은 Domain Service 및 Application Service에만 위치한다. Facade에는 절대 `@Transactional`을 두지 않는다. 크로스 도메인 쓰기 시 각 Service가 자기 도메인 내에서 개별 트랜잭션을 관리하고, 실패 시 Facade에서 보상 로직을 처리한다.
 
 ## 비즈니스 규칙
 - 결제 시스템 없음. 주문 완료 = 결제 완료로 취급한다.
 - 주문 시점의 상품 정보를 스냅샷으로 저장한다 (주문 후 상품 변경에 영향받지 않도록).
-- 어드민 인증은 X-ROOPERS-LDAP 헤더 기반으로 처리한다.
+- 어드민 인증은 X-Loopers-Ldap 헤더 기반으로 처리한다.
 - 포인트 충전 기능은 범위 외 (Scope-out).
 
 ## 주의사항
