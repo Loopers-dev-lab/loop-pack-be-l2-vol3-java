@@ -125,6 +125,8 @@ public class ProductService {
     /**
      * 주문 항목 목록을 검증하고, 유효 시 각 상품의 스냅샷(이름·가격) 목록을 반환한다.
      * 하나라도 미존재/삭제/재고 부족이면 예외를 던진다.
+     * 재고 차감은 하지 않으며, 검증·스냅샷 생성만 수행한다.
+     * placeOrder 등 쓰기 트랜잭션에서 호출되면 readOnly는 미적용되나, 동일 트랜잭션 내 스냅샷·재고·주문의 일관성을 위해 의도적으로 한 트랜잭션에서 실행한다.
      */
     @Transactional(readOnly = true)
     public List<ProductSnapshot> validateAndGetSnapshots(List<ProductValidationRequest> requests) {

@@ -34,6 +34,10 @@ public class OrderFacade {
         this.couponService = couponService;
     }
 
+    /**
+     * 주문을 접수한다. 쿠폰 적용 시 검증·사용 후 재고 차감·주문 저장까지 단일 트랜잭션에서 수행한다.
+     * 검증·스냅샷·금액 계산은 읽기 전용이지만, 스냅샷과 재고·주문이 같은 트랜잭션 뷰를 보도록 의도적으로 한 트랜잭션에 포함한다(05-transaction-query §8).
+     */
     @Transactional
     public OrderInfo placeOrder(Long userId, List<CreateOrderItemParam> params, Long couponId) {
         List<ProductValidationRequest> requests = params.stream()
