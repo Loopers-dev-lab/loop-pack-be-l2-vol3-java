@@ -9,9 +9,10 @@ public interface LikeRepository {
 
     // Command
     Like save(Like like);
-    void delete(Like like);
+    int deleteByUserIdAndProductId(Long userId, Long productId);
 
     // Query
+    boolean existsByUserIdAndProductId(Long userId, Long productId);
     Optional<Like> findByUserIdAndProductId(Long userId, Long productId);
     Page<Like> findAllByUserIdWithActiveProduct(Long userId, Pageable pageable);
 }

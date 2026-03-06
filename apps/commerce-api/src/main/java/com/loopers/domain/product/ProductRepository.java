@@ -20,6 +20,7 @@ public interface ProductRepository {
     Optional<Product> findById(Long id);
     Optional<Product> findActiveById(Long id);
     Optional<Product> findActiveWithActiveBrand(Long id);
+    boolean existsActiveById(Long id);
 
     List<Product> findAllByIdIn(Collection<Long> ids);
     List<Product> findAllActiveByIdIn(Collection<Long> ids);

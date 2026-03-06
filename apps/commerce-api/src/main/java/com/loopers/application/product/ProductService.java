@@ -94,6 +94,13 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
+    public void validateActiveProduct(Long productId) {
+        if (!productRepository.existsActiveById(productId)) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다");
+        }
+    }
+
+    @Transactional(readOnly = true)
     public List<Product> getActiveProducts(Set<Long> productIds) {
         List<Product> products = productRepository.findAllActiveByIdIn(productIds);
         if (products.size() != productIds.size()) {

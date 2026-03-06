@@ -61,6 +61,11 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public boolean existsActiveById(Long id) {
+        return productJpaRepository.existsActiveWithActiveBrand(id);
+    }
+
+    @Override
     public List<Product> findAllByIdIn(Collection<Long> ids) {
         return productJpaRepository.findAllByIdIn(ids);
     }

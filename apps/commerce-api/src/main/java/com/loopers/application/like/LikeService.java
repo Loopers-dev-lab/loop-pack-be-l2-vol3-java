@@ -3,12 +3,11 @@ package com.loopers.application.like;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.like.LikeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -20,25 +19,23 @@ public class LikeService {
 
     @Transactional
     public boolean like(Long userId, Long productId) {
-        Optional<Like> existing = likeRepository.findByUserIdAndProductId(userId, productId);
-        if (existing.isPresent()) {
+        if (likeRepository.existsByUserIdAndProductId(userId, productId)) {
             return false;
         }
 
-        Like like = Like.create(userId, productId);
-        likeRepository.save(like);
-        return true;
+        try {
+            Like like = Like.create(userId, productId);
+            likeRepository.save(like);
+            return true;
+        } catch (DataIntegrityViolationException e) {
+            return false;
+        }
     }
 
     @Transactional
     public boolean unlike(Long userId, Long productId) {
-        Optional<Like> existing = likeRepository.findByUserIdAndProductId(userId, productId);
-        if (existing.isEmpty()) {
-            return false;
-        }
-
-        likeRepository.delete(existing.get());
-        return true;
+        int deleted = likeRepository.deleteByUserIdAndProductId(userId, productId);
+        return deleted > 0;
     }
 
     // Query

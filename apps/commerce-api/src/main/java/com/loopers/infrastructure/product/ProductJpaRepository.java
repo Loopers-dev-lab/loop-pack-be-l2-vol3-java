@@ -44,6 +44,11 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
            "WHERE p.id = :id AND p.deletedAt IS NULL AND b.deletedAt IS NULL")
     Optional<Product> findActiveWithActiveBrand(@Param("id") Long id);
 
+    @Query("SELECT COUNT(p) > 0 FROM Product p " +
+           "JOIN Brand b ON p.brandId = b.id " +
+           "WHERE p.id = :id AND p.deletedAt IS NULL AND b.deletedAt IS NULL")
+    boolean existsActiveWithActiveBrand(@Param("id") Long id);
+
     List<Product> findAllByIdIn(Collection<Long> ids);
 
     @Query("SELECT p FROM Product p " +

@@ -29,7 +29,7 @@ public class LikeFacade {
 
     @Transactional
     public void like(Long userId, Long productId) {
-        productService.getActiveProduct(productId);
+        productService.validateActiveProduct(productId);
 
         boolean created = likeService.like(userId, productId);
         if (created) {
