@@ -33,11 +33,12 @@ public class IssuedCouponService {
     }
 
     @Transactional(readOnly = true)
-    public Long validateAndGetCouponId(Long issuedCouponId, Long userId) {
+    public IssuedCouponInfo getUsableBy(Long issuedCouponId, Long userId) {
         IssuedCoupon issuedCoupon = issuedCouponRepository.findByIdAndUserId(issuedCouponId, userId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[issuedCouponId = " + issuedCouponId + "] 를 찾을 수 없습니다."));
-        issuedCoupon.validate(userId);
-        return issuedCoupon.getCouponId();
+        issuedCoupon.validateUsableBy(userId);
+
+        return IssuedCouponInfo.from(issuedCoupon);
     }
 
     @Transactional

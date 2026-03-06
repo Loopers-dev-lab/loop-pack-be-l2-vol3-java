@@ -55,7 +55,7 @@ public class IssuedCoupon extends BaseEntity {
         return Status.AVAILABLE;
     }
 
-    public void validate(Long requestUserId) {
+    public void validateUsableBy(Long requestUserId) {
         Status status = getStatus();
 
         if (status == Status.USED) {

@@ -1,9 +1,7 @@
 package com.loopers.interfaces.api.order;
 
-import com.loopers.application.order.OrderCreateCommand;
 import com.loopers.application.order.OrderFacade;
 import com.loopers.application.order.OrderInfo;
-import com.loopers.application.order.OrderItemCommand;
 import com.loopers.application.order.OrderItemInfo;
 import com.loopers.application.order.OrderService;
 import com.loopers.interfaces.api.ApiResponse;
@@ -38,10 +36,7 @@ public class OrderV1Controller {
             @LoginUser Long userId,
             @Valid @RequestBody OrderV1Dto.CreateRequest request
     ) {
-        List<OrderItemCommand> items = request.items().stream()
-                                              .map(item -> new OrderItemCommand(item.productId(), item.quantity()))
-                                              .toList();
-        OrderInfo order = orderFacade.createOrder(new OrderCreateCommand(userId, items, request.issuedCouponId()));
+        OrderInfo order = orderFacade.createOrder(request.toCommand(userId));
         return ApiResponse.success(OrderV1Dto.OrderResponse.from(order));
     }
 

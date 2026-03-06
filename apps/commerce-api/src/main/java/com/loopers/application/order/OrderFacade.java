@@ -1,9 +1,12 @@
 package com.loopers.application.order;
 
 import com.loopers.application.coupon.CouponService;
+import com.loopers.application.coupon.IssuedCouponInfo;
 import com.loopers.application.coupon.IssuedCouponService;
 import com.loopers.application.product.ProductService;
 import com.loopers.application.product.ProductInfo;
+import com.loopers.domain.coupon.Coupon;
+import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.order.OrderItemSnapshot;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -11,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -23,37 +27,39 @@ public class OrderFacade {
 
     @Transactional
     public OrderInfo createOrder(OrderCreateCommand command) {
-        orderService.validateItems(command.items());
+        OrderItemValidator.validate(command.items());
 
-        List<Long> productIds = command.items().stream()
-                                       .map(OrderItemCommand::productId)
-                                       .toList();
-        List<ProductInfo> products = productService.getActiveProductsByIdsOrThrow(productIds);
+        List<Long> orderedProductIds = command.items().stream().map(OrderItemCommand::productId).toList();
+        List<ProductInfo> activeProducts = productService.getActiveProductsByIdsOrThrow(orderedProductIds);
 
-        Map<Long, ProductInfo> productMap = products.stream()
-                                                    .collect(Collectors.toMap(ProductInfo::id, p -> p));
-
-        List<OrderItemSnapshot> snapshots = command.items().stream()
+        Map<Long, ProductInfo> productMap = activeProducts.stream().collect(Collectors.toMap(ProductInfo::id, p -> p));
+        List<OrderItemSnapshot> orderItemSnapshots = command.items().stream()
                                                    .map(item -> {
                                                        ProductInfo p = productMap.get(item.productId());
                                                        return new OrderItemSnapshot(p.id(), p.name(), p.price(), item.quantity());
                                                    })
                                                    .toList();
+        long originalAmount = orderItemSnapshots.stream().mapToLong(OrderItemSnapshot::lineAmount).sum();
 
-        long originalAmount = snapshots.stream().mapToLong(OrderItemSnapshot::lineAmount).sum();
-
-        long discountAmount = 0L;
-        if (command.issuedCouponId() != null) {
-            Long couponId = issuedCouponService.validateAndGetCouponId(command.issuedCouponId(), command.userId());
-            discountAmount = couponService.calculateDiscount(couponId, originalAmount);
-        }
+        Optional<IssuedCouponInfo> issuedCouponOpt = Optional.ofNullable(command.issuedCouponId())
+                                                             .map(id -> issuedCouponService.getUsableBy(id, command.userId()));
+        long discountAmount = issuedCouponOpt
+                                .map(IssuedCouponInfo::couponId)
+                                .map(couponService::findById)
+                                .map(coupon -> coupon.calculateDiscount(originalAmount))
+                                .orElse(0L);
 
         productService.decreaseStock(command.items());
+        issuedCouponOpt.ifPresent(issuedCoupon -> issuedCouponService.use(issuedCoupon.id(), command.userId()));
 
-        if (command.issuedCouponId() != null) {
-            issuedCouponService.use(command.issuedCouponId(), command.userId());
-        }
-
-        return orderService.placeOrder(command.userId(), snapshots, discountAmount);
+        return orderService.placeOrder(command.userId(), orderItemSnapshots, discountAmount);
     }
+
+
+- IssuedCoupon.validate() → validateUsableBy()로 rename
+- IssuedCouponService.validateAndGetCouponId() → getUsableBy()로 rename, IssuedCouponInfo 반환
+- OrderService.validateItems() → OrderItemValidator로 이동
+- OrderV1Dto.CreateRequest에 toCommand() 추가, 컨트롤러 변환 로직 제거
+- OrderFacade: Optional<IssuedCouponInfo> 체이닝, 변수명 명확화
+- 쿠폰 할인 계산을 coupon.calculateDiscount() 직접 호출로 개선
 }

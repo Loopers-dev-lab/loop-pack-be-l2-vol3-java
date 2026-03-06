@@ -1,6 +1,8 @@
 package com.loopers.interfaces.api.order;
 
+import com.loopers.application.order.OrderCreateCommand;
 import com.loopers.application.order.OrderInfo;
+import com.loopers.application.order.OrderItemCommand;
 import com.loopers.application.order.OrderItemInfo;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
@@ -14,7 +16,14 @@ public class OrderV1Dto {
     public record CreateRequest(
             @NotNull @NotEmpty List<OrderItemRequest> items,
             Long issuedCouponId
-    ) {}
+    ) {
+        public OrderCreateCommand toCommand(Long userId) {
+            List<OrderItemCommand> itemCommands = items.stream()
+                    .map(item -> new OrderItemCommand(item.productId(), item.quantity()))
+                    .toList();
+            return new OrderCreateCommand(userId, itemCommands, issuedCouponId);
+        }
+    }
 
     public record OrderItemRequest(
             @NotNull Long productId,

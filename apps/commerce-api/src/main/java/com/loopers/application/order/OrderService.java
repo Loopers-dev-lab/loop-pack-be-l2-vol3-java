@@ -18,22 +18,6 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
 
-    public void validateItems(List<OrderItemCommand> items) {
-        if (items == null || items.isEmpty()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다.");
-        }
-
-        boolean hasInvalidQuantity = items.stream().anyMatch(item -> item.quantity() <= 0);
-        if (hasInvalidQuantity) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "차감 수량은 1 이상이어야 합니다.");
-        }
-
-        long distinctCount = items.stream().map(OrderItemCommand::productId).distinct().count();
-        if (distinctCount != items.size()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "중복된 상품이 포함되어 있습니다.");
-        }
-    }
-
     @Transactional
     public OrderInfo placeOrder(Long userId, List<OrderItemSnapshot> snapshots) {
         return placeOrder(userId, snapshots, 0L);

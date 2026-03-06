@@ -71,7 +71,7 @@ public class IssuedCouponTest {
             issuedCoupon.markAsUsed();
 
             // act
-            CoreException result = assertThrows(CoreException.class, () -> issuedCoupon.validate(1L));
+            CoreException result = assertThrows(CoreException.class, () -> issuedCoupon.validateUsableBy(1L));
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.COUPON_ALREADY_USED);
@@ -84,7 +84,7 @@ public class IssuedCouponTest {
             IssuedCoupon issuedCoupon = IssuedCoupon.create(1L, 1L, LocalDateTime.now().minusSeconds(1));
 
             // act
-            CoreException result = assertThrows(CoreException.class, () -> issuedCoupon.validate(1L));
+            CoreException result = assertThrows(CoreException.class, () -> issuedCoupon.validateUsableBy(1L));
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.COUPON_EXPIRED);
@@ -97,7 +97,7 @@ public class IssuedCouponTest {
             IssuedCoupon issuedCoupon = IssuedCoupon.create(1L, 1L, LocalDateTime.now().plusDays(30));
 
             // act
-            CoreException result = assertThrows(CoreException.class, () -> issuedCoupon.validate(999L));
+            CoreException result = assertThrows(CoreException.class, () -> issuedCoupon.validateUsableBy(999L));
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
@@ -110,7 +110,7 @@ public class IssuedCouponTest {
             IssuedCoupon issuedCoupon = IssuedCoupon.create(1L, 1L, LocalDateTime.now().plusDays(30));
 
             // act & assert
-            assertDoesNotThrow(() -> issuedCoupon.validate(1L));
+            assertDoesNotThrow(() -> issuedCoupon.validateUsableBy(1L));
         }
     }
 }
