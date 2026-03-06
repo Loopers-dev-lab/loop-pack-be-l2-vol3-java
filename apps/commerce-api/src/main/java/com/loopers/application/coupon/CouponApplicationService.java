@@ -7,11 +7,16 @@ import com.loopers.domain.coupon.CouponIssue;
 import com.loopers.domain.coupon.CouponIssueDomainService;
 import com.loopers.domain.coupon.CouponType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.function.Supplier;
 
 @RequiredArgsConstructor
 @Component
@@ -19,11 +24,15 @@ public class CouponApplicationService {
 
     private final CouponDomainService couponDomainService;
     private final CouponIssueDomainService couponIssueDomainService;
+    private final PlatformTransactionManager transactionManager;
 
-    @Transactional
+    private static final int MAX_RETRY = 3;
+
     public CouponIssue issueCoupon(Long couponId, Long userId) {
-        Coupon coupon = couponDomainService.getById(couponId);
-        return couponIssueDomainService.issue(coupon, userId);
+        return retryOnConflict(() -> executeInNewTransaction(() -> {
+            Coupon coupon = couponDomainService.getById(couponId);
+            return couponIssueDomainService.issue(coupon, userId);
+        }));
     }
 
     @Transactional(readOnly = true)
@@ -59,5 +68,22 @@ public class CouponApplicationService {
     @Transactional(readOnly = true)
     public PageResult<CouponIssue> getCouponIssues(Long couponId, int page, int size) {
         return couponIssueDomainService.getIssuesByCouponId(couponId, page, size);
+    }
+
+    private <T> T retryOnConflict(Supplier<T> operation) {
+        for (int i = 0; i < MAX_RETRY; i++) {
+            try {
+                return operation.get();
+            } catch (OptimisticLockingFailureException e) {
+                if (i == MAX_RETRY - 1) throw e;
+            }
+        }
+        throw new IllegalStateException("Unreachable");
+    }
+
+    private <T> T executeInNewTransaction(Supplier<T> action) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return template.execute(status -> action.get());
     }
 }
