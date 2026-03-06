@@ -83,7 +83,7 @@ class OrderConcurrencyTest {
                 executorService.execute(() -> {
                     try {
                         transactionTemplate.executeWithoutResult(status ->
-                                productService.decreaseStockWithLock(productId, 1)
+                                productService.decreaseStockAtomic(productId, 1)
                         );
                         successCount.incrementAndGet();
                     } catch (Exception e) {
@@ -123,7 +123,7 @@ class OrderConcurrencyTest {
                 executorService.execute(() -> {
                     try {
                         transactionTemplate.executeWithoutResult(status ->
-                                productService.decreaseStockWithLock(productId, 1)
+                                productService.decreaseStockAtomic(productId, 1)
                         );
                         successCount.incrementAndGet();
                     } catch (Exception e) {

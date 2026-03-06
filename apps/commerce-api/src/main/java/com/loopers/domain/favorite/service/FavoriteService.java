@@ -6,6 +6,7 @@ import com.loopers.domain.favorite.repository.FavoriteRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 @RequiredArgsConstructor
@@ -16,10 +17,14 @@ public class FavoriteService {
 
     public void addFavorite(FavoriteCommand.Add command) {
         if (favoriteRepository.existsByMemberIdAndProductId(command.memberId(), command.productId())) {
-            throw new CoreException(ErrorType.CONFLICT, "이미 좋아요한 상품입니다.");
+            return;
         }
-        Favorite favorite = Favorite.create(command.memberId(), command.productId());
-        favoriteRepository.save(favorite);
+        try {
+            Favorite favorite = Favorite.create(command.memberId(), command.productId());
+            favoriteRepository.save(favorite);
+        } catch (DataIntegrityViolationException e) {
+            // 동시 요청으로 중복 등록 시도 — 이미 등록된 것이므로 무시
+        }
     }
 
     public void delete(FavoriteCommand.Delete command) {

@@ -32,11 +32,6 @@ public class UserCouponRepositoryImpl implements UserCouponRepository {
     }
 
     @Override
-    public Optional<UserCoupon> findByIdWithLock(Long id) {
-        return jpaRepository.findByIdWithLock(id).map(UserCouponEntity::toModel);
-    }
-
-    @Override
     public Page<UserCoupon> findByMemberId(Long memberId, Pageable pageable) {
         return jpaRepository.findByMemberId(memberId, pageable).map(UserCouponEntity::toModel);
     }

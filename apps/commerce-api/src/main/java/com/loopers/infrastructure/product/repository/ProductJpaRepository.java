@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -20,7 +21,11 @@ public interface ProductJpaRepository extends JpaRepository<ProductEntity, Long>
 
     void deleteAllByBrandId(Long brandId);
 
+    @Modifying
+    @Query("UPDATE ProductEntity p SET p.stock = p.stock - :quantity WHERE p.id = :id AND p.stock >= :quantity")
+    int decreaseStock(@Param("id") Long id, @Param("quantity") int quantity);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM ProductEntity p WHERE p.id = :id")
-    Optional<ProductEntity> findByIdWithLock(@Param("id") Long id);
+    Optional<ProductEntity> findByIdWithPessimisticLock(@Param("id") Long id);
 }

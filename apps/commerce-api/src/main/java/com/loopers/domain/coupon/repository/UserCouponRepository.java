@@ -13,8 +13,6 @@ public interface UserCouponRepository {
 
     Optional<UserCoupon> findById(Long id);
 
-    Optional<UserCoupon> findByIdWithLock(Long id);
-
     Page<UserCoupon> findByMemberId(Long memberId, Pageable pageable);
 
     Page<UserCoupon> findByCouponTemplateId(Long couponTemplateId, Pageable pageable);

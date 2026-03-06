@@ -8,7 +8,8 @@ import org.hibernate.annotations.Comment;
 
 @Getter
 @Entity
-@Table(name = "favorite")
+@Table(name = "favorite", uniqueConstraints =
+        @UniqueConstraint(columnNames = {"memberId", "productId"}))
 public class FavoriteEntity extends BaseEntity {
 
     @Comment("회원 id")

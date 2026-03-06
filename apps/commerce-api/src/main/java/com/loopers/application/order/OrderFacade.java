@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -35,10 +36,11 @@ public class OrderFacade {
     public FindOrderResDto createOrder(String loginId, String password, CreateOrderReqDto dto) {
         Member member = memberService.findMember(loginId, password);
 
-        // 1. 상품별 재고 확인 및 차감 (비관적 락)
+        // 1. 상품별 재고 차감 (Atomic UPDATE, ID 오름차순 정렬로 데드락 방지)
         List<OrderProduct> orderProducts = dto.items().stream()
+                .sorted(Comparator.comparing(CreateOrderReqDto.OrderItemReqDto::productId))
                 .map(item -> {
-                    Product product = productService.decreaseStockWithLock(item.productId(), item.quantity());
+                    Product product = productService.decreaseStockAtomic(item.productId(), item.quantity());
                     return OrderProduct.create(
                             product.getId(),
                             product.getName().value(),
@@ -53,7 +55,7 @@ public class OrderFacade {
                 .mapToInt(op -> op.getPrice().value() * op.getQuantity().value())
                 .sum();
 
-        // 3. 쿠폰 유효성 검증 및 사용 처리 (비관적 락)
+        // 3. 쿠폰 유효성 검증 및 사용 처리 (낙관적 락)
         int discountAmount = 0;
         Long userCouponId = dto.userCouponId();
         if (userCouponId != null) {

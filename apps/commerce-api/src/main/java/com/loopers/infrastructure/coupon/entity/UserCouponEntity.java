@@ -8,6 +8,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import org.hibernate.annotations.SQLRestriction;
 
@@ -15,7 +17,8 @@ import java.time.LocalDateTime;
 
 @Getter
 @Entity
-@Table(name = "user_coupon")
+@Table(name = "user_coupon", uniqueConstraints =
+        @UniqueConstraint(columnNames = {"memberId", "couponTemplateId"}))
 @SQLRestriction("deleted_at IS NULL")
 public class UserCouponEntity extends BaseEntity {
 
@@ -30,6 +33,9 @@ public class UserCouponEntity extends BaseEntity {
     private CouponEnums.Status status;
 
     private LocalDateTime usedAt;
+
+    @Version
+    private Long version;
 
     protected UserCouponEntity() {}
 

@@ -23,5 +23,5 @@ public interface ProductRepository {
 
     List<Product> findByIds(List<Long> ids);
 
-    Optional<Product> findByIdWithLock(Long id);
+    int decreaseStock(Long id, int quantity);
 }

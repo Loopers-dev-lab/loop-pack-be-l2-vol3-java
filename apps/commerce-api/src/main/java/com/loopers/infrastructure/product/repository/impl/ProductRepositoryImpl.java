@@ -68,7 +68,7 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public Optional<Product> findByIdWithLock(Long id) {
-        return productJpaRepository.findByIdWithLock(id).map(ProductEntity::toModel);
+    public int decreaseStock(Long id, int quantity) {
+        return productJpaRepository.decreaseStock(id, quantity);
     }
 }

@@ -70,8 +70,8 @@ class OrderFacadeTest {
         void createsOrder_withMultipleProducts() {
             // arrange
             Member member = createTestMember();
-            Product product1 = createTestProduct(1L, 1L, "상품A", 10000, 100);
-            Product product2 = createTestProduct(2L, 1L, "상품B", 5000, 50);
+            Product product1 = createTestProduct(1L, 1L, "상품A", 10000, 98);
+            Product product2 = createTestProduct(2L, 1L, "상품B", 5000, 47);
 
             CreateOrderReqDto dto = new CreateOrderReqDto(List.of(
                     new CreateOrderReqDto.OrderItemReqDto(1L, 2),
@@ -79,7 +79,8 @@ class OrderFacadeTest {
             ), null);
 
             when(memberService.findMember("testuser", "password")).thenReturn(member);
-            when(productService.getProductsByIds(List.of(1L, 2L))).thenReturn(List.of(product1, product2));
+            when(productService.decreaseStockAtomic(1L, 2)).thenReturn(product1);
+            when(productService.decreaseStockAtomic(2L, 3)).thenReturn(product2);
             when(orderService.createOrder(any(OrderCommand.Create.class))).thenAnswer(invocation -> {
                 OrderCommand.Create command = invocation.getArgument(0);
                 return Orders.reconstruct(1L, command.memberId(), 35000, 0, null, command.orderProducts());
@@ -97,8 +98,8 @@ class OrderFacadeTest {
                 () -> assertThat(result.totalPrice()).isEqualTo(35000),
                 () -> assertThat(result.orderProducts()).hasSize(2)
             );
-            verify(productService).decreaseStock(product1, 2);
-            verify(productService).decreaseStock(product2, 3);
+            verify(productService).decreaseStockAtomic(1L, 2);
+            verify(productService).decreaseStockAtomic(2L, 3);
 
             // verify the command passed to orderService
             ArgumentCaptor<OrderCommand.Create> captor = ArgumentCaptor.forClass(OrderCommand.Create.class);
@@ -119,7 +120,7 @@ class OrderFacadeTest {
             ), null);
 
             when(memberService.findMember("testuser", "password")).thenReturn(member);
-            when(productService.getProductsByIds(List.of(999L)))
+            when(productService.decreaseStockAtomic(999L, 1))
                     .thenThrow(new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
 
             // act & assert
@@ -133,16 +134,14 @@ class OrderFacadeTest {
         void throwsException_whenInsufficientStock() {
             // arrange
             Member member = createTestMember();
-            Product product = createTestProduct(1L, 1L, "상품A", 10000, 5);
 
             CreateOrderReqDto dto = new CreateOrderReqDto(List.of(
                     new CreateOrderReqDto.OrderItemReqDto(1L, 10)
             ), null);
 
             when(memberService.findMember("testuser", "password")).thenReturn(member);
-            when(productService.getProductsByIds(List.of(1L))).thenReturn(List.of(product));
-            doThrow(new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다."))
-                    .when(productService).decreaseStock(product, 10);
+            when(productService.decreaseStockAtomic(1L, 10))
+                    .thenThrow(new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다."));
 
             // act & assert
             assertThatThrownBy(() -> orderFacade.createOrder("testuser", "password", dto))
