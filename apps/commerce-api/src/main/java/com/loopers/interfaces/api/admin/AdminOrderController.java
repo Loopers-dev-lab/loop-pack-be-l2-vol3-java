@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.admin;
 
 import com.loopers.application.order.OrderApplicationService;
-import com.loopers.application.order.OrderFacade;
+import com.loopers.application.order.OrderUseCase;
 import com.loopers.application.order.query.OrderAccessRequest;
 import com.loopers.domain.order.Order;
 import com.loopers.interfaces.api.ApiResponse;
@@ -24,7 +24,7 @@ import java.util.UUID;
 public class AdminOrderController {
 
     private final OrderApplicationService orderApplicationService;
-    private final OrderFacade orderFacade;
+    private final OrderUseCase orderUseCase;
 
     @GetMapping
     public ApiResponse<OrderDto.OrderListResponse> listOrders(
@@ -48,7 +48,7 @@ public class AdminOrderController {
     public ApiResponse<OrderDto.OrderResponse> cancelOrder(
             @PathVariable UUID orderId
     ) {
-        Order order = orderFacade.cancel(new OrderAccessRequest(orderId, null, true));
+        Order order = orderUseCase.cancel(new OrderAccessRequest(orderId, null, true));
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
     }
 }
