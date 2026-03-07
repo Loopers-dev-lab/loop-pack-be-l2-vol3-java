@@ -15,8 +15,9 @@ classDiagram
         -Integer stockQuantity
         -Integer likeCount
         +create(brandId, name, price, stockQuantity, description)$ Product
-        +validateStockSufficient(int quantity)
         +updateInfo(name, price, stockQuantity, description)
+        +delete()
+        +validateStockSufficient(int quantity)
         +isDeleted() boolean
         -validateNotDeleted()
     }

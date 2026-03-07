@@ -11,8 +11,10 @@ classDiagram
         -String name
         -String description
         +create(name, description)$ Brand
-        +update(name, description)
+        +updateInfo(name, description)
         +delete()
+        +isDeleted() boolean
+        +validateNotDeleted()
     }
 ```
 

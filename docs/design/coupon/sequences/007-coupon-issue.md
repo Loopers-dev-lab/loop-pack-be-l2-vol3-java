@@ -24,18 +24,15 @@ sequenceDiagram
         CS-->>CF: Coupon
         deactivate CS
 
-        CF->>CF: validateIssuable()
-        Note right of CF: 만료 검증 + 수량 검증<br/>(Fail-Fast)
+        Note over CF: 발급 가능 검증 (만료, 수량)
 
-        CF->>CS: 발급 수량 증가 (atomic UPDATE)
+        CF->>CS: 발급 수량 증가
         activate CS
-        Note right of CS: UPDATE SET issuedCount+1<br/>WHERE id = ? AND issuedCount < maxIssueCount
         CS-->>CF: void
         deactivate CS
 
         CF->>ICS: 발급 쿠폰 생성
         activate ICS
-        Note right of ICS: 중복 발급 검증<br/>(coupon_id + user_id)
         ICS-->>CF: IssuedCoupon
         deactivate ICS
     end
@@ -47,7 +44,6 @@ sequenceDiagram
 ```
 
 ## 핵심 포인트
-- Fail-Fast & Atomic Update 전략: 먼저 Entity에서 검증(validateIssuable)하고, 원자적 UPDATE로 issuedCount를 증가시킨다
-- 비관적 락 없이 동시성을 보장한다 — atomic UPDATE의 WHERE 조건으로 수량 초과를 방지
-- 중복 발급 검증은 IssuedCouponService에서 처리 (DB unique constraint 활용)
+- 발급 가능 검증(만료, 수량)으로 Fail-Fast 후, 원자적 업데이트로 수량 초과를 방지한다
+- 중복 발급은 IssuedCouponService에서 검증한다
 - 발급 수량 증가와 발급 쿠폰 생성은 하나의 트랜잭션에서 원자적으로 처리한다

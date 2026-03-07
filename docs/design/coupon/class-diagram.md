@@ -21,7 +21,6 @@ classDiagram
         +validateIssuable()
         +isExpired() boolean
         +isDeleted() boolean
-        +calculateDiscount(totalAmount) BigDecimal
     }
 
     class CouponType {
@@ -41,7 +40,7 @@ classDiagram
         -LocalDateTime usedAt
         +create(couponId, userId, couponName, couponType, couponValue, minOrderAmount, expiredAt)$ IssuedCoupon
         +use()
-        +softDelete()
+        +delete()
         +isUsed() boolean
         +isDeleted() boolean
         +isExpired() boolean
@@ -60,7 +59,7 @@ classDiagram
 
 - Coupon은 Soft Delete 대상이므로 BaseEntity 상속 (createdAt, updatedAt, deletedAt)
 - IssuedCoupon도 연쇄 삭제 + 사용 처리(usedAt)가 있으므로 BaseEntity 상속
-- CouponType은 enum으로 FIXED/RATE를 구분하며, 할인 계산 로직은 Coupon 엔티티가 소유
+- CouponType은 enum으로 FIXED/RATE를 구분하며, 할인 계산 로직은 IssuedCoupon 엔티티가 소유
 - `validateIssuable()`: 삭제/만료/수량 검증 (Fail-Fast) — 실제 issuedCount 증가는 CouponRepository의 atomic UPDATE로 처리
 - `calculateDiscount(totalAmount)`: FIXED는 min(value, totalAmount), RATE는 totalAmount x value / 100
 - `isExpired()`, `isUsed()`: 사실 제공 — Facade가 맥락에 맞게 판단

@@ -17,6 +17,7 @@ classDiagram
         +create(userId)$ Order
         +addItem(productId, productName, price, quantity)
         +applyCoupon(issuedCouponId, discountAmount)
+        +isOwnedBy(userId) boolean
     }
 
     class OrderItem {

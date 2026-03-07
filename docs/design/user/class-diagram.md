@@ -9,12 +9,13 @@
 classDiagram
     class User {
         -String loginId
-        -String password
+        -Password password
         -String name
         -LocalDate birthDate
         -String email
         +create(loginId, rawPassword, name, birthDate, email, encoder)$ User
         +changePassword(rawPassword, encoder)
+        +matchesPassword(rawPassword, encoder) boolean
         +getMaskedName() String
     }
 ```
