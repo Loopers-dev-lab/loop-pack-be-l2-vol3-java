@@ -16,7 +16,7 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.ConcurrencyTestHelper;
 import com.loopers.utils.DatabaseCleanUp;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
@@ -56,8 +56,8 @@ class OrderConcurrencyTest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
-    @AfterEach
-    void tearDown() {
+    @BeforeEach
+    void setUp() {
         databaseCleanUp.truncateAllTables();
     }
 
@@ -134,8 +134,12 @@ class OrderConcurrencyTest {
             );
 
             assertThat(exceptions).hasSize(threadCount - 1);
+
             IssuedCoupon issuedCoupon = issuedCouponRepository.findById(issuedCouponId).orElseThrow();
             assertThat(issuedCoupon.isUsed()).isTrue();
+
+            Product found = productRepository.findById(productId).orElseThrow();
+            assertThat(found.getStockQuantity()).isEqualTo(99);
         }
     }
 }
