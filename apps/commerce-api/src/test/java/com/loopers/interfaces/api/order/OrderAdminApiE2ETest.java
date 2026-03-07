@@ -178,7 +178,7 @@ class OrderAdminApiE2ETest {
                     () -> assertThat(response.getBody().data().totalAmount()).isEqualByComparingTo(new BigDecimal("130000")),
                     () -> assertThat(response.getBody().data().discountAmount()).isEqualByComparingTo(BigDecimal.ZERO),
                     () -> assertThat(response.getBody().data().finalAmount()).isEqualByComparingTo(new BigDecimal("130000")),
-                    () -> assertThat(response.getBody().data().couponId()).isNull(),
+                    () -> assertThat(response.getBody().data().issuedCouponId()).isNull(),
                     () -> assertThat(response.getBody().data().orderItems()).hasSize(2),
                     () -> assertThat(response.getBody().data().createdAt()).isNotNull()
             );

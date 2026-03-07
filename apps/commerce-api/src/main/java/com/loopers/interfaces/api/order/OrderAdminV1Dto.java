@@ -16,7 +16,7 @@ public class OrderAdminV1Dto {
             BigDecimal totalAmount,
             BigDecimal discountAmount,
             BigDecimal finalAmount,
-            Long couponId,
+            Long issuedCouponId,
             List<OrderItemResponse> orderItems,
             LocalDateTime createdAt
     ) {
@@ -63,7 +63,7 @@ public class OrderAdminV1Dto {
             BigDecimal totalAmount,
             BigDecimal discountAmount,
             BigDecimal finalAmount,
-            Long couponId,
+            Long issuedCouponId,
             LocalDateTime createdAt
     ) {
 

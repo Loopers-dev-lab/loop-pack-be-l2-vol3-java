@@ -37,11 +37,6 @@ public class IssuedCouponService {
     }
 
     @Transactional
-    public void deleteAvailableByCouponId(Long couponId) {
-        issuedCouponRepository.deleteAvailableByCouponId(couponId);
-    }
-
-    @Transactional
     public void markUsedIfAvailable(Long issuedCouponId, Long userId) {
         int updated = issuedCouponRepository.markUsedIfAvailable(issuedCouponId, userId);
         if (updated == 0) {

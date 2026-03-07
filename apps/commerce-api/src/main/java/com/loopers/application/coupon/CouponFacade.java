@@ -36,7 +36,6 @@ public class CouponFacade {
     @Transactional
     public void deleteCoupon(Long couponId) {
         couponService.delete(couponId);
-        issuedCouponService.deleteAvailableByCouponId(couponId);
     }
 
     @Transactional

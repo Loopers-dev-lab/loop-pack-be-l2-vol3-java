@@ -11,7 +11,6 @@ public interface IssuedCouponRepository {
 
     IssuedCoupon save(IssuedCoupon issuedCoupon);
     int markUsedIfAvailable(Long id, Long userId);
-    int deleteAvailableByCouponId(Long couponId);
 
     // Query
 

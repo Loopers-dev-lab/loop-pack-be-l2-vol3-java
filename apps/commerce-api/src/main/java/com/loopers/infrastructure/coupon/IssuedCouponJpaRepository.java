@@ -18,11 +18,6 @@ public interface IssuedCouponJpaRepository extends JpaRepository<IssuedCoupon, L
            "AND ic.usedAt IS NULL AND ic.deletedAt IS NULL")
     int markUsedIfAvailable(@Param("id") Long id, @Param("userId") Long userId);
 
-    @Modifying
-    @Query("UPDATE IssuedCoupon ic SET ic.deletedAt = CURRENT_TIMESTAMP " +
-           "WHERE ic.couponId = :couponId AND ic.usedAt IS NULL AND ic.deletedAt IS NULL")
-    int deleteAvailableByCouponId(@Param("couponId") Long couponId);
-
     // Query
 
     @Query(value = "SELECT ic FROM IssuedCoupon ic WHERE ic.couponId = :couponId ORDER BY ic.createdAt DESC",

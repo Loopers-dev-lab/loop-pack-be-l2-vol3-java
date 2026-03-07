@@ -92,39 +92,6 @@ class IssuedCouponServiceIntegrationTest {
     }
 
     @Nested
-    class 미사용_발급쿠폰_연쇄삭제 {
-
-        @Test
-        void 미사용_발급쿠폰이_삭제된다() {
-            IssuedCoupon saved = issuedCouponRepository.save(IssuedCoupon.create(1L, 100L, "테스트 쿠폰",
-                    CouponType.FIXED, 1000, null, FUTURE));
-
-            issuedCouponService.deleteAvailableByCouponId(1L);
-
-            IssuedCoupon found = issuedCouponRepository.findById(saved.getId()).orElseThrow();
-            assertThat(found.isDeleted()).isTrue();
-        }
-
-        @Test
-        void 사용된_발급쿠폰은_보존된다() {
-            IssuedCoupon used = issuedCouponRepository.save(IssuedCoupon.create(1L, 100L, "테스트 쿠폰",
-                    CouponType.FIXED, 1000, null, FUTURE));
-            used.use();
-            issuedCouponRepository.save(used);
-
-            issuedCouponService.deleteAvailableByCouponId(1L);
-
-            IssuedCoupon found = issuedCouponRepository.findById(used.getId()).orElseThrow();
-            assertThat(found.isDeleted()).isFalse();
-        }
-
-        @Test
-        void 발급쿠폰이_없으면_정상_처리된다() {
-            issuedCouponService.deleteAvailableByCouponId(999L);
-        }
-    }
-
-    @Nested
     class 할인_스냅샷_생성 {
 
         @Test
@@ -250,8 +217,9 @@ class IssuedCouponServiceIntegrationTest {
         @Test
         void 삭제된_발급쿠폰은_제외된다() {
             issuedCouponService.issue(IssuedCouponCommand.Issue.of(1L, 100L, "쿠폰A", CouponType.FIXED, 1000, null, FUTURE));
-            issuedCouponService.issue(IssuedCouponCommand.Issue.of(2L, 100L, "쿠폰B", CouponType.FIXED, 2000, null, FUTURE));
-            issuedCouponService.deleteAvailableByCouponId(2L);
+            IssuedCoupon couponB = issuedCouponService.issue(IssuedCouponCommand.Issue.of(2L, 100L, "쿠폰B", CouponType.FIXED, 2000, null, FUTURE));
+            couponB.delete();
+            issuedCouponRepository.save(couponB);
 
             Page<IssuedCoupon> result = issuedCouponService.findActiveByUserId(100L, PageRequest.of(0, 20));
 

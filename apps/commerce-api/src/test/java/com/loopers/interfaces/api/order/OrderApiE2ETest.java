@@ -80,7 +80,7 @@ class OrderApiE2ETest {
                     () -> assertThat(response.getBody().data().totalAmount()).isEqualByComparingTo(new BigDecimal("130000")),
                     () -> assertThat(response.getBody().data().discountAmount()).isEqualByComparingTo(BigDecimal.ZERO),
                     () -> assertThat(response.getBody().data().finalAmount()).isEqualByComparingTo(new BigDecimal("130000")),
-                    () -> assertThat(response.getBody().data().couponId()).isNull(),
+                    () -> assertThat(response.getBody().data().issuedCouponId()).isNull(),
                     () -> assertThat(response.getBody().data().orderItems()).hasSize(2),
                     () -> assertThat(response.getBody().data().createdAt()).isNotNull()
             );
@@ -253,7 +253,7 @@ class OrderApiE2ETest {
                     () -> assertThat(response.getBody().data().totalAmount()).isEqualByComparingTo(new BigDecimal("100000")),
                     () -> assertThat(response.getBody().data().discountAmount()).isEqualByComparingTo(new BigDecimal("5000")),
                     () -> assertThat(response.getBody().data().finalAmount()).isEqualByComparingTo(new BigDecimal("95000")),
-                    () -> assertThat(response.getBody().data().couponId()).isEqualTo(issuedCouponId)
+                    () -> assertThat(response.getBody().data().issuedCouponId()).isEqualTo(issuedCouponId)
             );
         }
 
@@ -277,7 +277,7 @@ class OrderApiE2ETest {
                     () -> assertThat(response.getBody().data().totalAmount()).isEqualByComparingTo(new BigDecimal("100000")),
                     () -> assertThat(response.getBody().data().discountAmount()).isEqualByComparingTo(new BigDecimal("10000")),
                     () -> assertThat(response.getBody().data().finalAmount()).isEqualByComparingTo(new BigDecimal("90000")),
-                    () -> assertThat(response.getBody().data().couponId()).isEqualTo(issuedCouponId)
+                    () -> assertThat(response.getBody().data().issuedCouponId()).isEqualTo(issuedCouponId)
             );
         }
 
@@ -722,7 +722,7 @@ class OrderApiE2ETest {
                     () -> assertThat(response.getBody().data().totalAmount()).isEqualByComparingTo(new BigDecimal("130000")),
                     () -> assertThat(response.getBody().data().discountAmount()).isEqualByComparingTo(BigDecimal.ZERO),
                     () -> assertThat(response.getBody().data().finalAmount()).isEqualByComparingTo(new BigDecimal("130000")),
-                    () -> assertThat(response.getBody().data().couponId()).isNull(),
+                    () -> assertThat(response.getBody().data().issuedCouponId()).isNull(),
                     () -> assertThat(response.getBody().data().orderItems()).hasSize(2),
                     () -> assertThat(response.getBody().data().createdAt()).isNotNull()
             );

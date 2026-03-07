@@ -27,11 +27,6 @@ public class IssuedCouponRepositoryImpl implements IssuedCouponRepository {
         return issuedCouponJpaRepository.markUsedIfAvailable(id, userId);
     }
 
-    @Override
-    public int deleteAvailableByCouponId(Long couponId) {
-        return issuedCouponJpaRepository.deleteAvailableByCouponId(couponId);
-    }
-
     // Query
 
     @Override

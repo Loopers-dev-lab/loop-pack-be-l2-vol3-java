@@ -214,8 +214,7 @@ class CouponApiE2ETest {
 
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(response.getBody().data().content()).hasSize(1),
-                    () -> assertThat(response.getBody().data().content().get(0).couponName()).isEqualTo("1000원 할인")
+                    () -> assertThat(response.getBody().data().content()).hasSize(2)
             );
         }
 
