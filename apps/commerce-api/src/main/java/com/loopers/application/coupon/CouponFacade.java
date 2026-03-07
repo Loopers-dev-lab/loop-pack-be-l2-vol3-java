@@ -48,10 +48,7 @@ public class CouponFacade {
         // -- 2단계: 상태 변경 (원자적 업데이트) --
         couponService.issue(couponId);
 
-        IssuedCoupon issuedCoupon = issuedCouponService.issue(
-                couponId, userId, coupon.getName(), coupon.getType(),
-                coupon.getValue(), coupon.getMinOrderAmount(), coupon.getExpiredAt()
-        );
+        IssuedCoupon issuedCoupon = issuedCouponService.issue(IssuedCouponCommand.Issue.from(coupon, userId));
         return IssuedCouponInfo.from(issuedCoupon);
     }
 

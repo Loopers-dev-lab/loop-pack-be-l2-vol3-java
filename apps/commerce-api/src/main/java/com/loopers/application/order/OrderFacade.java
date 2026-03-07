@@ -54,8 +54,7 @@ public class OrderFacade {
         OrderCommand.CouponSnapshot orderCoupon = OrderCommand.CouponSnapshot.of(
                 couponSnapshot.issuedCouponId(), couponSnapshot.discountAmount());
 
-        Order order = orderService.createOrder(
-                OrderCommand.Create.of(userId, orderItems, orderCoupon));
+        Order order = orderService.createOrder(OrderCommand.Create.of(userId, orderItems, orderCoupon));
 
         return OrderInfo.from(order);
     }

@@ -48,8 +48,8 @@ class IssuedCouponServiceIntegrationTest {
 
         @Test
         void 유효한_쿠폰ID와_사용자ID로_발급하면_발급쿠폰이_생성된다() {
-            IssuedCoupon result = issuedCouponService.issue(1L, 100L, "테스트 쿠폰",
-                    CouponType.FIXED, 1000, null, FUTURE);
+            IssuedCoupon result = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
 
             assertAll(
                     () -> assertThat(result.getId()).isNotNull(),
@@ -66,11 +66,11 @@ class IssuedCouponServiceIntegrationTest {
 
         @Test
         void 이미_발급받은_쿠폰이면_예외() {
-            issuedCouponService.issue(1L, 100L, "테스트 쿠폰",
-                    CouponType.FIXED, 1000, null, FUTURE);
+            issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
 
-            assertThatThrownBy(() -> issuedCouponService.issue(1L, 100L, "테스트 쿠폰",
-                    CouponType.FIXED, 1000, null, FUTURE))
+            assertThatThrownBy(() -> issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> {
                         assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT);
@@ -80,11 +80,11 @@ class IssuedCouponServiceIntegrationTest {
 
         @Test
         void 같은_쿠폰이라도_다른_사용자는_발급_가능하다() {
-            issuedCouponService.issue(1L, 100L, "테스트 쿠폰",
-                    CouponType.FIXED, 1000, null, FUTURE);
+            issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
 
-            IssuedCoupon result = issuedCouponService.issue(1L, 200L, "테스트 쿠폰",
-                    CouponType.FIXED, 1000, null, FUTURE);
+            IssuedCoupon result = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 200L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
 
             assertThat(result.getId()).isNotNull();
             assertThat(result.getUserId()).isEqualTo(200L);
@@ -129,8 +129,8 @@ class IssuedCouponServiceIntegrationTest {
 
         @Test
         void 유효한_정액_쿠폰이면_할인_금액이_포함된_스냅샷을_반환한다() {
-            IssuedCoupon issued = issuedCouponService.issue(1L, 100L, "5000원 할인",
-                    CouponType.FIXED, 5000, null, FUTURE);
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "5000원 할인", CouponType.FIXED, 5000, null, FUTURE));
 
             IssuedCouponSnapshot snapshot = issuedCouponService.createDiscountSnapshot(issued.getId(), 100L, new BigDecimal("50000"));
 
@@ -142,8 +142,8 @@ class IssuedCouponServiceIntegrationTest {
 
         @Test
         void 유효한_정률_쿠폰이면_비율에_따른_할인_금액을_반환한다() {
-            IssuedCoupon issued = issuedCouponService.issue(1L, 100L, "10% 할인",
-                    CouponType.RATE, 10, null, FUTURE);
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "10% 할인", CouponType.RATE, 10, null, FUTURE));
 
             IssuedCouponSnapshot snapshot = issuedCouponService.createDiscountSnapshot(issued.getId(), 100L, new BigDecimal("50000"));
 
@@ -165,8 +165,8 @@ class IssuedCouponServiceIntegrationTest {
 
         @Test
         void 본인_소유가_아니면_예외() {
-            IssuedCoupon issued = issuedCouponService.issue(1L, 100L, "5000원 할인",
-                    CouponType.FIXED, 5000, null, FUTURE);
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "5000원 할인", CouponType.FIXED, 5000, null, FUTURE));
 
             assertThatThrownBy(() -> issuedCouponService.createDiscountSnapshot(issued.getId(), 200L, new BigDecimal("50000")))
                     .isInstanceOf(CoreException.class)
@@ -178,8 +178,8 @@ class IssuedCouponServiceIntegrationTest {
 
         @Test
         void 이미_사용된_쿠폰이면_예외() {
-            IssuedCoupon issued = issuedCouponService.issue(1L, 100L, "5000원 할인",
-                    CouponType.FIXED, 5000, null, FUTURE);
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "5000원 할인", CouponType.FIXED, 5000, null, FUTURE));
             issued.use();
             issuedCouponRepository.save(issued);
 
@@ -193,8 +193,8 @@ class IssuedCouponServiceIntegrationTest {
 
         @Test
         void 최소_주문_금액_미달이면_예외() {
-            IssuedCoupon issued = issuedCouponService.issue(1L, 100L, "5000원 할인",
-                    CouponType.FIXED, 5000, new BigDecimal("50000"), FUTURE);
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "5000원 할인", CouponType.FIXED, 5000, new BigDecimal("50000"), FUTURE));
 
             assertThatThrownBy(() -> issuedCouponService.createDiscountSnapshot(issued.getId(), 100L, new BigDecimal("10000")))
                     .isInstanceOf(CoreException.class)
@@ -210,9 +210,9 @@ class IssuedCouponServiceIntegrationTest {
 
         @Test
         void 해당_쿠폰의_발급_내역만_조회된다() {
-            issuedCouponService.issue(1L, 100L, "쿠폰A", CouponType.FIXED, 1000, null, FUTURE);
-            issuedCouponService.issue(1L, 200L, "쿠폰A", CouponType.FIXED, 1000, null, FUTURE);
-            issuedCouponService.issue(2L, 100L, "쿠폰B", CouponType.FIXED, 2000, null, FUTURE);
+            issuedCouponService.issue(IssuedCouponCommand.Issue.of(1L, 100L, "쿠폰A", CouponType.FIXED, 1000, null, FUTURE));
+            issuedCouponService.issue(IssuedCouponCommand.Issue.of(1L, 200L, "쿠폰A", CouponType.FIXED, 1000, null, FUTURE));
+            issuedCouponService.issue(IssuedCouponCommand.Issue.of(2L, 100L, "쿠폰B", CouponType.FIXED, 2000, null, FUTURE));
 
             Page<IssuedCoupon> result = issuedCouponService.findByCouponId(1L, PageRequest.of(0, 20));
 
@@ -235,9 +235,9 @@ class IssuedCouponServiceIntegrationTest {
 
         @Test
         void 해당_사용자의_활성_발급쿠폰만_조회된다() {
-            issuedCouponService.issue(1L, 100L, "쿠폰A", CouponType.FIXED, 1000, null, FUTURE);
-            issuedCouponService.issue(2L, 100L, "쿠폰B", CouponType.FIXED, 2000, null, FUTURE);
-            issuedCouponService.issue(3L, 200L, "쿠폰C", CouponType.FIXED, 3000, null, FUTURE);
+            issuedCouponService.issue(IssuedCouponCommand.Issue.of(1L, 100L, "쿠폰A", CouponType.FIXED, 1000, null, FUTURE));
+            issuedCouponService.issue(IssuedCouponCommand.Issue.of(2L, 100L, "쿠폰B", CouponType.FIXED, 2000, null, FUTURE));
+            issuedCouponService.issue(IssuedCouponCommand.Issue.of(3L, 200L, "쿠폰C", CouponType.FIXED, 3000, null, FUTURE));
 
             Page<IssuedCoupon> result = issuedCouponService.findActiveByUserId(100L, PageRequest.of(0, 20));
 
@@ -249,8 +249,8 @@ class IssuedCouponServiceIntegrationTest {
 
         @Test
         void 삭제된_발급쿠폰은_제외된다() {
-            issuedCouponService.issue(1L, 100L, "쿠폰A", CouponType.FIXED, 1000, null, FUTURE);
-            issuedCouponService.issue(2L, 100L, "쿠폰B", CouponType.FIXED, 2000, null, FUTURE);
+            issuedCouponService.issue(IssuedCouponCommand.Issue.of(1L, 100L, "쿠폰A", CouponType.FIXED, 1000, null, FUTURE));
+            issuedCouponService.issue(IssuedCouponCommand.Issue.of(2L, 100L, "쿠폰B", CouponType.FIXED, 2000, null, FUTURE));
             issuedCouponService.deleteAvailableByCouponId(2L);
 
             Page<IssuedCoupon> result = issuedCouponService.findActiveByUserId(100L, PageRequest.of(0, 20));

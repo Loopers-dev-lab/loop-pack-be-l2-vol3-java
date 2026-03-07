@@ -1,6 +1,5 @@
 package com.loopers.application.coupon;
 
-import com.loopers.domain.coupon.CouponType;
 import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.coupon.IssuedCouponRepository;
 import com.loopers.support.error.CoreException;
@@ -13,8 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -25,14 +22,13 @@ public class IssuedCouponService {
     // Command
 
     @Transactional
-    public IssuedCoupon issue(Long couponId, Long userId, String couponName,
-                               CouponType couponType, int couponValue,
-                               BigDecimal minOrderAmount, LocalDateTime expiredAt) {
-        if (issuedCouponRepository.existsByCouponIdAndUserId(couponId, userId)) {
+    public IssuedCoupon issue(IssuedCouponCommand.Issue command) {
+        if (issuedCouponRepository.existsByCouponIdAndUserId(command.couponId(), command.userId())) {
             throw new CoreException(ErrorType.CONFLICT, "이미 발급받은 쿠폰입니다");
         }
-        IssuedCoupon issuedCoupon = IssuedCoupon.create(couponId, userId, couponName,
-                couponType, couponValue, minOrderAmount, expiredAt);
+        IssuedCoupon issuedCoupon = IssuedCoupon.create(command.couponId(), command.userId(),
+                command.couponName(), command.couponType(), command.couponValue(),
+                command.minOrderAmount(), command.expiredAt());
         try {
             return issuedCouponRepository.save(issuedCoupon);
         } catch (DataIntegrityViolationException e) {
