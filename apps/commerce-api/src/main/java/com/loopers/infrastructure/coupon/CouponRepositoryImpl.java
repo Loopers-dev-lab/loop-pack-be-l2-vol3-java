@@ -7,7 +7,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -43,5 +42,10 @@ public class CouponRepositoryImpl implements CouponRepository {
     @Override
     public Page<Coupon> findAllActive(Pageable pageable) {
         return couponJpaRepository.findAllActive(pageable);
+    }
+
+    @Override
+    public boolean existsActiveById(Long id) {
+        return couponJpaRepository.existsByIdAndDeletedAtIsNull(id);
     }
 }

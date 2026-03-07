@@ -293,6 +293,40 @@ class CouponServiceIntegrationTest {
     }
 
     @Nested
+    class 활성_쿠폰_존재_검증 {
+
+        @Test
+        void 활성_쿠폰이면_예외_없이_통과한다() {
+            Coupon coupon = couponService.register(CouponCommand.Register.of(
+                    "1000원 할인", "FIXED", 1000,
+                    BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
+            ));
+
+            couponService.validateActiveCoupon(coupon.getId());
+        }
+
+        @Test
+        void 미존재_쿠폰이면_예외() {
+            assertThatThrownBy(() -> couponService.validateActiveCoupon(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+
+        @Test
+        void 삭제된_쿠폰이면_예외() {
+            Coupon coupon = couponService.register(CouponCommand.Register.of(
+                    "쿠폰", "FIXED", 1000,
+                    null, 100, LocalDateTime.now().plusDays(7)
+            ));
+            couponService.delete(coupon.getId());
+
+            assertThatThrownBy(() -> couponService.validateActiveCoupon(coupon.getId()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+    }
+
+    @Nested
     class 활성_쿠폰_목록_조회 {
 
         @Test

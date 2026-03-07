@@ -64,6 +64,13 @@ public class CouponService {
     }
 
     @Transactional(readOnly = true)
+    public void validateActiveCoupon(Long id) {
+        if (!couponRepository.existsActiveById(id)) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다");
+        }
+    }
+
+    @Transactional(readOnly = true)
     public Page<Coupon> findActiveCoupons(Pageable pageable) {
         return couponRepository.findAllActive(pageable);
     }

@@ -76,7 +76,7 @@ public class CouponFacade {
 
     @Transactional(readOnly = true)
     public Page<IssuedCouponInfo> getCouponIssues(Long couponId, Pageable pageable) {
-        couponService.getActiveCoupon(couponId);
+        couponService.validateActiveCoupon(couponId);
         Page<IssuedCoupon> issuedCoupons = issuedCouponService.findByCouponId(couponId, pageable);
 
         List<Long> userIds = issuedCoupons.getContent().stream()
