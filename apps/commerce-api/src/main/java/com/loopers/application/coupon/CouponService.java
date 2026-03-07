@@ -22,7 +22,7 @@ public class CouponService {
     public Coupon register(CouponCommand.Register command) {
         Coupon coupon = Coupon.create(
                 command.name(),
-                command.couponType(),
+                command.type(),
                 command.value(),
                 command.minOrderAmount(),
                 command.maxIssueCount(),
