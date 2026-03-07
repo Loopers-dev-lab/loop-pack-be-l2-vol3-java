@@ -20,7 +20,7 @@ public interface CouponJpaRepository extends JpaRepository<Coupon, Long> {
     @Query("UPDATE Coupon c SET c.issuedCount = c.issuedCount + 1 " +
             "WHERE c.id = :id AND c.issuedCount < c.maxIssueCount " +
             "AND c.expiredAt > CURRENT_TIMESTAMP AND c.deletedAt IS NULL")
-    int issue(@Param("id") Long id);
+    int issueIfAvailable(@Param("id") Long id);
 
     // Query
 

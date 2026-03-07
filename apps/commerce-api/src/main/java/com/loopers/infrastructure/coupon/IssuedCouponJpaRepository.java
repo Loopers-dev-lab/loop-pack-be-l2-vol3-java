@@ -16,7 +16,7 @@ public interface IssuedCouponJpaRepository extends JpaRepository<IssuedCoupon, L
     @Query("UPDATE IssuedCoupon ic SET ic.usedAt = CURRENT_TIMESTAMP " +
            "WHERE ic.id = :id AND ic.userId = :userId " +
            "AND ic.usedAt IS NULL AND ic.deletedAt IS NULL")
-    int markUsed(@Param("id") Long id, @Param("userId") Long userId);
+    int markUsedIfAvailable(@Param("id") Long id, @Param("userId") Long userId);
 
     @Modifying
     @Query("UPDATE IssuedCoupon ic SET ic.deletedAt = CURRENT_TIMESTAMP " +

@@ -41,7 +41,7 @@ public class LikeFacade {
     public void unlike(Long userId, Long productId) {
         boolean deleted = likeService.unlike(userId, productId);
         if (deleted) {
-            productService.decrementLikeCount(productId);
+            productService.decrementLikeCountIfPositive(productId);
         }
     }
 

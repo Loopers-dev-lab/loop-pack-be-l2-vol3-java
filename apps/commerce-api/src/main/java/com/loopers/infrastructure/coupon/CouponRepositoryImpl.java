@@ -24,8 +24,8 @@ public class CouponRepositoryImpl implements CouponRepository {
     }
 
     @Override
-    public int issue(Long id) {
-        return couponJpaRepository.issue(id);
+    public int issueIfAvailable(Long id) {
+        return couponJpaRepository.issueIfAvailable(id);
     }
 
     // Query

@@ -53,8 +53,8 @@ public class ProductService {
     }
 
     @Transactional
-    public void decrementLikeCount(Long productId) {
-        productRepository.decrementLikeCount(productId);
+    public void decrementLikeCountIfPositive(Long productId) {
+        productRepository.decrementLikeCountIfPositive(productId);
     }
 
     @Transactional
@@ -64,7 +64,7 @@ public class ProductService {
                 .toList();
 
         for (Long productId : sortedIds) {
-            int updated = productRepository.decreaseStock(
+            int updated = productRepository.decreaseStockIfEnough(
                     productId, productQuantities.get(productId)
             );
             if (updated == 0) {

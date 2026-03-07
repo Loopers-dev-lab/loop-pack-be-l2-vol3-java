@@ -40,7 +40,7 @@ public class CouponService {
 
     @Transactional
     public void issue(Long id) {
-        int updated = couponRepository.issue(id);
+        int updated = couponRepository.issueIfAvailable(id);
         if (updated == 0) {
             throw new CoreException(ErrorType.BAD_REQUEST, "발급할 수 없는 쿠폰입니다");
         }

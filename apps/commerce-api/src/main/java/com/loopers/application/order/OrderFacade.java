@@ -56,7 +56,7 @@ public class OrderFacade {
         // -- 3단계: 상태 변경 (원자적 UPDATE) --
         productService.decreaseStocks(productQuantities);
         if (command.couponId() != null) {
-            issuedCouponService.markUsed(command.couponId(), userId);
+            issuedCouponService.markUsedIfAvailable(command.couponId(), userId);
         }
 
         Order order = orderService.createOrder(OrderCommand.Create.of(userId, orderItems, couponSnapshot));

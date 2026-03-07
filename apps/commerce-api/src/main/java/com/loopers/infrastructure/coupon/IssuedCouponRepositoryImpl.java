@@ -23,8 +23,8 @@ public class IssuedCouponRepositoryImpl implements IssuedCouponRepository {
     }
 
     @Override
-    public int markUsed(Long id, Long userId) {
-        return issuedCouponJpaRepository.markUsed(id, userId);
+    public int markUsedIfAvailable(Long id, Long userId) {
+        return issuedCouponJpaRepository.markUsedIfAvailable(id, userId);
     }
 
     @Override

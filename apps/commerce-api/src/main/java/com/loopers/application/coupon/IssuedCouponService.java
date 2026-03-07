@@ -46,8 +46,8 @@ public class IssuedCouponService {
     }
 
     @Transactional
-    public void markUsed(Long issuedCouponId, Long userId) {
-        int updated = issuedCouponRepository.markUsed(issuedCouponId, userId);
+    public void markUsedIfAvailable(Long issuedCouponId, Long userId) {
+        int updated = issuedCouponRepository.markUsedIfAvailable(issuedCouponId, userId);
         if (updated == 0) {
             throw new CoreException(ErrorType.BAD_REQUEST, "사용할 수 없는 쿠폰입니다");
         }

@@ -19,7 +19,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
     @Modifying
     @Query("UPDATE Product p SET p.stockQuantity = p.stockQuantity - :qty " +
            "WHERE p.id = :id AND p.stockQuantity >= :qty AND p.deletedAt IS NULL")
-    int decreaseStock(@Param("id") Long id, @Param("qty") int qty);
+    int decreaseStockIfEnough(@Param("id") Long id, @Param("qty") int qty);
 
     @Modifying
     @Query("UPDATE Product p SET p.likeCount = p.likeCount + 1 WHERE p.id = :id")
@@ -27,7 +27,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
 
     @Modifying
     @Query("UPDATE Product p SET p.likeCount = p.likeCount - 1 WHERE p.id = :id AND p.likeCount > 0")
-    int decrementLikeCount(@Param("id") Long id);
+    int decrementLikeCountIfPositive(@Param("id") Long id);
 
     @Modifying
     @Query(value = "UPDATE products p SET p.deleted_at = NOW() " +

@@ -10,7 +10,7 @@ public interface IssuedCouponRepository {
     // Command
 
     IssuedCoupon save(IssuedCoupon issuedCoupon);
-    int markUsed(Long id, Long userId);
+    int markUsedIfAvailable(Long id, Long userId);
     int deleteAvailableByCouponId(Long couponId);
 
     // Query

@@ -11,7 +11,7 @@ public interface CouponRepository {
     // Command
 
     Coupon save(Coupon coupon);
-    int issue(Long id);
+    int issueIfAvailable(Long id);
 
     // Query
 
