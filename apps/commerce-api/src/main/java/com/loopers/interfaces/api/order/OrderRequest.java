@@ -26,7 +26,7 @@ public record OrderRequest() {
             @Size(min = 1, max = 100, message = "주문 상품은 1~100건이어야 합니다")
             List<@Valid PlaceItem> orderItems,
 
-            Long couponId
+            Long issuedCouponId
     ) {
         public Place(List<PlaceItem> orderItems) {
             this(orderItems, null);
@@ -36,7 +36,7 @@ public record OrderRequest() {
             List<OrderCommand.PlaceItem> items = orderItems.stream()
                     .map(item -> OrderCommand.PlaceItem.of(item.productId(), item.quantity()))
                     .toList();
-            return OrderCommand.Place.of(items, couponId);
+            return OrderCommand.Place.of(items, issuedCouponId);
         }
     }
 

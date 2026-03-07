@@ -56,14 +56,16 @@ public class IssuedCouponService {
     // Query
 
     @Transactional(readOnly = true)
-    public IssuedCoupon getUsableCoupon(Long couponId, Long userId) {
-        IssuedCoupon coupon = issuedCouponRepository.findById(couponId)
+    public IssuedCouponSnapshot createDiscountSnapshot(Long issuedCouponId, Long userId, BigDecimal totalAmount) {
+        IssuedCoupon coupon = issuedCouponRepository.findById(issuedCouponId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
         if (!coupon.isOwnedBy(userId)) {
             throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다");
         }
         coupon.validateUsable();
-        return coupon;
+        coupon.validateMinOrderAmount(totalAmount);
+        BigDecimal discountAmount = coupon.calculateDiscount(totalAmount);
+        return IssuedCouponSnapshot.of(issuedCouponId, discountAmount);
     }
 
     @Transactional(readOnly = true)

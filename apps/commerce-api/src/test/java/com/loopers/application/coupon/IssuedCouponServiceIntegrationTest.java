@@ -16,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -120,6 +121,87 @@ class IssuedCouponServiceIntegrationTest {
         @Test
         void 발급쿠폰이_없으면_정상_처리된다() {
             issuedCouponService.deleteAvailableByCouponId(999L);
+        }
+    }
+
+    @Nested
+    class 할인_스냅샷_생성 {
+
+        @Test
+        void 유효한_정액_쿠폰이면_할인_금액이_포함된_스냅샷을_반환한다() {
+            IssuedCoupon issued = issuedCouponService.issue(1L, 100L, "5000원 할인",
+                    CouponType.FIXED, 5000, null, FUTURE);
+
+            IssuedCouponSnapshot snapshot = issuedCouponService.createDiscountSnapshot(issued.getId(), 100L, new BigDecimal("50000"));
+
+            assertAll(
+                    () -> assertThat(snapshot.issuedCouponId()).isEqualTo(issued.getId()),
+                    () -> assertThat(snapshot.discountAmount()).isEqualByComparingTo(new BigDecimal("5000"))
+            );
+        }
+
+        @Test
+        void 유효한_정률_쿠폰이면_비율에_따른_할인_금액을_반환한다() {
+            IssuedCoupon issued = issuedCouponService.issue(1L, 100L, "10% 할인",
+                    CouponType.RATE, 10, null, FUTURE);
+
+            IssuedCouponSnapshot snapshot = issuedCouponService.createDiscountSnapshot(issued.getId(), 100L, new BigDecimal("50000"));
+
+            assertAll(
+                    () -> assertThat(snapshot.issuedCouponId()).isEqualTo(issued.getId()),
+                    () -> assertThat(snapshot.discountAmount()).isEqualByComparingTo(new BigDecimal("5000"))
+            );
+        }
+
+        @Test
+        void 존재하지_않는_쿠폰이면_예외() {
+            assertThatThrownBy(() -> issuedCouponService.createDiscountSnapshot(999L, 100L, new BigDecimal("50000")))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> {
+                        assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+                        assertThat(e.getMessage()).contains("존재하지 않는 쿠폰입니다");
+                    });
+        }
+
+        @Test
+        void 본인_소유가_아니면_예외() {
+            IssuedCoupon issued = issuedCouponService.issue(1L, 100L, "5000원 할인",
+                    CouponType.FIXED, 5000, null, FUTURE);
+
+            assertThatThrownBy(() -> issuedCouponService.createDiscountSnapshot(issued.getId(), 200L, new BigDecimal("50000")))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> {
+                        assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+                        assertThat(e.getMessage()).contains("존재하지 않는 쿠폰입니다");
+                    });
+        }
+
+        @Test
+        void 이미_사용된_쿠폰이면_예외() {
+            IssuedCoupon issued = issuedCouponService.issue(1L, 100L, "5000원 할인",
+                    CouponType.FIXED, 5000, null, FUTURE);
+            issued.use();
+            issuedCouponRepository.save(issued);
+
+            assertThatThrownBy(() -> issuedCouponService.createDiscountSnapshot(issued.getId(), 100L, new BigDecimal("50000")))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> {
+                        assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+                        assertThat(e.getMessage()).contains("사용할 수 없는 쿠폰입니다");
+                    });
+        }
+
+        @Test
+        void 최소_주문_금액_미달이면_예외() {
+            IssuedCoupon issued = issuedCouponService.issue(1L, 100L, "5000원 할인",
+                    CouponType.FIXED, 5000, new BigDecimal("50000"), FUTURE);
+
+            assertThatThrownBy(() -> issuedCouponService.createDiscountSnapshot(issued.getId(), 100L, new BigDecimal("10000")))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> {
+                        assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+                        assertThat(e.getMessage()).contains("최소 주문 금액 조건을 충족하지 않습니다");
+                    });
         }
     }
 

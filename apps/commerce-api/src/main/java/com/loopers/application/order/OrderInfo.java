@@ -13,7 +13,7 @@ public record OrderInfo(
         BigDecimal totalAmount,
         BigDecimal discountAmount,
         BigDecimal finalAmount,
-        Long couponId,
+        Long issuedCouponId,
         List<OrderItemInfo> orderItems,
         LocalDateTime createdAt
 ) {
@@ -58,7 +58,7 @@ public record OrderInfo(
             BigDecimal totalAmount,
             BigDecimal discountAmount,
             BigDecimal finalAmount,
-            Long couponId,
+            Long issuedCouponId,
             LocalDateTime createdAt
     ) {
 
@@ -80,7 +80,7 @@ public record OrderInfo(
             BigDecimal totalAmount,
             BigDecimal discountAmount,
             BigDecimal finalAmount,
-            Long couponId,
+            Long issuedCouponId,
             LocalDateTime createdAt
     ) {
 

@@ -1,8 +1,8 @@
 package com.loopers.application.order;
 
 import com.loopers.application.coupon.IssuedCouponService;
+import com.loopers.application.coupon.IssuedCouponSnapshot;
 import com.loopers.application.product.ProductService;
-import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.product.Product;
 import com.loopers.support.error.CoreException;
@@ -31,35 +31,31 @@ public class OrderFacade {
     @Transactional
     public OrderInfo placeOrder(Long userId, OrderCommand.Place command) {
 
-        // -- 1단계: 검증 (읽기만, 락 없음) --
+        // -- 1단계: 검증 + 계산 (읽기/순수 연산, 상태 변경 없음) --
         Map<Long, Integer> productQuantities = command.toQuantityMap();
         List<Product> products = productService.getActiveProducts(productQuantities.keySet());
-        IssuedCoupon coupon = command.couponId() != null
-                ? issuedCouponService.getUsableCoupon(command.couponId(), userId)
-                : null;
         for (Product product : products) {
-            int requestedQty = productQuantities.get(product.getId());
-            product.validateStockSufficient(requestedQty);
+            product.validateStockSufficient(productQuantities.get(product.getId()));
         }
 
-        // -- 2단계: 계산 (순수 연산) --
         List<OrderCommand.CreateItem> orderItems = command.toCreateItems(products);
         BigDecimal totalAmount = OrderCommand.CreateItem.calculateTotalAmount(orderItems);
 
-        OrderCommand.CouponSnapshot couponSnapshot = null;
-        if (coupon != null) {
-            coupon.validateMinOrderAmount(totalAmount);
-            BigDecimal discountAmount = coupon.calculateDiscount(totalAmount);
-            couponSnapshot = OrderCommand.CouponSnapshot.of(command.couponId(), discountAmount);
-        }
+        IssuedCouponSnapshot couponSnapshot = command.issuedCouponId() != null
+                ? issuedCouponService.createDiscountSnapshot(command.issuedCouponId(), userId, totalAmount)
+                : IssuedCouponSnapshot.none();
 
-        // -- 3단계: 상태 변경 (원자적 UPDATE) --
+        // -- 2단계: 상태 변경 (원자적 UPDATE) --
         productService.decreaseStocks(productQuantities);
-        if (command.couponId() != null) {
-            issuedCouponService.markUsedIfAvailable(command.couponId(), userId);
+        if (couponSnapshot.isApplied()) {
+            issuedCouponService.markUsedIfAvailable(command.issuedCouponId(), userId);
         }
 
-        Order order = orderService.createOrder(OrderCommand.Create.of(userId, orderItems, couponSnapshot));
+        OrderCommand.CouponSnapshot orderCoupon = OrderCommand.CouponSnapshot.of(
+                couponSnapshot.issuedCouponId(), couponSnapshot.discountAmount());
+
+        Order order = orderService.createOrder(
+                OrderCommand.Create.of(userId, orderItems, orderCoupon));
 
         return OrderInfo.from(order);
     }

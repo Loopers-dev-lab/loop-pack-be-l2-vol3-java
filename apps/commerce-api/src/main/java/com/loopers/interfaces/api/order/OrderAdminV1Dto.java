@@ -31,7 +31,7 @@ public class OrderAdminV1Dto {
                     info.totalAmount(),
                     info.discountAmount(),
                     info.finalAmount(),
-                    info.couponId(),
+                    info.issuedCouponId(),
                     items,
                     info.createdAt()
             );
@@ -74,7 +74,7 @@ public class OrderAdminV1Dto {
                     summary.totalAmount(),
                     summary.discountAmount(),
                     summary.finalAmount(),
-                    summary.couponId(),
+                    summary.issuedCouponId(),
                     summary.createdAt()
             );
         }

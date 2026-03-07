@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 
 public record OrderCommand() {
 
-    public record Place(List<PlaceItem> items, Long couponId) {
+    public record Place(List<PlaceItem> items, Long issuedCouponId) {
         public Place {
             long distinctCount = items.stream()
                     .map(PlaceItem::productId)
@@ -27,8 +27,8 @@ public record OrderCommand() {
             return new Place(items, null);
         }
 
-        public static Place of(List<PlaceItem> items, Long couponId) {
-            return new Place(items, couponId);
+        public static Place of(List<PlaceItem> items, Long issuedCouponId) {
+            return new Place(items, issuedCouponId);
         }
 
         public Map<Long, Integer> toQuantityMap() {
@@ -61,7 +61,7 @@ public record OrderCommand() {
             CouponSnapshot coupon
     ) {
         public static Create of(Long userId, List<CreateItem> items) {
-            return new Create(userId, items, null);
+            return new Create(userId, items, CouponSnapshot.none());
         }
 
         public static Create of(Long userId, List<CreateItem> items, CouponSnapshot coupon) {
@@ -91,9 +91,16 @@ public record OrderCommand() {
             Long issuedCouponId,
             BigDecimal discountAmount
     ) {
+        public static CouponSnapshot none() {
+            return new CouponSnapshot(null, BigDecimal.ZERO);
+        }
+
         public static CouponSnapshot of(Long issuedCouponId, BigDecimal discountAmount) {
             return new CouponSnapshot(issuedCouponId, discountAmount);
         }
 
+        public boolean isApplied() {
+            return issuedCouponId != null;
+        }
     }
 }

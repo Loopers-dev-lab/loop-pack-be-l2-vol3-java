@@ -33,7 +33,7 @@ public class OrderService {
                 )
         );
 
-        if (command.coupon() != null) {
+        if (command.coupon().isApplied()) {
             order.applyCoupon(
                     command.coupon().issuedCouponId(),
                     command.coupon().discountAmount()
