@@ -22,6 +22,7 @@ import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -358,6 +359,243 @@ class ProductServiceIntegrationTest {
         }
     }
 
+
+    @Nested
+    class 상품_조회 {
+
+        @Test
+        void 존재하는_상품을_조회하면_반환한다() {
+            Product product = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+
+            Product result = productService.getProduct(product.getId());
+
+            assertThat(result.getId()).isEqualTo(product.getId());
+            assertThat(result.getName()).isEqualTo("운동화");
+        }
+
+        @Test
+        void 삭제된_상품도_조회된다() {
+            Product product = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+            product.delete();
+            productRepository.save(product);
+
+            Product result = productService.getProduct(product.getId());
+
+            assertThat(result.getId()).isEqualTo(product.getId());
+            assertThat(result.isDeleted()).isTrue();
+        }
+
+        @Test
+        void 미존재_상품이면_예외() {
+            assertThatThrownBy(() -> productService.getProduct(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND))
+                    .hasMessageContaining("존재하지 않는 상품입니다");
+        }
+    }
+
+    @Nested
+    class 활성_상품_검증 {
+
+        @Test
+        void 활성_상품이면_예외가_발생하지_않는다() {
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Product product = productService.register(ProductCommand.Register.of(brand.getId(), "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+
+            assertThatCode(() -> productService.validateActiveProduct(product.getId()))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        void 삭제된_상품이면_예외() {
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Product product = productService.register(ProductCommand.Register.of(brand.getId(), "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+            product.delete();
+            productRepository.save(product);
+
+            assertThatThrownBy(() -> productService.validateActiveProduct(product.getId()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+
+        @Test
+        void 브랜드가_삭제된_상품이면_예외() {
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Product product = productService.register(ProductCommand.Register.of(brand.getId(), "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+            brand.delete();
+            brandRepository.save(brand);
+
+            assertThatThrownBy(() -> productService.validateActiveProduct(product.getId()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+
+        @Test
+        void 미존재_상품이면_예외() {
+            assertThatThrownBy(() -> productService.validateActiveProduct(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+    }
+
+    @Nested
+    class 활성_상품_복수_조회 {
+
+        @Test
+        void 모든_상품이_활성이면_반환한다() {
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Product p1 = productService.register(ProductCommand.Register.of(brand.getId(), "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+            Product p2 = productService.register(ProductCommand.Register.of(brand.getId(), "셔츠", new BigDecimal("30000"), 50, "멋진 셔츠"));
+
+            var result = productService.getActiveProducts(Set.of(p1.getId(), p2.getId()));
+
+            assertThat(result).hasSize(2);
+        }
+
+        @Test
+        void 삭제된_상품이_포함되면_예외() {
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Product p1 = productService.register(ProductCommand.Register.of(brand.getId(), "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+            Product p2 = productService.register(ProductCommand.Register.of(brand.getId(), "셔츠", new BigDecimal("30000"), 50, "멋진 셔츠"));
+            p2.delete();
+            productRepository.save(p2);
+
+            assertThatThrownBy(() -> productService.getActiveProducts(Set.of(p1.getId(), p2.getId())))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+
+        @Test
+        void 미존재_상품이_포함되면_예외() {
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Product p1 = productService.register(ProductCommand.Register.of(brand.getId(), "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+
+            assertThatThrownBy(() -> productService.getActiveProducts(Set.of(p1.getId(), 999L)))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+    }
+
+    @Nested
+    class 좋아요_수_증가 {
+
+        @Test
+        void 좋아요_수가_1_증가한다() {
+            Product product = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+
+            productService.incrementLikeCount(product.getId());
+
+            Product found = productRepository.findById(product.getId()).orElseThrow();
+            assertThat(found.getLikeCount()).isEqualTo(1);
+        }
+    }
+
+    @Nested
+    class 좋아요_수_감소 {
+
+        @Test
+        void 좋아요_수가_1_감소한다() {
+            Product product = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+            productService.incrementLikeCount(product.getId());
+
+            productService.decrementLikeCountIfPositive(product.getId());
+
+            Product found = productRepository.findById(product.getId()).orElseThrow();
+            assertThat(found.getLikeCount()).isEqualTo(0);
+        }
+
+        @Test
+        void 좋아요_수가_0이면_감소하지_않는다() {
+            Product product = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+
+            productService.decrementLikeCountIfPositive(product.getId());
+
+            Product found = productRepository.findById(product.getId()).orElseThrow();
+            assertThat(found.getLikeCount()).isEqualTo(0);
+        }
+    }
+
+    @Nested
+    class 브랜드별_배치_삭제 {
+
+        @Test
+        void 해당_브랜드의_활성_상품이_배치_크기만큼_삭제된다() {
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            productService.register(ProductCommand.Register.of(brand.getId(), "운동화A", new BigDecimal("10000"), 10, "설명A"));
+            productService.register(ProductCommand.Register.of(brand.getId(), "운동화B", new BigDecimal("20000"), 20, "설명B"));
+            productService.register(ProductCommand.Register.of(brand.getId(), "운동화C", new BigDecimal("30000"), 30, "설명C"));
+
+            int deleted = productService.softDeleteByBrandIdInBatch(brand.getId(), 2);
+
+            assertThat(deleted).isEqualTo(2);
+        }
+
+        @Test
+        void 이미_삭제된_상품은_배치_삭제_대상에서_제외된다() {
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Product p1 = productService.register(ProductCommand.Register.of(brand.getId(), "운동화A", new BigDecimal("10000"), 10, "설명A"));
+            productService.register(ProductCommand.Register.of(brand.getId(), "운동화B", new BigDecimal("20000"), 20, "설명B"));
+            p1.delete();
+            productRepository.save(p1);
+
+            int deleted = productService.softDeleteByBrandIdInBatch(brand.getId(), 10);
+
+            assertThat(deleted).isEqualTo(1);
+        }
+
+        @Test
+        void 다른_브랜드의_상품은_영향받지_않는다() {
+            Brand brand1 = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Brand brand2 = brandRepository.save(Brand.create("아디다스", "독일 스포츠 브랜드"));
+            productService.register(ProductCommand.Register.of(brand1.getId(), "나이키 운동화", new BigDecimal("10000"), 10, "설명"));
+            productService.register(ProductCommand.Register.of(brand2.getId(), "아디다스 운동화", new BigDecimal("20000"), 20, "설명"));
+
+            productService.softDeleteByBrandIdInBatch(brand1.getId(), 10);
+
+            Page<Product> brand2Products = productService.findProducts(null, brand2.getId(), false, PageRequest.of(0, 20));
+            assertThat(brand2Products.getContent()).hasSize(1);
+        }
+    }
+
+    @Nested
+    class 미정리_브랜드_조회 {
+
+        @Test
+        void 삭제된_브랜드의_활성_상품이_있으면_해당_브랜드ID를_반환한다() {
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            productService.register(ProductCommand.Register.of(brand.getId(), "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+            brand.delete();
+            brandRepository.save(brand);
+
+            var result = productService.findBrandIdsWithUncleanedProducts();
+
+            assertThat(result).containsExactly(brand.getId());
+        }
+
+        @Test
+        void 삭제된_브랜드의_상품도_모두_삭제되었으면_반환하지_않는다() {
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Product product = productService.register(ProductCommand.Register.of(brand.getId(), "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+            brand.delete();
+            brandRepository.save(brand);
+            product.delete();
+            productRepository.save(product);
+
+            var result = productService.findBrandIdsWithUncleanedProducts();
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        void 활성_브랜드의_상품은_반환하지_않는다() {
+            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            productService.register(ProductCommand.Register.of(brand.getId(), "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
+
+            var result = productService.findBrandIdsWithUncleanedProducts();
+
+            assertThat(result).isEmpty();
+        }
+    }
 
     @Nested
     class 재고_일괄_차감 {

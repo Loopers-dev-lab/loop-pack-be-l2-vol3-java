@@ -105,6 +105,18 @@ public class E2ETestFixture {
         return response.getBody().data().id();
     }
 
+    public void updateProduct(Long productId, String name, BigDecimal price,
+                              Integer stockQuantity, String description) {
+        ProductRequest.UpdateInfo request = new ProductRequest.UpdateInfo(
+                name, price, stockQuantity, description
+        );
+        restTemplate.exchange(
+                PRODUCT_ENDPOINT + "/" + productId, HttpMethod.PATCH,
+                new HttpEntity<>(request, adminHeaders()),
+                new ParameterizedTypeReference<ApiResponse<ProductAdminV1Dto.ProductResponse>>() {}
+        );
+    }
+
     // Teardown
 
     public void deleteBrand(Long brandId) {

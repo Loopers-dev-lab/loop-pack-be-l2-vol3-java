@@ -92,6 +92,61 @@ class IssuedCouponServiceIntegrationTest {
     }
 
     @Nested
+    class 사용_처리 {
+
+        @Test
+        void 미사용_쿠폰이면_사용_처리된다() {
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
+
+            issuedCouponService.markUsedIfAvailable(issued.getId(), 100L);
+
+            IssuedCoupon found = issuedCouponRepository.findById(issued.getId()).orElseThrow();
+            assertThat(found.isUsed()).isTrue();
+        }
+
+        @Test
+        void 이미_사용된_쿠폰이면_예외() {
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
+            issuedCouponService.markUsedIfAvailable(issued.getId(), 100L);
+
+            assertThatThrownBy(() -> issuedCouponService.markUsedIfAvailable(issued.getId(), 100L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+
+        @Test
+        void 본인_소유가_아닌_쿠폰이면_예외() {
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
+
+            assertThatThrownBy(() -> issuedCouponService.markUsedIfAvailable(issued.getId(), 200L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+
+        @Test
+        void 삭제된_쿠폰이면_예외() {
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
+            issued.delete();
+            issuedCouponRepository.save(issued);
+
+            assertThatThrownBy(() -> issuedCouponService.markUsedIfAvailable(issued.getId(), 100L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+
+        @Test
+        void 존재하지_않는_쿠폰이면_예외() {
+            assertThatThrownBy(() -> issuedCouponService.markUsedIfAvailable(999L, 100L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+    }
+
+    @Nested
     class 할인_스냅샷_생성 {
 
         @Test

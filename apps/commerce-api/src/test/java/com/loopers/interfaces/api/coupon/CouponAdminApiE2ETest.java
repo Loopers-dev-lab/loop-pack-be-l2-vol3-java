@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponService;
-import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.support.E2ETestFixture;
@@ -46,9 +45,6 @@ class CouponAdminApiE2ETest {
 
     @Autowired
     private CouponService couponService;
-
-    @Autowired
-    private CouponRepository couponRepository;
 
     @BeforeEach
     void setUp() {
@@ -220,6 +216,49 @@ class CouponAdminApiE2ETest {
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
                     () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 쿠폰입니다")
+            );
+        }
+
+        @Test
+        void 삭제_후_상세_조회하면_404_응답() {
+            Long couponId = fixture.registerCoupon(
+                    "1000원 할인", "FIXED", 1000,
+                    BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
+            );
+            fixture.deleteCoupon(couponId);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/" + couponId, HttpMethod.GET,
+                    new HttpEntity<>(fixture.adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        // NOTE: spec 003 AC3/AC4는 연쇄 삭제를 명시하지만, 구현에서 의도적으로 제거됨 (8a4539e)
+        // 현재 동작: 쿠폰 템플릿 삭제 시 발급 쿠폰은 영향받지 않음
+        @Test
+        void 쿠폰_템플릿_삭제_후에도_발급_쿠폰은_유지된다() {
+            Long couponId = fixture.registerCoupon(
+                    "1000원 할인", "FIXED", 1000,
+                    null, 100, LocalDateTime.now().plusDays(7)
+            );
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            fixture.issueCoupon(couponId, "testuser", "Test1234!");
+
+            fixture.deleteCoupon(couponId);
+
+            ResponseEntity<ApiResponse<PageResponse<CouponV1Dto.MyCouponResponse>>> response =
+                    testRestTemplate.exchange(
+                            "/api/v1/users/me/coupons?page=0&size=20", HttpMethod.GET,
+                            new HttpEntity<>(fixture.userHeaders("testuser", "Test1234!")),
+                            new ParameterizedTypeReference<>() {}
+                    );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(1)
             );
         }
 
@@ -663,8 +702,8 @@ class CouponAdminApiE2ETest {
     @Nested
     class 쿠폰_발급_내역_조회 {
 
-        private static final String LOGIN_ID = "testuser";
-        private static final String LOGIN_PW = "Test1234!";
+        private static final String USER_LOGIN_ID = "testuser";
+        private static final String USER_LOGIN_PW = "Test1234!";
 
         @Test
         void 발급_내역을_최신순으로_페이징_조회하면_200_응답() {
@@ -672,10 +711,10 @@ class CouponAdminApiE2ETest {
                     "1000원 할인", "FIXED", 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             );
-            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
-            fixture.signUp("testuser2", LOGIN_PW, "김철수", "test2@example.com");
-            fixture.issueCoupon(couponId, LOGIN_ID, LOGIN_PW);
-            fixture.issueCoupon(couponId, "testuser2", LOGIN_PW);
+            fixture.signUp(USER_LOGIN_ID, USER_LOGIN_PW, "홍길동", "test@example.com");
+            fixture.signUp("testuser2", USER_LOGIN_PW, "김철수", "test2@example.com");
+            fixture.issueCoupon(couponId, USER_LOGIN_ID, USER_LOGIN_PW);
+            fixture.issueCoupon(couponId, "testuser2", USER_LOGIN_PW);
 
             ResponseEntity<ApiResponse<PageResponse<CouponAdminV1Dto.IssuedCouponResponse>>> response =
                     getIssues(couponId, 0, 20);
@@ -684,7 +723,7 @@ class CouponAdminApiE2ETest {
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content()).hasSize(2),
                     () -> assertThat(response.getBody().data().content().get(0).loginId()).isEqualTo("testuser2"),
-                    () -> assertThat(response.getBody().data().content().get(1).loginId()).isEqualTo(LOGIN_ID),
+                    () -> assertThat(response.getBody().data().content().get(1).loginId()).isEqualTo(USER_LOGIN_ID),
                     () -> assertThat(response.getBody().data().totalElements()).isEqualTo(2)
             );
         }
@@ -695,8 +734,8 @@ class CouponAdminApiE2ETest {
                     "1000원 할인", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
-            fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
-            fixture.issueCoupon(couponId, LOGIN_ID, LOGIN_PW);
+            fixture.signUp(USER_LOGIN_ID, USER_LOGIN_PW, "홍길동", "test@example.com");
+            fixture.issueCoupon(couponId, USER_LOGIN_ID, USER_LOGIN_PW);
 
             ResponseEntity<ApiResponse<PageResponse<CouponAdminV1Dto.IssuedCouponResponse>>> response =
                     getIssues(couponId, 0, 20);
@@ -704,6 +743,26 @@ class CouponAdminApiE2ETest {
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo("AVAILABLE")
+            );
+        }
+
+        @Test
+        void 만료된_쿠폰은_EXPIRED_상태로_반환된다() throws InterruptedException {
+            Long couponId = fixture.registerCoupon(
+                    "곧 만료 쿠폰", "FIXED", 1000,
+                    null, 100, LocalDateTime.now().plusSeconds(2)
+            );
+            fixture.signUp(USER_LOGIN_ID, USER_LOGIN_PW, "홍길동", "test@example.com");
+            fixture.issueCoupon(couponId, USER_LOGIN_ID, USER_LOGIN_PW);
+            Thread.sleep(3000);
+
+            ResponseEntity<ApiResponse<PageResponse<CouponAdminV1Dto.IssuedCouponResponse>>> response =
+                    getIssues(couponId, 0, 20);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo("EXPIRED")
             );
         }
 

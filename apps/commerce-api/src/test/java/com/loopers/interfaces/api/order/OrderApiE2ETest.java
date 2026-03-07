@@ -133,6 +133,29 @@ class OrderApiE2ETest {
         }
 
         @Test
+        void 원본_상품이_수정되어도_주문_스냅샷은_영향받지_않는다() {
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+
+            ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> createResponse = postOrder(
+                    new OrderRequest.Place(List.of(new OrderRequest.PlaceItem(productId, 1)))
+            );
+            Long orderId = createResponse.getBody().data().id();
+
+            fixture.updateProduct(productId, "수정된 운동화", new BigDecimal("99999"), null, null);
+
+            ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> response = getOrderDetail(orderId);
+
+            OrderV1Dto.OrderItemResponse item = response.getBody().data().orderItems().get(0);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(item.productName()).isEqualTo("운동화"),
+                    () -> assertThat(item.price()).isEqualByComparingTo(new BigDecimal("50000"))
+            );
+        }
+
+        @Test
         void 미존재_상품이_포함되면_404_응답() {
             fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
 

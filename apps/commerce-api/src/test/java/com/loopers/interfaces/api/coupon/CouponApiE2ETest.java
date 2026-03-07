@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.coupon;
 
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
+import com.loopers.interfaces.api.coupon.CouponAdminV1Dto;
 import com.loopers.support.E2ETestFixture;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +23,12 @@ import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -77,6 +84,103 @@ class CouponApiE2ETest {
                     () -> assertThat(response.getBody().data().status()).isEqualTo("AVAILABLE"),
                     () -> assertThat(response.getBody().data().expiredAt()).isNotNull(),
                     () -> assertThat(response.getBody().data().createdAt()).isNotNull()
+            );
+        }
+
+        @Test
+        void 발급_시_해당_쿠폰의_issuedCount가_1_증가한다() {
+            postIssue(couponId);
+
+            ResponseEntity<ApiResponse<CouponAdminV1Dto.CouponResponse>> detailResponse = testRestTemplate.exchange(
+                    "/api-admin/v1/coupons/" + couponId, HttpMethod.GET,
+                    new HttpEntity<>(fixture.adminHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(detailResponse.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(detailResponse.getBody().data().issuedCount()).isEqualTo(1)
+            );
+        }
+
+        @Test
+        void 동시_발급_요청에도_발급_수량이_정확히_관리된다() throws InterruptedException {
+            fixture.signUp("user2", LOGIN_PW, "김철수", "test2@example.com");
+
+            int threadCount = 2;
+            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch latch = new CountDownLatch(threadCount);
+            List<HttpStatus> statuses = Collections.synchronizedList(new ArrayList<>());
+            String[] loginIds = {LOGIN_ID, "user2"};
+
+            Long singleCouponId = fixture.registerCoupon(
+                    "한정 쿠폰", "FIXED", 1000,
+                    null, 1, LocalDateTime.now().plusDays(7)
+            );
+
+            for (int i = 0; i < threadCount; i++) {
+                String loginId = loginIds[i];
+                executorService.submit(() -> {
+                    try {
+                        ResponseEntity<ApiResponse<Object>> res = testRestTemplate.exchange(
+                                ENDPOINT + "/" + singleCouponId + "/issue", HttpMethod.POST,
+                                new HttpEntity<>(fixture.userHeaders(loginId, LOGIN_PW)),
+                                new ParameterizedTypeReference<>() {}
+                        );
+                        statuses.add(HttpStatus.valueOf(res.getStatusCode().value()));
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+
+            latch.await();
+            executorService.shutdown();
+
+            assertAll(
+                    () -> assertThat(statuses).hasSize(2),
+                    () -> assertThat(statuses).containsExactlyInAnyOrder(HttpStatus.OK, HttpStatus.BAD_REQUEST)
+            );
+        }
+
+        @Test
+        void 만료된_쿠폰이면_400_응답() throws InterruptedException {
+            Long expiredCouponId = fixture.registerCoupon(
+                    "곧 만료 쿠폰", "FIXED", 1000,
+                    null, 100, LocalDateTime.now().plusSeconds(2)
+            );
+            Thread.sleep(3000);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/" + expiredCouponId + "/issue", HttpMethod.POST,
+                    new HttpEntity<>(fixture.userHeaders(LOGIN_ID, LOGIN_PW)),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody().meta().message()).contains("만료된 쿠폰입니다")
+            );
+        }
+
+        @Test
+        void 발급_수량이_소진되면_400_응답() {
+            Long limitedCouponId = fixture.registerCoupon(
+                    "한정 쿠폰", "FIXED", 1000,
+                    null, 1, LocalDateTime.now().plusDays(7)
+            );
+            fixture.issueCoupon(limitedCouponId, LOGIN_ID, LOGIN_PW);
+
+            fixture.signUp("user2", LOGIN_PW, "김철수", "test2@example.com");
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT + "/" + limitedCouponId + "/issue", HttpMethod.POST,
+                    new HttpEntity<>(fixture.userHeaders("user2", LOGIN_PW)),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody().meta().message()).contains("발급 가능 수량이 모두 소진되었습니다")
             );
         }
 
@@ -196,7 +300,7 @@ class CouponApiE2ETest {
         }
 
         @Test
-        void 삭제된_발급_쿠폰은_제외된다() {
+        void 쿠폰_템플릿이_삭제되어도_발급된_쿠폰은_목록에_포함된다() {
             Long couponId1 = fixture.registerCoupon(
                     "1000원 할인", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
@@ -215,6 +319,25 @@ class CouponApiE2ETest {
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content()).hasSize(2)
+            );
+        }
+
+        @Test
+        void 만료된_쿠폰은_EXPIRED_상태로_반환된다() throws InterruptedException {
+            Long couponId = fixture.registerCoupon(
+                    "곧 만료 쿠폰", "FIXED", 1000,
+                    null, 100, LocalDateTime.now().plusSeconds(2)
+            );
+            fixture.issueCoupon(couponId, LOGIN_ID, LOGIN_PW);
+            Thread.sleep(3000);
+
+            ResponseEntity<ApiResponse<PageResponse<CouponV1Dto.MyCouponResponse>>> response =
+                    getMyCoupons(0, 20);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().content()).hasSize(1),
+                    () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo("EXPIRED")
             );
         }
 
