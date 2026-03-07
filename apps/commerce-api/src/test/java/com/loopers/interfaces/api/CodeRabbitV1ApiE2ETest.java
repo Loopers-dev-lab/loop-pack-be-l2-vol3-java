@@ -21,6 +21,7 @@ class CodeRabbitV1ApiE2ETest {
 
     private static final String ENDPOINT_PING = "/api/v1/code-rabbit/ping";
     private static final String ENDPOINT_HELLO = "/api/v1/code-rabbit/hello";
+    private static final String ENDPOINT_STATUS = "/api/v1/code-rabbit/status";
 
     private final TestRestTemplate testRestTemplate;
 
@@ -65,6 +66,25 @@ class CodeRabbitV1ApiE2ETest {
                 () -> assertThat(response.getBody()).isNotNull(),
                 () -> assertThat(response.getBody().data().greeting()).isEqualTo("Hello"),
                 () -> assertThat(response.getBody().data().target()).isEqualTo("CodeRabbit")
+            );
+        }
+    }
+
+    @DisplayName("GET /api/v1/code-rabbit/status")
+    @Nested
+    class Status {
+        @DisplayName("정상 호출 시 status와 version을 반환한다.")
+        @Test
+        void returnsStatusAndVersion_whenCalled() {
+            ParameterizedTypeReference<ApiResponse<CodeRabbitV1Dto.StatusResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<CodeRabbitV1Dto.StatusResponse>> response =
+                testRestTemplate.exchange(ENDPOINT_STATUS, HttpMethod.GET, new HttpEntity<>(null), responseType);
+
+            assertAll(
+                () -> assertTrue(response.getStatusCode().is2xxSuccessful()),
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().data().status()).isEqualTo("UP"),
+                () -> assertThat(response.getBody().data().version()).isEqualTo("1.0.0")
             );
         }
     }

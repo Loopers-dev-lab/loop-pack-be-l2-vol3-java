@@ -18,4 +18,10 @@ public interface CodeRabbitV1ApiSpec {
         description = "CodeRabbit 리뷰 테스트를 위한 hello 응답을 반환합니다."
     )
     ApiResponse<CodeRabbitV1Dto.HelloResponse> hello();
+
+    @Operation(
+        summary = "CodeRabbit 상태 조회",
+        description = "API 상태와 버전 정보를 반환합니다."
+    )
+    ApiResponse<CodeRabbitV1Dto.StatusResponse> status();
 }

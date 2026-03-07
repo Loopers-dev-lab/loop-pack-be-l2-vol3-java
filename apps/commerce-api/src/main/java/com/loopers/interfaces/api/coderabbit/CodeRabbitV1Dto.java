@@ -12,4 +12,10 @@ public class CodeRabbitV1Dto {
             return new HelloResponse(greeting, target);
         }
     }
+
+    public record StatusResponse(String status, String version) {
+        public static StatusResponse of(String status, String version) {
+            return new StatusResponse(status, version);
+        }
+    }
 }
