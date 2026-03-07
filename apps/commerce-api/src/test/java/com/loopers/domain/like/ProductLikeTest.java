@@ -18,7 +18,7 @@ class ProductLikeTest {
         @Test
         void 유효한_정보면_userId와_productId가_저장된다() {
             // act
-            ProductLike productLike = ProductLike.create(1L, 100L);
+            ProductLike productLike = ProductLike.of(1L, 100L);
 
             // assert
             assertThat(productLike)
@@ -29,7 +29,7 @@ class ProductLikeTest {
         @Test
         void 생성_시_createdAt이_설정된다() {
             // act
-            ProductLike productLike = ProductLike.create(1L, 100L);
+            ProductLike productLike = ProductLike.of(1L, 100L);
 
             // assert — createdAt은 @PrePersist로 설정되므로 여기서는 null
             // 실제 persist 없이는 null이지만, 팩토리 생성 자체가 성공하면 OK

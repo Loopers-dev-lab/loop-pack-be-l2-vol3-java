@@ -21,7 +21,7 @@ class PointAccountTest {
         @Test
         void 생성_시_balance가_0이다() {
             // act
-            PointAccount account = PointAccount.create(1L);
+            PointAccount account = PointAccount.open(1L);
 
             // assert
             assertThat(account.getBalance()).isEqualTo(0);
@@ -35,10 +35,10 @@ class PointAccountTest {
         @Test
         void 금액이_0_이하이면_예외가_발생한다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
+            PointAccount account = PointAccount.open(1L);
 
             // act & assert
-            assertThatThrownBy(() -> account.charge(0))
+            assertThatThrownBy(() -> account.deposit(0))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(PointErrorType.INVALID_AMOUNT);
@@ -47,10 +47,10 @@ class PointAccountTest {
         @Test
         void 유효한_금액이면_balance가_증가한다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
+            PointAccount account = PointAccount.open(1L);
 
             // act
-            account.charge(10000);
+            account.deposit(10000);
 
             // assert
             assertThat(account.getBalance()).isEqualTo(10000);
@@ -64,10 +64,10 @@ class PointAccountTest {
         @Test
         void 금액이_0_이하이면_예외가_발생한다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
+            PointAccount account = PointAccount.open(1L);
 
             // act & assert
-            assertThatThrownBy(() -> account.use(0))
+            assertThatThrownBy(() -> account.deduct(0))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(PointErrorType.INVALID_AMOUNT);
@@ -76,11 +76,11 @@ class PointAccountTest {
         @Test
         void 잔액이_부족하면_예외가_발생한다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
-            account.charge(5000);
+            PointAccount account = PointAccount.open(1L);
+            account.deposit(5000);
 
             // act & assert
-            assertThatThrownBy(() -> account.use(10000))
+            assertThatThrownBy(() -> account.deduct(10000))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(PointErrorType.INSUFFICIENT_BALANCE);
@@ -89,11 +89,11 @@ class PointAccountTest {
         @Test
         void 유효한_금액이면_balance가_감소한다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
-            account.charge(10000);
+            PointAccount account = PointAccount.open(1L);
+            account.deposit(10000);
 
             // act
-            account.use(3000);
+            account.deduct(3000);
 
             // assert
             assertThat(account.getBalance()).isEqualTo(7000);
@@ -107,7 +107,7 @@ class PointAccountTest {
         @Test
         void 금액이_0_이하이면_예외가_발생한다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
+            PointAccount account = PointAccount.open(1L);
 
             // act & assert
             assertThatThrownBy(() -> account.refund(0))
@@ -119,7 +119,7 @@ class PointAccountTest {
         @Test
         void 유효한_금액이면_balance가_증가한다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
+            PointAccount account = PointAccount.open(1L);
 
             // act
             account.refund(5000);

@@ -29,7 +29,7 @@ public class BrandLike {
     /**
      * 새로운 브랜드 좋아요 생성 (비즈니스 로직)
      */
-    public static BrandLike create(Long userId, Long brandId) {
+    public static BrandLike of(Long userId, Long brandId) {
         return new BrandLike(userId, brandId);
     }
 

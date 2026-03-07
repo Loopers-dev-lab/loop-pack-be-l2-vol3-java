@@ -53,7 +53,7 @@ public class Inventory {
     }
 
     /** 재고 생성 팩토리 메서드 */
-    public static Inventory create(Long productId, int quantity) {
+    public static Inventory initialize(Long productId, int quantity) {
         Inventory inventory = new Inventory(productId, quantity);
         inventory.guard();
         ZonedDateTime now = ZonedDateTime.now();
@@ -70,10 +70,10 @@ public class Inventory {
     }
 
     /**
-     * 재고 소프트 삭제 (멱등 처리)
+     * 재고 소프트 삭제 (폐기, 멱등 처리)
      * 상품 연쇄 삭제 시 중복 호출될 수 있으므로, 이미 삭제된 경우 무시한다.
      */
-    public void delete() {
+    public void discard() {
         if (this.deletedAt != null) {
             return;
         }

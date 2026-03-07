@@ -146,7 +146,7 @@ public class OrderFacade {
 
             Brand brand = brandService.getById(product.getBrandId());
 
-            orderItems.add(OrderItem.create(
+            orderItems.add(OrderItem.snapshot(
                     product.getId(),
                     product.getName(),
                     brand.getName(),

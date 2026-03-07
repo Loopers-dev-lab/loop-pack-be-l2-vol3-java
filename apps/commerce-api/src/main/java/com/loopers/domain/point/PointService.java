@@ -16,7 +16,7 @@ public class PointService {
 
     @Transactional(timeout = 30)
     public PointAccount createAccount(Long userId) {
-        PointAccount account = PointAccount.create(userId);
+        PointAccount account = PointAccount.open(userId);
         return pointAccountRepository.save(account);
     }
 

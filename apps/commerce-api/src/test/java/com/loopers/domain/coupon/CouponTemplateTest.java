@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CouponTemplateTest {
 
     private CouponTemplate createFixedTemplate() {
-        return CouponTemplate.create(
+        return CouponTemplate.define(
                 "신규 가입 쿠폰", "신규 가입 시 5000원 할인", DiscountType.FIXED, 5000, null,
                 10000, 1000, 1,
                 ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30)
@@ -22,7 +22,7 @@ class CouponTemplateTest {
     }
 
     private CouponTemplate createPercentTemplate() {
-        return CouponTemplate.create(
+        return CouponTemplate.define(
                 "10% 할인 쿠폰", "주문 금액의 10% 할인", DiscountType.PERCENT, 10, 20000,
                 30000, 500, 1,
                 ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30)

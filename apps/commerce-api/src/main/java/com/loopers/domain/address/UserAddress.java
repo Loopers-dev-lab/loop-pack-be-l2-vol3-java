@@ -35,7 +35,7 @@ public class UserAddress {
     /**
      * 새로운 배송지 생성 (비즈니스 로직)
      */
-    public static UserAddress create(Long userId, String receiverName, String phone,
+    public static UserAddress register(Long userId, String receiverName, String phone,
                                       String zipCode, String addressLine1, String addressLine2) {
         return new UserAddress(userId, receiverName, phone, zipCode, addressLine1, addressLine2);
     }
@@ -104,7 +104,7 @@ public class UserAddress {
     /**
      * 삭제 (소프트 삭제)
      */
-    public void delete() {
+    public void remove() {
         if (this.deletedAt == null) {
             this.deletedAt = ZonedDateTime.now();
         }

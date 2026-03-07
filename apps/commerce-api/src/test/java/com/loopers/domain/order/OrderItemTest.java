@@ -18,7 +18,7 @@ class OrderItemTest {
         @Test
         void 유효한_정보면_스냅샷이_저장된다() {
             // act
-            OrderItem orderItem = OrderItem.create(1L, "에어맥스", "나이키", 150000, 2);
+            OrderItem orderItem = OrderItem.snapshot(1L, "에어맥스", "나이키", 150000, 2);
 
             // assert
             assertThat(orderItem)
@@ -29,7 +29,7 @@ class OrderItemTest {
         @Test
         void lineTotal이_unitPrice와_quantity의_곱이다() {
             // act
-            OrderItem orderItem = OrderItem.create(1L, "에어맥스", "나이키", 150000, 2);
+            OrderItem orderItem = OrderItem.snapshot(1L, "에어맥스", "나이키", 150000, 2);
 
             // assert
             assertThat(orderItem.getLineTotal()).isEqualTo(300000);

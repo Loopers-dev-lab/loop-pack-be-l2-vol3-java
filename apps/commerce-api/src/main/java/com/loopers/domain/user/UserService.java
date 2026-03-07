@@ -48,7 +48,7 @@ public class UserService {
         }
 
         String encodedPassword = this.passwordEncryptor.encode(rawPassword);
-        User user = User.create(loginId, encodedPassword, name, birthDate, email);
+        User user = User.signUp(loginId, encodedPassword, name, birthDate, email);
         return this.userRepository.save(user);
     }
 

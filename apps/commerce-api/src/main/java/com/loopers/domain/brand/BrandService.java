@@ -25,7 +25,7 @@ public class BrandService {
     /** 브랜드 생성 (초기 상태: ACTIVE) */
     @Transactional
     public Brand create(String name, String description) {
-        Brand brand = Brand.create(name, description);
+        Brand brand = Brand.register(name, description);
         return brandRepository.save(brand);
     }
 
@@ -68,7 +68,7 @@ public class BrandService {
     @Transactional
     public void delete(Long id) {
         Brand brand = getById(id);
-        brand.delete();
+        brand.discontinue();
         brandRepository.save(brand);
     }
 

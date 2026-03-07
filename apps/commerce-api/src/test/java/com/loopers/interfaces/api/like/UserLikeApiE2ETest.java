@@ -70,13 +70,13 @@ class UserLikeApiE2ETest {
     }
 
     private Brand createActiveBrand(String name) {
-        return brandRepository.save(Brand.create(name, name + " 설명"));
+        return brandRepository.save(Brand.register(name, name + " 설명"));
     }
 
     private Product createProduct(Long brandId, String name) {
-        Product product = Product.create(brandId, name, name + " 설명", 10000);
+        Product product = Product.register(brandId, name, name + " 설명", 10000);
         Product saved = productRepository.save(product);
-        inventoryRepository.save(Inventory.create(saved.getId(), 100));
+        inventoryRepository.save(Inventory.initialize(saved.getId(), 100));
         return saved;
     }
 
@@ -142,7 +142,7 @@ class UserLikeApiE2ETest {
 
             // 상품 삭제
             Product loaded = productRepository.findById(toDelete.getId()).orElseThrow();
-            loaded.delete();
+            loaded.discontinue();
             productRepository.save(loaded);
 
             Long userId = getAuthUserId();

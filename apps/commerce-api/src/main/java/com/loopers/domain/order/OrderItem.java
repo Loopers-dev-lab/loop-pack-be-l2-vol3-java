@@ -26,7 +26,7 @@ public class OrderItem {
         this.quantity = new Quantity(quantity);
     }
 
-    public static OrderItem create(Long productId, String productName, String brandName, int unitPrice, int quantity) {
+    public static OrderItem snapshot(Long productId, String productName, String brandName, int unitPrice, int quantity) {
         return new OrderItem(productId, productName, brandName, unitPrice, quantity);
     }
 

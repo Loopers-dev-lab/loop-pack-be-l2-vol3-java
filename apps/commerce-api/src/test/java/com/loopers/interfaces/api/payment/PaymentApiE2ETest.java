@@ -64,7 +64,7 @@ class PaymentApiE2ETest {
                 "testuser", "Hx7!mK2@", "테스터", "1994-11-15", "test@example.com");
         testRestTemplate.postForEntity("/api/v1/users", signupRequest, ApiResponse.class);
         userId = 1L;
-        pointAccountRepository.save(PointAccount.create(userId));
+        pointAccountRepository.save(PointAccount.open(userId));
     }
 
     private HttpHeaders authHeaders() {
@@ -76,11 +76,11 @@ class PaymentApiE2ETest {
     }
 
     private Long createOrderAndGetId() {
-        Brand brand = brandRepository.save(Brand.create("나이키", "나이키 설명"));
-        Product product = Product.create(brand.getId(), "에어맥스", "에어맥스 설명", 50000);
+        Brand brand = brandRepository.save(Brand.register("나이키", "나이키 설명"));
+        Product product = Product.register(brand.getId(), "에어맥스", "에어맥스 설명", 50000);
         Product savedProduct = productRepository.save(product);
-        inventoryRepository.save(Inventory.create(savedProduct.getId(), 100));
-        UserAddress address = UserAddress.create(userId, "홍길동", "010-1234-5678",
+        inventoryRepository.save(Inventory.initialize(savedProduct.getId(), 100));
+        UserAddress address = UserAddress.register(userId, "홍길동", "010-1234-5678",
                 "12345", "서울시 강남구 테헤란로 123", "4층 401호");
         UserAddress savedAddress = userAddressRepository.save(address);
 
@@ -188,7 +188,7 @@ class PaymentApiE2ETest {
             // arrange — 1단계 트랜잭션으로 주문 즉시 PAID 확정
             Long orderId = createOrderAndGetId();
             PointAccount account = pointAccountRepository.findByUserId(userId).orElseThrow();
-            account.charge(10000);
+            account.deposit(10000);
             pointAccountRepository.save(account);
 
             PaymentRequest.ApplyDiscountRequest request =

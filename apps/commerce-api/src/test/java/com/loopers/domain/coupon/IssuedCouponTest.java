@@ -21,7 +21,7 @@ class IssuedCouponTest {
         @Test
         void 유효한_정보면_ISSUED_상태로_생성된다() {
             // act
-            IssuedCoupon coupon = IssuedCoupon.create(1L, 100L, "테스트쿠폰", DiscountType.FIXED, 1000, null);
+            IssuedCoupon coupon = IssuedCoupon.issue(1L, 100L, "테스트쿠폰", DiscountType.FIXED, 1000, null);
 
             // assert
             assertThat(coupon.getStatus()).isEqualTo(IssuedCouponStatus.ISSUED);
@@ -35,7 +35,7 @@ class IssuedCouponTest {
         @Test
         void ISSUED가_아니면_예외가_발생한다() {
             // arrange — EXPIRED 상태로 전이
-            IssuedCoupon coupon = IssuedCoupon.create(1L, 100L, "테스트쿠폰", DiscountType.FIXED, 1000, null);
+            IssuedCoupon coupon = IssuedCoupon.issue(1L, 100L, "테스트쿠폰", DiscountType.FIXED, 1000, null);
             coupon.expire();
 
             // act & assert
@@ -48,7 +48,7 @@ class IssuedCouponTest {
         @Test
         void ISSUED이면_검증을_통과한다() {
             // arrange
-            IssuedCoupon coupon = IssuedCoupon.create(1L, 100L, "테스트쿠폰", DiscountType.FIXED, 1000, null);
+            IssuedCoupon coupon = IssuedCoupon.issue(1L, 100L, "테스트쿠폰", DiscountType.FIXED, 1000, null);
 
             // act & assert — 예외 없이 통과
             coupon.validateUsable();
@@ -63,7 +63,7 @@ class IssuedCouponTest {
         @Test
         void 만료_시_EXPIRED로_전이된다() {
             // arrange
-            IssuedCoupon coupon = IssuedCoupon.create(1L, 100L, "테스트쿠폰", DiscountType.FIXED, 1000, null);
+            IssuedCoupon coupon = IssuedCoupon.issue(1L, 100L, "테스트쿠폰", DiscountType.FIXED, 1000, null);
 
             // act
             coupon.expire();
@@ -80,7 +80,7 @@ class IssuedCouponTest {
         @Test
         void 본인_쿠폰이_아니면_예외가_발생한다() {
             // arrange
-            IssuedCoupon coupon = IssuedCoupon.create(1L, 100L, "테스트쿠폰", DiscountType.FIXED, 1000, null);
+            IssuedCoupon coupon = IssuedCoupon.issue(1L, 100L, "테스트쿠폰", DiscountType.FIXED, 1000, null);
 
             // act & assert
             assertThatThrownBy(() -> coupon.validateOwnership(999L))

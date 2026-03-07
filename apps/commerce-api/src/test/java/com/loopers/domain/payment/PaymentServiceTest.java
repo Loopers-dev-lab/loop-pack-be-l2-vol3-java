@@ -78,7 +78,7 @@ class PaymentServiceTest {
         @Test
         void 유효한_요청이면_approve가_호출된다() {
             // arrange
-            Payment payment = Payment.create(1L, 50000, "CARD", "IDEM-001");
+            Payment payment = Payment.request(1L, 50000, "CARD", "IDEM-001");
             when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
 
             // act
@@ -108,7 +108,7 @@ class PaymentServiceTest {
         @Test
         void 유효한_요청이면_fail이_호출된다() {
             // arrange
-            Payment payment = Payment.create(1L, 50000, "CARD", "IDEM-001");
+            Payment payment = Payment.request(1L, 50000, "CARD", "IDEM-001");
             when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
 
             // act

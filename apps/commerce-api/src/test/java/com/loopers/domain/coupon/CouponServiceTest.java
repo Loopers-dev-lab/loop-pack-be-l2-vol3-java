@@ -36,7 +36,7 @@ class CouponServiceTest {
     }
 
     private CouponTemplate createActiveTemplate() {
-        return CouponTemplate.create(
+        return CouponTemplate.define(
                 "신규 가입 쿠폰", "신규 가입 시 5000원 할인", DiscountType.FIXED, 5000, null,
                 10000, 100, 1,
                 ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30)
@@ -158,7 +158,7 @@ class CouponServiceTest {
         @Test
         void ISSUED가_아니면_예외가_발생한다() {
             // arrange — EXPIRED 상태로 전이
-            IssuedCoupon coupon = IssuedCoupon.create(1L, 1L, "테스트쿠폰", DiscountType.FIXED, 5000, null);
+            IssuedCoupon coupon = IssuedCoupon.issue(1L, 1L, "테스트쿠폰", DiscountType.FIXED, 5000, null);
             coupon.expire();
             when(issuedCouponRepository.findById(1L)).thenReturn(Optional.of(coupon));
 
@@ -172,7 +172,7 @@ class CouponServiceTest {
         @Test
         void 원자적_UPDATE가_0이면_이미_사용된_쿠폰_예외가_발생한다() {
             // arrange
-            IssuedCoupon coupon = IssuedCoupon.create(1L, 1L, "테스트쿠폰", DiscountType.FIXED, 5000, null);
+            IssuedCoupon coupon = IssuedCoupon.issue(1L, 1L, "테스트쿠폰", DiscountType.FIXED, 5000, null);
             when(issuedCouponRepository.findById(1L)).thenReturn(Optional.of(coupon));
             when(issuedCouponRepository.useAtomically(anyLong(), anyLong(), any(ZonedDateTime.class))).thenReturn(0);
 
@@ -186,7 +186,7 @@ class CouponServiceTest {
         @Test
         void 유효한_요청이면_원자적_UPDATE가_호출된다() {
             // arrange
-            IssuedCoupon coupon = IssuedCoupon.create(1L, 1L, "테스트쿠폰", DiscountType.FIXED, 5000, null);
+            IssuedCoupon coupon = IssuedCoupon.issue(1L, 1L, "테스트쿠폰", DiscountType.FIXED, 5000, null);
             when(issuedCouponRepository.findById(1L)).thenReturn(Optional.of(coupon));
             when(issuedCouponRepository.useAtomically(anyLong(), anyLong(), any(ZonedDateTime.class))).thenReturn(1);
 
@@ -205,7 +205,7 @@ class CouponServiceTest {
         @Test
         void 사용자의_쿠폰_목록을_반환한다() {
             // arrange
-            IssuedCoupon coupon = IssuedCoupon.create(1L, 1L, "테스트쿠폰", DiscountType.FIXED, 5000, null);
+            IssuedCoupon coupon = IssuedCoupon.issue(1L, 1L, "테스트쿠폰", DiscountType.FIXED, 5000, null);
             when(issuedCouponRepository.findAllByUserId(1L)).thenReturn(List.of(coupon));
 
             // act

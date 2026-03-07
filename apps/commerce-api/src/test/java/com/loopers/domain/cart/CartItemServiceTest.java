@@ -38,7 +38,7 @@ class CartItemServiceTest {
         @Test
         void 이미_존재하는_상품이면_수량이_합산된다() {
             // arrange
-            CartItem existing = CartItem.create(1L, 100L, 3);
+            CartItem existing = CartItem.of(1L, 100L, 3);
             when(cartItemRepository.findByUserIdAndProductIdIncludeDeleted(1L, 100L)).thenReturn(Optional.of(existing));
             when(cartItemRepository.save(any(CartItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -97,7 +97,7 @@ class CartItemServiceTest {
         @Test
         void 본인_장바구니가_아니면_예외가_발생한다() {
             // arrange
-            CartItem cartItem = CartItem.create(1L, 100L, 3);
+            CartItem cartItem = CartItem.of(1L, 100L, 3);
             when(cartItemRepository.findById(1L)).thenReturn(Optional.of(cartItem));
 
             // act & assert
@@ -110,7 +110,7 @@ class CartItemServiceTest {
         @Test
         void 유효한_요청이면_수량이_변경된다() {
             // arrange
-            CartItem cartItem = CartItem.create(1L, 100L, 3);
+            CartItem cartItem = CartItem.of(1L, 100L, 3);
             when(cartItemRepository.findById(1L)).thenReturn(Optional.of(cartItem));
 
             // act
@@ -140,7 +140,7 @@ class CartItemServiceTest {
         @Test
         void 본인_장바구니가_아니면_예외가_발생한다() {
             // arrange
-            CartItem cartItem = CartItem.create(1L, 100L, 3);
+            CartItem cartItem = CartItem.of(1L, 100L, 3);
             when(cartItemRepository.findById(1L)).thenReturn(Optional.of(cartItem));
 
             // act & assert
@@ -153,7 +153,7 @@ class CartItemServiceTest {
         @Test
         void 유효한_요청이면_소프트_삭제된다() {
             // arrange
-            CartItem cartItem = CartItem.create(1L, 100L, 3);
+            CartItem cartItem = CartItem.of(1L, 100L, 3);
             when(cartItemRepository.findById(1L)).thenReturn(Optional.of(cartItem));
 
             // act
@@ -172,8 +172,8 @@ class CartItemServiceTest {
         void 사용자의_장바구니_항목이_반환된다() {
             // arrange
             List<CartItem> items = List.of(
-                    CartItem.create(1L, 100L, 2),
-                    CartItem.create(1L, 200L, 1)
+                    CartItem.of(1L, 100L, 2),
+                    CartItem.of(1L, 200L, 1)
             );
             when(cartItemRepository.findAllByUserId(1L)).thenReturn(items);
 

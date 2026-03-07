@@ -80,8 +80,8 @@ class BrandServiceTest {
         @Test
         void 삭제된_브랜드면_예외가_발생한다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
-            brand.delete();
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
+            brand.discontinue();
             when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
 
             // act & assert
@@ -94,7 +94,7 @@ class BrandServiceTest {
         @Test
         void 존재하는_브랜드면_반환한다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
             when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
 
             // act
@@ -112,7 +112,7 @@ class BrandServiceTest {
         @Test
         void INACTIVE_상태면_BRAND_NOT_FOUND_예외가_발생한다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
             brand.changeStatus(BrandStatus.INACTIVE);
             when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
 
@@ -126,7 +126,7 @@ class BrandServiceTest {
         @Test
         void ACTIVE_상태면_반환한다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
             when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
 
             // act
@@ -156,7 +156,7 @@ class BrandServiceTest {
         @Test
         void 유효한_정보면_수정된_브랜드가_반환된다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
             when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
             when(brandRepository.save(any(Brand.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -189,7 +189,7 @@ class BrandServiceTest {
         @Test
         void 유효한_브랜드면_delete가_호출된다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
             when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
 
             // act

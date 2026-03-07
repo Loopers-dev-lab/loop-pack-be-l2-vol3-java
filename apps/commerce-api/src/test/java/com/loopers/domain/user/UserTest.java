@@ -33,7 +33,7 @@ public class UserTest {
             Email email = new Email("nahyeon@example.com");
 
             // act
-            User user = User.create(loginId, encodedPassword, name, birthDate, email);
+            User user = User.signUp(loginId, encodedPassword, name, birthDate, email);
 
             // assert
             assertAll(
@@ -53,7 +53,7 @@ public class UserTest {
         @Test
         void 새_인코딩된_비밀번호로_변경된다() {
             // arrange
-            User user = User.create(
+            User user = User.signUp(
                     new LoginId("nahyeon"),
                     "$2a$10$oldHash",
                     new UserName("홍길동"),

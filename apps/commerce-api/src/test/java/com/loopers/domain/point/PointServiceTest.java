@@ -78,7 +78,7 @@ class PointServiceTest {
         @Test
         void 존재하는_계정이면_반환한다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
+            PointAccount account = PointAccount.open(1L);
             when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
 
             // act
@@ -108,8 +108,8 @@ class PointServiceTest {
         @Test
         void 잔액이_부족하면_POJO_검증에서_예외가_발생한다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
-            account.charge(3000);
+            PointAccount account = PointAccount.open(1L);
+            account.deposit(3000);
             when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
 
             // act & assert
@@ -122,8 +122,8 @@ class PointServiceTest {
         @Test
         void 원자적_UPDATE가_0이면_잔액_부족_예외가_발생한다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
-            account.charge(10000);
+            PointAccount account = PointAccount.open(1L);
+            account.deposit(10000);
             when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
             when(pointAccountRepository.useAtomically(1L, 3000)).thenReturn(0);
 
@@ -137,8 +137,8 @@ class PointServiceTest {
         @Test
         void 유효한_요청이면_원자적_UPDATE가_호출된다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
-            account.charge(10000);
+            PointAccount account = PointAccount.open(1L);
+            account.deposit(10000);
             when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
             when(pointAccountRepository.useAtomically(1L, 3000)).thenReturn(1);
 
@@ -169,7 +169,7 @@ class PointServiceTest {
         @Test
         void 유효한_요청이면_원자적_UPDATE가_호출된다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
+            PointAccount account = PointAccount.open(1L);
             when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
             when(pointAccountRepository.chargeAtomically(1L, 5000)).thenReturn(1);
 

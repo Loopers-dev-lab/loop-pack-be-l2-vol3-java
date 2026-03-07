@@ -25,7 +25,7 @@ public class ProductService {
     /** 상품 생성 (초기 상태: ACTIVE) */
     @Transactional
     public Product create(Long brandId, String name, String description, int basePrice) {
-        Product product = Product.create(brandId, name, description, basePrice);
+        Product product = Product.register(brandId, name, description, basePrice);
         return productRepository.save(product);
     }
 
@@ -75,7 +75,7 @@ public class ProductService {
     @Transactional
     public void delete(Long id) {
         Product product = getById(id);
-        product.delete();
+        product.discontinue();
         productRepository.save(product);
     }
 

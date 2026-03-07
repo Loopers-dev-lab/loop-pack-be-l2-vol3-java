@@ -22,7 +22,7 @@ class CartItemTest {
         @Test
         void 수량이_0_이하이면_예외가_발생한다() {
             // act & assert
-            assertThatThrownBy(() -> CartItem.create(1L, 100L, 0))
+            assertThatThrownBy(() -> CartItem.of(1L, 100L, 0))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(CartItemErrorType.INVALID_QUANTITY);
@@ -31,7 +31,7 @@ class CartItemTest {
         @Test
         void 유효한_정보면_userId_productId_quantity가_저장된다() {
             // act
-            CartItem cartItem = CartItem.create(1L, 100L, 3);
+            CartItem cartItem = CartItem.of(1L, 100L, 3);
 
             // assert
             assertThat(cartItem)
@@ -47,7 +47,7 @@ class CartItemTest {
         @Test
         void 기존_수량에_추가_수량이_합산된다() {
             // arrange
-            CartItem cartItem = CartItem.create(1L, 100L, 3);
+            CartItem cartItem = CartItem.of(1L, 100L, 3);
 
             // act
             cartItem.addQuantity(2);
@@ -64,7 +64,7 @@ class CartItemTest {
         @Test
         void 유효하지_않은_수량이면_예외가_발생한다() {
             // arrange
-            CartItem cartItem = CartItem.create(1L, 100L, 3);
+            CartItem cartItem = CartItem.of(1L, 100L, 3);
 
             // act & assert
             assertThatThrownBy(() -> cartItem.changeQuantity(0))
@@ -76,7 +76,7 @@ class CartItemTest {
         @Test
         void 유효한_수량이면_변경된다() {
             // arrange
-            CartItem cartItem = CartItem.create(1L, 100L, 3);
+            CartItem cartItem = CartItem.of(1L, 100L, 3);
 
             // act
             cartItem.changeQuantity(5);
@@ -93,7 +93,7 @@ class CartItemTest {
         @Test
         void 본인의_장바구니가_아니면_예외가_발생한다() {
             // arrange
-            CartItem cartItem = CartItem.create(1L, 100L, 3);
+            CartItem cartItem = CartItem.of(1L, 100L, 3);
 
             // act & assert
             assertThatThrownBy(() -> cartItem.validateOwnership(999L))
@@ -105,7 +105,7 @@ class CartItemTest {
         @Test
         void 본인의_장바구니이면_예외가_발생하지_않는다() {
             // arrange
-            CartItem cartItem = CartItem.create(1L, 100L, 3);
+            CartItem cartItem = CartItem.of(1L, 100L, 3);
 
             // act & assert
             assertThatCode(() -> cartItem.validateOwnership(1L)).doesNotThrowAnyException();

@@ -41,7 +41,7 @@ public class CouponService {
             throw new CoreException(CouponErrorType.USER_ISSUE_LIMIT_EXCEEDED);
         }
 
-        IssuedCoupon issuedCoupon = IssuedCoupon.create(templateId, userId,
+        IssuedCoupon issuedCoupon = IssuedCoupon.issue(templateId, userId,
                 template.getName(), template.getDiscountType(),
                 template.getDiscountValue(), template.getMaxDiscountAmount());
         return issuedCouponRepository.save(issuedCoupon);
@@ -117,7 +117,7 @@ public class CouponService {
                                           int discountValue, Integer maxDiscountAmount, int minOrderAmount,
                                           int maxIssueCount, int maxIssueCountPerUser,
                                           java.time.ZonedDateTime validFrom, java.time.ZonedDateTime validTo) {
-        CouponTemplate template = CouponTemplate.create(name, description, discountType, discountValue,
+        CouponTemplate template = CouponTemplate.define(name, description, discountType, discountValue,
                 maxDiscountAmount, minOrderAmount, maxIssueCount, maxIssueCountPerUser, validFrom, validTo);
         return couponTemplateRepository.save(template);
     }
@@ -134,7 +134,7 @@ public class CouponService {
     @Transactional(timeout = 30)
     public void deleteTemplate(Long templateId) {
         CouponTemplate template = getTemplate(templateId);
-        template.delete();
+        template.withdraw();
         couponTemplateRepository.save(template);
     }
 }

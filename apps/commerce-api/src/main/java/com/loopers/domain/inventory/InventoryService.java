@@ -31,7 +31,7 @@ public class InventoryService {
     /** 재고 생성 */
     @Transactional(timeout = 30)
     public Inventory create(Long productId, int quantity) {
-        Inventory inventory = Inventory.create(productId, quantity);
+        Inventory inventory = Inventory.initialize(productId, quantity);
         return inventoryRepository.save(inventory);
     }
 
@@ -123,7 +123,7 @@ public class InventoryService {
     public void delete(Long productId) {
         inventoryRepository.findByProductId(productId)
                 .ifPresent(inventory -> {
-                    inventory.delete();
+                    inventory.discard();
                     inventoryRepository.save(inventory);
                 });
     }

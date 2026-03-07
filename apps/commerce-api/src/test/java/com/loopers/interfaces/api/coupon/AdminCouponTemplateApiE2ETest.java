@@ -46,7 +46,7 @@ class AdminCouponTemplateApiE2ETest {
     }
 
     private CouponTemplate createTemplate() {
-        return couponTemplateRepository.save(CouponTemplate.create(
+        return couponTemplateRepository.save(CouponTemplate.define(
                 "테스트 쿠폰", "테스트 설명", DiscountType.FIXED, 5000, null,
                 10000, 100, 1,
                 ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30)));

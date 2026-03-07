@@ -39,15 +39,15 @@ class ProductRepositoryIntegrationTest {
     }
 
     private Brand createBrand(String name) {
-        return brandRepository.save(Brand.create(name, name + " 설명"));
+        return brandRepository.save(Brand.register(name, name + " 설명"));
     }
 
     private Product createProduct(Long brandId, String name, int price) {
-        return productRepository.save(Product.create(brandId, name, name + " 설명", price));
+        return productRepository.save(Product.register(brandId, name, name + " 설명", price));
     }
 
     private Product createProduct(Long brandId, String name, int price, ProductStatus status) {
-        Product product = Product.create(brandId, name, name + " 설명", price);
+        Product product = Product.register(brandId, name, name + " 설명", price);
         product.changeStatus(status);
         return productRepository.save(product);
     }
@@ -63,7 +63,7 @@ class ProductRepositoryIntegrationTest {
 
             // act
             Product saved = productRepository.save(
-                    Product.create(brand.getId(), "에어맥스", "설명", 150000));
+                    Product.register(brand.getId(), "에어맥스", "설명", 150000));
 
             // assert
             assertThat(saved.getId()).isNotNull();
@@ -111,7 +111,7 @@ class ProductRepositoryIntegrationTest {
             Brand brand = createBrand("나이키");
             createProduct(brand.getId(), "상품1", 10000);
             Product deleted = createProduct(brand.getId(), "삭제상품", 20000);
-            deleted.delete();
+            deleted.discontinue();
             productRepository.save(deleted);
 
             // act
@@ -256,8 +256,8 @@ class ProductRepositoryIntegrationTest {
             createProduct(brand.getId(), "활성상품", 10000, ProductStatus.ACTIVE);
             createProduct(brand.getId(), "숨김상품", 20000, ProductStatus.HIDDEN);
 
-            Product deleted = Product.create(brand.getId(), "삭제상품", "설명", 30000);
-            deleted.delete();
+            Product deleted = Product.register(brand.getId(), "삭제상품", "설명", 30000);
+            deleted.discontinue();
             productRepository.save(deleted);
 
             // act

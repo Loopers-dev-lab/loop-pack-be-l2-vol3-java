@@ -35,7 +35,7 @@ public class User {
         this.email = email;
     }
 
-    public static User create(LoginId loginId, String encodedPassword, UserName name, BirthDate birthDate, Email email) {
+    public static User signUp(LoginId loginId, String encodedPassword, UserName name, BirthDate birthDate, Email email) {
         return new User(loginId, encodedPassword, name, birthDate, email);
     }
 

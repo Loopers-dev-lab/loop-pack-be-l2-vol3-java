@@ -19,7 +19,7 @@ public class UserAddressService {
     @Transactional
     public UserAddress register(Long userId, String receiverName, String phone,
                                  String zipCode, String addressLine1, String addressLine2) {
-        UserAddress address = UserAddress.create(userId, receiverName, phone, zipCode, addressLine1, addressLine2);
+        UserAddress address = UserAddress.register(userId, receiverName, phone, zipCode, addressLine1, addressLine2);
 
         long existingCount = userAddressRepository.countByUserIdAndDeletedAtIsNull(userId);
         if (existingCount == 0) {
@@ -45,7 +45,7 @@ public class UserAddressService {
                 .orElseThrow(() -> new CoreException(UserAddressErrorType.ADDRESS_NOT_FOUND));
         address.validateOwnership(userId);
         boolean wasDefault = address.isDefault();
-        address.delete();
+        address.remove();
         if (wasDefault) {
             address.unsetDefault();
         }

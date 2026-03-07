@@ -137,7 +137,7 @@ public class PaymentFacade {
             // 포인트 적립
             pointService.earn(userId, order.getTotalAmount());
         } else {
-            payment.fail();
+            payment.reject();
 
             // reserved_qty 복구
             Map<Long, Integer> productQtyMap = order.getItems().stream()

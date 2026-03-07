@@ -70,12 +70,12 @@ class AdminProductApiE2ETest {
     }
 
     private Brand createActiveBrand(String name) {
-        return brandRepository.save(Brand.create(name, name + " 설명"));
+        return brandRepository.save(Brand.register(name, name + " 설명"));
     }
 
     private Product createProductWithInventory(Long brandId, String name, int price, int quantity) {
-        Product product = productRepository.save(Product.create(brandId, name, name + " 설명", price));
-        inventoryRepository.save(Inventory.create(product.getId(), quantity));
+        Product product = productRepository.save(Product.register(brandId, name, name + " 설명", price));
+        inventoryRepository.save(Inventory.initialize(product.getId(), quantity));
         return product;
     }
 
@@ -102,7 +102,7 @@ class AdminProductApiE2ETest {
         @Test
         void 비활성_브랜드면_400_Bad_Request를_반환한다() {
             // arrange
-            Brand brand = Brand.create("비활성", "설명");
+            Brand brand = Brand.register("비활성", "설명");
             brand.changeStatus(BrandStatus.INACTIVE);
             Brand saved = brandRepository.save(brand);
 

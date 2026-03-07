@@ -21,7 +21,7 @@ public class BrandLikeService {
         if (brandLikeRepository.existsByUserIdAndBrandId(userId, brandId)) {
             throw new CoreException(LikeErrorType.ALREADY_LIKED);
         }
-        BrandLike brandLike = BrandLike.create(userId, brandId);
+        BrandLike brandLike = BrandLike.of(userId, brandId);
         return brandLikeRepository.save(brandLike);
     }
 

@@ -16,7 +16,7 @@ public class PaymentService {
 
     @Transactional
     public Payment create(Long orderId, int requestedAmount, String paymentMethod, String idempotencyKey) {
-        Payment payment = Payment.create(orderId, requestedAmount, paymentMethod, idempotencyKey);
+        Payment payment = Payment.request(orderId, requestedAmount, paymentMethod, idempotencyKey);
         return paymentRepository.save(payment);
     }
 
@@ -36,7 +36,7 @@ public class PaymentService {
     @Transactional
     public void fail(Long paymentId) {
         Payment payment = getById(paymentId);
-        payment.fail();
+        payment.reject();
         paymentRepository.save(payment);
     }
 }

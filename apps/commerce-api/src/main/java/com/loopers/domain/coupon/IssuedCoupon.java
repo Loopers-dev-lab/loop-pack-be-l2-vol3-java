@@ -43,7 +43,7 @@ public class IssuedCoupon {
         this.maxDiscountAmount = maxDiscountAmount;
     }
 
-    public static IssuedCoupon create(Long couponTemplateId, Long userId,
+    public static IssuedCoupon issue(Long couponTemplateId, Long userId,
                                        String couponName, DiscountType discountType,
                                        int discountValue, Integer maxDiscountAmount) {
         return new IssuedCoupon(couponTemplateId, userId, couponName, discountType,

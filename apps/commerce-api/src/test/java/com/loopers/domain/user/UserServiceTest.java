@@ -141,7 +141,7 @@ public class UserServiceTest {
         @Test
         void 유효한_ID_PW면_사용자를_반환한다() {
             // arrange
-            User user = User.create(
+            User user = User.signUp(
                     new LoginId("nahyeon"), "$2a$10$hash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
                     new Email("nahyeon@example.com")
@@ -215,7 +215,7 @@ public class UserServiceTest {
         @Test
         void 비밀번호가_불일치하면_예외가_발생한다() {
             // arrange
-            User user = User.create(
+            User user = User.signUp(
                     new LoginId("nahyeon"), "$2a$10$hash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
                     new Email("nahyeon@example.com")
@@ -239,7 +239,7 @@ public class UserServiceTest {
         @Test
         void 유효한_요청이면_비밀번호가_변경되고_영속화된다() {
             // arrange
-            User user = User.create(
+            User user = User.signUp(
                     new LoginId("nahyeon"), "$2a$10$oldHash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
                     new Email("nahyeon@example.com")
@@ -273,7 +273,7 @@ public class UserServiceTest {
 
         @Test
         void 현재_비밀번호가_null이면_예외가_발생한다() {
-            User user = User.create(
+            User user = User.signUp(
                     new LoginId("nahyeon"), "$2a$10$hash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
                     new Email("nahyeon@example.com")
@@ -289,7 +289,7 @@ public class UserServiceTest {
 
         @Test
         void 새_비밀번호가_null이면_예외가_발생한다() {
-            User user = User.create(
+            User user = User.signUp(
                     new LoginId("nahyeon"), "$2a$10$hash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
                     new Email("nahyeon@example.com")
@@ -306,7 +306,7 @@ public class UserServiceTest {
         @Test
         void 현재_비밀번호가_틀리면_예외가_발생한다() {
             // arrange
-            User user = User.create(
+            User user = User.signUp(
                     new LoginId("nahyeon"), "$2a$10$hash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
                     new Email("nahyeon@example.com")
@@ -325,7 +325,7 @@ public class UserServiceTest {
         @Test
         void 새_비밀번호가_현재와_동일하면_예외가_발생한다() {
             // arrange
-            User user = User.create(
+            User user = User.signUp(
                     new LoginId("nahyeon"), "$2a$10$hash",
                     new UserName("홍길동"), new BirthDate("1994-11-15"),
                     new Email("nahyeon@example.com")
@@ -344,7 +344,7 @@ public class UserServiceTest {
         @Test
         void 새_비밀번호에_생년월일이_포함되면_예외가_발생한다() {
             // arrange - birthDate: 1990-03-25
-            User user = User.create(
+            User user = User.signUp(
                     new LoginId("nahyeon"), "$2a$10$hash",
                     new UserName("홍길동"), new BirthDate("1990-03-25"),
                     new Email("nahyeon@example.com")

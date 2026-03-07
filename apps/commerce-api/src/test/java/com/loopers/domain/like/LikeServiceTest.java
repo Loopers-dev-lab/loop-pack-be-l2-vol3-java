@@ -104,7 +104,7 @@ class LikeServiceTest {
         @Test
         void 좋아요가_존재하면_delete가_호출된다() {
             // arrange
-            ProductLike productLike = ProductLike.create(1L, 100L);
+            ProductLike productLike = ProductLike.of(1L, 100L);
             when(productLikeRepository.findByUserIdAndProductId(1L, 100L)).thenReturn(Optional.of(productLike));
 
             // act

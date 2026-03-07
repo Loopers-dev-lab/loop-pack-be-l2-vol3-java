@@ -21,7 +21,7 @@ public class LikeService {
         if (productLikeRepository.existsByUserIdAndProductId(userId, productId)) {
             throw new CoreException(LikeErrorType.ALREADY_LIKED);
         }
-        productLikeRepository.save(ProductLike.create(userId, productId));
+        productLikeRepository.save(ProductLike.of(userId, productId));
     }
 
     @Transactional

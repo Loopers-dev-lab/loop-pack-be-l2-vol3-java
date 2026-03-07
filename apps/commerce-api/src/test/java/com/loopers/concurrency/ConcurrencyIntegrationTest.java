@@ -115,11 +115,11 @@ class ConcurrencyIntegrationTest {
     }
 
     private Brand createBrand() {
-        return brandRepository.save(Brand.create("테스트브랜드", "설명"));
+        return brandRepository.save(Brand.register("테스트브랜드", "설명"));
     }
 
     private Product createProduct(Long brandId) {
-        return productRepository.save(Product.create(brandId, "테스트상품", "설명", 10000));
+        return productRepository.save(Product.register(brandId, "테스트상품", "설명", 10000));
     }
 
     // ===== 1. 재고 동시 주문 (비관적 락) =====
@@ -130,7 +130,7 @@ class ConcurrencyIntegrationTest {
         // arrange
         Brand brand = createBrand();
         Product product = createProduct(brand.getId());
-        inventoryRepository.save(Inventory.create(product.getId(), 5));
+        inventoryRepository.save(Inventory.initialize(product.getId(), 5));
 
         int threadCount = 10;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -174,14 +174,14 @@ class ConcurrencyIntegrationTest {
     void 쿠폰_동시_사용_원자적_UPDATE() throws InterruptedException {
         // arrange
         CouponTemplate template = couponTemplateRepository.save(
-                CouponTemplate.create("테스트쿠폰", "설명", DiscountType.FIXED, 1000, null,
+                CouponTemplate.define("테스트쿠폰", "설명", DiscountType.FIXED, 1000, null,
                         0, 100, 10,
                         ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30))
         );
 
         // 쿠폰 1장을 userId=1에게 발급 (스냅샷 포함)
         IssuedCoupon issuedCoupon = issuedCouponRepository.save(
-                IssuedCoupon.create(template.getId(), 1L,
+                IssuedCoupon.issue(template.getId(), 1L,
                         template.getName(), template.getDiscountType(),
                         template.getDiscountValue(), template.getMaxDiscountAmount()));
 
@@ -225,7 +225,7 @@ class ConcurrencyIntegrationTest {
     void 쿠폰_동시_발급_비관적_락() throws InterruptedException {
         // arrange — maxIssueCount=5, maxIssueCountPerUser=1
         CouponTemplate template = couponTemplateRepository.save(
-                CouponTemplate.create("한정쿠폰", "설명", DiscountType.FIXED, 1000, null,
+                CouponTemplate.define("한정쿠폰", "설명", DiscountType.FIXED, 1000, null,
                         0, 5, 1,
                         ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30))
         );
@@ -274,7 +274,7 @@ class ConcurrencyIntegrationTest {
         // arrange
         Brand brand = createBrand();
         Product product = createProduct(brand.getId());
-        inventoryRepository.save(Inventory.create(product.getId(), 100));
+        inventoryRepository.save(Inventory.initialize(product.getId(), 100));
 
         int threadCount = 10;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -365,7 +365,7 @@ class ConcurrencyIntegrationTest {
         // arrange — 상품, 재고, 각 사용자별 주소/포인트 준비
         Brand brand = createBrand();
         Product product = createProduct(brand.getId());
-        inventoryRepository.save(Inventory.create(product.getId(), 5));
+        inventoryRepository.save(Inventory.initialize(product.getId(), 5));
 
         int threadCount = 10;
 
@@ -374,7 +374,7 @@ class ConcurrencyIntegrationTest {
         for (int i = 0; i < threadCount; i++) {
             long userId = i + 1L;
             UserAddress address = userAddressRepository.save(
-                    UserAddress.create(userId, "수령인" + userId, "010-0000-000" + i,
+                    UserAddress.register(userId, "수령인" + userId, "010-0000-000" + i,
                             "06234", "서울시 강남구", i + "호"));
             addressIds[i] = address.getId();
 

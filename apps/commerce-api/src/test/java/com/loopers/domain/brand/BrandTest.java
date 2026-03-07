@@ -22,7 +22,7 @@ class BrandTest {
         @Test
         void 유효한_정보면_name과_description과_ACTIVE_상태로_생성된다() {
             // act
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
 
             // assert
             assertThat(brand)
@@ -38,7 +38,7 @@ class BrandTest {
         @Test
         void 새로운_name과_description으로_변경된다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
 
             // act
             brand.changeInfo("아디다스", "독일 스포츠 브랜드");
@@ -57,7 +57,7 @@ class BrandTest {
         @Test
         void INACTIVE로_변경하면_status가_INACTIVE이다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
 
             // act
             brand.changeStatus(BrandStatus.INACTIVE);
@@ -69,7 +69,7 @@ class BrandTest {
         @Test
         void ACTIVE로_변경하면_status가_ACTIVE이다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
             brand.changeStatus(BrandStatus.INACTIVE);
 
             // act
@@ -87,11 +87,11 @@ class BrandTest {
         @Test
         void 이미_삭제된_브랜드를_재삭제하면_예외가_발생한다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
-            brand.delete();
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
+            brand.discontinue();
 
             // act & assert
-            assertThatThrownBy(brand::delete)
+            assertThatThrownBy(brand::discontinue)
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(BrandErrorType.ALREADY_DELETED);
@@ -100,10 +100,10 @@ class BrandTest {
         @Test
         void 삭제되지_않은_브랜드는_정상적으로_삭제된다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
 
             // act
-            brand.delete();
+            brand.discontinue();
 
             // assert
             assertThat(brand.getDeletedAt()).isNotNull();
@@ -117,7 +117,7 @@ class BrandTest {
         @Test
         void INACTIVE_상태이면_false를_반환한다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
             brand.changeStatus(BrandStatus.INACTIVE);
 
             // act & assert
@@ -127,7 +127,7 @@ class BrandTest {
         @Test
         void ACTIVE_상태이면_true를_반환한다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
 
             // act & assert
             assertThat(brand.isActive()).isTrue();
@@ -141,8 +141,8 @@ class BrandTest {
         @Test
         void 삭제된_브랜드이면_예외가_발생한다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
-            brand.delete();
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
+            brand.discontinue();
 
             // act & assert
             assertThatThrownBy(brand::assertNotDeleted)
@@ -154,7 +154,7 @@ class BrandTest {
         @Test
         void 삭제되지_않은_브랜드이면_예외가_발생하지_않는다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
 
             // act & assert
             assertThatCode(brand::assertNotDeleted).doesNotThrowAnyException();

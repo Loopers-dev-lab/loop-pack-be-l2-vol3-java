@@ -37,13 +37,13 @@ class OrderRepositoryIntegrationTest {
 
     private List<OrderItem> createOrderItems() {
         return List.of(
-                OrderItem.create(1L, "에어맥스", "나이키", 150000, 2),
-                OrderItem.create(2L, "슈퍼스타", "아디다스", 120000, 1)
+                OrderItem.snapshot(1L, "에어맥스", "나이키", 150000, 2),
+                OrderItem.snapshot(2L, "슈퍼스타", "아디다스", 120000, 1)
         );
     }
 
     private Order createAndSaveOrder(Long userId, String orderNumber) {
-        Order order = Order.create(userId, orderNumber, createOrderItems(),
+        Order order = Order.place(userId, orderNumber, createOrderItems(),
                 "홍길동", "010-1234-5678",
                 "김철수", "010-9876-5432",
                 "06234", "서울시 강남구 테헤란로 123", "4층 401호");

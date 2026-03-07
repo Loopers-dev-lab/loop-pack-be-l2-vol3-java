@@ -63,7 +63,7 @@ public class Order {
         this.expiresAt = ZonedDateTime.now().plusMinutes(30);
     }
 
-    public static Order create(Long userId, String orderNumber, List<OrderItem> items,
+    public static Order place(Long userId, String orderNumber, List<OrderItem> items,
                                 String ordererName, String ordererPhone,
                                 String receiverName, String receiverPhone,
                                 String zipCode, String addressLine1, String addressLine2) {

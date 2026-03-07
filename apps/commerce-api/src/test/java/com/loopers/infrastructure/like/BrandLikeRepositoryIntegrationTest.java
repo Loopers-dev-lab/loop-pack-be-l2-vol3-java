@@ -39,7 +39,7 @@ class BrandLikeRepositoryIntegrationTest {
     }
 
     private Brand createActiveBrand(String name) {
-        return brandRepository.save(Brand.create(name, name + " 설명"));
+        return brandRepository.save(Brand.register(name, name + " 설명"));
     }
 
     @Nested
@@ -52,7 +52,7 @@ class BrandLikeRepositoryIntegrationTest {
             Brand brand = createActiveBrand("나이키");
 
             // act
-            BrandLike saved = brandLikeRepository.save(BrandLike.create(1L, brand.getId()));
+            BrandLike saved = brandLikeRepository.save(BrandLike.of(1L, brand.getId()));
 
             // assert
             assertThat(saved.getId()).isNotNull();
@@ -64,7 +64,7 @@ class BrandLikeRepositoryIntegrationTest {
             Brand brand = createActiveBrand("나이키");
 
             // act
-            BrandLike saved = brandLikeRepository.save(BrandLike.create(1L, brand.getId()));
+            BrandLike saved = brandLikeRepository.save(BrandLike.of(1L, brand.getId()));
 
             // assert
             assertThat(saved)
@@ -82,7 +82,7 @@ class BrandLikeRepositoryIntegrationTest {
         void 존재하는_좋아요를_반환한다() {
             // arrange
             Brand brand = createActiveBrand("나이키");
-            brandLikeRepository.save(BrandLike.create(1L, brand.getId()));
+            brandLikeRepository.save(BrandLike.of(1L, brand.getId()));
 
             // act
             Optional<BrandLike> result = brandLikeRepository.findByUserIdAndBrandId(1L, brand.getId());
@@ -109,7 +109,7 @@ class BrandLikeRepositoryIntegrationTest {
         void 좋아요를_완전히_삭제한다() {
             // arrange
             Brand brand = createActiveBrand("나이키");
-            BrandLike saved = brandLikeRepository.save(BrandLike.create(1L, brand.getId()));
+            BrandLike saved = brandLikeRepository.save(BrandLike.of(1L, brand.getId()));
 
             // act
             brandLikeRepository.delete(saved);
@@ -128,12 +128,12 @@ class BrandLikeRepositoryIntegrationTest {
         void 비활성_브랜드의_좋아요는_제외한다() {
             // arrange
             Brand active = createActiveBrand("나이키");
-            Brand inactive = Brand.create("비활성", "설명");
+            Brand inactive = Brand.register("비활성", "설명");
             inactive.changeStatus(BrandStatus.INACTIVE);
             Brand savedInactive = brandRepository.save(inactive);
 
-            brandLikeRepository.save(BrandLike.create(1L, active.getId()));
-            brandLikeRepository.save(BrandLike.create(1L, savedInactive.getId()));
+            brandLikeRepository.save(BrandLike.of(1L, active.getId()));
+            brandLikeRepository.save(BrandLike.of(1L, savedInactive.getId()));
 
             // act
             List<BrandLike> result = brandLikeRepository.findActiveByUserId(1L, 0, 20);
@@ -147,12 +147,12 @@ class BrandLikeRepositoryIntegrationTest {
         void 삭제된_브랜드의_좋아요는_제외한다() {
             // arrange
             Brand active = createActiveBrand("나이키");
-            Brand deleted = Brand.create("삭제됨", "설명");
-            deleted.delete();
+            Brand deleted = Brand.register("삭제됨", "설명");
+            deleted.discontinue();
             Brand savedDeleted = brandRepository.save(deleted);
 
-            brandLikeRepository.save(BrandLike.create(1L, active.getId()));
-            brandLikeRepository.save(BrandLike.create(1L, savedDeleted.getId()));
+            brandLikeRepository.save(BrandLike.of(1L, active.getId()));
+            brandLikeRepository.save(BrandLike.of(1L, savedDeleted.getId()));
 
             // act
             List<BrandLike> result = brandLikeRepository.findActiveByUserId(1L, 0, 20);
@@ -168,8 +168,8 @@ class BrandLikeRepositoryIntegrationTest {
             Brand brand1 = createActiveBrand("나이키");
             Brand brand2 = createActiveBrand("아디다스");
 
-            brandLikeRepository.save(BrandLike.create(1L, brand1.getId()));
-            brandLikeRepository.save(BrandLike.create(1L, brand2.getId()));
+            brandLikeRepository.save(BrandLike.of(1L, brand1.getId()));
+            brandLikeRepository.save(BrandLike.of(1L, brand2.getId()));
 
             // act
             List<BrandLike> result = brandLikeRepository.findActiveByUserId(1L, 0, 20);
@@ -188,12 +188,12 @@ class BrandLikeRepositoryIntegrationTest {
         void 비활성_브랜드를_제외한_좋아요_수를_반환한다() {
             // arrange
             Brand active = createActiveBrand("나이키");
-            Brand inactive = Brand.create("비활성", "설명");
+            Brand inactive = Brand.register("비활성", "설명");
             inactive.changeStatus(BrandStatus.INACTIVE);
             Brand savedInactive = brandRepository.save(inactive);
 
-            brandLikeRepository.save(BrandLike.create(1L, active.getId()));
-            brandLikeRepository.save(BrandLike.create(1L, savedInactive.getId()));
+            brandLikeRepository.save(BrandLike.of(1L, active.getId()));
+            brandLikeRepository.save(BrandLike.of(1L, savedInactive.getId()));
 
             // act
             long count = brandLikeRepository.countActiveByUserId(1L);
@@ -211,7 +211,7 @@ class BrandLikeRepositoryIntegrationTest {
         void 존재하면_true를_반환한다() {
             // arrange
             Brand brand = createActiveBrand("나이키");
-            brandLikeRepository.save(BrandLike.create(1L, brand.getId()));
+            brandLikeRepository.save(BrandLike.of(1L, brand.getId()));
 
             // act & assert
             assertThat(brandLikeRepository.existsByUserIdAndBrandId(1L, brand.getId())).isTrue();

@@ -50,7 +50,7 @@ public class CouponTemplate {
         this.status = CouponTemplateStatus.ACTIVE;
     }
 
-    public static CouponTemplate create(String name, String description, DiscountType discountType,
+    public static CouponTemplate define(String name, String description, DiscountType discountType,
                                          int discountValue, Integer maxDiscountAmount, int minOrderAmount,
                                          int maxIssueCount, int maxIssueCountPerUser,
                                          ZonedDateTime validFrom, ZonedDateTime validTo) {
@@ -166,7 +166,7 @@ public class CouponTemplate {
         }
     }
 
-    public void delete() {
+    public void withdraw() {
         if (this.deletedAt == null) {
             this.deletedAt = ZonedDateTime.now();
         }

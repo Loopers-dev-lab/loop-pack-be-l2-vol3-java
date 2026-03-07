@@ -22,7 +22,7 @@ public class OrderService {
                         String ordererName, String ordererPhone,
                         String receiverName, String receiverPhone,
                         String zipCode, String addressLine1, String addressLine2) {
-        Order order = Order.create(userId, orderNumber, items,
+        Order order = Order.place(userId, orderNumber, items,
                 ordererName, ordererPhone, receiverName, receiverPhone,
                 zipCode, addressLine1, addressLine2);
         return orderRepository.save(order);
@@ -34,7 +34,7 @@ public class OrderService {
                                      String receiverName, String receiverPhone,
                                      String zipCode, String addressLine1, String addressLine2,
                                      int discountAmount, int pointUsedAmount, int shippingFee, Long couponId) {
-        Order order = Order.create(userId, orderNumber, items,
+        Order order = Order.place(userId, orderNumber, items,
                 ordererName, ordererPhone, receiverName, receiverPhone,
                 zipCode, addressLine1, addressLine2);
         order.applyDiscount(discountAmount, pointUsedAmount, shippingFee, couponId);

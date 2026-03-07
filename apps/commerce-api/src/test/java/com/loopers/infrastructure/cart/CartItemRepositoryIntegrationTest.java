@@ -39,7 +39,7 @@ class CartItemRepositoryIntegrationTest {
         @Test
         void 새로운_장바구니_항목을_저장하면_ID가_생성된다() {
             // arrange
-            CartItem cartItem = CartItem.create(1L, 100L, 3);
+            CartItem cartItem = CartItem.of(1L, 100L, 3);
 
             // act
             CartItem saved = cartItemRepository.save(cartItem);
@@ -51,7 +51,7 @@ class CartItemRepositoryIntegrationTest {
         @Test
         void 저장된_항목의_필드가_올바르게_저장된다() {
             // arrange
-            CartItem cartItem = CartItem.create(1L, 100L, 3);
+            CartItem cartItem = CartItem.of(1L, 100L, 3);
 
             // act
             CartItem saved = cartItemRepository.save(cartItem);
@@ -70,7 +70,7 @@ class CartItemRepositoryIntegrationTest {
         @Test
         void 존재하는_항목을_반환한다() {
             // arrange
-            CartItem saved = cartItemRepository.save(CartItem.create(1L, 100L, 3));
+            CartItem saved = cartItemRepository.save(CartItem.of(1L, 100L, 3));
 
             // act
             Optional<CartItem> result = cartItemRepository.findById(saved.getId());
@@ -82,8 +82,8 @@ class CartItemRepositoryIntegrationTest {
         @Test
         void 소프트_삭제된_항목은_조회되지_않는다() {
             // arrange
-            CartItem saved = cartItemRepository.save(CartItem.create(1L, 100L, 3));
-            saved.delete();
+            CartItem saved = cartItemRepository.save(CartItem.of(1L, 100L, 3));
+            saved.remove();
             cartItemRepository.save(saved);
 
             // act
@@ -101,7 +101,7 @@ class CartItemRepositoryIntegrationTest {
         @Test
         void 존재하는_항목을_반환한다() {
             // arrange
-            cartItemRepository.save(CartItem.create(1L, 100L, 3));
+            cartItemRepository.save(CartItem.of(1L, 100L, 3));
 
             // act
             Optional<CartItem> result = cartItemRepository.findByUserIdAndProductId(1L, 100L);
@@ -122,8 +122,8 @@ class CartItemRepositoryIntegrationTest {
         @Test
         void 소프트_삭제된_항목은_조회되지_않는다() {
             // arrange
-            CartItem saved = cartItemRepository.save(CartItem.create(1L, 100L, 3));
-            saved.delete();
+            CartItem saved = cartItemRepository.save(CartItem.of(1L, 100L, 3));
+            saved.remove();
             cartItemRepository.save(saved);
 
             // act
@@ -136,8 +136,8 @@ class CartItemRepositoryIntegrationTest {
         @Test
         void 소프트_삭제_후_동일_상품을_재추가할_수_있다() {
             // arrange
-            CartItem saved = cartItemRepository.save(CartItem.create(1L, 100L, 3));
-            saved.delete();
+            CartItem saved = cartItemRepository.save(CartItem.of(1L, 100L, 3));
+            saved.remove();
             CartItem deleted = cartItemRepository.save(saved);
 
             // act - 소프트 삭제된 항목을 restore하여 재추가
@@ -160,8 +160,8 @@ class CartItemRepositoryIntegrationTest {
         @Test
         void 사용자의_장바구니_항목을_반환한다() {
             // arrange
-            cartItemRepository.save(CartItem.create(1L, 100L, 3));
-            cartItemRepository.save(CartItem.create(1L, 200L, 1));
+            cartItemRepository.save(CartItem.of(1L, 100L, 3));
+            cartItemRepository.save(CartItem.of(1L, 200L, 1));
 
             // act
             List<CartItem> result = cartItemRepository.findAllByUserId(1L);
@@ -173,8 +173,8 @@ class CartItemRepositoryIntegrationTest {
         @Test
         void 최근_추가순으로_반환한다() {
             // arrange
-            cartItemRepository.save(CartItem.create(1L, 100L, 3));
-            cartItemRepository.save(CartItem.create(1L, 200L, 1));
+            cartItemRepository.save(CartItem.of(1L, 100L, 3));
+            cartItemRepository.save(CartItem.of(1L, 200L, 1));
 
             // act
             List<CartItem> result = cartItemRepository.findAllByUserId(1L);
@@ -187,9 +187,9 @@ class CartItemRepositoryIntegrationTest {
         @Test
         void 소프트_삭제된_항목은_제외된다() {
             // arrange
-            CartItem item1 = cartItemRepository.save(CartItem.create(1L, 100L, 3));
-            cartItemRepository.save(CartItem.create(1L, 200L, 1));
-            item1.delete();
+            CartItem item1 = cartItemRepository.save(CartItem.of(1L, 100L, 3));
+            cartItemRepository.save(CartItem.of(1L, 200L, 1));
+            item1.remove();
             cartItemRepository.save(item1);
 
             // act
@@ -203,8 +203,8 @@ class CartItemRepositoryIntegrationTest {
         @Test
         void 다른_사용자의_항목은_포함되지_않는다() {
             // arrange
-            cartItemRepository.save(CartItem.create(1L, 100L, 3));
-            cartItemRepository.save(CartItem.create(2L, 200L, 1));
+            cartItemRepository.save(CartItem.of(1L, 100L, 3));
+            cartItemRepository.save(CartItem.of(2L, 200L, 1));
 
             // act
             List<CartItem> result = cartItemRepository.findAllByUserId(1L);

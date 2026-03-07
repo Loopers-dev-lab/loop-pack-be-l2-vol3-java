@@ -52,7 +52,7 @@ public class CartItem {
         return cartItem;
     }
 
-    public static CartItem create(Long userId, Long productId, int quantity) {
+    public static CartItem of(Long userId, Long productId, int quantity) {
         CartItem cartItem = new CartItem(userId, productId, quantity);
         ZonedDateTime now = ZonedDateTime.now();
         cartItem.createdAt = now;
@@ -73,7 +73,7 @@ public class CartItem {
         this.updatedAt = ZonedDateTime.now();
     }
 
-    public void delete() {
+    public void remove() {
         if (this.deletedAt == null) {
             this.deletedAt = ZonedDateTime.now();
         }

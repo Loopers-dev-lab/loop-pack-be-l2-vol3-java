@@ -83,7 +83,7 @@ class InventoryServiceTest {
         @Test
         void 존재하는_상품이면_재고를_반환한다() {
             // arrange
-            Inventory inventory = Inventory.create(1L, 100);
+            Inventory inventory = Inventory.initialize(1L, 100);
             when(inventoryRepository.findByProductId(1L)).thenReturn(Optional.of(inventory));
 
             // act
@@ -113,7 +113,7 @@ class InventoryServiceTest {
         @Test
         void 하나라도_재고가_부족하면_예외가_발생한다() {
             // arrange
-            Inventory inventory = Inventory.create(1L, 3);
+            Inventory inventory = Inventory.initialize(1L, 3);
             when(inventoryRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.of(inventory));
 
             // act & assert
@@ -126,8 +126,8 @@ class InventoryServiceTest {
         @Test
         void 모든_상품의_재고가_충분하면_예약에_성공한다() {
             // arrange
-            Inventory inventory1 = Inventory.create(1L, 100);
-            Inventory inventory2 = Inventory.create(2L, 50);
+            Inventory inventory1 = Inventory.initialize(1L, 100);
+            Inventory inventory2 = Inventory.initialize(2L, 50);
             when(inventoryRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.of(inventory1));
             when(inventoryRepository.findByProductIdForUpdate(2L)).thenReturn(Optional.of(inventory2));
 
@@ -147,7 +147,7 @@ class InventoryServiceTest {
         @Test
         void 각_재고의_commit이_호출된다() {
             // arrange
-            Inventory inventory = Inventory.create(1L, 100);
+            Inventory inventory = Inventory.initialize(1L, 100);
             inventory.reserve(10);
             when(inventoryRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.of(inventory));
 
@@ -163,7 +163,7 @@ class InventoryServiceTest {
         @Test
         void 재고가_삭제된_상품은_skip하고_나머지는_정상_확정된다() {
             // arrange
-            Inventory inventory2 = Inventory.create(2L, 50);
+            Inventory inventory2 = Inventory.initialize(2L, 50);
             inventory2.reserve(5);
             when(inventoryRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.empty());
             when(inventoryRepository.findByProductIdForUpdate(2L)).thenReturn(Optional.of(inventory2));
@@ -186,7 +186,7 @@ class InventoryServiceTest {
         @Test
         void 각_재고의_release가_호출된다() {
             // arrange
-            Inventory inventory = Inventory.create(1L, 100);
+            Inventory inventory = Inventory.initialize(1L, 100);
             inventory.reserve(10);
             when(inventoryRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.of(inventory));
 
@@ -215,7 +215,7 @@ class InventoryServiceTest {
         @Test
         void 복수_상품_중_일부만_삭제되었으면_존재하는_것만_해제된다() {
             // arrange
-            Inventory inventory2 = Inventory.create(2L, 50);
+            Inventory inventory2 = Inventory.initialize(2L, 50);
             inventory2.reserve(5);
             when(inventoryRepository.findByProductIdForUpdate(1L)).thenReturn(Optional.empty());
             when(inventoryRepository.findByProductIdForUpdate(2L)).thenReturn(Optional.of(inventory2));
@@ -236,7 +236,7 @@ class InventoryServiceTest {
         @Test
         void 존재하는_재고면_소프트_삭제된다() {
             // arrange
-            Inventory inventory = Inventory.create(1L, 100);
+            Inventory inventory = Inventory.initialize(1L, 100);
             when(inventoryRepository.findByProductId(1L)).thenReturn(Optional.of(inventory));
 
             // act

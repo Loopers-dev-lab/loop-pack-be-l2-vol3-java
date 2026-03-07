@@ -65,7 +65,7 @@ public class Product {
     }
 
     /** 상품 생성 팩토리 메서드 */
-    public static Product create(Long brandId, String name, String description, int basePrice) {
+    public static Product register(Long brandId, String name, String description, int basePrice) {
         Product product = new Product(brandId, name, description, basePrice);
         product.guard();
         ZonedDateTime now = ZonedDateTime.now();
@@ -108,10 +108,10 @@ public class Product {
     }
 
     /**
-     * 상품 소프트 삭제
+     * 상품 소프트 삭제 (단종)
      * 이미 삭제된 상품은 예외를 던진다.
      */
-    public void delete() {
+    public void discontinue() {
         assertNotDeleted();
         if (this.deletedAt == null) {
             this.deletedAt = ZonedDateTime.now();

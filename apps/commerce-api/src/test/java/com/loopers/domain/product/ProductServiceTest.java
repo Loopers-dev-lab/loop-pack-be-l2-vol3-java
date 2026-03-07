@@ -80,8 +80,8 @@ class ProductServiceTest {
         @Test
         void 삭제된_상품이면_예외가_발생한다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
-            product.delete();
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
+            product.discontinue();
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
             // act & assert
@@ -94,7 +94,7 @@ class ProductServiceTest {
         @Test
         void 존재하는_상품이면_반환한다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
             // act
@@ -112,8 +112,8 @@ class ProductServiceTest {
         @Test
         void 삭제된_상품이면_404_예외가_발생한다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
-            product.delete();
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
+            product.discontinue();
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
             // act & assert
@@ -126,7 +126,7 @@ class ProductServiceTest {
         @Test
         void 고객에게_노출_불가한_상품이면_404_예외가_발생한다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
             product.changeStatus(ProductStatus.HIDDEN);
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
@@ -140,7 +140,7 @@ class ProductServiceTest {
         @Test
         void 노출_가능한_상품이면_반환한다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
             // act
@@ -158,7 +158,7 @@ class ProductServiceTest {
         @Test
         void 유효한_정보면_수정된_상품이_반환된다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
             when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -179,7 +179,7 @@ class ProductServiceTest {
         @Test
         void 지정한_상태로_변경된_상품이_반환된다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
             when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -210,7 +210,7 @@ class ProductServiceTest {
         @Test
         void 유효한_상품이면_delete가_호출된다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
             // act

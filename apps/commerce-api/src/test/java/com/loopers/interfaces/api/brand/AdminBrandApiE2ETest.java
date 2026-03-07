@@ -70,12 +70,12 @@ class AdminBrandApiE2ETest {
     }
 
     private Product createProductWithInventory(Long brandId, String name, ProductStatus status) {
-        Product product = Product.create(brandId, name, name + " 설명", 10000);
+        Product product = Product.register(brandId, name, name + " 설명", 10000);
         if (status != ProductStatus.ACTIVE) {
             product.changeStatus(status);
         }
         Product saved = productRepository.save(product);
-        inventoryRepository.save(Inventory.create(saved.getId(), 100));
+        inventoryRepository.save(Inventory.initialize(saved.getId(), 100));
         return saved;
     }
 
@@ -105,8 +105,8 @@ class AdminBrandApiE2ETest {
         @Test
         void 전체_브랜드가_조회되고_200_OK를_반환한다() {
             // arrange
-            brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
-            Brand inactive = Brand.create("비활성", "설명");
+            brandRepository.save(Brand.register("나이키", "스포츠 브랜드"));
+            Brand inactive = Brand.register("비활성", "설명");
             inactive.changeStatus(BrandStatus.INACTIVE);
             brandRepository.save(inactive);
 
@@ -121,9 +121,9 @@ class AdminBrandApiE2ETest {
         @Test
         void 페이지네이션_파라미터로_조회되고_200_OK를_반환한다() {
             // arrange
-            brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
-            brandRepository.save(Brand.create("아디다스", "독일 브랜드"));
-            brandRepository.save(Brand.create("뉴발란스", "미국 브랜드"));
+            brandRepository.save(Brand.register("나이키", "스포츠 브랜드"));
+            brandRepository.save(Brand.register("아디다스", "독일 브랜드"));
+            brandRepository.save(Brand.register("뉴발란스", "미국 브랜드"));
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
@@ -141,7 +141,7 @@ class AdminBrandApiE2ETest {
         @Test
         void 존재하는_브랜드면_200_OK를_반환한다() {
             // arrange
-            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Brand brand = brandRepository.save(Brand.register("나이키", "스포츠 브랜드"));
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
@@ -154,7 +154,7 @@ class AdminBrandApiE2ETest {
         @Test
         void 브랜드_상세에_전체_상품_목록이_포함된다() {
             // arrange
-            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Brand brand = brandRepository.save(Brand.register("나이키", "스포츠 브랜드"));
             createProductWithInventory(brand.getId(), "에어맥스", ProductStatus.ACTIVE);
             createProductWithInventory(brand.getId(), "숨김상품", ProductStatus.HIDDEN);
 
@@ -184,7 +184,7 @@ class AdminBrandApiE2ETest {
         @Test
         void 유효한_정보면_200_OK를_반환하고_실제로_수정된다() {
             // arrange
-            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Brand brand = brandRepository.save(Brand.register("나이키", "스포츠 브랜드"));
             AdminBrandRequest.UpdateBrandRequest request =
                     new AdminBrandRequest.UpdateBrandRequest("아디다스", "독일 브랜드");
 
@@ -224,7 +224,7 @@ class AdminBrandApiE2ETest {
         @Test
         void INACTIVE로_변경하면_200_OK를_반환하고_실제로_변경된다() {
             // arrange
-            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Brand brand = brandRepository.save(Brand.register("나이키", "스포츠 브랜드"));
             AdminBrandRequest.ChangeStatusRequest request =
                     new AdminBrandRequest.ChangeStatusRequest(BrandStatus.INACTIVE);
 
@@ -248,7 +248,7 @@ class AdminBrandApiE2ETest {
         @Test
         void 존재하는_브랜드면_200_OK를_반환하고_실제로_삭제된다() {
             // arrange
-            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Brand brand = brandRepository.save(Brand.register("나이키", "스포츠 브랜드"));
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
@@ -265,7 +265,7 @@ class AdminBrandApiE2ETest {
         @Test
         void 브랜드_삭제_시_소속_상품과_재고가_연쇄_삭제된다() {
             // arrange
-            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Brand brand = brandRepository.save(Brand.register("나이키", "스포츠 브랜드"));
             Product product = createProductWithInventory(brand.getId(), "에어맥스", ProductStatus.ACTIVE);
 
             // act
@@ -291,7 +291,7 @@ class AdminBrandApiE2ETest {
         @Test
         void 삭제_후_다시_삭제하면_409_Conflict를_반환한다() {
             // arrange
-            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+            Brand brand = brandRepository.save(Brand.register("나이키", "스포츠 브랜드"));
 
             // 1차 삭제
             testRestTemplate.exchange(
@@ -310,8 +310,8 @@ class AdminBrandApiE2ETest {
         @Test
         void 이미_삭제된_브랜드면_409_Conflict를_반환한다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
-            brand.delete();
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
+            brand.discontinue();
             Brand saved = brandRepository.save(brand);
 
             // act

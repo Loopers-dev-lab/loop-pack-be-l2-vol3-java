@@ -48,16 +48,16 @@ class ProductApiE2ETest {
     }
 
     private Brand createActiveBrand(String name) {
-        return brandRepository.save(Brand.create(name, name + " 설명"));
+        return brandRepository.save(Brand.register(name, name + " 설명"));
     }
 
     private Product createProduct(Long brandId, String name, int price, ProductStatus status) {
-        Product product = Product.create(brandId, name, name + " 설명", price);
+        Product product = Product.register(brandId, name, name + " 설명", price);
         if (status != ProductStatus.ACTIVE) {
             product.changeStatus(status);
         }
         Product saved = productRepository.save(product);
-        inventoryRepository.save(Inventory.create(saved.getId(), 100));
+        inventoryRepository.save(Inventory.initialize(saved.getId(), 100));
         return saved;
     }
 
@@ -175,7 +175,7 @@ class ProductApiE2ETest {
             Brand brand = createActiveBrand("나이키");
             Product product = createProduct(brand.getId(), "에어맥스", 150000, ProductStatus.ACTIVE);
             Product loaded = productRepository.findById(product.getId()).orElseThrow();
-            loaded.delete();
+            loaded.discontinue();
             productRepository.save(loaded);
 
             // act

@@ -56,7 +56,7 @@ class CouponApiE2ETest {
     }
 
     private CouponTemplate createActiveTemplate() {
-        return couponTemplateRepository.save(CouponTemplate.create(
+        return couponTemplateRepository.save(CouponTemplate.define(
                 "신규 가입 쿠폰", "5000원 할인", DiscountType.FIXED, 5000, null,
                 10000, 100, 1,
                 ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30)));

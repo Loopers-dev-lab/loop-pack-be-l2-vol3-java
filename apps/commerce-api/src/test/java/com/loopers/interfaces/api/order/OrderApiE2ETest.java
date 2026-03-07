@@ -78,7 +78,7 @@ class OrderApiE2ETest {
                 "testuser", "Hx7!mK2@", "테스터", "1994-11-15", "test@example.com");
         testRestTemplate.postForEntity("/api/v1/users", signupRequest, ApiResponse.class);
         userId = 1L;
-        pointAccountRepository.save(PointAccount.create(userId));
+        pointAccountRepository.save(PointAccount.open(userId));
     }
 
     private HttpHeaders authHeaders() {
@@ -90,26 +90,26 @@ class OrderApiE2ETest {
     }
 
     private Brand createActiveBrand(String name) {
-        return brandRepository.save(Brand.create(name, name + " 설명"));
+        return brandRepository.save(Brand.register(name, name + " 설명"));
     }
 
     private Product createActiveProduct(Long brandId, String name) {
-        Product product = Product.create(brandId, name, name + " 설명", 10000);
+        Product product = Product.register(brandId, name, name + " 설명", 10000);
         Product saved = productRepository.save(product);
-        inventoryRepository.save(Inventory.create(saved.getId(), 100));
+        inventoryRepository.save(Inventory.initialize(saved.getId(), 100));
         return saved;
     }
 
     private Product createSoldOutProduct(Long brandId, String name) {
-        Product product = Product.create(brandId, name, name + " 설명", 10000);
+        Product product = Product.register(brandId, name, name + " 설명", 10000);
         product.changeStatus(ProductStatus.SOLDOUT);
         Product saved = productRepository.save(product);
-        inventoryRepository.save(Inventory.create(saved.getId(), 0));
+        inventoryRepository.save(Inventory.initialize(saved.getId(), 0));
         return saved;
     }
 
     private UserAddress createAddress(Long forUserId) {
-        UserAddress address = UserAddress.create(forUserId, "홍길동", "010-1234-5678",
+        UserAddress address = UserAddress.register(forUserId, "홍길동", "010-1234-5678",
                 "12345", "서울시 강남구 테헤란로 123", "4층 401호");
         return userAddressRepository.save(address);
     }
@@ -300,8 +300,8 @@ class OrderApiE2ETest {
         @Test
         void 타인의_주문이면_403_Forbidden을_반환한다() {
             // arrange - 다른 사용자의 주문 직접 생성
-            Order otherOrder = orderRepository.save(Order.create(999L, "ORD-OTHER-001",
-                    List.of(com.loopers.domain.order.OrderItem.create(1L, "상품", "브랜드", 10000, 1)),
+            Order otherOrder = orderRepository.save(Order.place(999L, "ORD-OTHER-001",
+                    List.of(com.loopers.domain.order.OrderItem.snapshot(1L, "상품", "브랜드", 10000, 1)),
                     "타인", "010-0000-0000", "타인", "010-0000-0000",
                     "00000", "어딘가", null));
 
@@ -352,8 +352,8 @@ class OrderApiE2ETest {
         @Test
         void 타인의_주문이면_403_Forbidden을_반환한다() {
             // arrange
-            Order otherOrder = orderRepository.save(Order.create(999L, "ORD-OTHER-002",
-                    List.of(com.loopers.domain.order.OrderItem.create(1L, "상품", "브랜드", 10000, 1)),
+            Order otherOrder = orderRepository.save(Order.place(999L, "ORD-OTHER-002",
+                    List.of(com.loopers.domain.order.OrderItem.snapshot(1L, "상품", "브랜드", 10000, 1)),
                     "타인", "010-0000-0000", "타인", "010-0000-0000",
                     "00000", "어딘가", null));
 
@@ -369,8 +369,8 @@ class OrderApiE2ETest {
         @Test
         void PENDING_주문을_취소하면_200_OK를_반환한다() {
             // arrange — PENDING 상태 주문을 직접 생성
-            Order pendingOrder = orderRepository.save(Order.create(userId, "ORD-CANCEL-001",
-                    List.of(com.loopers.domain.order.OrderItem.create(1L, "상품", "브랜드", 10000, 1)),
+            Order pendingOrder = orderRepository.save(Order.place(userId, "ORD-CANCEL-001",
+                    List.of(com.loopers.domain.order.OrderItem.snapshot(1L, "상품", "브랜드", 10000, 1)),
                     "테스터", "010-1234-5678", "홍길동", "010-1234-5678",
                     "00000", "어딘가", null));
 

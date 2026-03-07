@@ -22,7 +22,7 @@ class UserAddressTest {
         @Test
         void 유효한_정보면_모든_필드가_저장된다() {
             // act
-            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", "4층 401호");
+            UserAddress address = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", "4층 401호");
 
             // assert
             assertThat(address)
@@ -41,7 +41,7 @@ class UserAddressTest {
         @Test
         void receiverName_phone_zipCode_addressLine이_변경된다() {
             // arrange
-            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", "4층 401호");
+            UserAddress address = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", "4층 401호");
 
             // act
             address.changeInfo("김철수", "010-9876-5432", "54321", "부산시 해운대구", "3층 302호");
@@ -61,7 +61,7 @@ class UserAddressTest {
         @Test
         void setAsDefault로_isDefault가_true가_된다() {
             // arrange
-            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
+            UserAddress address = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
 
             // act
             address.setAsDefault();
@@ -73,7 +73,7 @@ class UserAddressTest {
         @Test
         void unsetDefault로_isDefault가_false가_된다() {
             // arrange
-            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
+            UserAddress address = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
             address.setAsDefault();
 
             // act
@@ -91,7 +91,7 @@ class UserAddressTest {
         @Test
         void 본인의_주소가_아니면_예외가_발생한다() {
             // arrange
-            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
+            UserAddress address = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
 
             // act & assert
             assertThatThrownBy(() -> address.validateOwnership(999L))
@@ -103,7 +103,7 @@ class UserAddressTest {
         @Test
         void 본인의_주소이면_예외가_발생하지_않는다() {
             // arrange
-            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
+            UserAddress address = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
 
             // act & assert
             assertThatCode(() -> address.validateOwnership(1L)).doesNotThrowAnyException();
@@ -117,10 +117,10 @@ class UserAddressTest {
         @Test
         void 삭제되지_않은_주소는_정상적으로_삭제된다() {
             // arrange
-            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
+            UserAddress address = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
 
             // act
-            address.delete();
+            address.remove();
 
             // assert
             assertThat(address.getDeletedAt()).isNotNull();

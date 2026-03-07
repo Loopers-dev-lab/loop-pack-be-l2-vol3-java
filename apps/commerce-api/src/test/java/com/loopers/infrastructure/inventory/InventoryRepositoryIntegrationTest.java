@@ -45,8 +45,8 @@ class InventoryRepositoryIntegrationTest {
     }
 
     private Product createProduct(String name) {
-        Brand brand = brandRepository.save(Brand.create("브랜드", "설명"));
-        return productRepository.save(Product.create(brand.getId(), name, "설명", 10000));
+        Brand brand = brandRepository.save(Brand.register("브랜드", "설명"));
+        return productRepository.save(Product.register(brand.getId(), name, "설명", 10000));
     }
 
     @Nested
@@ -57,7 +57,7 @@ class InventoryRepositoryIntegrationTest {
         void 존재하는_상품의_재고를_반환한다() {
             // arrange
             Product product = createProduct("상품");
-            inventoryRepository.save(Inventory.create(product.getId(), 100));
+            inventoryRepository.save(Inventory.initialize(product.getId(), 100));
 
             // act
             Optional<Inventory> result = inventoryRepository.findByProductId(product.getId());
@@ -80,8 +80,8 @@ class InventoryRepositoryIntegrationTest {
         void 소프트_삭제된_재고는_조회되지_않는다() {
             // arrange
             Product product = createProduct("상품");
-            Inventory inventory = Inventory.create(product.getId(), 100);
-            inventory.delete();
+            Inventory inventory = Inventory.initialize(product.getId(), 100);
+            inventory.discard();
             inventoryRepository.save(inventory);
 
             // act
@@ -101,7 +101,7 @@ class InventoryRepositoryIntegrationTest {
         void 비관적_락으로_재고를_조회한다() {
             // arrange
             Product product = createProduct("상품");
-            inventoryRepository.save(Inventory.create(product.getId(), 100));
+            inventoryRepository.save(Inventory.initialize(product.getId(), 100));
 
             // act
             Optional<Inventory> result = inventoryRepository.findByProductIdForUpdate(product.getId());
@@ -116,8 +116,8 @@ class InventoryRepositoryIntegrationTest {
         void 소프트_삭제된_재고는_조회되지_않는다() {
             // arrange
             Product product = createProduct("상품");
-            Inventory inventory = Inventory.create(product.getId(), 100);
-            inventory.delete();
+            Inventory inventory = Inventory.initialize(product.getId(), 100);
+            inventory.discard();
             inventoryRepository.save(inventory);
 
             // act
@@ -137,8 +137,8 @@ class InventoryRepositoryIntegrationTest {
             // arrange
             Product product1 = createProduct("상품1");
             Product product2 = createProduct("상품2");
-            inventoryRepository.save(Inventory.create(product1.getId(), 100));
-            inventoryRepository.save(Inventory.create(product2.getId(), 50));
+            inventoryRepository.save(Inventory.initialize(product1.getId(), 100));
+            inventoryRepository.save(Inventory.initialize(product2.getId(), 50));
 
             // act
             List<Inventory> result = inventoryRepository.findAllByProductIdIn(
@@ -153,10 +153,10 @@ class InventoryRepositoryIntegrationTest {
             // arrange
             Product product1 = createProduct("상품1");
             Product product2 = createProduct("상품2");
-            inventoryRepository.save(Inventory.create(product1.getId(), 100));
+            inventoryRepository.save(Inventory.initialize(product1.getId(), 100));
 
-            Inventory deleted = Inventory.create(product2.getId(), 50);
-            deleted.delete();
+            Inventory deleted = Inventory.initialize(product2.getId(), 50);
+            deleted.discard();
             inventoryRepository.save(deleted);
 
             // act

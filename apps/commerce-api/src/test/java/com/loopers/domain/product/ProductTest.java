@@ -21,7 +21,7 @@ class ProductTest {
         @Test
         void 유효한_정보면_ACTIVE_상태와_likeCount_0으로_생성된다() {
             // act
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
 
             // assert
             assertThat(product)
@@ -38,7 +38,7 @@ class ProductTest {
         @Test
         void name_description_basePrice가_변경된다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
 
             // act
             product.changeInfo("에어포스", "나이키 에어포스", 120000);
@@ -57,7 +57,7 @@ class ProductTest {
         @Test
         void 지정한_상태로_변경된다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
 
             // act
             product.changeStatus(ProductStatus.SOLDOUT);
@@ -74,11 +74,11 @@ class ProductTest {
         @Test
         void 이미_삭제된_상품을_재삭제하면_예외가_발생한다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
-            product.delete();
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
+            product.discontinue();
 
             // act & assert
-            assertThatThrownBy(product::delete)
+            assertThatThrownBy(product::discontinue)
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ProductErrorType.ALREADY_DELETED);
@@ -87,10 +87,10 @@ class ProductTest {
         @Test
         void 삭제되지_않은_상품은_정상적으로_삭제된다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
 
             // act
-            product.delete();
+            product.discontinue();
 
             // assert
             assertThat(product.getDeletedAt()).isNotNull();
@@ -104,7 +104,7 @@ class ProductTest {
         @Test
         void HIDDEN_상태이면_노출되지_않는다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
             product.changeStatus(ProductStatus.HIDDEN);
 
             // act & assert
@@ -114,7 +114,7 @@ class ProductTest {
         @Test
         void DISCONTINUED_상태이면_노출되지_않는다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
             product.changeStatus(ProductStatus.DISCONTINUED);
 
             // act & assert
@@ -124,7 +124,7 @@ class ProductTest {
         @Test
         void ACTIVE_상태이면_노출된다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
 
             // act & assert
             assertThat(product.isDisplayable()).isTrue();
@@ -133,7 +133,7 @@ class ProductTest {
         @Test
         void SOLDOUT_상태이면_노출된다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
             product.changeStatus(ProductStatus.SOLDOUT);
 
             // act & assert
@@ -148,7 +148,7 @@ class ProductTest {
         @Test
         void likeCount가_0일_때_decrementLikeCount를_해도_0이다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
 
             // act
             product.decrementLikeCount();
@@ -160,7 +160,7 @@ class ProductTest {
         @Test
         void incrementLikeCount로_likeCount가_증가한다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
 
             // act
             product.incrementLikeCount();
@@ -172,7 +172,7 @@ class ProductTest {
         @Test
         void likeCount가_1_이상일_때_decrementLikeCount로_감소한다() {
             // arrange
-            Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
+            Product product = Product.register(1L, "에어맥스", "나이키 에어맥스", 150000);
             product.incrementLikeCount();
             product.incrementLikeCount();
 

@@ -48,7 +48,7 @@ public class PointAccount {
         return pointAccount;
     }
 
-    public static PointAccount create(Long userId) {
+    public static PointAccount open(Long userId) {
         PointAccount pointAccount = new PointAccount(userId);
         ZonedDateTime now = ZonedDateTime.now();
         pointAccount.createdAt = now;
@@ -80,7 +80,7 @@ public class PointAccount {
         }
     }
 
-    public void charge(int amount) {
+    public void deposit(int amount) {
         if (amount <= 0) {
             throw new CoreException(PointErrorType.INVALID_AMOUNT);
         }
@@ -88,7 +88,7 @@ public class PointAccount {
         this.updatedAt = ZonedDateTime.now();
     }
 
-    public void use(int amount) {
+    public void deduct(int amount) {
         if (amount <= 0) {
             throw new CoreException(PointErrorType.INVALID_AMOUNT);
         }
