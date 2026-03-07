@@ -2,6 +2,7 @@ package com.loopers.application.coupon;
 
 import com.loopers.domain.coupon.CouponType;
 import com.loopers.domain.coupon.IssuedCoupon;
+import com.loopers.domain.user.User;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -13,19 +14,34 @@ public record IssuedCouponInfo(
         CouponType type,
         int value,
         BigDecimal minOrderAmount,
-        String status,
+        Long userId,
+        String loginId,
+        Status status,
         LocalDateTime expiredAt,
         LocalDateTime createdAt,
         LocalDateTime usedAt
 ) {
+
+    public enum Status {
+        USED, EXPIRED, AVAILABLE
+    }
+
     public static IssuedCouponInfo from(IssuedCoupon issuedCoupon) {
-        String status;
+        return from(issuedCoupon, null, null);
+    }
+
+    public static IssuedCouponInfo from(IssuedCoupon issuedCoupon, User user) {
+        return from(issuedCoupon, user.getId(), user.getLoginId());
+    }
+
+    private static IssuedCouponInfo from(IssuedCoupon issuedCoupon, Long userId, String loginId) {
+        Status status;
         if (issuedCoupon.isUsed()) {
-            status = "USED";
+            status = Status.USED;
         } else if (issuedCoupon.isExpired()) {
-            status = "EXPIRED";
+            status = Status.EXPIRED;
         } else {
-            status = "AVAILABLE";
+            status = Status.AVAILABLE;
         }
         return new IssuedCouponInfo(
                 issuedCoupon.getId(),
@@ -34,6 +50,8 @@ public record IssuedCouponInfo(
                 issuedCoupon.getCouponType(),
                 issuedCoupon.getCouponValue(),
                 issuedCoupon.getMinOrderAmount(),
+                userId,
+                loginId,
                 status,
                 issuedCoupon.getExpiredAt(),
                 issuedCoupon.getCreatedAt().toLocalDateTime(),

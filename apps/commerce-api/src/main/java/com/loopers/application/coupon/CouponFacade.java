@@ -79,7 +79,7 @@ public class CouponFacade {
     }
 
     @Transactional(readOnly = true)
-    public Page<IssuedCouponAdminInfo> getCouponIssues(Long couponId, Pageable pageable) {
+    public Page<IssuedCouponInfo> getCouponIssues(Long couponId, Pageable pageable) {
         couponService.getActiveCoupon(couponId);
         Page<IssuedCoupon> issuedCoupons = issuedCouponService.findByCouponId(couponId, pageable);
 
@@ -90,7 +90,7 @@ public class CouponFacade {
         Map<Long, User> userMap = userService.findAllByIds(userIds).stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
 
-        return issuedCoupons.map(ic -> IssuedCouponAdminInfo.from(ic, userMap.get(ic.getUserId())));
+        return issuedCoupons.map(ic -> IssuedCouponInfo.from(ic, userMap.get(ic.getUserId())));
     }
 
     @Transactional(readOnly = true)

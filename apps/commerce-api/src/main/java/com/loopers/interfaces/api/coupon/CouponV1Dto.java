@@ -26,7 +26,7 @@ public class CouponV1Dto {
                     info.couponName(),
                     info.type().name(),
                     info.value(),
-                    info.status(),
+                    info.status().name(),
                     info.expiredAt(),
                     info.createdAt()
             );
@@ -53,7 +53,7 @@ public class CouponV1Dto {
                     info.type().name(),
                     info.value(),
                     info.minOrderAmount(),
-                    info.status(),
+                    info.status().name(),
                     info.expiredAt(),
                     info.createdAt(),
                     info.usedAt()
