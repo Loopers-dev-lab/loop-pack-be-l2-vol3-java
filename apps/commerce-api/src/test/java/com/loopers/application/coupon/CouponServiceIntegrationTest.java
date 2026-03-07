@@ -49,7 +49,7 @@ class CouponServiceIntegrationTest {
         @Test
         void 유효한_정보로_등록하면_쿠폰이_생성된다() {
             CouponCommand.Register command = CouponCommand.Register.of(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             );
 
@@ -69,7 +69,7 @@ class CouponServiceIntegrationTest {
         @Test
         void 정률_타입으로_등록하면_쿠폰이_생성된다() {
             CouponCommand.Register command = CouponCommand.Register.of(
-                    "10% 할인", CouponType.RATE, 10,
+                    "10% 할인", "RATE", 10,
                     null, 50, LocalDateTime.now().plusDays(7)
             );
 
@@ -90,7 +90,7 @@ class CouponServiceIntegrationTest {
         @Test
         void 활성_쿠폰을_삭제하면_삭제_상태로_변경된다() {
             Coupon coupon = couponService.register(CouponCommand.Register.of(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             ));
 
@@ -110,7 +110,7 @@ class CouponServiceIntegrationTest {
         @Test
         void 삭제된_쿠폰을_다시_삭제해도_멱등하게_처리된다() {
             Coupon coupon = couponService.register(CouponCommand.Register.of(
-                    "쿠폰", CouponType.FIXED, 1000,
+                    "쿠폰", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             ));
             couponService.delete(coupon.getId());
@@ -128,7 +128,7 @@ class CouponServiceIntegrationTest {
         @Test
         void 유효한_쿠폰에_발급하면_발급수량이_1_증가한다() {
             Coupon coupon = couponService.register(CouponCommand.Register.of(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             ));
 
@@ -148,7 +148,7 @@ class CouponServiceIntegrationTest {
         @Test
         void 삭제된_쿠폰이면_예외() {
             Coupon coupon = couponService.register(CouponCommand.Register.of(
-                    "쿠폰", CouponType.FIXED, 1000,
+                    "쿠폰", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             ));
             couponService.delete(coupon.getId());
@@ -174,7 +174,7 @@ class CouponServiceIntegrationTest {
         @Test
         void 발급_수량이_소진되면_예외() {
             Coupon coupon = couponService.register(CouponCommand.Register.of(
-                    "쿠폰", CouponType.FIXED, 1000,
+                    "쿠폰", "FIXED", 1000,
                     null, 1, LocalDateTime.now().plusDays(7)
             ));
             couponService.issue(coupon.getId());
@@ -191,7 +191,7 @@ class CouponServiceIntegrationTest {
         @Test
         void 유효한_정보로_수정하면_수정된_쿠폰이_반환된다() {
             Coupon coupon = couponService.register(CouponCommand.Register.of(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             ));
             CouponCommand.UpdateInfo command = CouponCommand.UpdateInfo.of(
@@ -222,7 +222,7 @@ class CouponServiceIntegrationTest {
         @Test
         void 삭제된_쿠폰을_수정하면_예외() {
             Coupon coupon = couponService.register(CouponCommand.Register.of(
-                    "쿠폰", CouponType.FIXED, 1000,
+                    "쿠폰", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             ));
             couponService.delete(coupon.getId());
@@ -238,7 +238,7 @@ class CouponServiceIntegrationTest {
         @Test
         void 최대_발급_수량을_현재_발급_수량보다_작게_설정하면_예외() {
             Coupon coupon = couponService.register(CouponCommand.Register.of(
-                    "쿠폰", CouponType.FIXED, 1000,
+                    "쿠폰", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             ));
             couponService.issue(coupon.getId());
@@ -259,7 +259,7 @@ class CouponServiceIntegrationTest {
         @Test
         void 활성_쿠폰을_조회하면_쿠폰이_반환된다() {
             Coupon coupon = couponService.register(CouponCommand.Register.of(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             ));
 
@@ -281,7 +281,7 @@ class CouponServiceIntegrationTest {
         @Test
         void 삭제된_쿠폰이면_예외() {
             Coupon coupon = couponService.register(CouponCommand.Register.of(
-                    "쿠폰", CouponType.FIXED, 1000,
+                    "쿠폰", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             ));
             couponService.delete(coupon.getId());
@@ -298,10 +298,10 @@ class CouponServiceIntegrationTest {
         @Test
         void 활성_쿠폰만_조회된다() {
             couponService.register(CouponCommand.Register.of(
-                    "쿠폰A", CouponType.FIXED, 1000, null, 100, LocalDateTime.now().plusDays(7)
+                    "쿠폰A", "FIXED", 1000, null, 100, LocalDateTime.now().plusDays(7)
             ));
             Coupon deleted = couponService.register(CouponCommand.Register.of(
-                    "쿠폰B", CouponType.FIXED, 2000, null, 100, LocalDateTime.now().plusDays(7)
+                    "쿠폰B", "FIXED", 2000, null, 100, LocalDateTime.now().plusDays(7)
             ));
             couponService.delete(deleted.getId());
 

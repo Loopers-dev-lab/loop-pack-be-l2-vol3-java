@@ -4,7 +4,6 @@ import com.loopers.application.coupon.CouponCommand;
 import com.loopers.application.coupon.CouponService;
 import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.CouponRepository;
-import com.loopers.domain.coupon.CouponType;
 import com.loopers.support.ConcurrencyTestHelper;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,7 +39,7 @@ class CouponConcurrencyTest {
     @Test
     void 동시_발급_요청에도_발급_수량이_정확히_관리된다() throws InterruptedException {
         Coupon coupon = couponService.register(CouponCommand.Register.of(
-                "쿠폰", CouponType.FIXED, 1000,
+                "쿠폰", "FIXED", 1000,
                 null, 100, LocalDateTime.now().plusDays(7)
         ));
 
@@ -58,7 +57,7 @@ class CouponConcurrencyTest {
     void 최대_발급_수량보다_많은_동시_발급_요청이_들어오면_일부만_성공한다() throws InterruptedException {
         int maxIssueCount = 5;
         Coupon coupon = couponService.register(CouponCommand.Register.of(
-                "쿠폰", CouponType.FIXED, 1000,
+                "쿠폰", "FIXED", 1000,
                 null, maxIssueCount, LocalDateTime.now().plusDays(7)
         ));
 

@@ -1,6 +1,5 @@
 package com.loopers.support;
 
-import com.loopers.domain.coupon.CouponType;
 import com.loopers.interfaces.api.brand.BrandRequest;
 import com.loopers.interfaces.api.coupon.CouponAdminV1Dto;
 import com.loopers.interfaces.api.coupon.CouponRequest;
@@ -72,7 +71,7 @@ public class E2ETestFixture {
         return response.getBody().data().id();
     }
 
-    public Long registerCoupon(String name, CouponType type, int value,
+    public Long registerCoupon(String name, String type, int value,
                                BigDecimal minOrderAmount, int maxIssueCount, LocalDateTime expiredAt) {
         CouponRequest.Register request = new CouponRequest.Register(
                 name, type, value, minOrderAmount, maxIssueCount, expiredAt

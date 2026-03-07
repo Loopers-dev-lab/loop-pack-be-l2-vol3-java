@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.order;
 
-import com.loopers.domain.coupon.CouponType;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.product.ProductAdminV1Dto;
@@ -239,7 +238,7 @@ class OrderApiE2ETest {
             fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Long couponId = fixture.registerCoupon("5000원 할인", CouponType.FIXED, 5000,
+            Long couponId = fixture.registerCoupon("5000원 할인", "FIXED", 5000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7));
             Long issuedCouponId = fixture.issueCoupon(couponId, "testuser", "Test1234!");
 
@@ -263,7 +262,7 @@ class OrderApiE2ETest {
             fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Long couponId = fixture.registerCoupon("10% 할인", CouponType.RATE, 10,
+            Long couponId = fixture.registerCoupon("10% 할인", "RATE", 10,
                     null, 100, LocalDateTime.now().plusDays(7));
             Long issuedCouponId = fixture.issueCoupon(couponId, "testuser", "Test1234!");
 
@@ -287,7 +286,7 @@ class OrderApiE2ETest {
             fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Long couponId = fixture.registerCoupon("5000원 할인", CouponType.FIXED, 5000,
+            Long couponId = fixture.registerCoupon("5000원 할인", "FIXED", 5000,
                     null, 100, LocalDateTime.now().plusDays(7));
             Long issuedCouponId = fixture.issueCoupon(couponId, "testuser", "Test1234!");
 
@@ -339,7 +338,7 @@ class OrderApiE2ETest {
             fixture.signUp("otheruser", "Other1234!", "김철수", "other@example.com");
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
-            Long couponId = fixture.registerCoupon("5000원 할인", CouponType.FIXED, 5000,
+            Long couponId = fixture.registerCoupon("5000원 할인", "FIXED", 5000,
                     null, 100, LocalDateTime.now().plusDays(7));
             Long otherIssuedCouponId = fixture.issueCoupon(couponId, "otheruser", "Other1234!");
 
@@ -388,7 +387,7 @@ class OrderApiE2ETest {
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId1 = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
             Long productId2 = fixture.registerProduct(brandId, "셔츠", new BigDecimal("30000"), 100, "멋진 셔츠");
-            Long couponId = fixture.registerCoupon("5000원 할인", CouponType.FIXED, 5000,
+            Long couponId = fixture.registerCoupon("5000원 할인", "FIXED", 5000,
                     null, 100, LocalDateTime.now().plusDays(7));
             Long issuedCouponId = fixture.issueCoupon(couponId, "testuser", "Test1234!");
 
@@ -430,7 +429,7 @@ class OrderApiE2ETest {
             fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("5000"), 100, "편한 운동화");
-            Long couponId = fixture.registerCoupon("5000원 할인", CouponType.FIXED, 5000,
+            Long couponId = fixture.registerCoupon("5000원 할인", "FIXED", 5000,
                     BigDecimal.valueOf(50000), 100, LocalDateTime.now().plusDays(7));
             Long issuedCouponId = fixture.issueCoupon(couponId, "testuser", "Test1234!");
 

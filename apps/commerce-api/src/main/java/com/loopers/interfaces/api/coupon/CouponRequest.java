@@ -1,12 +1,12 @@
 package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponCommand;
-import com.loopers.domain.coupon.CouponType;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
@@ -26,7 +26,8 @@ public record CouponRequest() {
             String name,
 
             @NotNull(message = "쿠폰 유형은 필수입니다")
-            CouponType type,
+            @Pattern(regexp = "FIXED|RATE", message = "쿠폰 유형은 FIXED 또는 RATE여야 합니다")
+            String type,
 
             @NotNull(message = "할인값은 필수입니다")
             @Positive(message = "할인값은 1 이상이어야 합니다")
@@ -49,7 +50,8 @@ public record CouponRequest() {
     }
 
     public record UpdateInfo(
-            CouponType type,
+            @Pattern(regexp = "FIXED|RATE", message = "쿠폰 유형은 FIXED 또는 RATE여야 합니다")
+            String type,
 
             @Size(min = 1, max = 100, message = "쿠폰명은 1~100자여야 합니다")
             String name,

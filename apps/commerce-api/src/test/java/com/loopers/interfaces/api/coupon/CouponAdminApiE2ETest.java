@@ -2,7 +2,6 @@ package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponService;
 import com.loopers.domain.coupon.CouponRepository;
-import com.loopers.domain.coupon.CouponType;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.support.E2ETestFixture;
@@ -62,7 +61,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 유효한_정보로_등록하면_200_응답과_쿠폰_정보를_반환한다() {
             CouponRequest.Register request = new CouponRequest.Register(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             );
 
@@ -86,7 +85,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 정률_타입으로_등록하면_200_응답() {
             CouponRequest.Register request = new CouponRequest.Register(
-                    "10% 할인", CouponType.RATE, 10,
+                    "10% 할인", "RATE", 10,
                     null, 50, LocalDateTime.now().plusDays(7)
             );
 
@@ -102,7 +101,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 정률_타입_할인값이_100을_초과하면_400_응답() {
             CouponRequest.Register request = new CouponRequest.Register(
-                    "101% 할인", CouponType.RATE, 101,
+                    "101% 할인", "RATE", 101,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
 
@@ -121,7 +120,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 만료일이_현재보다_과거이면_400_응답() {
             CouponRequest.Register request = new CouponRequest.Register(
-                    "쿠폰", CouponType.FIXED, 1000,
+                    "쿠폰", "FIXED", 1000,
                     null, 100, LocalDateTime.now().minusDays(1)
             );
 
@@ -140,7 +139,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 쿠폰명이_빈값이면_400_응답() {
             CouponRequest.Register request = new CouponRequest.Register(
-                    "", CouponType.FIXED, 1000,
+                    "", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
 
@@ -156,7 +155,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 인증헤더가_누락되면_401_응답() {
             CouponRequest.Register request = new CouponRequest.Register(
-                    "쿠폰", CouponType.FIXED, 1000,
+                    "쿠폰", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
 
@@ -175,7 +174,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 인증에_실패하면_401_응답() {
             CouponRequest.Register request = new CouponRequest.Register(
-                    "쿠폰", CouponType.FIXED, 1000,
+                    "쿠폰", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
 
@@ -201,7 +200,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 활성_쿠폰을_삭제하면_200_응답() {
             Long couponId = fixture.registerCoupon(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             );
 
@@ -227,7 +226,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 삭제된_쿠폰을_다시_삭제해도_200_응답() {
             Long couponId = fixture.registerCoupon(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             );
             fixture.deleteCoupon(couponId);
@@ -275,7 +274,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 유효한_정보로_수정하면_200_응답과_수정된_쿠폰_정보를_반환한다() {
             Long couponId = fixture.registerCoupon(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             );
             CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
@@ -302,7 +301,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 이름만_수정하면_나머지_필드는_유지된다() {
             Long couponId = fixture.registerCoupon(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             );
             CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
@@ -323,11 +322,11 @@ class CouponAdminApiE2ETest {
         @Test
         void type_필드를_전달하면_400_응답() {
             Long couponId = fixture.registerCoupon(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
             CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
-                    CouponType.RATE, null, null, null, null, null
+                    "RATE", null, null, null, null, null
             );
 
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
@@ -345,7 +344,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 정률_타입_할인값이_100을_초과하면_400_응답() {
             Long couponId = fixture.registerCoupon(
-                    "10% 할인", CouponType.RATE, 10,
+                    "10% 할인", "RATE", 10,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
             CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
@@ -367,7 +366,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 최대_발급_수량을_현재_발급_수량보다_작게_설정하면_400_응답() {
             Long couponId = fixture.registerCoupon(
-                    "쿠폰", CouponType.FIXED, 1000,
+                    "쿠폰", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
             couponService.issue(couponId);
@@ -391,7 +390,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 만료일이_현재보다_과거이면_400_응답() {
             Long couponId = fixture.registerCoupon(
-                    "쿠폰", CouponType.FIXED, 1000,
+                    "쿠폰", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
             CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
@@ -428,7 +427,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 필드_규칙_위반시_400_응답() {
             Long couponId = fixture.registerCoupon(
-                    "쿠폰", CouponType.FIXED, 1000,
+                    "쿠폰", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
             CouponRequest.UpdateInfo request = new CouponRequest.UpdateInfo(
@@ -488,8 +487,8 @@ class CouponAdminApiE2ETest {
 
         @Test
         void 활성_쿠폰을_최신_등록순으로_페이징_조회하면_200_응답() {
-            fixture.registerCoupon("쿠폰A", CouponType.FIXED, 1000, null, 100, LocalDateTime.now().plusDays(7));
-            fixture.registerCoupon("쿠폰B", CouponType.RATE, 10, null, 50, LocalDateTime.now().plusDays(7));
+            fixture.registerCoupon("쿠폰A", "FIXED", 1000, null, 100, LocalDateTime.now().plusDays(7));
+            fixture.registerCoupon("쿠폰B", "RATE", 10, null, 50, LocalDateTime.now().plusDays(7));
 
             ResponseEntity<ApiResponse<PageResponse<CouponAdminV1Dto.CouponResponse>>> response = getList(0, 20);
 
@@ -504,8 +503,8 @@ class CouponAdminApiE2ETest {
 
         @Test
         void 삭제된_쿠폰은_목록에서_제외된다() {
-            fixture.registerCoupon("쿠폰A", CouponType.FIXED, 1000, null, 100, LocalDateTime.now().plusDays(7));
-            Long deletedId = fixture.registerCoupon("쿠폰B", CouponType.FIXED, 2000, null, 100, LocalDateTime.now().plusDays(7));
+            fixture.registerCoupon("쿠폰A", "FIXED", 1000, null, 100, LocalDateTime.now().plusDays(7));
+            Long deletedId = fixture.registerCoupon("쿠폰B", "FIXED", 2000, null, 100, LocalDateTime.now().plusDays(7));
             fixture.deleteCoupon(deletedId);
 
             ResponseEntity<ApiResponse<PageResponse<CouponAdminV1Dto.CouponResponse>>> response = getList(0, 20);
@@ -577,7 +576,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 활성_쿠폰을_조회하면_200_응답과_상세_정보를_반환한다() {
             Long couponId = fixture.registerCoupon(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             );
 
@@ -615,7 +614,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 삭제된_쿠폰이면_404_응답() {
             Long couponId = fixture.registerCoupon(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
             fixture.deleteCoupon(couponId);
@@ -670,7 +669,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 발급_내역을_최신순으로_페이징_조회하면_200_응답() {
             Long couponId = fixture.registerCoupon(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             );
             fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
@@ -693,7 +692,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 상태_AVAILABLE_USED_EXPIRED를_반환한다() {
             Long couponId = fixture.registerCoupon(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
             fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
@@ -711,7 +710,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 빈_목록이면_빈_배열을_반환한다() {
             Long couponId = fixture.registerCoupon(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
 
@@ -742,7 +741,7 @@ class CouponAdminApiE2ETest {
         @Test
         void 요청_필드_규칙_위반시_400_응답() {
             Long couponId = fixture.registerCoupon(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
 

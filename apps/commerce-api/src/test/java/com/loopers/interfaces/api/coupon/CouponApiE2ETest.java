@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.coupon;
 
-import com.loopers.domain.coupon.CouponType;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.support.E2ETestFixture;
@@ -59,7 +58,7 @@ class CouponApiE2ETest {
         void setUp() {
             fixture.signUp(LOGIN_ID, LOGIN_PW, "홍길동", "test@example.com");
             couponId = fixture.registerCoupon(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             );
         }
@@ -157,11 +156,11 @@ class CouponApiE2ETest {
         @Test
         void 보유_쿠폰을_최신순으로_페이징_조회하면_200_응답() {
             Long couponId1 = fixture.registerCoupon(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     BigDecimal.valueOf(10000), 100, LocalDateTime.now().plusDays(7)
             );
             Long couponId2 = fixture.registerCoupon(
-                    "10% 할인", CouponType.RATE, 10,
+                    "10% 할인", "RATE", 10,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
             fixture.issueCoupon(couponId1, LOGIN_ID, LOGIN_PW);
@@ -182,7 +181,7 @@ class CouponApiE2ETest {
         @Test
         void 상태_AVAILABLE_USED_EXPIRED를_반환한다() {
             Long couponId = fixture.registerCoupon(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
             fixture.issueCoupon(couponId, LOGIN_ID, LOGIN_PW);
@@ -199,11 +198,11 @@ class CouponApiE2ETest {
         @Test
         void 삭제된_발급_쿠폰은_제외된다() {
             Long couponId1 = fixture.registerCoupon(
-                    "1000원 할인", CouponType.FIXED, 1000,
+                    "1000원 할인", "FIXED", 1000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
             Long couponId2 = fixture.registerCoupon(
-                    "2000원 할인", CouponType.FIXED, 2000,
+                    "2000원 할인", "FIXED", 2000,
                     null, 100, LocalDateTime.now().plusDays(7)
             );
             fixture.issueCoupon(couponId1, LOGIN_ID, LOGIN_PW);

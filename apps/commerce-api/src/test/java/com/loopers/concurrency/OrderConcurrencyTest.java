@@ -9,7 +9,6 @@ import com.loopers.application.order.OrderCommand;
 import com.loopers.application.order.OrderFacade;
 import com.loopers.application.product.ProductCommand;
 import com.loopers.application.product.ProductService;
-import com.loopers.domain.coupon.CouponType;
 import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.coupon.IssuedCouponRepository;
 import com.loopers.domain.product.Product;
@@ -118,7 +117,7 @@ class OrderConcurrencyTest {
 
             IssuedCouponInfo issuedCouponInfo = couponFacade.issueCoupon(
                     couponFacade.registerCoupon(CouponCommand.Register.of(
-                            "1000원 할인", CouponType.FIXED, 1000,
+                            "1000원 할인", "FIXED", 1000,
                             null, 100, LocalDateTime.now().plusDays(7)
                     )).id(),
                     userId
