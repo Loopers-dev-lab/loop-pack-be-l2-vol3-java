@@ -125,7 +125,7 @@ public class ApiControllerAdvice {
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
                 .body(ApiResponse.fail("CONFLICT",
-                    "다른 사용자가 먼저 수정했습니다. 새로고침 후 다시 시도해주세요"));
+                    "요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요."));
     }
 
     @ExceptionHandler

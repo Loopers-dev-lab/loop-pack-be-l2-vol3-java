@@ -56,7 +56,7 @@ public class CouponFacade {
     }
 
     @Transactional
-    public CouponInfo updateCoupon(Long couponId, CouponCommand.UpdateInfo command) {
+    public CouponInfo updateInfo(Long couponId, CouponCommand.UpdateInfo command) {
         if (command.type() != null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "쿠폰 유형은 변경할 수 없습니다");
         }
