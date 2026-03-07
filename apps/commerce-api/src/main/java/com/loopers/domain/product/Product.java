@@ -85,7 +85,7 @@ public class Product {
     }
 
     /** 상품 정보 부분 수정 (null이면 기존값 유지, 빈값이면 검증 에러) */
-    public void update(String name, String description, Integer basePrice) {
+    public void changeInfo(String name, String description, Integer basePrice) {
         if (name != null) {
             if (name.isBlank()) {
                 throw new CoreException(ProductErrorType.INVALID_PRODUCT_NAME);

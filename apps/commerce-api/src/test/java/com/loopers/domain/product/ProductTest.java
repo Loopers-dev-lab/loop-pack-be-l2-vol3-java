@@ -41,7 +41,7 @@ class ProductTest {
             Product product = Product.create(1L, "에어맥스", "나이키 에어맥스", 150000);
 
             // act
-            product.update("에어포스", "나이키 에어포스", 120000);
+            product.changeInfo("에어포스", "나이키 에어포스", 120000);
 
             // assert
             assertThat(product)

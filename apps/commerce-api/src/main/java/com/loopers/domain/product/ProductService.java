@@ -59,7 +59,7 @@ public class ProductService {
     @Transactional
     public Product update(Long id, String name, String description, Integer basePrice) {
         Product product = getById(id);
-        product.update(name, description, basePrice);
+        product.changeInfo(name, description, basePrice);
         return productRepository.save(product);
     }
 

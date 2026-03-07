@@ -36,6 +36,7 @@ public class BrandAdminFacade {
     }
 
     /** 어드민 브랜드 상세 조회 (브랜드 + 전체 상품 목록, status 포함) */
+    @Transactional(readOnly = true)
     public BrandAdminDetailResult getBrandDetail(Long brandId) {
         Brand brand = brandService.getById(brandId);
         List<Product> products = productService.getAllProductsByBrandId(brandId);
@@ -61,6 +62,7 @@ public class BrandAdminFacade {
     }
 
     /** 전체 브랜드 목록 페이지네이션 조회 */
+    @Transactional(readOnly = true)
     public BrandAdminListResult getAllBrands(int page, int size) {
         List<Brand> brands = brandService.getAllBrands(page, size);
         long totalElements = brandService.countAllBrands();

@@ -25,6 +25,7 @@ public class AdminCouponFacade {
     }
 
     /** 쿠폰 템플릿 목록 조회 */
+    @Transactional(readOnly = true)
     public TemplateListResult getTemplates(int page, int size) {
         List<CouponTemplate> templates = couponService.getAllTemplates(page, size);
         long totalElements = couponService.countAllTemplates();
@@ -61,6 +62,7 @@ public class AdminCouponFacade {
     }
 
     /** 쿠폰 템플릿 상세 조회 */
+    @Transactional(readOnly = true)
     public TemplateDetail getTemplateDetail(Long templateId) {
         CouponTemplate template = couponService.getTemplate(templateId);
         return toDetail(template);
@@ -73,6 +75,7 @@ public class AdminCouponFacade {
     }
 
     /** 특정 쿠폰의 발급 내역 조회 */
+    @Transactional(readOnly = true)
     public IssuedCouponListResult getIssuedCoupons(Long templateId, int page, int size) {
         couponService.getTemplate(templateId);
         List<IssuedCoupon> issuedCoupons = couponService.getIssuedCouponsByTemplateId(templateId);

@@ -127,7 +127,7 @@ public class CouponService {
                                           DiscountType discountType, Integer discountValue,
                                           Integer maxDiscountAmount, Integer minOrderAmount) {
         CouponTemplate template = getTemplate(templateId);
-        template.update(name, description, discountType, discountValue, maxDiscountAmount, minOrderAmount);
+        template.changeDetails(name, description, discountType, discountValue, maxDiscountAmount, minOrderAmount);
         return couponTemplateRepository.save(template);
     }
 

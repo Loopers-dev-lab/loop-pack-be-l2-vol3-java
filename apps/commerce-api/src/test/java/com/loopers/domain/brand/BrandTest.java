@@ -41,7 +41,7 @@ class BrandTest {
             Brand brand = Brand.create("나이키", "스포츠 브랜드");
 
             // act
-            brand.update("아디다스", "독일 스포츠 브랜드");
+            brand.changeInfo("아디다스", "독일 스포츠 브랜드");
 
             // assert
             assertThat(brand)

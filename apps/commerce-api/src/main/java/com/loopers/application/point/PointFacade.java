@@ -3,6 +3,7 @@ package com.loopers.application.point;
 import com.loopers.domain.point.PointAccount;
 import com.loopers.domain.point.PointService;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 포인트 Facade
@@ -19,6 +20,7 @@ public class PointFacade {
     }
 
     /** 내 포인트 조회 */
+    @Transactional(readOnly = true)
     public int getMyPoints(Long userId) {
         PointAccount account = pointService.getAccount(userId);
         return account.getBalance();

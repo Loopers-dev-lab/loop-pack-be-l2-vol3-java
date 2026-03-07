@@ -35,7 +35,7 @@ public class UserAddressService {
         UserAddress address = userAddressRepository.findById(addressId)
                 .orElseThrow(() -> new CoreException(UserAddressErrorType.ADDRESS_NOT_FOUND));
         address.validateOwnership(userId);
-        address.update(receiverName, phone, zipCode, addressLine1, addressLine2);
+        address.changeInfo(receiverName, phone, zipCode, addressLine1, addressLine2);
         userAddressRepository.save(address);
     }
 

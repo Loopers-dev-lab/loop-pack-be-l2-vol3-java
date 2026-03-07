@@ -6,6 +6,7 @@ import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -26,6 +27,7 @@ public class BrandFacade {
     }
 
     /** 고객 브랜드 상세 조회 (브랜드 + ACTIVE 상품 목록) */
+    @Transactional(readOnly = true)
     public BrandDetailResult getBrandDetail(Long brandId) {
         Brand brand = brandService.getActiveBrand(brandId);
         List<Product> products = productService.getActiveProductsByBrandId(brandId);
@@ -38,6 +40,7 @@ public class BrandFacade {
     }
 
     /** 활성 브랜드 목록 조회 */
+    @Transactional(readOnly = true)
     public List<BrandInfo> getAllActiveBrands() {
         return brandService.getAllActiveBrands().stream()
                 .map(BrandInfo::from)

@@ -22,6 +22,7 @@ public class UserAddressFacade {
     }
 
     /** 배송지 목록 조회 */
+    @Transactional(readOnly = true)
     public AddressListResult getAddresses(Long userId) {
         List<UserAddress> addresses = userAddressService.getAddresses(userId);
 
@@ -33,6 +34,7 @@ public class UserAddressFacade {
                 .toList();
 
         return new AddressListResult(details);
+
     }
 
     /** 배송지 등록 */

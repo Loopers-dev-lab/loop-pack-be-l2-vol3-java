@@ -72,7 +72,7 @@ public class Brand {
     }
 
     /** 브랜드 정보 부분 수정 (null이면 기존값 유지, 빈값이면 검증 에러) */
-    public void update(String name, String description) {
+    public void changeInfo(String name, String description) {
         if (name != null) {
             if (name.isBlank()) {
                 throw new CoreException(BrandErrorType.INVALID_BRAND_NAME);

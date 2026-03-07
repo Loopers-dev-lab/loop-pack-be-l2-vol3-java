@@ -242,6 +242,7 @@ public class OrderFacade {
     }
 
     /** 주문 목록 조회 */
+    @Transactional(readOnly = true)
     public OrderListResult getOrders(Long userId, ZonedDateTime startAt, ZonedDateTime endAt) {
         List<Order> orders = orderService.getOrders(userId, startAt, endAt);
 
@@ -255,6 +256,7 @@ public class OrderFacade {
     }
 
     /** 주문 상세 조회 */
+    @Transactional(readOnly = true)
     public OrderDetailResult getOrderDetail(Long orderId, Long userId) {
         Order order = orderService.getOrder(orderId, userId);
 

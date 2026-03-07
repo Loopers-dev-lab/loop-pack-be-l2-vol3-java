@@ -117,7 +117,7 @@ class CouponTemplateTest {
             CouponTemplate template = createFixedTemplate();
 
             // act
-            template.update("수정된 쿠폰", "수정된 쿠폰 설명", DiscountType.PERCENT, 15, 10000, 20000);
+            template.changeDetails("수정된 쿠폰", "수정된 쿠폰 설명", DiscountType.PERCENT, 15, 10000, 20000);
 
             // assert
             assertThat(template)

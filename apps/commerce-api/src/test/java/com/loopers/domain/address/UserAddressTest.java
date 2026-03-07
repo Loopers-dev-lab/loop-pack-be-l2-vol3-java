@@ -44,7 +44,7 @@ class UserAddressTest {
             UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", "4층 401호");
 
             // act
-            address.update("김철수", "010-9876-5432", "54321", "부산시 해운대구", "3층 302호");
+            address.changeInfo("김철수", "010-9876-5432", "54321", "부산시 해운대구", "3층 302호");
 
             // assert
             assertThat(address)

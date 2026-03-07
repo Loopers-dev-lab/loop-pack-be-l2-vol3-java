@@ -35,6 +35,7 @@ public class CouponFacade {
     }
 
     /** 내 쿠폰 목록 조회 */
+    @Transactional(readOnly = true)
     public CouponListResult getMyCoupons(Long userId) {
         List<IssuedCoupon> coupons = couponService.getUserCoupons(userId);
 
@@ -60,6 +61,7 @@ public class CouponFacade {
     }
 
     /** 발급 가능한 쿠폰 목록 조회 */
+    @Transactional(readOnly = true)
     public AvailableCouponListResult getAvailableCoupons() {
         List<CouponTemplate> templates = couponService.getIssuableTemplates();
         List<AvailableCouponDetail> details = templates.stream()

@@ -62,7 +62,7 @@ public class UserAddress {
     /**
      * 배송지 정보 부분 수정 (null이면 기존값 유지, 빈값이면 검증 에러)
      */
-    public void update(String receiverName, String phone,
+    public void changeInfo(String receiverName, String phone,
                        String zipCode, String addressLine1, String addressLine2) {
         if (receiverName != null) {
             if (receiverName.isBlank()) {

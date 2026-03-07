@@ -141,7 +141,7 @@ public class CouponTemplate {
      * maxIssueCount, maxIssueCountPerUser, validFrom, validTo는 발급 계약 조건이므로
      * 이미 발급된 쿠폰과의 정합성을 위해 수정 불가. status는 changeStatus()로 별도 관리.
      */
-    public void update(String name, String description, DiscountType discountType, Integer discountValue,
+    public void changeDetails(String name, String description, DiscountType discountType, Integer discountValue,
                        Integer maxDiscountAmount, Integer minOrderAmount) {
         if (name != null) {
             if (name.isBlank()) {

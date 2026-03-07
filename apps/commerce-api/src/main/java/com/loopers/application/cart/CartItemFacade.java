@@ -40,6 +40,7 @@ public class CartItemFacade {
     }
 
     /** 장바구니 조회 (장바구니 항목 + 상품 + 브랜드 + 재고 조합) */
+    @Transactional(readOnly = true)
     public CartListResult getCart(Long userId) {
         List<CartItem> items = cartItemService.getCartItems(userId);
 

@@ -60,7 +60,7 @@ public class BrandService {
     @Transactional
     public Brand update(Long id, String name, String description) {
         Brand brand = getById(id);
-        brand.update(name, description);
+        brand.changeInfo(name, description);
         return brandRepository.save(brand);
     }
 
