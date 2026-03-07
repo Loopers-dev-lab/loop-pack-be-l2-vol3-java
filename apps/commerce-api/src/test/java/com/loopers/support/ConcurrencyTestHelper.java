@@ -1,4 +1,4 @@
-package com.loopers.concurrency;
+package com.loopers.support;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
