@@ -35,6 +35,15 @@ public class Order {
     @Column(name = "total_amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalAmount;
 
+    @Column(name = "discount_amount", nullable = false, precision = 15, scale = 2)
+    private BigDecimal discountAmount;
+
+    @Column(name = "final_amount", nullable = false, precision = 15, scale = 2)
+    private BigDecimal finalAmount;
+
+    @Column(name = "issued_coupon_id")
+    private Long issuedCouponId;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderItem> orderItems = new ArrayList<>();
 
@@ -49,6 +58,8 @@ public class Order {
         Order order = new Order();
         order.userId = userId;
         order.totalAmount = BigDecimal.ZERO;
+        order.discountAmount = BigDecimal.ZERO;
+        order.finalAmount = BigDecimal.ZERO;
         return order;
     }
 
@@ -61,6 +72,13 @@ public class Order {
         item.assignOrder(this);
         this.orderItems.add(item);
         this.totalAmount = this.totalAmount.add(item.getOrderPrice());
+        this.finalAmount = this.totalAmount;
+    }
+
+    public void applyCoupon(Long issuedCouponId, BigDecimal discountAmount) {
+        this.issuedCouponId = issuedCouponId;
+        this.discountAmount = discountAmount;
+        this.finalAmount = this.totalAmount.subtract(discountAmount).max(BigDecimal.ZERO);
     }
 
     @PrePersist

@@ -85,7 +85,7 @@ test-patterns 기준으로 테스트 코드 품질을 확인합니다.
 | T4 | 한글 메서드명 | 영어 혼용 없음 |
 | T5 | 단위: Mock 미사용 | @Mock, Mockito 없음 |
 | T6 | 단위: @SpringBootTest 미사용 | 순수 Java |
-| T7 | 통합: DatabaseCleanUp | @AfterEach + truncateAllTables |
+| T7 | 통합: DatabaseCleanUp | @BeforeEach + truncateAllTables |
 | T8 | E2E: RANDOM_PORT | @SpringBootTest(webEnvironment) |
 | T9 | E2E: HTTP 상태코드 검증 | response.getStatusCode() assertion |
 

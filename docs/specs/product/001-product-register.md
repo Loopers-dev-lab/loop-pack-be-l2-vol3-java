@@ -32,6 +32,7 @@ Admin
 | status | String | ACTIVE |
 | createdAt | LocalDateTime | 등록일시 |
 | updatedAt | LocalDateTime | 수정일시 |
+| deletedAt | LocalDateTime | 삭제일시 (null) |
 
 ## 인수 조건
 - [ ] 유효한 정보로 등록하면 200 응답과 생성된 상품 정보를 반환한다

@@ -160,7 +160,7 @@ class ProductTest { ... }
 
 ### 확인 방법
 1. `DatabaseCleanUp` 필드가 `@Autowired`로 주입되는지 확인한다
-2. `@AfterEach` 메서드에서 `databaseCleanUp.truncateAllTables()` 호출이 있는지 확인한다
+2. `@BeforeEach` 메서드에서 `databaseCleanUp.truncateAllTables()` 호출이 있는지 확인한다
 
 ### 위반 패턴
 ```java
@@ -178,8 +178,8 @@ class ProductServiceIntegrationTest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
-    @AfterEach
-    void tearDown() {
+    @BeforeEach
+    void setUp() {
         databaseCleanUp.truncateAllTables();
     }
 }

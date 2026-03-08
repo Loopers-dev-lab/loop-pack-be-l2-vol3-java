@@ -1,5 +1,7 @@
 package com.loopers.application.order;
 
+import com.loopers.application.coupon.IssuedCouponService;
+import com.loopers.application.coupon.IssuedCouponSnapshot;
 import com.loopers.application.product.ProductService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.product.Product;
@@ -11,12 +13,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -24,44 +24,39 @@ public class OrderFacade {
 
     private final OrderService orderService;
     private final ProductService productService;
+    private final IssuedCouponService issuedCouponService;
 
     // Command
 
     @Transactional
-    public OrderInfo createOrder(Long userId, OrderCommand.Place command) {
-        var items = command.items();
+    public OrderInfo placeOrder(Long userId, OrderCommand.Place command) {
 
-        Set<Long> productIds = items.stream()
-                .map(OrderCommand.PlaceItem::productId)
-                .collect(Collectors.toSet());
-
-        if (productIds.size() != items.size()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "주문 상품이 중복되었습니다");
+        // -- 1단계: 검증 + 계산 (읽기/순수 연산, 상태 변경 없음) --
+        Map<Long, Integer> productQuantities = command.toQuantityMap();
+        List<Product> products = productService.getActiveProducts(productQuantities.keySet());
+        for (Product product : products) {
+            product.validateStockSufficient(productQuantities.get(product.getId()));
         }
 
-        Map<Long, Integer> productQuantities = items.stream()
-                .collect(Collectors.toMap(
-                        OrderCommand.PlaceItem::productId,
-                        OrderCommand.PlaceItem::quantity
-                ));
-        List<Product> products = productService.deductStocks(productQuantities);
+        List<OrderCommand.CreateItem> orderItems = command.toCreateItems(products);
+        BigDecimal totalAmount = OrderCommand.CreateItem.calculateTotalAmount(orderItems);
 
-        Map<Long, Product> productMap = products.stream()
-                .collect(Collectors.toMap(Product::getId, Function.identity()));
+        IssuedCouponSnapshot couponSnapshot = command.issuedCouponId() != null
+                ? issuedCouponService.createDiscountSnapshot(command.issuedCouponId(), userId, totalAmount)
+                : IssuedCouponSnapshot.none();
 
-        List<OrderCommand.CreateItem> orderItems = items.stream()
-                .map(item -> {
-                    Product product = productMap.get(item.productId());
-                    return OrderCommand.CreateItem.of(
-                            product.getId(),
-                            product.getName(),
-                            product.getPrice(),
-                            item.quantity()
-                    );
-                })
-                .toList();
+        // -- 2단계: 상태 변경 (원자적 UPDATE) --
+        if (couponSnapshot.isApplied()) {
+            issuedCouponService.markUsedIfAvailable(command.issuedCouponId(), userId);
+        }
 
-        Order order = orderService.createOrder(OrderCommand.Create.of(userId, orderItems));
+        OrderCommand.CouponSnapshot orderCoupon = OrderCommand.CouponSnapshot.of(
+                couponSnapshot.issuedCouponId(), couponSnapshot.discountAmount());
+
+        Order order = orderService.createOrder(OrderCommand.Create.of(userId, orderItems, orderCoupon));
+
+        productService.decreaseStocks(productQuantities);
+
         return OrderInfo.from(order);
     }
 

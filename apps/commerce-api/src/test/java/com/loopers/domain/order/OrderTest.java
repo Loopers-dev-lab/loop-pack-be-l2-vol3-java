@@ -80,6 +80,42 @@ class OrderTest {
     }
 
     @Nested
+    class 쿠폰_적용 {
+
+        @Test
+        void 쿠폰_미적용_시_discountAmount는_0이고_finalAmount는_totalAmount와_동일하다() {
+            Order order = Order.create(1L);
+            order.addItem(1L, "운동화", new BigDecimal("50000"), 2);
+
+            assertThat(order.getDiscountAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+            assertThat(order.getFinalAmount()).isEqualByComparingTo(new BigDecimal("100000"));
+            assertThat(order.getIssuedCouponId()).isNull();
+        }
+
+        @Test
+        void 정액_쿠폰_적용_시_discountAmount만큼_차감된_finalAmount를_반환한다() {
+            Order order = Order.create(1L);
+            order.addItem(1L, "운동화", new BigDecimal("50000"), 2);
+
+            order.applyCoupon(10L, new BigDecimal("5000"));
+
+            assertThat(order.getDiscountAmount()).isEqualByComparingTo(new BigDecimal("5000"));
+            assertThat(order.getFinalAmount()).isEqualByComparingTo(new BigDecimal("95000"));
+            assertThat(order.getIssuedCouponId()).isEqualTo(10L);
+        }
+
+        @Test
+        void 할인_금액이_totalAmount를_초과해도_finalAmount는_0_이상이다() {
+            Order order = Order.create(1L);
+            order.addItem(1L, "운동화", new BigDecimal("1000"), 1);
+
+            order.applyCoupon(10L, new BigDecimal("5000"));
+
+            assertThat(order.getFinalAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        }
+    }
+
+    @Nested
     class 총_주문금액_계산 {
 
         @Test

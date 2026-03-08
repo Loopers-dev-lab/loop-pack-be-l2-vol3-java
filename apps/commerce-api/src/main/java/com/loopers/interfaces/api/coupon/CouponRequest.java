@@ -1,0 +1,101 @@
+package com.loopers.interfaces.api.coupon;
+
+import com.loopers.application.coupon.CouponCommand;
+import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+public record CouponRequest() {
+
+    // Command
+
+    public record Register(
+            @NotBlank(message = "쿠폰명은 필수입니다")
+            @Size(max = 100, message = "쿠폰명은 100자 이하여야 합니다")
+            String name,
+
+            @NotNull(message = "쿠폰 유형은 필수입니다")
+            @Pattern(regexp = "FIXED|RATE", message = "쿠폰 유형은 FIXED 또는 RATE여야 합니다")
+            String type,
+
+            @NotNull(message = "할인값은 필수입니다")
+            @Positive(message = "할인값은 1 이상이어야 합니다")
+            Integer value,
+
+            @PositiveOrZero(message = "최소 주문 금액은 0 이상이어야 합니다")
+            BigDecimal minOrderAmount,
+
+            @NotNull(message = "최대 발급 수량은 필수입니다")
+            @Positive(message = "최대 발급 수량은 1 이상이어야 합니다")
+            Integer maxIssueCount,
+
+            @NotNull(message = "만료일은 필수입니다")
+            @Future(message = "만료일은 현재 이후여야 합니다")
+            LocalDateTime expiredAt
+    ) {
+        public CouponCommand.Register toCommand() {
+            return CouponCommand.Register.of(name, type, value, minOrderAmount, maxIssueCount, expiredAt);
+        }
+    }
+
+    public record UpdateInfo(
+            @Pattern(regexp = "FIXED|RATE", message = "쿠폰 유형은 FIXED 또는 RATE여야 합니다")
+            String type,
+
+            @Size(min = 1, max = 100, message = "쿠폰명은 1~100자여야 합니다")
+            String name,
+
+            @Positive(message = "할인값은 1 이상이어야 합니다")
+            Integer value,
+
+            @PositiveOrZero(message = "최소 주문 금액은 0 이상이어야 합니다")
+            BigDecimal minOrderAmount,
+
+            @Positive(message = "최대 발급 수량은 1 이상이어야 합니다")
+            Integer maxIssueCount,
+
+            @Future(message = "만료일은 현재 이후여야 합니다")
+            LocalDateTime expiredAt
+    ) {
+        public CouponCommand.UpdateInfo toCommand() {
+            return CouponCommand.UpdateInfo.of(type, name, value, minOrderAmount, maxIssueCount, expiredAt);
+        }
+    }
+
+    // Query
+
+    public record ListAll(
+            @PositiveOrZero Integer page,
+            @Min(1) @Max(100) Integer size
+    ) {
+        public Pageable toPageable() {
+            return PageRequest.of(
+                    page != null ? page : 0,
+                    size != null ? size : 20
+            );
+        }
+    }
+
+    public record ListMyCoupons(
+            @PositiveOrZero Integer page,
+            @Min(1) @Max(100) Integer size
+    ) {
+        public Pageable toPageable() {
+            return PageRequest.of(
+                    page != null ? page : 0,
+                    size != null ? size : 20
+            );
+        }
+    }
+}

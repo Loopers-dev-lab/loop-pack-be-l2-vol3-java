@@ -22,6 +22,9 @@ Admin
 | content[].id | Long | 주문 ID |
 | content[].userId | Long | 주문자 ID |
 | content[].totalAmount | BigDecimal | 총 주문 금액 |
+| content[].discountAmount | BigDecimal | 할인 금액 (쿠폰 미적용 시 0) |
+| content[].finalAmount | BigDecimal | 최종 결제 금액 |
+| content[].issuedCouponId | Long | 적용된 발급 쿠폰 ID (null 가능) |
 | content[].createdAt | LocalDateTime | 주문일시 |
 | page | Integer | 현재 페이지 번호 |
 | size | Integer | 페이지 크기 |

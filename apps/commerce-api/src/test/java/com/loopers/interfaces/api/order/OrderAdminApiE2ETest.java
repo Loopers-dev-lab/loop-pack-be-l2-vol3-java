@@ -4,7 +4,7 @@ import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.support.E2ETestFixture;
 import com.loopers.utils.DatabaseCleanUp;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
@@ -44,8 +44,8 @@ class OrderAdminApiE2ETest {
     @Autowired
     private E2ETestFixture fixture;
 
-    @AfterEach
-    void tearDown() {
+    @BeforeEach
+    void setUp() {
         databaseCleanUp.truncateAllTables();
     }
 
@@ -176,6 +176,9 @@ class OrderAdminApiE2ETest {
                     () -> assertThat(response.getBody().data().id()).isEqualTo(orderId),
                     () -> assertThat(response.getBody().data().userId()).isNotNull(),
                     () -> assertThat(response.getBody().data().totalAmount()).isEqualByComparingTo(new BigDecimal("130000")),
+                    () -> assertThat(response.getBody().data().discountAmount()).isEqualByComparingTo(BigDecimal.ZERO),
+                    () -> assertThat(response.getBody().data().finalAmount()).isEqualByComparingTo(new BigDecimal("130000")),
+                    () -> assertThat(response.getBody().data().issuedCouponId()).isNull(),
                     () -> assertThat(response.getBody().data().orderItems()).hasSize(2),
                     () -> assertThat(response.getBody().data().createdAt()).isNotNull()
             );

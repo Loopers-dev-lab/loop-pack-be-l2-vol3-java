@@ -5,7 +5,7 @@ import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.product.ProductAdminV1Dto;
 import com.loopers.support.E2ETestFixture;
 import com.loopers.utils.DatabaseCleanUp;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
@@ -42,8 +42,8 @@ class BrandAdminApiE2ETest {
     @Autowired
     private E2ETestFixture fixture;
 
-    @AfterEach
-    void tearDown() {
+    @BeforeEach
+    void setUp() {
         databaseCleanUp.truncateAllTables();
     }
 
@@ -354,7 +354,7 @@ class BrandAdminApiE2ETest {
         }
 
         @Test
-        void 브랜드_삭제_시_해당_브랜드의_활성_상품도_삭제_상태로_변경된다() {
+        void 브랜드_삭제_시_해당_브랜드의_상품은_배치_정리_전까지_유지된다() {
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
             fixture.registerProduct(brandId, "런닝화", new BigDecimal("60000"), 200, "가벼운 런닝화");
@@ -368,7 +368,7 @@ class BrandAdminApiE2ETest {
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content()).hasSize(2),
                     () -> assertThat(response.getBody().data().content())
-                            .allSatisfy(product -> assertThat(product.status()).isEqualTo("DELETED"))
+                            .allSatisfy(product -> assertThat(product.status()).isEqualTo("ACTIVE"))
             );
         }
     }

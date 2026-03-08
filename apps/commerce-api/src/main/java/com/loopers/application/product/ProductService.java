@@ -10,7 +10,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -50,39 +49,35 @@ public class ProductService {
 
     @Transactional
     public void incrementLikeCount(Long productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
-        product.incrementLikeCount();
+        productRepository.incrementLikeCount(productId);
     }
 
     @Transactional
-    public void decrementLikeCount(Long productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
-        product.decrementLikeCount();
+    public void decrementLikeCountIfPositive(Long productId) {
+        productRepository.decrementLikeCountIfPositive(productId);
     }
 
     @Transactional
-    public List<Product> deductStocks(Map<Long, Integer> productQuantities) {
-        List<Long> productIds = new ArrayList<>(productQuantities.keySet());
-        List<Product> products = productRepository.findAllByIdIn(productIds);
+    public void decreaseStocks(Map<Long, Integer> productQuantities) {
+        List<Long> sortedIds = productQuantities.keySet().stream()
+                .sorted()
+                .toList();
 
-        if (products.size() != productIds.size()) {
-            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품이 포함되어 있습니다");
+        for (Long productId : sortedIds) {
+            int updated = productRepository.decreaseStockIfEnough(
+                    productId, productQuantities.get(productId)
+            );
+            if (updated == 0) {
+                throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다");
+            }
         }
-
-        for (Product product : products) {
-            product.deductStock(productQuantities.get(product.getId()));
-        }
-
-        return products;
     }
 
     @Transactional
-    public void deleteAllByBrandId(Long brandId) {
-        List<Product> products = productRepository.findAllByBrandId(brandId);
-        products.forEach(Product::delete);
+    public int softDeleteByBrandIdInBatch(Long brandId, int batchSize) {
+        return productRepository.softDeleteByBrandIdInBatch(brandId, batchSize);
     }
+
 
     // Query
 
@@ -94,8 +89,24 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Product getActiveProduct(Long productId) {
-        return productRepository.findActiveById(productId)
+        return productRepository.findActiveWithActiveBrand(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
+    }
+
+    @Transactional(readOnly = true)
+    public void validateActiveProduct(Long productId) {
+        if (!productRepository.existsActiveById(productId)) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<Product> getActiveProducts(Set<Long> productIds) {
+        List<Product> products = productRepository.findAllActiveByIdIn(productIds);
+        if (products.size() != productIds.size()) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다");
+        }
+        return products;
     }
 
     @Transactional(readOnly = true)
@@ -105,12 +116,17 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Page<Product> findActiveProducts(Long brandId, Pageable pageable) {
-        return productRepository.findAllActive(brandId, pageable);
+        return productRepository.findAllActiveWithActiveBrand(brandId, pageable);
     }
 
     @Transactional(readOnly = true)
     public Map<Long, Product> getProductsMapByIds(Set<Long> productIds) {
         return productRepository.findAllByIdIn(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, Function.identity()));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> findBrandIdsWithUncleanedProducts() {
+        return productRepository.findBrandIdsWithUncleanedProducts();
     }
 }

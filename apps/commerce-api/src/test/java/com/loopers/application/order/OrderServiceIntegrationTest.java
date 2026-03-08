@@ -6,7 +6,7 @@ import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
@@ -35,8 +35,8 @@ class OrderServiceIntegrationTest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
-    @AfterEach
-    void tearDown() {
+    @BeforeEach
+    void setUp() {
         databaseCleanUp.truncateAllTables();
     }
 
@@ -139,31 +139,6 @@ class OrderServiceIntegrationTest {
             assertThat(result.getContent()).hasSize(2);
             assertThat(result.getTotalElements()).isEqualTo(5);
             assertThat(result.getTotalPages()).isEqualTo(3);
-        }
-    }
-
-    @Nested
-    class 주문_상세_조회_관리자 {
-
-        @Test
-        void 주문_ID로_조회하면_주문_정보를_반환한다() {
-            Order created = orderService.createOrder(OrderCommand.Create.of(1L, List.of(
-                    OrderCommand.CreateItem.of(1L, "운동화", new BigDecimal("50000"), 2)
-            )));
-
-            Order order = orderService.getOrder(created.getId());
-
-            assertThat(order.getId()).isEqualTo(created.getId());
-            assertThat(order.getOrderItems()).hasSize(1);
-            assertThat(order.getTotalAmount()).isEqualByComparingTo(new BigDecimal("100000"));
-        }
-
-        @Test
-        void 존재하지_않는_주문이면_예외() {
-            assertThatThrownBy(() -> orderService.getOrder(999L))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
-                            .isEqualTo(ErrorType.NOT_FOUND));
         }
     }
 

@@ -18,9 +18,30 @@ public class ProductRepositoryImpl implements ProductRepository {
     private final ProductJpaRepository productJpaRepository;
 
     // Command
+
     @Override
     public Product save(Product product) {
         return productJpaRepository.save(product);
+    }
+
+    @Override
+    public int decreaseStockIfEnough(Long productId, int quantity) {
+        return productJpaRepository.decreaseStockIfEnough(productId, quantity);
+    }
+
+    @Override
+    public int incrementLikeCount(Long productId) {
+        return productJpaRepository.incrementLikeCount(productId);
+    }
+
+    @Override
+    public int decrementLikeCountIfPositive(Long productId) {
+        return productJpaRepository.decrementLikeCountIfPositive(productId);
+    }
+
+    @Override
+    public int softDeleteByBrandIdInBatch(Long brandId, int batchSize) {
+        return productJpaRepository.softDeleteByBrandIdInBatch(brandId, batchSize);
     }
 
     // Query
@@ -35,13 +56,23 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public List<Product> findAllByBrandId(Long brandId) {
-        return productJpaRepository.findAllByBrandId(brandId);
+    public Optional<Product> findActiveWithActiveBrand(Long id) {
+        return productJpaRepository.findActiveWithActiveBrand(id);
+    }
+
+    @Override
+    public boolean existsActiveById(Long id) {
+        return productJpaRepository.existsActiveWithActiveBrand(id);
     }
 
     @Override
     public List<Product> findAllByIdIn(Collection<Long> ids) {
         return productJpaRepository.findAllByIdIn(ids);
+    }
+
+    @Override
+    public List<Product> findAllActiveByIdIn(Collection<Long> ids) {
+        return productJpaRepository.findAllActiveWithActiveBrandByIdIn(ids);
     }
 
     @Override
@@ -52,5 +83,15 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public Page<Product> findAllActive(Long brandId, Pageable pageable) {
         return productJpaRepository.findAllActive(brandId, pageable);
+    }
+
+    @Override
+    public Page<Product> findAllActiveWithActiveBrand(Long brandId, Pageable pageable) {
+        return productJpaRepository.findAllActiveWithActiveBrand(brandId, pageable);
+    }
+
+    @Override
+    public List<Long> findBrandIdsWithUncleanedProducts() {
+        return productJpaRepository.findBrandIdsWithUncleanedProducts();
     }
 }

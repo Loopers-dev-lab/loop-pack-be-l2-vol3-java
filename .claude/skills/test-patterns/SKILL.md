@@ -242,8 +242,8 @@ class UserServiceIntegrationTest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
-    @AfterEach
-    void tearDown() {
+    @BeforeEach
+    void setUp() {
         databaseCleanUp.truncateAllTables();
     }
 
@@ -352,8 +352,8 @@ class UserApiE2ETest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
-    @AfterEach
-    void tearDown() {
+    @BeforeEach
+    void setUp() {
         databaseCleanUp.truncateAllTables();
     }
 
@@ -625,9 +625,9 @@ class UserServiceIntegrationTest {
 // ❌ 데이터 정리 안 함
 class UserServiceIntegrationTest { ... }
 
-// ✅ @AfterEach로 정리
-@AfterEach
-void tearDown() {
+// ✅ @BeforeEach로 정리
+@BeforeEach
+void setUp() {
     databaseCleanUp.truncateAllTables();
 }
 ```

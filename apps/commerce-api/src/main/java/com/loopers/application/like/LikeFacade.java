@@ -29,7 +29,7 @@ public class LikeFacade {
 
     @Transactional
     public void like(Long userId, Long productId) {
-        productService.getActiveProduct(productId);
+        productService.validateActiveProduct(productId);
 
         boolean created = likeService.like(userId, productId);
         if (created) {
@@ -41,7 +41,7 @@ public class LikeFacade {
     public void unlike(Long userId, Long productId) {
         boolean deleted = likeService.unlike(userId, productId);
         if (deleted) {
-            productService.decrementLikeCount(productId);
+            productService.decrementLikeCountIfPositive(productId);
         }
     }
 

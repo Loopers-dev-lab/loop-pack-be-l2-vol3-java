@@ -11,6 +11,9 @@ public record OrderInfo(
         Long id,
         Long userId,
         BigDecimal totalAmount,
+        BigDecimal discountAmount,
+        BigDecimal finalAmount,
+        Long issuedCouponId,
         List<OrderItemInfo> orderItems,
         LocalDateTime createdAt
 ) {
@@ -42,6 +45,9 @@ public record OrderInfo(
                 order.getId(),
                 order.getUserId(),
                 order.getTotalAmount(),
+                order.getDiscountAmount(),
+                order.getFinalAmount(),
+                order.getIssuedCouponId(),
                 items,
                 order.getCreatedAt().toLocalDateTime()
         );
@@ -50,6 +56,9 @@ public record OrderInfo(
     public record OrderSummary(
             Long id,
             BigDecimal totalAmount,
+            BigDecimal discountAmount,
+            BigDecimal finalAmount,
+            Long issuedCouponId,
             LocalDateTime createdAt
     ) {
 
@@ -57,6 +66,9 @@ public record OrderInfo(
             return new OrderSummary(
                     order.getId(),
                     order.getTotalAmount(),
+                    order.getDiscountAmount(),
+                    order.getFinalAmount(),
+                    order.getIssuedCouponId(),
                     order.getCreatedAt().toLocalDateTime()
             );
         }
@@ -66,6 +78,9 @@ public record OrderInfo(
             Long id,
             Long userId,
             BigDecimal totalAmount,
+            BigDecimal discountAmount,
+            BigDecimal finalAmount,
+            Long issuedCouponId,
             LocalDateTime createdAt
     ) {
 
@@ -74,6 +89,9 @@ public record OrderInfo(
                     order.getId(),
                     order.getUserId(),
                     order.getTotalAmount(),
+                    order.getDiscountAmount(),
+                    order.getFinalAmount(),
+                    order.getIssuedCouponId(),
                     order.getCreatedAt().toLocalDateTime()
             );
         }

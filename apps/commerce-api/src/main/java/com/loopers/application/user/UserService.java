@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -37,6 +39,11 @@ public class UserService {
     }
 
     // Query
+
+    @Transactional(readOnly = true)
+    public List<User> findAllByIds(List<Long> ids) {
+        return userRepository.findAllByIds(ids);
+    }
 
     @Transactional(readOnly = true)
     public User getById(Long id) {

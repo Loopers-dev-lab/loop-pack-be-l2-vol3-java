@@ -6,6 +6,7 @@ import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 
 import java.math.BigDecimal;
@@ -38,6 +39,9 @@ public class Product extends BaseEntity {
     @Column(name = "like_count", nullable = false)
     private Integer likeCount;
 
+    @Version
+    private Long version;
+
     protected Product() {
     }
 
@@ -57,25 +61,6 @@ public class Product extends BaseEntity {
         validateStockQuantity(stockQuantity);
         validateDescription(description);
         return new Product(brandId, name, price, stockQuantity, description);
-    }
-
-    public void incrementLikeCount() {
-        validateNotDeleted();
-        this.likeCount++;
-    }
-
-    public void decrementLikeCount() {
-        if (this.likeCount > 0) {
-            this.likeCount--;
-        }
-    }
-
-    public void deductStock(int quantity) {
-        validateNotDeleted();
-        if (this.stockQuantity < quantity) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족한 상품이 있습니다");
-        }
-        this.stockQuantity -= quantity;
     }
 
     public void updateInfo(String name, BigDecimal price, Integer stockQuantity, String description) {
@@ -102,7 +87,13 @@ public class Product extends BaseEntity {
         return getDeletedAt() != null;
     }
 
-    public void validateNotDeleted() {
+    public void validateStockSufficient(int quantity) {
+        if (this.stockQuantity < quantity) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다");
+        }
+    }
+
+    private void validateNotDeleted() {
         if (isDeleted()) {
             throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다");
         }

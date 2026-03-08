@@ -1,0 +1,267 @@
+package com.loopers.application.coupon;
+
+import com.loopers.domain.coupon.CouponType;
+import com.loopers.domain.coupon.IssuedCoupon;
+import com.loopers.domain.coupon.IssuedCouponRepository;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
+import com.loopers.utils.DatabaseCleanUp;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertAll;
+
+@SpringBootTest
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
+class IssuedCouponServiceIntegrationTest {
+
+    private static final LocalDateTime FUTURE = LocalDateTime.now().plusDays(7);
+
+    @Autowired
+    private IssuedCouponService issuedCouponService;
+
+    @Autowired
+    private IssuedCouponRepository issuedCouponRepository;
+
+    @Autowired
+    private DatabaseCleanUp databaseCleanUp;
+
+    @BeforeEach
+    void setUp() {
+        databaseCleanUp.truncateAllTables();
+    }
+
+    @Nested
+    class 쿠폰_발급 {
+
+        @Test
+        void 유효한_쿠폰ID와_사용자ID로_발급하면_발급쿠폰이_생성된다() {
+            IssuedCoupon result = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
+
+            assertAll(
+                    () -> assertThat(result.getId()).isNotNull(),
+                    () -> assertThat(result.getCouponId()).isEqualTo(1L),
+                    () -> assertThat(result.getUserId()).isEqualTo(100L),
+                    () -> assertThat(result.isUsed()).isFalse(),
+                    () -> assertThat(result.getCouponName()).isEqualTo("테스트 쿠폰"),
+                    () -> assertThat(result.getCouponType()).isEqualTo(CouponType.FIXED),
+                    () -> assertThat(result.getCouponValue()).isEqualTo(1000),
+                    () -> assertThat(result.getMinOrderAmount()).isNull(),
+                    () -> assertThat(result.getExpiredAt()).isEqualTo(FUTURE)
+            );
+        }
+
+        @Test
+        void 이미_발급받은_쿠폰이면_예외() {
+            issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
+
+            assertThatThrownBy(() -> issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE)))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> {
+                        assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT);
+                        assertThat(e.getMessage()).contains("이미 발급받은 쿠폰입니다");
+                    });
+        }
+
+        @Test
+        void 같은_쿠폰이라도_다른_사용자는_발급_가능하다() {
+            issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
+
+            IssuedCoupon result = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 200L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
+
+            assertThat(result.getId()).isNotNull();
+            assertThat(result.getUserId()).isEqualTo(200L);
+        }
+    }
+
+    @Nested
+    class 사용_처리 {
+
+        @Test
+        void 미사용_쿠폰이면_사용_처리된다() {
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
+
+            issuedCouponService.markUsedIfAvailable(issued.getId(), 100L);
+
+            IssuedCoupon found = issuedCouponRepository.findById(issued.getId()).orElseThrow();
+            assertThat(found.isUsed()).isTrue();
+        }
+
+        @Test
+        void 이미_사용된_쿠폰이면_예외() {
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
+            issuedCouponService.markUsedIfAvailable(issued.getId(), 100L);
+
+            assertThatThrownBy(() -> issuedCouponService.markUsedIfAvailable(issued.getId(), 100L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+
+        @Test
+        void 본인_소유가_아닌_쿠폰이면_예외() {
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
+
+            assertThatThrownBy(() -> issuedCouponService.markUsedIfAvailable(issued.getId(), 200L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+
+        @Test
+        void 존재하지_않는_쿠폰이면_예외() {
+            assertThatThrownBy(() -> issuedCouponService.markUsedIfAvailable(999L, 100L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+    }
+
+    @Nested
+    class 할인_스냅샷_생성 {
+
+        @Test
+        void 유효한_정액_쿠폰이면_할인_금액이_포함된_스냅샷을_반환한다() {
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "5000원 할인", CouponType.FIXED, 5000, null, FUTURE));
+
+            IssuedCouponSnapshot snapshot = issuedCouponService.createDiscountSnapshot(issued.getId(), 100L, new BigDecimal("50000"));
+
+            assertAll(
+                    () -> assertThat(snapshot.issuedCouponId()).isEqualTo(issued.getId()),
+                    () -> assertThat(snapshot.discountAmount()).isEqualByComparingTo(new BigDecimal("5000"))
+            );
+        }
+
+        @Test
+        void 유효한_정률_쿠폰이면_비율에_따른_할인_금액을_반환한다() {
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "10% 할인", CouponType.RATE, 10, null, FUTURE));
+
+            IssuedCouponSnapshot snapshot = issuedCouponService.createDiscountSnapshot(issued.getId(), 100L, new BigDecimal("50000"));
+
+            assertAll(
+                    () -> assertThat(snapshot.issuedCouponId()).isEqualTo(issued.getId()),
+                    () -> assertThat(snapshot.discountAmount()).isEqualByComparingTo(new BigDecimal("5000"))
+            );
+        }
+
+        @Test
+        void 존재하지_않는_쿠폰이면_예외() {
+            assertThatThrownBy(() -> issuedCouponService.createDiscountSnapshot(999L, 100L, new BigDecimal("50000")))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> {
+                        assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+                        assertThat(e.getMessage()).contains("존재하지 않는 쿠폰입니다");
+                    });
+        }
+
+        @Test
+        void 본인_소유가_아니면_예외() {
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "5000원 할인", CouponType.FIXED, 5000, null, FUTURE));
+
+            assertThatThrownBy(() -> issuedCouponService.createDiscountSnapshot(issued.getId(), 200L, new BigDecimal("50000")))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> {
+                        assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+                        assertThat(e.getMessage()).contains("존재하지 않는 쿠폰입니다");
+                    });
+        }
+
+        @Test
+        void 이미_사용된_쿠폰이면_예외() {
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "5000원 할인", CouponType.FIXED, 5000, null, FUTURE));
+            issued.use();
+            issuedCouponRepository.save(issued);
+
+            assertThatThrownBy(() -> issuedCouponService.createDiscountSnapshot(issued.getId(), 100L, new BigDecimal("50000")))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> {
+                        assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+                        assertThat(e.getMessage()).contains("사용할 수 없는 쿠폰입니다");
+                    });
+        }
+
+        @Test
+        void 최소_주문_금액_미달이면_예외() {
+            IssuedCoupon issued = issuedCouponService.issue(
+                    IssuedCouponCommand.Issue.of(1L, 100L, "5000원 할인", CouponType.FIXED, 5000, new BigDecimal("50000"), FUTURE));
+
+            assertThatThrownBy(() -> issuedCouponService.createDiscountSnapshot(issued.getId(), 100L, new BigDecimal("10000")))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> {
+                        assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+                        assertThat(e.getMessage()).contains("최소 주문 금액 조건을 충족하지 않습니다");
+                    });
+        }
+    }
+
+    @Nested
+    class 쿠폰별_발급_내역_조회 {
+
+        @Test
+        void 해당_쿠폰의_발급_내역만_조회된다() {
+            issuedCouponService.issue(IssuedCouponCommand.Issue.of(1L, 100L, "쿠폰A", CouponType.FIXED, 1000, null, FUTURE));
+            issuedCouponService.issue(IssuedCouponCommand.Issue.of(1L, 200L, "쿠폰A", CouponType.FIXED, 1000, null, FUTURE));
+            issuedCouponService.issue(IssuedCouponCommand.Issue.of(2L, 100L, "쿠폰B", CouponType.FIXED, 2000, null, FUTURE));
+
+            Page<IssuedCoupon> result = issuedCouponService.findByCouponId(1L, PageRequest.of(0, 20));
+
+            assertAll(
+                    () -> assertThat(result.getTotalElements()).isEqualTo(2),
+                    () -> assertThat(result.getContent()).allMatch(ic -> ic.getCouponId().equals(1L))
+            );
+        }
+
+        @Test
+        void 발급_내역이_없으면_빈_페이지를_반환한다() {
+            Page<IssuedCoupon> result = issuedCouponService.findByCouponId(999L, PageRequest.of(0, 20));
+
+            assertThat(result.getTotalElements()).isEqualTo(0);
+        }
+    }
+
+    @Nested
+    class 사용자별_발급쿠폰_조회 {
+
+        @Test
+        void 해당_사용자의_발급쿠폰만_조회된다() {
+            issuedCouponService.issue(IssuedCouponCommand.Issue.of(1L, 100L, "쿠폰A", CouponType.FIXED, 1000, null, FUTURE));
+            issuedCouponService.issue(IssuedCouponCommand.Issue.of(2L, 100L, "쿠폰B", CouponType.FIXED, 2000, null, FUTURE));
+            issuedCouponService.issue(IssuedCouponCommand.Issue.of(3L, 200L, "쿠폰C", CouponType.FIXED, 3000, null, FUTURE));
+
+            Page<IssuedCoupon> result = issuedCouponService.findAllByUserId(100L, PageRequest.of(0, 20));
+
+            assertAll(
+                    () -> assertThat(result.getTotalElements()).isEqualTo(2),
+                    () -> assertThat(result.getContent()).allMatch(ic -> ic.getUserId().equals(100L))
+            );
+        }
+
+        @Test
+        void 발급쿠폰이_없으면_빈_페이지를_반환한다() {
+            Page<IssuedCoupon> result = issuedCouponService.findAllByUserId(999L, PageRequest.of(0, 20));
+
+            assertThat(result.getTotalElements()).isEqualTo(0);
+        }
+    }
+}

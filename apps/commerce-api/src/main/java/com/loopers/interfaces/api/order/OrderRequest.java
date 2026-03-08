@@ -24,13 +24,19 @@ public record OrderRequest() {
     public record Place(
             @NotNull(message = "주문 상품 목록은 필수입니다")
             @Size(min = 1, max = 100, message = "주문 상품은 1~100건이어야 합니다")
-            List<@Valid PlaceItem> orderItems
+            List<@Valid PlaceItem> orderItems,
+
+            Long issuedCouponId
     ) {
+        public Place(List<PlaceItem> orderItems) {
+            this(orderItems, null);
+        }
+
         public OrderCommand.Place toCommand() {
             List<OrderCommand.PlaceItem> items = orderItems.stream()
                     .map(item -> OrderCommand.PlaceItem.of(item.productId(), item.quantity()))
                     .toList();
-            return OrderCommand.Place.of(items);
+            return OrderCommand.Place.of(items, issuedCouponId);
         }
     }
 
