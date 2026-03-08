@@ -89,6 +89,12 @@ public class ProductAppService {
     }
 
     @Transactional
+    public Option getOptionByIdWithLock(Long optionId) {
+        return optionRepository.findByIdWithLock(optionId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "옵션을 찾을 수 없습니다."));
+    }
+
+    @Transactional
     public Option decreaseStock(Long optionId, int quantity) {
         Option option = optionRepository.findByIdWithLock(optionId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "옵션을 찾을 수 없습니다."));
