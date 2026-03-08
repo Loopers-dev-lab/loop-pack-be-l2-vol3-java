@@ -15,7 +15,7 @@ User
 | orderItems | Array | O | 주문 상품 목록, 1~100건 |
 | orderItems[].productId | Long | O | 활성 상품 ID |
 | orderItems[].quantity | Integer | O | 1 ~ 9,999,999 |
-| couponId | Long | X | 발급 쿠폰 ID |
+| issuedCouponId | Long | X | 발급 쿠폰 ID |
 
 ## 응답
 | 필드 | 타입 | 설명 |
@@ -24,7 +24,7 @@ User
 | totalAmount | BigDecimal | 쿠폰 적용 전 총 주문 금액 |
 | discountAmount | BigDecimal | 할인 금액 (쿠폰 미적용 시 0) |
 | finalAmount | BigDecimal | 최종 결제 금액 |
-| couponId | Long | 적용된 발급 쿠폰 ID (null 가능) |
+| issuedCouponId | Long | 적용된 발급 쿠폰 ID (null 가능) |
 | orderItems[] | Array | 주문 상품 목록 |
 | orderItems[].productId | Long | 상품 ID |
 | orderItems[].productName | String | 상품명 (스냅샷) |
@@ -62,4 +62,4 @@ User
 - 주문 상품 중 하나라도 재고가 부족하면 전체 주문이 실패한다 (부분 성공 없음)
 - 재고 차감, 쿠폰 사용 처리, 주문 생성은 같은 트랜잭션에서 처리한다
 - 주문 상태 관리는 이번 스코프에 포함되지 않는다
-- 주문 상세/목록 조회 명세서도 discountAmount, finalAmount, couponId 필드 추가가 필요하다
+- 주문 상세/목록 조회 명세서에 discountAmount, finalAmount, issuedCouponId 필드가 반영되었다

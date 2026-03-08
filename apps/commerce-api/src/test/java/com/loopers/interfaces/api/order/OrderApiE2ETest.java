@@ -448,6 +448,32 @@ class OrderApiE2ETest {
         }
 
         @Test
+        void 만료된_쿠폰이면_400_응답() throws InterruptedException {
+            fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long couponId = fixture.registerCoupon("곧 만료 쿠폰", "FIXED", 5000,
+                    null, 100, LocalDateTime.now().plusSeconds(2));
+            Long issuedCouponId = fixture.issueCoupon(couponId, "testuser", "Test1234!");
+            Thread.sleep(3000);
+
+            OrderRequest.Place request = new OrderRequest.Place(List.of(
+                    new OrderRequest.PlaceItem(productId, 1)
+            ), issuedCouponId);
+
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT, HttpMethod.POST,
+                    new HttpEntity<>(request, userHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody().meta().message()).contains("사용할 수 없는 쿠폰입니다")
+            );
+        }
+
+        @Test
         void 최소_주문_금액_미달이면_400_응답() {
             fixture.signUp("testuser", "Test1234!", "홍길동", "test@example.com");
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");

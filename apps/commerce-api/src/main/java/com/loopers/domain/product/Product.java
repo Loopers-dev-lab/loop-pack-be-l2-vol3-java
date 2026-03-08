@@ -63,12 +63,6 @@ public class Product extends BaseEntity {
         return new Product(brandId, name, price, stockQuantity, description);
     }
 
-    public void validateStockSufficient(int quantity) {
-        if (this.stockQuantity < quantity) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다");
-        }
-    }
-
     public void updateInfo(String name, BigDecimal price, Integer stockQuantity, String description) {
         validateNotDeleted();
         if (name != null) {
@@ -91,6 +85,12 @@ public class Product extends BaseEntity {
 
     public boolean isDeleted() {
         return getDeletedAt() != null;
+    }
+
+    public void validateStockSufficient(int quantity) {
+        if (this.stockQuantity < quantity) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다");
+        }
     }
 
     private void validateNotDeleted() {

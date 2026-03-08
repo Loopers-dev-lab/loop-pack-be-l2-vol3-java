@@ -4,6 +4,8 @@ import com.loopers.interfaces.api.brand.BrandRequest;
 import com.loopers.interfaces.api.coupon.CouponAdminV1Dto;
 import com.loopers.interfaces.api.coupon.CouponRequest;
 import com.loopers.interfaces.api.coupon.CouponV1Dto;
+import com.loopers.interfaces.api.order.OrderRequest;
+import com.loopers.interfaces.api.order.OrderV1Dto;
 import com.loopers.interfaces.api.product.ProductRequest;
 import com.loopers.interfaces.api.user.UserRequest;
 import com.loopers.interfaces.api.ApiResponse;
@@ -21,12 +23,15 @@ import org.springframework.http.ResponseEntity;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class E2ETestFixture {
 
     private static final String BRAND_ENDPOINT = "/api-admin/v1/brands";
     private static final String COUPON_ENDPOINT = "/api-admin/v1/coupons";
     private static final String COUPON_USER_ENDPOINT = "/api/v1/coupons";
+    private static final String LIKE_ENDPOINT = "/api/v1/products/{productId}/likes";
+    private static final String ORDER_ENDPOINT = "/api/v1/orders";
     private static final String PRODUCT_ENDPOINT = "/api-admin/v1/products";
     private static final String USER_ENDPOINT = "/api/v1/users";
 
@@ -115,6 +120,40 @@ public class E2ETestFixture {
                 new HttpEntity<>(request, adminHeaders()),
                 new ParameterizedTypeReference<ApiResponse<ProductAdminV1Dto.ProductResponse>>() {}
         );
+    }
+
+    public void like(Long productId, String loginId, String password) {
+        restTemplate.exchange(
+                LIKE_ENDPOINT, HttpMethod.POST,
+                new HttpEntity<>(userHeaders(loginId, password)),
+                new ParameterizedTypeReference<ApiResponse<Void>>() {},
+                productId
+        );
+    }
+
+    public void unlike(Long productId, String loginId, String password) {
+        restTemplate.exchange(
+                LIKE_ENDPOINT, HttpMethod.DELETE,
+                new HttpEntity<>(userHeaders(loginId, password)),
+                new ParameterizedTypeReference<ApiResponse<Void>>() {},
+                productId
+        );
+    }
+
+    public Long placeOrder(List<OrderRequest.PlaceItem> orderItems, Long issuedCouponId,
+                           String loginId, String password) {
+        OrderRequest.Place request = new OrderRequest.Place(orderItems, issuedCouponId);
+        ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> response = restTemplate.exchange(
+                ORDER_ENDPOINT, HttpMethod.POST,
+                new HttpEntity<>(request, userHeaders(loginId, password)),
+                new ParameterizedTypeReference<>() {}
+        );
+        return response.getBody().data().id();
+    }
+
+    public Long placeOrder(List<OrderRequest.PlaceItem> orderItems,
+                           String loginId, String password) {
+        return placeOrder(orderItems, null, loginId, password);
     }
 
     // Teardown
