@@ -4,8 +4,11 @@ import com.loopers.domain.coupon.MemberCoupon;
 import com.loopers.domain.coupon.MemberCouponRepository;
 import com.loopers.domain.coupon.MemberCouponStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,13 +29,33 @@ public class MemberCouponRepositoryImpl implements MemberCouponRepository {
     }
 
     @Override
+    public Optional<MemberCoupon> findByMemberIdAndCouponIdIncludingDeleted(Long memberId, Long couponId) {
+        return memberCouponJpaRepository.findByMemberIdAndCouponId(memberId, couponId);
+    }
+
+    @Override
     public List<MemberCoupon> findByMemberIdAndStatus(Long memberId, MemberCouponStatus status) {
         return memberCouponJpaRepository
                 .findByMemberIdAndStatusAndDeletedAtIsNull(memberId, status);
     }
 
     @Override
+    public List<MemberCoupon> findByMemberId(Long memberId) {
+        return memberCouponJpaRepository.findByMemberIdAndDeletedAtIsNull(memberId);
+    }
+
+    @Override
+    public Page<MemberCoupon> findByCouponId(Long couponId, Pageable pageable) {
+        return memberCouponJpaRepository.findByCouponIdAndDeletedAtIsNull(couponId, pageable);
+    }
+
+    @Override
     public MemberCoupon save(MemberCoupon memberCoupon) {
         return memberCouponJpaRepository.save(memberCoupon);
+    }
+
+    @Override
+    public int updateStatusToUsed(Long id, Long orderId, ZonedDateTime usedAt) {
+        return memberCouponJpaRepository.updateStatusToUsed(id, orderId, usedAt);
     }
 }

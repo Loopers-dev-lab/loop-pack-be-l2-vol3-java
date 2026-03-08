@@ -72,6 +72,7 @@ classDiagram
     OrderFacade --> CartService
     OrderFacade --> PointService
     OrderFacade --> CouponService
+    OrderFacade --> ProductService
     MemberFacade --> PointService
     CouponFacade --> CouponService
 
@@ -128,8 +129,6 @@ classDiagram
         -String displayYn
         -List~ProductOption~ options
         +calculateSupplyPrice(int price, MarginType marginType, int marginValue) int$
-        +incrementLikeCount() void
-        +decrementLikeCount() void
         +withOptions(List~ProductOption~) Product
         <<MarginType>> AMOUNT / RATE
         <<ProductStatus>> ON_SALE / SOLD_OUT / DISCONTINUED
@@ -156,16 +155,17 @@ classDiagram
         +like() void
         +unlike() void
         +isLiked() boolean
+        <<UNIQUE>> member_id + product_id
     }
 
     class CartItem {
-        <<Entity>>
+        <<Entity - Hard Delete>>
         -Long id
         -Long memberId
         -Long productOptionId
         -int quantity
         +create(Long memberId, Long productOptionId, int quantity) CartItem$
-        +addQuantity(int quantity) void
+        <<UNIQUE>> member_id + product_option_id
     }
 
     class Order {
@@ -237,19 +237,16 @@ classDiagram
         -int discountValue
         -int minOrderAmount
         -int maxDiscountAmount
-        -int totalQuantity
-        -int issuedQuantity
         -ZonedDateTime validFrom
         -ZonedDateTime validTo
         +create(...) Coupon$
-        +isIssuable() boolean
         +isValid() boolean
-        +issue() void
         +calculateDiscount(int applicableAmount) int
+        +updateInfo(...) void
     }
 
     class MemberCoupon {
-        <<Entity>>
+        <<Entity - 원자적 UPDATE>>
         -Long id
         -Long memberId
         -Long couponId
@@ -257,8 +254,8 @@ classDiagram
         -Long orderId
         -ZonedDateTime usedAt
         +create(Long memberId, Long couponId) MemberCoupon$
-        +use(Long orderId) void
         +isAvailable() boolean
+        <<UNIQUE>> member_id + coupon_id
     }
 
     class CouponScope {
@@ -274,12 +271,21 @@ classDiagram
         FIXED_RATE
     }
 
+    class MemberCouponDetail {
+        <<record>>
+        +MemberCoupon memberCoupon
+        +Coupon coupon
+    }
+
     class MemberCouponStatus {
         <<enumeration>>
         AVAILABLE
         USED
+        EXPIRED
     }
 
+    MemberCouponDetail --> MemberCoupon
+    MemberCouponDetail --> Coupon
     Product --> Brand : contains
     Product "1" --> "*" ProductOption : has
     Order "1" --> "*" OrderItem : has
@@ -292,18 +298,17 @@ classDiagram
 **설계 포인트**
 - **Product → Brand 직접 참조**: 상품 상세 조회 시 별도 BrandService 호출 없이 한 번에 조회
 - **ProductOption에 재고 로직 배치**: `hasEnoughStock()`, `deductStock()`, `restoreStock()`으로 재고 관련 비즈니스 로직을 도메인 모델이 책임
-- **Like.likeYn**: LIKE_YN 컬럼 기반 soft delete. `like()`, `unlike()`으로 상태 전환
+- **Like.likeYn**: LIKE_YN 컬럼 기반 soft delete. `like()`, `unlike()`으로 상태 전환. `(member_id, product_id)` UNIQUE 제약으로 동시 좋아요 중복 생성 방지
 - **OrderItem.createSnapshot()**: Product + ProductOption 정보를 스냅샷으로 복사하는 팩토리 메서드
-- **CartItem.addQuantity()**: 동일 옵션 장바구니 병합 시 수량 증가
+- **CartItem**: Hard Delete 사용 (삭제 이력 불필요). `(member_id, product_option_id)` 유니크 제약으로 UPSERT 지원
 - **Point 불변식 검증**: create() 시 초기 잔액 음수 거부, charge()/use() 시 금액 0 이하 거부, use() 시 잔액 부족 거부. 모든 검증을 도메인 모델 내부에서 강제
 - **PointHistory 정적 팩토리**: createCharge/createUse로 충전/사용 이력 생성을 명시적으로 구분
 - **Order.usedPoints**: 주문 시 사용한 포인트. 0이면 포인트 미사용
 - **Order.discountAmount / memberCouponId**: 쿠폰 할인 금액과 사용된 회원쿠폰 ID. 쿠폰 미사용 시 0 / null
 - **Order.getPaymentAmount()**: 실결제금액 = totalAmount - discountAmount - usedPoints
 - **OrderItem.brandId**: 브랜드 ID 스냅샷. 브랜드 쿠폰 적용 대상 판별에 사용
-- **Coupon.issue()**: 발급 수량 증가. 수량 초과 또는 유효기간 외이면 예외 발생
 - **Coupon.calculateDiscount(applicableAmount)**: 적용 대상 금액에 대한 할인 금액 계산. FIXED_RATE 시 maxDiscountAmount 상한 적용, 적용 대상 금액 초과 방지
-- **MemberCoupon.use(orderId)**: AVAILABLE → USED 상태 전환. 이미 사용된 쿠폰이면 예외 발생
+- **MemberCoupon 쿠폰 사용**: 원자적 UPDATE (`UPDATE ... WHERE status='AVAILABLE'`)로 AVAILABLE → USED 상태 전환. `affected rows = 0`이면 이미 사용된 쿠폰으로 CONFLICT 예외
 - **CouponScope**: PRODUCT(특정 상품), BRAND(특정 브랜드), CART(장바구니 전체) 3단계 적용 범위
 
 ---
@@ -362,6 +367,9 @@ classDiagram
         -ProductRepository productRepository
         +getProducts(ProductSearchCondition, Pageable) Page~Product~
         +getProduct(Long productId) Product
+        +findOptionById(Long optionId) ProductOption
+        +deductStock(Long optionId, int quantity) ProductOption
+        +restoreStock(Long optionId, int quantity) void
     }
 
     class LikeService {
@@ -375,12 +383,12 @@ classDiagram
     class CartService {
         -CartRepository cartRepository
         -ProductRepository productRepository
-        +addToCart(Long memberId, Long productId, Long optionId, int quantity) void
+        +addToCart(Long memberId, Long productOptionId, int quantity) void
     }
 
     class OrderService {
         -OrderRepository orderRepository
-        -ProductRepository productRepository
+        -ProductService productService
         +prepareOrderItems(List~OrderItemRequest~ itemRequests) List~OrderItem~
         +createOrder(Long memberId, List~OrderItem~ orderItems, int discountAmount, Long memberCouponId, int usedPoints) Order
         +findOrders(Long memberId, ZonedDateTime startAt, ZonedDateTime endAt, Pageable) Page~Order~
@@ -396,7 +404,11 @@ classDiagram
         <<interface>>
         +findAll(ProductSearchCondition, Pageable) Page~Product~
         +findById(Long id) Optional~Product~
-        +findOptionById(Long productId, Long optionId) Optional~ProductOption~
+        +findOptionById(Long optionId) Optional~ProductOption~
+        +findOptionByIdWithLock(Long optionId) Optional~ProductOption~
+        +saveOption(ProductOption) void
+        +incrementLikeCount(Long productId) int
+        +decrementLikeCount(Long productId) int
     }
 
     class LikeRepository {
@@ -408,9 +420,11 @@ classDiagram
 
     class CartRepository {
         <<interface>>
-        +findByMemberIdAndOptionId(Long, Long) Optional~CartItem~
+        +findByMemberIdAndProductOptionId(Long, Long) Optional~CartItem~
         +save(CartItem) CartItem
-        +deleteByIds(List~Long~) void
+        +upsert(Long memberId, Long productOptionId, int quantity) void
+        +deleteByProductOptionIds(List~Long~) void
+        +deleteByMemberIdAndProductOptionIds(Long, List~Long~) void
     }
 
     class OrderRepository {
@@ -432,6 +446,7 @@ classDiagram
     class PointRepository {
         <<interface>>
         +findByMemberId(Long memberId) Optional~Point~
+        +findByMemberIdWithLock(Long memberId) Optional~Point~
         +save(Point) Point
     }
 
@@ -444,20 +459,26 @@ classDiagram
         -CouponRepository couponRepository
         -MemberCouponRepository memberCouponRepository
         +createCoupon(Coupon) Coupon
-        +getCoupons(Pageable) Page~Coupon~
-        +getCoupon(Long couponId) Coupon
-        +getAvailableCoupons() List~Coupon~
-        +downloadCoupon(Long memberId, Long couponId) MemberCoupon
-        +getMyAvailableCoupons(Long memberId) List~MemberCoupon~
+        +findById(Long couponId) Coupon
+        +findByIds(List~Long~) List~Coupon~
+        +findAllCoupons(Pageable) Page~Coupon~
+        +downloadCoupon(Long memberId, Long couponId) MemberCouponDetail
+        +findMyCoupons(Long memberId) List~MemberCoupon~
+        +findAllMyCoupons(Long memberId) List~MemberCoupon~
+        +getMyCouponDetails(Long memberId) List~MemberCouponDetail~
         +getMemberCoupon(Long memberCouponId) MemberCoupon
-        +useCoupon(Long memberCouponId, Long orderId) void
+        +useCoupon(Long memberId, Long memberCouponId, Long orderId) void
         +calculateCouponDiscount(Long memberId, Long memberCouponId, int applicableAmount) int
+        +updateCoupon(Long couponId, ...) Coupon
+        +softDelete(Long couponId) void
+        +findCouponIssues(Long couponId, Pageable) Page~MemberCoupon~
     }
 
     class CouponRepository {
         <<interface>>
         +findById(Long id) Optional~Coupon~
-        +findAllValid() List~Coupon~
+        +findByIdWithLock(Long id) Optional~Coupon~
+        +findByIds(List~Long~) List~Coupon~
         +findAll(Pageable) Page~Coupon~
         +save(Coupon) Coupon
     }
@@ -466,8 +487,10 @@ classDiagram
         <<interface>>
         +findById(Long id) Optional~MemberCoupon~
         +findByMemberIdAndCouponId(Long, Long) Optional~MemberCoupon~
-        +findByMemberIdAndStatus(Long, MemberCouponStatus) List~MemberCoupon~
+        +findByMemberId(Long memberId) List~MemberCoupon~
+        +findByCouponId(Long couponId, Pageable) Page~MemberCoupon~
         +save(MemberCoupon) MemberCoupon
+        +updateStatusToUsed(Long id, Long orderId, ZonedDateTime usedAt) int
     }
 
     BrandService --> BrandRepository
@@ -477,7 +500,7 @@ classDiagram
     CartService --> CartRepository
     CartService --> ProductRepository
     OrderService --> OrderRepository
-    OrderService --> ProductRepository
+    OrderService --> ProductService
     PointService --> PointRepository
     PointService --> PointHistoryRepository
     CouponService --> CouponRepository
@@ -490,11 +513,17 @@ classDiagram
 - **Domain Service는 자기 도메인 Repository만 의존하는 것을 원칙으로 함**: 크로스 도메인 조율은 Facade에서 처리
 - **LikeService → ProductRepository 의존**: 좋아요 등록 시 상품 존재 검증 (읽기 전용 검증이므로 허용)
 - **CartService → ProductRepository 의존**: 장바구니 담기 시 재고 검증 (읽기 전용 검증이므로 허용)
-- **OrderService → ProductRepository 의존**: 재고 검증/차감이 주문 생성과 원자적 트랜잭션으로 묶여야 하므로 허용. 장바구니 삭제는 Facade에서 처리
+- **OrderService → ProductService 의존**: 재고 검증/차감(`deductStock`)이 주문 생성과 원자적 트랜잭션으로 묶여야 하므로 허용. `deductStock()`은 `ProductOption`을 반환하여 1차 캐시 오염 없이 최신 엔티티를 사용. 장바구니 삭제는 Facade에서 처리
 - **PointService**: 포인트 충전/사용/조회를 담당. 자기 도메인 Repository(PointRepository, PointHistoryRepository)만 의존
 - **포인트 사용은 Facade에서 PointService를 호출하여 처리**: OrderFacade가 OrderService + PointService를 조율
 - **CouponService**: 쿠폰 생성/조회/발급/사용/할인계산을 담당. CouponRepository + MemberCouponRepository 의존
 - **CouponService.calculateCouponDiscount()**: 소유 검증, 사용 가능 여부, 유효기간, 최소 주문 금액 검증 + 할인 금액 계산을 도메인 서비스가 책임. OrderFacade에서 위임 호출
+- **CouponService.updateCoupon()**: 쿠폰 템플릿 수정. Coupon.updateInfo()로 도메인 모델에서 수정 처리
+- **CouponService.deleteCoupon()**: 쿠폰 템플릿 soft delete. BaseEntity.delete() 활용
+- **CouponService.findCouponIssues()**: 특정 쿠폰의 발급 내역 페이징 조회. MemberCouponRepository에 위임
+- **MemberCouponRepository.findByMemberId()**: 전체 상태(AVAILABLE/USED) 조회. EXPIRED는 조회 시 Facade에서 계산
+- **CouponService.downloadCoupon()**: `MemberCouponDetail`을 반환하여 Facade에서 추가 DB 조회 불필요
+- **CouponService.getMyCouponDetails()**: 같은 도메인 내 Repository 2개(CouponRepository, MemberCouponRepository) 조합을 Service에서 처리. IN절 배치 조회로 N+1 방지
 - **OrderService를 2단계로 분리**: `prepareOrderItems()`(재고 검증/차감 + 스냅샷 생성) → `createOrder()`(주문 저장). 각 단계의 책임 명확화
 - **쿠폰/포인트 사용은 Facade에서 각 Service를 호출하여 처리**: OrderFacade가 OrderService + CouponService + PointService + CartService를 조율
 
@@ -523,7 +552,7 @@ classDiagram
 
     class CartFacade {
         -CartService cartService
-        +addToCart(Member member, Long productId, Long optionId, int quantity) void
+        +addToCart(Long memberId, Long productOptionId, int quantity) void
     }
 
     class OrderFacade {
@@ -531,6 +560,7 @@ classDiagram
         -CartService cartService
         -PointService pointService
         -CouponService couponService
+        -ProductService productService
         +createOrder(Member member, OrderRequest) OrderInfo
         +getOrders(Member member, LocalDate, LocalDate, Pageable) Page~OrderInfo~
         +getOrderDetail(Member member, Long orderId) OrderDetailInfo
@@ -538,9 +568,8 @@ classDiagram
 
     class CouponFacade {
         -CouponService couponService
-        +getAvailableCoupons() List~CouponInfo~
-        +downloadCoupon(Member member, Long couponId) MemberCouponInfo
-        +getMyAvailableCoupons(Member member) List~MyCouponInfo~
+        +downloadCoupon(Member member, Long couponId) CouponInfo
+        +getMyCoupons(Member member) List~MyCouponInfo~
     }
 
     class BrandInfo {
@@ -607,16 +636,7 @@ classDiagram
         +int maxDiscountAmount
         +ZonedDateTime validFrom
         +ZonedDateTime validTo
-        +int remainingQuantity
         +from(Coupon) CouponInfo$
-    }
-
-    class MemberCouponInfo {
-        <<record>>
-        +Long id
-        +Long couponId
-        +String couponName
-        +MemberCouponStatus status
     }
 
     class MyCouponInfo {
@@ -628,7 +648,19 @@ classDiagram
         +int discountValue
         +int minOrderAmount
         +int maxDiscountAmount
+        +MemberCouponStatus status
         +ZonedDateTime validTo
+    }
+
+    class CouponIssueInfo {
+        <<record>>
+        +Long memberCouponId
+        +Long memberId
+        +Long couponId
+        +MemberCouponStatus status
+        +Long orderId
+        +ZonedDateTime usedAt
+        +ZonedDateTime createdAt
     }
 
     class CouponDetailInfo {
@@ -641,8 +673,6 @@ classDiagram
         +int discountValue
         +int minOrderAmount
         +int maxDiscountAmount
-        +int totalQuantity
-        +int issuedQuantity
         +ZonedDateTime validFrom
         +ZonedDateTime validTo
     }
@@ -653,14 +683,13 @@ classDiagram
     OrderFacade --> OrderInfo
     OrderFacade --> OrderDetailInfo
     CouponFacade --> CouponInfo
-    CouponFacade --> MemberCouponInfo
     CouponFacade --> MyCouponInfo
 ```
 
 **설계 포인트**
 - **Facade에 @Transactional 배치**: 클래스 레벨 `@Transactional(readOnly = true)` + 쓰기 메서드에 `@Transactional` 오버라이드. Domain Service가 Spring에 의존하지 않도록 트랜잭션 경계를 Facade에서 관리
 - **Facade는 서비스 조율 + 변환 담당**: 인증은 Interceptor/ArgumentResolver에서 처리. Facade는 인증된 Member/Admin을 파라미터로 받음
-- **크로스 도메인 조율은 Facade에서 처리**: 주문 시 장바구니 삭제(`OrderFacade` → `CartService`), 주문 시 포인트 사용(`OrderFacade` → `PointService`), 주문 시 쿠폰 검증/적용(`OrderFacade` → `CouponService`), 회원가입 시 초기 포인트 지급(`MemberFacade` → `PointService`), 브랜드/상품 삭제 cascade(`AdminBrandFacade` → `ProductService` + `CartService`) 등
+- **크로스 도메인 조율은 Facade에서 처리**: 주문 시 장바구니 삭제(`OrderFacade` → `CartService`), 주문 시 포인트 사용(`OrderFacade` → `PointService`), 주문 시 쿠폰 검증/적용(`OrderFacade` → `CouponService`), 주문 시 쿠폰 적용 대상 금액 계산(`OrderFacade` → `ProductService` — 재고 차감 전 상품 가격 조회), 회원가입 시 초기 포인트 지급(`MemberFacade` → `PointService`), 브랜드/상품 삭제 cascade(`AdminBrandFacade` → `ProductService` + `CartService`) 등
 - **Info 객체는 record**: 불변. 도메인 모델 → 응답용 데이터 변환을 `from()` 팩토리로 수행
 - **ProductInfo vs ProductDetailInfo 분리**: 목록용(간략)과 상세용(브랜드+옵션 포함) 구분
 
@@ -710,8 +739,10 @@ classDiagram
         -ProductJpaRepository productJpaRepository
         -ProductOptionJpaRepository productOptionJpaRepository
         -JPAQueryFactory queryFactory
+        -EntityManager entityManager
         +save(Product) Product
         +findById(Long) Optional~Product~
+        +findOptionByIdWithLock(Long) Optional~ProductOption~
         +search(ProductSearchCondition, Pageable) Page~Product~
         -assembleWithOptions(List~Product~) List~Product~
     }
@@ -857,6 +888,9 @@ classDiagram
         +createCoupon(@LoginAdmin Admin, Request) ApiResponse
         +getCoupons(@LoginAdmin Admin, Pageable) ApiResponse
         +getCoupon(@LoginAdmin Admin, Long couponId) ApiResponse
+        +updateCoupon(@LoginAdmin Admin, Long couponId, Request) ApiResponse
+        +deleteCoupon(@LoginAdmin Admin, Long couponId) ApiResponse
+        +getCouponIssues(@LoginAdmin Admin, Long couponId, Pageable) ApiResponse
     }
 
     class AdminPointFacade {
@@ -869,11 +903,13 @@ classDiagram
         +createCoupon(Request) CouponInfo
         +getCoupons(Pageable) Page~CouponInfo~
         +getCoupon(Long couponId) CouponDetailInfo
+        +updateCoupon(Long couponId, Request) CouponDetailInfo
+        +deleteCoupon(Long couponId) void
+        +getCouponIssues(Long couponId, Pageable) Page~CouponIssueInfo~
     }
 
     class CouponV1Controller {
-        +getAvailableCoupons() ApiResponse
-        +downloadCoupon(@LoginMember Member, Long couponId) ApiResponse
+        +issueCoupon(@LoginMember Member, Long couponId) ApiResponse
         +getMyCoupons(@LoginMember Member) ApiResponse
     }
 
@@ -902,5 +938,7 @@ classDiagram
 - **AdminFacade는 인증 무관**: Interceptor에서 인증 완료 후 Controller가 @LoginAdmin Admin을 받고, Facade에는 비즈니스 파라미터만 전달
 - **AdminFacade가 크로스 도메인 조율 담당**: 브랜드 삭제 시 `AdminBrandFacade`가 BrandService + ProductService + CartService를 조율, 상품 등록 시 `AdminProductFacade`가 BrandService로 브랜드 존재 확인 후 ProductService에 전달
 - **AdminPointFacade**: 어드민 포인트 지급 전용. PointService만 의존하여 단순 위임
-- **AdminCouponFacade**: 어드민 쿠폰 생성/조회 전용. CouponService만 의존하여 단순 위임
-- **CouponV1Controller**: 대고객 쿠폰 목록 조회(인증 불필요), 다운로드/내 쿠폰 조회(인증 필요)
+- **AdminCouponFacade**: 어드민 쿠폰 CRUD + 발급 내역 조회. CouponService만 의존하여 단순 위임
+- **CouponV1Controller**: 대고객 쿠폰 발급/내 쿠폰 조회(인증 필요)
+- **내 쿠폰 조회 URI 변경**: `/api/v1/coupons/me` → `/api/v1/users/me/coupons`. 전체 상태(AVAILABLE/USED/EXPIRED) 반환
+- **EXPIRED 상태**: DB에 저장하지 않고 조회 시 계산 (coupon.validTo < now && status == AVAILABLE → EXPIRED)

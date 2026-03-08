@@ -40,43 +40,82 @@ class MemberCouponTest {
     }
 
     @Nested
-    @DisplayName("쿠폰을 사용할 때,")
-    class Use {
+    @DisplayName("쿠폰을 삭제할 때,")
+    class MarkDeleted {
 
         @Test
-        @DisplayName("AVAILABLE 상태에서 사용하면 USED로 변경된다.")
-        void changesStatusToUsed_whenAvailable() {
+        @DisplayName("상태가 DELETED로 변경된다.")
+        void changesStatusToDeleted() {
             // given
             MemberCoupon memberCoupon = new MemberCoupon(1L, 10L);
             ReflectionTestUtils.setField(memberCoupon, "id", 1L);
 
             // when
-            memberCoupon.use(100L);
+            memberCoupon.markDeleted();
 
             // then
             assertAll(
-                    () -> assertThat(memberCoupon.getStatus()).isEqualTo(MemberCouponStatus.USED),
-                    () -> assertThat(memberCoupon.getOrderId()).isEqualTo(100L),
-                    () -> assertThat(memberCoupon.getUsedAt()).isNotNull());
+                    () -> assertThat(memberCoupon.getStatus()).isEqualTo(MemberCouponStatus.DELETED),
+                    () -> assertThat(memberCoupon.getDeletedAt()).isNotNull());
+        }
+    }
+
+    @Nested
+    @DisplayName("삭제된 쿠폰을 재발급할 때,")
+    class Reissue {
+
+        @Test
+        @DisplayName("DELETED 상태에서 재발급하면 AVAILABLE로 복원된다.")
+        void restoresToAvailable_whenDeleted() {
+            // given
+            MemberCoupon memberCoupon = new MemberCoupon(1L, 10L);
+            ReflectionTestUtils.setField(memberCoupon, "id", 1L);
+            memberCoupon.markDeleted();
+
+            // when
+            memberCoupon.reissue();
+
+            // then
+            assertAll(
+                    () -> assertThat(memberCoupon.getStatus()).isEqualTo(MemberCouponStatus.AVAILABLE),
+                    () -> assertThat(memberCoupon.getOrderId()).isNull(),
+                    () -> assertThat(memberCoupon.getUsedAt()).isNull(),
+                    () -> assertThat(memberCoupon.getDeletedAt()).isNull());
         }
 
         @Test
-        @DisplayName("이미 사용된 쿠폰이면 BAD_REQUEST 예외가 발생한다.")
-        void throwsBadRequest_whenAlreadyUsed() {
+        @DisplayName("AVAILABLE 상태에서 재발급하면 CONFLICT 예외가 발생한다.")
+        void throwsConflict_whenAvailable() {
+            // given
+            MemberCoupon memberCoupon = new MemberCoupon(1L, 10L);
+            ReflectionTestUtils.setField(memberCoupon, "id", 1L);
+
+            // when
+            CoreException exception = assertThrows(CoreException.class,
+                    () -> memberCoupon.reissue());
+
+            // then
+            assertAll(
+                    () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.CONFLICT),
+                    () -> assertThat(exception.getMessage()).contains("이미 다운로드"));
+        }
+
+        @Test
+        @DisplayName("USED 상태에서 재발급하면 CONFLICT 예외가 발생한다.")
+        void throwsConflict_whenUsed() {
             // given
             MemberCoupon memberCoupon = new MemberCoupon(1L, 10L);
             ReflectionTestUtils.setField(memberCoupon, "id", 1L);
             ReflectionTestUtils.setField(memberCoupon, "status", MemberCouponStatus.USED);
-            ReflectionTestUtils.setField(memberCoupon, "orderId", 50L);
 
             // when
             CoreException exception = assertThrows(CoreException.class,
-                    () -> memberCoupon.use(100L));
+                    () -> memberCoupon.reissue());
 
             // then
             assertAll(
-                    () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST),
-                    () -> assertThat(exception.getMessage()).contains("이미 사용된 쿠폰"));
+                    () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.CONFLICT),
+                    () -> assertThat(exception.getMessage()).contains("이미 다운로드"));
         }
     }
 

@@ -45,12 +45,10 @@ class CouponServiceTest {
     private Coupon createCouponWithId(Long id, String name, CouponScope scope, Long targetId,
                                       DiscountType discountType, int discountValue,
                                       int minOrderAmount, int maxDiscountAmount,
-                                      int totalQuantity, int issuedQuantity,
                                       ZonedDateTime validFrom, ZonedDateTime validTo) {
         Coupon coupon = new Coupon(name, scope, targetId, discountType, discountValue,
-                minOrderAmount, maxDiscountAmount, totalQuantity, validFrom, validTo);
+                minOrderAmount, maxDiscountAmount, validFrom, validTo);
         ReflectionTestUtils.setField(coupon, "id", id);
-        ReflectionTestUtils.setField(coupon, "issuedQuantity", issuedQuantity);
         return coupon;
     }
 
@@ -76,7 +74,7 @@ class CouponServiceTest {
         void returnsSavedCoupon_whenValidInfo() {
             // given
             Coupon coupon = new Coupon("1000원 할인", CouponScope.CART, null,
-                    DiscountType.FIXED_AMOUNT, 1000, 10000, 0, 100,
+                    DiscountType.FIXED_AMOUNT, 1000, 10000, 0,
                     ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
             when(couponRepository.save(any(Coupon.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -99,7 +97,7 @@ class CouponServiceTest {
         void returnsCoupon_whenExists() {
             // given
             Coupon coupon = createCouponWithId(1L, "쿠폰", CouponScope.CART, null,
-                    DiscountType.FIXED_AMOUNT, 1000, 0, 0, 100, 0,
+                    DiscountType.FIXED_AMOUNT, 1000, 0, 0,
                     ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
             when(couponRepository.findById(1L)).thenReturn(Optional.of(coupon));
 
@@ -126,25 +124,43 @@ class CouponServiceTest {
     }
 
     @Nested
-    @DisplayName("유효한 쿠폰 목록을 조회할 때,")
-    class FindAvailableCoupons {
+    @DisplayName("쿠폰 ID 목록으로 조회할 때,")
+    class FindByIds {
 
         @Test
-        @DisplayName("유효한 쿠폰 목록을 반환한다.")
-        void returnsValidCoupons() {
+        @DisplayName("ID 목록에 해당하는 쿠폰들을 반환한다.")
+        void returnsCoupons_whenIdsExist() {
             // given
-            Coupon coupon = createCouponWithId(1L, "쿠폰", CouponScope.CART, null,
-                    DiscountType.FIXED_AMOUNT, 1000, 0, 0, 100, 50,
+            Coupon coupon1 = createCouponWithId(1L, "쿠폰1", CouponScope.CART, null,
+                    DiscountType.FIXED_AMOUNT, 1000, 0, 0,
                     ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
-            when(couponRepository.findAllValid()).thenReturn(List.of(coupon));
+            Coupon coupon2 = createCouponWithId(2L, "쿠폰2", CouponScope.PRODUCT, 10L,
+                    DiscountType.FIXED_RATE, 10, 5000, 3000,
+                    ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
+
+            when(couponRepository.findByIds(List.of(1L, 2L))).thenReturn(List.of(coupon1, coupon2));
 
             // when
-            List<Coupon> result = couponService.findAvailableCoupons();
+            List<Coupon> result = couponService.findByIds(List.of(1L, 2L));
 
             // then
             assertAll(
-                    () -> assertThat(result).hasSize(1),
-                    () -> assertThat(result.get(0).getName()).isEqualTo("쿠폰"));
+                    () -> assertThat(result).hasSize(2),
+                    () -> assertThat(result.get(0).getName()).isEqualTo("쿠폰1"),
+                    () -> assertThat(result.get(1).getName()).isEqualTo("쿠폰2"));
+        }
+
+        @Test
+        @DisplayName("빈 ID 목록이면 빈 리스트를 반환한다.")
+        void returnsEmptyList_whenEmptyIds() {
+            // given
+            when(couponRepository.findByIds(List.of())).thenReturn(List.of());
+
+            // when
+            List<Coupon> result = couponService.findByIds(List.of());
+
+            // then
+            assertThat(result).isEmpty();
         }
     }
 
@@ -173,27 +189,27 @@ class CouponServiceTest {
     class DownloadCoupon {
 
         @Test
-        @DisplayName("정상적으로 다운로드하면 회원 쿠폰을 반환한다.")
-        void returnsMemberCoupon_whenValidDownload() {
+        @DisplayName("정상적으로 다운로드하면 MemberCouponDetail을 반환한다.")
+        void returnsMemberCouponDetail_whenValidDownload() {
             // given
             Coupon coupon = createCouponWithId(1L, "쿠폰", CouponScope.CART, null,
-                    DiscountType.FIXED_AMOUNT, 1000, 0, 0, 100, 50,
+                    DiscountType.FIXED_AMOUNT, 1000, 0, 0,
                     ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
             when(couponRepository.findById(1L)).thenReturn(Optional.of(coupon));
-            when(memberCouponRepository.findByMemberIdAndCouponId(1L, 1L)).thenReturn(Optional.empty());
-            when(couponRepository.save(any(Coupon.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(memberCouponRepository.findByMemberIdAndCouponIdIncludingDeleted(1L, 1L))
+                    .thenReturn(Optional.empty());
             when(memberCouponRepository.save(any(MemberCoupon.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
-            MemberCoupon result = couponService.downloadCoupon(1L, 1L);
+            MemberCouponDetail result = couponService.downloadCoupon(1L, 1L);
 
             // then
             assertAll(
-                    () -> assertThat(result.getMemberId()).isEqualTo(1L),
-                    () -> assertThat(result.getCouponId()).isEqualTo(1L),
-                    () -> assertThat(result.getStatus()).isEqualTo(MemberCouponStatus.AVAILABLE),
-                    () -> verify(couponRepository, times(1)).save(any(Coupon.class)),
+                    () -> assertThat(result.memberCoupon().getMemberId()).isEqualTo(1L),
+                    () -> assertThat(result.memberCoupon().getCouponId()).isEqualTo(1L),
+                    () -> assertThat(result.memberCoupon().getStatus()).isEqualTo(MemberCouponStatus.AVAILABLE),
+                    () -> assertThat(result.coupon()).isEqualTo(coupon),
                     () -> verify(memberCouponRepository, times(1)).save(any(MemberCoupon.class)));
         }
 
@@ -202,13 +218,13 @@ class CouponServiceTest {
         void throwsConflict_whenAlreadyDownloaded() {
             // given
             Coupon coupon = createCouponWithId(1L, "쿠폰", CouponScope.CART, null,
-                    DiscountType.FIXED_AMOUNT, 1000, 0, 0, 100, 50,
+                    DiscountType.FIXED_AMOUNT, 1000, 0, 0,
                     ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
             MemberCoupon existingCoupon = createMemberCouponWithId(1L, 1L, 1L,
                     MemberCouponStatus.AVAILABLE, null);
 
             when(couponRepository.findById(1L)).thenReturn(Optional.of(coupon));
-            when(memberCouponRepository.findByMemberIdAndCouponId(1L, 1L))
+            when(memberCouponRepository.findByMemberIdAndCouponIdIncludingDeleted(1L, 1L))
                     .thenReturn(Optional.of(existingCoupon));
 
             // when
@@ -223,15 +239,41 @@ class CouponServiceTest {
         }
 
         @Test
-        @DisplayName("발급 불가능한 쿠폰이면 BAD_REQUEST 예외가 발생한다.")
-        void throwsBadRequest_whenNotIssuable() {
+        @DisplayName("삭제된 쿠폰이 있으면 재발급하여 AVAILABLE로 복원한다.")
+        void reissuesCoupon_whenDeletedExists() {
             // given
             Coupon coupon = createCouponWithId(1L, "쿠폰", CouponScope.CART, null,
-                    DiscountType.FIXED_AMOUNT, 1000, 0, 0, 100, 100,
+                    DiscountType.FIXED_AMOUNT, 1000, 0, 0,
                     ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
+            MemberCoupon deletedCoupon = createMemberCouponWithId(1L, 1L, 1L,
+                    MemberCouponStatus.DELETED, null);
 
             when(couponRepository.findById(1L)).thenReturn(Optional.of(coupon));
-            when(memberCouponRepository.findByMemberIdAndCouponId(1L, 1L)).thenReturn(Optional.empty());
+            when(memberCouponRepository.findByMemberIdAndCouponIdIncludingDeleted(1L, 1L))
+                    .thenReturn(Optional.of(deletedCoupon));
+            when(memberCouponRepository.save(any(MemberCoupon.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            MemberCouponDetail result = couponService.downloadCoupon(1L, 1L);
+
+            // then
+            assertAll(
+                    () -> assertThat(result.memberCoupon().getStatus()).isEqualTo(MemberCouponStatus.AVAILABLE),
+                    () -> assertThat(result.memberCoupon().getOrderId()).isNull(),
+                    () -> assertThat(result.memberCoupon().getUsedAt()).isNull(),
+                    () -> verify(memberCouponRepository, times(1)).save(any(MemberCoupon.class)));
+        }
+
+        @Test
+        @DisplayName("유효기간이 지난 쿠폰이면 BAD_REQUEST 예외가 발생한다.")
+        void throwsBadRequest_whenExpired() {
+            // given
+            Coupon coupon = createCouponWithId(1L, "쿠폰", CouponScope.CART, null,
+                    DiscountType.FIXED_AMOUNT, 1000, 0, 0,
+                    ZonedDateTime.now().minusDays(30), ZonedDateTime.now().minusDays(1));
+
+            when(couponRepository.findById(1L)).thenReturn(Optional.of(coupon));
 
             // when
             CoreException exception = assertThrows(CoreException.class,
@@ -285,6 +327,108 @@ class CouponServiceTest {
     }
 
     @Nested
+    @DisplayName("전체 내 쿠폰을 조회할 때,")
+    class FindAllMyCoupons {
+
+        @Test
+        @DisplayName("상태 무관하게 전체 회원 쿠폰 목록을 반환한다.")
+        void returnsAllMemberCoupons() {
+            // given
+            MemberCoupon availableCoupon = createMemberCouponWithId(1L, 1L, 10L,
+                    MemberCouponStatus.AVAILABLE, null);
+            MemberCoupon usedCoupon = createMemberCouponWithId(2L, 1L, 20L,
+                    MemberCouponStatus.USED, 100L);
+            when(memberCouponRepository.findByMemberId(1L))
+                    .thenReturn(List.of(availableCoupon, usedCoupon));
+
+            // when
+            List<MemberCoupon> result = couponService.findAllMyCoupons(1L);
+
+            // then
+            assertAll(
+                    () -> assertThat(result).hasSize(2),
+                    () -> assertThat(result.get(0).getStatus()).isEqualTo(MemberCouponStatus.AVAILABLE),
+                    () -> assertThat(result.get(1).getStatus()).isEqualTo(MemberCouponStatus.USED));
+        }
+    }
+
+    @Nested
+    @DisplayName("내 쿠폰 상세 목록을 조회할 때,")
+    class GetMyCouponDetails {
+
+        @Test
+        @DisplayName("MemberCoupon과 Coupon을 조합한 MemberCouponDetail 목록을 반환한다.")
+        void returnsMemberCouponDetails() {
+            // given
+            MemberCoupon mc1 = createMemberCouponWithId(1L, 1L, 10L,
+                    MemberCouponStatus.AVAILABLE, null);
+            MemberCoupon mc2 = createMemberCouponWithId(2L, 1L, 20L,
+                    MemberCouponStatus.USED, 100L);
+
+            Coupon coupon1 = createCouponWithId(10L, "쿠폰A", CouponScope.CART, null,
+                    DiscountType.FIXED_AMOUNT, 1000, 0, 0,
+                    ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
+            Coupon coupon2 = createCouponWithId(20L, "쿠폰B", CouponScope.PRODUCT, 5L,
+                    DiscountType.FIXED_RATE, 10, 5000, 3000,
+                    ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
+
+            when(memberCouponRepository.findByMemberId(1L)).thenReturn(List.of(mc1, mc2));
+            when(couponRepository.findByIds(List.of(10L, 20L))).thenReturn(List.of(coupon1, coupon2));
+
+            // when
+            List<MemberCouponDetail> result = couponService.getMyCouponDetails(1L);
+
+            // then
+            assertAll(
+                    () -> assertThat(result).hasSize(2),
+                    () -> assertThat(result.get(0).memberCoupon()).isEqualTo(mc1),
+                    () -> assertThat(result.get(0).coupon()).isEqualTo(coupon1),
+                    () -> assertThat(result.get(1).memberCoupon()).isEqualTo(mc2),
+                    () -> assertThat(result.get(1).coupon()).isEqualTo(coupon2));
+        }
+
+        @Test
+        @DisplayName("삭제된 쿠폰이 포함된 경우 해당 항목을 제외하고 반환한다.")
+        void excludesDeletedCoupons() {
+            // given
+            MemberCoupon mc1 = createMemberCouponWithId(1L, 1L, 10L,
+                    MemberCouponStatus.AVAILABLE, null);
+            MemberCoupon mc2 = createMemberCouponWithId(2L, 1L, 20L,
+                    MemberCouponStatus.AVAILABLE, null);
+
+            Coupon coupon1 = createCouponWithId(10L, "쿠폰A", CouponScope.CART, null,
+                    DiscountType.FIXED_AMOUNT, 1000, 0, 0,
+                    ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
+
+            when(memberCouponRepository.findByMemberId(1L)).thenReturn(List.of(mc1, mc2));
+            when(couponRepository.findByIds(List.of(10L, 20L))).thenReturn(List.of(coupon1));
+
+            // when
+            List<MemberCouponDetail> result = couponService.getMyCouponDetails(1L);
+
+            // then
+            assertAll(
+                    () -> assertThat(result).hasSize(1),
+                    () -> assertThat(result.get(0).memberCoupon()).isEqualTo(mc1),
+                    () -> assertThat(result.get(0).coupon()).isEqualTo(coupon1));
+        }
+
+        @Test
+        @DisplayName("내 쿠폰이 없으면 빈 목록을 반환한다.")
+        void returnsEmptyList_whenNoCoupons() {
+            // given
+            when(memberCouponRepository.findByMemberId(999L)).thenReturn(List.of());
+            when(couponRepository.findByIds(List.of())).thenReturn(List.of());
+
+            // when
+            List<MemberCouponDetail> result = couponService.getMyCouponDetails(999L);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
     @DisplayName("쿠폰 할인 금액을 계산할 때,")
     class CalculateCouponDiscount {
 
@@ -297,7 +441,7 @@ class CouponServiceTest {
             MemberCoupon memberCoupon = createMemberCouponWithId(memberCouponId, memberId, 10L,
                     MemberCouponStatus.AVAILABLE, null);
             Coupon coupon = createCouponWithId(10L, "5000원 할인", CouponScope.CART, null,
-                    DiscountType.FIXED_AMOUNT, 5000, 0, 0, 100, 10,
+                    DiscountType.FIXED_AMOUNT, 5000, 0, 0,
                     ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
 
             when(memberCouponRepository.findById(memberCouponId)).thenReturn(Optional.of(memberCoupon));
@@ -356,7 +500,7 @@ class CouponServiceTest {
             MemberCoupon memberCoupon = createMemberCouponWithId(memberCouponId, memberId, 10L,
                     MemberCouponStatus.AVAILABLE, null);
             Coupon coupon = createCouponWithId(10L, "만료 쿠폰", CouponScope.CART, null,
-                    DiscountType.FIXED_AMOUNT, 5000, 0, 0, 100, 10,
+                    DiscountType.FIXED_AMOUNT, 5000, 0, 0,
                     ZonedDateTime.now().minusDays(30), ZonedDateTime.now().minusDays(1));
 
             when(memberCouponRepository.findById(memberCouponId)).thenReturn(Optional.of(memberCoupon));
@@ -379,7 +523,7 @@ class CouponServiceTest {
             MemberCoupon memberCoupon = createMemberCouponWithId(memberCouponId, memberId, 10L,
                     MemberCouponStatus.AVAILABLE, null);
             Coupon coupon = createCouponWithId(10L, "쿠폰", CouponScope.CART, null,
-                    DiscountType.FIXED_AMOUNT, 5000, 50000, 0, 100, 10,
+                    DiscountType.FIXED_AMOUNT, 5000, 50000, 0,
                     ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
 
             when(memberCouponRepository.findById(memberCouponId)).thenReturn(Optional.of(memberCoupon));
@@ -399,23 +543,71 @@ class CouponServiceTest {
     class UseCoupon {
 
         @Test
-        @DisplayName("사용 가능한 쿠폰이면 USED로 변경된다.")
+        @DisplayName("사용 가능한 쿠폰이면 원자적 업데이트로 USED 처리된다.")
         void changesStatusToUsed_whenAvailable() {
             // given
             MemberCoupon memberCoupon = createMemberCouponWithId(1L, 1L, 10L,
                     MemberCouponStatus.AVAILABLE, null);
+            Coupon coupon = createCouponWithId(10L, "쿠폰", CouponScope.CART, null,
+                    DiscountType.FIXED_AMOUNT, 1000, 0, 0,
+                    ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
             when(memberCouponRepository.findById(1L)).thenReturn(Optional.of(memberCoupon));
-            when(memberCouponRepository.save(any(MemberCoupon.class)))
-                    .thenAnswer(invocation -> invocation.getArgument(0));
+            when(couponRepository.findById(10L)).thenReturn(Optional.of(coupon));
+            when(memberCouponRepository.updateStatusToUsed(any(Long.class), any(Long.class), any(ZonedDateTime.class)))
+                    .thenReturn(1);
 
             // when
-            MemberCoupon result = couponService.useCoupon(1L, 100L);
+            couponService.useCoupon(1L, 1L, 100L);
+
+            // then
+            verify(memberCouponRepository, times(1))
+                    .updateStatusToUsed(any(Long.class), any(Long.class), any(ZonedDateTime.class));
+        }
+
+        @Test
+        @DisplayName("이미 사용된 쿠폰이면 CONFLICT 예외가 발생한다.")
+        void throwsConflict_whenAlreadyUsed() {
+            // given
+            MemberCoupon memberCoupon = createMemberCouponWithId(1L, 1L, 10L,
+                    MemberCouponStatus.AVAILABLE, null);
+            Coupon coupon = createCouponWithId(10L, "쿠폰", CouponScope.CART, null,
+                    DiscountType.FIXED_AMOUNT, 1000, 0, 0,
+                    ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
+            when(memberCouponRepository.findById(1L)).thenReturn(Optional.of(memberCoupon));
+            when(couponRepository.findById(10L)).thenReturn(Optional.of(coupon));
+            when(memberCouponRepository.updateStatusToUsed(any(Long.class), any(Long.class), any(ZonedDateTime.class)))
+                    .thenReturn(0);
+
+            // when
+            CoreException exception = assertThrows(CoreException.class,
+                    () -> couponService.useCoupon(1L, 1L, 100L));
+
+            // then
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.CONFLICT);
+        }
+
+        @Test
+        @DisplayName("유효기간이 만료된 쿠폰이면 BAD_REQUEST 예외가 발생한다.")
+        void throwsBadRequest_whenCouponExpired() {
+            // given
+            MemberCoupon memberCoupon = createMemberCouponWithId(1L, 1L, 10L,
+                    MemberCouponStatus.AVAILABLE, null);
+            Coupon expiredCoupon = createCouponWithId(10L, "만료 쿠폰", CouponScope.CART, null,
+                    DiscountType.FIXED_AMOUNT, 1000, 0, 0,
+                    ZonedDateTime.now().minusDays(30), ZonedDateTime.now().minusDays(1));
+            when(memberCouponRepository.findById(1L)).thenReturn(Optional.of(memberCoupon));
+            when(couponRepository.findById(10L)).thenReturn(Optional.of(expiredCoupon));
+
+            // when
+            CoreException exception = assertThrows(CoreException.class,
+                    () -> couponService.useCoupon(1L, 1L, 100L));
 
             // then
             assertAll(
-                    () -> assertThat(result.getStatus()).isEqualTo(MemberCouponStatus.USED),
-                    () -> assertThat(result.getOrderId()).isEqualTo(100L),
-                    () -> verify(memberCouponRepository, times(1)).save(any(MemberCoupon.class)));
+                    () -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST),
+                    () -> assertThat(exception.getMessage()).contains("유효기간이 만료"),
+                    () -> verify(memberCouponRepository, never())
+                            .updateStatusToUsed(any(Long.class), any(Long.class), any(ZonedDateTime.class)));
         }
 
         @Test
@@ -426,10 +618,136 @@ class CouponServiceTest {
 
             // when
             CoreException exception = assertThrows(CoreException.class,
-                    () -> couponService.useCoupon(999L, 100L));
+                    () -> couponService.useCoupon(1L, 999L, 100L));
 
             // then
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("다른 회원의 쿠폰을 사용하면 NOT_FOUND 예외가 발생한다.")
+        void throwsNotFound_whenNotOwner() {
+            // given
+            MemberCoupon memberCoupon = createMemberCouponWithId(1L, 1L, 10L,
+                    MemberCouponStatus.AVAILABLE, null);
+            when(memberCouponRepository.findById(1L)).thenReturn(Optional.of(memberCoupon));
+
+            // when
+            CoreException exception = assertThrows(CoreException.class,
+                    () -> couponService.useCoupon(999L, 1L, 100L));
+
+            // then
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("쿠폰을 수정할 때,")
+    class UpdateCoupon {
+
+        @Test
+        @DisplayName("존재하는 쿠폰을 수정하면 수정된 쿠폰을 반환한다.")
+        void returnsUpdatedCoupon_whenExists() {
+            // given
+            Coupon coupon = createCouponWithId(1L, "기존 쿠폰", CouponScope.CART, null,
+                    DiscountType.FIXED_AMOUNT, 1000, 0, 0,
+                    ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
+            when(couponRepository.findByIdWithLock(1L)).thenReturn(Optional.of(coupon));
+            when(couponRepository.save(any(Coupon.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            ZonedDateTime newValidFrom = ZonedDateTime.now().minusDays(1);
+            ZonedDateTime newValidTo = ZonedDateTime.now().plusDays(60);
+
+            // when
+            Coupon result = couponService.updateCoupon(1L, "수정된 쿠폰", CouponScope.PRODUCT, 100L,
+                    DiscountType.FIXED_RATE, 10, 5000, 3000, newValidFrom, newValidTo);
+
+            // then
+            assertAll(
+                    () -> assertThat(result.getName()).isEqualTo("수정된 쿠폰"),
+                    () -> assertThat(result.getCouponScope()).isEqualTo(CouponScope.PRODUCT),
+                    () -> assertThat(result.getTargetId()).isEqualTo(100L),
+                    () -> assertThat(result.getDiscountType()).isEqualTo(DiscountType.FIXED_RATE),
+                    () -> assertThat(result.getDiscountValue()).isEqualTo(10),
+                    () -> verify(couponRepository, times(1)).save(any(Coupon.class)));
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 쿠폰을 수정하면 NOT_FOUND 예외가 발생한다.")
+        void throwsNotFound_whenNotExists() {
+            // given
+            when(couponRepository.findByIdWithLock(999L)).thenReturn(Optional.empty());
+
+            // when
+            CoreException exception = assertThrows(CoreException.class,
+                    () -> couponService.updateCoupon(999L, "쿠폰", CouponScope.CART, null,
+                            DiscountType.FIXED_AMOUNT, 1000, 0, 0,
+                            ZonedDateTime.now(), ZonedDateTime.now().plusDays(30)));
+
+            // then
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("쿠폰을 삭제할 때,")
+    class SoftDeleteCoupon {
+
+        @Test
+        @DisplayName("존재하는 쿠폰을 삭제하면 delete 후 save를 수행한다.")
+        void callsDeleteAndSave_whenExists() {
+            // given
+            Coupon coupon = createCouponWithId(1L, "쿠폰", CouponScope.CART, null,
+                    DiscountType.FIXED_AMOUNT, 1000, 0, 0,
+                    ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30));
+            when(couponRepository.findByIdWithLock(1L)).thenReturn(Optional.of(coupon));
+            when(couponRepository.save(any(Coupon.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            couponService.softDelete(1L);
+
+            // then
+            assertAll(
+                    () -> assertThat(coupon.getDeletedAt()).isNotNull(),
+                    () -> verify(couponRepository, times(1)).save(coupon));
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 쿠폰을 삭제하면 NOT_FOUND 예외가 발생한다.")
+        void throwsNotFound_whenNotExists() {
+            // given
+            when(couponRepository.findByIdWithLock(999L)).thenReturn(Optional.empty());
+
+            // when
+            CoreException exception = assertThrows(CoreException.class,
+                    () -> couponService.softDelete(999L));
+
+            // then
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("쿠폰 발급 내역을 조회할 때,")
+    class FindCouponIssues {
+
+        @Test
+        @DisplayName("쿠폰 ID로 발급 내역을 페이징 조회한다.")
+        void returnsMemberCouponPage() {
+            // given
+            Pageable pageable = PageRequest.of(0, 20);
+            MemberCoupon memberCoupon = createMemberCouponWithId(1L, 1L, 10L,
+                    MemberCouponStatus.AVAILABLE, null);
+            when(memberCouponRepository.findByCouponId(10L, pageable))
+                    .thenReturn(new PageImpl<>(List.of(memberCoupon), pageable, 1));
+
+            // when
+            Page<MemberCoupon> result = couponService.findCouponIssues(10L, pageable);
+
+            // then
+            assertAll(
+                    () -> assertThat(result.getContent()).hasSize(1),
+                    () -> assertThat(result.getContent().get(0).getCouponId()).isEqualTo(10L));
         }
     }
 }
