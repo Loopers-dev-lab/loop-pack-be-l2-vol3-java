@@ -78,7 +78,7 @@ public class ProductV1AdminApi implements ProductV1AdminApiSpec {
             @PathVariable Long productId,
             @RequestBody @Valid ProductDto.UpdateProductRequest request
     ) {
-        updateProductUseCase.execute(productId, request.toUpdateProductCommand(productId));
+        updateProductUseCase.execute(request.toUpdateProductCommand(productId));
         return ApiResponse.success();
     }
 

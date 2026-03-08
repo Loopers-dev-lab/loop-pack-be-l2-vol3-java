@@ -7,10 +7,14 @@ import java.util.Map;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.application.shared.annotation.UseCase;
+import com.loopers.domain.coupon.OwnedCouponService;
+import com.loopers.domain.coupon.discount.CouponDiscount;
+import com.loopers.domain.order.Cart;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.shared.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 
@@ -19,8 +23,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * 사용자가 주문을 생성합니다.
  *
- * <p>주문 상품의 재고를 확인하고 차감한 뒤 주문을 생성합니다.
- * 재고 확인부터 주문 생성까지 하나의 트랜잭션으로 처리됩니다.</p>
+ * <p>상품 재고 차감, 쿠폰 할인 적용, 주문 생성을 하나의 트랜잭션으로 처리한다.</p>
  */
 @UseCase
 @RequiredArgsConstructor
@@ -28,9 +31,10 @@ public class PlaceOrderUseCase {
 
     private final OrderService orderService;
     private final ProductService productService;
+    private final OwnedCouponService ownedCouponService;
 
     /**
-     * @param command 주문 생성 커맨드 (사용자 ID, 주문 항목 목록)
+     * @param command 주문 생성 커맨드
      * @return 생성된 주문 ID
      */
     @Transactional
@@ -43,7 +47,12 @@ public class PlaceOrderUseCase {
         command.items().stream()
                 .sorted(Comparator.comparing(PlaceOrderCommand.OrderItemCommand::productId))
                 .forEach(item -> productService.deductStock(item.productId(), item.quantity()));
-        Order order = orderService.create(command.toCart(products));
+
+        Cart cart = command.toCart(products);
+        Money orderTotal = Money.sum(cart.cartItems(), Cart.CartItem::totalPrice);
+
+        CouponDiscount couponResult = ownedCouponService.applyCoupon(command.ownedCouponId(), command.userId(), orderTotal);
+        Order order = orderService.create(cart, couponResult.discountAmount(), couponResult.ownedCouponId());
         return order.getId();
     }
 }

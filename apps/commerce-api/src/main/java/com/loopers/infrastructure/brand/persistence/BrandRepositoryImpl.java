@@ -12,6 +12,11 @@ import com.loopers.domain.brand.BrandRepository;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * {@link BrandRepository}의 인프라스트럭처 구현체.
+ *
+ * <p>{@link BrandJpaRepository}에 위임하여 브랜드 영속성을 처리한다.</p>
+ */
 @Repository
 @RequiredArgsConstructor
 public class BrandRepositoryImpl implements BrandRepository {

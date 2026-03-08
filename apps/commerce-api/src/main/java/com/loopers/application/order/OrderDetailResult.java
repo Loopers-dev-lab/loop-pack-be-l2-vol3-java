@@ -11,6 +11,8 @@ public record OrderDetailResult(
         Long id,
         String name,
         OrderStatus status,
+        Long originalTotalPrice,
+        Long discountAmount,
         Long totalPrice,
         LocalDateTime orderedAt,
         List<OrderItemResult> orderItems
@@ -21,6 +23,8 @@ public record OrderDetailResult(
                 order.getId(),
                 order.getName(),
                 order.getStatus(),
+                order.getOriginalTotalPrice().getAmount(),
+                order.getDiscountAmount().getAmount(),
                 order.getTotalPrice().getAmount(),
                 order.getOrderedAt(),
                 order.getOrderItems().stream()

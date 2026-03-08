@@ -9,7 +9,8 @@ import com.loopers.domain.product.Product;
 
 public record PlaceOrderCommand(
         Long userId,
-        List<OrderItemCommand> items
+        List<OrderItemCommand> items,
+        Long ownedCouponId
 ) {
 
     public Cart toCart(Map<Long, Product> products) {

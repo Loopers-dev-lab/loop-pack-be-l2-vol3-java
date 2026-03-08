@@ -65,7 +65,26 @@ public enum ErrorType {
 
     /** Like 도메인 에러 */
     REQUIRED_USER_ID(HttpStatus.BAD_REQUEST, "REQUIRED_USER_ID", "사용자 ID는 필수 값입니다."),
-    REQUIRED_PRODUCT_ID(HttpStatus.BAD_REQUEST, "REQUIRED_PRODUCT_ID", "상품 ID는 필수 값입니다.");
+    REQUIRED_PRODUCT_ID(HttpStatus.BAD_REQUEST, "REQUIRED_PRODUCT_ID", "상품 ID는 필수 값입니다."),
+
+    /** Coupon 도메인 에러 */
+    REQUIRED_COUPON_NAME(HttpStatus.BAD_REQUEST, "REQUIRED_COUPON_NAME", "쿠폰명은 필수 값입니다."),
+    INVALID_COUPON_NAME(HttpStatus.BAD_REQUEST, "INVALID_COUPON_NAME", "쿠폰명은 2자 이상 50자 이하이어야 합니다."),
+    REQUIRED_COUPON_TYPE(HttpStatus.BAD_REQUEST, "REQUIRED_COUPON_TYPE", "쿠폰 유형은 필수 값입니다."),
+    REQUIRED_DISCOUNT_VALUE(HttpStatus.BAD_REQUEST, "REQUIRED_DISCOUNT_VALUE", "할인 값은 필수 값입니다."),
+    INVALID_DISCOUNT_VALUE(HttpStatus.BAD_REQUEST, "INVALID_DISCOUNT_VALUE", "할인 값은 1 이상이어야 합니다."),
+    INVALID_RATE_DISCOUNT_VALUE(HttpStatus.BAD_REQUEST, "INVALID_RATE_DISCOUNT_VALUE", "정률 쿠폰의 할인 비율은 1 이상 100 이하이어야 합니다."),
+    REQUIRED_MAX_DISCOUNT_AMOUNT(HttpStatus.BAD_REQUEST, "REQUIRED_MAX_DISCOUNT_AMOUNT", "정률 쿠폰의 최대 할인 금액은 필수 값입니다."),
+    REQUIRED_MIN_ORDER_PRICE(HttpStatus.BAD_REQUEST, "REQUIRED_MIN_ORDER_PRICE", "최소 주문 금액은 필수 값입니다."),
+    REQUIRED_EXPIRED_AT(HttpStatus.BAD_REQUEST, "REQUIRED_EXPIRED_AT", "만료일은 필수 값입니다."),
+    INVALID_EXPIRED_AT(HttpStatus.BAD_REQUEST, "INVALID_EXPIRED_AT", "만료일은 현재 시점 이후여야 합니다."),
+    EXPIRED_COUPON(HttpStatus.BAD_REQUEST, "EXPIRED_COUPON", "만료된 쿠폰은 발급할 수 없습니다."),
+    ALREADY_COUPON_ISSUED(HttpStatus.BAD_REQUEST, "ALREADY_COUPON_ISSUED", "이미 발급받은 쿠폰입니다."),
+    ALREADY_USED_COUPON(HttpStatus.BAD_REQUEST, "ALREADY_USED_COUPON", "이미 사용된 쿠폰입니다."),
+    COUPON_MIN_ORDER_PRICE_NOT_MET(HttpStatus.BAD_REQUEST, "COUPON_MIN_ORDER_PRICE_NOT_MET", "쿠폰의 최소 주문 금액을 충족하지 못했습니다."),
+    FORBIDDEN_COUPON_ACCESS(HttpStatus.FORBIDDEN, "FORBIDDEN_COUPON_ACCESS", "접근 권한이 없는 쿠폰입니다."),
+    COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND", "쿠폰을 찾을 수 없습니다."),
+    OWNED_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "OWNED_COUPON_NOT_FOUND", "보유 쿠폰을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

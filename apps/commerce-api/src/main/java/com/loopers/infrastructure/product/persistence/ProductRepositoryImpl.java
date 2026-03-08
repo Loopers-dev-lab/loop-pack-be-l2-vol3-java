@@ -15,6 +15,11 @@ import com.loopers.domain.product.ProductSortType;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * {@link ProductRepository}의 인프라스트럭처 구현체.
+ *
+ * <p>{@link ProductJpaRepository}에 위임하여 상품 영속성을 처리한다.</p>
+ */
 @Repository
 @RequiredArgsConstructor
 public class ProductRepositoryImpl implements ProductRepository {
@@ -76,5 +81,15 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public boolean existsByIdAndDeletedAtIsNull(Long productId) {
         return productJpaRepository.existsByIdAndDeletedAtIsNull(productId);
+    }
+
+    @Override
+    public int incrementLikeCount(Long productId) {
+        return productJpaRepository.incrementLikeCount(productId);
+    }
+
+    @Override
+    public int decrementLikeCount(Long productId) {
+        return productJpaRepository.decrementLikeCount(productId);
     }
 }

@@ -33,7 +33,7 @@ class UserServiceIntegrationTest extends BaseIntegrationTest {
             String email = "test@email.com";
 
             // act
-            User result = userService.register(loginId, password, name, birthDate, email);
+            User result = userService.register(new NewUser(loginId, password, name, birthDate, email));
 
             // assert
             assertAll(
@@ -50,10 +50,10 @@ class UserServiceIntegrationTest extends BaseIntegrationTest {
         void throwsDuplicateLoginIdException_whenLoginIdAlreadyExists() {
             // arrange
             String loginId = "user123";
-            userService.register(loginId, "Password1!", "홍길동", "1990-01-01", "test@email.com");
+            userService.register(new NewUser(loginId, "Password1!", "홍길동", "1990-01-01", "test@email.com"));
 
             // act & assert
-            assertThatThrownBy(() -> userService.register(loginId, "Password2!", "김철수", "1995-05-05", "other@email.com"))
+            assertThatThrownBy(() -> userService.register(new NewUser(loginId, "Password2!", "김철수", "1995-05-05", "other@email.com")))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.DUPLICATE_LOGIN_ID));
         }
@@ -69,7 +69,7 @@ class UserServiceIntegrationTest extends BaseIntegrationTest {
             // arrange
             String loginId = "user123";
             String password = "Password1!";
-            User user = userService.register(loginId, password, "홍길동", "1990-01-01", "test@email.com");
+            User user = userService.register(new NewUser(loginId, password, "홍길동", "1990-01-01", "test@email.com"));
 
             // act
             Long userId = userService.login(loginId, password);
@@ -110,7 +110,7 @@ class UserServiceIntegrationTest extends BaseIntegrationTest {
         void throwsUnauthorizedException_whenPasswordDoesNotMatch() {
             // arrange
             String loginId = "user123";
-            userService.register(loginId, "Password1!", "홍길동", "1990-01-01", "test@email.com");
+            userService.register(new NewUser(loginId, "Password1!", "홍길동", "1990-01-01", "test@email.com"));
 
             // act & assert
             assertThatThrownBy(() -> userService.login(loginId, "WrongPassword1!"))
@@ -127,7 +127,7 @@ class UserServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void updatesPassword_whenOldPasswordMatches() {
             // arrange
-            User user = userService.register("user123", "Password1!", "홍길동", "1990-01-01", "test@email.com");
+            User user = userService.register(new NewUser("user123", "Password1!", "홍길동", "1990-01-01", "test@email.com"));
             String oldPassword = "Password1!";
             String newPassword = "NewPassword2@";
 

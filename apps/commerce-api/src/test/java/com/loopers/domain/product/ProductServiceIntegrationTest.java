@@ -7,15 +7,18 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.loopers.support.BaseIntegrationTest;
+import com.loopers.support.ConcurrentTestHelper;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.support.page.Page;
@@ -25,6 +28,9 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     private Long brandId;
 
@@ -42,7 +48,7 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
         void savesProductToDatabase_whenValidInputProvided() {
             // act
             Product result = productService.create(
-                    brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명"
+                    new ProductSpec(brandId, "상품명", "https://example.com/thumb.png", 10000L, 100L, "상품 설명")
             );
 
             // assert
@@ -133,9 +139,9 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void returnsOnlyProductsOfGivenBrand() {
             // arrange
-            var otherBrandId = brandService.create("브랜드 2", "logo2.png", "설명 2").getId();
+            var otherBrandId = brandService.create(new com.loopers.domain.brand.NewBrand("브랜드 2", "logo2.png", "설명 2")).getId();
             createProduct(brandId, "상품 1", 10000L, 100L);
-            productService.create(otherBrandId, "상품 2", "thumb2.png", 20000L, 200L, "설명");
+            productService.create(new ProductSpec(otherBrandId, "상품 2", "thumb2.png", 20000L, 200L, "설명"));
 
             // act
             Page<Product> products = productService.getProducts(brandId, new PageSize(0, 10));
@@ -159,7 +165,7 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
             var productId = createProduct(brandId);
 
             // act
-            productService.update(productId, "수정된 상품명", "https://example.com/new-thumb.png", 20000L, 200L, "수정된 설명");
+            productService.update(new ModifyProduct(productId,"수정된 상품명", "https://example.com/new-thumb.png", 20000L, 200L, "수정된 설명"));
 
             // assert
             var updatedProduct = productRepository.findById(productId).orElseThrow();
@@ -176,7 +182,7 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void throwsException_whenProductNotFound() {
             // act & assert
-            assertThatThrownBy(() -> productService.update(999L, "상품명", "thumb.png", 10000L, 100L, "설명"))
+            assertThatThrownBy(() -> productService.update(new ModifyProduct(999L,"상품명", "thumb.png", 10000L, 100L, "설명")))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
         }
@@ -272,33 +278,72 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
             // arrange
             var productId = createProduct(brandId, "상품", 10000L, 100L);
             int threadCount = 10;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
-            AtomicInteger successCount = new AtomicInteger(0);
-            AtomicInteger failCount = new AtomicInteger(0);
 
             // act
-            for (int i = 0; i < threadCount; i++) {
-                executorService.execute(() -> {
-                    try {
-                        productService.deductStock(productId, 1L);
-                        successCount.incrementAndGet();
-                    } catch (Exception e) {
-                        failCount.incrementAndGet();
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            var result = ConcurrentTestHelper.executeConcurrently(
+                    threadCount,
+                    () -> productService.deductStock(productId, 1L)
+            );
 
             // assert
             var product = productRepository.findById(productId).orElseThrow();
             assertAll(
-                    () -> assertThat(successCount.get()).isEqualTo(threadCount),
-                    () -> assertThat(failCount.get()).isZero(),
+                    () -> assertThat(result.successCount()).isEqualTo(threadCount),
+                    () -> assertThat(result.failCount()).isZero(),
                     () -> assertThat(product.getStock().getValue()).isEqualTo(90L)
+            );
+        }
+
+        @DisplayName("비관적 락이 점유된 상태에서 다른 트랜잭션이 락을 요청하면, lock timeout 내에 예외가 발생한다.")
+        @Test
+        void throwsExceptionWithinLockTimeout_whenLockIsAlreadyHeld() throws InterruptedException {
+            // arrange
+            var productId = createProduct(brandId, "상품", 10000L, 100L);
+            long lockHoldTimeMs = 5000L;
+            CountDownLatch lockAcquired = new CountDownLatch(1);
+            CountDownLatch testDone = new CountDownLatch(1);
+            AtomicReference<Exception> threadBException = new AtomicReference<>();
+            AtomicLong threadBWaitTimeMs = new AtomicLong(0);
+
+            // act - Thread A: 비관적 락을 걸고 5초간 점유
+            ExecutorService executorService = Executors.newFixedThreadPool(2);
+            executorService.execute(() -> {
+                transactionTemplate.executeWithoutResult(status -> {
+                    productRepository.findByIdAndDeletedAtIsNullForUpdate(productId);
+                    lockAcquired.countDown();
+                    try {
+                        Thread.sleep(lockHoldTimeMs);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+                testDone.countDown();
+            });
+
+            // Thread B: 락 획득 대기 후 같은 상품에 락 시도
+            lockAcquired.await();
+            executorService.execute(() -> {
+                long start = System.currentTimeMillis();
+                try {
+                    transactionTemplate.executeWithoutResult(status ->
+                            productRepository.findByIdAndDeletedAtIsNullForUpdate(productId)
+                    );
+                } catch (Exception e) {
+                    threadBException.set(e);
+                }
+                threadBWaitTimeMs.set(System.currentTimeMillis() - start);
+                testDone.countDown();
+            });
+
+            testDone.await();
+            executorService.shutdown();
+
+            // assert - Thread B가 lock timeout(2초) 이내에 예외 발생해야 함
+            // MySQL이 JPA lock.timeout 힌트를 무시하면 5초 후에야 성공하므로 대기 시간으로 판별
+            long waitTime = threadBWaitTimeMs.get();
+            assertAll(
+                    () -> assertThat(threadBException.get()).isNotNull(),
+                    () -> assertThat(waitTime).isLessThan(lockHoldTimeMs)
             );
         }
     }
@@ -320,6 +365,28 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
             var product = productRepository.findById(productId).orElseThrow();
             assertThat(product.getLikeCount()).isEqualTo(1L);
         }
+
+        @DisplayName("동시에 10명이 좋아요하면, 아토믹 업데이트에 의해 likeCount가 정확히 10이 된다.")
+        @Test
+        void maintainsCorrectLikeCount_whenConcurrentIncrements() throws InterruptedException {
+            // arrange
+            var productId = createProduct(brandId);
+            int threadCount = 10;
+
+            // act
+            var result = ConcurrentTestHelper.executeConcurrently(
+                    threadCount,
+                    () -> productService.increaseLikeCount(productId)
+            );
+
+            // assert
+            var product = productRepository.findById(productId).orElseThrow();
+            assertAll(
+                    () -> assertThat(result.successCount()).isEqualTo(threadCount),
+                    () -> assertThat(result.failCount()).isZero(),
+                    () -> assertThat(product.getLikeCount()).isEqualTo(10L)
+            );
+        }
     }
 
     @DisplayName("좋아요 수를 감소시킬 때,")
@@ -339,6 +406,31 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
             // assert
             var product = productRepository.findById(productId).orElseThrow();
             assertThat(product.getLikeCount()).isZero();
+        }
+
+        @DisplayName("동시에 10명이 좋아요를 취소하면, 아토믹 업데이트에 의해 likeCount가 정확히 0이 된다.")
+        @Test
+        void maintainsCorrectLikeCount_whenConcurrentDecrements() throws InterruptedException {
+            // arrange
+            var productId = createProduct(brandId);
+            int threadCount = 10;
+            for (int i = 0; i < threadCount; i++) {
+                productService.increaseLikeCount(productId);
+            }
+
+            // act
+            var result = ConcurrentTestHelper.executeConcurrently(
+                    threadCount,
+                    () -> productService.decreaseLikeCount(productId)
+            );
+
+            // assert
+            var product = productRepository.findById(productId).orElseThrow();
+            assertAll(
+                    () -> assertThat(result.successCount()).isEqualTo(threadCount),
+                    () -> assertThat(result.failCount()).isZero(),
+                    () -> assertThat(product.getLikeCount()).isZero()
+            );
         }
     }
 

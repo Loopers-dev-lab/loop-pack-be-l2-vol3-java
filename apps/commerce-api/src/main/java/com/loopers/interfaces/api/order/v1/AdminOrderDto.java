@@ -14,6 +14,8 @@ public class AdminOrderDto {
             Long orderId,
             String name,
             OrderStatus status,
+            Long originalTotalPrice,
+            Long discountAmount,
             Long totalPrice,
             LocalDateTime orderedAt
     ) {
@@ -23,6 +25,8 @@ public class AdminOrderDto {
                     result.id(),
                     result.name(),
                     result.status(),
+                    result.originalTotalPrice(),
+                    result.discountAmount(),
                     result.totalPrice(),
                     result.orderedAt()
             );
@@ -33,6 +37,8 @@ public class AdminOrderDto {
             Long orderId,
             String name,
             OrderStatus status,
+            Long originalTotalPrice,
+            Long discountAmount,
             Long totalPrice,
             LocalDateTime orderedAt,
             List<OrderItemResponse> orderItems,
@@ -44,6 +50,8 @@ public class AdminOrderDto {
                     result.id(),
                     result.name(),
                     result.status(),
+                    result.originalTotalPrice(),
+                    result.discountAmount(),
                     result.totalPrice(),
                     result.orderedAt(),
                     result.orderItems().stream()

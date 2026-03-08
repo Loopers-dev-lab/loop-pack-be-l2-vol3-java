@@ -12,6 +12,11 @@ import com.loopers.domain.like.LikeRepository;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * {@link LikeRepository}의 인프라스트럭처 구현체.
+ *
+ * <p>{@link LikeJpaRepository}에 위임하여 좋아요 영속성을 처리한다.</p>
+ */
 @Repository
 @RequiredArgsConstructor
 public class LikeRepositoryImpl implements LikeRepository {

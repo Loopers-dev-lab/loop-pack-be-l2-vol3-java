@@ -25,18 +25,16 @@ public class BrandService {
     /**
      * 새로운 브랜드를 생성한다.
      *
-     * @param name 브랜드명
-     * @param logoUrl 로고 URL
-     * @param description 브랜드 설명
+     * @param newBrand 브랜드 생성 정보
      * @return 생성된 브랜드
      * @throws CoreException 동일한 브랜드명이 이미 존재하는 경우
      */
     @Transactional
-    public Brand create(String name, String logoUrl, String description) {
-        if (brandRepository.existsByNameAndDeletedAtIsNull(name)) {
+    public Brand create(NewBrand newBrand) {
+        if (brandRepository.existsByNameAndDeletedAtIsNull(newBrand.name())) {
             throw new CoreException(ErrorType.ALREADY_EXISTS_BRAND_NAME);
         }
-        Brand brand = Brand.create(name, logoUrl, description);
+        Brand brand = Brand.create(newBrand);
         return brandRepository.save(brand);
     }
 
@@ -47,7 +45,6 @@ public class BrandService {
      * @return 활성 브랜드
      * @throws CoreException 브랜드가 존재하지 않거나 삭제된 경우
      */
-    @Transactional(readOnly = true)
     public Brand getActiveBrand(Long brandId) {
         return brandRepository.findByIdAndDeletedAtIsNull(brandId)
                 .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
@@ -59,33 +56,28 @@ public class BrandService {
      * @param brandIds 조회할 브랜드 ID 목록
      * @return 브랜드 ID를 키로 하는 활성 브랜드 맵
      */
-    @Transactional(readOnly = true)
     public Map<Long, Brand> getActiveBrandMap(List<Long> brandIds) {
         return brandRepository.findAllByIdInAndDeletedAtIsNull(brandIds)
                 .stream()
-                .filter(brand -> !brand.isDeleted())
                 .collect(Collectors.toMap(Brand::getId, Function.identity()));
     }
 
     /**
      * 브랜드 정보를 수정한다.
      *
-     * @param brandId 수정할 브랜드 ID
-     * @param newName 새 브랜드명
-     * @param newLogoUrl 새 로고 URL
-     * @param newDescription 새 설명
+     * @param brand 브랜드 수정 정보 (brandId 포함)
      * @return 수정된 브랜드
      * @throws CoreException 브랜드가 존재하지 않거나 중복된 브랜드명인 경우
      */
     @Transactional
-    public Brand update(Long brandId, String newName, String newLogoUrl, String newDescription) {
-        Brand brand = brandRepository.findById(brandId)
+    public Brand update(ModifyBrand brand) {
+        Brand entity = brandRepository.findById(brand.brandId())
                 .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
-        if (brandRepository.existsByIdNotAndNameAndDeletedAtIsNull(brandId, newName)) {
+        if (brandRepository.existsByIdNotAndNameAndDeletedAtIsNull(brand.brandId(), brand.name())) {
             throw new CoreException(ErrorType.ALREADY_EXISTS_BRAND_NAME);
         }
-        brand.update(newName, newLogoUrl, newDescription);
-        return brand;
+        entity.update(brand);
+        return entity;
     }
 
     /**
@@ -112,7 +104,6 @@ public class BrandService {
      * @param brandId 브랜드 ID
      * @throws CoreException 브랜드가 존재하지 않는 경우
      */
-    @Transactional(readOnly = true)
     public void validateBrandExists(Long brandId) {
         if (!brandRepository.existsById(brandId)) {
             throw new CoreException(ErrorType.BRAND_NOT_FOUND);
@@ -125,7 +116,6 @@ public class BrandService {
      * @param brandId 브랜드 ID
      * @throws CoreException 브랜드가 존재하지 않거나 삭제된 경우
      */
-    @Transactional(readOnly = true)
     public void validateActiveBrandExists(Long brandId) {
         if (!brandRepository.existsByIdAndDeletedAtIsNull(brandId)) {
             throw new CoreException(ErrorType.BRAND_NOT_FOUND);

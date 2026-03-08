@@ -1,5 +1,7 @@
 package com.loopers.application.product;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
@@ -22,6 +24,7 @@ public class ReadProductDetailUseCase {
      * @param productId 상품 ID
      * @return 상품 상세 정보
      */
+    @Transactional(readOnly = true)
     public ProductResult execute(Long productId) {
         return productRepository.findById(productId)
                 .map(ProductResult::from)

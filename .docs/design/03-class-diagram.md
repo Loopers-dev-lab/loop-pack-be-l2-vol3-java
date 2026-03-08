@@ -1,6 +1,6 @@
 # Class Diagram
 
-LAST UPDATED: 2026-02-24
+LAST UPDATED: 2026-03-03
 
 ## 목차
 - [개요](#개요)
@@ -15,7 +15,7 @@ LAST UPDATED: 2026-02-24
 각 도메인의 엔티티, 값 객체(Value Object), 열거형(Enum)과 이들의 관계를 Mermaid 클래스 다이어그램으로 표현한다.
 용어 정의는 [00-glossary.md](./00-glossary.md)를 참고한다.
 
-- 대상 도메인: 회원, 브랜드, 상품, 좋아요, 주문
+- 대상 도메인: 회원, 브랜드, 상품, 좋아요, 쿠폰, 주문
 
 ---
 
@@ -23,9 +23,10 @@ LAST UPDATED: 2026-02-24
 
 ![도메인 개념도](./images/domain-boundary.png)
 
-시스템의 도메인을 **주문 영역**과 **상품 영역**으로 분리한다.
+시스템의 도메인을 **주문 영역**, **쿠폰 영역**, **상품 영역**으로 분리한다.
 
 - **주문 영역**: Order, OrderItem
+- **쿠폰 영역**: Coupon, OwnedCoupon
 - **상품 영역**: Brand, Product, Like
 - **점선 화살표**: 도메인 경계를 넘는 ID 기반 참조
 - 도메인 내부 객체는 직접 참조하고, 도메인 간에는 ID로만 참조하여 경계를 명확히 유지한다.
@@ -43,7 +44,10 @@ classDiagram
         +wons(Long amount)$ Money
         +sum(Collection~T~ bags, Function~T·Money~ monetary)$ Money
         +plus(Money other) Money
+        +minus(Money other) Money
         +multiply(Long multiplier) Money
+        +min(Money a, Money b)$ Money
+        +isLessThan(Money other) boolean
     }
 
     %% ── Brand ──
@@ -71,8 +75,6 @@ classDiagram
         +create(...)$ Product
         +update(...) void
         +deductStock(Long quantity) void
-        +increaseLikeCount() void
-        +decreaseLikeCount() void
     }
 
     %% ── Like ──
@@ -85,6 +87,78 @@ classDiagram
         +create(Long userId, Long productId)$ Like
     }
 
+    %% ── Coupon ──
+    class CouponName {
+        <<Value Object>>
+        String value
+    }
+
+    class Coupon {
+        <<Entity>>
+        Long id
+        CouponName name
+        CouponType type
+        Long discountValue
+        Money maxDiscountPrice
+        Money minOrderPrice
+        ZonedDateTime expiredAt
+        +create(...)$ Coupon
+        +update(...) void
+        +isExpired() boolean
+        +calculateDiscount(Money orderTotal, CouponDiscountProvider provider) Money
+        +validateMinOrderPrice(Money orderTotal) void
+    }
+
+    class CouponType {
+        <<Enum>>
+        FIXED
+        RATE
+    }
+
+    class CouponDiscountStrategy {
+        <<interface>>
+        +getType() CouponType
+        +calculate(Long discountValue, Money orderTotal, Money maxDiscountPrice) Money
+    }
+
+    class FixedCouponDiscountStrategy {
+        <<Component>>
+        +getType() CouponType
+        +calculate(Long discountValue, Money orderTotal, Money maxDiscountPrice) Money
+    }
+
+    class RateCouponDiscountStrategy {
+        <<Component>>
+        +getType() CouponType
+        +calculate(Long discountValue, Money orderTotal, Money maxDiscountPrice) Money
+    }
+
+    class CouponDiscountProvider {
+        <<Component>>
+        -Map~CouponType·CouponDiscountStrategy~ strategyMap
+        +getStrategy(CouponType type) CouponDiscountStrategy
+    }
+
+    class CouponDiscount {
+        <<record>>
+        Money discountAmount
+        Long ownedCouponId
+        +NONE$ CouponDiscount
+    }
+
+    class OwnedCoupon {
+        <<Entity>>
+        Long id
+        Coupon coupon
+        Long userId
+        ZonedDateTime usedAt
+        Long version
+        +create(Coupon coupon, Long userId)$ OwnedCoupon
+        +use() void
+        +validateOwner(Long userId) void
+        +getStatus() String
+    }
+
     %% ── Order ──
     class Order {
         <<Entity>>
@@ -93,9 +167,12 @@ classDiagram
         String name
         LocalDateTime orderedAt
         OrderStatus status
+        Money originalTotalPrice
+        Money discountAmount
         Money totalPrice
+        Long ownedCouponId
         List~OrderItem~ orderItems
-        +create(Long userId, List~OrderItem~ orderItems)$ Order
+        +create(...)$ Order
         +validateOwner(Long userId) void
     }
 
@@ -118,11 +195,41 @@ classDiagram
     %% ── Like 관계 ──
     Like ..> Product
 
+    %% ── Coupon 관계 ──
+    Coupon --> CouponName
+    Coupon --> CouponType
+    Coupon --> Money
+    Coupon --> CouponDiscountProvider : uses
+    CouponDiscountProvider --> CouponDiscountStrategy : resolves
+    FixedCouponDiscountStrategy ..|> CouponDiscountStrategy
+    RateCouponDiscountStrategy ..|> CouponDiscountStrategy
+    CouponDiscount --> Money
+    OwnedCoupon --> Coupon
+
     %% ── Order 관계 ──
     Order *-- OrderItem
     Order --> Money
+    Order ..> OwnedCoupon
     OrderItem --> Money
     OrderItem ..> Product
+```
+
+### 주문 처리 흐름도
+
+```mermaid
+flowchart TD
+    A[주문 요청] --> B[상품 조회 및 검증]
+    B --> C{모든 상품 유효?}
+    C -- No --> FAIL[주문 실패]
+    C -- Yes --> D[재고 차감]
+    D --> E{재고 충분?}
+    E -- No --> FAIL
+    E -- Yes --> G["쿠폰 사용 처리"]
+    G --> G1{검증 통과?}
+    G1 -- No --> FAIL
+    G1 -- Yes --> H[주문 생성]
+    H --> I[주문 저장]
+    I --> SUCCESS[성공]
 ```
 
 ### 설계 포인트

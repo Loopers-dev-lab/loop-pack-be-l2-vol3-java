@@ -24,6 +24,14 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE p.id = :productId AND p.deletedAt IS NULL")
     Optional<Product> findByIdAndDeletedAtIsNullForUpdate(@Param("productId") Long productId);
 
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Product p SET p.likeCount = p.likeCount + 1 WHERE p.id = :productId AND p.deletedAt IS NULL")
+    int incrementLikeCount(@Param("productId") Long productId);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Product p SET p.likeCount = p.likeCount - 1 WHERE p.id = :productId AND p.deletedAt IS NULL AND p.likeCount > 0")
+    int decrementLikeCount(@Param("productId") Long productId);
+
     List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> productIds);
 
     Slice<Product> findAllBy(Pageable pageable);

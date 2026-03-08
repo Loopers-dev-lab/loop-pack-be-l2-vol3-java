@@ -62,10 +62,10 @@ class OrderV1AdminApiE2ETest extends BaseE2ETest {
         void returnsAllOrders_whenOrdersExist() {
             // arrange
             createOrder(testRestTemplate,
-                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L))),
+                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L)), null),
                     userHeaders);
             createOrder(testRestTemplate,
-                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 2L))),
+                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 2L)), null),
                     userHeaders);
 
             var url = UriComponentsBuilder.fromPath(ORDER_ADMIN_ENDPOINT)
@@ -106,12 +106,12 @@ class OrderV1AdminApiE2ETest extends BaseE2ETest {
 
             var firstOrderId = createOrder(
                     testRestTemplate,
-                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L))), 
+                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L)), null), 
                     userHeaders
             ).getBody().data().orderId();
             var secondOrderId = createOrder(
                     testRestTemplate,
-                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(secondProductId, 1L))),
+                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(secondProductId, 1L)), null),
                     userHeaders
             ).getBody().data().orderId();
 
@@ -157,7 +157,7 @@ class OrderV1AdminApiE2ETest extends BaseE2ETest {
         void returnsOrdersOfAllStatuses() {
             // arrange
             createOrder(testRestTemplate,
-                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L))),
+                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L)), null),
                     userHeaders);
 
             var url = UriComponentsBuilder.fromPath(ORDER_ADMIN_ENDPOINT)
@@ -187,7 +187,7 @@ class OrderV1AdminApiE2ETest extends BaseE2ETest {
             // arrange
             var orderId = createOrder(
                     testRestTemplate,
-                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 2L))),
+                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 2L)), null),
                     userHeaders
             ).getBody().data().orderId();
 
@@ -224,7 +224,7 @@ class OrderV1AdminApiE2ETest extends BaseE2ETest {
             var otherHeaders = userAuthHeaders("otheruser", "Password1!");
             var orderId = createOrder(
                     testRestTemplate,
-                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L))),
+                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L)), null),
                     otherHeaders
             ).getBody().data().orderId();
 

@@ -1,5 +1,8 @@
 package com.loopers.application.brand;
 
+import org.springframework.transaction.annotation.Transactional;
+
+import com.loopers.application.brand.BrandCommand.CreateBrandCommand;
 import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
@@ -18,13 +21,12 @@ public class RegisterBrandUseCase {
     private final BrandService brandService;
 
     /**
-     * @param name 브랜드명
-     * @param logoUrl 로고 URL
-     * @param description 브랜드 설명
+     * @param command 브랜드 생성 커맨드
      * @return 등록된 브랜드 정보
      */
-    public BrandResult execute(String name, String logoUrl, String description) {
-        Brand brand = brandService.create(name, logoUrl, description);
+    @Transactional
+    public BrandResult execute(CreateBrandCommand command) {
+        Brand brand = brandService.create(command.toNewBrand());
         return BrandResult.from(brand);
     }
 }

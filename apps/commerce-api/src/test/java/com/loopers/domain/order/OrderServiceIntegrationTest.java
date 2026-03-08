@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.loopers.domain.order.Cart.CartItem;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.shared.Money;
 import com.loopers.support.BaseIntegrationTest;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -50,7 +51,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
             Cart cart = createCart(1L, product, 2L);
 
             // act
-            Order result = orderService.create(cart);
+            Order result = orderService.create(cart, Money.ZERO, null);
 
             // assert
             var savedOrder = orderRepository.findByIdWithItems(result.getId()).orElseThrow();
@@ -78,7 +79,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
             ));
 
             // act
-            Order result = orderService.create(cart);
+            Order result = orderService.create(cart, Money.ZERO, null);
 
             // assert
             var savedOrder = orderRepository.findByIdWithItems(result.getId()).orElseThrow();
@@ -99,7 +100,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
             // arrange
             var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
             Product product = productRepository.findById(productId).orElseThrow();
-            Order created = orderService.create(createCart(1L, product, 2L));
+            Order created = orderService.create(createCart(1L, product, 2L), Money.ZERO, null);
 
             // act
             Order result = orderService.getMyOrder(1L, created.getId());
@@ -128,7 +129,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
             // arrange
             var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
             Product product = productRepository.findById(productId).orElseThrow();
-            Order created = orderService.create(createCart(1L, product, 1L));
+            Order created = orderService.create(createCart(1L, product, 1L), Money.ZERO, null);
 
             // act & assert
             assertThatThrownBy(() -> orderService.getMyOrder(999L, created.getId()))

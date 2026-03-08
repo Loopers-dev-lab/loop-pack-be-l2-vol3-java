@@ -26,7 +26,7 @@ public class ReadProductsUseCase {
     private final BrandService brandService;
 
     /**
-     * @param brandId 브랜드 ID (null이면 전체 조회)
+     * @param brandId  브랜드 ID (null이면 전체 조회)
      * @param pageSize 페이지 크기
      * @return 상품 목록 페이지
      */

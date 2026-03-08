@@ -9,6 +9,8 @@ public record OrderResult(
         Long id,
         String name,
         OrderStatus status,
+        Long originalTotalPrice,
+        Long discountAmount,
         Long totalPrice,
         LocalDateTime orderedAt
 ) {
@@ -18,6 +20,8 @@ public record OrderResult(
                 order.getId(),
                 order.getName(),
                 order.getStatus(),
+                order.getOriginalTotalPrice().getAmount(),
+                order.getDiscountAmount().getAmount(),
                 order.getTotalPrice().getAmount(),
                 order.getOrderedAt()
         );

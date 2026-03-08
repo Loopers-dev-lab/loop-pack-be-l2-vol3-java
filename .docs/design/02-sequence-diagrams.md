@@ -1,6 +1,6 @@
 # Sequence Diagrams
 
-LAST UPDATED: 2026-02-26
+LAST UPDATED: 2026-03-03
 
 ## 목차
 - [개요](#개요)
@@ -27,6 +27,15 @@ LAST UPDATED: 2026-02-26
   - [[대고객] 상품 좋아요 등록](#대고객-상품-좋아요-등록)
   - [[대고객] 상품 좋아요 취소](#대고객-상품-좋아요-취소)
   - [[대고객] 내가 좋아요한 상품 목록 조회](#대고객-내가-좋아요한-상품-목록-조회)
+- [Coupon (쿠폰)](#coupon-쿠폰)
+  - [[어드민] 쿠폰 등록](#어드민-쿠폰-등록)
+  - [[어드민] 쿠폰 목록 조회](#어드민-쿠폰-목록-조회)
+  - [[어드민] 쿠폰 상세 조회](#어드민-쿠폰-상세-조회)
+  - [[어드민] 쿠폰 수정](#어드민-쿠폰-수정)
+  - [[어드민] 쿠폰 삭제](#어드민-쿠폰-삭제)
+  - [[어드민] 쿠폰 발급 내역 조회](#어드민-쿠폰-발급-내역-조회)
+  - [[대고객] 쿠폰 발급](#대고객-쿠폰-발급)
+  - [[대고객] 내 쿠폰 목록 조회](#대고객-내-쿠폰-목록-조회)
 - [Order (주문)](#order-주문)
   - [[어드민] 주문 목록 조회](#어드민-주문-목록-조회)
   - [[어드민] 주문 상세 조회](#어드민-주문-상세-조회)
@@ -39,7 +48,7 @@ LAST UPDATED: 2026-02-26
 이 문서는 감성 이커머스 플랫폼의 주요 API 흐름을 시퀀스 다이어그램으로 정의한다.
 [01-requirements.md](./01-requirements.md)의 요구사항을 기반으로, 각 기능의 클라이언트-서버 간 상호작용을 Mermaid 시퀀스 다이어그램으로 표현한다.
 
-- 대상 도메인: 인증, 브랜드, 상품, 좋아요, 주문
+- 대상 도메인: 인증, 브랜드, 상품, 좋아요, 쿠폰, 주문
 
 ### 다이어그램 작성 원칙
 
@@ -661,6 +670,232 @@ sequenceDiagram
     LikeApi -->>- Client: 200 OK + 좋아요한 상품 목록 페이지
 ```
 
+## Coupon (쿠폰)
+
+### [어드민] 쿠폰 등록
+
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant CouponAdminApi
+    participant RegisterCouponUseCase
+    participant CouponService
+    participant CouponRepository
+
+    Admin ->>+ CouponAdminApi: POST /api-admin/v1/coupons
+    CouponAdminApi ->>+ RegisterCouponUseCase: 쿠폰 등록
+    RegisterCouponUseCase ->>+ CouponService: 쿠폰 생성
+    CouponService ->> CouponService: 쿠폰 유효성 검증
+
+    break 쿠폰 유효성 검증에 실패할 경우
+        CouponService -->> RegisterCouponUseCase: 유효성 검증 실패
+        RegisterCouponUseCase -->> CouponAdminApi: 유효성 검증 실패
+        CouponAdminApi -->> Admin: 400 Bad Request
+    end
+
+    CouponService ->> CouponService: 쿠폰 생성
+    CouponService ->>+ CouponRepository: 쿠폰 저장
+    CouponRepository -->>- CouponService: Coupon
+    CouponService -->>- RegisterCouponUseCase: Coupon
+    RegisterCouponUseCase -->>- CouponAdminApi: CouponResult
+    CouponAdminApi -->>- Admin: 201 Created
+```
+
+### [어드민] 쿠폰 목록 조회
+
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant CouponAdminApi
+    participant ReadCouponsUseCase
+    participant CouponRepository
+
+    Admin ->>+ CouponAdminApi: GET /api-admin/v1/coupons
+    CouponAdminApi ->>+ ReadCouponsUseCase: 쿠폰 목록 조회
+    ReadCouponsUseCase ->>+ CouponRepository: 쿠폰 페이지 조회
+    CouponRepository -->>- ReadCouponsUseCase: Slice<Coupon>
+    ReadCouponsUseCase -->>- CouponAdminApi: Page<CouponResult>
+    CouponAdminApi -->>- Admin: 200 OK + 쿠폰 목록 페이지
+```
+
+### [어드민] 쿠폰 상세 조회
+
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant CouponAdminApi
+    participant ReadCouponDetailUseCase
+    participant CouponRepository
+
+    Admin ->>+ CouponAdminApi: GET /api-admin/v1/coupons/{couponId}
+    CouponAdminApi ->>+ ReadCouponDetailUseCase: 쿠폰 조회
+    ReadCouponDetailUseCase ->>+ CouponRepository: 쿠폰 조회
+    CouponRepository -->>- ReadCouponDetailUseCase: Optional<Coupon>
+
+    break 쿠폰이 존재하지 않을 경우
+        ReadCouponDetailUseCase -->> CouponAdminApi: 조회 실패
+        CouponAdminApi -->> Admin: 404 Not Found
+    end
+
+    ReadCouponDetailUseCase -->>- CouponAdminApi: CouponDetailResult
+    CouponAdminApi -->>- Admin: 200 OK + 쿠폰 상세 정보
+```
+
+### [어드민] 쿠폰 수정
+
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant CouponAdminApi
+    participant UpdateCouponUseCase
+    participant CouponService
+    participant CouponRepository
+
+    Admin ->>+ CouponAdminApi: PUT /api-admin/v1/coupons/{couponId}
+    CouponAdminApi ->>+ UpdateCouponUseCase: 쿠폰 수정
+    UpdateCouponUseCase ->>+ CouponService: 쿠폰 수정
+    CouponService ->>+ CouponRepository: 쿠폰 조회
+    CouponRepository -->>- CouponService: Optional<Coupon>
+
+    break 쿠폰이 존재하지 않을 경우
+        CouponService -->> UpdateCouponUseCase: 조회 실패
+        UpdateCouponUseCase -->> CouponAdminApi: 조회 실패
+        CouponAdminApi -->> Admin: 404 Not Found
+    end
+
+    CouponService ->> CouponService: 쿠폰 정보 수정 (삭제된 쿠폰도 수정 가능)
+    CouponService -->>- UpdateCouponUseCase: void
+    UpdateCouponUseCase -->>- CouponAdminApi: 수정 완료
+    CouponAdminApi -->>- Admin: 200 OK
+```
+
+### [어드민] 쿠폰 삭제
+
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant CouponAdminApi
+    participant DeleteCouponUseCase
+    participant CouponService
+    participant CouponRepository
+
+    Admin ->>+ CouponAdminApi: DELETE /api-admin/v1/coupons/{couponId}
+    CouponAdminApi ->>+ DeleteCouponUseCase: 쿠폰 삭제 요청
+
+    DeleteCouponUseCase ->>+ CouponService: 쿠폰 삭제
+    CouponService ->>+ CouponRepository: 쿠폰 조회
+    CouponRepository -->>- CouponService: Optional<Coupon>
+
+    break 쿠폰이 존재하지 않을 경우
+        CouponService -->> DeleteCouponUseCase: 조회 실패
+        DeleteCouponUseCase -->> CouponAdminApi: 조회 실패
+        CouponAdminApi -->> Admin: 404 Not Found
+    end
+
+    CouponService ->> CouponService: 삭제 여부 확인
+
+    break 이미 삭제된 쿠폰일 경우
+        CouponService -->> DeleteCouponUseCase: false (삭제 스킵, 멱등)
+        DeleteCouponUseCase -->> CouponAdminApi: 삭제 완료
+        CouponAdminApi -->> Admin: 200 OK
+    end
+
+    CouponService ->> CouponService: 쿠폰 삭제 (soft delete)
+    CouponService -->>- DeleteCouponUseCase: true (삭제 완료)
+    DeleteCouponUseCase -->>- CouponAdminApi: 삭제 완료
+    CouponAdminApi -->>- Admin: 200 OK
+```
+
+### [어드민] 쿠폰 발급 내역 조회
+
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant CouponAdminApi
+    participant ReadOwnedCouponsUseCase
+    participant OwnedCouponRepository
+    participant UserRepository
+
+    Admin ->>+ CouponAdminApi: GET /api-admin/v1/coupons/{couponId}/issues
+    CouponAdminApi ->>+ ReadOwnedCouponsUseCase: 발급 내역 조회
+
+    ReadOwnedCouponsUseCase ->>+ OwnedCouponRepository: 발급 내역 페이지 조회
+    OwnedCouponRepository -->>- ReadOwnedCouponsUseCase: Slice<OwnedCoupon>
+
+    ReadOwnedCouponsUseCase ->>+ UserRepository: 발급 대상 유저 조회
+    UserRepository -->>- ReadOwnedCouponsUseCase: List<User>
+
+    ReadOwnedCouponsUseCase -->>- CouponAdminApi: Page<CouponIssueResult>
+    CouponAdminApi -->>- Admin: 200 OK + 발급 내역 페이지
+```
+
+### [대고객] 쿠폰 발급
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant CouponApi
+    participant IssueCouponUseCase
+    participant CouponService
+    participant CouponRepository
+    participant OwnedCouponRepository
+
+    Client ->>+ CouponApi: POST /api/v1/coupons/{couponId}/issue
+    CouponApi ->>+ IssueCouponUseCase: 쿠폰 발급 요청
+
+    IssueCouponUseCase ->>+ CouponService: 쿠폰 발급
+    CouponService ->>+ CouponRepository: 쿠폰 조회
+    CouponRepository -->>- CouponService: Optional<Coupon>
+
+    break 쿠폰이 존재하지 않거나 삭제된 경우
+        CouponService -->> IssueCouponUseCase: 발급 실패
+        IssueCouponUseCase -->> CouponApi: 발급 실패
+        CouponApi -->> Client: 400 Bad Request
+    end
+
+    CouponService ->>+ OwnedCouponRepository: 중복 발급 검증
+    OwnedCouponRepository -->>- CouponService: boolean
+
+    break 중복 발급인 경우
+        CouponService -->> IssueCouponUseCase: 발급 실패
+        IssueCouponUseCase -->> CouponApi: 발급 실패
+        CouponApi -->> Client: 400 Bad Request
+    end
+
+    break 쿠폰이 만료된 경우
+        CouponService -->> IssueCouponUseCase: 발급 실패
+        IssueCouponUseCase -->> CouponApi: 발급 실패
+        CouponApi -->> Client: 400 Bad Request
+    end
+
+    CouponService ->> CouponService: OwnedCoupon 생성
+    CouponService ->>+ OwnedCouponRepository: 보유 쿠폰 저장
+    OwnedCouponRepository -->>- CouponService: OwnedCoupon
+
+    CouponService -->>- IssueCouponUseCase: OwnedCoupon
+    IssueCouponUseCase -->>- CouponApi: 발급 완료
+    CouponApi -->>- Client: 201 Created
+```
+
+### [대고객] 내 쿠폰 목록 조회
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant CouponApi
+    participant ReadMyCouponsUseCase
+    participant OwnedCouponRepository
+
+    Client ->>+ CouponApi: GET /api/v1/owned-coupons
+    CouponApi ->>+ ReadMyCouponsUseCase: 내 쿠폰 목록 조회
+
+    ReadMyCouponsUseCase ->>+ OwnedCouponRepository: 보유 쿠폰 조회 (쿠폰 정보 포함)
+    OwnedCouponRepository -->>- ReadMyCouponsUseCase: List<OwnedCoupon>
+
+    ReadMyCouponsUseCase -->>- CouponApi: List<MyCouponResult>
+    CouponApi -->>- Client: 200 OK + 내 쿠폰 목록
+```
+
 ## Order (주문)
 
 ### [어드민] 주문 목록 조회
@@ -721,6 +956,7 @@ sequenceDiagram
     participant OrderApi
     participant PlaceOrderUseCase
     participant ProductService
+    participant OwnedCouponService
     participant OrderService
     participant OrderRepository
 
@@ -735,14 +971,25 @@ sequenceDiagram
         OrderApi -->> Client: 400 Bad Request
     end
 
-    Note over PlaceOrderUseCase, ProductService: 비관적 락으로 상품별 순차 재고 차감
-
-    PlaceOrderUseCase ->>+ ProductService: 재고 차감 (상품별 순차)
+    Note over PlaceOrderUseCase,ProductService: productId 기준 정렬 후 재고 차감 (데드락 방지)
+    PlaceOrderUseCase ->>+ ProductService: 재고 차감
     ProductService -->>- PlaceOrderUseCase: void
 
     break 품절 또는 재고 부족인 경우
         PlaceOrderUseCase -->> OrderApi: 주문 실패
         OrderApi -->> Client: 400 Bad Request
+    end
+
+    PlaceOrderUseCase ->> PlaceOrderUseCase: Cart 생성 및 orderTotal 계산
+
+    opt ownedCouponId가 존재할 경우
+        PlaceOrderUseCase ->>+ OwnedCouponService: 쿠폰 사용 처리 (낙관적 락)
+        OwnedCouponService -->>- PlaceOrderUseCase: CouponDiscount
+
+        break 쿠폰 검증 실패 (미존재/타인 소유/사용됨/만료/최소금액 미달)
+            PlaceOrderUseCase -->> OrderApi: 주문 실패
+            OrderApi -->> Client: 400 Bad Request
+        end
     end
 
     PlaceOrderUseCase ->>+ OrderService: 주문 생성

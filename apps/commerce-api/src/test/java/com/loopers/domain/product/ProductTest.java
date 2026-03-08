@@ -34,7 +34,7 @@ class ProductTest {
             var stock = 50L;
 
             // act
-            var product = Product.create(brandId, name, thumbnailUrl, price, stock, description);
+            var product = Product.create(new ProductSpec(brandId, name, thumbnailUrl, price, stock, description));
 
             // assert
             assertAll(
@@ -51,7 +51,7 @@ class ProductTest {
         @ParameterizedTest
         @NullSource
         void throwsException_whenBrandIdIsNull(Long brandId) {
-            assertThatThrownBy(() -> Product.create(brandId, "상품명", "http://example.com/thumbnail.jpg", 10000L, 50L, "상품 설명"))
+            assertThatThrownBy(() -> Product.create(new ProductSpec(brandId, "상품명", "http://example.com/thumbnail.jpg", 10000L, 50L, "상품 설명")))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.REQUIRED_BRAND_ID.getMessage());
         }
@@ -65,7 +65,7 @@ class ProductTest {
         @Test
         void deductsStockByQuantity() {
             // arrange
-            var product = Product.create(1L, "상품명", "http://example.com/thumbnail.jpg", 10000L, 50L, null);
+            var product = Product.create(new ProductSpec(1L, "상품명", "http://example.com/thumbnail.jpg", 10000L, 50L, null));
 
             // act
             product.deductStock(10L);
@@ -85,14 +85,14 @@ class ProductTest {
         @ValueSource(strings = {"수정된 설명"})
         void success(String description) {
             // arrange
-            var product = Product.create(1L, "상품명", "http://example.com/thumbnail.jpg", 10000L, 50L, "상품 설명");
+            var product = Product.create(new ProductSpec(1L, "상품명", "http://example.com/thumbnail.jpg", 10000L, 50L, "상품 설명"));
             var newName = "수정된 상품명";
             var newThumbnailUrl = "http://example.com/new-thumbnail.jpg";
             var newPrice = 20000L;
             var newStock = 100L;
 
             // act
-            product.update(newName, newThumbnailUrl, newPrice, newStock, description);
+            product.update(new ModifyProduct(null, newName, newThumbnailUrl, newPrice, newStock, description));
 
             // assert
             assertAll(
