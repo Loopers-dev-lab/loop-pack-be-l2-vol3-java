@@ -11,6 +11,4 @@ public interface MemberRepository {
     Optional<Member> findByMemberIdValue(String memberIdValue);
 
     boolean existsByMemberIdValue(String memberIdValue);
-
-    Optional<Member> findByIdWithLock(Long id);
 }

@@ -39,9 +39,4 @@ public class MemberRepositoryImpl implements MemberRepository {
     public boolean existsByMemberIdValue(String memberIdValue) {
         return memberJpaRepository.existsByMemberIdValue(memberIdValue);
     }
-
-    @Override
-    public Optional<Member> findByIdWithLock(Long id) {
-        return memberJpaRepository.findByIdWithLock(id);
-    }
 }

@@ -1,6 +1,5 @@
 package com.loopers.domain.member;
 
-import com.loopers.domain.common.Money;
 import com.loopers.domain.member.vo.BirthDate;
 import com.loopers.domain.member.vo.Email;
 import com.loopers.domain.member.vo.MemberId;
@@ -11,8 +10,6 @@ import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-
-import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -136,88 +133,4 @@ class MemberTest {
         }
     }
 
-    @DisplayName("포인트")
-    @Nested
-    class PointTest {
-
-        private Member createMemberWithPoint(Money point) {
-            Member member = Member.create(
-                    new MemberId("user1"),
-                    Password.ofEncoded("encoded:Valid123!"),
-                    new Name("앤드류"),
-                    new Email("test@test.com"),
-                    new BirthDate("1997-01-01")
-            );
-            member.addPoint(point);
-            return member;
-        }
-
-        @DisplayName("회원 생성 시 포인트는 0이다")
-        @Test
-        void create_member_with_zero_point() {
-            Member member = Member.create(
-                    new MemberId("user1"),
-                    Password.ofEncoded("encoded:Valid123!"),
-                    new Name("앤드류"),
-                    new Email("test@test.com"),
-                    new BirthDate("1997-01-01")
-            );
-
-            assertThat(member.getPoint()).isEqualTo(Money.zero());
-        }
-
-        @DisplayName("포인트를 충전할 수 있다")
-        @Test
-        void addPoint_success() {
-            Member member = createMemberWithPoint(Money.of(1000L));
-
-            assertThat(member.getPoint().getAmount()).isEqualByComparingTo(BigDecimal.valueOf(1000));
-        }
-
-        @DisplayName("포인트를 차감할 수 있다")
-        @Test
-        void deductPoint_success() {
-            Member member = createMemberWithPoint(Money.of(1000L));
-
-            member.deductPoint(Money.of(300L));
-
-            assertThat(member.getPoint().getAmount()).isEqualByComparingTo(BigDecimal.valueOf(700));
-        }
-
-        @DisplayName("포인트가 부족하면 예외가 발생한다")
-        @Test
-        void deductPoint_fail_insufficient() {
-            Member member = createMemberWithPoint(Money.of(100L));
-
-            assertThatThrownBy(() -> member.deductPoint(Money.of(500L)))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
-        }
-
-        @DisplayName("0 포인트를 차감하면 예외가 발생한다")
-        @Test
-        void deductPoint_zero_throwsException() {
-            Member member = createMemberWithPoint(Money.of(1000L));
-
-            assertThatThrownBy(() -> member.deductPoint(Money.zero()))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
-        }
-
-        @DisplayName("0 포인트를 충전하면 예외가 발생한다")
-        @Test
-        void addPoint_zero_throwsException() {
-            Member member = Member.create(
-                    new MemberId("user1"),
-                    Password.ofEncoded("encoded:Valid123!"),
-                    new Name("앤드류"),
-                    new Email("test@test.com"),
-                    new BirthDate("1997-01-01")
-            );
-
-            assertThatThrownBy(() -> member.addPoint(Money.zero()))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
-        }
-    }
 }
