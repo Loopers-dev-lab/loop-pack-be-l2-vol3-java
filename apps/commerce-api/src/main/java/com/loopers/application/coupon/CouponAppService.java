@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -64,6 +66,50 @@ public class CouponAppService {
         Coupon coupon = couponRepository.findByIdWithLock(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
         coupon.delete();
+    }
+
+    @Transactional
+    public IssuedCoupon getIssuedCouponWithLock(Long couponId, Long userId) {
+        return issuedCouponRepository.findByCouponIdAndUserIdWithLock(couponId, userId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "발급된 쿠폰을 찾을 수 없습니다."));
+    }
+
+    @Transactional
+    public IssuedCoupon getIssuedCouponByIdWithLock(Long id) {
+        return issuedCouponRepository.findByIdWithLock(id)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "발급된 쿠폰을 찾을 수 없습니다."));
+    }
+
+    @Transactional
+    public IssuedCoupon issueCoupon(Long couponId, Long userId) {
+        Coupon coupon = couponRepository.findByIdWithLock(couponId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
+
+        coupon.validateIssuable();
+        coupon.issue();
+
+        IssuedCoupon issuedCoupon = IssuedCoupon.create(coupon, userId);
+        return issuedCouponRepository.save(issuedCoupon);
+    }
+
+    @Transactional(readOnly = true)
+    public List<IssuedCouponInfo> getMyIssuedCoupons(Long userId) {
+        List<IssuedCoupon> issuedCoupons = issuedCouponRepository.findByUserId(userId);
+        if (issuedCoupons.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> couponIds = issuedCoupons.stream().map(IssuedCoupon::getCouponId).distinct().toList();
+        Map<Long, Coupon> couponMap = couponRepository.findByIdIn(couponIds).stream()
+                .collect(Collectors.toMap(Coupon::getId, c -> c));
+
+        return issuedCoupons.stream()
+                .map(ic -> {
+                    Coupon coupon = couponMap.get(ic.getCouponId());
+                    String couponName = coupon != null ? coupon.getName() : "";
+                    return IssuedCouponInfo.of(ic, couponName);
+                })
+                .toList();
     }
 
     @Transactional(readOnly = true)
