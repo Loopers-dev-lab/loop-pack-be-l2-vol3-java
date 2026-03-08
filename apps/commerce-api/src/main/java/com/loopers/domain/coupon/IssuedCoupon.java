@@ -1,12 +1,15 @@
 package com.loopers.domain.coupon;
 
-import com.loopers.domain.BaseEntity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
@@ -14,11 +17,19 @@ import lombok.Getter;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 
 @Entity
 @Table(name = "issued_coupons", uniqueConstraints = @UniqueConstraint(columnNames = {"coupon_id", "user_id"}))
 @Getter
-public class IssuedCoupon extends BaseEntity {
+public class IssuedCoupon {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private final Long id = 0L;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private ZonedDateTime createdAt;
 
     @Column(name = "coupon_id", nullable = false)
     private Long couponId;
@@ -77,10 +88,6 @@ public class IssuedCoupon extends BaseEntity {
         return usedAt != null;
     }
 
-    public boolean isDeleted() {
-        return getDeletedAt() != null;
-    }
-
     public boolean isExpired() {
         return expiredAt.isBefore(LocalDateTime.now());
     }
@@ -98,9 +105,6 @@ public class IssuedCoupon extends BaseEntity {
     }
 
     public void validateUsable() {
-        if (isDeleted()) {
-            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다");
-        }
         if (isUsed()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "사용할 수 없는 쿠폰입니다");
         }
@@ -113,5 +117,10 @@ public class IssuedCoupon extends BaseEntity {
         if (minOrderAmount != null && totalAmount.compareTo(minOrderAmount) < 0) {
             throw new CoreException(ErrorType.BAD_REQUEST, "최소 주문 금액 조건을 충족하지 않습니다");
         }
+    }
+
+    @PrePersist
+    private void prePersist() {
+        this.createdAt = ZonedDateTime.now();
     }
 }

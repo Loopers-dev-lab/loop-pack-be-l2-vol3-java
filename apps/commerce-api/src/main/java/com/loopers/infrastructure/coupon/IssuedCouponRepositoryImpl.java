@@ -40,8 +40,8 @@ public class IssuedCouponRepositoryImpl implements IssuedCouponRepository {
     }
 
     @Override
-    public Page<IssuedCoupon> findActiveByUserId(Long userId, Pageable pageable) {
-        return issuedCouponJpaRepository.findActiveByUserId(userId, pageable);
+    public Page<IssuedCoupon> findAllByUserId(Long userId, Pageable pageable) {
+        return issuedCouponJpaRepository.findAllByUserId(userId, pageable);
     }
 
     @Override

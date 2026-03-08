@@ -15,7 +15,7 @@ public interface IssuedCouponJpaRepository extends JpaRepository<IssuedCoupon, L
     @Modifying
     @Query("UPDATE IssuedCoupon ic SET ic.usedAt = CURRENT_TIMESTAMP " +
            "WHERE ic.id = :id AND ic.userId = :userId " +
-           "AND ic.usedAt IS NULL AND ic.deletedAt IS NULL")
+           "AND ic.usedAt IS NULL")
     int markUsedIfAvailable(@Param("id") Long id, @Param("userId") Long userId);
 
     // Query
@@ -24,9 +24,9 @@ public interface IssuedCouponJpaRepository extends JpaRepository<IssuedCoupon, L
            countQuery = "SELECT COUNT(ic) FROM IssuedCoupon ic WHERE ic.couponId = :couponId")
     Page<IssuedCoupon> findAllByCouponId(Long couponId, Pageable pageable);
 
-    @Query(value = "SELECT ic FROM IssuedCoupon ic WHERE ic.userId = :userId AND ic.deletedAt IS NULL ORDER BY ic.createdAt DESC",
-           countQuery = "SELECT COUNT(ic) FROM IssuedCoupon ic WHERE ic.userId = :userId AND ic.deletedAt IS NULL")
-    Page<IssuedCoupon> findActiveByUserId(Long userId, Pageable pageable);
+    @Query(value = "SELECT ic FROM IssuedCoupon ic WHERE ic.userId = :userId ORDER BY ic.createdAt DESC",
+           countQuery = "SELECT COUNT(ic) FROM IssuedCoupon ic WHERE ic.userId = :userId")
+    Page<IssuedCoupon> findAllByUserId(Long userId, Pageable pageable);
 
     boolean existsByCouponIdAndUserId(Long couponId, Long userId);
 }

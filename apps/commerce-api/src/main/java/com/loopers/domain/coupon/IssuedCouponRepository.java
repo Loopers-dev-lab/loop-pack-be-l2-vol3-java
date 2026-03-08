@@ -18,7 +18,7 @@ public interface IssuedCouponRepository {
 
     Page<IssuedCoupon> findAllByCouponId(Long couponId, Pageable pageable);
 
-    Page<IssuedCoupon> findActiveByUserId(Long userId, Pageable pageable);
+    Page<IssuedCoupon> findAllByUserId(Long userId, Pageable pageable);
 
     boolean existsByCouponIdAndUserId(Long couponId, Long userId);
 }

@@ -73,8 +73,6 @@ erDiagram
         datetime expired_at "만료일 스냅샷"
         datetime used_at "사용일시"
         datetime created_at
-        datetime updated_at
-        datetime deleted_at "NULL=활성"
     }
 
     ORDERS {
@@ -116,7 +114,7 @@ erDiagram
 | PRODUCT | Product | 판매 상품 정보 | Soft Delete |
 | LIKES | Like | 사용자-상품 간 좋아요 | Hard Delete |
 | COUPON | Coupon | 할인 쿠폰 템플릿 | Soft Delete |
-| ISSUED_COUPON | Coupon | 사용자에게 발급된 쿠폰 | Soft Delete |
+| ISSUED_COUPON | Coupon | 사용자에게 발급된 쿠폰 | 삭제 불가 |
 | ORDERS | Order | 사용자의 주문 | 삭제 불가 |
 | ORDER_ITEM | Order | 주문 시점 상품 스냅샷 | 삭제 불가 |
 

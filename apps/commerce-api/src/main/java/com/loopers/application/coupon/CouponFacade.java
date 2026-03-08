@@ -91,7 +91,7 @@ public class CouponFacade {
 
     @Transactional(readOnly = true)
     public Page<IssuedCouponInfo> getMyCoupons(Long userId, Pageable pageable) {
-        Page<IssuedCoupon> issuedCoupons = issuedCouponService.findActiveByUserId(userId, pageable);
+        Page<IssuedCoupon> issuedCoupons = issuedCouponService.findAllByUserId(userId, pageable);
         return issuedCoupons.map(IssuedCouponInfo::from);
     }
 }

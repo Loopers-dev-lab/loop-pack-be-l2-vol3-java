@@ -127,18 +127,6 @@ class IssuedCouponServiceIntegrationTest {
         }
 
         @Test
-        void 삭제된_쿠폰이면_예외() {
-            IssuedCoupon issued = issuedCouponService.issue(
-                    IssuedCouponCommand.Issue.of(1L, 100L, "테스트 쿠폰", CouponType.FIXED, 1000, null, FUTURE));
-            issued.delete();
-            issuedCouponRepository.save(issued);
-
-            assertThatThrownBy(() -> issuedCouponService.markUsedIfAvailable(issued.getId(), 100L))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
-        }
-
-        @Test
         void 존재하지_않는_쿠폰이면_예외() {
             assertThatThrownBy(() -> issuedCouponService.markUsedIfAvailable(999L, 100L))
                     .isInstanceOf(CoreException.class)
@@ -253,15 +241,15 @@ class IssuedCouponServiceIntegrationTest {
     }
 
     @Nested
-    class 사용자별_활성_발급쿠폰_조회 {
+    class 사용자별_발급쿠폰_조회 {
 
         @Test
-        void 해당_사용자의_활성_발급쿠폰만_조회된다() {
+        void 해당_사용자의_발급쿠폰만_조회된다() {
             issuedCouponService.issue(IssuedCouponCommand.Issue.of(1L, 100L, "쿠폰A", CouponType.FIXED, 1000, null, FUTURE));
             issuedCouponService.issue(IssuedCouponCommand.Issue.of(2L, 100L, "쿠폰B", CouponType.FIXED, 2000, null, FUTURE));
             issuedCouponService.issue(IssuedCouponCommand.Issue.of(3L, 200L, "쿠폰C", CouponType.FIXED, 3000, null, FUTURE));
 
-            Page<IssuedCoupon> result = issuedCouponService.findActiveByUserId(100L, PageRequest.of(0, 20));
+            Page<IssuedCoupon> result = issuedCouponService.findAllByUserId(100L, PageRequest.of(0, 20));
 
             assertAll(
                     () -> assertThat(result.getTotalElements()).isEqualTo(2),
@@ -270,23 +258,8 @@ class IssuedCouponServiceIntegrationTest {
         }
 
         @Test
-        void 삭제된_발급쿠폰은_제외된다() {
-            issuedCouponService.issue(IssuedCouponCommand.Issue.of(1L, 100L, "쿠폰A", CouponType.FIXED, 1000, null, FUTURE));
-            IssuedCoupon couponB = issuedCouponService.issue(IssuedCouponCommand.Issue.of(2L, 100L, "쿠폰B", CouponType.FIXED, 2000, null, FUTURE));
-            couponB.delete();
-            issuedCouponRepository.save(couponB);
-
-            Page<IssuedCoupon> result = issuedCouponService.findActiveByUserId(100L, PageRequest.of(0, 20));
-
-            assertAll(
-                    () -> assertThat(result.getTotalElements()).isEqualTo(1),
-                    () -> assertThat(result.getContent().get(0).getCouponName()).isEqualTo("쿠폰A")
-            );
-        }
-
-        @Test
         void 발급쿠폰이_없으면_빈_페이지를_반환한다() {
-            Page<IssuedCoupon> result = issuedCouponService.findActiveByUserId(999L, PageRequest.of(0, 20));
+            Page<IssuedCoupon> result = issuedCouponService.findAllByUserId(999L, PageRequest.of(0, 20));
 
             assertThat(result.getTotalElements()).isEqualTo(0);
         }

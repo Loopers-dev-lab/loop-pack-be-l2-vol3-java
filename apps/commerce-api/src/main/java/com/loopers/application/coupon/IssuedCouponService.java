@@ -65,7 +65,7 @@ public class IssuedCouponService {
     }
 
     @Transactional(readOnly = true)
-    public Page<IssuedCoupon> findActiveByUserId(Long userId, Pageable pageable) {
-        return issuedCouponRepository.findActiveByUserId(userId, pageable);
+    public Page<IssuedCoupon> findAllByUserId(Long userId, Pageable pageable) {
+        return issuedCouponRepository.findAllByUserId(userId, pageable);
     }
 }

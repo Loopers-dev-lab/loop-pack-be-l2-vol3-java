@@ -36,16 +36,6 @@ class IssuedCouponTest {
         }
 
         @Test
-        void 삭제된_쿠폰이면_예외() {
-            IssuedCoupon issuedCoupon = createIssuedCoupon(CouponType.FIXED, 1000, null, FUTURE);
-            issuedCoupon.delete();
-
-            assertThatThrownBy(issuedCoupon::validateUsable)
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
-        }
-
-        @Test
         void 사용된_쿠폰이면_예외() {
             IssuedCoupon issuedCoupon = createIssuedCoupon(CouponType.FIXED, 1000, null, FUTURE);
             issuedCoupon.use();
