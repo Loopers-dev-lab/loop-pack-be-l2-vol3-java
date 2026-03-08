@@ -46,7 +46,6 @@ public class OrderFacade {
                 : IssuedCouponSnapshot.none();
 
         // -- 2단계: 상태 변경 (원자적 UPDATE) --
-        productService.decreaseStocks(productQuantities);
         if (couponSnapshot.isApplied()) {
             issuedCouponService.markUsedIfAvailable(command.issuedCouponId(), userId);
         }
@@ -55,6 +54,8 @@ public class OrderFacade {
                 couponSnapshot.issuedCouponId(), couponSnapshot.discountAmount());
 
         Order order = orderService.createOrder(OrderCommand.Create.of(userId, orderItems, orderCoupon));
+
+        productService.decreaseStocks(productQuantities);
 
         return OrderInfo.from(order);
     }
