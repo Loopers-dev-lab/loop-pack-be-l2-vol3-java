@@ -44,10 +44,10 @@ public class CouponFacade {
         Coupon coupon = couponService.getActiveCoupon(couponId);
         coupon.validateIssuable();
 
-        // -- 2단계: 상태 변경 (원자적 업데이트) --
-        couponService.issue(couponId);
-
+        // -- 2단계: 상태 변경 --
         IssuedCoupon issuedCoupon = issuedCouponService.issue(IssuedCouponCommand.Issue.from(coupon, userId));
+        couponService.issue(couponId);  // 원자적 UPDATE
+
         return IssuedCouponInfo.from(issuedCoupon);
     }
 
