@@ -30,13 +30,16 @@ classDiagram
         -Long userId
         -List~OrderItem~ orderItems
         -OrderStatus status
-        +create(userId, orderItems) Order
+        -Long issuedCouponId
+        -Money discountAmount
+        +create(userId, orderItems, issuedCouponId, discountAmount) Order
         +pay() void
         +prepare() void
         +ship() void
         +deliver() void
         +cancel() void
         +getTotalAmount() Money
+        +getPaymentAmount() Money
     }
 
     class OrderItem {
