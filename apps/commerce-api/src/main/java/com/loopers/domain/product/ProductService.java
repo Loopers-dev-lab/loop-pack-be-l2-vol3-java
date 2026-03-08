@@ -10,7 +10,7 @@ import java.math.BigDecimal;
  * 상품 엔티티 생성/상태 변경 규칙을 조합한다.
  */
 @Component
-public class ProductDomainService {
+public class ProductService {
 
     public Product createProduct(Long brandId, String name, String description, BigDecimal price, Integer stock) {
         return Product.create(brandId, name, description, price, stock);

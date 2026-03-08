@@ -17,6 +17,8 @@ public interface ProductRepository {
 
     List<Product> findAllByBrandIdIncludingDeleted(Long brandId);
 
+    List<Product> findAllByIds(Collection<Long> productIds);
+
     List<Product> findAllByIdsIncludingDeleted(Collection<Long> productIds);
 
     Page<Product> findByBrandId(Long brandId, Pageable pageable);

@@ -14,11 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class BrandApplicationService {
+public class BrandFacade {
 
     private final BrandRepository brandRepository;
     private final ProductRepository productRepository;
-    private final BrandDomainService brandDomainService;
+    private final BrandService brandService;
 
     @Transactional
     public BrandDto.BrandInfo register(String name, String description) {
@@ -29,7 +29,7 @@ public class BrandApplicationService {
             throw new CoreException(ErrorType.DUPLICATE_BRAND_NAME);
         }
 
-        Brand brand = brandDomainService.createBrand(brandName, brandDescription);
+        Brand brand = brandService.createBrand(brandName, brandDescription);
         Brand savedBrand = brandRepository.save(brand);
         return BrandDto.BrandInfo.from(savedBrand);
     }
@@ -60,7 +60,7 @@ public class BrandApplicationService {
             throw new CoreException(ErrorType.DUPLICATE_BRAND_NAME);
         }
 
-        brandDomainService.updateBrand(brand, brandName, brandDescription);
+        brandService.updateBrand(brand, brandName, brandDescription);
         Brand savedBrand = brandRepository.save(brand);
         return BrandDto.BrandInfo.from(savedBrand);
     }
@@ -70,7 +70,7 @@ public class BrandApplicationService {
         Brand brand = brandRepository.findById(brandId)
             .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
 
-        brandDomainService.deleteBrand(brand);
+        brandService.deleteBrand(brand);
         brandRepository.save(brand);
 
         for (Product product : productRepository.findAllByBrandId(brandId)) {
@@ -85,7 +85,7 @@ public class BrandApplicationService {
             .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
 
         try {
-            brandDomainService.restoreBrand(brand, brandId);
+            brandService.restoreBrand(brand, brandId);
         } catch (BrandNotDeletedException e) {
             throw new CoreException(ErrorType.BRAND_NOT_DELETED);
         }

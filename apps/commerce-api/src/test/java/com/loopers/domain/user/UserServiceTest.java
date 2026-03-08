@@ -14,14 +14,14 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-class UserDomainServiceTest {
+class UserServiceTest {
 
-    private UserDomainService userDomainService;
+    private UserService userService;
     private PasswordEncryptor passwordEncryptor;
 
     @BeforeEach
     void setUp() {
-        userDomainService = new UserDomainService();
+        userService = new UserService();
         passwordEncryptor = mock(PasswordEncryptor.class);
     }
 
@@ -40,7 +40,7 @@ class UserDomainServiceTest {
         when(passwordEncryptor.encode(anyString())).thenReturn("ENCRYPTED_Password123!");
 
         // when
-        User user = userDomainService.createUser(
+        User user = userService.createUser(
             loginId,
             rawPassword,
             name,
@@ -76,7 +76,7 @@ class UserDomainServiceTest {
 
         // when & then
         assertThatThrownBy(() ->
-            userDomainService.createUser(
+            userService.createUser(
                 loginId,
                 invalidPassword,
                 name,
@@ -104,7 +104,7 @@ class UserDomainServiceTest {
         when(passwordEncryptor.encode(newPasswordValue)).thenReturn("ENCRYPTED_NewPassword2!");
 
         // when
-        userDomainService.updatePassword(user, oldPassword, newPassword, passwordEncryptor);
+        userService.updatePassword(user, oldPassword, newPassword, passwordEncryptor);
 
         // then
         assertThat(user.getPassword()).isEqualTo("ENCRYPTED_NewPassword2!");
@@ -124,7 +124,7 @@ class UserDomainServiceTest {
 
         // when & then
         assertThatThrownBy(() ->
-            userDomainService.updatePassword(user, wrongOldPassword, newPassword, passwordEncryptor)
+            userService.updatePassword(user, wrongOldPassword, newPassword, passwordEncryptor)
         )
             .isInstanceOf(InvalidPasswordException.class);
     }
@@ -144,7 +144,7 @@ class UserDomainServiceTest {
 
         // when & then
         assertThatThrownBy(() ->
-            userDomainService.updatePassword(user, oldPassword, invalidNewPassword, passwordEncryptor)
+            userService.updatePassword(user, oldPassword, invalidNewPassword, passwordEncryptor)
         )
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("생년월일은 비밀번호 내에 포함될 수 없습니다");

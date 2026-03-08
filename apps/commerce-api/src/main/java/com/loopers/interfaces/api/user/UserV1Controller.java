@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.user;
 
-import com.loopers.application.user.UserApplicationService;
+import com.loopers.application.user.UserFacade;
 import com.loopers.application.user.UserDto;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.error.CoreException;
@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/users")
 public class UserV1Controller {
 
-    private final UserApplicationService userApplicationService;
+    private final UserFacade userFacade;
 
     @PostMapping({"", "/register"})
     public ApiResponse<UserV1Dto.CreateResponse> create(
@@ -38,7 +38,7 @@ public class UserV1Controller {
     ) {
         try {
             // Application Service 호출 → Application DTO 수신
-            UserDto.UserInfo userInfo = userApplicationService.register(
+            UserDto.UserInfo userInfo = userFacade.register(
                 loginId,
                 password,
                 request.name(),
@@ -60,7 +60,7 @@ public class UserV1Controller {
         @PathVariable Long id
     ) {
         // Application Service 호출 → Application DTO 수신
-        UserDto.UserInfo userInfo = userApplicationService.getUserInfo(id)
+        UserDto.UserInfo userInfo = userFacade.getUserInfo(id)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다"));
 
         // Application DTO → API DTO 변환
@@ -74,7 +74,7 @@ public class UserV1Controller {
         @Valid @RequestBody UserV1Dto.ChangePasswordRequest request
     ) {
         try {
-            userApplicationService.changePassword(id, request.oldPassword(), request.newPassword());
+            userFacade.changePassword(id, request.oldPassword(), request.newPassword());
             return ApiResponse.success(null);
         } catch (IllegalArgumentException e) {
             throw new CoreException(ErrorType.BAD_REQUEST, e.getMessage());

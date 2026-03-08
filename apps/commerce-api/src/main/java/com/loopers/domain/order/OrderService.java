@@ -11,7 +11,7 @@ import java.util.List;
  * 도메인 간 협력(재고 조작 등)은 Application Layer에서 처리한다.
  */
 @Component
-public class OrderDomainService {
+public class OrderService {
 
     public Order createOrder(Long userId, List<OrderItem> orderItems) {
         if (orderItems == null || orderItems.isEmpty()) {

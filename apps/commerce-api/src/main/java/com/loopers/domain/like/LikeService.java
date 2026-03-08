@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
  * 도메인 간 협력(Product.likeCount 변경 등)은 Application Layer에서 처리한다.
  */
 @Component
-public class LikeDomainService {
+public class LikeService {
 
     public LikeProcessResult like(Long userId, Long productId, Like existingLike) {
         if (existingLike != null && !existingLike.isDeleted()) {

@@ -11,7 +11,8 @@ import java.util.List;
 public class OrderDto {
 
     public record CreateCommand(
-        List<OrderLineCommand> items
+        List<OrderLineCommand> items,
+        Long couponId
     ) {
     }
 
@@ -42,6 +43,8 @@ public class OrderDto {
     public record OrderInfo(
         Long id,
         Long userId,
+        Long couponId,
+        BigDecimal discountAmount,
         OrderStatus status,
         BigDecimal totalAmount,
         ZonedDateTime createdAt,
@@ -55,6 +58,8 @@ public class OrderDto {
             return new OrderInfo(
                 order.getId(),
                 order.getUserId(),
+                order.getCouponId(),
+                order.getDiscountAmount(),
                 order.getStatus(),
                 order.getTotalAmount(),
                 order.getCreatedAt(),

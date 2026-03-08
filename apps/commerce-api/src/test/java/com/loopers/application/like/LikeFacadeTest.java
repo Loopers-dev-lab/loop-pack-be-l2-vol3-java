@@ -1,7 +1,7 @@
 package com.loopers.application.like;
 
 import com.loopers.domain.like.Like;
-import com.loopers.domain.like.LikeDomainService;
+import com.loopers.domain.like.LikeService;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.product.Product;
@@ -22,13 +22,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-class LikeApplicationServiceTest {
+class LikeFacadeTest {
 
     private LikeRepository likeRepository;
     private ProductRepository productRepository;
     private UserRepository userRepository;
     private BrandRepository brandRepository;
-    private LikeApplicationService likeApplicationService;
+    private LikeFacade likeFacade;
 
     private final Long userId = 1L;
     private final Long productId = 2L;
@@ -39,12 +39,12 @@ class LikeApplicationServiceTest {
         productRepository = mock(ProductRepository.class);
         userRepository = mock(UserRepository.class);
         brandRepository = mock(BrandRepository.class);
-        likeApplicationService = new LikeApplicationService(
+        likeFacade = new LikeFacade(
             likeRepository,
             productRepository,
             userRepository,
             brandRepository,
-            new LikeDomainService()
+            new LikeService()
         );
     }
 
@@ -63,7 +63,7 @@ class LikeApplicationServiceTest {
         when(likeRepository.save(any(Like.class))).thenReturn(like);
         when(productRepository.save(product)).thenReturn(product);
 
-        LikeDto.LikeInfo result = likeApplicationService.like(userId, productId);
+        LikeDto.LikeInfo result = likeFacade.like(userId, productId);
 
         assertThat(result.userId()).isEqualTo(userId);
         assertThat(result.productId()).isEqualTo(productId);
@@ -77,7 +77,7 @@ class LikeApplicationServiceTest {
     void like_fail_userNotFound() {
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> likeApplicationService.like(userId, productId))
+        assertThatThrownBy(() -> likeFacade.like(userId, productId))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.USER_NOT_FOUND));
@@ -93,7 +93,7 @@ class LikeApplicationServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(productRepository.findById(productId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> likeApplicationService.like(userId, productId))
+        assertThatThrownBy(() -> likeFacade.like(userId, productId))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
@@ -113,7 +113,7 @@ class LikeApplicationServiceTest {
         when(likeRepository.findByUserIdAndProductIdIncludingDeleted(userId, productId))
             .thenReturn(Optional.of(existingLike));
 
-        LikeDto.LikeInfo result = likeApplicationService.like(userId, productId);
+        LikeDto.LikeInfo result = likeFacade.like(userId, productId);
 
         assertThat(result.userId()).isEqualTo(userId);
         assertThat(result.productId()).isEqualTo(productId);
@@ -137,7 +137,7 @@ class LikeApplicationServiceTest {
         when(likeRepository.save(deletedLike)).thenReturn(deletedLike);
         when(productRepository.save(product)).thenReturn(product);
 
-        LikeDto.LikeInfo result = likeApplicationService.like(userId, productId);
+        LikeDto.LikeInfo result = likeFacade.like(userId, productId);
 
         assertThat(result.userId()).isEqualTo(userId);
         assertThat(result.productId()).isEqualTo(productId);
@@ -163,7 +163,7 @@ class LikeApplicationServiceTest {
         when(likeRepository.save(like)).thenReturn(like);
         when(productRepository.save(product)).thenReturn(product);
 
-        likeApplicationService.unlike(userId, productId);
+        likeFacade.unlike(userId, productId);
 
         assertThat(like.isDeleted()).isTrue();
         assertThat(product.getLikeCount()).isZero();
@@ -176,7 +176,7 @@ class LikeApplicationServiceTest {
     void unlike_fail_userNotFound() {
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> likeApplicationService.unlike(userId, productId))
+        assertThatThrownBy(() -> likeFacade.unlike(userId, productId))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.USER_NOT_FOUND));
@@ -192,7 +192,7 @@ class LikeApplicationServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(productRepository.findById(productId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> likeApplicationService.unlike(userId, productId))
+        assertThatThrownBy(() -> likeFacade.unlike(userId, productId))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
@@ -210,7 +210,7 @@ class LikeApplicationServiceTest {
         when(productRepository.findById(productId)).thenReturn(Optional.of(product));
         when(likeRepository.findByUserIdAndProductId(userId, productId)).thenReturn(Optional.empty());
 
-        likeApplicationService.unlike(userId, productId);
+        likeFacade.unlike(userId, productId);
 
         verify(likeRepository, never()).save(any());
         verify(productRepository, never()).save(any());
@@ -230,7 +230,7 @@ class LikeApplicationServiceTest {
         when(likeRepository.save(like)).thenReturn(like);
         when(productRepository.save(product)).thenReturn(product);
 
-        likeApplicationService.unlike(userId, productId);
+        likeFacade.unlike(userId, productId);
 
         assertThat(product.getLikeCount()).isZero();
     }

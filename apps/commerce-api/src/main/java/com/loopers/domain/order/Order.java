@@ -25,6 +25,12 @@ public class Order extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "coupon_id")
+    private Long couponId;
+
+    @Column(name = "discount_amount", nullable = false, precision = 19, scale = 2)
+    private BigDecimal discountAmount;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private OrderStatus status;
@@ -42,6 +48,7 @@ public class Order extends BaseEntity {
         this.userId = userId;
         this.status = OrderStatus.PENDING;
         this.totalAmount = BigDecimal.ZERO;
+        this.discountAmount = BigDecimal.ZERO;
     }
 
     public static Order create(Long userId, List<OrderItem> orderItems) {
@@ -73,6 +80,15 @@ public class Order extends BaseEntity {
         return Collections.unmodifiableList(orderItems);
     }
 
+    public void applyDiscount(Long couponId, BigDecimal discountAmount) {
+        if (couponId == null || discountAmount == null || discountAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        this.couponId = couponId;
+        this.discountAmount = discountAmount;
+        this.totalAmount = this.totalAmount.subtract(discountAmount).max(BigDecimal.ZERO);
+    }
+
     public void changeStatus(OrderStatus status) {
         if (status == null) {
             throw new IllegalArgumentException("주문 상태는 필수입니다");
@@ -101,6 +117,9 @@ public class Order extends BaseEntity {
         }
         if (this.totalAmount == null || this.totalAmount.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("주문 금액은 0 이상이어야 합니다");
+        }
+        if (this.discountAmount == null || this.discountAmount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("할인 금액은 0 이상이어야 합니다");
         }
     }
 

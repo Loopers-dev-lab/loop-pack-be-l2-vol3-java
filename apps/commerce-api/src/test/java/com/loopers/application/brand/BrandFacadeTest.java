@@ -21,20 +21,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-class BrandApplicationServiceTest {
+class BrandFacadeTest {
 
     private BrandRepository brandRepository;
     private ProductRepository productRepository;
-    private BrandApplicationService brandApplicationService;
+    private BrandFacade brandFacade;
 
     @BeforeEach
     void setUp() {
         brandRepository = mock(BrandRepository.class);
         productRepository = mock(ProductRepository.class);
-        brandApplicationService = new BrandApplicationService(
+        brandFacade = new BrandFacade(
             brandRepository,
             productRepository,
-            new BrandDomainService()
+            new BrandService()
         );
     }
 
@@ -44,7 +44,7 @@ class BrandApplicationServiceTest {
         when(brandRepository.existsByName("LOOPERS")).thenReturn(false);
         when(brandRepository.save(any(Brand.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        BrandDto.BrandInfo brandInfo = brandApplicationService.register("LOOPERS", "브랜드 설명");
+        BrandDto.BrandInfo brandInfo = brandFacade.register("LOOPERS", "브랜드 설명");
 
         assertThat(brandInfo.name()).isEqualTo("LOOPERS");
         assertThat(brandInfo.description()).isEqualTo("브랜드 설명");
@@ -56,7 +56,7 @@ class BrandApplicationServiceTest {
     void register_fail_duplicateName() {
         when(brandRepository.existsByName("LOOPERS")).thenReturn(true);
 
-        assertThatThrownBy(() -> brandApplicationService.register("LOOPERS", "브랜드 설명"))
+        assertThatThrownBy(() -> brandFacade.register("LOOPERS", "브랜드 설명"))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.DUPLICATE_BRAND_NAME));
@@ -71,7 +71,7 @@ class BrandApplicationServiceTest {
         Brand brand = Brand.create(new BrandName("LOOPERS"), new BrandDescription("desc"));
         when(brandRepository.findAll(pageRequest)).thenReturn(new PageImpl<>(List.of(brand)));
 
-        Page<BrandDto.BrandInfo> result = brandApplicationService.getAdminBrands(pageRequest);
+        Page<BrandDto.BrandInfo> result = brandFacade.getAdminBrands(pageRequest);
 
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent().getFirst().name()).isEqualTo("LOOPERS");
@@ -84,7 +84,7 @@ class BrandApplicationServiceTest {
         Brand brand = Brand.create(new BrandName("LOOPERS"), new BrandDescription("desc"));
         when(brandRepository.findById(brandId)).thenReturn(Optional.of(brand));
 
-        BrandDto.BrandInfo result = brandApplicationService.getBrand(brandId);
+        BrandDto.BrandInfo result = brandFacade.getBrand(brandId);
 
         assertThat(result.name()).isEqualTo("LOOPERS");
     }
@@ -94,7 +94,7 @@ class BrandApplicationServiceTest {
     void getBrand_fail_notFound() {
         when(brandRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> brandApplicationService.getBrand(99L))
+        assertThatThrownBy(() -> brandFacade.getBrand(99L))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.BRAND_NOT_FOUND));
@@ -110,7 +110,7 @@ class BrandApplicationServiceTest {
         when(brandRepository.existsByName("NEW")).thenReturn(false);
         when(brandRepository.save(brand)).thenReturn(brand);
 
-        BrandDto.BrandInfo result = brandApplicationService.update(brandId, "NEW", "NEW_DESC");
+        BrandDto.BrandInfo result = brandFacade.update(brandId, "NEW", "NEW_DESC");
 
         assertThat(result.name()).isEqualTo("NEW");
         assertThat(result.description()).isEqualTo("NEW_DESC");
@@ -125,7 +125,7 @@ class BrandApplicationServiceTest {
         when(brandRepository.findById(brandId)).thenReturn(Optional.of(brand));
         when(brandRepository.save(brand)).thenReturn(brand);
 
-        BrandDto.BrandInfo result = brandApplicationService.update(brandId, "LOOPERS", "NEW_DESC");
+        BrandDto.BrandInfo result = brandFacade.update(brandId, "LOOPERS", "NEW_DESC");
 
         assertThat(result.name()).isEqualTo("LOOPERS");
         assertThat(result.description()).isEqualTo("NEW_DESC");
@@ -137,7 +137,7 @@ class BrandApplicationServiceTest {
     void update_fail_notFound() {
         when(brandRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> brandApplicationService.update(1L, "NEW", "DESC"))
+        assertThatThrownBy(() -> brandFacade.update(1L, "NEW", "DESC"))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.BRAND_NOT_FOUND));
@@ -155,7 +155,7 @@ class BrandApplicationServiceTest {
         when(brandRepository.save(brand)).thenReturn(brand);
         when(productRepository.findAllByBrandId(brandId)).thenReturn(List.of(product1, product2));
 
-        brandApplicationService.delete(brandId);
+        brandFacade.delete(brandId);
 
         assertThat(brand.isDeleted()).isTrue();
         assertThat(product1.isDeleted()).isTrue();
@@ -179,7 +179,7 @@ class BrandApplicationServiceTest {
         when(productRepository.findAllByBrandIdIncludingDeleted(brandId))
             .thenReturn(List.of(deletedProduct, activeProduct));
 
-        BrandDto.BrandInfo restored = brandApplicationService.restore(brandId);
+        BrandDto.BrandInfo restored = brandFacade.restore(brandId);
 
         assertThat(restored.isDeleted()).isFalse();
         assertThat(deletedBrand.isDeleted()).isFalse();
@@ -196,7 +196,7 @@ class BrandApplicationServiceTest {
         Brand activeBrand = Brand.create(new BrandName("LOOPERS"), new BrandDescription("DESC"));
         when(brandRepository.findByIdIncludingDeleted(brandId)).thenReturn(Optional.of(activeBrand));
 
-        assertThatThrownBy(() -> brandApplicationService.restore(brandId))
+        assertThatThrownBy(() -> brandFacade.restore(brandId))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.BRAND_NOT_DELETED));

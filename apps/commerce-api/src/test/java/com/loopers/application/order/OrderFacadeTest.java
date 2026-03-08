@@ -1,11 +1,14 @@
 package com.loopers.application.order;
 
+import com.loopers.domain.coupon.CouponIssueRepository;
+import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.order.Order;
-import com.loopers.domain.order.OrderDomainService;
+import com.loopers.domain.order.OrderService;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.product.exception.ProductInsufficientStockException;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserRepository;
 import com.loopers.support.error.CoreException;
@@ -27,12 +30,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-class OrderApplicationServiceTest {
+class OrderFacadeTest {
 
     private OrderRepository orderRepository;
     private ProductRepository productRepository;
     private UserRepository userRepository;
-    private OrderApplicationService orderApplicationService;
+    private CouponRepository couponRepository;
+    private CouponIssueRepository couponIssueRepository;
+    private OrderFacade orderFacade;
 
     private final Long userId = 1L;
     private final Long productId = 10L;
@@ -42,11 +47,24 @@ class OrderApplicationServiceTest {
         orderRepository = mock(OrderRepository.class);
         productRepository = mock(ProductRepository.class);
         userRepository = mock(UserRepository.class);
-        orderApplicationService = new OrderApplicationService(
+        couponRepository = mock(CouponRepository.class);
+        couponIssueRepository = mock(CouponIssueRepository.class);
+        OrderService orderService = new OrderService();
+        OrderPlacementTxService orderPlacementTxService = new OrderPlacementTxService(
+            orderRepository,
+            productRepository,
+            couponRepository,
+            couponIssueRepository,
+            orderService
+        );
+        orderFacade = new OrderFacade(
             orderRepository,
             productRepository,
             userRepository,
-            new OrderDomainService()
+            couponRepository,
+            couponIssueRepository,
+            orderService,
+            orderPlacementTxService
         );
     }
 
@@ -56,15 +74,16 @@ class OrderApplicationServiceTest {
         User user = mock(User.class);
         Product product = mock(Product.class);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(productRepository.findAllByIds(any())).thenReturn(List.of(product));
         when(product.getId()).thenReturn(productId);
         when(product.getName()).thenReturn("주문 상품");
         when(product.getPrice()).thenReturn(BigDecimal.valueOf(12000));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        OrderDto.OrderInfo result = orderApplicationService.placeOrder(
+        OrderDto.OrderInfo result = orderFacade.placeOrder(
             userId,
-            List.of(new OrderDto.OrderLineCommand(productId, 2))
+            List.of(new OrderDto.OrderLineCommand(productId, 2)),
+            null
         );
 
         assertThat(result.userId()).isEqualTo(userId);
@@ -82,9 +101,10 @@ class OrderApplicationServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
-            orderApplicationService.placeOrder(
+            orderFacade.placeOrder(
                 userId,
-                List.of(new OrderDto.OrderLineCommand(productId, 1))
+                List.of(new OrderDto.OrderLineCommand(productId, 1)),
+                null
             )
         ).isInstanceOf(CoreException.class)
          .satisfies(e -> assertThat(((CoreException) e).getErrorType())
@@ -97,15 +117,20 @@ class OrderApplicationServiceTest {
     @Test
     void placeOrder_fail_insufficientStock() {
         User user = mock(User.class);
-        Product product = Product.create(1L, "신발", "설명", BigDecimal.valueOf(10000), 0);
+        Product product = mock(Product.class);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(productRepository.findAllByIds(any())).thenReturn(List.of(product));
+        when(product.getId()).thenReturn(productId);
+        when(product.getName()).thenReturn("신발");
+        when(product.getPrice()).thenReturn(BigDecimal.valueOf(10000));
+        doThrow(new ProductInsufficientStockException()).when(product).decreaseStock(1);
 
         assertThatThrownBy(() ->
-            orderApplicationService.placeOrder(
+            orderFacade.placeOrder(
                 userId,
-                List.of(new OrderDto.OrderLineCommand(productId, 1))
+                List.of(new OrderDto.OrderLineCommand(productId, 1)),
+                null
             )
         ).isInstanceOf(CoreException.class)
          .satisfies(e -> assertThat(((CoreException) e).getErrorType())
@@ -120,12 +145,13 @@ class OrderApplicationServiceTest {
     void placeOrder_fail_productNotFound() {
         User user = mock(User.class);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(productRepository.findById(productId)).thenReturn(Optional.empty());
+        when(productRepository.findAllByIds(any())).thenReturn(List.of());
 
         assertThatThrownBy(() ->
-            orderApplicationService.placeOrder(
+            orderFacade.placeOrder(
                 userId,
-                List.of(new OrderDto.OrderLineCommand(productId, 1))
+                List.of(new OrderDto.OrderLineCommand(productId, 1)),
+                null
             )
         ).isInstanceOf(CoreException.class)
          .satisfies(e -> assertThat(((CoreException) e).getErrorType())
@@ -140,7 +166,7 @@ class OrderApplicationServiceTest {
         Order order = createOrder(userId, productId, 1, BigDecimal.valueOf(5000));
         when(orderRepository.findByIdAndUserId(100L, userId)).thenReturn(Optional.of(order));
 
-        OrderDto.OrderInfo result = orderApplicationService.getOrder(userId, 100L);
+        OrderDto.OrderInfo result = orderFacade.getOrder(userId, 100L);
 
         assertThat(result.userId()).isEqualTo(userId);
         assertThat(result.items()).hasSize(1);
@@ -152,7 +178,7 @@ class OrderApplicationServiceTest {
     void getOrder_fail_notFound() {
         when(orderRepository.findByIdAndUserId(100L, userId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> orderApplicationService.getOrder(userId, 100L))
+        assertThatThrownBy(() -> orderFacade.getOrder(userId, 100L))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.ORDER_NOT_FOUND));
@@ -168,7 +194,7 @@ class OrderApplicationServiceTest {
 
         when(orderRepository.findByUserIdAndDateRange(userId, startAt, endAt)).thenReturn(List.of(order1, order2));
 
-        List<OrderDto.OrderInfo> result = orderApplicationService.getOrders(userId, startAt, endAt);
+        List<OrderDto.OrderInfo> result = orderFacade.getOrders(userId, startAt, endAt);
 
         assertThat(result).hasSize(2);
     }
@@ -180,7 +206,7 @@ class OrderApplicationServiceTest {
         Order order = createOrder(userId, productId, 1, BigDecimal.valueOf(1000));
         when(orderRepository.findAll(pageable)).thenReturn(new PageImpl<>(List.of(order)));
 
-        Page<OrderDto.OrderInfo> result = orderApplicationService.getAdminOrders(pageable);
+        Page<OrderDto.OrderInfo> result = orderFacade.getAdminOrders(pageable);
 
         assertThat(result.getTotalElements()).isEqualTo(1);
     }
@@ -197,7 +223,7 @@ class OrderApplicationServiceTest {
         when(orderRepository.save(order)).thenReturn(order);
         when(productRepository.save(product)).thenReturn(product);
 
-        OrderDto.OrderInfo result = orderApplicationService.cancelOrder(userId, 100L);
+        OrderDto.OrderInfo result = orderFacade.cancelOrder(userId, 100L);
 
         assertThat(result.status()).isEqualTo(com.loopers.domain.order.OrderStatus.CANCELLED);
         verify(product).increaseStock(2);
@@ -216,7 +242,7 @@ class OrderApplicationServiceTest {
         when(orderRepository.findByIdAndUserId(100L, userId)).thenReturn(Optional.of(order));
         when(productRepository.findById(productId)).thenReturn(Optional.of(product));
 
-        OrderDto.OrderInfo result = orderApplicationService.cancelOrder(userId, 100L);
+        OrderDto.OrderInfo result = orderFacade.cancelOrder(userId, 100L);
 
         assertThat(result.status()).isEqualTo(com.loopers.domain.order.OrderStatus.CANCELLED);
         verify(product, never()).increaseStock(anyInt());
@@ -228,7 +254,7 @@ class OrderApplicationServiceTest {
     void cancelOrder_fail_notFound() {
         when(orderRepository.findByIdAndUserId(100L, userId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> orderApplicationService.cancelOrder(userId, 100L))
+        assertThatThrownBy(() -> orderFacade.cancelOrder(userId, 100L))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.ORDER_NOT_FOUND));

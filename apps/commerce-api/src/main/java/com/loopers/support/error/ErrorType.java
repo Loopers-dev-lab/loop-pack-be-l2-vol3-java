@@ -32,7 +32,11 @@ public enum ErrorType {
     // Order 도메인
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "주문을 찾을 수 없습니다."),
     ORDER_EMPTY_ITEMS(HttpStatus.BAD_REQUEST, "ORDER_EMPTY_ITEMS", "주문 항목은 1개 이상이어야 합니다."),
-    ORDER_INVALID_STATUS_TRANSITION(HttpStatus.BAD_REQUEST, "ORDER_INVALID_STATUS_TRANSITION", "주문 상태를 변경할 수 없습니다.");
+    ORDER_INVALID_STATUS_TRANSITION(HttpStatus.BAD_REQUEST, "ORDER_INVALID_STATUS_TRANSITION", "주문 상태를 변경할 수 없습니다."),
+
+    // Coupon 도메인
+    COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND", "쿠폰을 찾을 수 없습니다."),
+    COUPON_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "COUPON_NOT_AVAILABLE", "사용할 수 없는 쿠폰입니다.");
 
     private final HttpStatus status;
     private final String code;

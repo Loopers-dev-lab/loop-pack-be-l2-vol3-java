@@ -3,7 +3,7 @@ package com.loopers.application.like;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.like.Like;
-import com.loopers.domain.like.LikeDomainService;
+import com.loopers.domain.like.LikeService;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
@@ -29,13 +29,13 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class LikeApplicationService {
+public class LikeFacade {
 
     private final LikeRepository likeRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final BrandRepository brandRepository;
-    private final LikeDomainService likeDomainService;
+    private final LikeService likeService;
 
     @Transactional
     @Retryable(
@@ -45,7 +45,7 @@ public class LikeApplicationService {
             DataIntegrityViolationException.class
         },
         maxAttempts = 3,
-        backoff = @Backoff(delay = 30)
+        backoff = @Backoff(delay = 100, multiplier = 2.0)
     )
     public LikeDto.LikeInfo like(Long userId, Long productId) {
         return likeWithStatus(userId, productId).like();
@@ -59,7 +59,7 @@ public class LikeApplicationService {
             DataIntegrityViolationException.class
         },
         maxAttempts = 3,
-        backoff = @Backoff(delay = 30)
+        backoff = @Backoff(delay = 100, multiplier = 2.0)
     )
     public LikeDto.LikeResult likeWithStatus(Long userId, Long productId) {
         userRepository.findById(userId)
@@ -71,7 +71,7 @@ public class LikeApplicationService {
         Like existing = likeRepository.findByUserIdAndProductIdIncludingDeleted(userId, productId)
             .orElse(null);
 
-        LikeDomainService.LikeProcessResult result = likeDomainService.like(userId, productId, existing);
+        LikeService.LikeProcessResult result = likeService.like(userId, productId, existing);
 
         if (!result.requiresPersistence()) {
             return new LikeDto.LikeResult(LikeDto.LikeInfo.from(result.like()), true);
@@ -90,7 +90,7 @@ public class LikeApplicationService {
             OptimisticLockException.class
         },
         maxAttempts = 3,
-        backoff = @Backoff(delay = 30)
+        backoff = @Backoff(delay = 100, multiplier = 2.0)
     )
     public void unlike(Long userId, Long productId) {
         userRepository.findById(userId)
@@ -102,7 +102,7 @@ public class LikeApplicationService {
         Like like = likeRepository.findByUserIdAndProductId(userId, productId)
             .orElse(null);
 
-        if (!likeDomainService.unlike(like)) {
+        if (!likeService.unlike(like)) {
             return;
         }
 

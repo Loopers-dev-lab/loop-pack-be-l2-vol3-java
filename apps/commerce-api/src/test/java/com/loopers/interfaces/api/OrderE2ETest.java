@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.application.user.UserApplicationService;
+import com.loopers.application.user.UserFacade;
 import com.loopers.application.user.UserDto;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandDescription;
@@ -42,7 +42,7 @@ class OrderE2ETest {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private UserApplicationService userApplicationService;
+    private UserFacade userFacade;
 
     @Autowired
     private BrandJpaRepository brandJpaRepository;
@@ -58,7 +58,7 @@ class OrderE2ETest {
 
     @BeforeEach
     void setUp() {
-        UserDto.UserInfo user = userApplicationService.register(
+        UserDto.UserInfo user = userFacade.register(
             "orderapi1",
             "TestPass1!",
             "오더사용자",

@@ -17,23 +17,23 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-class UserApplicationServiceTest {
+class UserFacadeTest {
 
-    private UserApplicationService userApplicationService;
+    private UserFacade userFacade;
     private UserRepository userRepository;
     private PasswordEncryptor passwordEncryptor;
-    private UserDomainService userDomainService;
+    private UserService userService;
 
     @BeforeEach
     void setUp() {
         userRepository = mock(UserRepository.class);
         passwordEncryptor = mock(PasswordEncryptor.class);
-        userDomainService = new UserDomainService();
+        userService = new UserService();
 
-        userApplicationService = new UserApplicationService(
+        userFacade = new UserFacade(
             userRepository,
             passwordEncryptor,
-            userDomainService
+            userService
         );
     }
 
@@ -53,7 +53,7 @@ class UserApplicationServiceTest {
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
-        UserDto.UserInfo userInfo = userApplicationService.register(loginId, password, name, birthDate, email, gender);
+        UserDto.UserInfo userInfo = userFacade.register(loginId, password, name, birthDate, email, gender);
 
         // then
         assertThat(userInfo).isNotNull();
@@ -81,7 +81,7 @@ class UserApplicationServiceTest {
 
         // when & then
         assertThatThrownBy(() ->
-            userApplicationService.register(duplicateLoginId, password, name, birthDate, email, gender)
+            userFacade.register(duplicateLoginId, password, name, birthDate, email, gender)
         )
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
@@ -107,7 +107,7 @@ class UserApplicationServiceTest {
 
         // when & then
         assertThatThrownBy(() ->
-            userApplicationService.register(loginId, invalidPassword, name, birthDate, email, gender)
+            userFacade.register(loginId, invalidPassword, name, birthDate, email, gender)
         )
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("생년월일은 비밀번호 내에 포함될 수 없습니다");
@@ -126,7 +126,7 @@ class UserApplicationServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(expectedUser));
 
         // when
-        Optional<UserDto.UserInfo> result = userApplicationService.getUserInfo(userId);
+        Optional<UserDto.UserInfo> result = userFacade.getUserInfo(userId);
 
         // then
         assertThat(result).isPresent();
@@ -145,7 +145,7 @@ class UserApplicationServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
         // when
-        Optional<UserDto.UserInfo> result = userApplicationService.getUserInfo(userId);
+        Optional<UserDto.UserInfo> result = userFacade.getUserInfo(userId);
 
         // then
         assertThat(result).isEmpty();
@@ -168,10 +168,10 @@ class UserApplicationServiceTest {
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
-        userApplicationService.changePassword(userId, oldPassword, newPassword);
+        userFacade.changePassword(userId, oldPassword, newPassword);
 
         // then
-        // UserDomainService에서 비밀번호 변경 로직을 이미 테스트했으므로,
+        // UserService에서 비밀번호 변경 로직을 이미 테스트했으므로,
         // 여기서는 올바른 순서로 메서드가 호출되었는지만 검증
         verify(userRepository).findById(userId);
         verify(passwordEncryptor).matches(oldPassword, "ENCRYPTED_OldPassword1!");
@@ -191,7 +191,7 @@ class UserApplicationServiceTest {
 
         // when & then
         assertThatThrownBy(() ->
-            userApplicationService.changePassword(userId, oldPassword, newPassword)
+            userFacade.changePassword(userId, oldPassword, newPassword)
         )
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
@@ -215,7 +215,7 @@ class UserApplicationServiceTest {
 
         // when & then
         assertThatThrownBy(() ->
-            userApplicationService.changePassword(userId, wrongOldPassword, newPassword)
+            userFacade.changePassword(userId, wrongOldPassword, newPassword)
         )
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
@@ -241,7 +241,7 @@ class UserApplicationServiceTest {
 
         // when & then
         assertThatThrownBy(() ->
-            userApplicationService.changePassword(userId, oldPassword, invalidNewPassword)
+            userFacade.changePassword(userId, oldPassword, invalidNewPassword)
         )
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("생년월일은 비밀번호 내에 포함될 수 없습니다");

@@ -38,6 +38,11 @@ public class ProductRepositoryAdapter implements ProductRepository {
     }
 
     @Override
+    public List<Product> findAllByIds(Collection<Long> productIds) {
+        return productJpaRepository.findAllByIdInAndDeletedAtIsNull(productIds);
+    }
+
+    @Override
     public List<Product> findAllByIdsIncludingDeleted(Collection<Long> productIds) {
         return productJpaRepository.findAllByIdIn(productIds);
     }

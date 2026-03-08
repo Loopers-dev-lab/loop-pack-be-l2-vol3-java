@@ -5,7 +5,7 @@ import com.loopers.domain.brand.BrandDescription;
 import com.loopers.domain.brand.BrandName;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductDomainService;
+import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -26,11 +26,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.*;
 
-class ProductApplicationServiceTest {
+class ProductFacadeTest {
 
     private ProductRepository productRepository;
     private BrandRepository brandRepository;
-    private ProductApplicationService productApplicationService;
+    private ProductFacade productFacade;
 
     private Brand brand;
 
@@ -38,10 +38,10 @@ class ProductApplicationServiceTest {
     void setUp() {
         productRepository = mock(ProductRepository.class);
         brandRepository = mock(BrandRepository.class);
-        productApplicationService = new ProductApplicationService(
+        productFacade = new ProductFacade(
             productRepository,
             brandRepository,
-            new ProductDomainService()
+            new ProductService()
         );
 
         brand = Brand.create(new BrandName("LOOPERS"), new BrandDescription("루퍼스 브랜드"));
@@ -58,7 +58,7 @@ class ProductApplicationServiceTest {
         when(brandRepository.findById(brandId)).thenReturn(Optional.of(brand));
         when(productRepository.save(any(Product.class))).thenReturn(product);
 
-        ProductDto.ProductInfo result = productApplicationService.register(
+        ProductDto.ProductInfo result = productFacade.register(
             brandId, "신발", "설명", BigDecimal.valueOf(50000), 100
         );
 
@@ -75,7 +75,7 @@ class ProductApplicationServiceTest {
         when(brandRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
-            productApplicationService.register(99L, "신발", "설명", BigDecimal.valueOf(50000), 100)
+            productFacade.register(99L, "신발", "설명", BigDecimal.valueOf(50000), 100)
         ).isInstanceOf(CoreException.class)
          .satisfies(e -> assertThat(((CoreException) e).getErrorType())
              .isEqualTo(ErrorType.BRAND_NOT_FOUND));
@@ -96,7 +96,7 @@ class ProductApplicationServiceTest {
         when(productRepository.findAll(any(PageRequest.class))).thenReturn(new PageImpl<>(List.of(product)));
         when(brandRepository.findAllByIds(anyCollection())).thenReturn(List.of(brand));
 
-        Page<ProductDto.ProductInfo> result = productApplicationService.getProducts(ProductSortType.LATEST, pageRequest);
+        Page<ProductDto.ProductInfo> result = productFacade.getProducts(ProductSortType.LATEST, pageRequest);
 
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent().getFirst().name()).isEqualTo("신발");
@@ -110,7 +110,7 @@ class ProductApplicationServiceTest {
         when(productRepository.findAll(any(PageRequest.class))).thenReturn(new PageImpl<>(List.of()));
         when(brandRepository.findAllByIds(anyCollection())).thenReturn(List.of());
 
-        productApplicationService.getProducts(ProductSortType.PRICE_ASC, pageRequest);
+        productFacade.getProducts(ProductSortType.PRICE_ASC, pageRequest);
 
         verify(productRepository).findAll(argThat((PageRequest pr) ->
             pr.getSort().getOrderFor("price") != null &&
@@ -125,7 +125,7 @@ class ProductApplicationServiceTest {
         when(productRepository.findAll(any(PageRequest.class))).thenReturn(new PageImpl<>(List.of()));
         when(brandRepository.findAllByIds(anyCollection())).thenReturn(List.of());
 
-        productApplicationService.getProducts(ProductSortType.LIKES_DESC, pageRequest);
+        productFacade.getProducts(ProductSortType.LIKES_DESC, pageRequest);
 
         verify(productRepository).findAll(argThat((PageRequest pr) ->
             pr.getSort().getOrderFor("likeCount") != null &&
@@ -147,7 +147,7 @@ class ProductApplicationServiceTest {
         when(productRepository.findByBrandId(eq(brandId), any(PageRequest.class)))
             .thenReturn(new PageImpl<>(List.of(product1, product2)));
 
-        Page<ProductDto.ProductInfo> result = productApplicationService.getProductsByBrand(
+        Page<ProductDto.ProductInfo> result = productFacade.getProductsByBrand(
             brandId, ProductSortType.LATEST, pageRequest
         );
 
@@ -162,7 +162,7 @@ class ProductApplicationServiceTest {
         when(brandRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
-            productApplicationService.getProductsByBrand(99L, ProductSortType.LATEST, PageRequest.of(0, 20))
+            productFacade.getProductsByBrand(99L, ProductSortType.LATEST, PageRequest.of(0, 20))
         ).isInstanceOf(CoreException.class)
          .satisfies(e -> assertThat(((CoreException) e).getErrorType())
              .isEqualTo(ErrorType.BRAND_NOT_FOUND));
@@ -179,7 +179,7 @@ class ProductApplicationServiceTest {
         when(productRepository.findById(productId)).thenReturn(Optional.of(product));
         when(brandRepository.findById(product.getBrandId())).thenReturn(Optional.of(brand));
 
-        ProductDto.ProductInfo result = productApplicationService.getProduct(productId);
+        ProductDto.ProductInfo result = productFacade.getProduct(productId);
 
         assertThat(result.name()).isEqualTo("신발");
         assertThat(result.brandName()).isEqualTo("LOOPERS");
@@ -190,7 +190,7 @@ class ProductApplicationServiceTest {
     void getProduct_fail_notFound() {
         when(productRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> productApplicationService.getProduct(99L))
+        assertThatThrownBy(() -> productFacade.getProduct(99L))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
@@ -208,7 +208,7 @@ class ProductApplicationServiceTest {
         when(productRepository.save(product)).thenReturn(product);
         when(brandRepository.findById(product.getBrandId())).thenReturn(Optional.of(brand));
 
-        ProductDto.ProductInfo result = productApplicationService.increaseStock(productId, 5);
+        ProductDto.ProductInfo result = productFacade.increaseStock(productId, 5);
 
         assertThat(result.stock()).isEqualTo(15);
         assertThat(result.brandName()).isEqualTo("LOOPERS");
@@ -219,7 +219,7 @@ class ProductApplicationServiceTest {
     void increaseStock_fail_productNotFound() {
         when(productRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> productApplicationService.increaseStock(99L, 5))
+        assertThatThrownBy(() -> productFacade.increaseStock(99L, 5))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
@@ -232,7 +232,7 @@ class ProductApplicationServiceTest {
         Product product = Product.create(1L, "신발", "설명", BigDecimal.valueOf(50000), 10);
         when(productRepository.findById(productId)).thenReturn(Optional.of(product));
 
-        assertThatThrownBy(() -> productApplicationService.increaseStock(productId, 0))
+        assertThatThrownBy(() -> productFacade.increaseStock(productId, 0))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("수량은 1 이상이어야 합니다");
     }
@@ -249,7 +249,7 @@ class ProductApplicationServiceTest {
         when(productRepository.save(product)).thenReturn(product);
         when(brandRepository.findById(product.getBrandId())).thenReturn(Optional.of(brand));
 
-        ProductDto.ProductInfo result = productApplicationService.decreaseStock(productId, 3);
+        ProductDto.ProductInfo result = productFacade.decreaseStock(productId, 3);
 
         assertThat(result.stock()).isEqualTo(7);
         assertThat(result.stock()).isGreaterThanOrEqualTo(0);
@@ -262,7 +262,7 @@ class ProductApplicationServiceTest {
         Product product = Product.create(1L, "신발", "설명", BigDecimal.valueOf(50000), 2);
         when(productRepository.findById(productId)).thenReturn(Optional.of(product));
 
-        assertThatThrownBy(() -> productApplicationService.decreaseStock(productId, 5))
+        assertThatThrownBy(() -> productFacade.decreaseStock(productId, 5))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.PRODUCT_INSUFFICIENT_STOCK));
@@ -273,7 +273,7 @@ class ProductApplicationServiceTest {
     void decreaseStock_fail_productNotFound() {
         when(productRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> productApplicationService.decreaseStock(99L, 3))
+        assertThatThrownBy(() -> productFacade.decreaseStock(99L, 3))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
@@ -288,7 +288,7 @@ class ProductApplicationServiceTest {
         Product product = Product.create(1L, "신발", "설명", BigDecimal.valueOf(50000), 10);
         when(productRepository.findById(productId)).thenReturn(Optional.of(product));
 
-        productApplicationService.delete(productId);
+        productFacade.delete(productId);
 
         assertThat(product.isDeleted()).isTrue();
         verify(productRepository).save(product);
@@ -299,7 +299,7 @@ class ProductApplicationServiceTest {
     void delete_fail_notFound() {
         when(productRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> productApplicationService.delete(99L))
+        assertThatThrownBy(() -> productFacade.delete(99L))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
@@ -318,7 +318,7 @@ class ProductApplicationServiceTest {
         when(productRepository.save(product)).thenReturn(product);
         when(brandRepository.findByIdIncludingDeleted(product.getBrandId())).thenReturn(Optional.of(brand));
 
-        ProductDto.ProductInfo result = productApplicationService.restore(productId);
+        ProductDto.ProductInfo result = productFacade.restore(productId);
 
         assertThat(result.isDeleted()).isFalse();
         assertThat(result.brandName()).isEqualTo("LOOPERS");
@@ -329,7 +329,7 @@ class ProductApplicationServiceTest {
     void restore_fail_notFound() {
         when(productRepository.findByIdIncludingDeleted(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> productApplicationService.restore(99L))
+        assertThatThrownBy(() -> productFacade.restore(99L))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
@@ -342,7 +342,7 @@ class ProductApplicationServiceTest {
         Product product = Product.create(1L, "신발", "설명", BigDecimal.valueOf(50000), 10);
         when(productRepository.findByIdIncludingDeleted(productId)).thenReturn(Optional.of(product));
 
-        assertThatThrownBy(() -> productApplicationService.restore(productId))
+        assertThatThrownBy(() -> productFacade.restore(productId))
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.PRODUCT_NOT_DELETED));

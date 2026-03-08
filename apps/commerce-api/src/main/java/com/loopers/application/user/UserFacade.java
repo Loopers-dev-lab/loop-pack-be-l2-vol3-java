@@ -23,11 +23,11 @@ import java.util.Optional;
  */
 @Service
 @RequiredArgsConstructor
-public class UserApplicationService {
+public class UserFacade {
 
     private final UserRepository userRepository;
     private final PasswordEncryptor passwordEncryptor;
-    private final UserDomainService userDomainService;
+    private final UserService userService;
 
     /**
      * 신규 사용자를 등록합니다.
@@ -58,7 +58,7 @@ public class UserApplicationService {
 
         // 2. 도메인 서비스를 통한 User 생성
         RawPassword rawPassword = new RawPassword(password);
-        User user = userDomainService.createUser(
+        User user = userService.createUser(
             loginId,
             rawPassword,
             name,
@@ -108,7 +108,7 @@ public class UserApplicationService {
         RawPassword rawNewPassword = new RawPassword(newPassword);
 
         try {
-            userDomainService.updatePassword(user, rawOldPassword, rawNewPassword, passwordEncryptor);
+            userService.updatePassword(user, rawOldPassword, rawNewPassword, passwordEncryptor);
         } catch (InvalidPasswordException e) {
             throw new CoreException(ErrorType.INVALID_PASSWORD);
         }

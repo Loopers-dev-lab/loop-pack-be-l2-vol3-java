@@ -17,7 +17,9 @@ public class OrderV1Dto {
     public record CreateRequest(
         @NotEmpty(message = "주문 항목은 1개 이상이어야 합니다")
         @Valid
-        List<OrderItemRequest> items
+        List<OrderItemRequest> items,
+
+        Long couponId
     ) {
     }
 
@@ -55,6 +57,8 @@ public class OrderV1Dto {
     public record OrderResponse(
         Long id,
         Long userId,
+        Long couponId,
+        BigDecimal discountAmount,
         OrderStatus status,
         BigDecimal totalAmount,
         ZonedDateTime createdAt,
@@ -64,6 +68,8 @@ public class OrderV1Dto {
             return new OrderResponse(
                 orderInfo.id(),
                 orderInfo.userId(),
+                orderInfo.couponId(),
+                orderInfo.discountAmount(),
                 orderInfo.status(),
                 orderInfo.totalAmount(),
                 orderInfo.createdAt(),

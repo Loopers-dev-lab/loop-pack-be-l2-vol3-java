@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api;
 
-import com.loopers.application.user.UserApplicationService;
+import com.loopers.application.user.UserFacade;
 import com.loopers.application.user.UserDto;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandDescription;
@@ -35,7 +35,7 @@ class LikeE2ETest {
     private MockMvc mockMvc;
 
     @Autowired
-    private UserApplicationService userApplicationService;
+    private UserFacade userFacade;
 
     @Autowired
     private BrandJpaRepository brandJpaRepository;
@@ -51,7 +51,7 @@ class LikeE2ETest {
 
     @BeforeEach
     void setUp() {
-        UserDto.UserInfo user = userApplicationService.register(
+        UserDto.UserInfo user = userFacade.register(
             "likeuser1",
             "TestPass1!",
             "좋아요유저",
@@ -108,8 +108,7 @@ class LikeE2ETest {
         mockMvc.perform(delete("/api/v1/products/" + productId + "/likes")
                 .header("X-Loopers-User-Id", userId))
             .andDo(print())
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.meta.result").value("SUCCESS"));
+            .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/api/v1/users/" + userId + "/likes")
                 .header("X-Loopers-User-Id", userId)
@@ -124,7 +123,7 @@ class LikeE2ETest {
     @DisplayName("GET /users/{userId}/likes: 다른 유저의 좋아요 목록은 조회할 수 없다")
     @Test
     void like_list_forbidden_for_other_user() throws Exception {
-        UserDto.UserInfo another = userApplicationService.register(
+        UserDto.UserInfo another = userFacade.register(
             "likeuser2",
             "TestPass2!",
             "다른유저",

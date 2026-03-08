@@ -14,7 +14,7 @@ import java.time.LocalDate;
  * - 순수 도메인 로직만 포함
  */
 @Component
-public class UserDomainService {
+public class UserService {
 
     /**
      * 새로운 사용자를 생성합니다.

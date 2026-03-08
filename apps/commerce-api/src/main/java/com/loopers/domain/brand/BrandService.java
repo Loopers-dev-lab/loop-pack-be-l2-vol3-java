@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
  * 엔티티 단독으로 두기 애매한 브랜드 도메인 규칙을 담당한다.
  */
 @Component
-public class BrandDomainService {
+public class BrandService {
 
     public Brand createBrand(BrandName name, BrandDescription description) {
         return Brand.create(name, description);

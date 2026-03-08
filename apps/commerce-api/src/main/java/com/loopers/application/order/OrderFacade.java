@@ -1,14 +1,12 @@
 package com.loopers.application.order;
 
+import com.loopers.domain.coupon.CouponIssueRepository;
+import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.order.Order;
-import com.loopers.domain.order.OrderDomainService;
-import com.loopers.domain.order.OrderItem;
+import com.loopers.domain.order.OrderService;
 import com.loopers.domain.order.OrderRepository;
-import com.loopers.domain.order.exception.EmptyOrderItemException;
-import com.loopers.domain.order.exception.InvalidOrderStatusTransitionException;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
-import com.loopers.domain.product.exception.ProductInsufficientStockException;
 import com.loopers.domain.user.UserRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -24,70 +22,36 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-public class OrderApplicationService {
+public class OrderFacade {
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
-    private final OrderDomainService orderDomainService;
+    private final CouponRepository couponRepository;
+    private final CouponIssueRepository couponIssueRepository;
+    private final OrderService orderService;
+    private final OrderPlacementTxService orderPlacementTxService;
 
-    @Transactional
     @Retryable(
         retryFor = {
             ObjectOptimisticLockingFailureException.class,
             OptimisticLockException.class
         },
         maxAttempts = 3,
-        backoff = @Backoff(delay = 30)
+        backoff = @Backoff(delay = 100, multiplier = 2.0)
     )
-    public OrderDto.OrderInfo placeOrder(Long userId, List<OrderDto.OrderLineCommand> items) {
+    public OrderDto.OrderInfo placeOrder(Long userId, List<OrderDto.OrderLineCommand> items, Long couponIssueId) {
         userRepository.findById(userId)
             .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
 
-        List<OrderItem> orderItems = new ArrayList<>();
-        Map<Long, Product> touchedProducts = new LinkedHashMap<>();
-
-        if (items != null) {
-            for (OrderDto.OrderLineCommand item : items) {
-                if (item == null || item.productId() == null) {
-                    throw new IllegalArgumentException("상품 ID는 필수입니다");
-                }
-
-                Product product = productRepository.findById(item.productId())
-                    .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
-
-                try {
-                    product.decreaseStock(item.quantity());
-                } catch (ProductInsufficientStockException e) {
-                    throw new CoreException(ErrorType.PRODUCT_INSUFFICIENT_STOCK);
-                }
-                orderItems.add(OrderItem.createSnapshot(
-                    product.getId(), product.getName(), product.getPrice(), item.quantity()
-                ));
-                touchedProducts.put(product.getId(), product);
-            }
-        }
-
-        Order order;
-        try {
-            order = orderDomainService.createOrder(userId, orderItems);
-        } catch (EmptyOrderItemException e) {
-            throw new CoreException(ErrorType.ORDER_EMPTY_ITEMS);
-        }
-        Order savedOrder = orderRepository.save(order);
-
-        for (Product touchedProduct : touchedProducts.values()) {
-            productRepository.save(touchedProduct);
-        }
-
-        return OrderDto.OrderInfo.from(savedOrder);
+        validatePlaceOrderItems(items);
+        return orderPlacementTxService.placeOrder(userId, items, couponIssueId);
     }
 
     @Transactional(readOnly = true)
@@ -104,7 +68,7 @@ public class OrderApplicationService {
             OptimisticLockException.class
         },
         maxAttempts = 3,
-        backoff = @Backoff(delay = 30)
+        backoff = @Backoff(delay = 100, multiplier = 2.0)
     )
     public OrderDto.OrderInfo cancelOrder(Long userId, Long orderId) {
         Order order = orderRepository.findByIdAndUserId(orderId, userId)
@@ -117,7 +81,7 @@ public class OrderApplicationService {
             touchedProducts.put(product.getId(), product);
         }
 
-        if (!orderDomainService.cancelOrder(order)) {
+        if (!orderService.cancelOrder(order)) {
             return OrderDto.OrderInfo.from(order);
         }
 
@@ -125,6 +89,13 @@ public class OrderApplicationService {
             Product product = touchedProducts.get(orderItem.getProductId());
             product.increaseStock(orderItem.getQuantity());
             productRepository.save(product);
+        }
+
+        if (order.getCouponId() != null) {
+            couponIssueRepository.findByIdAndUserId(order.getCouponId(), userId).ifPresent(issue -> {
+                issue.revoke();
+                couponIssueRepository.save(issue);
+            });
         }
 
         Order savedOrder = orderRepository.save(order);
@@ -158,5 +129,16 @@ public class OrderApplicationService {
         Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
         return OrderDto.OrderInfo.from(order);
+    }
+
+    private void validatePlaceOrderItems(List<OrderDto.OrderLineCommand> items) {
+        if (items == null) {
+            return;
+        }
+        for (OrderDto.OrderLineCommand item : items) {
+            if (item == null || item.productId() == null) {
+                throw new IllegalArgumentException("상품 ID는 필수입니다");
+            }
+        }
     }
 }

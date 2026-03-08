@@ -3,7 +3,7 @@ package com.loopers.application.product;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductDomainService;
+import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.exception.ProductInsufficientStockException;
 import com.loopers.domain.product.exception.ProductNotDeletedException;
@@ -23,11 +23,11 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class ProductApplicationService {
+public class ProductFacade {
 
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
-    private final ProductDomainService productDomainService;
+    private final ProductService productService;
 
     @Transactional
     public ProductDto.ProductInfo register(Long brandId, String name, String description, BigDecimal price, Integer stock) {
@@ -39,7 +39,7 @@ public class ProductApplicationService {
             throw new CoreException(ErrorType.DUPLICATE_PRODUCT_NAME);
         }
 
-        Product product = productDomainService.createProduct(brandId, normalizedName, description, price, stock);
+        Product product = productService.createProduct(brandId, normalizedName, description, price, stock);
         Product saved = productRepository.save(product);
         return ProductDto.ProductInfo.of(saved, brand.getName());
     }
@@ -54,7 +54,7 @@ public class ProductApplicationService {
             throw new CoreException(ErrorType.DUPLICATE_PRODUCT_NAME);
         }
 
-        productDomainService.updateProduct(product, normalizedName, description, price, stock);
+        productService.updateProduct(product, normalizedName, description, price, stock);
         Product saved = productRepository.save(product);
         Brand brand = brandRepository.findById(saved.getBrandId())
             .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
@@ -101,7 +101,7 @@ public class ProductApplicationService {
     public ProductDto.ProductInfo increaseStock(Long productId, Integer quantity) {
         Product product = productRepository.findById(productId)
             .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
-        productDomainService.increaseStock(product, quantity);
+        productService.increaseStock(product, quantity);
         Product saved = productRepository.save(product);
         Brand brand = brandRepository.findById(saved.getBrandId())
             .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
@@ -113,7 +113,7 @@ public class ProductApplicationService {
         Product product = productRepository.findById(productId)
             .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
         try {
-            productDomainService.decreaseStock(product, quantity);
+            productService.decreaseStock(product, quantity);
         } catch (ProductInsufficientStockException e) {
             throw new CoreException(ErrorType.PRODUCT_INSUFFICIENT_STOCK);
         }
@@ -127,7 +127,7 @@ public class ProductApplicationService {
     public void delete(Long productId) {
         Product product = productRepository.findById(productId)
             .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
-        productDomainService.deleteProduct(product);
+        productService.deleteProduct(product);
         productRepository.save(product);
     }
 
@@ -137,7 +137,7 @@ public class ProductApplicationService {
             .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
 
         try {
-            productDomainService.restoreProduct(product, productId);
+            productService.restoreProduct(product, productId);
         } catch (ProductNotDeletedException e) {
             throw new CoreException(ErrorType.PRODUCT_NOT_DELETED);
         }

@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.product;
 
-import com.loopers.application.product.ProductApplicationService;
+import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductDto;
 import com.loopers.application.product.ProductSortType;
 import com.loopers.interfaces.api.ApiResponse;
@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 public class ProductV1Controller {
 
-    private final ProductApplicationService productApplicationService;
+    private final ProductFacade productFacade;
 
     @GetMapping("/api/v1/products")
     public ApiResponse<ProductV1Dto.ProductPageResponse> getProducts(
@@ -28,12 +28,12 @@ public class ProductV1Controller {
             if (brandId != null) {
                 return ApiResponse.success(
                     ProductV1Dto.ProductPageResponse.from(
-                        productApplicationService.getProductsByBrand(brandId, sortType, pageable)
+                        productFacade.getProductsByBrand(brandId, sortType, pageable)
                     )
                 );
             }
             return ApiResponse.success(ProductV1Dto.ProductPageResponse.from(
-                productApplicationService.getProducts(sortType, pageable)
+                productFacade.getProducts(sortType, pageable)
             ));
         } catch (IllegalArgumentException e) {
             throw new CoreException(ErrorType.BAD_REQUEST, e.getMessage());
@@ -42,7 +42,7 @@ public class ProductV1Controller {
 
     @GetMapping("/api/v1/products/{productId}")
     public ApiResponse<ProductV1Dto.ProductResponse> getProduct(@PathVariable Long productId) {
-        ProductDto.ProductInfo product = productApplicationService.getProduct(productId);
+        ProductDto.ProductInfo product = productFacade.getProduct(productId);
         return ApiResponse.success(ProductV1Dto.ProductResponse.from(product));
     }
 
@@ -65,7 +65,7 @@ public class ProductV1Controller {
         @Valid @RequestBody ProductV1Dto.CreateRequest request
     ) {
         try {
-            ProductDto.ProductInfo product = productApplicationService.register(
+            ProductDto.ProductInfo product = productFacade.register(
                 request.brandId(),
                 request.name(),
                 request.description(),
@@ -84,7 +84,7 @@ public class ProductV1Controller {
         @Valid @RequestBody ProductV1Dto.UpdateRequest request
     ) {
         try {
-            ProductDto.ProductInfo product = productApplicationService.update(
+            ProductDto.ProductInfo product = productFacade.update(
                 productId,
                 request.name(),
                 request.description(),
@@ -99,13 +99,13 @@ public class ProductV1Controller {
 
     @DeleteMapping("/api-admin/v1/products/{productId}")
     public ApiResponse<Void> deleteProduct(@PathVariable Long productId) {
-        productApplicationService.delete(productId);
+        productFacade.delete(productId);
         return ApiResponse.success(null);
     }
 
     @PostMapping("/api-admin/v1/products/{productId}/restore")
     public ApiResponse<ProductV1Dto.ProductResponse> restoreProduct(@PathVariable Long productId) {
-        ProductDto.ProductInfo product = productApplicationService.restore(productId);
+        ProductDto.ProductInfo product = productFacade.restore(productId);
         return ApiResponse.success(ProductV1Dto.ProductResponse.from(product));
     }
 }
