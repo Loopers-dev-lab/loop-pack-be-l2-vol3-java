@@ -145,7 +145,7 @@ public class IssuedCoupon {
         if (this.discountType == DiscountType.FIXED) {
             discount = this.discountValue;
         } else {
-            discount = orderAmount.percentage((int) this.discountValue.getAmount().longValue());
+            discount = orderAmount.percentage(this.discountValue.getAmount());
             if (this.maxDiscountAmount != null) {
                 discount = discount.min(this.maxDiscountAmount);
             }

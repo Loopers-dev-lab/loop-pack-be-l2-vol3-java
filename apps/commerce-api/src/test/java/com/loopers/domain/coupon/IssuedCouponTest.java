@@ -194,6 +194,15 @@ class IssuedCouponTest {
         }
 
         @Test
+        @DisplayName("만료된 쿠폰은 사용 검증 시 예외가 발생한다")
+        void validateUsableWithExpiredCoupon() {
+            IssuedCoupon issuedCoupon = IssuedCoupon.create(createExpiredCoupon(), 1L);
+
+            assertThatThrownBy(() -> issuedCoupon.validateUsable(Money.of(10000L)))
+                    .isInstanceOf(CoreException.class);
+        }
+
+        @Test
         @DisplayName("주문 금액이 부족하면 사용 검증 시 예외가 발생한다")
         void validateUsableWithInsufficientAmount() {
             Coupon coupon = Coupon.create("최소 주문 쿠폰", DiscountType.FIXED, Money.of(1000L),

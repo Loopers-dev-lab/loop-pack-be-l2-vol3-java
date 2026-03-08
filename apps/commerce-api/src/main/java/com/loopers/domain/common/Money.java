@@ -61,10 +61,14 @@ public class Money {
     }
 
     public Money percentage(int rate) {
-        if (rate < 0 || rate > 100) {
+        return percentage(BigDecimal.valueOf(rate));
+    }
+
+    public Money percentage(BigDecimal rate) {
+        if (rate.compareTo(BigDecimal.ZERO) < 0 || rate.compareTo(BigDecimal.valueOf(100)) > 0) {
             throw new CoreException(ErrorType.BAD_REQUEST, "할인율은 0~100 사이여야 합니다.");
         }
-        return new Money(this.amount.multiply(BigDecimal.valueOf(rate)).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.DOWN));
+        return new Money(this.amount.multiply(rate).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.DOWN));
     }
 
     public Money min(Money other) {

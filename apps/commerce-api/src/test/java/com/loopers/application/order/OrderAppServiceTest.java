@@ -8,6 +8,8 @@ import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.order.OrderStatus;
+import com.loopers.domain.coupon.IssuedCoupon;
+import com.loopers.domain.product.Option;
 import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 @DisplayName("OrderAppService 단위 테스트")
 class OrderAppServiceTest {
@@ -240,8 +243,12 @@ class OrderAppServiceTest {
         void cancel_fromPending() {
             // given
             Order order = createPendingOrder();
+            given(order.getIssuedCouponId()).willReturn(null);
             given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             given(order.getStatus()).willReturn(OrderStatus.CANCELED);
+
+            Option option = mock(Option.class);
+            given(productAppService.getOptionByIdWithLock(1L)).willReturn(option);
 
             // when
             Order result = orderAppService.cancel(1L);
@@ -257,7 +264,12 @@ class OrderAppServiceTest {
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
             given(order.getStatus()).willReturn(OrderStatus.CANCELED);
+            given(order.getIssuedCouponId()).willReturn(null);
+            given(order.getOrderItems()).willReturn(List.of(createTestOrderItem()));
             given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
+
+            Option option = mock(Option.class);
+            given(productAppService.getOptionByIdWithLock(1L)).willReturn(option);
 
             // when
             Order result = orderAppService.cancel(1L);
@@ -272,7 +284,13 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
+            given(order.getIssuedCouponId()).willReturn(null);
+            given(order.getOrderItems()).willReturn(List.of(createTestOrderItem()));
             given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
+
+            Option option = mock(Option.class);
+            given(productAppService.getOptionByIdWithLock(1L)).willReturn(option);
+
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다."))
                     .when(order).cancel();
 
@@ -288,7 +306,13 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
+            given(order.getIssuedCouponId()).willReturn(null);
+            given(order.getOrderItems()).willReturn(List.of(createTestOrderItem()));
             given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
+
+            Option option = mock(Option.class);
+            given(productAppService.getOptionByIdWithLock(1L)).willReturn(option);
+
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다."))
                     .when(order).cancel();
 
@@ -296,6 +320,32 @@ class OrderAppServiceTest {
             assertThatThrownBy(() -> orderAppService.cancel(1L))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining("취소할 수 없는 주문 상태입니다.");
+        }
+
+        @Test
+        @DisplayName("취소 시 쿠폰과 재고가 복원된다")
+        void cancel_restoresCouponAndStock() {
+            // given
+            OrderItem orderItem = createTestOrderItem();
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(1L);
+            given(order.getIssuedCouponId()).willReturn(10L);
+            given(order.getOrderItems()).willReturn(List.of(orderItem));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
+
+            IssuedCoupon issuedCoupon = mock(IssuedCoupon.class);
+            given(couponAppService.getIssuedCouponByIdWithLock(10L)).willReturn(issuedCoupon);
+
+            Option option = mock(Option.class);
+            given(productAppService.getOptionByIdWithLock(1L)).willReturn(option);
+
+            // when
+            orderAppService.cancel(1L);
+
+            // then
+            verify(issuedCoupon).restore();
+            verify(option).increaseStock(2);
+            verify(order).cancel();
         }
     }
 

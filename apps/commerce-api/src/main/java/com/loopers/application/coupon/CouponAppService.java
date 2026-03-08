@@ -106,7 +106,7 @@ public class CouponAppService {
         return issuedCoupons.stream()
                 .map(ic -> {
                     Coupon coupon = couponMap.get(ic.getCouponId());
-                    String couponName = coupon != null ? coupon.getName() : "";
+                    String couponName = coupon != null ? coupon.getName() : "(삭제된 쿠폰)";
                     return IssuedCouponInfo.of(ic, couponName);
                 })
                 .toList();

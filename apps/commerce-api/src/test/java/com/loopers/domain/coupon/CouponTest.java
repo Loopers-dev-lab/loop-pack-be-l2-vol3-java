@@ -200,5 +200,31 @@ class CouponTest {
             assertThatThrownBy(() -> coupon.validateUsable(Money.of(3000L)))
                     .isInstanceOf(CoreException.class);
         }
+
+        @Test
+        @DisplayName("유효 기간이 만료된 쿠폰은 사용할 수 없다")
+        void validateUsable_expired_throwsException() {
+            Coupon coupon = Coupon.create(
+                    "만료 쿠폰", DiscountType.FIXED, Money.of(1000L),
+                    Money.zero(), null, 100,
+                    ZonedDateTime.now().minusDays(30), ZonedDateTime.now().minusDays(1)
+            );
+
+            assertThatThrownBy(() -> coupon.validateUsable(Money.of(10000L)))
+                    .isInstanceOf(CoreException.class);
+        }
+
+        @Test
+        @DisplayName("유효 기간이 미도래한 쿠폰은 사용할 수 없다")
+        void validateUsable_notYetValid_throwsException() {
+            Coupon coupon = Coupon.create(
+                    "미래 쿠폰", DiscountType.FIXED, Money.of(1000L),
+                    Money.zero(), null, 100,
+                    ZonedDateTime.now().plusDays(10), ZonedDateTime.now().plusDays(30)
+            );
+
+            assertThatThrownBy(() -> coupon.validateUsable(Money.of(10000L)))
+                    .isInstanceOf(CoreException.class);
+        }
     }
 }

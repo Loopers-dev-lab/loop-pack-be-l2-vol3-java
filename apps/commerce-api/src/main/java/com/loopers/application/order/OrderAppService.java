@@ -106,40 +106,10 @@ public class OrderAppService {
 
     @Transactional
     public Order cancelOrder(Long userId, Long orderId) {
-        // 0. Order 락 획득
         Order order = orderRepository.findByIdWithLock(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
         order.validateOwner(userId);
-
-        // 1. IssuedCoupon 락 획득
-        IssuedCoupon issuedCoupon = null;
-        if (order.getIssuedCouponId() != null) {
-            issuedCoupon = couponAppService.getIssuedCouponByIdWithLock(order.getIssuedCouponId());
-        }
-
-        // 2. Option 락 획득 (ID 오름차순)
-        List<OrderItem> sortedItems = order.getOrderItems().stream()
-                .sorted(Comparator.comparing(OrderItem::getOptionId))
-                .toList();
-
-        List<Option> lockedOptions = new ArrayList<>();
-        for (OrderItem item : sortedItems) {
-            Option option = productAppService.getOptionByIdWithLock(item.getOptionId());
-            lockedOptions.add(option);
-        }
-
-        // 3. 쿠폰 복원
-        if (issuedCoupon != null) {
-            issuedCoupon.restore();
-        }
-
-        // 4. 재고 복원
-        for (int i = 0; i < sortedItems.size(); i++) {
-            lockedOptions.get(i).increaseStock(sortedItems.get(i).getQuantity());
-        }
-
-        order.cancel();
-        return order;
+        return cancelOrderInternal(order);
     }
 
     @Transactional(readOnly = true)
@@ -167,6 +137,37 @@ public class OrderAppService {
     public Order cancel(Long orderId) {
         Order order = orderRepository.findByIdWithLock(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
+        return cancelOrderInternal(order);
+    }
+
+    private Order cancelOrderInternal(Order order) {
+        // 1. IssuedCoupon 락 획득
+        IssuedCoupon issuedCoupon = null;
+        if (order.getIssuedCouponId() != null) {
+            issuedCoupon = couponAppService.getIssuedCouponByIdWithLock(order.getIssuedCouponId());
+        }
+
+        // 2. Option 락 획득 (ID 오름차순)
+        List<OrderItem> sortedItems = order.getOrderItems().stream()
+                .sorted(Comparator.comparing(OrderItem::getOptionId))
+                .toList();
+
+        List<Option> lockedOptions = new ArrayList<>();
+        for (OrderItem item : sortedItems) {
+            Option option = productAppService.getOptionByIdWithLock(item.getOptionId());
+            lockedOptions.add(option);
+        }
+
+        // 3. 쿠폰 복원
+        if (issuedCoupon != null) {
+            issuedCoupon.restore();
+        }
+
+        // 4. 재고 복원
+        for (int i = 0; i < sortedItems.size(); i++) {
+            lockedOptions.get(i).increaseStock(sortedItems.get(i).getQuantity());
+        }
+
         order.cancel();
         return order;
     }

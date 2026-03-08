@@ -120,6 +120,27 @@ class MoneyTest {
         }
 
         @Test
+        @DisplayName("BigDecimal 소수 할인율로 정률 할인 계산이 가능하다")
+        void percentageWithBigDecimalRate() {
+            Money money = Money.of(10000L);
+
+            Money result = money.percentage(new BigDecimal("15.5"));
+
+            assertThat(result.getAmount()).isEqualByComparingTo(BigDecimal.valueOf(1550));
+        }
+
+        @Test
+        @DisplayName("BigDecimal 할인율 범위 초과 시 예외가 발생한다")
+        void percentageWithInvalidBigDecimalRate() {
+            Money money = Money.of(10000L);
+
+            assertThatThrownBy(() -> money.percentage(new BigDecimal("100.1")))
+                    .isInstanceOf(CoreException.class);
+            assertThatThrownBy(() -> money.percentage(new BigDecimal("-0.1")))
+                    .isInstanceOf(CoreException.class);
+        }
+
+        @Test
         @DisplayName("두 금액 중 작은 값을 반환한다")
         void minMoney() {
             Money money1 = Money.of(1000L);
