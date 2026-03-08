@@ -4,9 +4,10 @@ import com.loopers.domain.PageResult;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandDomainService;
 import com.loopers.domain.product.Product;
-import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductDomainService;
 import com.loopers.domain.product.ProductSortType;
+import com.loopers.domain.stock.ProductStock;
+import com.loopers.domain.stock.ProductStockDomainService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -23,12 +24,59 @@ public class ProductApplicationService {
 
     private final ProductDomainService productService;
     private final BrandDomainService brandService;
+    private final ProductStockDomainService productStockService;
 
     @Transactional
-    public ProductWithBrand register(RegisterProductCommand command) {
-        Brand brand = brandService.getById(command.brandId());
-        Product product = productService.register(command.brandId(), command.name(), command.price(), command.stock());
-        return new ProductWithBrand(product, brand);
+    public ProductWithBrandAndStock registerWithStock(RegisterProductCommand command) {
+        Brand brand = brandService.getByIdWithLock(command.brandId());
+        Product product = productService.register(command.brandId(), command.name(), command.price());
+        ProductStock productStock = productStockService.create(product.getId(), command.stock());
+        return new ProductWithBrandAndStock(product, brand, productStock);
+    }
+
+    @Transactional(readOnly = true)
+    public ProductWithBrandAndStock getProductWithBrandAndStock(Long id) {
+        Product product = productService.getById(id);
+        Brand brand = brandService.getById(product.getBrandId());
+        ProductStock productStock = productStockService.getByProductId(product.getId());
+        return new ProductWithBrandAndStock(product, brand, productStock);
+    }
+
+    @Transactional(readOnly = true)
+    public ProductPageWithBrandsAndStocks getAllForAdmin(Long brandId, ProductSortType sort, int page, int size) {
+        PageResult<Product> result = productService.getAll(brandId, sort, page, size);
+        Set<Long> brandIds = result.items().stream()
+            .map(Product::getBrandId)
+            .collect(Collectors.toSet());
+        Map<Long, Brand> brandMap = brandService.getByIds(brandIds);
+
+        for (Product product : result.items()) {
+            if (!brandMap.containsKey(product.getBrandId())) {
+                throw new CoreException(ErrorType.INTERNAL_ERROR,
+                    "브랜드를 찾을 수 없습니다. productId=" + product.getId() + ", brandId=" + product.getBrandId());
+            }
+        }
+
+        Set<Long> productIds = result.items().stream()
+            .map(Product::getId)
+            .collect(Collectors.toSet());
+        Map<Long, ProductStock> stockMap = productStockService.getByProductIds(productIds);
+
+        return new ProductPageWithBrandsAndStocks(result, brandMap, stockMap);
+    }
+
+    @Transactional
+    public ProductWithBrandAndStock updateWithStock(UpdateProductCommand command) {
+        Product product = productService.update(command.productId(), command.name(), command.price());
+        Brand brand = brandService.getById(product.getBrandId());
+        ProductStock productStock = productStockService.changeQuantity(product.getId(), command.stock());
+        return new ProductWithBrandAndStock(product, brand, productStock);
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        productService.delete(id);
+        productStockService.deleteByProductId(id);
     }
 
     @Transactional(readOnly = true)
@@ -56,35 +104,5 @@ public class ProductApplicationService {
             .collect(Collectors.toSet());
         Map<Long, Brand> brandMap = brandService.getByIds(brandIds);
         return new ProductPageWithBrands(result, brandMap);
-    }
-
-    @Transactional(readOnly = true)
-    public ProductPageWithBrands getAllForAdmin(Long brandId, ProductSortType sort, int page, int size) {
-        PageResult<Product> result = productService.getAll(brandId, sort, page, size);
-        Set<Long> brandIds = result.items().stream()
-            .map(Product::getBrandId)
-            .collect(Collectors.toSet());
-        Map<Long, Brand> brandMap = brandService.getByIds(brandIds);
-
-        for (Product product : result.items()) {
-            if (!brandMap.containsKey(product.getBrandId())) {
-                throw new CoreException(ErrorType.INTERNAL_ERROR,
-                    "브랜드를 찾을 수 없습니다. productId=" + product.getId() + ", brandId=" + product.getBrandId());
-            }
-        }
-
-        return new ProductPageWithBrands(result, brandMap);
-    }
-
-    @Transactional
-    public ProductWithBrand update(UpdateProductCommand command) {
-        Product product = productService.update(command.productId(), command.name(), command.price(), command.stock());
-        Brand brand = brandService.getById(product.getBrandId());
-        return new ProductWithBrand(product, brand);
-    }
-
-    @Transactional
-    public void delete(Long id) {
-        productService.delete(id);
     }
 }

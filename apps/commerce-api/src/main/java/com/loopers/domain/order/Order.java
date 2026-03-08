@@ -11,6 +11,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,6 +27,15 @@ public class Order extends BaseEntity {
     @Column(name = "total_price", nullable = false)
     private int totalPrice;
 
+    @Column(name = "original_price", nullable = false)
+    private int originalPrice;
+
+    @Column(name = "discount_amount", nullable = false)
+    private int discountAmount;
+
+    @Column(name = "coupon_issue_id")
+    private Long couponIssueId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private OrderStatus status;
@@ -33,12 +43,28 @@ public class Order extends BaseEntity {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> items = new ArrayList<>();
 
+    @Version
+    @Column(name = "version")
+    private Long version;
+
     protected Order() {}
 
     public Order(Long userId, Money totalPrice) {
         validate(userId, totalPrice);
         this.userId = userId;
         this.totalPrice = totalPrice.amount();
+        this.originalPrice = totalPrice.amount();
+        this.discountAmount = 0;
+        this.status = OrderStatus.ORDERED;
+    }
+
+    public Order(Long userId, Money originalPrice, Money discountAmount, Long couponIssueId) {
+        validate(userId, originalPrice);
+        this.userId = userId;
+        this.originalPrice = originalPrice.amount();
+        this.discountAmount = discountAmount.amount();
+        this.totalPrice = originalPrice.minus(discountAmount).amount();
+        this.couponIssueId = couponIssueId;
         this.status = OrderStatus.ORDERED;
     }
 
@@ -60,6 +86,9 @@ public class Order extends BaseEntity {
 
     public Long getUserId() { return userId; }
     public Money getTotalPrice() { return new Money(totalPrice); }
+    public Money getOriginalPrice() { return new Money(originalPrice); }
+    public Money getDiscountAmount() { return new Money(discountAmount); }
+    public Long getCouponIssueId() { return couponIssueId; }
     public OrderStatus getStatus() { return status; }
     public List<OrderItem> getItems() { return Collections.unmodifiableList(items); }
 

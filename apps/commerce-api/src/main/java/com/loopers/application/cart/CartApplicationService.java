@@ -8,8 +8,12 @@ import com.loopers.domain.cart.CartItem;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductDomainService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 import java.util.Map;
@@ -24,11 +28,14 @@ public class CartApplicationService {
     private final CartDomainService cartService;
     private final ProductDomainService productService;
     private final BrandDomainService brandService;
+    private final PlatformTransactionManager transactionManager;
 
-    @Transactional
+    private static final int MAX_RETRY = 3;
+
     public void addToCart(Long userId, Long productId, int quantity) {
         productService.getById(productId);
-        cartService.addToCart(userId, productId, quantity);
+        retryOnConflict(() -> executeInNewTransaction(status ->
+            cartService.addToCart(userId, productId, quantity)));
     }
 
     @Transactional(readOnly = true)
@@ -62,13 +69,30 @@ public class CartApplicationService {
             .toList();
     }
 
-    @Transactional
     public void updateQuantity(Long cartItemId, Long userId, int quantity) {
-        cartService.updateItemQuantity(userId, cartItemId, quantity);
+        retryOnConflict(() -> executeInNewTransaction(status ->
+            cartService.updateItemQuantity(userId, cartItemId, quantity)));
     }
 
-    @Transactional
     public void removeItem(Long cartItemId, Long userId) {
-        cartService.removeItem(userId, cartItemId);
+        retryOnConflict(() -> executeInNewTransaction(status ->
+            cartService.removeItem(userId, cartItemId)));
+    }
+
+    private void executeInNewTransaction(java.util.function.Consumer<org.springframework.transaction.TransactionStatus> action) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        template.executeWithoutResult(action);
+    }
+
+    private void retryOnConflict(Runnable operation) {
+        for (int i = 0; i < MAX_RETRY; i++) {
+            try {
+                operation.run();
+                return;
+            } catch (OptimisticLockingFailureException e) {
+                if (i == MAX_RETRY - 1) throw e;
+            }
+        }
     }
 }

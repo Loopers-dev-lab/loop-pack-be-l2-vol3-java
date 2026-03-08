@@ -16,7 +16,10 @@ public class OrderV1Dto {
     public record CreateOrderRequest(
         @NotEmpty(message = "주문 항목은 하나 이상이어야 합니다.")
         @Valid
-        List<OrderItemRequest> items
+        List<OrderItemRequest> items,
+
+        @Min(value = 1, message = "쿠폰 ID는 1 이상이어야 합니다.")
+        Long couponId
     ) {}
 
     public record OrderItemRequest(
@@ -30,17 +33,25 @@ public class OrderV1Dto {
     public record OrderResponse(
         Long orderId,
         int totalPrice,
+        int originalPrice,
+        int discountAmount,
         String status,
         ZonedDateTime createdAt
     ) {
         public static OrderResponse from(Order order) {
-            return new OrderResponse(order.getId(), order.getTotalPrice().amount(), order.getStatus().name(), order.getCreatedAt());
+            return new OrderResponse(
+                order.getId(), order.getTotalPrice().amount(),
+                order.getOriginalPrice().amount(), order.getDiscountAmount().amount(),
+                order.getStatus().name(), order.getCreatedAt()
+            );
         }
     }
 
     public record OrderDetailResponse(
         Long orderId,
         int totalPrice,
+        int originalPrice,
+        int discountAmount,
         String status,
         ZonedDateTime createdAt,
         List<OrderItemResponse> items
@@ -49,7 +60,11 @@ public class OrderV1Dto {
             List<OrderItemResponse> items = order.getItems().stream()
                 .map(OrderItemResponse::from)
                 .toList();
-            return new OrderDetailResponse(order.getId(), order.getTotalPrice().amount(), order.getStatus().name(), order.getCreatedAt(), items);
+            return new OrderDetailResponse(
+                order.getId(), order.getTotalPrice().amount(),
+                order.getOriginalPrice().amount(), order.getDiscountAmount().amount(),
+                order.getStatus().name(), order.getCreatedAt(), items
+            );
         }
     }
 

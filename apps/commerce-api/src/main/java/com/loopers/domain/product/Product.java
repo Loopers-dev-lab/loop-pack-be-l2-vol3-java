@@ -20,34 +20,23 @@ public class Product extends BaseEntity {
     @Column(name = "price", nullable = false)
     private int price;
 
-    @Column(name = "stock", nullable = false)
-    private int stock;
-
     @Column(name = "like_count", nullable = false)
     private int likeCount;
 
     protected Product() {}
 
-    public Product(Long brandId, String name, Money price, Stock stock) {
-        validate(brandId, name, price, stock);
+    public Product(Long brandId, String name, Money price) {
+        validate(brandId, name, price);
         this.brandId = brandId;
         this.name = name;
         this.price = price.amount();
-        this.stock = stock.quantity();
         this.likeCount = 0;
     }
 
-    public void changeDetails(String name, Money price, Stock stock) {
-        validate(this.brandId, name, price, stock);
+    public void changeDetails(String name, Money price) {
+        validate(this.brandId, name, price);
         this.name = name;
         this.price = price.amount();
-        this.stock = stock.quantity();
-    }
-
-    public void deductStock(int quantity) {
-        Stock currentStock = getStock();
-        Stock deducted = currentStock.deduct(quantity);
-        this.stock = deducted.quantity();
     }
 
     public void incrementLikeCount() {
@@ -64,10 +53,9 @@ public class Product extends BaseEntity {
     public Long getBrandId() { return brandId; }
     public String getName() { return name; }
     public Money getPrice() { return new Money(price); }
-    public Stock getStock() { return new Stock(stock); }
     public int getLikeCount() { return likeCount; }
 
-    private void validate(Long brandId, String name, Money price, Stock stock) {
+    private void validate(Long brandId, String name, Money price) {
         if (brandId == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "브랜드 ID는 필수입니다.");
         }
@@ -76,9 +64,6 @@ public class Product extends BaseEntity {
         }
         if (price == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "상품 가격은 필수입니다.");
-        }
-        if (stock == null) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "상품 재고는 필수입니다.");
         }
     }
 }

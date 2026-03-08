@@ -19,13 +19,12 @@ class ProductTest {
         @DisplayName("올바른 정보이면, 상품이 생성된다.")
         @Test
         void createsProduct_whenValidInfo() {
-            Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(100));
+            Product product = new Product(1L, "나이키 에어맥스", new Money(129000));
 
             assertAll(
                 () -> assertThat(product.getBrandId()).isEqualTo(1L),
                 () -> assertThat(product.getName()).isEqualTo("나이키 에어맥스"),
                 () -> assertThat(product.getPrice()).isEqualTo(new Money(129000)),
-                () -> assertThat(product.getStock()).isEqualTo(new Stock(100)),
                 () -> assertThat(product.getLikeCount()).isEqualTo(0)
             );
         }
@@ -34,7 +33,7 @@ class ProductTest {
         @Test
         void throwsBadRequest_whenBrandIdIsNull() {
             CoreException result = assertThrows(CoreException.class,
-                () -> new Product(null, "나이키 에어맥스", new Money(129000), new Stock(100)));
+                () -> new Product(null, "나이키 에어맥스", new Money(129000)));
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
@@ -42,7 +41,7 @@ class ProductTest {
         @Test
         void throwsBadRequest_whenNameIsBlank() {
             CoreException result = assertThrows(CoreException.class,
-                () -> new Product(1L, "", new Money(129000), new Stock(100)));
+                () -> new Product(1L, "", new Money(129000)));
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
@@ -50,15 +49,7 @@ class ProductTest {
         @Test
         void throwsBadRequest_whenPriceIsNull() {
             CoreException result = assertThrows(CoreException.class,
-                () -> new Product(1L, "나이키 에어맥스", null, new Stock(100)));
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
-        }
-
-        @DisplayName("재고가 null이면, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        void throwsBadRequest_whenStockIsNull() {
-            CoreException result = assertThrows(CoreException.class,
-                () -> new Product(1L, "나이키 에어맥스", new Money(129000), null));
+                () -> new Product(1L, "나이키 에어맥스", null));
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
@@ -67,49 +58,25 @@ class ProductTest {
     @Nested
     class ChangeDetails {
 
-        @DisplayName("올바른 정보이면, 이름/가격/재고가 수정된다.")
+        @DisplayName("올바른 정보이면, 이름/가격이 수정된다.")
         @Test
         void changesDetails_whenValidInfo() {
-            Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(100));
-            product.changeDetails("아디다스 울트라부스트", new Money(159000), new Stock(50));
+            Product product = new Product(1L, "나이키 에어맥스", new Money(129000));
+            product.changeDetails("아디다스 울트라부스트", new Money(159000));
 
             assertAll(
                 () -> assertThat(product.getName()).isEqualTo("아디다스 울트라부스트"),
-                () -> assertThat(product.getPrice()).isEqualTo(new Money(159000)),
-                () -> assertThat(product.getStock()).isEqualTo(new Stock(50))
+                () -> assertThat(product.getPrice()).isEqualTo(new Money(159000))
             );
         }
 
         @DisplayName("brandId는 변경되지 않는다.")
         @Test
         void doesNotChangeBrandId() {
-            Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(100));
-            product.changeDetails("아디다스 울트라부스트", new Money(159000), new Stock(50));
+            Product product = new Product(1L, "나이키 에어맥스", new Money(129000));
+            product.changeDetails("아디다스 울트라부스트", new Money(159000));
 
             assertThat(product.getBrandId()).isEqualTo(1L);
-        }
-    }
-
-    @DisplayName("재고를 차감할 때, ")
-    @Nested
-    class DeductStock {
-
-        @DisplayName("충분한 재고가 있으면, 재고가 차감된다.")
-        @Test
-        void deductsStock_whenSufficient() {
-            Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(10));
-            product.deductStock(3);
-
-            assertThat(product.getStock()).isEqualTo(new Stock(7));
-        }
-
-        @DisplayName("재고가 부족하면, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        void throwsBadRequest_whenInsufficient() {
-            Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(2));
-
-            CoreException result = assertThrows(CoreException.class, () -> product.deductStock(3));
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
 
@@ -120,7 +87,7 @@ class ProductTest {
         @DisplayName("좋아요 수가 1 증가한다.")
         @Test
         void incrementsLikeCount() {
-            Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(10));
+            Product product = new Product(1L, "나이키 에어맥스", new Money(129000));
 
             product.incrementLikeCount();
 
@@ -130,7 +97,7 @@ class ProductTest {
         @DisplayName("여러 번 호출하면, 호출 횟수만큼 증가한다.")
         @Test
         void incrementsMultipleTimes() {
-            Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(10));
+            Product product = new Product(1L, "나이키 에어맥스", new Money(129000));
 
             product.incrementLikeCount();
             product.incrementLikeCount();
@@ -147,7 +114,7 @@ class ProductTest {
         @DisplayName("좋아요 수가 1보다 크면, 1 감소한다.")
         @Test
         void decrementsLikeCount() {
-            Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(10));
+            Product product = new Product(1L, "나이키 에어맥스", new Money(129000));
             product.incrementLikeCount();
             product.incrementLikeCount();
 
@@ -159,7 +126,7 @@ class ProductTest {
         @DisplayName("좋아요 수가 0이면, BAD_REQUEST 예외가 발생한다.")
         @Test
         void throwsBadRequest_whenLikeCountIsZero() {
-            Product product = new Product(1L, "나이키 에어맥스", new Money(129000), new Stock(10));
+            Product product = new Product(1L, "나이키 에어맥스", new Money(129000));
 
             CoreException result = assertThrows(CoreException.class, product::decrementLikeCount);
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);

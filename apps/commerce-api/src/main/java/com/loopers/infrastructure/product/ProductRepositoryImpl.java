@@ -31,11 +31,6 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public Optional<Product> findByIdWithLock(Long id) {
-        return productJpaRepository.findByIdWithLock(id);
-    }
-
-    @Override
     public List<Product> findAllByIds(Collection<Long> ids) {
         return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids);
     }
@@ -63,6 +58,16 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public void softDeleteAllByBrandId(Long brandId) {
         productJpaRepository.softDeleteAllByBrandId(brandId);
+    }
+
+    @Override
+    public int incrementLikeCount(Long id) {
+        return productJpaRepository.incrementLikeCount(id);
+    }
+
+    @Override
+    public int decrementLikeCount(Long id) {
+        return productJpaRepository.decrementLikeCount(id);
     }
 
     private Sort toSort(ProductSortType sortType) {

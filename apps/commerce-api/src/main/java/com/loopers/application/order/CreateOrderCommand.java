@@ -8,8 +8,13 @@ import java.util.Objects;
 
 public record CreateOrderCommand(
     Long userId,
-    List<CreateOrderCommand.LineItem> items
+    List<CreateOrderCommand.LineItem> items,
+    Long couponId
 ) {
+
+    public CreateOrderCommand(Long userId, List<LineItem> items) {
+        this(userId, items, null);
+    }
 
     public CreateOrderCommand {
         Objects.requireNonNull(userId, "유저 ID는 필수입니다.");

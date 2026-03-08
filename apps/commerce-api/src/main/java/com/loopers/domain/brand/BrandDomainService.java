@@ -39,8 +39,19 @@ public class BrandDomainService {
         return brandRepository.save(brand);
     }
 
+    public Brand getByIdWithLock(Long id) {
+        return brandRepository.findByIdWithLock(id)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다."));
+    }
+
     public void delete(Long id) {
         Brand brand = getById(id);
+        brand.delete();
+        brandRepository.save(brand);
+    }
+
+    public void deleteWithLock(Long id) {
+        Brand brand = getByIdWithLock(id);
         brand.delete();
         brandRepository.save(brand);
     }

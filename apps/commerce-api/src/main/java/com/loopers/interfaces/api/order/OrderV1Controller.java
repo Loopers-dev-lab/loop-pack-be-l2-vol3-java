@@ -37,7 +37,8 @@ public class OrderV1Controller implements OrderV1ApiSpec {
             authUser.userId(),
             request.items().stream()
                 .map(i -> new CreateOrderCommand.LineItem(i.productId(), i.quantity()))
-                .toList()
+                .toList(),
+            request.couponId()
         );
         Order order = orderApplicationService.createOrder(command);
         return ApiResponse.success(OrderV1Dto.OrderDetailResponse.from(order));
@@ -70,6 +71,16 @@ public class OrderV1Controller implements OrderV1ApiSpec {
         @PathVariable Long orderId
     ) {
         Order order = orderApplicationService.getMyOrder(authUser.userId(), orderId);
+        return ApiResponse.success(OrderV1Dto.OrderDetailResponse.from(order));
+    }
+
+    @PostMapping("/{orderId}/cancel")
+    @Override
+    public ApiResponse<OrderV1Dto.OrderDetailResponse> cancelOrder(
+        @AuthUser AuthenticatedUser authUser,
+        @PathVariable Long orderId
+    ) {
+        Order order = orderApplicationService.cancelOrder(authUser.userId(), orderId);
         return ApiResponse.success(OrderV1Dto.OrderDetailResponse.from(order));
     }
 }

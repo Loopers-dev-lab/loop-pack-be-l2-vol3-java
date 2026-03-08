@@ -22,4 +22,7 @@ public interface OrderV1ApiSpec {
 
     @Operation(summary = "주문 상세 조회", description = "주문 상세 내역을 조회합니다.")
     ApiResponse<OrderV1Dto.OrderDetailResponse> getMyOrderDetail(@Parameter(hidden = true) AuthenticatedUser authUser, Long orderId);
+
+    @Operation(summary = "주문 취소", description = "주문을 취소합니다. 쿠폰이 적용된 경우 쿠폰이 복원됩니다.")
+    ApiResponse<OrderV1Dto.OrderDetailResponse> cancelOrder(@Parameter(hidden = true) AuthenticatedUser authUser, Long orderId);
 }

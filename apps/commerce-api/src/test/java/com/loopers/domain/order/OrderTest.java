@@ -71,6 +71,39 @@ class OrderTest {
         }
     }
 
+    @DisplayName("쿠폰이 적용된 Order를 생성할 때, ")
+    @Nested
+    class CreateWithCoupon {
+
+        @DisplayName("올바른 정보이면, 할인이 적용된 Order가 생성된다.")
+        @Test
+        void createsOrder_withCouponDiscount() {
+            Order order = new Order(1L, new Money(50000), new Money(5000), 10L);
+
+            assertAll(
+                () -> assertThat(order.getUserId()).isEqualTo(1L),
+                () -> assertThat(order.getOriginalPrice()).isEqualTo(new Money(50000)),
+                () -> assertThat(order.getDiscountAmount()).isEqualTo(new Money(5000)),
+                () -> assertThat(order.getTotalPrice()).isEqualTo(new Money(45000)),
+                () -> assertThat(order.getCouponIssueId()).isEqualTo(10L),
+                () -> assertThat(order.getStatus()).isEqualTo(OrderStatus.ORDERED)
+            );
+        }
+
+        @DisplayName("쿠폰 없이 생성하면, originalPrice와 totalPrice가 동일하다.")
+        @Test
+        void createsOrder_withoutCoupon() {
+            Order order = new Order(1L, new Money(50000));
+
+            assertAll(
+                () -> assertThat(order.getOriginalPrice()).isEqualTo(new Money(50000)),
+                () -> assertThat(order.getDiscountAmount()).isEqualTo(new Money(0)),
+                () -> assertThat(order.getTotalPrice()).isEqualTo(new Money(50000)),
+                () -> assertThat(order.getCouponIssueId()).isNull()
+            );
+        }
+    }
+
     @DisplayName("주문을 취소할 때, ")
     @Nested
     class Cancel {

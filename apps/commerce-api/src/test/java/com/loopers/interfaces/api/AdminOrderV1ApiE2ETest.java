@@ -97,7 +97,7 @@ class AdminOrderV1ApiE2ETest {
 
     private OrderV1Dto.OrderDetailResponse createOrder(int quantity) {
         OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
-            List.of(new OrderV1Dto.OrderItemRequest(productId, quantity))
+            List.of(new OrderV1Dto.OrderItemRequest(productId, quantity)), null
         );
         ResponseEntity<ApiResponse<OrderV1Dto.OrderDetailResponse>> response = testRestTemplate.exchange(
             ORDER_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request, authHeaders()),
