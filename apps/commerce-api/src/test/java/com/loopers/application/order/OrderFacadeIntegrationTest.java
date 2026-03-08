@@ -66,7 +66,6 @@ class OrderFacadeIntegrationTest {
                 new Email("test@test.com"),
                 new BirthDate("1997-01-01")
         );
-        member.addPoint(Money.of(100000000L));
         member = memberRepository.save(member);
         userId = member.getId();
 

@@ -323,7 +323,6 @@ class OrderApiE2ETest {
                 new Email(memberId + "@test.com"),
                 new BirthDate("1997-01-01")
         );
-        member.addPoint(Money.of(100000000L));
         return memberRepository.save(member);
     }
 

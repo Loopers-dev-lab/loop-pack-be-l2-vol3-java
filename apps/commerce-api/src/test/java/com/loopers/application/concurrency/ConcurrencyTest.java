@@ -98,8 +98,6 @@ class ConcurrencyTest {
             for (int i = 0; i < threadCount; i++) {
                 final long userId = i + 1;
                 Member member = createTestMember("user" + userId, userId);
-                member.addPoint(Money.of(100000L));
-                memberRepository.save(member);
 
                 executor.submit(() -> {
                     try {
@@ -195,8 +193,6 @@ class ConcurrencyTest {
 
             // 특정 유저에게 쿠폰 발급
             Member member = createTestMember("couponuser", 100L);
-            member.addPoint(Money.of(1000000L));
-            memberRepository.save(member);
             couponFacade.issueCoupon(couponId, member.getId());
 
             // 옵션 재고 충분히 설정
@@ -241,59 +237,6 @@ class ConcurrencyTest {
             IssuedCoupon usedCoupon = issuedCouponRepository.findByCouponIdAndUserId(couponId, member.getId())
                     .orElseThrow();
             assertThat(usedCoupon.getStatus()).isEqualTo(IssuedCouponStatus.USED);
-        }
-    }
-
-    @Nested
-    @DisplayName("포인트 동시 결제")
-    class ConcurrentPointPaymentTest {
-
-        @Test
-        @DisplayName("잔여 11000P, 11000P짜리 2건 동시 주문 → 1건만 성공")
-        void concurrentPointPayment() throws InterruptedException {
-            Member member = createTestMember("pointuser", 200L);
-            member.addPoint(Money.of(11000L));
-            memberRepository.save(member);
-
-            Option singleOption = productAppService.createOption(productId, "포인트 옵션", Money.zero(), 100);
-            Long singleOptionId = singleOption.getId();
-
-            int threadCount = 2;
-            ExecutorService executor = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch startLatch = new CountDownLatch(1);
-            CountDownLatch latch = new CountDownLatch(threadCount);
-            AtomicInteger successCount = new AtomicInteger(0);
-            AtomicInteger failCount = new AtomicInteger(0);
-
-            for (int i = 0; i < threadCount; i++) {
-                executor.submit(() -> {
-                    try {
-                        startLatch.await();
-                        OrderCreateCommand command = new OrderCreateCommand(
-                                member.getId(),
-                                List.of(new OrderCreateCommand.OrderItemCommand(singleOptionId, 1))
-                        );
-                        orderFacade.createOrder(command);
-                        successCount.incrementAndGet();
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    } catch (Exception e) {
-                        failCount.incrementAndGet();
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-
-            startLatch.countDown();
-            latch.await(30, TimeUnit.SECONDS);
-            executor.shutdown();
-
-            assertThat(successCount.get()).isEqualTo(1);
-            assertThat(failCount.get()).isEqualTo(1);
-
-            Member updatedMember = memberRepository.findById(member.getId()).orElseThrow();
-            assertThat(updatedMember.getPoint().getAmount()).isEqualByComparingTo(Money.of(1000L).getAmount());
         }
     }
 
@@ -348,8 +291,6 @@ class ConcurrencyTest {
         @DisplayName("동일 주문 2스레드 동시 취소 → 1건만 성공")
         void concurrentOrderCancel() throws InterruptedException {
             Member member = createTestMember("canceluser", 300L);
-            member.addPoint(Money.of(100000L));
-            memberRepository.save(member);
 
             Option cancelOption = productAppService.createOption(productId, "취소 옵션", Money.zero(), 100);
             Long cancelOptionId = cancelOption.getId();
@@ -418,8 +359,6 @@ class ConcurrencyTest {
 
             for (int i = 0; i < threadCount; i++) {
                 Member member = createTestMember("ptu" + i, 400L + i);
-                member.addPoint(Money.of(100000L));
-                memberRepository.save(member);
                 final Long memberId = member.getId();
 
                 executor.submit(() -> {

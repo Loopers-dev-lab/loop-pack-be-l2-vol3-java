@@ -1,5 +1,8 @@
 package com.loopers.application.order;
 
+import com.loopers.application.cart.CartAppService;
+import com.loopers.application.coupon.CouponAppService;
+import com.loopers.application.product.ProductAppService;
 import com.loopers.domain.common.Money;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
@@ -16,21 +19,25 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 @DisplayName("OrderAppService 단위 테스트")
 class OrderAppServiceTest {
 
     private OrderAppService orderAppService;
     private OrderRepository orderRepository;
+    private ProductAppService productAppService;
+    private CouponAppService couponAppService;
+    private CartAppService cartAppService;
 
     @BeforeEach
     void setUp() {
         orderRepository = mock(OrderRepository.class);
-        orderAppService = new OrderAppService(orderRepository);
+        productAppService = mock(ProductAppService.class);
+        couponAppService = mock(CouponAppService.class);
+        cartAppService = mock(CartAppService.class);
+        orderAppService = new OrderAppService(orderRepository, productAppService, couponAppService, cartAppService);
     }
 
     private OrderItem createTestOrderItem() {
@@ -44,34 +51,6 @@ class OrderAppServiceTest {
         given(order.getStatus()).willReturn(OrderStatus.PENDING);
         given(order.getOrderItems()).willReturn(List.of(createTestOrderItem()));
         return order;
-    }
-
-    @Nested
-    @DisplayName("주문 생성")
-    class CreateTest {
-
-        @Test
-        @DisplayName("유효한 정보로 주문을 생성할 수 있다")
-        void create_success() {
-            // given
-            Long userId = 1L;
-            List<OrderItem> items = List.of(createTestOrderItem());
-            Order savedOrder = mock(Order.class);
-            given(savedOrder.getId()).willReturn(1L);
-            given(savedOrder.getUserId()).willReturn(userId);
-            given(savedOrder.getStatus()).willReturn(OrderStatus.PENDING);
-
-            given(orderRepository.save(any(Order.class))).willReturn(savedOrder);
-
-            // when
-            Order result = orderAppService.create(userId, items);
-
-            // then
-            assertThat(result.getId()).isEqualTo(1L);
-            assertThat(result.getUserId()).isEqualTo(userId);
-            assertThat(result.getStatus()).isEqualTo(OrderStatus.PENDING);
-            verify(orderRepository).save(any(Order.class));
-        }
     }
 
     @Nested
