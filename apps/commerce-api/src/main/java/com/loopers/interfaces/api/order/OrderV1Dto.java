@@ -37,6 +37,7 @@ public class OrderV1Dto {
             Long originalAmount,
             Long discountAmount,
             Long finalAmount,
+            Long issuedCouponId,
             ZonedDateTime createdAt
     ) {
         public static OrderResponse from(OrderInfo info) {
@@ -47,6 +48,7 @@ public class OrderV1Dto {
                     info.originalAmount(),
                     info.discountAmount(),
                     info.finalAmount(),
+                    info.issuedCouponId(),
                     info.createdAt()
             );
         }
@@ -59,6 +61,7 @@ public class OrderV1Dto {
             Long originalAmount,
             Long discountAmount,
             Long finalAmount,
+            Long issuedCouponId,
             ZonedDateTime createdAt,
             List<OrderItemResponse> items
     ) {
@@ -70,6 +73,7 @@ public class OrderV1Dto {
                     order.originalAmount(),
                     order.discountAmount(),
                     order.finalAmount(),
+                    order.issuedCouponId(),
                     order.createdAt(),
                     items.stream().map(OrderItemResponse::from).toList()
             );

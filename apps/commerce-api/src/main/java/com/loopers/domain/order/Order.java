@@ -33,14 +33,18 @@ public class Order extends BaseEntity {
     @Column(name = "final_amount", nullable = false)
     private Long finalAmount;
 
+    @Column(name = "issued_coupon_id")
+    private Long issuedCouponId;
+
     protected Order() {}
 
-    private Order(Long userId, List<OrderItemSnapshot> orderItemSnapshots, Long discountAmount) {
+    private Order(Long userId, List<OrderItemSnapshot> orderItemSnapshots, Long discountAmount, Long issuedCouponId) {
         this.userId = userId;
         this.status = Status.ORDERED;
         this.originalAmount = calculateOriginalAmount(orderItemSnapshots);
         this.discountAmount = discountAmount;
         this.finalAmount = calculateFinalAmount();
+        this.issuedCouponId = issuedCouponId;
     }
 
     private Long calculateOriginalAmount(List<OrderItemSnapshot> orderItemSnapshots) {
@@ -54,14 +58,15 @@ public class Order extends BaseEntity {
     }
 
     public static Order create(Long userId, List<OrderItemSnapshot> orderItemSnapshots) {
-        return create(userId, orderItemSnapshots, 0L);
+        return create(userId, orderItemSnapshots, 0L, null);
     }
 
-    public static Order create(Long userId, List<OrderItemSnapshot> orderItemSnapshots, Long discountAmount) {
+    public static Order create(Long userId, List<OrderItemSnapshot> orderItemSnapshots, Long discountAmount, Long issuedCouponId) {
         if (orderItemSnapshots == null || orderItemSnapshots.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다.");
         }
-        return new Order(userId, orderItemSnapshots, discountAmount);
+
+        return new Order(userId, orderItemSnapshots, discountAmount, issuedCouponId);
     }
 
     public enum Status {

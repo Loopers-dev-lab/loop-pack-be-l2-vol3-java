@@ -20,12 +20,12 @@ public class OrderService {
 
     @Transactional
     public OrderInfo placeOrder(Long userId, List<OrderItemSnapshot> snapshots) {
-        return placeOrder(userId, snapshots, 0L);
+        return placeOrder(userId, snapshots, 0L, null);
     }
 
     @Transactional
-    public OrderInfo placeOrder(Long userId, List<OrderItemSnapshot> snapshots, Long discountAmount) {
-        Order order = orderRepository.save(Order.create(userId, snapshots, discountAmount));
+    public OrderInfo placeOrder(Long userId, List<OrderItemSnapshot> snapshots, Long discountAmount, Long issuedCouponId) {
+        Order order = orderRepository.save(Order.create(userId, snapshots, discountAmount, issuedCouponId));
 
         List<OrderItem> orderItems = snapshots.stream()
                                               .map(s -> OrderItem.create(

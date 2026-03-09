@@ -5,8 +5,6 @@ import com.loopers.application.coupon.IssuedCouponInfo;
 import com.loopers.application.coupon.IssuedCouponService;
 import com.loopers.application.product.ProductService;
 import com.loopers.application.product.ProductInfo;
-import com.loopers.domain.coupon.Coupon;
-import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.order.OrderItemSnapshot;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -50,8 +48,13 @@ public class OrderFacade {
                                 .orElse(0L);
 
         productService.decreaseStock(command.items());
-        issuedCouponOpt.ifPresent(issuedCoupon -> issuedCouponService.use(issuedCoupon.id(), command.userId()));
 
-        return orderService.placeOrder(command.userId(), orderItemSnapshots, discountAmount);
+        if (issuedCouponOpt.isPresent()) {
+            IssuedCouponInfo issuedCoupon = issuedCouponOpt.get();
+            issuedCouponService.use(issuedCoupon.id(), command.userId());
+            return orderService.placeOrder(command.userId(), orderItemSnapshots, discountAmount, issuedCoupon.id());
+        }
+
+        return orderService.placeOrder(command.userId(), orderItemSnapshots);
     }
 }

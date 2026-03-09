@@ -11,6 +11,7 @@ public record OrderInfo(
         Long originalAmount,
         Long discountAmount,
         Long finalAmount,
+        Long issuedCouponId,
         ZonedDateTime createdAt
 ) {
     public static OrderInfo from(Order order) {
@@ -21,6 +22,7 @@ public record OrderInfo(
                 order.getOriginalAmount(),
                 order.getDiscountAmount(),
                 order.getFinalAmount(),
+                order.getIssuedCouponId(),
                 order.getCreatedAt()
         );
     }
