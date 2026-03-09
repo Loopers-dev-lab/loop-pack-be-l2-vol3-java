@@ -13,8 +13,8 @@ import lombok.RequiredArgsConstructor;
 public enum ProductSortType {
 
     CREATED_AT_DESC(Sort.by(Sort.Direction.DESC, "createdAt")),
-    PRICE_ASC(Sort.by(Sort.Direction.ASC, "price.amount").and(Sort.by(Sort.Direction.DESC, "createdAt"))),
-    LIKE_COUNT_DESC(Sort.by(Sort.Direction.DESC, "likeCount").and(Sort.by(Sort.Direction.DESC, "createdAt")));
+    PRICE_ASC(Sort.by(Sort.Direction.ASC, "price.amount")),
+    LIKE_COUNT_DESC(Sort.by(Sort.Direction.DESC, "likeCount"));
 
     public static final ProductSortType DEFAULT = CREATED_AT_DESC;
 
