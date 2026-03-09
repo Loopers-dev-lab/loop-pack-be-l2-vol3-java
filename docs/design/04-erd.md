@@ -1,17 +1,33 @@
 ### 4.4 ERD (Entity Relationship Diagram)
-### 제약 최소화(복합 PK 중심) 
+### 제약 최소화(복합 PK 중심)
 **왜 이 다이어그램이 필요한가:**
 영속성 구조, 관계의 주인, 인덱스 전략을 검증하기 위해 필요하다. 특히 **재고 테이블의 분리**, **주문 만료 인덱스**, **좋아요/장바구니의 복합 PK(중복 방지)** 등 DB 설계의 핵심 결정을 확인한다.
+
+#### 핵심 설계 결정: products와 product_stocks 테이블 분리
+
+`products`(상품 마스터)와 `product_stocks`(재고)를 1:1 관계로 분리한 이유는 **변경 빈도와 잠금 범위가 완전히 다르기 때문**이다.
+
+| 구분 | products | product_stocks |
+|------|----------|----------------|
+| 변경 빈도 | 낮음 (관리자 수정 시만) | 매우 높음 (주문마다 reserved 변경) |
+| 잠금 범위 | 넓음 (name, price, desc 등 다수 컬럼) | 좁음 (on_hand, reserved 2개 컬럼) |
+| 접근 패턴 | 읽기 위주 (목록/상세 조회) | 쓰기 위주 (CAS UPDATE) |
+
+같은 테이블에 있으면 재고 CAS UPDATE가 상품 행 전체에 Row Lock을 걸어, 관리자의 상품 정보 수정과 **락 경합**이 발생한다. 분리하면 재고 갱신(Hot Row)이 상품 마스터(Cold Row)에 영향을 주지 않으므로, 동시성이 높은 이커머스 환경에서 필수적인 **Hot Row 격리** 전략이다.
+
+> 상세 분석은 [ANALYSIS.md - 7. 재고 테이블 분리 근거](./ANALYSIS.md) 참조
 
 ```mermaid
 
 erDiagram
     users {
-        bigint user_id PK
-        varchar login_id
+        varchar user_id PK
+        varchar login_id "unique, 인증용"
         varchar password "bcrypt"
         varchar user_name
+        varchar birthday
         varchar email
+        varchar address
         varchar del_yn "Y,N"
         datetime deleted_at "nullable"
         datetime created_at
@@ -19,11 +35,12 @@ erDiagram
     }
 
     brands {
-        bigint brand_id PK
-        varchar brand_seq
-        varchar brand_name
+        varchar brand_id PK
+        text brand_name
         varchar description
-        varchar status "ACTIVE/HIDDEN/DELETED"
+        varchar address
+        varchar display_status "ACTIVE/HIDDEN"
+        varchar attach_file
         varchar del_yn "Y,N"
         datetime deleted_at "nullable"
         datetime created_at
@@ -31,10 +48,10 @@ erDiagram
     }
 
     products {
-        bigint product_id PK
-        bigint product_seq PK
-        bigint brand_id
-        varchar name
+        varchar product_id PK
+        varchar revision_seq
+        varchar brand_id
+        varchar product_name
         text description
         decimal price
         varchar category
@@ -42,54 +59,51 @@ erDiagram
         varchar size
         varchar option
         varchar image_url
-        varchar status "ACTIVE/HIDDEN/DELETED"
+        varchar attach_file
+        varchar display_status "ACTIVE/HIDDEN"
+        varchar sale_status "ON_SALE / TEMP_SOLD_OUT / STOPPED"
         varchar del_yn "Y,N"
         datetime deleted_at "nullable"
         datetime created_at
         datetime updated_at
     }
-
+    
+    product_revisions {
+        varchar   product_id PK
+        bigint    revision_seq PK  
+        varchar   action      "UPDATE|HIDE|DELETE|RESTORE|SALE_STATUS_CHANGE"
+        varchar   changed_by  "admin_user_id or system"
+        varchar   change_reason
+        json      before_snapshot
+        json      after_snapshot
+        datetime created_at
+    }
+        
     product_stocks {
-        bigint product_id PK
+        varchar product_id PK
         int on_hand "총 재고"
         int reserved "예약 재고"
-        varchar del_yn "Y,N"
-        datetime deleted_at "nullable"
-        datetime created_at
-        datetime updated_at
-    }
-
-    product_revisions {
-        bigint product_id PK
-        bigint revision_seq PK
-        varchar changed_by "Admin ID"
-        varchar change_reason "nullable"
-        json snapshot "현재 상태"
-        varchar del_yn "Y,N"
-        datetime deleted_at "nullable"
         datetime created_at
         datetime updated_at
     }
 
     likes {
-        bigint user_id PK
-        bigint product_id PK
+        varchar user_id PK
+        varchar product_id PK
         datetime created_at
     }
 
     cart_items {
-        bigint user_id PK
-        bigint product_id PK
+        varchar user_id PK
+        varchar product_id PK
         int quantity
-        varchar del_yn "Y,N"
-        datetime deleted_at "nullable"
         datetime created_at
-        datetime updated_at
+        timestamp updated_at
     }
 
     orders {
-        bigint order_id PK
-        bigint user_id PK
+        varchar order_id PK
+        varchar user_id 
         varchar order_type "DIRECT/CART"
         varchar status "PENDING_PAYMENT/PAID/PAYMENT_FAILED/CANCELLED/EXPIRED"
         decimal total_amount
@@ -102,14 +116,14 @@ erDiagram
     }
 
     order_items {
-        bigint order_id PK
-        bigint user_id PK
-        bigint order_item_seq PK
-        bigint product_id
+        varchar order_id PK
+        int order_item_seq PK
+        varchar user_id
+        varchar product_id
         int quantity
         varchar snapshot_product_name
         decimal snapshot_unit_price
-        bigint snapshot_brand_id
+        varchar snapshot_brand_id
         varchar snapshot_brand_name
         varchar snapshot_image_url
         varchar del_yn "Y,N"
@@ -117,16 +131,14 @@ erDiagram
         datetime created_at
         datetime updated_at
     }
-
-    order_cart_restores {
-        bigint order_id PK
-        bigint user_id PK
-        varchar reason "EXPIRED/CANCELLED/PAYMENT_FAILED"
-        datetime restored_at
-        varchar del_yn "Y,N"
-        datetime deleted_at "nullable"
-        datetime created_at
-        datetime updated_at
+    
+    
+    order_cart_restore {
+        varchar   order_id PK          "멱등키(주문당 1회만 복원)"
+        varchar   user_id              "복원 대상 사용자"
+        varchar   reason               "PAYMENT_FAILED|EXPIRED|USER_CANCELLED|PG_CANCELLED"
+        varchar   trigger_source       "CANCEL_API|PG_WEBHOOK|EXPIRE_JOB|MANUAL"
+        timestamp restored_at          "복원 처리 완료 시각"
     }
 
     users ||--o{ likes : "places"
@@ -134,10 +146,11 @@ erDiagram
     users ||--o{ orders : "places"
     brands ||--o{ products : "has"
     products ||--|| product_stocks : "has"
-    products ||--o{ product_revisions : "tracks"
     products ||--o{ likes : "receives"
     products ||--o{ cart_items : "referenced_by"
     products ||--o{ order_items : "snapshot_of"
     orders ||--o{ order_items : "contains"
-    orders ||--o| order_cart_restores : "may_restore"
+    orders ||--o| order_cart_restore : "restored once"
+    cart_items }o--|| orders : "same user"
+    products ||--o{ product_revisions : "has history"
 ```

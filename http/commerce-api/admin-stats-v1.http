@@ -1,0 +1,19 @@
+### 관리자 - 주문 현황 조회
+GET {{commerce-api}}/api-admin/v1/stats/overview?startAt=2026-01-01&endAt=2026-12-31
+X-Loopers-Ldap: loopers.admin
+
+### 관리자 - 일별 주문 통계
+GET {{commerce-api}}/api-admin/v1/stats/orders/daily?startAt=2026-01-01&endAt=2026-01-31
+X-Loopers-Ldap: loopers.admin
+
+### 관리자 - 좋아요 상위 상품
+GET {{commerce-api}}/api-admin/v1/stats/products/top-liked?limit=10
+X-Loopers-Ldap: loopers.admin
+
+### 관리자 - 주문 상위 상품
+GET {{commerce-api}}/api-admin/v1/stats/products/top-ordered?limit=10
+X-Loopers-Ldap: loopers.admin
+
+### 관리자 - 재고 부족 상품
+GET {{commerce-api}}/api-admin/v1/stats/stocks/low?threshold=10
+X-Loopers-Ldap: loopers.admin

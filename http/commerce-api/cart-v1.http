@@ -1,0 +1,30 @@
+### 장바구니 조회
+GET {{commerce-api}}/api/v1/cart
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!@#
+
+### 장바구니 추가
+POST {{commerce-api}}/api/v1/cart/items
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!@#
+
+{
+  "productId": "{{productId}}",
+  "quantity": 2
+}
+
+### 장바구니 수량 변경
+PATCH {{commerce-api}}/api/v1/cart/items/{{productId}}
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!@#
+
+{
+  "quantity": 5
+}
+
+### 장바구니 항목 삭제
+DELETE {{commerce-api}}/api/v1/cart/items/{{productId}}
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!@#

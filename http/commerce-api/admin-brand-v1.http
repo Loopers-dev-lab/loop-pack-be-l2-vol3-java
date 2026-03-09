@@ -1,0 +1,29 @@
+### 관리자 - 브랜드 목록 조회
+GET {{commerce-api}}/api-admin/v1/brands
+X-Loopers-Ldap: loopers.admin
+
+### 관리자 - 브랜드 생성
+POST {{commerce-api}}/api-admin/v1/brands
+Content-Type: application/json
+X-Loopers-Ldap: loopers.admin
+
+{
+  "brandName": "새브랜드",
+  "description": "브랜드 설명",
+  "address": "서울시 강남구"
+}
+
+### 관리자 - 브랜드 수정
+PUT {{commerce-api}}/api-admin/v1/brands/{{brandId}}
+Content-Type: application/json
+X-Loopers-Ldap: loopers.admin
+
+{
+  "brandName": "수정브랜드",
+  "description": "수정된 설명",
+  "address": "서울시 서초구"
+}
+
+### 관리자 - 브랜드 삭제
+DELETE {{commerce-api}}/api-admin/v1/brands/{{brandId}}
+X-Loopers-Ldap: loopers.admin

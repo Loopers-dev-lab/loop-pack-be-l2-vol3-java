@@ -21,7 +21,41 @@ public enum ErrorType {
     SAME_PASSWORD(HttpStatus.BAD_REQUEST, "SAME_PASSWORD", "새 비밀번호는 현재 비밀번호와 달라야 합니다."),
     
     /** Validation 에러 */
-    VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "입력값이 올바르지 않습니다.");
+    VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "입력값이 올바르지 않습니다."),
+
+    /** User */
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다."),
+    DUPLICATE_USER_ID(HttpStatus.CONFLICT, "DUPLICATE_USER_ID", "이미 사용 중인 사용자 ID입니다."),
+
+    /** Brand */
+    BRAND_NOT_FOUND(HttpStatus.NOT_FOUND, "BRAND_NOT_FOUND", "브랜드를 찾을 수 없습니다."),
+    DUPLICATE_BRAND(HttpStatus.CONFLICT, "DUPLICATE_BRAND", "이미 존재하는 브랜드입니다."),
+
+    /** Product */
+    PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", "상품을 찾을 수 없습니다."),
+    PRODUCT_NOT_ORDERABLE(HttpStatus.CONFLICT, "PRODUCT_NOT_ORDERABLE", "주문할 수 없는 상품입니다."),
+    INVALID_STOCK_UPDATE(HttpStatus.BAD_REQUEST, "INVALID_STOCK_UPDATE", "재고 수정이 유효하지 않습니다."),
+
+    /** Stock */
+    STOCK_NOT_ENOUGH(HttpStatus.CONFLICT, "STOCK_NOT_ENOUGH", "재고가 부족합니다."),
+
+    /** Like */
+    LIKE_PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "LIKE_PRODUCT_NOT_FOUND", "좋아요 대상 상품을 찾을 수 없습니다."),
+
+    /** Cart */
+    CART_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "CART_ITEM_NOT_FOUND", "장바구니 항목을 찾을 수 없습니다."),
+    CART_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "CART_LIMIT_EXCEEDED", "장바구니 최대 수량을 초과했습니다."),
+    CART_STOCK_EXCEEDED(HttpStatus.BAD_REQUEST, "CART_STOCK_EXCEEDED", "구매 가능 재고를 초과했습니다."),
+
+    /** Order */
+    ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "주문을 찾을 수 없습니다."),
+    ORDER_NOT_CANCELLABLE(HttpStatus.CONFLICT, "ORDER_NOT_CANCELLABLE", "취소할 수 없는 주문입니다."),
+    ORDER_NOT_CREATABLE(HttpStatus.CONFLICT, "ORDER_NOT_CREATABLE", "주문을 생성할 수 없습니다."),
+    ORDER_ITEM_EMPTY(HttpStatus.BAD_REQUEST, "ORDER_ITEM_EMPTY", "주문 항목이 비어 있습니다."),
+    ORDER_PENDING_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "ORDER_PENDING_LIMIT_EXCEEDED", "동시 결제 대기 주문은 최대 3건까지 가능합니다."),
+
+    /** Admin */
+    ADMIN_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "ADMIN_UNAUTHORIZED", "관리자 인증에 실패했습니다.");
 
     private final HttpStatus status;
     private final String code;
