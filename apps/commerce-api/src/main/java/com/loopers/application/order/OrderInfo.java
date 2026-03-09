@@ -10,7 +10,11 @@ import java.util.List;
 public record OrderInfo(
         Long id,
         Long userId,
+        BigDecimal originalAmount,
+        BigDecimal discountAmount,
         BigDecimal totalAmount,
+        Long userCouponId,
+        String status,
         List<OrderItemInfo> orderItems,
         ZonedDateTime createdAt,
         ZonedDateTime updatedAt
@@ -23,7 +27,11 @@ public record OrderInfo(
         return new OrderInfo(
                 order.getId(),
                 order.getUserId(),
+                order.getOriginalAmount(),
+                order.getDiscountAmount(),
                 order.getTotalAmount(),
+                order.getUserCouponId(),
+                order.getStatus().name(),
                 orderItemInfos,
                 order.getCreatedAt(),
                 order.getUpdatedAt()

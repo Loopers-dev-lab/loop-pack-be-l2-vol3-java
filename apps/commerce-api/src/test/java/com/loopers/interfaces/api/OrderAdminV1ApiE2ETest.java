@@ -17,6 +17,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,7 +57,8 @@ class OrderAdminV1ApiE2ETest {
             // 사용자1 주문
             Long userId1 = 1L;
             OrderV1Dto.CreateRequest request1 = new OrderV1Dto.CreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 1))
+                    List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 1)),
+                    null
             );
             HttpHeaders headers1 = new HttpHeaders();
             headers1.set("X-User-Id", userId1.toString());
@@ -70,7 +72,8 @@ class OrderAdminV1ApiE2ETest {
             // 사용자2 주문
             Long userId2 = 2L;
             OrderV1Dto.CreateRequest request2 = new OrderV1Dto.CreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 2))
+                    List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 2)),
+                    null
             );
             HttpHeaders headers2 = new HttpHeaders();
             headers2.set("X-User-Id", userId2.toString());
@@ -115,7 +118,8 @@ class OrderAdminV1ApiE2ETest {
 
             Long userId = 1L;
             OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 3))
+                    List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 3)),
+                    null
             );
             HttpHeaders userHeaders = new HttpHeaders();
             userHeaders.set("X-User-Id", userId.toString());
@@ -149,6 +153,57 @@ class OrderAdminV1ApiE2ETest {
             assertThat(data.userId()).isEqualTo(userId);
             assertThat(data.orderItems()).hasSize(1);
             assertThat(data.orderItems().get(0).quantity()).isEqualTo(3);
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api-admin/v1/orders/{orderId}/histories - 관리자 주문 이력 조회")
+    class GetOrderHistories {
+
+        @Test
+        @DisplayName("성공: 관리자가 주문 이력을 조회한다")
+        void getOrderHistories_Success() {
+            // Given
+            Brand brand = brandRepository.save(Brand.create("샤넬", null, null));
+            Product product = productRepository.save(Product.create(brand.getId(), "상품", null, new BigDecimal("10000"), 100, null));
+
+            Long userId = 1L;
+            OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
+                    List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 1)),
+                    null
+            );
+
+            HttpHeaders userHeaders = new HttpHeaders();
+            userHeaders.set("X-User-Id", userId.toString());
+
+            ResponseEntity<ApiResponse<OrderV1Dto.Response>> createResponse = restTemplate.exchange(
+                    "/api/v1/orders",
+                    HttpMethod.POST,
+                    new HttpEntity<>(request, userHeaders),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            Long orderId = createResponse.getBody().data().id();
+
+            HttpHeaders adminHeaders = new HttpHeaders();
+            adminHeaders.set("X-Loopers-Ldap", "loopers.admin");
+
+            // When
+            ResponseEntity<ApiResponse<List<LinkedHashMap<String, Object>>>> response = restTemplate.exchange(
+                    "/api-admin/v1/orders/" + orderId + "/histories",
+                    HttpMethod.GET,
+                    new HttpEntity<>(adminHeaders),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            // Then
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().data()).hasSize(1);
+
+            LinkedHashMap<String, Object> history = response.getBody().data().get(0);
+            assertThat(history.get("newStatus")).isEqualTo("CREATED");
+            assertThat(history.get("description")).isEqualTo("주문 생성");
         }
     }
 }

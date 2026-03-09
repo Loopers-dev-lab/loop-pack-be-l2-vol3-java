@@ -1,7 +1,5 @@
 package com.loopers.domain.order;
 
-import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.instancio.Instancio;
@@ -25,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -36,7 +35,7 @@ class OrderServiceTest {
     private OrderRepository orderRepository;
 
     @Mock
-    private ProductService productService;
+    private OrderHistoryService orderHistoryService;
 
     @InjectMocks
     private OrderService orderService;
@@ -50,42 +49,28 @@ class OrderServiceTest {
         void createOrder_Success() {
             // Given
             Long userId = 1L;
-            Long productId1 = 10L;
-            Long productId2 = 20L;
-
-            Product product1 = Instancio.of(Product.class)
-                    .set(field(Product::getId), productId1)
-                    .set(field(Product::getName), "상품A")
-                    .set(field(Product::getPrice), new BigDecimal("10000"))
-                    .create();
-
-            Product product2 = Instancio.of(Product.class)
-                    .set(field(Product::getId), productId2)
-                    .set(field(Product::getName), "상품B")
-                    .set(field(Product::getPrice), new BigDecimal("20000"))
-                    .create();
-
-            List<OrderService.OrderItemRequest> itemRequests = List.of(
-                    new OrderService.OrderItemRequest(productId1, 2),
-                    new OrderService.OrderItemRequest(productId2, 1)
+            List<OrderItem> orderItems = List.of(
+                    OrderItem.create(10L, "상품A", new BigDecimal("10000"), 2),
+                    OrderItem.create(20L, "상품B", new BigDecimal("20000"), 1)
             );
+            BigDecimal discountAmount = BigDecimal.ZERO;
 
-            given(productService.decreaseStock(productId1, 2)).willReturn(product1);
-            given(productService.decreaseStock(productId2, 1)).willReturn(product2);
             given(orderRepository.save(any(Order.class))).willAnswer(invocation -> invocation.getArgument(0));
 
             // When
-            Order result = orderService.createOrder(userId, itemRequests);
+            Order result = orderService.createOrder(userId, orderItems, discountAmount, null);
 
             // Then
             assertThat(result).isNotNull();
             assertThat(result.getUserId()).isEqualTo(userId);
+            assertThat(result.getStatus()).isEqualTo(OrderStatus.CREATED);
             assertThat(result.getOrderItems()).hasSize(2);
+            assertThat(result.getOriginalAmount()).isEqualByComparingTo(new BigDecimal("40000"));
+            assertThat(result.getDiscountAmount()).isEqualByComparingTo(BigDecimal.ZERO);
             assertThat(result.getTotalAmount()).isEqualByComparingTo(new BigDecimal("40000"));
 
-            then(productService).should().decreaseStock(productId1, 2);
-            then(productService).should().decreaseStock(productId2, 1);
             then(orderRepository).should().save(any(Order.class));
+            then(orderHistoryService).should().recordHistory(any(), eq(null), eq(OrderStatus.CREATED), eq("주문 생성"));
         }
 
         @Test
@@ -93,23 +78,15 @@ class OrderServiceTest {
         void createOrder_SingleItem() {
             // Given
             Long userId = 1L;
-            Long productId = 10L;
-
-            Product product = Instancio.of(Product.class)
-                    .set(field(Product::getId), productId)
-                    .set(field(Product::getName), "상품A")
-                    .set(field(Product::getPrice), new BigDecimal("15000"))
-                    .create();
-
-            List<OrderService.OrderItemRequest> itemRequests = List.of(
-                    new OrderService.OrderItemRequest(productId, 3)
+            List<OrderItem> orderItems = List.of(
+                    OrderItem.create(10L, "상품A", new BigDecimal("15000"), 3)
             );
+            BigDecimal discountAmount = BigDecimal.ZERO;
 
-            given(productService.decreaseStock(productId, 3)).willReturn(product);
             given(orderRepository.save(any(Order.class))).willAnswer(invocation -> invocation.getArgument(0));
 
             // When
-            Order result = orderService.createOrder(userId, itemRequests);
+            Order result = orderService.createOrder(userId, orderItems, discountAmount, null);
 
             // Then
             assertThat(result.getUserId()).isEqualTo(userId);
@@ -121,21 +98,13 @@ class OrderServiceTest {
         @DisplayName("실패: userId가 null이면 BAD_REQUEST 예외를 던진다")
         void createOrder_NullUserId() {
             // Given
-            Long productId = 10L;
-            Product product = Instancio.of(Product.class)
-                    .set(field(Product::getId), productId)
-                    .set(field(Product::getName), "상품A")
-                    .set(field(Product::getPrice), new BigDecimal("10000"))
-                    .create();
-
-            List<OrderService.OrderItemRequest> itemRequests = List.of(
-                    new OrderService.OrderItemRequest(productId, 1)
+            List<OrderItem> orderItems = List.of(
+                    OrderItem.create(10L, "상품A", new BigDecimal("10000"), 1)
             );
-
-            given(productService.decreaseStock(productId, 1)).willReturn(product);
+            BigDecimal discountAmount = BigDecimal.ZERO;
 
             // When & Then
-            assertThatThrownBy(() -> orderService.createOrder(null, itemRequests))
+            assertThatThrownBy(() -> orderService.createOrder(null, orderItems, discountAmount, null))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("사용자 ID는 필수입니다.");
@@ -146,34 +115,14 @@ class OrderServiceTest {
         void createOrder_EmptyItems() {
             // Given
             Long userId = 1L;
-            List<OrderService.OrderItemRequest> itemRequests = List.of();
+            List<OrderItem> orderItems = List.of();
+            BigDecimal discountAmount = BigDecimal.ZERO;
 
             // When & Then
-            assertThatThrownBy(() -> orderService.createOrder(userId, itemRequests))
+            assertThatThrownBy(() -> orderService.createOrder(userId, orderItems, discountAmount, null))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
-                    .hasMessage("주문 항목은 최소 1개 이상이어야 합니다.");
-        }
-
-        @Test
-        @DisplayName("실패: 재고가 부족하면 ProductService에서 예외가 발생한다")
-        void createOrder_InsufficientStock() {
-            // Given
-            Long userId = 1L;
-            Long productId = 10L;
-
-            List<OrderService.OrderItemRequest> itemRequests = List.of(
-                    new OrderService.OrderItemRequest(productId, 100)
-            );
-
-            given(productService.decreaseStock(productId, 100))
-                    .willThrow(new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다."));
-
-            // When & Then
-            assertThatThrownBy(() -> orderService.createOrder(userId, itemRequests))
-                    .isInstanceOf(CoreException.class)
-                    .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
-                    .hasMessage("재고가 부족합니다.");
+                    .hasMessage("주문 상품이 없습니다.");
         }
     }
 

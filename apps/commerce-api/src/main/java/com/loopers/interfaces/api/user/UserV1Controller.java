@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.user;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.application.user.UserFacade;
 import com.loopers.application.user.UserInfo;
+import com.loopers.domain.user.RegisterUserCommand;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.product.ProductV1Dto;
 import lombok.RequiredArgsConstructor;
@@ -20,13 +21,11 @@ public class UserV1Controller {
 
     @PostMapping("/register")
     public ApiResponse<UserV1Dto.RegisterResponse> register(@RequestBody UserV1Dto.RegisterRequest request) {
-        UserInfo userInfo = userFacade.register(
-            request.loginId(),
-            request.password(),
-            request.name(),
-            request.birthDate(),
-            request.email()
+        RegisterUserCommand command = new RegisterUserCommand(
+                request.loginId(), request.password(), request.name(),
+                request.birthDate(), request.email()
         );
+        UserInfo userInfo = userFacade.register(command);
 
         UserV1Dto.RegisterResponse response = new UserV1Dto.RegisterResponse(
             userInfo.id(),

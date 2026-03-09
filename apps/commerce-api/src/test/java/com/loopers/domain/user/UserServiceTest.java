@@ -1,5 +1,6 @@
 package com.loopers.domain.user;
 
+import com.loopers.domain.user.RegisterUserCommand;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,7 +56,7 @@ class UserServiceTest {
             when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // when
-            User result = userService.register(loginId, password, name, birthDate, email);
+            User result = userService.register(new RegisterUserCommand(loginId, password, name, birthDate, email));
 
             // then
             assertThat(result).isNotNull();
@@ -72,13 +73,9 @@ class UserServiceTest {
             when(userRepository.existsByLoginId(loginId)).thenReturn(true);
 
             // when & then
-            assertThatThrownBy(() -> userService.register(
-                loginId,
-                "Password1!",
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            ))
+            assertThatThrownBy(() -> userService.register(new RegisterUserCommand(
+                loginId, "Password1!", "홍길동", LocalDate.of(1990, 1, 15), "test@example.com"
+            )))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.CONFLICT);
 
@@ -90,13 +87,9 @@ class UserServiceTest {
         @DisplayName("로그인 ID가 null이면 BAD_REQUEST 예외가 발생한다")
         void throwsBadRequest_whenLoginIdIsNull() {
             // when & then
-            assertThatThrownBy(() -> userService.register(
-                null,
-                "Password1!",
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            ))
+            assertThatThrownBy(() -> userService.register(new RegisterUserCommand(
+                null, "Password1!", "홍길동", LocalDate.of(1990, 1, 15), "test@example.com"
+            )))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST);
 
@@ -108,13 +101,9 @@ class UserServiceTest {
         @DisplayName("로그인 ID가 빈 문자열이면 BAD_REQUEST 예외가 발생한다")
         void throwsBadRequest_whenLoginIdIsEmpty() {
             // when & then
-            assertThatThrownBy(() -> userService.register(
-                "",
-                "Password1!",
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            ))
+            assertThatThrownBy(() -> userService.register(new RegisterUserCommand(
+                "", "Password1!", "홍길동", LocalDate.of(1990, 1, 15), "test@example.com"
+            )))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST);
         }
@@ -123,13 +112,9 @@ class UserServiceTest {
         @DisplayName("이름이 null이면 BAD_REQUEST 예외가 발생한다")
         void throwsBadRequest_whenNameIsNull() {
             // when & then
-            assertThatThrownBy(() -> userService.register(
-                "testuser",
-                "Password1!",
-                null,
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            ))
+            assertThatThrownBy(() -> userService.register(new RegisterUserCommand(
+                "testuser", "Password1!", null, LocalDate.of(1990, 1, 15), "test@example.com"
+            )))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST);
         }
@@ -138,13 +123,9 @@ class UserServiceTest {
         @DisplayName("생년월일이 null이면 BAD_REQUEST 예외가 발생한다")
         void throwsBadRequest_whenBirthDateIsNull() {
             // when & then
-            assertThatThrownBy(() -> userService.register(
-                "testuser",
-                "Password1!",
-                "홍길동",
-                null,
-                "test@example.com"
-            ))
+            assertThatThrownBy(() -> userService.register(new RegisterUserCommand(
+                "testuser", "Password1!", "홍길동", null, "test@example.com"
+            )))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                 .hasMessageContaining("생년월일");
@@ -154,13 +135,9 @@ class UserServiceTest {
         @DisplayName("비밀번호가 8자 미만이면 BAD_REQUEST 예외가 발생한다")
         void throwsBadRequest_whenPasswordTooShort() {
             // when & then
-            assertThatThrownBy(() -> userService.register(
-                "testuser",
-                "Pass1!",
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            ))
+            assertThatThrownBy(() -> userService.register(new RegisterUserCommand(
+                "testuser", "Pass1!", "홍길동", LocalDate.of(1990, 1, 15), "test@example.com"
+            )))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                 .hasMessageContaining("8~16자");
@@ -170,13 +147,9 @@ class UserServiceTest {
         @DisplayName("비밀번호가 16자 초과이면 BAD_REQUEST 예외가 발생한다")
         void throwsBadRequest_whenPasswordTooLong() {
             // when & then
-            assertThatThrownBy(() -> userService.register(
-                "testuser",
-                "Password1!Password1!",
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            ))
+            assertThatThrownBy(() -> userService.register(new RegisterUserCommand(
+                "testuser", "Password1!Password1!", "홍길동", LocalDate.of(1990, 1, 15), "test@example.com"
+            )))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                 .hasMessageContaining("8~16자");
@@ -186,13 +159,9 @@ class UserServiceTest {
         @DisplayName("비밀번호에 공백이 포함되면 BAD_REQUEST 예외가 발생한다")
         void throwsBadRequest_whenPasswordContainsSpace() {
             // when & then
-            assertThatThrownBy(() -> userService.register(
-                "testuser",
-                "Pass word1!",
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            ))
+            assertThatThrownBy(() -> userService.register(new RegisterUserCommand(
+                "testuser", "Pass word1!", "홍길동", LocalDate.of(1990, 1, 15), "test@example.com"
+            )))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                 .hasMessageContaining("영문 대소문자, 숫자, 특수문자");
@@ -202,13 +171,9 @@ class UserServiceTest {
         @DisplayName("비밀번호에 생년월일(yyyyMMdd)이 포함되면 BAD_REQUEST 예외가 발생한다")
         void throwsBadRequest_whenPasswordContainsBirthDateYYYYMMDD() {
             // when & then
-            assertThatThrownBy(() -> userService.register(
-                "testuser",
-                "19900115Pw!",
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            ))
+            assertThatThrownBy(() -> userService.register(new RegisterUserCommand(
+                "testuser", "19900115Pw!", "홍길동", LocalDate.of(1990, 1, 15), "test@example.com"
+            )))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                 .hasMessageContaining("생년월일");
@@ -218,13 +183,9 @@ class UserServiceTest {
         @DisplayName("비밀번호에 생년월일(yyMMdd)이 포함되면 BAD_REQUEST 예외가 발생한다")
         void throwsBadRequest_whenPasswordContainsBirthDateYYMMDD() {
             // when & then
-            assertThatThrownBy(() -> userService.register(
-                "testuser",
-                "900115Pass!",
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "test@example.com"
-            ))
+            assertThatThrownBy(() -> userService.register(new RegisterUserCommand(
+                "testuser", "900115Pass!", "홍길동", LocalDate.of(1990, 1, 15), "test@example.com"
+            )))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                 .hasMessageContaining("생년월일");
@@ -234,13 +195,9 @@ class UserServiceTest {
         @DisplayName("이메일 형식이 올바르지 않으면 BAD_REQUEST 예외가 발생한다")
         void throwsBadRequest_whenEmailFormatInvalid() {
             // when & then
-            assertThatThrownBy(() -> userService.register(
-                "testuser",
-                "Password1!",
-                "홍길동",
-                LocalDate.of(1990, 1, 15),
-                "invalid-email"
-            ))
+            assertThatThrownBy(() -> userService.register(new RegisterUserCommand(
+                "testuser", "Password1!", "홍길동", LocalDate.of(1990, 1, 15), "invalid-email"
+            )))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                 .hasMessageContaining("이메일");

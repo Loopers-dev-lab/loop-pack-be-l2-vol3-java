@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.brand;
 
 import com.loopers.application.brand.BrandFacade;
 import com.loopers.application.brand.BrandInfo;
+import com.loopers.domain.brand.BrandCommand;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -21,11 +22,8 @@ public class BrandAdminV1Controller {
     public ApiResponse<BrandV1Dto.Response> registerBrand(
             @RequestBody BrandV1Dto.RegisterRequest request
     ) {
-        BrandInfo brandInfo = brandFacade.registerBrand(
-                request.name(),
-                request.description(),
-                request.logoUrl()
-        );
+        BrandCommand command = new BrandCommand(request.name(), request.description(), request.logoUrl());
+        BrandInfo brandInfo = brandFacade.registerBrand(command);
 
         return ApiResponse.success(BrandV1Dto.Response.from(brandInfo));
     }
@@ -53,12 +51,8 @@ public class BrandAdminV1Controller {
             @PathVariable Long brandId,
             @RequestBody BrandV1Dto.UpdateRequest request
     ) {
-        BrandInfo brandInfo = brandFacade.updateBrand(
-                brandId,
-                request.name(),
-                request.description(),
-                request.logoUrl()
-        );
+        BrandCommand command = new BrandCommand(request.name(), request.description(), request.logoUrl());
+        BrandInfo brandInfo = brandFacade.updateBrand(brandId, command);
 
         return ApiResponse.success(BrandV1Dto.Response.from(brandInfo));
     }

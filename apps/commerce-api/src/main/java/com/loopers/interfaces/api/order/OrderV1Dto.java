@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.order;
 
+import com.loopers.application.order.OrderHistoryInfo;
 import com.loopers.application.order.OrderInfo;
 
 import java.math.BigDecimal;
@@ -9,7 +10,8 @@ import java.util.List;
 public class OrderV1Dto {
 
     public record CreateRequest(
-            List<OrderItemRequest> items
+            List<OrderItemRequest> items,
+            Long userCouponId
     ) {}
 
     public record OrderItemRequest(
@@ -20,7 +22,11 @@ public class OrderV1Dto {
     public record Response(
             Long id,
             Long userId,
+            BigDecimal originalAmount,
+            BigDecimal discountAmount,
             BigDecimal totalAmount,
+            Long userCouponId,
+            String status,
             List<OrderItemResponse> orderItems,
             ZonedDateTime createdAt,
             ZonedDateTime updatedAt
@@ -33,7 +39,11 @@ public class OrderV1Dto {
             return new Response(
                     info.id(),
                     info.userId(),
+                    info.originalAmount(),
+                    info.discountAmount(),
                     info.totalAmount(),
+                    info.userCouponId(),
+                    info.status(),
                     items,
                     info.createdAt(),
                     info.updatedAt()
@@ -57,6 +67,26 @@ public class OrderV1Dto {
                     info.price(),
                     info.quantity(),
                     info.totalPrice()
+            );
+        }
+    }
+
+    public record HistoryResponse(
+            Long id,
+            Long orderId,
+            String previousStatus,
+            String newStatus,
+            String description,
+            ZonedDateTime createdAt
+    ) {
+        public static HistoryResponse from(OrderHistoryInfo info) {
+            return new HistoryResponse(
+                    info.id(),
+                    info.orderId(),
+                    info.previousStatus(),
+                    info.newStatus(),
+                    info.description(),
+                    info.createdAt()
             );
         }
     }

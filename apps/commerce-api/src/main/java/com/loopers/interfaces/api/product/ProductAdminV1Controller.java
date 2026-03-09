@@ -2,6 +2,8 @@ package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
+import com.loopers.domain.product.RegisterProductCommand;
+import com.loopers.domain.product.UpdateProductCommand;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -19,14 +21,11 @@ public class ProductAdminV1Controller {
 
     @PostMapping
     public ApiResponse<ProductV1Dto.Response> registerProduct(@RequestBody ProductV1Dto.RegisterRequest request) {
-        ProductInfo productInfo = productFacade.registerProduct(
-                request.brandId(),
-                request.name(),
-                request.description(),
-                request.price(),
-                request.stock(),
-                request.imageUrl()
+        RegisterProductCommand command = new RegisterProductCommand(
+                request.brandId(), request.name(), request.description(),
+                request.price(), request.stock(), request.imageUrl()
         );
+        ProductInfo productInfo = productFacade.registerProduct(command);
         return ApiResponse.success(ProductV1Dto.Response.from(productInfo));
     }
 
@@ -53,14 +52,11 @@ public class ProductAdminV1Controller {
             @PathVariable Long productId,
             @RequestBody ProductV1Dto.UpdateRequest request
     ) {
-        ProductInfo productInfo = productFacade.updateProduct(
-                productId,
-                request.name(),
-                request.description(),
-                request.price(),
-                request.stock(),
-                request.imageUrl()
+        UpdateProductCommand command = new UpdateProductCommand(
+                request.name(), request.description(),
+                request.price(), request.stock(), request.imageUrl()
         );
+        ProductInfo productInfo = productFacade.updateProduct(productId, command);
         return ApiResponse.success(ProductV1Dto.Response.from(productInfo));
     }
 

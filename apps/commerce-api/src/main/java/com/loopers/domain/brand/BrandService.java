@@ -12,20 +12,19 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class BrandService {
 
     private final BrandRepository brandRepository;
 
     @Transactional
-    public Brand register(String name, String description, String logoUrl) {
-        String trimmedName = name != null ? name.trim() : null;
+    public Brand register(BrandCommand command) {
+        String trimmedName = command.name() != null ? command.name().trim() : null;
 
         if (trimmedName != null && brandRepository.existsActiveByNameIgnoreCase(trimmedName)) {
             throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 브랜드명입니다.");
         }
 
-        Brand brand = Brand.create(trimmedName, description, logoUrl);
+        Brand brand = Brand.create(trimmedName, command.description(), command.logoUrl());
         return brandRepository.save(brand);
     }
 
@@ -43,21 +42,16 @@ public class BrandService {
     }
 
     @Transactional
-    public Brand updateBrand(Long brandId, String name, String description, String logoUrl) {
+    public Brand updateBrand(Long brandId, BrandCommand command) {
         Brand brand = getBrand(brandId);
 
-        if (name != null) {
-            String trimmedName = name.trim();
+        String trimmedName = command.name() != null ? command.name().trim() : null;
 
-            if (brandRepository.existsActiveByNameIgnoreCaseAndIdNot(trimmedName, brandId)) {
-                throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 브랜드명입니다.");
-            }
-
-            brand.update(trimmedName, description, logoUrl);
-        } else {
-            brand.update(null, description, logoUrl);
+        if (trimmedName != null && brandRepository.existsActiveByNameIgnoreCaseAndIdNot(trimmedName, brandId)) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 브랜드명입니다.");
         }
 
+        brand.update(trimmedName, command.description(), command.logoUrl());
         return brand;
     }
 
