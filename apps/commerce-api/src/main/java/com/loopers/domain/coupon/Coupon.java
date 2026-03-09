@@ -88,11 +88,13 @@ public class Coupon extends BaseEntity {
         }
     }
 
-    public long calculateDiscount(long orderAmount) {
+    public void validateApplicable(long orderAmount) {
         if (minOrderAmount != null && orderAmount < minOrderAmount) {
             throw new CoreException(ErrorType.MIN_ORDER_AMOUNT_NOT_MET, "최소 주문 금액 조건을 충족하지 않습니다.");
         }
+    }
 
+    public long calculateDiscount(long orderAmount) {
         return switch (discountType) {
             case FIXED -> discountValue;
             case RATE -> orderAmount * discountValue / 100;

@@ -126,7 +126,7 @@ public class CouponTest {
 
             // act
             CoreException result = assertThrows(CoreException.class, () ->
-                coupon.calculateDiscount(orderAmount)
+                coupon.validateApplicable(orderAmount)
             );
 
             // assert
