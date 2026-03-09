@@ -2,14 +2,16 @@ package com.loopers.domain.coupon;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.persistence.OptimisticLockException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
 import java.util.Optional;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 /**
  * 쿠폰 도메인 서비스.
@@ -58,13 +60,41 @@ public class CouponService {
 
     /**
      * 주문 시 쿠폰 유효성 검증 후 사용 처리. 낙관적 락(@Version)으로 동시 사용 방지.
-     * 일반 SELECT로 조회 후 상태를 USED로 변경하고, 커밋 시점에 JPA가 버전을 비교한다. 다른 트랜잭션이 먼저 사용했으면 OptimisticLockException으로 전체 롤백. (05-transaction-query §3.1)
+     * 내부적으로 REQUIRES_NEW 트랜잭션에서 1회 재시도하며, 모두 실패 시 CONFLICT(409)로 변환한다. (05-transaction-query §3.1, §3.4, §9.1)
      * 소유자 불일치·이미 사용·만료·최소 주문 금액 미충족 시 예외.
      *
      * @return 할인 결과(할인 전/할인액/최종 금액). 호출 측에서 주문 스냅샷에 반영.
      */
-    @Transactional
     public CouponDiscount validateAndUse(Long issuedCouponId, Long userId, java.math.BigDecimal orderAmountBeforeDiscount) {
+        final int maxAttempts = 2;
+        final long backoffMs = 50L;
+
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            try {
+                return validateAndUseInNewTransaction(issuedCouponId, userId, orderAmountBeforeDiscount);
+            } catch (OptimisticLockException | ObjectOptimisticLockingFailureException e) {
+                if (attempt == maxAttempts - 1) {
+                    throw new CoreException(ErrorType.CONFLICT, "잠시 후 다시 시도해 주세요.", e);
+                }
+                try {
+                    Thread.sleep(backoffMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new CoreException(ErrorType.INTERNAL_ERROR, "재시도 대기 중 중단되었습니다.", ie);
+                }
+            }
+        }
+        throw new IllegalStateException("unreachable");
+    }
+
+    /**
+     * REQUIRES_NEW 트랜잭션에서 쿠폰을 한 번 사용 처리한다.
+     * 낙관락 충돌 시 OptimisticLockException이 발생하며, 호출 측에서 재시도 여부를 결정한다.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    CouponDiscount validateAndUseInNewTransaction(Long issuedCouponId,
+                                                  Long userId,
+                                                  java.math.BigDecimal orderAmountBeforeDiscount) {
         IssuedCouponModel issued = issuedCouponRepository.findById(issuedCouponId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
         if (!issued.getUserId().equals(userId)) {
