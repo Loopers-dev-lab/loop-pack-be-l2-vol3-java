@@ -1,7 +1,6 @@
 package com.loopers.domain.catalog.brand;
 
 import com.loopers.domain.SoftDeletableEntity;
-import com.loopers.domain.catalog.vo.Name;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.*;
@@ -12,19 +11,20 @@ import lombok.NoArgsConstructor;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "brand")
+@Table(name = "brand", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_brand_name", columnNames = "name")
+})
 public class Brand extends SoftDeletableEntity {
 
     @Embedded
-    @AttributeOverride(name = "value", column = @Column(name = "name", nullable = false, length = 100, unique = true))
-    private Name name;
+    private BrandName name;
 
-    private Brand(Name name) {
+    private Brand(BrandName name) {
         this.name = name;
     }
 
     public static Brand register(String name) {
-        return new Brand(Name.of(name));
+        return new Brand(BrandName.of(name));
     }
 
     public boolean hasName(String name) {
@@ -35,15 +35,19 @@ public class Brand extends SoftDeletableEntity {
         return this.name.startsWith(prefix);
     }
 
+    public String nameValue() {
+        return this.name.getValue();
+    }
+
     public void updateName(String name) {
         guardNotDeleted();
-        this.name = Name.of(name);
+        this.name = BrandName.of(name);
     }
 
     @Override
     public void delete() {
         guardNotDeleted();
-        this.name = Name.of(this.name.getValue() + "_deleted_" + System.currentTimeMillis());
+        this.name = BrandName.ofDeletedName(this.name.getValue());
         super.delete();
     }
 

@@ -18,7 +18,9 @@ import java.time.LocalDate;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "member")
+@Table(name = "member", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_member_login_id", columnNames = "login_id")
+})
 public class Member extends BaseTimeEntity {
 
     @Embedded
@@ -56,6 +58,18 @@ public class Member extends BaseTimeEntity {
 
     public MemberId getMemberId() {
         return getId() != null ? MemberId.of(getId()) : null;
+    }
+
+    public String loginIdValue() {
+        return this.loginId.getValue();
+    }
+
+    public String nameValue() {
+        return this.name.getValue();
+    }
+
+    public String emailValue() {
+        return this.email.getValue();
     }
 
     public boolean matchesPassword(String rawPassword, PasswordEncryptor encryptor) {
