@@ -22,4 +22,6 @@ public interface ProductRepository {
     void deleteByBrandId(Long brandId);
 
     List<Product> findByIds(List<Long> ids);
+
+    int decreaseStock(Long id, int quantity);
 }

@@ -64,6 +64,18 @@ public class ProductService {
         productRepository.update(product);
     }
 
+    public Product decreaseStockAtomic(Long productId, int quantity) {
+        productRepository.findById(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
+
+        int updatedRows = productRepository.decreaseStock(productId, quantity);
+        if (updatedRows == 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.");
+        }
+        return productRepository.findById(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
+    }
+
     public List<Product> findProductsByBrandId(Long brandId) {
         return productRepository.findAll(Pageable.unpaged(), brandId).getContent();
     }

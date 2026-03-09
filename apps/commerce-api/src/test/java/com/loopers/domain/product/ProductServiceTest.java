@@ -3,6 +3,7 @@ package com.loopers.domain.product;
 import com.loopers.domain.product.model.Product;
 import com.loopers.domain.product.model.ProductCommand;
 import com.loopers.domain.product.model.ProductItem;
+import com.loopers.domain.product.vo.DisplayStatus;
 import com.loopers.domain.product.repository.ProductCustomRepository;
 import com.loopers.domain.product.repository.ProductRepository;
 import com.loopers.domain.product.service.ProductService;
@@ -51,7 +52,7 @@ class ProductServiceTest {
         void createsProduct_andReturnsSaved() {
             // arrange
             ProductCommand.Create command = new ProductCommand.Create(1L, "운동화", 50000, 100);
-            Product saved = Product.reconstruct(1L, 1L, "운동화", 50000, 100, "DISPLAYING");
+            Product saved = Product.reconstruct(1L, 1L, "운동화", 50000, 100, DisplayStatus.DISPLAYING);
             when(productRepository.save(any(Product.class))).thenReturn(saved);
 
             // act
@@ -87,7 +88,7 @@ class ProductServiceTest {
         @Test
         void returnsProduct_whenFound() {
             // arrange
-            Product product = Product.reconstruct(1L, 1L, "운동화", 50000, 100, "DISPLAYING");
+            Product product = Product.reconstruct(1L, 1L, "운동화", 50000, 100, DisplayStatus.DISPLAYING);
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
             // act
@@ -126,7 +127,7 @@ class ProductServiceTest {
         @Test
         void updatesProduct_andCallsUpdate() {
             // arrange
-            Product product = Product.reconstruct(1L, 1L, "운동화", 50000, 100, "DISPLAYING");
+            Product product = Product.reconstruct(1L, 1L, "운동화", 50000, 100, DisplayStatus.DISPLAYING);
             ProductCommand.Update command = new ProductCommand.Update(
                     "슬리퍼", 20000, 50,
                     com.loopers.domain.product.vo.DisplayStatus.DISPLAYING
@@ -166,7 +167,7 @@ class ProductServiceTest {
         @Test
         void deletesProduct_andCallsDeleteById() {
             // arrange
-            Product product = Product.reconstruct(1L, 1L, "운동화", 50000, 100, "DISPLAYING");
+            Product product = Product.reconstruct(1L, 1L, "운동화", 50000, 100, DisplayStatus.DISPLAYING);
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
             // act
@@ -185,7 +186,7 @@ class ProductServiceTest {
         @Test
         void decreasesStock_andCallsUpdate() {
             // arrange
-            Product product = Product.reconstruct(1L, 1L, "운동화", 50000, 100, "DISPLAYING");
+            Product product = Product.reconstruct(1L, 1L, "운동화", 50000, 100, DisplayStatus.DISPLAYING);
 
             // act
             productService.decreaseStock(product, 10);
@@ -205,7 +206,7 @@ class ProductServiceTest {
         void throwsException_whenSomeIdsNotFound() {
             // arrange
             List<Long> ids = List.of(1L, 2L, 3L);
-            Product product1 = Product.reconstruct(1L, 1L, "운동화", 50000, 100, "DISPLAYING");
+            Product product1 = Product.reconstruct(1L, 1L, "운동화", 50000, 100, DisplayStatus.DISPLAYING);
             when(productRepository.findByIds(ids)).thenReturn(List.of(product1));
 
             // act & assert
@@ -222,8 +223,8 @@ class ProductServiceTest {
         void returnsProducts_whenAllIdsFound() {
             // arrange
             List<Long> ids = List.of(1L, 2L);
-            Product product1 = Product.reconstruct(1L, 1L, "운동화", 50000, 100, "DISPLAYING");
-            Product product2 = Product.reconstruct(2L, 1L, "슬리퍼", 20000, 50, "DISPLAYING");
+            Product product1 = Product.reconstruct(1L, 1L, "운동화", 50000, 100, DisplayStatus.DISPLAYING);
+            Product product2 = Product.reconstruct(2L, 1L, "슬리퍼", 20000, 50, DisplayStatus.DISPLAYING);
             when(productRepository.findByIds(ids)).thenReturn(List.of(product1, product2));
 
             // act
@@ -244,8 +245,8 @@ class ProductServiceTest {
         @Test
         void returnsProducts_forGivenBrandId() {
             // arrange
-            Product product1 = Product.reconstruct(1L, 1L, "운동화", 50000, 100, "DISPLAYING");
-            Product product2 = Product.reconstruct(2L, 1L, "슬리퍼", 20000, 50, "DISPLAYING");
+            Product product1 = Product.reconstruct(1L, 1L, "운동화", 50000, 100, DisplayStatus.DISPLAYING);
+            Product product2 = Product.reconstruct(2L, 1L, "슬리퍼", 20000, 50, DisplayStatus.DISPLAYING);
             Page<Product> page = new PageImpl<>(List.of(product1, product2));
             when(productRepository.findAll(Pageable.unpaged(), 1L)).thenReturn(page);
 

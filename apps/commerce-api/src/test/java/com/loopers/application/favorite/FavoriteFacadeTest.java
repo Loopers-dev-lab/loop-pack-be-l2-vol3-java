@@ -6,6 +6,7 @@ import com.loopers.domain.member.model.Member;
 import com.loopers.domain.member.service.MemberService;
 import com.loopers.domain.product.model.Product;
 import com.loopers.domain.product.service.ProductService;
+import com.loopers.domain.product.vo.DisplayStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
@@ -45,7 +46,7 @@ class FavoriteFacadeTest {
     }
 
     private static Product createTestProduct() {
-        return Product.reconstruct(1L, 1L, "상품A", 10000, 100, "DISPLAYING");
+        return Product.reconstruct(1L, 1L, "상품A", 10000, 100, DisplayStatus.DISPLAYING);
     }
 
     @DisplayName("좋아요 등록")

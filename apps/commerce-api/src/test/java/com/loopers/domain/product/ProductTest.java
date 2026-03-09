@@ -49,15 +49,17 @@ class ProductTest {
                 .isInstanceOf(CoreException.class);
         }
 
-        @DisplayName("가격이 0이면 예외가 발생한다.")
+        @DisplayName("가격이 0이면 정상 생성된다.")
         @Test
-        void throwsException_whenPriceIsZero() {
+        void success_whenPriceIsZero() {
             // arrange
             ProductCommand.Create command = new ProductCommand.Create(1L, "상품", 0, 100);
 
-            // act & assert
-            assertThatThrownBy(() -> Product.create(1L, command))
-                .isInstanceOf(CoreException.class);
+            // act
+            Product product = Product.create(1L, command);
+
+            // assert
+            assertThat(product.getPrice().value()).isEqualTo(0);
         }
 
         @DisplayName("재고가 음수이면 예외가 발생한다.")
@@ -80,7 +82,7 @@ class ProductTest {
         @Test
         void reconstructsProduct_withAllFields() {
             // act
-            Product product = Product.reconstruct(1L, 1L, "상품A", 10000, 50, "DISPLAYING");
+            Product product = Product.reconstruct(1L, 1L, "상품A", 10000, 50, DisplayStatus.DISPLAYING);
 
             // assert
             assertAll(
@@ -122,7 +124,7 @@ class ProductTest {
         @Test
         void throwsException_whenUpdateNameIsNull() {
             // arrange
-            Product product = Product.reconstruct(1L, 1L, "나이키 에어맥스", 150000, 100, "DISPLAYING");
+            Product product = Product.reconstruct(1L, 1L, "나이키 에어맥스", 150000, 100, DisplayStatus.DISPLAYING);
             ProductCommand.Update updateCommand = new ProductCommand.Update(null, 20000, 30, DisplayStatus.NOT_DISPLAYING);
 
             // act & assert
@@ -130,16 +132,18 @@ class ProductTest {
                 .isInstanceOf(CoreException.class);
         }
 
-        @DisplayName("수정 시 가격이 0이면 예외가 발생한다.")
+        @DisplayName("수정 시 가격이 0이면 정상 수정된다.")
         @Test
-        void throwsException_whenUpdatePriceIsZero() {
+        void success_whenUpdatePriceIsZero() {
             // arrange
-            Product product = Product.reconstruct(1L, 1L, "나이키 에어맥스", 150000, 100, "DISPLAYING");
+            Product product = Product.reconstruct(1L, 1L, "나이키 에어맥스", 150000, 100, DisplayStatus.DISPLAYING);
             ProductCommand.Update updateCommand = new ProductCommand.Update("상품", 0, 30, DisplayStatus.DISPLAYING);
 
-            // act & assert
-            assertThatThrownBy(() -> product.update(updateCommand))
-                .isInstanceOf(CoreException.class);
+            // act
+            product.update(updateCommand);
+
+            // assert
+            assertThat(product.getPrice().value()).isEqualTo(0);
         }
     }
 
@@ -151,7 +155,7 @@ class ProductTest {
         @Test
         void decreasesStock_whenSufficientStock() {
             // arrange
-            Product product = Product.reconstruct(1L, 1L, "상품", 10000, 100, "DISPLAYING");
+            Product product = Product.reconstruct(1L, 1L, "상품", 10000, 100, DisplayStatus.DISPLAYING);
 
             // act
             product.decreaseStock(30);
@@ -164,7 +168,7 @@ class ProductTest {
         @Test
         void throwsException_whenInsufficientStock() {
             // arrange
-            Product product = Product.reconstruct(1L, 1L, "상품", 10000, 10, "DISPLAYING");
+            Product product = Product.reconstruct(1L, 1L, "상품", 10000, 10, DisplayStatus.DISPLAYING);
 
             // act & assert
             assertThatThrownBy(() -> product.decreaseStock(20))
@@ -180,7 +184,7 @@ class ProductTest {
         @Test
         void increasesStock() {
             // arrange
-            Product product = Product.reconstruct(1L, 1L, "상품", 10000, 100, "DISPLAYING");
+            Product product = Product.reconstruct(1L, 1L, "상품", 10000, 100, DisplayStatus.DISPLAYING);
 
             // act
             product.increaseStock(50);

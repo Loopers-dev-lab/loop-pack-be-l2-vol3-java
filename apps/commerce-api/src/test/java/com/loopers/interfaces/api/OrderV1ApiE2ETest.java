@@ -109,7 +109,7 @@ class OrderV1ApiE2ETest {
             ProductEntity product = saveProduct(brand.getId(), "에어맥스", 120000, 10);
 
             CreateOrderApiReqDto request = new CreateOrderApiReqDto(
-                List.of(new CreateOrderApiReqDto.OrderItemApiReqDto(product.getId(), 1))
+                List.of(new CreateOrderApiReqDto.OrderItemApiReqDto(product.getId(), 1)), null
             );
             HttpHeaders headers = new HttpHeaders();
 
@@ -138,7 +138,7 @@ class OrderV1ApiE2ETest {
             ProductEntity product = saveProduct(brand.getId(), "에어맥스", 120000, 10);
 
             CreateOrderApiReqDto request = new CreateOrderApiReqDto(
-                List.of(new CreateOrderApiReqDto.OrderItemApiReqDto(product.getId(), 1))
+                List.of(new CreateOrderApiReqDto.OrderItemApiReqDto(product.getId(), 1)), null
             );
             HttpHeaders headers = createAuthHeaders("nonexistent", "WrongPass1!");
 
@@ -167,7 +167,7 @@ class OrderV1ApiE2ETest {
             saveMember("testuser", password, "홍길동", LocalDate.of(1990, 1, 15), "test@example.com");
 
             CreateOrderApiReqDto request = new CreateOrderApiReqDto(
-                List.of(new CreateOrderApiReqDto.OrderItemApiReqDto(99999L, 1))
+                List.of(new CreateOrderApiReqDto.OrderItemApiReqDto(99999L, 1)), null
             );
             HttpHeaders headers = createAuthHeaders("testuser", password);
 
@@ -198,7 +198,7 @@ class OrderV1ApiE2ETest {
             ProductEntity product = saveProduct(brand.getId(), "에어맥스", 120000, 2);
 
             CreateOrderApiReqDto request = new CreateOrderApiReqDto(
-                List.of(new CreateOrderApiReqDto.OrderItemApiReqDto(product.getId(), 10))
+                List.of(new CreateOrderApiReqDto.OrderItemApiReqDto(product.getId(), 10)), null
             );
             HttpHeaders headers = createAuthHeaders("testuser", password);
 
@@ -229,7 +229,7 @@ class OrderV1ApiE2ETest {
             ProductEntity product = saveProduct(brand.getId(), "에어맥스", 120000, 10);
 
             CreateOrderApiReqDto request = new CreateOrderApiReqDto(
-                List.of(new CreateOrderApiReqDto.OrderItemApiReqDto(product.getId(), 2))
+                List.of(new CreateOrderApiReqDto.OrderItemApiReqDto(product.getId(), 2)), null
             );
             HttpHeaders headers = createAuthHeaders("testuser", password);
 
@@ -344,7 +344,7 @@ class OrderV1ApiE2ETest {
 
             // 주문 생성
             CreateOrderApiReqDto createRequest = new CreateOrderApiReqDto(
-                List.of(new CreateOrderApiReqDto.OrderItemApiReqDto(product.getId(), 1))
+                List.of(new CreateOrderApiReqDto.OrderItemApiReqDto(product.getId(), 1)), null
             );
             testRestTemplate.exchange(
                 ENDPOINT_ORDERS,
@@ -460,7 +460,7 @@ class OrderV1ApiE2ETest {
 
             // 주문 생성
             CreateOrderApiReqDto createRequest = new CreateOrderApiReqDto(
-                List.of(new CreateOrderApiReqDto.OrderItemApiReqDto(product.getId(), 3))
+                List.of(new CreateOrderApiReqDto.OrderItemApiReqDto(product.getId(), 3)), null
             );
             ParameterizedTypeReference<ApiResponse<FindOrderApiResDto>> responseType = new ParameterizedTypeReference<>() {};
             ResponseEntity<ApiResponse<FindOrderApiResDto>> createResponse =

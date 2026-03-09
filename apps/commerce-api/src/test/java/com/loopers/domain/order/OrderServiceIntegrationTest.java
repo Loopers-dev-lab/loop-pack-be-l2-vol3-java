@@ -112,7 +112,7 @@ class OrderServiceIntegrationTest {
                 OrderProduct.create(product1.getId(), "상품A", 10000, 2),
                 OrderProduct.create(product2.getId(), "상품B", 20000, 1)
             );
-            OrderCommand.Create command = new OrderCommand.Create(member.getId(), orderProducts);
+            OrderCommand.Create command = new OrderCommand.Create(member.getId(), orderProducts, 0, null);
 
             // act
             Orders result = orderService.createOrder(command);
@@ -160,7 +160,7 @@ class OrderServiceIntegrationTest {
             List<OrderProduct> orderProducts = List.of(
                 OrderProduct.create(product.getId(), "상품A", 10000, 1)
             );
-            orderService.createOrder(new OrderCommand.Create(member.getId(), orderProducts));
+            orderService.createOrder(new OrderCommand.Create(member.getId(), orderProducts, 0, null));
 
             OrderCommand.GetByPeriod command = new OrderCommand.GetByPeriod(
                 member.getId(),
@@ -205,7 +205,7 @@ class OrderServiceIntegrationTest {
             List<OrderProduct> orderProducts = List.of(
                 OrderProduct.create(product.getId(), "상품A", 10000, 1)
             );
-            Orders order = orderService.createOrder(new OrderCommand.Create(member.getId(), orderProducts));
+            Orders order = orderService.createOrder(new OrderCommand.Create(member.getId(), orderProducts, 0, null));
 
             Long otherMemberId = member.getId() + 9999L;
             OrderCommand.GetByMember command = new OrderCommand.GetByMember(otherMemberId, order.getId());
@@ -227,7 +227,7 @@ class OrderServiceIntegrationTest {
             List<OrderProduct> orderProducts = List.of(
                 OrderProduct.create(product.getId(), "상품A", 10000, 2)
             );
-            Orders order = orderService.createOrder(new OrderCommand.Create(member.getId(), orderProducts));
+            Orders order = orderService.createOrder(new OrderCommand.Create(member.getId(), orderProducts, 0, null));
 
             OrderCommand.GetByMember command = new OrderCommand.GetByMember(member.getId(), order.getId());
 

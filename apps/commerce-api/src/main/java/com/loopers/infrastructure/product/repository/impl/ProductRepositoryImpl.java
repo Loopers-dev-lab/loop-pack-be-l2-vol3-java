@@ -35,7 +35,7 @@ public class ProductRepositoryImpl implements ProductRepository {
                 product.getName().value(),
                 product.getPrice().value(),
                 product.getStock().value(),
-                product.getDisplayStatus().name()
+                product.getDisplayStatus()
         );
     }
 
@@ -65,5 +65,10 @@ public class ProductRepositoryImpl implements ProductRepository {
         return productJpaRepository.findAllByIdIn(ids).stream()
                 .map(ProductEntity::toModel)
                 .toList();
+    }
+
+    @Override
+    public int decreaseStock(Long id, int quantity) {
+        return productJpaRepository.decreaseStock(id, quantity);
     }
 }
