@@ -1,10 +1,16 @@
 package com.loopers.interfaces.api;
 
 import com.loopers.domain.brand.BrandModel;
+import com.loopers.domain.coupon.CouponModel;
+import com.loopers.domain.coupon.CouponType;
+import com.loopers.domain.coupon.UserCouponModel;
+import com.loopers.domain.coupon.UserCouponStatus;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductStatus;
 import com.loopers.domain.user.UserModel;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
+import com.loopers.infrastructure.coupon.CouponJpaRepository;
+import com.loopers.infrastructure.coupon.UserCouponJpaRepository;
 import com.loopers.infrastructure.order.OrderJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.infrastructure.user.UserJpaRepository;
@@ -21,6 +27,7 @@ import org.springframework.http.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -31,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class OrderV1ApiE2ETest {
 
     private static final String ENDPOINT_ORDERS = "/api/v1/orders";
+    private static final String ENDPOINT_COUPON_ISSUE = "/api/v1/coupons/{couponId}/issue";
     private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
     private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
 
@@ -39,6 +47,8 @@ class OrderV1ApiE2ETest {
     private final BrandJpaRepository brandJpaRepository;
     private final ProductJpaRepository productJpaRepository;
     private final OrderJpaRepository orderJpaRepository;
+    private final CouponJpaRepository couponJpaRepository;
+    private final UserCouponJpaRepository userCouponJpaRepository;
     private final PasswordEncoder passwordEncoder;
     private final DatabaseCleanUp databaseCleanUp;
 
@@ -49,6 +59,8 @@ class OrderV1ApiE2ETest {
         BrandJpaRepository brandJpaRepository,
         ProductJpaRepository productJpaRepository,
         OrderJpaRepository orderJpaRepository,
+        CouponJpaRepository couponJpaRepository,
+        UserCouponJpaRepository userCouponJpaRepository,
         PasswordEncoder passwordEncoder,
         DatabaseCleanUp databaseCleanUp
     ) {
@@ -57,6 +69,8 @@ class OrderV1ApiE2ETest {
         this.brandJpaRepository = brandJpaRepository;
         this.productJpaRepository = productJpaRepository;
         this.orderJpaRepository = orderJpaRepository;
+        this.couponJpaRepository = couponJpaRepository;
+        this.userCouponJpaRepository = userCouponJpaRepository;
         this.passwordEncoder = passwordEncoder;
         this.databaseCleanUp = databaseCleanUp;
     }
@@ -82,6 +96,16 @@ class OrderV1ApiE2ETest {
 
     private ProductModel createProduct(BrandModel brand, String name, Long price, int stock) {
         return productJpaRepository.save(new ProductModel(brand, name, price, name + " 설명", stock, ProductStatus.ON_SALE));
+    }
+
+    private CouponModel createRateCoupon(Long rateValue, Long minOrderAmount) {
+        return couponJpaRepository.save(new CouponModel(
+            "주문 할인 쿠폰",
+            CouponType.RATE,
+            rateValue,
+            minOrderAmount,
+            ZonedDateTime.now().plusDays(1)
+        ));
     }
 
     @DisplayName("POST /api/v1/orders - 주문 생성")
@@ -169,6 +193,104 @@ class OrderV1ApiE2ETest {
             // assert
             ProductModel updatedProduct = productJpaRepository.findById(product.getId()).orElseThrow();
             assertThat(updatedProduct.getStockQuantity()).isEqualTo(7);
+        }
+
+        @DisplayName("발급받은 쿠폰으로 주문하면 할인 적용 후 쿠폰이 USED 상태가 된다.")
+        @Test
+        void appliesCouponAndMarksUsed_whenIssuedCouponIsRequested() {
+            // arrange
+            createUser();
+            BrandModel brand = brandJpaRepository.save(new BrandModel("아디다스", "스포츠 브랜드"));
+            ProductModel product = createProduct(brand, "울트라부스트", 150000L, 10);
+            CouponModel coupon = createRateCoupon(10L, 10000L);
+
+            ParameterizedTypeReference<ApiResponse<UserCouponIssueResponse>> issueResponseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserCouponIssueResponse>> issueResponse = testRestTemplate.exchange(
+                ENDPOINT_COUPON_ISSUE,
+                HttpMethod.POST,
+                new HttpEntity<>(authHeaders()),
+                issueResponseType,
+                coupon.getId()
+            );
+            Long userCouponId = issueResponse.getBody().data().id();
+
+            PlaceOrderRequest request = new PlaceOrderRequest(
+                List.of(new PlaceOrderItemRequest(product.getId(), 2)),
+                userCouponId
+            );
+
+            // act
+            ParameterizedTypeReference<ApiResponse<OrderDetailResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<OrderDetailResponse>> response = testRestTemplate.exchange(
+                ENDPOINT_ORDERS,
+                HttpMethod.POST,
+                new HttpEntity<>(request, authHeaders()),
+                responseType
+            );
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().data().originalAmount()).isEqualTo(300000L),
+                () -> assertThat(response.getBody().data().discountAmount()).isEqualTo(30000L),
+                () -> assertThat(response.getBody().data().totalAmount()).isEqualTo(270000L),
+                () -> assertThat(response.getBody().data().usedCouponId()).isEqualTo(userCouponId)
+            );
+
+            UserCouponModel usedCoupon = userCouponJpaRepository.findById(userCouponId).orElseThrow();
+            assertAll(
+                () -> assertThat(usedCoupon.getStatus()).isEqualTo(UserCouponStatus.USED),
+                () -> assertThat(usedCoupon.getOrderId()).isEqualTo(response.getBody().data().id())
+            );
+        }
+
+        @DisplayName("이미 사용한 쿠폰으로 재주문하면 BAD_REQUEST 응답을 받는다.")
+        @Test
+        void returnsBadRequest_whenUsedCouponIsRequestedAgain() {
+            // arrange
+            createUser();
+            BrandModel brand = brandJpaRepository.save(new BrandModel("아디다스", "스포츠 브랜드"));
+            ProductModel product = createProduct(brand, "울트라부스트", 150000L, 10);
+            CouponModel coupon = createRateCoupon(10L, 10000L);
+
+            ParameterizedTypeReference<ApiResponse<UserCouponIssueResponse>> issueResponseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<UserCouponIssueResponse>> issueResponse = testRestTemplate.exchange(
+                ENDPOINT_COUPON_ISSUE,
+                HttpMethod.POST,
+                new HttpEntity<>(authHeaders()),
+                issueResponseType,
+                coupon.getId()
+            );
+            Long userCouponId = issueResponse.getBody().data().id();
+
+            PlaceOrderRequest firstOrderRequest = new PlaceOrderRequest(
+                List.of(new PlaceOrderItemRequest(product.getId(), 1)),
+                userCouponId
+            );
+
+            ParameterizedTypeReference<ApiResponse<OrderDetailResponse>> responseType = new ParameterizedTypeReference<>() {};
+            testRestTemplate.exchange(
+                ENDPOINT_ORDERS,
+                HttpMethod.POST,
+                new HttpEntity<>(firstOrderRequest, authHeaders()),
+                responseType
+            );
+
+            PlaceOrderRequest secondOrderRequest = new PlaceOrderRequest(
+                List.of(new PlaceOrderItemRequest(product.getId(), 1)),
+                userCouponId
+            );
+
+            // act
+            ResponseEntity<ApiResponse<OrderDetailResponse>> secondOrderResponse = testRestTemplate.exchange(
+                ENDPOINT_ORDERS,
+                HttpMethod.POST,
+                new HttpEntity<>(secondOrderRequest, authHeaders()),
+                responseType
+            );
+
+            // assert
+            assertThat(secondOrderResponse.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
     }
 
@@ -362,8 +484,13 @@ class OrderV1ApiE2ETest {
     }
 
     record PlaceOrderRequest(
-        List<PlaceOrderItemRequest> items
-    ) {}
+        List<PlaceOrderItemRequest> items,
+        Long couponId
+    ) {
+        PlaceOrderRequest(List<PlaceOrderItemRequest> items) {
+            this(items, null);
+        }
+    }
 
     record PlaceOrderItemRequest(
         Long productId,
@@ -373,9 +500,17 @@ class OrderV1ApiE2ETest {
     record OrderDetailResponse(
         Long id,
         Long userId,
+        Long usedCouponId,
+        Long originalAmount,
+        Long discountAmount,
         Long totalAmount,
         String orderedAt,
         List<OrderItemResponse> items
+    ) {}
+
+    record UserCouponIssueResponse(
+        Long id,
+        UserCouponStatus status
     ) {}
 
     record OrderItemResponse(

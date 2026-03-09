@@ -8,6 +8,9 @@ import java.util.List;
 public record OrderDetailInfo(
     Long id,
     Long userId,
+    Long usedCouponId,
+    Long originalAmount,
+    Long discountAmount,
     Long totalAmount,
     ZonedDateTime orderedAt,
     List<OrderItemInfo> items
@@ -16,6 +19,9 @@ public record OrderDetailInfo(
         return new OrderDetailInfo(
             order.getId(),
             order.getUserId(),
+            order.getUsedCouponId(),
+            order.getOriginalAmount(),
+            order.getDiscountAmount(),
             order.getTotalAmount(),
             order.getCreatedAt(),
             order.getOrderItems().stream()

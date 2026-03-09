@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.List;
 import java.util.Map;
@@ -80,6 +81,25 @@ class LikeServiceTest {
             LikeModel existingLike = new LikeModel(userId, product);
             given(productRepository.findById(productId)).willReturn(Optional.of(product));
             given(likeRepository.findByUserIdAndProductId(userId, productId)).willReturn(Optional.of(existingLike));
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                likeService.like(userId, productId);
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.CONFLICT);
+        }
+
+        @DisplayName("동시 좋아요로 DB 유니크 충돌이 발생하면, CONFLICT 예외가 발생한다.")
+        @Test
+        void throwsConflictException_whenDataIntegrityViolationOccurs() {
+            // arrange
+            Long userId = 1L;
+            Long productId = 1L;
+            given(productRepository.findById(productId)).willReturn(Optional.of(product));
+            given(likeRepository.findByUserIdAndProductId(userId, productId)).willReturn(Optional.empty());
+            given(likeRepository.save(any(LikeModel.class))).willThrow(new DataIntegrityViolationException("Duplicate entry"));
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {

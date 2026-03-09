@@ -5,6 +5,7 @@ import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +30,11 @@ public class LikeService {
             });
 
         LikeModel like = new LikeModel(userId, product);
-        return likeRepository.save(like);
+        try {
+            return likeRepository.save(like);
+        } catch (DataIntegrityViolationException e) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 좋아요한 상품입니다.");
+        }
     }
 
     @Transactional

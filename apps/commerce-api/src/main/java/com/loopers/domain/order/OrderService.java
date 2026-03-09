@@ -21,7 +21,13 @@ public class OrderService {
 
     @Transactional
     public OrderModel placeOrder(Long userId, List<OrderItemModel> orderItems) {
-        OrderModel order = new OrderModel(userId, orderItems);
+        OrderModel order = new OrderModel(userId, orderItems, 0L, null);
+        return orderRepository.save(order);
+    }
+
+    @Transactional
+    public OrderModel placeOrder(Long userId, List<OrderItemModel> orderItems, Long discountAmount, Long usedCouponId) {
+        OrderModel order = new OrderModel(userId, orderItems, discountAmount, usedCouponId);
         return orderRepository.save(order);
     }
 

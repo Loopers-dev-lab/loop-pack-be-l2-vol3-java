@@ -3,6 +3,8 @@ package com.loopers.application.order;
 import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.coupon.UserCouponModel;
+import com.loopers.domain.coupon.UserCouponService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.user.UserModel;
@@ -23,9 +25,10 @@ public class OrderFacade {
     private final OrderService orderService;
     private final ProductService productService;
     private final UserService userService;
+    private final UserCouponService userCouponService;
 
     @Transactional
-    public OrderDetailInfo placeOrder(String loginId, String password, List<PlaceOrderItem> items) {
+    public OrderDetailInfo placeOrder(String loginId, String password, List<PlaceOrderItem> items, Long couponId) {
         UserModel user = userService.getMyInfo(loginId, password);
 
         List<OrderItemModel> orderItems = items.stream()
@@ -41,7 +44,28 @@ public class OrderFacade {
             })
             .toList();
 
-        OrderModel order = orderService.placeOrder(user.getId(), orderItems);
+        long originalAmount = orderItems.stream()
+            .mapToLong(OrderItemModel::getLineTotalAmount)
+            .sum();
+
+        Long discountAmount = 0L;
+        UserCouponModel userCoupon = null;
+        if (couponId != null) {
+            userCoupon = userCouponService.getAvailableUserCouponForUse(user.getId(), couponId);
+            discountAmount = userCouponService.calculateDiscountAmount(userCoupon, originalAmount);
+        }
+
+        OrderModel order = orderService.placeOrder(
+            user.getId(),
+            orderItems,
+            discountAmount,
+            userCoupon != null ? userCoupon.getId() : null
+        );
+
+        if (userCoupon != null) {
+            userCouponService.markUsed(userCoupon, order.getId(), originalAmount);
+        }
+
         return OrderDetailInfo.from(order);
     }
 

@@ -1,9 +1,13 @@
 package com.loopers.application.order;
 
 import com.loopers.domain.brand.BrandModel;
+import com.loopers.domain.coupon.CouponModel;
+import com.loopers.domain.coupon.CouponType;
+import com.loopers.domain.coupon.UserCouponModel;
 import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.coupon.UserCouponService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductStatus;
@@ -25,13 +29,16 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
@@ -49,11 +56,14 @@ class OrderFacadeTest {
     @Mock
     private UserService userService;
 
+    @Mock
+    private UserCouponService userCouponService;
+
     private OrderFacade orderFacade;
 
     @BeforeEach
     void setUp() {
-        orderFacade = new OrderFacade(orderService, productService, userService);
+        orderFacade = new OrderFacade(orderService, productService, userService, userCouponService);
     }
 
     @DisplayName("주문 요청 시, ")
@@ -80,19 +90,20 @@ class OrderFacadeTest {
 
             given(userService.getMyInfo("testuser", "Test1234!")).willReturn(user);
             given(productService.getProduct(1L)).willReturn(product);
-            given(orderService.placeOrder(eq(0L), any())).willReturn(savedOrder);
+            given(orderService.placeOrder(eq(0L), any(), eq(0L), isNull())).willReturn(savedOrder);
 
             // act
             OrderDetailInfo result = orderFacade.placeOrder(
                 "testuser",
                 "Test1234!",
-                List.of(new OrderFacade.PlaceOrderItem(1L, 2))
+                List.of(new OrderFacade.PlaceOrderItem(1L, 2)),
+                null
             );
 
             // assert
             assertThat(result.totalAmount()).isEqualTo(300000L);
             verify(productService).deductStock(1L, 2);
-            verify(orderService).placeOrder(eq(0L), any());
+            verify(orderService).placeOrder(eq(0L), any(), eq(0L), isNull());
         }
 
         @DisplayName("재고가 부족하면 주문 생성이 실패하고 주문 저장은 수행되지 않는다.")
@@ -120,13 +131,65 @@ class OrderFacadeTest {
                 orderFacade.placeOrder(
                     "testuser",
                     "Test1234!",
-                    List.of(new OrderFacade.PlaceOrderItem(1L, 2))
+                    List.of(new OrderFacade.PlaceOrderItem(1L, 2)),
+                    null
                 );
             });
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
-            verify(orderService, never()).placeOrder(any(), any());
+            verify(orderService, never()).placeOrder(any(), any(), any(), any());
+        }
+
+        @DisplayName("유효한 쿠폰이 있으면, 할인 금액이 반영되고 쿠폰이 사용 처리된다.")
+        @Test
+        void appliesCouponAndMarksUsed_whenCouponIsValid() {
+            // arrange
+            UserModel user = UserModel.createWithEncodedPassword(
+                "testuser",
+                "encoded",
+                "홍길동",
+                LocalDate.of(1990, 1, 15),
+                "test@example.com"
+            );
+            BrandModel brand = new BrandModel("나이키", "스포츠 의류 및 신발 브랜드");
+            ProductModel product = new ProductModel(brand, "에어맥스", 150000L, "설명", 10, ProductStatus.ON_SALE);
+            CouponModel coupon = new CouponModel(
+                "10프로 할인",
+                CouponType.RATE,
+                10L,
+                10000L,
+                ZonedDateTime.now().plusDays(1)
+            );
+            UserCouponModel userCoupon = new UserCouponModel(0L, coupon);
+            OrderModel savedOrder = new OrderModel(
+                0L,
+                List.of(new OrderItemModel(product.getId(), product.getName(), product.getPrice(), 2)),
+                30000L,
+                1L
+            );
+
+            given(userService.getMyInfo("testuser", "Test1234!")).willReturn(user);
+            given(productService.getProduct(1L)).willReturn(product);
+            given(userCouponService.getAvailableUserCouponForUse(0L, 1L)).willReturn(userCoupon);
+            given(userCouponService.calculateDiscountAmount(userCoupon, 300000L)).willReturn(30000L);
+            given(orderService.placeOrder(eq(0L), any(), eq(30000L), anyLong())).willReturn(savedOrder);
+
+            // act
+            OrderDetailInfo result = orderFacade.placeOrder(
+                "testuser",
+                "Test1234!",
+                List.of(new OrderFacade.PlaceOrderItem(1L, 2)),
+                1L
+            );
+
+            // assert
+            assertAll(
+                () -> assertThat(result.originalAmount()).isEqualTo(300000L),
+                () -> assertThat(result.discountAmount()).isEqualTo(30000L),
+                () -> assertThat(result.totalAmount()).isEqualTo(270000L)
+            );
+            verify(userCouponService).markUsed(userCoupon, savedOrder.getId(), 300000L);
         }
     }
 

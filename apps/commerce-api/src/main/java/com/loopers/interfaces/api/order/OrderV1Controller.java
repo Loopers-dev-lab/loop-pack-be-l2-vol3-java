@@ -41,7 +41,8 @@ public class OrderV1Controller implements OrderV1ApiSpec {
             password,
             request.items().stream()
                 .map(item -> new OrderFacade.PlaceOrderItem(item.productId(), item.quantity()))
-                .toList()
+                .toList(),
+            request.couponId()
         );
         return ApiResponse.success(OrderV1Dto.OrderDetailResponse.from(info));
     }
