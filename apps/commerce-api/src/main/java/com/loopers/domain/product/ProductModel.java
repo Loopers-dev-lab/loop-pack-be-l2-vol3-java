@@ -122,6 +122,20 @@ public class ProductModel extends BaseEntity {
     }
 
     /**
+     * 재고를 차감한다. 주문 확정 시 호출.
+     * 차감 후 재고가 0 미만이 되면 IllegalArgumentException.
+     */
+    public void decreaseStock(Quantity quantity) {
+        if (quantity == null) {
+            throw new IllegalArgumentException("수량은 null일 수 없습니다.");
+        }
+        if (this.stockQuantity < quantity.value()) {
+            throw new IllegalArgumentException("재고가 부족합니다. 현재: " + this.stockQuantity + ", 요청: " + quantity.value());
+        }
+        this.stockQuantity -= quantity.value();
+    }
+
+    /**
      * 삭제 여부를 반환한다.
      */
     public boolean isDeleted() {

@@ -48,10 +48,15 @@ class LikeV1ApiE2ETest {
     void setUp() {
         UserV1Dto.SignUpRequest signUp = new UserV1Dto.SignUpRequest(
             "likeuser", "SecurePass1!", "like@example.com", "1990-01-15", "MALE");
-        testRestTemplate.exchange("/api/v1/users", HttpMethod.POST, new HttpEntity<>(signUp),
-            new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {});
-        BrandModel brand = brandService.register("E2E브랜드");
-        ProductModel product = productService.register(brand.getId(), "E2E상품", new BigDecimal("10000"), 5);
+        ResponseEntity<ApiResponse<UserV1Dto.SignUpResponse>> signUpResponse =
+            testRestTemplate.exchange("/api/v1/users", HttpMethod.POST, new HttpEntity<>(signUp),
+                new ParameterizedTypeReference<>() {});
+        assertThat(signUpResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(signUpResponse.getBody()).isNotNull();
+        assertThat(signUpResponse.getBody().meta().result()).isEqualTo(Result.SUCCESS);
+
+        BrandModel brand = brandService.registerBrand("E2E브랜드");
+        ProductModel product = productService.registerProduct(brand.getId(), "E2E상품", new BigDecimal("10000"), 5);
         productId = product.getId();
     }
 
@@ -64,6 +69,19 @@ class LikeV1ApiE2ETest {
         HttpHeaders h = new HttpHeaders();
         h.set("X-Loopers-LoginId", LOGIN_ID);
         return h;
+    }
+
+    @Test
+    @DisplayName("중복 로그인 ID로 회원가입 시 409 Conflict를 반환한다 (준비 데이터 규칙)")
+    void signUp_withDuplicateLoginId_shouldReturnConflict() {
+        UserV1Dto.SignUpRequest duplicateRequest = new UserV1Dto.SignUpRequest(
+            "likeuser", "OtherPass1!", "other@example.com", "1995-06-01", "FEMALE");
+
+        ResponseEntity<ApiResponse<UserV1Dto.SignUpResponse>> response = testRestTemplate.exchange(
+            "/api/v1/users", HttpMethod.POST, new HttpEntity<>(duplicateRequest),
+            new ParameterizedTypeReference<>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
     }
 
     @DisplayName("POST /api/v1/likes - 좋아요 추가")

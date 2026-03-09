@@ -34,5 +34,16 @@ public interface ProductRepository {
      */
     Optional<ProductModel> findByIdForUpdate(Long id);
 
+    /**
+     * 해당 브랜드에 속한 모든 미삭제 상품을 한 번에 soft delete한다.
+     * 브랜드 삭제 시 연쇄 삭제에 사용하며, 루프 없이 단일 UPDATE로 부하를 줄인다.
+     */
+    void softDeleteByBrandIdBulk(Long brandId);
+
     ProductModel save(ProductModel product);
+
+    /**
+     * 저장 후 즉시 flush. 비관적 락 유지 중 UPDATE를 DB에 반영할 때 사용(동시성 정합성).
+     */
+    ProductModel saveAndFlush(ProductModel product);
 }

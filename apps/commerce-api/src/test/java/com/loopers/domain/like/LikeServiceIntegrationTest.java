@@ -45,8 +45,8 @@ class LikeServiceIntegrationTest {
     }
 
     private Long saveProduct() {
-        BrandModel brand = brandService.register("테스트 브랜드");
-        ProductModel product = productService.register(brand.getId(), "테스트 상품", new BigDecimal("10000"), 10);
+        BrandModel brand = brandService.registerBrand("테스트 브랜드");
+        ProductModel product = productService.registerProduct(brand.getId(), "테스트 상품", new BigDecimal("10000"), 10);
         return product.getId();
     }
 

@@ -41,3 +41,8 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### Local / exclude from commit ###
+apps/commerce-api/src/test/java/com/loopers/domain/product/ReadOnlyApplicabilityTest.java
+apps/commerce-api/src/test/java/com/loopers/testcontainers/
+docs/

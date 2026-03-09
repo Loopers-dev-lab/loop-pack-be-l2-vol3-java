@@ -47,20 +47,17 @@ class OrderItemModelTest {
         @DisplayName("스냅샷이 null이면 IllegalArgumentException이 발생한다.")
         @Test
         void of_withNullSnapshot_shouldThrow() {
-            assertThrows(IllegalArgumentException.class,
+            IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
                     () -> OrderItemModel.of(null, Quantity.of(QUANTITY), OPTION_ID));
+            assertThat(thrown.getMessage()).contains("스냅샷");
         }
 
-        @DisplayName("수량이 0이면 IllegalArgumentException이 발생한다.")
+        @DisplayName("수량이 null이면 IllegalArgumentException이 발생한다.")
         @Test
-        void of_withZeroQuantity_shouldThrow() {
-            assertThrows(IllegalArgumentException.class, () -> OrderItemModel.of(SNAPSHOT, Quantity.of(0), OPTION_ID));
-        }
-
-        @DisplayName("수량이 음수면 IllegalArgumentException이 발생한다.")
-        @Test
-        void of_withNegativeQuantity_shouldThrow() {
-            assertThrows(IllegalArgumentException.class, () -> OrderItemModel.of(SNAPSHOT, Quantity.of(-1), OPTION_ID));
+        void of_withNullQuantity_shouldThrow() {
+            IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+                    () -> OrderItemModel.of(SNAPSHOT, null, OPTION_ID));
+            assertThat(thrown.getMessage()).contains("수량");
         }
     }
 }

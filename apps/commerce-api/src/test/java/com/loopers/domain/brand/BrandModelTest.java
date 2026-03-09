@@ -128,6 +128,39 @@ class BrandModelTest {
             // when & then
             assertThrows(IllegalArgumentException.class, () -> brand.updateName(""));
         }
+
+        @DisplayName("이름이 공백만 있으면, IllegalArgumentException이 발생한다.")
+        @Test
+        void updateName_withWhitespaceOnlyName_shouldThrow() {
+            // given
+            BrandModel brand = BrandModel.create("브랜드");
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> brand.updateName("   "));
+        }
+
+        @DisplayName("이름이 탭·개행만 있으면, IllegalArgumentException이 발생한다.")
+        @Test
+        void updateName_withTabNewlineOnlyName_shouldThrow() {
+            // given
+            BrandModel brand = BrandModel.create("브랜드");
+
+            // when & then
+            assertThrows(IllegalArgumentException.class, () -> brand.updateName("\t\n"));
+        }
+
+        @DisplayName("이름 앞뒤 공백이 있으면, trim된 이름으로 저장된다.")
+        @Test
+        void updateName_withLeadingTrailingSpaces_shouldTrimName() {
+            // given
+            BrandModel brand = BrandModel.create("기존");
+
+            // when
+            brand.updateName("  새이름  ");
+
+            // then
+            assertThat(brand.getName()).isEqualTo("새이름");
+        }
     }
 
     @DisplayName("삭제 여부를 확인할 때, ")

@@ -176,9 +176,9 @@ class UserV1ApiE2ETest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
 
-        @DisplayName("존재하지 않는 사용자 ID로 조회하면, 404 Not Found를 반환한다.")
+        @DisplayName("존재하지 않는 사용자 ID로 조회하면, 인터셉터에서 401 Unauthorized를 반환한다.")
         @Test
-        void getMyInfo_withNonExistentUserId_shouldReturnNotFound() {
+        void getMyInfo_withNonExistentUserId_shouldReturnUnauthorized() {
             // given
             String nonExistentUserId = "nouser";
             HttpHeaders headers = new HttpHeaders();
@@ -189,8 +189,8 @@ class UserV1ApiE2ETest {
             ResponseEntity<ApiResponse<UserV1Dto.MyInfoResponse>> response =
                 testRestTemplate.exchange(ENDPOINT_MY_INFO, HttpMethod.GET, new HttpEntity<>(headers), responseType);
 
-            // then
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+            // then - 인터셉터가 실존 사용자 검증 후 401 반환
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
 
         @DisplayName("유효한 요청 시, 200 OK와 마스킹된 사용자 정보를 반환한다.")
@@ -231,28 +231,21 @@ class UserV1ApiE2ETest {
     @Nested
     class GetPoints {
 
-        @DisplayName("X-Loopers-LoginId 헤더가 없으면, 400 Bad Request를 반환한다.")
+        @DisplayName("무헤더 요청 시 401 Unauthorized를 반환한다.")
         @Test
-        void getPoints_withoutLoginIdHeader_shouldReturnBadRequest() {
-            // given
-            HttpHeaders headers = new HttpHeaders();
-            // X-USER-ID 헤더 누락
-
-            // when
+        void getPoints_withoutLoginIdHeader_shouldReturnUnauthorized() {
+            // when - 헤더 없이 요청
             ParameterizedTypeReference<ApiResponse<UserV1Dto.PointsResponse>> responseType = new ParameterizedTypeReference<>() {};
             ResponseEntity<ApiResponse<UserV1Dto.PointsResponse>> response =
-                testRestTemplate.exchange(ENDPOINT_POINTS, HttpMethod.GET, new HttpEntity<>(headers), responseType);
+                testRestTemplate.exchange(ENDPOINT_POINTS, HttpMethod.GET, new HttpEntity<>(null), responseType);
 
             // then
-            assertAll(
-                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.FAIL)
-            );
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
 
-        @DisplayName("존재하지 않는 사용자 ID로 조회하면, 404 Not Found를 반환한다.")
+        @DisplayName("존재하지 않는 사용자 ID로 조회하면, 인터셉터에서 401 Unauthorized를 반환한다.")
         @Test
-        void getPoints_withNonExistentUserId_shouldReturnNotFound() {
+        void getPoints_withNonExistentUserId_shouldReturnUnauthorized() {
             // given
             String nonExistentUserId = "nouser";
             HttpHeaders headers = new HttpHeaders();
@@ -263,8 +256,8 @@ class UserV1ApiE2ETest {
             ResponseEntity<ApiResponse<UserV1Dto.PointsResponse>> response =
                 testRestTemplate.exchange(ENDPOINT_POINTS, HttpMethod.GET, new HttpEntity<>(headers), responseType);
 
-            // then
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+            // then - 인터셉터가 실존 사용자 검증 후 401 반환
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
 
         @DisplayName("유효한 요청 시, 200 OK와 포인트 정보를 반환한다.")
@@ -325,9 +318,9 @@ class UserV1ApiE2ETest {
             );
         }
 
-        @DisplayName("존재하지 않는 사용자 ID로 변경하면, 404 Not Found를 반환한다.")
+        @DisplayName("존재하지 않는 사용자 ID로 변경하면, 인터셉터에서 401 Unauthorized를 반환한다.")
         @Test
-        void updatePassword_withNonExistentUserId_shouldReturnNotFound() {
+        void updatePassword_withNonExistentUserId_shouldReturnUnauthorized() {
             // given
             String nonExistentUserId = "nouser";
             HttpHeaders headers = new HttpHeaders();
@@ -342,8 +335,8 @@ class UserV1ApiE2ETest {
             ResponseEntity<ApiResponse<Void>> response =
                 testRestTemplate.exchange(ENDPOINT_PASSWORD, HttpMethod.PUT, new HttpEntity<>(request, headers), responseType);
 
-            // then
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+            // then - 인터셉터가 실존 사용자 검증 후 401 반환
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
 
         @DisplayName("현재 비밀번호가 일치하지 않으면, 400 Bad Request를 반환한다.")

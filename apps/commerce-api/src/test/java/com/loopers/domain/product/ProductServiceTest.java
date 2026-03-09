@@ -61,7 +61,7 @@ class ProductServiceTest {
             when(productRepository.save(any(ProductModel.class))).thenReturn(product);
 
             // when
-            ProductModel result = productService.register(BRAND_ID, NAME, PRICE, STOCK);
+            ProductModel result = productService.registerProduct(BRAND_ID, NAME, PRICE, STOCK);
 
             // then
             assertThat(result).isNotNull();
@@ -77,7 +77,7 @@ class ProductServiceTest {
 
             // when & then
             CoreException ex = assertThrows(CoreException.class,
-                    () -> productService.register(999L, NAME, PRICE, STOCK));
+                    () -> productService.registerProduct(999L, NAME, PRICE, STOCK));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
@@ -89,7 +89,7 @@ class ProductServiceTest {
 
             // when & then
             CoreException ex = assertThrows(CoreException.class,
-                    () -> productService.register(BRAND_ID, null, PRICE, STOCK));
+                    () -> productService.registerProduct(BRAND_ID, null, PRICE, STOCK));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
@@ -181,7 +181,7 @@ class ProductServiceTest {
         @Test
         void update_withNonExistentId_shouldThrowNotFound() {
             when(productRepository.findByIdAndNotDeleted(999L)).thenReturn(Optional.empty());
-            CoreException ex = assertThrows(CoreException.class, () -> productService.update(999L, NAME, PRICE, STOCK));
+            CoreException ex = assertThrows(CoreException.class, () -> productService.updateProduct(999L, NAME, PRICE, STOCK));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
@@ -192,7 +192,7 @@ class ProductServiceTest {
             when(productRepository.findByIdAndNotDeleted(id)).thenReturn(Optional.of(product));
             when(productRepository.save(product)).thenReturn(product);
 
-            ProductModel result = productService.update(id, "새이름", new BigDecimal("20000"), 10);
+            ProductModel result = productService.updateProduct(id, "새이름", new BigDecimal("20000"), 10);
 
             assertThat(result.getName()).isEqualTo("새이름");
             verify(productRepository).save(product);
@@ -203,7 +203,7 @@ class ProductServiceTest {
             Long id = 1L;
             ProductModel product = ProductModel.create(BRAND_ID, NAME, Money.of(PRICE), StockQuantity.of(STOCK));
             when(productRepository.findByIdAndNotDeleted(id)).thenReturn(Optional.of(product));
-            CoreException ex = assertThrows(CoreException.class, () -> productService.update(id, null, PRICE, STOCK));
+            CoreException ex = assertThrows(CoreException.class, () -> productService.updateProduct(id, null, PRICE, STOCK));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }

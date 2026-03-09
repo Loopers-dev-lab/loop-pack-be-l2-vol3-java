@@ -120,17 +120,21 @@ class OrderRepositoryIntegrationTest {
             // given
             OrderModel order1 = createOrderWithOneItem(USER_ID);
             OrderModel order2 = createOrderWithOneItem(USER_ID);
-            orderRepository.save(order1);
-            orderRepository.save(order2);
-            ZonedDateTime start = ZonedDateTime.now().minusMinutes(1);
-            ZonedDateTime end = ZonedDateTime.now().plusMinutes(1);
+            OrderModel saved1 = orderRepository.save(order1);
+            OrderModel saved2 = orderRepository.save(order2);
+            ZonedDateTime minOrderedAt = saved1.getOrderedAt().isBefore(saved2.getOrderedAt())
+                    ? saved1.getOrderedAt() : saved2.getOrderedAt();
+            ZonedDateTime maxOrderedAt = saved1.getOrderedAt().isAfter(saved2.getOrderedAt())
+                    ? saved1.getOrderedAt() : saved2.getOrderedAt();
+            ZonedDateTime start = minOrderedAt.minusSeconds(1);
+            ZonedDateTime end = maxOrderedAt.plusSeconds(1);
 
-            // when
-            List<OrderModel> page0 = orderRepository.findByUserIdAndOrderedAtBetween(USER_ID, start, end, 0, 10);
+            // when - 전체 조회를 기준값으로 사용
+            List<OrderModel> full = orderRepository.findByUserIdAndOrderedAtBetween(USER_ID, start, end, 0, 10);
 
-            // then
-            assertThat(page0).hasSize(2);
-            assertThat(page0.get(0).getOrderedAt()).isAfterOrEqualTo(page0.get(1).getOrderedAt());
+            // then - 정렬: orderedAt 역순
+            assertThat(full).hasSize(2);
+            assertThat(full.get(0).getOrderedAt()).isAfterOrEqualTo(full.get(1).getOrderedAt());
         }
 
         @DisplayName("기간 밖 주문은 조회되지 않는다.")
@@ -138,9 +142,9 @@ class OrderRepositoryIntegrationTest {
         void findByUserIdAndOrderedAtBetween_whenOutsideRange_shouldReturnEmpty() {
             // given
             OrderModel order = createOrderWithOneItem(USER_ID);
-            orderRepository.save(order);
-            ZonedDateTime start = ZonedDateTime.now().plusDays(1);
-            ZonedDateTime end = ZonedDateTime.now().plusDays(2);
+            OrderModel saved = orderRepository.save(order);
+            ZonedDateTime start = saved.getOrderedAt().plusDays(1);
+            ZonedDateTime end = saved.getOrderedAt().plusDays(2);
 
             // when
             List<OrderModel> result = orderRepository.findByUserIdAndOrderedAtBetween(USER_ID, start, end, 0, 10);
@@ -154,10 +158,10 @@ class OrderRepositoryIntegrationTest {
         void findByUserIdAndOrderedAtBetween_whenDifferentUser_shouldReturnEmpty() {
             // given
             OrderModel order = createOrderWithOneItem(USER_ID);
-            orderRepository.save(order);
+            OrderModel saved = orderRepository.save(order);
             Long otherUserId = 999L;
-            ZonedDateTime start = ZonedDateTime.now().minusMinutes(1);
-            ZonedDateTime end = ZonedDateTime.now().plusMinutes(1);
+            ZonedDateTime start = saved.getOrderedAt().minusSeconds(1);
+            ZonedDateTime end = saved.getOrderedAt().plusSeconds(1);
 
             // when
             List<OrderModel> result = orderRepository.findByUserIdAndOrderedAtBetween(otherUserId, start, end, 0, 10);
@@ -172,19 +176,96 @@ class OrderRepositoryIntegrationTest {
             // given
             OrderModel order1 = createOrderWithOneItem(USER_ID);
             OrderModel order2 = createOrderWithOneItem(USER_ID);
-            orderRepository.save(order1);
-            orderRepository.save(order2);
-            ZonedDateTime start = ZonedDateTime.now().minusMinutes(1);
-            ZonedDateTime end = ZonedDateTime.now().plusMinutes(1);
+            OrderModel saved1 = orderRepository.save(order1);
+            OrderModel saved2 = orderRepository.save(order2);
+            ZonedDateTime minOrderedAt = saved1.getOrderedAt().isBefore(saved2.getOrderedAt())
+                    ? saved1.getOrderedAt() : saved2.getOrderedAt();
+            ZonedDateTime maxOrderedAt = saved1.getOrderedAt().isAfter(saved2.getOrderedAt())
+                    ? saved1.getOrderedAt() : saved2.getOrderedAt();
+            ZonedDateTime start = minOrderedAt.minusSeconds(1);
+            ZonedDateTime end = maxOrderedAt.plusSeconds(1);
 
-            // when
+            // when - 전체 결과를 기준으로 각 페이지가 해당 슬라이스와 일치하는지 검증
+            List<OrderModel> full = orderRepository.findByUserIdAndOrderedAtBetween(USER_ID, start, end, 0, 10);
             List<OrderModel> page0Size1 = orderRepository.findByUserIdAndOrderedAtBetween(USER_ID, start, end, 0, 1);
             List<OrderModel> page1Size1 = orderRepository.findByUserIdAndOrderedAtBetween(USER_ID, start, end, 1, 1);
 
             // then
             assertThat(page0Size1).hasSize(1);
             assertThat(page1Size1).hasSize(1);
+            assertThat(page0Size1.get(0).getId()).isEqualTo(full.get(0).getId());
+            assertThat(page1Size1.get(0).getId()).isEqualTo(full.get(1).getId());
             assertThat(page0Size1.get(0).getId()).isNotEqualTo(page1Size1.get(0).getId());
+        }
+
+        @DisplayName("페이징 결과 합집합은 전체 조회와 동일해 중복·누락이 없다.")
+        @Test
+        void findByUserIdAndOrderedAtBetween_pagingHasNoDuplicateOrOmission() {
+            // given - 주문 3건
+            OrderModel o1 = orderRepository.save(createOrderWithOneItem(USER_ID));
+            OrderModel o2 = orderRepository.save(createOrderWithOneItem(USER_ID));
+            OrderModel o3 = orderRepository.save(createOrderWithOneItem(USER_ID));
+            ZonedDateTime min = min(o1.getOrderedAt(), o2.getOrderedAt(), o3.getOrderedAt());
+            ZonedDateTime max = max(o1.getOrderedAt(), o2.getOrderedAt(), o3.getOrderedAt());
+            ZonedDateTime start = min.minusSeconds(1);
+            ZonedDateTime end = max.plusSeconds(1);
+
+            // when
+            List<OrderModel> full = orderRepository.findByUserIdAndOrderedAtBetween(USER_ID, start, end, 0, 10);
+            List<OrderModel> page0 = orderRepository.findByUserIdAndOrderedAtBetween(USER_ID, start, end, 0, 1);
+            List<OrderModel> page1 = orderRepository.findByUserIdAndOrderedAtBetween(USER_ID, start, end, 1, 1);
+            List<OrderModel> page2 = orderRepository.findByUserIdAndOrderedAtBetween(USER_ID, start, end, 2, 1);
+
+            // then - 페이지별 조회 합집합 = 전체 조회 (동일 orderedAt 구간에서도 중복/누락 없음)
+            assertThat(full).hasSize(3);
+            assertThat(page0).hasSize(1);
+            assertThat(page1).hasSize(1);
+            assertThat(page2).hasSize(1);
+            assertThat(List.of(page0.get(0).getId(), page1.get(0).getId(), page2.get(0).getId()))
+                    .containsExactlyInAnyOrder(full.get(0).getId(), full.get(1).getId(), full.get(2).getId());
+        }
+
+        private ZonedDateTime min(ZonedDateTime a, ZonedDateTime b, ZonedDateTime c) {
+            ZonedDateTime ab = a.isBefore(b) ? a : b;
+            return ab.isBefore(c) ? ab : c;
+        }
+
+        private ZonedDateTime max(ZonedDateTime a, ZonedDateTime b, ZonedDateTime c) {
+            ZonedDateTime ab = a.isAfter(b) ? a : b;
+            return ab.isAfter(c) ? ab : c;
+        }
+
+        @DisplayName("시작 경계값과 같은 orderedAt가 포함된다.")
+        @Test
+        void findByUserIdAndOrderedAtBetween_whenStartEqualsOrderedAt_shouldIncludeOrder() {
+            // given - [start, end) 구간에서 start 포함
+            OrderModel order = createOrderWithOneItem(USER_ID);
+            OrderModel saved = orderRepository.save(order);
+            ZonedDateTime start = saved.getOrderedAt();
+            ZonedDateTime end = saved.getOrderedAt().plusSeconds(1);
+
+            // when
+            List<OrderModel> result = orderRepository.findByUserIdAndOrderedAtBetween(USER_ID, start, end, 0, 10);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getId()).isEqualTo(saved.getId());
+        }
+
+        @DisplayName("종료 경계값과 같은 orderedAt는 제외된다.")
+        @Test
+        void findByUserIdAndOrderedAtBetween_whenEndEqualsOrderedAt_shouldExcludeOrder() {
+            // given - [start, end) 구간에서 end 미포함
+            OrderModel order = createOrderWithOneItem(USER_ID);
+            OrderModel saved = orderRepository.save(order);
+            ZonedDateTime start = saved.getOrderedAt().minusSeconds(1);
+            ZonedDateTime end = saved.getOrderedAt();
+
+            // when
+            List<OrderModel> result = orderRepository.findByUserIdAndOrderedAtBetween(USER_ID, start, end, 0, 10);
+
+            // then
+            assertThat(result).isEmpty();
         }
     }
 }

@@ -2,7 +2,7 @@ package com.loopers.application.product;
 
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.brand.BrandService;
-import com.loopers.domain.like.LikeRepository;
+import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductSortOrder;
@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -20,23 +21,26 @@ import java.util.stream.Collectors;
  * 상품 유스케이스 조율.
  * 트랜잭션 경계, 도메인 결과 → ProductInfo 변환.
  * Controller는 Facade만 호출하며, request는 도메인 파라미터로 변환 후 Service에 전달한다.
+ *
+ * <p>좋아요 수 집계: Like 도메인 경계를 지키기 위해 {@link LikeService}만 사용한다.
+ * (Repository 직접 주입·호출 금지 → Service를 통한 캡슐화)
  */
 @Service
 public class ProductFacade {
 
     private final ProductService productService;
     private final BrandService brandService;
-    private final LikeRepository likeRepository;
+    private final LikeService likeService;
 
-    public ProductFacade(ProductService productService, BrandService brandService, LikeRepository likeRepository) {
+    public ProductFacade(ProductService productService, BrandService brandService, LikeService likeService) {
         this.productService = productService;
         this.brandService = brandService;
-        this.likeRepository = likeRepository;
+        this.likeService = likeService;
     }
 
     @Transactional
-    public ProductInfo register(Long brandId, String name, BigDecimal price, int stockQuantity) {
-        ProductModel product = productService.register(brandId, name, price, stockQuantity);
+    public ProductInfo registerProduct(Long brandId, String name, BigDecimal price, int stockQuantity) {
+        ProductModel product = productService.registerProduct(brandId, name, price, stockQuantity);
         return ProductInfo.from(product);
     }
 
@@ -61,7 +65,7 @@ public class ProductFacade {
         if (brandOpt.isEmpty()) {
             return Optional.empty();
         }
-        long likeCount = likeRepository.countByProductId(productId);
+        long likeCount = likeService.getLikeCount(productId);
         return Optional.of(new ProductDetailInfo(
             product.getId(),
             product.getBrandId(),
@@ -82,10 +86,12 @@ public class ProductFacade {
             return new PageImpl<>(List.of(), productPage.getPageable(), productPage.getTotalElements());
         }
         List<Long> productIds = products.stream().map(ProductModel::getId).toList();
-        var likeCountMap = likeRepository.countByProductIds(productIds);
+        var likeCountMap = likeService.getLikeCountByProductIds(productIds);
+        List<Long> brandIds = products.stream().map(ProductModel::getBrandId).distinct().toList();
+        Map<Long, BrandModel> brandMap = brandService.findByIdAndNotDeletedIn(brandIds);
         List<ProductListItemInfo> items = products.stream()
             .map(p -> {
-                String brandName = brandService.findByIdAndNotDeleted(p.getBrandId())
+                String brandName = Optional.ofNullable(brandMap.get(p.getBrandId()))
                     .map(BrandModel::getName)
                     .orElse("");
                 long likeCount = likeCountMap.getOrDefault(p.getId(), 0L);
@@ -103,13 +109,13 @@ public class ProductFacade {
     }
 
     @Transactional
-    public ProductInfo update(Long id, String name, BigDecimal price, int stockQuantity) {
-        ProductModel product = productService.update(id, name, price, stockQuantity);
+    public ProductInfo updateProduct(Long id, String name, BigDecimal price, int stockQuantity) {
+        ProductModel product = productService.updateProduct(id, name, price, stockQuantity);
         return ProductInfo.from(product);
     }
 
     @Transactional
-    public void delete(Long id) {
-        productService.delete(id);
+    public void deleteProduct(Long id) {
+        productService.deleteProduct(id);
     }
 }

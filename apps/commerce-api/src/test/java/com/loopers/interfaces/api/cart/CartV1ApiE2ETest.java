@@ -51,8 +51,8 @@ class CartV1ApiE2ETest {
             "cartuser", "SecurePass1!", "cart@example.com", "1990-01-15", "MALE");
         testRestTemplate.exchange("/api/v1/users", HttpMethod.POST, new HttpEntity<>(signUp),
             new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {});
-        BrandModel brand = brandService.register("E2E브랜드");
-        ProductModel product = productService.register(brand.getId(), "E2E상품", new BigDecimal("5000"), 10);
+        BrandModel brand = brandService.registerBrand("E2E브랜드");
+        ProductModel product = productService.registerProduct(brand.getId(), "E2E상품", new BigDecimal("5000"), 10);
         productId = product.getId();
     }
 

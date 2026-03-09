@@ -47,8 +47,8 @@ class CartServiceIntegrationTest {
     }
 
     private Long saveProduct() {
-        BrandModel brand = brandService.register("테스트 브랜드");
-        ProductModel product = productService.register(brand.getId(), "테스트 상품", new BigDecimal("10000"), 10);
+        BrandModel brand = brandService.registerBrand("테스트 브랜드");
+        ProductModel product = productService.registerProduct(brand.getId(), "테스트 상품", new BigDecimal("10000"), 10);
         return product.getId();
     }
 
@@ -100,8 +100,8 @@ class CartServiceIntegrationTest {
         @Test
         void addItem_whenInsufficientStock_shouldThrowBadRequest() {
             // given - 재고 1인 상품
-            BrandModel brand = brandService.register("브랜드");
-            ProductModel product = productService.register(brand.getId(), "소량 상품", BigDecimal.ONE, 1);
+            BrandModel brand = brandService.registerBrand("브랜드");
+            ProductModel product = productService.registerProduct(brand.getId(), "소량 상품", BigDecimal.ONE, 1);
             Long productId = product.getId();
 
             // when & then

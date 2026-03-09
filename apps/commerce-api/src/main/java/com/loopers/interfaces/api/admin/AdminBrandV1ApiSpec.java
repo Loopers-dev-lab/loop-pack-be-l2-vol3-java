@@ -24,7 +24,7 @@ public interface AdminBrandV1ApiSpec {
     );
 
     @Operation(summary = "브랜드 수정")
-    ResponseEntity<ApiResponse<AdminBrandV1Dto.BrandResponse>> updateBrand(
+    ResponseEntity<ApiResponse<AdminBrandV1Dto.BrandResponse>> renameBrand(
         @PathVariable Long brandId,
         @RequestBody AdminBrandV1Dto.UpdateBrandRequest request
     );

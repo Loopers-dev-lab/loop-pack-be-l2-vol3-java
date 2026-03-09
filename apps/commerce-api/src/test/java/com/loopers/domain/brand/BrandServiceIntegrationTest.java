@@ -49,7 +49,7 @@ class BrandServiceIntegrationTest {
             String name = "통합테스트 브랜드";
 
             // when
-            BrandModel saved = brandService.register(name);
+            BrandModel saved = brandService.registerBrand(name);
 
             // then
             assertThat(saved.getId()).isNotNull();
@@ -66,7 +66,7 @@ class BrandServiceIntegrationTest {
         @Test
         void findById_withSavedBrand_shouldReturnPresent() {
             // given
-            BrandModel saved = brandService.register("조회용 브랜드");
+            BrandModel saved = brandService.registerBrand("조회용 브랜드");
 
             // when
             Optional<BrandModel> result = brandService.findById(saved.getId());
@@ -95,7 +95,7 @@ class BrandServiceIntegrationTest {
         @Test
         void findByIdAndNotDeleted_withNotDeletedBrand_shouldReturnPresent() {
             // given
-            BrandModel saved = brandService.register("미삭제 브랜드");
+            BrandModel saved = brandService.registerBrand("미삭제 브랜드");
 
             // when
             Optional<BrandModel> result = brandService.findByIdAndNotDeleted(saved.getId());
@@ -109,8 +109,8 @@ class BrandServiceIntegrationTest {
         @Test
         void findByIdAndNotDeleted_withDeletedBrand_shouldReturnEmpty() {
             // given
-            BrandModel saved = brandService.register("삭제될 브랜드");
-            brandService.delete(saved.getId());
+            BrandModel saved = brandService.registerBrand("삭제될 브랜드");
+            brandService.deleteBrand(saved.getId());
 
             // when
             Optional<BrandModel> result = brandService.findByIdAndNotDeleted(saved.getId());
@@ -129,7 +129,7 @@ class BrandServiceIntegrationTest {
         void update_withNonExistentId_shouldThrowNotFound() {
             // when & then
             CoreException exception = assertThrows(CoreException.class, () -> {
-                brandService.update(999_999L, "새 이름");
+                brandService.renameBrand(999_999L, "새 이름");
             });
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
@@ -138,10 +138,10 @@ class BrandServiceIntegrationTest {
         @Test
         void update_withValidIdAndName_shouldPersistUpdate() {
             // given
-            BrandModel saved = brandService.register("기존 이름");
+            BrandModel saved = brandService.registerBrand("기존 이름");
 
             // when
-            BrandModel updated = brandService.update(saved.getId(), "갱신된 이름");
+            BrandModel updated = brandService.renameBrand(saved.getId(), "갱신된 이름");
 
             // then
             assertThat(updated.getName()).isEqualTo("갱신된 이름");
@@ -160,7 +160,7 @@ class BrandServiceIntegrationTest {
         void delete_withNonExistentId_shouldThrowNotFound() {
             // when & then
             CoreException exception = assertThrows(CoreException.class, () -> {
-                brandService.delete(999_999L);
+                brandService.deleteBrand(999_999L);
             });
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
@@ -169,10 +169,10 @@ class BrandServiceIntegrationTest {
         @Test
         void delete_withExistingId_shouldSoftDelete() {
             // given
-            BrandModel saved = brandService.register("삭제 대상");
+            BrandModel saved = brandService.registerBrand("삭제 대상");
 
             // when
-            brandService.delete(saved.getId());
+            brandService.deleteBrand(saved.getId());
 
             // then
             assertThat(brandService.findByIdAndNotDeleted(saved.getId())).isEmpty();
@@ -185,13 +185,13 @@ class BrandServiceIntegrationTest {
         @Test
         void delete_whenBrandHasProducts_shouldCascadeSoftDeleteProducts() {
             // given
-            BrandModel brand = brandService.register("연쇄삭제 대상 브랜드");
+            BrandModel brand = brandService.registerBrand("연쇄삭제 대상 브랜드");
             Long brandId = brand.getId();
-            ProductModel p1 = productService.register(brandId, "상품1", new BigDecimal("1000"), 5);
-            ProductModel p2 = productService.register(brandId, "상품2", new BigDecimal("2000"), 10);
+            ProductModel p1 = productService.registerProduct(brandId, "상품1", new BigDecimal("1000"), 5);
+            ProductModel p2 = productService.registerProduct(brandId, "상품2", new BigDecimal("2000"), 10);
 
             // when
-            brandService.delete(brandId);
+            brandService.deleteBrand(brandId);
 
             // then: 브랜드 soft delete
             assertThat(brandService.findByIdAndNotDeleted(brandId)).isEmpty();

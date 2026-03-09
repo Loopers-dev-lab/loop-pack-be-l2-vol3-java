@@ -6,7 +6,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  * 고객 API 인증 인터셉터 적용 (02 §0, 01 §4.2).
- * 로그인이 필요한 /api/v1/** 경로에 적용하고, 상품 조회·회원가입 등 비회원 허용 경로는 제외한다.
+ * /api/v1/** 에 적용하고, 회원가입·상품 조회 등 비회원 허용 경로만 제외. users/me(마이페이지·포인트)는 제외하지 않음.
  */
 @Configuration
 public class CustomerWebMvcConfig implements WebMvcConfigurer {
@@ -24,7 +24,6 @@ public class CustomerWebMvcConfig implements WebMvcConfigurer {
             .excludePathPatterns(
                 "/api/v1/products/**",
                 "/api/v1/users",
-                "/api/v1/users/me/**",
                 "/api/v1/examples/**"
             );
     }

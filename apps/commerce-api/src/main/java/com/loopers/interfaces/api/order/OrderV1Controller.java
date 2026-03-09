@@ -45,7 +45,7 @@ public class OrderV1Controller implements OrderV1ApiSpec {
                 item.optionId()
             ))
             .toList();
-        var info = orderFacade.create(userId, params);
+        var info = orderFacade.placeOrder(userId, params, request.couponId());
         return ApiResponse.success(OrderV1Dto.OrderResponse.from(info));
     }
 
@@ -79,6 +79,9 @@ public class OrderV1Controller implements OrderV1ApiSpec {
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다: " + loginId));
         if (start == null || end == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "시작일과 종료일을 지정해야 합니다.");
+        }
+        if (end.isBefore(start)) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "종료일은 시작일 이후여야 합니다.");
         }
         int safePage = Math.max(DEFAULT_PAGE, page);
         int safeSize = size <= 0 ? DEFAULT_SIZE : Math.min(size, 100);

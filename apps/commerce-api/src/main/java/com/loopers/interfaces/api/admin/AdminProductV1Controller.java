@@ -25,7 +25,7 @@ public class AdminProductV1Controller implements AdminProductV1ApiSpec {
     public ResponseEntity<ApiResponse<AdminProductV1Dto.ProductResponse>> createProduct(
         @Valid @RequestBody AdminProductV1Dto.CreateProductRequest request
     ) {
-        var info = productFacade.register(
+        var info = productFacade.registerProduct(
             request.brandId(),
             request.name(),
             request.price(),
@@ -51,7 +51,7 @@ public class AdminProductV1Controller implements AdminProductV1ApiSpec {
         @PathVariable Long productId,
         @Valid @RequestBody AdminProductV1Dto.UpdateProductRequest request
     ) {
-        var info = productFacade.update(
+        var info = productFacade.updateProduct(
             productId,
             request.name(),
             request.price(),
@@ -66,7 +66,7 @@ public class AdminProductV1Controller implements AdminProductV1ApiSpec {
     public ResponseEntity<ApiResponse<Void>> deleteProduct(
         @PathVariable Long productId
     ) {
-        productFacade.delete(productId);
+        productFacade.deleteProduct(productId);
         return ResponseEntity.noContent().build();
     }
 

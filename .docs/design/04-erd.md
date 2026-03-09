@@ -1,4 +1,4 @@
-# ERD (Brand, Product, Like, Cart, Order)
+# ERD (Brand, Product, Like, Cart, Order, Coupon)
 
 > 본 문서는 **영속성 구조**, **관계의 주인**, **정규화 여부** 확인을 위해 ERD를 사용한다.  
 > **관계 설계 원칙**: FK **제약**은 사용하지 않고, **참조용 컬럼**만 두어 조인·조회는 동일하게 사용한다. 참조 정합성은 서비스 레이어에서 검증한다.  
@@ -84,7 +84,11 @@ erDiagram
     order {
         bigint id PK
         bigint user_id
+        bigint issued_coupon_id
         string status
+        decimal amount_before_discount
+        decimal discount_amount
+        decimal final_amount
         timestamptz ordered_at
         timestamptz created_at
         timestamptz updated_at
@@ -100,13 +104,38 @@ erDiagram
         bigint option_id
     }
 
+    coupon {
+        bigint id PK
+        string name
+        string type
+        int value
+        decimal min_order_amount
+        timestamptz expired_at
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+
+    issued_coupon {
+        bigint id PK
+        bigint user_id
+        bigint coupon_id
+        string status
+        timestamptz expired_at
+        timestamptz used_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
     user ||--o{ like : user_id
     user ||--o{ cart : user_id
     user ||--o{ order : user_id
+    user ||--o{ issued_coupon : user_id
     brand ||--o{ product : brand_id
     product ||--o{ like : product_id
     product ||--o{ cart : product_id
     order ||--|{ order_item : order_id
+    coupon ||--o{ issued_coupon : coupon_id
 ```
 
 - 위 관계선은 **논리적 관계**(어떤 컬럼이 어떤 테이블의 id를 참조하는지)를 나타낸다. **DDL에는 FOREIGN KEY 제약을 생성하지 않는다.**
@@ -130,15 +159,17 @@ erDiagram
 
 ## 2. 테이블·컬럼 요약
 
-| 테이블         | PK  | 주요 컬럼                                                                        | 삭제 방식      | 비고                                                            |
-| -------------- | --- | -------------------------------------------------------------------------------- | -------------- | --------------------------------------------------------------- |
-| **user**       | id  | email, encrypted_password, birth_date, gender, points                            | -              | Like/Cart/Order의 user_id 참조(참조 컬럼만, FK 제약 없음)       |
-| **brand**      | id  | name, deleted_at                                                                 | Soft delete    | deleted_at NULL이면 미삭제                                      |
-| **product**    | id  | brand_id, name, price, stock_quantity, deleted_at                                | Soft delete    | brand_id는 brand.id 참조(참조 컬럼만)                           |
-| **like**       | id  | user_id, product_id, created_at                                                  | Hard delete    | UNIQUE(user_id, product_id) 로 1인 1좋아요                      |
-| **cart**       | id  | user_id, product_id, option_id, quantity                                         | Hard delete    | 동일 상품·옵션 시 수량 합산                                     |
-| **order**      | id  | user_id, status, ordered_at                                                      | 물리 삭제 금지 | status로 취소 등 상태 전이. 구현 시 테이블명 `orders` 사용 가능 |
-| **order_item** | id  | order_id, product_id, product_name_snapshot, price_snapshot, quantity, option_id | Order와 동일   | 스냅샷: 주문 시점 값 보존                                       |
+| 테이블            | PK  | 주요 컬럼                                                                                            | 삭제 방식                                  | 비고                                                                                 |
+| ----------------- | --- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------ | ------------------------ | ----------------------------------------------------- |
+| **user**          | id  | email, encrypted_password, birth_date, gender, points                                                | -                                          | Like/Cart/Order의 user_id 참조(참조 컬럼만, FK 제약 없음)                            |
+| **brand**         | id  | name, deleted_at                                                                                     | Soft delete                                | deleted_at NULL이면 미삭제                                                           |
+| **product**       | id  | brand_id, name, price, stock_quantity, deleted_at                                                    | Soft delete                                | brand_id는 brand.id 참조(참조 컬럼만)                                                |
+| **like**          | id  | user_id, product_id, created_at                                                                      | Hard delete                                | UNIQUE(user_id, product_id) 로 1인 1좋아요                                           |
+| **cart**          | id  | user_id, product_id, option_id, quantity                                                             | Hard delete                                | 동일 상품·옵션 시 수량 합산                                                          |
+| **order**         | id  | user_id, issued_coupon_id, status, amount_before_discount, discount_amount, final_amount, ordered_at | 물리 삭제 금지                             | 쿠폰 적용 시 할인 전·할인액·최종금액 스냅샷. issued_coupon_id는 발급 쿠폰 참조(선택) |
+| **order_item**    | id  | order_id, product_id, product_name_snapshot, price_snapshot, quantity, option_id                     | Order와 동일                               | 스냅샷: 주문 시점 값 보존                                                            |
+| **coupon**        | id  | name, type(FIXED                                                                                     | RATE), value, min_order_amount, expired_at | Soft delete 등                                                                       | 쿠폰 템플릿. 어드민 CRUD |
+| **issued_coupon** | id  | user_id, coupon_id, status(AVAILABLE                                                                 | USED                                       | EXPIRED)                                                                             | 물리 삭제 금지           | 발급 쿠폰. 1회 사용 후 USED. 동시 사용 방지용 락 고려 |
 
 ### 주문 상태 전이 규칙 (order.status)
 
@@ -156,15 +187,18 @@ erDiagram
 
 ## 3. 관계·참조 요약
 
-| 관계               | 참조 컬럼(주인)     | 카디널리티 | 비고                                            |
-| ------------------ | ------------------- | ---------- | ----------------------------------------------- |
-| Brand → Product    | product.brand_id    | N : 1      | 상품은 하나의 브랜드에만 속함                   |
-| User → Like        | like.user_id        | 1 : N      | UNIQUE(user_id, product_id)로 1인 1상품 1좋아요 |
-| Product → Like     | like.product_id     | 1 : N      |                                                 |
-| User → Cart        | cart.user_id        | 1 : N      |                                                 |
-| Product → Cart     | cart.product_id     | 1 : N      |                                                 |
-| User → Order       | order.user_id       | 1 : N      |                                                 |
-| Order → Order_item | order_item.order_id | 1 : N      | 주문 항목은 주문에 종속                         |
+| 관계                  | 참조 컬럼(주인)         | 카디널리티   | 비고                                            |
+| --------------------- | ----------------------- | ------------ | ----------------------------------------------- |
+| Brand → Product       | product.brand_id        | N : 1        | 상품은 하나의 브랜드에만 속함                   |
+| User → Like           | like.user_id            | 1 : N        | UNIQUE(user_id, product_id)로 1인 1상품 1좋아요 |
+| Product → Like        | like.product_id         | 1 : N        |                                                 |
+| User → Cart           | cart.user_id            | 1 : N        |                                                 |
+| Product → Cart        | cart.product_id         | 1 : N        |                                                 |
+| User → Order          | order.user_id           | 1 : N        |                                                 |
+| Order → IssuedCoupon  | order.issued_coupon_id  | N : 1 (선택) | 주문 시 적용한 발급 쿠폰. 미적용 시 NULL        |
+| User → IssuedCoupon   | issued_coupon.user_id   | 1 : N        |                                                 |
+| Coupon → IssuedCoupon | issued_coupon.coupon_id | 1 : N        | 템플릿별 발급 내역                              |
+| Order → Order_item    | order_item.order_id     | 1 : N        | 주문 항목은 주문에 종속                         |
 
 - 위 참조 컬럼에 대한 **FOREIGN KEY 제약은 DDL에 정의하지 않는다.** 조인은 `테이블.id = 상대테이블.xxx_id` 로 수행.
 
@@ -172,14 +206,16 @@ erDiagram
 
 ## 4. 인덱스 권장 (성능)
 
-| 테이블     | 인덱스                                                         | 목적                                   |
-| ---------- | -------------------------------------------------------------- | -------------------------------------- |
-| product    | idx_product_brand_id (brand_id)                                | 브랜드별 상품 조회, 조인               |
-| like       | idx_like_user_id (user_id), idx_like_product_id (product_id)   | 사용자별 좋아요 목록, 상품별 좋아요 수 |
-| like       | uk_like_user_product (user_id, product_id) UNIQUE              | 1인 1좋아요 보장                       |
-| cart       | idx_cart_user_id (user_id)                                     | 사용자별 장바구니 조회                 |
-| order      | idx_order_user_id (user_id), idx_order_ordered_at (ordered_at) | 사용자별·기간별 주문 조회              |
-| order_item | idx_order_item_order_id (order_id)                             | 주문별 항목 조회                       |
+| 테이블        | 인덱스                                                                       | 목적                                   |
+| ------------- | ---------------------------------------------------------------------------- | -------------------------------------- |
+| product       | idx_product_brand_id (brand_id)                                              | 브랜드별 상품 조회, 조인               |
+| like          | idx_like_user_id (user_id), idx_like_product_id (product_id)                 | 사용자별 좋아요 목록, 상품별 좋아요 수 |
+| like          | uk_like_user_product (user_id, product_id) UNIQUE                            | 1인 1좋아요 보장                       |
+| cart          | idx_cart_user_id (user_id)                                                   | 사용자별 장바구니 조회                 |
+| order         | idx_order_user_id (user_id), idx_order_ordered_at (ordered_at)               | 사용자별·기간별 주문 조회              |
+| order_item    | idx_order_item_order_id (order_id)                                           | 주문별 항목 조회                       |
+| coupon        | idx_coupon_expired_at (expired_at)                                           | 만료일 기준 조회(선택)                 |
+| issued_coupon | idx_issued_coupon_user_id (user_id), idx_issued_coupon_coupon_id (coupon_id) | 사용자별 쿠폰 목록, 템플릿별 발급 내역 |
 
 ### 인기순(좋아요 많은 순) 정렬 성능
 
@@ -197,5 +233,6 @@ erDiagram
 - **참조 정합성**: 저장/수정 전 서비스에서 참조 대상 존재·미삭제 여부 검증.
 - **Soft delete (brand·product)**: 컬럼은 deleted_at. 엔티티는 BaseEntity 상속으로 deletedAt 사용하고, isDeleted()는 getDeletedAt() != null로 구현(03 §0 구현 시 유의).
 - **option_id**: cart·order_item에 option_id만 있고 **option 테이블은 없다**. 현재 단계에서는 옵션 존재 여부 검증은 하지 않고 값 보존·최소 검증만 수행한다(01 §4.6).
+- **쿠폰**: order.issued_coupon_id는 발급 쿠폰(issued_coupon.id) 참조. 쿠폰 미적용 주문은 NULL. amount_before_discount, discount_amount, final_amount는 쿠폰 적용 시 스냅샷(01 §3.2, §3.8). issued_coupon 사용 시 동시성 보장을 위해 비관적 락 또는 낙관적 락 적용(AGENTS.md 쿠폰·주문 과제).
 
 ---

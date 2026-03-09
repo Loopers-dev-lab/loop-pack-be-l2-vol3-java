@@ -31,4 +31,18 @@ class CoreExceptionTest {
         // assert
         assertThat(exception.getMessage()).isEqualTo(customMessage);
     }
+
+    @DisplayName("cause를 넘기면 원인 예외가 보존되어 스택트레이스 추적이 가능하다.")
+    @Test
+    void causeShouldBePreserved_whenCauseProvided() {
+        // arrange
+        IllegalArgumentException cause = new IllegalArgumentException("도메인 검증 실패");
+
+        // act
+        CoreException exception = new CoreException(ErrorType.BAD_REQUEST, cause.getMessage(), cause);
+
+        // assert
+        assertThat(exception.getCause()).isSameAs(cause);
+        assertThat(exception.getMessage()).isEqualTo("도메인 검증 실패");
+    }
 }

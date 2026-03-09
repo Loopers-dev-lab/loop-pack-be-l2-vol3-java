@@ -45,7 +45,7 @@ class BrandServiceTest {
             when(brandRepository.save(any(BrandModel.class))).thenReturn(brand);
 
             // when
-            BrandModel result = brandService.register(name);
+            BrandModel result = brandService.registerBrand(name);
 
             // then
             assertThat(result).isNotNull();
@@ -57,14 +57,14 @@ class BrandServiceTest {
         @Test
         void register_withNullName_shouldThrow() {
             // when & then
-            assertThrows(IllegalArgumentException.class, () -> brandService.register(null));
+            assertThrows(IllegalArgumentException.class, () -> brandService.registerBrand(null));
         }
 
         @DisplayName("이름이 빈 문자열이면, IllegalArgumentException이 발생한다.")
         @Test
         void register_withBlankName_shouldThrow() {
             // when & then
-            assertThrows(IllegalArgumentException.class, () -> brandService.register(""));
+            assertThrows(IllegalArgumentException.class, () -> brandService.registerBrand(""));
         }
     }
 
@@ -148,7 +148,7 @@ class BrandServiceTest {
 
             // when & then
             CoreException exception = assertThrows(CoreException.class, () -> {
-                brandService.update(999L, "새 이름");
+                brandService.renameBrand(999L, "새 이름");
             });
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
@@ -163,7 +163,7 @@ class BrandServiceTest {
             when(brandRepository.save(brand)).thenReturn(brand);
 
             // when
-            BrandModel result = brandService.update(id, "새 이름");
+            BrandModel result = brandService.renameBrand(id, "새 이름");
 
             // then
             assertThat(result.getName()).isEqualTo("새 이름");
@@ -180,7 +180,7 @@ class BrandServiceTest {
 
             // when & then
             CoreException exception = assertThrows(CoreException.class, () -> {
-                brandService.update(id, null);
+                brandService.renameBrand(id, null);
             });
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
@@ -198,7 +198,7 @@ class BrandServiceTest {
 
             // when & then
             CoreException exception = assertThrows(CoreException.class, () -> {
-                brandService.delete(999L);
+                brandService.deleteBrand(999L);
             });
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
@@ -213,7 +213,7 @@ class BrandServiceTest {
             when(brandRepository.save(brand)).thenReturn(brand);
 
             // when
-            brandService.delete(id);
+            brandService.deleteBrand(id);
 
             // then: 연쇄 삭제 후 브랜드 삭제
             verify(productService).softDeleteByBrandId(eq(id));

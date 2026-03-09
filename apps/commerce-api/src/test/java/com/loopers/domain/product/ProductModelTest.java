@@ -270,4 +270,36 @@ class ProductModelTest {
             assertThrows(IllegalArgumentException.class, () -> product.increaseStock(Quantity.of(-1)));
         }
     }
+
+    @DisplayName("decreaseStock 시")
+    @Nested
+    class DecreaseStock {
+
+        @Test
+        void decreaseStock_withValidQuantity_shouldSubtract() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(10));
+            product.decreaseStock(Quantity.of(3));
+            assertThat(product.getStockQuantity()).isEqualTo(7);
+        }
+
+        @Test
+        void decreaseStock_toZero_shouldSucceed() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(5));
+            product.decreaseStock(Quantity.of(5));
+            assertThat(product.getStockQuantity()).isZero();
+        }
+
+        @Test
+        void decreaseStock_whenInsufficient_shouldThrow() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(2));
+            assertThrows(IllegalArgumentException.class, () -> product.decreaseStock(Quantity.of(3)));
+            assertThat(product.getStockQuantity()).isEqualTo(2);
+        }
+
+        @Test
+        void decreaseStock_withNull_shouldThrow() {
+            ProductModel product = ProductModel.create(BRAND_ID, NAME, money(PRICE), stock(STOCK));
+            assertThrows(IllegalArgumentException.class, () -> product.decreaseStock(null));
+        }
+    }
 }

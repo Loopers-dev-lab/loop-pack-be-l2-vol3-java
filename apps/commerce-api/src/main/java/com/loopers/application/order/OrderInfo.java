@@ -2,6 +2,7 @@ package com.loopers.application.order;
 
 import com.loopers.domain.order.OrderModel;
 
+import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
 
@@ -14,6 +15,10 @@ public record OrderInfo(
     Long userId,
     String status,
     ZonedDateTime orderedAt,
+    Long issuedCouponId,
+    BigDecimal amountBeforeDiscount,
+    BigDecimal discountAmount,
+    BigDecimal finalAmount,
     List<OrderItemInfo> items
 ) {
     public static OrderInfo from(OrderModel order) {
@@ -28,6 +33,10 @@ public record OrderInfo(
             order.getUserId(),
             order.getStatus().name(),
             order.getOrderedAt(),
+            order.getIssuedCouponId(),
+            order.getAmountBeforeDiscount(),
+            order.getDiscountAmount(),
+            order.getFinalAmount(),
             items
         );
     }

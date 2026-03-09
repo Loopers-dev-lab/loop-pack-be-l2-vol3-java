@@ -46,6 +46,18 @@ class LikeServiceTest {
     @Nested
     class AddLike {
 
+        @DisplayName("userId 또는 productId가 null이면 BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void addLike_whenUserIdOrProductIdNull_shouldThrowBadRequest() {
+            CoreException exUserId = assertThrows(CoreException.class, () -> likeService.addLike(null, PRODUCT_ID));
+            assertThat(exUserId.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exUserId.getMessage()).contains("필수");
+
+            CoreException exProductId = assertThrows(CoreException.class, () -> likeService.addLike(USER_ID, null));
+            assertThat(exProductId.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exProductId.getMessage()).contains("필수");
+        }
+
         @DisplayName("상품이 없으면 NOT_FOUND 예외가 발생한다.")
         @Test
         void addLike_whenProductNotFound_shouldThrowNotFound() {
@@ -94,6 +106,18 @@ class LikeServiceTest {
     @DisplayName("removeLike 시")
     @Nested
     class RemoveLike {
+
+        @DisplayName("userId 또는 productId가 null이면 BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void removeLike_whenUserIdOrProductIdNull_shouldThrowBadRequest() {
+            CoreException exUserId = assertThrows(CoreException.class, () -> likeService.removeLike(null, PRODUCT_ID));
+            assertThat(exUserId.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exUserId.getMessage()).contains("필수");
+
+            CoreException exProductId = assertThrows(CoreException.class, () -> likeService.removeLike(USER_ID, null));
+            assertThat(exProductId.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(exProductId.getMessage()).contains("필수");
+        }
 
         @DisplayName("좋아요가 없으면 NOT_FOUND 예외가 발생한다.")
         @Test

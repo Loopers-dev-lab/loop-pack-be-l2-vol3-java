@@ -1,0 +1,41 @@
+### 어드민 - 쿠폰 템플릿 목록
+GET {{commerce-api}}/api-admin/v1/coupons?page=0&size=20
+X-Loopers-Ldap: admin
+
+### 어드민 - 쿠폰 템플릿 상세
+GET {{commerce-api}}/api-admin/v1/coupons/1
+X-Loopers-Ldap: admin
+
+### 어드민 - 쿠폰 템플릿 등록 (정률 10%)
+POST {{commerce-api}}/api-admin/v1/coupons
+Content-Type: application/json
+X-Loopers-Ldap: admin
+
+{
+  "name": "신규가입 10% 할인",
+  "type": "RATE",
+  "value": 10,
+  "minOrderAmount": 10000,
+  "expiredAt": "2026-12-31T23:59:59+09:00"
+}
+
+### 어드민 - 쿠폰 템플릿 수정
+PUT {{commerce-api}}/api-admin/v1/coupons/1
+Content-Type: application/json
+X-Loopers-Ldap: admin
+
+{
+  "name": "수정된 쿠폰명",
+  "type": "FIXED",
+  "value": 5000,
+  "minOrderAmount": 20000,
+  "expiredAt": "2026-12-31T23:59:59+09:00"
+}
+
+### 어드민 - 쿠폰 템플릿 삭제
+DELETE {{commerce-api}}/api-admin/v1/coupons/1
+X-Loopers-Ldap: admin
+
+### 어드민 - 쿠폰 발급 내역
+GET {{commerce-api}}/api-admin/v1/coupons/1/issues?page=0&size=20
+X-Loopers-Ldap: admin
