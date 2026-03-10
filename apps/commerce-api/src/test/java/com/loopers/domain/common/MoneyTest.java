@@ -88,14 +88,14 @@ class MoneyTest {
         }
 
         @Test
-        @DisplayName("빼기 결과가 음수이면 0원을 반환한다")
-        void subtractMoneyReturnsZeroWhenNegative() {
+        @DisplayName("빼기 결과가 음수이면 예외가 발생한다")
+        void subtractMoneyThrowsExceptionWhenNegative() {
             Money money1 = Money.of(300L);
             Money money2 = Money.of(1000L);
 
-            Money result = money1.subtract(money2);
-
-            assertThat(result.getAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+            assertThatThrownBy(() -> money1.subtract(money2))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("차감 결과가 음수");
         }
 
         @Test

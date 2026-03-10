@@ -265,6 +265,15 @@ class OrderTest {
         }
 
         @Test
+        @DisplayName("할인액이 총액을 초과하면 결제 금액은 0원이다")
+        void getPaymentAmount_discountExceedsTotalAmount() {
+            Money discountAmount = Money.of(30000L);
+            Order order = Order.create(1L, sampleOrderItems, 10L, discountAmount);
+
+            assertThat(order.getPaymentAmount()).isEqualTo(Money.zero());
+        }
+
+        @Test
         @DisplayName("쿠폰 없이 생성하면 할인금액은 0이다")
         void createWithoutCoupon() {
             Order order = Order.create(1L, sampleOrderItems);

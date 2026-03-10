@@ -141,13 +141,16 @@ public class OrderAppService {
     }
 
     private Order cancelOrderInternal(Order order) {
-        // 1. IssuedCoupon 락 획득
+        // 1. 취소 가능 여부 먼저 검증 (Fail-Fast: 불필요한 Lock 획득 방지)
+        order.cancel();
+
+        // 2. IssuedCoupon 락 획득
         IssuedCoupon issuedCoupon = null;
         if (order.getIssuedCouponId() != null) {
             issuedCoupon = couponAppService.getIssuedCouponByIdWithLock(order.getIssuedCouponId());
         }
 
-        // 2. Option 락 획득 (ID 오름차순)
+        // 3. Option 락 획득 (ID 오름차순)
         List<OrderItem> sortedItems = order.getOrderItems().stream()
                 .sorted(Comparator.comparing(OrderItem::getOptionId))
                 .toList();
@@ -158,17 +161,16 @@ public class OrderAppService {
             lockedOptions.add(option);
         }
 
-        // 3. 쿠폰 복원
+        // 4. 쿠폰 복원
         if (issuedCoupon != null) {
             issuedCoupon.restore();
         }
 
-        // 4. 재고 복원
+        // 5. 재고 복원
         for (int i = 0; i < sortedItems.size(); i++) {
             lockedOptions.get(i).increaseStock(sortedItems.get(i).getQuantity());
         }
 
-        order.cancel();
         return order;
     }
 

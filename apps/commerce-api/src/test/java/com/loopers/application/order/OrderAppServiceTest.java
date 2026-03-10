@@ -284,13 +284,7 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
-            given(order.getIssuedCouponId()).willReturn(null);
-            given(order.getOrderItems()).willReturn(List.of(createTestOrderItem()));
             given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
-
-            Option option = mock(Option.class);
-            given(productAppService.getOptionByIdWithLock(1L)).willReturn(option);
-
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다."))
                     .when(order).cancel();
 
@@ -306,13 +300,7 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
-            given(order.getIssuedCouponId()).willReturn(null);
-            given(order.getOrderItems()).willReturn(List.of(createTestOrderItem()));
             given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
-
-            Option option = mock(Option.class);
-            given(productAppService.getOptionByIdWithLock(1L)).willReturn(option);
-
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다."))
                     .when(order).cancel();
 
@@ -320,6 +308,25 @@ class OrderAppServiceTest {
             assertThatThrownBy(() -> orderAppService.cancel(1L))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining("취소할 수 없는 주문 상태입니다.");
+        }
+
+        @Test
+        @DisplayName("취소 실패 시 쿠폰/재고 Lock을 획득하지 않는다")
+        void cancel_failFast_noLockAcquired() {
+            // given
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(1L);
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
+            org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다."))
+                    .when(order).cancel();
+
+            // when
+            assertThatThrownBy(() -> orderAppService.cancel(1L))
+                    .isInstanceOf(CoreException.class);
+
+            // then - 복원 로직(Lock 획득)이 호출되지 않았음을 검증
+            org.mockito.Mockito.verifyNoInteractions(couponAppService);
+            org.mockito.Mockito.verifyNoInteractions(productAppService);
         }
 
         @Test

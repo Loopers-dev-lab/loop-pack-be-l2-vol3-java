@@ -68,7 +68,11 @@ public class Order extends BaseEntity {
     }
 
     public Money getPaymentAmount() {
-        return getTotalAmount().subtract(discountAmount);
+        Money totalAmount = getTotalAmount();
+        if (discountAmount.isGreaterThanOrEqual(totalAmount)) {
+            return Money.zero();
+        }
+        return totalAmount.subtract(discountAmount);
     }
 
     public List<OrderItem> getOrderItems() {

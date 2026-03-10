@@ -55,7 +55,8 @@ public class Money {
     public Money subtract(Money other) {
         BigDecimal result = this.amount.subtract(other.amount);
         if (result.compareTo(BigDecimal.ZERO) < 0) {
-            return Money.zero();
+            throw new IllegalArgumentException(
+                    "차감 결과가 음수입니다: " + this.amount + " - " + other.amount + " = " + result);
         }
         return new Money(result);
     }
