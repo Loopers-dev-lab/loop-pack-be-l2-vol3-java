@@ -3,6 +3,8 @@ package com.loopers.infrastructure.product;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.ProductSortCondition;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
@@ -53,4 +55,26 @@ public class ProductRepositoryImpl implements ProductRepository {
     public List<Product> findByIdIn(List<Long> productIds) {
         return productJpaRepository.findByIdInAndDeletedFalse(productIds);
     }
+
+    @Override
+    public Optional<Product> findByIdWithLock(Long id) {
+        return productJpaRepository.findByIdWithLock(id);
+    }
+
+    @Override
+    public void increaseLikeCount(Long id) {
+        int affected = productJpaRepository.increaseLikeCount(id);
+        if (affected == 0) {
+            throw new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.");
+        }
+    }
+
+    @Override
+    public void decreaseLikeCount(Long id) {
+        int affected = productJpaRepository.decreaseLikeCount(id);
+        if (affected == 0) {
+            throw new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.");
+        }
+    }
+
 }

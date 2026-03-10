@@ -33,6 +33,8 @@ public class AdminOrderDto {
             Long userId,
             OrderStatus status,
             BigDecimal totalAmount,
+            BigDecimal discountAmount,
+            BigDecimal paymentAmount,
             List<OrderItemResponse> items
     ) {
         public static OrderResponse from(OrderInfo info) {
@@ -41,6 +43,8 @@ public class AdminOrderDto {
                     info.getUserId(),
                     info.getStatus(),
                     info.getTotalAmount().getAmount(),
+                    info.getDiscountAmount().getAmount(),
+                    info.getPaymentAmount().getAmount(),
                     info.getItems().stream().map(OrderItemResponse::from).toList()
             );
         }

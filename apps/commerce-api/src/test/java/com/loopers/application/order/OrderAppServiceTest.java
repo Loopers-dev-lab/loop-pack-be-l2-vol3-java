@@ -1,10 +1,15 @@
 package com.loopers.application.order;
 
+import com.loopers.application.cart.CartAppService;
+import com.loopers.application.coupon.CouponAppService;
+import com.loopers.application.product.ProductAppService;
 import com.loopers.domain.common.Money;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.order.OrderStatus;
+import com.loopers.domain.coupon.IssuedCoupon;
+import com.loopers.domain.product.Option;
 import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,7 +21,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -26,11 +30,17 @@ class OrderAppServiceTest {
 
     private OrderAppService orderAppService;
     private OrderRepository orderRepository;
+    private ProductAppService productAppService;
+    private CouponAppService couponAppService;
+    private CartAppService cartAppService;
 
     @BeforeEach
     void setUp() {
         orderRepository = mock(OrderRepository.class);
-        orderAppService = new OrderAppService(orderRepository);
+        productAppService = mock(ProductAppService.class);
+        couponAppService = mock(CouponAppService.class);
+        cartAppService = mock(CartAppService.class);
+        orderAppService = new OrderAppService(orderRepository, productAppService, couponAppService, cartAppService);
     }
 
     private OrderItem createTestOrderItem() {
@@ -44,34 +54,6 @@ class OrderAppServiceTest {
         given(order.getStatus()).willReturn(OrderStatus.PENDING);
         given(order.getOrderItems()).willReturn(List.of(createTestOrderItem()));
         return order;
-    }
-
-    @Nested
-    @DisplayName("주문 생성")
-    class CreateTest {
-
-        @Test
-        @DisplayName("유효한 정보로 주문을 생성할 수 있다")
-        void create_success() {
-            // given
-            Long userId = 1L;
-            List<OrderItem> items = List.of(createTestOrderItem());
-            Order savedOrder = mock(Order.class);
-            given(savedOrder.getId()).willReturn(1L);
-            given(savedOrder.getUserId()).willReturn(userId);
-            given(savedOrder.getStatus()).willReturn(OrderStatus.PENDING);
-
-            given(orderRepository.save(any(Order.class))).willReturn(savedOrder);
-
-            // when
-            Order result = orderAppService.create(userId, items);
-
-            // then
-            assertThat(result.getId()).isEqualTo(1L);
-            assertThat(result.getUserId()).isEqualTo(userId);
-            assertThat(result.getStatus()).isEqualTo(OrderStatus.PENDING);
-            verify(orderRepository).save(any(Order.class));
-        }
     }
 
     @Nested
@@ -114,16 +96,14 @@ class OrderAppServiceTest {
         void pay_success() {
             // given
             Order order = createPendingOrder();
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             given(order.getStatus()).willReturn(OrderStatus.PAID);
-            given(orderRepository.save(any(Order.class))).willReturn(order);
 
             // when
             Order result = orderAppService.pay(1L);
 
             // then
             assertThat(result.getStatus()).isEqualTo(OrderStatus.PAID);
-            verify(orderRepository).save(order);
         }
 
         @Test
@@ -132,7 +112,7 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "결제 대기 상태에서만 결제할 수 있습니다."))
                     .when(order).pay();
 
@@ -154,8 +134,7 @@ class OrderAppServiceTest {
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
             given(order.getStatus()).willReturn(OrderStatus.PREPARING);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
-            given(orderRepository.save(any(Order.class))).willReturn(order);
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
 
             // when
             Order result = orderAppService.prepare(1L);
@@ -170,7 +149,7 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "결제 완료 상태에서만 준비할 수 있습니다."))
                     .when(order).prepare();
 
@@ -192,8 +171,7 @@ class OrderAppServiceTest {
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
             given(order.getStatus()).willReturn(OrderStatus.SHIPPED);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
-            given(orderRepository.save(any(Order.class))).willReturn(order);
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
 
             // when
             Order result = orderAppService.ship(1L);
@@ -208,7 +186,7 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "준비 완료 상태에서만 배송을 시작할 수 있습니다."))
                     .when(order).ship();
 
@@ -230,8 +208,7 @@ class OrderAppServiceTest {
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
             given(order.getStatus()).willReturn(OrderStatus.DELIVERED);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
-            given(orderRepository.save(any(Order.class))).willReturn(order);
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
 
             // when
             Order result = orderAppService.deliver(1L);
@@ -246,7 +223,7 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "배송 중 상태에서만 배송 완료 처리할 수 있습니다."))
                     .when(order).deliver();
 
@@ -266,9 +243,12 @@ class OrderAppServiceTest {
         void cancel_fromPending() {
             // given
             Order order = createPendingOrder();
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(order.getIssuedCouponId()).willReturn(null);
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             given(order.getStatus()).willReturn(OrderStatus.CANCELED);
-            given(orderRepository.save(any(Order.class))).willReturn(order);
+
+            Option option = mock(Option.class);
+            given(productAppService.getOptionByIdWithLock(1L)).willReturn(option);
 
             // when
             Order result = orderAppService.cancel(1L);
@@ -284,8 +264,12 @@ class OrderAppServiceTest {
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
             given(order.getStatus()).willReturn(OrderStatus.CANCELED);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
-            given(orderRepository.save(any(Order.class))).willReturn(order);
+            given(order.getIssuedCouponId()).willReturn(null);
+            given(order.getOrderItems()).willReturn(List.of(createTestOrderItem()));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
+
+            Option option = mock(Option.class);
+            given(productAppService.getOptionByIdWithLock(1L)).willReturn(option);
 
             // when
             Order result = orderAppService.cancel(1L);
@@ -300,7 +284,7 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다."))
                     .when(order).cancel();
 
@@ -316,7 +300,7 @@ class OrderAppServiceTest {
             // given
             Order order = mock(Order.class);
             given(order.getId()).willReturn(1L);
-            given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
             org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다."))
                     .when(order).cancel();
 
@@ -324,6 +308,51 @@ class OrderAppServiceTest {
             assertThatThrownBy(() -> orderAppService.cancel(1L))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining("취소할 수 없는 주문 상태입니다.");
+        }
+
+        @Test
+        @DisplayName("취소 실패 시 쿠폰/재고 Lock을 획득하지 않는다")
+        void cancel_failFast_noLockAcquired() {
+            // given
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(1L);
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
+            org.mockito.Mockito.doThrow(new CoreException(com.loopers.support.error.ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다."))
+                    .when(order).cancel();
+
+            // when
+            assertThatThrownBy(() -> orderAppService.cancel(1L))
+                    .isInstanceOf(CoreException.class);
+
+            // then - 복원 로직(Lock 획득)이 호출되지 않았음을 검증
+            org.mockito.Mockito.verifyNoInteractions(couponAppService);
+            org.mockito.Mockito.verifyNoInteractions(productAppService);
+        }
+
+        @Test
+        @DisplayName("취소 시 쿠폰과 재고가 복원된다")
+        void cancel_restoresCouponAndStock() {
+            // given
+            OrderItem orderItem = createTestOrderItem();
+            Order order = mock(Order.class);
+            given(order.getId()).willReturn(1L);
+            given(order.getIssuedCouponId()).willReturn(10L);
+            given(order.getOrderItems()).willReturn(List.of(orderItem));
+            given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
+
+            IssuedCoupon issuedCoupon = mock(IssuedCoupon.class);
+            given(couponAppService.getIssuedCouponByIdWithLock(10L)).willReturn(issuedCoupon);
+
+            Option option = mock(Option.class);
+            given(productAppService.getOptionByIdWithLock(1L)).willReturn(option);
+
+            // when
+            orderAppService.cancel(1L);
+
+            // then
+            verify(issuedCoupon).restore();
+            verify(option).increaseStock(2);
+            verify(order).cancel();
         }
     }
 

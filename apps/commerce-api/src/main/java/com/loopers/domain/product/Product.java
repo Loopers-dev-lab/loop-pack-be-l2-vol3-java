@@ -32,16 +32,30 @@ public class Product extends BaseEntity {
     @Column(name = "deleted", nullable = false)
     private boolean deleted;
 
-    private Product(Long brandId, String name, Money basePrice, boolean deleted) {
+    @Column(name = "like_count", nullable = false)
+    private long likeCount;
+
+    private Product(Long brandId, String name, Money basePrice, boolean deleted, long likeCount) {
         validateName(name);
         this.brandId = brandId;
         this.name = name;
         this.basePrice = basePrice;
         this.deleted = deleted;
+        this.likeCount = likeCount;
     }
 
     public static Product create(Long brandId, String name, Money basePrice) {
-        return new Product(brandId, name, basePrice, false);
+        return new Product(brandId, name, basePrice, false, 0L);
+    }
+
+    public void increaseLikeCount() {
+        this.likeCount++;
+    }
+
+    public void decreaseLikeCount() {
+        if (this.likeCount > 0) {
+            this.likeCount--;
+        }
     }
 
     public void update(String name, Money basePrice) {

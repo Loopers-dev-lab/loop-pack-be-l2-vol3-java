@@ -1,98 +1,28 @@
 package com.loopers.application.order;
 
-import com.loopers.application.cart.CartAppService;
-import com.loopers.application.product.ProductAppService;
-import com.loopers.domain.cart.CartItem;
-import com.loopers.domain.common.Money;
 import com.loopers.domain.order.Order;
-import com.loopers.domain.order.OrderItem;
-import com.loopers.domain.product.Option;
-import com.loopers.domain.product.Product;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class OrderFacade {
     private final OrderAppService orderAppService;
-    private final ProductAppService productAppService;
-    private final CartAppService cartAppService;
 
-    @Transactional
     public Order createOrder(OrderCreateCommand command) {
-        List<OrderItem> orderItems = new ArrayList<>();
-
-        for (OrderCreateCommand.OrderItemCommand itemCommand : command.getItems()) {
-            Option option = productAppService.decreaseStock(
-                    itemCommand.getOptionId(),
-                    itemCommand.getQuantity()
-            );
-
-            Product product = productAppService.getById(option.getProductId());
-            Money totalPrice = product.getBasePrice().add(option.getAdditionalPrice());
-
-            OrderItem orderItem = OrderItem.of(
-                    option.getId(),
-                    product.getName(),
-                    option.getName(),
-                    totalPrice,
-                    itemCommand.getQuantity()
-            );
-            orderItems.add(orderItem);
-        }
-
-        return orderAppService.create(command.getUserId(), orderItems);
+        return orderAppService.createOrder(command);
     }
 
-    @Transactional
-    public Order createOrderFromCart(Long userId, List<Long> cartItemIds) {
-        List<CartItem> cartItems = cartAppService.getByIds(cartItemIds);
-
-        for (CartItem cartItem : cartItems) {
-            cartItem.validateOwner(userId);
-        }
-
-        List<OrderItem> orderItems = new ArrayList<>();
-        for (CartItem cartItem : cartItems) {
-            Option option = productAppService.decreaseStock(
-                    cartItem.getOptionId(),
-                    cartItem.getQuantity()
-            );
-
-            Product product = productAppService.getById(option.getProductId());
-            Money totalPrice = product.getBasePrice().add(option.getAdditionalPrice());
-
-            OrderItem orderItem = OrderItem.of(
-                    option.getId(),
-                    product.getName(),
-                    option.getName(),
-                    totalPrice,
-                    cartItem.getQuantity()
-            );
-            orderItems.add(orderItem);
-        }
-
-        Order order = orderAppService.create(userId, orderItems);
-
-        cartAppService.deleteByIds(cartItemIds);
-
-        return order;
+    public Order createOrderFromCart(Long userId, List<Long> cartItemIds, Long couponId) {
+        return orderAppService.createOrderFromCart(userId, cartItemIds, couponId);
     }
 
-    @Transactional
     public Order cancelOrder(Long userId, Long orderId) {
-        Order order = orderAppService.getById(orderId);
-        order.validateOwner(userId);
-
-        for (OrderItem item : order.getOrderItems()) {
-            productAppService.increaseStock(item.getOptionId(), item.getQuantity());
-        }
-
-        return orderAppService.cancel(orderId);
+        return orderAppService.cancelOrder(userId, orderId);
     }
 
     public Order getOrder(Long userId, Long orderId) {
@@ -107,6 +37,10 @@ public class OrderFacade {
 
     public List<Order> getAll() {
         return orderAppService.getAll();
+    }
+
+    public Page<Order> getAll(Pageable pageable) {
+        return orderAppService.getAll(pageable);
     }
 
     public Order getById(Long orderId) {

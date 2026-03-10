@@ -16,6 +16,9 @@ public class OrderInfo {
     private final Long userId;
     private final OrderStatus status;
     private final Money totalAmount;
+    private final Money discountAmount;
+    private final Money paymentAmount;
+    private final Long issuedCouponId;
     private final List<OrderItemInfo> items;
 
     @Getter
@@ -46,6 +49,9 @@ public class OrderInfo {
                 .userId(order.getUserId())
                 .status(order.getStatus())
                 .totalAmount(order.getTotalAmount())
+                .discountAmount(order.getDiscountAmount())
+                .paymentAmount(order.getPaymentAmount())
+                .issuedCouponId(order.getIssuedCouponId())
                 .items(order.getOrderItems().stream().map(OrderItemInfo::from).toList())
                 .build();
     }

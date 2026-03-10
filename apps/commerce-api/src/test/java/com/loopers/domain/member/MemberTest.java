@@ -132,4 +132,5 @@ class MemberTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
     }
+
 }

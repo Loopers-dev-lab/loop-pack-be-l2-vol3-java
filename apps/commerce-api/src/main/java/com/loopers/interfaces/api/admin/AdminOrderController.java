@@ -6,6 +6,8 @@ import com.loopers.domain.order.Order;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.resolver.LoginAdmin;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,9 +23,12 @@ public class AdminOrderController {
     private final OrderFacade orderFacade;
 
     @GetMapping
-    public ApiResponse<AdminOrderDto.OrderListResponse> getAll(@LoginAdmin String adminId) {
-        List<Order> orders = orderFacade.getAll();
-        List<OrderInfo> orderInfos = orders.stream().map(OrderInfo::from).toList();
+    public ApiResponse<AdminOrderDto.OrderListResponse> getAll(
+            @LoginAdmin String adminId,
+            Pageable pageable
+    ) {
+        Page<Order> orders = orderFacade.getAll(pageable);
+        List<OrderInfo> orderInfos = orders.getContent().stream().map(OrderInfo::from).toList();
         return ApiResponse.success(AdminOrderDto.OrderListResponse.from(orderInfos));
     }
 

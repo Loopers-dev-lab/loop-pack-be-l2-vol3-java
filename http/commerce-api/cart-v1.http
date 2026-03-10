@@ -1,8 +1,8 @@
 ### 장바구니 담기
 POST {{commerce-api}}/api/v1/cart
 Content-Type: application/json
-X-Loopers-LoginId: testuser
-X-Loopers-LoginPw: Password1!
+X-Loopers-LoginId: {{loginId}}
+X-Loopers-LoginPw: {{loginPw}}
 
 {
   "optionId": 1,
@@ -11,14 +11,14 @@ X-Loopers-LoginPw: Password1!
 
 ### 장바구니 조회
 GET {{commerce-api}}/api/v1/cart
-X-Loopers-LoginId: testuser
-X-Loopers-LoginPw: Password1!
+X-Loopers-LoginId: {{loginId}}
+X-Loopers-LoginPw: {{loginPw}}
 
 ### 장바구니 수량 변경
 PATCH {{commerce-api}}/api/v1/cart/1
 Content-Type: application/json
-X-Loopers-LoginId: testuser
-X-Loopers-LoginPw: Password1!
+X-Loopers-LoginId: {{loginId}}
+X-Loopers-LoginPw: {{loginPw}}
 
 {
   "quantity": 5
@@ -26,5 +26,5 @@ X-Loopers-LoginPw: Password1!
 
 ### 장바구니 삭제
 DELETE {{commerce-api}}/api/v1/cart/1
-X-Loopers-LoginId: testuser
-X-Loopers-LoginPw: Password1!
+X-Loopers-LoginId: {{loginId}}
+X-Loopers-LoginPw: {{loginPw}}

@@ -9,13 +9,22 @@ import java.util.List;
 
 public class OrderDto {
 
-    public record CreateFromCartRequest(List<Long> cartItemIds) {}
+    public record CreateFromCartRequest(List<Long> cartItemIds, Long couponId) {
+        public CreateFromCartRequest(List<Long> cartItemIds) {
+            this(cartItemIds, null);
+        }
+    }
 
-    public record CreateDirectRequest(Long optionId, int quantity) {
+    public record CreateDirectRequest(Long optionId, int quantity, Long couponId) {
+        public CreateDirectRequest(Long optionId, int quantity) {
+            this(optionId, quantity, null);
+        }
+
         public OrderCreateCommand toCommand(Long userId) {
             return new OrderCreateCommand(
                     userId,
-                    List.of(new OrderCreateCommand.OrderItemCommand(optionId, quantity))
+                    List.of(new OrderCreateCommand.OrderItemCommand(optionId, quantity)),
+                    couponId
             );
         }
     }
@@ -44,6 +53,8 @@ public class OrderDto {
             Long orderId,
             OrderStatus status,
             BigDecimal totalAmount,
+            BigDecimal discountAmount,
+            BigDecimal paymentAmount,
             List<OrderItemResponse> items
     ) {
         public static OrderResponse from(OrderInfo info) {
@@ -51,6 +62,8 @@ public class OrderDto {
                     info.getOrderId(),
                     info.getStatus(),
                     info.getTotalAmount().getAmount(),
+                    info.getDiscountAmount().getAmount(),
+                    info.getPaymentAmount().getAmount(),
                     info.getItems().stream().map(OrderItemResponse::from).toList()
             );
         }

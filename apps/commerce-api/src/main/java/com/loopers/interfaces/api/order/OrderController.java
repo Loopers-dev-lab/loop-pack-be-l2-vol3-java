@@ -27,7 +27,7 @@ public class OrderController {
             @LoginUser Member member,
             @RequestBody OrderDto.CreateFromCartRequest request
     ) {
-        Order order = orderFacade.createOrderFromCart(member.getId(), request.cartItemIds());
+        Order order = orderFacade.createOrderFromCart(member.getId(), request.cartItemIds(), request.couponId());
         return ApiResponse.success(OrderDto.OrderResponse.from(OrderInfo.from(order)));
     }
 

@@ -5,6 +5,7 @@ import com.loopers.domain.like.Like;
 import com.loopers.domain.product.Product;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -15,9 +16,17 @@ public class LikeFacade {
     private final LikeAppService likeAppService;
     private final ProductAppService productAppService;
 
+    @Transactional
     public boolean toggleLike(Long userId, Long productId) {
         productAppService.getById(productId);
-        return likeAppService.toggleLike(userId, productId);
+
+        boolean liked = likeAppService.toggleLike(userId, productId);
+        if (liked) {
+            productAppService.increaseLikeCount(productId);
+        } else {
+            productAppService.decreaseLikeCount(productId);
+        }
+        return liked;
     }
 
     public List<LikeInfo> getLikedProducts(Long userId) {

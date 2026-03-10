@@ -37,4 +37,9 @@ public class OptionRepositoryImpl implements OptionRepository {
     public List<Option> findByIdIn(List<Long> optionIds) {
         return optionJpaRepository.findByIdInAndDeletedFalse(optionIds);
     }
+
+    @Override
+    public Optional<Option> findByIdWithLock(Long id) {
+        return optionJpaRepository.findByIdWithLock(id);
+    }
 }

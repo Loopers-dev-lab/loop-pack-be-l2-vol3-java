@@ -4,8 +4,10 @@ import com.loopers.domain.BaseEntity;
 import com.loopers.domain.common.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -36,18 +38,41 @@ public class Order extends BaseEntity {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<OrderItem> orderItems = new ArrayList<>();
 
-    private Order(Long userId, List<OrderItem> orderItems, OrderStatus status) {
+    @Column(name = "issued_coupon_id")
+    private Long issuedCouponId;
+
+    @Embedded
+    @AttributeOverride(name = "amount", column = @Column(name = "discount_amount", nullable = false))
+    private Money discountAmount;
+
+    private Order(Long userId, List<OrderItem> orderItems, OrderStatus status, Long issuedCouponId, Money discountAmount) {
         validateUserId(userId);
         validateOrderItems(orderItems);
         this.userId = userId;
         this.orderItems = new ArrayList<>(orderItems);
         this.status = status;
+        this.issuedCouponId = issuedCouponId;
+        this.discountAmount = discountAmount != null ? discountAmount : Money.zero();
     }
 
     public static Order create(Long userId, List<OrderItem> orderItems) {
-        Order order = new Order(userId, orderItems, OrderStatus.PENDING);
+        Order order = new Order(userId, orderItems, OrderStatus.PENDING, null, Money.zero());
         orderItems.forEach(item -> item.setOrder(order));
         return order;
+    }
+
+    public static Order create(Long userId, List<OrderItem> orderItems, Long issuedCouponId, Money discountAmount) {
+        Order order = new Order(userId, orderItems, OrderStatus.PENDING, issuedCouponId, discountAmount);
+        orderItems.forEach(item -> item.setOrder(order));
+        return order;
+    }
+
+    public Money getPaymentAmount() {
+        Money totalAmount = getTotalAmount();
+        if (discountAmount.isGreaterThanOrEqual(totalAmount)) {
+            return Money.zero();
+        }
+        return totalAmount.subtract(discountAmount);
     }
 
     public List<OrderItem> getOrderItems() {

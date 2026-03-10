@@ -4,6 +4,13 @@ import com.loopers.application.product.ProductAppService;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.common.Money;
+import com.loopers.domain.member.Member;
+import com.loopers.domain.member.MemberRepository;
+import com.loopers.domain.member.vo.BirthDate;
+import com.loopers.domain.member.vo.Email;
+import com.loopers.domain.member.vo.MemberId;
+import com.loopers.domain.member.vo.Name;
+import com.loopers.domain.member.vo.Password;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.product.Option;
@@ -37,16 +44,30 @@ class OrderFacadeIntegrationTest {
     private BrandRepository brandRepository;
 
     @Autowired
+    private MemberRepository memberRepository;
+
+    @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
     private Long brandId;
     private Long productId;
     private Long optionId;
+    private Long userId;
 
     @BeforeEach
     void setUp() {
         Brand brand = brandRepository.save(Brand.create("테스트 브랜드"));
         brandId = brand.getId();
+
+        Member member = Member.create(
+                new MemberId("testuser"),
+                Password.ofEncoded("encoded:Pass1!"),
+                new Name("테스트"),
+                new Email("test@test.com"),
+                new BirthDate("1997-01-01")
+        );
+        member = memberRepository.save(member);
+        userId = member.getId();
 
         Option option = productAppService.createOption(
                 productAppService.create(brandId, "테스트 상품", Money.of(10000L)).getId(),
@@ -71,7 +92,7 @@ class OrderFacadeIntegrationTest {
             // given
             int orderQuantity = 10;
             OrderCreateCommand command = new OrderCreateCommand(
-                    1L,
+                    userId,
                     List.of(new OrderCreateCommand.OrderItemCommand(optionId, orderQuantity))
             );
 
@@ -94,7 +115,7 @@ class OrderFacadeIntegrationTest {
             Long optionId2 = option2.getId();
 
             OrderCreateCommand command = new OrderCreateCommand(
-                    1L,
+                    userId,
                     List.of(
                             new OrderCreateCommand.OrderItemCommand(optionId, 5),
                             new OrderCreateCommand.OrderItemCommand(optionId2, 10)
@@ -115,7 +136,7 @@ class OrderFacadeIntegrationTest {
         void createOrder_insufficientStock_throwsException() {
             // given
             OrderCreateCommand command = new OrderCreateCommand(
-                    1L,
+                    userId,
                     List.of(new OrderCreateCommand.OrderItemCommand(optionId, 150))
             );
 
@@ -133,7 +154,7 @@ class OrderFacadeIntegrationTest {
         void createOrder_calculatesCorrectTotalAmount() {
             // given
             OrderCreateCommand command = new OrderCreateCommand(
-                    1L,
+                    userId,
                     List.of(new OrderCreateCommand.OrderItemCommand(optionId, 3))
             );
 
@@ -157,14 +178,14 @@ class OrderFacadeIntegrationTest {
         void cancelOrder_restoresStock() {
             // given
             OrderCreateCommand command = new OrderCreateCommand(
-                    1L,
+                    userId,
                     List.of(new OrderCreateCommand.OrderItemCommand(optionId, 20))
             );
             Order order = orderFacade.createOrder(command);
             assertThat(productAppService.getOptionById(optionId).getStock()).isEqualTo(80);
 
             // when
-            Order cancelledOrder = orderFacade.cancelOrder(1L, order.getId());
+            Order cancelledOrder = orderFacade.cancelOrder(userId, order.getId());
 
             // then
             assertThat(cancelledOrder.getStatus()).isEqualTo(OrderStatus.CANCELED);
@@ -179,7 +200,7 @@ class OrderFacadeIntegrationTest {
             Long optionId2 = option2.getId();
 
             OrderCreateCommand command = new OrderCreateCommand(
-                    1L,
+                    userId,
                     List.of(
                             new OrderCreateCommand.OrderItemCommand(optionId, 10),
                             new OrderCreateCommand.OrderItemCommand(optionId2, 20)
@@ -188,7 +209,7 @@ class OrderFacadeIntegrationTest {
             Order order = orderFacade.createOrder(command);
 
             // when
-            orderFacade.cancelOrder(1L, order.getId());
+            orderFacade.cancelOrder(userId, order.getId());
 
             // then
             assertThat(productAppService.getOptionById(optionId).getStock()).isEqualTo(100);
@@ -200,14 +221,14 @@ class OrderFacadeIntegrationTest {
         void cancelOrder_paidStatus_canCancel() {
             // given
             OrderCreateCommand command = new OrderCreateCommand(
-                    1L,
+                    userId,
                     List.of(new OrderCreateCommand.OrderItemCommand(optionId, 10))
             );
             Order order = orderFacade.createOrder(command);
             orderFacade.payOrder(order.getId());
 
             // when
-            Order cancelledOrder = orderFacade.cancelOrder(1L, order.getId());
+            Order cancelledOrder = orderFacade.cancelOrder(userId, order.getId());
 
             // then
             assertThat(cancelledOrder.getStatus()).isEqualTo(OrderStatus.CANCELED);
@@ -219,7 +240,7 @@ class OrderFacadeIntegrationTest {
         void cancelOrder_preparingStatus_throwsException() {
             // given
             OrderCreateCommand command = new OrderCreateCommand(
-                    1L,
+                    userId,
                     List.of(new OrderCreateCommand.OrderItemCommand(optionId, 10))
             );
             Order order = orderFacade.createOrder(command);
@@ -227,7 +248,7 @@ class OrderFacadeIntegrationTest {
             orderFacade.prepareOrder(order.getId());
 
             // when & then
-            assertThatThrownBy(() -> orderFacade.cancelOrder(1L, order.getId()))
+            assertThatThrownBy(() -> orderFacade.cancelOrder(userId, order.getId()))
                     .isInstanceOf(CoreException.class)
                     .extracting("errorType").isEqualTo(ErrorType.BAD_REQUEST);
         }
@@ -242,7 +263,7 @@ class OrderFacadeIntegrationTest {
         void orderStatusFlow_happyPath() {
             // given
             OrderCreateCommand command = new OrderCreateCommand(
-                    1L,
+                    userId,
                     List.of(new OrderCreateCommand.OrderItemCommand(optionId, 5))
             );
 
