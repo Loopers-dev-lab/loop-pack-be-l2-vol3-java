@@ -75,6 +75,41 @@ public class CouponIssueFacadeTest {
             assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
+        @DisplayName("삭제된 쿠폰이면 NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsNotFound_whenCouponDeleted() {
+            // arrange
+            Coupon savedCoupon = couponRepository.save(
+                Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30))
+            );
+            savedCoupon.delete();
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                couponIssueFacade.issue(savedUser.getId(), savedCoupon.getId())
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+        }
+
+        @DisplayName("만료된 쿠폰이면 COUPON_EXPIRED 예외가 발생한다.")
+        @Test
+        void throwsCouponExpired_whenCouponExpired() {
+            // arrange
+            Coupon savedCoupon = couponRepository.save(
+                Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().minusDays(1))
+            );
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                couponIssueFacade.issue(savedUser.getId(), savedCoupon.getId())
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.COUPON_EXPIRED);
+        }
+
         @DisplayName("이미 발급된 쿠폰이면 CONFLICT 예외가 발생한다.")
         @Test
         void throwsConflict_whenAlreadyIssued() {

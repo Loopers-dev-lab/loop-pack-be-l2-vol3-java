@@ -22,6 +22,8 @@ public class CouponIssueFacade {
         Coupon coupon = couponRepository.findById(couponId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
 
+        coupon.validateIssuable();
+
         if (issuedCouponRepository.existsByUserIdAndCouponId(userId, couponId)) {
             throw new CoreException(ErrorType.CONFLICT, "이미 발급된 쿠폰입니다.");
         }

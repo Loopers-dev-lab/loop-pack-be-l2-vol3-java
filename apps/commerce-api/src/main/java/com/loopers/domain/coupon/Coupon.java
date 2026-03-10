@@ -88,6 +88,15 @@ public class Coupon extends BaseEntity {
         }
     }
 
+    public void validateIssuable() {
+        if (this.getDeletedAt() != null) {
+            throw new CoreException(ErrorType.NOT_FOUND, "삭제된 쿠폰입니다.");
+        }
+        if (this.expiresAt.isBefore(LocalDateTime.now())) {
+            throw new CoreException(ErrorType.COUPON_EXPIRED, "만료된 쿠폰입니다.");
+        }
+    }
+
     public void validateApplicable(long orderAmount) {
         if (minOrderAmount != null && orderAmount < minOrderAmount) {
             throw new CoreException(ErrorType.MIN_ORDER_AMOUNT_NOT_MET, "최소 주문 금액 조건을 충족하지 않습니다.");
