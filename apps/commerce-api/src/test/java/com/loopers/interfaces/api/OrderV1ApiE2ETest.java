@@ -248,7 +248,7 @@ class OrderV1ApiE2ETest {
         void returnsCreated_withDiscountApplied_whenValidCoupon() {
             // arrange
             Coupon coupon = couponJpaRepository.save(
-                    Coupon.create("10000원 할인", Coupon.DiscountType.FIXED, 10000L, 0L, LocalDateTime.now().plusDays(30))
+                    Coupon.create("10000원 할인", Coupon.DiscountType.FIXED, 10000L, 10000L, LocalDateTime.now().plusDays(30))
             );
             IssuedCoupon issuedCoupon = issuedCouponJpaRepository.save(
                     IssuedCoupon.create(savedUser.getId(), coupon.getId(), LocalDateTime.now().plusDays(30))
@@ -296,7 +296,7 @@ class OrderV1ApiE2ETest {
         void returnsBadRequest_whenCouponAlreadyUsed() {
             // arrange
             Coupon coupon = couponJpaRepository.save(
-                    Coupon.create("5000원 할인", Coupon.DiscountType.FIXED, 5000L, 0L, LocalDateTime.now().plusDays(30))
+                    Coupon.create("5000원 할인", Coupon.DiscountType.FIXED, 5000L, 5000L, LocalDateTime.now().plusDays(30))
             );
             IssuedCoupon issuedCoupon = IssuedCoupon.create(savedUser.getId(), coupon.getId(), LocalDateTime.now().plusDays(30));
             issuedCoupon.markAsUsed();

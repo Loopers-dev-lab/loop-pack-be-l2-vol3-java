@@ -163,7 +163,7 @@ class ConcurrencyE2ETest {
         Product product = productJpaRepository.save(Product.create(brand.getId(), "에어맥스", null, 10000, 100));
 
         Coupon coupon = couponJpaRepository.save(
-                Coupon.create("동시성 테스트 쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30)));
+                Coupon.create("동시성 테스트 쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30)));
         IssuedCoupon issuedCoupon = issuedCouponJpaRepository.save(
                 IssuedCoupon.create(user.getId(), coupon.getId(), LocalDateTime.now().plusDays(30)));
 

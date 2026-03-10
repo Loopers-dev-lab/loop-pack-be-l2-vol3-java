@@ -49,7 +49,7 @@ public class CouponIssueFacadeTest {
         void returnsIssuedCouponInfo_whenValid() {
             // arrange
             Coupon savedCoupon = couponRepository.save(
-                Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30))
+                Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30))
             );
 
             // act
@@ -80,7 +80,7 @@ public class CouponIssueFacadeTest {
         void throwsNotFound_whenCouponDeleted() {
             // arrange
             Coupon savedCoupon = couponRepository.save(
-                Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30))
+                Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30))
             );
             savedCoupon.delete();
 
@@ -98,7 +98,7 @@ public class CouponIssueFacadeTest {
         void throwsCouponExpired_whenCouponExpired() {
             // arrange
             Coupon savedCoupon = couponRepository.save(
-                Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().minusDays(1))
+                Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().minusDays(1))
             );
 
             // act
@@ -115,7 +115,7 @@ public class CouponIssueFacadeTest {
         void throwsConflict_whenAlreadyIssued() {
             // arrange
             Coupon savedCoupon = couponRepository.save(
-                Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30))
+                Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30))
             );
             couponIssueFacade.issue(savedUser.getId(), savedCoupon.getId());
 
@@ -138,7 +138,7 @@ public class CouponIssueFacadeTest {
         void returnsList_withIssuedCouponIds() {
             // arrange
             Coupon coupon1 = couponRepository.save(
-                Coupon.create("정액 할인 쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30))
+                Coupon.create("정액 할인 쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30))
             );
             Coupon coupon2 = couponRepository.save(
                 Coupon.create("정률 할인 쿠폰", Coupon.DiscountType.RATE, 10L, 0L, LocalDateTime.now().plusDays(30))

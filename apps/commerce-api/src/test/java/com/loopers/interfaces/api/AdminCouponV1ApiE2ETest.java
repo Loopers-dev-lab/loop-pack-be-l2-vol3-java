@@ -71,7 +71,7 @@ class AdminCouponV1ApiE2ETest {
                 "신규 회원 쿠폰",
                 "FIXED",
                 1000L,
-                0L,
+                1000L,
                 LocalDateTime.now().plusDays(30));
             HttpEntity<AdminCouponV1Dto.CreateRequest> entity = new HttpEntity<>(request, adminHeaders());
 
@@ -140,9 +140,9 @@ class AdminCouponV1ApiE2ETest {
         @Test
         void returnsOk_withPagedCouponList() {
             // arrange
-            couponJpaRepository.save(Coupon.create("쿠폰1", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30)));
-            couponJpaRepository.save(Coupon.create("쿠폰2", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30)));
-            couponJpaRepository.save(Coupon.create("쿠폰3", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30)));
+            couponJpaRepository.save(Coupon.create("쿠폰1", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30)));
+            couponJpaRepository.save(Coupon.create("쿠폰2", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30)));
+            couponJpaRepository.save(Coupon.create("쿠폰3", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30)));
             HttpEntity<Void> entity = new HttpEntity<>(adminHeaders());
 
             // act
@@ -176,7 +176,7 @@ class AdminCouponV1ApiE2ETest {
         void returnsOk_whenCouponExists() {
             // arrange
             Coupon saved = couponJpaRepository.save(
-                Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30))
+                Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30))
             );
             HttpEntity<Void> entity = new HttpEntity<>(adminHeaders());
 
@@ -222,7 +222,7 @@ class AdminCouponV1ApiE2ETest {
         void returnsOk_whenCouponExists() {
             // arrange
             Coupon saved = couponJpaRepository.save(
-                Coupon.create("기존 쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30))
+                Coupon.create("기존 쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30))
             );
             AdminCouponV1Dto.UpdateRequest request = new AdminCouponV1Dto.UpdateRequest(
                 "수정된 쿠폰", 2000L, 5000L, LocalDateTime.now().plusDays(60)
@@ -274,7 +274,7 @@ class AdminCouponV1ApiE2ETest {
         void returnsNoContent_whenCouponExists() {
             // arrange
             Coupon saved = couponJpaRepository.save(
-                Coupon.create("삭제할 쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30))
+                Coupon.create("삭제할 쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30))
             );
             HttpEntity<Void> entity = new HttpEntity<>(adminHeaders());
 
@@ -316,7 +316,7 @@ class AdminCouponV1ApiE2ETest {
         void returnsOk_withPagedIssueList() {
             // arrange
             Coupon coupon = couponJpaRepository.save(
-                Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30))
+                Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30))
             );
             issuedCouponJpaRepository.save(IssuedCoupon.create(1L, coupon.getId(), LocalDateTime.now().plusDays(30)));
             issuedCouponJpaRepository.save(IssuedCoupon.create(2L, coupon.getId(), LocalDateTime.now().plusDays(30)));

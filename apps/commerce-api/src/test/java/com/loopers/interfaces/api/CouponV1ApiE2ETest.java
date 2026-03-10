@@ -69,7 +69,7 @@ class CouponV1ApiE2ETest {
         );
 
         savedCoupon = couponJpaRepository.save(
-            Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30))
+            Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30))
         );
     }
 

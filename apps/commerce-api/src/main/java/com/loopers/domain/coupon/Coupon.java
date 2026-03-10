@@ -45,8 +45,8 @@ public class Coupon extends BaseEntity {
 
     public static Coupon create(String name, DiscountType discountType, Long discountValue, Long minOrderAmount, LocalDateTime expiresAt) {
         validateName(name);
-        validateDiscountValue(discountValue);
         validateMinOrderAmount(minOrderAmount);
+        validateDiscountValue(discountType, discountValue, minOrderAmount);
         validateExpiresAt(expiresAt);
 
         return new Coupon(name, discountType, discountValue, minOrderAmount, expiresAt);
@@ -54,8 +54,8 @@ public class Coupon extends BaseEntity {
 
     public void update(String name, Long discountValue, Long minOrderAmount, LocalDateTime expiresAt) {
         validateName(name);
-        validateDiscountValue(discountValue);
         validateMinOrderAmount(minOrderAmount);
+        validateDiscountValue(this.discountType, discountValue, minOrderAmount);
         validateExpiresAt(expiresAt);
 
         this.name = name;
@@ -70,9 +70,17 @@ public class Coupon extends BaseEntity {
         }
     }
 
-    private static void validateDiscountValue(Long discountValue) {
+    private static void validateDiscountValue(DiscountType discountType, Long discountValue, Long minOrderAmount) {
         if (discountValue == null || discountValue <= 0) {
             throw new CoreException(ErrorType.BAD_REQUEST, "할인 금액은 0보다 커야 합니다.");
+        }
+
+        if (discountType == DiscountType.RATE && discountValue > 100) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "정률 할인은 100%를 초과할 수 없습니다.");
+        }
+
+        if (discountType == DiscountType.FIXED && minOrderAmount != null && discountValue > minOrderAmount) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "정액 할인금액은 최소 주문 금액을 초과할 수 없습니다.");
         }
     }
 

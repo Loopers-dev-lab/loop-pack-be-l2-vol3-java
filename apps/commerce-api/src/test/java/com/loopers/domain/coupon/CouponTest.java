@@ -22,14 +22,14 @@ public class CouponTest {
         @Test
         void createsCoupon_whenFieldsAreValid() {
             // act
-            Coupon coupon = Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30));
+            Coupon coupon = Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30));
 
             // assert
             assertAll(
                 () -> assertThat(coupon.getName()).isEqualTo("신규 회원 쿠폰"),
                 () -> assertThat(coupon.getDiscountType()).isEqualTo(Coupon.DiscountType.FIXED),
                 () -> assertThat(coupon.getDiscountValue()).isEqualTo(1000L),
-                () -> assertThat(coupon.getMinOrderAmount()).isEqualTo(0L)
+                () -> assertThat(coupon.getMinOrderAmount()).isEqualTo(1000L)
             );
         }
 
@@ -38,7 +38,7 @@ public class CouponTest {
         void throwsBadRequest_whenNameIsNull() {
             // act
             CoreException result = assertThrows(CoreException.class, () ->
-                Coupon.create(null, Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30))
+                Coupon.create(null, Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30))
             );
 
             // assert
@@ -50,7 +50,31 @@ public class CouponTest {
         void throwsBadRequest_whenNameIsBlank() {
             // act
             CoreException result = assertThrows(CoreException.class, () ->
-                Coupon.create("  ", Coupon.DiscountType.FIXED, 1000L, 0L, LocalDateTime.now().plusDays(30))
+                Coupon.create("  ", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30))
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("FIXED 타입의 discountValue가 minOrderAmount를 초과하면 BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenFixedDiscountValueExceedsMinOrderAmount() {
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                Coupon.create("쿠폰", Coupon.DiscountType.FIXED, 5000L, 3000L, LocalDateTime.now().plusDays(30))
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("RATE 타입의 discountValue가 100을 초과하면 BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenRateDiscountValueExceeds100() {
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                Coupon.create("쿠폰", Coupon.DiscountType.RATE, 101L, 0L, LocalDateTime.now().plusDays(30))
             );
 
             // assert
@@ -74,7 +98,7 @@ public class CouponTest {
         void throwsBadRequest_whenExpiresAtIsNull() {
             // act
             CoreException result = assertThrows(CoreException.class, () ->
-                Coupon.create("쿠폰", Coupon.DiscountType.FIXED, 1000L, 0L, null)
+                Coupon.create("쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, null)
             );
 
             // assert
@@ -92,7 +116,7 @@ public class CouponTest {
             // arrange
             long discountAmount = 1000L;
             long orderAmount = 50000L;
-            Coupon coupon = Coupon.create("정액 할인 쿠폰", Coupon.DiscountType.FIXED, discountAmount, 0L, LocalDateTime.now().plusDays(30));
+            Coupon coupon = Coupon.create("정액 할인 쿠폰", Coupon.DiscountType.FIXED, discountAmount, discountAmount, LocalDateTime.now().plusDays(30));
 
             // act
             long result = coupon.calculateDiscount(orderAmount);
