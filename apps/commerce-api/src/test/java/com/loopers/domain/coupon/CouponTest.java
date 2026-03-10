@@ -104,6 +104,18 @@ public class CouponTest {
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
+
+        @DisplayName("expiresAt이 과거이면 BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenExpiresAtIsInThePast() {
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                Coupon.create("쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().minusDays(1))
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
     }
 
     @DisplayName("할인 금액 계산 시,")

@@ -94,6 +94,9 @@ public class Coupon extends BaseEntity {
         if (expiresAt == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "만료일은 필수입니다.");
         }
+        if (expiresAt.isBefore(LocalDateTime.now())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "만료일은 현재 시각 이후여야 합니다.");
+        }
     }
 
     public void validateIssuable() {
