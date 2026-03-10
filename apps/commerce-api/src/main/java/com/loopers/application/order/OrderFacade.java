@@ -39,21 +39,24 @@ public class OrderFacade {
                                                    .toList();
 
         long discountAmount = 0L;
-        boolean hasDiscountCoupon = command.issuedCouponId() != null;
-        if (hasDiscountCoupon) {
+        Long issuedCouponId = null;
+        if (command.issuedCouponId() != null) {
             IssuedCouponInfo issuedCoupon = issuedCouponService.getUsableBy(command.issuedCouponId(), command.userId());
             Coupon coupon = couponService.findById(issuedCoupon.couponId());
+
             long originalAmount = orderItemSnapshots.stream().mapToLong(OrderItemSnapshot::lineAmount).sum();
             coupon.validateApplicable(originalAmount);
+
             discountAmount = coupon.calculateDiscount(originalAmount);
+            issuedCouponId = issuedCoupon.id();
         }
 
         productService.decreaseStock(command.items());
-        if (!hasDiscountCoupon) {
-            return orderService.placeOrder(command.userId(), orderItemSnapshots);
+
+        if (issuedCouponId != null) {
+            issuedCouponService.use(command.issuedCouponId(), command.userId());
         }
 
-        issuedCouponService.use(command.issuedCouponId(), command.userId());
-        return orderService.placeOrder(command.userId(), orderItemSnapshots, discountAmount, command.issuedCouponId());
+        return orderService.placeOrder(command.userId(), orderItemSnapshots, discountAmount, issuedCouponId);
     }
 }
