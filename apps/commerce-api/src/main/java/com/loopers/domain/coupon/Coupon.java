@@ -92,6 +92,7 @@ public class Coupon extends BaseEntity {
         if (this.getDeletedAt() != null) {
             throw new CoreException(ErrorType.NOT_FOUND, "삭제된 쿠폰입니다.");
         }
+
         if (this.expiresAt.isBefore(LocalDateTime.now())) {
             throw new CoreException(ErrorType.COUPON_EXPIRED, "만료된 쿠폰입니다.");
         }
