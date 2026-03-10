@@ -55,7 +55,6 @@
 │  Facade                                                     │
 │  - 여러 AppService 조합 (Orchestration)                        │
 │  - Repository 직접 호출 금지                                    │
-│  - 예외: LikeFacade (toggleLike에서 @Modifying 쿼리 직접 호출)    │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -457,18 +456,14 @@ sequenceDiagram
 
 ### 8.1 다이어그램
 
-> **예외 케이스**: LikeFacade는 `@Modifying` 원자적 쿼리(`increaseLikeCount`/`decreaseLikeCount`)를 사용하기 위해 Repository를 직접 호출합니다.
-> 이는 좋아요 카운트가 높은 경합 환경에서 비관적 락 대신 원자적 SQL로 동시성을 보장하기 위한 의도적 설계입니다.
-
 ```mermaid
 sequenceDiagram
     autonumber
     actor 회원
     participant Controller as LikeController
     participant Facade as LikeFacade
-    participant Domain as Like
-    participant LikeRepo as LikeRepository
-    participant ProductRepo as ProductRepository
+    participant LikeAS as LikeAppService
+    participant ProductAS as ProductAppService
 
     회원->>Controller: 좋아요 토글 요청<br/>(상품 ID)
     Controller->>Facade: 좋아요 토글 요청
@@ -476,27 +471,24 @@ sequenceDiagram
     Note over Facade: @Transactional 시작
 
     %% 1. 상품 존재 확인
-    Facade->>ProductRepo: 상품 존재 여부 확인 [조회]
-    ProductRepo-->>Facade: 존재 여부 반환
+    Facade->>ProductAS: 상품 조회
+    ProductAS-->>Facade: Product
     alt 상품 없음 or 삭제됨
         Facade-->>Controller: 상품을 찾을 수 없음
         Controller-->>회원: 404 Not Found
     end
 
-    %% 2. 기존 좋아요 조회
-    Facade->>LikeRepo: 좋아요 조회 [조회]
-    LikeRepo-->>Facade: 좋아요 (있거나 없음)
+    %% 2. 좋아요 토글 (Like CRUD)
+    Facade->>LikeAS: toggleLike(userId, productId)
+    LikeAS-->>Facade: boolean (liked)
 
-    %% 3. 상태에 따른 분기 처리 (물리 삭제 방식)
-    alt 좋아요 있음 → 삭제 (물리 삭제)
-        Facade->>LikeRepo: 좋아요 삭제 [삭제]
-        Facade->>ProductRepo: decreaseLikeCount [원자적 UPDATE]
-        Note over ProductRepo: UPDATE SET likeCount =<br/>CASE WHEN likeCount > 0<br/>THEN likeCount - 1 ELSE 0 END
-    else 좋아요 없음 → 등록
-        Facade->>Domain: Like.create(userId, productId)
-        Facade->>LikeRepo: 좋아요 저장 [저장]
-        Facade->>ProductRepo: increaseLikeCount [원자적 UPDATE]
-        Note over ProductRepo: UPDATE SET likeCount =<br/>likeCount + 1
+    %% 3. 좋아요 카운트 갱신 (원자적 UPDATE)
+    alt liked = true
+        Facade->>ProductAS: increaseLikeCount(productId)
+        Note over ProductAS: UPDATE SET likeCount =<br/>likeCount + 1
+    else liked = false
+        Facade->>ProductAS: decreaseLikeCount(productId)
+        Note over ProductAS: UPDATE SET likeCount =<br/>CASE WHEN likeCount > 0<br/>THEN likeCount - 1 ELSE 0 END
     end
 
     Note over Facade: 트랜잭션 커밋
@@ -511,7 +503,7 @@ sequenceDiagram
 |------|----------|
 | 데이터베이스 레벨 | 회원-상품 조합에 유일 제약조건 |
 | 애플리케이션 레벨 | 기존 데이터 조회 후 있으면 삭제, 없으면 생성 |
-| 동시 요청 | 트랜잭션 + `@Modifying` 원자적 쿼리로 카운트 정합성 보장 |
+| 동시 요청 | 트랜잭션 + `@Modifying` 원자적 쿼리(ProductAppService 경유)로 카운트 정합성 보장 |
 
 ### 8.3 물리 삭제 선택 근거
 

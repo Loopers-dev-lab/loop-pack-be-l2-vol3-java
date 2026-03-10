@@ -109,4 +109,14 @@ public class ProductAppService {
         option.increaseStock(quantity);
         return option;
     }
+
+    @Transactional
+    public void increaseLikeCount(Long productId) {
+        productRepository.increaseLikeCount(productId);
+    }
+
+    @Transactional
+    public void decreaseLikeCount(Long productId) {
+        productRepository.decreaseLikeCount(productId);
+    }
 }
