@@ -169,16 +169,30 @@ public class CouponTest {
             assertThat(result.getErrorType()).isEqualTo(ErrorType.MIN_ORDER_AMOUNT_NOT_MET);
         }
 
+        @DisplayName("주문 금액이 최소 주문 금액과 같으면 예외가 발생하지 않는다.")
+        @Test
+        void doesNotThrow_whenOrderAmountEqualsMinOrderAmount() {
+            // arrange
+            long minOrderAmount = 50000L;
+            long orderAmount = minOrderAmount;
+            long discountAmount = 1000L;
+            Coupon coupon = Coupon.create("5만원 이상 쿠폰", Coupon.DiscountType.FIXED, discountAmount, minOrderAmount, LocalDateTime.now().plusDays(30));
+
+            // act & assert
+            coupon.validateApplicable(orderAmount);
+        }
+
         @DisplayName("주문 금액이 최소 주문 금액과 같으면 할인 금액을 반환한다.")
         @Test
         void returnsDiscount_whenOrderAmountEqualsMinOrderAmount() {
             // arrange
             long minOrderAmount = 50000L;
+            long orderAmount = minOrderAmount;
             long discountAmount = 1000L;
             Coupon coupon = Coupon.create("5만원 이상 쿠폰", Coupon.DiscountType.FIXED, discountAmount, minOrderAmount, LocalDateTime.now().plusDays(30));
 
             // act
-            long result = coupon.calculateDiscount(minOrderAmount);
+            long result = coupon.calculateDiscount(orderAmount);
 
             // assert
             assertThat(result).isEqualTo(discountAmount);
