@@ -54,6 +54,22 @@ public class PointService {
         }
     }
 
+    /**
+     * 포인트 환급 — 보상 트랜잭션용
+     *
+     * PG 결제 실패 시 차감했던 포인트를 원래 잔액으로 되돌린다.
+     */
+    @Transactional(timeout = 30)
+    public void refund(Long userId, int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        int affected = pointAccountRepository.chargeAtomically(userId, amount);
+        if (affected == 0) {
+            throw new CoreException(PointErrorType.ACCOUNT_NOT_FOUND);
+        }
+    }
+
     @Transactional(timeout = 30)
     public void earn(Long userId, int orderAmount) {
         int earnedPoints = PointAccount.calculateEarnedPoints(orderAmount);

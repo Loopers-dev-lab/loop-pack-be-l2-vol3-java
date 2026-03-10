@@ -66,6 +66,20 @@ public class CouponService {
         }
     }
 
+    /**
+     * 쿠폰 복원 — 보상 트랜잭션용 (USED → ISSUED)
+     *
+     * PG 결제 실패 시 사용했던 쿠폰을 원래 상태로 되돌린다.
+     * SQL WHERE status='USED' 조건으로 안전하게 복원한다.
+     */
+    @Transactional(timeout = 30)
+    public void restore(Long issuedCouponId) {
+        int affected = issuedCouponRepository.restoreAtomically(issuedCouponId);
+        if (affected == 0) {
+            throw new CoreException(CouponErrorType.INVALID_COUPON_STATUS);
+        }
+    }
+
     @Transactional(readOnly = true)
     public IssuedCoupon getIssuedCoupon(Long issuedCouponId, Long userId) {
         IssuedCoupon issuedCoupon = issuedCouponRepository.findById(issuedCouponId)

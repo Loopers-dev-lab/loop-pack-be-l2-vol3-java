@@ -23,8 +23,12 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.CouponErrorType;
 import com.loopers.support.error.OrderErrorType;
 import com.loopers.support.error.PointErrorType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -37,20 +41,18 @@ import java.util.stream.Collectors;
  * 주문 Facade
  *
  * Order + Address + Product + Brand + Inventory + Cart + Coupon + Point + Payment
- * 도메인 서비스를 조합하여 1단계 트랜잭션으로 주문 생성~결제 확정을 처리한다.
+ * 도메인 서비스를 조합하여 주문 생성~결제 확정을 처리한다.
  *
- * 주문 흐름 (단일 @Transactional):
- * 1. 쿠폰 검증 + 할인 계산 (읽기)
- * 2. 포인트 잔액 검증 (읽기)
- * 3. 재고 예약 (비관적 락)
- * 4. 주문 생성 (할인 적용)
- * 5. 쿠폰 사용 (낙관적 락 — B-1에서 적용)
- * 6. 포인트 차감 (비관적 락 — B-1에서 적용)
- * 7. PG 결제 시뮬레이션 → Payment 생성/승인
- * 8. Order → PAID 확정 + 포인트 적립
+ * 트랜잭션 분리 전략:
+ * TX1 (예약): 재고 예약 + 주문 생성 + 쿠폰 사용 + 포인트 차감 + Payment 생성 → 커밋 (락 해제)
+ * PG 결제: 트랜잭션 밖 (외부 시스템 호출 — 락 미보유)
+ * TX2-성공: Payment 승인 + 재고 확정 + 주문 확정 + 포인트 적립
+ * TX2-실패: 보상 트랜잭션 (쿠폰 복원 + 포인트 환급 + 재고 해제 + 주문 취소)
  */
 @Component
 public class OrderFacade {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderFacade.class);
 
     private final OrderService orderService;
     private final UserAddressService userAddressService;
@@ -61,12 +63,14 @@ public class OrderFacade {
     private final CouponService couponService;
     private final PointService pointService;
     private final PaymentService paymentService;
+    private final TransactionTemplate txTemplate;
 
     public OrderFacade(OrderService orderService, UserAddressService userAddressService,
                        ProductService productService, BrandService brandService,
                        InventoryService inventoryService, CartItemService cartItemService,
                        CouponService couponService, PointService pointService,
-                       PaymentService paymentService) {
+                       PaymentService paymentService,
+                       PlatformTransactionManager txManager) {
         this.orderService = orderService;
         this.userAddressService = userAddressService;
         this.productService = productService;
@@ -76,26 +80,26 @@ public class OrderFacade {
         this.couponService = couponService;
         this.pointService = pointService;
         this.paymentService = paymentService;
+        this.txTemplate = new TransactionTemplate(txManager);
+        this.txTemplate.setTimeout(30);
     }
 
     /**
-     * 주문 생성 + 결제 확정 (1단계 트랜잭션)
+     * 주문 생성 + 결제 확정 (트랜잭션 분리)
      */
-    @Transactional(timeout = 30)
     public OrderCreateResult createOrder(Long userId, String userName, String ordererPhone,
                                           List<OrderItemCommand> itemCommands, Long addressId,
                                           Long issuedCouponId, int pointAmount, String paymentMethod) {
-        Order order = doCreateOrder(userId, userName, ordererPhone, itemCommands, addressId,
+        OrderPaymentContext context = reserveAndCreateOrder(
+                userId, userName, ordererPhone, itemCommands, addressId,
                 issuedCouponId, pointAmount, paymentMethod);
-        return new OrderCreateResult(
-                order.getId(), order.getOrderNumber(), order.getStatus().name(),
-                order.getTotalAmount(), order.getPaymentId());
+
+        return processPaymentAndConfirm(context);
     }
 
     /**
-     * 장바구니 기반 주문 생성 + 결제 확정 (1단계 트랜잭션)
+     * 장바구니 기반 주문 생성 + 결제 확정 (트랜잭션 분리)
      */
-    @Transactional(timeout = 30)
     public OrderCreateResult createOrderFromCart(Long userId, String userName, String ordererPhone,
                                                   List<Long> cartItemIds, Long addressId,
                                                   Long issuedCouponId, int pointAmount, String paymentMethod) {
@@ -104,114 +108,179 @@ public class OrderFacade {
         }
 
         List<CartItem> cartItems = cartItemService.getCartItemsByIds(cartItemIds, userId);
-
         List<OrderItemCommand> itemCommands = cartItems.stream()
                 .map(item -> new OrderItemCommand(item.getProductId(), item.getQuantity()))
                 .toList();
 
-        Order order = doCreateOrder(userId, userName, ordererPhone, itemCommands, addressId,
+        OrderPaymentContext context = reserveAndCreateOrder(
+                userId, userName, ordererPhone, itemCommands, addressId,
                 issuedCouponId, pointAmount, paymentMethod);
 
-        cartItemService.deleteAll(cartItemIds, userId);
+        OrderCreateResult result = processPaymentAndConfirm(context);
 
-        return new OrderCreateResult(
-                order.getId(), order.getOrderNumber(), order.getStatus().name(),
-                order.getTotalAmount(), order.getPaymentId());
+        txTemplate.executeWithoutResult(status -> cartItemService.deleteAll(cartItemIds, userId));
+
+        return result;
     }
 
     /**
-     * 주문 생성 + 결제 확정 내부 로직 (공통)
+     * TX1: 주문 예약 (재고 예약 + 주문 생성 + 쿠폰 사용 + 포인트 차감 + Payment 생성)
      *
-     * 락 순서: 재고(비관적) → 쿠폰(낙관적) → 포인트(비관적)
-     * - 쿠폰/포인트 검증은 락 이전에 읽기로 수행
-     * - 재고 예약이 가장 먼저 (가장 경합이 높은 자원)
+     * 이 트랜잭션이 커밋되면 비관적 락(재고)이 해제된다.
+     * PG 호출 대기 중에도 다른 주문이 재고를 확보할 수 있다.
      */
-    private Order doCreateOrder(Long userId, String userName, String ordererPhone,
-                                List<OrderItemCommand> itemCommands, Long addressId,
-                                Long issuedCouponId, int pointAmount, String paymentMethod) {
-        if (itemCommands == null || itemCommands.isEmpty()) {
-            throw new CoreException(OrderErrorType.EMPTY_ORDER_ITEMS);
-        }
-
-        UserAddress address = userAddressService.getAddress(addressId, userId);
-
-        // 상품 검증 + OrderItem 스냅샷 생성
-        Map<Long, Integer> productQtyMap = itemCommands.stream()
-                .collect(Collectors.toMap(OrderItemCommand::productId, OrderItemCommand::quantity, Integer::sum));
-
-        List<OrderItem> orderItems = new ArrayList<>();
-        for (Map.Entry<Long, Integer> entry : productQtyMap.entrySet()) {
-            Product product = productService.getDisplayableProduct(entry.getKey());
-            product.assertPurchasable();
-
-            Brand brand = brandService.getById(product.getBrandId());
-
-            orderItems.add(OrderItem.snapshot(
-                    product.getId(),
-                    product.getName(),
-                    brand.getName(),
-                    product.getBasePrice(),
-                    entry.getValue()
-            ));
-        }
-
-        int subtotal = orderItems.stream().mapToInt(OrderItem::getLineTotal).sum();
-
-        // 1. 쿠폰 검증 + 할인 계산 (읽기만, 락 없음)
-        int discountAmount = 0;
-        if (issuedCouponId != null) {
-            IssuedCoupon issuedCoupon = couponService.getIssuedCoupon(issuedCouponId, userId);
-            CouponTemplate template = couponService.getTemplate(issuedCoupon.getCouponTemplateId());
-            if (!template.isApplicable(subtotal, ZonedDateTime.now())) {
-                throw new CoreException(CouponErrorType.INVALID_TEMPLATE);
+    private OrderPaymentContext reserveAndCreateOrder(Long userId, String userName, String ordererPhone,
+                                                       List<OrderItemCommand> itemCommands, Long addressId,
+                                                       Long issuedCouponId, int pointAmount, String paymentMethod) {
+        return txTemplate.execute(status -> {
+            if (itemCommands == null || itemCommands.isEmpty()) {
+                throw new CoreException(OrderErrorType.EMPTY_ORDER_ITEMS);
             }
-            discountAmount = template.calculateDiscount(subtotal);
-        }
 
-        // 2. 포인트 잔액 검증 (읽기만, 락 없음)
-        if (pointAmount > 0) {
-            PointAccount account = pointService.getAccount(userId);
-            if (account.getBalance() < pointAmount) {
-                throw new CoreException(PointErrorType.INSUFFICIENT_BALANCE);
+            UserAddress address = userAddressService.getAddress(addressId, userId);
+
+            // 상품 검증 + OrderItem 스냅샷 생성
+            Map<Long, Integer> productQtyMap = itemCommands.stream()
+                    .collect(Collectors.toMap(OrderItemCommand::productId, OrderItemCommand::quantity, Integer::sum));
+
+            List<OrderItem> orderItems = new ArrayList<>();
+            for (Map.Entry<Long, Integer> entry : productQtyMap.entrySet()) {
+                Product product = productService.getDisplayableProduct(entry.getKey());
+                product.assertPurchasable();
+
+                Brand brand = brandService.getById(product.getBrandId());
+
+                orderItems.add(OrderItem.snapshot(
+                        product.getId(),
+                        product.getName(),
+                        brand.getName(),
+                        product.getBasePrice(),
+                        entry.getValue()
+                ));
             }
+
+            int subtotal = orderItems.stream().mapToInt(OrderItem::getLineTotal).sum();
+
+            // 1. 쿠폰 검증 + 할인 계산 (읽기만, 락 없음)
+            int discountAmount = 0;
+            if (issuedCouponId != null) {
+                IssuedCoupon issuedCoupon = couponService.getIssuedCoupon(issuedCouponId, userId);
+                CouponTemplate template = couponService.getTemplate(issuedCoupon.getCouponTemplateId());
+                if (!template.isApplicable(subtotal, ZonedDateTime.now())) {
+                    throw new CoreException(CouponErrorType.INVALID_TEMPLATE);
+                }
+                discountAmount = template.calculateDiscount(subtotal);
+            }
+
+            // 2. 포인트 잔액 검증 (읽기만, 락 없음)
+            if (pointAmount > 0) {
+                PointAccount account = pointService.getAccount(userId);
+                if (account.getBalance() < pointAmount) {
+                    throw new CoreException(PointErrorType.INSUFFICIENT_BALANCE);
+                }
+            }
+
+            // 3. 재고 예약 (비관적 락)
+            inventoryService.reserveAll(productQtyMap);
+
+            // 4. 주문 생성 (할인 적용 포함, 단일 save)
+            String orderNumber = generateOrderNumber();
+            Order order = orderService.createWithDiscount(
+                    userId, orderNumber, orderItems,
+                    userName, ordererPhone,
+                    address.getReceiverName(), address.getPhone(),
+                    address.getZipCode(), address.getAddressLine1(), address.getAddressLine2(),
+                    discountAmount, pointAmount, 0, issuedCouponId);
+
+            // 5. 쿠폰 사용 (원자적 UPDATE)
+            if (issuedCouponId != null) {
+                couponService.use(issuedCouponId, userId, order.getId());
+            }
+
+            // 6. 포인트 차감 (원자적 UPDATE)
+            if (pointAmount > 0) {
+                pointService.use(userId, pointAmount);
+            }
+
+            // 7. Payment 생성 (REQUESTED)
+            String idempotencyKey = generateIdempotencyKey();
+            Payment payment = paymentService.create(
+                    order.getId(), order.getTotalAmount(), paymentMethod, idempotencyKey);
+
+            return new OrderPaymentContext(
+                    order.getId(), order.getOrderNumber(), order.getTotalAmount(),
+                    payment.getId(), userId, issuedCouponId, pointAmount,
+                    paymentMethod, productQtyMap);
+        });
+    }
+
+    /**
+     * PG 결제 + TX2 (확정 또는 보상)
+     *
+     * PG 호출은 트랜잭션 밖에서 수행되어 락 보유 시간을 최소화한다.
+     * PG 실패 또는 확정 실패 시 보상 트랜잭션으로 TX1의 변경을 되돌린다.
+     */
+    private OrderCreateResult processPaymentAndConfirm(OrderPaymentContext context) {
+        try {
+            // PG 결제 (트랜잭션 밖 — 락 미보유 상태에서 외부 호출)
+            String pgTxnId = simulatePgPayment();
+
+            // TX2: 결제 확정 + 재고 확정 + 주문 확정 + 포인트 적립
+            return txTemplate.execute(status -> {
+                paymentService.approve(context.paymentId(), pgTxnId, context.totalAmount());
+                inventoryService.commitAll(context.productQtyMap());
+                orderService.confirm(context.orderId(), context.paymentId(), context.paymentMethod());
+                pointService.earn(context.userId(), context.totalAmount());
+
+                Order order = orderService.getById(context.orderId());
+                return new OrderCreateResult(
+                        order.getId(), order.getOrderNumber(), order.getStatus().name(),
+                        order.getTotalAmount(), order.getPaymentId());
+            });
+        } catch (Exception e) {
+            compensateOrder(context);
+            throw e;
         }
+    }
 
-        // 3. 재고 예약 (비관적 락)
-        inventoryService.reserveAll(productQtyMap);
+    /**
+     * 보상 트랜잭션: TX1에서 커밋된 변경을 되돌린다.
+     *
+     * - Payment → FAILED
+     * - 쿠폰 → ISSUED 복원 (USED → ISSUED)
+     * - 포인트 → 환급 (차감 금액 반환)
+     * - 재고 → 예약 해제
+     * - 주문 → CANCELED
+     *
+     * 보상 자체가 실패하면 CRITICAL 로그를 남기고 수동 복구가 필요하다.
+     */
+    private void compensateOrder(OrderPaymentContext context) {
+        try {
+            txTemplate.executeWithoutResult(status -> {
+                paymentService.fail(context.paymentId());
 
-        // 4. 주문 생성 (할인 적용 포함, 단일 save)
-        String orderNumber = generateOrderNumber();
-        Order order = orderService.createWithDiscount(
-                userId, orderNumber, orderItems,
-                userName, ordererPhone,
-                address.getReceiverName(), address.getPhone(),
-                address.getZipCode(), address.getAddressLine1(), address.getAddressLine2(),
-                discountAmount, pointAmount, 0, issuedCouponId);
+                if (context.issuedCouponId() != null) {
+                    couponService.restore(context.issuedCouponId());
+                }
+                if (context.pointAmount() > 0) {
+                    pointService.refund(context.userId(), context.pointAmount());
+                }
 
-        // 5. 쿠폰 사용 처리 (B-1에서 낙관적 락 적용 예정)
-        if (issuedCouponId != null) {
-            couponService.use(issuedCouponId, userId, order.getId());
+                inventoryService.releaseAll(context.productQtyMap());
+                orderService.cancel(context.orderId(), context.userId());
+            });
+        } catch (Exception compensateEx) {
+            log.error("CRITICAL: 보상 트랜잭션 실패 — 수동 복구 필요 (orderId={}, paymentId={})",
+                    context.orderId(), context.paymentId(), compensateEx);
         }
+    }
 
-        // 6. 포인트 차감 (B-1에서 비관적 락 적용 예정)
-        if (pointAmount > 0) {
-            pointService.use(userId, pointAmount);
-        }
-
-        // 7. PG 결제 시뮬레이션 + Payment 생성/승인
-        String idempotencyKey = generateIdempotencyKey();
-        Payment payment = paymentService.create(
-                order.getId(), order.getTotalAmount(), paymentMethod, idempotencyKey);
-
-        String pgTxnId = "PG-TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        paymentService.approve(payment.getId(), pgTxnId, order.getTotalAmount());
-
-        // 8. 재고 확정 + Order → PAID + 포인트 적립
-        inventoryService.commitAll(productQtyMap);
-        orderService.confirm(order.getId(), payment.getId(), paymentMethod);
-        pointService.earn(userId, order.getTotalAmount());
-
-        return orderService.getById(order.getId());
+    /**
+     * PG 결제 시뮬레이션 — 항상 성공
+     * 실제 PG 연동 시 이 메서드를 외부 PG API 호출로 교체한다.
+     */
+    private String simulatePgPayment() {
+        return "PG-TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
     /**
@@ -275,6 +344,11 @@ public class OrderFacade {
                 order.getPointUsedAmount(), order.getShippingFee(), order.getTotalAmount(),
                 items, order.getCreatedAt());
     }
+
+    private record OrderPaymentContext(
+            Long orderId, String orderNumber, int totalAmount,
+            Long paymentId, Long userId, Long issuedCouponId, int pointAmount,
+            String paymentMethod, Map<Long, Integer> productQtyMap) {}
 
     public record OrderCreateResult(
             Long orderId, String orderNumber, String status,

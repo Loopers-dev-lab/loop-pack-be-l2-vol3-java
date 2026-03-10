@@ -18,4 +18,9 @@ public interface IssuedCouponJpaRepository extends JpaRepository<IssuedCouponEnt
     @Modifying
     @Query("UPDATE IssuedCouponEntity e SET e.status = 'USED', e.orderId = :orderId, e.usedAt = :usedAt, e.updatedAt = :usedAt WHERE e.id = :id AND e.status = 'ISSUED'")
     int useAtomically(@Param("id") Long id, @Param("orderId") Long orderId, @Param("usedAt") ZonedDateTime usedAt);
+
+    /** 원자적 복원: status=USED인 경우만 ISSUED로 되돌림 (보상 트랜잭션용) */
+    @Modifying
+    @Query("UPDATE IssuedCouponEntity e SET e.status = 'ISSUED', e.orderId = NULL, e.usedAt = NULL, e.updatedAt = CURRENT_TIMESTAMP WHERE e.id = :id AND e.status = 'USED'")
+    int restoreAtomically(@Param("id") Long id);
 }

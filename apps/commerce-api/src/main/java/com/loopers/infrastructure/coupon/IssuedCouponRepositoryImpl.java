@@ -64,4 +64,9 @@ public class IssuedCouponRepositoryImpl implements IssuedCouponRepository {
     public int useAtomically(Long id, Long orderId, ZonedDateTime usedAt) {
         return issuedCouponJpaRepository.useAtomically(id, orderId, usedAt);
     }
+
+    @Override
+    public int restoreAtomically(Long id) {
+        return issuedCouponJpaRepository.restoreAtomically(id);
+    }
 }
