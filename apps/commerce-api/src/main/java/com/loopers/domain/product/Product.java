@@ -73,16 +73,6 @@ public class Product extends BaseEntity {
         this.visibility = visibility;
     }
 
-    public void increaseLikeCount() {
-        this.likeCount++;
-    }
-
-    public void decreaseLikeCount() {
-        if (this.likeCount > 0) {
-            this.likeCount--;
-        }
-    }
-
     private void validateBrandId(Long brandId) {
         if (brandId == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "브랜드 ID는 필수값입니다.");

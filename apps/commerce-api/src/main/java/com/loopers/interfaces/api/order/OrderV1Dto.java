@@ -1,6 +1,8 @@
 package com.loopers.interfaces.api.order;
 
+import com.loopers.application.order.OrderCreateCommand;
 import com.loopers.application.order.OrderInfo;
+import com.loopers.application.order.OrderItemCommand;
 import com.loopers.application.order.OrderItemInfo;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
@@ -12,8 +14,16 @@ import java.util.List;
 public class OrderV1Dto {
 
     public record CreateRequest(
-            @NotNull @NotEmpty List<OrderItemRequest> items
-    ) {}
+            @NotNull @NotEmpty List<OrderItemRequest> items,
+            Long issuedCouponId
+    ) {
+        public OrderCreateCommand toCommand(Long userId) {
+            List<OrderItemCommand> itemCommands = items.stream()
+                    .map(item -> new OrderItemCommand(item.productId(), item.quantity()))
+                    .toList();
+            return new OrderCreateCommand(userId, itemCommands, issuedCouponId);
+        }
+    }
 
     public record OrderItemRequest(
             @NotNull Long productId,
@@ -24,7 +34,10 @@ public class OrderV1Dto {
             Long id,
             Long userId,
             String status,
-            Long totalAmount,
+            Long originalAmount,
+            Long discountAmount,
+            Long finalAmount,
+            Long issuedCouponId,
             ZonedDateTime createdAt
     ) {
         public static OrderResponse from(OrderInfo info) {
@@ -32,7 +45,10 @@ public class OrderV1Dto {
                     info.id(),
                     info.userId(),
                     info.status().name(),
-                    info.totalAmount(),
+                    info.originalAmount(),
+                    info.discountAmount(),
+                    info.finalAmount(),
+                    info.issuedCouponId(),
                     info.createdAt()
             );
         }
@@ -42,7 +58,10 @@ public class OrderV1Dto {
             Long id,
             Long userId,
             String status,
-            Long totalAmount,
+            Long originalAmount,
+            Long discountAmount,
+            Long finalAmount,
+            Long issuedCouponId,
             ZonedDateTime createdAt,
             List<OrderItemResponse> items
     ) {
@@ -51,7 +70,10 @@ public class OrderV1Dto {
                     order.id(),
                     order.userId(),
                     order.status().name(),
-                    order.totalAmount(),
+                    order.originalAmount(),
+                    order.discountAmount(),
+                    order.finalAmount(),
+                    order.issuedCouponId(),
                     order.createdAt(),
                     items.stream().map(OrderItemResponse::from).toList()
             );

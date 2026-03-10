@@ -1,10 +1,14 @@
 package com.loopers.interfaces.api;
 
 import com.loopers.domain.brand.Brand;
+import com.loopers.domain.coupon.Coupon;
+import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserFixture;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
+import com.loopers.infrastructure.coupon.CouponJpaRepository;
+import com.loopers.infrastructure.coupon.IssuedCouponJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.infrastructure.user.UserJpaRepository;
 import com.loopers.interfaces.api.order.OrderV1Dto;
@@ -26,6 +30,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -43,6 +48,8 @@ class OrderV1ApiE2ETest {
     private final UserJpaRepository userJpaRepository;
     private final BrandJpaRepository brandJpaRepository;
     private final ProductJpaRepository productJpaRepository;
+    private final CouponJpaRepository couponJpaRepository;
+    private final IssuedCouponJpaRepository issuedCouponJpaRepository;
     private final DatabaseCleanUp databaseCleanUp;
     private final BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
 
@@ -52,12 +59,16 @@ class OrderV1ApiE2ETest {
             UserJpaRepository userJpaRepository,
             BrandJpaRepository brandJpaRepository,
             ProductJpaRepository productJpaRepository,
+            CouponJpaRepository couponJpaRepository,
+            IssuedCouponJpaRepository issuedCouponJpaRepository,
             DatabaseCleanUp databaseCleanUp
     ) {
         this.testRestTemplate = testRestTemplate;
         this.userJpaRepository = userJpaRepository;
         this.brandJpaRepository = brandJpaRepository;
         this.productJpaRepository = productJpaRepository;
+        this.couponJpaRepository = couponJpaRepository;
+        this.issuedCouponJpaRepository = issuedCouponJpaRepository;
         this.databaseCleanUp = databaseCleanUp;
     }
 
@@ -106,7 +117,8 @@ class OrderV1ApiE2ETest {
         void returnsCreated_whenValidRequest() {
             // arrange
             OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 2))
+                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 2)),
+                    null
             );
             HttpEntity<OrderV1Dto.CreateRequest> entity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
 
@@ -128,7 +140,8 @@ class OrderV1ApiE2ETest {
         void returnsNotFound_whenProductNotExists() {
             // arrange
             OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(99999L, 1))
+                    List.of(new OrderV1Dto.OrderItemRequest(99999L, 1)),
+                    null
             );
             HttpEntity<OrderV1Dto.CreateRequest> entity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
 
@@ -145,7 +158,8 @@ class OrderV1ApiE2ETest {
         void returnsBadRequest_whenInsufficientStock() {
             // arrange
             OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 999))
+                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 999)),
+                    null
             );
             HttpEntity<OrderV1Dto.CreateRequest> entity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
 
@@ -161,7 +175,7 @@ class OrderV1ApiE2ETest {
         @Test
         void returnsBadRequest_whenItemsAreEmpty() {
             // arrange
-            OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(List.of());
+            OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(List.of(), null);
             HttpEntity<OrderV1Dto.CreateRequest> entity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
 
             // act
@@ -177,7 +191,8 @@ class OrderV1ApiE2ETest {
         void returnsBadRequest_whenQuantityIsZero() {
             // arrange
             OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 0))
+                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 0)),
+                    null
             );
             HttpEntity<OrderV1Dto.CreateRequest> entity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
 
@@ -194,7 +209,8 @@ class OrderV1ApiE2ETest {
         void returnsBadRequest_whenQuantityIsNegative() {
             // arrange
             OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), -1))
+                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), -1)),
+                    null
             );
             HttpEntity<OrderV1Dto.CreateRequest> entity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
 
@@ -214,7 +230,107 @@ class OrderV1ApiE2ETest {
                     List.of(
                             new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 1),
                             new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 2)
-                    )
+                    ),
+                    null
+            );
+            HttpEntity<OrderV1Dto.CreateRequest> entity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
+
+            // act
+            ResponseEntity<ApiResponse<Void>> response =
+                    testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("유효한 쿠폰으로 주문하면, 201 Created와 할인이 적용된 주문 정보를 반환한다.")
+        @Test
+        void returnsCreated_withDiscountApplied_whenValidCoupon() {
+            // arrange
+            Coupon coupon = couponJpaRepository.save(
+                    Coupon.create("10000원 할인", Coupon.DiscountType.FIXED, 10000L, 10000L, LocalDateTime.now().plusDays(30))
+            );
+            IssuedCoupon issuedCoupon = issuedCouponJpaRepository.save(
+                    IssuedCoupon.create(savedUser.getId(), coupon.getId(), LocalDateTime.now().plusDays(30))
+            );
+
+            // 상품 가격: 150000원, 수량: 1 → originalAmount = 150000, discountAmount = 10000, finalAmount = 140000
+            OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
+                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 1)),
+                    issuedCoupon.getId()
+            );
+            HttpEntity<OrderV1Dto.CreateRequest> entity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
+
+            // act
+            ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> response =
+                    testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED),
+                    () -> assertThat(response.getBody().data().discountAmount()).isEqualTo(10000L),
+                    () -> assertThat(response.getBody().data().finalAmount()).isEqualTo(140000L)
+            );
+        }
+
+        @DisplayName("존재하지 않는 발급 쿠폰으로 주문하면, 404 Not Found를 반환한다.")
+        @Test
+        void returnsNotFound_whenIssuedCouponNotExists() {
+            // arrange
+            OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
+                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 1)),
+                    99999L
+            );
+            HttpEntity<OrderV1Dto.CreateRequest> entity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
+
+            // act
+            ResponseEntity<ApiResponse<Void>> response =
+                    testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @DisplayName("이미 사용된 쿠폰으로 주문하면, 400 Bad Request를 반환한다.")
+        @Test
+        void returnsBadRequest_whenCouponAlreadyUsed() {
+            // arrange
+            Coupon coupon = couponJpaRepository.save(
+                    Coupon.create("5000원 할인", Coupon.DiscountType.FIXED, 5000L, 5000L, LocalDateTime.now().plusDays(30))
+            );
+            IssuedCoupon issuedCoupon = IssuedCoupon.create(savedUser.getId(), coupon.getId(), LocalDateTime.now().plusDays(30));
+            issuedCoupon.markAsUsed();
+            issuedCoupon = issuedCouponJpaRepository.save(issuedCoupon);
+
+            OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
+                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 1)),
+                    issuedCoupon.getId()
+            );
+            HttpEntity<OrderV1Dto.CreateRequest> entity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
+
+            // act
+            ResponseEntity<ApiResponse<Void>> response =
+                    testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @DisplayName("최소 주문 금액 미충족 쿠폰으로 주문하면, 400 Bad Request를 반환한다.")
+        @Test
+        void returnsBadRequest_whenMinOrderAmountNotMet() {
+            // arrange
+            Coupon coupon = couponJpaRepository.save(
+                    Coupon.create("고액 할인", Coupon.DiscountType.FIXED, 5000L, 500000L, LocalDateTime.now().plusDays(30))
+            );
+            IssuedCoupon issuedCoupon = issuedCouponJpaRepository.save(
+                    IssuedCoupon.create(savedUser.getId(), coupon.getId(), LocalDateTime.now().plusDays(30))
+            );
+
+            // 상품 가격: 150000원 < 최소 주문 금액: 500000원
+            OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
+                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 1)),
+                    issuedCoupon.getId()
             );
             HttpEntity<OrderV1Dto.CreateRequest> entity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
 
@@ -236,7 +352,8 @@ class OrderV1ApiE2ETest {
         void returnsOk_withOrderList() {
             // arrange
             OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 1))
+                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 1)),
+                    null
             );
             HttpEntity<OrderV1Dto.CreateRequest> createEntity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
             testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, createEntity, new ParameterizedTypeReference<>() {});
@@ -283,7 +400,8 @@ class OrderV1ApiE2ETest {
         void returnsOk_whenOrderExists() {
             // arrange
             OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 2))
+                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 2)),
+                    null
             );
             HttpEntity<OrderV1Dto.CreateRequest> createEntity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
             ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> created =
@@ -309,7 +427,8 @@ class OrderV1ApiE2ETest {
         void returnsNotFound_whenOrderNotOwned() {
             // arrange
             OrderV1Dto.CreateRequest request = new OrderV1Dto.CreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 1))
+                    List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 1)),
+                    null
             );
             HttpEntity<OrderV1Dto.CreateRequest> createEntity = new HttpEntity<>(request, userHeaders(savedUser, RAW_PASSWORD));
             ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> created =

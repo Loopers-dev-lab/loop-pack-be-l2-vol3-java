@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.user;
 
-import com.loopers.application.user.SignUpCommand;
 import com.loopers.application.user.SignUpService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.user.dto.UserV1Dto;
@@ -23,8 +22,7 @@ public class SignUpV1Controller {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Void> signUp(@Valid @RequestBody UserV1Dto.CreateRequest request) {
-        SignUpCommand command = SignUpCommand.from(request);
-        signUpService.signUp(command);
+        signUpService.signUp(request.toCommand());
 
         return ApiResponse.success(null);
     }

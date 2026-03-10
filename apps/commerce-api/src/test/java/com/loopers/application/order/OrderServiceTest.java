@@ -31,71 +31,6 @@ class OrderServiceTest {
         orderService = new OrderService(orderRepository, orderItemRepository);
     }
 
-    @DisplayName("주문 항목 검증 시, ")
-    @Nested
-    class ValidateItems {
-
-        @DisplayName("항목이 비어있으면 BAD_REQUEST 예외가 발생한다.")
-        @Test
-        void throwsBadRequest_whenItemsAreEmpty() {
-            // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                orderService.validateItems(List.of());
-            });
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
-        }
-
-        @DisplayName("수량이 0이면 BAD_REQUEST 예외가 발생한다.")
-        @Test
-        void throwsBadRequest_whenQuantityIsZero() {
-            // arrange
-            List<OrderItemCommand> items = List.of(new OrderItemCommand(1L, 0));
-
-            // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                orderService.validateItems(items);
-            });
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
-        }
-
-        @DisplayName("수량이 음수이면 BAD_REQUEST 예외가 발생한다.")
-        @Test
-        void throwsBadRequest_whenQuantityIsNegative() {
-            // arrange
-            List<OrderItemCommand> items = List.of(new OrderItemCommand(1L, -1));
-
-            // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                orderService.validateItems(items);
-            });
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
-        }
-
-        @DisplayName("중복 상품이 포함되면 BAD_REQUEST 예외가 발생한다.")
-        @Test
-        void throwsBadRequest_whenDuplicateProducts() {
-            // arrange
-            List<OrderItemCommand> items = List.of(
-                    new OrderItemCommand(1L, 1),
-                    new OrderItemCommand(1L, 2)
-            );
-
-            // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                orderService.validateItems(items);
-            });
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
-        }
-    }
-
     @DisplayName("주문 생성 시, ")
     @Nested
     class CreateOrder {
@@ -114,7 +49,9 @@ class OrderServiceTest {
             // assert
             assertAll(
                     () -> assertThat(order.userId()).isEqualTo(userId),
-                    () -> assertThat(order.totalAmount()).isEqualTo(expectedTotal),
+                    () -> assertThat(order.originalAmount()).isEqualTo(expectedTotal),
+                    () -> assertThat(order.discountAmount()).isZero(),
+                    () -> assertThat(order.finalAmount()).isEqualTo(expectedTotal),
                     () -> assertThat(order.status()).isEqualTo(Order.Status.ORDERED)
             );
         }

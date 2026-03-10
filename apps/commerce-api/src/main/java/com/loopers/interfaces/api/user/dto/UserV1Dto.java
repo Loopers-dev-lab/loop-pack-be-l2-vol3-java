@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.user.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.loopers.application.user.SignUpCommand;
 import com.loopers.application.user.UserInfo;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -21,7 +22,11 @@ public class UserV1Dto {
             LocalDate birthDate,
             @NotBlank(message = "이메일은 필수값입니다.")
             String email
-    ) {}
+    ) {
+        public SignUpCommand toCommand() {
+            return new SignUpCommand(loginId, password, name, birthDate, email);
+        }
+    }
 
     public record UpdatePasswordRequest(
             @NotBlank(message = "새 비밀번호는 필수값입니다.")

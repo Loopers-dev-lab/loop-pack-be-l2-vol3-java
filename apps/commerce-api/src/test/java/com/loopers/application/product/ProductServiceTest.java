@@ -1,7 +1,6 @@
 package com.loopers.application.product;
 
 import com.loopers.domain.product.InMemoryProductRepository;
-import com.loopers.application.order.OrderItemCommand;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -151,25 +150,6 @@ public class ProductServiceTest {
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
-        }
-    }
-
-    @DisplayName("재고 차감 시, ")
-    @Nested
-    class DecreaseStock {
-        @DisplayName("재고가 부족하면 INSUFFICIENT_STOCK 예외가 발생한다.")
-        @Test
-        void throwsInsufficientStock_whenStockIsNotEnough() {
-            // arrange
-            ProductInfo product = productService.register(new ProductCreateCommand(BRAND_ID, "에어맥스", "신발", 150000, 1));
-
-            // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                productService.decreaseStock(List.of(new OrderItemCommand(product.id(), 2)));
-            });
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.INSUFFICIENT_STOCK);
         }
     }
 

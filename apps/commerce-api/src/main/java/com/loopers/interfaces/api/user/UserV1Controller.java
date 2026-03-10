@@ -1,10 +1,12 @@
 package com.loopers.interfaces.api.user;
 
+import com.loopers.application.coupon.IssuedCouponService;
 import com.loopers.application.user.UserInfo;
 import com.loopers.application.user.UpdatePasswordCommand;
 import com.loopers.application.user.UserService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.LoginUser;
+import com.loopers.interfaces.api.coupon.CouponV1Dto;
 import com.loopers.interfaces.api.user.dto.UserV1Dto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,17 +17,28 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/users")
 public class UserV1Controller {
 
     private final UserService userService;
+    private final IssuedCouponService issuedCouponService;
 
     @GetMapping("/me")
     public ApiResponse<UserV1Dto.UserResponse> getMyInfo(@LoginUser Long userId) {
         UserInfo userInfo = userService.getMyInfo(userId);
         return ApiResponse.success(UserV1Dto.UserResponse.from(userInfo));
+    }
+
+    @GetMapping("/me/coupons")
+    public ApiResponse<List<CouponV1Dto.IssuedCouponResponse>> getMyCoupons(@LoginUser Long userId) {
+        List<CouponV1Dto.IssuedCouponResponse> responses = issuedCouponService.getIssuedCoupons(userId).stream()
+            .map(CouponV1Dto.IssuedCouponResponse::from)
+            .toList();
+        return ApiResponse.success(responses);
     }
 
     @PatchMapping("/me/password")
