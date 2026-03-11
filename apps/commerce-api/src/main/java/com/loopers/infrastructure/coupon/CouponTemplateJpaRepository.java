@@ -2,9 +2,11 @@ package com.loopers.infrastructure.coupon;
 
 import com.loopers.domain.coupon.CouponTemplateStatus;
 import jakarta.persistence.LockModeType;
+import jakarta.persistence.QueryHint;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
 
 import java.time.ZonedDateTime;
@@ -17,6 +19,7 @@ public interface CouponTemplateJpaRepository extends JpaRepository<CouponTemplat
 
     /** 비관적 락 조회 (쿠폰 발급 시 동시성 제어) */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "10000"))
     @Query("SELECT t FROM CouponTemplateEntity t WHERE t.id = :id")
     Optional<CouponTemplateEntity> findByIdForUpdate(@Param("id") Long id);
 
