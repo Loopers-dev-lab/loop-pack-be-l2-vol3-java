@@ -118,7 +118,12 @@ public class OrderFacade {
 
         OrderCreateResult result = processPaymentAndConfirm(context);
 
-        txTemplate.executeWithoutResult(status -> cartItemService.deleteAll(cartItemIds, userId));
+        // 장바구니 삭제는 best-effort — 실패해도 주문 성공 응답을 유지한다
+        try {
+            txTemplate.executeWithoutResult(status -> cartItemService.deleteAll(cartItemIds, userId));
+        } catch (Exception e) {
+            log.warn("장바구니 삭제 실패 — 주문은 정상 완료 (orderId={})", result.orderId(), e);
+        }
 
         return result;
     }
