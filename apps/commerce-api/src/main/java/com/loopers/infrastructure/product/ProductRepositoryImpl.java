@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.product;
 
+import com.loopers.application.product.ProductPageReadCache;
 import com.loopers.application.product.ProductReadCache;
 import com.loopers.domain.PageResult;
 import com.loopers.domain.product.Product;
@@ -23,6 +24,7 @@ public class ProductRepositoryImpl implements ProductRepository {
 
     private final ProductJpaRepository productJpaRepository;
     private final ProductReadCache productReadCache;
+    private final ProductPageReadCache productPageReadCache;
 
     @Override
     public Product save(Product product) {
@@ -88,11 +90,13 @@ public class ProductRepositoryImpl implements ProductRepository {
                     @Override
                     public void afterCommit() {
                         productReadCache.evict(id);
+                        productPageReadCache.evictAll();
                     }
                 }
             );
         } else {
             productReadCache.evict(id);
+            productPageReadCache.evictAll();
         }
     }
 
@@ -103,11 +107,13 @@ public class ProductRepositoryImpl implements ProductRepository {
                     @Override
                     public void afterCommit() {
                         productReadCache.evictAll();
+                        productPageReadCache.evictAll();
                     }
                 }
             );
         } else {
             productReadCache.evictAll();
+            productPageReadCache.evictAll();
         }
     }
 
