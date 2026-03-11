@@ -49,9 +49,10 @@ public class LikeFacade {
         return new LikeResult(updated.getLikeCount());
     }
 
-    /** 상품 좋아요 취소 (좋아요 삭제 → likeCount 감소) */
+    /** 상품 좋아요 취소 (상품 존재 검증 → 좋아요 삭제 → likeCount 감소) */
     @Transactional
     public LikeResult unlikeProduct(Long userId, Long productId) {
+        productService.getById(productId);
         likeService.unlike(userId, productId);
         productService.decrementLikeCount(productId);
         Product updated = productService.getById(productId);
@@ -65,9 +66,10 @@ public class LikeFacade {
         brandLikeService.like(userId, brandId);
     }
 
-    /** 브랜드 좋아요 취소 */
+    /** 브랜드 좋아요 취소 (브랜드 존재 검증 → 좋아요 삭제) */
     @Transactional
     public void unlikeBrand(Long userId, Long brandId) {
+        brandService.getActiveBrand(brandId);
         brandLikeService.unlike(userId, brandId);
     }
 

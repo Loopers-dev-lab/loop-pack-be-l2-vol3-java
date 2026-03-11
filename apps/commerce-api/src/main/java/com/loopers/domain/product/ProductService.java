@@ -25,7 +25,7 @@ public class ProductService {
     /** 상품 생성 (초기 상태: ACTIVE) */
     @Transactional
     public Product create(Long brandId, String name, String description, int basePrice) {
-        Product product = Product.create(brandId, name, description, basePrice);
+        Product product = Product.register(brandId, name, description, basePrice);
         return productRepository.save(product);
     }
 
@@ -59,7 +59,7 @@ public class ProductService {
     @Transactional
     public Product update(Long id, String name, String description, Integer basePrice) {
         Product product = getById(id);
-        product.update(name, description, basePrice);
+        product.changeInfo(name, description, basePrice);
         return productRepository.save(product);
     }
 
@@ -75,7 +75,7 @@ public class ProductService {
     @Transactional
     public void delete(Long id) {
         Product product = getById(id);
-        product.delete();
+        product.discontinue();
         productRepository.save(product);
     }
 
@@ -121,17 +121,18 @@ public class ProductService {
         return productRepository.findAllByIdIn(ids);
     }
 
+    /** 좋아요 수 증가 — affected rows 0이면 상품 미존재로 판단 */
     @Transactional
     public void incrementLikeCount(Long id) {
-        Product product = getById(id);
-        product.incrementLikeCount();
-        productRepository.save(product);
+        int affected = productRepository.incrementLikeCount(id);
+        if (affected == 0) {
+            throw new CoreException(ProductErrorType.PRODUCT_NOT_FOUND);
+        }
     }
 
+    /** 좋아요 수 감소 — 0 affected는 이미 0이거나 상품 미존재이며, 둘 다 무시해도 안전하다 */
     @Transactional
     public void decrementLikeCount(Long id) {
-        Product product = getById(id);
-        product.decrementLikeCount();
-        productRepository.save(product);
+        productRepository.decrementLikeCount(id);
     }
 }

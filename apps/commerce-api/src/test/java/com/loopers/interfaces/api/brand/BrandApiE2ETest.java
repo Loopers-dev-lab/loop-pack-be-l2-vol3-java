@@ -49,16 +49,16 @@ class BrandApiE2ETest {
     }
 
     private Brand createActiveBrand(String name, String description) {
-        return brandRepository.save(Brand.create(name, description));
+        return brandRepository.save(Brand.register(name, description));
     }
 
     private Product createProduct(Long brandId, String name, ProductStatus status) {
-        Product product = Product.create(brandId, name, name + " 설명", 10000);
+        Product product = Product.register(brandId, name, name + " 설명", 10000);
         if (status != ProductStatus.ACTIVE) {
             product.changeStatus(status);
         }
         Product saved = productRepository.save(product);
-        inventoryRepository.save(Inventory.create(saved.getId(), 100));
+        inventoryRepository.save(Inventory.initialize(saved.getId(), 100));
         return saved;
     }
 
@@ -72,7 +72,7 @@ class BrandApiE2ETest {
             createActiveBrand("나이키", "스포츠 브랜드");
             createActiveBrand("아디다스", "독일 브랜드");
 
-            Brand inactive = Brand.create("비활성", "설명");
+            Brand inactive = Brand.register("비활성", "설명");
             inactive.changeStatus(BrandStatus.INACTIVE);
             brandRepository.save(inactive);
 
@@ -139,7 +139,7 @@ class BrandApiE2ETest {
         @Test
         void INACTIVE_브랜드면_404_Not_Found를_반환한다() {
             // arrange
-            Brand brand = Brand.create("비활성", "설명");
+            Brand brand = Brand.register("비활성", "설명");
             brand.changeStatus(BrandStatus.INACTIVE);
             Brand saved = brandRepository.save(brand);
 
@@ -154,8 +154,8 @@ class BrandApiE2ETest {
         @Test
         void 삭제된_브랜드면_404_Not_Found를_반환한다() {
             // arrange
-            Brand brand = Brand.create("삭제됨", "설명");
-            brand.delete();
+            Brand brand = Brand.register("삭제됨", "설명");
+            brand.discontinue();
             Brand saved = brandRepository.save(brand);
 
             // act

@@ -62,7 +62,7 @@ class PointApiE2ETest {
         @Test
         void 조회에_성공하면_200_OK를_반환한다() {
             // arrange
-            pointAccountRepository.save(PointAccount.create(userId));
+            pointAccountRepository.save(PointAccount.open(userId));
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(

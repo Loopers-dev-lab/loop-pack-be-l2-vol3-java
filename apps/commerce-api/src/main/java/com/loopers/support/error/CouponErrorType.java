@@ -12,7 +12,8 @@ public enum CouponErrorType implements ErrorType {
     NOT_OWNER(HttpStatus.FORBIDDEN, "본인의 쿠폰이 아닙니다."),
     INVALID_TEMPLATE_NAME(HttpStatus.BAD_REQUEST, "쿠폰 템플릿명은 필수입니다."),
     TEMPLATE_NOT_IN_VALID_PERIOD(HttpStatus.CONFLICT, "쿠폰 발급 가능 기간이 아닙니다."),
-    INVALID_COUPON_ISSUE(HttpStatus.BAD_REQUEST, "쿠폰 발급 요청이 유효하지 않습니다.");
+    INVALID_COUPON_ISSUE(HttpStatus.BAD_REQUEST, "쿠폰 발급 요청이 유효하지 않습니다."),
+    COUPON_ALREADY_USED(HttpStatus.CONFLICT, "이미 사용된 쿠폰입니다.");
 
     private final HttpStatus status;
     private final String message;

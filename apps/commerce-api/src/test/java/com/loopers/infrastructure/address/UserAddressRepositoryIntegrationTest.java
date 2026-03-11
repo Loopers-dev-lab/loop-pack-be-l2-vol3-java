@@ -39,7 +39,7 @@ class UserAddressRepositoryIntegrationTest {
         @Test
         void 새로운_배송지를_저장하면_ID가_생성된다() {
             // arrange
-            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", "4층");
+            UserAddress address = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", "4층");
 
             // act
             UserAddress saved = userAddressRepository.save(address);
@@ -51,7 +51,7 @@ class UserAddressRepositoryIntegrationTest {
         @Test
         void 저장된_배송지의_필드가_올바르게_저장된다() {
             // arrange
-            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", "4층");
+            UserAddress address = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", "4층");
 
             // act
             UserAddress saved = userAddressRepository.save(address);
@@ -73,7 +73,7 @@ class UserAddressRepositoryIntegrationTest {
         void 존재하는_배송지를_반환한다() {
             // arrange
             UserAddress saved = userAddressRepository.save(
-                    UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null));
+                    UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null));
 
             // act
             Optional<UserAddress> result = userAddressRepository.findById(saved.getId());
@@ -86,8 +86,8 @@ class UserAddressRepositoryIntegrationTest {
         void 소프트_삭제된_배송지는_조회되지_않는다() {
             // arrange
             UserAddress saved = userAddressRepository.save(
-                    UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null));
-            saved.delete();
+                    UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null));
+            saved.remove();
             userAddressRepository.save(saved);
 
             // act
@@ -105,8 +105,8 @@ class UserAddressRepositoryIntegrationTest {
         @Test
         void 활성_배송지_수를_반환한다() {
             // arrange
-            userAddressRepository.save(UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시", null));
-            userAddressRepository.save(UserAddress.create(1L, "김철수", "010-9876-5432", "54321", "부산시", null));
+            userAddressRepository.save(UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시", null));
+            userAddressRepository.save(UserAddress.register(1L, "김철수", "010-9876-5432", "54321", "부산시", null));
 
             // act
             long count = userAddressRepository.countByUserIdAndDeletedAtIsNull(1L);
@@ -119,9 +119,9 @@ class UserAddressRepositoryIntegrationTest {
         void 삭제된_배송지는_카운트에서_제외된다() {
             // arrange
             UserAddress addr1 = userAddressRepository.save(
-                    UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시", null));
-            userAddressRepository.save(UserAddress.create(1L, "김철수", "010-9876-5432", "54321", "부산시", null));
-            addr1.delete();
+                    UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시", null));
+            userAddressRepository.save(UserAddress.register(1L, "김철수", "010-9876-5432", "54321", "부산시", null));
+            addr1.remove();
             userAddressRepository.save(addr1);
 
             // act
@@ -139,8 +139,8 @@ class UserAddressRepositoryIntegrationTest {
         @Test
         void 사용자의_활성_배송지_목록을_반환한다() {
             // arrange
-            userAddressRepository.save(UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시", null));
-            userAddressRepository.save(UserAddress.create(1L, "김철수", "010-9876-5432", "54321", "부산시", null));
+            userAddressRepository.save(UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시", null));
+            userAddressRepository.save(UserAddress.register(1L, "김철수", "010-9876-5432", "54321", "부산시", null));
 
             // act
             List<UserAddress> result = userAddressRepository.findAllByUserIdAndDeletedAtIsNull(1L);
@@ -153,9 +153,9 @@ class UserAddressRepositoryIntegrationTest {
         void 삭제된_배송지는_제외된다() {
             // arrange
             UserAddress addr1 = userAddressRepository.save(
-                    UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시", null));
-            userAddressRepository.save(UserAddress.create(1L, "김철수", "010-9876-5432", "54321", "부산시", null));
-            addr1.delete();
+                    UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시", null));
+            userAddressRepository.save(UserAddress.register(1L, "김철수", "010-9876-5432", "54321", "부산시", null));
+            addr1.remove();
             userAddressRepository.save(addr1);
 
             // act
@@ -168,8 +168,8 @@ class UserAddressRepositoryIntegrationTest {
         @Test
         void 다른_사용자의_배송지는_포함되지_않는다() {
             // arrange
-            userAddressRepository.save(UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시", null));
-            userAddressRepository.save(UserAddress.create(2L, "김철수", "010-9876-5432", "54321", "부산시", null));
+            userAddressRepository.save(UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시", null));
+            userAddressRepository.save(UserAddress.register(2L, "김철수", "010-9876-5432", "54321", "부산시", null));
 
             // act
             List<UserAddress> result = userAddressRepository.findAllByUserIdAndDeletedAtIsNull(1L);
@@ -187,9 +187,9 @@ class UserAddressRepositoryIntegrationTest {
         void 지정_ID를_제외한_첫_번째_배송지를_반환한다() {
             // arrange
             UserAddress addr1 = userAddressRepository.save(
-                    UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시", null));
+                    UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시", null));
             UserAddress addr2 = userAddressRepository.save(
-                    UserAddress.create(1L, "김철수", "010-9876-5432", "54321", "부산시", null));
+                    UserAddress.register(1L, "김철수", "010-9876-5432", "54321", "부산시", null));
 
             // act
             Optional<UserAddress> result = userAddressRepository.findFirstByUserIdAndDeletedAtIsNullAndIdNot(
@@ -204,7 +204,7 @@ class UserAddressRepositoryIntegrationTest {
         void 다른_배송지가_없으면_empty를_반환한다() {
             // arrange
             UserAddress addr1 = userAddressRepository.save(
-                    UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시", null));
+                    UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시", null));
 
             // act
             Optional<UserAddress> result = userAddressRepository.findFirstByUserIdAndDeletedAtIsNullAndIdNot(

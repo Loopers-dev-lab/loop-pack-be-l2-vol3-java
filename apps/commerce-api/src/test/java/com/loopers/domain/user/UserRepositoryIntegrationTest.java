@@ -52,7 +52,7 @@ class UserRepositoryIntegrationTest {
      * 테스트용 User 엔티티 생성 헬퍼 메서드
      */
     private User createTestUser(String loginIdValue) {
-        return User.create(
+        return User.signUp(
                 new LoginId(loginIdValue),
                 "$2a$10$encodedPasswordHash",
                 new UserName("홍길동"),
@@ -86,7 +86,7 @@ class UserRepositoryIntegrationTest {
             BirthDate birthDate = new BirthDate("1994-11-15");
             Email email = new Email("nahyeon@example.com");
 
-            User user = User.create(loginId, encodedPassword, name, birthDate, email);
+            User user = User.signUp(loginId, encodedPassword, name, birthDate, email);
 
             // act
             User savedUser = userRepository.save(user);

@@ -52,7 +52,7 @@ public class Brand {
     }
 
     /** 브랜드 생성 팩토리 메서드 */
-    public static Brand create(String name, String description) {
+    public static Brand register(String name, String description) {
         Brand brand = new Brand(name, description);
         brand.guard();
         ZonedDateTime now = ZonedDateTime.now();
@@ -72,7 +72,7 @@ public class Brand {
     }
 
     /** 브랜드 정보 부분 수정 (null이면 기존값 유지, 빈값이면 검증 에러) */
-    public void update(String name, String description) {
+    public void changeInfo(String name, String description) {
         if (name != null) {
             if (name.isBlank()) {
                 throw new CoreException(BrandErrorType.INVALID_BRAND_NAME);
@@ -92,10 +92,10 @@ public class Brand {
     }
 
     /**
-     * 브랜드 소프트 삭제
+     * 브랜드 소프트 삭제 (단종)
      * 이미 삭제된 브랜드는 예외를 던진다.
      */
-    public void delete() {
+    public void discontinue() {
         assertNotDeleted(); // 이미 삭제된 경우 409 Conflict
         if (this.deletedAt == null) {
             this.deletedAt = ZonedDateTime.now();

@@ -29,9 +29,9 @@ public class InventoryService {
     }
 
     /** 재고 생성 */
-    @Transactional
+    @Transactional(timeout = 30)
     public Inventory create(Long productId, int quantity) {
-        Inventory inventory = Inventory.create(productId, quantity);
+        Inventory inventory = Inventory.initialize(productId, quantity);
         return inventoryRepository.save(inventory);
     }
 
@@ -46,7 +46,7 @@ public class InventoryService {
      * 일괄 예약 (비관적 락)
      * productId 오름차순으로 락을 획득하여 데드락을 방지한다.
      */
-    @Transactional
+    @Transactional(timeout = 30)
     public void reserveAll(Map<Long, Integer> productQtyMap) {
         List<Map.Entry<Long, Integer>> sortedEntries = productQtyMap.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
@@ -66,7 +66,7 @@ public class InventoryService {
      * 재고가 삭제된 상품은 skip한다.
      * 결제 실패 시 복구 과정에서 상품이 이미 삭제되었을 수 있기 때문이다.
      */
-    @Transactional
+    @Transactional(timeout = 30)
     public void commitAll(Map<Long, Integer> productQtyMap) {
         List<Map.Entry<Long, Integer>> sortedEntries = productQtyMap.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
@@ -93,7 +93,7 @@ public class InventoryService {
      *
      * @see <a href="멘토 피드백">앨런: "상품 삭제는 내부 정책 변경, 주문 취소는 계약 해제"</a>
      */
-    @Transactional
+    @Transactional(timeout = 30)
     public void releaseAll(Map<Long, Integer> productQtyMap) {
         List<Map.Entry<Long, Integer>> sortedEntries = productQtyMap.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
@@ -119,11 +119,11 @@ public class InventoryService {
     }
 
     /** 재고 소프트 삭제 (상품 삭제 시 연쇄) */
-    @Transactional
+    @Transactional(timeout = 30)
     public void delete(Long productId) {
         inventoryRepository.findByProductId(productId)
                 .ifPresent(inventory -> {
-                    inventory.delete();
+                    inventory.discard();
                     inventoryRepository.save(inventory);
                 });
     }

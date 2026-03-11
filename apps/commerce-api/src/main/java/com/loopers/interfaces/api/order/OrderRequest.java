@@ -8,7 +8,10 @@ public class OrderRequest {
             List<OrderItemRequest> items,
             List<Long> cartItemIds,
             Long addressId,
-            String ordererPhone
+            String ordererPhone,
+            Long issuedCouponId,
+            int pointAmount,
+            String paymentMethod
     ) {}
 
     public record OrderItemRequest(

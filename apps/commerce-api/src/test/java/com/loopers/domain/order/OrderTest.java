@@ -19,10 +19,10 @@ class OrderTest {
 
     private Order createPendingOrder() {
         List<OrderItem> items = List.of(
-                OrderItem.create(1L, "에어맥스", "나이키", 150000, 2),
-                OrderItem.create(2L, "슈퍼스타", "아디다스", 120000, 1)
+                OrderItem.snapshot(1L, "에어맥스", "나이키", 150000, 2),
+                OrderItem.snapshot(2L, "슈퍼스타", "아디다스", 120000, 1)
         );
-        return Order.create(1L, "ORD-20260222-001", items,
+        return Order.place(1L, "ORD-20260222-001", items,
                 "홍길동", "010-1234-5678",
                 "김철수", "010-9876-5432",
                 "06234", "서울시 강남구 테헤란로 123", "4층 401호");
@@ -239,7 +239,7 @@ class OrderTest {
             order.confirm(1L, "CARD");
 
             // act & assert
-            assertThatThrownBy(() -> order.applyDiscount(10000, 5000, 3000))
+            assertThatThrownBy(() -> order.applyDiscount(10000, 5000, 3000, null))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(OrderErrorType.INVALID_ORDER_STATUS);
@@ -251,7 +251,7 @@ class OrderTest {
             Order order = createPendingOrder();
 
             // act — subtotal(420000) - discount(10000) - point(5000) + shipping(3000) = 408000
-            order.applyDiscount(10000, 5000, 3000);
+            order.applyDiscount(10000, 5000, 3000, null);
 
             // assert
             assertThat(order.getTotalAmount()).isEqualTo(408000);

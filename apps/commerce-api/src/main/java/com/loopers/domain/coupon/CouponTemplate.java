@@ -20,6 +20,7 @@ public class CouponTemplate {
     private Money minOrderAmount;
     private int maxIssueCount;
     private int maxIssueCountPerUser;
+    private int issuedCount;  // 실제 발급된 수 (Race Condition 방지용)
     private ZonedDateTime validFrom;
     private ZonedDateTime validTo;
     private CouponTemplateStatus status;
@@ -43,12 +44,13 @@ public class CouponTemplate {
         this.minOrderAmount = new Money(minOrderAmount);
         this.maxIssueCount = maxIssueCount;
         this.maxIssueCountPerUser = maxIssueCountPerUser;
+        this.issuedCount = 0;  // 초기값
         this.validFrom = validFrom;
         this.validTo = validTo;
         this.status = CouponTemplateStatus.ACTIVE;
     }
 
-    public static CouponTemplate create(String name, String description, DiscountType discountType,
+    public static CouponTemplate define(String name, String description, DiscountType discountType,
                                          int discountValue, Integer maxDiscountAmount, int minOrderAmount,
                                          int maxIssueCount, int maxIssueCountPerUser,
                                          ZonedDateTime validFrom, ZonedDateTime validTo) {
@@ -63,7 +65,7 @@ public class CouponTemplate {
     public static CouponTemplate reconstitute(Long id, String name, String description,
                                                DiscountType discountType, int discountValue,
                                                Integer maxDiscountAmount, int minOrderAmount,
-                                               int maxIssueCount, int maxIssueCountPerUser,
+                                               int maxIssueCount, int maxIssueCountPerUser, int issuedCount,
                                                ZonedDateTime validFrom, ZonedDateTime validTo,
                                                CouponTemplateStatus status,
                                                ZonedDateTime createdAt, ZonedDateTime updatedAt,
@@ -78,6 +80,7 @@ public class CouponTemplate {
         template.minOrderAmount = new Money(minOrderAmount);
         template.maxIssueCount = maxIssueCount;
         template.maxIssueCountPerUser = maxIssueCountPerUser;
+        template.issuedCount = issuedCount;
         template.validFrom = validFrom;
         template.validTo = validTo;
         template.status = status;
@@ -115,6 +118,19 @@ public class CouponTemplate {
         }
     }
 
+    /**
+     * 발급 수 증가 (Race Condition 방지)
+     *
+     * Template에 FOR UPDATE 락이 걸린 상태에서 호출되어야 한다.
+     * 발급 한도를 초과하면 예외를 발생시킨다.
+     */
+    public void incrementIssuedCount() {
+        if (this.issuedCount >= this.maxIssueCount) {
+            throw new CoreException(CouponErrorType.ISSUE_LIMIT_EXCEEDED);
+        }
+        this.issuedCount++;
+    }
+
     public void changeStatus(CouponTemplateStatus status) {
         this.status = status;
     }
@@ -125,7 +141,7 @@ public class CouponTemplate {
      * maxIssueCount, maxIssueCountPerUser, validFrom, validTo는 발급 계약 조건이므로
      * 이미 발급된 쿠폰과의 정합성을 위해 수정 불가. status는 changeStatus()로 별도 관리.
      */
-    public void update(String name, String description, DiscountType discountType, Integer discountValue,
+    public void changeDetails(String name, String description, DiscountType discountType, Integer discountValue,
                        Integer maxDiscountAmount, Integer minOrderAmount) {
         if (name != null) {
             if (name.isBlank()) {
@@ -150,7 +166,7 @@ public class CouponTemplate {
         }
     }
 
-    public void delete() {
+    public void withdraw() {
         if (this.deletedAt == null) {
             this.deletedAt = ZonedDateTime.now();
         }
@@ -186,6 +202,10 @@ public class CouponTemplate {
 
     public int getMaxIssueCountPerUser() {
         return this.maxIssueCountPerUser;
+    }
+
+    public int getIssuedCount() {
+        return this.issuedCount;
     }
 
     public ZonedDateTime getValidFrom() {

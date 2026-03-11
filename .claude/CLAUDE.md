@@ -175,6 +175,11 @@ docker-compose -f ./docker/monitoring-compose.yml up
 - **repository-rules**: Repository Interface 설계 규칙
   - 도메인 언어만 사용, Spring 기술 의존성 금지 (Page/Pageable/Sort)
   - 조회 전용 Query 경로 분리 (CQRS), 쿼리 객체 패턴, 정렬 DIP
+- **transaction-rules**: 트랜잭션 관리 규칙, 동시성 제어 Lock 패턴
+  - @Transactional 배치 전략 (Facade vs Service, readOnly, 전파)
+  - 도메인별 Lock 현황 (비관적/낙관적/원자적 UPDATE)
+  - Entity-level DIP에서의 영속성 컨텍스트 특성 (Dirty Checking 불가, 명시적 save)
+  - Lock 순서 고정 (데드락 방지), 트랜잭션 범위 설계 원칙
 
 ### 슬래시 명령어
 - `/dev-docs`: 세션 간 컨텍스트 보존을 위한 3파일 패턴(plan/context/tasks) 생성

@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.coupon;
 
+import com.loopers.domain.coupon.DiscountType;
 import com.loopers.domain.coupon.IssuedCouponStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -47,6 +48,20 @@ public class IssuedCouponEntity {
 
     @Column(name = "deleted_at")
     private ZonedDateTime deletedAt;
+
+    // 발급 시점 스냅샷 필드
+    @Column(name = "coupon_name")
+    private String couponName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "discount_type")
+    private DiscountType discountType;
+
+    @Column(name = "discount_value")
+    private int discountValue;
+
+    @Column(name = "max_discount_amount")
+    private Integer maxDiscountAmount;
 
     protected IssuedCouponEntity() {}
 
@@ -120,5 +135,37 @@ public class IssuedCouponEntity {
 
     public void setDeletedAt(ZonedDateTime deletedAt) {
         this.deletedAt = deletedAt;
+    }
+
+    public String getCouponName() {
+        return couponName;
+    }
+
+    public void setCouponName(String couponName) {
+        this.couponName = couponName;
+    }
+
+    public DiscountType getDiscountType() {
+        return discountType;
+    }
+
+    public void setDiscountType(DiscountType discountType) {
+        this.discountType = discountType;
+    }
+
+    public int getDiscountValue() {
+        return discountValue;
+    }
+
+    public void setDiscountValue(int discountValue) {
+        this.discountValue = discountValue;
+    }
+
+    public Integer getMaxDiscountAmount() {
+        return maxDiscountAmount;
+    }
+
+    public void setMaxDiscountAmount(Integer maxDiscountAmount) {
+        this.maxDiscountAmount = maxDiscountAmount;
     }
 }

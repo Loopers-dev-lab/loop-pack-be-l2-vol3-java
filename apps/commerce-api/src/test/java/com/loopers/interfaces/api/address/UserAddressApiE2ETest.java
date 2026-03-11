@@ -209,7 +209,7 @@ class UserAddressApiE2ETest {
         void 타인의_배송지면_403_Forbidden을_반환한다() {
             // arrange - 다른 사용자의 배송지 직접 생성
             UserAddress otherAddress = userAddressRepository.save(
-                    UserAddress.create(999L, "타인", "010-0000-0000", "00000", "어딘가", null));
+                    UserAddress.register(999L, "타인", "010-0000-0000", "00000", "어딘가", null));
 
             // act
             UserAddressRequest.UpdateAddressRequest updateRequest =
@@ -292,7 +292,7 @@ class UserAddressApiE2ETest {
         void 타인의_배송지면_403_Forbidden을_반환한다() {
             // arrange
             UserAddress otherAddress = userAddressRepository.save(
-                    UserAddress.create(999L, "타인", "010-0000-0000", "00000", "어딘가", null));
+                    UserAddress.register(999L, "타인", "010-0000-0000", "00000", "어딘가", null));
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(

@@ -18,7 +18,7 @@ class BrandLikeTest {
         @Test
         void 유효한_정보면_userId와_brandId가_저장된다() {
             // act
-            BrandLike brandLike = BrandLike.create(1L, 100L);
+            BrandLike brandLike = BrandLike.of(1L, 100L);
 
             // assert
             assertThat(brandLike)
@@ -29,7 +29,7 @@ class BrandLikeTest {
         @Test
         void 생성_시_createdAt이_설정된다() {
             // act
-            BrandLike brandLike = BrandLike.create(1L, 100L);
+            BrandLike brandLike = BrandLike.of(1L, 100L);
 
             // assert — createdAt은 @PrePersist로 설정되므로 여기서는 null
             assertThat(brandLike.getUserId()).isEqualTo(1L);

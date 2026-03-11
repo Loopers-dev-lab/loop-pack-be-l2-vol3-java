@@ -30,6 +30,7 @@ public class Order {
     private String receiverName;
     private String receiverPhone;
     private Address shippingAddress;
+    private Long couponId;
     private Long paymentId;
     private String paymentMethod;
     private ZonedDateTime orderedAt;
@@ -62,7 +63,7 @@ public class Order {
         this.expiresAt = ZonedDateTime.now().plusMinutes(30);
     }
 
-    public static Order create(Long userId, String orderNumber, List<OrderItem> items,
+    public static Order place(Long userId, String orderNumber, List<OrderItem> items,
                                 String ordererName, String ordererPhone,
                                 String receiverName, String receiverPhone,
                                 String zipCode, String addressLine1, String addressLine2) {
@@ -79,7 +80,7 @@ public class Order {
                                       int shippingFee, int totalAmount, OrderStatus status,
                                       String ordererName, String ordererPhone,
                                       String receiverName, String receiverPhone, Address shippingAddress,
-                                      Long paymentId, String paymentMethod,
+                                      Long couponId, Long paymentId, String paymentMethod,
                                       ZonedDateTime orderedAt, ZonedDateTime expiresAt, ZonedDateTime canceledAt,
                                       ZonedDateTime createdAt, ZonedDateTime updatedAt, ZonedDateTime deletedAt) {
         Order order = new Order();
@@ -98,6 +99,7 @@ public class Order {
         order.receiverName = receiverName;
         order.receiverPhone = receiverPhone;
         order.shippingAddress = shippingAddress;
+        order.couponId = couponId;
         order.paymentId = paymentId;
         order.paymentMethod = paymentMethod;
         order.orderedAt = orderedAt;
@@ -128,7 +130,7 @@ public class Order {
         this.status = OrderStatus.EXPIRED;
     }
 
-    public void applyDiscount(int discountAmount, int pointUsedAmount, int shippingFee) {
+    public void applyDiscount(int discountAmount, int pointUsedAmount, int shippingFee, Long couponId) {
         validatePending();
         int total = this.subtotalAmount.toInt() - discountAmount - pointUsedAmount + shippingFee;
         if (total < 0) {
@@ -138,6 +140,7 @@ public class Order {
         this.pointUsedAmount = new Money(pointUsedAmount);
         this.shippingFee = new Money(shippingFee);
         this.totalAmount = new Money(total);
+        this.couponId = couponId;
     }
 
     public void validateOwnership(Long userId) {
@@ -222,6 +225,10 @@ public class Order {
 
     public String getAddressLine2() {
         return this.shippingAddress.getAddressLine2();
+    }
+
+    public Long getCouponId() {
+        return this.couponId;
     }
 
     public Long getPaymentId() {

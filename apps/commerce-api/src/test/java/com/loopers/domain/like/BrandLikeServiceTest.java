@@ -107,7 +107,7 @@ class BrandLikeServiceTest {
         @Test
         void 좋아요가_존재하면_delete가_호출된다() {
             // arrange
-            BrandLike brandLike = BrandLike.create(1L, 100L);
+            BrandLike brandLike = BrandLike.of(1L, 100L);
             when(brandLikeRepository.findByUserIdAndBrandId(1L, 100L)).thenReturn(Optional.of(brandLike));
 
             // act

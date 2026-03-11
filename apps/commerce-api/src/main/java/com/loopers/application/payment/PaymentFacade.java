@@ -81,7 +81,7 @@ public class PaymentFacade {
             }
         }
 
-        order.applyDiscount(discountAmount, pointAmount, 0);
+        order.applyDiscount(discountAmount, pointAmount, 0, issuedCouponId);
         return new DiscountAppliedResult(
                 order.getId(), order.getSubtotalAmount(), order.getDiscountAmount(),
                 order.getPointUsedAmount(), order.getShippingFee(), order.getTotalAmount());
@@ -137,7 +137,7 @@ public class PaymentFacade {
             // 포인트 적립
             pointService.earn(userId, order.getTotalAmount());
         } else {
-            payment.fail();
+            payment.reject();
 
             // reserved_qty 복구
             Map<Long, Integer> productQtyMap = order.getItems().stream()

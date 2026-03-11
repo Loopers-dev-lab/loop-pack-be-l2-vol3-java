@@ -78,7 +78,7 @@ class PointServiceTest {
         @Test
         void 존재하는_계정이면_반환한다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
+            PointAccount account = PointAccount.open(1L);
             when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
 
             // act
@@ -106,10 +106,10 @@ class PointServiceTest {
         }
 
         @Test
-        void 잔액이_부족하면_예외가_발생한다() {
+        void 잔액이_부족하면_POJO_검증에서_예외가_발생한다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
-            account.charge(3000);
+            PointAccount account = PointAccount.open(1L);
+            account.deposit(3000);
             when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
 
             // act & assert
@@ -120,17 +120,33 @@ class PointServiceTest {
         }
 
         @Test
-        void 유효한_요청이면_use가_호출된다() {
+        void 원자적_UPDATE가_0이면_잔액_부족_예외가_발생한다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
-            account.charge(10000);
+            PointAccount account = PointAccount.open(1L);
+            account.deposit(10000);
             when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
+            when(pointAccountRepository.useAtomically(1L, 3000)).thenReturn(0);
+
+            // act & assert
+            assertThatThrownBy(() -> pointService.use(1L, 3000))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(PointErrorType.INSUFFICIENT_BALANCE);
+        }
+
+        @Test
+        void 유효한_요청이면_원자적_UPDATE가_호출된다() {
+            // arrange
+            PointAccount account = PointAccount.open(1L);
+            account.deposit(10000);
+            when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
+            when(pointAccountRepository.useAtomically(1L, 3000)).thenReturn(1);
 
             // act
             pointService.use(1L, 3000);
 
             // assert
-            assertThat(account.getBalance()).isEqualTo(7000);
+            verify(pointAccountRepository).useAtomically(1L, 3000);
         }
     }
 
@@ -151,16 +167,17 @@ class PointServiceTest {
         }
 
         @Test
-        void 유효한_요청이면_charge가_호출된다() {
+        void 유효한_요청이면_원자적_UPDATE가_호출된다() {
             // arrange
-            PointAccount account = PointAccount.create(1L);
+            PointAccount account = PointAccount.open(1L);
             when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
+            when(pointAccountRepository.chargeAtomically(1L, 5000)).thenReturn(1);
 
             // act
             pointService.charge(1L, 5000);
 
             // assert
-            assertThat(account.getBalance()).isEqualTo(5000);
+            verify(pointAccountRepository).chargeAtomically(1L, 5000);
         }
     }
 
@@ -170,15 +187,14 @@ class PointServiceTest {
 
         @Test
         void 금액_구간별_적립률이_적용된다() {
-            // arrange — 100000 이상이면 3%
-            PointAccount account = PointAccount.create(1L);
-            when(pointAccountRepository.findByUserId(1L)).thenReturn(Optional.of(account));
+            // arrange — 100000 이상이면 3% = 3000 포인트
+            when(pointAccountRepository.earnAtomically(1L, 3000)).thenReturn(1);
 
             // act
             pointService.earn(1L, 100000);
 
-            // assert — 100000 * 3% = 3000
-            assertThat(account.getBalance()).isEqualTo(3000);
+            // assert
+            verify(pointAccountRepository).earnAtomically(1L, 3000);
         }
     }
 }

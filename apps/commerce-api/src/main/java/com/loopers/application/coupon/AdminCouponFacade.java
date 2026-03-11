@@ -3,6 +3,7 @@ package com.loopers.application.coupon;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.CouponTemplate;
 import com.loopers.domain.coupon.DiscountType;
+import com.loopers.domain.coupon.IssuedCoupon;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,10 +61,35 @@ public class AdminCouponFacade {
         return toDetail(template);
     }
 
+    /** 쿠폰 템플릿 상세 조회 */
+    @Transactional(readOnly = true)
+    public TemplateDetail getTemplateDetail(Long templateId) {
+        CouponTemplate template = couponService.getTemplate(templateId);
+        return toDetail(template);
+    }
+
     /** 쿠폰 템플릿 삭제 */
     @Transactional
     public void deleteTemplate(Long templateId) {
         couponService.deleteTemplate(templateId);
+    }
+
+    /** 특정 쿠폰의 발급 내역 조회 (in-memory 페이징, 음수 page/size 방어) */
+    @Transactional(readOnly = true)
+    public IssuedCouponListResult getIssuedCoupons(Long templateId, int page, int size) {
+        couponService.getTemplate(templateId);
+        List<IssuedCoupon> issuedCoupons = couponService.getIssuedCouponsByTemplateId(templateId);
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, size);
+        int start = Math.min(safePage * safeSize, issuedCoupons.size());
+        int end = Math.min(start + safeSize, issuedCoupons.size());
+        List<IssuedCouponSummary> summaries = issuedCoupons.subList(start, end).stream()
+                .map(c -> new IssuedCouponSummary(
+                        c.getId(), c.getUserId(), c.getStatus().name(),
+                        c.getOrderId(), c.getUsedAt(), c.getCreatedAt()))
+                .toList();
+        return new IssuedCouponListResult(summaries, safePage, safeSize, issuedCoupons.size(),
+                (int) Math.ceil((double) issuedCoupons.size() / safeSize));
     }
 
     private TemplateDetail toDetail(CouponTemplate t) {
@@ -86,5 +112,13 @@ public class AdminCouponFacade {
 
     public record TemplateListResult(
             List<TemplateDetail> templates,
+            int page, int size, long totalElements, int totalPages) {}
+
+    public record IssuedCouponSummary(
+            Long issuedCouponId, Long userId, String status,
+            Long orderId, ZonedDateTime usedAt, ZonedDateTime createdAt) {}
+
+    public record IssuedCouponListResult(
+            List<IssuedCouponSummary> issuedCoupons,
             int page, int size, long totalElements, int totalPages) {}
 }

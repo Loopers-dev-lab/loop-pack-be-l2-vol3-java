@@ -38,7 +38,7 @@ public class Payment {
         this.requestedAt = ZonedDateTime.now();
     }
 
-    public static Payment create(Long orderId, int requestedAmount, String paymentMethod, String idempotencyKey) {
+    public static Payment request(Long orderId, int requestedAmount, String paymentMethod, String idempotencyKey) {
         return new Payment(orderId, requestedAmount, paymentMethod, idempotencyKey);
     }
 
@@ -76,7 +76,7 @@ public class Payment {
         this.approvedAt = ZonedDateTime.now();
     }
 
-    public void fail() {
+    public void reject() {
         this.status = PaymentStatus.FAILED;
         this.failedAt = ZonedDateTime.now();
     }

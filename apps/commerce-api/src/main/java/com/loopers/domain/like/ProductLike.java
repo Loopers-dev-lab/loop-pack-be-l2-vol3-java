@@ -29,7 +29,7 @@ public class ProductLike {
     /**
      * 새로운 상품 좋아요 생성 (비즈니스 로직)
      */
-    public static ProductLike create(Long userId, Long productId) {
+    public static ProductLike of(Long userId, Long productId) {
         return new ProductLike(userId, productId);
     }
 

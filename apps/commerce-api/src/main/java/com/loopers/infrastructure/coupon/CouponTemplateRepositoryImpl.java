@@ -37,6 +37,12 @@ public class CouponTemplateRepositoryImpl implements CouponTemplateRepository {
     }
 
     @Override
+    public Optional<CouponTemplate> findByIdForUpdate(Long id) {
+        return couponTemplateJpaRepository.findByIdForUpdate(id)
+                .map(couponTemplateMapper::toDomain);
+    }
+
+    @Override
     public List<CouponTemplate> findAllByIdIn(Set<Long> ids) {
         return couponTemplateJpaRepository.findAllByIdIn(ids).stream()
                 .map(couponTemplateMapper::toDomain)
@@ -49,6 +55,16 @@ public class CouponTemplateRepositoryImpl implements CouponTemplateRepository {
                 PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
         ).getContent()
                 .stream()
+                .map(couponTemplateMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<CouponTemplate> findAllIssuable() {
+        return couponTemplateJpaRepository.findAllIssuable(
+                com.loopers.domain.coupon.CouponTemplateStatus.ACTIVE,
+                java.time.ZonedDateTime.now()
+        ).stream()
                 .map(couponTemplateMapper::toDomain)
                 .collect(Collectors.toList());
     }

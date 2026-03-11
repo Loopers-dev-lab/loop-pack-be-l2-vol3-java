@@ -21,7 +21,7 @@ class InventoryTest {
         @Test
         void 유효한_정보면_reservedQty가_0으로_생성된다() {
             // act
-            Inventory inventory = Inventory.create(1L, 100);
+            Inventory inventory = Inventory.initialize(1L, 100);
 
             // assert
             assertThat(inventory)
@@ -37,7 +37,7 @@ class InventoryTest {
         @Test
         void quantity에서_reservedQty를_뺀_값을_반환한다() {
             // arrange
-            Inventory inventory = Inventory.create(1L, 100);
+            Inventory inventory = Inventory.initialize(1L, 100);
             inventory.reserve(30);
 
             // act & assert
@@ -52,7 +52,7 @@ class InventoryTest {
         @Test
         void 요청_수량이_0_이하이면_예외가_발생한다() {
             // arrange
-            Inventory inventory = Inventory.create(1L, 100);
+            Inventory inventory = Inventory.initialize(1L, 100);
 
             // act & assert
             assertThatThrownBy(() -> inventory.reserve(0))
@@ -64,7 +64,7 @@ class InventoryTest {
         @Test
         void 가용재고가_부족하면_예외가_발생한다() {
             // arrange
-            Inventory inventory = Inventory.create(1L, 10);
+            Inventory inventory = Inventory.initialize(1L, 10);
 
             // act & assert
             assertThatThrownBy(() -> inventory.reserve(11))
@@ -76,7 +76,7 @@ class InventoryTest {
         @Test
         void 가용재고가_충분하면_reservedQty가_증가한다() {
             // arrange
-            Inventory inventory = Inventory.create(1L, 100);
+            Inventory inventory = Inventory.initialize(1L, 100);
 
             // act
             inventory.reserve(30);
@@ -93,7 +93,7 @@ class InventoryTest {
         @Test
         void quantity와_reservedQty가_모두_감소한다() {
             // arrange
-            Inventory inventory = Inventory.create(1L, 100);
+            Inventory inventory = Inventory.initialize(1L, 100);
             inventory.reserve(30);
 
             // act
@@ -113,7 +113,7 @@ class InventoryTest {
         @Test
         void reservedQty만_감소한다() {
             // arrange
-            Inventory inventory = Inventory.create(1L, 100);
+            Inventory inventory = Inventory.initialize(1L, 100);
             inventory.reserve(30);
 
             // act

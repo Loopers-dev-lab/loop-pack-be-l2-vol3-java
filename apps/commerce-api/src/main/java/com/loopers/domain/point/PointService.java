@@ -14,9 +14,9 @@ public class PointService {
         this.pointAccountRepository = pointAccountRepository;
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public PointAccount createAccount(Long userId) {
-        PointAccount account = PointAccount.create(userId);
+        PointAccount account = PointAccount.open(userId);
         return pointAccountRepository.save(account);
     }
 
@@ -26,24 +26,60 @@ public class PointService {
                 .orElseThrow(() -> new CoreException(PointErrorType.ACCOUNT_NOT_FOUND));
     }
 
-    @Transactional
+    /**
+     * 포인트 사용 (POJO 검증 + 원자적 UPDATE)
+     *
+     * POJO로 금액/잔액을 빠르게 검증한 후,
+     * SQL WHERE balance >= amount 조건으로 동시성을 보호한다.
+     */
+    @Transactional(timeout = 30)
     public void use(Long userId, int amount) {
         PointAccount account = getAccount(userId);
-        account.use(amount);
-        pointAccountRepository.save(account);
+        account.validateUse(amount);
+
+        int affected = pointAccountRepository.useAtomically(userId, amount);
+        if (affected == 0) {
+            throw new CoreException(PointErrorType.INSUFFICIENT_BALANCE);
+        }
     }
 
-    @Transactional
+    @Transactional(timeout = 30)
     public void charge(Long userId, int amount) {
         PointAccount account = getAccount(userId);
-        account.charge(amount);
-        pointAccountRepository.save(account);
+        account.validateCharge(amount);
+
+        int affected = pointAccountRepository.chargeAtomically(userId, amount);
+        if (affected == 0) {
+            throw new CoreException(PointErrorType.ACCOUNT_NOT_FOUND);
+        }
     }
 
-    @Transactional
+    /**
+     * 포인트 환급 — 보상 트랜잭션용
+     *
+     * PG 결제 실패 시 차감했던 포인트를 원래 잔액으로 되돌린다.
+     */
+    @Transactional(timeout = 30)
+    public void refund(Long userId, int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        int affected = pointAccountRepository.chargeAtomically(userId, amount);
+        if (affected == 0) {
+            throw new CoreException(PointErrorType.ACCOUNT_NOT_FOUND);
+        }
+    }
+
+    @Transactional(timeout = 30)
     public void earn(Long userId, int orderAmount) {
-        PointAccount account = getAccount(userId);
-        account.earn(orderAmount);
-        pointAccountRepository.save(account);
+        int earnedPoints = PointAccount.calculateEarnedPoints(orderAmount);
+        if (earnedPoints <= 0) {
+            return;
+        }
+
+        int affected = pointAccountRepository.earnAtomically(userId, earnedPoints);
+        if (affected == 0) {
+            throw new CoreException(PointErrorType.ACCOUNT_NOT_FOUND);
+        }
     }
 }

@@ -38,6 +38,21 @@ public class PointAccountRepositoryImpl implements PointAccountRepository {
     @Override
     public Optional<PointAccount> findByUserId(Long userId) {
         return pointAccountJpaRepository.findByUserId(userId)
-            .map(pointAccountMapper::toDomain);  // Entity → Domain
+            .map(pointAccountMapper::toDomain);
+    }
+
+    @Override
+    public int useAtomically(Long userId, int amount) {
+        return pointAccountJpaRepository.useAtomically(userId, amount);
+    }
+
+    @Override
+    public int chargeAtomically(Long userId, int amount) {
+        return pointAccountJpaRepository.chargeAtomically(userId, amount);
+    }
+
+    @Override
+    public int earnAtomically(Long userId, int amount) {
+        return pointAccountJpaRepository.earnAtomically(userId, amount);
     }
 }

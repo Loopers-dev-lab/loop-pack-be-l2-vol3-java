@@ -25,6 +25,15 @@ public class UserAddress {
 
     private UserAddress(Long userId, String receiverName, String phone,
                         String zipCode, String addressLine1, String addressLine2) {
+        if (receiverName == null || receiverName.isBlank()) {
+            throw new CoreException(UserAddressErrorType.INVALID_RECEIVER_NAME);
+        }
+        if (phone == null || phone.isBlank()) {
+            throw new CoreException(UserAddressErrorType.INVALID_PHONE);
+        }
+        if (zipCode == null || zipCode.isBlank() || addressLine1 == null || addressLine1.isBlank()) {
+            throw new CoreException(UserAddressErrorType.INVALID_ADDRESS);
+        }
         this.userId = userId;
         this.receiverName = receiverName;
         this.phone = phone;
@@ -35,7 +44,7 @@ public class UserAddress {
     /**
      * 새로운 배송지 생성 (비즈니스 로직)
      */
-    public static UserAddress create(Long userId, String receiverName, String phone,
+    public static UserAddress register(Long userId, String receiverName, String phone,
                                       String zipCode, String addressLine1, String addressLine2) {
         return new UserAddress(userId, receiverName, phone, zipCode, addressLine1, addressLine2);
     }
@@ -62,7 +71,7 @@ public class UserAddress {
     /**
      * 배송지 정보 부분 수정 (null이면 기존값 유지, 빈값이면 검증 에러)
      */
-    public void update(String receiverName, String phone,
+    public void changeInfo(String receiverName, String phone,
                        String zipCode, String addressLine1, String addressLine2) {
         if (receiverName != null) {
             if (receiverName.isBlank()) {
@@ -104,7 +113,7 @@ public class UserAddress {
     /**
      * 삭제 (소프트 삭제)
      */
-    public void delete() {
+    public void remove() {
         if (this.deletedAt == null) {
             this.deletedAt = ZonedDateTime.now();
         }

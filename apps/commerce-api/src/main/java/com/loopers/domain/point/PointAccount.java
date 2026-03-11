@@ -48,7 +48,7 @@ public class PointAccount {
         return pointAccount;
     }
 
-    public static PointAccount create(Long userId) {
+    public static PointAccount open(Long userId) {
         PointAccount pointAccount = new PointAccount(userId);
         ZonedDateTime now = ZonedDateTime.now();
         pointAccount.createdAt = now;
@@ -56,7 +56,31 @@ public class PointAccount {
         return pointAccount;
     }
 
-    public void charge(int amount) {
+    /**
+     * 충전 금액 검증 (POJO 빠른 실패)
+     * 실제 상태 변경은 원자적 UPDATE(SQL)가 담당한다.
+     */
+    public void validateCharge(int amount) {
+        if (amount <= 0) {
+            throw new CoreException(PointErrorType.INVALID_AMOUNT);
+        }
+    }
+
+    /**
+     * 사용 금액/잔액 검증 (POJO 빠른 실패)
+     * 실제 상태 변경은 원자적 UPDATE(SQL)가 담당한다.
+     */
+    public void validateUse(int amount) {
+        if (amount <= 0) {
+            throw new CoreException(PointErrorType.INVALID_AMOUNT);
+        }
+        Money amountMoney = new Money(amount);
+        if (!this.balance.isGreaterThanOrEqual(amountMoney)) {
+            throw new CoreException(PointErrorType.INSUFFICIENT_BALANCE);
+        }
+    }
+
+    public void deposit(int amount) {
         if (amount <= 0) {
             throw new CoreException(PointErrorType.INVALID_AMOUNT);
         }
@@ -64,7 +88,7 @@ public class PointAccount {
         this.updatedAt = ZonedDateTime.now();
     }
 
-    public void use(int amount) {
+    public void deduct(int amount) {
         if (amount <= 0) {
             throw new CoreException(PointErrorType.INVALID_AMOUNT);
         }
@@ -77,14 +101,9 @@ public class PointAccount {
     }
 
     /**
-     * 주문 금액 기반 포인트 적립
-     *
-     * 적립률:
-     * - 10만원 이상: 3%
-     * - 5만원 이상: 2%
-     * - 그 외: 1%
+     * 주문 금액 기반 적립 포인트 계산 (static — 원자적 UPDATE 전 계산용)
      */
-    public void earn(int orderAmount) {
+    public static int calculateEarnedPoints(int orderAmount) {
         int earnRate;
         if (orderAmount >= 100_000) {
             earnRate = 3;
@@ -93,8 +112,19 @@ public class PointAccount {
         } else {
             earnRate = 1;
         }
+        return orderAmount * earnRate / 100;
+    }
 
-        int earnedPoints = orderAmount * earnRate / 100;
+    /**
+     * 주문 금액 기반 포인트 적립
+     *
+     * 적립률:
+     * - 10만원 이상: 3%
+     * - 5만원 이상: 2%
+     * - 그 외: 1%
+     */
+    public void earn(int orderAmount) {
+        int earnedPoints = calculateEarnedPoints(orderAmount);
         if (earnedPoints > 0) {
             this.balance = this.balance.plus(new Money(earnedPoints));
             this.updatedAt = ZonedDateTime.now();

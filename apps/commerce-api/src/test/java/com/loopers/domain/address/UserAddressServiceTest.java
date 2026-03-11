@@ -94,7 +94,7 @@ class UserAddressServiceTest {
         @Test
         void 본인의_주소가_아니면_예외가_발생한다() {
             // arrange
-            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
+            UserAddress address = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
             when(userAddressRepository.findById(1L)).thenReturn(Optional.of(address));
 
             // act & assert
@@ -107,7 +107,7 @@ class UserAddressServiceTest {
         @Test
         void 유효한_요청이면_수정된다() {
             // arrange
-            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
+            UserAddress address = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
             when(userAddressRepository.findById(1L)).thenReturn(Optional.of(address));
 
             // act
@@ -137,7 +137,7 @@ class UserAddressServiceTest {
         @Test
         void 본인의_주소가_아니면_예외가_발생한다() {
             // arrange
-            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
+            UserAddress address = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
             when(userAddressRepository.findById(1L)).thenReturn(Optional.of(address));
 
             // act & assert
@@ -150,9 +150,9 @@ class UserAddressServiceTest {
         @Test
         void 기본주소_삭제_시_다른_주소가_기본주소로_전환된다() {
             // arrange
-            UserAddress defaultAddress = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
+            UserAddress defaultAddress = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
             defaultAddress.setAsDefault();
-            UserAddress otherAddress = UserAddress.create(1L, "김철수", "010-9876-5432", "54321", "부산시", null);
+            UserAddress otherAddress = UserAddress.register(1L, "김철수", "010-9876-5432", "54321", "부산시", null);
             when(userAddressRepository.findById(1L)).thenReturn(Optional.of(defaultAddress));
             when(userAddressRepository.findFirstByUserIdAndDeletedAtIsNullAndIdNot(1L, 1L))
                     .thenReturn(Optional.of(otherAddress));
@@ -167,7 +167,7 @@ class UserAddressServiceTest {
         @Test
         void 기본주소가_아닌_주소_삭제_시_다른_주소에_영향_없다() {
             // arrange
-            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
+            UserAddress address = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
             when(userAddressRepository.findById(1L)).thenReturn(Optional.of(address));
 
             // act
@@ -197,7 +197,7 @@ class UserAddressServiceTest {
         @Test
         void 본인의_주소가_아니면_예외가_발생한다() {
             // arrange
-            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
+            UserAddress address = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
             when(userAddressRepository.findById(1L)).thenReturn(Optional.of(address));
 
             // act & assert
@@ -210,7 +210,7 @@ class UserAddressServiceTest {
         @Test
         void 유효한_요청이면_주소를_반환한다() {
             // arrange
-            UserAddress address = UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
+            UserAddress address = UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null);
             when(userAddressRepository.findById(1L)).thenReturn(Optional.of(address));
 
             // act
@@ -229,8 +229,8 @@ class UserAddressServiceTest {
         void 사용자의_배송지_목록이_반환된다() {
             // arrange
             List<UserAddress> addresses = List.of(
-                    UserAddress.create(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null),
-                    UserAddress.create(1L, "김철수", "010-9876-5432", "54321", "부산시", null)
+                    UserAddress.register(1L, "홍길동", "010-1234-5678", "12345", "서울시 강남구", null),
+                    UserAddress.register(1L, "김철수", "010-9876-5432", "54321", "부산시", null)
             );
             when(userAddressRepository.findAllByUserIdAndDeletedAtIsNull(1L)).thenReturn(addresses);
 

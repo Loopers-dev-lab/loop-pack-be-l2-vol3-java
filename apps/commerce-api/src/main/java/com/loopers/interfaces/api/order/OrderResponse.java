@@ -49,6 +49,7 @@ public class OrderResponse {
             Long orderId,
             String orderNumber,
             String status,
-            ZonedDateTime expiresAt
+            int totalAmount,
+            Long paymentId
     ) {}
 }

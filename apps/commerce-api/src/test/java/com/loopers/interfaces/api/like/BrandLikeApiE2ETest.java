@@ -57,7 +57,7 @@ class BrandLikeApiE2ETest {
     }
 
     private Brand createActiveBrand(String name) {
-        return brandRepository.save(Brand.create(name, name + " 설명"));
+        return brandRepository.save(Brand.register(name, name + " 설명"));
     }
 
     private String likeUrl(Long brandId) {
@@ -99,7 +99,7 @@ class BrandLikeApiE2ETest {
         @Test
         void 비활성_브랜드이면_404_Not_Found를_반환한다() {
             // arrange
-            Brand brand = Brand.create("비활성", "설명");
+            Brand brand = Brand.register("비활성", "설명");
             brand.changeStatus(BrandStatus.INACTIVE);
             Brand saved = brandRepository.save(brand);
 

@@ -29,4 +29,12 @@ public class AdminCouponTemplateResponse {
             long totalElements,
             int totalPages
     ) {}
+
+    public record IssuedCouponSummary(
+            Long issuedCouponId, Long userId, String status,
+            Long orderId, ZonedDateTime usedAt, ZonedDateTime createdAt) {}
+
+    public record IssuedCouponListResponse(
+            List<IssuedCouponSummary> issuedCoupons,
+            int page, int size, long totalElements, int totalPages) {}
 }

@@ -14,9 +14,14 @@ public class PaymentService {
         this.paymentRepository = paymentRepository;
     }
 
+    /** 결제 생성 — 멱등성 키 중복 시 CONFLICT (동일 요청 재처리 방지) */
     @Transactional
     public Payment create(Long orderId, int requestedAmount, String paymentMethod, String idempotencyKey) {
-        Payment payment = Payment.create(orderId, requestedAmount, paymentMethod, idempotencyKey);
+        paymentRepository.findByIdempotencyKey(idempotencyKey)
+                .ifPresent(existing -> {
+                    throw new CoreException(PaymentErrorType.DUPLICATE_IDEMPOTENCY_KEY);
+                });
+        Payment payment = Payment.request(orderId, requestedAmount, paymentMethod, idempotencyKey);
         return paymentRepository.save(payment);
     }
 
@@ -30,11 +35,13 @@ public class PaymentService {
     public void approve(Long paymentId, String pgTxnId, int approvedAmount) {
         Payment payment = getById(paymentId);
         payment.approve(pgTxnId, approvedAmount);
+        paymentRepository.save(payment);
     }
 
     @Transactional
     public void fail(Long paymentId) {
         Payment payment = getById(paymentId);
-        payment.fail();
+        payment.reject();
+        paymentRepository.save(payment);
     }
 }

@@ -34,7 +34,7 @@ class BrandRepositoryIntegrationTest {
     }
 
     private Brand createAndSaveBrand(String name, String description) {
-        Brand brand = Brand.create(name, description);
+        Brand brand = Brand.register(name, description);
         return brandRepository.save(brand);
     }
 
@@ -45,7 +45,7 @@ class BrandRepositoryIntegrationTest {
         @Test
         void 새로운_브랜드를_저장하면_ID가_생성된다() {
             // arrange
-            Brand brand = Brand.create("나이키", "스포츠 브랜드");
+            Brand brand = Brand.register("나이키", "스포츠 브랜드");
 
             // act
             Brand saved = brandRepository.save(brand);
@@ -161,12 +161,12 @@ class BrandRepositoryIntegrationTest {
             // arrange
             createAndSaveBrand("나이키", "스포츠 브랜드");
 
-            Brand inactive = Brand.create("비활성브랜드", "설명");
+            Brand inactive = Brand.register("비활성브랜드", "설명");
             inactive.changeStatus(BrandStatus.INACTIVE);
             brandRepository.save(inactive);
 
-            Brand deleted = Brand.create("삭제브랜드", "설명");
-            deleted.delete();
+            Brand deleted = Brand.register("삭제브랜드", "설명");
+            deleted.discontinue();
             brandRepository.save(deleted);
 
             // act

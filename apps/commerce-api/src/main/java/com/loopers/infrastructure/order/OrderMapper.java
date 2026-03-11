@@ -50,6 +50,7 @@ public class OrderMapper {
         entity.setAddressLine1(domain.getAddressLine1());
         entity.setAddressLine2(domain.getAddressLine2());
 
+        entity.setCouponId(domain.getCouponId());
         entity.setPaymentId(domain.getPaymentId());
         entity.setPaymentMethod(domain.getPaymentMethod());
         entity.setOrderedAt(domain.getOrderedAt());
@@ -95,6 +96,7 @@ public class OrderMapper {
                 entity.getReceiverName(),
                 entity.getReceiverPhone(),
                 address,
+                entity.getCouponId(),
                 entity.getPaymentId(),
                 entity.getPaymentMethod(),
                 entity.getOrderedAt(),

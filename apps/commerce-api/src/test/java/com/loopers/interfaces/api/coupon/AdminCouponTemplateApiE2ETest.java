@@ -46,13 +46,13 @@ class AdminCouponTemplateApiE2ETest {
     }
 
     private CouponTemplate createTemplate() {
-        return couponTemplateRepository.save(CouponTemplate.create(
+        return couponTemplateRepository.save(CouponTemplate.define(
                 "테스트 쿠폰", "테스트 설명", DiscountType.FIXED, 5000, null,
                 10000, 100, 1,
                 ZonedDateTime.now().minusDays(1), ZonedDateTime.now().plusDays(30)));
     }
 
-    @DisplayName("GET /api-admin/v1/coupon-templates")
+    @DisplayName("GET /api-admin/v1/coupons")
     @Nested
     class 템플릿_목록_조회 {
 
@@ -63,7 +63,7 @@ class AdminCouponTemplateApiE2ETest {
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    "/api-admin/v1/coupon-templates", HttpMethod.GET,
+                    "/api-admin/v1/coupons", HttpMethod.GET,
                     new HttpEntity<>(adminHeaders()), ApiResponse.class);
 
             // assert
@@ -74,7 +74,7 @@ class AdminCouponTemplateApiE2ETest {
         void 인증_없이_요청하면_401_Unauthorized를_반환한다() {
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    "/api-admin/v1/coupon-templates", HttpMethod.GET,
+                    "/api-admin/v1/coupons", HttpMethod.GET,
                     new HttpEntity<>(new HttpHeaders()), ApiResponse.class);
 
             // assert
@@ -82,7 +82,7 @@ class AdminCouponTemplateApiE2ETest {
         }
     }
 
-    @DisplayName("POST /api-admin/v1/coupon-templates")
+    @DisplayName("POST /api-admin/v1/coupons")
     @Nested
     class 템플릿_생성 {
 
@@ -97,7 +97,7 @@ class AdminCouponTemplateApiE2ETest {
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    "/api-admin/v1/coupon-templates", HttpMethod.POST,
+                    "/api-admin/v1/coupons", HttpMethod.POST,
                     new HttpEntity<>(request, adminHeaders()), ApiResponse.class);
 
             // assert
@@ -105,7 +105,7 @@ class AdminCouponTemplateApiE2ETest {
         }
     }
 
-    @DisplayName("PATCH /api-admin/v1/coupon-templates/{templateId}")
+    @DisplayName("PUT /api-admin/v1/coupons/{templateId}")
     @Nested
     class 템플릿_수정 {
 
@@ -119,7 +119,7 @@ class AdminCouponTemplateApiE2ETest {
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    "/api-admin/v1/coupon-templates/" + template.getId(), HttpMethod.PATCH,
+                    "/api-admin/v1/coupons/" + template.getId(), HttpMethod.PUT,
                     new HttpEntity<>(request, adminHeaders()), ApiResponse.class);
 
             // assert
@@ -133,7 +133,7 @@ class AdminCouponTemplateApiE2ETest {
                     new AdminCouponTemplateRequest.UpdateTemplateRequest(
                             "수정", "설명", "FIXED", 1000, null, 5000);
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    "/api-admin/v1/coupon-templates/999", HttpMethod.PATCH,
+                    "/api-admin/v1/coupons/999", HttpMethod.PUT,
                     new HttpEntity<>(request, adminHeaders()), ApiResponse.class);
 
             // assert
@@ -141,7 +141,7 @@ class AdminCouponTemplateApiE2ETest {
         }
     }
 
-    @DisplayName("DELETE /api-admin/v1/coupon-templates/{templateId}")
+    @DisplayName("DELETE /api-admin/v1/coupons/{templateId}")
     @Nested
     class 템플릿_삭제 {
 
@@ -152,7 +152,7 @@ class AdminCouponTemplateApiE2ETest {
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    "/api-admin/v1/coupon-templates/" + template.getId(), HttpMethod.DELETE,
+                    "/api-admin/v1/coupons/" + template.getId(), HttpMethod.DELETE,
                     new HttpEntity<>(adminHeaders()), ApiResponse.class);
 
             // assert
@@ -163,7 +163,7 @@ class AdminCouponTemplateApiE2ETest {
         void 존재하지_않는_템플릿이면_404_Not_Found를_반환한다() {
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    "/api-admin/v1/coupon-templates/999", HttpMethod.DELETE,
+                    "/api-admin/v1/coupons/999", HttpMethod.DELETE,
                     new HttpEntity<>(adminHeaders()), ApiResponse.class);
 
             // assert

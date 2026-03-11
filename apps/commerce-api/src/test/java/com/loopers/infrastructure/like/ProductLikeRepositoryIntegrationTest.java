@@ -43,11 +43,11 @@ class ProductLikeRepositoryIntegrationTest {
     }
 
     private Brand createBrand() {
-        return brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
+        return brandRepository.save(Brand.register("나이키", "스포츠 브랜드"));
     }
 
     private Product createProduct(Long brandId, String name) {
-        return productRepository.save(Product.create(brandId, name, name + " 설명", 10000));
+        return productRepository.save(Product.register(brandId, name, name + " 설명", 10000));
     }
 
     @Nested
@@ -61,7 +61,7 @@ class ProductLikeRepositoryIntegrationTest {
             Product product = createProduct(brand.getId(), "에어맥스");
 
             // act
-            ProductLike saved = productLikeRepository.save(ProductLike.create(1L, product.getId()));
+            ProductLike saved = productLikeRepository.save(ProductLike.of(1L, product.getId()));
 
             // assert
             assertThat(saved.getId()).isNotNull();
@@ -74,7 +74,7 @@ class ProductLikeRepositoryIntegrationTest {
             Product product = createProduct(brand.getId(), "에어맥스");
 
             // act
-            ProductLike saved = productLikeRepository.save(ProductLike.create(1L, product.getId()));
+            ProductLike saved = productLikeRepository.save(ProductLike.of(1L, product.getId()));
 
             // assert
             assertThat(saved)
@@ -93,7 +93,7 @@ class ProductLikeRepositoryIntegrationTest {
             // arrange
             Brand brand = createBrand();
             Product product = createProduct(brand.getId(), "에어맥스");
-            productLikeRepository.save(ProductLike.create(1L, product.getId()));
+            productLikeRepository.save(ProductLike.of(1L, product.getId()));
 
             // act
             Optional<ProductLike> result = productLikeRepository.findByUserIdAndProductId(1L, product.getId());
@@ -121,7 +121,7 @@ class ProductLikeRepositoryIntegrationTest {
             // arrange
             Brand brand = createBrand();
             Product product = createProduct(brand.getId(), "에어맥스");
-            ProductLike saved = productLikeRepository.save(ProductLike.create(1L, product.getId()));
+            ProductLike saved = productLikeRepository.save(ProductLike.of(1L, product.getId()));
 
             // act
             productLikeRepository.delete(saved);
@@ -143,12 +143,12 @@ class ProductLikeRepositoryIntegrationTest {
             Product active = createProduct(brand.getId(), "활성상품");
             Product deleted = createProduct(brand.getId(), "삭제상품");
 
-            productLikeRepository.save(ProductLike.create(1L, active.getId()));
-            productLikeRepository.save(ProductLike.create(1L, deleted.getId()));
+            productLikeRepository.save(ProductLike.of(1L, active.getId()));
+            productLikeRepository.save(ProductLike.of(1L, deleted.getId()));
 
             // 상품 소프트 삭제
             Product loadedDeleted = productRepository.findById(deleted.getId()).orElseThrow();
-            loadedDeleted.delete();
+            loadedDeleted.discontinue();
             productRepository.save(loadedDeleted);
 
             // act
@@ -166,8 +166,8 @@ class ProductLikeRepositoryIntegrationTest {
             Product product1 = createProduct(brand.getId(), "상품1");
             Product product2 = createProduct(brand.getId(), "상품2");
 
-            productLikeRepository.save(ProductLike.create(1L, product1.getId()));
-            productLikeRepository.save(ProductLike.create(1L, product2.getId()));
+            productLikeRepository.save(ProductLike.of(1L, product1.getId()));
+            productLikeRepository.save(ProductLike.of(1L, product2.getId()));
 
             // act
             List<ProductLike> result = productLikeRepository.findActiveByUserId(1L, 0, 20);
@@ -185,9 +185,9 @@ class ProductLikeRepositoryIntegrationTest {
             Product product2 = createProduct(brand.getId(), "상품2");
             Product product3 = createProduct(brand.getId(), "상품3");
 
-            productLikeRepository.save(ProductLike.create(1L, product1.getId()));
-            productLikeRepository.save(ProductLike.create(1L, product2.getId()));
-            productLikeRepository.save(ProductLike.create(1L, product3.getId()));
+            productLikeRepository.save(ProductLike.of(1L, product1.getId()));
+            productLikeRepository.save(ProductLike.of(1L, product2.getId()));
+            productLikeRepository.save(ProductLike.of(1L, product3.getId()));
 
             // act
             List<ProductLike> result = productLikeRepository.findActiveByUserId(1L, 0, 2);
@@ -208,11 +208,11 @@ class ProductLikeRepositoryIntegrationTest {
             Product active = createProduct(brand.getId(), "활성상품");
             Product deleted = createProduct(brand.getId(), "삭제상품");
 
-            productLikeRepository.save(ProductLike.create(1L, active.getId()));
-            productLikeRepository.save(ProductLike.create(1L, deleted.getId()));
+            productLikeRepository.save(ProductLike.of(1L, active.getId()));
+            productLikeRepository.save(ProductLike.of(1L, deleted.getId()));
 
             Product loadedDeleted = productRepository.findById(deleted.getId()).orElseThrow();
-            loadedDeleted.delete();
+            loadedDeleted.discontinue();
             productRepository.save(loadedDeleted);
 
             // act
@@ -232,7 +232,7 @@ class ProductLikeRepositoryIntegrationTest {
             // arrange
             Brand brand = createBrand();
             Product product = createProduct(brand.getId(), "에어맥스");
-            productLikeRepository.save(ProductLike.create(1L, product.getId()));
+            productLikeRepository.save(ProductLike.of(1L, product.getId()));
 
             // act & assert
             assertThat(productLikeRepository.existsByUserIdAndProductId(1L, product.getId())).isTrue();

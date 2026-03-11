@@ -21,42 +21,38 @@ class IssuedCouponTest {
         @Test
         void 유효한_정보면_ISSUED_상태로_생성된다() {
             // act
-            IssuedCoupon coupon = IssuedCoupon.create(1L, 100L);
+            IssuedCoupon coupon = IssuedCoupon.issue(1L, 100L, "테스트쿠폰", DiscountType.FIXED, 1000, null);
 
             // assert
             assertThat(coupon.getStatus()).isEqualTo(IssuedCouponStatus.ISSUED);
         }
     }
 
-    @DisplayName("사용할 때,")
+    @DisplayName("사용 가능 검증할 때,")
     @Nested
-    class 사용 {
+    class 사용_가능_검증 {
 
         @Test
         void ISSUED가_아니면_예외가_발생한다() {
-            // arrange
-            IssuedCoupon coupon = IssuedCoupon.create(1L, 100L);
-            coupon.use(1L);
+            // arrange — EXPIRED 상태로 전이
+            IssuedCoupon coupon = IssuedCoupon.issue(1L, 100L, "테스트쿠폰", DiscountType.FIXED, 1000, null);
+            coupon.expire();
 
-            // act & assert — 이미 USED 상태
-            assertThatThrownBy(() -> coupon.use(2L))
+            // act & assert
+            assertThatThrownBy(() -> coupon.validateUsable())
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(CouponErrorType.INVALID_COUPON_STATUS);
         }
 
         @Test
-        void ISSUED이면_USED로_전이되고_orderId가_설정된다() {
+        void ISSUED이면_검증을_통과한다() {
             // arrange
-            IssuedCoupon coupon = IssuedCoupon.create(1L, 100L);
+            IssuedCoupon coupon = IssuedCoupon.issue(1L, 100L, "테스트쿠폰", DiscountType.FIXED, 1000, null);
 
-            // act
-            coupon.use(50L);
-
-            // assert
-            assertThat(coupon)
-                    .extracting(IssuedCoupon::getStatus, IssuedCoupon::getOrderId)
-                    .containsExactly(IssuedCouponStatus.USED, 50L);
+            // act & assert — 예외 없이 통과
+            coupon.validateUsable();
+            assertThat(coupon.getStatus()).isEqualTo(IssuedCouponStatus.ISSUED);
         }
     }
 
@@ -67,7 +63,7 @@ class IssuedCouponTest {
         @Test
         void 만료_시_EXPIRED로_전이된다() {
             // arrange
-            IssuedCoupon coupon = IssuedCoupon.create(1L, 100L);
+            IssuedCoupon coupon = IssuedCoupon.issue(1L, 100L, "테스트쿠폰", DiscountType.FIXED, 1000, null);
 
             // act
             coupon.expire();
@@ -84,7 +80,7 @@ class IssuedCouponTest {
         @Test
         void 본인_쿠폰이_아니면_예외가_발생한다() {
             // arrange
-            IssuedCoupon coupon = IssuedCoupon.create(1L, 100L);
+            IssuedCoupon coupon = IssuedCoupon.issue(1L, 100L, "테스트쿠폰", DiscountType.FIXED, 1000, null);
 
             // act & assert
             assertThatThrownBy(() -> coupon.validateOwnership(999L))

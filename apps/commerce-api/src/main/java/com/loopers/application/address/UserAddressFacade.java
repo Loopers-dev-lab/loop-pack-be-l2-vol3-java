@@ -34,6 +34,7 @@ public class UserAddressFacade {
                 .toList();
 
         return new AddressListResult(details);
+
     }
 
     /** 배송지 등록 */

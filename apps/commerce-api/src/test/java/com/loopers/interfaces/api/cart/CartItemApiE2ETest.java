@@ -74,16 +74,16 @@ class CartItemApiE2ETest {
     }
 
     private Brand createActiveBrand(String name) {
-        return brandRepository.save(Brand.create(name, name + " 설명"));
+        return brandRepository.save(Brand.register(name, name + " 설명"));
     }
 
     private Product createProduct(Long brandId, String name, ProductStatus status) {
-        Product product = Product.create(brandId, name, name + " 설명", 10000);
+        Product product = Product.register(brandId, name, name + " 설명", 10000);
         if (status != ProductStatus.ACTIVE) {
             product.changeStatus(status);
         }
         Product saved = productRepository.save(product);
-        inventoryRepository.save(Inventory.create(saved.getId(), 100));
+        inventoryRepository.save(Inventory.initialize(saved.getId(), 100));
         return saved;
     }
 
@@ -279,7 +279,7 @@ class CartItemApiE2ETest {
         @Test
         void 타인의_장바구니_항목이면_403_Forbidden을_반환한다() {
             // arrange - 다른 사용자의 장바구니 항목 직접 생성
-            CartItem otherUserItem = cartItemRepository.save(CartItem.create(999L, 100L, 3));
+            CartItem otherUserItem = cartItemRepository.save(CartItem.of(999L, 100L, 3));
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
@@ -329,7 +329,7 @@ class CartItemApiE2ETest {
         @Test
         void 타인의_장바구니_항목이면_403_Forbidden을_반환한다() {
             // arrange
-            CartItem otherUserItem = cartItemRepository.save(CartItem.create(999L, 100L, 3));
+            CartItem otherUserItem = cartItemRepository.save(CartItem.of(999L, 100L, 3));
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(

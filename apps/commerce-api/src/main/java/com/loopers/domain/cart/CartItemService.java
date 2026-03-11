@@ -28,7 +28,7 @@ public class CartItemService {
                     return cartItemRepository.save(existing);
                 })
                 .orElseGet(() -> {
-                    CartItem cartItem = CartItem.create(userId, productId, quantity);
+                    CartItem cartItem = CartItem.of(userId, productId, quantity);
                     return cartItemRepository.save(cartItem);
                 });
     }
@@ -47,7 +47,7 @@ public class CartItemService {
         CartItem cartItem = cartItemRepository.findById(cartItemId)
                 .orElseThrow(() -> new CoreException(CartItemErrorType.CART_ITEM_NOT_FOUND));
         cartItem.validateOwnership(userId);
-        cartItem.delete();
+        cartItem.remove();
         cartItemRepository.save(cartItem);
     }
 
@@ -73,7 +73,7 @@ public class CartItemService {
         List<CartItem> cartItems = cartItemRepository.findAllByIdIn(cartItemIds);
         cartItems.forEach(item -> {
             item.validateOwnership(userId);
-            item.delete();
+            item.remove();
             cartItemRepository.save(item);
         });
     }
@@ -83,7 +83,7 @@ public class CartItemService {
     public void deleteByProductId(Long productId) {
         List<CartItem> cartItems = cartItemRepository.findAllByProductId(productId);
         cartItems.forEach(cartItem -> {
-            cartItem.delete();
+            cartItem.remove();
             cartItemRepository.save(cartItem);
         });
     }

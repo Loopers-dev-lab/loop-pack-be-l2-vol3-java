@@ -21,7 +21,7 @@ class PaymentTest {
         @Test
         void 유효한_정보면_REQUESTED_상태로_생성된다() {
             // act
-            Payment payment = Payment.create(1L, 50000, "CARD", "IDEM-001");
+            Payment payment = Payment.request(1L, 50000, "CARD", "IDEM-001");
 
             // assert
             assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REQUESTED);
@@ -30,7 +30,7 @@ class PaymentTest {
         @Test
         void requestedAt이_설정된다() {
             // act
-            Payment payment = Payment.create(1L, 50000, "CARD", "IDEM-001");
+            Payment payment = Payment.request(1L, 50000, "CARD", "IDEM-001");
 
             // assert
             assertThat(payment.getRequestedAt()).isNotNull();
@@ -39,7 +39,7 @@ class PaymentTest {
         @Test
         void paymentMethod가_설정된다() {
             // act
-            Payment payment = Payment.create(1L, 50000, "CARD", "IDEM-001");
+            Payment payment = Payment.request(1L, 50000, "CARD", "IDEM-001");
 
             // assert
             assertThat(payment.getPaymentMethod()).isEqualTo("CARD");
@@ -48,7 +48,7 @@ class PaymentTest {
         @Test
         void idempotencyKey가_설정된다() {
             // act
-            Payment payment = Payment.create(1L, 50000, "CARD", "IDEM-001");
+            Payment payment = Payment.request(1L, 50000, "CARD", "IDEM-001");
 
             // assert
             assertThat(payment.getIdempotencyKey()).isEqualTo("IDEM-001");
@@ -62,7 +62,7 @@ class PaymentTest {
         @Test
         void 승인_시_APPROVED로_전이된다() {
             // arrange
-            Payment payment = Payment.create(1L, 50000, "CARD", "IDEM-001");
+            Payment payment = Payment.request(1L, 50000, "CARD", "IDEM-001");
 
             // act
             payment.approve("PG-TXN-001", 50000);
@@ -74,7 +74,7 @@ class PaymentTest {
         @Test
         void pgTxnId와_approvedAmount가_설정된다() {
             // arrange
-            Payment payment = Payment.create(1L, 50000, "CARD", "IDEM-001");
+            Payment payment = Payment.request(1L, 50000, "CARD", "IDEM-001");
 
             // act
             payment.approve("PG-TXN-001", 50000);
@@ -93,10 +93,10 @@ class PaymentTest {
         @Test
         void 실패_시_FAILED로_전이된다() {
             // arrange
-            Payment payment = Payment.create(1L, 50000, "CARD", "IDEM-001");
+            Payment payment = Payment.request(1L, 50000, "CARD", "IDEM-001");
 
             // act
-            payment.fail();
+            payment.reject();
 
             // assert
             assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
@@ -105,10 +105,10 @@ class PaymentTest {
         @Test
         void failedAt이_설정된다() {
             // arrange
-            Payment payment = Payment.create(1L, 50000, "CARD", "IDEM-001");
+            Payment payment = Payment.request(1L, 50000, "CARD", "IDEM-001");
 
             // act
-            payment.fail();
+            payment.reject();
 
             // assert
             assertThat(payment.getFailedAt()).isNotNull();
@@ -122,7 +122,7 @@ class PaymentTest {
         @Test
         void APPROVED가_아니면_예외가_발생한다() {
             // arrange
-            Payment payment = Payment.create(1L, 50000, "CARD", "IDEM-001");
+            Payment payment = Payment.request(1L, 50000, "CARD", "IDEM-001");
 
             // act & assert
             assertThatThrownBy(payment::cancel)
@@ -134,7 +134,7 @@ class PaymentTest {
         @Test
         void APPROVED이면_CANCELED로_전이된다() {
             // arrange
-            Payment payment = Payment.create(1L, 50000, "CARD", "IDEM-001");
+            Payment payment = Payment.request(1L, 50000, "CARD", "IDEM-001");
             payment.approve("PG-TXN-001", 50000);
 
             // act

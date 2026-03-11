@@ -4,6 +4,7 @@ import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.coupon.IssuedCouponRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -49,5 +50,23 @@ public class IssuedCouponRepositoryImpl implements IssuedCouponRepository {
                 .stream()
                 .map(issuedCouponMapper::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<IssuedCoupon> findAllByCouponTemplateId(Long couponTemplateId) {
+        return issuedCouponJpaRepository.findAllByCouponTemplateIdOrderByCreatedAtDesc(couponTemplateId)
+                .stream()
+                .map(issuedCouponMapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public int useAtomically(Long id, Long orderId, ZonedDateTime usedAt) {
+        return issuedCouponJpaRepository.useAtomically(id, orderId, usedAt);
+    }
+
+    @Override
+    public int restoreAtomically(Long id, Long orderId) {
+        return issuedCouponJpaRepository.restoreAtomically(id, orderId);
     }
 }
