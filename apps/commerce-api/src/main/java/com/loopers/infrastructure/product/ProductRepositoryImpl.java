@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.product;
 
+import com.loopers.application.product.ProductReadCache;
 import com.loopers.domain.PageResult;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
@@ -9,6 +10,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Collection;
 import java.util.List;
@@ -19,10 +22,13 @@ import java.util.Optional;
 public class ProductRepositoryImpl implements ProductRepository {
 
     private final ProductJpaRepository productJpaRepository;
+    private final ProductReadCache productReadCache;
 
     @Override
     public Product save(Product product) {
-        return productJpaRepository.save(product);
+        Product saved = productJpaRepository.save(product);
+        evictAfterCommit(saved.getId());
+        return saved;
     }
 
     @Override
@@ -58,16 +64,51 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public void softDeleteAllByBrandId(Long brandId) {
         productJpaRepository.softDeleteAllByBrandId(brandId);
+        evictAllAfterCommit();
     }
 
     @Override
     public int incrementLikeCount(Long id) {
-        return productJpaRepository.incrementLikeCount(id);
+        int updated = productJpaRepository.incrementLikeCount(id);
+        evictAfterCommit(id);
+        return updated;
     }
 
     @Override
     public int decrementLikeCount(Long id) {
-        return productJpaRepository.decrementLikeCount(id);
+        int updated = productJpaRepository.decrementLikeCount(id);
+        evictAfterCommit(id);
+        return updated;
+    }
+
+    private void evictAfterCommit(Long id) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        productReadCache.evict(id);
+                    }
+                }
+            );
+        } else {
+            productReadCache.evict(id);
+        }
+    }
+
+    private void evictAllAfterCommit() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        productReadCache.evictAll();
+                    }
+                }
+            );
+        } else {
+            productReadCache.evictAll();
+        }
     }
 
     private Sort toSort(ProductSortType sortType) {

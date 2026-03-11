@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.product;
 
+import com.loopers.application.product.ProductReadModel;
 import com.loopers.domain.PageResult;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.product.Product;
@@ -21,6 +22,13 @@ public class ProductV1Dto {
             return new ProductResponse(
                 product.getId(), product.getBrandId(), brand.getName(), product.getName(),
                 product.getPrice().amount(), product.getLikeCount()
+            );
+        }
+
+        public static ProductResponse from(ProductReadModel product, Brand brand) {
+            return new ProductResponse(
+                product.id(), product.brandId(), brand.getName(), product.name(),
+                product.price(), product.likeCount()
             );
         }
     }
