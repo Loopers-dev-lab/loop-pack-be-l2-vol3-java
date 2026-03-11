@@ -25,6 +25,15 @@ public class UserAddress {
 
     private UserAddress(Long userId, String receiverName, String phone,
                         String zipCode, String addressLine1, String addressLine2) {
+        if (receiverName == null || receiverName.isBlank()) {
+            throw new CoreException(UserAddressErrorType.INVALID_RECEIVER_NAME);
+        }
+        if (phone == null || phone.isBlank()) {
+            throw new CoreException(UserAddressErrorType.INVALID_PHONE);
+        }
+        if (zipCode == null || zipCode.isBlank() || addressLine1 == null || addressLine1.isBlank()) {
+            throw new CoreException(UserAddressErrorType.INVALID_ADDRESS);
+        }
         this.userId = userId;
         this.receiverName = receiverName;
         this.phone = phone;
