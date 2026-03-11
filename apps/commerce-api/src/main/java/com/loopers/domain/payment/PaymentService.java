@@ -16,6 +16,10 @@ public class PaymentService {
 
     @Transactional
     public Payment create(Long orderId, int requestedAmount, String paymentMethod, String idempotencyKey) {
+        paymentRepository.findByIdempotencyKey(idempotencyKey)
+                .ifPresent(existing -> {
+                    throw new CoreException(PaymentErrorType.DUPLICATE_IDEMPOTENCY_KEY);
+                });
         Payment payment = Payment.request(orderId, requestedAmount, paymentMethod, idempotencyKey);
         return paymentRepository.save(payment);
     }

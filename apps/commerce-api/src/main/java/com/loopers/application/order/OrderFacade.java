@@ -265,7 +265,7 @@ public class OrderFacade {
                 paymentService.fail(context.paymentId());
 
                 if (context.issuedCouponId() != null) {
-                    couponService.restore(context.issuedCouponId());
+                    couponService.restore(context.issuedCouponId(), context.orderId());
                 }
                 if (context.pointAmount() > 0) {
                     pointService.refund(context.userId(), context.pointAmount());
