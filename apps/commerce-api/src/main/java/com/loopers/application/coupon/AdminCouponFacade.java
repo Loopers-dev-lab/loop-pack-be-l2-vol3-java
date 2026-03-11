@@ -79,15 +79,17 @@ public class AdminCouponFacade {
     public IssuedCouponListResult getIssuedCoupons(Long templateId, int page, int size) {
         couponService.getTemplate(templateId);
         List<IssuedCoupon> issuedCoupons = couponService.getIssuedCouponsByTemplateId(templateId);
-        int start = Math.min(page * size, issuedCoupons.size());
-        int end = Math.min(start + size, issuedCoupons.size());
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, size);
+        int start = Math.min(safePage * safeSize, issuedCoupons.size());
+        int end = Math.min(start + safeSize, issuedCoupons.size());
         List<IssuedCouponSummary> summaries = issuedCoupons.subList(start, end).stream()
                 .map(c -> new IssuedCouponSummary(
                         c.getId(), c.getUserId(), c.getStatus().name(),
                         c.getOrderId(), c.getUsedAt(), c.getCreatedAt()))
                 .toList();
-        return new IssuedCouponListResult(summaries, page, size, issuedCoupons.size(),
-                size > 0 ? (int) Math.ceil((double) issuedCoupons.size() / size) : 0);
+        return new IssuedCouponListResult(summaries, safePage, safeSize, issuedCoupons.size(),
+                (int) Math.ceil((double) issuedCoupons.size() / safeSize));
     }
 
     private TemplateDetail toDetail(CouponTemplate t) {
