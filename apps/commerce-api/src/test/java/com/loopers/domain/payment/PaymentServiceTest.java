@@ -37,6 +37,7 @@ class PaymentServiceTest {
         @Test
         void 유효한_정보면_REQUESTED_상태로_생성된다() {
             // arrange
+            when(paymentRepository.findByIdempotencyKey("IDEM-001")).thenReturn(Optional.empty());
             when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // act
@@ -49,6 +50,7 @@ class PaymentServiceTest {
         @Test
         void 생성_시_save가_호출된다() {
             // arrange
+            when(paymentRepository.findByIdempotencyKey("IDEM-001")).thenReturn(Optional.empty());
             when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // act
@@ -56,6 +58,19 @@ class PaymentServiceTest {
 
             // assert
             verify(paymentRepository).save(any(Payment.class));
+        }
+
+        @Test
+        void 중복_멱등성키면_DUPLICATE_IDEMPOTENCY_KEY_예외가_발생한다() {
+            // arrange
+            Payment existing = Payment.request(1L, 50000, "CARD", "IDEM-001");
+            when(paymentRepository.findByIdempotencyKey("IDEM-001")).thenReturn(Optional.of(existing));
+
+            // act & assert
+            assertThatThrownBy(() -> paymentService.create(2L, 30000, "CARD", "IDEM-001"))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(PaymentErrorType.DUPLICATE_IDEMPOTENCY_KEY);
         }
     }
 
