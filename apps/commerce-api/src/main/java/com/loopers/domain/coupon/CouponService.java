@@ -31,15 +31,15 @@ public class CouponService {
         }
         template.assertIssuable(java.time.ZonedDateTime.now());
 
-        // 전체 발급 한도 체크 (Race Condition 해결: Template에 FOR UPDATE 락 + atomic increment)
-        template.incrementIssuedCount();
-        couponTemplateRepository.save(template);  // issuedCount 업데이트
-
-        // 사용자별 발급 한도 체크 (비관적 락 내에서 수행)
+        // 사용자별 발급 한도 체크 (비관적 락 내에서 먼저 수행 — 불필요한 write 방지)
         long userIssued = issuedCouponRepository.countByCouponTemplateIdAndUserId(templateId, userId);
         if (userIssued >= template.getMaxIssueCountPerUser()) {
             throw new CoreException(CouponErrorType.USER_ISSUE_LIMIT_EXCEEDED);
         }
+
+        // 전체 발급 한도 체크 (Race Condition 해결: Template에 FOR UPDATE 락 + atomic increment)
+        template.incrementIssuedCount();
+        couponTemplateRepository.save(template);  // issuedCount 업데이트
 
         IssuedCoupon issuedCoupon = IssuedCoupon.issue(templateId, userId,
                 template.getName(), template.getDiscountType(),
