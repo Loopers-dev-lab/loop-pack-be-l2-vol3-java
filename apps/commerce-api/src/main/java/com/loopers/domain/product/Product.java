@@ -6,6 +6,7 @@ import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 import com.loopers.domain.BaseEntity;
@@ -18,7 +19,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "product")
+@Table(name = "product", indexes = {
+        @Index(name = "idx_product_like_count", columnList = "like_count DESC"),
+        @Index(name = "idx_product_created_at", columnList = "created_at DESC"),
+        @Index(name = "idx_product_price", columnList = "price ASC"),
+        @Index(name = "idx_product_brand_like_count", columnList = "brand_id, like_count DESC"),
+        @Index(name = "idx_product_brand_created_at", columnList = "brand_id, created_at DESC"),
+        @Index(name = "idx_product_brand_price", columnList = "brand_id, price ASC")
+})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
 public class Product extends BaseEntity {
@@ -60,6 +68,14 @@ public class Product extends BaseEntity {
 
     public void deductStock(Long quantity) {
         this.stock.deduct(quantity);
+    }
+
+    /**
+     * 좋아요 수를 delta만큼 조정한다. 캐시 Write-Through 전용.
+     * DB의 좋아요 수는 별도의 atomic 쿼리로 관리된다.
+     */
+    public void adjustLikeCount(int delta) {
+        this.likeCount = Math.max(0, this.likeCount + delta);
     }
 
     public void update(ModifyProduct product) {
