@@ -123,7 +123,10 @@ public class ProductService {
 
     @Transactional
     public void incrementLikeCount(Long id) {
-        productRepository.incrementLikeCount(id);
+        int affected = productRepository.incrementLikeCount(id);
+        if (affected == 0) {
+            throw new CoreException(ProductErrorType.PRODUCT_NOT_FOUND);
+        }
     }
 
     @Transactional

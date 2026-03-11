@@ -192,13 +192,13 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public void incrementLikeCount(Long id) {
-        productJpaRepository.incrementLikeCount(id);
+    public int incrementLikeCount(Long id) {
+        return productJpaRepository.incrementLikeCount(id);
     }
 
     @Override
-    public void decrementLikeCount(Long id) {
-        productJpaRepository.decrementLikeCount(id);
+    public int decrementLikeCount(Long id) {
+        return productJpaRepository.decrementLikeCount(id);
     }
 
     /** brandId가 null이면 필터 미적용 */
