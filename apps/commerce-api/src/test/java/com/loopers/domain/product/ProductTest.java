@@ -48,7 +48,7 @@ public class ProductTest {
 
             assertThat(product).isNotNull();
             assertThat(product.getId()).isNull();
-            assertThat(product.getName()).isEqualTo(DEFAULT_NAME);
+            assertThat(product.getName().value()).isEqualTo(DEFAULT_NAME);
             assertThat(product.getRefBrandId()).isEqualTo(DEFAULT_REF_BRAND_ID);
             assertThat(product.getPrice()).isEqualTo(new Money(DEFAULT_PRICE));
             assertThat(product.getStock()).isEqualTo(DEFAULT_STOCK);
@@ -62,7 +62,7 @@ public class ProductTest {
         void fail_when_invalid_name(String name) {
             assertCoreException(
                 () -> createProduct(null, name, DEFAULT_REF_BRAND_ID, DEFAULT_PRICE, DEFAULT_STOCK, DEFAULT_LIKE_COUNT),
-                "상품 이름은 필수 입니다"
+                ErrorMessage.Name.NAME_REQUIRED
             );
         }
 

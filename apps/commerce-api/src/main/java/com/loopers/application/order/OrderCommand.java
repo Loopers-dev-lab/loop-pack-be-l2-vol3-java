@@ -4,6 +4,7 @@ import java.util.Map;
 
 public record OrderCommand(
     Long userId,
-    Map<Long, Integer> productQuantities
+    Map<Long, Integer> productQuantities,
+    Long couponId
 ) {
 }

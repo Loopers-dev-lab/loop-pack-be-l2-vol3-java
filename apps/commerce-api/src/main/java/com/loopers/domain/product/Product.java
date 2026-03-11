@@ -1,6 +1,7 @@
 package com.loopers.domain.product;
 
 import com.loopers.domain.common.Money;
+import com.loopers.domain.common.Name;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorMessage;
 import com.loopers.support.error.ErrorType;
@@ -13,12 +14,12 @@ public class Product {
     private final Long id;
     private final Long refBrandId;
 
-    private String name;
+    private Name name;
     private Money price;
     private Integer stock;
     private Integer likeCount;
 
-    private Product(Long id, String name, Long refBrandId, Money price, Integer stock, Integer likeCount) {
+    private Product(Long id, Name name, Long refBrandId, Money price, Integer stock, Integer likeCount) {
         this.id = id;
         this.name = name;
         this.refBrandId = refBrandId;
@@ -28,18 +29,11 @@ public class Product {
     }
 
     public static Product create(Long id, String name, Long refBrandId, Integer price, Integer stock, Integer likeCount) {
-        validateName(name);
         validateBrandId(refBrandId);
         validateStock(stock);
         validateLike(likeCount);
 
-        return new Product(id, name, refBrandId, new Money(price), stock, likeCount);
-    }
-
-    private static void validateName(String name) {
-        if (name == null || name.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, ErrorMessage.Product.PRODUCT_NAME_REQUIRED);
-        }
+        return new Product(id, new Name(name), refBrandId, new Money(price), stock, likeCount);
     }
 
     private static void validateBrandId(Long refBrand) {
@@ -93,7 +87,7 @@ public class Product {
         return id;
     }
 
-    public String getName() {
+    public Name getName() {
         return name;
     }
 

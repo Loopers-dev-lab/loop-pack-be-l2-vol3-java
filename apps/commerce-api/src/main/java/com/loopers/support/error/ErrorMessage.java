@@ -31,6 +31,15 @@ public final class ErrorMessage {
     }
 
     /**
+     * Name VO 관련 에러 메시지
+     */
+    public static final class Name {
+        private Name() {}
+
+        public static final String NAME_REQUIRED = "이름은 필수입니다";
+    }
+
+    /**
      * Money VO 관련 에러 메시지
      */
     public static final class Money {
@@ -50,7 +59,6 @@ public final class ErrorMessage {
         public static final String PRODUCT_ID_LIST_REQUIRED = "상품 ID 목록은 필수입니다";
         public static final String PRODUCT_ID_LIST_CONTAINS_INVALID = "존재하지 않는 상품이 포함되어 있습니다";
         public static final String SEARCH_CONDITION_REQUIRED = "검색 조건은 필수입니다";
-        public static final String PRODUCT_NAME_REQUIRED = "상품 이름은 필수 입니다";
         public static final String BRAND_ID_INVALID = "브랜드FK는 null이거나 0이하가 될 수 없습니다";
         public static final String STOCK_INVALID = "상품 재고는 null이거나 음수가 될 수 없습니다";
         public static final String LIKE_COUNT_INVALID = "좋아요 수는 null이거나 음수가 될 수 없습니다";
@@ -66,7 +74,6 @@ public final class ErrorMessage {
         private Brand() {}
 
         public static final String BRAND_NOT_FOUND = "브랜드를 찾을 수 없습니다";
-        public static final String BRAND_NAME_REQUIRED = "브랜드 이름은 필수 입니다";
     }
 
     /**
@@ -100,6 +107,24 @@ public final class ErrorMessage {
     }
 
     /**
+     * Coupon 도메인 관련 에러 메시지
+     */
+    public static final class Coupon {
+        private Coupon() {}
+
+        public static final String COUPON_NOT_FOUND = "쿠폰을 찾을 수 없습니다.";
+        public static final String COUPON_TEMPLATE_NOT_FOUND = "쿠폰 템플릿을 찾을 수 없습니다.";
+        public static final String USER_ID_INVALID = "유저FK는 null이거나 0이하가 될 수 없습니다";
+        public static final String DISCOUNT_TYPE_REQUIRED = "할인 유형은 필수입니다";
+        public static final String EXPIRED_AT_REQUIRED = "만료 일시는 필수입니다";
+        public static final String EXPIRED_AT_MUST_BE_FUTURE = "만료 일시는 현재 시간 이후여야 합니다";
+        public static final String COUPON_ALREADY_USED = "이미 사용된 쿠폰입니다.";
+        public static final String COUPON_EXPIRED = "만료된 쿠폰입니다.";
+        public static final String COUPON_NOT_OWNED = "본인 소유의 쿠폰이 아닙니다.";
+        public static final String MIN_ORDER_AMOUNT_NOT_MET = "최소 주문 금액을 충족하지 않습니다.";
+    }
+
+    /**
      * Example 도메인 관련 에러 메시지
      */
     public static final class Example {
@@ -117,5 +142,7 @@ public final class ErrorMessage {
         private Auth() {}
 
         public static final String AUTH_HEADER_MISSING = "인증 헤더가 누락되었습니다.";
+        public static final String ADMIN_AUTH_HEADER_MISSING = "관리자 인증 헤더가 누락되었습니다.";
+        public static final String ADMIN_AUTH_FAILED = "관리자 인증에 실패했습니다.";
     }
 }

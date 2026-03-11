@@ -1,0 +1,21 @@
+### 브랜드 생성
+POST {{commerce-api}}/api/v1/brands
+Content-Type: application/json
+
+{
+  "name": "나이키",
+  "description": "스포츠 브랜드"
+}
+
+### 브랜드 조회
+GET {{commerce-api}}/api/v1/brands/1
+Content-Type: application/json
+
+### 브랜드 수정
+PUT {{commerce-api}}/api/v1/brands/1
+Content-Type: application/json
+
+{
+  "name": "나이키 코리아",
+  "description": "스포츠 의류 및 신발 브랜드"
+}

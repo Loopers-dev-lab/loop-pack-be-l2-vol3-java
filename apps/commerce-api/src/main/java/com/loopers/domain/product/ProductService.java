@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -15,6 +16,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
 
+    @Transactional
     public List<Product> createProducts(Map<Long, CreateProductRequest> createProductsCommand) {
         if (createProductsCommand == null || createProductsCommand.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, ErrorMessage.Product.CREATE_PRODUCT_REQUEST_REQUIRED);
@@ -38,29 +40,31 @@ public class ProductService {
         return createdProducts;
     }
 
+    @Transactional
     public void increaseLikeCount(Long productId) {
-        Product product = getById(productId);
-        product.increaseLikeCount();
-        productRepository.update(product);
+        productRepository.incrementLikeCount(productId);
     }
 
+    @Transactional
     public void decreaseLikeCount(Long productId) {
-        Product product = getById(productId);
-        product.decreaseLikeCount();
-        productRepository.update(product);
+        productRepository.decrementLikeCount(productId);
     }
 
+    @Transactional
     public void decreaseStock(Long productId, Integer decreaseStock) {
-        Product product = getById(productId);
+        Product product = productRepository.findByIdWithLock(productId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, ErrorMessage.Product.PRODUCT_NOT_FOUND));
         product.decreaseStock(decreaseStock);
         productRepository.update(product);
     }
 
+    @Transactional(readOnly = true)
     public Product getById(Long id) {
         return productRepository.findById(id)
-            .orElseThrow(() -> new CoreException(ErrorType.BAD_REQUEST, ErrorMessage.Product.PRODUCT_NOT_FOUND));
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, ErrorMessage.Product.PRODUCT_NOT_FOUND));
     }
 
+    @Transactional(readOnly = true)
     public List<Product> getByIds(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, ErrorMessage.Product.PRODUCT_ID_LIST_REQUIRED);
@@ -72,6 +76,7 @@ public class ProductService {
         return products;
     }
 
+    @Transactional(readOnly = true)
     public List<Product> findProducts(ProductSearchCondition condition) {
         if (condition == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, ErrorMessage.Product.SEARCH_CONDITION_REQUIRED);

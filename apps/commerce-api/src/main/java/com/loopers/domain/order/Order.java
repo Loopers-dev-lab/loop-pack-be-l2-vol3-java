@@ -15,19 +15,26 @@ public class Order {
 
     private final Long id;
     private final Long refUserId;
+    private final Long refCouponId;
 
     private OrderStatus status;
-    private Money totalPrice;
+    private Money originalPrice;  // 쿠폰 적용 전 금액
+    private Money discountAmount; // 할인 금액
+    private Money totalPrice;     // 최종 결제 금액
     private ZonedDateTime orderDt;
 
     // 애그리거트 내부 엔티티 컬렉션
     private final List<OrderItem> items = new ArrayList<>();
     private final List<OrderStatusHistory> histories = new ArrayList<>();
 
-    private Order(Long id, Long refUserId, OrderStatus status, Money totalPrice, ZonedDateTime orderDt) {
+    private Order(Long id, Long refUserId, Long refCouponId, OrderStatus status,
+                  Money originalPrice, Money discountAmount, Money totalPrice, ZonedDateTime orderDt) {
         this.id = id;
         this.refUserId = refUserId;
+        this.refCouponId = refCouponId;
         this.status = status;
+        this.originalPrice = originalPrice;
+        this.discountAmount = discountAmount;
         this.totalPrice = totalPrice;
         this.orderDt = orderDt;
     }
@@ -36,19 +43,22 @@ public class Order {
         validateRefUserId(refUserId);
         validateOrderDt(orderDt);
 
-        return new Order(id, refUserId, status, new Money(totalPrice), orderDt);
+        Money price = new Money(totalPrice);
+        return new Order(id, refUserId, null, status, price, Money.ZERO, price, orderDt);
     }
 
     /**
      * 저장소에서 복원할 때 사용하는 팩토리 메서드
      * items와 histories를 함께 받아서 복원한다.
      */
-    public static Order restore(Long id, Long refUserId, OrderStatus status, Integer totalPrice,
+    public static Order restore(Long id, Long refUserId, Long refCouponId, OrderStatus status,
+                                Integer originalPrice, Integer discountAmount, Integer totalPrice,
                                 ZonedDateTime orderDt, List<OrderItem> items, List<OrderStatusHistory> histories) {
         validateRefUserId(refUserId);
         validateOrderDt(orderDt);
 
-        Order order = new Order(id, refUserId, status, new Money(totalPrice), orderDt);
+        Order order = new Order(id, refUserId, refCouponId, status,
+            new Money(originalPrice), new Money(discountAmount), new Money(totalPrice), orderDt);
         if (items != null) {
             order.items.addAll(items);
         }
@@ -59,26 +69,37 @@ public class Order {
     }
 
     /**
-     * 주문 애그리거트 생성 팩토리
-     * - 주문자, 주문 아이템 스펙, 주문 시각을 받아 애그리거트를 구성한다.
-     * - 현재 단계에서는 OrderItem / OrderStatusHistory 컬렉션을 조립하는 책임만 추가한다.
+     * 주문 애그리거트 생성 팩토리 (쿠폰 미적용)
      */
     public static Order place(Long userId, List<OrderItemSpec> itemSpecs, ZonedDateTime now) {
+        return place(userId, itemSpecs, null, Money.ZERO, now);
+    }
+
+    /**
+     * 주문 애그리거트 생성 팩토리 (쿠폰 적용)
+     * - 주문자, 주문 아이템 스펙, 쿠폰 ID, 할인 금액, 주문 시각을 받아 애그리거트를 구성한다.
+     */
+    public static Order place(Long userId, List<OrderItemSpec> itemSpecs, Long couponId, Money discount, ZonedDateTime now) {
         validateRefUserId(userId);
         if (itemSpecs == null || itemSpecs.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, ErrorMessage.Order.ORDER_ITEMS_EMPTY);
         }
         validateOrderDt(now);
 
-        Money total = itemSpecs.stream()
+        Money originalTotal = itemSpecs.stream()
             .map(spec -> spec.price().multiply(spec.quantity()))
             .reduce(Money.ZERO, Money::add);
+
+        Money finalTotal = originalTotal.subtract(discount);
 
         Order order = new Order(
             null,
             userId,
+            couponId,
             OrderStatus.ORDERED,
-            total,
+            originalTotal,
+            discount,
+            finalTotal,
             now
         );
 
@@ -149,8 +170,20 @@ public class Order {
         return refUserId;
     }
 
+    public Long getRefCouponId() {
+        return refCouponId;
+    }
+
     public OrderStatus getStatus() {
         return status;
+    }
+
+    public Money getOriginalPrice() {
+        return originalPrice;
+    }
+
+    public Money getDiscountAmount() {
+        return discountAmount;
     }
 
     public Money getTotalPrice() {

@@ -17,12 +17,12 @@ public record ProductInfo(
     public static ProductInfo of(Product product, Brand brand) {
         return new ProductInfo(
             product.getId(),
-            product.getName(),
+            product.getName().value(),
             product.getPrice().value(),
             product.getStock(),
             product.getLikeCount(),
             brand.getId(),
-            brand.getName(),
+            brand.getName().value(),
             brand.getDescription()
         );
     }

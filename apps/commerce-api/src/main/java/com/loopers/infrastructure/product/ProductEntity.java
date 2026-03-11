@@ -37,9 +37,10 @@ public class ProductEntity extends BaseEntity {
     private Integer likeCount;
 
     public ProductEntity(Product product) {
-        this.name = product.getName();
+        this.name = product.getName().value();
         this.refBrandId = product.getRefBrandId();
         this.price = product.getPrice().value();
+        this.stock = product.getStock();
         this.likeCount = product.getLikeCount();
     }
 
@@ -59,10 +60,11 @@ public class ProductEntity extends BaseEntity {
     }
 
     public void update(Product product) {
-        this.name = product.getName();
+        this.name = product.getName().value();
         this.refBrandId = product.getRefBrandId();
         this.price = product.getPrice().value();
         this.stock = product.getStock();
+        this.likeCount = product.getLikeCount();
     }
 
     public String getName() {

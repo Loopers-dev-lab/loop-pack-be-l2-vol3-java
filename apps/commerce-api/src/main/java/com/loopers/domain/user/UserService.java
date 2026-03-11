@@ -3,11 +3,11 @@ package com.loopers.domain.user;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorMessage;
 import com.loopers.support.error.ErrorType;
-import jakarta.transaction.Transactional;
 import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @AllArgsConstructor
@@ -31,6 +31,7 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    @Transactional(readOnly = true)
     public UserModel authenticate(String loginId, String rawPassword) {
         UserModel user = userRepository.findByLoginId(loginId)
             .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, ErrorMessage.User.INVALID_LOGIN_INFO));
@@ -40,10 +41,12 @@ public class UserService {
         return user;
     }
 
+    @Transactional(readOnly = true)
     public Boolean existsByEmail(String email) {
         return userRepository.existsByEmail(email);
     }
 
+    @Transactional(readOnly = true)
     public UserModel findById(Long id) {
         return userRepository.findById(id)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, ErrorMessage.User.USER_NOT_FOUND));

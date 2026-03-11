@@ -33,12 +33,24 @@ public class OrderEntity extends BaseEntity {
     @Column(name = "ref_user_id", nullable = false, updatable = false)
     private Long refUserId;
 
+    @Comment("쿠폰 id (ref)")
+    @Column(name = "ref_coupon_id")
+    private Long refCouponId;
+
     @Comment("주문 상태")
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private OrderStatus status;
 
-    @Comment("총 주문 금액")
+    @Comment("쿠폰 적용 전 금액")
+    @Column(name = "original_price", nullable = false)
+    private Integer originalPrice;
+
+    @Comment("할인 금액")
+    @Column(name = "discount_amount", nullable = false)
+    private Integer discountAmount;
+
+    @Comment("최종 결제 금액")
     @Column(name = "total_price", nullable = false)
     private Integer totalPrice;
 
@@ -54,9 +66,13 @@ public class OrderEntity extends BaseEntity {
     @JoinColumn(name = "ref_order_id", nullable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
     private List<OrderStatusHistoryEntity> histories = new ArrayList<>();
 
-    private OrderEntity(Long refUserId, OrderStatus status, Integer totalPrice, ZonedDateTime orderDt) {
+    private OrderEntity(Long refUserId, Long refCouponId, OrderStatus status,
+                        Integer originalPrice, Integer discountAmount, Integer totalPrice, ZonedDateTime orderDt) {
         this.refUserId = refUserId;
+        this.refCouponId = refCouponId;
         this.status = status;
+        this.originalPrice = originalPrice;
+        this.discountAmount = discountAmount;
         this.totalPrice = totalPrice;
         this.orderDt = orderDt;
     }
@@ -64,7 +80,10 @@ public class OrderEntity extends BaseEntity {
     public static OrderEntity create(Order order) {
         OrderEntity entity = new OrderEntity(
             order.getRefUserId(),
+            order.getRefCouponId(),
             order.getStatus(),
+            order.getOriginalPrice().value(),
+            order.getDiscountAmount().value(),
             order.getTotalPrice().value(),
             order.getOrderDt()
         );
@@ -92,7 +111,10 @@ public class OrderEntity extends BaseEntity {
         return Order.restore(
             this.getId(),
             this.refUserId,
+            this.refCouponId,
             this.status,
+            this.originalPrice,
+            this.discountAmount,
             this.totalPrice,
             this.orderDt,
             domainItems,

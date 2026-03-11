@@ -31,7 +31,7 @@ public class BrandEntity extends BaseEntity {
 
     public static BrandEntity create(Brand brand) {
         return new BrandEntity(
-            brand.getName(),
+            brand.getName().value(),
             brand.getDescription()
         );
     }
@@ -41,7 +41,7 @@ public class BrandEntity extends BaseEntity {
     }
 
     public void update(Brand brand) {
-        this.name = brand.getName();
+        this.name = brand.getName().value();
         this.description = brand.getDescription();
     }
 

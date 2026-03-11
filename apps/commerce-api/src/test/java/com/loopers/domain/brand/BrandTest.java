@@ -1,6 +1,7 @@
 package com.loopers.domain.brand;
 
 import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorMessage;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,7 +22,7 @@ class BrandTest {
 
         Brand brand = Brand.create(null, name, description);
 
-        Assertions.assertThat(brand.getName()).isEqualTo(name);
+        Assertions.assertThat(brand.getName().value()).isEqualTo(name);
         Assertions.assertThat(brand.getDescription()).isEqualTo(description);
     }
 
@@ -34,7 +35,7 @@ class BrandTest {
 
         Assertions.assertThatThrownBy(() -> Brand.create(null, name, description))
             .isInstanceOf(CoreException.class)
-            .hasMessage("브랜드 이름은 필수 입니다");
+            .hasMessage(ErrorMessage.Name.NAME_REQUIRED);
     }
 
     @DisplayName("브랜드 이름이 유효하지 않다면, 수정시 예외를 던진다")
@@ -46,6 +47,6 @@ class BrandTest {
 
         Assertions.assertThatThrownBy(() -> brand.update(name, "description2"))
             .isInstanceOf(CoreException.class)
-            .hasMessage("브랜드 이름은 필수 입니다");
+            .hasMessage(ErrorMessage.Name.NAME_REQUIRED);
     }
 }

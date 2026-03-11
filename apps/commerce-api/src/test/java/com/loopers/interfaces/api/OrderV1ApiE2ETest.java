@@ -93,7 +93,8 @@ class OrderV1ApiE2ETest {
                 List.of(
                     new OrderV1Dto.OrderItemRequest(product1.getId(), 2),
                     new OrderV1Dto.OrderItemRequest(product2.getId(), 1)
-                )
+                ),
+                null
             );
             var responseType = new ParameterizedTypeReference<ApiResponse<OrderV1Dto.CreateOrderResponse>>() {};
 
@@ -119,7 +120,8 @@ class OrderV1ApiE2ETest {
             String url = "/api/v1/orders";
             HttpHeaders headers = createAuthHeaders();
             OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
-                List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 10))
+                List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 10)),
+                null
             );
             var responseType = new ParameterizedTypeReference<ApiResponse<OrderV1Dto.CreateOrderResponse>>() {};
 
@@ -139,7 +141,8 @@ class OrderV1ApiE2ETest {
             String url = "/api/v1/orders";
             HttpHeaders headers = createAuthHeaders();
             OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
-                List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 10))
+                List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 10)),
+                null
             );
             var responseType = new ParameterizedTypeReference<ApiResponse<OrderV1Dto.CreateOrderResponse>>() {};
 
@@ -155,7 +158,8 @@ class OrderV1ApiE2ETest {
             String url = "/api/v1/orders";
             HttpHeaders headers = createAuthHeaders();
             OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
-                List.of(new OrderV1Dto.OrderItemRequest(99999L, 1))
+                List.of(new OrderV1Dto.OrderItemRequest(99999L, 1)),
+                null
             );
             var responseType = new ParameterizedTypeReference<ApiResponse<OrderV1Dto.CreateOrderResponse>>() {};
 
@@ -170,7 +174,7 @@ class OrderV1ApiE2ETest {
         void fail_when_order_items_empty() {
             String url = "/api/v1/orders";
             HttpHeaders headers = createAuthHeaders();
-            OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(List.of());
+            OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(List.of(), null);
             var responseType = new ParameterizedTypeReference<ApiResponse<OrderV1Dto.CreateOrderResponse>>() {};
 
             ResponseEntity<ApiResponse<OrderV1Dto.CreateOrderResponse>> response =
@@ -190,7 +194,8 @@ class OrderV1ApiE2ETest {
             HttpHeaders headers = new HttpHeaders();
             headers.set("Content-Type", "application/json");
             OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
-                List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 1))
+                List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 1)),
+                null
             );
             var responseType = new ParameterizedTypeReference<ApiResponse<OrderV1Dto.CreateOrderResponse>>() {};
 

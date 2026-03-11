@@ -37,6 +37,12 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public Optional<Product> findByIdWithLock(Long id) {
+        return productJpaRepository.findByIdWithLock(id)
+            .map(ProductEntity::toDomain);
+    }
+
+    @Override
     public List<Product> findByIds(List<Long> ids) {
         return productJpaRepository.findAllById(ids).stream()
             .map(ProductEntity::toDomain)
@@ -74,5 +80,15 @@ public class ProductRepositoryImpl implements ProductRepository {
             case PRICE_ASC -> productEntity.price.asc();
             case LIKES_DESC -> productEntity.likeCount.desc();
         };
+    }
+
+    @Override
+    public void incrementLikeCount(Long id) {
+        productJpaRepository.incrementLikeCount(id);
+    }
+
+    @Override
+    public void decrementLikeCount(Long id) {
+        productJpaRepository.decrementLikeCount(id);
     }
 }

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -16,6 +17,7 @@ public class OrderItemService {
 
     private final OrderItemRepository orderItemRepository;
 
+    @Transactional
     public void createOrderItems(Long orderId, List<Product> products, Map<Long, Integer> productQuantities) {
         if (products == null || products.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, ErrorMessage.Order.ORDER_ITEMS_EMPTY);

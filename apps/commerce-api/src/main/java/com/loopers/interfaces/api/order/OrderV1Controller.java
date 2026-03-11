@@ -27,7 +27,8 @@ public class OrderV1Controller {
     ) {
         OrderCommand command = new OrderCommand(
             user.getId(),
-            request.toProductQuantities()
+            request.toProductQuantities(),
+            request.couponId()
         );
         OrderInfo orderInfo = orderFacade.order(command);
         return ApiResponse.success(OrderV1Dto.CreateOrderResponse.from(orderInfo));

@@ -17,7 +17,9 @@ public class OrderV1Dto {
 
         @NotEmpty(message = "주문 상품은 필수입니다")
         @Valid
-        List<OrderItemRequest> items
+        List<OrderItemRequest> items,
+
+        Long couponId
     ) {
         public Map<Long, Integer> toProductQuantities() {
             return items.stream()
@@ -42,7 +44,10 @@ public class OrderV1Dto {
     public record CreateOrderResponse(
         Long id,
         Long userId,
+        Long couponId,
         OrderStatus status,
+        Integer originalPrice,
+        Integer discountAmount,
         Integer totalPrice,
         ZonedDateTime orderDt
     ) {
@@ -51,7 +56,10 @@ public class OrderV1Dto {
             return new CreateOrderResponse(
                 orderInfo.id(),
                 orderInfo.userId(),
+                orderInfo.couponId(),
                 orderInfo.status(),
+                orderInfo.originalPrice(),
+                orderInfo.discountAmount(),
                 orderInfo.totalPrice(),
                 orderInfo.orderDt()
             );
