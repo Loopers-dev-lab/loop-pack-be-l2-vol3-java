@@ -66,7 +66,7 @@ public class IssuedCouponRepositoryImpl implements IssuedCouponRepository {
     }
 
     @Override
-    public int restoreAtomically(Long id) {
-        return issuedCouponJpaRepository.restoreAtomically(id);
+    public int restoreAtomically(Long id, Long orderId) {
+        return issuedCouponJpaRepository.restoreAtomically(id, orderId);
     }
 }

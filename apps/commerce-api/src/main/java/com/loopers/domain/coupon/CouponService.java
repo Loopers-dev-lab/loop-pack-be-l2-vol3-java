@@ -73,8 +73,8 @@ public class CouponService {
      * SQL WHERE status='USED' 조건으로 안전하게 복원한다.
      */
     @Transactional(timeout = 30)
-    public void restore(Long issuedCouponId) {
-        int affected = issuedCouponRepository.restoreAtomically(issuedCouponId);
+    public void restore(Long issuedCouponId, Long orderId) {
+        int affected = issuedCouponRepository.restoreAtomically(issuedCouponId, orderId);
         if (affected == 0) {
             throw new CoreException(CouponErrorType.INVALID_COUPON_STATUS);
         }

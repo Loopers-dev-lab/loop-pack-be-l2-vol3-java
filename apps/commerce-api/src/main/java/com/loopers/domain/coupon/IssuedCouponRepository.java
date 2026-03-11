@@ -12,5 +12,5 @@ public interface IssuedCouponRepository {
     List<IssuedCoupon> findAllByUserId(Long userId);
     List<IssuedCoupon> findAllByCouponTemplateId(Long couponTemplateId);
     int useAtomically(Long id, Long orderId, ZonedDateTime usedAt);
-    int restoreAtomically(Long id);
+    int restoreAtomically(Long id, Long orderId);
 }
