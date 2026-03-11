@@ -121,6 +121,7 @@ public class ProductService {
         return productRepository.findAllByIdIn(ids);
     }
 
+    /** 좋아요 수 증가 — affected rows 0이면 상품 미존재로 판단 */
     @Transactional
     public void incrementLikeCount(Long id) {
         int affected = productRepository.incrementLikeCount(id);
@@ -129,6 +130,7 @@ public class ProductService {
         }
     }
 
+    /** 좋아요 수 감소 — 0 affected는 이미 0이거나 상품 미존재이며, 둘 다 무시해도 안전하다 */
     @Transactional
     public void decrementLikeCount(Long id) {
         productRepository.decrementLikeCount(id);

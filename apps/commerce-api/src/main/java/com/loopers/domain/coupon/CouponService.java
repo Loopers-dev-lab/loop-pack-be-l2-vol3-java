@@ -70,7 +70,7 @@ public class CouponService {
      * 쿠폰 복원 — 보상 트랜잭션용 (USED → ISSUED)
      *
      * PG 결제 실패 시 사용했던 쿠폰을 원래 상태로 되돌린다.
-     * SQL WHERE status='USED' 조건으로 안전하게 복원한다.
+     * SQL WHERE status='USED' AND orderId 조건으로 해당 주문의 쿠폰만 안전하게 복원한다.
      */
     @Transactional(timeout = 30)
     public void restore(Long issuedCouponId, Long orderId) {

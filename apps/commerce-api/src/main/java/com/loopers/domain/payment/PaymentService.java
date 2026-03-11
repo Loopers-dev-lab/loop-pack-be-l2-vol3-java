@@ -14,6 +14,7 @@ public class PaymentService {
         this.paymentRepository = paymentRepository;
     }
 
+    /** 결제 생성 — 멱등성 키 중복 시 CONFLICT (동일 요청 재처리 방지) */
     @Transactional
     public Payment create(Long orderId, int requestedAmount, String paymentMethod, String idempotencyKey) {
         paymentRepository.findByIdempotencyKey(idempotencyKey)

@@ -12,5 +12,7 @@ public interface IssuedCouponRepository {
     List<IssuedCoupon> findAllByUserId(Long userId);
     List<IssuedCoupon> findAllByCouponTemplateId(Long couponTemplateId);
     int useAtomically(Long id, Long orderId, ZonedDateTime usedAt);
+
+    /** 원자적 복원: 해당 주문(orderId)에서 사용된 쿠폰만 ISSUED로 되돌림 */
     int restoreAtomically(Long id, Long orderId);
 }

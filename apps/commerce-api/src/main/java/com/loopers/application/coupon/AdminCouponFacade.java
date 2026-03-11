@@ -74,7 +74,7 @@ public class AdminCouponFacade {
         couponService.deleteTemplate(templateId);
     }
 
-    /** 특정 쿠폰의 발급 내역 조회 */
+    /** 특정 쿠폰의 발급 내역 조회 (in-memory 페이징, 음수 page/size 방어) */
     @Transactional(readOnly = true)
     public IssuedCouponListResult getIssuedCoupons(Long templateId, int page, int size) {
         couponService.getTemplate(templateId);

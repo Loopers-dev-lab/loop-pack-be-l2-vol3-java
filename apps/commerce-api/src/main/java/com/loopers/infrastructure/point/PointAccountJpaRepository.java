@@ -15,17 +15,17 @@ public interface PointAccountJpaRepository extends JpaRepository<PointAccountEnt
     Optional<PointAccountEntity> findByUserId(Long userId);
 
     /** 원자적 차감: balance >= amount 조건으로 동시성 보호 */
-    @Modifying(clearAutomatically = true)
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE PointAccountEntity p SET p.balance = p.balance - :amount, p.updatedAt = CURRENT_TIMESTAMP WHERE p.userId = :userId AND p.balance >= :amount")
     int useAtomically(@Param("userId") Long userId, @Param("amount") int amount);
 
     /** 원자적 충전 */
-    @Modifying(clearAutomatically = true)
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE PointAccountEntity p SET p.balance = p.balance + :amount, p.updatedAt = CURRENT_TIMESTAMP WHERE p.userId = :userId")
     int chargeAtomically(@Param("userId") Long userId, @Param("amount") int amount);
 
     /** 원자적 적립 */
-    @Modifying(clearAutomatically = true)
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE PointAccountEntity p SET p.balance = p.balance + :amount, p.updatedAt = CURRENT_TIMESTAMP WHERE p.userId = :userId")
     int earnAtomically(@Param("userId") Long userId, @Param("amount") int amount);
 }
