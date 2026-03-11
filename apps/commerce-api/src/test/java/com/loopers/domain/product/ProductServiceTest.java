@@ -227,11 +227,24 @@ class ProductServiceTest {
 
         @Test
         void 존재하는_상품이면_incrementLikeCount가_호출된다() {
+            // arrange
+            when(productRepository.incrementLikeCount(1L)).thenReturn(1);
+
             // act
             productService.incrementLikeCount(1L);
 
             // assert
             verify(productRepository).incrementLikeCount(1L);
+        }
+
+        @Test
+        void 존재하지_않는_상품이면_PRODUCT_NOT_FOUND_예외가_발생한다() {
+            // arrange
+            when(productRepository.incrementLikeCount(999L)).thenReturn(0);
+
+            // act & assert
+            assertThatThrownBy(() -> productService.incrementLikeCount(999L))
+                    .isInstanceOf(CoreException.class);
         }
     }
 
