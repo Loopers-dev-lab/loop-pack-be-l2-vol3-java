@@ -4,6 +4,7 @@ import com.loopers.application.user.AuthUserPrincipal;
 import com.loopers.domain.user.UserModel;
 import com.loopers.domain.user.UserService;
 import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorMessage;
 import com.loopers.support.error.ErrorType;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -42,7 +43,7 @@ public class AuthUserArgumentResolver implements HandlerMethodArgumentResolver {
         String loginPw = request.getHeader(LoopersHeaders.X_LOOPERS_LOGIN_PW);
 
         if (loginId == null || loginId.isBlank() || loginPw == null || loginPw.isBlank()) {
-            throw new CoreException(ErrorType.UNAUTHORIZED, "인증 헤더가 누락되었습니다.");
+            throw new CoreException(ErrorType.UNAUTHORIZED, ErrorMessage.Auth.AUTH_HEADER_MISSING);
         }
 
         UserModel user = userService.authenticate(loginId, loginPw);

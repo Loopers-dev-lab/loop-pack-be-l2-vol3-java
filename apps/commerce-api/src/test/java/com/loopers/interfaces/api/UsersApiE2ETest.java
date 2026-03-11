@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api;
 
 import com.loopers.domain.user.UserModel;
-import com.loopers.infrastructure.UserJpaRepository;
+import com.loopers.infrastructure.user.UserJpaRepository;
 import com.loopers.interfaces.user.ChangePasswordRequest;
 import com.loopers.interfaces.user.UserDto;
 import com.loopers.interfaces.user.UsersSignUpRequestDto;

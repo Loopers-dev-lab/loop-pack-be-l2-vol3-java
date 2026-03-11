@@ -58,14 +58,18 @@ infrastructure/  → JpaRepository 구현체
 support/error/   → CoreException, ErrorType (에러 코드 enum)
 ```
 
-- Repository 패턴: domain에 인터페이스, infrastructure에 구현체
+- 본 프로젝트는 레이어드 아키텍처를 따르며, DIP (의존성 역전 원칙) 을 준수합니다.
+  - Repository 패턴: domain에 인터페이스, infrastructure에 구현체
+- API request, response DTO와 응용 레이어의 DTO는 분리해 작성
 - Facade 패턴: application 레이어에서 여러 도메인 서비스 조합
 - API 버전닝: `/api/v1/` 경로 기반
 - 글로벌 예외 처리: `ApiControllerAdvice`에서 `CoreException` → `ApiResponse` 변환
 
-### BaseEntity (modules/jpa)
-
-모든 엔티티의 부모 클래스. Auto-increment ID, `createdAt`/`updatedAt`/`deletedAt` 자동 관리, `delete()`/`restore()` 소프트 삭제 지원.
+#### 도메인 & 객체 설계 전략
+- 도메인 객체는 비즈니스 규칙을 캡슐화해야 합니다.
+- 애플리케이션 서비스는 서로 다른 도메인을 조립해, 도메인 로직을 조정하여 기능을 제공해야 합니다.
+- 규칙이 여러 서비스에 나타나면 도메인 객체에 속할 가능성이 높습니다.
+- 각 기능에 대한 책임과 결합도에 대해 개발자의 의도를 확인하고 개발을 진행합니다.
 
 ## Testing
 
@@ -118,3 +122,5 @@ support/error/   → CoreException, ErrorType (에러 코드 enum)
 - 불필요한 코드 제거 및 품질 개선
 - 객체지향적 코드 작성, 성능 최적화
 - 모든 테스트 케이스가 통과해야 함
+
+

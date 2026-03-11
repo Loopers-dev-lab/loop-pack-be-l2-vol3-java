@@ -1,4 +1,4 @@
-package com.loopers.infrastructure;
+package com.loopers.infrastructure.user;
 
 import com.loopers.domain.user.UserModel;
 import com.loopers.domain.user.UserRepository;

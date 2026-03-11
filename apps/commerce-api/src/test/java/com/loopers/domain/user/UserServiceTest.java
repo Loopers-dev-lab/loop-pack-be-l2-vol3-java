@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
 import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorMessage;
 import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -45,7 +46,7 @@ class UserServiceTest {
             // act & assert
             assertThatThrownBy(() -> userService.createUser(loginId, rawPassword, birthDate, name, email))
                 .isInstanceOf(CoreException.class)
-                .hasMessageContaining("비밀번호에 생년월일을 포함할 수 없습니다");
+                .hasMessageContaining(ErrorMessage.User.PASSWORD_CONTAINS_BIRTH_DATE);
         }
 
         @Test
@@ -61,7 +62,7 @@ class UserServiceTest {
 
             assertThatThrownBy(() -> userService.createUser(loginId, rawPassword, birthDate, name, email))
                 .isInstanceOf(CoreException.class)
-                .hasMessageContaining("이미 가입된 이메일입니다");
+                .hasMessageContaining(ErrorMessage.User.EMAIL_ALREADY_EXISTS);
         }
 
         @Test
@@ -77,7 +78,7 @@ class UserServiceTest {
 
             assertThatThrownBy(() -> userService.createUser(loginId, rawPassword, birthDate, name, email))
                 .isInstanceOf(CoreException.class)
-                .hasMessageContaining("이미 사용 중인 아이디입니다");
+                .hasMessageContaining(ErrorMessage.User.LOGIN_ID_ALREADY_EXISTS);
         }
     }
 
@@ -121,7 +122,7 @@ class UserServiceTest {
 
             assertThatThrownBy(() -> userService.changePassword(userId, currentPassword, newPassword))
                 .isInstanceOf(CoreException.class)
-                .hasMessageContaining("기존 비밀번호가 일치하지 않습니다");
+                .hasMessageContaining(ErrorMessage.User.CURRENT_PASSWORD_MISMATCH);
         }
 
         @Test
@@ -140,7 +141,7 @@ class UserServiceTest {
 
             assertThatThrownBy(() -> userService.changePassword(userId, currentPassword, newPassword))
                 .isInstanceOf(CoreException.class)
-                .hasMessageContaining("새 비밀번호는 기존 비밀번호와 달라야 합니다");
+                .hasMessageContaining(ErrorMessage.User.NEW_PASSWORD_SAME_AS_CURRENT);
         }
 
         @Test
@@ -161,7 +162,7 @@ class UserServiceTest {
             // act & assert
             assertThatThrownBy(() -> userService.changePassword(userId, currentPassword, newPassword))
                 .isInstanceOf(CoreException.class)
-                .hasMessageContaining("비밀번호에 생년월일을 포함할 수 없습니다");
+                .hasMessageContaining(ErrorMessage.User.PASSWORD_CONTAINS_BIRTH_DATE);
         }
 
         @Test
@@ -177,7 +178,7 @@ class UserServiceTest {
             // act & assert
             assertThatThrownBy(() -> userService.changePassword(userId, currentPassword, newPassword))
                 .isInstanceOf(CoreException.class)
-                .hasMessageContaining("사용자를 찾을 수 없습니다");
+                .hasMessageContaining(ErrorMessage.User.USER_NOT_FOUND);
         }
     }
 }

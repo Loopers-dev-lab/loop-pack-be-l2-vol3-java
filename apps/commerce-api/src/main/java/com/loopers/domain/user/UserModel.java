@@ -2,6 +2,7 @@ package com.loopers.domain.user;
 
 import com.loopers.domain.BaseEntity;
 import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorMessage;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -54,19 +55,19 @@ public class UserModel extends BaseEntity {
     @Override
     protected void guard() {
         if (loginId == null || loginId.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 필수입니다.");
+            throw new CoreException(ErrorType.BAD_REQUEST, ErrorMessage.User.LOGIN_ID_REQUIRED);
         }
         if (password == null || password.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호는 필수입니다.");
+            throw new CoreException(ErrorType.BAD_REQUEST, ErrorMessage.User.PASSWORD_REQUIRED);
         }
         if (birthDate == null) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "생년월일은 필수입니다.");
+            throw new CoreException(ErrorType.BAD_REQUEST, ErrorMessage.User.BIRTH_DATE_REQUIRED);
         }
         if (name == null || name.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "이름은 필수입니다.");
+            throw new CoreException(ErrorType.BAD_REQUEST, ErrorMessage.User.NAME_REQUIRED);
         }
         if (email == null || email.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "이메일은 필수입니다.");
+            throw new CoreException(ErrorType.BAD_REQUEST, ErrorMessage.User.EMAIL_REQUIRED);
         }
     }
 
