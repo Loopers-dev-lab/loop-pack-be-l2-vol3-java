@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew build:*)",
+      "Bash(java -version:*)",
+      "Bash(echo:*)",
+      "Bash(/usr/libexec/java_home:*)",
+      "Bash(JAVA_HOME=/Users/praesentia/Library/Java/JavaVirtualMachines/azul-21.0.7/Contents/Home ./gradlew build:*)",
+      "Bash(JAVA_HOME=/Users/praesentia/Library/Java/JavaVirtualMachines/azul-21.0.7/Contents/Home ./gradlew:*)",
+      "Bash(docker info:*)",
+      "Bash(docker context inspect:*)",
+      "Bash(docker run:*)",
+      "Bash(docker context:*)",
+      "Bash(JAVA_HOME=/Users/praesentia/Library/Java/JavaVirtualMachines/azul-21.0.7/Contents/Home DOCKER_HOST=unix:///Users/praesentia/.docker/run/docker.sock ./gradlew:*)",
+      "Bash(~/.testcontainers.properties)",
+      "Bash(curl:*)",
+      "Bash(JAVA_HOME=/Users/praesentia/Library/Java/JavaVirtualMachines/azul-21.0.7/Contents/Home TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock ./gradlew:*)",
+      "Bash(./gradlew:*)",
+      "Bash(JAVA_HOME=/Users/praesentia/Library/Java/JavaVirtualMachines/azul-21.0.7/Contents/Home DOCKER_API_VERSION=1.44 ./gradlew:*)",
+      "Bash(python3:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(osascript:*)",
+      "Bash(docker:*)"
+    ]
+  }
+}

@@ -31,12 +31,12 @@ class ExampleServiceIntegrationTest {
         databaseCleanUp.truncateAllTables();
     }
 
-    @DisplayName("예시를 조회할 때,")
+    @DisplayName("예시 조회")
     @Nested
     class Get {
-        @DisplayName("존재하는 예시 ID를 주면, 해당 예시 정보를 반환한다.")
+        @DisplayName("존재하는 ID면 해당 예시 정보를 반환한다")
         @Test
-        void returnsExampleInfo_whenValidIdIsProvided() {
+        void returnsExampleForExistingId() {
             // arrange
             ExampleModel exampleModel = exampleJpaRepository.save(
                 new ExampleModel("예시 제목", "예시 설명")
@@ -54,11 +54,11 @@ class ExampleServiceIntegrationTest {
             );
         }
 
-        @DisplayName("존재하지 않는 예시 ID를 주면, NOT_FOUND 예외가 발생한다.")
+        @DisplayName("존재하지 않는 ID면 NOT_FOUND 예외가 발생한다")
         @Test
-        void throwsException_whenInvalidIdIsProvided() {
+        void throwsOnNonExistentId() {
             // arrange
-            Long invalidId = 999L; // Assuming this ID does not exist
+            Long invalidId = 999L;
 
             // act
             CoreException exception = assertThrows(CoreException.class, () -> {

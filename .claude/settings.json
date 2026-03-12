@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "source ~/.zshrc 2>/dev/null; python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/tdd-notion-logger.py",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

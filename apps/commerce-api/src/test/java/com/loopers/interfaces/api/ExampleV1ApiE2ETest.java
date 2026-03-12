@@ -51,7 +51,7 @@ class ExampleV1ApiE2ETest {
     @DisplayName("GET /api/v1/examples/{id}")
     @Nested
     class Get {
-        @DisplayName("존재하는 예시 ID를 주면, 해당 예시 정보를 반환한다.")
+        @DisplayName("존재하는 ID면 해당 예시 정보를 반환한다")
         @Test
         void returnsExampleInfo_whenValidIdIsProvided() {
             // arrange
@@ -74,7 +74,7 @@ class ExampleV1ApiE2ETest {
             );
         }
 
-        @DisplayName("숫자가 아닌 ID 로 요청하면, 400 BAD_REQUEST 응답을 받는다.")
+        @DisplayName("숫자가 아닌 ID면 400을 반환한다")
         @Test
         void throwsBadRequest_whenIdIsNotProvided() {
             // arrange
@@ -92,7 +92,7 @@ class ExampleV1ApiE2ETest {
             );
         }
 
-        @DisplayName("존재하지 않는 예시 ID를 주면, 404 NOT_FOUND 응답을 받는다.")
+        @DisplayName("존재하지 않는 ID면 404를 반환한다")
         @Test
         void throwsException_whenInvalidIdIsProvided() {
             // arrange

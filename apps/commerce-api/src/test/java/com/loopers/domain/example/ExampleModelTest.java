@@ -11,12 +11,12 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ExampleModelTest {
-    @DisplayName("예시 모델을 생성할 때, ")
+    @DisplayName("예시 모델 생성")
     @Nested
     class Create {
-        @DisplayName("제목과 설명이 모두 주어지면, 정상적으로 생성된다.")
+        @DisplayName("제목과 설명이 모두 주어지면 정상 생성된다")
         @Test
-        void createsExampleModel_whenNameAndDescriptionAreProvided() {
+        void createsWithNameAndDescription() {
             // arrange
             String name = "제목";
             String description = "설명";
@@ -32,9 +32,9 @@ class ExampleModelTest {
             );
         }
 
-        @DisplayName("제목이 빈칸으로만 이루어져 있으면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("제목이 공백이면 BAD_REQUEST 예외가 발생한다")
         @Test
-        void throwsBadRequestException_whenTitleIsBlank() {
+        void throwsOnBlankTitle() {
             // arrange
             String name = "   ";
 
@@ -47,9 +47,9 @@ class ExampleModelTest {
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
-        @DisplayName("설명이 비어있으면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("설명이 비어있으면 BAD_REQUEST 예외가 발생한다")
         @Test
-        void throwsBadRequestException_whenDescriptionIsEmpty() {
+        void throwsOnEmptyDescription() {
             // arrange
             String description = "";
 
