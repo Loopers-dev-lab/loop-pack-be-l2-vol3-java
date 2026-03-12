@@ -1,0 +1,47 @@
+sequenceDiagram
+    participant C as Customer
+    participant F as LikeFacade
+    participant PS as ProductService
+    participant LS as LikeService
+
+    rect rgb(232, 245, 233)
+        Note over C,LS: 좋아요 추가
+        C->>F: 좋아요 요청 (POST /api/v1/products/{productId}/likes)
+        Note over F: @LoginMember 인증
+        activate F
+        rect rgb(230, 240, 255)
+            Note right of F: @Transactional
+            F->>PS: 상품 존재 확인
+            alt 삭제된 상품
+                PS-->>F: NOT_FOUND
+            end
+            F->>LS: 좋아요 존재 여부 확인
+            alt 이미 좋아요 존재
+                Note over F: 무시 (멱등성)
+            else 좋아요 없음
+                F->>LS: 좋아요 저장
+                F->>PS: likeCount 증가
+            end
+        end
+        deactivate F
+        F-->>C: 200 OK (liked: true)
+    end
+
+    rect rgb(255, 235, 238)
+        Note over C,LS: 좋아요 취소
+        C->>F: 취소 요청 (DELETE /api/v1/products/{productId}/likes)
+        Note over F: @LoginMember 인증
+        activate F
+        rect rgb(230, 240, 255)
+            Note right of F: @Transactional
+            F->>LS: 좋아요 존재 여부 확인
+            alt 좋아요 존재
+                F->>LS: 좋아요 삭제
+                F->>PS: likeCount 감소 (음수 방지)
+            else 좋아요 없음
+                Note over F: 무시 (멱등성)
+            end
+        end
+        deactivate F
+        F-->>C: 200 OK (liked: false)
+    end

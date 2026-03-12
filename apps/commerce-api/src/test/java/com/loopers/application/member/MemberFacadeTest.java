@@ -23,16 +23,13 @@ class MemberFacadeTest {
     private MemberSignupService memberSignupService;
 
     @Mock
-    private MemberAuthService memberAuthService;
-
-    @Mock
     private MemberPasswordService memberPasswordService;
 
     private MemberFacade memberFacade;
 
     @BeforeEach
     void setUp() {
-        memberFacade = new MemberFacade(memberSignupService, memberAuthService, memberPasswordService);
+        memberFacade = new MemberFacade(memberSignupService, memberPasswordService);
     }
 
     @DisplayName("회원가입")
@@ -73,10 +70,9 @@ class MemberFacadeTest {
             MemberModel member = new MemberModel(
                 new LoginId("kwonmo"), "encoded", new MemberName("양권모"),
                 LocalDate.of(1998, 9, 16), new Email("kwonmo@example.com"));
-            when(memberAuthService.authenticate("kwonmo", "Test1234!")).thenReturn(member);
 
             // when
-            MemberInfo result = memberFacade.getMyInfo("kwonmo", "Test1234!");
+            MemberInfo result = memberFacade.getMyInfo(member);
 
             // then
             assertAll(
@@ -98,10 +94,9 @@ class MemberFacadeTest {
             MemberModel member = new MemberModel(
                 new LoginId("kwonmo"), "encoded", new MemberName("양권모"),
                 LocalDate.of(1998, 9, 16), new Email("kwonmo@example.com"));
-            when(memberAuthService.authenticate("kwonmo", "Test1234!")).thenReturn(member);
 
             // when
-            memberFacade.changePassword("kwonmo", "Test1234!", "Current1!", "NewPass5678!");
+            memberFacade.changePassword(member, "Current1!", "NewPass5678!");
 
             // then
             verify(memberPasswordService).changePassword(member, "Current1!", "NewPass5678!");

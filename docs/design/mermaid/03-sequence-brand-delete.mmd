@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant A as Admin
+    participant F as BrandFacade
+    participant BS as BrandService
+    participant PS as ProductService
+
+    A->>F: 브랜드 삭제 요청 (DELETE /api-admin/v1/brands/{brandId})
+    Note over F: @AdminUser 인증
+
+    rect rgb(230, 240, 255)
+        Note right of F: @Transactional
+        F->>BS: 브랜드 조회
+        alt 브랜드 없음
+            BS-->>F: NOT_FOUND
+        end
+        F->>PS: 소속 상품 전체 조회
+        loop 각 소속 상품
+            F->>PS: 상품 soft delete
+        end
+        F->>BS: 브랜드 soft delete
+    end
+
+    F-->>A: 200 OK

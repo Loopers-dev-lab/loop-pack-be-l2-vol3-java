@@ -1,0 +1,11 @@
+### 상품 목록 조회 (최신순)
+GET {{commerce-api}}/api/v1/products?page=0&size=10&sortType=CREATED_DESC
+
+### 상품 목록 조회 (가격 낮은순)
+GET {{commerce-api}}/api/v1/products?page=0&size=10&sortType=PRICE_ASC
+
+### 상품 목록 조회 (좋아요 많은순)
+GET {{commerce-api}}/api/v1/products?page=0&size=10&sortType=LIKES_DESC
+
+### 상품 상세 조회
+GET {{commerce-api}}/api/v1/products/1

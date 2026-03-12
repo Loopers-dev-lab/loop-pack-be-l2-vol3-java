@@ -1,0 +1,95 @@
+classDiagram
+    direction LR
+
+    namespace Catalog {
+        class BrandName {
+            <<Embeddable>>
+            -String value
+        }
+        class BrandModel {
+            -BrandName name
+            -String description
+        }
+        class BrandFacade {
+            삭제 시 상품 연쇄 soft delete
+        }
+        class Money {
+            <<Embeddable>>
+            -int value
+            +add(Money) Money
+            +multiply(int) Money
+        }
+        class ProductModel {
+            -String name
+            -String description
+            -Money price
+            -Long brandId
+            -int likeCount
+            +incrementLikeCount()
+            +decrementLikeCount()
+        }
+        class StockModel {
+            -Long productId
+            -int quantity
+            +hasEnough(int) boolean
+            +decrease(int)
+            +increase(int)
+        }
+        class ProductFacade {
+            상품 + Stock 동시 생성
+        }
+    }
+
+    namespace Like {
+        class LikeModel {
+            -Long userId
+            -Long productId
+        }
+        class LikeFacade {
+            멱등성 + likeCount 동기화
+        }
+    }
+
+    namespace Order {
+        class OrderStatus {
+            <<enumeration>>
+            CREATED
+            CONFIRMED
+            SHIPPING
+            DELIVERED
+            CANCELLED
+        }
+        class OrderModel {
+            -Long userId
+            -OrderStatus status
+            -Money totalAmount
+        }
+        class OrderItemModel {
+            -Long orderId
+            -Long productId
+            -String productName
+            -Money productPrice
+            -int quantity
+            +subtotal() Money
+        }
+        class OrderFacade {
+            재고 차감 + 스냅샷 + 주문 생성
+        }
+    }
+
+    BrandModel *-- BrandName
+    ProductModel *-- Money
+    OrderModel *-- OrderStatus
+    OrderModel *-- Money
+    OrderItemModel *-- Money
+
+    BrandFacade --> BrandModel
+    ProductFacade --> ProductModel
+    ProductFacade --> StockModel
+    LikeFacade --> LikeModel
+    OrderFacade --> OrderModel
+    OrderFacade --> OrderItemModel
+
+    BrandFacade --> ProductModel
+    LikeFacade --> ProductModel
+    OrderFacade --> StockModel

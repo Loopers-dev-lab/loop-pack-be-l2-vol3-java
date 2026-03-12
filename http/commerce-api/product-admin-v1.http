@@ -1,0 +1,44 @@
+### 상품 등록
+POST {{commerce-api}}/api-admin/v1/products
+X-Loopers-AdminLdap: admin
+Content-Type: application/json
+
+{
+  "name": "에어맥스 90",
+  "description": "클래식 러닝화",
+  "price": 129000,
+  "brandId": 1,
+  "stockQuantity": 100
+}
+
+### 상품 목록 조회 (관리자)
+GET {{commerce-api}}/api-admin/v1/products?page=0&size=10&sortType=CREATED_DESC
+X-Loopers-AdminLdap: admin
+
+### 상품 상세 조회 (관리자)
+GET {{commerce-api}}/api-admin/v1/products/1
+X-Loopers-AdminLdap: admin
+
+### 상품 수정
+PUT {{commerce-api}}/api-admin/v1/products/1
+X-Loopers-AdminLdap: admin
+Content-Type: application/json
+
+{
+  "name": "에어맥스 95",
+  "description": "프리미엄 러닝화",
+  "price": 179000
+}
+
+### 재고 수정
+PATCH {{commerce-api}}/api-admin/v1/products/1/stock
+X-Loopers-AdminLdap: admin
+Content-Type: application/json
+
+{
+  "quantity": 50
+}
+
+### 상품 삭제
+DELETE {{commerce-api}}/api-admin/v1/products/1
+X-Loopers-AdminLdap: admin

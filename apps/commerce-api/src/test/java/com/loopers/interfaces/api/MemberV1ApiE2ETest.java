@@ -26,9 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class MemberV1ApiE2ETest {
 
-    private static final String ENDPOINT_SIGNUP = "/api/v1/members";
-    private static final String ENDPOINT_ME = "/api/v1/members/me";
-    private static final String ENDPOINT_CHANGE_PASSWORD = "/api/v1/members/me/password";
+    private static final String ENDPOINT_SIGNUP = "/api/v1/users";
+    private static final String ENDPOINT_ME = "/api/v1/users/me";
+    private static final String ENDPOINT_CHANGE_PASSWORD = "/api/v1/users/password";
 
     private final TestRestTemplate testRestTemplate;
     private final MemberJpaRepository memberJpaRepository;
@@ -72,7 +72,7 @@ class MemberV1ApiE2ETest {
         return headers;
     }
 
-    @DisplayName("POST /api/v1/members")
+    @DisplayName("POST /api/v1/users")
     @Nested
     class Signup {
 
@@ -140,7 +140,7 @@ class MemberV1ApiE2ETest {
         }
     }
 
-    @DisplayName("GET /api/v1/members/me")
+    @DisplayName("GET /api/v1/users/me")
     @Nested
     class GetMe {
 
@@ -186,7 +186,7 @@ class MemberV1ApiE2ETest {
         }
     }
 
-    @DisplayName("PATCH /api/v1/members/me/password")
+    @DisplayName("PUT /api/v1/users/password")
     @Nested
     class ChangePassword {
 
@@ -202,7 +202,7 @@ class MemberV1ApiE2ETest {
             ParameterizedTypeReference<ApiResponse<Object>> responseType =
                 new ParameterizedTypeReference<>() {};
             ResponseEntity<ApiResponse<Object>> response =
-                testRestTemplate.exchange(ENDPOINT_CHANGE_PASSWORD, HttpMethod.PATCH,
+                testRestTemplate.exchange(ENDPOINT_CHANGE_PASSWORD, HttpMethod.PUT,
                     new HttpEntity<>(request, authHeaders("kwonmo", "Test1234!")),
                     responseType);
 
@@ -222,7 +222,7 @@ class MemberV1ApiE2ETest {
             ParameterizedTypeReference<ApiResponse<Object>> responseType =
                 new ParameterizedTypeReference<>() {};
             ResponseEntity<ApiResponse<Object>> response =
-                testRestTemplate.exchange(ENDPOINT_CHANGE_PASSWORD, HttpMethod.PATCH,
+                testRestTemplate.exchange(ENDPOINT_CHANGE_PASSWORD, HttpMethod.PUT,
                     new HttpEntity<>(request, authHeaders("kwonmo", "Test1234!")),
                     responseType);
 
@@ -242,7 +242,7 @@ class MemberV1ApiE2ETest {
             ParameterizedTypeReference<ApiResponse<Object>> responseType =
                 new ParameterizedTypeReference<>() {};
             ResponseEntity<ApiResponse<Object>> response =
-                testRestTemplate.exchange(ENDPOINT_CHANGE_PASSWORD, HttpMethod.PATCH,
+                testRestTemplate.exchange(ENDPOINT_CHANGE_PASSWORD, HttpMethod.PUT,
                     new HttpEntity<>(request, authHeaders("kwonmo", "Test1234!")),
                     responseType);
 

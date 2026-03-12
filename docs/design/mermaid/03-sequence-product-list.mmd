@@ -1,0 +1,28 @@
+sequenceDiagram
+    participant C as Customer
+    participant A as Admin
+    participant F as ProductFacade
+    participant PS as ProductService
+    participant SS as StockService
+
+    rect rgb(232, 245, 233)
+        Note over C,SS: Customer 상품 목록 조회
+        C->>F: GET /api/v1/products?sort=likes_desc&page=0
+        F->>PS: 상품 목록 조회 (삭제 제외, 정렬, 페이지네이션)
+        F->>SS: 재고 정보 조합
+        Note over F: 재고 상태 변환
+        Note over F: >10 → IN_STOCK
+        Note over F: 1~10 → LOW_STOCK
+        Note over F: 0 → OUT_OF_STOCK
+        F-->>C: 200 OK (상품 목록 + 재고 상태)
+    end
+
+    rect rgb(227, 242, 253)
+        Note over A,SS: Admin 상품 목록 조회
+        A->>F: GET /api-admin/v1/products?page=0
+        Note over F: @AdminUser 인증
+        F->>PS: 상품 목록 조회 (삭제 포함 가능)
+        F->>SS: 재고 정보 조합
+        Note over F: 정확한 재고 수량 표시
+        F-->>A: 200 OK (상품 목록 + 재고 수량)
+    end

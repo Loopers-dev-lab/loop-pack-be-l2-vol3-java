@@ -1,0 +1,59 @@
+erDiagram
+    member ||--o{ member_like : "has"
+    member ||--o{ orders : "places"
+    brand ||--o{ product : "has"
+    product ||--|| stock : "has"
+    product ||--o{ member_like : "receives"
+    product ||--o{ order_item : "ordered_as"
+    orders ||--|{ order_item : "contains"
+
+    member {
+        bigint id PK
+        varchar login_id UK "LoginId VO"
+        varchar password "BCrypt encoded"
+        varchar name "MemberName VO"
+        varchar email "Email VO, nullable"
+        date birth_date
+        timestamp deleted_at "soft delete"
+    }
+    brand {
+        bigint id PK
+        varchar name UK "BrandName VO"
+        varchar description
+        timestamp deleted_at "soft delete"
+    }
+    product {
+        bigint id PK
+        varchar name
+        text description
+        int price "Money VO"
+        bigint brand_id "refs brand"
+        int like_count "비정규화"
+        timestamp deleted_at "soft delete"
+    }
+    stock {
+        bigint id PK
+        bigint product_id UK "1:1"
+        int quantity
+    }
+    member_like {
+        bigint id PK
+        bigint user_id "refs member"
+        bigint product_id "refs product"
+        timestamp created_at "좋아요 시간, 정렬 기준(Q23)"
+    }
+    orders {
+        bigint id PK
+        bigint user_id "refs member"
+        varchar status "OrderStatus"
+        int total_amount "Money VO"
+        timestamp created_at "주문일시, 날짜필터 기준"
+    }
+    order_item {
+        bigint id PK
+        bigint order_id "refs orders"
+        bigint product_id "refs product"
+        varchar product_name "snapshot"
+        int product_price "snapshot"
+        int quantity
+    }
