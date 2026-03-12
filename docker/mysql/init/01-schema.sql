@@ -39,8 +39,12 @@ CREATE TABLE IF NOT EXISTS products (
     deleted_at DATETIME(6) NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_products_reference_id (reference_id),
-    KEY idx_products_category_reference_id (category_reference_id),
-    KEY idx_products_brand_reference_id (brand_reference_id)
+    KEY idx_products_brand_deleted_like (brand_reference_id, deleted_at, like_count DESC, id),
+    KEY idx_products_brand_deleted_created (brand_reference_id, deleted_at, created_at DESC, id),
+    KEY idx_products_brand_deleted_price (brand_reference_id, deleted_at, price, id),
+    KEY idx_products_brand_category_deleted_like (brand_reference_id, category_reference_id, deleted_at, like_count DESC, id),
+    KEY idx_products_brand_category_deleted_created (brand_reference_id, category_reference_id, deleted_at, created_at DESC, id),
+    KEY idx_products_brand_category_deleted_price (brand_reference_id, category_reference_id, deleted_at, price, id)
 );
 
 CREATE TABLE IF NOT EXISTS read_model_sync_task (
