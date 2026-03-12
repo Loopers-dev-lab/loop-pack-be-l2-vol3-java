@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductInfo;
-import org.springframework.data.domain.Page;
+import com.loopers.application.product.ProductPageResult;
 
 import java.util.List;
 
@@ -34,13 +34,13 @@ public class ProductV1Dto {
             long totalElements,
             int totalPages
     ) {
-        public static ProductListResponse from(Page<ProductInfo> info) {
+        public static ProductListResponse from(ProductPageResult result) {
             return new ProductListResponse(
-                    info.getContent().stream().map(ProductResponse::from).toList(),
-                    info.getNumber(),
-                    info.getSize(),
-                    info.getTotalElements(),
-                    info.getTotalPages()
+                    result.products().stream().map(ProductResponse::from).toList(),
+                    result.page(),
+                    result.size(),
+                    result.totalElements(),
+                    result.totalPages()
             );
         }
     }

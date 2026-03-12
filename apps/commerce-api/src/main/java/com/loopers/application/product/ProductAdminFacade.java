@@ -6,6 +6,7 @@ import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,7 @@ public class ProductAdminFacade {
     private final ProductService productService;
     private final BrandService brandService;
     private final LikeService likeService;
+    private final ApplicationEventPublisher eventPublisher;
 
     // 상품 등록 - 브랜드 존재 확인은 Facade 책임 (BR-P01, US-P05)
     @Transactional
@@ -28,6 +30,7 @@ public class ProductAdminFacade {
         Brand brand = brandService.findById(command.brandId()); // 브랜드 미존재 시 NOT_FOUND 예외
         Product product = productService.register(
                 command.brandId(), command.name(), command.price(), command.stock());
+        eventPublisher.publishEvent(new ProductCacheEvictEvent()); // 커밋 후 캐시 무효화 예약
         return ProductInfo.from(product, brand.getName());
     }
 
@@ -57,13 +60,14 @@ public class ProductAdminFacade {
     public ProductInfo update(ProductUpdateCommand command) {
         Product product = productService.update(
                 command.id(), command.name(), command.price(), command.stock());
+        eventPublisher.publishEvent(new ProductCacheEvictEvent()); // 커밋 후 캐시 무효화 예약
         String brandName = brandService.findById(product.getBrandId()).getName();
         return ProductInfo.from(product, brandName);
     }
 
     /**
      * 상품 삭제 (US-P07)
-     * 좋아요(hard delete) → 상품(soft delete) 순서로 처리
+     * 좋아요(hard delete) → 상품(soft delete) → 커밋 후 캐시 무효화 순서로 처리
      */
     @Transactional
     public void delete(Long id) {
@@ -73,5 +77,6 @@ public class ProductAdminFacade {
         likeService.deleteAllByProductId(id);
         // 상품 soft delete (이미 managed 상태이므로 dirty checking으로 처리)
         product.delete();
+        eventPublisher.publishEvent(new ProductCacheEvictEvent()); // 커밋 후 캐시 무효화 예약
     }
 }
