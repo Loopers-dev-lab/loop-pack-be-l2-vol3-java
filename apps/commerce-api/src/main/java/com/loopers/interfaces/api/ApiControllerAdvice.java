@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -46,6 +47,16 @@ public class ApiControllerAdvice {
     public ResponseEntity<ApiResponse<?>> handleBadRequest(MethodArgumentNotValidException e) {
         String message = e.getBindingResult().getFieldErrors().stream()
             .map(fieldError -> fieldError.getDefaultMessage())
+            .findFirst()
+            .orElse(ErrorType.BAD_REQUEST.getMessage());
+        return failureResponse(ErrorType.BAD_REQUEST, message);
+    }
+
+    @ExceptionHandler
+    public ResponseEntity<ApiResponse<?>> handleBadRequest(HandlerMethodValidationException e) {
+        String message = e.getAllValidationResults().stream()
+            .flatMap(result -> result.getResolvableErrors().stream())
+            .map(error -> error.getDefaultMessage())
             .findFirst()
             .orElse(ErrorType.BAD_REQUEST.getMessage());
         return failureResponse(ErrorType.BAD_REQUEST, message);

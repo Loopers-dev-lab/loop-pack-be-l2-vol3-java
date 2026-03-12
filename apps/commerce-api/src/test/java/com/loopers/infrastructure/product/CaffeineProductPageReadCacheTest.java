@@ -97,6 +97,66 @@ class CaffeineProductPageReadCacheTest {
             assertThat(result.items()).hasSize(2); // 캐시된 latestPage 반환
             assertThat(loaderCallCount.get()).isEqualTo(0);
         }
+
+        @DisplayName("페이지 번호가 다르면, 별도 캐시 엔트리로 관리된다.")
+        @Test
+        void separatesCacheByPage() {
+            // given
+            PageResult<ProductReadModel> page0 = createPage(2);
+            PageResult<ProductReadModel> page1 = createPage(3);
+            pageReadCache.get(ProductSortType.LATEST, 0, 20, () -> page0);
+            pageReadCache.get(ProductSortType.LATEST, 1, 20, () -> page1);
+
+            // when & then
+            AtomicInteger loaderCallCount = new AtomicInteger(0);
+            PageResult<ProductReadModel> result = pageReadCache.get(
+                ProductSortType.LATEST, 0, 20, () -> {
+                    loaderCallCount.incrementAndGet();
+                    return createPage(10);
+                }
+            );
+            assertThat(result.items()).hasSize(2); // 캐시된 page0 반환
+            assertThat(loaderCallCount.get()).isEqualTo(0);
+
+            PageResult<ProductReadModel> result1 = pageReadCache.get(
+                ProductSortType.LATEST, 1, 20, () -> {
+                    loaderCallCount.incrementAndGet();
+                    return createPage(10);
+                }
+            );
+            assertThat(result1.items()).hasSize(3); // 캐시된 page1 반환
+            assertThat(loaderCallCount.get()).isEqualTo(0);
+        }
+
+        @DisplayName("페이지 크기가 다르면, 별도 캐시 엔트리로 관리된다.")
+        @Test
+        void separatesCacheBySize() {
+            // given
+            PageResult<ProductReadModel> size20 = createPage(2);
+            PageResult<ProductReadModel> size10 = createPage(3);
+            pageReadCache.get(ProductSortType.LATEST, 0, 20, () -> size20);
+            pageReadCache.get(ProductSortType.LATEST, 0, 10, () -> size10);
+
+            // when & then
+            AtomicInteger loaderCallCount = new AtomicInteger(0);
+            PageResult<ProductReadModel> result = pageReadCache.get(
+                ProductSortType.LATEST, 0, 20, () -> {
+                    loaderCallCount.incrementAndGet();
+                    return createPage(10);
+                }
+            );
+            assertThat(result.items()).hasSize(2); // 캐시된 size20 반환
+            assertThat(loaderCallCount.get()).isEqualTo(0);
+
+            PageResult<ProductReadModel> result10 = pageReadCache.get(
+                ProductSortType.LATEST, 0, 10, () -> {
+                    loaderCallCount.incrementAndGet();
+                    return createPage(10);
+                }
+            );
+            assertThat(result10.items()).hasSize(3); // 캐시된 size10 반환
+            assertThat(loaderCallCount.get()).isEqualTo(0);
+        }
     }
 
     @DisplayName("evictAll을 호출할 때, ")

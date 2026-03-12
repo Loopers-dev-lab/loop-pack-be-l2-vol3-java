@@ -11,10 +11,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -131,12 +133,27 @@ class ProductQueryServiceImplTest {
         @Test
         void queriesDbDirectly_whenBrandIdIsNotNull() {
             // given
-            Page<Product> emptyPage = new PageImpl<>(
-                List.of(), PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt")), 0
+            ZonedDateTime now = ZonedDateTime.now();
+            Product product1 = new Product(1L, "에어맥스", new com.loopers.domain.product.Money(129000));
+            ReflectionTestUtils.setField(product1, "id", 10L);
+            ReflectionTestUtils.setField(product1, "createdAt", now);
+            ReflectionTestUtils.setField(product1, "updatedAt", now);
+
+            Product product2 = new Product(1L, "에어포스", new com.loopers.domain.product.Money(99000));
+            ReflectionTestUtils.setField(product2, "id", 11L);
+            ReflectionTestUtils.setField(product2, "createdAt", now);
+            ReflectionTestUtils.setField(product2, "updatedAt", now);
+
+            Sort expectedSort = Sort.by(Sort.Direction.DESC, "createdAt")
+                .and(Sort.by(Sort.Direction.DESC, "id"));
+            Page<Product> productPage = new PageImpl<>(
+                List.of(product1, product2), PageRequest.of(0, 20, expectedSort), 2
             );
+
+            ArgumentCaptor<PageRequest> pageRequestCaptor = ArgumentCaptor.forClass(PageRequest.class);
             given(productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(
                 eq(1L), any(PageRequest.class)
-            )).willReturn(emptyPage);
+            )).willReturn(productPage);
 
             // when
             PageResult<ProductReadModel> result = productQueryService.getAll(
@@ -144,7 +161,18 @@ class ProductQueryServiceImplTest {
             );
 
             // then
-            assertThat(result.items()).isEmpty();
+            verify(productJpaRepository).findAllByBrandIdAndDeletedAtIsNull(eq(1L), pageRequestCaptor.capture());
+            Sort capturedSort = pageRequestCaptor.getValue().getSort();
+            assertThat(capturedSort).isEqualTo(expectedSort);
+
+            assertThat(result.items()).hasSize(2);
+            assertThat(result.items().get(0).name()).isEqualTo("에어맥스");
+            assertThat(result.items().get(0).price()).isEqualTo(129000);
+            assertThat(result.items().get(1).name()).isEqualTo("에어포스");
+            assertThat(result.items().get(1).price()).isEqualTo(99000);
+            assertThat(result.totalElements()).isEqualTo(2);
+            assertThat(result.totalPages()).isEqualTo(1);
+
             verify(productPageReadCache, never()).get(
                 any(ProductSortType.class), anyInt(), anyInt(), any(Supplier.class)
             );

@@ -64,10 +64,11 @@ public class ProductQueryServiceImpl implements ProductQueryService {
     }
 
     private Sort toSort(ProductSortType sortType) {
-        return switch (sortType) {
+        Sort primary = switch (sortType) {
             case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price");
             case LIKES_DESC -> Sort.by(Sort.Direction.DESC, "likeCount");
             case LATEST -> Sort.by(Sort.Direction.DESC, "createdAt");
         };
+        return primary.and(Sort.by(Sort.Direction.DESC, "id"));
     }
 }

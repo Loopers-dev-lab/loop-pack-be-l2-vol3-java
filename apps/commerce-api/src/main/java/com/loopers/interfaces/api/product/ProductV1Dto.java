@@ -3,6 +3,8 @@ package com.loopers.interfaces.api.product;
 import com.loopers.application.product.ProductReadModel;
 import com.loopers.domain.PageResult;
 import com.loopers.domain.brand.Brand;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 import java.util.List;
 import java.util.Map;
@@ -34,8 +36,13 @@ public class ProductV1Dto {
     ) {
         public static ProductPageResponse from(PageResult<ProductReadModel> result, Map<Long, Brand> brandMap) {
             List<ProductResponse> content = result.items().stream()
-                .filter(product -> brandMap.containsKey(product.brandId()))
-                .map(product -> ProductResponse.from(product, brandMap.get(product.brandId())))
+                .map(product -> {
+                    Brand brand = brandMap.get(product.brandId());
+                    if (brand == null) {
+                        throw new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.");
+                    }
+                    return ProductResponse.from(product, brand);
+                })
                 .toList();
             return new ProductPageResponse(content, result.page(), result.size(), result.totalElements(), result.totalPages());
         }
