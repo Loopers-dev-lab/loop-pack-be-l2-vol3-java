@@ -1,19 +1,18 @@
-package com.loopers.application.product;
+package com.loopers.infrastructure.product;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.application.product.ProductCachePort;
 import com.loopers.interfaces.api.product.ProductDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
-@Service
-public class ProductCacheService {
+@Component
+public class RedisProductCacheAdapter implements ProductCachePort {
 
     private static final String PRODUCT_DETAIL_KEY_PREFIX = "product:detail:";
     private static final String PRODUCT_LIST_KEY_PREFIX = "product:list:";
@@ -25,7 +24,7 @@ public class ProductCacheService {
     private final RedisTemplate<String, String> writeTemplate;
     private final ObjectMapper objectMapper;
 
-    public ProductCacheService(
+    public RedisProductCacheAdapter(
         RedisTemplate<String, String> readTemplate,
         @Qualifier("redisTemplateMaster") RedisTemplate<String, String> writeTemplate,
         ObjectMapper objectMapper
@@ -37,6 +36,7 @@ public class ProductCacheService {
 
     // ── 상품 상세 캐시 ──
 
+    @Override
     public ProductDto.ProductResponse getProductDetail(Long productId) {
         try {
             String key = PRODUCT_DETAIL_KEY_PREFIX + productId;
@@ -51,6 +51,7 @@ public class ProductCacheService {
         }
     }
 
+    @Override
     public void putProductDetail(Long productId, ProductDto.ProductResponse response) {
         try {
             String key = PRODUCT_DETAIL_KEY_PREFIX + productId;
@@ -61,6 +62,7 @@ public class ProductCacheService {
         }
     }
 
+    @Override
     public void evictProductDetail(Long productId) {
         try {
             String key = PRODUCT_DETAIL_KEY_PREFIX + productId;
@@ -72,6 +74,7 @@ public class ProductCacheService {
 
     // ── 상품 목록 캐시 (버전 기반 무효화) ──
 
+    @Override
     public ProductDto.PagedProductResponse getProductList(Long brandId, String sort, int page, int size) {
         try {
             String key = buildListKey(brandId, sort, page, size);
@@ -87,6 +90,7 @@ public class ProductCacheService {
         }
     }
 
+    @Override
     public void putProductList(Long brandId, String sort, int page, int size, ProductDto.PagedProductResponse response) {
         try {
             String key = buildListKey(brandId, sort, page, size);
@@ -98,6 +102,7 @@ public class ProductCacheService {
         }
     }
 
+    @Override
     public void evictProductList() {
         try {
             writeTemplate.opsForValue().increment(PRODUCT_LIST_VERSION_KEY);

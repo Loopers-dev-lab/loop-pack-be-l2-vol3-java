@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.like;
 
 import com.loopers.application.like.LikeFacade;
-import com.loopers.application.product.ProductCacheService;
+import com.loopers.application.product.ProductCachePort;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.member.Member;
 import com.loopers.interfaces.api.ApiResponse;
@@ -18,21 +18,21 @@ import java.util.List;
 public class LikeController {
 
     private final LikeFacade likeFacade;
-    private final ProductCacheService productCacheService;
+    private final ProductCachePort productCachePort;
 
     @PostMapping("/api/v1/products/{productId}/likes")
     public ApiResponse<Object> addLike(@AuthMember Member member, @PathVariable Long productId) {
         likeFacade.addLike(member.getId(), productId);
-        productCacheService.evictProductDetail(productId);
-        productCacheService.evictProductList();
+        productCachePort.evictProductDetail(productId);
+        productCachePort.evictProductList();
         return ApiResponse.success(null);
     }
 
     @DeleteMapping("/api/v1/products/{productId}/likes")
     public ApiResponse<Object> removeLike(@AuthMember Member member, @PathVariable Long productId) {
         likeFacade.removeLike(member.getId(), productId);
-        productCacheService.evictProductDetail(productId);
-        productCacheService.evictProductList();
+        productCachePort.evictProductDetail(productId);
+        productCachePort.evictProductList();
         return ApiResponse.success(null);
     }
 

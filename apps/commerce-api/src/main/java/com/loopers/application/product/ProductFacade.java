@@ -30,7 +30,7 @@ public class ProductFacade {
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
     private final LikeRepository likeRepository;
-    private final ProductCacheService productCacheService;
+    private final ProductCachePort productCachePort;
 
     // ── 상품 상세 (캐시 적용) ──
 
@@ -43,14 +43,14 @@ public class ProductFacade {
     }
 
     public ProductDto.ProductResponse getProductDetailCached(Long productId) {
-        ProductDto.ProductResponse cached = productCacheService.getProductDetail(productId);
+        ProductDto.ProductResponse cached = productCachePort.getProductDetail(productId);
         if (cached != null) {
             return cached;
         }
 
         ProductWithBrand info = getProductDetail(productId);
         ProductDto.ProductResponse response = ProductDto.ProductResponse.from(info);
-        productCacheService.putProductDetail(productId, response);
+        productCachePort.putProductDetail(productId, response);
         return response;
     }
 
@@ -67,7 +67,7 @@ public class ProductFacade {
     }
 
     public ProductDto.PagedProductResponse getAllProductsCached(Long brandId, String sort, int page, int size) {
-        ProductDto.PagedProductResponse cached = productCacheService.getProductList(brandId, sort, page, size);
+        ProductDto.PagedProductResponse cached = productCachePort.getProductList(brandId, sort, page, size);
         if (cached != null) {
             return cached;
         }
@@ -81,7 +81,7 @@ public class ProductFacade {
         }
 
         ProductDto.PagedProductResponse response = ProductDto.PagedProductResponse.from(result);
-        productCacheService.putProductList(brandId, sort, page, size, response);
+        productCachePort.putProductList(brandId, sort, page, size, response);
         return response;
     }
 
@@ -123,7 +123,7 @@ public class ProductFacade {
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다."));
         Product product = new Product(brandId, name, new Price(price), new Stock(stockQuantity));
         Product saved = productRepository.save(product);
-        productCacheService.evictProductList();
+        productCachePort.evictProductList();
         return saved;
     }
 
@@ -134,8 +134,8 @@ public class ProductFacade {
         product.changeName(name);
         product.changePrice(new Price(price));
         product.changeStock(new Stock(stockQuantity));
-        productCacheService.evictProductDetail(productId);
-        productCacheService.evictProductList();
+        productCachePort.evictProductDetail(productId);
+        productCachePort.evictProductList();
         return product;
     }
 
@@ -145,8 +145,8 @@ public class ProductFacade {
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
         likeRepository.deleteAllByProductId(productId);
         product.delete();
-        productCacheService.evictProductDetail(productId);
-        productCacheService.evictProductList();
+        productCachePort.evictProductDetail(productId);
+        productCachePort.evictProductList();
     }
 
     // ── private: 벤치마크 전용 AS-IS 로직 보존 ──

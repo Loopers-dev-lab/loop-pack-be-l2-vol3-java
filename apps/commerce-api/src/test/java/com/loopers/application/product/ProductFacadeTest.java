@@ -8,7 +8,7 @@ import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
 import com.loopers.fake.FakeBrandRepository;
 import com.loopers.fake.FakeLikeRepository;
-import com.loopers.fake.FakeProductCacheService;
+import com.loopers.fake.FakeProductCachePort;
 import com.loopers.fake.FakeProductRepository;
 import com.loopers.interfaces.api.product.ProductDto;
 import com.loopers.support.error.CoreException;
@@ -38,7 +38,7 @@ class ProductFacadeTest {
         brandRepository = new FakeBrandRepository();
         likeRepository = new FakeLikeRepository();
         productRepository.setBrandRepository(brandRepository);
-        productFacade = new ProductFacade(productRepository, brandRepository, likeRepository, new FakeProductCacheService());
+        productFacade = new ProductFacade(productRepository, brandRepository, likeRepository, new FakeProductCachePort());
     }
 
     @Nested
