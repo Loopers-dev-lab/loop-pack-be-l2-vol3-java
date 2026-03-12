@@ -6,6 +6,7 @@ import com.loopers.application.product.command.CreateProductCommand;
 import com.loopers.application.product.command.UpdateProductCommand;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.product.query.ProductCursorPage;
 import com.loopers.domain.product.query.ProductListCriteria;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -52,8 +53,8 @@ public class ProductApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Product> list(ProductListCriteria criteria) {
-        return productRepository.search(criteria);
+    public ProductCursorPage listByCursor(ProductListCriteria criteria) {
+        return productRepository.searchByCursor(criteria);
     }
 
     @Transactional(readOnly = true)

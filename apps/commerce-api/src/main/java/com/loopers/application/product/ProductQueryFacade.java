@@ -6,6 +6,7 @@ import com.loopers.application.product.view.ProductView;
 import com.loopers.application.product.view.PublicProductListItemView;
 import com.loopers.application.product.view.PublicProductListView;
 import com.loopers.domain.product.Product;
+import com.loopers.domain.product.query.ProductCursorPage;
 import com.loopers.domain.product.query.ProductListCriteria;
 import com.loopers.domain.product.query.ProductListQuery;
 import lombok.RequiredArgsConstructor;
@@ -37,19 +38,21 @@ public class ProductQueryFacade {
 
     public PublicProductListView list(ProductListQuery query) {
         ProductListCriteria criteria = ProductListCriteria.fromPublic(query);
-        Page<Product> products = productApplicationService.list(criteria);
+        ProductCursorPage products = productApplicationService.listByCursor(criteria);
         Map<UUID, String> brandNames = brandApplicationService.findNamesByIds(
-                products.getContent().stream().map(Product::brandId).toList()
+                products.items().stream().map(Product::brandId).toList()
         );
-        List<PublicProductListItemView> items = products.getContent().stream()
+        List<PublicProductListItemView> items = products.items().stream()
                 .map(product -> PublicProductListItemView.from(product, brandNames.get(product.brandId())))
                 .toList();
         return new PublicProductListView(
                 items,
-                products.getNumber(),
-                products.getSize(),
-                products.getTotalElements(),
-                products.getTotalPages()
+                null,
+                products.size(),
+                null,
+                null,
+                products.hasNext(),
+                products.nextCursor()
         );
     }
 

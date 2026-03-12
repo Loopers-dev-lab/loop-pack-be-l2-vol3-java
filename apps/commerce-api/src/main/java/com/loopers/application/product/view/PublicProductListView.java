@@ -4,9 +4,11 @@ import java.util.List;
 
 public record PublicProductListView(
         List<PublicProductListItemView> items,
-        int page,
-        int size,
-        long totalElements,
-        int totalPages
+        Integer page,
+        Integer size,
+        Long totalElements,
+        Integer totalPages,
+        boolean hasNext,
+        String nextCursor
 ) {
 }

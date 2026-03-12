@@ -168,16 +168,18 @@ public class ProductDto {
 
     public record PublicProductListResponse(
             List<PublicProductListItemResponse> items,
-            int page,
-            int size,
-            long totalElements,
-            int totalPages
+            Integer page,
+            Integer size,
+            Long totalElements,
+            Integer totalPages,
+            boolean hasNext,
+            String nextCursor
     ) {
         public static PublicProductListResponse from(PublicProductListView view) {
             List<PublicProductListItemResponse> items = view.items().stream()
                     .map(PublicProductListItemResponse::from)
                     .toList();
-            return new PublicProductListResponse(items, view.page(), view.size(), view.totalElements(), view.totalPages());
+            return new PublicProductListResponse(items, view.page(), view.size(), view.totalElements(), view.totalPages(), view.hasNext(), view.nextCursor());
         }
     }
 }
