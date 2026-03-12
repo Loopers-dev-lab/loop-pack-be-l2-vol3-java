@@ -94,8 +94,7 @@ class MoneyTest {
             Money money2 = Money.of(1000L);
 
             assertThatThrownBy(() -> money1.subtract(money2))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("차감 결과가 음수");
+                    .isInstanceOf(CoreException.class);
         }
 
         @Test

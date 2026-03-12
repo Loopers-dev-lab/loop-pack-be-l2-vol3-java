@@ -1,5 +1,7 @@
 package com.loopers.domain.common;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Embeddable;
@@ -17,7 +19,8 @@ import java.math.BigDecimal;
 public class Money {
     private BigDecimal amount;
 
-    private Money(BigDecimal amount) {
+    @JsonCreator
+    private Money(@JsonProperty("amount") BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) < 0) {
             throw new CoreException(ErrorType.BAD_REQUEST, "금액은 0 이상이어야 합니다.");
         }
@@ -55,7 +58,7 @@ public class Money {
     public Money subtract(Money other) {
         BigDecimal result = this.amount.subtract(other.amount);
         if (result.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException(
+            throw new CoreException(ErrorType.BAD_REQUEST,
                     "차감 결과가 음수입니다: " + this.amount + " - " + other.amount + " = " + result);
         }
         return new Money(result);
