@@ -8,6 +8,7 @@ public interface OrderRepository {
     Order save(Order order);
     Optional<Order> findById(Long id);
     List<Order> findAllByUserId(Long userId, ZonedDateTime startAt, ZonedDateTime endAt);
+    List<Order> findAllByUserIdWithItems(Long userId, ZonedDateTime startAt, ZonedDateTime endAt);
     List<Order> findAll(int page, int size);
     long count();
 }

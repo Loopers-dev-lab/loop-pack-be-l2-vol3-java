@@ -109,6 +109,44 @@ public class OrderMapper {
     }
 
     /**
+     * JPA Entity → Domain (items 제외 — 목록 조회 전용)
+     */
+    public Order toDomainWithoutItems(OrderEntity entity) {
+        Address address = new Address(
+                entity.getZipCode(),
+                entity.getAddressLine1(),
+                entity.getAddressLine2()
+        );
+
+        return Order.reconstitute(
+                entity.getId(),
+                entity.getUserId(),
+                entity.getOrderNumber(),
+                List.of(),
+                entity.getSubtotalAmount(),
+                entity.getDiscountAmount(),
+                entity.getPointUsedAmount(),
+                entity.getShippingFee(),
+                entity.getTotalAmount(),
+                entity.getStatus(),
+                entity.getOrdererName(),
+                entity.getOrdererPhone(),
+                entity.getReceiverName(),
+                entity.getReceiverPhone(),
+                address,
+                entity.getCouponId(),
+                entity.getPaymentId(),
+                entity.getPaymentMethod(),
+                entity.getOrderedAt(),
+                entity.getExpiresAt(),
+                entity.getCanceledAt(),
+                entity.getCreatedAt(),
+                entity.getUpdatedAt(),
+                entity.getDeletedAt()
+        );
+    }
+
+    /**
      * OrderItem Domain → Entity
      */
     private OrderItemEntity toOrderItemEntity(OrderItem domain) {

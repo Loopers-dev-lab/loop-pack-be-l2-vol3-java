@@ -37,7 +37,24 @@ public class OrderRepositoryImpl implements OrderRepository {
 
     @Override
     public List<Order> findAllByUserId(Long userId, ZonedDateTime startAt, ZonedDateTime endAt) {
-        return orderJpaRepository.findAllByUserIdAndCreatedAtBetween(userId, startAt, endAt)
+        return orderJpaRepository.findOrdersByUserIdAndCreatedAtBetween(userId, startAt, endAt)
+                .stream()
+                .map(orderMapper::toDomainWithoutItems)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Order> findAllByUserIdWithItems(Long userId, ZonedDateTime startAt, ZonedDateTime endAt) {
+        List<Long> ids = orderJpaRepository.findOrdersByUserIdAndCreatedAtBetween(userId, startAt, endAt)
+                .stream()
+                .map(OrderEntity::getId)
+                .collect(Collectors.toList());
+
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+
+        return orderJpaRepository.findAllByIdInWithItems(ids)
                 .stream()
                 .map(orderMapper::toDomain)
                 .collect(Collectors.toList());
