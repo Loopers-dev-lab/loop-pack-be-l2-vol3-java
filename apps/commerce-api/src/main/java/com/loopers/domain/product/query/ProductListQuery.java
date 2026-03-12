@@ -9,6 +9,8 @@ public record ProductListQuery(
         Boolean deleted,
         String sort,
         Integer page,
-        Integer size
+        Integer size,
+        Boolean useCursor,
+        String cursor
 ) {
 }

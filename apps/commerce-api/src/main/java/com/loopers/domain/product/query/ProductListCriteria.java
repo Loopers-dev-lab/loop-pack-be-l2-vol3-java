@@ -15,7 +15,9 @@ public record ProductListCriteria(
         Boolean deleted,
         int page,
         int size,
-        ProductSortOption sortOption
+        ProductSortOption sortOption,
+        boolean useCursor,
+        ProductCursor cursor
 ) {
     public static final int DEFAULT_PAGE = 0;
     public static final int DEFAULT_SIZE = 20;
@@ -43,6 +45,12 @@ public record ProductListCriteria(
         if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
             throw new CoreException(ErrorType.BAD_REQUEST, "minPrice는 maxPrice보다 클 수 없습니다.");
         }
+        if (useCursor && page > 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "커서 페이징에서는 page를 사용할 수 없습니다.");
+        }
+        if (cursor != null && cursor.sortOption() != sortOption) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "커서 정렬 조건이 현재 요청과 일치하지 않습니다.");
+        }
     }
 
     public static ProductListCriteria of(
@@ -53,7 +61,9 @@ public record ProductListCriteria(
             Boolean deleted,
             Integer page,
             Integer size,
-            ProductSortOption sortOption
+            ProductSortOption sortOption,
+            Boolean useCursor,
+            ProductCursor cursor
     ) {
         int resolvedPage = page == null ? DEFAULT_PAGE : page;
         int resolvedSize = size == null ? DEFAULT_SIZE : size;
@@ -66,7 +76,9 @@ public record ProductListCriteria(
                 deleted,
                 resolvedPage,
                 resolvedSize,
-                resolvedSortOption
+                resolvedSortOption,
+                Boolean.TRUE.equals(useCursor),
+                cursor
         );
     }
 
@@ -76,6 +88,7 @@ public record ProductListCriteria(
         }
 
         ProductSortOption sortOption = ProductSortOption.fromApiValue(query.sort());
+        boolean useCursor = Boolean.TRUE.equals(query.useCursor()) || (query.cursor() != null && !query.cursor().isBlank());
         return of(
                 query.brandId(),
                 query.categoryId(),
@@ -84,7 +97,9 @@ public record ProductListCriteria(
                 null,
                 query.page(),
                 query.size(),
-                sortOption
+                sortOption,
+                useCursor,
+                query.cursor() == null || query.cursor().isBlank() ? null : ProductCursor.from(query.cursor())
         );
     }
 
@@ -98,7 +113,9 @@ public record ProductListCriteria(
                 query.deleted(),
                 query.page(),
                 query.size(),
-                sortOption
+                sortOption,
+                false,
+                null
         );
     }
 

@@ -1,5 +1,6 @@
 package com.loopers.domain.product;
 
+import com.loopers.domain.product.query.ProductCursorPage;
 import com.loopers.domain.product.query.ProductListCriteria;
 import org.springframework.data.domain.Page;
 
@@ -18,7 +19,7 @@ public interface ProductRepository {
 
     Optional<Product> findByIdIncludingDeleted(UUID id);
 
-    Page<Product> search(ProductListCriteria criteria);
+    ProductCursorPage searchByCursor(ProductListCriteria criteria);
 
     Page<Product> findAllIncludingDeleted(ProductListCriteria criteria);
 
