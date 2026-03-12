@@ -5,7 +5,8 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.ProductSortType;
 import com.loopers.domain.product.ProductStatus;
-import com.loopers.infrastructure.brand.QBrandEntity;
+import com.loopers.infrastructure.brand.BrandEntity;
+import com.loopers.infrastructure.brand.BrandJpaRepository;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -27,15 +28,18 @@ public class ProductRepositoryImpl implements ProductRepository {
     private final ProductJpaRepository productJpaRepository;
     private final ProductMapper productMapper;
     private final JPAQueryFactory queryFactory;
+    private final BrandJpaRepository brandJpaRepository;
 
     public ProductRepositoryImpl(
         ProductJpaRepository productJpaRepository,
         ProductMapper productMapper,
-        JPAQueryFactory queryFactory
+        JPAQueryFactory queryFactory,
+        BrandJpaRepository brandJpaRepository
     ) {
         this.productJpaRepository = productJpaRepository;
         this.productMapper = productMapper;
         this.queryFactory = queryFactory;
+        this.brandJpaRepository = brandJpaRepository;
     }
 
     @Override
@@ -91,16 +95,15 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public List<Product> findAllDisplayable(Long brandId, ProductSortType sort, int page, int size) {
         QProductEntity product = QProductEntity.productEntity;
-        QBrandEntity brand = QBrandEntity.brandEntity;
+
+        List<Long> activeBrandIds = getActiveBrandIds();
 
         return queryFactory
                 .selectFrom(product)
-                .innerJoin(brand).on(product.brandId.eq(brand.id))
                 .where(
                         product.deletedAt.isNull(),
                         product.status.in(ProductStatus.ACTIVE, ProductStatus.SOLDOUT),
-                        brand.deletedAt.isNull(),
-                        brand.status.eq(BrandStatus.ACTIVE),
+                        product.brandId.in(activeBrandIds),
                         brandIdEq(product, brandId)
                 )
                 .orderBy(toOrderSpecifier(product, sort))
@@ -115,17 +118,16 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public long countDisplayable(Long brandId) {
         QProductEntity product = QProductEntity.productEntity;
-        QBrandEntity brand = QBrandEntity.brandEntity;
+
+        List<Long> activeBrandIds = getActiveBrandIds();
 
         Long count = queryFactory
                 .select(product.count())
                 .from(product)
-                .innerJoin(brand).on(product.brandId.eq(brand.id))
                 .where(
                         product.deletedAt.isNull(),
                         product.status.in(ProductStatus.ACTIVE, ProductStatus.SOLDOUT),
-                        brand.deletedAt.isNull(),
-                        brand.status.eq(BrandStatus.ACTIVE),
+                        product.brandId.in(activeBrandIds),
                         brandIdEq(product, brandId)
                 )
                 .fetchOne();
@@ -174,16 +176,15 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public List<Product> findAllByIdIn(List<Long> ids) {
         QProductEntity product = QProductEntity.productEntity;
-        QBrandEntity brand = QBrandEntity.brandEntity;
+
+        List<Long> activeBrandIds = getActiveBrandIds();
 
         return queryFactory
                 .selectFrom(product)
-                .innerJoin(brand).on(product.brandId.eq(brand.id))
                 .where(
                         product.id.in(ids),
                         product.deletedAt.isNull(),
-                        brand.deletedAt.isNull(),
-                        brand.status.eq(BrandStatus.ACTIVE)
+                        product.brandId.in(activeBrandIds)
                 )
                 .fetch()
                 .stream()
@@ -199,6 +200,13 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public int decrementLikeCount(Long id) {
         return productJpaRepository.decrementLikeCount(id);
+    }
+
+    private List<Long> getActiveBrandIds() {
+        return brandJpaRepository.findAllByStatusAndDeletedAtIsNull(BrandStatus.ACTIVE)
+                .stream()
+                .map(BrandEntity::getId)
+                .toList();
     }
 
     /** brandId가 null이면 필터 미적용 */
