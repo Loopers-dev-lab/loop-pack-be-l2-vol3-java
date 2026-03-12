@@ -1,0 +1,17 @@
+### 상품 목록 조회
+GET http://localhost:8080/api/v1/products?page=0&size=10
+Content-Type: application/json
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Test1234!
+
+### 상품 목록 조회 (브랜드 필터)
+GET http://localhost:8080/api/v1/products?brandId=1&page=0&size=10
+Content-Type: application/json
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Test1234!
+
+### 상품 상세 조회
+GET http://localhost:8080/api/v1/products/1
+Content-Type: application/json
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Test1234!

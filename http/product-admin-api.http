@@ -1,0 +1,42 @@
+### 상품 목록 조회 (Admin)
+GET http://localhost:8080/api-admin/v1/products?page=0&size=10
+Content-Type: application/json
+X-Loopers-Ldap: loopers.admin
+
+### 상품 상세 조회 (Admin)
+GET http://localhost:8080/api-admin/v1/products/1
+Content-Type: application/json
+X-Loopers-Ldap: loopers.admin
+
+### 상품 등록 (Admin)
+POST http://localhost:8080/api-admin/v1/products
+Content-Type: application/json
+X-Loopers-Ldap: loopers.admin
+
+{
+  "brandId": 1,
+  "name": "Air Max 90",
+  "description": "Classic sneakers",
+  "price": 150000,
+  "stock": 100,
+  "imageUrl": "https://example.com/airmax90.png"
+}
+
+### 상품 수정 (Admin)
+PUT http://localhost:8080/api-admin/v1/products/1
+Content-Type: application/json
+X-Loopers-Ldap: loopers.admin
+
+{
+  "brandId": 1,
+  "name": "Air Max 90 Updated",
+  "description": "Updated description",
+  "price": 160000,
+  "stock": 50,
+  "imageUrl": "https://example.com/airmax90-updated.png"
+}
+
+### 상품 삭제 (Admin)
+DELETE http://localhost:8080/api-admin/v1/products/1
+Content-Type: application/json
+X-Loopers-Ldap: loopers.admin
