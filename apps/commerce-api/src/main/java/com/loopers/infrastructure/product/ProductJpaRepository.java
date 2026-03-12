@@ -1,8 +1,7 @@
 package com.loopers.infrastructure.product;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,17 +10,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface ProductJpaRepository extends JpaRepository<ProductEntity, Long> {
+public interface ProductJpaRepository extends JpaRepository<ProductEntity, Long>, JpaSpecificationExecutor<ProductEntity> {
 
     Optional<ProductEntity> findByReferenceIdAndDeletedAtIsNull(UUID referenceId);
 
     List<ProductEntity> findAllByReferenceIdInAndDeletedAtIsNullOrderByIdAsc(List<UUID> referenceIds);
-
-    Page<ProductEntity> findAllByDeletedAtIsNull(Pageable pageable);
-
-    Page<ProductEntity> findAllByBrandReferenceIdAndDeletedAtIsNull(UUID brandReferenceId, Pageable pageable);
-
-    Page<ProductEntity> findAllByBrandReferenceId(UUID brandReferenceId, Pageable pageable);
 
     @Query("SELECT p.referenceId FROM ProductEntity p WHERE p.brandReferenceId = :brandReferenceId AND p.deletedAt IS NULL")
     List<UUID> findReferenceIdsByBrandReferenceIdAndDeletedAtIsNull(@Param("brandReferenceId") UUID brandReferenceId);

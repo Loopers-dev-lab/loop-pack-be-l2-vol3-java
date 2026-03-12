@@ -27,14 +27,8 @@ public class ProductEntity extends AutoIncrementBaseEntity {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "category_id", nullable = false)
-    private Long categoryId;
-
     @Column(name = "category_reference_id", columnDefinition = "BINARY(16)", nullable = false)
     private UUID categoryReferenceId;
-
-    @Column(name = "brand_id", nullable = false)
-    private Long brandId;
 
     @Column(name = "brand_reference_id", columnDefinition = "BINARY(16)", nullable = false)
     private UUID brandReferenceId;
@@ -51,9 +45,7 @@ public class ProductEntity extends AutoIncrementBaseEntity {
             Integer price,
             Integer stock,
             String description,
-            Long categoryId,
             UUID categoryReferenceId,
-            Long brandId,
             UUID brandReferenceId,
             Integer likeCount
     ) {
@@ -62,14 +54,12 @@ public class ProductEntity extends AutoIncrementBaseEntity {
         this.price = price;
         this.stock = stock;
         this.description = description;
-        this.categoryId = categoryId;
         this.categoryReferenceId = categoryReferenceId;
-        this.brandId = brandId;
         this.brandReferenceId = brandReferenceId;
         this.likeCount = likeCount;
     }
 
-    public static ProductEntity from(Product product, Long categoryId, Long brandId) {
+    public static ProductEntity from(Product product) {
         UUID resolvedReferenceId = product.id() != null ? product.id() : UUID.randomUUID();
         return new ProductEntity(
                 resolvedReferenceId,
@@ -77,9 +67,7 @@ public class ProductEntity extends AutoIncrementBaseEntity {
                 product.price(),
                 product.stock(),
                 product.description(),
-                categoryId,
                 product.categoryId(),
-                brandId,
                 product.brandId(),
                 product.likeCount()
         );
@@ -99,13 +87,13 @@ public class ProductEntity extends AutoIncrementBaseEntity {
         );
     }
 
-    public void updateFrom(Product product, Long categoryId) {
+    public void updateFrom(Product product) {
         this.name = product.name();
         this.price = product.price();
         this.stock = product.stock();
         this.description = product.description();
-        this.categoryId = categoryId;
         this.categoryReferenceId = product.categoryId();
+        this.brandReferenceId = product.brandId();
         this.likeCount = product.likeCount();
     }
 }

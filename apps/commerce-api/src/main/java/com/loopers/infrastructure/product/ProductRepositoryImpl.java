@@ -2,13 +2,9 @@ package com.loopers.infrastructure.product;
 
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
-import com.loopers.infrastructure.brand.BrandEntity;
-import com.loopers.infrastructure.brand.BrandJpaRepository;
-import com.loopers.infrastructure.category.CategoryEntity;
-import com.loopers.infrastructure.category.CategoryJpaRepository;
+import com.loopers.domain.product.query.ProductListCriteria;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -20,26 +16,21 @@ import java.util.UUID;
 public class ProductRepositoryImpl implements ProductRepository {
 
     private final ProductJpaRepository productJpaRepository;
-    private final CategoryJpaRepository categoryJpaRepository;
-    private final BrandJpaRepository brandJpaRepository;
 
     @Override
     public Product save(Product product) {
-        CategoryEntity category = resolveCategory(product.categoryId());
-        BrandEntity brand = resolveBrand(product.brandId());
-
         if (product.id() != null) {
             return productJpaRepository.findByReferenceId(product.id())
                     .map(entity -> {
-                        entity.updateFrom(product, category.getId());
+                        entity.updateFrom(product);
                         if (product.deletedAt() != null) {
                             entity.delete();
                         }
                         return productJpaRepository.save(entity).toDomain();
                     })
-                    .orElseGet(() -> productJpaRepository.save(ProductEntity.from(product, category.getId(), brand.getId())).toDomain());
+                    .orElseGet(() -> productJpaRepository.save(ProductEntity.from(product)).toDomain());
         }
-        ProductEntity entity = ProductEntity.from(product, category.getId(), brand.getId());
+        ProductEntity entity = ProductEntity.from(product);
         ProductEntity saved = productJpaRepository.save(entity);
         return saved.toDomain();
     }
@@ -65,19 +56,15 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public Page<Product> findAll(UUID brandId, Pageable pageable) {
-        if (brandId == null) {
-            return productJpaRepository.findAllByDeletedAtIsNull(pageable).map(ProductEntity::toDomain);
-        }
-        return productJpaRepository.findAllByBrandReferenceIdAndDeletedAtIsNull(brandId, pageable).map(ProductEntity::toDomain);
+    public Page<Product> search(ProductListCriteria criteria) {
+        return productJpaRepository.findAll(ProductSpecifications.from(criteria), criteria.toPageable())
+                .map(ProductEntity::toDomain);
     }
 
     @Override
-    public Page<Product> findAllIncludingDeleted(UUID brandId, Pageable pageable) {
-        if (brandId == null) {
-            return productJpaRepository.findAll(pageable).map(ProductEntity::toDomain);
-        }
-        return productJpaRepository.findAllByBrandReferenceId(brandId, pageable).map(ProductEntity::toDomain);
+    public Page<Product> findAllIncludingDeleted(ProductListCriteria criteria) {
+        return productJpaRepository.findAll(ProductSpecifications.from(criteria, true), criteria.toPageable())
+                .map(ProductEntity::toDomain);
     }
 
     @Override
@@ -104,15 +91,5 @@ public class ProductRepositoryImpl implements ProductRepository {
     public void delete(Product product) {
         productJpaRepository.findByReferenceId(product.id())
                 .ifPresent(ProductEntity::delete);
-    }
-
-    private CategoryEntity resolveCategory(UUID categoryReferenceId) {
-        return categoryJpaRepository.findByReferenceIdAndDeletedAtIsNull(categoryReferenceId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않거나 삭제된 카테고리입니다."));
-    }
-
-    private BrandEntity resolveBrand(UUID brandReferenceId) {
-        return brandJpaRepository.findByReferenceIdAndDeletedAtIsNull(brandReferenceId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않거나 삭제된 브랜드입니다."));
     }
 }

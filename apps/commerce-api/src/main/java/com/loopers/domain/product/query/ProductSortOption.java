@@ -4,10 +4,13 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.springframework.data.domain.Sort;
 
+import java.util.Locale;
+
 public enum ProductSortOption {
     LATEST,
-    PRICE_ASC,
-    LIKES_DESC;
+    LIKES,
+    PRICE,
+    NAME;
 
     public static ProductSortOption defaultOption() {
         return LATEST;
@@ -18,10 +21,15 @@ public enum ProductSortOption {
             return defaultOption();
         }
 
-        return switch (value) {
+        String normalized = value.toLowerCase(Locale.ROOT);
+        return switch (normalized) {
             case "latest" -> LATEST;
-            case "price_asc" -> PRICE_ASC;
-            case "likes_desc" -> LIKES_DESC;
+            case "likes" -> LIKES;
+            case "price" -> PRICE;
+            case "name" -> NAME;
+            // @todo 구형 정렬 파라미터(price_asc, likes_desc) 사용처 제거 후 삭제
+            case "price_asc" -> PRICE;
+            case "likes_desc" -> LIKES;
             default -> throw new CoreException(ErrorType.BAD_REQUEST, "지원하지 않는 정렬 기준입니다: %s".formatted(value));
         };
     }
@@ -29,8 +37,9 @@ public enum ProductSortOption {
     public Sort toSort() {
         return switch (this) {
             case LATEST -> Sort.by(Sort.Direction.DESC, "createdAt");
-            case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price");
-            case LIKES_DESC -> Sort.by(Sort.Direction.DESC, "likeCount");
+            case LIKES -> Sort.by(Sort.Direction.DESC, "likeCount");
+            case PRICE -> Sort.by(Sort.Direction.ASC, "price");
+            case NAME -> Sort.by(Sort.Direction.ASC, "name");
         };
     }
 }

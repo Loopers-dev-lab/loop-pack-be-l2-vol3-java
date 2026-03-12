@@ -1,7 +1,7 @@
 package com.loopers.domain.product;
 
+import com.loopers.domain.product.query.ProductListCriteria;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -18,9 +18,9 @@ public interface ProductRepository {
 
     Optional<Product> findByIdIncludingDeleted(UUID id);
 
-    Page<Product> findAll(UUID brandId, Pageable pageable);
+    Page<Product> search(ProductListCriteria criteria);
 
-    Page<Product> findAllIncludingDeleted(UUID brandId, Pageable pageable);
+    Page<Product> findAllIncludingDeleted(ProductListCriteria criteria);
 
     List<UUID> findIdsByBrandId(UUID brandId);
 

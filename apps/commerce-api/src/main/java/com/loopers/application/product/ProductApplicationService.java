@@ -11,7 +11,6 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,13 +52,8 @@ public class ProductApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Product> list(UUID brandId, Pageable pageable) {
-        return productRepository.findAll(brandId, pageable);
-    }
-
-    @Transactional(readOnly = true)
     public Page<Product> list(ProductListCriteria criteria) {
-        return productRepository.findAll(criteria.brandId(), criteria.toPageable());
+        return productRepository.search(criteria);
     }
 
     @Transactional(readOnly = true)
@@ -69,13 +63,8 @@ public class ProductApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Product> listIncludingDeleted(UUID brandId, Pageable pageable) {
-        return productRepository.findAllIncludingDeleted(brandId, pageable);
-    }
-
-    @Transactional(readOnly = true)
     public Page<Product> listIncludingDeleted(ProductListCriteria criteria) {
-        return productRepository.findAllIncludingDeleted(criteria.brandId(), criteria.toPageable());
+        return productRepository.findAllIncludingDeleted(criteria);
     }
 
     @Transactional(readOnly = true)
