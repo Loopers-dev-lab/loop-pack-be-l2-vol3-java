@@ -6,6 +6,8 @@ import com.loopers.domain.product.ProductSortCondition;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
@@ -49,6 +51,11 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public List<Product> findByBrandId(Long brandId) {
         return productJpaRepository.findByBrandIdAndDeletedFalse(brandId);
+    }
+
+    @Override
+    public Page<Product> findByBrandIdWithPaging(Long brandId, Pageable pageable) {
+        return productJpaRepository.findByBrandIdAndDeletedFalseOrderByLikeCountDesc(brandId, pageable);
     }
 
     @Override
