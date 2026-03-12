@@ -1,8 +1,12 @@
 package com.loopers.infrastructure.shared.cache;
 
 import java.time.Duration;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
+import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -88,11 +92,59 @@ public class RedisCacheRepository implements CacheRepository {
     }
 
     @Override
+    public <T> List<T> multiGet(List<String> keys, CacheType<T> type) {
+        if (keys.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<String> jsonList = redisTemplate.opsForValue().multiGet(keys);
+        if (jsonList == null) {
+            return keys.stream().map(k -> (T) null).toList();
+        }
+        JavaType javaType = objectMapper.getTypeFactory().constructType(type.getType());
+        return jsonList.stream()
+                .map(json -> this.<T>deserializeOrNull(json, javaType))
+                .toList();
+    }
+
+    @Override
+    public <T> void multiPut(Map<String, T> entries, Duration ttl) {
+        if (entries.isEmpty()) {
+            return;
+        }
+        redisTemplate.executePipelined((RedisConnection connection) -> {
+            entries.forEach((key, value) -> {
+                try {
+                    String json = objectMapper.writeValueAsString(value);
+                    connection.stringCommands().setEx(
+                            key.getBytes(), ttl.getSeconds(), json.getBytes()
+                    );
+                } catch (JsonProcessingException e) {
+                    log.warn("캐시 직렬화 실패, key={}", key, e);
+                }
+            });
+            return null;
+        });
+        log.debug("Cache MULTI_PUT — keys={}", entries.keySet());
+    }
+
+    @Override
     public void evict(String keyPattern) {
         Set<String> keys = redisTemplate.keys(keyPattern);
         if (!keys.isEmpty()) {
             redisTemplate.delete(keys);
             log.debug("Cache EVICT — pattern={}, deletedKeys={}", keyPattern, keys.size());
+        }
+    }
+
+    private <T> T deserializeOrNull(String json, JavaType javaType) {
+        if (json == null) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(json, javaType);
+        } catch (JsonProcessingException e) {
+            log.warn("캐시 역직렬화 실패", e);
+            return null;
         }
     }
 }

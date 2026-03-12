@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import com.loopers.domain.shared.cache.CacheRepository;
 import com.loopers.domain.shared.cache.CacheType;
 import com.loopers.support.page.Page;
 import com.loopers.utils.RedisCleanUp;
@@ -25,7 +25,7 @@ class RedisCacheRepositoryIntegrationTest {
     private static final CacheType<Page<TestItem>> PAGE_TYPE = new CacheType<>() {};
 
     @Autowired
-    private CacheRepository cacheRepository;
+    private RedisCacheRepository cacheRepository;
 
     @Autowired
     private RedisCleanUp redisCleanUp;
@@ -145,5 +145,99 @@ class RedisCacheRepositoryIntegrationTest {
         }
     }
 
-    record TestItem(Long id, String name) {}
+    @DisplayName("여러 키를 한 번에 조회할 때,")
+    @Nested
+    class MultiGet {
+
+        @DisplayName("모든 키가 존재하면, 순서대로 값이 반환된다.")
+        @Test
+        void returnsAllValues_whenAllKeysExist() {
+            // arrange
+            cacheRepository.put("test:multi:1", "a");
+            cacheRepository.put("test:multi:2", "b");
+            cacheRepository.put("test:multi:3", "c");
+
+            // act
+            List<String> result = cacheRepository.multiGet(
+                    List.of("test:multi:1", "test:multi:2", "test:multi:3"), STRING_TYPE);
+
+            // assert
+            assertThat(result).containsExactly("a", "b", "c");
+        }
+
+        @DisplayName("일부 키가 존재하지 않으면, 해당 위치에 null이 반환된다.")
+        @Test
+        void returnsNullForMissingKeys() {
+            // arrange
+            cacheRepository.put("test:multi:1", "a");
+
+            // act
+            List<String> result = cacheRepository.multiGet(
+                    List.of("test:multi:1", "test:multi:missing", "test:multi:absent"), STRING_TYPE);
+
+            // assert
+            assertAll(
+                    () -> assertThat(result).hasSize(3),
+                    () -> assertThat(result.get(0)).isEqualTo("a"),
+                    () -> assertThat(result.get(1)).isNull(),
+                    () -> assertThat(result.get(2)).isNull()
+            );
+        }
+
+        @DisplayName("빈 키 리스트를 전달하면, 빈 리스트가 반환된다.")
+        @Test
+        void returnsEmptyList_whenKeysEmpty() {
+            // act
+            List<String> result = cacheRepository.multiGet(List.of(), STRING_TYPE);
+
+            // assert
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @DisplayName("여러 키-값을 한 번에 저장할 때,")
+    @Nested
+    class MultiPut {
+
+        @DisplayName("저장된 값을 각각 조회할 수 있다.")
+        @Test
+        void storesAllEntries() {
+            // arrange & act
+            cacheRepository.multiPut(
+                    Map.of("test:mput:1", "x", "test:mput:2", "y", "test:mput:3", "z"),
+                    Duration.ofMinutes(1)
+            );
+
+            // assert
+            assertAll(
+                    () -> assertThat(cacheRepository.get("test:mput:1", STRING_TYPE)).isEqualTo("x"),
+                    () -> assertThat(cacheRepository.get("test:mput:2", STRING_TYPE)).isEqualTo("y"),
+                    () -> assertThat(cacheRepository.get("test:mput:3", STRING_TYPE)).isEqualTo("z")
+            );
+        }
+
+        @DisplayName("TTL이 만료되면, null이 반환된다.")
+        @Test
+        void returnsNull_whenTtlExpired() throws InterruptedException {
+            // arrange
+            cacheRepository.multiPut(Map.of("test:mput:ttl", "expiring"), Duration.ofSeconds(1));
+
+            // act
+            Thread.sleep(1500);
+
+            // assert
+            assertThat(cacheRepository.get("test:mput:ttl", STRING_TYPE)).isNull();
+        }
+
+        @DisplayName("빈 맵을 전달하면, 예외 없이 통과한다.")
+        @Test
+        void doesNothing_whenEntriesEmpty() {
+            // act & assert
+            cacheRepository.multiPut(Map.of(), Duration.ofMinutes(1));
+        }
+    }
+
+    record TestItem(Long id, String name) {
+
+    }
 }

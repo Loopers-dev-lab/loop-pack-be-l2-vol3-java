@@ -3,6 +3,7 @@ package com.loopers.application.like;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ProductWriter;
 import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.domain.like.LikeService;
 
@@ -19,6 +20,7 @@ public class UnlikeProductUseCase {
 
     private final LikeService likeService;
     private final ProductService productService;
+    private final ProductWriter productWriter;
 
     /**
      * @param userId 사용자 ID
@@ -29,7 +31,7 @@ public class UnlikeProductUseCase {
         productService.validateActiveProductExists(productId);
         boolean deleted = likeService.unlike(userId, productId);
         if (deleted) {
-            productService.decreaseLikeCount(productId);
+            productWriter.decreaseLikeCount(productId);
         }
     }
 }

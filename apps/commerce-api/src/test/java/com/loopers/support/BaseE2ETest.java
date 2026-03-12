@@ -6,6 +6,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
 
 /**
  * E2E 테스트의 공통 설정을 제공한다.
@@ -22,8 +23,12 @@ public abstract class BaseE2ETest {
     @Autowired
     protected DatabaseCleanUp databaseCleanUp;
 
+    @Autowired
+    protected RedisCleanUp redisCleanUp;
+
     @AfterEach
     void cleanUp() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
     }
 }

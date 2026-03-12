@@ -3,7 +3,7 @@ package com.loopers.application.product;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.application.shared.annotation.UseCase;
-import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ProductWriter;
 
 import lombok.RequiredArgsConstructor;
 
@@ -16,13 +16,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class UpdateProductUseCase {
 
-    private final ProductService productService;
+    private final ProductWriter productWriter;
 
     /**
      * @param command 상품 수정 커맨드
      */
     @Transactional
     public void execute(ProductCommand.UpdateProductCommand command) {
-        productService.update(command.toModifyProduct());
+        productWriter.update(command.toModifyProduct());
     }
 }

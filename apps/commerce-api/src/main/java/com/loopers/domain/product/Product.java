@@ -70,10 +70,6 @@ public class Product extends BaseEntity {
         this.stock.deduct(quantity);
     }
 
-    /**
-     * 좋아요 수를 delta만큼 조정한다. 캐시 Write-Through 전용.
-     * DB의 좋아요 수는 별도의 atomic 쿼리로 관리된다.
-     */
     public void adjustLikeCount(int delta) {
         this.likeCount = Math.max(0, this.likeCount + delta);
     }
