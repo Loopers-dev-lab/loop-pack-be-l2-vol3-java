@@ -34,8 +34,9 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
     void softDeleteAllByBrandId(@Param("brandId") Long brandId, @Param("deletedAt") ZonedDateTime deletedAt);
 
     // 비관적 락 - 재고 차감 전 행 잠금 (동시 주문 시 Lost Update 방지)
+    // ORDER BY p.id ASC: DB가 PK 오름차순으로 스캔하며 락 획득 -> RDBMS 무관하게 데드락 방지
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM Product p WHERE p.id IN :ids AND p.deletedAt IS NULL")
+    @Query("SELECT p FROM Product p WHERE p.id IN :ids AND p.deletedAt IS NULL ORDER BY p.id ASC")
     List<Product> findAllByIdsForUpdate(@Param("ids") List<Long> ids);
 
     // 원자적 좋아요 수 증가 (read-modify-write 대신 DB 레벨 UPDATE)
