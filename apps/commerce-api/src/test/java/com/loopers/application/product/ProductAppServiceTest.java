@@ -12,6 +12,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -19,9 +23,13 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @DisplayName("ProductAppService 단위 테스트")
@@ -30,12 +38,14 @@ class ProductAppServiceTest {
     private ProductAppService productAppService;
     private ProductRepository productRepository;
     private OptionRepository optionRepository;
+    private ProductCacheManager productCacheManager;
 
     @BeforeEach
     void setUp() {
         productRepository = mock(ProductRepository.class);
         optionRepository = mock(OptionRepository.class);
-        productAppService = new ProductAppService(productRepository, optionRepository);
+        productCacheManager = mock(ProductCacheManager.class);
+        productAppService = new ProductAppService(productRepository, optionRepository, productCacheManager);
     }
 
     @Nested
@@ -269,6 +279,69 @@ class ProductAppServiceTest {
             // then
             assertThat(result.getStock()).isEqualTo(100);
             verify(option).increaseStock(10);
+        }
+    }
+
+    @Nested
+    @DisplayName("브랜드 상품 부분 캐싱")
+    class BrandProductCacheTest {
+
+        @Test
+        @DisplayName("page 0~2 캐시 히트 시 Repository를 호출하지 않는다")
+        void cacheHit_withinLimit_skipsRepository() {
+            // given
+            int page = 1;
+            CachedBrandProductPage cachedPage = CachedBrandProductPage.builder()
+                    .content(List.of())
+                    .totalElements(0L)
+                    .build();
+            given(productCacheManager.getProductList(1L, page, 20))
+                    .willReturn(Optional.of(cachedPage));
+
+            // when
+            CachedBrandProductPage result = productAppService.getProductsByBrandIdCached(1L, page, 20);
+
+            // then
+            assertThat(result).isEqualTo(cachedPage);
+            verify(productRepository, never()).findByBrandIdWithPaging(anyLong(), any(PageRequest.class));
+        }
+
+        @Test
+        @DisplayName("page 0~2 캐시 미스 시 DB 조회 후 캐시에 저장한다")
+        void cacheMiss_withinLimit_queriesDbAndCaches() {
+            // given
+            int page = 0;
+            given(productCacheManager.getProductList(1L, page, 20))
+                    .willReturn(Optional.empty());
+
+            Page<Product> dbPage = new PageImpl<>(List.of(), PageRequest.of(page, 20), 0);
+            given(productRepository.findByBrandIdWithPaging(eq(1L), any(PageRequest.class)))
+                    .willReturn(dbPage);
+
+            // when
+            productAppService.getProductsByBrandIdCached(1L, page, 20);
+
+            // then
+            verify(productRepository).findByBrandIdWithPaging(eq(1L), any(PageRequest.class));
+            verify(productCacheManager).putProductList(eq(1L), eq(page), eq(20), any(CachedBrandProductPage.class));
+        }
+
+        @Test
+        @DisplayName("page 3 이상은 캐시를 사용하지 않고 DB에서 직접 조회한다")
+        void deepPage_bypassesCache() {
+            // given
+            int page = 3;
+            Page<Product> dbPage = new PageImpl<>(List.of(), PageRequest.of(page, 20), 0);
+            given(productRepository.findByBrandIdWithPaging(eq(1L), any(PageRequest.class)))
+                    .willReturn(dbPage);
+
+            // when
+            productAppService.getProductsByBrandIdCached(1L, page, 20);
+
+            // then
+            verify(productCacheManager, never()).getProductList(anyLong(), anyInt(), anyInt());
+            verify(productCacheManager, never()).putProductList(anyLong(), anyInt(), anyInt(), any(CachedBrandProductPage.class));
+            verify(productRepository).findByBrandIdWithPaging(eq(1L), any(PageRequest.class));
         }
     }
 

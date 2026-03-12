@@ -6,11 +6,13 @@ import com.loopers.domain.product.Option;
 import com.loopers.domain.product.Product;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.extern.jackson.Jacksonized;
 
 import java.util.List;
 
 @Getter
 @Builder
+@Jacksonized
 public class ProductInfo {
     private final Long productId;
     private final String productName;
@@ -24,6 +26,7 @@ public class ProductInfo {
 
     @Getter
     @Builder
+    @Jacksonized
     public static class OptionInfo {
         private final Long optionId;
         private final String optionName;
@@ -40,6 +43,20 @@ public class ProductInfo {
                     .soldOut(option.isSoldOut())
                     .build();
         }
+    }
+
+    public ProductInfo withLikedByUser(boolean likedByUser) {
+        return ProductInfo.builder()
+                .productId(this.productId)
+                .productName(this.productName)
+                .basePrice(this.basePrice)
+                .deleted(this.deleted)
+                .brandId(this.brandId)
+                .brandName(this.brandName)
+                .likeCount(this.likeCount)
+                .likedByUser(likedByUser)
+                .options(this.options)
+                .build();
     }
 
     public static ProductInfo of(Product product, Brand brand, List<Option> options, long likeCount, boolean likedByUser) {
