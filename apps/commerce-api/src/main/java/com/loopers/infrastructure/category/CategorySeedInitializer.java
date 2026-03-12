@@ -1,10 +1,13 @@
 package com.loopers.infrastructure.category;
 
+import com.loopers.domain.category.Category;
+import com.loopers.infrastructure.category.redis.CategoryCacheSyncer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -23,8 +26,10 @@ public class CategorySeedInitializer implements ApplicationRunner {
     );
 
     private final CategoryJpaRepository categoryJpaRepository;
+    private final CategoryCacheSyncer categoryCacheSyncer;
 
     @Override
+    @Transactional
     public void run(ApplicationArguments args) {
         if (categoryJpaRepository.count() > 0) {
             return;
@@ -33,6 +38,9 @@ public class CategorySeedInitializer implements ApplicationRunner {
         List<CategoryEntity> seedEntities = DEFAULT_CATEGORIES.stream()
                 .map(name -> new CategoryEntity(UUID.randomUUID(), name))
                 .toList();
-        categoryJpaRepository.saveAll(seedEntities);
+        List<Category> savedCategories = categoryJpaRepository.saveAll(seedEntities).stream()
+                .map(CategoryEntity::toDomain)
+                .toList();
+        categoryCacheSyncer.registerUpsertAll(savedCategories);
     }
 }
