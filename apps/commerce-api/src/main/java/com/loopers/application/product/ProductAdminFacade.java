@@ -1,6 +1,7 @@
 package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandInfo;
+import com.loopers.application.cache.ProductCacheManager;
 import com.loopers.application.inventory.InventoryInfo;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
@@ -27,13 +28,16 @@ public class ProductAdminFacade {
     private final BrandService brandService;
     private final InventoryService inventoryService;
     private final CartItemService cartItemService;
+    private final ProductCacheManager productCacheManager;
 
     public ProductAdminFacade(ProductService productService, BrandService brandService,
-                              InventoryService inventoryService, CartItemService cartItemService) {
+                              InventoryService inventoryService, CartItemService cartItemService,
+                              ProductCacheManager productCacheManager) {
         this.productService = productService;
         this.brandService = brandService;
         this.inventoryService = inventoryService;
         this.cartItemService = cartItemService;
+        this.productCacheManager = productCacheManager;
     }
 
     /** 상품 등록 (브랜드 ACTIVE 검증 + 상품 생성 + 재고 생성) */
@@ -45,6 +49,8 @@ public class ProductAdminFacade {
 
         Product product = productService.create(brandId, name, description, basePrice);
         Inventory inventory = inventoryService.create(product.getId(), quantity);
+
+        productCacheManager.registerDelayedDoubleDelete(null);
 
         return new ProductAdminDetailResult(
                 ProductInfo.from(product), BrandInfo.from(brand), InventoryInfo.from(inventory));
@@ -81,12 +87,17 @@ public class ProductAdminFacade {
         productService.delete(productId);
         inventoryService.delete(productId);
         cartItemService.deleteByProductId(productId);
+
+        productCacheManager.registerDelayedDoubleDelete(productId);
     }
 
     /** 상품 부분 수정 */
     @Transactional
     public ProductAdminDetailResult updateProduct(Long productId, String name, String description, Integer basePrice) {
         productService.update(productId, name, description, basePrice);
+
+        productCacheManager.registerDelayedDoubleDelete(productId);
+
         return getProductDetail(productId);
     }
 
@@ -94,6 +105,9 @@ public class ProductAdminFacade {
     @Transactional
     public ProductAdminDetailResult changeProductStatus(Long productId, ProductStatus status) {
         productService.changeStatus(productId, status);
+
+        productCacheManager.registerDelayedDoubleDelete(productId);
+
         return getProductDetail(productId);
     }
 

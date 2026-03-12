@@ -1,5 +1,6 @@
 package com.loopers.application.payment;
 
+import com.loopers.application.cache.OrderCacheManager;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.CouponTemplate;
 import com.loopers.domain.coupon.IssuedCoupon;
@@ -39,15 +40,17 @@ public class PaymentFacade {
     private final InventoryService inventoryService;
     private final PointService pointService;
     private final CouponService couponService;
+    private final OrderCacheManager orderCacheManager;
 
     public PaymentFacade(OrderService orderService, PaymentService paymentService,
                          InventoryService inventoryService, PointService pointService,
-                         CouponService couponService) {
+                         CouponService couponService, OrderCacheManager orderCacheManager) {
         this.orderService = orderService;
         this.paymentService = paymentService;
         this.inventoryService = inventoryService;
         this.pointService = pointService;
         this.couponService = couponService;
+        this.orderCacheManager = orderCacheManager;
     }
 
     /**
@@ -136,6 +139,9 @@ public class PaymentFacade {
 
             // 포인트 적립
             pointService.earn(userId, order.getTotalAmount());
+
+            // 주문 상태 변경(PENDING → PAID) → afterCommit에서 캐시 삭제
+            orderCacheManager.registerEvictAfterCommit(userId);
         } else {
             payment.reject();
 

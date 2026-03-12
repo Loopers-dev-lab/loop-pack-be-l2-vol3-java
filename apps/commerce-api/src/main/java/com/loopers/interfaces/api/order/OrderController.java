@@ -76,6 +76,8 @@ public class OrderController implements OrderApiSpec {
             @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "20") int size) {
 
+        boolean isDefaultQuery = (startAt == null && endAt == null && (cursor == null || cursor.isBlank()));
+
         ZonedDateTime start = startAt != null ? startAt : ZonedDateTime.now().minusMonths(3);
         ZonedDateTime end = endAt != null ? endAt : ZonedDateTime.now();
 
@@ -88,7 +90,7 @@ public class OrderController implements OrderApiSpec {
         }
 
         OrderFacade.OrderCursorResult result = orderFacade.getOrdersWithCursor(
-                user.getId(), start, end, cursorCreatedAt, cursorId, size);
+                user.getId(), start, end, cursorCreatedAt, cursorId, size, isDefaultQuery);
 
         List<OrderResponse.OrderSummary> summaries = result.orders().stream()
                 .map(o -> new OrderResponse.OrderSummary(
