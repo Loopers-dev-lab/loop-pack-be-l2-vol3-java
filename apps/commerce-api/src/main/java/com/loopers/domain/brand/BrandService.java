@@ -58,11 +58,4 @@ public class BrandService {
         brand.update(name);
         return brand;
     }
-
-    // 브랜드 삭제
-    @Transactional
-    public void delete(Long id) {
-        Brand brand = findById(id);
-        brand.delete();
-    }
 }

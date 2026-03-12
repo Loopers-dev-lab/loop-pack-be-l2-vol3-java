@@ -81,8 +81,11 @@ class OrderAdminV1ApiE2ETest {
     }
 
     Order createSavedOrder(Product product, String brandName) {
+        Money originalAmount = product.getPrice();
+        Money discountAmount = new Money(0);
         return orderJpaRepository.save(new Order(USER_ID,
-                List.of(new OrderItem(product.getId(), new Quantity(1), product.getName(), brandName, product.getPrice()))));
+                List.of(new OrderItem(product.getId(), new Quantity(1), product.getName(), brandName, product.getPrice())),
+                null, originalAmount, discountAmount));
     }
 
     @DisplayName("GET /api-admin/v1/orders")

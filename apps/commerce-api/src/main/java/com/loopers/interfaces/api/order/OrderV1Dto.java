@@ -11,7 +11,8 @@ public class OrderV1Dto {
      * 주문 생성 요청
      */
     public record OrderCreateRequest(
-            List<OrderItemRequest> items
+            List<OrderItemRequest> items,
+            Long userCouponId  // nullable. 쿠폰 미적용 시 null (BR-O09)
     ) {}
 
     public record OrderItemRequest(
@@ -24,12 +25,20 @@ public class OrderV1Dto {
      */
     public record OrderResponse(
             Long orderId,
+            Long userCouponId,
+            int originalAmount,
+            int discountAmount,
+            int finalAmount,
             ZonedDateTime createdAt,
             List<OrderItemResponse> items
     ) {
         public static OrderResponse from(OrderInfo info) {
             return new OrderResponse(
                     info.id(),
+                    info.userCouponId(),
+                    info.originalAmount(),
+                    info.discountAmount(),
+                    info.finalAmount(),
                     info.createdAt(),
                     info.items().stream().map(OrderItemResponse::from).toList()
             );

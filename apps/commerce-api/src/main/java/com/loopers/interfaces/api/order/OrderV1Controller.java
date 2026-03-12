@@ -34,7 +34,7 @@ public class OrderV1Controller implements OrderV1ApiSpec {
         List<OrderCreateCommand.Item> items = request.items().stream()
                 .map(item -> new OrderCreateCommand.Item(item.productId(), item.quantity()))
                 .toList();
-        OrderCreateCommand command = new OrderCreateCommand(items);
+        OrderCreateCommand command = new OrderCreateCommand(items, request.userCouponId());
         return ApiResponse.success(OrderV1Dto.OrderResponse.from(
                 orderFacade.create(loginUser.id(), command)));
     }

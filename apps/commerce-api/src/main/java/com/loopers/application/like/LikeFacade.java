@@ -32,7 +32,7 @@ public class LikeFacade {
         // 좋아요 등록 (중복이면 CONFLICT 예외)
         Like like = likeService.create(userId, productId);
         // 원자적 좋아요 수 증가 (DB 레벨 UPDATE - flushAutomatically로 Like INSERT 먼저 flush됨)
-        // clearAutomatically로 L1 캐시가 초기화되므로 아래 findById는 최신 likeCount를 반환함
+        // clearAutomatically로 캐시가 초기화되므로 아래 findById는 최신 likeCount를 반환함
         productService.increaseLikeCount(productId);
         Product product = productService.findById(productId);
         String brandName = brandService.findById(product.getBrandId()).getName();

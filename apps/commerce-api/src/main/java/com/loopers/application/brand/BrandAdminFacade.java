@@ -20,23 +20,27 @@ public class BrandAdminFacade {
     private final LikeService likeService;
 
     // 브랜드 등록
+    @Transactional
     public BrandInfo register(BrandRegisterCommand command){
         Brand brand = brandService.register(command.name());
         return BrandInfo.from(brand);
     }
 
     // 브랜드 상세 조회
+    @Transactional(readOnly = true)
     public BrandInfo findById(Long id){
         Brand brand = brandService.findById(id);
         return BrandInfo.from(brand);
     }
 
     // 브랜드 목록 조회
+    @Transactional(readOnly = true)
     public Page<BrandInfo> findAll(Pageable pageable){
         return brandService.findAll(pageable).map(BrandInfo::from);
     }
 
     // 브랜드 정보 수정
+    @Transactional
     public BrandInfo update(BrandUpdateCommand command){
         Brand brand = brandService.update(command.id(), command.name());
         return BrandInfo.from(brand);
@@ -48,7 +52,7 @@ public class BrandAdminFacade {
      */
     @Transactional
     public void delete(Long id){
-        brandService.findById(id); // 브랜드 존재 확인
+        Brand brand = brandService.findById(id); // 브랜드 존재 확인
         // 브랜드에 속한 상품 ID 조회 (좋아요 cascade 삭제 전 필요)
         List<Long> productIds = productService.findIdsByBrandId(id);
         // 좋아요 cascade hard delete
@@ -56,6 +60,6 @@ public class BrandAdminFacade {
         // 상품 cascade soft delete
         productService.deleteAllByBrandId(id);
         // 브랜드 soft delete
-        brandService.delete(id);
+        brand.delete();
     }
 }

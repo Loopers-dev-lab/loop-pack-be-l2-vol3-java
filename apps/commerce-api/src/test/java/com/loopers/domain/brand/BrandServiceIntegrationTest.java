@@ -147,33 +147,4 @@ public class BrandServiceIntegrationTest {
         }
     }
 
-    @DisplayName("브랜드 삭제 시")
-    @Nested
-    class Delete{
-        @DisplayName("존재하는 brandId로 요청하면, 정상진행")
-        @Test
-        void deleteSucceed_whenBrandIdIsValid(){
-            // arrange
-            Brand brand = brandJpaRepository.save(new Brand(VALID_BRAND_NAME));
-
-            // act
-            brandService.delete(brand.getId());
-
-            // assert
-            Brand deleted = brandJpaRepository.findById(brand.getId()).orElseThrow();
-            assertThat(deleted.getDeletedAt()).isNotNull();
-        }
-
-        @DisplayName("존재하지 않는 brandId로 요청하면, 404에러 발생")
-        @Test
-        void deleteFailed_whenBrandIdIsNotExists(){
-            // act
-            CoreException result = assertThrows(CoreException.class, () -> {
-                brandService.delete(NOT_EXISTED_BRAND_ID);
-            });
-
-            // assert
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
-        }
-    }
 }

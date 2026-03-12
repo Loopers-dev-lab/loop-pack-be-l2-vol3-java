@@ -19,7 +19,7 @@
 
 | VO | 사용처 | 분리 근거 |
 |----|--------|----------|
-| Money | Product.price, OrderItem.price | 2곳 재사용 + 음수 불가 검증 |
+| Money | Product.price, OrderItem.price, Order.originalAmount, Order.discountAmount, Order.finalAmount | 다중 재사용 + 음수 불가 검증 |
 | Stock | Product.stock | 자체 행위 3개 (decrease, increase, hasEnough) → Product 책임 분산 |
 | Quantity | OrderItem.quantity | 자체 검증 규칙 (>= 1, BR-O02) |
 
@@ -58,23 +58,33 @@ classDiagram
     BaseEntity <|-- Product
     BaseEntity <|-- Order
     BaseEntity <|-- OrderItem
+    BaseEntity <|-- CouponTemplate
+    BaseEntity <|-- UserCoupon
 
     Brand "1" <.. "*" Product : brandId
     Product "1" <.. "*" Like : productId
     Product "1" <.. "*" OrderItem : productId
     Order "1" *-- "1..*" OrderItem : orderItems
+    CouponTemplate "1" <.. "*" UserCoupon : couponTemplateId
+    UserCoupon "1" <.. "0..1" Order : userCouponId
 
     Product *-- Money : price
     Product *-- Stock : stock
     OrderItem *-- Quantity : quantity
     OrderItem *-- Money : price
+    Order *-- Money : originalAmount
+    Order *-- Money : discountAmount
+    Order *-- Money : finalAmount
+    CouponTemplate *-- CouponType : type
 ```
 
 ### 봐야 할 포인트
 
-1. **Like는 BaseEntity 미상속**: hard delete 정책이므로 `deletedAt`이 불필요하다. BaseEntity를 상속하면 사용하지 않는 `deletedAt` 컬럼과 `delete()`/`restore()` 메서드가 노출되어 상속 계약을 위반한다. 나머지 4개 엔티티(Brand, Product, Order, OrderItem)는 soft delete를 사용한다.
-2. **ID 참조**: 점선 화살표(`<..`)는 Long 타입 ID로 참조하는 느슨한 연관이다. JPA `@ManyToOne`이 아닌 `Long brandId` 필드로 표현된다.
-3. **유일한 composition**: Order → OrderItem만 실선 다이아몬드(`*--`)로 표현한다. OrderItem은 Order 없이 존재할 수 없다.
+1. **Like는 BaseEntity 미상속**: hard delete 정책이므로 `deletedAt`이 불필요하다. BaseEntity를 상속하면 사용하지 않는 `deletedAt` 컬럼과 `delete()`/`restore()` 메서드가 노출되어 상속 계약을 위반한다.
+2. **UserCoupon은 BaseEntity 상속**: soft delete 정책이다. `orders.user_coupon_id` FK 참조 무결성 유지 및 발급 이력 보존을 위해 물리 삭제를 하지 않는다. Like와 달리 주문의 참조 대상이므로 soft delete가 필수적이다.
+3. **ID 참조**: 점선 화살표(`<..`)는 Long 타입 ID로 참조하는 느슨한 연관이다. JPA `@ManyToOne`이 아닌 `Long userCouponId` 필드로 표현된다.
+4. **유일한 composition**: Order → OrderItem만 실선 다이아몬드(`*--`)로 표현한다. OrderItem은 Order 없이 존재할 수 없다.
+5. **Order ↔ UserCoupon**: `Order`가 `userCouponId`(nullable FK)로 `UserCoupon`을 참조한다. 쿠폰 미적용 주문이 가능하므로 `0..1` 카디널리티.
 
 ---
 
@@ -245,8 +255,12 @@ classDiagram
 
     class Order {
         -Long userId
+        -Long userCouponId
+        -Money originalAmount
+        -Money discountAmount
+        -Money finalAmount
         -List~OrderItem~ orderItems
-        +Order(Long userId, List~OrderItem~ orderItems)
+        +Order(Long userId, List~OrderItem~ orderItems, Long userCouponId, Money originalAmount, Money discountAmount)
         +isOwnedBy(Long userId) boolean
         #guard() void
     }
@@ -285,10 +299,79 @@ classDiagram
 
 1. **BR-O01 최소 항목 검증**: Order 생성자에서 `orderItems`가 비어있으면 예외를 발생시킨다. 빈 주문이 생성되는 것을 도메인 모델 수준에서 원천 차단한다.
 2. **BR-O06 소유권 검증**: `isOwnedBy(userId)` 메서드로 주문의 소유자 여부를 판단한다. US-O03 시퀀스에서 Service가 이 메서드를 호출하여 타인의 주문 접근을 거부한다.
-3. **OrderItem이 곧 스냅샷이다**: OrderItem이 `productName`, `brandName`, `price`를 직접 보유하여 주문 시점의 상품 정보를 보존한다 (BR-O05). OrderItem의 존재 이유 자체가 "주문 시점의 정보 보존"이므로, 별도 스냅샷 VO를 두지 않고 필드를 직접 갖는다. 원본 Product나 Brand가 이후 수정/삭제되어도 주문 기록에는 영향이 없다.
-4. **Aggregate 경계**: Order가 Aggregate Root이고, OrderItem은 Order를 통해서만 접근한다. `Order.orderItems`는 `@OneToMany(cascade = ALL, orphanRemoval = true)`로 생명 주기를 함께 관리한다.
-5. **OrderItem.orderId**: OrderItem이 BaseEntity를 상속하여 자체 id를 가진다. `orderId`는 DB 외래 키로 Order와 연결되지만, 도메인 모델에서는 Order가 `List<OrderItem>`으로 직접 참조한다.
-6. **Money 재사용**: `OrderItem.price`는 `Product.price`와 동일한 Money VO를 사용한다. VO 분리의 이점이 여기서 드러난다.
+3. **OrderItem이 곧 스냅샷이다**: OrderItem이 `productName`, `brandName`, `price`를 직접 보유하여 주문 시점의 상품 정보를 보존한다 (BR-O05).
+4. **BR-O13 금액 스냅샷**: `originalAmount`, `discountAmount`, `finalAmount`도 Order에 직접 저장된다. 쿠폰 정보가 사후 수정되어도 주문 금액 기록은 보존된다. `finalAmount`는 생성자에서 `originalAmount - discountAmount`로 계산된다.
+5. **Aggregate 경계**: Order가 Aggregate Root이고, OrderItem은 Order를 통해서만 접근한다. `Order.orderItems`는 `@OneToMany(cascade = ALL, orphanRemoval = true)`로 생명 주기를 함께 관리한다.
+6. **Money 재사용**: `OrderItem.price`뿐 아니라 주문 금액 3종(`originalAmount`, `discountAmount`, `finalAmount`)에도 동일한 Money VO를 재사용한다.
+
+---
+
+---
+
+## 쿠폰 (CouponTemplate + UserCoupon)
+
+### 검증 목적
+
+쿠폰의 두 엔티티(Template/UserCoupon)가 책임을 어떻게 분리하는지 확인한다. 할인 계산 및 검증 규칙이 CouponTemplate에, 사용 상태 전환 책임이 UserCoupon에 있는 설계 의도를 확인한다.
+
+### 다이어그램
+
+```mermaid
+classDiagram
+    class BaseEntity {
+        <<abstract>>
+        #Long id
+        #ZonedDateTime createdAt
+        #ZonedDateTime updatedAt
+        #ZonedDateTime deletedAt
+        +guard() void
+        +delete() void
+        +restore() void
+    }
+
+    class CouponTemplate {
+        -String name
+        -CouponType type
+        -int value
+        -Integer minOrderAmount
+        -LocalDateTime expiredAt
+        +calculateDiscount(int originalAmount) int
+        +isExpired(LocalDateTime now) boolean
+        +validateNotExpired(LocalDateTime now) void
+        +validateMinOrderAmount(int amount) void
+        #guard() void
+    }
+
+    class UserCoupon {
+        -Long couponTemplateId
+        -Long userId
+        -LocalDateTime expiredAt
+        -LocalDateTime usedAt
+        +use() void
+        +isAvailable() boolean
+        +validateNotExpired(LocalDateTime now) void
+    }
+
+    class CouponType {
+        <<enumeration>>
+        FIXED
+        RATE
+    }
+
+    BaseEntity <|-- CouponTemplate
+    BaseEntity <|-- UserCoupon
+    CouponTemplate --> CouponType
+
+    note for UserCoupon "BaseEntity 상속\nsoft delete 정책\n사용 상태: usedAt != null → USED\n만료 상태: 발급 시점 스냅샷 expiredAt으로 계산"
+    note for CouponTemplate "soft delete 정책\nBaseEntity 상속\n만료 검증: validateNotExpired()"
+```
+
+### 봐야 할 포인트
+
+1. **calculateDiscount()가 CouponTemplate 책임**: FIXED/RATE에 따른 계산 규칙은 쿠폰 타입의 고유 책임이다. 서비스가 타입을 switch하면 도메인 로직이 외부로 새어나간다.
+2. **UserCoupon.use()의 단순성**: `usedAt`을 기록하는 것만 담당한다. 사용 상태는 `usedAt != null`로 판단한다. 단일 책임 원칙 유지.
+3. **만료 검증이 UserCoupon 책임**: `validateNotExpired(LocalDateTime now)` 메서드가 스냅샷된 `expiredAt` 기준으로 만료 여부 확인 + 예외 발생을 함께 담당한다. 발급 이후 관리자가 CouponTemplate.expiredAt을 변경해도 이미 발급된 쿠폰에 영향을 주지 않는다. "Tell, don't ask" 원칙 적용.
+4. **최소 주문 금액은 CouponTemplate 책임 유지**: `minOrderAmount`는 스냅샷하지 않는다. 주문 금액 조건 변경은 이미 발급된 쿠폰에 영향을 줄 수 있지만, 비즈니스 정책상 허용한다.
 
 ---
 
@@ -305,6 +388,9 @@ classDiagram
 | OrderItem | quantity | Quantity VO | >= 1 검증 위임 |
 | OrderItem | productName, brandName | String (단순) | 스냅샷 필드, OrderItem 자체가 스냅샷이므로 VO 불필요 |
 | OrderItem | price | Money VO | Product.price와 동일 VO 재사용 |
+| Order | originalAmount, discountAmount, finalAmount | Money VO | 금액 스냅샷, 음수 불가 검증 위임 |
+| CouponTemplate | type | CouponType enum | FIXED/RATE 타입 구분 |
+| CouponTemplate | currentIssuedCount | int (단순) | 단순 증감, @Version으로 동시성 제어 |
 
 ### VO 설계 리스크
 

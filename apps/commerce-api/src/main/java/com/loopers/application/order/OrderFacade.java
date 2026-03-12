@@ -1,9 +1,11 @@
 package com.loopers.application.order;
 
 import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.product.Money;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.Quantity;
@@ -29,25 +31,65 @@ public class OrderFacade {
     private final OrderService orderService;
     private final ProductService productService;
     private final BrandService brandService;
+    private final CouponService couponService;
 
     /**
      * 주문 생성 (US-O01)
-     * 상품 존재 확인 + 재고 검증 → 주문 생성(스냅샷) → 재고 차감
+     *
+     * 작업 순서:
+     * ① 재고 확인 (비관적 락)
+     * ② originalAmount 계산
+     * ③ 쿠폰 적용
+     * ④ 재고 차감 (dirty checking)
+     * ⑤ 주문 생성 (금액 스냅샷 포함, BR-O13)
+     *
+     * 재고 확인 → 쿠폰 처리 → 재고 차감 순서인 이유:
+     * - 재고 부족 시 쿠폰 처리를 건너뛰어야 함
+     * - 쿠폰 minOrderAmount 검증은 originalAmount 기준 (BR-O11)
+     * - 트랜잭션 내 어느 단계 실패해도 전체 롤백 보장
      */
     @Transactional
     public OrderInfo create(Long userId, OrderCreateCommand command) {
-        // Quantity VO 통해서 수량 검증
+        // 수량 VO 변환 (Quantity 생성자에서 >= 1 검증, BR-O02)
         Map<Long, Quantity> quantityByProductId = command.items().stream()
                 .collect(Collectors.toMap(
                         OrderCreateCommand.Item::productId,
-                        item -> new Quantity(item.quantity())
+                        item -> new Quantity(item.quantity()),
+                        (existing, duplicate) -> {
+                            throw new CoreException(ErrorType.BAD_REQUEST, "동일 상품은 한 번만 주문할 수 있습니다.");
+                        }
                 ));
 
-        // 비관적 락으로 재고 확인 + 차감 원자적 수행 (BR-O03, BR-O04)
-        // SELECT FOR UPDATE → 재고 검증 → decreaseStock (dirty checking) 순서로 TOCTOU 방지
-        List<Product> products = productService.verifyAndDecreaseStock(quantityByProductId);
+        // ① 비관적 락으로 재고 확인만 (차감 X). 이 시점부터 락 보유 (BR-O03)
+        List<Product> products = productService.findAllAndVerifyStock(quantityByProductId);
         Map<Long, Product> productMap = products.stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
+
+        // ② originalAmount 계산 (쿠폰 적용 전 총 금액, BR-O11 기준)
+        int originalAmountValue = command.items().stream()
+                .mapToInt(item -> {
+                    Product product = productMap.get(item.productId());
+                    return product.getPrice().getAmount() * item.quantity();
+                })
+                .sum();
+        Money originalAmount = new Money(originalAmountValue);
+
+        // ③ 쿠폰 적용 (BR-O09: 선택적). 유효성 검증 + 사용 처리 + 할인 금액 계산은 CouponService 책임
+        Long userCouponId = command.userCouponId();
+        Money discountAmount = new Money(0);
+
+        if (userCouponId != null) {
+            int discount = couponService.applyCoupon(userCouponId, userId, originalAmountValue);
+            discountAmount = new Money(discount);
+        }
+
+        // ④ 재고 차감 (dirty checking, 비관적 락 범위 내)
+        // MySQL IN 절은 InnoDB 클러스터드 인덱스 특성상 PK 오름차순으로 락을 획득하지만,
+        // 기술 구현에 의존하지 않도록 ProductService에서 애플리케이션 레벨로 오름차순 정렬 후 전달함 -> 데드락 방지
+        for (Product product : products) {
+            Quantity quantity = quantityByProductId.get(product.getId());
+            product.decreaseStock(quantity);
+        }
 
         // 브랜드명 일괄 조회 (스냅샷용)
         List<Long> brandIds = products.stream().map(Product::getBrandId).distinct().toList();
@@ -68,9 +110,8 @@ public class OrderFacade {
                 })
                 .toList();
 
-        // 주문 저장
-        Order order = orderService.create(userId, orderItems);
-
+        // ⑤ 주문 저장 (금액 스냅샷 포함, BR-O13)
+        Order order = orderService.create(userId, orderItems, userCouponId, originalAmount, discountAmount);
         return OrderInfo.of(order);
     }
 

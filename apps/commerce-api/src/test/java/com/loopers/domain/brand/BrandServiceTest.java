@@ -102,7 +102,7 @@ class BrandServiceTest {
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
-                brandService.findById(999L);
+                brandService.findById(NOT_EXISTED_BRAND_ID);
             });
 
             // assert
@@ -154,25 +154,4 @@ class BrandServiceTest {
 
     }
 
-    @DisplayName("브랜드 삭제 시")
-    @Nested
-    class Delete{
-
-        @DisplayName("존재하는 brandId로 요청하면, 정상진행")
-        @Test
-        void deleteSucceed_whenBrandIdIsValid(){
-            // arrange
-            Brand brand = new Brand(VALID_BRAND_NAME);
-
-            // stub
-            when(brandRepository.findById(VALID_BRAND_ID)).thenReturn(Optional.of(brand));
-
-            // act
-            brandService.delete(VALID_BRAND_ID);
-
-            // assert
-            assertThat(brand.getDeletedAt()).isNotNull();
-        }
-
-    }
 }

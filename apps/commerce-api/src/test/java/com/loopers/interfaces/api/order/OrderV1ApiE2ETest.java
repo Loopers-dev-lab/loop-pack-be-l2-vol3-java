@@ -121,7 +121,7 @@ class OrderV1ApiE2ETest {
             Product product = productJpaRepository.save(
                     new Product(brand.getId(), VALID_PRODUCT_NAME, new Money(VALID_PRICE), new Stock(VALID_STOCK)));
             OrderV1Dto.OrderCreateRequest request = new OrderV1Dto.OrderCreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 2))
+                    List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 2)), null
             );
 
             // act
@@ -151,7 +151,7 @@ class OrderV1ApiE2ETest {
             Product product = productJpaRepository.save(
                     new Product(brand.getId(), VALID_PRODUCT_NAME, new Money(VALID_PRICE), new Stock(VALID_STOCK)));
             OrderV1Dto.OrderCreateRequest request = new OrderV1Dto.OrderCreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 1))
+                    List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 1)), null
             );
 
             // act
@@ -176,7 +176,7 @@ class OrderV1ApiE2ETest {
             // arrange
             signUpAndGetUserId(VALID_LOGIN_ID, VALID_PASSWORD, "주문유저");
             OrderV1Dto.OrderCreateRequest request = new OrderV1Dto.OrderCreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(NOT_EXISTED_PRODUCT_ID, 1))
+                    List.of(new OrderV1Dto.OrderItemRequest(NOT_EXISTED_PRODUCT_ID, 1)), null
             );
 
             // act
@@ -204,7 +204,7 @@ class OrderV1ApiE2ETest {
             Product product = productJpaRepository.save(
                     new Product(brand.getId(), VALID_PRODUCT_NAME, new Money(VALID_PRICE), new Stock(1)));
             OrderV1Dto.OrderCreateRequest request = new OrderV1Dto.OrderCreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 5)) // 재고(1) < 주문(5)
+                    List.of(new OrderV1Dto.OrderItemRequest(product.getId(), 5)), null // 재고(1) < 주문(5)
             );
 
             // act
@@ -233,7 +233,7 @@ class OrderV1ApiE2ETest {
                     new Product(brand.getId(), VALID_PRODUCT_NAME, new Money(VALID_PRICE), new Stock(VALID_STOCK)));
             int orderQuantity = 3;
             OrderV1Dto.OrderCreateRequest request = new OrderV1Dto.OrderCreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(product.getId(), orderQuantity))
+                    List.of(new OrderV1Dto.OrderItemRequest(product.getId(), orderQuantity)), null
             );
 
             // act
@@ -262,7 +262,8 @@ class OrderV1ApiE2ETest {
             Product product = productJpaRepository.save(
                     new Product(brand.getId(), VALID_PRODUCT_NAME, new Money(VALID_PRICE), new Stock(VALID_STOCK)));
             orderJpaRepository.save(new Order(userId,
-                    List.of(new OrderItem(product.getId(), new Quantity(1), VALID_PRODUCT_NAME, brand.getName(), product.getPrice()))));
+                    List.of(new OrderItem(product.getId(), new Quantity(1), VALID_PRODUCT_NAME, brand.getName(), product.getPrice())),
+                    null, product.getPrice(), new Money(0)));
 
             // act
             ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderListResponse>> responseType =
@@ -336,7 +337,8 @@ class OrderV1ApiE2ETest {
             Product product = productJpaRepository.save(
                     new Product(brand.getId(), VALID_PRODUCT_NAME, new Money(VALID_PRICE), new Stock(VALID_STOCK)));
             Order order = orderJpaRepository.save(new Order(userId,
-                    List.of(new OrderItem(product.getId(), new Quantity(1), VALID_PRODUCT_NAME, brand.getName(), product.getPrice()))));
+                    List.of(new OrderItem(product.getId(), new Quantity(1), VALID_PRODUCT_NAME, brand.getName(), product.getPrice())),
+                    null, product.getPrice(), new Money(0)));
 
             // act
             ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>> responseType =
@@ -366,7 +368,8 @@ class OrderV1ApiE2ETest {
             Product product = productJpaRepository.save(
                     new Product(brand.getId(), VALID_PRODUCT_NAME, new Money(VALID_PRICE), new Stock(VALID_STOCK)));
             Order otherOrder = orderJpaRepository.save(new Order(otherUserId,
-                    List.of(new OrderItem(product.getId(), new Quantity(1), VALID_PRODUCT_NAME, brand.getName(), product.getPrice()))));
+                    List.of(new OrderItem(product.getId(), new Quantity(1), VALID_PRODUCT_NAME, brand.getName(), product.getPrice())),
+                    null, product.getPrice(), new Money(0)));
 
             // act
             ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>> responseType =

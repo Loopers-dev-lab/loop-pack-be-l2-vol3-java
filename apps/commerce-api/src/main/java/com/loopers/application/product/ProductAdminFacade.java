@@ -23,6 +23,7 @@ public class ProductAdminFacade {
     private final LikeService likeService;
 
     // 상품 등록 - 브랜드 존재 확인은 Facade 책임 (BR-P01, US-P05)
+    @Transactional
     public ProductInfo register(ProductRegisterCommand command) {
         Brand brand = brandService.findById(command.brandId()); // 브랜드 미존재 시 NOT_FOUND 예외
         Product product = productService.register(
@@ -31,6 +32,7 @@ public class ProductAdminFacade {
     }
 
     // 상품 상세 조회
+    @Transactional(readOnly = true)
     public ProductInfo findById(Long id) {
         Product product = productService.findById(id);
         // 상품의 brandId로 브랜드명 조회
@@ -39,6 +41,7 @@ public class ProductAdminFacade {
     }
 
     // 상품 목록 조회 (brandId 필터 선택)
+    @Transactional(readOnly = true)
     public Page<ProductInfo> findAll(Long brandId, Pageable pageable) {
         Page<Product> products = productService.findAll(brandId, pageable);
         // 상품들의 brandId만 추출
@@ -50,6 +53,7 @@ public class ProductAdminFacade {
     }
 
     // 상품 정보 수정
+    @Transactional
     public ProductInfo update(ProductUpdateCommand command) {
         Product product = productService.update(
                 command.id(), command.name(), command.price(), command.stock());
@@ -63,11 +67,11 @@ public class ProductAdminFacade {
      */
     @Transactional
     public void delete(Long id) {
-        // 상품 존재 확인 (없으면 NOT_FOUND 예외)
-        productService.findById(id);
+        // 상품 존재 확인 + 참조 확보 (없으면 NOT_FOUND 예외)
+        Product product = productService.findById(id);
         // 좋아요 cascade hard delete
         likeService.deleteAllByProductId(id);
-        // 상품 soft delete
-        productService.delete(id);
+        // 상품 soft delete (이미 managed 상태이므로 dirty checking으로 처리)
+        product.delete();
     }
 }
