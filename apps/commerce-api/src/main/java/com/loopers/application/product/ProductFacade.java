@@ -8,6 +8,8 @@ import com.loopers.domain.product.RegisterProductCommand;
 import com.loopers.domain.product.UpdateProductCommand;
 import com.loopers.domain.productlike.ProductLikeService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,7 @@ public class ProductFacade {
     private final ProductLikeService productLikeService;
     private final BrandService brandService;
 
+    @CacheEvict(value = {"products", "products:brand"}, allEntries = true)
     @Transactional
     public ProductInfo registerProduct(RegisterProductCommand command) {
         Brand brand = brandService.getBrand(command.brandId());
@@ -38,12 +41,14 @@ public class ProductFacade {
         return ProductInfo.from(product, brand);
     }
 
+    @Cacheable(value = "products", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + #pageable.sort.toString()")
     public Page<ProductInfo> getProducts(Pageable pageable) {
         Page<Product> products = productService.getAll(pageable);
         Map<Long, Brand> brandMap = getBrandMap(products.getContent());
         return products.map(p -> ProductInfo.from(p, brandMap.get(p.getBrandId())));
     }
 
+    @Cacheable(value = "products:brand", key = "#brandId + '_' + #pageable.pageNumber + '_' + #pageable.pageSize + '_' + #pageable.sort.toString()")
     public Page<ProductInfo> getProductsByBrandId(Long brandId, Pageable pageable) {
         Brand brand = brandService.getBrand(brandId);
         return productService.getAllByBrandId(brandId, pageable)
@@ -58,6 +63,7 @@ public class ProductFacade {
                 .toList();
     }
 
+    @CacheEvict(value = {"products", "products:brand"}, allEntries = true)
     @Transactional
     public ProductInfo updateProduct(Long id, UpdateProductCommand command) {
         Product product = productService.update(id, command);
@@ -74,6 +80,7 @@ public class ProductFacade {
                 .collect(Collectors.toMap(Brand::getId, b -> b));
     }
 
+    @CacheEvict(value = {"products", "products:brand"}, allEntries = true)
     @Transactional
     public void deleteProduct(Long id) {
         // 상품 삭제 전에 좋아요 먼저 삭제
