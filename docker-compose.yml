@@ -1,0 +1,133 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: loopers-mysql
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --local-infile=1
+    environment:
+      MYSQL_DATABASE: loopers
+      MYSQL_USER: application
+      MYSQL_PASSWORD: application
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uapplication", "-papplication"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-init:ro
+      - ./docker/mysql/seed:/docker-seed:ro
+      - ./docker/mysql/seed-data:/seed-data:ro
+
+  mysql-seed:
+    image: mysql:8.0
+    container_name: loopers-mysql-seed
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -e
+        mysql --local-infile=1 -hmysql -uapplication -papplication loopers < /docker-init/01-schema.sql
+        mysql --local-infile=1 -hmysql -uapplication -papplication loopers < /docker-seed/02-reset.sql
+        mysql --local-infile=1 -hmysql -uapplication -papplication loopers < /docker-seed/03-load-csv.sql
+    volumes:
+      - ./docker/mysql/init:/docker-init:ro
+      - ./docker/mysql/seed:/docker-seed:ro
+      - ./docker/mysql/seed-data:/seed-data:ro
+
+  redis-master:
+    image: redis:7.0
+    container_name: redis-master
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-master-data:/data
+    command:
+      - redis-server
+      - --appendonly
+      - yes
+      - --save
+      - ""
+      - --latency-monitor-threshold
+      - "100"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "PING"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+  redis-readonly:
+    image: redis:7.0
+    container_name: redis-readonly
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-readonly-data:/data
+    command:
+      - redis-server
+      - --appendonly
+      - yes
+      - --appendfsync
+      - everysec
+      - --replicaof
+      - redis-master
+      - "6379"
+      - --replica-read-only
+      - yes
+      - --latency-monitor-threshold
+      - "100"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "PING"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+  commerce-api:
+    image: gradle:8.10.2-jdk21
+    container_name: loopers-commerce-api
+    working_dir: /workspace
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mysql-seed:
+        condition: service_completed_successfully
+      redis-master:
+        condition: service_healthy
+      redis-readonly:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      DATASOURCE_MYSQL_JPA_MAIN_JDBC_URL: jdbc:mysql://mysql:3306/loopers
+      DATASOURCE_MYSQL_JPA_MAIN_USERNAME: application
+      DATASOURCE_MYSQL_JPA_MAIN_PASSWORD: application
+      DATASOURCE_REDIS_MASTER_HOST: redis-master
+      DATASOURCE_REDIS_MASTER_PORT: 6379
+      DATASOURCE_REDIS_REPLICAS_0_HOST: redis-readonly
+      DATASOURCE_REDIS_REPLICAS_0_PORT: 6379
+    command:
+      - ./gradlew
+      - :apps:commerce-api:bootRun
+      - --no-daemon
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    volumes:
+      - .:/workspace
+      - gradle-cache:/home/gradle/.gradle
+
+volumes:
+  mysql-data:
+  redis-master-data:
+  redis-readonly-data:
+  gradle-cache:

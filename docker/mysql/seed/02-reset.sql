@@ -1,0 +1,3 @@
+TRUNCATE TABLE products;
+TRUNCATE TABLE brands;
+TRUNCATE TABLE categories;
