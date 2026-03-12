@@ -7,7 +7,8 @@
 ```mermaid
 classDiagram
     class Brand {
-        -UUID id
+        -Long id
+        -UUID referenceId
         -String name
         -String description
         -String imageUrl
@@ -15,12 +16,14 @@ classDiagram
     }
 
     class Category {
-        -UUID id
+        -Long id
+        -UUID referenceId
         -String name
     }
 
     class Product {
-        -UUID id
+        -Long id
+        -UUID referenceId
         -String name
         -int price
         -int stock
@@ -144,6 +147,7 @@ classDiagram
 ## 핵심 포인트
 
 - **불변 도메인 객체**: 기존 Member가 record 기반 불변 객체 + Value Object(MemberId, Password, Name, Email, BirthDate) 패턴으로 구현되어 있다. 새 도메인도 동일 패턴 적용.
+- **식별자 이중화 전략**: Product/Category/Brand는 DB PK를 `Long(auto increment)`로 사용하고, 외부 API/도메인 노출 식별자는 `UUID referenceId`를 사용한다.
 - **엔티티에 비즈니스 로직 배치**: Product.decreaseStock(), Order.cancel() 등 상태 변경 로직이 Service가 아닌 엔티티 자체에 위치하여 빈약한 도메인 방지.
 - **스냅샷 분리 (점선)**: OrderItem은 Product의 런타임 참조를 갖지 않는다. 다만 `productId`를 논리 참조로 보관하고, 주문 시점의 상품명/가격/브랜드명 스냅샷을 함께 저장해 변경/삭제에도 주문 이력을 보존한다.
 - **Like = 조인 엔티티**: Member-Product 간 N:M 관계를 Like 엔티티로 풀어낸다. DB에서 (memberId + productId) Unique 제약조건으로 중복 방지.

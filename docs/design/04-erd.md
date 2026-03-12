@@ -13,18 +13,26 @@ erDiagram
         string phone
     }
     BRAND {
+        bigint id PK
+        binary(16) referenceId UK
         string name
         string description
         string imageUrl
     }
     CATEGORY {
+        bigint id PK
+        binary(16) referenceId UK
         string name
     }
     PRODUCT {
+        bigint id PK
+        binary(16) referenceId UK
         string name
         int price
         int stock
         string description
+        bigint categoryId FK
+        bigint brandId FK
         int likeCount
     }
     ORDER {
@@ -73,6 +81,7 @@ erDiagram
 
 ## 핵심 포인트
 - **Like = Member-Product N:M 조인 엔티티**: Member와 Product 간 N:M 관계를 Like 엔티티로 풀어냈다. DB에서 (memberId + productId) Unique 제약조건으로 중복 방지. Like 자체에 비즈니스 속성은 없으므로 속성 블록을 생략했다.
+- **식별자 분리 전략**: Product/Category/Brand는 내부 조인/인덱스를 위해 `bigint PK`를 사용하고, 외부 노출 및 API 경로 식별자는 `referenceId(UUID)`를 사용한다.
 - **OrderItem 스냅샷 비정규화**: OrderItem은 Product와 FK 관계가 없다. 다만 `productId`를 논리 참조로 함께 저장해 역추적성을 확보하고, 주문 시점의 상품명/가격/브랜드명은 스냅샷으로 고정한다. ERD에서 Product-OrderItem 간 관계선이 없는 이유.
 - **Order-OrderItem 컴포지션**: Order 삭제 시 OrderItem도 함께 삭제되는 강한 소유 관계. 최소 1개 이상의 OrderItem이 필요하다 (`||--|{`).
 - **쿠폰 모델 분리**: 쿠폰 정책(COUPON)과 개인 보유 쿠폰(ISSUED_COUPON)을 분리해 소유권/상태 전이를 표현한다.
