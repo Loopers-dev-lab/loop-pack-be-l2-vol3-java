@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.UUID;
 
 @Component
 @Profile("!test")
@@ -30,7 +31,7 @@ public class CategorySeedInitializer implements ApplicationRunner {
         }
 
         List<CategoryEntity> seedEntities = DEFAULT_CATEGORIES.stream()
-                .map(CategoryEntity::new)
+                .map(name -> new CategoryEntity(UUID.randomUUID(), name))
                 .toList();
         categoryJpaRepository.saveAll(seedEntities);
     }

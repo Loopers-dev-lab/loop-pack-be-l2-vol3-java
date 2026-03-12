@@ -17,13 +17,17 @@ public class CategoryRepositoryImpl implements CategoryRepository {
 
     @Override
     public Category save(Category category) {
-        CategoryEntity saved = categoryJpaRepository.save(CategoryEntity.from(category));
+        CategoryEntity saved = category.id() == null
+                ? categoryJpaRepository.save(CategoryEntity.from(category))
+                : categoryJpaRepository.findByReferenceIdAndDeletedAtIsNull(category.id())
+                        .map(existing -> categoryJpaRepository.save(existing))
+                        .orElseGet(() -> categoryJpaRepository.save(CategoryEntity.from(category)));
         return saved.toDomain();
     }
 
     @Override
     public Optional<Category> findById(UUID id) {
-        return categoryJpaRepository.findByIdAndDeletedAtIsNull(id)
+        return categoryJpaRepository.findByReferenceIdAndDeletedAtIsNull(id)
                 .map(CategoryEntity::toDomain);
     }
 

@@ -7,10 +7,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface CategoryJpaRepository extends JpaRepository<CategoryEntity, UUID> {
-    Optional<CategoryEntity> findByIdAndDeletedAtIsNull(UUID id);
+public interface CategoryJpaRepository extends JpaRepository<CategoryEntity, Long> {
+    Optional<CategoryEntity> findByReferenceIdAndDeletedAtIsNull(UUID referenceId);
 
     Page<CategoryEntity> findAllByDeletedAtIsNull(Pageable pageable);
 
-    boolean existsByIdAndDeletedAtIsNull(UUID id);
+    boolean existsByReferenceIdAndDeletedAtIsNull(UUID referenceId);
 }

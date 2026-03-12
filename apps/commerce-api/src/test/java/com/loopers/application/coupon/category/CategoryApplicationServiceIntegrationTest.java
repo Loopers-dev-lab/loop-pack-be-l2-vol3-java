@@ -2,6 +2,7 @@ package com.loopers.application.coupon.category;
 
 import com.loopers.domain.category.Category;
 import com.loopers.domain.category.CategoryRepository;
+import com.loopers.infrastructure.category.CategoryJpaRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -27,6 +28,9 @@ class CategoryApplicationServiceIntegrationTest {
     private CategoryRepository categoryRepository;
 
     @Autowired
+    private CategoryJpaRepository categoryJpaRepository;
+
+    @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
     @AfterEach
@@ -37,10 +41,15 @@ class CategoryApplicationServiceIntegrationTest {
     @Test
     @DisplayName("CategoryApplicationService 통합: 목록 조회 가능")
     void list() {
-        categoryRepository.save(new Category("카테고리통합"));
+        Category savedCategory = categoryRepository.save(new Category("카테고리통합"));
+        Long persistedPk = categoryJpaRepository.findByReferenceIdAndDeletedAtIsNull(savedCategory.id())
+                .orElseThrow()
+                .getId();
 
         var page = categoryApplicationService.list(PageRequest.of(0, 20));
 
+        assertThat(savedCategory.id()).isNotNull();
+        assertThat(persistedPk).isNotNull().isPositive();
         assertThat(page.getTotalElements()).isEqualTo(1);
         assertThat(page.getContent().get(0).name()).isEqualTo("카테고리통합");
     }
