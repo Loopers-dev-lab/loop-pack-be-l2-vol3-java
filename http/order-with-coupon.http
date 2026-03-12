@@ -1,0 +1,47 @@
+### 주문 생성 (쿠폰만 적용)
+POST http://localhost:8080/api/v1/orders/with-discount
+Content-Type: application/json
+X-User-Id: 1
+
+{
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 2
+    }
+  ],
+  "couponId": 1,
+  "pointAmount": null
+}
+
+### 주문 생성 (포인트만 적용)
+POST http://localhost:8080/api/v1/orders/with-discount
+Content-Type: application/json
+X-User-Id: 1
+
+{
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 1
+    }
+  ],
+  "couponId": null,
+  "pointAmount": 3000
+}
+
+### 주문 생성 (쿠폰 + 포인트 적용)
+POST http://localhost:8080/api/v1/orders/with-discount
+Content-Type: application/json
+X-User-Id: 1
+
+{
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 1
+    }
+  ],
+  "couponId": 1,
+  "pointAmount": 2000
+}

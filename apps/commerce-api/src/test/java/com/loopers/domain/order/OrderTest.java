@@ -141,4 +141,95 @@ class OrderTest {
             assertThat(order.getCreatedAt()).isEqualTo(createdAt);
         }
     }
+
+    @DisplayName("할인이 적용된 Order를 생성할 때,")
+    @Nested
+    class CreateWithDiscount {
+
+        @DisplayName("쿠폰 할인만 적용된 주문이 정상적으로 생성된다.")
+        @Test
+        void createsOrder_withCouponDiscountOnly() {
+            // arrange
+            Long userId = 1L;
+            List<OrderItem> items = List.of(
+                OrderItem.create(100L, "상품1", 2, new Money(10000)),  // 20000
+                OrderItem.create(200L, "상품2", 1, new Money(30000))   // 30000
+            );
+            Long couponId = 999L;
+            Money couponDiscount = new Money(5000);
+            Money pointDiscount = Money.ZERO;
+
+            // act
+            Order order = Order.createWithDiscount(userId, items, couponId, couponDiscount, pointDiscount);
+
+            // assert
+            assertThat(order.getOriginalAmount().amount()).isEqualTo(50000);
+            assertThat(order.getCouponDiscount().amount()).isEqualTo(5000);
+            assertThat(order.getPointDiscount()).isEqualTo(Money.ZERO);
+            assertThat(order.getTotalPrice().amount()).isEqualTo(45000);
+            assertThat(order.getCouponId()).isEqualTo(couponId);
+        }
+
+        @DisplayName("포인트 할인만 적용된 주문이 정상적으로 생성된다.")
+        @Test
+        void createsOrder_withPointDiscountOnly() {
+            // arrange
+            Long userId = 1L;
+            List<OrderItem> items = List.of(
+                OrderItem.create(100L, "상품", 1, new Money(30000))
+            );
+            Money couponDiscount = Money.ZERO;
+            Money pointDiscount = new Money(3000);
+
+            // act
+            Order order = Order.createWithDiscount(userId, items, null, couponDiscount, pointDiscount);
+
+            // assert
+            assertThat(order.getOriginalAmount().amount()).isEqualTo(30000);
+            assertThat(order.getCouponDiscount()).isEqualTo(Money.ZERO);
+            assertThat(order.getPointDiscount().amount()).isEqualTo(3000);
+            assertThat(order.getTotalPrice().amount()).isEqualTo(27000);
+            assertThat(order.getCouponId()).isNull();
+        }
+
+        @DisplayName("쿠폰과 포인트 할인이 모두 적용된 주문이 정상적으로 생성된다.")
+        @Test
+        void createsOrder_withBothDiscounts() {
+            // arrange
+            Long userId = 1L;
+            List<OrderItem> items = List.of(
+                OrderItem.create(100L, "상품", 1, new Money(50000))
+            );
+            Long couponId = 123L;
+            Money couponDiscount = new Money(5000);
+            Money pointDiscount = new Money(2000);
+
+            // act
+            Order order = Order.createWithDiscount(userId, items, couponId, couponDiscount, pointDiscount);
+
+            // assert
+            assertThat(order.getOriginalAmount().amount()).isEqualTo(50000);
+            assertThat(order.getCouponDiscount().amount()).isEqualTo(5000);
+            assertThat(order.getPointDiscount().amount()).isEqualTo(2000);
+            assertThat(order.getTotalPrice().amount()).isEqualTo(43000);
+            assertThat(order.getCouponId()).isEqualTo(couponId);
+        }
+
+        @DisplayName("할인 없이 생성된 주문은 원가와 최종가가 같다.")
+        @Test
+        void createsOrder_withNoDiscount() {
+            // arrange
+            Long userId = 1L;
+            List<OrderItem> items = List.of(
+                OrderItem.create(100L, "상품", 1, new Money(20000))
+            );
+
+            // act
+            Order order = Order.createWithDiscount(userId, items, null, Money.ZERO, Money.ZERO);
+
+            // assert
+            assertThat(order.getOriginalAmount().amount()).isEqualTo(20000);
+            assertThat(order.getTotalPrice().amount()).isEqualTo(20000);
+        }
+    }
 }

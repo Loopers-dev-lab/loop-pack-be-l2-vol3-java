@@ -37,11 +37,16 @@ public class FakeOrderRepository implements OrderRepository {
                 ))
                 .toList();
 
-            order = Order.reconstitute(
+            // 할인 정보 포함하여 reconstitute
+            order = Order.reconstituteWithDiscount(
                 orderId,
                 order.getUserId(),
                 itemsWithIds,
                 order.getTotalPrice(),
+                order.getOriginalAmount(),
+                order.getCouponDiscount(),
+                order.getPointDiscount(),
+                order.getCouponId(),
                 order.getStatus(),
                 order.getCreatedAt()
             );

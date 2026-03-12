@@ -180,6 +180,68 @@ class MoneyTest {
         }
     }
 
+    @DisplayName("금액을 뺄 때,")
+    @Nested
+    class Subtract {
+
+        @DisplayName("큰 금액에서 작은 금액을 빼면, 차액이 반환된다.")
+        @Test
+        void returnsSubtractedMoney_whenSubtractingSmaller() {
+            // arrange
+            Money money1 = new Money(10000);
+            Money money2 = new Money(3000);
+
+            // act
+            Money result = money1.subtract(money2);
+
+            // assert
+            assertThat(result.amount()).isEqualTo(7000);
+        }
+
+        @DisplayName("같은 금액을 빼면, ZERO가 반환된다.")
+        @Test
+        void returnsZero_whenSubtractingSameAmount() {
+            // arrange
+            Money money = new Money(5000);
+
+            // act
+            Money result = money.subtract(money);
+
+            // assert
+            assertThat(result.amount()).isEqualTo(0);
+        }
+
+        @DisplayName("결과가 음수가 되면, 예외가 발생한다.")
+        @Test
+        void throwsException_whenResultIsNegative() {
+            // arrange
+            Money money1 = new Money(3000);
+            Money money2 = new Money(5000);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> {
+                money1.subtract(money2);
+            });
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("원본 Money는 변경되지 않는다. (불변성)")
+        @Test
+        void originalMoneyRemainsUnchanged() {
+            // arrange
+            Money original = new Money(10000);
+
+            // act
+            Money subtracted = original.subtract(new Money(3000));
+
+            // assert
+            assertThat(original.amount()).isEqualTo(10000);
+            assertThat(subtracted.amount()).isEqualTo(7000);
+        }
+    }
+
     @DisplayName("ZERO 상수는,")
     @Nested
     class ZeroConstant {

@@ -33,7 +33,23 @@ public enum ErrorType {
     ORDER_ACCESS_DENIED(HttpStatus.FORBIDDEN, "ORDER_ACCESS_DENIED", "주문 접근 권한이 없습니다."),
 
     /** 관리자 관련 에러 */
-    ADMIN_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "ADMIN_UNAUTHORIZED", "관리자 권한이 필요합니다.");
+    ADMIN_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "ADMIN_UNAUTHORIZED", "관리자 권한이 필요합니다."),
+
+    /** 쿠폰 관련 에러 */
+    COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND", "존재하지 않는 쿠폰입니다."),
+    COUPON_EXHAUSTED(HttpStatus.BAD_REQUEST, "COUPON_EXHAUSTED", "쿠폰 발급이 마감되었습니다."),
+    COUPON_ALREADY_ISSUED(HttpStatus.CONFLICT, "COUPON_ALREADY_ISSUED", "이미 발급받은 쿠폰입니다."),
+    COUPON_EXPIRED(HttpStatus.BAD_REQUEST, "COUPON_EXPIRED", "만료된 쿠폰입니다."),
+    COUPON_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "COUPON_NOT_AVAILABLE", "사용할 수 없는 쿠폰입니다."),
+    COUPON_ALREADY_USED(HttpStatus.BAD_REQUEST, "COUPON_ALREADY_USED", "이미 사용된 쿠폰입니다."),
+    COUPON_ACCESS_DENIED(HttpStatus.FORBIDDEN, "COUPON_ACCESS_DENIED", "쿠폰 접근 권한이 없습니다."),
+
+    /** 주문 확장 에러 */
+    ORDER_AMOUNT_TOO_LOW(HttpStatus.BAD_REQUEST, "ORDER_AMOUNT_TOO_LOW", "최소 주문 금액을 충족하지 못했습니다."),
+
+    /** 포인트 관련 에러 */
+    POINT_NOT_FOUND(HttpStatus.NOT_FOUND, "POINT_NOT_FOUND", "포인트 정보를 찾을 수 없습니다."),
+    INSUFFICIENT_POINT(HttpStatus.BAD_REQUEST, "INSUFFICIENT_POINT", "포인트가 부족합니다.");
 
     private final HttpStatus status;
     private final String code;

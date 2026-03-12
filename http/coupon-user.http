@@ -1,0 +1,11 @@
+### 쿠폰 발급
+POST http://localhost:8080/api/v1/coupons/1/issue
+X-User-Id: 1
+
+### 내 쿠폰 목록 조회
+GET http://localhost:8080/api/v1/users/me/coupons?offset=0&limit=20
+X-User-Id: 1
+
+### 내 쿠폰 상세 조회
+GET http://localhost:8080/api/v1/users/me/coupons/1
+X-User-Id: 1

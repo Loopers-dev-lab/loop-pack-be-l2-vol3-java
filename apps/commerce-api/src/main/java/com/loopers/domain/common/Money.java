@@ -40,4 +40,15 @@ public record Money(long amount) {
         }
         return new Money(this.amount * quantity);
     }
+
+    /**
+     * 금액을 뺀다.
+     *
+     * @param other 뺄 금액
+     * @return 차감된 금액
+     * @throws CoreException 결과가 음수인 경우
+     */
+    public Money subtract(Money other) {
+        return new Money(this.amount - other.amount);
+    }
 }

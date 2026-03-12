@@ -44,6 +44,18 @@ public class OrderJpaEntity {
     @Column(name = "total_price", nullable = false)
     private Long totalPrice;
 
+    @Column(name = "original_amount")
+    private Long originalAmount;
+
+    @Column(name = "coupon_discount")
+    private Long couponDiscount;
+
+    @Column(name = "point_discount")
+    private Long pointDiscount;
+
+    @Column(name = "coupon_id")
+    private Long couponId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private OrderStatus status;
@@ -56,6 +68,21 @@ public class OrderJpaEntity {
     public OrderJpaEntity(Long userId, Long totalPrice, OrderStatus status) {
         this.userId = userId;
         this.totalPrice = totalPrice;
+        this.originalAmount = totalPrice;
+        this.couponDiscount = 0L;
+        this.pointDiscount = 0L;
+        this.couponId = null;
+        this.status = status;
+    }
+
+    public OrderJpaEntity(Long userId, Long totalPrice, Long originalAmount,
+            Long couponDiscount, Long pointDiscount, Long couponId, OrderStatus status) {
+        this.userId = userId;
+        this.totalPrice = totalPrice;
+        this.originalAmount = originalAmount;
+        this.couponDiscount = couponDiscount;
+        this.pointDiscount = pointDiscount;
+        this.couponId = couponId;
         this.status = status;
     }
 
@@ -91,5 +118,21 @@ public class OrderJpaEntity {
 
     public ZonedDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public Long getOriginalAmount() {
+        return originalAmount;
+    }
+
+    public Long getCouponDiscount() {
+        return couponDiscount;
+    }
+
+    public Long getPointDiscount() {
+        return pointDiscount;
+    }
+
+    public Long getCouponId() {
+        return couponId;
     }
 }

@@ -18,6 +18,23 @@ public class OrderMapper {
             .map(OrderMapper::toOrderItemDomain)
             .toList();
 
+        // 할인 정보가 있는 경우
+        if (entity.getOriginalAmount() != null && entity.getCouponDiscount() != null) {
+            return Order.reconstituteWithDiscount(
+                entity.getId(),
+                entity.getUserId(),
+                items,
+                new Money(entity.getTotalPrice()),
+                new Money(entity.getOriginalAmount()),
+                new Money(entity.getCouponDiscount()),
+                new Money(entity.getPointDiscount() != null ? entity.getPointDiscount() : 0L),
+                entity.getCouponId(),
+                entity.getStatus(),
+                entity.getCreatedAt()
+            );
+        }
+
+        // 기존 주문 (할인 정보 없음)
         return Order.reconstitute(
             entity.getId(),
             entity.getUserId(),
@@ -39,11 +56,26 @@ public class OrderMapper {
     }
 
     public static OrderJpaEntity toJpaEntity(Order domain) {
-        OrderJpaEntity entity = new OrderJpaEntity(
-            domain.getUserId(),
-            domain.getTotalPrice().amount(),
-            domain.getStatus()
-        );
+        OrderJpaEntity entity;
+
+        // 할인 정보가 있는 경우
+        if (domain.getOriginalAmount() != null) {
+            entity = new OrderJpaEntity(
+                domain.getUserId(),
+                domain.getTotalPrice().amount(),
+                domain.getOriginalAmount().amount(),
+                domain.getCouponDiscount() != null ? domain.getCouponDiscount().amount() : 0L,
+                domain.getPointDiscount() != null ? domain.getPointDiscount().amount() : 0L,
+                domain.getCouponId(),
+                domain.getStatus()
+            );
+        } else {
+            entity = new OrderJpaEntity(
+                domain.getUserId(),
+                domain.getTotalPrice().amount(),
+                domain.getStatus()
+            );
+        }
 
         for (OrderItem item : domain.getItems()) {
             OrderItemJpaEntity itemEntity = new OrderItemJpaEntity(

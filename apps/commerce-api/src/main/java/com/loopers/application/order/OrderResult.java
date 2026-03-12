@@ -14,6 +14,10 @@ public record OrderResult(
     Long userId,
     List<OrderItemResult> items,
     Long totalPrice,
+    Long originalAmount,
+    Long couponDiscount,
+    Long pointDiscount,
+    Long couponId,
     OrderStatus status,
     ZonedDateTime createdAt
 ) {
@@ -27,6 +31,10 @@ public record OrderResult(
             order.getUserId(),
             itemResults,
             order.getTotalPrice().amount(),
+            order.getOriginalAmount() != null ? order.getOriginalAmount().amount() : order.getTotalPrice().amount(),
+            order.getCouponDiscount() != null ? order.getCouponDiscount().amount() : 0L,
+            order.getPointDiscount() != null ? order.getPointDiscount().amount() : 0L,
+            order.getCouponId(),
             order.getStatus(),
             order.getCreatedAt()
         );

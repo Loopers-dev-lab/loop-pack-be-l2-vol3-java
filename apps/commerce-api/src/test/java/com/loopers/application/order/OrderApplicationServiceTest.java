@@ -1,11 +1,18 @@
 package com.loopers.application.order;
 
 import com.loopers.domain.common.Money;
+import com.loopers.domain.coupon.CouponTemplate;
+import com.loopers.domain.coupon.IssuedCoupon;
+import com.loopers.domain.coupon.IssuedCouponStatus;
 import com.loopers.domain.order.OrderStatus;
+import com.loopers.domain.point.UserPoint;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.Stock;
+import com.loopers.fake.FakeCouponTemplateRepository;
+import com.loopers.fake.FakeIssuedCouponRepository;
 import com.loopers.fake.FakeOrderRepository;
 import com.loopers.fake.FakeProductRepository;
+import com.loopers.fake.FakeUserPointRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +20,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,13 +31,25 @@ class OrderApplicationServiceTest {
 
     private FakeProductRepository fakeProductRepository;
     private FakeOrderRepository fakeOrderRepository;
+    private FakeCouponTemplateRepository fakeCouponTemplateRepository;
+    private FakeIssuedCouponRepository fakeIssuedCouponRepository;
+    private FakeUserPointRepository fakeUserPointRepository;
     private OrderApplicationService orderApplicationService;
 
     @BeforeEach
     void setUp() {
         fakeProductRepository = new FakeProductRepository();
         fakeOrderRepository = new FakeOrderRepository();
-        orderApplicationService = new OrderApplicationService(fakeProductRepository, fakeOrderRepository);
+        fakeCouponTemplateRepository = new FakeCouponTemplateRepository();
+        fakeIssuedCouponRepository = new FakeIssuedCouponRepository();
+        fakeUserPointRepository = new FakeUserPointRepository();
+        orderApplicationService = new OrderApplicationService(
+            fakeProductRepository,
+            fakeOrderRepository,
+            fakeCouponTemplateRepository,
+            fakeIssuedCouponRepository,
+            fakeUserPointRepository
+        );
     }
 
     private Product createAndSaveProduct(String name, long price, int stock) {
@@ -248,6 +268,188 @@ class OrderApplicationServiceTest {
 
             // Assert
             assertThat(count).isEqualTo(2);
+        }
+    }
+
+    @Nested
+    @DisplayName("쿠폰/포인트 할인 주문")
+    class PlaceOrderWithDiscount {
+
+        @Test
+        @DisplayName("성공 - 쿠폰만 적용")
+        void 쿠폰만_적용_주문_성공() {
+            // Arrange
+            Product product = createAndSaveProduct("테스트 상품", 50000, 100);
+            Long userId = 1L;
+
+            // 쿠폰 설정
+            CouponTemplate template = fakeCouponTemplateRepository.save(
+                CouponTemplate.createFixed("5000원 할인", new Money(5000), new Money(10000), 100, ZonedDateTime.now().plusDays(7))
+            );
+            IssuedCoupon issued = fakeIssuedCouponRepository.save(
+                IssuedCoupon.create(userId, template)
+            );
+
+            var request = new PlaceOrderWithDiscountRequest(
+                List.of(new OrderItemRequest(product.getId(), 1)),
+                issued.getId(),
+                null
+            );
+
+            // Act
+            OrderResult result = orderApplicationService.placeOrderWithDiscount(userId, request);
+
+            // Assert
+            assertThat(result.originalAmount()).isEqualTo(50000);
+            assertThat(result.couponDiscount()).isEqualTo(5000);
+            assertThat(result.pointDiscount()).isEqualTo(0);
+            assertThat(result.totalPrice()).isEqualTo(45000);
+            assertThat(result.couponId()).isEqualTo(issued.getId());
+
+            // 쿠폰 사용 처리 확인
+            IssuedCoupon usedCoupon = fakeIssuedCouponRepository.findById(issued.getId()).orElseThrow();
+            assertThat(usedCoupon.getStatus()).isEqualTo(IssuedCouponStatus.USED);
+        }
+
+        @Test
+        @DisplayName("성공 - 포인트만 적용")
+        void 포인트만_적용_주문_성공() {
+            // Arrange
+            Product product = createAndSaveProduct("테스트 상품", 30000, 100);
+            Long userId = 1L;
+
+            // 포인트 설정
+            fakeUserPointRepository.save(UserPoint.create(userId, 10000));
+
+            var request = new PlaceOrderWithDiscountRequest(
+                List.of(new OrderItemRequest(product.getId(), 1)),
+                null,
+                3000L
+            );
+
+            // Act
+            OrderResult result = orderApplicationService.placeOrderWithDiscount(userId, request);
+
+            // Assert
+            assertThat(result.originalAmount()).isEqualTo(30000);
+            assertThat(result.couponDiscount()).isEqualTo(0);
+            assertThat(result.pointDiscount()).isEqualTo(3000);
+            assertThat(result.totalPrice()).isEqualTo(27000);
+
+            // 포인트 차감 확인
+            UserPoint updatedPoint = fakeUserPointRepository.findByUserId(userId).orElseThrow();
+            assertThat(updatedPoint.getBalance()).isEqualTo(7000);
+        }
+
+        @Test
+        @DisplayName("성공 - 쿠폰과 포인트 모두 적용")
+        void 쿠폰_포인트_동시_적용_성공() {
+            // Arrange
+            Product product = createAndSaveProduct("테스트 상품", 50000, 100);
+            Long userId = 1L;
+
+            // 쿠폰 설정
+            CouponTemplate template = fakeCouponTemplateRepository.save(
+                CouponTemplate.createFixed("5000원 할인", new Money(5000), Money.ZERO, 100, ZonedDateTime.now().plusDays(7))
+            );
+            IssuedCoupon issued = fakeIssuedCouponRepository.save(
+                IssuedCoupon.create(userId, template)
+            );
+
+            // 포인트 설정
+            fakeUserPointRepository.save(UserPoint.create(userId, 10000));
+
+            var request = new PlaceOrderWithDiscountRequest(
+                List.of(new OrderItemRequest(product.getId(), 1)),
+                issued.getId(),
+                2000L
+            );
+
+            // Act
+            OrderResult result = orderApplicationService.placeOrderWithDiscount(userId, request);
+
+            // Assert
+            assertThat(result.originalAmount()).isEqualTo(50000);
+            assertThat(result.couponDiscount()).isEqualTo(5000);
+            assertThat(result.pointDiscount()).isEqualTo(2000);
+            assertThat(result.totalPrice()).isEqualTo(43000);
+        }
+
+        @Test
+        @DisplayName("실패 - 최소 주문 금액 미달")
+        void 최소_주문_금액_미달_예외() {
+            // Arrange
+            Product product = createAndSaveProduct("저가 상품", 5000, 100);
+            Long userId = 1L;
+
+            // 최소 주문 금액 10000원 쿠폰
+            CouponTemplate template = fakeCouponTemplateRepository.save(
+                CouponTemplate.createFixed("3000원 할인", new Money(3000), new Money(10000), 100, ZonedDateTime.now().plusDays(7))
+            );
+            IssuedCoupon issued = fakeIssuedCouponRepository.save(
+                IssuedCoupon.create(userId, template)
+            );
+
+            var request = new PlaceOrderWithDiscountRequest(
+                List.of(new OrderItemRequest(product.getId(), 1)),
+                issued.getId(),
+                null
+            );
+
+            // Act & Assert
+            CoreException ex = assertThrows(CoreException.class,
+                () -> orderApplicationService.placeOrderWithDiscount(userId, request));
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.ORDER_AMOUNT_TOO_LOW);
+        }
+
+        @Test
+        @DisplayName("실패 - 타인 쿠폰 사용 시도")
+        void 타인_쿠폰_사용_예외() {
+            // Arrange
+            Product product = createAndSaveProduct("테스트 상품", 50000, 100);
+            Long userId = 1L;
+            Long otherUserId = 2L;
+
+            // 다른 사용자의 쿠폰
+            CouponTemplate template = fakeCouponTemplateRepository.save(
+                CouponTemplate.createFixed("5000원 할인", new Money(5000), Money.ZERO, 100, ZonedDateTime.now().plusDays(7))
+            );
+            IssuedCoupon issued = fakeIssuedCouponRepository.save(
+                IssuedCoupon.create(otherUserId, template)
+            );
+
+            var request = new PlaceOrderWithDiscountRequest(
+                List.of(new OrderItemRequest(product.getId(), 1)),
+                issued.getId(),
+                null
+            );
+
+            // Act & Assert
+            CoreException ex = assertThrows(CoreException.class,
+                () -> orderApplicationService.placeOrderWithDiscount(userId, request));
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.COUPON_ACCESS_DENIED);
+        }
+
+        @Test
+        @DisplayName("실패 - 포인트 부족")
+        void 포인트_부족_예외() {
+            // Arrange
+            Product product = createAndSaveProduct("테스트 상품", 30000, 100);
+            Long userId = 1L;
+
+            // 포인트 부족
+            fakeUserPointRepository.save(UserPoint.create(userId, 1000));
+
+            var request = new PlaceOrderWithDiscountRequest(
+                List.of(new OrderItemRequest(product.getId(), 1)),
+                null,
+                5000L  // 1000원밖에 없는데 5000원 사용 시도
+            );
+
+            // Act & Assert
+            CoreException ex = assertThrows(CoreException.class,
+                () -> orderApplicationService.placeOrderWithDiscount(userId, request));
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.INSUFFICIENT_POINT);
         }
     }
 }
