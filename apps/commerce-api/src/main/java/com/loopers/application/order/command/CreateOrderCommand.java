@@ -1,10 +1,16 @@
 package com.loopers.application.order.command;
 
 import java.util.List;
+import java.util.UUID;
 
 public record CreateOrderCommand(
-        Long userId,
-        List<OrderItemCommand> items
+        String memberId,
+        List<OrderItemCommand> items,
+        UUID couponId
 ) {
-    public record OrderItemCommand(Long productId, int quantity) {}
+    public CreateOrderCommand(String memberId, List<OrderItemCommand> items) {
+        this(memberId, items, null);
+    }
+
+    public record OrderItemCommand(UUID productId, int quantity) {}
 }

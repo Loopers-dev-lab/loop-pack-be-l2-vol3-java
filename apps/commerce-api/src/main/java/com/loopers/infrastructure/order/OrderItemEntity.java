@@ -11,23 +11,25 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
+import java.util.UUID;
 
 @Entity
 @Table(name = "order_items")
 public class OrderItemEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "BINARY(16)", nullable = false, updatable = false)
     @Getter
-    private Long id;
+    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
     private OrderEntity order;
 
-    @Column(name = "product_id")
     @Getter
-    private Long productId;
+    @Column(name = "product_id", columnDefinition = "BINARY(16)")
+    private UUID productId;
 
     @Column(nullable = false)
     @Getter

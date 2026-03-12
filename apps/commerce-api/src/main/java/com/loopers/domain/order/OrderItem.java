@@ -2,11 +2,12 @@ package com.loopers.domain.order;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import java.util.UUID;
 
 public record OrderItem(
-        Long id,
-        Long orderId,
-        Long productId,
+        UUID id,
+        UUID orderId,
+        UUID productId,
         int quantity,
         String snapshotProductName,
         int snapshotPrice,
@@ -28,7 +29,7 @@ public record OrderItem(
         }
     }
 
-    public OrderItem(Long productId, int quantity, String snapshotProductName, int snapshotPrice, String snapshotBrandName) {
+    public OrderItem(UUID productId, int quantity, String snapshotProductName, int snapshotPrice, String snapshotBrandName) {
         this(null, null, productId, quantity, snapshotProductName, snapshotPrice, snapshotBrandName);
     }
 

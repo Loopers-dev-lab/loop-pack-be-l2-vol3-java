@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -46,13 +47,13 @@ public class ProductApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public Product get(Long productId) {
+    public Product get(UUID productId) {
         return productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
     }
 
     @Transactional(readOnly = true)
-    public Page<Product> list(Long brandId, Pageable pageable) {
+    public Page<Product> list(UUID brandId, Pageable pageable) {
         return productRepository.findAll(brandId, pageable);
     }
 
@@ -62,13 +63,13 @@ public class ProductApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public Product getIncludingDeleted(Long productId) {
+    public Product getIncludingDeleted(UUID productId) {
         return productRepository.findByIdIncludingDeleted(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
     }
 
     @Transactional(readOnly = true)
-    public Page<Product> listIncludingDeleted(Long brandId, Pageable pageable) {
+    public Page<Product> listIncludingDeleted(UUID brandId, Pageable pageable) {
         return productRepository.findAllIncludingDeleted(brandId, pageable);
     }
 
@@ -78,17 +79,17 @@ public class ProductApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public java.util.List<Long> findActiveProductIdsByBrandId(Long brandId) {
+    public java.util.List<UUID> findActiveProductIdsByBrandId(UUID brandId) {
         return productRepository.findIdsByBrandId(brandId);
     }
 
     @Transactional
-    public void deleteSoftByBrandId(Long brandId) {
+    public void deleteSoftByBrandId(UUID brandId) {
         productRepository.softDeleteByBrandId(brandId);
     }
 
     @Transactional
-    public Product update(Long productId, UpdateProductCommand command) {
+    public Product update(UUID productId, UpdateProductCommand command) {
         Product existing = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
 
@@ -115,7 +116,7 @@ public class ProductApplicationService {
     }
 
     @Transactional
-    public void deleteSoft(Long productId) {
+    public void deleteSoft(UUID productId) {
         Product existing = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
 

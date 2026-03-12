@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.ZonedDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
@@ -35,15 +36,15 @@ public class OrderRepositoryImpl implements OrderRepository {
     }
 
     @Override
-    public Optional<Order> findById(Long id) {
+    public Optional<Order> findById(UUID id) {
         return orderJpaRepository.findById(id)
                 .filter(e -> e.getDeletedAt() == null)
                 .map(OrderEntity::toDomain);
     }
 
     @Override
-    public Page<Order> findByUserId(Long userId, ZonedDateTime startAt, ZonedDateTime endAt, Pageable pageable) {
-        return orderJpaRepository.findByUserIdAndOrderDateBetween(userId, startAt, endAt, pageable)
+    public Page<Order> findByMemberId(String memberId, ZonedDateTime startAt, ZonedDateTime endAt, Pageable pageable) {
+        return orderJpaRepository.findByMemberIdAndOrderDateBetween(memberId, startAt, endAt, pageable)
                 .map(OrderEntity::toDomain);
     }
 
@@ -54,7 +55,7 @@ public class OrderRepositoryImpl implements OrderRepository {
     }
 
     @Override
-    public boolean existsOrderItemByProductId(Long productId) {
+    public boolean existsOrderItemByProductId(UUID productId) {
         return orderJpaRepository.existsByProductId(productId);
     }
 }

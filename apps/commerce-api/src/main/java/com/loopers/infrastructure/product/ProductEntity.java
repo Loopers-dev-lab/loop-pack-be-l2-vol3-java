@@ -5,6 +5,7 @@ import com.loopers.domain.product.Product;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import java.util.UUID;
 
 @Entity
 @Table(name = "products")
@@ -23,10 +24,10 @@ public class ProductEntity extends BaseEntity {
     private String description;
 
     @Column(name = "category_id", nullable = false)
-    private Long categoryId;
+    private UUID categoryId;
 
     @Column(name = "brand_id", nullable = false)
-    private Long brandId;
+    private UUID brandId;
 
     @Column(name = "like_count", nullable = false)
     private Integer likeCount;
@@ -39,8 +40,8 @@ public class ProductEntity extends BaseEntity {
             Integer price,
             Integer stock,
             String description,
-            Long categoryId,
-            Long brandId,
+            UUID categoryId,
+            UUID brandId,
             Integer likeCount
     ) {
         this.name = name;

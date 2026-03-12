@@ -1,9 +1,10 @@
 package com.loopers.domain.brand;
 
 import com.loopers.domain.brand.vo.BrandName;
+import java.util.UUID;
 
 public record Brand(
-        Long id,
+        UUID id,
         BrandName name,
         String description,
         String imageUrl

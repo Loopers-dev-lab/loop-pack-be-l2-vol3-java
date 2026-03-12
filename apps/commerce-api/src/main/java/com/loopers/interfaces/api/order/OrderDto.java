@@ -16,32 +16,38 @@ import org.springframework.format.annotation.DateTimeFormat;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.UUID;
 
 public class OrderDto {
 
     public record CreateOrderRequest(
             @NotEmpty(message = "주문 항목은 1개 이상이어야 합니다")
             @Valid
-            List<OrderItemRequest> items
+            List<OrderItemRequest> items,
+            UUID couponId
     ) {
-        public CreateOrderCommand toCommand(Long userId) {
+        public CreateOrderRequest(List<OrderItemRequest> items) {
+            this(items, null);
+        }
+
+        public CreateOrderCommand toCommand(String memberId) {
             List<CreateOrderCommand.OrderItemCommand> itemCommands = items.stream()
                     .map(i -> new CreateOrderCommand.OrderItemCommand(i.productId(), i.quantity()))
                     .toList();
-            return new CreateOrderCommand(userId, itemCommands);
+            return new CreateOrderCommand(memberId, itemCommands, couponId);
         }
     }
 
     public record OrderItemRequest(
             @NotNull(message = "상품 ID는 필수입니다")
-            Long productId,
+            UUID productId,
             @Min(value = 1, message = "수량은 1 이상이어야 합니다")
             int quantity
     ) {}
 
     public record OrderItemResponse(
-            Long id,
-            Long productId,
+            UUID id,
+            UUID productId,
             int quantity,
             String snapshotProductName,
             int snapshotPrice,
@@ -60,22 +66,24 @@ public class OrderDto {
     }
 
     public record OrderResponse(
-            Long id,
-            Long userId,
+            UUID id,
+            String memberId,
             String orderNumber,
             ZonedDateTime orderDate,
             String status,
             int totalAmount,
+            UUID couponId,
             List<OrderItemResponse> items
     ) {
         public static OrderResponse from(Order order) {
             return new OrderResponse(
                     order.id(),
-                    order.userId(),
+                    order.memberId(),
                     order.orderNumber(),
                     order.orderDate(),
                     order.status().name(),
                     order.totalAmount(),
+                    order.couponId(),
                     order.items().stream().map(OrderItemResponse::from).toList()
             );
         }
@@ -112,11 +120,11 @@ public class OrderDto {
         private static final int DEFAULT_PAGE = 0;
         private static final int DEFAULT_SIZE = 20;
 
-        public OrderListByUserRequest toQuery(Long userId) {
+        public OrderListByUserRequest toQuery(String memberId) {
             int resolvedPage = page == null ? DEFAULT_PAGE : page;
             int resolvedSize = size == null ? DEFAULT_SIZE : size;
             Pageable pageable = PageRequest.of(resolvedPage, resolvedSize);
-            return new OrderListByUserRequest(userId, startAt, endAt, pageable);
+            return new OrderListByUserRequest(memberId, startAt, endAt, pageable);
         }
     }
 }

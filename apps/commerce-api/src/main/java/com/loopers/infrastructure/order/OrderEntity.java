@@ -15,14 +15,15 @@ import lombok.Getter;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "orders")
 public class OrderEntity extends BaseEntity {
 
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "member_id", nullable = false)
     @Getter
-    private Long userId;
+    private String memberId;
 
     @Column(name = "order_number", nullable = false, unique = true)
     @Getter
@@ -41,26 +42,32 @@ public class OrderEntity extends BaseEntity {
     @Getter
     private int totalAmount;
 
+    @Column(name = "coupon_id")
+    @Getter
+    private UUID couponId;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItemEntity> items = new ArrayList<>();
 
     protected OrderEntity() {}
 
-    public OrderEntity(Long userId, String orderNumber, ZonedDateTime orderDate, OrderStatus status, int totalAmount) {
-        this.userId = userId;
+    public OrderEntity(String memberId, String orderNumber, ZonedDateTime orderDate, OrderStatus status, int totalAmount, UUID couponId) {
+        this.memberId = memberId;
         this.orderNumber = orderNumber;
         this.orderDate = orderDate;
         this.status = status;
         this.totalAmount = totalAmount;
+        this.couponId = couponId;
     }
 
     public static OrderEntity from(Order order) {
         return new OrderEntity(
-                order.userId(),
+                order.memberId(),
                 order.orderNumber(),
                 order.orderDate(),
                 order.status(),
-                order.totalAmount()
+                order.totalAmount(),
+                order.couponId()
         );
     }
 
@@ -75,11 +82,12 @@ public class OrderEntity extends BaseEntity {
     public Order toDomain() {
         return new Order(
                 getId(),
-                userId,
+                memberId,
                 orderNumber,
                 orderDate,
                 status,
                 totalAmount,
+                couponId,
                 items.stream().map(OrderItemEntity::toDomain).toList(),
                 getDeletedAt()
         );

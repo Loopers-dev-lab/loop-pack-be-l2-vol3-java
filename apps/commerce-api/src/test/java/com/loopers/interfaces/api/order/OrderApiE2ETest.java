@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.testcontainers.context.ImportTestcontainers;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -27,9 +27,10 @@ import org.springframework.test.context.ActiveProfiles;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import java.util.UUID;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(MySqlTestContainersConfig.class)
+@ImportTestcontainers(MySqlTestContainersConfig.class)
 @ActiveProfiles("test")
 class OrderApiE2ETest {
 
@@ -45,8 +46,8 @@ class OrderApiE2ETest {
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
     private final CategoryRepository categoryRepository;
-    private Long brandId;
-    private Long categoryId;
+    private UUID brandId;
+    private UUID categoryId;
 
     @Autowired
     public OrderApiE2ETest(TestRestTemplate testRestTemplate, DatabaseCleanUp databaseCleanUp, CategoryRepository categoryRepository) {
@@ -84,7 +85,7 @@ class OrderApiE2ETest {
         return headers;
     }
 
-    private Long createProduct(String name, int price, int stock) {
+    private UUID createProduct(String name, int price, int stock) {
         ProductDto.CreateProductRequest request = new ProductDto.CreateProductRequest(
                 name, price, stock, "설명", categoryId, brandId
         );
@@ -100,7 +101,7 @@ class OrderApiE2ETest {
         return response.getBody().data().id();
     }
 
-    private Long createBrand(String name) {
+    private UUID createBrand(String name) {
         var request = new com.loopers.interfaces.api.brand.BrandDto.CreateBrandRequest(
                 name,
                 "테스트 브랜드",
@@ -125,7 +126,7 @@ class OrderApiE2ETest {
         return response.getBody().data().id();
     }
 
-    private Long createCategory(String name) {
+    private UUID createCategory(String name) {
         return categoryRepository.save(new Category(name)).id();
     }
 
@@ -137,7 +138,7 @@ class OrderApiE2ETest {
         @DisplayName("주문 생성 → 상세 조회 → 취소 → 재취소 실패 시나리오")
         void fullOrderFlow() {
             // 상품 생성
-            Long productId = createProduct("강아지 사료", 10000, 50);
+            UUID productId = createProduct("강아지 사료", 10000, 50);
 
             // 주문 생성
             OrderDto.CreateOrderRequest createRequest = new OrderDto.CreateOrderRequest(
@@ -152,7 +153,7 @@ class OrderApiE2ETest {
             );
 
             assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-            Long orderId = created.getBody().data().id();
+            UUID orderId = created.getBody().data().id();
             assertThat(created.getBody().data().status()).isEqualTo("ORDERED");
             assertThat(created.getBody().data().totalAmount()).isEqualTo(20000);
 
@@ -193,7 +194,7 @@ class OrderApiE2ETest {
         @Test
         @DisplayName("재고 부족 시 주문이 실패하고 재고가 차감되지 않는다")
         void insufficientStockFails() {
-            Long productId = createProduct("한정판 사료", 50000, 2);
+            UUID productId = createProduct("한정판 사료", 50000, 2);
 
             OrderDto.CreateOrderRequest request = new OrderDto.CreateOrderRequest(
                     List.of(new OrderDto.OrderItemRequest(productId, 5))
@@ -212,7 +213,7 @@ class OrderApiE2ETest {
         @Test
         @DisplayName("주문 목록 조회 - 기간 내 주문만 반환된다")
         void listOrdersWithDateFilter() {
-            Long productId = createProduct("사료", 5000, 100);
+            UUID productId = createProduct("사료", 5000, 100);
 
             OrderDto.CreateOrderRequest request = new OrderDto.CreateOrderRequest(
                     List.of(new OrderDto.OrderItemRequest(productId, 1))
@@ -239,7 +240,7 @@ class OrderApiE2ETest {
         @Test
         @DisplayName("취소 후 재고가 복원된다")
         void stockRestoredAfterCancel() {
-            Long productId = createProduct("귀한 사료", 20000, 3);
+            UUID productId = createProduct("귀한 사료", 20000, 3);
 
             // 3개 주문 (재고 0이 됨)
             OrderDto.CreateOrderRequest request = new OrderDto.CreateOrderRequest(
@@ -253,7 +254,7 @@ class OrderApiE2ETest {
                     new ParameterizedTypeReference<>() {}
             );
 
-            Long orderId = created.getBody().data().id();
+            UUID orderId = created.getBody().data().id();
 
             // 취소 (재고 복원)
             testRestTemplate.exchange(

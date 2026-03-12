@@ -1,7 +1,8 @@
 package com.loopers.domain.product.query;
+import java.util.UUID;
 
 public record ProductListQuery(
-        Long brandId,
+        UUID brandId,
         String sort,
         Integer page,
         Integer size

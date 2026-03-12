@@ -4,9 +4,10 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import java.util.UUID;
 
 public record ProductListCriteria(
-        Long brandId,
+        UUID brandId,
         int page,
         int size,
         ProductSortOption sortOption
@@ -30,7 +31,7 @@ public record ProductListCriteria(
         }
     }
 
-    public static ProductListCriteria of(Long brandId, Integer page, Integer size, ProductSortOption sortOption) {
+    public static ProductListCriteria of(UUID brandId, Integer page, Integer size, ProductSortOption sortOption) {
         int resolvedPage = page == null ? DEFAULT_PAGE : page;
         int resolvedSize = size == null ? DEFAULT_SIZE : size;
         ProductSortOption resolvedSortOption = sortOption == null ? ProductSortOption.defaultOption() : sortOption;

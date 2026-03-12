@@ -1,8 +1,12 @@
 package com.loopers.application.order.query;
+import java.util.UUID;
 
 public record OrderAccessRequest(
-        Long orderId,
-        Long userId,
+        UUID orderId,
+        String memberId,
         boolean isAdmin
 ) {
+    public OrderAccessRequest(UUID orderId, boolean isAdmin) {
+        this(orderId, null, isAdmin);
+    }
 }

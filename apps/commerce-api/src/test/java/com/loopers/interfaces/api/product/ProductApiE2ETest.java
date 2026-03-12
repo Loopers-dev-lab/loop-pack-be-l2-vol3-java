@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.testcontainers.context.ImportTestcontainers;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -24,9 +24,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import java.util.UUID;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(MySqlTestContainersConfig.class)
+@ImportTestcontainers(MySqlTestContainersConfig.class)
 @ActiveProfiles("test")
 class ProductApiE2ETest {
 
@@ -62,8 +63,8 @@ class ProductApiE2ETest {
         @Test
         @DisplayName("상품 생성 후 상세 조회에 성공한다")
         void createAndGetDetail() {
-            Long categoryId = createCategory("푸드");
-            Long brandId = createBrand("퍼피박스");
+            UUID categoryId = createCategory("푸드");
+            UUID brandId = createBrand("퍼피박스");
             ProductDto.CreateProductRequest create = new ProductDto.CreateProductRequest(
                     "강아지 샴푸",
                     8900,
@@ -82,7 +83,7 @@ class ProductApiE2ETest {
             );
 
             assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-            Long productId = created.getBody().data().id();
+            UUID productId = created.getBody().data().id();
 
             ResponseEntity<ApiResponse<ProductDto.ProductResponse>> detail = testRestTemplate.exchange(
                     ENDPOINT_PRODUCTS + "/" + productId,
@@ -99,9 +100,9 @@ class ProductApiE2ETest {
         @Test
         @DisplayName("브랜드 필터로 목록 조회에 성공한다")
         void listWithBrandFilter() {
-            Long categoryId = createCategory("푸드");
-            Long brandIdForList = createBrand("퍼피박스");
-            Long otherBrandId = createBrand("포메피아");
+            UUID categoryId = createCategory("푸드");
+            UUID brandIdForList = createBrand("퍼피박스");
+            UUID otherBrandId = createBrand("포메피아");
             create("상품A", 1000, categoryId, brandIdForList);
             create("상품B", 2000, categoryId, otherBrandId);
 
@@ -119,7 +120,7 @@ class ProductApiE2ETest {
         }
     }
 
-    private void create(String name, int price, Long categoryId, Long brandId) {
+    private void create(String name, int price, UUID categoryId, UUID brandId) {
         ProductDto.CreateProductRequest request = new ProductDto.CreateProductRequest(
                 name,
                 price,
@@ -138,11 +139,11 @@ class ProductApiE2ETest {
         );
     }
 
-    private Long createCategory(String name) {
+    private UUID createCategory(String name) {
         return categoryRepository.save(new Category(name)).id();
     }
 
-    private Long createBrand(String name) {
+    private UUID createBrand(String name) {
         return brandRepository.save(new Brand(new BrandName(name), "", "")).id();
     }
 }

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class LikeApplicationService {
@@ -22,7 +23,7 @@ public class LikeApplicationService {
     }
 
     @Transactional
-    public void register(String memberId, Long productId) {
+    public void register(String memberId, UUID productId) {
         if (likeRepository.existsByMemberIdAndProductId(memberId, productId)) {
             throw new CoreException(ErrorType.CONFLICT, "이미 좋아요를 누른 상품입니다.");
         }
@@ -35,7 +36,7 @@ public class LikeApplicationService {
     }
 
     @Transactional
-    public void cancel(String memberId, Long productId) {
+    public void cancel(String memberId, UUID productId) {
         if (!likeRepository.existsByMemberIdAndProductId(memberId, productId)) {
             throw new CoreException(ErrorType.NOT_FOUND, "좋아요한 상품이 아닙니다.");
         }
@@ -43,20 +44,20 @@ public class LikeApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public void assertLiked(String memberId, Long productId) {
+    public void assertLiked(String memberId, UUID productId) {
         if (!likeRepository.existsByMemberIdAndProductId(memberId, productId)) {
             throw new CoreException(ErrorType.NOT_FOUND, "좋아요한 상품이 아닙니다.");
         }
     }
 
     @Transactional(readOnly = true)
-    public Page<Long> getMyLikeProductIds(String memberId, Pageable pageable) {
+    public Page<UUID> getMyLikeProductIds(String memberId, Pageable pageable) {
         return likeRepository.findByMemberId(memberId, pageable)
                 .map(Like::productId);
     }
 
     @Transactional
-    public void deleteByProductIds(List<Long> productIds) {
+    public void deleteByProductIds(List<UUID> productIds) {
         if (productIds.isEmpty()) {
             return;
         }

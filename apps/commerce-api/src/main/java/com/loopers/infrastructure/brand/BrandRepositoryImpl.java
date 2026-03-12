@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
@@ -24,7 +25,7 @@ public class BrandRepositoryImpl implements BrandRepository {
     }
 
     @Override
-    public Optional<Brand> findById(Long id) {
+    public Optional<Brand> findById(UUID id) {
         return brandJpaRepository.findByIdAndDeletedAtIsNull(id)
                 .map(BrandEntity::toDomain);
     }
@@ -36,7 +37,7 @@ public class BrandRepositoryImpl implements BrandRepository {
     }
 
     @Override
-    public boolean existsById(Long id) {
+    public boolean existsById(UUID id) {
         return brandJpaRepository.existsById(id);
     }
 

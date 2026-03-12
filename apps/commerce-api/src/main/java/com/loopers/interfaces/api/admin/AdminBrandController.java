@@ -12,6 +12,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -41,14 +42,14 @@ public class AdminBrandController {
     }
 
     @GetMapping("/{brandId}")
-    public ApiResponse<BrandDto.BrandResponse> getBrand(@PathVariable Long brandId) {
+    public ApiResponse<BrandDto.BrandResponse> getBrand(@PathVariable UUID brandId) {
         Brand brand = brandApplicationService.findById(brandId);
         return ApiResponse.success(BrandDto.BrandResponse.from(brand));
     }
 
     @PutMapping("/{brandId}")
     public ApiResponse<BrandDto.BrandResponse> updateBrand(
-            @PathVariable Long brandId,
+            @PathVariable UUID brandId,
             @Valid @RequestBody BrandDto.UpdateBrandRequest request
     ) {
         Brand brand = brandApplicationService.update(brandId, request.toCommand());
@@ -56,7 +57,7 @@ public class AdminBrandController {
     }
 
     @DeleteMapping("/{brandId}")
-    public ApiResponse<Void> deleteBrand(@PathVariable Long brandId) {
+    public ApiResponse<Void> deleteBrand(@PathVariable UUID brandId) {
         brandAdminFacade.delete(brandId);
         return ApiResponse.success();
     }

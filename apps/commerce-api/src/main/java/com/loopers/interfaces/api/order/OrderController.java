@@ -1,12 +1,11 @@
 package com.loopers.interfaces.api.order;
 
 import com.loopers.application.order.OrderApplicationService;
-import com.loopers.application.order.OrderFacade;
+import com.loopers.application.order.OrderUseCase;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.member.Member;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.auth.AuthMember;
-import com.loopers.application.member.MemberAuthenticationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -20,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import com.loopers.application.order.query.OrderAccessRequest;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -27,8 +27,7 @@ import com.loopers.application.order.query.OrderAccessRequest;
 public class OrderController {
 
     private final OrderApplicationService orderApplicationService;
-    private final OrderFacade orderFacade;
-    private final MemberAuthenticationService memberAuthenticationService;
+    private final OrderUseCase orderUseCase;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -36,28 +35,25 @@ public class OrderController {
             @AuthMember Member member,
             @Valid @RequestBody OrderDto.CreateOrderRequest request
     ) {
-        Long userId = memberAuthenticationService.findDbIdByMember(member);
-        Order order = orderFacade.create(request.toCommand(userId));
+        Order order = orderUseCase.create(request.toCommand(member.id().value()));
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
     }
 
     @PatchMapping("/{orderId}/cancel")
     public ApiResponse<OrderDto.OrderResponse> cancelOrder(
             @AuthMember Member member,
-            @PathVariable Long orderId
+            @PathVariable UUID orderId
     ) {
-        Long userId = memberAuthenticationService.findDbIdByMember(member);
-        Order order = orderFacade.cancel(new OrderAccessRequest(orderId, userId, false));
+        Order order = orderUseCase.cancel(new OrderAccessRequest(orderId, member.id().value(), false));
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
     }
 
     @GetMapping("/{orderId}")
     public ApiResponse<OrderDto.OrderResponse> getOrder(
             @AuthMember Member member,
-            @PathVariable Long orderId
+            @PathVariable UUID orderId
     ) {
-        Long userId = memberAuthenticationService.findDbIdByMember(member);
-        Order order = orderApplicationService.getById(new OrderAccessRequest(orderId, userId, false));
+        Order order = orderApplicationService.getById(new OrderAccessRequest(orderId, member.id().value(), false));
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
     }
 
@@ -66,8 +62,7 @@ public class OrderController {
             @AuthMember Member member,
             @Valid OrderDto.ListOrdersRequest request
     ) {
-        Long userId = memberAuthenticationService.findDbIdByMember(member);
-        Page<Order> orders = orderApplicationService.listByUser(request.toQuery(userId));
+        Page<Order> orders = orderApplicationService.listByUser(request.toQuery(member.id().value()));
         return ApiResponse.success(OrderDto.OrderListResponse.from(orders));
     }
 }

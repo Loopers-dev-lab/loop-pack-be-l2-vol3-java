@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -34,7 +35,7 @@ public class ProductController {
     }
 
     @GetMapping("/{productId}")
-    public ApiResponse<ProductDto.ProductResponse> getProduct(@PathVariable Long productId) {
+    public ApiResponse<ProductDto.ProductResponse> getProduct(@PathVariable UUID productId) {
         return ApiResponse.success(ProductDto.ProductResponse.from(productQueryFacade.get(productId)));
     }
 

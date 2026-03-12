@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.admin;
 
 import com.loopers.application.order.OrderApplicationService;
-import com.loopers.application.order.OrderFacade;
+import com.loopers.application.order.OrderUseCase;
 import com.loopers.application.order.query.OrderAccessRequest;
 import com.loopers.domain.order.Order;
 import com.loopers.interfaces.api.ApiResponse;
@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -23,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminOrderController {
 
     private final OrderApplicationService orderApplicationService;
-    private final OrderFacade orderFacade;
+    private final OrderUseCase orderUseCase;
 
     @GetMapping
     public ApiResponse<OrderDto.OrderListResponse> listOrders(
@@ -37,7 +38,7 @@ public class AdminOrderController {
 
     @GetMapping("/{orderId}")
     public ApiResponse<OrderDto.OrderResponse> getOrder(
-            @PathVariable Long orderId
+            @PathVariable UUID orderId
     ) {
         Order order = orderApplicationService.getById(new OrderAccessRequest(orderId, null, true));
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
@@ -45,9 +46,9 @@ public class AdminOrderController {
 
     @PatchMapping("/{orderId}/cancel")
     public ApiResponse<OrderDto.OrderResponse> cancelOrder(
-            @PathVariable Long orderId
+            @PathVariable UUID orderId
     ) {
-        Order order = orderFacade.cancel(new OrderAccessRequest(orderId, null, true));
+        Order order = orderUseCase.cancel(new OrderAccessRequest(orderId, null, true));
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
     }
 }
