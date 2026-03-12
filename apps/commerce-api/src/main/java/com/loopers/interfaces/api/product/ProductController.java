@@ -40,8 +40,8 @@ public class ProductController {
     }
 
     @GetMapping
-    public ApiResponse<ProductDto.ProductListResponse> getProducts(ProductListQuery query) {
-        return ApiResponse.success(ProductDto.ProductListResponse.from(
+    public ApiResponse<ProductDto.PublicProductListResponse> getProducts(ProductListQuery query) {
+        return ApiResponse.success(ProductDto.PublicProductListResponse.from(
                 productQueryFacade.list(query)
         ));
     }
