@@ -6,52 +6,43 @@ import com.loopers.domain.order.OrderModel;
 import java.time.ZonedDateTime;
 import java.util.List;
 
-public class OrderInfo {
+public record OrderInfo(
+    Long orderId,
+    Long userId,
+    String status,
+    int totalAmount,
+    int discountAmount,
+    int finalAmount,
+    List<OrderItemInfo> items,
+    ZonedDateTime createdAt
+) {
 
-    public record Summary(
-        Long id, int totalAmount, String status, int itemCount, ZonedDateTime createdAt
-    ) {
-        public static Summary from(OrderModel order) {
-            return new Summary(
-                order.getId(),
-                order.getTotalAmount().value(),
-                order.getStatus().name(),
-                order.getOrderItems().size(),
-                order.getCreatedAt()
-            );
-        }
+    public static OrderInfo from(OrderModel order, List<OrderItemModel> items) {
+        List<OrderItemInfo> itemInfos = items.stream()
+            .map(OrderItemInfo::from)
+            .toList();
+        return new OrderInfo(
+            order.getId(), order.userId(), order.status().name(),
+            order.totalAmount().value(), order.discountAmount().value(),
+            order.finalAmount().value(), itemInfos, order.getCreatedAt()
+        );
     }
 
-    public record Detail(
-        Long id, Long memberId, int totalAmount, String status,
-        List<OrderItemInfo> orderItems, ZonedDateTime createdAt
-    ) {
-        public static Detail from(OrderModel order) {
-            List<OrderItemInfo> items = order.getOrderItems().stream()
-                .map(OrderItemInfo::from)
-                .toList();
-            return new Detail(
-                order.getId(),
-                order.getMemberId(),
-                order.getTotalAmount().value(),
-                order.getStatus().name(),
-                items,
-                order.getCreatedAt()
-            );
-        }
+    public static OrderInfo summaryFrom(OrderModel order) {
+        return new OrderInfo(
+            order.getId(), order.userId(), order.status().name(),
+            order.totalAmount().value(), order.discountAmount().value(),
+            order.finalAmount().value(), List.of(), order.getCreatedAt()
+        );
     }
 
     public record OrderItemInfo(
-        Long id, Long productId, String productName, int productPrice, int quantity, int subtotal
+        Long productId, String productName, int productPrice, int quantity, int subtotal
     ) {
         public static OrderItemInfo from(OrderItemModel item) {
             return new OrderItemInfo(
-                item.getId(),
-                item.getProductId(),
-                item.getProductName(),
-                item.getProductPrice().value(),
-                item.getQuantity(),
-                item.getSubtotal().value()
+                item.productId(), item.productName(),
+                item.productPrice().value(), item.quantity(), item.subtotal().value()
             );
         }
     }

@@ -25,7 +25,7 @@ class OrderModelTest {
             Money totalAmount = new Money(258000);
 
             // when
-            OrderModel order = new OrderModel(userId, totalAmount);
+            OrderModel order = new OrderModel(userId, totalAmount, Money.ZERO, null);
 
             // then
             assertAll(
@@ -39,7 +39,7 @@ class OrderModelTest {
         @Test
         void defaultStatusIsCreated() {
             // given & when
-            OrderModel order = new OrderModel(1L, new Money(10000));
+            OrderModel order = new OrderModel(1L, new Money(10000), Money.ZERO, null);
 
             // then
             assertThat(order.status()).isEqualTo(OrderStatus.CREATED);
@@ -50,7 +50,7 @@ class OrderModelTest {
         void throwsWhenUserIdNull() {
             // given & when
             CoreException result = assertThrows(CoreException.class,
-                () -> new OrderModel(null, new Money(10000)));
+                () -> new OrderModel(null, new Money(10000), Money.ZERO, null));
 
             // then
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -61,7 +61,7 @@ class OrderModelTest {
         void throwsWhenTotalAmountNull() {
             // given & when
             CoreException result = assertThrows(CoreException.class,
-                () -> new OrderModel(1L, null));
+                () -> new OrderModel(1L, null, Money.ZERO, null));
 
             // then
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);

@@ -102,10 +102,15 @@
 
 ```
 interfaces/      → 외부 요청 수신 (Controller, DTO)
-application/     → 유스케이스 조율 (Facade)
-domain/          → 비즈니스 규칙 (Entity, VO, DomainService)
+application/     → 유스케이스 조율 (Facade, Service)
+domain/          → 비즈니스 규칙 (Entity, VO, Repository 인터페이스)
 infrastructure/  → 기술 구현 (JpaRepository)
 ```
+
+**Controller 의존 규칙:**
+- Controller → Facade 또는 Service (application 레이어만 의존)
+- Controller ✗ domain 직접 참조 금지
+- Dto는 application DTO(Info/Result record)로부터 변환
 
 ### 2-6. 도메인 서비스 vs 애플리케이션 서비스
 
@@ -113,9 +118,9 @@ infrastructure/  → 기술 구현 (JpaRepository)
 
 |  | 도메인 서비스 | 애플리케이션 서비스 |
 |---|---|---|
-| **현재 프로젝트** | `domain/XxxService` | `application/XxxFacade` |
-| **담는 것** | 비즈니스 **규칙** | 유스케이스 **절차** |
-| **판별 질문** | "이 로직이 특정 엔티티 하나의 책임인가?" → No → 도메인 서비스 | "이것은 규칙인가, 절차인가?" → 절차 → 애플리케이션 서비스 |
+| **현재 프로젝트** | `domain/` (현재 해당 없음) | `application/XxxService` + `application/XxxFacade` |
+| **담는 것** | 비즈니스 **규칙** (엔티티 하나로 표현 불가한) | 유스케이스 **절차** (CRUD 조율 + 다중 도메인 조합) |
+| **판별 질문** | "이 코드가 비즈니스 의사결정을 내리는가?" → Yes → 도메인 서비스 | "의사결정을 조율하고 외부와 상호작용하는가?" → Yes → 애플리케이션 서비스 |
 
 **적용 범위:** 이 "규칙 vs 절차" 구분은 **도메인 계층과 애플리케이션 계층 사이**에서만 유효하다. Controller(HTTP 변환)나 Repository(데이터 접근)에는 적용하지 않는다.
 
@@ -265,33 +270,38 @@ public void like(Long userId, Long productId) {
 flowchart TD
     A["로직이 있다"] --> B{"특정 엔티티 하나의 책임인가?"}
     B -- "Yes" --> C["엔티티 메서드<br/>예: product.incrementLikeCount()"]
-    B -- "No" --> D{"규칙인가, 절차인가?"}
-    D -- "규칙" --> E["도메인 서비스<br/>domain/XxxService"]
-    D -- "절차" --> F["애플리케이션 서비스<br/>application/XxxFacade"]
+    B -- "No" --> D{"비즈니스 의사결정을 내리는가?"}
+    D -- "Yes" --> E["도메인 서비스<br/>domain/"]
+    D -- "No (조율/절차)" --> F{"여러 도메인을 조합하는가?"}
+    F -- "Yes" --> G["Facade<br/>application/XxxFacade"]
+    F -- "No (단일 도메인 CRUD)" --> H["Service<br/>application/XxxService"]
 
     style C fill:#e8f5e9
     style E fill:#e3f2fd
-    style F fill:#fff3e0
+    style G fill:#fff3e0
+    style H fill:#fff3e0
 ```
 
 ### 코드로 보는 구분
 
-**도메인 서비스 — 규칙을 담는다:**
+**애플리케이션 서비스(Service) — 단일 도메인 CRUD 조율:**
 
 ```java
-// BrandService: "같은 이름의 브랜드는 등록할 수 없다"
+// application/brand/BrandService: Repository를 호출하여 CRUD 수행
+// 중복 이름 체크는 비즈니스 규칙이지만, 엔티티/VO가 판단을 내리고 Service는 조율함
 public BrandModel register(String name, String description) {
+    BrandName brandName = new BrandName(name);  // VO가 이름 유효성 검증
     brandRepository.findByName(name).ifPresent(existing -> {
-        throw new CoreException(ErrorType.CONFLICT);  // ← 비즈니스 규칙
+        throw new CoreException(ErrorType.CONFLICT);  // ← 조율: DB 상태 확인 후 거부
     });
-    return brandRepository.save(new BrandModel(name, description));
+    return brandRepository.save(new BrandModel(brandName, description));
 }
 ```
 
-**애플리케이션 서비스(Facade) — 절차를 조율한다:**
+**애플리케이션 서비스(Facade) — 다중 도메인 조합:**
 
 ```java
-// ProductFacade: "상품 등록 시 브랜드 확인 → 상품 생성 → 재고 생성"
+// application/product/ProductFacade: 여러 Service를 조합하여 유스케이스 실행
 public ProductModel register(..., Long brandId, int initialStock) {
     brandService.getBrand(brandId);                          // 1. 브랜드 존재 확인 (위임)
     ProductModel product = productService.register(...);     // 2. 상품 생성 (위임)
@@ -304,7 +314,7 @@ public ProductModel register(..., Long brandId, int initialStock) {
 
 | 질문 | 도메인 서비스 | 애플리케이션 서비스 |
 |------|-------------|-------------------|
-| 자체 비즈니스 규칙이 있는가? | **있다** (유니크 검증, 상태 전이) | **없다** (위임만 수행) |
+| 비즈니스 의사결정을 직접 내리는가? | **내린다** (여러 엔티티 상태 종합 판단) | **안 내린다** (엔티티/VO에 위임) |
 | 다른 Service를 조합하는가? | 같은 도메인 내 객체만 | **여러 도메인 Service를 조합** |
 | `@Transactional` 경계인가? | 아닐 수 있음 | **맞다** (유스케이스 단위) |
 | 제거하면 비즈니스 규칙이 깨지는가? | **깨진다** | 절차가 사라질 뿐, 규칙은 유지됨 |
@@ -313,13 +323,21 @@ public ProductModel register(..., Long brandId, int initialStock) {
 
 | 컴포넌트 | 계층 | 역할 |
 |---------|------|------|
-| `BrandService` | domain | 브랜드명 유니크 검증, CRUD |
-| `ProductService` | domain | 상품 CRUD, likeCount 증감 |
-| `StockService` | domain | 재고 생성, 차감(`checkAndDecrease`) |
-| `LikeService` | domain | 좋아요 등록/취소, 존재 여부 조회 |
+| `ExampleService` | application | 예시 조회 (ExampleFacade 통합) |
+| `BrandService` | application | 브랜드명 유니크 검증, CRUD |
+| `ProductService` | application | 상품 CRUD |
+| `StockService` | application | 재고 생성, 차감 |
+| `LikeToggleService` | **domain** | 좋아요 멱등성 판단 (Like + Product 종합 의사결정) |
+| `LikeService` | application | 좋아요 저장/조회 |
+| `OrderService` | application | 주문/주문상품 CRUD, 소유권 검증(엔티티 위임) |
+| `MemberSignupService` | application | 회원가입 (중복 ID 체크 + 생성) |
+| `MemberAuthService` | application | 인증 (비밀번호 검증은 엔티티 위임) |
+| `MemberPasswordService` | application | 비밀번호 변경 (검증은 엔티티/VO 위임) |
 | `BrandFacade` | application | 삭제 시 소속 상품 연쇄 soft delete |
 | `ProductFacade` | application | 상품 + Stock 동시 생성, 브랜드 존재 확인 |
-| `LikeFacade` | application | 삭제된 상품 체크, likeCount 동기화 |
+| `LikeFacade` | application | 데이터 조회 → LikeToggleService에 판단 위임 → 결과 저장 |
+| `OrderFacade` | application | 재고 차감 + 스냅샷 + 주문 생성, 주문 조회 |
+| `MemberFacade` | application | 회원 유스케이스 조율 (가입, 인증, 비밀번호 변경) |
 
 ---
 

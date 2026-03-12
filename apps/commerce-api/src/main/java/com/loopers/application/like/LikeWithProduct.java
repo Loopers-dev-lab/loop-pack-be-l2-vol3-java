@@ -1,9 +1,11 @@
 package com.loopers.application.like;
 
-import com.loopers.domain.like.LikeModel;
-import com.loopers.domain.product.ProductModel;
+import java.time.ZonedDateTime;
 
 public record LikeWithProduct(
-    LikeModel like,
-    ProductModel product
+    Long likeId,
+    Long productId,
+    String productName,
+    int productPrice,
+    ZonedDateTime likedAt
 ) {}

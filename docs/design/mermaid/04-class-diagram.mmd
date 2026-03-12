@@ -45,8 +45,13 @@ classDiagram
             -Long userId
             -Long productId
         }
+        class LikeToggleService {
+            <<DomainService>>
+            +like(existing, product, userId, productId) Optional~LikeModel~
+            +unlike(like, product)
+        }
         class LikeFacade {
-            멱등성 + likeCount 동기화
+            데이터 조회 → 판단 위임 → 결과 저장
         }
     }
 
@@ -83,13 +88,20 @@ classDiagram
     OrderModel *-- Money
     OrderItemModel *-- Money
 
-    BrandFacade --> BrandModel
-    ProductFacade --> ProductModel
-    ProductFacade --> StockModel
-    LikeFacade --> LikeModel
-    OrderFacade --> OrderModel
-    OrderFacade --> OrderItemModel
-
-    BrandFacade --> ProductModel
-    LikeFacade --> ProductModel
-    OrderFacade --> StockModel
+    BrandFacade --> BrandService
+    BrandService --> BrandModel
+    ProductFacade --> ProductService
+    ProductFacade --> StockService
+    ProductService --> ProductModel
+    StockService --> StockModel
+    LikeFacade --> LikeService
+    LikeFacade --> ProductService
+    LikeFacade --> LikeToggleService
+    LikeToggleService --> LikeModel
+    LikeToggleService --> ProductModel
+    LikeService --> LikeModel
+    OrderFacade --> OrderService
+    OrderFacade --> ProductService
+    OrderFacade --> StockService
+    OrderService --> OrderModel
+    OrderService --> OrderItemModel

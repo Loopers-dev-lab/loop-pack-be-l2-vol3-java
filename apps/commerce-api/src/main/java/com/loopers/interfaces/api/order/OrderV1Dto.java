@@ -1,16 +1,15 @@
 package com.loopers.interfaces.api.order;
 
+import com.loopers.application.order.OrderInfo;
 import com.loopers.application.order.OrderItemCommand;
 import com.loopers.application.order.OrderResult;
-import com.loopers.domain.order.OrderItemModel;
-import com.loopers.domain.order.OrderModel;
 
 import java.time.ZonedDateTime;
 import java.util.List;
 
 public class OrderV1Dto {
 
-    public record CreateRequest(List<OrderItemRequest> items) {
+    public record CreateRequest(List<OrderItemRequest> items, Long couponIssueId) {
 
         public List<OrderItemCommand> toCommands() {
             return items.stream()
@@ -26,33 +25,35 @@ public class OrderV1Dto {
         Long orderId,
         String status,
         int totalAmount,
+        int discountAmount,
+        int finalAmount,
         List<OrderItemResponse> items,
         ZonedDateTime createdAt
     ) {
 
-        public static OrderResponse from(OrderResult result) {
-            List<OrderItemResponse> items = result.items().stream()
+        public static OrderResponse from(OrderInfo info) {
+            List<OrderItemResponse> items = info.items().stream()
                 .map(OrderItemResponse::from)
                 .toList();
             return new OrderResponse(
-                result.order().getId(),
-                result.order().status().name(),
-                result.order().totalAmount().value(),
-                items,
-                result.order().getCreatedAt()
+                info.orderId(), info.status(), info.totalAmount(),
+                info.discountAmount(), info.finalAmount(), items, info.createdAt()
             );
         }
 
-        public static OrderResponse from(OrderModel order, List<OrderItemModel> items) {
-            List<OrderItemResponse> itemResponses = items.stream()
-                .map(OrderItemResponse::from)
+        public static OrderResponse fromResult(OrderResult result) {
+            List<OrderItemResponse> items = result.items().stream()
+                .map(item -> new OrderItemResponse(
+                    item.productId(), item.productName(),
+                    item.productPrice().value(), item.quantity(), item.subtotal().value()
+                ))
                 .toList();
             return new OrderResponse(
-                order.getId(),
-                order.status().name(),
-                order.totalAmount().value(),
-                itemResponses,
-                order.getCreatedAt()
+                result.order().getId(), result.order().status().name(),
+                result.order().totalAmount().value(),
+                result.order().discountAmount().value(),
+                result.order().finalAmount().value(),
+                items, result.order().getCreatedAt()
             );
         }
     }
@@ -64,12 +65,9 @@ public class OrderV1Dto {
         ZonedDateTime createdAt
     ) {
 
-        public static OrderSummaryResponse from(OrderModel order) {
+        public static OrderSummaryResponse from(OrderInfo info) {
             return new OrderSummaryResponse(
-                order.getId(),
-                order.status().name(),
-                order.totalAmount().value(),
-                order.getCreatedAt()
+                info.orderId(), info.status(), info.totalAmount(), info.createdAt()
             );
         }
     }
@@ -82,13 +80,10 @@ public class OrderV1Dto {
         int subtotal
     ) {
 
-        public static OrderItemResponse from(OrderItemModel item) {
+        public static OrderItemResponse from(OrderInfo.OrderItemInfo item) {
             return new OrderItemResponse(
-                item.productId(),
-                item.productName(),
-                item.productPrice().value(),
-                item.quantity(),
-                item.subtotal().value()
+                item.productId(), item.productName(),
+                item.productPrice(), item.quantity(), item.subtotal()
             );
         }
     }

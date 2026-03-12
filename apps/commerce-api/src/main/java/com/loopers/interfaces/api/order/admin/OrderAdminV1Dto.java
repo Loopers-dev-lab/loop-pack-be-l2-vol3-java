@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.order.admin;
 
-import com.loopers.domain.order.OrderItemModel;
-import com.loopers.domain.order.OrderModel;
+import com.loopers.application.order.OrderInfo;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -17,17 +16,13 @@ public class OrderAdminV1Dto {
         ZonedDateTime createdAt
     ) {
 
-        public static OrderResponse from(OrderModel order, List<OrderItemModel> items) {
-            List<OrderItemResponse> itemResponses = items.stream()
+        public static OrderResponse from(OrderInfo info) {
+            List<OrderItemResponse> items = info.items().stream()
                 .map(OrderItemResponse::from)
                 .toList();
             return new OrderResponse(
-                order.getId(),
-                order.userId(),
-                order.status().name(),
-                order.totalAmount().value(),
-                itemResponses,
-                order.getCreatedAt()
+                info.orderId(), info.userId(), info.status(),
+                info.totalAmount(), items, info.createdAt()
             );
         }
     }
@@ -40,13 +35,10 @@ public class OrderAdminV1Dto {
         ZonedDateTime createdAt
     ) {
 
-        public static OrderSummaryResponse from(OrderModel order) {
+        public static OrderSummaryResponse from(OrderInfo info) {
             return new OrderSummaryResponse(
-                order.getId(),
-                order.userId(),
-                order.status().name(),
-                order.totalAmount().value(),
-                order.getCreatedAt()
+                info.orderId(), info.userId(), info.status(),
+                info.totalAmount(), info.createdAt()
             );
         }
     }
@@ -59,13 +51,10 @@ public class OrderAdminV1Dto {
         int subtotal
     ) {
 
-        public static OrderItemResponse from(OrderItemModel item) {
+        public static OrderItemResponse from(OrderInfo.OrderItemInfo item) {
             return new OrderItemResponse(
-                item.productId(),
-                item.productName(),
-                item.productPrice().value(),
-                item.quantity(),
-                item.subtotal().value()
+                item.productId(), item.productName(),
+                item.productPrice(), item.quantity(), item.subtotal()
             );
         }
     }

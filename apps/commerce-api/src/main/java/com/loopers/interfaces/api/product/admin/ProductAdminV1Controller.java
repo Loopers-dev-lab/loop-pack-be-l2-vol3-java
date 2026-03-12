@@ -3,8 +3,6 @@ package com.loopers.interfaces.api.product.admin;
 import com.loopers.application.product.ProductDetail;
 import com.loopers.application.product.ProductFacade;
 import com.loopers.domain.product.Money;
-import com.loopers.domain.product.ProductModel;
-import com.loopers.domain.product.ProductService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.auth.AdminInfo;
 import com.loopers.interfaces.auth.AdminUser;
@@ -27,14 +25,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProductAdminV1Controller {
 
     private final ProductFacade productFacade;
-    private final ProductService productService;
 
     @PostMapping
     public ApiResponse<ProductAdminV1Dto.ProductResponse> create(
         @AdminUser AdminInfo admin,
         @RequestBody ProductAdminV1Dto.CreateRequest request
     ) {
-        ProductModel product = productFacade.register(
+        var product = productFacade.register(
             request.name(), request.description(), new Money(request.price()),
             request.brandId(), request.initialStock()
         );
@@ -68,14 +65,13 @@ public class ProductAdminV1Controller {
         @PathVariable Long productId,
         @RequestBody ProductAdminV1Dto.UpdateRequest request
     ) {
-        productService.update(productId, request.name(), request.description(), new Money(request.price()));
-        ProductDetail detail = productFacade.getProductForAdmin(productId);
+        ProductDetail detail = productFacade.update(productId, request.name(), request.description(), new Money(request.price()));
         return ApiResponse.success(ProductAdminV1Dto.ProductResponse.from(detail));
     }
 
     @DeleteMapping("/{productId}")
     public ApiResponse<Object> delete(@AdminUser AdminInfo admin, @PathVariable Long productId) {
-        productService.delete(productId);
+        productFacade.delete(productId);
         return ApiResponse.success();
     }
 }

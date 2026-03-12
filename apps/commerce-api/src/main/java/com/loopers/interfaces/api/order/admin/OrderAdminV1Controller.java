@@ -1,9 +1,10 @@
 package com.loopers.interfaces.api.order.admin;
 
-import com.loopers.domain.order.OrderItemModel;
-import com.loopers.domain.order.OrderModel;
-import com.loopers.domain.order.OrderService;
+import com.loopers.application.order.OrderFacade;
+import com.loopers.application.order.OrderInfo;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.auth.AdminInfo;
+import com.loopers.interfaces.auth.AdminUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -13,31 +14,29 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api-admin/v1/orders")
 public class OrderAdminV1Controller {
 
-    private final OrderService orderService;
+    private final OrderFacade orderFacade;
 
     @GetMapping
     public ApiResponse<Page<OrderAdminV1Dto.OrderSummaryResponse>> getAll(
+        @AdminUser AdminInfo admin,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
-        Page<OrderModel> orders = orderService.getAllForAdmin(PageRequest.of(page, size));
-        Page<OrderAdminV1Dto.OrderSummaryResponse> response = orders.map(
-            OrderAdminV1Dto.OrderSummaryResponse::from
-        );
-        return ApiResponse.success(response);
+        Page<OrderInfo> orders = orderFacade.getAllForAdmin(PageRequest.of(page, size));
+        return ApiResponse.success(orders.map(OrderAdminV1Dto.OrderSummaryResponse::from));
     }
 
     @GetMapping("/{orderId}")
-    public ApiResponse<OrderAdminV1Dto.OrderResponse> getOrder(@PathVariable Long orderId) {
-        OrderModel order = orderService.getOrderForAdmin(orderId);
-        List<OrderItemModel> items = orderService.getOrderItems(orderId);
-        return ApiResponse.success(OrderAdminV1Dto.OrderResponse.from(order, items));
+    public ApiResponse<OrderAdminV1Dto.OrderResponse> getOrder(
+        @AdminUser AdminInfo admin,
+        @PathVariable Long orderId
+    ) {
+        OrderInfo info = orderFacade.getOrderForAdmin(orderId);
+        return ApiResponse.success(OrderAdminV1Dto.OrderResponse.from(info));
     }
 }

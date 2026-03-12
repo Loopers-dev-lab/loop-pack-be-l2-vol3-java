@@ -48,6 +48,6 @@ public class LikeV1Controller {
         }
         Page<LikeWithProduct> likes = likeFacade.getMyLikesWithProducts(member.getId(),
             PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
-        return ApiResponse.success(likes.map(lwp -> LikeV1Dto.LikeResponse.from(lwp.like(), lwp.product())));
+        return ApiResponse.success(likes.map(LikeV1Dto.LikeResponse::from));
     }
 }

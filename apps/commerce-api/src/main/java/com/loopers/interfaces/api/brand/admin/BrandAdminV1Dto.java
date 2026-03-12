@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.brand.admin;
 
-import com.loopers.domain.brand.BrandModel;
+import com.loopers.application.brand.BrandInfo;
 
 import java.time.ZonedDateTime;
 
@@ -24,14 +24,14 @@ public class BrandAdminV1Dto {
         ZonedDateTime updatedAt,
         ZonedDateTime deletedAt
     ) {
-        public static BrandResponse from(BrandModel model) {
+        public static BrandResponse from(BrandInfo info) {
             return new BrandResponse(
-                model.getId(),
-                model.name().value(),
-                model.description(),
-                model.getCreatedAt(),
-                model.getUpdatedAt(),
-                model.getDeletedAt()
+                info.id(),
+                info.name(),
+                info.description(),
+                info.createdAt(),
+                info.updatedAt(),
+                info.deletedAt()
             );
         }
     }

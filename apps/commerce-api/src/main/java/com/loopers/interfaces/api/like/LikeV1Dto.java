@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.like;
 
-import com.loopers.domain.like.LikeModel;
-import com.loopers.domain.product.ProductModel;
+import com.loopers.application.like.LikeWithProduct;
 
 import java.time.ZonedDateTime;
 
@@ -14,13 +13,13 @@ public class LikeV1Dto {
         int productPrice,
         ZonedDateTime likedAt
     ) {
-        public static LikeResponse from(LikeModel like, ProductModel product) {
+        public static LikeResponse from(LikeWithProduct lwp) {
             return new LikeResponse(
-                like.getId(),
-                product.getId(),
-                product.name(),
-                product.price().value(),
-                like.getCreatedAt()
+                lwp.likeId(),
+                lwp.productId(),
+                lwp.productName(),
+                lwp.productPrice(),
+                lwp.likedAt()
             );
         }
     }

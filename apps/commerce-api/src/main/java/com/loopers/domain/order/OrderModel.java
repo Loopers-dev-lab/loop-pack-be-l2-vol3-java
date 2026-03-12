@@ -21,14 +21,28 @@ public class OrderModel extends BaseEntity {
     @AttributeOverride(name = "value", column = @Column(name = "total_amount", nullable = false))
     private Money totalAmount;
 
+    @Embedded
+    @AttributeOverride(name = "value", column = @Column(name = "discount_amount", nullable = false))
+    private Money discountAmount;
+
+    @Embedded
+    @AttributeOverride(name = "value", column = @Column(name = "final_amount", nullable = false))
+    private Money finalAmount;
+
+    @Column(name = "coupon_issue_id")
+    private Long couponIssueId;
+
     protected OrderModel() {
     }
 
-    public OrderModel(Long userId, Money totalAmount) {
+    public OrderModel(Long userId, Money totalAmount, Money discountAmount, Long couponIssueId) {
         this.userId = userId;
         this.status = OrderStatus.CREATED;
         this.totalAmount = totalAmount;
+        this.discountAmount = discountAmount;
+        this.couponIssueId = couponIssueId;
         guard();
+        this.finalAmount = totalAmount.subtract(discountAmount);
     }
 
     @Override
@@ -39,17 +53,21 @@ public class OrderModel extends BaseEntity {
         if (totalAmount == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 총액은 필수입니다.");
         }
+        if (discountAmount == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "할인 금액은 필수입니다.");
+        }
     }
 
-    public Long userId() {
-        return userId;
-    }
+    public Long userId() { return userId; }
+    public OrderStatus status() { return status; }
+    public Money totalAmount() { return totalAmount; }
+    public Money discountAmount() { return discountAmount; }
+    public Money finalAmount() { return finalAmount; }
+    public Long couponIssueId() { return couponIssueId; }
 
-    public OrderStatus status() {
-        return status;
-    }
-
-    public Money totalAmount() {
-        return totalAmount;
+    public void validateOwner(Long userId) {
+        if (!this.userId.equals(userId)) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "본인의 주문만 조회할 수 있습니다.");
+        }
     }
 }

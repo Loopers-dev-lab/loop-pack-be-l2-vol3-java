@@ -1,8 +1,6 @@
 package com.loopers.application.member;
 
 import com.loopers.domain.member.MemberModel;
-import com.loopers.domain.member.MemberPasswordService;
-import com.loopers.domain.member.MemberSignupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -13,12 +11,17 @@ import java.time.LocalDate;
 public class MemberFacade {
 
     private final MemberSignupService memberSignupService;
+    private final MemberAuthService memberAuthService;
     private final MemberPasswordService memberPasswordService;
 
     public MemberInfo signup(String loginId, String password, String name,
                              LocalDate birthDate, String email) {
         MemberModel member = memberSignupService.signup(loginId, password, name, birthDate, email);
         return MemberInfo.from(member);
+    }
+
+    public MemberModel authenticate(String loginId, String password) {
+        return memberAuthService.authenticate(loginId, password);
     }
 
     public MemberInfo getMyInfo(MemberModel member) {

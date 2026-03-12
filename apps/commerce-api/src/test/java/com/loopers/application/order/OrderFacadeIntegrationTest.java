@@ -1,14 +1,14 @@
 package com.loopers.application.order;
 
-import com.loopers.domain.brand.BrandService;
+import com.loopers.application.brand.BrandService;
 import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
-import com.loopers.domain.order.OrderService;
+import com.loopers.application.order.OrderService;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.application.product.ProductFacade;
 import com.loopers.domain.product.Money;
-import com.loopers.domain.product.ProductService;
-import com.loopers.domain.stock.StockService;
+import com.loopers.application.product.ProductService;
+import com.loopers.application.stock.StockService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
@@ -53,7 +53,7 @@ class OrderFacadeIntegrationTest {
         void placesSingleItemOrder() {
             Long brandId = createBrand("나이키");
             Long productId = createProduct("에어맥스", 129000, brandId, 10);
-            OrderResult result = orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 2)));
+            OrderResult result = orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 2)), null);
             assertAll(
                 () -> assertThat(result.order().userId()).isEqualTo(1L),
                 () -> assertThat(result.order().status()).isEqualTo(OrderStatus.CREATED),
@@ -71,7 +71,7 @@ class OrderFacadeIntegrationTest {
             Long p1 = createProduct("에어맥스", 129000, brandId, 10);
             Long p2 = createProduct("조던", 159000, brandId, 5);
             OrderResult result = orderFacade.placeOrder(1L, List.of(
-                new OrderItemCommand(p1, 2), new OrderItemCommand(p2, 1)));
+                new OrderItemCommand(p1, 2), new OrderItemCommand(p2, 1)), null);
             assertAll(
                 () -> assertThat(result.order().totalAmount()).isEqualTo(new Money(417000)),
                 () -> assertThat(result.items()).hasSize(2)
@@ -83,7 +83,7 @@ class OrderFacadeIntegrationTest {
         void deductsStock() {
             Long brandId = createBrand("나이키");
             Long productId = createProduct("에어맥스", 129000, brandId, 10);
-            orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 3)));
+            orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 3)), null);
             assertThat(stockService.getByProductId(productId).quantity()).isEqualTo(7);
         }
 
@@ -93,7 +93,7 @@ class OrderFacadeIntegrationTest {
             Long brandId = createBrand("나이키");
             Long productId = createProduct("에어맥스", 129000, brandId, 2);
             CoreException result = assertThrows(CoreException.class,
-                () -> orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 5))));
+                () -> orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 5)), null));
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
@@ -104,7 +104,7 @@ class OrderFacadeIntegrationTest {
             Long p1 = createProduct("에어맥스", 129000, brandId, 10);
             Long p2 = createProduct("조던", 159000, brandId, 1);
             assertThrows(CoreException.class, () -> orderFacade.placeOrder(1L, List.of(
-                new OrderItemCommand(p1, 3), new OrderItemCommand(p2, 5))));
+                new OrderItemCommand(p1, 3), new OrderItemCommand(p2, 5)), null));
             assertThat(stockService.getByProductId(p1).quantity()).isEqualTo(10);
             assertThat(stockService.getByProductId(p2).quantity()).isEqualTo(1);
         }
@@ -116,7 +116,7 @@ class OrderFacadeIntegrationTest {
             Long productId = createProduct("에어맥스", 129000, brandId, 10);
             productService.delete(productId);
             CoreException result = assertThrows(CoreException.class,
-                () -> orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 1))));
+                () -> orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 1)), null));
             assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
@@ -125,7 +125,7 @@ class OrderFacadeIntegrationTest {
         void savesProductSnapshot() {
             Long brandId = createBrand("나이키");
             Long productId = createProduct("에어맥스", 129000, brandId, 10);
-            OrderResult result = orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 1)));
+            OrderResult result = orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 1)), null);
             OrderItemModel item = result.items().get(0);
             assertAll(
                 () -> assertThat(item.productName()).isEqualTo("에어맥스"),
@@ -143,7 +143,7 @@ class OrderFacadeIntegrationTest {
         void getsOwnOrder() {
             Long brandId = createBrand("나이키");
             Long productId = createProduct("에어맥스", 129000, brandId, 10);
-            OrderResult r = orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 1)));
+            OrderResult r = orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 1)), null);
             OrderModel order = orderService.getOrder(r.order().getId(), 1L);
             assertThat(order.getId()).isEqualTo(r.order().getId());
         }
@@ -153,7 +153,7 @@ class OrderFacadeIntegrationTest {
         void throwsWhenAccessingOtherUserOrder() {
             Long brandId = createBrand("나이키");
             Long productId = createProduct("에어맥스", 129000, brandId, 10);
-            OrderResult r = orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 1)));
+            OrderResult r = orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 1)), null);
             CoreException result = assertThrows(CoreException.class,
                 () -> orderService.getOrder(r.order().getId(), 999L));
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
@@ -164,7 +164,7 @@ class OrderFacadeIntegrationTest {
         void getsOrderItems() {
             Long brandId = createBrand("나이키");
             Long productId = createProduct("에어맥스", 129000, brandId, 10);
-            OrderResult r = orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 2)));
+            OrderResult r = orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 2)), null);
             List<OrderItemModel> items = orderService.getOrderItems(r.order().getId());
             assertAll(
                 () -> assertThat(items).hasSize(1),

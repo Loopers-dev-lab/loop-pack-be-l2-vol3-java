@@ -79,7 +79,7 @@ class OrderV1ApiE2ETest {
 
     private ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> placeOrder(List<OrderV1Dto.OrderItemRequest> items) {
         return testRestTemplate.exchange("/api/v1/orders", HttpMethod.POST,
-            new HttpEntity<>(new OrderV1Dto.CreateRequest(items), authHeaders()),
+            new HttpEntity<>(new OrderV1Dto.CreateRequest(items, null), authHeaders()),
             new ParameterizedTypeReference<>() {});
     }
 
@@ -121,7 +121,7 @@ class OrderV1ApiE2ETest {
             signupMember();
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange("/api/v1/orders",
                 HttpMethod.POST, new HttpEntity<>(new OrderV1Dto.CreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(productId, 5))), authHeaders()),
+                    List.of(new OrderV1Dto.OrderItemRequest(productId, 5)), null), authHeaders()),
                 new ParameterizedTypeReference<>() {});
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
@@ -130,7 +130,7 @@ class OrderV1ApiE2ETest {
         void returns400WhenNoAuth() {
             ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange("/api/v1/orders",
                 HttpMethod.POST, new HttpEntity<>(new OrderV1Dto.CreateRequest(
-                    List.of(new OrderV1Dto.OrderItemRequest(1L, 1)))),
+                    List.of(new OrderV1Dto.OrderItemRequest(1L, 1)), null)),
                 new ParameterizedTypeReference<>() {});
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
@@ -182,7 +182,7 @@ class OrderV1ApiE2ETest {
             signupMember();
             placeOrder(List.of(new OrderV1Dto.OrderItemRequest(productId, 1)));
             var response = testRestTemplate.exchange("/api-admin/v1/orders?page=0&size=20",
-                HttpMethod.GET, null, new ParameterizedTypeReference<ApiResponse<Object>>() {});
+                HttpMethod.GET, new HttpEntity<>(null, adminHeaders()), new ParameterizedTypeReference<ApiResponse<Object>>() {});
             assertTrue(response.getStatusCode().is2xxSuccessful());
         }
     }
@@ -197,7 +197,7 @@ class OrderV1ApiE2ETest {
             var orderResponse = placeOrder(List.of(new OrderV1Dto.OrderItemRequest(productId, 1)));
             Long orderId = orderResponse.getBody().data().orderId();
             var response = testRestTemplate.exchange("/api-admin/v1/orders/" + orderId,
-                HttpMethod.GET, null, new ParameterizedTypeReference<ApiResponse<Object>>() {});
+                HttpMethod.GET, new HttpEntity<>(null, adminHeaders()), new ParameterizedTypeReference<ApiResponse<Object>>() {});
             assertTrue(response.getStatusCode().is2xxSuccessful());
         }
     }

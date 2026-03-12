@@ -23,13 +23,16 @@ class MemberFacadeTest {
     private MemberSignupService memberSignupService;
 
     @Mock
+    private MemberAuthService memberAuthService;
+
+    @Mock
     private MemberPasswordService memberPasswordService;
 
     private MemberFacade memberFacade;
 
     @BeforeEach
     void setUp() {
-        memberFacade = new MemberFacade(memberSignupService, memberPasswordService);
+        memberFacade = new MemberFacade(memberSignupService, memberAuthService, memberPasswordService);
     }
 
     @DisplayName("회원가입")

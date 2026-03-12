@@ -2,12 +2,12 @@ package com.loopers.application.product;
 
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.brand.BrandName;
-import com.loopers.domain.brand.BrandService;
+import com.loopers.application.brand.BrandService;
 import com.loopers.domain.product.Money;
 import com.loopers.domain.product.ProductModel;
-import com.loopers.domain.product.ProductService;
+import com.loopers.application.product.ProductService;
 import com.loopers.domain.stock.StockModel;
-import com.loopers.domain.stock.StockService;
+import com.loopers.application.stock.StockService;
 import com.loopers.domain.stock.StockStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;

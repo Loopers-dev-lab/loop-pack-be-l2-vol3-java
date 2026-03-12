@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.brand;
 
-import com.loopers.domain.brand.BrandModel;
+import com.loopers.application.brand.BrandInfo;
 
 public class BrandV1Dto {
 
@@ -9,8 +9,8 @@ public class BrandV1Dto {
         String name,
         String description
     ) {
-        public static BrandResponse from(BrandModel model) {
-            return new BrandResponse(model.getId(), model.name().value(), model.description());
+        public static BrandResponse from(BrandInfo info) {
+            return new BrandResponse(info.id(), info.name(), info.description());
         }
     }
 }

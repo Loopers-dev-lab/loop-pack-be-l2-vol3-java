@@ -36,6 +36,21 @@ public class Money {
         return new Money(this.value + other.value);
     }
 
+    public Money divide(int divisor) {
+        if (divisor == 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "0으로 나눌 수 없습니다.");
+        }
+        return new Money(this.value / divisor);
+    }
+
+    public Money subtract(Money other) {
+        return new Money(Math.max(this.value - other.value, 0));
+    }
+
+    public Money min(Money other) {
+        return this.value <= other.value ? this : other;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

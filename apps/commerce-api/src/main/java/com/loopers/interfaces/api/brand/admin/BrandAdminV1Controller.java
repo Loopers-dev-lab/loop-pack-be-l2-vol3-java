@@ -1,8 +1,7 @@
 package com.loopers.interfaces.api.brand.admin;
 
 import com.loopers.application.brand.BrandFacade;
-import com.loopers.domain.brand.BrandModel;
-import com.loopers.domain.brand.BrandService;
+import com.loopers.application.brand.BrandInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.auth.AdminInfo;
 import com.loopers.interfaces.auth.AdminUser;
@@ -24,7 +23,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api-admin/v1/brands")
 public class BrandAdminV1Controller {
 
-    private final BrandService brandService;
     private final BrandFacade brandFacade;
 
     @PostMapping
@@ -32,8 +30,8 @@ public class BrandAdminV1Controller {
         @AdminUser AdminInfo admin,
         @RequestBody BrandAdminV1Dto.CreateRequest request
     ) {
-        BrandModel brand = brandService.register(request.name(), request.description());
-        return ApiResponse.success(BrandAdminV1Dto.BrandResponse.from(brand));
+        BrandInfo info = brandFacade.register(request.name(), request.description());
+        return ApiResponse.success(BrandAdminV1Dto.BrandResponse.from(info));
     }
 
     @GetMapping
@@ -42,7 +40,7 @@ public class BrandAdminV1Controller {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
-        Page<BrandModel> result = brandService.getAll(PageRequest.of(page, size));
+        Page<BrandInfo> result = brandFacade.getAll(PageRequest.of(page, size));
         return ApiResponse.success(result.map(BrandAdminV1Dto.BrandResponse::from));
     }
 
@@ -51,8 +49,8 @@ public class BrandAdminV1Controller {
         @AdminUser AdminInfo admin,
         @PathVariable Long brandId
     ) {
-        BrandModel brand = brandService.getBrandForAdmin(brandId);
-        return ApiResponse.success(BrandAdminV1Dto.BrandResponse.from(brand));
+        BrandInfo info = brandFacade.getBrandForAdmin(brandId);
+        return ApiResponse.success(BrandAdminV1Dto.BrandResponse.from(info));
     }
 
     @PutMapping("/{brandId}")
@@ -61,8 +59,8 @@ public class BrandAdminV1Controller {
         @PathVariable Long brandId,
         @RequestBody BrandAdminV1Dto.UpdateRequest request
     ) {
-        BrandModel brand = brandService.update(brandId, request.name(), request.description());
-        return ApiResponse.success(BrandAdminV1Dto.BrandResponse.from(brand));
+        BrandInfo info = brandFacade.update(brandId, request.name(), request.description());
+        return ApiResponse.success(BrandAdminV1Dto.BrandResponse.from(info));
     }
 
     @DeleteMapping("/{brandId}")

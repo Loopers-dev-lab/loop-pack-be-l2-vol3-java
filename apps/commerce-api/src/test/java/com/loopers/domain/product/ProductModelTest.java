@@ -154,46 +154,5 @@ class ProductModelTest {
             // assert
             assertThat(product.getLikeCount()).isEqualTo(0);
         }
-
-        @DisplayName("incrementLikeCount()를 호출하면 likeCount가 1 증가한다")
-        @Test
-        void incrementsLikeCount() {
-            // given
-            ProductModel product = new ProductModel("에어맥스 90", "러닝화", new Money(129000), 1L);
-
-            // when
-            product.incrementLikeCount();
-
-            // then
-            assertThat(product.likeCount()).isEqualTo(1);
-        }
-
-        @DisplayName("decrementLikeCount()를 호출하면 likeCount가 1 감소한다")
-        @Test
-        void decrementsLikeCount() {
-            // given
-            ProductModel product = new ProductModel("에어맥스 90", "러닝화", new Money(129000), 1L);
-            product.incrementLikeCount();
-            product.incrementLikeCount();
-
-            // when
-            product.decrementLikeCount();
-
-            // then
-            assertThat(product.likeCount()).isEqualTo(1);
-        }
-
-        @DisplayName("likeCount가 0일 때 decrementLikeCount()를 호출하면 0을 유지한다")
-        @Test
-        void doesNotGoBelowZero() {
-            // given
-            ProductModel product = new ProductModel("에어맥스 90", "러닝화", new Money(129000), 1L);
-
-            // when
-            product.decrementLikeCount();
-
-            // then
-            assertThat(product.likeCount()).isEqualTo(0);
-        }
     }
 }
