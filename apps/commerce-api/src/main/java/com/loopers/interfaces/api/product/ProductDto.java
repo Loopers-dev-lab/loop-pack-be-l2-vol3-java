@@ -5,6 +5,9 @@ import com.loopers.domain.product.ProductWithBrand;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.data.domain.Page;
+
+import java.util.List;
 
 public class ProductDto {
 
@@ -52,6 +55,27 @@ public class ProductDto {
                 product.getPrice().getValue(),
                 product.getStock().getQuantity(),
                 0
+            );
+        }
+    }
+
+    public record PagedProductResponse(
+        List<ProductResponse> data,
+        long totalElements,
+        int totalPages,
+        int page,
+        int size
+    ) {
+        public static PagedProductResponse from(Page<ProductWithBrand> pageResult) {
+            List<ProductResponse> data = pageResult.getContent().stream()
+                .map(ProductResponse::from)
+                .toList();
+            return new PagedProductResponse(
+                data,
+                pageResult.getTotalElements(),
+                pageResult.getTotalPages(),
+                pageResult.getNumber(),
+                pageResult.getSize()
             );
         }
     }

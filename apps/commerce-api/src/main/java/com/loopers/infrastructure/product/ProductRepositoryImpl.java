@@ -4,6 +4,9 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.ProductWithBrand;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
@@ -62,8 +65,34 @@ public class ProductRepositoryImpl implements ProductRepository {
             .toList();
     }
 
+    @Override
+    public Page<ProductWithBrand> findAllWithBrand(String sort, Pageable pageable) {
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), toSort(sort));
+        return productJpaRepository.findAllWithBrandPaged(sortedPageable)
+            .map(this::toProductWithBrand);
+    }
+
+    @Override
+    public Page<ProductWithBrand> findAllByBrandIdWithBrand(Long brandId, String sort, Pageable pageable) {
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), toSort(sort));
+        return productJpaRepository.findAllByBrandIdWithBrandPaged(brandId, sortedPageable)
+            .map(this::toProductWithBrand);
+    }
+
+    @Override
+    public int incrementLikeCount(Long productId) {
+        return productJpaRepository.incrementLikeCount(productId);
+    }
+
+    @Override
+    public int decrementLikeCount(Long productId) {
+        return productJpaRepository.decrementLikeCount(productId);
+    }
+
     private ProductWithBrand toProductWithBrand(Object[] row) {
-        return new ProductWithBrand((Product) row[0], (String) row[1], 0L);
+        Product product = (Product) row[0];
+        String brandName = (String) row[1];
+        return new ProductWithBrand(product, brandName, product.getLikeCount());
     }
 
     private Sort toSort(String sort) {
@@ -72,6 +101,10 @@ public class ProductRepositoryImpl implements ProductRepository {
         }
         return switch (sort) {
             case "price_asc" -> Sort.by("price.value").ascending();
+            case "likes_desc" -> Sort.by(
+                Sort.Order.desc("likeCount"),
+                Sort.Order.desc("id")
+            );
             default -> Sort.by("createdAt").descending();
         };
     }

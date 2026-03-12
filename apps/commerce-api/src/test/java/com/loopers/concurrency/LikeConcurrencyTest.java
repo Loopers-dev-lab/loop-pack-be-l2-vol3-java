@@ -45,7 +45,7 @@ class LikeConcurrencyTest {
         databaseCleanUp.truncateAllTables();
     }
 
-    @DisplayName("동일 상품에 여러 명이 동시에 좋아요하면 모두 성공하고 Like 레코드가 정확히 생성된다")
+    @DisplayName("동일 상품에 여러 명이 동시에 좋아요하면 모두 성공하고 Like 레코드 + Product.likeCount가 정확하다")
     @Test
     void concurrentLikes_allSucceed_andCountIsCorrect() throws InterruptedException {
         // arrange
@@ -76,12 +76,15 @@ class LikeConcurrencyTest {
         latch.await();
         executor.shutdown();
 
-        // assert — 락 없이 UNIQUE 제약으로 중복 방지, 모두 성공
+        // assert — Like 레코드 수와 Product.likeCount가 일치해야 한다
+        long actualLikeRecords = likeRepository.countByProductId(productId);
+        Product updatedProduct = productRepository.findById(productId).orElseThrow();
         assertThat(successCount.get()).isEqualTo(threadCount);
-        assertThat(likeRepository.countByProductId(productId)).isEqualTo(threadCount);
+        assertThat(actualLikeRecords).isEqualTo(threadCount);
+        assertThat(updatedProduct.getLikeCount()).isEqualTo(threadCount);
     }
 
-    @DisplayName("동일 상품에 여러 명이 좋아요 후 일부가 취소하면 Like 레코드 수가 정확하다")
+    @DisplayName("동일 상품에 여러 명이 좋아요 후 일부가 취소하면 Like 레코드 수와 Product.likeCount가 일치한다")
     @Test
     void concurrentLikeAndUnlike_countsCorrectly() throws InterruptedException {
         // arrange
@@ -91,7 +94,7 @@ class LikeConcurrencyTest {
             new Product(brand.getId(), "에어맥스", new Price(100000), new Stock(10)));
         Long productId = product.getId();
 
-        // 먼저 10명이 좋아요
+        // 먼저 100명이 좋아요
         ExecutorService executor1 = Executors.newFixedThreadPool(likeCount);
         CountDownLatch latch1 = new CountDownLatch(likeCount);
         for (int i = 0; i < likeCount; i++) {
@@ -128,7 +131,10 @@ class LikeConcurrencyTest {
         latch2.await();
         executor2.shutdown();
 
-        // assert
-        assertThat(likeRepository.countByProductId(productId)).isEqualTo(likeCount - unlikeCount);
+        // assert — Like 레코드 수와 Product.likeCount가 일치해야 한다
+        long actualLikeRecords = likeRepository.countByProductId(productId);
+        Product updatedProduct = productRepository.findById(productId).orElseThrow();
+        assertThat(actualLikeRecords).isEqualTo(likeCount - unlikeCount);
+        assertThat(updatedProduct.getLikeCount()).isEqualTo((int) actualLikeRecords);
     }
 }

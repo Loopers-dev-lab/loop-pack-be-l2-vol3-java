@@ -10,7 +10,10 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "product", indexes = {
-    @Index(name = "idx_product_brand_id", columnList = "brand_id")
+    @Index(name = "idx_product_brand_id", columnList = "brand_id"),
+    @Index(name = "idx_product_like_count", columnList = "like_count DESC, id DESC"),
+    @Index(name = "idx_product_brand_like_count", columnList = "brand_id, like_count DESC, id DESC"),
+    @Index(name = "idx_product_brand_price", columnList = "brand_id, price ASC, id ASC")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -27,6 +30,9 @@ public class Product extends BaseEntity {
 
     @Embedded
     private Stock stock;
+
+    @Column(name = "like_count", nullable = false)
+    private int likeCount = 0;
 
     public Product(Long brandId, String name, Price price, Stock stock) {
         this.brandId = brandId;

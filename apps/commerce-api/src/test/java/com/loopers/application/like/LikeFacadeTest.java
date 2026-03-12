@@ -35,9 +35,9 @@ class LikeFacadeTest {
     @DisplayName("좋아요 추가")
     class AddLike {
 
-        @DisplayName("좋아요를 추가하면 Like 레코드가 저장된다")
+        @DisplayName("좋아요를 추가하면 Like 레코드가 저장되고 Product.likeCount가 1 증가한다")
         @Test
-        void addLike_savesLikeRecord() {
+        void addLike_savesLikeRecord_andIncrementsLikeCount() {
             Product product = productRepository.save(
                     new Product(1L, "에어맥스", new Price(150000), new Stock(10)));
             Long memberId = 1L;
@@ -46,9 +46,10 @@ class LikeFacadeTest {
 
             assertThat(likeRepository.existsByMemberIdAndProductId(memberId, product.getId())).isTrue();
             assertThat(likeRepository.countByProductId(product.getId())).isEqualTo(1);
+            assertThat(product.getLikeCount()).isEqualTo(1);
         }
 
-        @DisplayName("이미 좋아요한 상품에 다시 좋아요하면 멱등하게 처리된다")
+        @DisplayName("이미 좋아요한 상품에 다시 좋아요하면 멱등하게 처리된다 (likeCount 불변)")
         @Test
         void addLike_whenAlreadyLiked_isIdempotent() {
             Product product = productRepository.save(
@@ -60,6 +61,7 @@ class LikeFacadeTest {
 
             assertThat(likeRepository.countByProductId(product.getId())).isEqualTo(1);
             assertThat(likeRepository.findAllByMemberId(memberId)).hasSize(1);
+            assertThat(product.getLikeCount()).isEqualTo(1);
         }
 
         @DisplayName("존재하지 않는 상품에 좋아요하면 예외가 발생한다")
@@ -82,6 +84,7 @@ class LikeFacadeTest {
             likeFacade.addLike(3L, product.getId());
 
             assertThat(likeRepository.countByProductId(product.getId())).isEqualTo(3);
+            assertThat(product.getLikeCount()).isEqualTo(3);
         }
     }
 
@@ -89,9 +92,9 @@ class LikeFacadeTest {
     @DisplayName("좋아요 취소")
     class RemoveLike {
 
-        @DisplayName("좋아요를 취소하면 Like 레코드가 삭제된다")
+        @DisplayName("좋아요를 취소하면 Like 레코드가 삭제되고 Product.likeCount가 1 감소한다")
         @Test
-        void removeLike_deletesLikeRecord() {
+        void removeLike_deletesLikeRecord_andDecrementsLikeCount() {
             Product product = productRepository.save(
                     new Product(1L, "에어맥스", new Price(150000), new Stock(10)));
             Long memberId = 1L;
@@ -101,6 +104,7 @@ class LikeFacadeTest {
 
             assertThat(likeRepository.existsByMemberIdAndProductId(memberId, product.getId())).isFalse();
             assertThat(likeRepository.countByProductId(product.getId())).isEqualTo(0);
+            assertThat(product.getLikeCount()).isEqualTo(0);
         }
 
         @DisplayName("좋아요하지 않은 상품의 좋아요를 취소해도 예외 없이 멱등하게 처리된다")
@@ -112,6 +116,7 @@ class LikeFacadeTest {
             likeFacade.removeLike(1L, product.getId());
 
             assertThat(likeRepository.countByProductId(product.getId())).isEqualTo(0);
+            assertThat(product.getLikeCount()).isEqualTo(0);
         }
     }
 

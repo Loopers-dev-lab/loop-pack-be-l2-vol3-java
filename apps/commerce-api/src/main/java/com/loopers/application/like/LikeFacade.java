@@ -30,6 +30,7 @@ public class LikeFacade {
         }
 
         likeRepository.save(new Like(memberId, productId));
+        productRepository.incrementLikeCount(productId);
     }
 
     @Transactional
@@ -40,6 +41,7 @@ public class LikeFacade {
         }
 
         likeRepository.delete(likeOpt.get());
+        productRepository.decrementLikeCount(productId);
     }
 
     public List<Like> getLikesByMemberId(Long memberId) {
