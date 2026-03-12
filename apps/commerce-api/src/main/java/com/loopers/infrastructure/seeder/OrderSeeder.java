@@ -21,6 +21,8 @@ import java.util.UUID;
  * - status: PAID 70% / CANCELED 15% / PENDING 10% / EXPIRED 5%
  * - ordered_at: 최근 6개월 분산
  * - items per order: 1개 60% / 2개 30% / 3개 10%
+ *
+ * 정합성: orders.subtotal_amount = sum(order_items.unit_price * quantity)
  */
 @Component
 class OrderSeeder {
@@ -44,8 +46,9 @@ class OrderSeeder {
 
         ZonedDateTime now = ZonedDateTime.now(ZoneId.of("Asia/Seoul"));
 
+        // 주문과 주문상품을 함께 쌓고, 주문 flush 후 order_id를 매핑해서 주문상품도 flush
         List<Object[]> orderBatch = new ArrayList<>(BATCH_SIZE);
-        List<Object[]> itemBatch = new ArrayList<>(BATCH_SIZE * 2);
+        List<List<Object[]>> itemsPerOrder = new ArrayList<>(BATCH_SIZE);
         long totalItems = 0;
 
         for (int i = 0; i < ORDER_COUNT; i++) {
@@ -57,7 +60,7 @@ class OrderSeeder {
             int itemCount = generateItemCount();
             int subtotal = 0;
 
-            // 주문 상품 준비
+            // 주문 상품 준비 (이 아이템들이 그대로 DB에 저장됨)
             List<Object[]> currentItems = new ArrayList<>();
             for (int j = 0; j < itemCount; j++) {
                 long productId = random.nextInt(PRODUCT_COUNT) + 1;
@@ -95,16 +98,13 @@ class OrderSeeder {
                 Timestamp.from(orderedAt.toInstant()),
                 Timestamp.from(now.toInstant())
             });
-
-            // order_items는 order INSERT 후 order_id를 알아야 하므로 별도 저장
-            for (Object[] item : currentItems) {
-                itemBatch.add(item);
-            }
+            itemsPerOrder.add(currentItems);
             totalItems += currentItems.size();
 
             if (orderBatch.size() >= BATCH_SIZE) {
-                flushOrders(orderBatch);
+                flushOrdersAndItems(orderBatch, itemsPerOrder);
                 orderBatch.clear();
+                itemsPerOrder.clear();
 
                 if ((i + 1) % 10_000 == 0) {
                     log.info("[OrderSeeder] 주문 {}/{} 완료", i + 1, ORDER_COUNT);
@@ -112,62 +112,60 @@ class OrderSeeder {
             }
         }
 
-        // 남은 주문 배치
+        // 남은 배치
         if (!orderBatch.isEmpty()) {
-            flushOrders(orderBatch);
+            flushOrdersAndItems(orderBatch, itemsPerOrder);
         }
-
-        // order_items: order_id를 DB에서 매핑
-        seedOrderItems(totalItems);
 
         log.info("[OrderSeeder] 주문 {}건 + 주문상품 {}건 생성 완료 ({}ms)",
             ORDER_COUNT, totalItems, System.currentTimeMillis() - start);
     }
 
     /**
-     * order_items 시딩: orders 삽입 후, 각 order의 item_count에 맞게 생성
+     * 주문 배치 INSERT 후, 생성된 order_id를 조회해서 주문상품에 매핑하고 함께 INSERT.
+     * subtotal_amount와 order_items 금액 합계의 정합성을 보장한다.
      */
-    private void seedOrderItems(long expectedTotal) {
-        log.info("[OrderSeeder] 주문상품 {}건 생성 시작", expectedTotal);
+    private void flushOrdersAndItems(List<Object[]> orderBatch, List<List<Object[]>> itemsPerOrder) {
+        // 주문 INSERT 전 마지막 ID 확인
+        Long lastIdBefore = jdbcTemplate.queryForObject(
+            "SELECT COALESCE(MAX(id), 0) FROM orders", Long.class
+        );
 
-        // 주문 ID 목록 조회
-        List<Long> orderIds = jdbcTemplate.queryForList("SELECT id FROM orders ORDER BY id", Long.class);
+        // 주문 INSERT
+        flushOrders(orderBatch);
 
-        List<Object[]> batch = new ArrayList<>(5_000);
-        long inserted = 0;
-        Random itemRandom = new Random(123);
+        // 방금 삽입된 주문들의 ID 조회
+        List<Long> newOrderIds = jdbcTemplate.queryForList(
+            "SELECT id FROM orders WHERE id > ? ORDER BY id",
+            Long.class, lastIdBefore
+        );
 
-        for (Long orderId : orderIds) {
-            int itemCount = generateItemCountWith(itemRandom);
+        // 주문상품에 order_id 매핑 후 INSERT
+        List<Object[]> itemBatch = new ArrayList<>(5_000);
+        for (int i = 0; i < newOrderIds.size(); i++) {
+            Long orderId = newOrderIds.get(i);
+            List<Object[]> items = itemsPerOrder.get(i);
 
-            for (int j = 0; j < itemCount; j++) {
-                long productId = itemRandom.nextInt(PRODUCT_COUNT) + 1;
-                int unitPrice = (itemRandom.nextInt(490) + 10) * 1000;
-                int quantity = itemRandom.nextInt(3) + 1;
-
-                batch.add(new Object[]{
+            for (Object[] item : items) {
+                itemBatch.add(new Object[]{
                     orderId,
-                    productId,
-                    "상품" + productId,
-                    "브랜드" + (itemRandom.nextInt(100) + 1),
-                    unitPrice,
-                    quantity
+                    item[0], // productId
+                    item[1], // productName
+                    item[2], // brandName
+                    item[3], // unitPrice
+                    item[4]  // quantity
                 });
 
-                if (batch.size() >= 5_000) {
-                    flushOrderItems(batch);
-                    inserted += batch.size();
-                    batch.clear();
+                if (itemBatch.size() >= 5_000) {
+                    flushOrderItems(itemBatch);
+                    itemBatch.clear();
                 }
             }
         }
 
-        if (!batch.isEmpty()) {
-            flushOrderItems(batch);
-            inserted += batch.size();
+        if (!itemBatch.isEmpty()) {
+            flushOrderItems(itemBatch);
         }
-
-        log.info("[OrderSeeder] 주문상품 {}건 생성 완료", inserted);
     }
 
     private void flushOrders(List<Object[]> batch) {
@@ -210,13 +208,6 @@ class OrderSeeder {
         double r = random.nextDouble();
         if (r < 0.60) return 1;
         if (r < 0.90) return 2;
-        return 3;
-    }
-
-    private int generateItemCountWith(Random r) {
-        double v = r.nextDouble();
-        if (v < 0.60) return 1;
-        if (v < 0.90) return 2;
         return 3;
     }
 }
