@@ -2,7 +2,10 @@ package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandService;
 import com.loopers.application.like.LikeService;
+import com.loopers.config.CacheConfig;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -26,6 +29,7 @@ public class ProductFacade {
         return productService.register(command);
     }
 
+    @Cacheable(cacheNames = CacheConfig.PRODUCT, key = "#id")
     public ProductInfo getActiveProduct(Long id) {
         ProductInfo product = productService.getActiveProduct(id);
         String brandName = brandService.getBrandNameMap(List.of(product.brand().id()))
@@ -42,6 +46,7 @@ public class ProductFacade {
         ));
     }
 
+    @CacheEvict(cacheNames = CacheConfig.PRODUCT, key = "#id")
     @Transactional
     public void delete(Long id) {
         likeService.deleteAllByProductIds(List.of(id));
