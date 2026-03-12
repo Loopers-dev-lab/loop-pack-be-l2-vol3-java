@@ -6,6 +6,7 @@ import com.loopers.config.CacheConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,7 @@ public class ProductFacade {
         return product.withBrand(new ProductInfo.BrandSummary(product.brand().id(), brandName));
     }
 
+    @Cacheable(cacheNames = CacheConfig.PRODUCTS, key = "#brandId + ':' + #sort + ':' + #pageable.pageNumber + ':' + #pageable.pageSize")
     public Page<ProductInfo> getActiveProducts(Long brandId, ProductSort sort, Pageable pageable) {
         Page<ProductInfo> products = productService.getActiveProducts(brandId, sort, pageable);
         Set<Long> brandIds = products.stream().map(p -> p.brand().id()).collect(Collectors.toSet());
@@ -46,7 +48,10 @@ public class ProductFacade {
         ));
     }
 
-    @CacheEvict(cacheNames = CacheConfig.PRODUCT, key = "#id")
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CacheConfig.PRODUCT, key = "#id"),
+            @CacheEvict(cacheNames = CacheConfig.PRODUCTS, allEntries = true)
+    })
     @Transactional
     public void delete(Long id) {
         likeService.deleteAllByProductIds(List.of(id));
