@@ -1,5 +1,6 @@
 package com.loopers.domain.order;
 
+import com.loopers.domain.common.CursorResult;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.OrderErrorType;
 import org.springframework.stereotype.Component;
@@ -55,8 +56,9 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public List<Order> getOrders(Long userId, ZonedDateTime startAt, ZonedDateTime endAt) {
-        return orderRepository.findAllByUserId(userId, startAt, endAt);
+    public CursorResult<Order> getOrdersWithCursor(Long userId, ZonedDateTime startAt, ZonedDateTime endAt,
+                                                    ZonedDateTime cursorCreatedAt, Long cursorId, int size) {
+        return orderRepository.findAllByUserIdWithCursor(userId, startAt, endAt, cursorCreatedAt, cursorId, size);
     }
 
     @Transactional

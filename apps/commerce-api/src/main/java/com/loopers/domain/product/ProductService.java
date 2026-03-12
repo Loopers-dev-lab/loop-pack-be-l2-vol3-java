@@ -1,5 +1,6 @@
 package com.loopers.domain.product;
 
+import com.loopers.domain.common.CursorResult;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ProductErrorType;
 import org.springframework.stereotype.Component;
@@ -91,16 +92,10 @@ public class ProductService {
         return productRepository.count(brandId);
     }
 
-    /** 노출 가능 상품 페이지 조회 (고객용, brandId 선택 필터) */
+    /** 노출 가능 상품 커서 조회 (고객용) */
     @Transactional(readOnly = true)
-    public List<Product> getDisplayableProducts(Long brandId, ProductSortType sort, int page, int size) {
-        return productRepository.findAllDisplayable(brandId, sort, page, size);
-    }
-
-    /** 노출 가능 상품 수 조회 (고객 페이지네이션 메타 정보용) */
-    @Transactional(readOnly = true)
-    public long countDisplayableProducts(Long brandId) {
-        return productRepository.countDisplayable(brandId);
+    public CursorResult<Product> getDisplayableProductsWithCursor(Long brandId, ProductSortType sort, ProductCursor cursor, int size) {
+        return productRepository.findAllDisplayableWithCursor(brandId, sort, cursor, size);
     }
 
     /** 브랜드별 ACTIVE 상품 조회 (BrandFacade 고객 상세용) */

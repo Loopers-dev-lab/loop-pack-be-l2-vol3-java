@@ -4,7 +4,6 @@ import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
-import com.loopers.domain.product.ProductSortType;
 import com.loopers.domain.product.ProductStatus;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -153,74 +152,6 @@ class ProductRepositoryIntegrationTest {
 
             // assert
             assertThat(result).isEqualTo(1);
-        }
-    }
-
-    @Nested
-    @DisplayName("findAllDisplayable 메서드는")
-    class FindAllDisplayable {
-
-        @Test
-        void ACTIVE와_SOLDOUT_상태만_반환한다() {
-            // arrange
-            Brand brand = createBrand("나이키");
-            createProduct(brand.getId(), "활성상품", 10000, ProductStatus.ACTIVE);
-            createProduct(brand.getId(), "품절상품", 20000, ProductStatus.SOLDOUT);
-            createProduct(brand.getId(), "숨김상품", 30000, ProductStatus.HIDDEN);
-            createProduct(brand.getId(), "단종상품", 40000, ProductStatus.DISCONTINUED);
-
-            // act
-            List<Product> result = productRepository.findAllDisplayable(null, ProductSortType.LATEST, 0, 20);
-
-            // assert
-            assertThat(result).hasSize(2);
-        }
-
-        @Test
-        void LATEST_정렬은_최신순으로_반환한다() {
-            // arrange
-            Brand brand = createBrand("나이키");
-            createProduct(brand.getId(), "상품1", 10000);
-            createProduct(brand.getId(), "상품2", 20000);
-
-            // act
-            List<Product> result = productRepository.findAllDisplayable(null, ProductSortType.LATEST, 0, 20);
-
-            // assert
-            assertThat(result).hasSize(2);
-            assertThat(result.get(0).getName()).isEqualTo("상품2");
-        }
-
-        @Test
-        void PRICE_ASC_정렬은_가격_오름차순으로_반환한다() {
-            // arrange
-            Brand brand = createBrand("나이키");
-            createProduct(brand.getId(), "비싼상품", 300000);
-            createProduct(brand.getId(), "싼상품", 100000);
-
-            // act
-            List<Product> result = productRepository.findAllDisplayable(null, ProductSortType.PRICE_ASC, 0, 20);
-
-            // assert
-            assertThat(result.get(0).getBasePrice()).isEqualTo(100000);
-            assertThat(result.get(1).getBasePrice()).isEqualTo(300000);
-        }
-
-        @Test
-        void brandId로_필터링하여_반환한다() {
-            // arrange
-            Brand nike = createBrand("나이키");
-            Brand adidas = createBrand("아디다스");
-            createProduct(nike.getId(), "에어맥스", 150000);
-            createProduct(adidas.getId(), "슈퍼스타", 100000);
-
-            // act
-            List<Product> result = productRepository.findAllDisplayable(
-                    nike.getId(), ProductSortType.LATEST, 0, 20);
-
-            // assert
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0).getName()).isEqualTo("에어맥스");
         }
     }
 

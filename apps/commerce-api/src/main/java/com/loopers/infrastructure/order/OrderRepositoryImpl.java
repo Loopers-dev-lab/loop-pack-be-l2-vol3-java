@@ -1,7 +1,10 @@
 package com.loopers.infrastructure.order;
 
+import com.loopers.domain.common.CursorResult;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderRepository;
+import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
@@ -16,10 +19,13 @@ public class OrderRepositoryImpl implements OrderRepository {
 
     private final OrderJpaRepository orderJpaRepository;
     private final OrderMapper orderMapper;
+    private final JPAQueryFactory queryFactory;
 
-    public OrderRepositoryImpl(OrderJpaRepository orderJpaRepository, OrderMapper orderMapper) {
+    public OrderRepositoryImpl(OrderJpaRepository orderJpaRepository, OrderMapper orderMapper,
+                                JPAQueryFactory queryFactory) {
         this.orderJpaRepository = orderJpaRepository;
         this.orderMapper = orderMapper;
+        this.queryFactory = queryFactory;
     }
 
     @Override
@@ -58,6 +64,37 @@ public class OrderRepositoryImpl implements OrderRepository {
                 .stream()
                 .map(orderMapper::toDomain)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public CursorResult<Order> findAllByUserIdWithCursor(Long userId, ZonedDateTime startAt, ZonedDateTime endAt,
+                                                          ZonedDateTime cursorCreatedAt, Long cursorId, int size) {
+        QOrderEntity order = QOrderEntity.orderEntity;
+
+        List<Order> fetched = queryFactory
+                .selectFrom(order)
+                .where(
+                        order.userId.eq(userId),
+                        order.createdAt.goe(startAt),
+                        order.createdAt.lt(endAt),
+                        orderCursorCondition(order, cursorCreatedAt, cursorId)
+                )
+                .orderBy(order.createdAt.desc(), order.id.desc())
+                .limit(size + 1)
+                .fetch()
+                .stream()
+                .map(orderMapper::toDomainWithoutItems)
+                .toList();
+
+        return CursorResult.of(fetched, size);
+    }
+
+    private BooleanExpression orderCursorCondition(QOrderEntity order, ZonedDateTime cursorCreatedAt, Long cursorId) {
+        if (cursorCreatedAt == null || cursorId == null) {
+            return null;
+        }
+        return order.createdAt.lt(cursorCreatedAt)
+                .or(order.createdAt.eq(cursorCreatedAt).and(order.id.lt(cursorId)));
     }
 
     @Override

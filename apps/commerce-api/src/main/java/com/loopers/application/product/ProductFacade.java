@@ -3,7 +3,9 @@ package com.loopers.application.product;
 import com.loopers.application.brand.BrandInfo;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.common.CursorResult;
 import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductCursor;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductSortType;
 import org.springframework.stereotype.Component;
@@ -35,27 +37,23 @@ public class ProductFacade {
         return new ProductDetailResult(ProductInfo.from(product), BrandInfo.from(brand));
     }
 
-    /** 고객 상품 목록 조회 (상품 목록 + 브랜드명 조합) */
+    /** 고객 상품 목록 커서 조회 (COUNT 쿼리 없음) */
     @Transactional(readOnly = true)
-    public ProductListResult getDisplayableProducts(Long brandId, ProductSortType sort, int page, int size) {
-        List<Product> products = productService.getDisplayableProducts(brandId, sort, page, size);
-        long totalElements = productService.countDisplayableProducts(brandId);
-        int totalPages = size > 0 ? (int) Math.ceil((double) totalElements / size) : 0;
+    public ProductCursorResult getDisplayableProductsWithCursor(Long brandId, ProductSortType sort, ProductCursor cursor, int size) {
+        CursorResult<Product> result = productService.getDisplayableProductsWithCursor(brandId, sort, cursor, size);
 
-        List<ProductInfo> productInfos = products.stream()
+        List<ProductInfo> productInfos = result.items().stream()
                 .map(ProductInfo::from)
                 .toList();
 
-        return new ProductListResult(productInfos, page, size, totalElements, totalPages);
+        return new ProductCursorResult(productInfos, result.hasNext(), size);
     }
 
     public record ProductDetailResult(ProductInfo product, BrandInfo brand) {}
 
-    public record ProductListResult(
+    public record ProductCursorResult(
             List<ProductInfo> products,
-            int page,
-            int size,
-            long totalElements,
-            int totalPages
+            boolean hasNext,
+            int size
     ) {}
 }

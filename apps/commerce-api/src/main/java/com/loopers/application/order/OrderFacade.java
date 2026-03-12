@@ -10,6 +10,7 @@ import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.CouponTemplate;
 import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.inventory.InventoryService;
+import com.loopers.domain.common.CursorResult;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderService;
@@ -315,18 +316,19 @@ public class OrderFacade {
         return "PAY-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase();
     }
 
-    /** 주문 목록 조회 */
+    /** 주문 목록 커서 조회 */
     @Transactional(readOnly = true)
-    public OrderListResult getOrders(Long userId, ZonedDateTime startAt, ZonedDateTime endAt) {
-        List<Order> orders = orderService.getOrders(userId, startAt, endAt);
+    public OrderCursorResult getOrdersWithCursor(Long userId, ZonedDateTime startAt, ZonedDateTime endAt,
+                                                  ZonedDateTime cursorCreatedAt, Long cursorId, int size) {
+        CursorResult<Order> result = orderService.getOrdersWithCursor(userId, startAt, endAt, cursorCreatedAt, cursorId, size);
 
-        List<OrderSummaryResult> summaries = orders.stream()
+        List<OrderSummaryResult> summaries = result.items().stream()
                 .map(o -> new OrderSummaryResult(
                         o.getId(), o.getOrderNumber(), o.getStatus().name(),
                         o.getTotalAmount(), o.getCreatedAt()))
                 .toList();
 
-        return new OrderListResult(summaries);
+        return new OrderCursorResult(summaries, result.hasNext(), size);
     }
 
     /** 주문 상세 조회 */
@@ -361,7 +363,11 @@ public class OrderFacade {
 
     public record OrderItemCommand(Long productId, int quantity) {}
 
-    public record OrderListResult(List<OrderSummaryResult> orders) {}
+    public record OrderCursorResult(
+            List<OrderSummaryResult> orders,
+            boolean hasNext,
+            int size
+    ) {}
 
     public record OrderSummaryResult(
             Long orderId, String orderNumber, String status,

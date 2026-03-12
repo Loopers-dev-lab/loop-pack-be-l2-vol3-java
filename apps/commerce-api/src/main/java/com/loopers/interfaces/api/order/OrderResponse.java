@@ -13,8 +13,15 @@ public class OrderResponse {
             ZonedDateTime createdAt
     ) {}
 
-    public record OrderListResponse(
-            List<OrderSummary> orders
+    public record OrderCursorListResponse(
+            List<OrderSummary> orders,
+            PagingInfo paging
+    ) {}
+
+    public record PagingInfo(
+            boolean hasNext,
+            String nextCursor,
+            int size
     ) {}
 
     public record OrderItemDetail(

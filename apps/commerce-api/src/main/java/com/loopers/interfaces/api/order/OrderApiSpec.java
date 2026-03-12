@@ -15,9 +15,9 @@ public interface OrderApiSpec {
     ApiResponse<OrderResponse.OrderCreateResponse> createOrder(
             @AuthUser User user, OrderRequest.CreateOrderRequest request);
 
-    @Operation(summary = "주문 목록 조회", description = "본인의 주문 목록을 조회합니다. 날짜 범위 지정 가능 (미지정 시 최근 3개월).")
-    ApiResponse<OrderResponse.OrderListResponse> getOrders(
-            @AuthUser User user, ZonedDateTime startAt, ZonedDateTime endAt);
+    @Operation(summary = "주문 목록 조회", description = "본인의 주문 목록을 커서 기반으로 조회합니다. 날짜 범위 지정 가능 (미지정 시 최근 3개월).")
+    ApiResponse<OrderResponse.OrderCursorListResponse> getOrders(
+            @AuthUser User user, ZonedDateTime startAt, ZonedDateTime endAt, String cursor, int size);
 
     @Operation(summary = "주문 상세 조회", description = "주문 상세 정보를 조회합니다. 스냅샷 기반입니다.")
     ApiResponse<OrderResponse.OrderDetail> getOrder(
