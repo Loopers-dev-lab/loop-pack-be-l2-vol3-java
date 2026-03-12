@@ -6,6 +6,7 @@ import com.loopers.application.product.command.CreateProductCommand;
 import com.loopers.domain.category.Category;
 import com.loopers.domain.category.CategoryRepository;
 import com.loopers.domain.product.Product;
+import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -35,6 +36,9 @@ class ProductApplicationServiceIntegrationTest {
     private CategoryRepository categoryRepository;
 
     @Autowired
+    private ProductJpaRepository productJpaRepository;
+
+    @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
     @AfterEach
@@ -58,8 +62,12 @@ class ProductApplicationServiceIntegrationTest {
         ));
 
         Product found = productApplicationService.get(created.id());
+        Long persistedPk = productJpaRepository.findByReferenceId(created.id())
+                .orElseThrow()
+                .getId();
 
         assertThat(found.id()).isEqualTo(created.id());
+        assertThat(persistedPk).isNotNull().isPositive();
         assertThat(found.name()).isEqualTo("상품통합");
     }
 }
