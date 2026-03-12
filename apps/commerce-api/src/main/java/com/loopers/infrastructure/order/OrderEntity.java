@@ -11,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import com.loopers.domain.order.OrderStatus;
 import java.time.ZonedDateTime;
@@ -22,7 +23,9 @@ import java.util.List;
  * JPA 어노테이션만 사용
  */
 @Entity
-@Table(name = "orders")
+@Table(name = "orders", indexes = {
+        @Index(name = "idx_orders_user_created", columnList = "user_id, created_at")
+})
 public class OrderEntity {
 
     @Id
