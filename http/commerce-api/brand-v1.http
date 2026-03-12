@@ -1,0 +1,5 @@
+### 브랜드 상세 조회 - 성공 케이스
+GET {{commerce-api}}/api/v1/brands/1
+
+### 브랜드 상세 조회 - 존재하지 않는 브랜드 (실패)
+GET {{commerce-api}}/api/v1/brands/999

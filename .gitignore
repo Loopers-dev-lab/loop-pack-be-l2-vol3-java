@@ -40,7 +40,11 @@ out/
 .kotlin
 
 ### Claude Code ###
-.claude/
+claude/*
+!.claude/skills/
+.claude/settings.local.json
+.interview-state/
 
 ### Documentation ###
-docs/
+docs/*
+!docs/design/

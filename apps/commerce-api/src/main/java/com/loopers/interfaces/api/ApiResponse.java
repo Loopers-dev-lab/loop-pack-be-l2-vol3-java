@@ -1,5 +1,7 @@
 package com.loopers.interfaces.api;
 
+import java.util.List;
+
 public record ApiResponse<T>(Metadata meta, T data) {
     public record Metadata(Result result, String errorCode, String message) {
         public enum Result {
@@ -15,6 +17,8 @@ public record ApiResponse<T>(Metadata meta, T data) {
         }
     }
 
+    public record FieldError(String field, Object value, String reason) {}
+
     public static ApiResponse<Object> success() {
         return new ApiResponse<>(Metadata.success(), null);
     }
@@ -28,5 +32,10 @@ public record ApiResponse<T>(Metadata meta, T data) {
             Metadata.fail(errorCode, errorMessage),
             null
         );
+    }
+
+    public static ApiResponse<List<FieldError>> failValidation(
+            String errorCode, String errorMessage, List<FieldError> fieldErrors) {
+        return new ApiResponse<>(Metadata.fail(errorCode, errorMessage), fieldErrors);
     }
 }

@@ -1,0 +1,38 @@
+package com.loopers.infrastructure.order;
+
+import com.loopers.domain.order.OrderModel;
+import com.loopers.domain.order.OrderRepository;
+import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.Optional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Repository;
+
+@Repository
+@RequiredArgsConstructor
+public class OrderRepositoryImpl implements OrderRepository {
+
+    private final OrderJpaRepository orderJpaRepository;
+
+    @Override
+    public OrderModel save(OrderModel orderModel) {
+        return orderJpaRepository.save(orderModel);
+    }
+
+    @Override
+    public Optional<OrderModel> findById(Long id) {
+        return orderJpaRepository.findById(id);
+    }
+
+    @Override
+    public List<OrderModel> findAllByUserIdAndCreatedAtBetween(Long userId, ZonedDateTime startAt, ZonedDateTime endAt) {
+        return orderJpaRepository.findAllByUserIdAndCreatedAtBetween(userId, startAt, endAt);
+    }
+
+    @Override
+    public Page<OrderModel> findAll(Pageable pageable) {
+        return orderJpaRepository.findAll(pageable);
+    }
+}
