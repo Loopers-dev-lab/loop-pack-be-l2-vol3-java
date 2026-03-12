@@ -7,6 +7,9 @@ import com.loopers.domain.product.Option;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductSortCondition;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -21,13 +24,19 @@ public class ProductFacade {
     private final LikeAppService likeAppService;
 
     public ProductInfo getProductDetail(Long productId, Long userId) {
-        Product product = productAppService.getById(productId);
-        Brand brand = brandAppService.getById(product.getBrandId());
-        List<Option> options = productAppService.getOptionsByProductId(productId);
-        long likeCount = likeAppService.countByProductId(productId);
+        CachedProductDetail detail = productAppService.getProductDetailCached(productId);
+        Brand brand = brandAppService.getById(detail.getBrandId());
         boolean likedByUser = userId != null && likeAppService.isLikedByUser(userId, productId);
+        return toProductInfo(detail, brand, likedByUser);
+    }
 
-        return ProductInfo.of(product, brand, options, likeCount, likedByUser);
+    public Page<ProductInfo> getProductsByBrand(Long brandId, int page, int size) {
+        CachedBrandProductPage cached = productAppService.getProductsByBrandIdCached(brandId, page, size);
+        Brand brand = brandAppService.getById(brandId);
+        List<ProductInfo> content = cached.getContent().stream()
+                .map(summary -> toProductInfo(summary, brand))
+                .toList();
+        return new PageImpl<>(content, PageRequest.of(page, size), cached.getTotalElements());
     }
 
     public List<ProductInfo> getProductList(ProductSortCondition condition, Long userId) {
@@ -56,5 +65,33 @@ public class ProductFacade {
                         likedProductIds.contains(product.getId())
                 ))
                 .toList();
+    }
+
+    private ProductInfo toProductInfo(CachedProductDetail detail, Brand brand, boolean likedByUser) {
+        return ProductInfo.builder()
+                .productId(detail.getProductId())
+                .productName(detail.getProductName())
+                .basePrice(detail.getBasePrice())
+                .deleted(detail.isDeleted())
+                .brandId(brand.getId())
+                .brandName(brand.getName())
+                .likeCount(detail.getLikeCount())
+                .likedByUser(likedByUser)
+                .options(detail.getOptions())
+                .build();
+    }
+
+    private ProductInfo toProductInfo(CachedBrandProductPage.ProductSummary summary, Brand brand) {
+        return ProductInfo.builder()
+                .productId(summary.getProductId())
+                .productName(summary.getProductName())
+                .basePrice(summary.getBasePrice())
+                .deleted(summary.isDeleted())
+                .brandId(brand.getId())
+                .brandName(brand.getName())
+                .likeCount(summary.getLikeCount())
+                .likedByUser(false)
+                .options(List.of())
+                .build();
     }
 }

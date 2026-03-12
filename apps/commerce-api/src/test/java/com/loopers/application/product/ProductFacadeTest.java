@@ -51,29 +51,28 @@ class ProductFacadeTest {
             Long brandId = 10L;
             Long userId = 100L;
 
-            Product product = mock(Product.class);
-            given(product.getId()).willReturn(productId);
-            given(product.getBrandId()).willReturn(brandId);
-            given(product.getName()).willReturn("테스트 상품");
-            given(product.getBasePrice()).willReturn(Money.of(10000L));
-            given(product.isDeleted()).willReturn(false);
+            CachedProductDetail cachedDetail = CachedProductDetail.builder()
+                    .productId(productId)
+                    .productName("테스트 상품")
+                    .basePrice(Money.of(10000L))
+                    .deleted(false)
+                    .brandId(brandId)
+                    .likeCount(42L)
+                    .options(List.of(ProductInfo.OptionInfo.builder()
+                            .optionId(1L)
+                            .optionName("기본")
+                            .additionalPrice(Money.of(0L))
+                            .stock(50)
+                            .soldOut(false)
+                            .build()))
+                    .build();
 
             Brand brand = mock(Brand.class);
             given(brand.getId()).willReturn(brandId);
             given(brand.getName()).willReturn("테스트 브랜드");
 
-            Option option = mock(Option.class);
-            given(option.getId()).willReturn(1L);
-            given(option.getName()).willReturn("기본");
-            given(option.getAdditionalPrice()).willReturn(Money.of(0L));
-            given(option.getStock()).willReturn(50);
-            given(option.isSoldOut()).willReturn(false);
-            List<Option> options = List.of(option);
-
-            given(productAppService.getById(productId)).willReturn(product);
+            given(productAppService.getProductDetailCached(productId)).willReturn(cachedDetail);
             given(brandAppService.getById(brandId)).willReturn(brand);
-            given(productAppService.getOptionsByProductId(productId)).willReturn(options);
-            given(likeAppService.countByProductId(productId)).willReturn(42L);
             given(likeAppService.isLikedByUser(userId, productId)).willReturn(true);
 
             // when
@@ -94,21 +93,22 @@ class ProductFacadeTest {
             Long productId = 1L;
             Long brandId = 10L;
 
-            Product product = mock(Product.class);
-            given(product.getId()).willReturn(productId);
-            given(product.getBrandId()).willReturn(brandId);
-            given(product.getName()).willReturn("테스트 상품");
-            given(product.getBasePrice()).willReturn(Money.of(10000L));
-            given(product.isDeleted()).willReturn(false);
+            CachedProductDetail cachedDetail = CachedProductDetail.builder()
+                    .productId(productId)
+                    .productName("테스트 상품")
+                    .basePrice(Money.of(10000L))
+                    .deleted(false)
+                    .brandId(brandId)
+                    .likeCount(0L)
+                    .options(List.of())
+                    .build();
 
             Brand brand = mock(Brand.class);
             given(brand.getId()).willReturn(brandId);
             given(brand.getName()).willReturn("테스트 브랜드");
 
-            given(productAppService.getById(productId)).willReturn(product);
+            given(productAppService.getProductDetailCached(productId)).willReturn(cachedDetail);
             given(brandAppService.getById(brandId)).willReturn(brand);
-            given(productAppService.getOptionsByProductId(productId)).willReturn(List.of());
-            given(likeAppService.countByProductId(productId)).willReturn(0L);
 
             // when
             ProductInfo result = productFacade.getProductDetail(productId, null);
@@ -116,6 +116,53 @@ class ProductFacadeTest {
             // then
             assertThat(result.isLikedByUser()).isFalse();
             verify(likeAppService, never()).isLikedByUser(any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("브랜드별 상품 목록 조회")
+    class GetProductsByBrandTest {
+
+        @Test
+        @DisplayName("브랜드별 상품 목록을 조합하여 반환한다")
+        void getProductsByBrand_success() {
+            // given
+            Long brandId = 10L;
+
+            CachedBrandProductPage cachedPage = CachedBrandProductPage.builder()
+                    .content(List.of(
+                            CachedBrandProductPage.ProductSummary.builder()
+                                    .productId(1L)
+                                    .productName("상품A")
+                                    .basePrice(Money.of(10000L))
+                                    .deleted(false)
+                                    .likeCount(5L)
+                                    .build(),
+                            CachedBrandProductPage.ProductSummary.builder()
+                                    .productId(2L)
+                                    .productName("상품B")
+                                    .basePrice(Money.of(20000L))
+                                    .deleted(false)
+                                    .likeCount(10L)
+                                    .build()))
+                    .totalElements(2L)
+                    .build();
+
+            Brand brand = mock(Brand.class);
+            given(brand.getId()).willReturn(brandId);
+            given(brand.getName()).willReturn("테스트 브랜드");
+
+            given(productAppService.getProductsByBrandIdCached(brandId, 0, 20)).willReturn(cachedPage);
+            given(brandAppService.getById(brandId)).willReturn(brand);
+
+            // when
+            var result = productFacade.getProductsByBrand(brandId, 0, 20);
+
+            // then
+            assertThat(result.getContent()).hasSize(2);
+            assertThat(result.getContent().get(0).getProductName()).isEqualTo("상품A");
+            assertThat(result.getContent().get(0).getBrandName()).isEqualTo("테스트 브랜드");
+            assertThat(result.getTotalElements()).isEqualTo(2L);
         }
     }
 

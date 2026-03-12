@@ -63,4 +63,30 @@ public class ProductDto {
             );
         }
     }
+
+    public record BrandProductResponse(
+            Long productId,
+            String productName,
+            BigDecimal basePrice,
+            String brandName,
+            long likeCount
+    ) {
+        public static BrandProductResponse from(ProductInfo info) {
+            return new BrandProductResponse(
+                    info.getProductId(),
+                    info.getProductName(),
+                    info.getBasePrice().getAmount(),
+                    info.getBrandName(),
+                    info.getLikeCount()
+            );
+        }
+    }
+
+    public record BrandProductListResponse(
+            List<BrandProductResponse> products,
+            int page,
+            int size,
+            long totalElements,
+            int totalPages
+    ) {}
 }
