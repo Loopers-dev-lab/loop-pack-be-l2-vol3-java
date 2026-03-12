@@ -2,19 +2,24 @@ package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandApplicationService;
 import com.loopers.application.brand.command.CreateBrandCommand;
+import com.loopers.config.redis.RedisConfig;
 import com.loopers.application.product.command.CreateProductCommand;
 import com.loopers.domain.category.Category;
 import com.loopers.domain.category.CategoryRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
+import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.context.ImportTestcontainers;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.UUID;
@@ -22,7 +27,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@ImportTestcontainers(MySqlTestContainersConfig.class)
+@ImportTestcontainers({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 @ActiveProfiles("test")
 class ProductApplicationServiceIntegrationTest {
 
@@ -41,9 +46,17 @@ class ProductApplicationServiceIntegrationTest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
+    @Autowired
+    private RedisCleanUp redisCleanUp;
+
+    @Autowired
+    @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
+    private RedisTemplate<String, String> redisTemplate;
+
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
     }
 
     @Test
@@ -69,5 +82,7 @@ class ProductApplicationServiceIntegrationTest {
         assertThat(found.id()).isEqualTo(created.id());
         assertThat(persistedPk).isNotNull().isPositive();
         assertThat(found.name()).isEqualTo("상품통합");
+        assertThat(redisTemplate.opsForValue().get("brand:" + brandId)).isNotBlank();
+        assertThat(redisTemplate.opsForValue().get("category:" + categoryId)).isNotBlank();
     }
 }
