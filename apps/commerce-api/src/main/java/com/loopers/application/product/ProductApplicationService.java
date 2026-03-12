@@ -1,9 +1,9 @@
 package com.loopers.application.product;
 
+import com.loopers.application.brand.BrandCacheRepository;
+import com.loopers.application.coupon.category.CategoryCacheRepository;
 import com.loopers.application.product.command.CreateProductCommand;
 import com.loopers.application.product.command.UpdateProductCommand;
-import com.loopers.domain.brand.BrandRepository;
-import com.loopers.domain.category.CategoryRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.query.ProductListCriteria;
@@ -23,15 +23,15 @@ import java.util.UUID;
 public class ProductApplicationService {
 
     private final ProductRepository productRepository;
-    private final BrandRepository brandRepository;
-    private final CategoryRepository categoryRepository;
+    private final BrandCacheRepository brandCacheRepository;
+    private final CategoryCacheRepository categoryCacheRepository;
 
     @Transactional
     public Product create(CreateProductCommand command) {
-        if (brandRepository.findById(command.brandId()).isEmpty()) {
+        if (!brandCacheRepository.existsById(command.brandId())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "존재하지 않거나 삭제된 브랜드입니다.");
         }
-        if (categoryRepository.findById(command.categoryId()).isEmpty()) {
+        if (!categoryCacheRepository.existsById(command.categoryId())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "존재하지 않거나 삭제된 카테고리입니다.");
         }
 
@@ -97,7 +97,7 @@ public class ProductApplicationService {
             throw new CoreException(ErrorType.BAD_REQUEST, "브랜드는 수정할 수 없습니다.");
         }
 
-        if (categoryRepository.findById(command.categoryId()).isEmpty()) {
+        if (!categoryCacheRepository.existsById(command.categoryId())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "존재하지 않거나 삭제된 카테고리입니다.");
         }
 
