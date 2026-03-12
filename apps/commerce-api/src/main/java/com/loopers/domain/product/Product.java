@@ -16,7 +16,10 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "products", indexes = {
-        @Index(name = "idx_products_brand_deleted_likes", columnList = "brand_id, deleted, like_count DESC")
+        @Index(name = "idx_products_brand_deleted_likes", columnList = "brand_id, deleted, like_count DESC"),
+        @Index(name = "idx_products_deleted_likes", columnList = "deleted, like_count DESC"),
+        @Index(name = "idx_products_deleted_created", columnList = "deleted, created_at DESC"),
+        @Index(name = "idx_products_deleted_price", columnList = "deleted, base_price ASC")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
