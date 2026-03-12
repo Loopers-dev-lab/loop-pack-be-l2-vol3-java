@@ -216,12 +216,12 @@ class OrderServiceTest {
             fakeOrderItemReader.addItem(item);
 
             // Act
-            List<OrderItem> items = orderService.cancelOrder(order.getId(), 1L);
+            OrderService.CancelOrderResult result = orderService.cancelOrder(order.getId(), 1L);
 
             // Assert
             assertAll(
-                () -> assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED),
-                () -> assertThat(items).hasSize(1)
+                () -> assertThat(result.order().getStatus()).isEqualTo(OrderStatus.CANCELLED),
+                () -> assertThat(result.items()).hasSize(1)
             );
         }
 
@@ -317,6 +317,11 @@ class OrderServiceTest {
             return orders.stream()
                 .filter(o -> o.getId().equals(id) && o.getMemberId().equals(memberId))
                 .findFirst();
+        }
+
+        @Override
+        public Optional<Order> findByIdAndMemberIdForUpdate(Long id, Long memberId) {
+            return findByIdAndMemberId(id, memberId);
         }
 
         @Override

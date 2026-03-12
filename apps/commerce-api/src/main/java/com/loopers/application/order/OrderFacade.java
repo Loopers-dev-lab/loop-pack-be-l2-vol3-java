@@ -4,6 +4,7 @@ import com.loopers.application.PagedInfo;
 import com.loopers.domain.PageResult;
 import com.loopers.domain.address.Address;
 import com.loopers.domain.address.AddressService;
+import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.member.Member;
 import com.loopers.domain.member.MemberService;
 import com.loopers.domain.order.Order;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -28,9 +30,11 @@ public class OrderFacade {
     private final ProductService productService;
     private final OrderService orderService;
     private final AddressService addressService;
+    private final CouponService couponService;
 
     @Transactional
-    public OrderInfo createOrder(String loginId, Long addressId, List<OrderItemRequest> itemRequests) {
+    public OrderInfo createOrder(String loginId, Long addressId, Long memberCouponId,
+                                 List<OrderItemRequest> itemRequests) {
         Long memberId = getMemberId(loginId);
 
         // 1. 배송지 검증 + 스냅샷
@@ -42,29 +46,45 @@ public class OrderFacade {
             .toList();
         Map<Long, Integer> mergedItems = orderService.mergeOrderItems(serviceRequests);
 
-        // 3. 상품 검증 + 재고 차감 + totalAmount 계산
-        long totalAmount = 0L;
+        // 3. 상품 검증 + 재고 차감 + originalAmount 계산
+        long originalAmount = 0L;
         List<OrderService.OrderItemCommand> commands = new java.util.ArrayList<>();
 
-        for (Map.Entry<Long, Integer> entry : mergedItems.entrySet()) {
+        List<Map.Entry<Long, Integer>> sortedEntries = mergedItems.entrySet().stream()
+            .sorted(Comparator.comparingLong(Map.Entry::getKey))
+            .toList();
+
+        for (Map.Entry<Long, Integer> entry : sortedEntries) {
             Long productId = entry.getKey();
             int quantity = entry.getValue();
 
-            Product product = productService.getProduct(productId);
+            Product product = productService.getProductForUpdate(productId);
             product.validateOrderQuantity(quantity);
             product.decreaseStock(quantity);
 
-            totalAmount += product.getPrice() * quantity;
+            originalAmount += product.getPrice() * quantity;
             commands.add(new OrderService.OrderItemCommand(
                 productId, product.getName(), product.getPrice(), quantity
             ));
         }
 
-        // 4. 주문 생성
-        Order order = orderService.createOrder(
-            memberId, address.getRecipientName(), address.getRecipientPhone(),
-            address.getZipCode(), address.getAddress1(), address.getAddress2(), totalAmount
-        );
+        // 4. 쿠폰 적용
+        Order order;
+        if (memberCouponId != null) {
+            CouponService.CouponApplyResult couponResult = couponService.useCoupon(memberCouponId, memberId, originalAmount);
+            long totalAmount = originalAmount - couponResult.discountAmount();
+
+            order = orderService.createOrder(
+                memberId, address.getRecipientName(), address.getRecipientPhone(),
+                address.getZipCode(), address.getAddress1(), address.getAddress2(),
+                totalAmount, couponResult.memberCouponId(), originalAmount, couponResult.discountAmount()
+            );
+        } else {
+            order = orderService.createOrder(
+                memberId, address.getRecipientName(), address.getRecipientPhone(),
+                address.getZipCode(), address.getAddress1(), address.getAddress2(), originalAmount
+            );
+        }
 
         // 5. 주문 항목 생성
         List<OrderItem> items = orderService.createOrderItems(order.getId(), commands);
@@ -77,29 +97,35 @@ public class OrderFacade {
         Long memberId = getMemberId(loginId);
 
         // 소유권 검증 + 취소 상태 체크 + 상태 전이 (도메인 규칙)
-        List<OrderItem> items = orderService.cancelOrder(orderId, memberId);
+        OrderService.CancelOrderResult result = orderService.cancelOrder(orderId, memberId);
 
-        // 재고 복원 (cross-domain orchestration)
-        for (OrderItem item : items) {
-            Product product = productService.getProduct(item.getProductId());
+        // 재고 복원 (cross-domain orchestration) — productId 순 정렬로 데드락 방지
+        List<OrderItem> sortedItems = result.items().stream()
+            .sorted(Comparator.comparingLong(OrderItem::getProductId))
+            .toList();
+
+        for (OrderItem item : sortedItems) {
+            Product product = productService.getProductForUpdate(item.getProductId());
             product.increaseStock(item.getQuantity());
+        }
+
+        // 쿠폰 복원
+        if (result.order().getMemberCouponId() != null) {
+            couponService.restoreCoupon(result.order().getMemberCouponId());
         }
     }
 
-    @Transactional
     public OrderInfo updateShippingAddress(String loginId, Long orderId,
                                            String recipientName, String recipientPhone,
                                            String zipCode, String address1, String address2) {
         Long memberId = getMemberId(loginId);
-        Order order = orderService.getOrderForMember(orderId, memberId);
-
-        order.updateShippingAddress(recipientName, recipientPhone, zipCode, address1, address2);
+        Order order = orderService.updateShippingAddress(orderId, memberId,
+            recipientName, recipientPhone, zipCode, address1, address2);
 
         List<OrderItem> items = orderService.getOrderItems(orderId);
         return OrderInfo.of(order, items);
     }
 
-    @Transactional(readOnly = true)
     public OrderInfo getOrder(String loginId, Long orderId) {
         Long memberId = getMemberId(loginId);
         Order order = orderService.getOrderForMember(orderId, memberId);
@@ -107,7 +133,6 @@ public class OrderFacade {
         return OrderInfo.of(order, items);
     }
 
-    @Transactional(readOnly = true)
     public PagedInfo<OrderSummaryInfo> getMyOrders(String loginId, LocalDate startAt, LocalDate endAt,
                                                     int page, int size) {
         Long memberId = getMemberId(loginId);
@@ -115,14 +140,12 @@ public class OrderFacade {
         return toPagedSummary(result);
     }
 
-    @Transactional(readOnly = true)
     public OrderInfo getOrderForAdmin(Long orderId) {
         Order order = orderService.getOrder(orderId);
         List<OrderItem> items = orderService.getOrderItems(orderId);
         return OrderInfo.of(order, items);
     }
 
-    @Transactional(readOnly = true)
     public PagedInfo<OrderSummaryInfo> getOrdersForAdmin(Long memberId, int page, int size) {
         PageResult<Order> result = orderService.getOrders(memberId, page, size);
         return toPagedSummary(result);

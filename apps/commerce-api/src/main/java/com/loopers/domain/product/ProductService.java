@@ -29,9 +29,15 @@ public class ProductService {
     }
 
     @Transactional
-    public void update(Long id, String name, String description, Long price, int maxOrderQuantity) {
-        Product product = getProduct(id);
-        product.update(name, description, price, maxOrderQuantity);
+    public Product getProductForUpdate(Long id) {
+        return productReader.findByIdForUpdate(id)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
+    }
+
+    @Transactional
+    public void updateInfo(Long id, String name, String description, Long price, int maxOrderQuantity) {
+        Product product = getProductForUpdate(id);
+        product.updateInfo(name, description, price, maxOrderQuantity);
     }
 
     @Transactional
@@ -42,7 +48,7 @@ public class ProductService {
 
     @Transactional
     public void updateStock(Long id, int quantity) {
-        Product product = getProduct(id);
+        Product product = getProductForUpdate(id);
         product.updateStock(quantity);
     }
 
@@ -55,17 +61,19 @@ public class ProductService {
     }
 
     @Transactional
-    public int increaseLikeCount(Long id) {
-        Product product = getProduct(id);
-        product.increaseLikeCount();
-        return product.getLikeCount();
+    public void increaseLikeCount(Long id) {
+        int updatedCount = productRepository.increaseLikeCount(id);
+        if (updatedCount == 0) {
+            throw new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다. id: " + id);
+        }
     }
 
     @Transactional
-    public int decreaseLikeCount(Long id) {
-        Product product = getProduct(id);
-        product.decreaseLikeCount();
-        return product.getLikeCount();
+    public void decreaseLikeCount(Long id) {
+        int updatedCount = productRepository.decreaseLikeCount(id);
+        if (updatedCount == 0) {
+            throw new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다. id: " + id);
+        }
     }
 
     @Transactional(readOnly = true)
