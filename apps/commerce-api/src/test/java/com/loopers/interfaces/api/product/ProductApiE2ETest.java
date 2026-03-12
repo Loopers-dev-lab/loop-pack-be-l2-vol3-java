@@ -101,13 +101,18 @@ class ProductApiE2ETest {
         @DisplayName("브랜드 필터로 목록 조회에 성공한다")
         void listWithBrandFilter() {
             UUID categoryId = createCategory("푸드");
+            UUID otherCategoryId = createCategory("위생");
             UUID brandIdForList = createBrand("퍼피박스");
             UUID otherBrandId = createBrand("포메피아");
             create("상품A", 1000, categoryId, brandIdForList);
+            create("상품C", 3000, categoryId, brandIdForList);
+            create("상품D", 1000, otherCategoryId, brandIdForList);
             create("상품B", 2000, categoryId, otherBrandId);
 
-            ResponseEntity<ApiResponse<ProductDto.ProductListResponse>> list = testRestTemplate.exchange(
-                    ENDPOINT_PRODUCTS + "?brandId=" + brandIdForList + "&sort=latest&page=0&size=20",
+            ResponseEntity<ApiResponse<ProductDto.PublicProductListResponse>> list = testRestTemplate.exchange(
+                    ENDPOINT_PRODUCTS + "?brandId=" + brandIdForList
+                            + "&categoryId=" + categoryId
+                            + "&minPrice=500&maxPrice=1500&sort=price&page=0&size=20",
                     HttpMethod.GET,
                     new HttpEntity<>(null),
                     new ParameterizedTypeReference<>() {
@@ -117,6 +122,23 @@ class ProductApiE2ETest {
             assertThat(list.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(list.getBody().data().totalElements()).isEqualTo(1);
             assertThat(list.getBody().data().items().get(0).brandId()).isEqualTo(brandIdForList);
+            assertThat(list.getBody().data().items().get(0).categoryId()).isEqualTo(categoryId);
+        }
+
+        @Test
+        @DisplayName("유저 목록 조회에서 삭제 조건을 주면 에러 메시지를 반환한다")
+        void listWithDeletedFilterFails() {
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                    ENDPOINT_PRODUCTS + "?deleted=true",
+                    HttpMethod.GET,
+                    new HttpEntity<>(null),
+                    new ParameterizedTypeReference<>() {
+                    }
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody().meta().result()).isEqualTo(ApiResponse.Metadata.Result.FAIL);
+            assertThat(response.getBody().meta().message()).isEqualTo("삭제 상품 조회 조건은 관리자만 사용할 수 있습니다.");
         }
     }
 

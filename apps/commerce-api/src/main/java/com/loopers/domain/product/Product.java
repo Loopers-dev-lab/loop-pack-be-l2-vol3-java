@@ -43,10 +43,6 @@ public record Product(
         this(null, name, price, stock, description, categoryId, brandId, 0, null);
     }
 
-    public Product increaseLikeCount() {
-        return new Product(id, name, price, stock, description, categoryId, brandId, likeCount + 1, deletedAt);
-    }
-
     public Product decreaseStock(int quantity) {
         if (quantity <= 0) {
             throw new CoreException(ErrorType.BAD_REQUEST, "수량은 1 이상이어야 합니다.");

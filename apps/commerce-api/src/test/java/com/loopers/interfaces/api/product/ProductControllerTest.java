@@ -155,22 +155,39 @@ class ProductControllerTest {
         @DisplayName("브랜드 필터로 목록을 조회한다")
         void listByBrandFilter() throws Exception {
             UUID categoryId = createCategory("푸드");
+            UUID otherCategoryId = createCategory("위생");
             UUID brandIdForList = createBrand("퍼피박스");
             UUID otherBrandId = createBrand("포메피아");
 
             createProduct("사료A", 10000, 10, "설명", categoryId, brandIdForList);
+            createProduct("사료B", 30000, 10, "설명", categoryId, brandIdForList);
+            createProduct("사료C", 10000, 10, "설명", otherCategoryId, brandIdForList);
             createProduct("사료B", 11000, 10, "설명", categoryId, otherBrandId);
 
             mockMvc.perform(get("/api/v1/products")
                             .param("brandId", brandIdForList.toString())
-                            .param("sort", "latest")
+                            .param("categoryId", categoryId.toString())
+                            .param("minPrice", "9000")
+                            .param("maxPrice", "20000")
+                            .param("sort", "price")
                             .param("page", "0")
                             .param("size", "20"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
                     .andExpect(jsonPath("$.data.totalElements").value(1))
                     .andExpect(jsonPath("$.data.items[0].brandId").value(brandIdForList.toString()))
-                    .andExpect(jsonPath("$.data.items[0].categoryId").value(categoryId.toString()));
+                    .andExpect(jsonPath("$.data.items[0].categoryId").value(categoryId.toString()))
+                    .andExpect(jsonPath("$.data.items[0].description").doesNotExist());
+        }
+
+        @Test
+        @DisplayName("유저 목록 조회에서 삭제 조건을 주면 400과 메시지를 반환한다")
+        void listWithDeletedFilterFails() throws Exception {
+            mockMvc.perform(get("/api/v1/products")
+                            .param("deleted", "true"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.meta.result").value("FAIL"))
+                    .andExpect(jsonPath("$.meta.message").value("삭제 상품 조회 조건은 관리자만 사용할 수 있습니다."));
         }
     }
 
