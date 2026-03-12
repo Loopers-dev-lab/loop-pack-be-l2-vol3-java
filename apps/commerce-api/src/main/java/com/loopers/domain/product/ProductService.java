@@ -8,7 +8,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -99,7 +98,8 @@ public class ProductService {
      */
     @Transactional
     public List<Product> findAllAndVerifyStock(Map<Long, Quantity> quantityByProductId) {
-        List<Long> productIds = new ArrayList<>(quantityByProductId.keySet());
+        // 데드락 방지: 항상 PK 오름차순으로 락을 획득해 circular wait 제거
+        List<Long> productIds = quantityByProductId.keySet().stream().sorted().toList();
         // 재고 확인을 위해 비관적 락으로 상품 조회
         List<Product> products = productRepository.findAllByIdsForUpdate(productIds);
 

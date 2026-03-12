@@ -84,7 +84,8 @@ public class OrderFacade {
         }
 
         // ④ 재고 차감 (dirty checking, 비관적 락 범위 내)
-        // products List는 IN 절 쿼리를 사용했으므로 Mysql이 PK를 오름차순으로 정렬해줌 -> 데드락 방지
+        // MySQL IN 절은 InnoDB 클러스터드 인덱스 특성상 PK 오름차순으로 락을 획득하지만,
+        // 기술 구현에 의존하지 않도록 ProductService에서 애플리케이션 레벨로 오름차순 정렬 후 전달함 -> 데드락 방지
         for (Product product : products) {
             Quantity quantity = quantityByProductId.get(product.getId());
             product.decreaseStock(quantity);
