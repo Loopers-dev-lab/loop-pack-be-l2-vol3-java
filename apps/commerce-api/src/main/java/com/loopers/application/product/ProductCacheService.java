@@ -42,7 +42,13 @@ public class ProductCacheService {
     /** PLP 1페이지만 캐시 (page==0). brandId null이면 "all" */
     public Optional<Page<ProductListItemInfo>> getList(Long brandId, String sort, int size) {
         String key = listKey(brandId, sort, size);
-        String json = redisTemplate.opsForValue().get(key);
+        String json;
+        try {
+            json = redisTemplate.opsForValue().get(key);
+        } catch (RuntimeException e) {
+            // Redis 장애 시 캐시를 건너뛰고 DB 조회로 폴백
+            return Optional.empty();
+        }
         if (json == null) {
             return Optional.empty();
         }
@@ -68,13 +74,19 @@ public class ProductCacheService {
         try {
             String json = objectMapper.writeValueAsString(dto);
             redisTemplate.opsForValue().set(key, json, ttlWithJitter());
-        } catch (JsonProcessingException ignored) {
+        } catch (JsonProcessingException | RuntimeException ignored) {
         }
     }
 
     public Optional<ProductDetailInfo> getDetail(Long productId) {
         String key = DETAIL_PREFIX + productId;
-        String json = redisTemplate.opsForValue().get(key);
+        String json;
+        try {
+            json = redisTemplate.opsForValue().get(key);
+        } catch (RuntimeException e) {
+            // Redis 장애 시 캐시를 건너뛰고 DB 조회로 폴백
+            return Optional.empty();
+        }
         if (json == null) {
             return Optional.empty();
         }
@@ -90,21 +102,27 @@ public class ProductCacheService {
         try {
             String json = objectMapper.writeValueAsString(info);
             redisTemplate.opsForValue().set(key, json, ttlWithJitter());
-        } catch (JsonProcessingException ignored) {
+        } catch (JsonProcessingException | RuntimeException ignored) {
         }
     }
 
     /** 상품 수정/삭제 시 목록 캐시 무효화 (1페이지 전체) */
     public void evictList() {
-        var keys = redisTemplate.keys(LIST_PREFIX + "*");
-        if (keys != null && !keys.isEmpty()) {
-            redisTemplate.delete(keys);
+        try {
+            var keys = redisTemplate.keys(LIST_PREFIX + "*");
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+            }
+        } catch (RuntimeException ignored) {
         }
     }
 
     /** 상품 수정/삭제·좋아요 변경 시 해당 상세 캐시 무효화 */
     public void evictDetail(Long productId) {
-        redisTemplate.delete(DETAIL_PREFIX + productId);
+        try {
+            redisTemplate.delete(DETAIL_PREFIX + productId);
+        } catch (RuntimeException ignored) {
+        }
     }
 
     private static String listKey(Long brandId, String sort, int size) {
