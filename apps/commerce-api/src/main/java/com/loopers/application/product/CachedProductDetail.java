@@ -7,7 +7,9 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.jackson.Jacksonized;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 @Getter
 @Builder
@@ -29,7 +31,8 @@ public class CachedProductDetail {
                 .deleted(product.isDeleted())
                 .brandId(product.getBrandId())
                 .likeCount(likeCount)
-                .options(options.stream().map(ProductInfo.OptionInfo::from).toList())
+                .options(Optional.ofNullable(options).orElseGet(Collections::emptyList)
+                        .stream().map(ProductInfo.OptionInfo::from).toList())
                 .build();
     }
 }

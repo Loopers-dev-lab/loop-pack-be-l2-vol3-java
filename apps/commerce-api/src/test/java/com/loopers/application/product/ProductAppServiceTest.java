@@ -327,6 +327,26 @@ class ProductAppServiceTest {
         }
 
         @Test
+        @DisplayName("캐시 조회에서 예외 발생 시 DB fallback으로 정상 응답한다")
+        void cacheException_fallsBackToDb() {
+            // given
+            int page = 0;
+            given(productCacheManager.getProductList(1L, page, 20))
+                    .willThrow(new RuntimeException("Redis connection refused"));
+
+            Page<Product> dbPage = new PageImpl<>(List.of(), PageRequest.of(page, 20), 0);
+            given(productRepository.findByBrandIdWithPaging(eq(1L), any(PageRequest.class)))
+                    .willReturn(dbPage);
+
+            // when
+            CachedBrandProductPage result = productAppService.getProductsByBrandIdCached(1L, page, 20);
+
+            // then
+            assertThat(result).isNotNull();
+            verify(productRepository).findByBrandIdWithPaging(eq(1L), any(PageRequest.class));
+        }
+
+        @Test
         @DisplayName("page 3 이상은 캐시를 사용하지 않고 DB에서 직접 조회한다")
         void deepPage_bypassesCache() {
             // given

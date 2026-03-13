@@ -24,7 +24,7 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
 
     List<Product> findByBrandIdAndDeletedFalse(Long brandId);
 
-    @Query("SELECT p FROM Product p WHERE p.brandId = :brandId AND p.deleted = false ORDER BY p.likeCount DESC")
+    @Query("SELECT p FROM Product p WHERE p.brandId = :brandId AND p.deleted = false ORDER BY p.likeCount DESC, p.id DESC")
     Page<Product> findByBrandIdAndDeletedFalseOrderByLikeCountDesc(@Param("brandId") Long brandId, Pageable pageable);
 
     Optional<Product> findByIdAndDeletedFalse(Long id);
