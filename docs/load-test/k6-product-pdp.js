@@ -17,6 +17,17 @@ const BASE_URL = __ENV.BASE_URL || "http://localhost:8080";
 const MIN_ID = parseInt(__ENV.MIN_PRODUCT_ID || "1", 10);
 const MAX_ID = parseInt(__ENV.MAX_PRODUCT_ID || "100000", 10);
 
+if (Number.isNaN(MIN_ID) || Number.isNaN(MAX_ID)) {
+  throw new Error(
+    `MIN_PRODUCT_ID/MAX_PRODUCT_ID must be numbers. got MIN=${MIN_ID}, MAX=${MAX_ID}`,
+  );
+}
+if (MIN_ID > MAX_ID) {
+  throw new Error(
+    `MIN_PRODUCT_ID must be <= MAX_PRODUCT_ID. got MIN=${MIN_ID}, MAX=${MAX_ID}`,
+  );
+}
+
 export const options = {
   vus: 100,
   duration: "60s",
@@ -27,7 +38,8 @@ export const options = {
 };
 
 export default function () {
-  const id = MIN_ID + Math.floor(Math.random() * (MAX_ID - MIN_ID + 1));
+  const range = MAX_ID - MIN_ID + 1;
+  const id = MIN_ID + Math.floor(Math.random() * range);
   const url = `${BASE_URL}/api/v1/products/${id}`;
   const res = http.get(url);
   check(res, {

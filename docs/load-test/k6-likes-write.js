@@ -20,6 +20,17 @@ const LOGIN_ID = __ENV.LOGIN_ID || "perfuser";
 const MIN_PRODUCT_ID = parseInt(__ENV.MIN_PRODUCT_ID || "1", 10);
 const MAX_PRODUCT_ID = parseInt(__ENV.MAX_PRODUCT_ID || "100000", 10);
 
+if (Number.isNaN(MIN_PRODUCT_ID) || Number.isNaN(MAX_PRODUCT_ID)) {
+  throw new Error(
+    `MIN_PRODUCT_ID/MAX_PRODUCT_ID must be numbers. got MIN=${MIN_PRODUCT_ID}, MAX=${MAX_PRODUCT_ID}`,
+  );
+}
+if (MIN_PRODUCT_ID > MAX_PRODUCT_ID) {
+  throw new Error(
+    `MIN_PRODUCT_ID must be <= MAX_PRODUCT_ID. got MIN=${MIN_PRODUCT_ID}, MAX=${MAX_PRODUCT_ID}`,
+  );
+}
+
 export const options = {
   vus: 100,
   duration: "60s",
@@ -31,9 +42,9 @@ export const options = {
 };
 
 export default function () {
+  const range = MAX_PRODUCT_ID - MIN_PRODUCT_ID + 1;
   const productId =
-    MIN_PRODUCT_ID +
-    Math.floor(Math.random() * Math.max(1, MAX_PRODUCT_ID - MIN_PRODUCT_ID + 1));
+    MIN_PRODUCT_ID + Math.floor(Math.random() * range);
 
   const headers = {
     "Content-Type": "application/json",
