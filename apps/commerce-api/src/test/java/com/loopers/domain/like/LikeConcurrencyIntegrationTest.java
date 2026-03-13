@@ -2,6 +2,8 @@ package com.loopers.domain.like;
 
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.product.ProductService;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -16,6 +18,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -52,6 +55,7 @@ class LikeConcurrencyIntegrationTest {
         CountDownLatch done = new CountDownLatch(userCount);
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger conflictCount = new AtomicInteger(0);
+        AtomicReference<Throwable> firstUnexpected = new AtomicReference<>();
 
         for (long userId = 1L; userId <= userCount; userId++) {
             final long uid = userId;
@@ -60,10 +64,14 @@ class LikeConcurrencyIntegrationTest {
                     start.await();
                     likeService.addLike(uid, productId);
                     successCount.incrementAndGet();
-                } catch (Exception e) {
-                    if (e.getMessage() != null && e.getMessage().contains("이미 좋아요")) {
+                } catch (CoreException e) {
+                    if (e.getErrorType() == ErrorType.CONFLICT && e.getMessage() != null && e.getMessage().contains("이미 좋아요")) {
                         conflictCount.incrementAndGet();
+                    } else {
+                        firstUnexpected.compareAndSet(null, e);
                     }
+                } catch (Throwable t) {
+                    firstUnexpected.compareAndSet(null, t);
                 } finally {
                     done.countDown();
                 }
@@ -73,10 +81,18 @@ class LikeConcurrencyIntegrationTest {
         done.await();
         executor.shutdown();
 
+        if (firstUnexpected.get() != null) {
+            throw new AssertionError("예상치 못한 예외(데드락/타임아웃 등은 재시도로 처리되어야 함)", firstUnexpected.get());
+        }
+        assertThat(successCount.get() + conflictCount.get()).isEqualTo(userCount)
+                .as("모든 요청은 성공 또는 CONFLICT로 처리되어야 함");
+
         long likeCount = likeService.getLikeCount(productId);
-        assertThat(likeCount).isEqualTo(successCount.get());
-        assertThat(successCount.get() + conflictCount.get()).isEqualTo(userCount);
-        assertThat(likeCount).isBetween(1L, (long) userCount);
+        long likeCountFromStats = likeService.getLikeCountFromStats(productId);
+        assertThat(likeCount).isEqualTo(likeCountFromStats)
+                .as("likes 테이블과 product_stats like_count는 동기화되어 있어야 함");
+        assertThat(likeCount).isEqualTo(successCount.get())
+                .as("성공한 건수만큼 DB에 원자적으로 반영되어야 함");
     }
 
     @DisplayName("동일 상품에 좋아요 후 여러 사용자가 동시에 취소해도 좋아요 수가 정상 반영된다.")
