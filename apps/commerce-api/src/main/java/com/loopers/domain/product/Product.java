@@ -10,8 +10,7 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "product", indexes = {
-    @Index(name = "idx_product_brand_id", columnList = "brand_id"),
-    @Index(name = "idx_product_like_count", columnList = "like_count")
+    @Index(name = "idx_product_brand_id", columnList = "brand_id")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -29,15 +28,11 @@ public class Product extends BaseEntity {
     @Embedded
     private Stock stock;
 
-    @Column(name = "like_count", nullable = false)
-    private int likeCount;
-
     public Product(Long brandId, String name, Price price, Stock stock) {
         this.brandId = brandId;
         this.name = name;
         this.price = price;
         this.stock = stock;
-        this.likeCount = 0;
     }
 
     public void changeName(String name) {
@@ -56,17 +51,7 @@ public class Product extends BaseEntity {
         this.stock = this.stock.decrease(quantity);
     }
 
-    public void incrementLikeCount() {
-        this.likeCount++;
-    }
-
     public void increaseStock(int quantity) {
         this.stock = this.stock.increase(quantity);
-    }
-
-    public void decrementLikeCount() {
-        if (this.likeCount > 0) {
-            this.likeCount--;
-        }
     }
 }

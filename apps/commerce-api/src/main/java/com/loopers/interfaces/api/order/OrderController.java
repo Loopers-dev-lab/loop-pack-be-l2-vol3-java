@@ -32,7 +32,7 @@ public class OrderController {
         List<OrderFacade.OrderItemRequest> items = request.items().stream()
             .map(i -> new OrderFacade.OrderItemRequest(i.productId(), i.quantity()))
             .toList();
-        Order order = orderFacade.createOrder(member.getId(), items);
+        Order order = orderFacade.createOrder(member.getId(), items, request.couponId());
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
     }
 

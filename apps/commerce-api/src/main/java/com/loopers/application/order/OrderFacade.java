@@ -1,5 +1,7 @@
 package com.loopers.application.order;
 
+import com.loopers.application.coupon.CouponApplyResult;
+import com.loopers.application.coupon.CouponFacade;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.order.Order;
@@ -29,20 +31,33 @@ public class OrderFacade {
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
+    private final CouponFacade couponFacade;
 
     @Transactional
     public Order createOrder(Long memberId, List<OrderItemRequest> itemRequests) {
-        // 1. 상품 조회 + 재고 차감 (엔티티 로드 필요)
-        List<Product> products = new ArrayList<>();
+        return createOrder(memberId, itemRequests, null);
+    }
+
+    @Transactional
+    public Order createOrder(Long memberId, List<OrderItemRequest> itemRequests, Long couponIssueId) {
+        // 1. 상품 조회 — 비관적 락 + ID 오름차순 (데드락 방지)
+        List<Long> sortedProductIds = itemRequests.stream()
+            .map(OrderItemRequest::productId)
+            .distinct()
+            .sorted()
+            .toList();
+
+        Map<Long, Product> productMap = productRepository.findAllByIdsWithLock(sortedProductIds).stream()
+            .collect(Collectors.toMap(Product::getId, Function.identity()));
+
         for (OrderItemRequest req : itemRequests) {
-            Product product = productRepository.findById(req.productId())
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
-            product.decreaseStock(req.quantity());
-            products.add(product);
+            if (productMap.get(req.productId()) == null) {
+                throw new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.");
+            }
         }
 
         // 2. 브랜드 한 번에 조회 (N+1 방지)
-        Set<Long> brandIds = products.stream()
+        Set<Long> brandIds = productMap.values().stream()
             .map(Product::getBrandId)
             .collect(Collectors.toSet());
         Map<Long, Brand> brandMap = brandRepository.findAllByIds(brandIds).stream()
@@ -50,8 +65,8 @@ public class OrderFacade {
 
         // 3. 스냅샷 생성
         List<Order.ItemSnapshot> snapshots = new ArrayList<>();
-        for (int i = 0; i < itemRequests.size(); i++) {
-            Product product = products.get(i);
+        for (OrderItemRequest req : itemRequests) {
+            Product product = productMap.get(req.productId());
             Brand brand = brandMap.get(product.getBrandId());
             String brandName = brand != null ? brand.getName() : null;
 
@@ -60,12 +75,41 @@ public class OrderFacade {
                 product.getName(),
                 product.getPrice().getValue(),
                 brandName,
-                itemRequests.get(i).quantity()
+                req.quantity()
             ));
         }
 
-        // 4. 주문 저장
-        return orderRepository.save(Order.create(memberId, snapshots));
+        // 4. 재고 차감 — 도메인 엔티티에 위임 (비관적 락으로 보호)
+        for (OrderItemRequest req : itemRequests) {
+            Product product = productMap.get(req.productId());
+            product.decreaseStock(req.quantity());
+        }
+
+        // 5. 쿠폰 적용
+        Long resolvedCouponIssueId = null;
+        int discountAmount = 0;
+
+        if (couponIssueId != null) {
+            int originalTotalPrice = snapshots.stream()
+                .mapToInt(s -> s.productPrice() * s.quantity())
+                .sum();
+
+            CouponApplyResult result = couponFacade.applyCouponToOrder(
+                couponIssueId, memberId, originalTotalPrice);
+            resolvedCouponIssueId = result.couponIssueId();
+            discountAmount = result.discountAmount();
+        }
+
+        // 6. 주문 저장
+        Order order = orderRepository.save(
+            Order.create(memberId, snapshots, resolvedCouponIssueId, discountAmount));
+
+        // 7. 쿠폰에 주문 ID 연결
+        if (resolvedCouponIssueId != null) {
+            couponFacade.linkCouponToOrder(resolvedCouponIssueId, order.getId());
+        }
+
+        return order;
     }
 
     public Order getOrder(Long orderId) {
@@ -90,10 +134,23 @@ public class OrderFacade {
             throw new CoreException(ErrorType.FORBIDDEN, "본인의 주문만 취소할 수 있습니다.");
         }
         order.cancel();
+
+        // 재고 복원 — 비관적 락 + 도메인 엔티티 위임
+        List<Long> productIds = order.getItems().stream()
+            .map(OrderItem::getProductId)
+            .distinct()
+            .sorted()
+            .toList();
+        Map<Long, Product> productMap = productRepository.findAllByIdsWithLock(productIds).stream()
+            .collect(Collectors.toMap(Product::getId, Function.identity()));
         for (OrderItem item : order.getItems()) {
-            Product product = productRepository.findById(item.getProductId())
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
+            Product product = productMap.get(item.getProductId());
             product.increaseStock(item.getQuantity());
+        }
+
+        // 쿠폰 복원
+        if (order.getCouponIssueId() != null) {
+            couponFacade.restoreCoupon(order.getCouponIssueId());
         }
     }
 

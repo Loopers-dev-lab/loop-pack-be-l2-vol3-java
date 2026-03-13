@@ -27,6 +27,8 @@
 | **주문 (Order)** | 회원이 상품을 구매하기 위해 생성한 거래 단위 |
 | **주문 항목 (OrderItem)** | 주문에 포함된 개별 상품 정보 (스냅샷 포함) |
 | **스냅샷 (Snapshot)** | 주문 시점의 상품 정보를 보존한 데이터 |
+| **쿠폰 (Coupon)** | 할인을 제공하는 쿠폰 템플릿. 정액(FIXED) 또는 정률(RATE) 할인 |
+| **쿠폰 발급 (CouponIssue)** | 회원에게 발급된 쿠폰 인스턴스. AVAILABLE/USED/EXPIRED 상태를 가짐 |
 
 ---
 
@@ -206,9 +208,11 @@ So that 상품을 구매할 수 있다
 | Main | 1. 주문할 상품과 수량을 선택한다 |
 | Main | 2. 재고를 확인하고 차감한다 |
 | Main | 3. 주문을 생성하고 주문 항목에 스냅샷을 저장한다 |
+| Main | 4. (선택) 쿠폰 적용 시 소유자/상태/만료 검증 후 할인 적용 |
 | Alternate | 여러 상품을 한 번에 주문할 수 있다 |
 | Exception | 재고가 부족하면 주문 실패 |
 | Exception | 존재하지 않거나 삭제된 상품이면 주문 실패 |
+| Exception | 사용 불가(USED/EXPIRED), 타인 소유, 존재하지 않는 쿠폰이면 주문 실패 |
 
 #### US-O02: 주문 목록 조회
 ```
@@ -235,6 +239,47 @@ So that 주문한 상품과 금액을 확인할 수 있다
 | Main | 주문 항목의 스냅샷 정보를 포함하여 조회한다 |
 | Alternate | - |
 | Exception | 다른 회원의 주문이면 조회 실패 |
+
+---
+
+### 4.5 쿠폰 (Coupon)
+
+#### US-C01: 쿠폰 템플릿 등록 (Admin)
+```
+As a 관리자
+I want to 쿠폰 템플릿을 등록하고 싶다
+So that 회원들에게 할인 쿠폰을 발급할 수 있다
+```
+
+| 흐름 | 설명 |
+|------|------|
+| Main | 쿠폰명, 할인유형(FIXED/RATE), 할인값, 최소주문금액, 만료일시를 입력하여 쿠폰을 생성한다 |
+| Exception | 필수값 누락 시 등록 실패 |
+
+#### US-C02: 쿠폰 발급
+```
+As a 회원
+I want to 쿠폰을 발급받고 싶다
+So that 주문 시 할인을 받을 수 있다
+```
+
+| 흐름 | 설명 |
+|------|------|
+| Main | POST `/api/v1/coupons/{couponId}/issue` - 쿠폰 템플릿 기반으로 CouponIssue 생성 |
+| Exception | 만료된 쿠폰 템플릿이면 발급 실패 |
+| Exception | 존재하지 않는 쿠폰이면 발급 실패 |
+
+#### US-C03: 내 쿠폰 목록 조회
+```
+As a 회원
+I want to 내 쿠폰 목록을 조회하고 싶다
+So that 사용 가능한 쿠폰을 확인할 수 있다
+```
+
+| 흐름 | 설명 |
+|------|------|
+| Main | GET `/api/v1/users/me/coupons` - 발급된 쿠폰 목록을 AVAILABLE/USED/EXPIRED 상태와 함께 반환 |
+| Alternate | 상태는 조회 시점 기준으로 계산 (AVAILABLE이지만 만료시간 지났으면 EXPIRED) |
 
 ---
 
@@ -289,19 +334,12 @@ public enum OrderStatus {
 
 ### 5.4 좋아요 수 관리
 
-| 결정 | 별도 컬럼 (like_count) + 동기화 |
+| 결정 | UNIQUE 제약 + COUNT(*) 파생 (락 불필요 구조) |
 |------|------|
-| **이유** | `likes_desc` 정렬 요구사항 → 매 조회 시 COUNT는 비효율 |
-| **허용 오차** | 좋아요 수는 1~2개 오차 허용 가능 (재고와 달리 "틀리면 큰일나는" 데이터 아님) |
-| **정합성** | 같은 트랜잭션 처리, 필요시 배치로 보정 |
-
-```java
-@Transactional
-public void addLike(Long memberId, Long productId) {
-    likeRepository.save(new Like(memberId, productId));
-    productRepository.incrementLikeCount(productId);  // UPDATE +1
-}
-```
+| **이유** | Product에 likeCount 컬럼을 두면 좋아요마다 Product 행에 경합 발생. 락 자체가 불필요한 구조로 전환 |
+| **방식** | likes 테이블의 UNIQUE(member_id, product_id) 제약으로 중복 방지, 조회 시 COUNT(*) 파생 |
+| **정렬** | `likes_desc` 정렬은 Application Layer에서 enrichWithLikeCount + 정렬 |
+| **트레이드오프** | 목록 조회 시 N+1 COUNT 쿼리 → 배치 COUNT(GROUP BY)로 최적화 완료 |
 
 ### 5.5 삭제 정책
 
@@ -325,6 +363,26 @@ public void deleteBrand(Long brandId) {
     brandRepository.softDelete(brandId);
 }
 ```
+
+### 5.6 동시성 제어 전략
+
+도메인 특성에 맞게 세 가지 전략을 분화 적용한다.
+
+| 대상 | 전략 | 근거 |
+|------|------|------|
+| **Product 재고** | 비관적 락 (`SELECT ... FOR UPDATE`) | 주문 트랜잭션 내 다중 자원(재고+쿠폰+주문) 원자성 필수. 높은 경합 시 순차 처리가 UX에 유리 |
+| **좋아요** | 락 불필요 (UNIQUE + COUNT 파생) | likeCount 컬럼 제거로 Product 행 경합 자체를 제거. Like 테이블 UNIQUE 제약이 중복 방지 |
+| **쿠폰 사용** | 조건부 UPDATE (`WHERE status='AVAILABLE' AND expired_at > now`) | 비관적 락 없이 단일 UPDATE로 원자적 상태 전이. affected rows = 0이면 이미 사용/만료 |
+
+### 5.7 쿠폰 적용 규칙
+
+| 규칙 | 설명 |
+|------|------|
+| **1주문 1쿠폰** | 주문 1건당 쿠폰 1장만 적용 가능 |
+| **할인 유형** | FIXED: min(할인값, 주문금액), RATE: 주문금액 × 할인율 / 100 |
+| **검증 순서** | 존재 여부 → 소유자 확인 → 쿠폰 템플릿 유효성(만료/최소금액) → 조건부 UPDATE |
+| **주문 취소 시** | 쿠폰 상태를 AVAILABLE로 복원 |
+| **스냅샷** | 주문에 originalTotalPrice, discountAmount, couponIssueId 저장 |
 
 ---
 
@@ -386,9 +444,12 @@ public void deleteBrand(Long brandId) {
 {
   "items": [
     { "productId": 1, "quantity": 2 }
-  ]
+  ],
+  "couponId": 42
 }
 ```
+
+`couponId`는 발급된 쿠폰(CouponIssue)의 ID. 미적용 시 생략 가능.
 
 **주문 시 필수 처리:**
 - 스냅샷 저장 (상품명, 가격, 브랜드명)
@@ -401,6 +462,24 @@ public void deleteBrand(Long brandId) {
 | GET | `/api-admin/v1/orders` | 주문 목록 조회 |
 | GET | `/api-admin/v1/orders/{orderId}` | 주문 상세 조회 |
 
+### 6.7 쿠폰 (대고객)
+
+| METHOD | URI | 설명 |
+|--------|-----|------|
+| POST | `/api/v1/coupons/{couponId}/issue` | 쿠폰 발급 요청 |
+| GET | `/api/v1/users/me/coupons` | 내 쿠폰 목록 조회 |
+
+### 6.8 쿠폰 (Admin)
+
+| METHOD | URI | 설명 |
+|--------|-----|------|
+| GET | `/api-admin/v1/coupons` | 쿠폰 템플릿 목록 조회 |
+| GET | `/api-admin/v1/coupons/{couponId}` | 쿠폰 템플릿 상세 조회 |
+| POST | `/api-admin/v1/coupons` | 쿠폰 템플릿 등록 |
+| PUT | `/api-admin/v1/coupons/{couponId}` | 쿠폰 템플릿 수정 |
+| DELETE | `/api-admin/v1/coupons/{couponId}` | 쿠폰 템플릿 삭제 (soft delete) |
+| GET | `/api-admin/v1/coupons/{couponId}/issues` | 발급 내역 조회 |
+
 ---
 
 ## 7. 비기능 요구사항
@@ -411,6 +490,7 @@ public void deleteBrand(Long brandId) {
 | 멱등성 | 좋아요 등록/취소는 멱등하게 동작 |
 | 정합성 | 주문 취소 시 재고 복원 보장 |
 | 데이터 보존 | 주문 관련 데이터는 soft delete로 보존 |
+| 동시성 | 재고는 비관적 락, 좋아요는 UNIQUE 제약 + COUNT 파생, 쿠폰은 조건부 UPDATE |
 
 ---
 
@@ -419,7 +499,7 @@ public void deleteBrand(Long brandId) {
 | 항목 | 현재 상태 | 추후 결정 시점 |
 |------|----------|--------------|
 | **결제 연동** | 미구현 (주문 생성 = 완료) | 결제 시스템 도입 시 |
-| **동시성 제어** | 고려하지 않음 | 트래픽 증가 시 낙관적/비관적 락 선택 |
+| **동시성 제어** | 도메인 특성별 전략 적용 완료 (비관적 락 / 조건부 UPDATE / 락 불필요 구조) | 트래픽 증가 시 낙관적/비관적 락 선택 |
 | **멱등성 키** | 미구현 | 중복 주문 방지 필요 시 |
 | **일관성 보장** | 단일 트랜잭션 | MSA 전환 시 Saga 패턴 고려 |
 | **느린 조회 최적화** | 기본 인덱스만 | 대량 데이터 시 캐시/검색엔진 도입 |

@@ -14,7 +14,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -30,21 +32,30 @@ public class ProductFacade {
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
         Brand brand = brandRepository.findById(product.getBrandId()).orElse(null);
         String brandName = (brand != null) ? brand.getName() : null;
-        return new ProductWithBrand(product, brandName);
+        long likeCount = likeRepository.countByProductId(productId);
+        return new ProductWithBrand(product, brandName, likeCount);
     }
 
     public List<ProductWithBrand> getAllProducts() {
-        return productRepository.findAllWithBrand();
+        return enrichWithLikeCount(productRepository.findAllWithBrand());
     }
 
     public List<ProductWithBrand> getAllProducts(String sort) {
-        return productRepository.findAllWithBrand(sort);
+        List<ProductWithBrand> results = enrichWithLikeCount(
+            productRepository.findAllWithBrand(sort));
+
+        if ("likes_desc".equals(sort)) {
+            return results.stream()
+                .sorted(Comparator.comparingLong(ProductWithBrand::likeCount).reversed())
+                .toList();
+        }
+        return results;
     }
 
     public List<ProductWithBrand> getProductsByBrandId(Long brandId) {
         brandRepository.findById(brandId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다."));
-        return productRepository.findAllByBrandIdWithBrand(brandId);
+        return enrichWithLikeCount(productRepository.findAllByBrandIdWithBrand(brandId));
     }
 
     @Transactional
@@ -71,5 +82,17 @@ public class ProductFacade {
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
         likeRepository.deleteAllByProductId(productId);
         product.delete();
+    }
+
+    private List<ProductWithBrand> enrichWithLikeCount(List<ProductWithBrand> products) {
+        List<Long> productIds = products.stream()
+            .map(pwb -> pwb.product().getId())
+            .toList();
+        Map<Long, Long> likeCounts = likeRepository.countByProductIds(productIds);
+        return products.stream()
+            .map(pwb -> new ProductWithBrand(
+                pwb.product(), pwb.brandName(),
+                likeCounts.getOrDefault(pwb.product().getId(), 0L)))
+            .toList();
     }
 }

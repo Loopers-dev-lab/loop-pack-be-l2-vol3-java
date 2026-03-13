@@ -20,16 +20,15 @@ class ProductTest {
     @DisplayName("Product 생성")
     class Create {
 
-        @DisplayName("유효한 정보로 Product를 생성하면 likeCount가 0으로 초기화된다")
+        @DisplayName("유효한 정보로 Product를 생성하면 필드가 올바르게 초기화된다")
         @Test
-        void create_withValidInfo_likeCountIsZero() {
+        void create_withValidInfo_fieldsAreInitialized() {
             Product product = createProduct();
 
             assertThat(product.getBrandId()).isEqualTo(1L);
             assertThat(product.getName()).isEqualTo("테스트 상품");
             assertThat(product.getPrice().getValue()).isEqualTo(10000);
             assertThat(product.getStock().getQuantity()).isEqualTo(10);
-            assertThat(product.getLikeCount()).isEqualTo(0);
         }
     }
 
@@ -57,40 +56,4 @@ class ProductTest {
         }
     }
 
-    @Nested
-    @DisplayName("좋아요 수")
-    class LikeCount {
-
-        @DisplayName("좋아요를 증가시키면 likeCount가 1 증가한다")
-        @Test
-        void incrementLikeCount_increases() {
-            Product product = createProduct();
-
-            product.incrementLikeCount();
-
-            assertThat(product.getLikeCount()).isEqualTo(1);
-        }
-
-        @DisplayName("좋아요를 감소시키면 likeCount가 1 감소한다")
-        @Test
-        void decrementLikeCount_withPositiveCount_decreases() {
-            Product product = createProduct();
-            product.incrementLikeCount();
-            product.incrementLikeCount();
-
-            product.decrementLikeCount();
-
-            assertThat(product.getLikeCount()).isEqualTo(1);
-        }
-
-        @DisplayName("likeCount가 0일 때 감소시키면 0을 유지한다")
-        @Test
-        void decrementLikeCount_withZeroCount_staysZero() {
-            Product product = createProduct();
-
-            product.decrementLikeCount();
-
-            assertThat(product.getLikeCount()).isEqualTo(0);
-        }
-    }
 }

@@ -38,6 +38,15 @@ public class FakeProductRepository implements ProductRepository {
     }
 
     @Override
+    public List<Product> findAllByIdsWithLock(List<Long> ids) {
+        return ids.stream()
+            .distinct()
+            .map(store::get)
+            .filter(p -> p != null && p.getDeletedAt() == null)
+            .toList();
+    }
+
+    @Override
     public List<Product> findAll() {
         return store.values().stream()
                 .filter(product -> product.getDeletedAt() == null)
@@ -56,7 +65,7 @@ public class FakeProductRepository implements ProductRepository {
     public List<ProductWithBrand> findAllWithBrand() {
         return store.values().stream()
                 .filter(product -> product.getDeletedAt() == null)
-                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId())))
+                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId()), 0L))
                 .toList();
     }
 
@@ -66,7 +75,7 @@ public class FakeProductRepository implements ProductRepository {
         return store.values().stream()
                 .filter(product -> product.getDeletedAt() == null)
                 .sorted(comparator)
-                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId())))
+                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId()), 0L))
                 .toList();
     }
 
@@ -75,7 +84,7 @@ public class FakeProductRepository implements ProductRepository {
         return store.values().stream()
                 .filter(product -> product.getDeletedAt() == null)
                 .filter(product -> product.getBrandId().equals(brandId))
-                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId())))
+                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId()), 0L))
                 .toList();
     }
 
@@ -96,7 +105,6 @@ public class FakeProductRepository implements ProductRepository {
         }
         return switch (sort) {
             case "price_asc" -> Comparator.comparingInt(p -> p.getPrice().getValue());
-            case "likes_desc" -> Comparator.comparingInt(Product::getLikeCount).reversed();
             default -> Comparator.comparing(Product::getId).reversed();
         };
     }

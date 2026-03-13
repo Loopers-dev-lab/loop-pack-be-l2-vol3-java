@@ -51,8 +51,9 @@ public class BrandFacade {
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다."));
 
         List<Product> products = productRepository.findAllByBrandId(brandId);
+        List<Long> productIds = products.stream().map(Product::getId).toList();
+        likeRepository.deleteAllByProductIdIn(productIds);
         for (Product product : products) {
-            likeRepository.deleteAllByProductId(product.getId());
             product.delete();
         }
         brand.delete();

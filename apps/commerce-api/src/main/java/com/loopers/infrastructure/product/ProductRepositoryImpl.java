@@ -27,6 +27,11 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public List<Product> findAllByIdsWithLock(List<Long> ids) {
+        return productJpaRepository.findAllByIdsWithLock(ids);
+    }
+
+    @Override
     public List<Product> findAll() {
         return productJpaRepository.findAllByDeletedAtIsNull();
     }
@@ -58,7 +63,7 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     private ProductWithBrand toProductWithBrand(Object[] row) {
-        return new ProductWithBrand((Product) row[0], (String) row[1]);
+        return new ProductWithBrand((Product) row[0], (String) row[1], 0L);
     }
 
     private Sort toSort(String sort) {
@@ -67,7 +72,6 @@ public class ProductRepositoryImpl implements ProductRepository {
         }
         return switch (sort) {
             case "price_asc" -> Sort.by("price.value").ascending();
-            case "likes_desc" -> Sort.by("likeCount").descending();
             default -> Sort.by("createdAt").descending();
         };
     }

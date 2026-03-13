@@ -39,7 +39,7 @@ public class ProductDto {
                 product.getName(),
                 product.getPrice().getValue(),
                 product.getStock().getQuantity(),
-                product.getLikeCount()
+                (int) info.likeCount()
             );
         }
 
@@ -51,7 +51,7 @@ public class ProductDto {
                 product.getName(),
                 product.getPrice().getValue(),
                 product.getStock().getQuantity(),
-                product.getLikeCount()
+                0
             );
         }
     }
