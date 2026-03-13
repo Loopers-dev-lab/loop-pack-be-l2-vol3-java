@@ -347,6 +347,46 @@ class ProductAppServiceTest {
         }
 
         @Test
+        @DisplayName("page=2(경계값) 캐시 히트 시 Repository를 호출하지 않는다")
+        void cacheHit_atBoundary_skipsRepository() {
+            // given
+            int page = 2;
+            CachedBrandProductPage cachedPage = CachedBrandProductPage.builder()
+                    .content(List.of())
+                    .totalElements(0L)
+                    .build();
+            given(productCacheManager.getProductList(1L, page, 20))
+                    .willReturn(Optional.of(cachedPage));
+
+            // when
+            CachedBrandProductPage result = productAppService.getProductsByBrandIdCached(1L, page, 20);
+
+            // then
+            assertThat(result).isEqualTo(cachedPage);
+            verify(productRepository, never()).findByBrandIdWithPaging(anyLong(), any(PageRequest.class));
+        }
+
+        @Test
+        @DisplayName("page=2(경계값) 캐시 미스 시 DB 조회 후 캐시에 저장한다")
+        void cacheMiss_atBoundary_queriesDbAndCaches() {
+            // given
+            int page = 2;
+            given(productCacheManager.getProductList(1L, page, 20))
+                    .willReturn(Optional.empty());
+
+            Page<Product> dbPage = new PageImpl<>(List.of(), PageRequest.of(page, 20), 0);
+            given(productRepository.findByBrandIdWithPaging(eq(1L), any(PageRequest.class)))
+                    .willReturn(dbPage);
+
+            // when
+            productAppService.getProductsByBrandIdCached(1L, page, 20);
+
+            // then
+            verify(productRepository).findByBrandIdWithPaging(eq(1L), any(PageRequest.class));
+            verify(productCacheManager).putProductList(eq(1L), eq(page), eq(20), any(CachedBrandProductPage.class));
+        }
+
+        @Test
         @DisplayName("page 3 이상은 캐시를 사용하지 않고 DB에서 직접 조회한다")
         void deepPage_bypassesCache() {
             // given
