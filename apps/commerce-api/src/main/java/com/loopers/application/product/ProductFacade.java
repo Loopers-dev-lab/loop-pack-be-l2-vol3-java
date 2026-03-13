@@ -2,16 +2,22 @@ package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandService;
 import com.loopers.domain.brand.Brand;
+import com.loopers.infrastructure.product.ProductCacheManager;
+import com.loopers.infrastructure.product.ProductCacheManager.CachedPage;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.domain.product.Product;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import static com.loopers.support.transaction.TransactionHelper.afterCommit;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -21,6 +27,7 @@ public class ProductFacade {
 
     private final ProductService productService;
     private final BrandService brandService;
+    private final ProductCacheManager productCacheManager;
 
     // Command
 
@@ -28,19 +35,30 @@ public class ProductFacade {
     public ProductInfo register(ProductCommand.Register command) {
         Brand brand = brandService.getActiveBrand(command.brandId());
         Product product = productService.register(command);
-        return ProductInfo.from(product, brand.getName());
+        ProductInfo info = ProductInfo.from(product, brand.getName());
+        afterCommit(() -> productCacheManager.evictAllLists());
+        return info;
     }
 
     @Transactional
     public ProductInfo updateInfo(Long productId, ProductCommand.UpdateInfo command) {
         Product product = productService.updateInfo(productId, command);
         Brand brand = brandService.getBrand(product.getBrandId());
-        return ProductInfo.from(product, brand.getName());
+        ProductInfo info = ProductInfo.from(product, brand.getName());
+        afterCommit(() -> {
+            productCacheManager.evictDetail(productId);
+            productCacheManager.evictAllLists();
+        });
+        return info;
     }
 
     @Transactional
     public void delete(Long productId) {
         productService.delete(productId);
+        afterCommit(() -> {
+            productCacheManager.evictDetail(productId);
+            productCacheManager.evictAllLists();
+        });
     }
 
     // Query
@@ -54,13 +72,30 @@ public class ProductFacade {
 
     @Transactional(readOnly = true)
     public ProductInfo getActiveDetail(Long productId) {
+        Optional<ProductInfo> cached = productCacheManager.getDetail(productId);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+
         Product product = productService.getActiveProduct(productId);
         Brand brand = brandService.getBrand(product.getBrandId());
-        return ProductInfo.from(product, brand.getName());
+        ProductInfo info = ProductInfo.from(product, brand.getName());
+        productCacheManager.putDetail(productId, info);
+        return info;
     }
 
     @Transactional(readOnly = true)
     public Page<ProductInfo> getActiveList(Long brandId, Pageable pageable) {
+        String sort = pageable.getSort().toString();
+        int page = pageable.getPageNumber();
+        int size = pageable.getPageSize();
+
+        Optional<CachedPage> cached = productCacheManager.getList(brandId, sort, page, size);
+        if (cached.isPresent()) {
+            CachedPage cachedPage = cached.get();
+            return new PageImpl<>(cachedPage.content(), PageRequest.of(cachedPage.page(), cachedPage.size()), cachedPage.totalElements());
+        }
+
         Page<Product> products = productService.findActiveProducts(brandId, pageable);
 
         Set<Long> brandIds = products.getContent().stream()
@@ -76,7 +111,10 @@ public class ProductFacade {
             }
         }
 
-        return products.map(product -> ProductInfo.from(product, brandMap.get(product.getBrandId()).getName()));
+        Page<ProductInfo> result = products.map(product -> ProductInfo.from(product, brandMap.get(product.getBrandId()).getName()));
+        productCacheManager.putList(brandId, sort, page, size,
+                new CachedPage(result.getContent(), page, size, result.getTotalElements()));
+        return result;
     }
 
     @Transactional(readOnly = true)

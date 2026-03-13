@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.RedisStaticMasterReplicaConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
@@ -20,6 +21,7 @@ import java.util.function.Consumer;
 @EnableConfigurationProperties(RedisProperties.class)
 public class RedisConfig{
     private static final String CONNECTION_MASTER = "redisConnectionMaster";
+    public static final String CONNECTION_PUB_SUB = "redisConnectionPubSub";
     public static final String REDIS_TEMPLATE_MASTER = "redisTemplateMaster";
 
     private final RedisProperties redisProperties;
@@ -38,6 +40,15 @@ public class RedisConfig{
                 database, master, replicas,
                 b -> b.readFrom(ReadFrom.REPLICA_PREFERRED)
         );
+    }
+
+    @Qualifier(CONNECTION_PUB_SUB)
+    @Bean
+    public LettuceConnectionFactory pubSubRedisConnectionFactory() {
+        RedisNodeInfo master = redisProperties.master();
+        RedisStandaloneConfiguration standaloneConfig = new RedisStandaloneConfiguration(master.host(), master.port());
+        standaloneConfig.setDatabase(redisProperties.database());
+        return new LettuceConnectionFactory(standaloneConfig);
     }
 
     @Qualifier(CONNECTION_MASTER)

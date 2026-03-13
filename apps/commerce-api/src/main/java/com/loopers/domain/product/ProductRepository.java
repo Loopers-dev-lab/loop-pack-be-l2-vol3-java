@@ -14,7 +14,8 @@ public interface ProductRepository {
     int decreaseStockIfEnough(Long productId, int quantity);
     int incrementLikeCount(Long productId);
     int decrementLikeCountIfPositive(Long productId);
-    int softDeleteByBrandIdInBatch(Long brandId, int batchSize);
+    List<Long> findIdsByBrandIdForCleanup(Long brandId, int batchSize);
+    int softDeleteByIds(List<Long> ids);
 
     // Query
     Optional<Product> findById(Long id);
@@ -30,4 +31,6 @@ public interface ProductRepository {
     Page<Product> findAllActiveWithActiveBrand(Long brandId, Pageable pageable);
 
     List<Long> findBrandIdsWithUncleanedProducts();
+
+    List<Product> findAllActiveCursor(Long brandId, Long cursor, int limit);
 }
