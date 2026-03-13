@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Component
@@ -26,6 +27,11 @@ public class ProductCacheManager {
 
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
+
+    private final AtomicLong detailHit = new AtomicLong();
+    private final AtomicLong detailMiss = new AtomicLong();
+    private final AtomicLong listHit = new AtomicLong();
+    private final AtomicLong listMiss = new AtomicLong();
 
     // Command
 
@@ -76,12 +82,15 @@ public class ProductCacheManager {
     public Optional<ProductInfo> getDetail(Long productId) {
         String json = redisTemplate.opsForValue().get(detailKey(productId));
         if (json == null) {
+            detailMiss.incrementAndGet();
             return Optional.empty();
         }
         try {
+            detailHit.incrementAndGet();
             return Optional.of(objectMapper.readValue(json, ProductInfo.class));
         } catch (JsonProcessingException e) {
             log.warn("상품 상세 캐시 역직렬화 실패. productId={}", productId, e);
+            detailMiss.incrementAndGet();
             return Optional.empty();
         }
     }
@@ -89,14 +98,34 @@ public class ProductCacheManager {
     public Optional<CachedPage> getList(Long brandId, String sort, int page, int size) {
         String json = redisTemplate.opsForValue().get(listKey(brandId, sort, page, size));
         if (json == null) {
+            listMiss.incrementAndGet();
             return Optional.empty();
         }
         try {
+            listHit.incrementAndGet();
             return Optional.of(objectMapper.readValue(json, CachedPage.class));
         } catch (JsonProcessingException e) {
             log.warn("상품 목록 캐시 역직렬화 실패. brandId={}, sort={}", brandId, sort, e);
+            listMiss.incrementAndGet();
             return Optional.empty();
         }
+    }
+
+    public String getStats() {
+        long dTotal = detailHit.get() + detailMiss.get();
+        long lTotal = listHit.get() + listMiss.get();
+        return String.format(
+                "Redis L2 — detail[hit=%d, miss=%d, rate=%.1f%%] list[hit=%d, miss=%d, rate=%.1f%%]",
+                detailHit.get(), detailMiss.get(), dTotal > 0 ? 100.0 * detailHit.get() / dTotal : 0,
+                listHit.get(), listMiss.get(), lTotal > 0 ? 100.0 * listHit.get() / lTotal : 0
+        );
+    }
+
+    public void resetStats() {
+        detailHit.set(0);
+        detailMiss.set(0);
+        listHit.set(0);
+        listMiss.set(0);
     }
 
     private String detailKey(Long productId) {

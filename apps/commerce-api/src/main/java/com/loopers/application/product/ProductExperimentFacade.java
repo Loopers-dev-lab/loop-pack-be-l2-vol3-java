@@ -213,7 +213,8 @@ public class ProductExperimentFacade {
     // ===== Cache Stats =====
 
     public String getCacheStats() {
-        return "L1 Detail: " + localCacheManager.getDetailStats()
+        return productCacheManager.getStats()
+                + " | L1 Detail: " + localCacheManager.getDetailStats()
                 + " | L1 List: " + localCacheManager.getListStats();
     }
 

@@ -25,7 +25,7 @@ public class ProductLocalCacheManager {
                 .build();
 
         this.listCache = Caffeine.newBuilder()
-                .maximumSize(100)
+                .maximumSize(500)
                 .expireAfterWrite(Duration.ofSeconds(30))
                 .recordStats()
                 .build();
