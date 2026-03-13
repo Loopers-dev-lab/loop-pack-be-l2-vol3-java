@@ -4,6 +4,7 @@ import com.loopers.domain.BaseEntity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
@@ -21,23 +22,39 @@ public class Order extends BaseEntity {
     private Long memberId;
     private String status;
 
+    @Column(name = "coupon_id")
+    private Long couponId;
+
+    @Column(name = "original_amount", nullable = false)
+    private long originalAmount;
+
+    @Column(name = "discount_amount", nullable = false)
+    private long discountAmount;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderLineEntity> orderLines = new ArrayList<>();
 
     protected Order() {}
 
-    private Order(Long memberId, List<OrderLine> orderLines) {
+    private Order(Long memberId, List<OrderLine> orderLines, Long couponId, long discountAmount) {
         validateMemberId(memberId);
         validateOrderLines(orderLines);
         this.memberId = memberId;
         this.status = STATUS_ORDERED;
+        this.couponId = couponId;
         for (OrderLine line : orderLines) {
             this.orderLines.add(new OrderLineEntity(this, line.productId(), line.quantity(), line.unitPrice()));
         }
+        this.originalAmount = calculateOriginalAmount();
+        this.discountAmount = Math.min(discountAmount, this.originalAmount);
     }
 
     public static Order create(Long memberId, List<OrderLine> orderLines) {
-        return new Order(memberId, orderLines);
+        return new Order(memberId, orderLines, null, 0);
+    }
+
+    public static Order createWithCoupon(Long memberId, List<OrderLine> orderLines, Long couponId, long discountAmount) {
+        return new Order(memberId, orderLines, couponId, discountAmount);
     }
 
     private void validateMemberId(Long memberId) {
@@ -52,22 +69,24 @@ public class Order extends BaseEntity {
         }
     }
 
-    public Long getMemberId() {
-        return memberId;
+    private long calculateOriginalAmount() {
+        return orderLines.stream()
+            .mapToLong(OrderLineEntity::getTotalPrice)
+            .sum();
     }
 
-    public String getStatus() {
-        return status;
+    public Long getMemberId() { return memberId; }
+    public String getStatus() { return status; }
+    public Long getCouponId() { return couponId; }
+    public long getOriginalAmount() { return originalAmount; }
+    public long getDiscountAmount() { return discountAmount; }
+
+    public long getTotalAmount() {
+        return originalAmount - discountAmount;
     }
 
     public List<OrderLineEntity> getOrderLines() {
         return Collections.unmodifiableList(orderLines);
-    }
-
-    public long getTotalAmount() {
-        return orderLines.stream()
-            .mapToLong(OrderLineEntity::getTotalPrice)
-            .sum();
     }
 
     @jakarta.persistence.Entity
@@ -103,16 +122,8 @@ public class Order extends BaseEntity {
             return (long) quantity * unitPrice;
         }
 
-        public Long getProductId() {
-            return productId;
-        }
-
-        public int getQuantity() {
-            return quantity;
-        }
-
-        public long getUnitPrice() {
-            return unitPrice;
-        }
+        public Long getProductId() { return productId; }
+        public int getQuantity() { return quantity; }
+        public long getUnitPrice() { return unitPrice; }
     }
 }
