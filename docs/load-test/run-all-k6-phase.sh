@@ -15,6 +15,30 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 RESULTS_MD="${ROOT}/docs/performance/phase-benchmark-results.md"
 cd "$ROOT"
 
+# k6 요약 출력에서 duration metric(avg/p95/p99/max)을 추출해 ms 단위로 정규화한다.
+# - label: "avg", "p\\(95\\)", "p\\(99\\)", "max"
+# - text: k6 전체 출력
+parse_metric_ms() {
+  local label="$1"
+  local text="$2"
+  # 예: avg=850µs, p(95)=2.4ms
+  local token
+  token=$(printf '%s\n' "$text" | grep -oE "${label}=[0-9.]+(ms|µs)" | head -1 || true)
+  if [ -z "$token" ]; then
+    echo ""
+    return
+  fi
+  local value unit
+  value=$(printf '%s\n' "$token" | sed -E "s/.*${label}=([0-9.]+)(ms|µs).*/\1/")
+  unit=$(printf '%s\n' "$token" | sed -E "s/.*${label}=([0-9.]+)(ms|µs).*/\2/")
+  if [ "$unit" = "µs" ]; then
+    # µs → ms 변환
+    awk "BEGIN { printf \"%.3f\", ${value} / 1000 }"
+  else
+    echo "$value"
+  fi
+}
+
 echo "=== Phase: $PHASE_LABEL | scale=$SCALE | duration=${DURATION}s | BASE_URL=$BASE_URL ==="
 
 run_plp() {
@@ -25,13 +49,14 @@ run_plp() {
   out=$(k6 run --summary-trend-stats="avg,p(95),p(99),max" \
     -e "SORT=$sort" -e "PAGE=$page" -e "BASE_URL=$BASE_URL" \
     --vus 50 --duration "${DURATION}s" \
-    docs/load-test/k6-product-plp.js 2>&1) || true
+    docs/load-test/k6-product-plp.js 2>&1)
   local avg p95 p99 max err
-  avg=$(echo "$out" | grep -oE "avg=[0-9.]+" | head -1 | sed -E 's/avg=//')
-  p95=$(echo "$out" | grep -oE "p\\(95\\)=[0-9.]+" | head -1 | sed -E 's/p\\(95\\)=//')
-  p99=$(echo "$out" | grep -oE "p\\(99\\)=[0-9.]+" | head -1 | sed -E 's/p\\(99\\)=//')
-  max=$(echo "$out" | grep -oE "max=[0-9.]+" | head -1 | sed -E 's/max=//')
-  err=$(echo "$out" | grep -oE "http_req_failed......: [0-9.]+%" | head -1 | grep -oE "[0-9.]+" | head -1)
+  avg=$(parse_metric_ms "avg" "$out")
+  p95=$(parse_metric_ms "p\\(95\\)" "$out")
+  p99=$(parse_metric_ms "p\\(99\\)" "$out")
+  max=$(parse_metric_ms "max" "$out")
+  # http_req_failed........: 0.31%  9 out of 2900
+  err=$(printf '%s\n' "$out" | sed -nE 's/.*http_req_failed[.[:space:]]*: ([0-9.]+)%.*/\1/p' | head -1)
   echo "PLP|${label}|${avg}|${p95}|${p99}|${max}|${err}"
 }
 
@@ -41,13 +66,13 @@ run_pdp() {
   out=$(k6 run --summary-trend-stats="avg,p(95),p(99),max" \
     -e "MAX_PRODUCT_ID=$max_id" -e "BASE_URL=$BASE_URL" \
     --vus 100 --duration "${DURATION}s" \
-    docs/load-test/k6-product-pdp.js 2>&1) || true
+    docs/load-test/k6-product-pdp.js 2>&1)
   local avg p95 p99 max err
-  avg=$(echo "$out" | grep -oE "avg=[0-9.]+" | head -1 | sed -E 's/avg=//')
-  p95=$(echo "$out" | grep -oE "p\\(95\\)=[0-9.]+" | head -1 | sed -E 's/p\\(95\\)=//')
-  p99=$(echo "$out" | grep -oE "p\\(99\\)=[0-9.]+" | head -1 | sed -E 's/p\\(99\\)=//')
-  max=$(echo "$out" | grep -oE "max=[0-9.]+" | head -1 | sed -E 's/max=//')
-  err=$(echo "$out" | grep -oE "http_req_failed......: [0-9.]+%" | head -1 | grep -oE "[0-9.]+" | head -1)
+  avg=$(parse_metric_ms "avg" "$out")
+  p95=$(parse_metric_ms "p\\(95\\)" "$out")
+  p99=$(parse_metric_ms "p\\(99\\)" "$out")
+  max=$(parse_metric_ms "max" "$out")
+  err=$(printf '%s\n' "$out" | sed -nE 's/.*http_req_failed[.[:space:]]*: ([0-9.]+)%.*/\1/p' | head -1)
   echo "PDP|scale=$max_id|${avg}|${p95}|${p99}|${max}|${err}"
 }
 
@@ -57,13 +82,13 @@ run_likes_write() {
   out=$(k6 run --summary-trend-stats="avg,p(95),p(99),max" \
     -e "BASE_URL=$BASE_URL" -e "LOGIN_ID=$LOGIN_ID" -e "MAX_PRODUCT_ID=$max_id" \
     --vus 100 --duration "${DURATION}s" \
-    docs/load-test/k6-likes-write.js 2>&1) || true
+    docs/load-test/k6-likes-write.js 2>&1)
   local avg p95 p99 max err
-  avg=$(echo "$out" | grep -oE "avg=[0-9.]+" | head -1 | sed -E 's/avg=//')
-  p95=$(echo "$out" | grep -oE "p\\(95\\)=[0-9.]+" | head -1 | sed -E 's/p\\(95\\)=//')
-  p99=$(echo "$out" | grep -oE "p\\(99\\)=[0-9.]+" | head -1 | sed -E 's/p\\(99\\)=//')
-  max=$(echo "$out" | grep -oE "max=[0-9.]+" | head -1 | sed -E 's/max=//')
-  err=$(echo "$out" | grep -oE "http_req_failed......: [0-9.]+%" | head -1 | grep -oE "[0-9.]+" | head -1)
+  avg=$(parse_metric_ms "avg" "$out")
+  p95=$(parse_metric_ms "p\\(95\\)" "$out")
+  p99=$(parse_metric_ms "p\\(99\\)" "$out")
+  max=$(parse_metric_ms "max" "$out")
+  err=$(printf '%s\n' "$out" | sed -nE 's/.*http_req_failed[.[:space:]]*: ([0-9.]+)%.*/\1/p' | head -1)
   echo "likes_write|scale=$max_id|${avg}|${p95}|${p99}|${max}|${err}"
 }
 
