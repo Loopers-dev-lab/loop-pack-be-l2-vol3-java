@@ -348,8 +348,8 @@ type=ref | key=idx_product_brand_like_count | rows=34,704 | Extra=Using where
 
 ### 7-5. Grafana 모니터링 (1000만 건)
 
-![P95 Response Time + RPS (10M)](images/grafana-10m-response-time-rps.png)
-![Error Rate + HikariCP + JVM Heap (10M)](images/grafana-10m-error-hikari-jvm.png)
+![P95 Response Time + RPS (10M)](../docs/images/grafana-10m-response-time-rps.png)
+![Error Rate + HikariCP + JVM Heap (10M)](../docs/images/grafana-10m-error-hikari-jvm.png)
 
 **Grafana 관측:**
 1. **P95 Response Time**: 최적화 후(초록/노랑)는 바닥에 깔려있고, no-optimization(파랑)은 ~30초로 폭등

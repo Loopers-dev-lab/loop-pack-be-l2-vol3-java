@@ -42,3 +42,4 @@ out/
 ### Claude Code ###
 *.md
 !docs/**/*.md
+!blog/**/*.md

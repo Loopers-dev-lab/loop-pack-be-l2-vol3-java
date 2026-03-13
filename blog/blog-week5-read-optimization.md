@@ -133,8 +133,8 @@ ProductCachePort (application, interface)
 
 ### Grafana 모니터링
 
-![Response Time + RPS](images/grafana-10m-l1l2-response-time-rps.png)
-![Error Rate + HikariCP + JVM](images/grafana-10m-l1l2-error-hikari-jvm.png)
+![Response Time + RPS](../docs/images/grafana-10m-l1l2-response-time-rps.png)
+![Error Rate + HikariCP + JVM](../docs/images/grafana-10m-l1l2-error-hikari-jvm.png)
 
 K6 실행 구간에서 Grafana를 통해 다음을 확인했다:
 - **P95 Response Time**: L1+L2는 바닥(~8ms), No Optimization은 3초+ 타임아웃
