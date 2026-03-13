@@ -9,12 +9,13 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.UuidGenerator;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -38,12 +39,12 @@ public class OrderModel extends BaseStringIdEntity {
     private static final int EXPIRES_MINUTES = 15;
 
     @Id
-    @UuidGenerator
-    @Column(name = "order_id", length = 36)
-    private String orderId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "order_id")
+    private Long orderId;
 
-    @Column(name = "user_id", nullable = false, length = 36)
-    private String userId;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "order_type", nullable = false, length = 20)
@@ -62,7 +63,7 @@ public class OrderModel extends BaseStringIdEntity {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
-    private OrderModel(String userId, OrderType orderType, BigDecimal totalAmount) {
+    private OrderModel(Long userId, OrderType orderType, BigDecimal totalAmount) {
         validateUserId(userId);
         this.userId = userId;
         this.orderType = orderType;
@@ -81,7 +82,7 @@ public class OrderModel extends BaseStringIdEntity {
      * @return 생성된 OrderModel 인스턴스
      * @throws CoreException userId가 null/blank인 경우 (BAD_REQUEST)
      */
-    public static OrderModel create(String userId, OrderType orderType, BigDecimal totalAmount) {
+    public static OrderModel create(Long userId, OrderType orderType, BigDecimal totalAmount) {
         return new OrderModel(userId, orderType, totalAmount);
     }
 
@@ -143,8 +144,8 @@ public class OrderModel extends BaseStringIdEntity {
         validateUserId(this.userId);
     }
 
-    private static void validateUserId(String userId) {
-        if (userId == null || userId.isBlank()) {
+    private static void validateUserId(Long userId) {
+        if (userId == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "사용자 ID는 필수입니다.");
         }
     }

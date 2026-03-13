@@ -2,9 +2,12 @@ package com.loopers.infrastructure.product;
 
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.support.page.PageQuery;
+import com.loopers.support.page.PagedResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -41,8 +44,13 @@ public class ProductRepositoryImpl implements ProductRepository {
      * @return 상품 (Optional)
      */
     @Override
-    public Optional<ProductModel> findById(String productId) {
+    public Optional<ProductModel> findById(Long productId) {
         return jpaRepository.findById(productId);
+    }
+
+    @Override
+    public Optional<ProductModel> findByIdWithLock(Long productId) {
+        return jpaRepository.findByIdWithLock(productId);
     }
 
     /**
@@ -76,7 +84,7 @@ public class ProductRepositoryImpl implements ProductRepository {
      * @return 조건에 부합하는 상품 목록
      */
     @Override
-    public List<ProductModel> findAllForCustomer(String keyword, String brandId) {
+    public List<ProductModel> findAllForCustomer(String keyword, Long brandId) {
         return jpaRepository.findAllForCustomer(keyword, brandId);
     }
 
@@ -87,7 +95,7 @@ public class ProductRepositoryImpl implements ProductRepository {
      * @return 해당 브랜드의 상품 목록
      */
     @Override
-    public List<ProductModel> findAllByBrandId(String brandId) {
+    public List<ProductModel> findAllByBrandId(Long brandId) {
         return jpaRepository.findAllByBrandId(brandId);
     }
 
@@ -98,12 +106,29 @@ public class ProductRepositoryImpl implements ProductRepository {
      * @return 해당 상품 목록
      */
     @Override
-    public List<ProductModel> findAllByProductIds(Collection<String> productIds) {
+    public List<ProductModel> findAllByProductIds(Collection<Long> productIds) {
         return jpaRepository.findAllById(productIds);
     }
 
     @Override
-    public Page<ProductModel> findAllForCustomer(String keyword, String brandId, Pageable pageable) {
-        return jpaRepository.findAllForCustomerPaged(keyword, brandId, pageable);
+    public PagedResult<ProductModel> findAllForCustomer(String keyword, Long brandId, PageQuery query) {
+        Sort sort = query.ascending()
+                ? Sort.by(Sort.Direction.ASC, query.sortField())
+                : Sort.by(Sort.Direction.DESC, query.sortField());
+        Page<ProductModel> page = jpaRepository.findAllForCustomerPaged(
+                keyword, brandId, PageRequest.of(query.page(), query.size(), sort));
+        return new PagedResult<>(page.getContent(), page.getNumber(), page.getSize(),
+                page.getTotalElements(), page.getTotalPages());
     }
+
+    @Override
+    public void incrementLikeCount(Long productId) {
+        jpaRepository.incrementLikeCount(productId);
+    }
+
+    @Override
+    public void decrementLikeCount(Long productId) {
+        jpaRepository.decrementLikeCount(productId);
+    }
+
 }

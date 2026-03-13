@@ -22,7 +22,7 @@ public interface UserRepository {
      * @param userId 사용자 UUID
      * @return 사용자 (Optional)
      */
-    Optional<UserModel> findByUserId(String userId);
+    Optional<UserModel> findByUserId(Long userId);
 
     /**
      * 로그인 ID로 사용자를 조회한다.

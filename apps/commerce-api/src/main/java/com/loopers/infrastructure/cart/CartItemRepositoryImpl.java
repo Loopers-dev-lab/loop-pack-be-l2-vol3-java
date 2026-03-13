@@ -60,7 +60,7 @@ public class CartItemRepositoryImpl implements CartItemRepository {
      * @return 해당 사용자의 장바구니 항목 목록
      */
     @Override
-    public List<CartItemModel> findAllByUserId(String userId) {
+    public List<CartItemModel> findAllByUserId(Long userId) {
         return jpaRepository.findAllByUserId(userId);
     }
 }

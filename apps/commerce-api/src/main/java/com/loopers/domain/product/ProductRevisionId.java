@@ -20,6 +20,6 @@ import java.io.Serializable;
 @AllArgsConstructor
 @EqualsAndHashCode
 public class ProductRevisionId implements Serializable {
-    private String productId;
+    private Long productId;
     private Long revisionSeq;
 }

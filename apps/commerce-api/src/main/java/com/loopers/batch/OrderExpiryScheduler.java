@@ -28,13 +28,13 @@ public class OrderExpiryScheduler {
      */
     @Scheduled(fixedDelay = 60000)
     public void expireOrders() {
-        List<String> expiredOrderIds = orderService.findExpiredPendingOrderIds();
+        List<Long> expiredOrderIds = orderService.findExpiredPendingOrderIds();
         if (expiredOrderIds.isEmpty()) {
             return;
         }
         log.info("만료 대상 주문 {}건 처리 시작", expiredOrderIds.size());
         int successCount = 0;
-        for (String orderId : expiredOrderIds) {
+        for (Long orderId : expiredOrderIds) {
             try {
                 orderFacade.expireOrder(orderId);
                 successCount++;

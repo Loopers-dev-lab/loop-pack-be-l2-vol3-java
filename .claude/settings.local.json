@@ -1,7 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(./gradlew :apps:commerce-api:test:*)",
+      "Bash(./gradlew:*)",
+      "Bash(find /mnt/c/Users/kdj10/Git/loop-pack-be-l2-vol3-java -name \"CacheConfig.java\" -o -name \"*CacheConfig*\" 2>/dev/null | head -20)",
+      "Bash(JAVA_HOME=\"/mnt/c/Users/kdj10/.jdks/ms-21.0.10\" ./gradlew :apps:commerce-api:compileJava 2>&1 | tail -30)",
+      "Bash(ls \"/mnt/c/Users/kdj10/.jdks/ms-21.0.10/bin/\" | head -5; \"/mnt/c/Users/kdj10/.jdks/ms-21.0.10/bin/java\" -version 2>&1 | head -3)",
+      "Read(//home/ubuntu/projects/loop-pack-be-l2-vol3-java/**)",
+      "Bash(sg docker:*)",
+      "Bash(cd ~/projects/loop-pack-be-l2-vol3-java && sg docker -c \"./gradlew :apps:commerce-api:test --tests 'com.loopers.domain.brand.BrandServiceTest'\" 2>&1 | grep -A5 \"FAILED\")",
+      "Bash(cd ~/projects/loop-pack-be-l2-vol3-java && sg docker -c \"./gradlew :apps:commerce-api:test --tests 'com.loopers.domain.*'\" 2>&1 | grep \"FAILED\\\\|tests completed\" | tail -5)",
+      "Bash(cd ~/projects/loop-pack-be-l2-vol3-java && sg docker -c \"./gradlew :apps:commerce-api:test --tests 'com.loopers.domain.coupon.CouponModelTest'\" 2>&1 | grep -A3 \"FAILED\")",
+      "Bash(cd ~/projects/loop-pack-be-l2-vol3-java && sg docker -c \"./gradlew :apps:commerce-api:test --tests 'com.loopers.domain.order.OrderCartRestoreIdempotencyTest'\" 2>&1 | grep -A3 \"FAILED\")",
+      "Bash(cd ~/projects/loop-pack-be-l2-vol3-java && sg docker -c \"./gradlew :apps:commerce-api:test --tests 'com.loopers.infrastructure.*'\" 2>&1 | grep \"FAILED\\\\|tests completed\" | tail -5)"
     ]
   },
   "hooks": {

@@ -14,6 +14,9 @@ dependencies {
     // security (for password encoding)
     implementation("org.springframework.security:spring-security-crypto")
 
+    // L1 cache (Caffeine)
+    implementation("com.github.ben-manes.caffeine:caffeine")
+
     // querydsl
     annotationProcessor("com.querydsl:querydsl-apt::jakarta")
     annotationProcessor("jakarta.persistence:jakarta.persistence-api")

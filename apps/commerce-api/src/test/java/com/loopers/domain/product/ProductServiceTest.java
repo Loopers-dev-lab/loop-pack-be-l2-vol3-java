@@ -49,7 +49,7 @@ class ProductServiceTest {
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
             ProductModel result = productService.createProduct(
-                    "테스트상품", "brand-id", BigDecimal.valueOf(10000), "설명");
+                    "테스트상품", 1L, BigDecimal.valueOf(10000), "설명");
 
             assertThat(result.getProductName()).isEqualTo("테스트상품");
             assertThat(result.getPrice()).isEqualByComparingTo(BigDecimal.valueOf(10000));
@@ -65,7 +65,7 @@ class ProductServiceTest {
             when(revisionRepository.save(any(ProductRevisionModel.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            productService.createProduct("상품", "brand-id", BigDecimal.valueOf(5000), "설명");
+            productService.createProduct("상품", 1L, BigDecimal.valueOf(5000), "설명");
 
             ArgumentCaptor<ProductRevisionModel> captor = ArgumentCaptor.forClass(ProductRevisionModel.class);
             verify(revisionRepository).save(captor.capture());
@@ -86,9 +86,9 @@ class ProductServiceTest {
         @DisplayName("존재하는 ID로 조회하면 ProductModel을 반환한다")
         void findById_Existing_ShouldReturn() {
             ProductModel product = createTestProduct();
-            when(productRepository.findById("product-id")).thenReturn(Optional.of(product));
+            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
-            ProductModel result = productService.findById("product-id");
+            ProductModel result = productService.findById(1L);
 
             assertThat(result.getProductName()).isEqualTo("테스트상품");
         }
@@ -96,9 +96,9 @@ class ProductServiceTest {
         @Test
         @DisplayName("존재하지 않는 ID 조회 시 PRODUCT_NOT_FOUND 예외가 발생한다")
         void findById_NotFound_ShouldThrow() {
-            when(productRepository.findById("nonexistent")).thenReturn(Optional.empty());
+            when(productRepository.findById(999L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> productService.findById("nonexistent"))
+            assertThatThrownBy(() -> productService.findById(999L))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
@@ -109,9 +109,9 @@ class ProductServiceTest {
         void findOrderableById_WhenNotOrderable_ShouldThrow() {
             ProductModel product = createTestProduct();
             product.changeSaleStatus(ProductSaleStatus.STOPPED);
-            when(productRepository.findById("product-id")).thenReturn(Optional.of(product));
+            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
-            assertThatThrownBy(() -> productService.findOrderableById("product-id"))
+            assertThatThrownBy(() -> productService.findOrderableById(1L))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.PRODUCT_NOT_ORDERABLE));
@@ -144,12 +144,12 @@ class ProductServiceTest {
         @Test
         @DisplayName("brandId 필터가 올바르게 동작한다")
         void findAllForCustomer_WithBrandId_ShouldFilter() {
-            when(productRepository.findAllForCustomer(null, "brand-id"))
+            when(productRepository.findAllForCustomer(null, 1L))
                     .thenReturn(List.of());
 
-            productService.findAllForCustomer(null, "brand-id");
+            productService.findAllForCustomer(null, 1L);
 
-            verify(productRepository).findAllForCustomer(null, "brand-id");
+            verify(productRepository).findAllForCustomer(null, 1L);
         }
     }
 
@@ -163,12 +163,12 @@ class ProductServiceTest {
         @DisplayName("수정 후 UPDATE 이력이 기록되고 before/after 스냅샷이 포함된다")
         void updateProduct_ShouldUpdateAndCreateRevision() {
             ProductModel product = createTestProduct();
-            when(productRepository.findById("product-id")).thenReturn(Optional.of(product));
+            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
             when(revisionRepository.save(any(ProductRevisionModel.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
             ProductModel result = productService.updateProduct(
-                    "product-id", "새상품명", BigDecimal.valueOf(20000), "새설명", "new-image.jpg");
+                    1L, "새상품명", BigDecimal.valueOf(20000), "새설명", "new-image.jpg");
 
             assertThat(result.getProductName()).isEqualTo("새상품명");
             assertThat(result.getPrice()).isEqualByComparingTo(BigDecimal.valueOf(20000));
@@ -186,12 +186,12 @@ class ProductServiceTest {
         void updateProduct_ShouldIncrementRevisionSeq() {
             ProductModel product = createTestProduct();
             assertThat(product.getRevisionSeq()).isEqualTo(0L);
-            when(productRepository.findById("product-id")).thenReturn(Optional.of(product));
+            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
             when(revisionRepository.save(any(ProductRevisionModel.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
             productService.updateProduct(
-                    "product-id", "새상품명", BigDecimal.valueOf(20000), "새설명", null);
+                    1L, "새상품명", BigDecimal.valueOf(20000), "새설명", null);
 
             assertThat(product.getRevisionSeq()).isEqualTo(1L);
         }
@@ -200,14 +200,14 @@ class ProductServiceTest {
         @DisplayName("brandId는 수정 시 변경되지 않는다")
         void updateProduct_BrandId_ShouldNotBeChangeable() {
             ProductModel product = createTestProduct();
-            when(productRepository.findById("product-id")).thenReturn(Optional.of(product));
+            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
             when(revisionRepository.save(any(ProductRevisionModel.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
             productService.updateProduct(
-                    "product-id", "새상품명", BigDecimal.valueOf(20000), "새설명", null);
+                    1L, "새상품명", BigDecimal.valueOf(20000), "새설명", null);
 
-            assertThat(product.getBrandId()).isEqualTo("brand-id");
+            assertThat(product.getBrandId()).isEqualTo(1L);
         }
     }
 
@@ -221,11 +221,11 @@ class ProductServiceTest {
         @DisplayName("소프트 삭제 후 DELETE 이력이 기록된다")
         void deleteProduct_ShouldSoftDeleteAndCreateRevision() {
             ProductModel product = createTestProduct();
-            when(productRepository.findById("product-id")).thenReturn(Optional.of(product));
+            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
             when(revisionRepository.save(any(ProductRevisionModel.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            productService.deleteProduct("product-id");
+            productService.deleteProduct(1L);
 
             assertThat(product.isDeleted()).isTrue();
             ArgumentCaptor<ProductRevisionModel> captor = ArgumentCaptor.forClass(ProductRevisionModel.class);
@@ -238,9 +238,9 @@ class ProductServiceTest {
         void deleteProduct_AlreadyDeleted_ShouldBeIdempotent() {
             ProductModel product = createTestProduct();
             product.softDelete();
-            when(productRepository.findById("product-id")).thenReturn(Optional.of(product));
+            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
-            assertThatCode(() -> productService.deleteProduct("product-id"))
+            assertThatCode(() -> productService.deleteProduct(1L))
                     .doesNotThrowAnyException();
             verify(revisionRepository, never()).save(any());
         }
@@ -258,12 +258,12 @@ class ProductServiceTest {
             ProductModel p1 = createTestProduct();
             ProductModel p2 = createTestProduct();
             ProductModel p3 = createTestProduct();
-            when(productRepository.findAllByBrandId("brand-id"))
+            when(productRepository.findAllByBrandId(1L))
                     .thenReturn(List.of(p1, p2, p3));
             when(revisionRepository.save(any(ProductRevisionModel.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            productService.softDeleteByBrandId("brand-id");
+            productService.softDeleteByBrandId(1L);
 
             assertThat(p1.isDeleted()).isTrue();
             assertThat(p2.isDeleted()).isTrue();
@@ -274,9 +274,9 @@ class ProductServiceTest {
         @Test
         @DisplayName("소속 상품이 없으면 에러 없이 통과한다")
         void softDeleteByBrandId_WhenNoProducts_ShouldBeNoop() {
-            when(productRepository.findAllByBrandId("brand-id")).thenReturn(List.of());
+            when(productRepository.findAllByBrandId(1L)).thenReturn(List.of());
 
-            assertThatCode(() -> productService.softDeleteByBrandId("brand-id"))
+            assertThatCode(() -> productService.softDeleteByBrandId(1L))
                     .doesNotThrowAnyException();
             verify(revisionRepository, never()).save(any());
         }
@@ -292,11 +292,11 @@ class ProductServiceTest {
         @DisplayName("판매 상태 변경 시 SALE_STATUS_CHANGE 이력이 기록된다")
         void changeSaleStatus_ShouldCreateRevision() {
             ProductModel product = createTestProduct();
-            when(productRepository.findById("product-id")).thenReturn(Optional.of(product));
+            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
             when(revisionRepository.save(any(ProductRevisionModel.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            productService.changeSaleStatus("product-id", ProductSaleStatus.TEMP_SOLD_OUT);
+            productService.changeSaleStatus(1L, ProductSaleStatus.TEMP_SOLD_OUT);
 
             assertThat(product.getSaleStatus()).isEqualTo(ProductSaleStatus.TEMP_SOLD_OUT);
             ArgumentCaptor<ProductRevisionModel> captor = ArgumentCaptor.forClass(ProductRevisionModel.class);
@@ -308,10 +308,10 @@ class ProductServiceTest {
         @DisplayName("이력 목록 조회가 올바르게 동작한다")
         void findRevisionsByProductId_ShouldReturnList() {
             ProductRevisionModel rev = ProductRevisionModel.create(
-                    "product-id", 0L, ProductRevisionAction.CREATE, null, null, null, "{}");
-            when(revisionRepository.findAllByProductId("product-id")).thenReturn(List.of(rev));
+                    1L, 0L, ProductRevisionAction.CREATE, null, null, null, "{}");
+            when(revisionRepository.findAllByProductId(1L)).thenReturn(List.of(rev));
 
-            List<ProductRevisionModel> result = productService.findRevisionsByProductId("product-id");
+            List<ProductRevisionModel> result = productService.findRevisionsByProductId(1L);
 
             assertThat(result).hasSize(1);
         }
@@ -319,12 +319,12 @@ class ProductServiceTest {
         @Test
         @DisplayName("특정 이력 상세 조회가 올바르게 동작한다")
         void findRevisionById_Existing_ShouldReturn() {
-            ProductRevisionId id = new ProductRevisionId("product-id", 0L);
+            ProductRevisionId id = new ProductRevisionId(1L, 0L);
             ProductRevisionModel rev = ProductRevisionModel.create(
-                    "product-id", 0L, ProductRevisionAction.CREATE, null, null, null, "{}");
+                    1L, 0L, ProductRevisionAction.CREATE, null, null, null, "{}");
             when(revisionRepository.findById(id)).thenReturn(Optional.of(rev));
 
-            ProductRevisionModel result = productService.findRevisionById("product-id", 0L);
+            ProductRevisionModel result = productService.findRevisionById(1L, 0L);
 
             assertThat(result.getAction()).isEqualTo(ProductRevisionAction.CREATE);
         }
@@ -333,7 +333,7 @@ class ProductServiceTest {
     // === Helper ===
 
     private ProductModel createTestProduct() {
-        return ProductModel.create("테스트상품", "brand-id", BigDecimal.valueOf(10000),
+        return ProductModel.create("테스트상품", 1L, BigDecimal.valueOf(10000),
                 "설명", null, null, null, null, null, null);
     }
 }

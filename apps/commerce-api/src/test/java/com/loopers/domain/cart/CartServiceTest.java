@@ -36,12 +36,12 @@ class CartServiceTest {
         @Test
         @DisplayName("새 상품을 장바구니에 등록하면 save가 호출된다")
         void addItem_NewItem_ShouldCreate() {
-            when(cartItemRepository.findById(new CartItemId("user-1", "product-1")))
+            when(cartItemRepository.findById(new CartItemId(1L, 1L)))
                     .thenReturn(Optional.empty());
             when(cartItemRepository.save(any(CartItemModel.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            cartService.addItem("user-1", "product-1", 3);
+            cartService.addItem(1L, 1L, 3);
 
             verify(cartItemRepository).save(any(CartItemModel.class));
         }
@@ -49,11 +49,11 @@ class CartServiceTest {
         @Test
         @DisplayName("이미 있는 상품 재등록 시 수량이 병합된다")
         void addItem_ExistingItem_ShouldMergeQuantity() {
-            CartItemModel existing = CartItemModel.create("user-1", "product-1", 2);
-            when(cartItemRepository.findById(new CartItemId("user-1", "product-1")))
+            CartItemModel existing = CartItemModel.create(1L, 1L, 2);
+            when(cartItemRepository.findById(new CartItemId(1L, 1L)))
                     .thenReturn(Optional.of(existing));
 
-            cartService.addItem("user-1", "product-1", 3);
+            cartService.addItem(1L, 1L, 3);
 
             assertThat(existing.getQuantity()).isEqualTo(5);
             verify(cartItemRepository, never()).save(any());
@@ -69,11 +69,11 @@ class CartServiceTest {
         @Test
         @DisplayName("정상적으로 수량이 변경된다")
         void changeQuantity_ShouldUpdate() {
-            CartItemModel item = CartItemModel.create("user-1", "product-1", 2);
-            when(cartItemRepository.findById(new CartItemId("user-1", "product-1")))
+            CartItemModel item = CartItemModel.create(1L, 1L, 2);
+            when(cartItemRepository.findById(new CartItemId(1L, 1L)))
                     .thenReturn(Optional.of(item));
 
-            cartService.changeQuantity("user-1", "product-1", 5);
+            cartService.changeQuantity(1L, 1L, 5);
 
             assertThat(item.getQuantity()).isEqualTo(5);
         }
@@ -81,10 +81,10 @@ class CartServiceTest {
         @Test
         @DisplayName("존재하지 않는 항목 수량 변경 시 CART_ITEM_NOT_FOUND 예외가 발생한다")
         void changeQuantity_NonExistingItem_ShouldThrow() {
-            when(cartItemRepository.findById(new CartItemId("user-1", "product-1")))
+            when(cartItemRepository.findById(new CartItemId(1L, 1L)))
                     .thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> cartService.changeQuantity("user-1", "product-1", 5))
+            assertThatThrownBy(() -> cartService.changeQuantity(1L, 1L, 5))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.CART_ITEM_NOT_FOUND));
@@ -100,11 +100,11 @@ class CartServiceTest {
         @Test
         @DisplayName("정상 삭제 시 delete가 호출된다")
         void removeItem_ShouldDelete() {
-            CartItemModel item = CartItemModel.create("user-1", "product-1", 3);
-            when(cartItemRepository.findById(new CartItemId("user-1", "product-1")))
+            CartItemModel item = CartItemModel.create(1L, 1L, 3);
+            when(cartItemRepository.findById(new CartItemId(1L, 1L)))
                     .thenReturn(Optional.of(item));
 
-            cartService.removeItem("user-1", "product-1");
+            cartService.removeItem(1L, 1L);
 
             verify(cartItemRepository).delete(item);
         }
@@ -112,10 +112,10 @@ class CartServiceTest {
         @Test
         @DisplayName("존재하지 않는 항목 삭제 시 에러 없이 통과한다 (멱등)")
         void removeItem_NonExisting_ShouldBeIdempotent() {
-            when(cartItemRepository.findById(new CartItemId("user-1", "product-1")))
+            when(cartItemRepository.findById(new CartItemId(1L, 1L)))
                     .thenReturn(Optional.empty());
 
-            assertThatCode(() -> cartService.removeItem("user-1", "product-1"))
+            assertThatCode(() -> cartService.removeItem(1L, 1L))
                     .doesNotThrowAnyException();
             verify(cartItemRepository, never()).delete(any());
         }
@@ -130,13 +130,13 @@ class CartServiceTest {
         @Test
         @DisplayName("사용자의 장바구니 항목 목록을 반환한다")
         void getCartItems_ShouldReturnItemList() {
-            CartItemModel item = CartItemModel.create("user-1", "product-1", 2);
-            when(cartItemRepository.findAllByUserId("user-1")).thenReturn(List.of(item));
+            CartItemModel item = CartItemModel.create(1L, 1L, 2);
+            when(cartItemRepository.findAllByUserId(1L)).thenReturn(List.of(item));
 
-            List<CartItemModel> result = cartService.getCartItems("user-1");
+            List<CartItemModel> result = cartService.getCartItems(1L);
 
             assertThat(result).hasSize(1);
-            assertThat(result.get(0).getProductId()).isEqualTo("product-1");
+            assertThat(result.get(0).getProductId()).isEqualTo(1L);
         }
     }
 
@@ -149,13 +149,13 @@ class CartServiceTest {
         @Test
         @DisplayName("주문 취소 시 주문 항목이 장바구니에 복원된다")
         void restoreFromOrder_ShouldCreateCartItems() {
-            when(cartItemRepository.findById(new CartItemId("user-1", "product-1")))
+            when(cartItemRepository.findById(new CartItemId(1L, 1L)))
                     .thenReturn(Optional.empty());
             when(cartItemRepository.save(any(CartItemModel.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            cartService.restoreFromOrder("user-1",
-                    List.of(new CartService.RestoreItem("product-1", 3)));
+            cartService.restoreFromOrder(1L,
+                    List.of(new CartService.RestoreItem(1L, 3)));
 
             verify(cartItemRepository).save(any(CartItemModel.class));
         }
@@ -163,12 +163,12 @@ class CartServiceTest {
         @Test
         @DisplayName("기존 장바구니에 동일 상품이 있으면 수량이 병합된다")
         void restoreFromOrder_ExistingItem_ShouldMergeQuantity() {
-            CartItemModel existing = CartItemModel.create("user-1", "product-1", 2);
-            when(cartItemRepository.findById(new CartItemId("user-1", "product-1")))
+            CartItemModel existing = CartItemModel.create(1L, 1L, 2);
+            when(cartItemRepository.findById(new CartItemId(1L, 1L)))
                     .thenReturn(Optional.of(existing));
 
-            cartService.restoreFromOrder("user-1",
-                    List.of(new CartService.RestoreItem("product-1", 3)));
+            cartService.restoreFromOrder(1L,
+                    List.of(new CartService.RestoreItem(1L, 3)));
 
             assertThat(existing.getQuantity()).isEqualTo(5);
             verify(cartItemRepository, never()).save(any());

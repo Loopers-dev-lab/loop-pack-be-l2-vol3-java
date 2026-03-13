@@ -31,11 +31,11 @@ class StockConcurrencyTest {
     @Autowired
     DatabaseCleanUp databaseCleanUp;
 
-    private String productId;
+    private Long productId;
 
     @BeforeEach
     void setUp() {
-        ProductStockModel stock = stockService.createStock("concurrency-test-product", 10);
+        ProductStockModel stock = stockService.createStock(1L, 10);
         productId = stock.getProductId();
     }
 

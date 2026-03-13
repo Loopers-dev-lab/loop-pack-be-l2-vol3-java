@@ -27,5 +27,5 @@ public interface OrderCartRestoreRepository {
      * @param orderId 주문 ID
      * @return 존재 여부
      */
-    boolean existsById(String orderId);
+    boolean existsById(Long orderId);
 }

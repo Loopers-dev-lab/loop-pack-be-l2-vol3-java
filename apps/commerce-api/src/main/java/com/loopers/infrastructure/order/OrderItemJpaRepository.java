@@ -22,7 +22,7 @@ public interface OrderItemJpaRepository extends JpaRepository<OrderItemModel, Or
      * @param orderId 주문 ID
      * @return 해당 주문의 주문 항목 목록
      */
-    List<OrderItemModel> findAllByOrderId(String orderId);
+    List<OrderItemModel> findAllByOrderId(Long orderId);
 
     /**
      * 여러 주문 ID에 해당하는 주문 항목을 일괄 조회한다.
@@ -30,5 +30,5 @@ public interface OrderItemJpaRepository extends JpaRepository<OrderItemModel, Or
      * @param orderIds 주문 ID 목록
      * @return 해당 주문들의 주문 항목 목록
      */
-    List<OrderItemModel> findAllByOrderIdIn(List<String> orderIds);
+    List<OrderItemModel> findAllByOrderIdIn(List<Long> orderIds);
 }

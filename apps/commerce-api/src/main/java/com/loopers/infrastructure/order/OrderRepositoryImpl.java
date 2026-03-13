@@ -40,7 +40,7 @@ public class OrderRepositoryImpl implements OrderRepository {
      * @return 주문 (Optional)
      */
     @Override
-    public Optional<OrderModel> findById(String orderId) {
+    public Optional<OrderModel> findById(Long orderId) {
         return jpaRepository.findById(orderId);
     }
 
@@ -52,7 +52,7 @@ public class OrderRepositoryImpl implements OrderRepository {
      * @return 주문 (Optional)
      */
     @Override
-    public Optional<OrderModel> findByIdAndUserId(String orderId, String userId) {
+    public Optional<OrderModel> findByIdAndUserId(Long orderId, Long userId) {
         return jpaRepository.findByOrderIdAndUserId(orderId, userId);
     }
 
@@ -65,7 +65,7 @@ public class OrderRepositoryImpl implements OrderRepository {
      * @return 기간 내 해당 사용자의 주문 목록
      */
     @Override
-    public List<OrderModel> findAllByUserIdAndPeriod(String userId, LocalDateTime start, LocalDateTime end) {
+    public List<OrderModel> findAllByUserIdAndPeriod(Long userId, LocalDateTime start, LocalDateTime end) {
         return jpaRepository.findAllByUserIdAndPeriod(userId, start, end);
     }
 
@@ -93,7 +93,7 @@ public class OrderRepositoryImpl implements OrderRepository {
      * @return 변경된 행 수 (0이면 상태 전이 실패)
      */
     @Override
-    public int casUpdateStatus(String orderId, OrderStatus from, OrderStatus to) {
+    public int casUpdateStatus(Long orderId, OrderStatus from, OrderStatus to) {
         return jpaRepository.casUpdateStatus(orderId, from, to);
     }
 
@@ -105,7 +105,7 @@ public class OrderRepositoryImpl implements OrderRepository {
      * @return 조건에 해당하는 주문 건수
      */
     @Override
-    public long countByUserIdAndStatus(String userId, OrderStatus status) {
+    public long countByUserIdAndStatus(Long userId, OrderStatus status) {
         return jpaRepository.countByUserIdAndStatus(userId, status);
     }
 

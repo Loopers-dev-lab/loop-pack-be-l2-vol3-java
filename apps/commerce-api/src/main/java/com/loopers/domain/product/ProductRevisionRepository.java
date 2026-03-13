@@ -26,7 +26,7 @@ public interface ProductRevisionRepository {
      * @param productId 상품 ID
      * @return 해당 상품의 변경 이력 목록
      */
-    List<ProductRevisionModel> findAllByProductId(String productId);
+    List<ProductRevisionModel> findAllByProductId(Long productId);
 
     /**
      * 복합 PK(productId + revisionSeq)로 변경 이력을 조회한다.

@@ -3,7 +3,6 @@ package com.loopers.interfaces.api.cart;
 import com.loopers.application.cart.CartInfo;
 import com.loopers.support.enums.UnavailableReason;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -28,8 +27,7 @@ public class CartV1Dto {
     @AllArgsConstructor
     @Builder
     public static class AddItemRequest {
-        @NotBlank(message = "상품 ID는 필수입니다")
-        private String productId;
+        private Long productId;
         @Min(value = 1, message = "수량은 1 이상이어야 합니다")
         private int quantity;
     }
@@ -57,7 +55,7 @@ public class CartV1Dto {
     @AllArgsConstructor
     @Builder
     public static class CartItemResponse {
-        private String productId;
+        private Long productId;
         private String productName;
         private BigDecimal price;
         private String brandName;

@@ -1,7 +1,7 @@
 package com.loopers.interfaces.apiadmin;
 
 import com.loopers.application.product.ProductInfo;
-import com.loopers.application.product.ProductRevisionInfo;
+import com.loopers.domain.product.ProductRevisionModel;
 import com.loopers.support.enums.DisplayStatus;
 import com.loopers.support.enums.ProductRevisionAction;
 import com.loopers.support.enums.ProductSaleStatus;
@@ -33,8 +33,7 @@ public class AdminProductV1Dto {
     public static class CreateProductRequest {
         @NotBlank(message = "상품 이름은 필수입니다")
         private String productName;
-        @NotBlank(message = "브랜드 ID는 필수입니다")
-        private String brandId;
+        private Long brandId;
         @Positive(message = "가격은 0보다 커야 합니다")
         private BigDecimal price;
         private String description;
@@ -70,8 +69,8 @@ public class AdminProductV1Dto {
     @AllArgsConstructor
     @Builder
     public static class AdminProductResponse {
-        private String productId;
-        private String brandId;
+        private Long productId;
+        private Long brandId;
         private String productName;
         private String description;
         private BigDecimal price;
@@ -111,7 +110,7 @@ public class AdminProductV1Dto {
     @AllArgsConstructor
     @Builder
     public static class RevisionResponse {
-        private String productId;
+        private Long productId;
         private Long revisionSeq;
         private ProductRevisionAction action;
         private String changedBy;
@@ -121,21 +120,21 @@ public class AdminProductV1Dto {
         private LocalDateTime createdAt;
 
         /**
-         * {@link ProductRevisionInfo}를 상품 변경 이력 응답 DTO로 변환하는 정적 팩토리 메서드.
+         * {@link ProductRevisionModel}을 상품 변경 이력 응답 DTO로 변환하는 정적 팩토리 메서드.
          *
-         * @param info 상품 변경 이력 정보 DTO
+         * @param model 상품 변경 이력 도메인 모델
          * @return 변환된 상품 변경 이력 응답 DTO
          */
-        public static RevisionResponse from(ProductRevisionInfo info) {
+        public static RevisionResponse from(ProductRevisionModel model) {
             return RevisionResponse.builder()
-                    .productId(info.getProductId())
-                    .revisionSeq(info.getRevisionSeq())
-                    .action(info.getAction())
-                    .changedBy(info.getChangedBy())
-                    .changeReason(info.getChangeReason())
-                    .beforeSnapshot(info.getBeforeSnapshot())
-                    .afterSnapshot(info.getAfterSnapshot())
-                    .createdAt(info.getCreatedAt())
+                    .productId(model.getProductId())
+                    .revisionSeq(model.getRevisionSeq())
+                    .action(model.getAction())
+                    .changedBy(model.getChangedBy())
+                    .changeReason(model.getChangeReason())
+                    .beforeSnapshot(model.getBeforeSnapshot())
+                    .afterSnapshot(model.getAfterSnapshot())
+                    .createdAt(model.getCreatedAt())
                     .build();
         }
     }

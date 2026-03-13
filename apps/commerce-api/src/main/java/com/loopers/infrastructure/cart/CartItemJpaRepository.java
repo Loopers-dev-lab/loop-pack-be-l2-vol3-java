@@ -22,5 +22,5 @@ public interface CartItemJpaRepository extends JpaRepository<CartItemModel, Cart
      * @param userId 사용자 ID
      * @return 해당 사용자의 장바구니 항목 목록
      */
-    List<CartItemModel> findAllByUserId(String userId);
+    List<CartItemModel> findAllByUserId(Long userId);
 }

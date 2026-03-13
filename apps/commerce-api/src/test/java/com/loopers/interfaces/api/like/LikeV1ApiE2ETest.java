@@ -49,7 +49,7 @@ class LikeV1ApiE2ETest {
 
     private static final String LOGIN_ID = "likeuser01";
     private static final String LOGIN_PW = "Test1234!@#";
-    private String productId;
+    private Long productId;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -98,7 +98,7 @@ class LikeV1ApiE2ETest {
         @Test
         @DisplayName("없는 상품에 좋아요 시 404 반환")
         void POST_addLike_ProductNotFound_ShouldReturn404() throws Exception {
-            mockMvc.perform(post("/api/v1/products/{productId}/likes", "nonexistent-product-id")
+            mockMvc.perform(post("/api/v1/products/{productId}/likes", 999L)
                             .header("X-Loopers-LoginId", LOGIN_ID)
                             .header("X-Loopers-LoginPw", LOGIN_PW))
                     .andExpect(status().isNotFound())

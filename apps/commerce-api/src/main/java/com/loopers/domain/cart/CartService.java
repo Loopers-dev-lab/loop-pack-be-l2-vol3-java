@@ -28,7 +28,7 @@ public class CartService {
      * @param productId 상품 ID
      * @param quantity  복원할 수량
      */
-    public record RestoreItem(String productId, int quantity) {
+    public record RestoreItem(Long productId, int quantity) {
     }
 
     private final CartItemRepository cartItemRepository;
@@ -45,7 +45,7 @@ public class CartService {
      * @param qty       추가할 수량
      */
     @Transactional
-    public void addItem(String userId, String productId, int qty) {
+    public void addItem(Long userId, Long productId, int qty) {
         CartItemId cartItemId = new CartItemId(userId, productId);
         cartItemRepository.findById(cartItemId).ifPresentOrElse(
                 existingItem -> existingItem.mergeQuantity(qty),
@@ -62,7 +62,7 @@ public class CartService {
      * @throws CoreException 장바구니 항목이 존재하지 않을 때 (CART_ITEM_NOT_FOUND)
      */
     @Transactional
-    public void changeQuantity(String userId, String productId, int newQty) {
+    public void changeQuantity(Long userId, Long productId, int newQty) {
         CartItemId cartItemId = new CartItemId(userId, productId);
         CartItemModel item = cartItemRepository.findById(cartItemId)
                 .orElseThrow(() -> new CoreException(ErrorType.CART_ITEM_NOT_FOUND));
@@ -76,7 +76,7 @@ public class CartService {
      * @param productId 상품 ID
      */
     @Transactional
-    public void removeItem(String userId, String productId) {
+    public void removeItem(Long userId, Long productId) {
         CartItemId cartItemId = new CartItemId(userId, productId);
         cartItemRepository.findById(cartItemId).ifPresent(cartItemRepository::delete);
     }
@@ -90,7 +90,7 @@ public class CartService {
      * @param userId 사용자 ID
      * @return 장바구니 항목 엔티티 목록
      */
-    public List<CartItemModel> getCartItems(String userId) {
+    public List<CartItemModel> getCartItems(Long userId) {
         return cartItemRepository.findAllByUserId(userId);
     }
 
@@ -104,7 +104,7 @@ public class CartService {
      * @param items  복원할 항목 목록 (상품 ID + 수량)
      */
     @Transactional
-    public void restoreFromOrder(String userId, List<RestoreItem> items) {
+    public void restoreFromOrder(Long userId, List<RestoreItem> items) {
         for (RestoreItem item : items) {
             CartItemId cartItemId = new CartItemId(userId, item.productId());
             cartItemRepository.findById(cartItemId).ifPresentOrElse(

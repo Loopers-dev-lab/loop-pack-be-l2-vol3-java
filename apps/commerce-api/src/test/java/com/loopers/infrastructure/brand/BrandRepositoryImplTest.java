@@ -24,14 +24,14 @@ class BrandRepositoryImplTest {
     BrandRepositoryImpl brandRepository;
 
     @Test
-    @DisplayName("저장 시 UUID ID가 자동 생성된다")
-    void save_ShouldPersistWithUuidId() {
+    @DisplayName("저장 시 ID가 자동 생성된다")
+    void save_ShouldPersistWithAutoId() {
         BrandModel brand = BrandModel.create("테스트브랜드", "설명", "서울");
 
         BrandModel saved = brandRepository.save(brand);
 
         assertThat(saved.getBrandId()).isNotNull();
-        assertThat(saved.getBrandId()).hasSize(36);
+        assertThat(saved.getBrandId()).isGreaterThan(0L);
     }
 
     @Test
@@ -49,7 +49,7 @@ class BrandRepositoryImplTest {
     @Test
     @DisplayName("ID로 조회 - 존재하지 않는 브랜드")
     void findById_NotExisting_ShouldReturnEmpty() {
-        Optional<BrandModel> found = brandRepository.findById("nonexistent-uuid");
+        Optional<BrandModel> found = brandRepository.findById(999L);
 
         assertThat(found).isEmpty();
     }

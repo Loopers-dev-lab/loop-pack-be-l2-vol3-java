@@ -13,7 +13,7 @@ import org.springframework.data.repository.query.Param;
  * CAS(Compare-And-Set) 기반의 재고 예약/해제/확정 쿼리를 정의하여
  * 오버셀(초과 판매)을 방지한다.</p>
  */
-public interface ProductStockJpaRepository extends JpaRepository<ProductStockModel, String> {
+public interface ProductStockJpaRepository extends JpaRepository<ProductStockModel, Long> {
 
     /**
      * CAS 방식으로 재고를 예약(hold)한다.
@@ -28,7 +28,7 @@ public interface ProductStockJpaRepository extends JpaRepository<ProductStockMod
     @Modifying
     @Query("UPDATE ProductStockModel s SET s.reserved = s.reserved + :qty " +
            "WHERE s.productId = :productId AND (s.onHand - s.reserved) >= :qty")
-    int reserveStock(@Param("productId") String productId, @Param("qty") int qty);
+    int reserveStock(@Param("productId") Long productId, @Param("qty") int qty);
 
     /**
      * CAS 방식으로 예약된 재고를 해제(release)한다.
@@ -43,7 +43,7 @@ public interface ProductStockJpaRepository extends JpaRepository<ProductStockMod
     @Modifying
     @Query("UPDATE ProductStockModel s SET s.reserved = s.reserved - :qty " +
            "WHERE s.productId = :productId AND s.reserved >= :qty")
-    int releaseStock(@Param("productId") String productId, @Param("qty") int qty);
+    int releaseStock(@Param("productId") Long productId, @Param("qty") int qty);
 
     /**
      * CAS 방식으로 예약된 재고를 확정(commit)한다.
@@ -59,5 +59,5 @@ public interface ProductStockJpaRepository extends JpaRepository<ProductStockMod
     @Query("UPDATE ProductStockModel s " +
            "SET s.onHand = s.onHand - :qty, s.reserved = s.reserved - :qty " +
            "WHERE s.productId = :productId AND s.reserved >= :qty")
-    int commitStock(@Param("productId") String productId, @Param("qty") int qty);
+    int commitStock(@Param("productId") Long productId, @Param("qty") int qty);
 }

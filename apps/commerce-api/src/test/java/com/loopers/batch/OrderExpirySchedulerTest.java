@@ -3,7 +3,6 @@ package com.loopers.batch;
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.cart.CartItemId;
 import com.loopers.domain.cart.CartItemModel;
-import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductStockModel;
@@ -60,16 +59,10 @@ class OrderExpirySchedulerTest {
         databaseCleanUp.truncateAllTables();
     }
 
-    private OrderModel createExpiredOrder(String userId, OrderType orderType) {
+    private OrderModel createExpiredOrder(Long userId, OrderType orderType) {
         OrderModel order = OrderModel.create(userId, orderType, BigDecimal.valueOf(10000));
         order = orderJpaRepository.save(order);
-        // expiresAt을 과거로 설정하기 위해 native UPDATE 사용
         orderJpaRepository.flush();
-        orderJpaRepository.findById(order.getOrderId()).ifPresent(o -> {
-            // 강제로 expires_at을 과거로 설정하려면 CAS를 우회해야 하는데,
-            // OrderModel.create()는 15분 후로 설정함.
-            // 대신 직접 만료 처리를 위해 SQL로 업데이트
-        });
         return order;
     }
 
@@ -102,11 +95,11 @@ class OrderExpirySchedulerTest {
     void shouldRestoreCart_ForExpiredDirectOrders() {
         // 장바구니 복원 로직은 OrderFacade.expireOrder 내부에서 수행됨
         // 여기서는 장바구니 저장/조회가 정상 작동하는지 검증
-        CartItemModel cartItem = CartItemModel.create("user-1", product.getProductId(), 2);
+        CartItemModel cartItem = CartItemModel.create(1L, product.getProductId(), 2);
         cartItemJpaRepository.save(cartItem);
 
         Optional<CartItemModel> found = cartItemJpaRepository.findById(
-                new CartItemId("user-1", product.getProductId()));
+                new CartItemId(1L, product.getProductId()));
         assertThat(found).isPresent();
         assertThat(found.get().getQuantity()).isEqualTo(2);
     }
@@ -114,7 +107,7 @@ class OrderExpirySchedulerTest {
     @Test
     @DisplayName("이미 취소/만료된 주문은 CAS 실패로 skip한다")
     void shouldSkip_AlreadyCancelledOrExpired() {
-        OrderModel order = OrderModel.create("user-1", OrderType.DIRECT, BigDecimal.valueOf(10000));
+        OrderModel order = OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(10000));
         order = orderJpaRepository.save(order);
         orderJpaRepository.flush();
 

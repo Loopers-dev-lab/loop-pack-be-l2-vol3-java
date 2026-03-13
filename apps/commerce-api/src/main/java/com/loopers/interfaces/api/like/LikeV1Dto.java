@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.like;
 
-import com.loopers.application.like.LikeInfo;
+import com.loopers.domain.like.LikeModel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -23,19 +23,19 @@ public class LikeV1Dto {
     @AllArgsConstructor
     @Builder
     public static class LikeResponse {
-        private String productId;
+        private Long productId;
         private LocalDateTime createdAt;
 
         /**
-         * {@link LikeInfo}를 좋아요 응답 DTO로 변환하는 팩토리 메서드.
+         * {@link LikeModel}을 좋아요 응답 DTO로 변환하는 팩토리 메서드.
          *
-         * @param info 변환할 좋아요 도메인 Info 객체
+         * @param model 변환할 좋아요 도메인 모델
          * @return 변환된 LikeResponse
          */
-        public static LikeResponse from(LikeInfo info) {
+        public static LikeResponse from(LikeModel model) {
             return LikeResponse.builder()
-                    .productId(info.getProductId())
-                    .createdAt(info.getCreatedAt())
+                    .productId(model.getProductId())
+                    .createdAt(model.getCreatedAt())
                     .build();
         }
     }

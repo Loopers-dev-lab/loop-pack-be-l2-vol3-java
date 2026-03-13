@@ -1,6 +1,6 @@
 package com.loopers.interfaces.apiadmin;
 
-import com.loopers.application.stats.StatsAppService;
+import com.loopers.domain.stats.StatsService;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -13,14 +13,15 @@ import java.util.List;
 /**
  * 관리자 전용 운영 통계 REST API 엔드포인트를 제공하는 컨트롤러.
  *
- * <p>주문 현황 개요, 일별 주문 통계, 인기 상품(좋아요/주문 기준), 저재고 상품 조회 기능을 관리자에게 제공한다.</p>
+ * <p>주문 현황 개요, 일별 주문 통계, 인기 상품(좋아요/주문 기준), 저재고 상품 조회 기능을 관리자에게 제공한다.
+ * {@link StatsService}를 직접 호출한다.</p>
  */
 @RestController
 @RequestMapping("/api-admin/v1/stats")
 @RequiredArgsConstructor
 public class AdminStatsV1Controller {
 
-    private final StatsAppService statsAppService;
+    private final StatsService statsService;
 
     /**
      * 기간별 주문 현황 개요(대기/취소/만료 건수)를 조회한다.
@@ -33,7 +34,7 @@ public class AdminStatsV1Controller {
     public ResponseEntity<ApiResponse<AdminStatsV1Dto.OverviewResponse>> overview(
             @RequestParam("startAt") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startAt,
             @RequestParam("endAt") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endAt) {
-        var overview = statsAppService.getOverview(startAt, endAt);
+        var overview = statsService.getOverview(startAt, endAt);
         return ResponseEntity.ok(ApiResponse.success(AdminStatsV1Dto.OverviewResponse.from(overview)));
     }
 
@@ -48,7 +49,7 @@ public class AdminStatsV1Controller {
     public ResponseEntity<ApiResponse<List<AdminStatsV1Dto.DailyOrderStatResponse>>> dailyOrderStats(
             @RequestParam("startAt") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startAt,
             @RequestParam("endAt") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endAt) {
-        var stats = statsAppService.getDailyOrderStats(startAt, endAt);
+        var stats = statsService.getDailyOrderStats(startAt, endAt);
         List<AdminStatsV1Dto.DailyOrderStatResponse> response = stats.stream()
                 .map(AdminStatsV1Dto.DailyOrderStatResponse::from)
                 .toList();
@@ -64,7 +65,7 @@ public class AdminStatsV1Controller {
     @GetMapping("/products/top-liked")
     public ResponseEntity<ApiResponse<List<AdminStatsV1Dto.ProductStatResponse>>> topLikedProducts(
             @RequestParam(value = "limit", defaultValue = "10") int limit) {
-        var stats = statsAppService.getTopLikedProducts(limit);
+        var stats = statsService.getTopLikedProducts(limit);
         List<AdminStatsV1Dto.ProductStatResponse> response = stats.stream()
                 .map(AdminStatsV1Dto.ProductStatResponse::from)
                 .toList();
@@ -80,7 +81,7 @@ public class AdminStatsV1Controller {
     @GetMapping("/products/top-ordered")
     public ResponseEntity<ApiResponse<List<AdminStatsV1Dto.ProductStatResponse>>> topOrderedProducts(
             @RequestParam(value = "limit", defaultValue = "10") int limit) {
-        var stats = statsAppService.getTopOrderedProducts(limit);
+        var stats = statsService.getTopOrderedProducts(limit);
         List<AdminStatsV1Dto.ProductStatResponse> response = stats.stream()
                 .map(AdminStatsV1Dto.ProductStatResponse::from)
                 .toList();
@@ -96,7 +97,7 @@ public class AdminStatsV1Controller {
     @GetMapping("/stocks/low")
     public ResponseEntity<ApiResponse<List<AdminStatsV1Dto.LowStockProductResponse>>> lowStockProducts(
             @RequestParam(value = "threshold", defaultValue = "10") int threshold) {
-        var stocks = statsAppService.getLowStockProducts(threshold);
+        var stocks = statsService.getLowStockProducts(threshold);
         List<AdminStatsV1Dto.LowStockProductResponse> response = stocks.stream()
                 .map(AdminStatsV1Dto.LowStockProductResponse::from)
                 .toList();

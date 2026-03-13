@@ -1,11 +1,11 @@
 package com.loopers.interfaces.apiadmin;
 
-import com.loopers.application.product.ProductAppService;
 import com.loopers.application.product.ProductCreateCommand;
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductUpdateCommand;
 import com.loopers.application.product.ProductInfo;
-import com.loopers.application.product.ProductRevisionInfo;
+import com.loopers.domain.product.ProductRevisionModel;
+import com.loopers.domain.product.ProductService;
 import com.loopers.interfaces.api.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,8 @@ import java.util.List;
  * 관리자 전용 상품 REST API 엔드포인트를 제공하는 컨트롤러.
  *
  * <p>상품의 전체 조회, 등록, 수정, 삭제 및 변경 이력(revision) 조회 기능을 관리자에게 제공한다.
- * 복잡한 도메인으로 {@link ProductFacade}를 통해 여러 서비스를 조합하여 처리한다.</p>
+ * 복잡한 도메인으로 {@link ProductFacade}를 통해 여러 서비스를 조합하여 처리한다.
+ * 단순 삭제 및 이력 조회는 {@link ProductService}를 직접 호출한다.</p>
  */
 @RestController
 @RequestMapping("/api-admin/v1/products")
@@ -26,7 +27,7 @@ import java.util.List;
 public class AdminProductV1Controller {
 
     private final ProductFacade productFacade;
-    private final ProductAppService productAppService;
+    private final ProductService productService;
 
     /**
      * 전체 상품 목록을 조회한다.
@@ -68,7 +69,7 @@ public class AdminProductV1Controller {
      */
     @PutMapping("/{productId}")
     public ResponseEntity<ApiResponse<AdminProductV1Dto.AdminProductResponse>> update(
-            @PathVariable String productId,
+            @PathVariable Long productId,
             @Valid @RequestBody AdminProductV1Dto.UpdateProductRequest request) {
         ProductInfo info = productFacade.updateProduct(new ProductUpdateCommand(
                 productId, request.getProductName(), request.getPrice(),
@@ -83,8 +84,8 @@ public class AdminProductV1Controller {
      * @return 삭제 성공 응답
      */
     @DeleteMapping("/{productId}")
-    public ResponseEntity<ApiResponse<Object>> delete(@PathVariable String productId) {
-        productAppService.deleteProduct(productId);
+    public ResponseEntity<ApiResponse<Object>> delete(@PathVariable Long productId) {
+        productService.deleteProduct(productId);
         return ResponseEntity.ok(ApiResponse.success());
     }
 
@@ -96,8 +97,9 @@ public class AdminProductV1Controller {
      */
     @GetMapping("/{productId}/revisions")
     public ResponseEntity<ApiResponse<List<AdminProductV1Dto.RevisionResponse>>> getRevisions(
-            @PathVariable String productId) {
-        List<AdminProductV1Dto.RevisionResponse> response = productAppService.getRevisions(productId).stream()
+            @PathVariable Long productId) {
+        List<ProductRevisionModel> revisions = productService.findRevisionsByProductId(productId);
+        List<AdminProductV1Dto.RevisionResponse> response = revisions.stream()
                 .map(AdminProductV1Dto.RevisionResponse::from)
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -112,8 +114,8 @@ public class AdminProductV1Controller {
      */
     @GetMapping("/{productId}/revisions/{seq}")
     public ResponseEntity<ApiResponse<AdminProductV1Dto.RevisionResponse>> getRevisionDetail(
-            @PathVariable String productId, @PathVariable Long seq) {
-        ProductRevisionInfo info = productAppService.getRevisionDetail(productId, seq);
-        return ResponseEntity.ok(ApiResponse.success(AdminProductV1Dto.RevisionResponse.from(info)));
+            @PathVariable Long productId, @PathVariable Long seq) {
+        ProductRevisionModel revision = productService.findRevisionById(productId, seq);
+        return ResponseEntity.ok(ApiResponse.success(AdminProductV1Dto.RevisionResponse.from(revision)));
     }
 }

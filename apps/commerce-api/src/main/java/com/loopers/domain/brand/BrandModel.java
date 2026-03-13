@@ -8,12 +8,13 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.UuidGenerator;
 
 /**
  * 브랜드 JPA 엔티티.
@@ -27,9 +28,9 @@ import org.hibernate.annotations.UuidGenerator;
 public class BrandModel extends BaseStringIdEntity {
 
     @Id
-    @UuidGenerator
-    @Column(name = "brand_id", length = 36)
-    private String brandId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "brand_id")
+    private Long brandId;
 
     @Column(name = "brand_name", nullable = false)
     private String brandName;

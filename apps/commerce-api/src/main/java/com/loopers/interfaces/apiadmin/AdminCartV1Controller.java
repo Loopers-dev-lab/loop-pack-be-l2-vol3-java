@@ -30,7 +30,7 @@ public class AdminCartV1Controller {
      */
     @GetMapping("/users/{userId}/cart")
     public ResponseEntity<ApiResponse<List<AdminCartV1Dto.AdminCartItemResponse>>> getUserCart(
-            @PathVariable String userId) {
+            @PathVariable Long userId) {
         List<CartInfo> cart = cartFacade.getCartForAdmin(userId);
         List<AdminCartV1Dto.AdminCartItemResponse> response = cart.stream()
                 .map(AdminCartV1Dto.AdminCartItemResponse::from)

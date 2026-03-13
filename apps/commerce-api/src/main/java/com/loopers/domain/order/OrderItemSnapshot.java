@@ -12,39 +12,62 @@ import java.math.BigDecimal;
  * 도메인 서비스(OrderService)에 전달하여 주문 항목을 저장하는 데 사용한다.
  * </p>
  *
- * @param productId   상품 ID
- * @param quantity    주문 수량
- * @param productName 상품명
- * @param unitPrice   단가
- * @param brandId     브랜드 ID
- * @param brandName   브랜드명
- * @param imageUrl    이미지 URL
+ * @param productId      상품 ID
+ * @param quantity       주문 수량
+ * @param productName    상품명
+ * @param unitPrice      단가
+ * @param brandId        브랜드 ID
+ * @param brandName      브랜드명
+ * @param imageUrl       이미지 URL
+ * @param originalAmount 할인 전 금액 (unitPrice * quantity)
+ * @param discountAmount 이 항목에 비례 배분된 할인 금액
+ * @param finalAmount    최종 금액 (originalAmount - discountAmount)
  */
-public record OrderItemSnapshot(String productId, int quantity, String productName,
+public record OrderItemSnapshot(Long productId, int quantity, String productName,
                                  BigDecimal unitPrice, String brandId,
-                                 String brandName, String imageUrl) {
+                                 String brandName, String imageUrl,
+                                 BigDecimal originalAmount,
+                                 BigDecimal discountAmount,
+                                 BigDecimal finalAmount) {
 
     /**
-     * ProductModel과 BrandModel로부터 주문 항목 스냅샷을 생성한다.
-     *
-     * @param product  상품 도메인 모델
-     * @param brand    브랜드 도메인 모델
-     * @param quantity 주문 수량
-     * @return 주문 항목 스냅샷
+     * 할인 없이 ProductModel과 BrandModel로부터 주문 항목 스냅샷을 생성한다.
      */
     public static OrderItemSnapshot from(ProductModel product, BrandModel brand, int quantity) {
+        BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(quantity));
         return new OrderItemSnapshot(
                 product.getProductId(), quantity,
                 product.getProductName(), product.getPrice(),
-                brand.getBrandId(), brand.getBrandName(), product.getImageUrl());
+                String.valueOf(brand.getBrandId()), brand.getBrandName(), product.getImageUrl(),
+                lineTotal, BigDecimal.ZERO, lineTotal);
     }
 
     /**
-     * 항목별 주문 금액(단가 x 수량)을 계산한다.
+     * 할인 금액을 적용하여 주문 항목 스냅샷을 생성한다.
      *
-     * @return 항목 금액
+     * @param product        상품 도메인 모델
+     * @param brand          브랜드 도메인 모델
+     * @param quantity       주문 수량
+     * @param discountAmount 이 항목에 배분된 할인 금액
+     * @return 할인이 적용된 주문 항목 스냅샷
+     */
+    public static OrderItemSnapshot from(ProductModel product, BrandModel brand, int quantity,
+                                          BigDecimal discountAmount) {
+        BigDecimal originalAmount = product.getPrice().multiply(BigDecimal.valueOf(quantity));
+        BigDecimal finalAmount = originalAmount.subtract(discountAmount);
+        return new OrderItemSnapshot(
+                product.getProductId(), quantity,
+                product.getProductName(), product.getPrice(),
+                String.valueOf(brand.getBrandId()), brand.getBrandName(), product.getImageUrl(),
+                originalAmount, discountAmount, finalAmount);
+    }
+
+    /**
+     * 항목별 최종 주문 금액을 반환한다.
+     *
+     * @return finalAmount
      */
     public BigDecimal lineTotal() {
-        return unitPrice.multiply(BigDecimal.valueOf(quantity));
+        return finalAmount;
     }
 }

@@ -3,6 +3,8 @@ package com.loopers.domain.user;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,7 +49,7 @@ public class UserService {
      * @return 조회된 UserModel
      * @throws CoreException 사용자가 존재하지 않는 경우 (USER_NOT_FOUND)
      */
-    public UserModel findByUserId(String userId) {
+    public UserModel findByUserId(Long userId) {
         return userRepository.findByUserId(userId)
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
     }
@@ -59,6 +61,7 @@ public class UserService {
      * @return 조회된 UserModel
      * @throws CoreException 사용자가 존재하지 않는 경우 (USER_NOT_FOUND)
      */
+    @Cacheable(cacheNames = "authUser", key = "#loginId")
     public UserModel findByLoginId(String loginId) {
         return userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
@@ -101,6 +104,7 @@ public class UserService {
      * @param newPw     새 비밀번호
      * @throws CoreException 현재 비밀번호 불일치(PASSWORD_MISMATCH), 동일 비밀번호(SAME_PASSWORD), 규칙 위반(INVALID_PASSWORD)
      */
+    @CacheEvict(cacheNames = "authUser", key = "#loginId")
     @Transactional
     public void changePassword(String loginId, String currentPw, String newPw) {
         UserModel user = findByLoginId(loginId);

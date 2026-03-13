@@ -29,39 +29,39 @@ class OrderRepositoryImplTest {
     @Autowired
     TestEntityManager entityManager;
 
-    private OrderModel createOrder(String userId) {
+    private OrderModel createOrder(Long userId) {
         return OrderModel.create(userId, OrderType.DIRECT, BigDecimal.valueOf(50000));
     }
 
     @Test
-    @DisplayName("저장 시 UUID ID가 자동 생성된다")
-    void save_ShouldPersistWithUuidId() {
-        OrderModel order = createOrder("user-1");
+    @DisplayName("저장 시 ID가 자동 생성된다")
+    void save_ShouldPersistWithAutoId() {
+        OrderModel order = createOrder(1L);
 
         OrderModel saved = orderRepository.save(order);
 
         assertThat(saved.getOrderId()).isNotNull();
-        assertThat(saved.getOrderId()).hasSize(36);
+        assertThat(saved.getOrderId()).isGreaterThan(0L);
     }
 
     @Test
     @DisplayName("ID로 조회 - 존재하는 주문")
     void findById_Existing_ShouldReturn() {
-        OrderModel saved = orderRepository.save(createOrder("user-1"));
+        OrderModel saved = orderRepository.save(createOrder(1L));
 
         Optional<OrderModel> found = orderRepository.findById(saved.getOrderId());
 
         assertThat(found).isPresent();
-        assertThat(found.get().getUserId()).isEqualTo("user-1");
+        assertThat(found.get().getUserId()).isEqualTo(1L);
     }
 
     @Test
     @DisplayName("주문 ID + 사용자 ID로 조회 - 소유자만 조회 가능")
     void findByIdAndUserId_ShouldReturn() {
-        OrderModel saved = orderRepository.save(createOrder("user-1"));
+        OrderModel saved = orderRepository.save(createOrder(1L));
 
-        Optional<OrderModel> found = orderRepository.findByIdAndUserId(saved.getOrderId(), "user-1");
-        Optional<OrderModel> notFound = orderRepository.findByIdAndUserId(saved.getOrderId(), "user-2");
+        Optional<OrderModel> found = orderRepository.findByIdAndUserId(saved.getOrderId(), 1L);
+        Optional<OrderModel> notFound = orderRepository.findByIdAndUserId(saved.getOrderId(), 2L);
 
         assertThat(found).isPresent();
         assertThat(notFound).isEmpty();
@@ -70,7 +70,7 @@ class OrderRepositoryImplTest {
     @Test
     @DisplayName("CAS 상태 전이 - PENDING → CANCELLED 성공 시 affected=1")
     void casUpdateStatus_PendingToCancelled_ShouldReturnAffectedRows1() {
-        OrderModel saved = orderRepository.save(createOrder("user-1"));
+        OrderModel saved = orderRepository.save(createOrder(1L));
         entityManager.flush();
         entityManager.clear();
 
@@ -85,7 +85,7 @@ class OrderRepositoryImplTest {
     @Test
     @DisplayName("CAS 상태 전이 - 이미 CANCELLED인 주문에 PENDING→CANCELLED 시도 시 affected=0")
     void casUpdateStatus_AlreadyCancelled_ShouldReturnAffectedRows0() {
-        OrderModel order = createOrder("user-1");
+        OrderModel order = createOrder(1L);
         OrderModel saved = orderRepository.save(order);
         entityManager.flush();
         entityManager.clear();
@@ -104,7 +104,7 @@ class OrderRepositoryImplTest {
     @DisplayName("만료 대상 조회 - status=PENDING_PAYMENT AND expiresAt < now() 인 주문만 반환")
     void findExpiredPendingOrders_ShouldReturnOnlyExpired() {
         // 아직 만료되지 않은 주문 (expiresAt은 15분 후)
-        orderRepository.save(createOrder("user-1"));
+        orderRepository.save(createOrder(1L));
         entityManager.flush();
 
         List<OrderModel> result = orderRepository.findExpiredPendingOrders();

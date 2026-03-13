@@ -40,7 +40,7 @@ public interface LikeRepository {
      * @param userId 사용자 ID
      * @return 사용자의 좋아요 목록
      */
-    List<LikeModel> findAllByUserId(String userId);
+    List<LikeModel> findAllByUserId(Long userId);
 
     /**
      * 특정 상품의 좋아요 수를 조회한다.
@@ -48,7 +48,7 @@ public interface LikeRepository {
      * @param productId 상품 ID
      * @return 좋아요 수
      */
-    long countByProductId(String productId);
+    long countByProductId(Long productId);
 
     /**
      * 여러 상품의 좋아요 수를 일괄 조회한다 (N+1 방지용 배치 쿼리).
@@ -56,5 +56,5 @@ public interface LikeRepository {
      * @param productIds 상품 ID 목록
      * @return 상품 ID → 좋아요 수 맵
      */
-    Map<String, Long> countByProductIds(Collection<String> productIds);
+    Map<Long, Long> countByProductIds(Collection<Long> productIds);
 }

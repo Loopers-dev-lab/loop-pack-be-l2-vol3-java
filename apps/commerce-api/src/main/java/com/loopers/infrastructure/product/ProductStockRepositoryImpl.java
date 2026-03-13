@@ -40,7 +40,7 @@ public class ProductStockRepositoryImpl implements ProductStockRepository {
      * @return 상품 재고 (Optional)
      */
     @Override
-    public Optional<ProductStockModel> findByProductId(String productId) {
+    public Optional<ProductStockModel> findByProductId(Long productId) {
         return jpaRepository.findById(productId);
     }
 
@@ -52,7 +52,7 @@ public class ProductStockRepositoryImpl implements ProductStockRepository {
      * @return 변경된 행 수 (0이면 재고 부족으로 예약 실패)
      */
     @Override
-    public int reserveStock(String productId, int qty) {
+    public int reserveStock(Long productId, int qty) {
         return jpaRepository.reserveStock(productId, qty);
     }
 
@@ -64,7 +64,7 @@ public class ProductStockRepositoryImpl implements ProductStockRepository {
      * @return 변경된 행 수 (0이면 해제 실패)
      */
     @Override
-    public int releaseStock(String productId, int qty) {
+    public int releaseStock(Long productId, int qty) {
         return jpaRepository.releaseStock(productId, qty);
     }
 
@@ -76,7 +76,7 @@ public class ProductStockRepositoryImpl implements ProductStockRepository {
      * @return 변경된 행 수 (0이면 확정 실패)
      */
     @Override
-    public int commitStock(String productId, int qty) {
+    public int commitStock(Long productId, int qty) {
         return jpaRepository.commitStock(productId, qty);
     }
 
@@ -87,7 +87,7 @@ public class ProductStockRepositoryImpl implements ProductStockRepository {
      * @return 해당 상품들의 재고 목록
      */
     @Override
-    public List<ProductStockModel> findAllByProductIds(Collection<String> productIds) {
+    public List<ProductStockModel> findAllByProductIds(Collection<Long> productIds) {
         return jpaRepository.findAllById(productIds);
     }
 }

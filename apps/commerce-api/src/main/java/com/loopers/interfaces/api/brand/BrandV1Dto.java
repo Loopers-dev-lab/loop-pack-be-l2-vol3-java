@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.brand;
 
-import com.loopers.application.brand.BrandInfo;
+import com.loopers.domain.brand.BrandModel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -21,25 +21,25 @@ public class BrandV1Dto {
     @AllArgsConstructor
     @Builder
     public static class BrandResponse {
-        private String brandId;
+        private Long brandId;
         private String brandName;
         private String description;
         private String address;
         private String attachFile;
 
         /**
-         * {@link BrandInfo}를 브랜드 응답 DTO로 변환하는 팩토리 메서드.
+         * {@link BrandModel}을 브랜드 응답 DTO로 변환하는 팩토리 메서드.
          *
-         * @param info 변환할 브랜드 도메인 Info 객체
+         * @param model 변환할 브랜드 도메인 모델
          * @return 변환된 BrandResponse
          */
-        public static BrandResponse from(BrandInfo info) {
+        public static BrandResponse from(BrandModel model) {
             return BrandResponse.builder()
-                    .brandId(info.getBrandId())
-                    .brandName(info.getBrandName())
-                    .description(info.getDescription())
-                    .address(info.getAddress())
-                    .attachFile(info.getAttachFile())
+                    .brandId(model.getBrandId())
+                    .brandName(model.getBrandName())
+                    .description(model.getDescription())
+                    .address(model.getAddress())
+                    .attachFile(model.getAttachFile())
                     .build();
         }
     }

@@ -1,9 +1,12 @@
 package com.loopers.domain.brand;
 
+import com.loopers.domain.product.ProductService;
 import com.loopers.support.enums.DisplayStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +23,7 @@ import java.util.List;
 public class BrandService {
 
     private final BrandRepository brandRepository;
+    private final ProductService productService;
 
     /**
      * 새 브랜드를 등록한다.
@@ -57,11 +61,12 @@ public class BrandService {
      * @param brandIds 브랜드 ID 목록
      * @return 브랜드 엔티티 목록
      */
-    public List<BrandModel> findAllByIds(Collection<String> brandIds) {
+    public List<BrandModel> findAllByIds(Collection<Long> brandIds) {
         return brandRepository.findAllByIds(brandIds);
     }
 
-    public BrandModel findById(String brandId) {
+    @Cacheable(cacheNames = "brandDetail", key = "#brandId")
+    public BrandModel findById(Long brandId) {
         return brandRepository.findById(brandId)
                 .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
     }
@@ -73,7 +78,7 @@ public class BrandService {
      * @return 브랜드 정보 DTO
      * @throws CoreException 브랜드가 존재하지 않거나 비노출 상태일 때 (BRAND_NOT_FOUND)
      */
-    public BrandModel findVisibleById(String brandId) {
+    public BrandModel findVisibleById(Long brandId) {
         BrandModel brand = findById(brandId);
         if (!brand.isVisibleForCustomer()) {
             throw new CoreException(ErrorType.BRAND_NOT_FOUND);
@@ -104,23 +109,25 @@ public class BrandService {
      * @return 수정된 브랜드 정보 DTO
      * @throws CoreException 브랜드가 존재하지 않을 때 (BRAND_NOT_FOUND)
      */
+    @CacheEvict(cacheNames = "brandDetail", key = "#brandId")
     @Transactional
-    public BrandModel updateBrand(String brandId, String brandName, String description, String address) {
+    public BrandModel updateBrand(Long brandId, String brandName, String description, String address) {
         BrandModel brand = findById(brandId);
         brand.updateInfo(brandName, description, address);
         return brand;
     }
 
     /**
-     * 브랜드를 소프트 삭제한다.
+     * 브랜드를 소프트 삭제한다. 소속 상품도 연쇄 소프트 삭제된다.
      *
      * @param brandId 삭제할 브랜드 ID
      * @throws CoreException 브랜드가 존재하지 않을 때 (BRAND_NOT_FOUND)
-     * @수정요망 : 브랜드 삭제시 브랜드의 상품들도 소프트 딜리트
      */
+    @CacheEvict(cacheNames = "brandDetail", key = "#brandId")
     @Transactional
-    public void deleteBrand(String brandId) {
+    public void deleteBrand(Long brandId) {
         BrandModel brand = findById(brandId);
         brand.softDelete();
+        productService.softDeleteByBrandId(brandId);
     }
 }

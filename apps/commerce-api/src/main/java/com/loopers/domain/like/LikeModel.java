@@ -27,17 +27,17 @@ import java.time.LocalDateTime;
 public class LikeModel {
 
     @Id
-    @Column(name = "user_id", length = 36)
-    private String userId;
+    @Column(name = "user_id")
+    private Long userId;
 
     @Id
-    @Column(name = "product_id", length = 36)
-    private String productId;
+    @Column(name = "product_id")
+    private Long productId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    private LikeModel(String userId, String productId) {
+    private LikeModel(Long userId, Long productId) {
         validateUserId(userId);
         validateProductId(productId);
         this.userId = userId;
@@ -50,9 +50,9 @@ public class LikeModel {
      * @param userId    사용자 ID (필수)
      * @param productId 상품 ID (필수)
      * @return 생성된 LikeModel 인스턴스
-     * @throws CoreException userId 또는 productId가 null/blank인 경우 (BAD_REQUEST)
+     * @throws CoreException userId 또는 productId가 null인 경우 (BAD_REQUEST)
      */
-    public static LikeModel create(String userId, String productId) {
+    public static LikeModel create(Long userId, Long productId) {
         return new LikeModel(userId, productId);
     }
 
@@ -61,14 +61,14 @@ public class LikeModel {
         this.createdAt = LocalDateTime.now();
     }
 
-    private static void validateUserId(String userId) {
-        if (userId == null || userId.isBlank()) {
+    private static void validateUserId(Long userId) {
+        if (userId == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "사용자 ID는 필수입니다.");
         }
     }
 
-    private static void validateProductId(String productId) {
-        if (productId == null || productId.isBlank()) {
+    private static void validateProductId(Long productId) {
+        if (productId == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "상품 ID는 필수입니다.");
         }
     }

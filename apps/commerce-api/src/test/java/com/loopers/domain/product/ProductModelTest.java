@@ -25,7 +25,7 @@ class ProductModelTest {
             ProductModel product = createTestProduct();
 
             assertThat(product.getProductName()).isEqualTo("테스트 상품");
-            assertThat(product.getBrandId()).isEqualTo("brand-001");
+            assertThat(product.getBrandId()).isEqualTo(1L);
             assertThat(product.getPrice()).isEqualByComparingTo(BigDecimal.valueOf(10000));
         }
 
@@ -33,7 +33,7 @@ class ProductModelTest {
         @DisplayName("productName이 null이면 CoreException 발생")
         void create_WithNullProductName_ShouldThrow() {
             assertThatThrownBy(() -> ProductModel.create(
-                    null, "brand-001", BigDecimal.valueOf(10000),
+                    null, 1L, BigDecimal.valueOf(10000),
                     "설명", "카테고리", "블랙", "M", "옵션", "img.jpg", null
             )).isInstanceOf(CoreException.class);
         }
@@ -51,7 +51,7 @@ class ProductModelTest {
         @DisplayName("price가 음수이면 CoreException 발생")
         void create_WithNegativePrice_ShouldThrow() {
             assertThatThrownBy(() -> ProductModel.create(
-                    "상품", "brand-001", BigDecimal.valueOf(-1),
+                    "상품", 1L, BigDecimal.valueOf(-1),
                     "설명", "카테고리", "블랙", "M", "옵션", "img.jpg", null
             )).isInstanceOf(CoreException.class);
         }
@@ -60,7 +60,7 @@ class ProductModelTest {
         @DisplayName("price가 0이면 CoreException 발생")
         void create_WithZeroPrice_ShouldThrow() {
             assertThatThrownBy(() -> ProductModel.create(
-                    "상품", "brand-001", BigDecimal.ZERO,
+                    "상품", 1L, BigDecimal.ZERO,
                     "설명", "카테고리", "블랙", "M", "옵션", "img.jpg", null
             )).isInstanceOf(CoreException.class);
         }
@@ -188,7 +188,7 @@ class ProductModelTest {
 
     private ProductModel createTestProduct() {
         return ProductModel.create(
-                "테스트 상품", "brand-001", BigDecimal.valueOf(10000),
+                "테스트 상품", 1L, BigDecimal.valueOf(10000),
                 "상품 설명", "카테고리", "블랙", "M", "옵션", "img.jpg", null
         );
     }

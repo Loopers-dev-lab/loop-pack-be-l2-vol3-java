@@ -32,8 +32,8 @@ import java.time.LocalDateTime;
 public class ProductStockModel {
 
     @Id
-    @Column(name = "product_id", length = 36)
-    private String productId;
+    @Column(name = "product_id")
+    private Long productId;
 
     @Column(name = "on_hand", nullable = false)
     private int onHand;
@@ -47,7 +47,7 @@ public class ProductStockModel {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    private ProductStockModel(String productId, int onHand, int reserved) {
+    private ProductStockModel(Long productId, int onHand, int reserved) {
         if (onHand < 0) {
             throw new CoreException(ErrorType.INVALID_STOCK_UPDATE, "총 재고는 음수일 수 없습니다.");
         }
@@ -65,7 +65,7 @@ public class ProductStockModel {
      * @return 생성된 ProductStockModel 인스턴스
      * @throws CoreException onHand < 0인 경우 (INVALID_STOCK_UPDATE)
      */
-    public static ProductStockModel create(String productId, int onHand) {
+    public static ProductStockModel create(Long productId, int onHand) {
         return new ProductStockModel(productId, onHand, 0);
     }
 
@@ -78,7 +78,7 @@ public class ProductStockModel {
      * @param reserved  예약 재고 수량
      * @return 생성된 ProductStockModel 인스턴스
      */
-    public static ProductStockModel createWithReserved(String productId, int onHand, int reserved) {
+    public static ProductStockModel createWithReserved(Long productId, int onHand, int reserved) {
         return new ProductStockModel(productId, onHand, reserved);
     }
 
@@ -103,6 +103,18 @@ public class ProductStockModel {
      */
     public boolean canHold(int qty) {
         return getAvailableQty() >= qty;
+    }
+
+    /**
+     * 요청 수량이 가용 재고를 초과하면 예외를 던진다.
+     *
+     * @param qty 요청 수량
+     * @throws CoreException 가용 재고보다 요청 수량이 많을 때 (CART_STOCK_EXCEEDED)
+     */
+    public void validateCanHold(int qty) {
+        if (!canHold(qty)) {
+            throw new CoreException(ErrorType.CART_STOCK_EXCEEDED);
+        }
     }
 
     /**

@@ -14,6 +14,7 @@ import java.util.Map;
 /**
  * 좋아요 도메인 서비스.
  * 상품 좋아요 등록(멱등)/취소(멱등), 사용자별 좋아요 목록 조회를 담당한다.
+ * 상품 존재 여부 검증을 위해 {@link ProductService}를 참조한다.
  */
 @Service
 @RequiredArgsConstructor
@@ -31,9 +32,10 @@ public class LikeService {
      * @throws CoreException 상품이 존재하지 않을 때 (LIKE_PRODUCT_NOT_FOUND)
      */
     @Transactional
-    public void addLike(String userId, String productId) {
+    public void addLike(Long userId, Long productId) {
+        // 비관적 락으로 상품 조회 → 동일 상품 좋아요 연산 직렬화
         try {
-            productService.findById(productId);
+            productService.findByIdWithLock(productId);
         } catch (CoreException e) {
             throw new CoreException(ErrorType.LIKE_PRODUCT_NOT_FOUND);
         }
@@ -45,6 +47,7 @@ public class LikeService {
 
         LikeModel like = LikeModel.create(userId, productId);
         likeRepository.save(like);
+        productService.incrementLikeCount(productId);
     }
 
     /**
@@ -54,9 +57,19 @@ public class LikeService {
      * @param productId 상품 ID
      */
     @Transactional
-    public void removeLike(String userId, String productId) {
+    public void removeLike(Long userId, Long productId) {
+        // 비관적 락으로 상품 조회 → 동일 상품 좋아요 연산 직렬화
+        try {
+            productService.findByIdWithLock(productId);
+        } catch (CoreException e) {
+            return; // 상품이 없으면 좋아요도 없으므로 무시
+        }
+
         LikeId likeId = new LikeId(userId, productId);
-        likeRepository.findById(likeId).ifPresent(likeRepository::delete);
+        likeRepository.findById(likeId).ifPresent(like -> {
+            likeRepository.delete(like);
+            productService.decrementLikeCount(productId);
+        });
     }
 
     /**
@@ -65,7 +78,7 @@ public class LikeService {
      * @param userId 사용자 ID
      * @return 좋아요 정보 DTO 목록
      */
-    public List<LikeModel> getMyLikes(String userId) {
+    public List<LikeModel> getMyLikes(Long userId) {
         return likeRepository.findAllByUserId(userId);
     }
 
@@ -75,7 +88,7 @@ public class LikeService {
      * @param productId 상품 ID
      * @return 좋아요 수
      */
-    public long countByProductId(String productId) {
+    public long countByProductId(Long productId) {
         return likeRepository.countByProductId(productId);
     }
 
@@ -85,7 +98,7 @@ public class LikeService {
      * @param productIds 상품 ID 목록
      * @return 상품 ID → 좋아요 수 맵
      */
-    public Map<String, Long> countByProductIds(Collection<String> productIds) {
+    public Map<Long, Long> countByProductIds(Collection<Long> productIds) {
         return likeRepository.countByProductIds(productIds);
     }
 }
