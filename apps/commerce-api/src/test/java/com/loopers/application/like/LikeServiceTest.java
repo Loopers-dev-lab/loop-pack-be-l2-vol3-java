@@ -126,6 +126,11 @@ class LikeServiceTest {
         }
 
         @Override
+        public Optional<Product> findByIdForUpdate(Long id) {
+            return findById(id);
+        }
+
+        @Override
         public java.util.List<Product> findAll(com.loopers.domain.product.SortCondition sort) {
             return new ArrayList<>(store.values());
         }
