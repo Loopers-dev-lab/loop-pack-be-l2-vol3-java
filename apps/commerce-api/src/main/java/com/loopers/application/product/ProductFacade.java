@@ -23,12 +23,16 @@ public class ProductFacade {
     private final ProductCacheRepository productCacheRepository;
     private final CacheProperties cacheProperties;
 
-    // 상품 상세 조회
+    // 상품 상세 조회 (Cache-Aside)
     @Transactional(readOnly = true)
     public ProductInfo findById(Long id) {
-        Product product = productService.findById(id);
-        String brandName = brandService.findById(product.getBrandId()).getName();
-        return ProductInfo.from(product, brandName);
+        return productCacheRepository.getDetail(id).orElseGet(() -> {
+            Product product = productService.findById(id);
+            String brandName = brandService.findById(product.getBrandId()).getName();
+            ProductInfo info = ProductInfo.from(product, brandName);
+            productCacheRepository.saveDetail(id, info);
+            return info;
+        });
     }
 
     // 상품 목록 조회 (Cache-Aside 패턴)

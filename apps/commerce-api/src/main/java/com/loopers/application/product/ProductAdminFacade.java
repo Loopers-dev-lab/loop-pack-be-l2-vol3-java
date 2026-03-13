@@ -60,7 +60,8 @@ public class ProductAdminFacade {
     public ProductInfo update(ProductUpdateCommand command) {
         Product product = productService.update(
                 command.id(), command.name(), command.price(), command.stock());
-        eventPublisher.publishEvent(new ProductCacheEvictEvent()); // 커밋 후 캐시 무효화 예약
+        eventPublisher.publishEvent(new ProductCacheEvictEvent());                        // 목록 캐시 전체 무효화
+        eventPublisher.publishEvent(new ProductDetailCacheEvictEvent(product.getId()));   // 상세 캐시 핀포인트 무효화
         String brandName = brandService.findById(product.getBrandId()).getName();
         return ProductInfo.from(product, brandName);
     }
@@ -77,6 +78,7 @@ public class ProductAdminFacade {
         likeService.deleteAllByProductId(id);
         // 상품 soft delete (이미 managed 상태이므로 dirty checking으로 처리)
         product.delete();
-        eventPublisher.publishEvent(new ProductCacheEvictEvent()); // 커밋 후 캐시 무효화 예약
+        eventPublisher.publishEvent(new ProductCacheEvictEvent());             // 목록 캐시 전체 무효화
+        eventPublisher.publishEvent(new ProductDetailCacheEvictEvent(id));     // 상세 캐시 핀포인트 무효화
     }
 }
