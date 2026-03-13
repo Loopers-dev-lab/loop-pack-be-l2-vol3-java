@@ -7,13 +7,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
+// 브랜드 필터 조회와 좋아요 순 정렬이 자주 쓰여서 인덱스 추가
+// likes_count는 매번 Like 테이블을 집계하기보다 여기서 관리하는 게 낫다고 판단
 @Entity
 @Table(
     name = "product",
     indexes = {
-        // 브랜드 필터링용 단일 인덱스
         @Index(name = "idx_product_brand_id", columnList = "brand_id"),
-        // 좋아요 순 정렬용 인덱스 (비정규화된 likesCount 활용)
         @Index(name = "idx_product_likes_count", columnList = "likes_count DESC")
     }
 )
@@ -23,8 +23,8 @@ public class Product extends BaseEntity {
     private String name;
     private Long price;
     private int stockQuantity;
-    // 비정규화: Like 테이블 집계 연산(COUNT + GROUP BY) 제거 목적
-    // 좋아요 등록/취소 시 LikeService에서 동기화
+    // Like 테이블 집계 대신 여기서 직접 카운트 관리 (비정규화)
+    // 좋아요 등록/취소 시 LikeService에서 동기화됨
     private long likesCount;
 
     protected Product() {}

@@ -21,18 +21,9 @@ import java.util.Map;
 @EnableCaching
 public class CacheConfig {
 
-    // 캐시 키 전략:
-    // - product:detail:{productId} → 상품 상세, TTL 10분
-    // - product:list:{sort}        → 상품 목록, TTL 5분
-    //
-    // 무효화 전략 (Cache-aside + Evict):
-    // - 좋아요 등록/취소 시 해당 상품 detail 캐시 + list 전체 캐시 삭제
-    // - TTL 만료 시 자동 삭제 후 다음 조회에서 재적재
-    //
-    // 정합성 허용 범위:
-    // - 좋아요 수: Evict로 즉시 무효화
-    // - 상품 정보: TTL 만료까지 일시적 불일치 허용 (SOT = DB)
-
+    // 상품 상세는 자주 조회되고 잘 안 바뀌니까 10분
+    // 목록은 정렬 순서가 바뀔 수 있으니까 5분으로 짧게
+    // null 캐싱은 장애 상황에서 빈 데이터가 굳어버릴 수 있어서 막아둠
     @Bean
     public CacheManager cacheManager(LettuceConnectionFactory connectionFactory) {
         ObjectMapper objectMapper = new ObjectMapper()

@@ -30,7 +30,6 @@ public class ProductFacade {
             ? brandRepository.findById(product.getBrandId())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다."))
             : null;
-        // 비정규화된 likesCount 사용 → LikeRepository 조회 제거
         return ProductDetailInfo.of(product, brand, product.getLikesCount());
     }
 
@@ -41,7 +40,6 @@ public class ProductFacade {
             return List.of();
         }
 
-        // N+1 방지: brandId 모아서 한 번에 조회
         List<Long> brandIds = products.stream()
             .map(Product::getBrandId)
             .filter(id -> id != null)
@@ -54,7 +52,6 @@ public class ProductFacade {
         return products.stream()
             .map(p -> {
                 Brand brand = p.getBrandId() != null ? brandMap.get(p.getBrandId()) : null;
-                // 비정규화된 likesCount 사용 → LikeRepository 집계 쿼리 제거
                 return ProductListInfo.of(p, brand, p.getLikesCount());
             })
             .toList();

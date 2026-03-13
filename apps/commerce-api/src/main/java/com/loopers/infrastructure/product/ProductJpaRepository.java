@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface ProductJpaRepository extends JpaRepository<Product, Long> {
 
-    // AS-IS: Like 테이블 JOIN + COUNT + GROUP BY → 매 요청마다 집계 연산 발생
-    // TO-BE: 비정규화된 likesCount 컬럼 기반 정렬 → 인덱스 활용, 집계 연산 제거
+    // 기존엔 Like 테이블과 JOIN해서 COUNT로 정렬했는데
+    // 데이터가 많아질수록 집계 비용이 커져서 likesCount 컬럼으로 대체
     List<Product> findByDeletedAtIsNull(Sort sort);
 }

@@ -18,6 +18,7 @@ public class LikeService {
     private final LikeRepository likeRepository;
     private final ProductRepository productRepository;
 
+    // 좋아요가 바뀌면 캐시도 같이 무효화해야 정합성이 맞아서 evict 추가
     @Caching(evict = {
         @CacheEvict(value = "product:detail", key = "#productId"),
         @CacheEvict(value = "product:list", allEntries = true)
@@ -30,7 +31,7 @@ public class LikeService {
         var product = productRepository.findById(productId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[id = " + productId + "] 상품을 찾을 수 없습니다."));
         likeRepository.save(new Like(memberId, productId));
-        // 비정규화 동기화: dirty checking으로 자동 UPDATE
+        // JPA dirty checking으로 별도 save 없이 UPDATE됨
         product.increaseLikeCount();
     }
 
@@ -46,7 +47,6 @@ public class LikeService {
         var product = productRepository.findById(productId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[id = " + productId + "] 상품을 찾을 수 없습니다."));
         likeRepository.deleteByMemberIdAndProductId(memberId, productId);
-        // 비정규화 동기화: dirty checking으로 자동 UPDATE
         product.decreaseLikeCount();
     }
 }
