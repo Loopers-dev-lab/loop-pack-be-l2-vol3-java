@@ -23,6 +23,9 @@ dependencies {
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
 
+    // awaitility
+    testImplementation("org.awaitility:awaitility:4.2.2")
+
     // archunit
     testImplementation("com.tngtech.archunit:archunit-junit5:${project.properties["archunitVersion"]}")
 }

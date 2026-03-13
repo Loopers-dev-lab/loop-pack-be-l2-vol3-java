@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.shared.cache;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.time.Duration;
@@ -93,17 +94,15 @@ class RedisCacheRepositoryIntegrationTest {
 
         @DisplayName("TTL이 만료되면, null이 반환된다.")
         @Test
-        void returnsNull_whenTtlExpired() throws InterruptedException {
+        void returnsNull_whenTtlExpired() {
             // arrange
             String key = "test:ttl";
             cacheRepository.put(key, "expiring", Duration.ofSeconds(1));
 
-            // act
-            Thread.sleep(1500);
-            String result = cacheRepository.get(key, STRING_TYPE);
-
-            // assert
-            assertThat(result).isNull();
+            // act & assert
+            await().atMost(Duration.ofSeconds(3))
+                    .pollInterval(Duration.ofMillis(200))
+                    .untilAsserted(() -> assertThat(cacheRepository.get(key, STRING_TYPE)).isNull());
         }
 
         @DisplayName("TTL이 만료되기 전이면, 값이 조회된다.")
@@ -235,15 +234,14 @@ class RedisCacheRepositoryIntegrationTest {
 
         @DisplayName("TTL이 만료되면, null이 반환된다.")
         @Test
-        void returnsNull_whenTtlExpired() throws InterruptedException {
+        void returnsNull_whenTtlExpired() {
             // arrange
             cacheRepository.multiPut(Map.of("test:mput:ttl", "expiring"), () -> Duration.ofSeconds(1));
 
-            // act
-            Thread.sleep(1500);
-
-            // assert
-            assertThat(cacheRepository.get("test:mput:ttl", STRING_TYPE)).isNull();
+            // act & assert
+            await().atMost(Duration.ofSeconds(3))
+                    .pollInterval(Duration.ofMillis(200))
+                    .untilAsserted(() -> assertThat(cacheRepository.get("test:mput:ttl", STRING_TYPE)).isNull());
         }
 
         @DisplayName("빈 맵을 전달하면, 예외 없이 통과한다.")
