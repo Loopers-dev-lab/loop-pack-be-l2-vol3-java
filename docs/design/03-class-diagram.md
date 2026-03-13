@@ -7,8 +7,6 @@
 ```mermaid
 classDiagram
     class Brand {
-        -Long id
-        -UUID referenceId
         -String name
         -String description
         -String imageUrl
@@ -16,14 +14,10 @@ classDiagram
     }
 
     class Category {
-        -Long id
-        -UUID referenceId
         -String name
     }
 
     class Product {
-        -Long id
-        -UUID referenceId
         -String name
         -int price
         -int stock
