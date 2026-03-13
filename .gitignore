@@ -40,4 +40,5 @@ out/
 .kotlin
 
 ### Claude Code ###
-CLAUDE.md
+*.md
+!docs/**/*.md
