@@ -4,16 +4,28 @@ import com.loopers.domain.BaseEntity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "product")
+@Table(
+    name = "product",
+    indexes = {
+        // 브랜드 필터링용 단일 인덱스
+        @Index(name = "idx_product_brand_id", columnList = "brand_id"),
+        // 좋아요 순 정렬용 인덱스 (비정규화된 likesCount 활용)
+        @Index(name = "idx_product_likes_count", columnList = "likes_count DESC")
+    }
+)
 public class Product extends BaseEntity {
 
     private Long brandId;
     private String name;
     private Long price;
     private int stockQuantity;
+    // 비정규화: Like 테이블 집계 연산(COUNT + GROUP BY) 제거 목적
+    // 좋아요 등록/취소 시 LikeService에서 동기화
+    private long likesCount;
 
     protected Product() {}
 
@@ -27,6 +39,7 @@ public class Product extends BaseEntity {
         this.name = name;
         this.price = price;
         this.stockQuantity = stockQuantity;
+        this.likesCount = 0;
     }
 
     private void validateBrandId(Long brandId) {
@@ -77,5 +90,19 @@ public class Product extends BaseEntity {
 
     public int getStockQuantity() {
         return stockQuantity;
+    }
+
+    public long getLikesCount() {
+        return likesCount;
+    }
+
+    public void increaseLikeCount() {
+        this.likesCount++;
+    }
+
+    public void decreaseLikeCount() {
+        if (this.likesCount > 0) {
+            this.likesCount--;
+        }
     }
 }

@@ -1,14 +1,14 @@
 package com.loopers.infrastructure.product;
 
 import com.loopers.domain.product.Product;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 
 public interface ProductJpaRepository extends JpaRepository<Product, Long> {
 
-    @Query("SELECT p FROM Product p LEFT JOIN com.loopers.domain.like.Like l ON l.productId = p.id " +
-           "WHERE p.deletedAt IS NULL GROUP BY p ORDER BY COUNT(l) DESC")
-    List<Product> findAllOrderByLikesDesc();
+    // AS-IS: Like 테이블 JOIN + COUNT + GROUP BY → 매 요청마다 집계 연산 발생
+    // TO-BE: 비정규화된 likesCount 컬럼 기반 정렬 → 인덱스 활용, 집계 연산 제거
+    List<Product> findByDeletedAtIsNull(Sort sort);
 }
