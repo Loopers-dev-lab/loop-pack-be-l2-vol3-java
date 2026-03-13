@@ -24,6 +24,11 @@ public interface ProductStatsRepository {
      */
     void decrementLikeCount(Long productId);
 
+    /**
+     * 단일 상품의 집계 행을 삭제한다. (상품 삭제 시 정리용)
+     */
+    void deleteByProductId(Long productId);
+
     Optional<ProductStatsModel> findByProductId(Long productId);
 
     /**

@@ -93,6 +93,8 @@ public class ProductService {
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + id));
         product.delete();
         productRepository.save(product);
+        // 상품 삭제 시 집계 테이블도 함께 정리해 PLP/PDP 정렬·카운트에서 제외
+        productStatsRepository.deleteByProductId(id);
     }
 
     /**

@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 좋아요 유스케이스 조율.
  * 트랜잭션 경계, 도메인 결과 → LikeInfo 변환.
- * 좋아요 추가/취소 시 PDP 캐시 무효화(로드맵 §4.2).
+ * 좋아요 추가/취소 시 PDP·PLP 1페이지 캐시 무효화(로드맵 §3.1.4, §4.2).
  */
 @Service
 public class LikeFacade {
@@ -27,7 +27,9 @@ public class LikeFacade {
     @Transactional
     public LikeInfo addLike(Long userId, Long productId) {
         LikeModel like = likeService.addLike(userId, productId);
+        // 좋아요 수 변경 시 PDP + PLP 1페이지 캐시 모두 무효화해 정렬/카운트 일시 불일치 최소화
         productCacheService.evictDetail(productId);
+        productCacheService.evictList();
         return LikeInfo.from(like);
     }
 
@@ -35,6 +37,7 @@ public class LikeFacade {
     public void removeLike(Long userId, Long productId) {
         likeService.removeLike(userId, productId);
         productCacheService.evictDetail(productId);
+        productCacheService.evictList();
     }
 
     @Transactional(readOnly = true)

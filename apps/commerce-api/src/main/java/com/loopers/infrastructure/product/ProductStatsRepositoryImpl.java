@@ -35,6 +35,14 @@ public class ProductStatsRepositoryImpl implements ProductStatsRepository {
     }
 
     @Override
+    public void deleteByProductId(Long productId) {
+        if (productId == null) {
+            return;
+        }
+        productStatsJpaRepository.deleteById(productId);
+    }
+
+    @Override
     public Optional<ProductStatsModel> findByProductId(Long productId) {
         return productStatsJpaRepository.findById(productId);
     }
