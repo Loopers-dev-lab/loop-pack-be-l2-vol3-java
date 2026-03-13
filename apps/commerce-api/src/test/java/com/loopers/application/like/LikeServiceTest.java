@@ -84,7 +84,7 @@ class LikeServiceTest {
             Long memberId = 1L;
             fakeProductRepository.save(new Product(1L, "상품", 10_000L, 10));
             Long productId = 1L;
-            fakeLikeRepository.save(new Like(memberId, productId));
+            fakeLikeRepository.save(new com.loopers.domain.like.Like(memberId, productId));
 
             likeService.unlike(memberId, productId);
 

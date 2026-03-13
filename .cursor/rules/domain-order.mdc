@@ -1,0 +1,22 @@
+---
+description: Order 도메인 작업 시 적용. 주문, 재고 차감, OrderDomainService 관련.
+globs: ["**/domain/order/**", "**/application/order/**", "**/infrastructure/order/**"]
+alwaysApply: false
+---
+
+# Order 도메인 규칙
+
+이 규칙은 Order 도메인 및 관련 Application/Infrastructure 코드 작업 시 적용됩니다.
+
+## 필수 참조
+
+- `apps/commerce-api/src/main/java/com/loopers/domain/order/README.md` — 도메인 설계 상세
+- `apps/commerce-api/src/main/java/com/loopers/application/order/README.md` — Application Layer 상세
+- `CLAUDE.md` — 전체 아키텍처
+
+## 핵심 규칙
+
+1. **OrderDomainService** — Order와 Product 간 재고 차감·주문 생성 조율
+2. **재고 차감** — placeOrder에서 Product.decreaseStock() 호출, 부족 시 예외 → 롤백
+3. **가격 스냅샷** — OrderLine에 unitPrice 저장 (주문 시점)
+4. **OrderService** — 트랜잭션만 관리, 로직은 OrderDomainService에 위임

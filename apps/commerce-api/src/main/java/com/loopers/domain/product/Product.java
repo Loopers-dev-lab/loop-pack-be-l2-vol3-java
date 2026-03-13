@@ -4,16 +4,28 @@ import com.loopers.domain.BaseEntity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
+// 브랜드 필터 조회와 좋아요 순 정렬이 자주 쓰여서 인덱스 추가
+// likes_count는 매번 Like 테이블을 집계하기보다 여기서 관리하는 게 낫다고 판단
 @Entity
-@Table(name = "product")
+@Table(
+    name = "product",
+    indexes = {
+        @Index(name = "idx_product_brand_id", columnList = "brand_id"),
+        @Index(name = "idx_product_likes_count", columnList = "likes_count DESC")
+    }
+)
 public class Product extends BaseEntity {
 
     private Long brandId;
     private String name;
     private Long price;
     private int stockQuantity;
+    // Like 테이블 집계 대신 여기서 직접 카운트 관리 (비정규화)
+    // 좋아요 등록/취소 시 LikeService에서 동기화됨
+    private long likesCount;
 
     protected Product() {}
 
@@ -27,6 +39,7 @@ public class Product extends BaseEntity {
         this.name = name;
         this.price = price;
         this.stockQuantity = stockQuantity;
+        this.likesCount = 0;
     }
 
     private void validateBrandId(Long brandId) {
@@ -77,5 +90,19 @@ public class Product extends BaseEntity {
 
     public int getStockQuantity() {
         return stockQuantity;
+    }
+
+    public long getLikesCount() {
+        return likesCount;
+    }
+
+    public void increaseLikeCount() {
+        this.likesCount++;
+    }
+
+    public void decreaseLikeCount() {
+        if (this.likesCount > 0) {
+            this.likesCount--;
+        }
     }
 }

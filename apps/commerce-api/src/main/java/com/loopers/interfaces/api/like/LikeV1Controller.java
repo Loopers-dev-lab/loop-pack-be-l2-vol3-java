@@ -22,7 +22,7 @@ public class LikeV1Controller implements LikeV1ApiSpec {
     @Override
     public ApiResponse<Void> like(@Valid @RequestBody LikeV1Dto.LikeRequest request) {
         likeService.like(request.memberId(), request.productId());
-        return ApiResponse.success();
+        return ApiResponse.<Void>success();
     }
 
     @DeleteMapping
@@ -32,6 +32,6 @@ public class LikeV1Controller implements LikeV1ApiSpec {
         @RequestParam Long productId
     ) {
         likeService.unlike(memberId, productId);
-        return ApiResponse.success();
+        return ApiResponse.<Void>success();
     }
 }
