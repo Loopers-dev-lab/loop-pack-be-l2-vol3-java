@@ -8,6 +8,7 @@ import com.loopers.domain.product.BrandRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -21,6 +22,7 @@ public class ProductFacade {
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
 
+    @Cacheable(value = "product:detail", key = "#productId")
     public ProductDetailInfo getProductDetail(Long productId) {
         Product product = productRepository.findById(productId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[id = " + productId + "] 상품을 찾을 수 없습니다."));
@@ -32,6 +34,7 @@ public class ProductFacade {
         return ProductDetailInfo.of(product, brand, product.getLikesCount());
     }
 
+    @Cacheable(value = "product:list", key = "#sort.name()")
     public List<ProductListInfo> getProductList(SortCondition sort) {
         List<Product> products = productRepository.findAll(sort);
         if (products.isEmpty()) {

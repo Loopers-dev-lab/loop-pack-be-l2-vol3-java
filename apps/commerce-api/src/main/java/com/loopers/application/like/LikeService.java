@@ -6,6 +6,8 @@ import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +18,10 @@ public class LikeService {
     private final LikeRepository likeRepository;
     private final ProductRepository productRepository;
 
+    @Caching(evict = {
+        @CacheEvict(value = "product:detail", key = "#productId"),
+        @CacheEvict(value = "product:list", allEntries = true)
+    })
     @Transactional
     public void like(Long memberId, Long productId) {
         if (likeRepository.existsByMemberIdAndProductId(memberId, productId)) {
@@ -28,6 +34,10 @@ public class LikeService {
         product.increaseLikeCount();
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = "product:detail", key = "#productId"),
+        @CacheEvict(value = "product:list", allEntries = true)
+    })
     @Transactional
     public void unlike(Long memberId, Long productId) {
         if (!likeRepository.existsByMemberIdAndProductId(memberId, productId)) {
