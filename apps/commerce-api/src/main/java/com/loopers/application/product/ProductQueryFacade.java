@@ -1,12 +1,10 @@
 package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandApplicationService;
+import com.loopers.application.product.cache.CachedPublicProductDetail;
 import com.loopers.application.product.view.ProductListView;
 import com.loopers.application.product.view.ProductView;
-import com.loopers.application.product.view.PublicProductListItemView;
-import com.loopers.application.product.view.PublicProductListView;
 import com.loopers.domain.product.Product;
-import com.loopers.domain.product.query.ProductCursorPage;
 import com.loopers.domain.product.query.ProductListCriteria;
 import com.loopers.domain.product.query.ProductListQuery;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +22,7 @@ public class ProductQueryFacade {
     private final ProductApplicationService productApplicationService;
     private final BrandApplicationService brandApplicationService;
 
+    @CachedPublicProductDetail
     public ProductView get(UUID productId) {
         Product product = productApplicationService.get(productId);
         Map<UUID, String> brandNames = brandApplicationService.findNamesByIds(List.of(product.brandId()));
@@ -34,26 +33,6 @@ public class ProductQueryFacade {
         Product product = productApplicationService.getIncludingDeleted(productId);
         Map<UUID, String> brandNames = brandApplicationService.findNamesByIds(List.of(product.brandId()));
         return ProductView.from(product, brandNames.get(product.brandId()));
-    }
-
-    public PublicProductListView list(ProductListQuery query) {
-        ProductListCriteria criteria = ProductListCriteria.fromPublic(query);
-        ProductCursorPage products = productApplicationService.listByCursor(criteria);
-        Map<UUID, String> brandNames = brandApplicationService.findNamesByIds(
-                products.items().stream().map(Product::brandId).toList()
-        );
-        List<PublicProductListItemView> items = products.items().stream()
-                .map(product -> PublicProductListItemView.from(product, brandNames.get(product.brandId())))
-                .toList();
-        return new PublicProductListView(
-                items,
-                null,
-                products.size(),
-                null,
-                null,
-                products.hasNext(),
-                products.nextCursor()
-        );
     }
 
     public ProductListView listIncludingDeleted(ProductListQuery query) {
