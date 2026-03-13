@@ -7,6 +7,7 @@ import com.loopers.infrastructure.favorite.repository.FavoriteJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 
 @RequiredArgsConstructor
@@ -40,5 +41,13 @@ public class FavoriteRepositoryImpl implements FavoriteRepository {
     @Override
     public long countByProductId(Long productId) {
         return favoriteJpaRepository.countByProductId(productId);
+    }
+
+    @Override
+    public List<Favorite> findByMemberIdAndProductIds(Long memberId, List<Long> productIds) {
+        return favoriteJpaRepository.findByMemberIdAndProductIdIn(memberId, productIds)
+            .stream()
+            .map(FavoriteEntity::toModel)
+            .toList();
     }
 }
