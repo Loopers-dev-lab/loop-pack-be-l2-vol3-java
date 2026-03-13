@@ -70,6 +70,13 @@ class RedisCacheIntegrationTest {
 
     @AfterEach
     void tearDown() {
+        // L1 (Caffeine) 캐시 클리어 — TRUNCATE로 ID 리셋 시 stale hit 방지
+        cacheManager.getCacheNames().forEach(name -> {
+            Cache cache = cacheManager.getCache(name);
+            if (cache != null) {
+                cache.clear();
+            }
+        });
         redisCleanUp.truncateAll();
         databaseCleanUp.truncateAllTables();
     }

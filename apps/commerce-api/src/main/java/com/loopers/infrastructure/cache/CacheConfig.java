@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
@@ -14,7 +15,6 @@ import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Configuration
 @EnableCaching
+@RequiredArgsConstructor
 public class CacheConfig implements CachingConfigurer {
 
     private static final Set<String> TWO_LEVEL_CACHES = Set.of(
@@ -39,17 +40,16 @@ public class CacheConfig implements CachingConfigurer {
             "statsTopOrdered"
     );
 
+    private final LettuceConnectionFactory connectionFactory;
+
     @Bean
-    @Primary
-    @org.springframework.boot.autoconfigure.condition.ConditionalOnBean(LettuceConnectionFactory.class)
-    public CacheManager cacheManager(RedisCacheManager redisCacheManager) {
-        CaffeineCacheManager caffeineCacheManager = caffeineCacheManager();
+    public CacheManager cacheManager() {
+        RedisCacheManager redisCacheManager = buildRedisCacheManager();
+        CaffeineCacheManager caffeineCacheManager = buildCaffeineCacheManager();
         return new TwoLevelCacheManager(caffeineCacheManager, redisCacheManager, TWO_LEVEL_CACHES);
     }
 
-    @Bean
-    @org.springframework.boot.autoconfigure.condition.ConditionalOnBean(LettuceConnectionFactory.class)
-    public RedisCacheManager redisCacheManager(LettuceConnectionFactory connectionFactory) {
+    private RedisCacheManager buildRedisCacheManager() {
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(RedisSerializationContext.SerializationPair
                         .fromSerializer(new StringRedisSerializer()))
@@ -74,13 +74,15 @@ public class CacheConfig implements CachingConfigurer {
         Map<String, RedisCacheConfiguration> allConfigs = new java.util.HashMap<>(cacheConfigs);
         allConfigs.put("productList", defaultConfig.entryTtl(Duration.ofMinutes(5)));
 
-        return RedisCacheManager.builder(connectionFactory)
+        RedisCacheManager manager = RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
                 .withInitialCacheConfigurations(allConfigs)
                 .build();
+        manager.afterPropertiesSet();
+        return manager;
     }
 
-    private CaffeineCacheManager caffeineCacheManager() {
+    private CaffeineCacheManager buildCaffeineCacheManager() {
         CaffeineCacheManager manager = new CaffeineCacheManager();
         manager.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(1000)
