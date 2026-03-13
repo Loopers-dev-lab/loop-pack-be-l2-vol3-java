@@ -5,6 +5,8 @@ import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,8 +22,12 @@ public class LikeService {
     private final ProductRepository productRepository;
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(cacheNames = "productDetail", key = "'product:detail:' + #productId"),
+        @CacheEvict(cacheNames = "productList", allEntries = true)
+    })
     public LikeModel like(Long userId, Long productId) {
-        ProductModel product = productRepository.findById(productId)
+        ProductModel product = productRepository.findByIdForUpdate(productId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
 
         likeRepository.findByUserIdAndProductId(userId, productId)
@@ -31,18 +37,28 @@ public class LikeService {
 
         LikeModel like = new LikeModel(userId, product);
         try {
-            return likeRepository.save(like);
+            LikeModel savedLike = likeRepository.save(like);
+            product.increaseLikeCount();
+            return savedLike;
         } catch (DataIntegrityViolationException e) {
             throw new CoreException(ErrorType.CONFLICT, "이미 좋아요한 상품입니다.");
         }
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(cacheNames = "productDetail", key = "'product:detail:' + #productId"),
+        @CacheEvict(cacheNames = "productList", allEntries = true)
+    })
     public void unlike(Long userId, Long productId) {
+        ProductModel product = productRepository.findByIdForUpdate(productId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
+
         LikeModel like = likeRepository.findByUserIdAndProductId(userId, productId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "좋아요가 존재하지 않습니다."));
 
         likeRepository.delete(like);
+        product.decreaseLikeCount();
     }
 
     @Transactional(readOnly = true)
