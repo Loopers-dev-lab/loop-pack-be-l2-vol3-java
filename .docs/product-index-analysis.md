@@ -371,6 +371,39 @@ ALTER TABLE product ADD INDEX idx_deleted_created (deleted_at, created_at DESC);
 
 ---
 
+## 14. 최종 채택 인덱스 및 선택 이유
+
+### 채택된 인덱스 (4개)
+
+```java
+// Product.java @Table indexes
+@Index(name = "idx_brand_deleted_created", columnList = "brand_id, deleted_at, created_at DESC"),
+@Index(name = "idx_brand_deleted_price",   columnList = "brand_id, deleted_at, price"),
+@Index(name = "idx_brand_deleted_likes",   columnList = "brand_id, deleted_at, like_count DESC"),
+@Index(name = "idx_deleted_created",       columnList = "deleted_at, created_at DESC")
+```
+
+| 인덱스 | 채택 이유 |
+|-------|---------|
+| `idx_brand_deleted_created` | 브랜드 필터 + 최신순은 e커머스의 가장 일반적인 진입 패턴. `brand_id` 선두 컬럼이 선택도를 높여 실질적인 스캔 범위 축소 효과가 크다. |
+| `idx_brand_deleted_price` | 브랜드 필터 + 가격순은 구매 전 비교 유즈케이스에서 빈번. `(brand_id, deleted_at)`으로 Q8(COUNT) 커버링 인덱스 효과도 겸한다. |
+| `idx_brand_deleted_likes` | 브랜드 인기순 정렬 지원. `like_count` 갱신마다 B-Tree 갱신이 발생하는 쓰기 비용을 감수하고 채택 — 브랜드 페이지에서 인기순 정렬 수요가 충분하다고 판단했다. |
+| `idx_deleted_created` | 브랜드 필터 없는 전체 최신순은 랜딩 페이지 기본 정렬로 트래픽이 가장 높다. `deleted_at IS NULL` 선택도가 낮아 효과가 제한적이나, filesort 제거만으로도 p95 응답 시간을 개선하기에 충분하다. |
+
+### 미채택 인덱스 (2개) 및 이유
+
+| 인덱스 | 미채택 이유 |
+|-------|-----------|
+| `idx_deleted_price` | 브랜드 필터 없는 전체 가격순은 사용 빈도가 낮다고 판단. `deleted_at IS NULL` 선택도가 낮아 스캔 범위 축소 효과도 제한적이다. 쓰기 비용 대비 조회 이득이 크지 않아 제외. |
+| `idx_deleted_likes` | 브랜드 필터 없는 전체 좋아요순은 역시 낮은 사용 빈도로 판단. `like_count`는 좋아요 생성/취소마다 갱신되는 핫스팟 컬럼이므로, 전체 조회용으로까지 인덱스를 두는 것은 쓰기 부하 대비 실익이 없다. |
+
+### 결정 요약
+
+> 브랜드 필터가 있는 3가지 정렬(최신/가격/좋아요)은 선택도가 높아 인덱스 효과가 확실하므로 전부 채택.
+> 브랜드 필터가 없는 경우는 랜딩 페이지 기본값인 최신순 1개만 채택 — 나머지 둘은 사용 빈도와 쓰기 비용을 고려해 제외.
+
+---
+
 *분석 기준일: 2026-03-12*
 *데이터 건수: product 테이블 100,000건*
 *테스트 방식: 인덱스를 1개씩 개별 추가/DROP, 버퍼풀 워밍업(2회) 후 측정*
