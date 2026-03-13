@@ -3,6 +3,8 @@ package com.loopers.domain.coupon;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.OptimisticLockException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -22,11 +24,23 @@ public class CouponService {
 
     private final CouponTemplateRepository couponTemplateRepository;
     private final IssuedCouponRepository issuedCouponRepository;
+    /**
+     * REQUIRES_NEW 전파가 적용된 프록시 자신.
+     * validateAndUse → selfProxy().validateAndUseInNewTransaction(...) 호출로 트랜잭션 경계를 분리한다.
+     * 필드 주입(@Lazy)로 순환 의존을 피하고, 단위 테스트(new CouponService(...))에서는 null 이므로 this를 사용한다.
+     */
+    @Lazy
+    @Autowired(required = false)
+    private CouponService self;
 
     public CouponService(CouponTemplateRepository couponTemplateRepository,
                          IssuedCouponRepository issuedCouponRepository) {
         this.couponTemplateRepository = couponTemplateRepository;
         this.issuedCouponRepository = issuedCouponRepository;
+    }
+
+    private CouponService selfProxy() {
+        return self != null ? self : this;
     }
 
     /**
@@ -71,7 +85,8 @@ public class CouponService {
 
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
             try {
-                return validateAndUseInNewTransaction(issuedCouponId, userId, orderAmountBeforeDiscount);
+                // REQUIRES_NEW 전파가 적용된 프록시를 통해 호출해야 부모 트랜잭션이 rollback-only로 마킹되지 않는다.
+                return selfProxy().validateAndUseInNewTransaction(issuedCouponId, userId, orderAmountBeforeDiscount);
             } catch (OptimisticLockException | ObjectOptimisticLockingFailureException e) {
                 if (attempt == maxAttempts - 1) {
                     throw new CoreException(ErrorType.CONFLICT, "잠시 후 다시 시도해 주세요.", e);
