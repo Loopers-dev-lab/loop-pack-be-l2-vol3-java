@@ -17,7 +17,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.loopers.domain.shared.cache.CacheRepository;
-import com.loopers.domain.shared.cache.CacheType;
 
 @ExtendWith(MockitoExtension.class)
 class ProductWriterTest {
@@ -93,39 +92,22 @@ class ProductWriterTest {
     @Nested
     class IncreaseLikeCount {
 
-        @DisplayName("DB를 갱신하고 상세 캐시의 likeCount를 Write-Through한다.")
+        @DisplayName("DB를 갱신하고 DB에서 최신 상품을 조회하여 캐시를 갱신한다.")
         @Test
-        void updatesDbAndWritesThroughCache() {
+        void updatesDbAndRefreshesCache() {
             // arrange
             Long productId = 1L;
+            String detailKey = ProductCacheConstants.DETAIL_KEY.of(productId);
             var product = Product.create(new ProductSpec(1L, "상품명", "http://example.com/thumb.jpg", 10000L, 50L, null));
-            String detailKey = ProductCacheConstants.DETAIL_KEY.of(productId);
-            given(cacheRepository.get(eq(detailKey), any(CacheType.class))).willReturn(product);
+            given(productService.getActiveProduct(productId)).willReturn(product);
 
             // act
             productWriter.increaseLikeCount(productId);
 
             // assert
             then(productService).should().increaseLikeCount(productId);
-            assertThat(product.getLikeCount()).isEqualTo(1);
+            then(productService).should().getActiveProduct(productId);
             then(cacheRepository).should().put(eq(detailKey), eq(product), any(Duration.class));
-        }
-
-        @DisplayName("캐시 miss이면, DB만 갱신하고 캐시에 쓰지 않는다.")
-        @Test
-        void updatesDbOnly_whenCacheMiss() {
-            // arrange
-            Long productId = 1L;
-            String detailKey = ProductCacheConstants.DETAIL_KEY.of(productId);
-            given(cacheRepository.get(eq(detailKey), any(CacheType.class))).willReturn(null);
-
-            // act
-            productWriter.increaseLikeCount(productId);
-
-            // assert
-            then(productService).should().increaseLikeCount(productId);
-            then(cacheRepository).should().get(eq(detailKey), any(CacheType.class));
-            then(cacheRepository).shouldHaveNoMoreInteractions();
         }
     }
 
@@ -133,23 +115,21 @@ class ProductWriterTest {
     @Nested
     class DecreaseLikeCount {
 
-        @DisplayName("DB를 갱신하고 상세 캐시의 likeCount를 Write-Through한다.")
+        @DisplayName("DB를 갱신하고 DB에서 최신 상품을 조회하여 캐시를 갱신한다.")
         @Test
-        void updatesDbAndWritesThroughCache() {
+        void updatesDbAndRefreshesCache() {
             // arrange
             Long productId = 1L;
-            var product = Product.create(new ProductSpec(1L, "상품명", "http://example.com/thumb.jpg", 10000L, 50L, null));
-            // likeCount를 1로 만들어두고 감소 테스트
-            product.adjustLikeCount(1);
             String detailKey = ProductCacheConstants.DETAIL_KEY.of(productId);
-            given(cacheRepository.get(eq(detailKey), any(CacheType.class))).willReturn(product);
+            var product = Product.create(new ProductSpec(1L, "상품명", "http://example.com/thumb.jpg", 10000L, 50L, null));
+            given(productService.getActiveProduct(productId)).willReturn(product);
 
             // act
             productWriter.decreaseLikeCount(productId);
 
             // assert
             then(productService).should().decreaseLikeCount(productId);
-            assertThat(product.getLikeCount()).isEqualTo(0);
+            then(productService).should().getActiveProduct(productId);
             then(cacheRepository).should().put(eq(detailKey), eq(product), any(Duration.class));
         }
     }

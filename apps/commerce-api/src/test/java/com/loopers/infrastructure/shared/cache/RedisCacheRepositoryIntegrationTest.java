@@ -143,6 +143,23 @@ class RedisCacheRepositoryIntegrationTest {
                     () -> assertThat(cacheRepository.get("order:list:1", STRING_TYPE)).isEqualTo("c")
             );
         }
+
+        @DisplayName("와일드카드 없는 단일 키를 지정하면, 해당 키만 삭제된다.")
+        @Test
+        void deletesSingleKey_whenExactKeyProvided() {
+            // arrange
+            cacheRepository.put("product:detail:1", "a");
+            cacheRepository.put("product:detail:2", "b");
+
+            // act
+            cacheRepository.evict("product:detail:1");
+
+            // assert
+            assertAll(
+                    () -> assertThat(cacheRepository.get("product:detail:1", STRING_TYPE)).isNull(),
+                    () -> assertThat(cacheRepository.get("product:detail:2", STRING_TYPE)).isEqualTo("b")
+            );
+        }
     }
 
     @DisplayName("여러 키를 한 번에 조회할 때,")
@@ -205,7 +222,7 @@ class RedisCacheRepositoryIntegrationTest {
             // arrange & act
             cacheRepository.multiPut(
                     Map.of("test:mput:1", "x", "test:mput:2", "y", "test:mput:3", "z"),
-                    Duration.ofMinutes(1)
+                    () -> Duration.ofMinutes(1)
             );
 
             // assert
@@ -220,7 +237,7 @@ class RedisCacheRepositoryIntegrationTest {
         @Test
         void returnsNull_whenTtlExpired() throws InterruptedException {
             // arrange
-            cacheRepository.multiPut(Map.of("test:mput:ttl", "expiring"), Duration.ofSeconds(1));
+            cacheRepository.multiPut(Map.of("test:mput:ttl", "expiring"), () -> Duration.ofSeconds(1));
 
             // act
             Thread.sleep(1500);
@@ -233,7 +250,7 @@ class RedisCacheRepositoryIntegrationTest {
         @Test
         void doesNothing_whenEntriesEmpty() {
             // act & assert
-            cacheRepository.multiPut(Map.of(), Duration.ofMinutes(1));
+            cacheRepository.multiPut(Map.of(), () -> Duration.ofMinutes(1));
         }
     }
 

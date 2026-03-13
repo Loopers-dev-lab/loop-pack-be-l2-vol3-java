@@ -3,6 +3,7 @@ package com.loopers.domain.shared.cache;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * 키-값 기반 캐시 저장소 인터페이스.
@@ -50,12 +51,13 @@ public interface CacheRepository {
     <T> List<T> multiGet(List<String> keys, CacheType<T> type);
 
     /**
-     * 여러 키-값 쌍을 한 번에 저장하며, 각 키에 동일한 TTL을 적용한다.
+     * 여러 키-값 쌍을 한 번에 저장하며, 각 키마다 개별 TTL을 적용한다.
+     * TTL은 키마다 {@code ttlSupplier}를 호출하여 결정한다.
      *
-     * @param entries 캐시 키-값 맵
-     * @param ttl     만료 시간
+     * @param entries     캐시 키-값 맵
+     * @param ttlSupplier 키마다 호출되는 TTL 공급자
      */
-    <T> void multiPut(Map<String, T> entries, Duration ttl);
+    <T> void multiPut(Map<String, T> entries, Supplier<Duration> ttlSupplier);
 
     /**
      * 패턴에 매칭되는 캐시 키를 일괄 삭제한다.

@@ -1,13 +1,16 @@
 package com.loopers.infrastructure.shared.cache;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.function.Supplier;
 
 import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Repository;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
@@ -40,8 +43,8 @@ public class RedisCacheRepository implements CacheRepository {
      * 주입받은 ObjectMapper를 복사하여 캐시 전용으로 구성한다.
      *
      * <p>글로벌 ObjectMapper의 설정을 오염시키지 않기 위해 {@code copy()}로 별도 인스턴스를 생성하며,
-     * getter/setter 없이 필드 직접 접근으로 직렬화하도록 visibility를 재설정한다.
-     * 이는 Lombok {@code @Getter}만 사용하고 setter가 없는 Entity/VO를 안전하게 처리하기 위함이다.</p>
+     * getter/setter 없이 필드 직접 접근으로 직렬화하도록 visibility를 재설정한다. 이는 Lombok {@code @Getter}만 사용하고 setter가 없는 Entity/VO를 안전하게 처리하기
+     * 위함이다.</p>
      */
     public RedisCacheRepository(RedisTemplate<String, String> redisTemplate, ObjectMapper objectMapper) {
         this.redisTemplate = redisTemplate;
@@ -107,7 +110,7 @@ public class RedisCacheRepository implements CacheRepository {
     }
 
     @Override
-    public <T> void multiPut(Map<String, T> entries, Duration ttl) {
+    public <T> void multiPut(Map<String, T> entries, Supplier<Duration> ttlSupplier) {
         if (entries.isEmpty()) {
             return;
         }
@@ -116,7 +119,7 @@ public class RedisCacheRepository implements CacheRepository {
                 try {
                     String json = objectMapper.writeValueAsString(value);
                     connection.stringCommands().setEx(
-                            key.getBytes(), ttl.getSeconds(), json.getBytes()
+                            key.getBytes(), ttlSupplier.get().getSeconds(), json.getBytes()
                     );
                 } catch (JsonProcessingException e) {
                     log.warn("캐시 직렬화 실패, key={}", key, e);
@@ -129,7 +132,21 @@ public class RedisCacheRepository implements CacheRepository {
 
     @Override
     public void evict(String keyPattern) {
-        Set<String> keys = redisTemplate.keys(keyPattern);
+        if (!keyPattern.contains("*")) {
+            redisTemplate.delete(keyPattern);
+            log.debug("Cache EVICT — key={}", keyPattern);
+            return;
+        }
+
+        ScanOptions options = ScanOptions.scanOptions().match(keyPattern).count(100).build();
+        List<String> keys = new ArrayList<>();
+
+        try (Cursor<String> cursor = redisTemplate.scan(options)) {
+            while (cursor.hasNext()) {
+                keys.add(cursor.next());
+            }
+        }
+
         if (!keys.isEmpty()) {
             redisTemplate.delete(keys);
             log.debug("Cache EVICT — pattern={}, deletedKeys={}", keyPattern, keys.size());

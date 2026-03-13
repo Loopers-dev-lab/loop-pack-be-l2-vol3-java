@@ -2,8 +2,6 @@ package com.loopers.domain.product;
 
 import static com.loopers.domain.product.ProductCacheConstants.*;
 
-import java.util.Objects;
-
 import com.loopers.domain.shared.annotation.DomainService;
 import com.loopers.domain.shared.cache.CacheRepository;
 
@@ -49,7 +47,7 @@ public class ProductWriter {
      */
     public void update(ModifyProduct product) {
         Product updated = productService.update(product);
-        cacheRepository.put(DETAIL_KEY.of(product.productId()), updated, DETAIL_TTL);
+        cacheRepository.put(DETAIL_KEY.of(product.productId()), updated, detailTtl());
     }
 
     /**
@@ -59,7 +57,7 @@ public class ProductWriter {
      */
     public void increaseLikeCount(Long productId) {
         productService.increaseLikeCount(productId);
-        updateCachedLikeCount(productId, 1);
+        refreshCache(productId);
     }
 
     /**
@@ -69,21 +67,14 @@ public class ProductWriter {
      */
     public void decreaseLikeCount(Long productId) {
         productService.decreaseLikeCount(productId);
-        updateCachedLikeCount(productId, -1);
+        refreshCache(productId);
     }
 
     /**
-     * 캐시된 상품의 좋아요 수를 Write-Through로 갱신한다. 캐시 miss이면 아무 작업도 하지 않는다.
+     * DB에서 최신 상품을 조회하여 상세 캐시를 갱신한다.
      */
-    private void updateCachedLikeCount(Long productId, int delta) {
-        String key = DETAIL_KEY.of(productId);
-        Product cached = cacheRepository.get(key, PRODUCT_TYPE);
-
-        if (Objects.isNull(cached)) {
-            return;
-        }
-
-        cached.adjustLikeCount(delta);
-        cacheRepository.put(key, cached, DETAIL_TTL);
+    private void refreshCache(Long productId) {
+        Product product = productService.getActiveProduct(productId);
+        cacheRepository.put(DETAIL_KEY.of(productId), product, detailTtl());
     }
 }

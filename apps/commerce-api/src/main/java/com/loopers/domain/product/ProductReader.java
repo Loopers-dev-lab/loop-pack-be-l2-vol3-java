@@ -8,6 +8,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 import com.loopers.domain.shared.annotation.DomainService;
 import com.loopers.domain.shared.cache.CacheRepository;
@@ -34,9 +38,12 @@ public class ProductReader {
     private static final CacheType<ProductIdPage> ID_PAGE_TYPE = new CacheType<>() {};
     private static final String ALL_BRAND = "all";
     private static final int MAX_CACHEABLE_PAGE = 2;
+    private static final long LOCK_TIMEOUT_SECONDS = 3;
 
     private final CacheRepository cacheRepository;
     private final ProductService productService;
+
+    private final ConcurrentMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
 
     /**
      * 활성 상품 목록을 페이지 단위로 조회한다.
@@ -52,6 +59,19 @@ public class ProductReader {
 
         if (Objects.nonNull(idPage)) {
             return resolveProductsFromIdPage(idPage);
+        }
+
+        ReentrantLock lock = locks.computeIfAbsent(listKey, k -> new ReentrantLock());
+        if (tryLockWithTimeout(lock)) {
+            try {
+                ProductIdPage rechecked = cacheRepository.get(listKey, ID_PAGE_TYPE);
+                if (Objects.nonNull(rechecked)) {
+                    return resolveProductsFromIdPage(rechecked);
+                }
+                return fetchAndCacheProducts(brandId, sortType, pageSize);
+            } finally {
+                releaseLock(listKey, lock);
+            }
         }
 
         return fetchAndCacheProducts(brandId, sortType, pageSize);
@@ -71,9 +91,22 @@ public class ProductReader {
             return cached;
         }
 
-        Product product = productService.getActiveProduct(productId);
-        cacheRepository.put(key, product, DETAIL_TTL);
-        return product;
+        ReentrantLock lock = locks.computeIfAbsent(key, k -> new ReentrantLock());
+        if (tryLockWithTimeout(lock)) {
+            try {
+                Product rechecked = cacheRepository.get(key, PRODUCT_TYPE);
+                if (Objects.nonNull(rechecked)) {
+                    return rechecked;
+                }
+                Product product = productService.getActiveProduct(productId);
+                cacheRepository.put(key, product, detailTtl());
+                return product;
+            } finally {
+                releaseLock(key, lock);
+            }
+        }
+
+        return productService.getActiveProduct(productId);
     }
 
     private String buildListKey(Long brandId, ProductSortType sortType, PageSize pageSize) {
@@ -125,7 +158,7 @@ public class ProductReader {
     }
 
     /**
-     * 목록 캐시 MISS 시, DB에서 조회하고 양쪽 캐시에 저장한다.
+     * 목록 캐시 MISS 시, DB에서 조회하고 상세 캐시(개별 상품)와 목록 캐시(ID 리스트)에 저장한다.
      */
     private Page<Product> fetchAndCacheProducts(Long brandId, ProductSortType sortType, PageSize pageSize) {
         Page<Product> products = productService.getActiveProducts(brandId, sortType, pageSize);
@@ -137,7 +170,7 @@ public class ProductReader {
         if (isCacheablePage(pageSize.page())) {
             List<Long> ids = products.content().stream().map(Product::getId).toList();
             ProductIdPage idPage = new ProductIdPage(ids, products.hasNext());
-            cacheRepository.put(buildListKey(brandId, sortType, pageSize), idPage, LIST_TTL);
+            cacheRepository.put(buildListKey(brandId, sortType, pageSize), idPage, listTtl());
         }
 
         return products;
@@ -149,11 +182,37 @@ public class ProductReader {
         }
         Map<String, Product> entries = new HashMap<>();
         products.forEach((id, product) -> entries.put(DETAIL_KEY.of(id), product));
-        cacheRepository.multiPut(entries, DETAIL_TTL);
+        cacheRepository.multiPut(entries, ProductCacheConstants::detailTtl);
     }
 
     private boolean isCacheablePage(int page) {
         return page <= MAX_CACHEABLE_PAGE;
+    }
+
+    /**
+     * 현재 보유 중인 Lock 수를 반환한다. 테스트 전용.
+     */
+    int lockCount() {
+        return locks.size();
+    }
+
+    /**
+     * Lock을 해제하고, 대기 중인 스레드가 없으면 map에서 제거하여 메모리 누수를 방지한다.
+     */
+    private void releaseLock(String key, ReentrantLock lock) {
+        lock.unlock();
+        if (!lock.hasQueuedThreads()) {
+            locks.remove(key, lock);
+        }
+    }
+
+    private boolean tryLockWithTimeout(ReentrantLock lock) {
+        try {
+            return lock.tryLock(LOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     /**
