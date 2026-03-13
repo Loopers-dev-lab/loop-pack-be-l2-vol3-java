@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.shared.cache;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -119,7 +120,7 @@ public class RedisCacheRepository implements CacheRepository {
                 try {
                     String json = objectMapper.writeValueAsString(value);
                     connection.stringCommands().setEx(
-                            key.getBytes(), ttlSupplier.get().getSeconds(), json.getBytes()
+                            key.getBytes(StandardCharsets.UTF_8), ttlSupplier.get().getSeconds(), json.getBytes(StandardCharsets.UTF_8)
                     );
                 } catch (JsonProcessingException e) {
                     log.warn("캐시 직렬화 실패, key={}", key, e);
@@ -138,18 +139,28 @@ public class RedisCacheRepository implements CacheRepository {
             return;
         }
 
-        ScanOptions options = ScanOptions.scanOptions().match(keyPattern).count(100).build();
-        List<String> keys = new ArrayList<>();
+        int batchSize = 100;
+        ScanOptions options = ScanOptions.scanOptions().match(keyPattern).count(batchSize).build();
+        long totalDeleted = 0;
 
         try (Cursor<String> cursor = redisTemplate.scan(options)) {
+            List<String> batch = new ArrayList<>(batchSize);
             while (cursor.hasNext()) {
-                keys.add(cursor.next());
+                batch.add(cursor.next());
+                if (batch.size() >= batchSize) {
+                    redisTemplate.delete(batch);
+                    totalDeleted += batch.size();
+                    batch.clear();
+                }
+            }
+            if (!batch.isEmpty()) {
+                redisTemplate.delete(batch);
+                totalDeleted += batch.size();
             }
         }
 
-        if (!keys.isEmpty()) {
-            redisTemplate.delete(keys);
-            log.debug("Cache EVICT — pattern={}, deletedKeys={}", keyPattern, keys.size());
+        if (totalDeleted > 0) {
+            log.debug("Cache EVICT — pattern={}, deletedKeys={}", keyPattern, totalDeleted);
         }
     }
 
