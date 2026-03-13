@@ -5,6 +5,7 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import lombok.Getter;
@@ -12,7 +13,16 @@ import lombok.Getter;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "products")
+@Table(name = "products", indexes = {
+        // 핵심 인덱스: 브랜드 필터 + 정렬
+        @Index(name = "idx_products_brand_created", columnList = "deleted_at, brand_id, created_at DESC"),
+        @Index(name = "idx_products_brand_price", columnList = "deleted_at, brand_id, price"),
+        @Index(name = "idx_products_brand_likes", columnList = "deleted_at, brand_id, like_count DESC"),
+        // 방어 인덱스: 브랜드 필터 없는 전체 조회 (캐시 미스 대비)
+        @Index(name = "idx_products_created_only", columnList = "deleted_at, created_at DESC"),
+        @Index(name = "idx_products_likes_only", columnList = "deleted_at, like_count DESC"),
+        @Index(name = "idx_products_price_only", columnList = "deleted_at, price")
+})
 @Getter
 public class Product extends BaseEntity {
 

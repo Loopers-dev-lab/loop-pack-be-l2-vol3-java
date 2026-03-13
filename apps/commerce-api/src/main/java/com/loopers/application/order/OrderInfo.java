@@ -2,6 +2,7 @@ package com.loopers.application.order;
 
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
+import com.loopers.domain.order.OrderStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -10,6 +11,7 @@ import java.util.List;
 public record OrderInfo(
         Long id,
         Long userId,
+        OrderStatus status,
         BigDecimal totalAmount,
         BigDecimal discountAmount,
         BigDecimal finalAmount,
@@ -44,6 +46,7 @@ public record OrderInfo(
         return new OrderInfo(
                 order.getId(),
                 order.getUserId(),
+                order.getStatus(),
                 order.getTotalAmount(),
                 order.getDiscountAmount(),
                 order.getFinalAmount(),
@@ -55,6 +58,7 @@ public record OrderInfo(
 
     public record OrderSummary(
             Long id,
+            OrderStatus status,
             BigDecimal totalAmount,
             BigDecimal discountAmount,
             BigDecimal finalAmount,
@@ -65,6 +69,7 @@ public record OrderInfo(
         public static OrderSummary from(Order order) {
             return new OrderSummary(
                     order.getId(),
+                    order.getStatus(),
                     order.getTotalAmount(),
                     order.getDiscountAmount(),
                     order.getFinalAmount(),
@@ -77,6 +82,7 @@ public record OrderInfo(
     public record OrderAdminSummary(
             Long id,
             Long userId,
+            OrderStatus status,
             BigDecimal totalAmount,
             BigDecimal discountAmount,
             BigDecimal finalAmount,
@@ -88,6 +94,7 @@ public record OrderInfo(
             return new OrderAdminSummary(
                     order.getId(),
                     order.getUserId(),
+                    order.getStatus(),
                     order.getTotalAmount(),
                     order.getDiscountAmount(),
                     order.getFinalAmount(),

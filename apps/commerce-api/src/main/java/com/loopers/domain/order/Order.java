@@ -5,10 +5,13 @@ import com.loopers.support.error.ErrorType;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -19,7 +22,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "orders")
+@Table(name = "orders", indexes = {
+        @Index(name = "idx_orders_user_status_created", columnList = "user_id, status, created_at DESC"),
+        @Index(name = "idx_orders_user_created", columnList = "user_id, created_at DESC"),
+        @Index(name = "idx_orders_status_created", columnList = "status, created_at DESC")
+})
 @Getter
 public class Order {
 
@@ -41,6 +48,10 @@ public class Order {
     @Column(name = "final_amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal finalAmount;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private OrderStatus status;
+
     @Column(name = "issued_coupon_id")
     private Long issuedCouponId;
 
@@ -57,6 +68,7 @@ public class Order {
         validateUserId(userId);
         Order order = new Order();
         order.userId = userId;
+        order.status = OrderStatus.PENDING;
         order.totalAmount = BigDecimal.ZERO;
         order.discountAmount = BigDecimal.ZERO;
         order.finalAmount = BigDecimal.ZERO;
@@ -79,6 +91,34 @@ public class Order {
         this.issuedCouponId = issuedCouponId;
         this.discountAmount = discountAmount;
         this.finalAmount = this.totalAmount.subtract(discountAmount).max(BigDecimal.ZERO);
+    }
+
+    public void pay() {
+        if (this.status != OrderStatus.PENDING) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "결제는 PENDING 상태에서만 가능합니다");
+        }
+        this.status = OrderStatus.PAID;
+    }
+
+    public void ship() {
+        if (this.status != OrderStatus.PAID) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "배송은 PAID 상태에서만 가능합니다");
+        }
+        this.status = OrderStatus.SHIPPING;
+    }
+
+    public void deliver() {
+        if (this.status != OrderStatus.SHIPPING) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "배송완료는 SHIPPING 상태에서만 가능합니다");
+        }
+        this.status = OrderStatus.DELIVERED;
+    }
+
+    public void cancel() {
+        if (this.status == OrderStatus.DELIVERED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "배송완료된 주문은 취소할 수 없습니다");
+        }
+        this.status = OrderStatus.CANCELLED;
     }
 
     @PrePersist

@@ -5,6 +5,7 @@ import com.loopers.application.coupon.IssuedCouponSnapshot;
 import com.loopers.application.product.ProductService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.product.Product;
+import com.loopers.domain.order.OrderStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -72,8 +73,8 @@ public class OrderFacade {
     }
 
     @Transactional(readOnly = true)
-    public Page<OrderInfo.OrderSummary> getOrderList(Long userId, ZonedDateTime startDateTime, ZonedDateTime endDateTime, Pageable pageable) {
-        Page<Order> orders = orderService.findOrdersByUserIdAndDateRange(userId, startDateTime, endDateTime, pageable);
+    public Page<OrderInfo.OrderSummary> getOrderList(Long userId, OrderStatus status, ZonedDateTime startDateTime, ZonedDateTime endDateTime, Pageable pageable) {
+        Page<Order> orders = orderService.findOrdersByUserIdAndStatusAndDateRange(userId, status, startDateTime, endDateTime, pageable);
         return orders.map(OrderInfo.OrderSummary::from);
     }
 
@@ -84,8 +85,16 @@ public class OrderFacade {
     }
 
     @Transactional(readOnly = true)
-    public Page<OrderInfo.OrderAdminSummary> getAdminOrderList(Pageable pageable) {
-        Page<Order> orders = orderService.findAllOrders(pageable);
+    public Page<OrderInfo.OrderAdminSummary> getAdminOrderList(OrderStatus status, Pageable pageable) {
+        Page<Order> orders = (status != null)
+                ? orderService.findOrdersByStatus(status, pageable)
+                : orderService.findAllOrders(pageable);
+        return orders.map(OrderInfo.OrderAdminSummary::from);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<OrderInfo.OrderAdminSummary> getAdminOrdersByProduct(Long productId, Pageable pageable) {
+        Page<Order> orders = orderService.findOrdersByProductId(productId, pageable);
         return orders.map(OrderInfo.OrderAdminSummary::from);
     }
 }

@@ -51,7 +51,7 @@ public class OrderV1Controller implements OrderApiV1Spec {
             @AuthUser AuthenticatedUser user,
             @Valid OrderRequest.ListByUser request) {
         Page<OrderInfo.OrderSummary> orders = orderFacade.getOrderList(
-                user.id(), request.startDateTime(), request.endDateTime(), request.toPageable());
+                user.id(), request.status(), request.startDateTime(), request.endDateTime(), request.toPageable());
         PageResponse<OrderV1Dto.OrderListResponse> pageResponse = PageResponse.from(orders, OrderV1Dto.OrderListResponse::from);
         return ApiResponse.success(pageResponse);
     }

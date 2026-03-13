@@ -2,6 +2,7 @@ package com.loopers.infrastructure.order;
 
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderRepository;
+import com.loopers.domain.order.OrderStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,12 +30,22 @@ public class OrderRepositoryImpl implements OrderRepository {
     }
 
     @Override
-    public Page<Order> findAllByUserIdAndCreatedAtBetween(Long userId, ZonedDateTime startDate, ZonedDateTime endDate, Pageable pageable) {
-        return orderJpaRepository.findAllByUserIdAndCreatedAtBetween(userId, startDate, endDate, pageable);
+    public Page<Order> findAll(Pageable pageable) {
+        return orderJpaRepository.findAllByOrderByCreatedAtDesc(pageable);
     }
 
     @Override
-    public Page<Order> findAll(Pageable pageable) {
-        return orderJpaRepository.findAllByOrderByCreatedAtDesc(pageable);
+    public Page<Order> findAllByUserIdAndStatusAndCreatedAtBetween(Long userId, OrderStatus status, ZonedDateTime startDate, ZonedDateTime endDate, Pageable pageable) {
+        return orderJpaRepository.findAllByUserIdAndStatusAndCreatedAtBetween(userId, status, startDate, endDate, pageable);
+    }
+
+    @Override
+    public Page<Order> findAllByStatus(OrderStatus status, Pageable pageable) {
+        return orderJpaRepository.findAllByStatus(status, pageable);
+    }
+
+    @Override
+    public Page<Order> findAllByProductId(Long productId, Pageable pageable) {
+        return orderJpaRepository.findAllByProductId(productId, pageable);
     }
 }
