@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.loopers.domain.product.QProductModel.productModel;
-import static com.loopers.domain.like.QLikeModel.likeModel;
+import static com.loopers.domain.product.QProductStatsModel.productStatsModel;
 
 @Repository
 public class ProductRepositoryImpl implements ProductRepository {
@@ -27,7 +27,7 @@ public class ProductRepositoryImpl implements ProductRepository {
     private final EntityManager entityManager;
 
     public ProductRepositoryImpl(ProductJpaRepository productJpaRepository, JPAQueryFactory queryFactory,
-                                 EntityManager entityManager) {
+            EntityManager entityManager) {
         this.productJpaRepository = productJpaRepository;
         this.queryFactory = queryFactory;
         this.entityManager = entityManager;
@@ -50,17 +50,18 @@ public class ProductRepositoryImpl implements ProductRepository {
         }
         BooleanExpression brandCond = brandId != null ? productModel.brandId.eq(brandId) : null;
         var query = queryFactory.selectFrom(productModel)
-            .where(productModel.deletedAt.isNull(), brandCond);
+                .where(productModel.deletedAt.isNull(), brandCond);
         OrderSpecifier<?> order = orderBy(sortOrder);
         List<ProductModel> content = query.orderBy(order)
-            .offset(pageable.getOffset())
-            .limit(pageable.getPageSize())
-            .fetch();
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
         long total = Optional.ofNullable(
-            queryFactory.select(productModel.count())
-                .from(productModel)
-                .where(productModel.deletedAt.isNull(), brandCond)
-                .fetchOne()).orElse(0L);
+                queryFactory.select(productModel.count())
+                        .from(productModel)
+                        .where(productModel.deletedAt.isNull(), brandCond)
+                        .fetchOne())
+                .orElse(0L);
         return new PageImpl<>(content, pageable, total);
     }
 
@@ -76,19 +77,18 @@ public class ProductRepositoryImpl implements ProductRepository {
     private Page<ProductModel> findNotDeletedOrderByLikesDesc(Long brandId, Pageable pageable) {
         BooleanExpression brandCond = brandId != null ? productModel.brandId.eq(brandId) : null;
         List<ProductModel> content = queryFactory.selectFrom(productModel)
-            .leftJoin(likeModel).on(likeModel.productId.eq(productModel.id))
-            .where(productModel.deletedAt.isNull(), brandCond)
-            .groupBy(productModel.id, productModel.brandId, productModel.name, productModel.price,
-                productModel.stockQuantity, productModel.createdAt, productModel.updatedAt, productModel.deletedAt)
-            .orderBy(likeModel.id.count().desc(), productModel.id.asc())
-            .offset(pageable.getOffset())
-            .limit(pageable.getPageSize())
-            .fetch();
-        long total = Optional.ofNullable(
-            queryFactory.select(productModel.countDistinct())
-                .from(productModel)
+                .leftJoin(productStatsModel).on(productStatsModel.productId.eq(productModel.id))
                 .where(productModel.deletedAt.isNull(), brandCond)
-                .fetchOne()).orElse(0L);
+                .orderBy(productStatsModel.likeCount.coalesce(0L).desc(), productModel.id.asc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+        long total = Optional.ofNullable(
+                queryFactory.select(productModel.count())
+                        .from(productModel)
+                        .where(productModel.deletedAt.isNull(), brandCond)
+                        .fetchOne())
+                .orElse(0L);
         return new PageImpl<>(content, pageable, total);
     }
 

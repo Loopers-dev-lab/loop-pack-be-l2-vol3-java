@@ -44,6 +44,9 @@ class ProductServiceTest {
     @Mock
     private BrandRepository brandRepository;
 
+    @Mock
+    private ProductStatsRepository productStatsRepository;
+
     @InjectMocks
     private ProductService productService;
 
@@ -67,6 +70,7 @@ class ProductServiceTest {
             assertThat(result).isNotNull();
             assertThat(result.getName()).isEqualTo(NAME);
             verify(productRepository).save(any(ProductModel.class));
+            verify(productStatsRepository).createIfAbsent(any(Long.class));
         }
 
         @DisplayName("존재하지 않는 브랜드 ID면 NOT_FOUND 예외가 발생한다.")
@@ -181,7 +185,8 @@ class ProductServiceTest {
         @Test
         void update_withNonExistentId_shouldThrowNotFound() {
             when(productRepository.findByIdAndNotDeleted(999L)).thenReturn(Optional.empty());
-            CoreException ex = assertThrows(CoreException.class, () -> productService.updateProduct(999L, NAME, PRICE, STOCK));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> productService.updateProduct(999L, NAME, PRICE, STOCK));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
 
@@ -203,7 +208,8 @@ class ProductServiceTest {
             Long id = 1L;
             ProductModel product = ProductModel.create(BRAND_ID, NAME, Money.of(PRICE), StockQuantity.of(STOCK));
             when(productRepository.findByIdAndNotDeleted(id)).thenReturn(Optional.of(product));
-            CoreException ex = assertThrows(CoreException.class, () -> productService.updateProduct(id, null, PRICE, STOCK));
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> productService.updateProduct(id, null, PRICE, STOCK));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
