@@ -9,6 +9,7 @@ import com.loopers.domain.brand.Brand;
 import com.loopers.infrastructure.brand.BrandEntity;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
@@ -22,6 +23,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
+@ConditionalOnProperty(prefix = "loopers.cache.brand-category", name = "enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 public class BrandCacheRepositoryImpl implements BrandCacheRepository {
 

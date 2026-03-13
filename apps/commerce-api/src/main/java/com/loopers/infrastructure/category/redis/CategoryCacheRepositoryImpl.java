@@ -9,6 +9,7 @@ import com.loopers.domain.category.Category;
 import com.loopers.infrastructure.category.CategoryEntity;
 import com.loopers.infrastructure.category.CategoryJpaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
@@ -18,6 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
+@ConditionalOnProperty(prefix = "loopers.cache.brand-category", name = "enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 public class CategoryCacheRepositoryImpl implements CategoryCacheRepository {
 
