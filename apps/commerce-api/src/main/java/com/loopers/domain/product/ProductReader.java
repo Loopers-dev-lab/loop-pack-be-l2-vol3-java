@@ -54,7 +54,8 @@ public class ProductReader {
      * @return 활성 상품 목록 페이지
      */
     public Page<Product> readActiveProducts(Long brandId, ProductSortType sortType, PageSize pageSize) {
-        String listKey = buildListKey(brandId, sortType, pageSize);
+        ProductSortType resolvedSortType = sortType != null ? sortType : ProductSortType.DEFAULT;
+        String listKey = buildListKey(brandId, resolvedSortType, pageSize);
         ProductIdPage idPage = cacheRepository.get(listKey, ID_PAGE_TYPE);
 
         if (Objects.nonNull(idPage)) {
@@ -68,13 +69,13 @@ public class ProductReader {
                 if (Objects.nonNull(rechecked)) {
                     return resolveProductsFromIdPage(rechecked);
                 }
-                return fetchAndCacheProducts(brandId, sortType, pageSize);
+                return fetchAndCacheProducts(brandId, resolvedSortType, pageSize);
             } finally {
                 releaseLock(listKey, lock);
             }
         }
 
-        return fetchAndCacheProducts(brandId, sortType, pageSize);
+        return fetchAndCacheProducts(brandId, resolvedSortType, pageSize);
     }
 
     /**
@@ -110,9 +111,8 @@ public class ProductReader {
     }
 
     private String buildListKey(Long brandId, ProductSortType sortType, PageSize pageSize) {
-        ProductSortType resolvedSortType = sortType != null ? sortType : ProductSortType.DEFAULT;
         String brandSegment = Objects.nonNull(brandId) ? String.valueOf(brandId) : ALL_BRAND;
-        return LIST_KEY.of(brandSegment, resolvedSortType.name(), pageSize.page(), pageSize.size());
+        return LIST_KEY.of(brandSegment, sortType.name(), pageSize.page(), pageSize.size());
     }
 
     /**
