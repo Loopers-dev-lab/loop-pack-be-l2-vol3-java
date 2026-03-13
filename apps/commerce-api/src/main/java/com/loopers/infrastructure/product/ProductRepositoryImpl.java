@@ -31,12 +31,18 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public Page<ProductModel> findAll(Pageable pageable) {
+    public Page<ProductModel> findAll(Pageable pageable, Long brandId) {
+        if (brandId != null) {
+            return productJpaRepository.findAllByDeletedAtIsNullAndBrandId(brandId, pageable);
+        }
         return productJpaRepository.findAllByDeletedAtIsNull(pageable);
     }
 
     @Override
-    public Page<ProductModel> findAllOrderByLikesDesc(Pageable pageable) {
-        return productJpaRepository.findAllOrderByLikesDesc(pageable);
+    public Page<ProductModel> findAllOrderByLikesDesc(Pageable pageable, Long brandId) {
+        if (brandId != null) {
+            return productJpaRepository.findAllByBrandIdOrderByLikeCountDesc(brandId, pageable);
+        }
+        return productJpaRepository.findAllOrderByLikeCountDesc(pageable);
     }
 }

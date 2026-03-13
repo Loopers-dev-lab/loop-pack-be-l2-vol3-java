@@ -2,12 +2,12 @@ package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
+import com.loopers.application.product.ProductPageInfo;
 import com.loopers.domain.product.ProductSortType;
 import com.loopers.domain.product.ProductStatus;
 import com.loopers.interfaces.api.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,10 +20,9 @@ public class ProductAdminV1Controller implements ProductAdminV1ApiSpec {
 
     @GetMapping
     @Override
-    public ApiResponse<Page<ProductAdminV1Dto.ProductResponse>> getAll(Pageable pageable) {
-        Page<ProductAdminV1Dto.ProductResponse> response = productFacade.getAll(pageable, ProductSortType.LATEST)
-            .map(ProductAdminV1Dto.ProductResponse::from);
-        return ApiResponse.success(response);
+    public ApiResponse<ProductAdminV1Dto.ProductListResponse> getAll(Pageable pageable) {
+        ProductPageInfo pageInfo = productFacade.getAll(pageable, ProductSortType.LATEST, null);
+        return ApiResponse.success(ProductAdminV1Dto.ProductListResponse.from(pageInfo));
     }
 
     @GetMapping("/{productId}")

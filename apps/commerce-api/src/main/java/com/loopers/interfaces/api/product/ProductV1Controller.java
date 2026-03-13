@@ -2,10 +2,10 @@ package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
+import com.loopers.application.product.ProductPageInfo;
 import com.loopers.domain.product.ProductSortType;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,14 +18,14 @@ public class ProductV1Controller implements ProductV1ApiSpec {
 
     @GetMapping
     @Override
-    public ApiResponse<Page<ProductV1Dto.ProductResponse>> getAll(
+    public ApiResponse<ProductV1Dto.ProductListResponse> getAll(
         Pageable pageable,
-        @RequestParam(defaultValue = "latest") String sort
+        @RequestParam(defaultValue = "latest") String sort,
+        @RequestParam(required = false) Long brandId
     ) {
         ProductSortType sortType = ProductSortType.valueOf(sort.toUpperCase());
-        Page<ProductV1Dto.ProductResponse> response = productFacade.getAll(pageable, sortType)
-            .map(ProductV1Dto.ProductResponse::from);
-        return ApiResponse.success(response);
+        ProductPageInfo pageInfo = productFacade.getAll(pageable, sortType, brandId);
+        return ApiResponse.success(ProductV1Dto.ProductListResponse.from(pageInfo));
     }
 
     @GetMapping("/{productId}")

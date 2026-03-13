@@ -24,11 +24,11 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ProductModel> getAll(Pageable pageable, ProductSortType sortType) {
+    public Page<ProductModel> getAll(Pageable pageable, ProductSortType sortType, Long brandId) {
         if (sortType == ProductSortType.LIKES_DESC) {
-            return productRepository.findAllOrderByLikesDesc(pageable);
+            return productRepository.findAllOrderByLikesDesc(pageable, brandId);
         }
-        return productRepository.findAll(pageable);
+        return productRepository.findAll(pageable, brandId);
     }
 
     @Transactional
