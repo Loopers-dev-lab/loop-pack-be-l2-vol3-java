@@ -17,25 +17,111 @@
 
 ---
 
-## 2. Aggregate 구조 개요
+## 2. 레이어드 아키텍처
+
+```mermaid
+graph TB
+    subgraph Interfaces ["Interfaces Layer — Controller, DTO"]
+        BC["BrandController\nBrandAdminController"]
+        PC["ProductController\nProductAdminController"]
+        OC["OrderController\nOrderAdminController"]
+        LC["LikeController"]
+        MC["MemberV1Controller"]
+    end
+
+    subgraph Application ["Application Layer — Facade (유스케이스 조율, 트랜잭션)"]
+        BF["BrandFacade\n· 브랜드 CRUD\n· 삭제 시 상품+좋아요 연쇄 처리"]
+        PF["ProductFacade\n· 상품 CRUD + 정렬 조회\n· 삭제 시 좋아요 연쇄 처리"]
+        OF["OrderFacade\n· 주문 생성 (재고 차감, 스냅샷)\n· 주문 취소 (재고 복원)\n· 권한 검증"]
+        LF["LikeFacade\n· 좋아요 추가 (멱등)\n· 좋아요 취소 (멱등)\n· likeCount 동기화"]
+        MF["MemberFacade\n· 회원가입\n· 비밀번호 변경"]
+    end
+
+    subgraph Domain ["Domain Layer — Entity, VO, Repository Interface"]
+        direction LR
+        BR["«interface»\nBrandRepository"]
+        PR["«interface»\nProductRepository"]
+        OR["«interface»\nOrderRepository"]
+        LR2["«interface»\nLikeRepository"]
+        MR["«interface»\nMemberRepository"]
+    end
+
+    subgraph Infrastructure ["Infrastructure Layer — Repository 구현체 (JPA)"]
+        BRI["BrandRepositoryImpl\nBrandJpaRepository"]
+        PRI["ProductRepositoryImpl\nProductJpaRepository"]
+        ORI["OrderRepositoryImpl\nOrderJpaRepository"]
+        LRI["LikeRepositoryImpl\nLikeJpaRepository"]
+        MRI["MemberRepositoryImpl\nMemberJpaRepository"]
+    end
+
+    BC --> BF
+    PC --> PF
+    OC --> OF
+    LC --> LF
+    MC --> MF
+
+    BF --> BR
+    BF --> PR
+    BF --> LR2
+    PF --> PR
+    PF --> BR
+    PF --> LR2
+    OF --> OR
+    OF --> PR
+    OF --> BR
+    LF --> LR2
+    LF --> PR
+    MF --> MR
+
+    BRI -.->|implements| BR
+    PRI -.->|implements| PR
+    ORI -.->|implements| OR
+    LRI -.->|implements| LR2
+    MRI -.->|implements| MR
+```
+
+### 의존 방향
 
 ```
-┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
-│   Brand Agg     │   │  Product Agg    │   │   Order Agg     │   │   Like Agg      │
-├─────────────────┤   ├─────────────────┤   ├─────────────────┤   ├─────────────────┤
-│ Brand (Root)    │   │ Product (Root)  │   │ Order (Root)    │   │ Like (Root)     │
-│                 │   │ - Price (VO)    │   │ - OrderItem     │   │                 │
-│                 │   │ - Stock (VO)    │   │ - OrderStatus   │   │                 │
-└─────────────────┘   └─────────────────┘   └─────────────────┘   └─────────────────┘
-       │                     │                     │                     │
-       └─────────────────────┼─────────────────────┼─────────────────────┘
-                             │                     │
-                     brandId (ID 참조)      productId (ID 참조)
+Interfaces → Application → Domain ← Infrastructure
+```
+
+- Domain은 다른 레이어에 의존하지 않는다
+- Infrastructure가 Domain의 Repository 인터페이스를 구현한다 (DIP)
+
+### Facade별 책임
+
+| Facade | 주요 책임 | 의존하는 Repository |
+|--------|----------|-------------------|
+| BrandFacade | 브랜드 CRUD, 삭제 시 상품+좋아요 연쇄 처리 | Brand, Product, Like |
+| ProductFacade | 상품 CRUD, 정렬 조회, 삭제 시 좋아요 연쇄 처리 | Product, Brand, Like |
+| OrderFacade | 주문 생성(재고 차감+스냅샷), 취소(재고 복원), 권한 검증 | Order, Product, Brand |
+| LikeFacade | 좋아요 추가/취소(멱등), likeCount 동기화 | Like, Product |
+| MemberFacade | 회원가입, 비밀번호 변경 | Member |
+
+---
+
+## 3. Aggregate 구조 개요
+
+```
+┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
+│   Brand Agg     │   │  Product Agg    │   │   Order Agg     │   │   Like Agg      │   │  Member Agg     │
+├─────────────────┤   ├─────────────────┤   ├─────────────────┤   ├─────────────────┤   ├─────────────────┤
+│ Brand (Root)    │   │ Product (Root)  │   │ Order (Root)    │   │ Like (Root)     │   │ Member (Root)   │
+│                 │   │ ├ Price (VO)    │   │ ├ OrderItem     │   │                 │   │ ├ LoginId (VO)  │
+│                 │   │ └ Stock (VO)    │   │ ├ ItemSnapshot  │   │                 │   │ ├ Password (VO) │
+│                 │   │                 │   │ └ OrderStatus   │   │                 │   │ ├ Email (VO)    │
+│                 │   │                 │   │                 │   │                 │   │ └ BirthDate(VO) │
+└─────────────────┘   └─────────────────┘   └─────────────────┘   └─────────────────┘   └─────────────────┘
+        │                     │                     │                     │
+        └─────────────────────┼─────────────────────┼─────────────────────┘
+                              │                     │
+                      brandId (ID 참조)      memberId, productId (ID 참조)
 ```
 
 ---
 
-## 3. 전체 클래스 다이어그램
+## 4. 전체 클래스 다이어그램
 
 ```mermaid
 classDiagram
@@ -47,9 +133,10 @@ classDiagram
         -Long id
         -String name
         -String description
-        +Brand(String name, String description)
-        +changeName(String name)
-        +changeDescription(String description)
+        +Brand(name, description)
+        +changeName(name)
+        +changeDescription(description)
+        +delete()
     }
 
     %% ===== Product Aggregate =====
@@ -61,29 +148,30 @@ classDiagram
         -Price price
         -Stock stock
         -int likeCount
-        +Product(Long brandId, String name, Price price, Stock stock)
-        +changeInfo(String name, Price price)
-        +decreaseStock(int quantity)
-        +restoreStock(int quantity)
+        +Product(brandId, name, price, stock)
+        +changeName(name)
+        +changePrice(price)
+        +changeStock(stock)
+        +decreaseStock(quantity)
+        +increaseStock(quantity)
         +incrementLikeCount()
         +decrementLikeCount()
+        +delete()
     }
 
     class Price {
         <<Value Object>>
         -int value
-        +Price(int value)
-        +getValue() int
+        +Price(value)
     }
 
     class Stock {
         <<Value Object>>
         -int quantity
-        +Stock(int quantity)
-        +decrease(int amount) Stock
-        +increase(int amount) Stock
-        +hasEnough(int amount) boolean
-        +getQuantity() int
+        +Stock(quantity)
+        +decrease(amount) Stock
+        +increase(amount) Stock
+        +hasEnough(amount) boolean
     }
 
     Product *-- Price : contains
@@ -97,21 +185,29 @@ classDiagram
         -OrderStatus status
         -int totalPrice
         -List~OrderItem~ items
-        +Order(Long memberId, List~OrderItem~ items)
+        +create(memberId, List~ItemSnapshot~)$ Order
         +cancel()
         +getItems() List~OrderItem~
-        +getTotalPrice() int
+    }
+
+    class ItemSnapshot {
+        <<Record>>
+        +Long productId
+        +String productName
+        +int productPrice
+        +String brandName
+        +int quantity
     }
 
     class OrderItem {
-        <<Entity>>
+        <<Entity · package-private constructor>>
         -Long id
         -Long productId
         -String productName
         -int productPrice
         -String brandName
         -int quantity
-        +OrderItem(Long productId, String productName, int productPrice, String brandName, int quantity)
+        ~OrderItem(productId, productName, productPrice, brandName, quantity)
         +getSubtotal() int
     }
 
@@ -122,7 +218,8 @@ classDiagram
         CANCELLED
     }
 
-    Order *-- OrderItem : contains
+    Order *-- OrderItem : creates internally
+    Order -- ItemSnapshot : receives as input
     Order --> OrderStatus : has
 
     %% ===== Like Aggregate =====
@@ -131,17 +228,10 @@ classDiagram
         -Long id
         -Long memberId
         -Long productId
-        +Like(Long memberId, Long productId)
+        +Like(memberId, productId)
     }
 
-    %% ===== 연관관계 (ID 참조) =====
-    Product ..> Brand : brandId
-    Order ..> Member : memberId
-    OrderItem ..> Product : productId
-    Like ..> Member : memberId
-    Like ..> Product : productId
-
-    %% ===== Member (1주차 완성) =====
+    %% ===== Member Aggregate =====
     class Member {
         <<Aggregate Root>>
         -Long id
@@ -150,232 +240,102 @@ classDiagram
         -String name
         -BirthDate birthDate
         -Email email
-    }
-```
-
----
-
-## 4. Aggregate별 상세 설계
-
-### 4.1 Brand Aggregate
-
-```mermaid
-classDiagram
-    class Brand {
-        <<Aggregate Root>>
-        -Long id
-        -String name
-        -String description
-        +Brand(String name, String description)
-        +changeName(String name)
-        +changeDescription(String description)
-        +getName() String
-        +getDescription() String
-    }
-```
-
-**설계 포인트**:
-- 단순한 Aggregate, VO 없이 Entity만 존재
-- `name`: 필수값, 비어있으면 생성 실패
-- Soft Delete는 `BaseEntity.delete()` 사용
-
----
-
-### 4.2 Product Aggregate
-
-```mermaid
-classDiagram
-    class Product {
-        <<Aggregate Root>>
-        -Long id
-        -Long brandId
-        -String name
-        -Price price
-        -Stock stock
-        -int likeCount
-        +Product(Long brandId, String name, Price price, Stock stock)
-        +changeInfo(String name, Price price)
-        +decreaseStock(int quantity)
-        +restoreStock(int quantity)
-        +incrementLikeCount()
-        +decrementLikeCount()
-        +hasEnoughStock(int quantity) boolean
+        +Member(loginId, password, name, birthDate, email)
+        +changePassword(newPassword)
     }
 
-    class Price {
+    class LoginId {
         <<Value Object>>
-        -int value
-        +Price(int value)
-        +getValue() int
+        -String value
+        +LoginId(value)
     }
 
-    class Stock {
+    class Password {
         <<Value Object>>
-        -int quantity
-        +Stock(int quantity)
-        +decrease(int amount) Stock
-        +increase(int amount) Stock
-        +hasEnough(int amount) boolean
-        +getQuantity() int
+        -String encoded
+        +create(plain, birthDate, encoder)$ Password
+        +matches(plain, encoder) boolean
     }
 
-    Product *-- Price
-    Product *-- Stock
-```
-
-**설계 포인트**:
-
-| 요소 | 설계 | 이유 |
-|------|------|------|
-| `Price` | VO | 불변성, 음수 방지 검증 캡슐화 |
-| `Stock` | VO | 불변성, 차감/복원 로직 캡슐화 |
-| `brandId` | ID 참조 | Aggregate 간 참조는 ID로 |
-| `likeCount` | 비정규화 | 정렬 성능 우선 |
-
-**Price VO**:
-```java
-public record Price(int value) {
-    public Price {
-        if (value <= 0) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "가격은 0보다 커야 합니다.");
-        }
-    }
-}
-```
-
-**Stock VO**:
-```java
-public record Stock(int quantity) {
-    public Stock {
-        if (quantity < 0) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "재고는 0 이상이어야 합니다.");
-        }
+    class Email {
+        <<Value Object>>
+        -String value
+        +Email(value)
     }
 
-    public Stock decrease(int amount) {
-        if (!hasEnough(amount)) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.");
-        }
-        return new Stock(this.quantity - amount);
+    class BirthDate {
+        <<Value Object>>
+        -LocalDate value
+        +from(dateString)$ BirthDate
     }
 
-    public Stock increase(int amount) {
-        return new Stock(this.quantity + amount);
-    }
+    Member *-- LoginId : contains
+    Member *-- Password : contains
+    Member *-- Email : contains
+    Member *-- BirthDate : contains
 
-    public boolean hasEnough(int amount) {
-        return this.quantity >= amount;
-    }
-}
+    %% ===== Aggregate 간 ID 참조 =====
+    Product ..> Brand : brandId
+    Order ..> Member : memberId
+    OrderItem ..> Product : productId
+    Like ..> Member : memberId
+    Like ..> Product : productId
 ```
 
 ---
 
-### 4.3 Order Aggregate
+## 5. Aggregate 라이프사이클 통제
 
-```mermaid
-classDiagram
-    class Order {
-        <<Aggregate Root>>
-        -Long id
-        -Long memberId
-        -OrderStatus status
-        -int totalPrice
-        -List~OrderItem~ items
-        +Order(Long memberId, List~OrderItem~ items)
-        +cancel()
-        +isCancelled() boolean
-    }
+### 원칙
 
-    class OrderItem {
-        <<Entity>>
-        -Long id
-        -Long productId
-        -String productName
-        -int productPrice
-        -String brandName
-        -int quantity
-        +OrderItem(Long productId, String productName, int productPrice, String brandName, int quantity)
-        +getSubtotal() int
-    }
+> Aggregate Root가 자식의 생성/삭제를 통제한다.
+> 외부에서 자식 Entity를 직접 생성할 수 없어야 한다.
 
-    class OrderStatus {
-        <<Enumeration>>
-        CREATED
-        PAID
-        CANCELLED
-    }
+### 점검 결과
 
-    Order "1" *-- "*" OrderItem : contains
-    Order --> OrderStatus
+| Aggregate Root | 자식 | 관계 | 통제 방식 | 판정 |
+|---|---|---|---|---|
+| **Order** | OrderItem | `@OneToMany` Entity | `Order.create(ItemSnapshot)` + package-private 생성자 | **완벽** |
+| **Product** | Price, Stock | `@Embedded` VO | 불변 VO, 생성자 자기검증 | **정상** (VO는 통제 대상 아님) |
+| **Member** | LoginId 등 | `@Embedded` VO | 불변 VO, 생성자 자기검증 | **정상** (VO는 통제 대상 아님) |
+
+### Order Aggregate 상세
+
+```
+외부 (OrderFacade)              Order Aggregate 내부
+┌────────────────────┐          ┌─────────────────────────────────┐
+│                    │          │                                 │
+│  ItemSnapshot ─────┼────▶     Order.create(snapshots)          │
+│  (데이터만 전달)    │          │    └─▶ new OrderItem(...)       │
+│                    │          │         (package-private)       │
+│  new OrderItem() ──┼──✕──▶   │                                 │
+│  (컴파일 에러)      │          │                                 │
+└────────────────────┘          └─────────────────────────────────┘
 ```
 
-**설계 포인트**:
+- Facade는 `Order.ItemSnapshot`(데이터)만 전달
+- OrderItem 생성은 `Order.create()` 내부에서만 발생
+- OrderItem 생성자가 package-private이라 외부 패키지에서 직접 생성 불가
 
-| 요소 | 설계 | 이유 |
-|------|------|------|
-| `OrderItem` | Entity (Order 내부) | 별도 lifecycle 없이 Order와 함께 생성/삭제 |
-| `productId` | 원본 ID 유지 | 상품 페이지 이동, 재주문 기능용 (삭제 시 404 허용) |
-| `totalPrice` | Order에 저장 | 매번 계산하지 않고 저장 (불변) |
+### VO는 왜 통제 대상이 아닌가
 
-**스냅샷 필드** (`productName`, `productPrice`, `brandName`):
-- 판단 기준: "주문 상세 화면을 독립적으로 렌더링할 수 있는가?"
-- 원본 상품이 변경/삭제되어도 주문 상세 페이지가 깨지지 않고 온전하게 표시되어야 함
-- `imageUrl` 제외: 현재 상품 스펙에 이미지 필드 없음 (오버엔지니어링 방지)
-
-**Order 생성 시 totalPrice 계산**:
-```java
-public class Order extends BaseEntity {
-    private int totalPrice;
-    private List<OrderItem> items;
-
-    public Order(Long memberId, List<OrderItem> items) {
-        this.memberId = memberId;
-        this.items = new ArrayList<>(items);
-        this.totalPrice = calculateTotalPrice();
-        this.status = OrderStatus.CREATED;
-    }
-
-    private int calculateTotalPrice() {
-        return items.stream()
-            .mapToInt(OrderItem::getSubtotal)
-            .sum();
-    }
-}
-```
+| 구분 | Entity (OrderItem) | Value Object (Price, Stock) |
+|------|-------------------|---------------------------|
+| 식별자 | 있음 (ID) | 없음 (값 동등성) |
+| 가변성 | 상태 변경 가능 | 불변 |
+| 라이프사이클 | 부모와 함께 | 없음 (값일 뿐) |
+| 통제 필요성 | **필수** — 부모 없이 존재하면 안 됨 | **불필요** — 어디서 만들든 같은 값 |
 
 ---
 
-### 4.4 Like Aggregate
-
-```mermaid
-classDiagram
-    class Like {
-        <<Aggregate Root>>
-        -Long id
-        -Long memberId
-        -Long productId
-        +Like(Long memberId, Long productId)
-        +getMemberId() Long
-        +getProductId() Long
-    }
-```
-
-**설계 포인트**:
-- 매우 단순한 Aggregate
-- `memberId + productId` 조합으로 유일성 보장
-- Soft Delete 불필요 (Hard Delete)
-
----
-
-## 5. 연관관계 방향
+## 6. 연관관계 방향
 
 | 관계 | 방향 | 참조 방식 |
 |------|------|----------|
 | Product → Brand | 단방향 | `brandId` (ID 참조) |
 | Order → Member | 단방향 | `memberId` (ID 참조) |
-| Order → OrderItem | 양방향 (Aggregate 내부) | 객체 참조 |
-| OrderItem → Product | 단방향 | `productId` (ID 참조) |
+| Order → OrderItem | Aggregate 내부 | 객체 참조 (`@OneToMany`) |
+| OrderItem → Product | 단방향 | `productId` (ID 참조, 스냅샷) |
 | Like → Member | 단방향 | `memberId` (ID 참조) |
 | Like → Product | 단방향 | `productId` (ID 참조) |
 
@@ -385,85 +345,12 @@ classDiagram
 
 ---
 
-## 6. 레이어별 책임
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Presentation Layer                        │
-│  Controller, DTO (Request/Response)                          │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Application Layer                         │
-│  Service (유스케이스 조율, 트랜잭션 관리)                      │
-│  - OrderService, ProductService, LikeService, BrandService  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      Domain Layer                            │
-│  Entity, Value Object, Domain Service                        │
-│  - Order, OrderItem, Product, Brand, Like                    │
-│  - Price, Stock (VO)                                         │
-│  - OrderStatus (Enum)                                        │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   Infrastructure Layer                       │
-│  Repository 구현체, JPA Entity Mapping                       │
-│  - OrderRepositoryImpl, ProductRepositoryImpl, ...          │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 7. Repository 인터페이스
-
-```java
-// Domain Layer에 정의
-public interface ProductRepository {
-    Product save(Product product);
-    Optional<Product> findById(Long id);
-    List<Product> findAllByDeletedAtIsNull();
-    List<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId);
-    void incrementLikeCount(Long productId);
-    void decrementLikeCount(Long productId);
-}
-
-public interface OrderRepository {
-    Order save(Order order);
-    Optional<Order> findById(Long id);
-    List<Order> findAllByMemberIdAndDeletedAtIsNull(Long memberId);
-    List<Order> findAllByMemberIdAndCreatedAtBetween(Long memberId, LocalDateTime startAt, LocalDateTime endAt);
-}
-
-public interface LikeRepository {
-    Like save(Like like);
-    void delete(Like like);
-    Optional<Like> findByMemberIdAndProductId(Long memberId, Long productId);
-    boolean existsByMemberIdAndProductId(Long memberId, Long productId);
-    List<Like> findAllByMemberId(Long memberId);
-    void deleteByProductId(Long productId);
-    void deleteByBrandId(Long brandId);
-}
-
-public interface BrandRepository {
-    Brand save(Brand brand);
-    Optional<Brand> findById(Long id);
-    List<Brand> findAllByDeletedAtIsNull();
-}
-```
-
----
-
-## 8. 잠재 리스크
+## 7. 잠재 리스크
 
 | 리스크 | 현재 상태 | 대응 방안 |
 |--------|----------|----------|
 | **Stock VO 동시성** | 단순 decrease 메서드 | 락이 없으면 동시 주문 시 재고 불일치. DB 레벨 락 필요 |
 | **Aggregate 경계 넘는 참조** | ID로만 참조 | 성능을 위해 Join이 필요하면 읽기 전용 Query 모델 분리 고려 |
 | **OrderItem 목록 크기** | 제한 없음 | 한 주문에 너무 많은 상품 시 트랜잭션 비대화. 최대 개수 제한 권장 |
-| **like_count와 실제 Like 수 불일치** | 트랜잭션 동기화 | 장애 상황에서 불일치 가능. 주기적 배치 보정 필요 |
-| **Order 상태 전이** | 단순 enum | 복잡해지면 상태 머신 패턴 또는 이벤트 소싱 고려 |
+| **likeCount와 실제 Like 수 불일치** | 트랜잭션 동기화 | 장애 상황에서 불일치 가능. 주기적 배치 보정 필요 |
+| **Order 상태 전이** | 단순 enum + cancel() 검증 | 복잡해지면 상태 머신 패턴 또는 이벤트 소싱 고려 |

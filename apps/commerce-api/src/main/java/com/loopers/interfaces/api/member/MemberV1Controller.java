@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.member;
 
+import com.loopers.application.member.MemberFacade;
 import com.loopers.domain.member.Member;
-import com.loopers.domain.member.MemberService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthMember;
 import jakarta.validation.Valid;
@@ -20,12 +20,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/members")
 public class MemberV1Controller {
 
-    private final MemberService memberService;
+    private final MemberFacade memberFacade;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<MemberV1Dto.SignUpResponse> signUp(@Valid @RequestBody MemberV1Dto.SignUpRequest request) {
-        Member member = memberService.register(
+        Member member = memberFacade.register(
             request.loginId(),
             request.password(),
             request.name(),
@@ -53,7 +53,7 @@ public class MemberV1Controller {
         @AuthMember Member member,
         @Valid @RequestBody MemberV1Dto.ChangePasswordRequest request
     ) {
-        memberService.changePassword(member, request.currentPassword(), request.newPassword());
+        memberFacade.changePassword(member, request.currentPassword(), request.newPassword());
         return ApiResponse.success();
     }
 }

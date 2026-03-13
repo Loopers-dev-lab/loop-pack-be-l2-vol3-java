@@ -1,0 +1,68 @@
+package com.loopers.domain.order;
+
+import com.loopers.domain.BaseEntity;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+@Entity
+@Table(name = "orders", indexes = {
+    @Index(name = "idx_orders_member_id", columnList = "member_id"),
+    @Index(name = "idx_orders_member_created_at", columnList = "member_id, created_at")
+})
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Order extends BaseEntity {
+
+    @Column(name = "member_id", nullable = false)
+    private Long memberId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private OrderStatus status;
+
+    @Column(name = "total_price", nullable = false)
+    private int totalPrice;
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "order_id")
+    private List<OrderItem> items = new ArrayList<>();
+
+    public static Order create(Long memberId, List<ItemSnapshot> snapshots) {
+        if (snapshots == null || snapshots.isEmpty()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목은 1개 이상이어야 합니다.");
+        }
+        Order order = new Order();
+        order.memberId = memberId;
+        order.status = OrderStatus.CREATED;
+        for (ItemSnapshot s : snapshots) {
+            order.items.add(new OrderItem(
+                s.productId(), s.productName(), s.productPrice(), s.brandName(), s.quantity()
+            ));
+        }
+        order.totalPrice = order.items.stream().mapToInt(OrderItem::getSubtotal).sum();
+        return order;
+    }
+
+    public record ItemSnapshot(
+        Long productId, String productName, int productPrice, String brandName, int quantity
+    ) {}
+
+    public List<OrderItem> getItems() {
+        return Collections.unmodifiableList(items);
+    }
+
+    public void cancel() {
+        if (this.status == OrderStatus.CANCELLED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "이미 취소된 주문입니다.");
+        }
+        this.status = OrderStatus.CANCELLED;
+    }
+}

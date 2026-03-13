@@ -1,5 +1,7 @@
-package com.loopers.domain.member;
+package com.loopers.application.member;
 
+import com.loopers.domain.member.Member;
+import com.loopers.domain.member.MemberRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -18,13 +20,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 
 @SpringBootTest
-class MemberServiceIntegrationTest {
+class MemberFacadeIntegrationTest {
 
     @MockitoSpyBean
     private MemberRepository memberRepository;
 
     @Autowired
-    private MemberService memberService;
+    private MemberFacade memberFacade;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -42,7 +44,7 @@ class MemberServiceIntegrationTest {
         @Test
         void register_savesUser_verifiedBySpy() {
             // act
-            Member result = memberService.register(
+            Member result = memberFacade.register(
                 "user1", "Password1!", "홍길동", "1990-01-15", "test@example.com");
 
             // assert
@@ -54,11 +56,11 @@ class MemberServiceIntegrationTest {
         @Test
         void register_withDuplicateId_throwsException() {
             // arrange
-            memberService.register(
+            memberFacade.register(
                 "user1", "Password1!", "홍길동", "1990-01-15", "test@example.com");
 
             // act & assert
-            assertThatThrownBy(() -> memberService.register(
+            assertThatThrownBy(() -> memberFacade.register(
                 "user1", "Password2!", "김철수", "1995-05-20", "other@example.com"))
                 .isInstanceOf(CoreException.class);
         }
@@ -72,11 +74,11 @@ class MemberServiceIntegrationTest {
         @Test
         void findByLoginId_whenExists_returnsMember() {
             // arrange
-            memberService.register(
+            memberFacade.register(
                 "user1", "Password1!", "홍길동", "1990-01-15", "test@example.com");
 
             // act
-            Optional<Member> result = memberService.findByLoginId("user1");
+            Optional<Member> result = memberFacade.findByLoginId("user1");
 
             // assert
             assertThat(result).isPresent();
@@ -87,7 +89,7 @@ class MemberServiceIntegrationTest {
         @Test
         void findByLoginId_whenNotExists_returnsEmpty() {
             // act
-            Optional<Member> result = memberService.findByLoginId("nobody");
+            Optional<Member> result = memberFacade.findByLoginId("nobody");
 
             // assert
             assertThat(result).isEmpty();
