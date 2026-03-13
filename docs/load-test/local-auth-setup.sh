@@ -19,9 +19,10 @@ if ! curl -sf "${BASE_URL}/api/v1/products?page=0&size=1" | grep -q '"result"'; 
 fi
 
 echo "=== 테스트 유저 생성: $LOGIN_ID ==="
+EMAIL="${LOGIN_ID}@perf.local"
 RES=$(curl -s -X POST "${BASE_URL}/api/v1/users" \
   -H "Content-Type: application/json" \
-  -d "{\"userId\":\"${LOGIN_ID}\",\"password\":\"SecurePass1!\",\"email\":\"perf@example.com\",\"birthDate\":\"1990-01-15\",\"gender\":\"MALE\"}")
+  -d "{\"userId\":\"${LOGIN_ID}\",\"password\":\"SecurePass1!\",\"email\":\"${EMAIL}\",\"birthDate\":\"1990-01-15\",\"gender\":\"MALE\"}")
 if echo "$RES" | grep -q '"result":"SUCCESS"'; then
   echo "회원 가입 성공: $LOGIN_ID"
 elif echo "$RES" | grep -q 'CONFLICT\|이미 존재'; then
