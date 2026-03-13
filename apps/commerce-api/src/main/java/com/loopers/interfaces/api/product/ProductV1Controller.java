@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.product;
 
+import com.loopers.application.PageResult;
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.application.product.ProductSort;
@@ -7,7 +8,6 @@ import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.product.dto.ProductV1Dto;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,9 +35,9 @@ public class ProductV1Controller {
             @RequestParam(defaultValue = "LATEST") ProductSort sort,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        Page<ProductV1Dto.ProductResponse> page = productFacade.getActiveProducts(brandId, sort, pageable)
-                                                               .map(ProductV1Dto.ProductResponse::from);
+        PageResult<ProductV1Dto.ProductResponse> result = productFacade.getActiveProducts(brandId, sort, pageable)
+                                                                       .map(ProductV1Dto.ProductResponse::from);
 
-        return ApiResponse.success(PageResponse.from(page));
+        return ApiResponse.success(PageResponse.from(result));
     }
 }

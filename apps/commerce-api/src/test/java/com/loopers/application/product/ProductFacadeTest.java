@@ -6,13 +6,13 @@ import com.loopers.application.like.LikeService;
 import com.loopers.domain.brand.InMemoryBrandRepository;
 import com.loopers.domain.like.InMemoryLikeRepository;
 import com.loopers.domain.product.InMemoryProductRepository;
+import com.loopers.application.PageResult;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,11 +68,11 @@ public class ProductFacadeTest {
             productService.register(new ProductCreateCommand(adidas.id(), "슈퍼스타", "신발", 120000, 8));
 
             // act
-            Page<ProductInfo> result = productFacade.getActiveProducts(null, ProductSort.LATEST, PageRequest.of(0, 20));
+            PageResult<ProductInfo> result = productFacade.getActiveProducts(null, ProductSort.LATEST, PageRequest.of(0, 20));
 
             // assert
             assertAll(
-                    () -> assertThat(result.getContent()).extracting(p -> p.brand().name())
+                    () -> assertThat(result.items()).extracting(p -> p.brand().name())
                             .containsExactlyInAnyOrder("나이키", "아디다스")
             );
         }
@@ -86,10 +86,10 @@ public class ProductFacadeTest {
             productService.register(new ProductCreateCommand(brand.id(), "조던", "농구화", 200000, 5));
 
             // act
-            Page<ProductInfo> result = productFacade.getActiveProducts(null, ProductSort.LATEST, PageRequest.of(0, 20));
+            PageResult<ProductInfo> result = productFacade.getActiveProducts(null, ProductSort.LATEST, PageRequest.of(0, 20));
 
             // assert
-            assertThat(result.getContent()).extracting(p -> p.brand().name())
+            assertThat(result.items()).extracting(p -> p.brand().name())
                     .containsOnly("나이키");
         }
     }
