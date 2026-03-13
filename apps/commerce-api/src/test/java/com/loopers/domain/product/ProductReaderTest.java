@@ -174,7 +174,6 @@ class ProductReaderTest {
             var product1 = ProductFixture.createProduct(1L);
             var dbPage = new Page<>(List.of(product1), false);
 
-            given(cacheRepository.get(anyString(), any(CacheType.class))).willReturn(null);
             given(productService.getActiveProducts(null, ProductSortType.DEFAULT, pageSize)).willReturn(dbPage);
 
             // act

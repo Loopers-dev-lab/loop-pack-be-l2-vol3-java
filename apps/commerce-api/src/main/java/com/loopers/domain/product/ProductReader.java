@@ -55,6 +55,11 @@ public class ProductReader {
      */
     public Page<Product> readActiveProducts(Long brandId, ProductSortType sortType, PageSize pageSize) {
         ProductSortType resolvedSortType = sortType != null ? sortType : ProductSortType.DEFAULT;
+
+        if (!isCacheablePage(pageSize.page())) {
+            return fetchAndCacheProducts(brandId, resolvedSortType, pageSize);
+        }
+
         String listKey = buildListKey(brandId, resolvedSortType, pageSize);
         ProductIdPage idPage = cacheRepository.get(listKey, ID_PAGE_TYPE);
 
