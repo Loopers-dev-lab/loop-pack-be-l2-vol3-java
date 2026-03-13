@@ -57,7 +57,7 @@ class LikeServiceTest {
             // arrange
             Long userId = 1L;
             Long productId = 1L;
-            given(productRepository.findById(productId)).willReturn(Optional.of(product));
+            given(productRepository.findByIdForUpdate(productId)).willReturn(Optional.of(product));
             given(likeRepository.findByUserIdAndProductId(userId, productId)).willReturn(Optional.empty());
             given(likeRepository.save(any(LikeModel.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -67,7 +67,8 @@ class LikeServiceTest {
             // assert
             assertAll(
                 () -> assertThat(result.getUserId()).isEqualTo(userId),
-                () -> assertThat(result.getProduct()).isEqualTo(product)
+                () -> assertThat(result.getProduct()).isEqualTo(product),
+                () -> assertThat(product.getLikeCount()).isEqualTo(1L)
             );
             verify(likeRepository).save(any(LikeModel.class));
         }
@@ -79,7 +80,7 @@ class LikeServiceTest {
             Long userId = 1L;
             Long productId = 1L;
             LikeModel existingLike = new LikeModel(userId, product);
-            given(productRepository.findById(productId)).willReturn(Optional.of(product));
+            given(productRepository.findByIdForUpdate(productId)).willReturn(Optional.of(product));
             given(likeRepository.findByUserIdAndProductId(userId, productId)).willReturn(Optional.of(existingLike));
 
             // act
@@ -97,7 +98,7 @@ class LikeServiceTest {
             // arrange
             Long userId = 1L;
             Long productId = 1L;
-            given(productRepository.findById(productId)).willReturn(Optional.of(product));
+            given(productRepository.findByIdForUpdate(productId)).willReturn(Optional.of(product));
             given(likeRepository.findByUserIdAndProductId(userId, productId)).willReturn(Optional.empty());
             given(likeRepository.save(any(LikeModel.class))).willThrow(new DataIntegrityViolationException("Duplicate entry"));
 
@@ -116,7 +117,7 @@ class LikeServiceTest {
             // arrange
             Long userId = 1L;
             Long productId = 999L;
-            given(productRepository.findById(productId)).willReturn(Optional.empty());
+            given(productRepository.findByIdForUpdate(productId)).willReturn(Optional.empty());
 
             // act
             CoreException result = assertThrows(CoreException.class, () -> {
@@ -139,13 +140,18 @@ class LikeServiceTest {
             Long userId = 1L;
             Long productId = 1L;
             LikeModel like = new LikeModel(userId, product);
+            product.increaseLikeCount();
+            given(productRepository.findByIdForUpdate(productId)).willReturn(Optional.of(product));
             given(likeRepository.findByUserIdAndProductId(userId, productId)).willReturn(Optional.of(like));
 
             // act
             likeService.unlike(userId, productId);
 
             // assert
-            verify(likeRepository).delete(like);
+            assertAll(
+                () -> verify(likeRepository).delete(like),
+                () -> assertThat(product.getLikeCount()).isEqualTo(0L)
+            );
         }
 
         @DisplayName("좋아요가 존재하지 않으면, NOT_FOUND 예외가 발생한다.")
@@ -154,6 +160,7 @@ class LikeServiceTest {
             // arrange
             Long userId = 1L;
             Long productId = 1L;
+            given(productRepository.findByIdForUpdate(productId)).willReturn(Optional.of(product));
             given(likeRepository.findByUserIdAndProductId(userId, productId)).willReturn(Optional.empty());
 
             // act

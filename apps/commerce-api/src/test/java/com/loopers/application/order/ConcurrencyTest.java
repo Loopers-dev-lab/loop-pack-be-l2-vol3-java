@@ -266,9 +266,11 @@ class ConcurrencyTest {
             );
 
             // assert
+            ProductModel updatedProduct = productJpaRepository.findById(product.getId()).orElseThrow();
             assertThat(successCount.get()).isEqualTo(10);
             assertThat(failCount.get()).isEqualTo(0);
             assertThat(likeJpaRepository.countByProductId(product.getId())).isEqualTo(10);
+            assertThat(updatedProduct.getLikeCount()).isEqualTo(10L);
         }
 
         @DisplayName("같은 사용자가 10개 스레드에서 동시에 좋아요하면, 1건만 성공한다.")
@@ -292,9 +294,11 @@ class ConcurrencyTest {
             );
 
             // assert
+            ProductModel updatedProduct = productJpaRepository.findById(product.getId()).orElseThrow();
             assertThat(successCount.get()).isEqualTo(1);
             assertThat(failCount.get()).isEqualTo(9);
             assertThat(likeJpaRepository.countByProductId(product.getId())).isEqualTo(1);
+            assertThat(updatedProduct.getLikeCount()).isEqualTo(1L);
         }
     }
 }

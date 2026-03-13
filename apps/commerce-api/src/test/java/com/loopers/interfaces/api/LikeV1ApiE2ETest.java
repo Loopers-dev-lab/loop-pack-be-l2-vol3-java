@@ -2,12 +2,14 @@ package com.loopers.interfaces.api;
 
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.like.LikeModel;
+import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductStatus;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
 import com.loopers.infrastructure.like.LikeJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -31,7 +33,9 @@ class LikeV1ApiE2ETest {
     private final ProductJpaRepository productJpaRepository;
     private final BrandJpaRepository brandJpaRepository;
     private final LikeJpaRepository likeJpaRepository;
+    private final LikeService likeService;
     private final DatabaseCleanUp databaseCleanUp;
+    private final RedisCleanUp redisCleanUp;
 
     @Autowired
     public LikeV1ApiE2ETest(
@@ -39,18 +43,23 @@ class LikeV1ApiE2ETest {
         ProductJpaRepository productJpaRepository,
         BrandJpaRepository brandJpaRepository,
         LikeJpaRepository likeJpaRepository,
-        DatabaseCleanUp databaseCleanUp
+        LikeService likeService,
+        DatabaseCleanUp databaseCleanUp,
+        RedisCleanUp redisCleanUp
     ) {
         this.testRestTemplate = testRestTemplate;
         this.productJpaRepository = productJpaRepository;
         this.brandJpaRepository = brandJpaRepository;
         this.likeJpaRepository = likeJpaRepository;
+        this.likeService = likeService;
         this.databaseCleanUp = databaseCleanUp;
+        this.redisCleanUp = redisCleanUp;
     }
 
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
     }
 
     @DisplayName("POST /api/v1/products/{productId}/likes - 좋아요 등록")
@@ -77,6 +86,7 @@ class LikeV1ApiE2ETest {
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(likeJpaRepository.countByProductId(product.getId())).isEqualTo(1L);
+            assertThat(productJpaRepository.findById(product.getId()).orElseThrow().getLikeCount()).isEqualTo(1L);
         }
 
         @DisplayName("이미 좋아요한 상품이면, CONFLICT 응답을 받는다.")
@@ -85,7 +95,7 @@ class LikeV1ApiE2ETest {
             // arrange
             BrandModel brand = brandJpaRepository.save(new BrandModel("나이키", "스포츠 의류 및 신발 브랜드"));
             ProductModel product = productJpaRepository.save(new ProductModel(brand, "에어맥스", 150000L, "나이키 에어맥스", 100, ProductStatus.ON_SALE));
-            likeJpaRepository.save(new LikeModel(1L, product));
+            likeService.like(1L, product.getId());
             LikeRequest request = new LikeRequest(1L);
 
             // act
@@ -131,7 +141,7 @@ class LikeV1ApiE2ETest {
             // arrange
             BrandModel brand = brandJpaRepository.save(new BrandModel("나이키", "스포츠 의류 및 신발 브랜드"));
             ProductModel product = productJpaRepository.save(new ProductModel(brand, "에어맥스", 150000L, "나이키 에어맥스", 100, ProductStatus.ON_SALE));
-            likeJpaRepository.save(new LikeModel(1L, product));
+            likeService.like(1L, product.getId());
             LikeRequest request = new LikeRequest(1L);
 
             // act
@@ -146,6 +156,7 @@ class LikeV1ApiE2ETest {
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(likeJpaRepository.countByProductId(product.getId())).isEqualTo(0L);
+            assertThat(productJpaRepository.findById(product.getId()).orElseThrow().getLikeCount()).isEqualTo(0L);
         }
 
         @DisplayName("좋아요가 존재하지 않으면, NOT_FOUND 응답을 받는다.")
@@ -181,8 +192,8 @@ class LikeV1ApiE2ETest {
             BrandModel brand = brandJpaRepository.save(new BrandModel("나이키", "스포츠 의류 및 신발 브랜드"));
             ProductModel product1 = productJpaRepository.save(new ProductModel(brand, "에어맥스", 150000L, "나이키 에어맥스", 100, ProductStatus.ON_SALE));
             ProductModel product2 = productJpaRepository.save(new ProductModel(brand, "에어포스", 120000L, "나이키 에어포스", 50, ProductStatus.ON_SALE));
-            likeJpaRepository.save(new LikeModel(1L, product1));
-            likeJpaRepository.save(new LikeModel(1L, product2));
+            likeService.like(1L, product1.getId());
+            likeService.like(1L, product2.getId());
 
             // act
             ParameterizedTypeReference<ApiResponse<List<Map<String, Object>>>> responseType = new ParameterizedTypeReference<>() {};
@@ -228,7 +239,7 @@ class LikeV1ApiE2ETest {
             ProductModel product2 = new ProductModel(brand, "삭제상품", 100000L, "삭제될 상품", 10, ProductStatus.ON_SALE);
             product2.delete();
             product2 = productJpaRepository.save(product2);
-            likeJpaRepository.save(new LikeModel(1L, product1));
+            likeService.like(1L, product1.getId());
             likeJpaRepository.save(new LikeModel(1L, product2));
 
             // act

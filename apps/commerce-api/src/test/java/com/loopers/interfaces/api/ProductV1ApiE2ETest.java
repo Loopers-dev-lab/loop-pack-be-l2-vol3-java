@@ -1,13 +1,13 @@
 package com.loopers.interfaces.api;
 
 import com.loopers.domain.brand.BrandModel;
-import com.loopers.domain.like.LikeModel;
+import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductStatus;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
-import com.loopers.infrastructure.like.LikeJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -34,27 +34,31 @@ class ProductV1ApiE2ETest {
     private final TestRestTemplate testRestTemplate;
     private final ProductJpaRepository productJpaRepository;
     private final BrandJpaRepository brandJpaRepository;
-    private final LikeJpaRepository likeJpaRepository;
+    private final LikeService likeService;
     private final DatabaseCleanUp databaseCleanUp;
+    private final RedisCleanUp redisCleanUp;
 
     @Autowired
     public ProductV1ApiE2ETest(
         TestRestTemplate testRestTemplate,
         ProductJpaRepository productJpaRepository,
         BrandJpaRepository brandJpaRepository,
-        LikeJpaRepository likeJpaRepository,
-        DatabaseCleanUp databaseCleanUp
+        LikeService likeService,
+        DatabaseCleanUp databaseCleanUp,
+        RedisCleanUp redisCleanUp
     ) {
         this.testRestTemplate = testRestTemplate;
         this.productJpaRepository = productJpaRepository;
         this.brandJpaRepository = brandJpaRepository;
-        this.likeJpaRepository = likeJpaRepository;
+        this.likeService = likeService;
         this.databaseCleanUp = databaseCleanUp;
+        this.redisCleanUp = redisCleanUp;
     }
 
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
     }
 
     @DisplayName("GET /api/v1/products/{productId} - 상품 상세 조회")
@@ -67,8 +71,8 @@ class ProductV1ApiE2ETest {
             // arrange
             BrandModel brand = brandJpaRepository.save(new BrandModel("나이키", "스포츠 의류 및 신발 브랜드"));
             ProductModel product = productJpaRepository.save(new ProductModel(brand, "에어맥스", 150000L, "나이키 에어맥스", 100, ProductStatus.ON_SALE));
-            likeJpaRepository.save(new LikeModel(1L, product));
-            likeJpaRepository.save(new LikeModel(2L, product));
+            likeService.like(1L, product.getId());
+            likeService.like(2L, product.getId());
 
             // act
             ParameterizedTypeReference<ApiResponse<ProductResponse>> responseType = new ParameterizedTypeReference<>() {};
@@ -191,10 +195,10 @@ class ProductV1ApiE2ETest {
             ProductModel product2 = productJpaRepository.save(new ProductModel(brand, "에어포스", 120000L, "나이키 에어포스", 50, ProductStatus.ON_SALE));
 
             // product2에 좋아요 3개, product1에 좋아요 1개
-            likeJpaRepository.save(new LikeModel(1L, product2));
-            likeJpaRepository.save(new LikeModel(2L, product2));
-            likeJpaRepository.save(new LikeModel(3L, product2));
-            likeJpaRepository.save(new LikeModel(1L, product1));
+            likeService.like(1L, product2.getId());
+            likeService.like(2L, product2.getId());
+            likeService.like(3L, product2.getId());
+            likeService.like(1L, product1.getId());
 
             // act
             ParameterizedTypeReference<ApiResponse<Map<String, Object>>> responseType = new ParameterizedTypeReference<>() {};
@@ -212,6 +216,38 @@ class ProductV1ApiE2ETest {
                 () -> assertThat(content).hasSize(2),
                 () -> assertThat(content.get(0).get("name")).isEqualTo("에어포스"),
                 () -> assertThat(content.get(1).get("name")).isEqualTo("에어맥스")
+            );
+        }
+
+        @DisplayName("brandId 필터와 likes_desc 정렬을 함께 조회하면, 해당 브랜드 내 좋아요 순으로 반환한다.")
+        @Test
+        void returnsProductListFilteredByBrandAndSortedByLikesDesc() {
+            // arrange
+            BrandModel nike = brandJpaRepository.save(new BrandModel("나이키", "스포츠 의류 및 신발 브랜드"));
+            BrandModel adidas = brandJpaRepository.save(new BrandModel("아디다스", "스포츠 의류 및 신발 브랜드"));
+            ProductModel nike1 = productJpaRepository.save(new ProductModel(nike, "나이키-1", 100000L, "desc", 100, ProductStatus.ON_SALE));
+            ProductModel nike2 = productJpaRepository.save(new ProductModel(nike, "나이키-2", 120000L, "desc", 100, ProductStatus.ON_SALE));
+            ProductModel adidas1 = productJpaRepository.save(new ProductModel(adidas, "아디다스-1", 110000L, "desc", 100, ProductStatus.ON_SALE));
+            likeService.like(10L, nike2.getId());
+            likeService.like(11L, nike2.getId());
+            likeService.like(20L, adidas1.getId());
+
+            // act
+            ParameterizedTypeReference<ApiResponse<Map<String, Object>>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<Map<String, Object>>> response = testRestTemplate.exchange(
+                ENDPOINT_PRODUCTS + "?page=0&size=20&sort=likes_desc&brandId=" + nike.getId(),
+                HttpMethod.GET,
+                null,
+                responseType
+            );
+
+            // assert
+            List<Map<String, Object>> content = (List<Map<String, Object>>) response.getBody().data().get("content");
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(content).hasSize(2),
+                () -> assertThat(content.get(0).get("name")).isEqualTo("나이키-2"),
+                () -> assertThat(content.get(1).get("name")).isEqualTo("나이키-1")
             );
         }
     }
