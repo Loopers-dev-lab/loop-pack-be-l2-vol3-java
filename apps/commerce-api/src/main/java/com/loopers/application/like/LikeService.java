@@ -21,13 +21,22 @@ public class LikeService {
         if (likeRepository.existsByMemberIdAndProductId(memberId, productId)) {
             return;
         }
-        productRepository.findById(productId)
+        var product = productRepository.findById(productId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[id = " + productId + "] 상품을 찾을 수 없습니다."));
         likeRepository.save(new Like(memberId, productId));
+        // 비정규화 동기화: dirty checking으로 자동 UPDATE
+        product.increaseLikeCount();
     }
 
     @Transactional
     public void unlike(Long memberId, Long productId) {
+        if (!likeRepository.existsByMemberIdAndProductId(memberId, productId)) {
+            return;
+        }
+        var product = productRepository.findById(productId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[id = " + productId + "] 상품을 찾을 수 없습니다."));
         likeRepository.deleteByMemberIdAndProductId(memberId, productId);
+        // 비정규화 동기화: dirty checking으로 자동 UPDATE
+        product.decreaseLikeCount();
     }
 }
