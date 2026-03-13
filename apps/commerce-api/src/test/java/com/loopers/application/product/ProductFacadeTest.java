@@ -45,6 +45,8 @@ class ProductFacadeTest {
     private BrandService brandService;
     @Mock
     private LikeService likeService;
+    @Mock
+    private ProductCacheService productCacheService;
 
     @InjectMocks
     private ProductFacade productFacade;
@@ -56,6 +58,7 @@ class ProductFacadeTest {
         @Test
         @DisplayName("상품이 없으면 empty를 반환한다.")
         void getProductDetail_whenProductNotFound_shouldReturnEmpty() {
+            when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.empty());
             when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.empty());
 
             Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID);
@@ -67,6 +70,7 @@ class ProductFacadeTest {
         @Test
         @DisplayName("브랜드가 없거나 삭제되었으면 empty를 반환한다.")
         void getProductDetail_whenBrandNotFound_shouldReturnEmpty() {
+            when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.empty());
             ProductModel product = ProductModel.create(BRAND_ID, PRODUCT_NAME, Money.of(PRICE),
                     StockQuantity.of(STOCK_QUANTITY));
             when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.of(product));
@@ -82,12 +86,13 @@ class ProductFacadeTest {
         @Test
         @DisplayName("상품·브랜드가 있으면 ProductDetailInfo에 브랜드명·좋아요 수를 포함해 반환한다.")
         void getProductDetail_whenValid_shouldReturnProductDetailInfoWithBrandAndLikeCount() {
+            when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.empty());
             ProductModel product = ProductModel.create(BRAND_ID, PRODUCT_NAME, Money.of(PRICE),
                     StockQuantity.of(STOCK_QUANTITY));
             BrandModel brand = BrandModel.create(BRAND_NAME);
             when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.of(product));
             when(brandService.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.of(brand));
-            when(likeService.getLikeCount(PRODUCT_ID)).thenReturn(LIKE_COUNT);
+            when(likeService.getLikeCountFromStats(PRODUCT_ID)).thenReturn(LIKE_COUNT);
 
             Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID);
 
@@ -101,7 +106,7 @@ class ProductFacadeTest {
             assertThat(info.likeCount()).isEqualTo(LIKE_COUNT);
             verify(productService).findByIdAndNotDeleted(PRODUCT_ID);
             verify(brandService).findByIdAndNotDeleted(BRAND_ID);
-            verify(likeService).getLikeCount(PRODUCT_ID);
+            verify(likeService).getLikeCountFromStats(PRODUCT_ID);
         }
     }
 
@@ -112,6 +117,7 @@ class ProductFacadeTest {
         @Test
         @DisplayName("정렬·페이징·브랜드 필터로 목록을 반환하고, likeCount를 채운다.")
         void getProductList_shouldReturnPagedListWithBrandAndLikeCount() {
+            when(productCacheService.getList(null, "latest", 20)).thenReturn(Optional.empty());
             ProductModel product = ProductModel.create(BRAND_ID, PRODUCT_NAME, Money.of(PRICE),
                     StockQuantity.of(STOCK_QUANTITY));
             BrandModel brand = BrandModel.create(BRAND_NAME);
@@ -119,7 +125,7 @@ class ProductFacadeTest {
             when(productService.findNotDeletedForList(ProductSortOrder.LATEST, null, 0, 20))
                     .thenReturn(new PageImpl<>(List.of(product), pageable, 1));
             when(brandService.findByIdAndNotDeletedIn(List.of(BRAND_ID))).thenReturn(Map.of(BRAND_ID, brand));
-            when(likeService.getLikeCountByProductIds(List.of(product.getId())))
+            when(likeService.getLikeCountByProductIdsFromStats(List.of(product.getId())))
                     .thenReturn(Map.of(product.getId(), LIKE_COUNT));
 
             var result = productFacade.getProductList(null, "latest", 0, 20);
@@ -137,6 +143,7 @@ class ProductFacadeTest {
         @Test
         @DisplayName("brandId가 있으면 해당 브랜드만 조회한다.")
         void getProductList_withBrandId_shouldFilterByBrand() {
+            when(productCacheService.getList(BRAND_ID, "latest", 20)).thenReturn(Optional.empty());
             when(productService.findNotDeletedForList(ProductSortOrder.LATEST, BRAND_ID, 0, 20))
                     .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 

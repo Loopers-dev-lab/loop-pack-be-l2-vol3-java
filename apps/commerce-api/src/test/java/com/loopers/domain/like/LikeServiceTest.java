@@ -2,6 +2,7 @@ package com.loopers.domain.like;
 
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ProductStatsRepository;
 import com.loopers.domain.product.Money;
 import com.loopers.domain.product.StockQuantity;
 import com.loopers.support.error.CoreException;
@@ -9,11 +10,13 @@ import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -39,8 +42,16 @@ class LikeServiceTest {
     @Mock
     private ProductService productService;
 
+    @Mock
+    private ProductStatsRepository productStatsRepository;
+
     @InjectMocks
     private LikeService likeService;
+
+    @BeforeEach
+    void setUpSelf() {
+        ReflectionTestUtils.setField(likeService, "self", likeService);
+    }
 
     @DisplayName("addLike 시")
     @Nested
@@ -100,6 +111,8 @@ class LikeServiceTest {
             assertThat(result.getUserId()).isEqualTo(USER_ID);
             assertThat(result.getProductId()).isEqualTo(PRODUCT_ID);
             verify(likeRepository).save(any(LikeModel.class));
+            verify(productStatsRepository).createIfAbsent(PRODUCT_ID);
+            verify(productStatsRepository).incrementLikeCount(PRODUCT_ID);
         }
     }
 
@@ -142,6 +155,7 @@ class LikeServiceTest {
 
             // then
             verify(likeRepository).delete(like);
+            verify(productStatsRepository).decrementLikeCount(PRODUCT_ID);
         }
     }
 
