@@ -48,6 +48,6 @@ final class ProductCacheConstants {
         long baseSeconds = base.getSeconds();
         long jitterBound = Math.max(1, (long) (baseSeconds * JITTER_RATIO));
         long offset = ThreadLocalRandom.current().nextLong(-jitterBound, jitterBound + 1);
-        return Duration.ofSeconds(baseSeconds + offset);
+        return Duration.ofSeconds(Math.max(1, baseSeconds + offset));
     }
 }
