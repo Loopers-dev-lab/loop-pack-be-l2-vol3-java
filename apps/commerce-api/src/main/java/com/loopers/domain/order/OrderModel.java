@@ -6,6 +6,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -24,7 +25,9 @@ import static lombok.AccessLevel.PROTECTED;
  * 물리 삭제 금지, 취소는 status를 CANCELLED로 변경.
  */
 @Entity
-@Table(name = "orders")
+@Table(name = "orders", indexes = {
+        @Index(name = "idx_orders_user_ordered", columnList = "user_id, ordered_at")
+})
 @Getter
 @NoArgsConstructor(access = PROTECTED)
 public class OrderModel extends BaseEntity {
