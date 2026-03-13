@@ -21,4 +21,10 @@ public class ProductCacheEventListener {
     public void handleProductChanged(ProductCacheEvictEvent event) {
         productCacheRepository.evictAll();
     }
+
+    // 특정 상품의 상세 캐시만 핀포인트 무효화 (주문 재고 차감, 상품/브랜드 수정 시 호출)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleProductDetailChanged(ProductDetailCacheEvictEvent event) {
+        productCacheRepository.evictDetail(event.productId());
+    }
 }
