@@ -1,4 +1,4 @@
-# 좋아요 순으로 정렬하자 서버가 하염없이 느려졌다
+# 상품 조회 P95 3초 → 8ms: 인덱스가 해결한 것, 하지 못한 것, 캐시가 대신한 것
 
 ---
 
@@ -37,7 +37,7 @@
 | 이전 | 쓰기 경합 해소 > 읽기 성능 | `likeCount` 제거, `COUNT(*)` 파생 |
 | 현재 | 읽기 성능 > 쓰기 경합 | `likeCount` 재도입, atomic SQL로 경합 최소화 |
 
-**트레이드오프의 축이 바뀌었다**고 느꼈다. 쓰기 경합은 atomic UPDATE(`SET like_count = like_count + 1`)로 줄일 수 있지만, 1000만 건에서 매번 `COUNT(*) GROUP BY`를 치는 건 구조적으로 한계가 있었다. "이전에 내린 판단이 틀렸다"기보다는, 문제의 무게중심이 달라졌다.
+**트레이드오프의 축이 바뀌었다**고 느꼈다. 쓰기 경합은 atomic UPDATE(`SET like_count = like_count + 1`)로 줄일 수 있지만, 1000만 건에서 매번 `COUNT(*) GROUP BY`를 치는 건 구조적으로 한계가 있었다. 운영 환경을 다르게 가정하니, 문제의 무게중심이 달라졌다.
 
 ---
 
@@ -177,7 +177,7 @@ ProductCachePort (application, interface)
 
 ## 검증 — 어떻게 측정했는가
 
-"좋아졌다"고 말하려면 수치가 필요했다. 그리고 **각 계층이 얼마나 기여하는지** 분리해서 보고 싶었다.
+"좋아졌다"를 체감하려면 수치가 필요했다. 그리고 **각 계층이 얼마나 기여하는지** 분리해서 보고 싶었다.
 
 ### 환경 구성
 
@@ -209,7 +209,7 @@ ProductCachePort (application, interface)
 
 **RPS 패널에서 서비스 용량의 차이가 보였다.** 비캐시는 목표 100 rps에 실제 35~51 rps만 처리하고 나머지는 유실됐다. 캐시를 적용하니 100 rps를 안정적으로 소화했다. 같은 하드웨어에서 캐시 유무가 처리 가능 트래픽을 2~3배 갈랐다.
 
-**L2 → L1+L2 차이는 환경의 한계를 알고 읽어야 한다.** 10ms → 8ms, 2ms 차이. Redis가 localhost여서 네트워크 latency가 거의 0인 Docker 환경이기 때문이다. 실 운영에서 Redis가 별도 서버에 있으면 이 차이는 더 벌어진다.
+**L2 → L1+L2 차이는 환경의 한계를 알고 읽어야 한다.** 10ms → 8ms, 2ms 차이. Redis가 localhost여서 네트워크 latency가 거의 0인 Docker 환경이기 때문이다. 실 운영에서 Redis가 별도 서버에 있으면 이 차이는 더 벌어질 것이다.
 
 ---
 
@@ -219,7 +219,7 @@ ProductCachePort (application, interface)
 
 **Docker `/tmp` 디스크 포화.** No Optimization 테스트를 먼저 돌리면, 1000만 건 전체 풀스캔 + filesort가 MySQL 임시 파일을 대량 생성해서 Docker VM 디스크를 채웠다. 이후 돌리는 캐시 테스트도 캐시 미스 시 DB 쿼리가 `No space left on device`로 실패하며 연쇄적으로 무너졌다. MySQL `sort_buffer_size`를 8MB로 올리고, 테스트 간 MySQL 컨테이너를 재시작해서 해결했다.
 
-**앱 재시작 시 1000만 건 데이터 유실.** local 프로필의 `ddl-auto: create` 때문에, 앱을 재시작하면 테이블이 재생성됐다. Stored procedure로 30분 걸려 시딩한 데이터가 순식간에 날아가는 경험을 했다. `--spring.jpa.hibernate.ddl-auto=none`을 JVM 인자로 전달해서 해결했는데, 한 번 당하기 전에는 떠올리기 어려운 종류의 실수였다.
+**앱 재시작 시 1000만 건 데이터 유실.** local 프로필의 `ddl-auto: create` 때문에, 앱을 재시작하면 테이블이 재생성됐다. Stored procedure로 30분 걸려 시딩한 데이터가 순식간에 날아가는 경험을 했다... `--spring.jpa.hibernate.ddl-auto=none`을 JVM 인자로 전달해서 해결했는데, 한 번 당하기 전에는 떠올리기 어려운 종류의 실수였다.
 
 ---
 
