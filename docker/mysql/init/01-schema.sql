@@ -47,6 +47,33 @@ CREATE TABLE IF NOT EXISTS products (
     KEY idx_products_brand_category_deleted_price (brand_reference_id, category_reference_id, deleted_at, price, id)
 );
 
+CREATE TABLE IF NOT EXISTS members (
+    id BINARY(16) NOT NULL,
+    member_id VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    birth_date DATE NOT NULL,
+    phone VARCHAR(255) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    deleted_at DATETIME(6) NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_members_member_id (member_id)
+);
+
+CREATE TABLE IF NOT EXISTS likes (
+    id BINARY(16) NOT NULL,
+    member_id VARCHAR(255) NOT NULL,
+    product_id BINARY(16) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    deleted_at DATETIME(6) NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_likes_member_product (member_id, product_id),
+    KEY idx_likes_product_id (product_id)
+);
+
 CREATE TABLE IF NOT EXISTS read_model_sync_task (
     id BIGINT NOT NULL AUTO_INCREMENT,
     aggregate_type VARCHAR(50) NOT NULL,
