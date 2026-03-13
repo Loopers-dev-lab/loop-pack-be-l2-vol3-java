@@ -1,10 +1,5 @@
 # ADR: 유저 상품 목록 조회 페이징 방식 비교
 
-- 상태: Proposed
-- 날짜: 2026-03-13
-- 작성자: OpenCode
-- 관련 모듈: `apps/commerce-api`, `docker/mysql`
-
 ## 맥락
 
 인덱스 실험 결과, 유저 상품 목록 조회에서 `brand + likes DESC`는 우선순위 0인 대표 쿼리로 확인됐다.
