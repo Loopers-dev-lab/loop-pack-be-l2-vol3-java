@@ -304,7 +304,7 @@ TTL 만료 시 동시에 같은 키를 조회하면 모든 요청이 DB를 직�
 
 ## 11. 전체 흐름 요약
 
-### 상품 상세 조회 (v3: L1 → L2 → DB)
+### 조회 흐름 (v3: L1 → L2 → DB)
 
 ```mermaid
 sequenceDiagram
@@ -314,126 +314,108 @@ sequenceDiagram
     participant L2 as Redis (L2)
     participant DB as MySQL
 
-    C->>F: GET /products/{id}
+    C->>+F: 조회 요청
 
-    F->>L1: getDetail(id)
+    activate F
+    F->>+L1: get(key)
+    L1-->>-F: Optional
 
-    alt L1 HIT (~0.1ms)
-        L1-->>F: ProductInfo
-        F-->>C: 200 OK
+    alt L1 HIT
+        F-->>C: 응답
     else L1 MISS
-        F->>L2: getDetail(id)
+        F->>+L2: get(key)
+        L2-->>-F: Optional
 
-        alt L2 HIT (~1ms)
-            L2-->>F: ProductInfo (JSON)
-            F->>L1: putDetail(id, info)
-            Note over L1: TTL 1분, maxSize 200
-            F-->>C: 200 OK
-        else L2 MISS (~10ms)
-            F->>DB: SELECT * FROM products WHERE id = ?
-            DB-->>F: Product Entity
-            F->>L2: putDetail(id, info)
-            Note over L2: TTL 10분
-            F->>L1: putDetail(id, info)
-            F-->>C: 200 OK
-        end
-    end
-```
-
-### 상품 목록 조회 (v3: L1 → L2 → DB)
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant F as Facade
-    participant L1 as Caffeine (L1)
-    participant L2 as Redis (L2)
-    participant DB as MySQL
-
-    C->>F: GET /products?brandId=1&sort=likes_desc
-
-    F->>L1: getList(cacheKey)
-
-    alt L1 HIT (~0.1ms)
-        L1-->>F: CachedPage
-        F-->>C: 200 OK
-    else L1 MISS
-        F->>L2: getList(brandId, sort, page, size)
-
-        alt L2 HIT (~1ms)
-            L2-->>F: CachedPage (JSON)
-            F->>L1: putList(cacheKey, page)
-            Note over L1: TTL 30초, maxSize 500
-            F-->>C: 200 OK
+        alt L2 HIT
+            F->>L1: put(key) — L1 승격
+            F-->>C: 응답
         else L2 MISS
-            F->>DB: SELECT ... ORDER BY like_count DESC
-            DB-->>F: Page<Product>
-            F->>L2: putList(brandId, sort, page, size, cachedPage)
-            Note over L2: TTL 5분 + 키 레지스트리 등록
-            F->>L1: putList(cacheKey, cachedPage)
-            F-->>C: 200 OK
+            critical @Transactional(readOnly)
+                F->>+DB: SELECT
+                DB-->>-F: Entity
+            end
+            F->>L2: set(key, TTL)
+            F->>L1: put(key)
+            F-->>C: 응답
         end
     end
+    deactivate F
 ```
 
-### 상품 수정 시 캐시 무효화
+### 수정/삭제 시 캐시 무효화
 
 ```mermaid
 sequenceDiagram
-    participant Admin as Admin
+    participant C as Client
     participant F as Facade
     participant DB as MySQL
     participant L2 as Redis (L2)
     participant PS as Pub/Sub
-    participant L1a as Server A - Caffeine
-    participant L1b as Server B - Caffeine
+    participant L1a as Server A (L1)
+    participant L1b as Server B (L1)
 
-    Admin->>F: PATCH /products/{id}
-    F->>DB: UPDATE products SET ...
-    F->>DB: COMMIT
+    C->>+F: 수정/삭제 요청
 
-    Note over F: afterCommit 콜백 실행
+    critical @Transactional
+        F->>+DB: UPDATE / DELETE
+        DB-->>-F: OK
+    end
 
-    F->>L2: DELETE product:detail:{id}
-    F->>L2: SMEMBERS product:list-keys
-    L2-->>F: [key1, key2, ...]
-    F->>L2: DELETE key1, key2, ...
-    F->>L2: DELETE product:list-keys
+    Note over F: afterCommit 콜백
 
-    F->>PS: PUBLISH "detail:{id}"
-    F->>PS: PUBLISH "list:all"
-    PS-->>L1a: invalidate detail + lists
-    PS-->>L1b: invalidate detail + lists
+    activate F
+    F->>+L2: DEL 상세 키
+    L2-->>-F: OK
+    F->>+L2: DEL 목록 키 (레지스트리 기반)
+    L2-->>-F: OK
+    F->>+PS: PUBLISH 무효화 메시지
+    PS-->>-F: OK
+    deactivate F
 
-    Note over L1a,L1b: Pub/Sub 유실 시 TTL이 안전망<br/>(상세 1분, 목록 30초)
+    par 멀티 인스턴스 L1 동기화
+        PS-->>L1a: invalidate(key)
+        PS-->>L1b: invalidate(key)
+    end
 
-    F-->>Admin: 200 OK
+    Note over L1a,L1b: Pub/Sub 유실 시 TTL이 최종 안전망
+
+    F-->>-C: 응답
 ```
 
-### 좋아요 변경 시 캐시 무효화
+### 좋아요 시 캐시 무효화
 
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant LF as LikeFacade
+    participant F as LikeFacade
     participant DB as MySQL
     participant L2 as Redis (L2)
     participant PS as Pub/Sub
     participant L1 as Caffeine (L1)
 
-    U->>LF: POST /likes (productId)
-    LF->>DB: INSERT INTO likes + UPDATE like_count
-    LF->>DB: COMMIT
+    U->>+F: 좋아요 등록/취소
 
-    Note over LF: afterCommit 콜백 실행
+    critical @Transactional
+        F->>+DB: INSERT/DELETE like
+        DB-->>-F: OK
+        F->>+DB: UPDATE product.like_count
+        DB-->>-F: OK
+    end
 
-    LF->>L2: DELETE product:detail:{id}
-    LF->>PS: PUBLISH "detail:{id}"
-    PS-->>L1: invalidate detail
+    Note over F: afterCommit 콜백
 
-    Note over L2: 목록 캐시는 evict 안 함<br/>→ TTL(5분) 만료까지 stale 허용<br/>→ 좋아요 빈도 높아 매번 evict하면 캐시 무의미
+    activate F
+    F->>+L2: DEL 상세 키만
+    L2-->>-F: OK
+    F->>+PS: PUBLISH 상세 무효화
+    PS-->>-F: OK
+    deactivate F
 
-    LF-->>U: 200 OK
+    PS-->>L1: invalidate(detail:productId)
+
+    Note over L2: 목록은 evict 안 함<br/>TTL(5분) 의존 — stale 허용
+
+    F-->>-U: 응답
 ```
 
 ---
