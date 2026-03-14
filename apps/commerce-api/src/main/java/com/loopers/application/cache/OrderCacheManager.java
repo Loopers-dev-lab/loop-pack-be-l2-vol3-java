@@ -12,6 +12,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 주문 목록 캐시 매니저
@@ -30,7 +31,8 @@ public class OrderCacheManager {
     private static final Logger log = LoggerFactory.getLogger(OrderCacheManager.class);
 
     private static final String LIST_KEY_PREFIX = "orders:list:";
-    private static final Duration LIST_TTL = Duration.ofSeconds(300);
+    private static final int LIST_TTL_BASE = 120;
+    private static final int LIST_TTL_JITTER = 15;
 
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
@@ -62,7 +64,7 @@ public class OrderCacheManager {
         String key = LIST_KEY_PREFIX + userId;
         try {
             String json = objectMapper.writeValueAsString(result);
-            redisTemplate.opsForValue().set(key, json, LIST_TTL);
+            redisTemplate.opsForValue().set(key, json, ttlWithJitter());
         } catch (JsonProcessingException e) {
             log.warn("주문 목록 캐시 직렬화 실패 (userId={})", userId, e);
         }
@@ -87,5 +89,10 @@ public class OrderCacheManager {
      */
     public void evictOrderList(Long userId) {
         redisTemplate.delete(LIST_KEY_PREFIX + userId);
+    }
+
+    private Duration ttlWithJitter() {
+        int jitter = ThreadLocalRandom.current().nextInt(-LIST_TTL_JITTER, LIST_TTL_JITTER + 1);
+        return Duration.ofSeconds(LIST_TTL_BASE + jitter);
     }
 }

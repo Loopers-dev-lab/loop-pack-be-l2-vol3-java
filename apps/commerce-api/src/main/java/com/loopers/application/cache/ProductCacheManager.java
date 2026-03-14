@@ -2,11 +2,7 @@ package com.loopers.application.cache;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.application.brand.BrandInfo;
 import com.loopers.application.product.ProductFacade;
-import com.loopers.application.product.ProductInfo;
-import com.loopers.domain.brand.BrandService;
-import com.loopers.domain.brand.Brand;
 import com.loopers.domain.product.ProductSortType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,9 +12,10 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 상품 캐시 매니저
@@ -37,19 +34,18 @@ public class ProductCacheManager {
 
     private static final String DETAIL_KEY_PREFIX = "products:detail:";
     private static final String LIST_KEY_PREFIX = "products:list:";
-    private static final Duration DETAIL_TTL = Duration.ofSeconds(300);
-    private static final Duration LIST_TTL = Duration.ofSeconds(60);
+    private static final int DETAIL_TTL_BASE = 300;
+    private static final int DETAIL_TTL_JITTER = 30;
+    private static final int LIST_TTL_BASE = 60;
+    private static final int LIST_TTL_JITTER = 10;
 
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
-    private final BrandService brandService;
 
     public ProductCacheManager(RedisTemplate<String, String> redisTemplate,
-                               ObjectMapper objectMapper,
-                               BrandService brandService) {
+                               ObjectMapper objectMapper) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
-        this.brandService = brandService;
     }
 
     // ── 상품 상세 캐시 ──
@@ -73,7 +69,7 @@ public class ProductCacheManager {
         String key = DETAIL_KEY_PREFIX + productId;
         try {
             String json = objectMapper.writeValueAsString(result);
-            redisTemplate.opsForValue().set(key, json, DETAIL_TTL);
+            redisTemplate.opsForValue().set(key, json, ttlWithJitter(DETAIL_TTL_BASE, DETAIL_TTL_JITTER));
         } catch (JsonProcessingException e) {
             log.warn("상품 상세 캐시 직렬화 실패 (productId={})", productId, e);
         }
@@ -100,7 +96,7 @@ public class ProductCacheManager {
         String key = listKey(sort, brandId);
         try {
             String json = objectMapper.writeValueAsString(result);
-            redisTemplate.opsForValue().set(key, json, LIST_TTL);
+            redisTemplate.opsForValue().set(key, json, ttlWithJitter(LIST_TTL_BASE, LIST_TTL_JITTER));
         } catch (JsonProcessingException e) {
             log.warn("상품 목록 캐시 직렬화 실패 (sort={}, brandId={})", sort, brandId, e);
         }
@@ -176,21 +172,13 @@ public class ProductCacheManager {
 
     /**
      * 상품 목록 캐시 전체 삭제.
-     * 4개 정렬 × (all + 활성 브랜드) 키를 열거해서 Collection 일괄 삭제.
+     * Redis SCAN으로 products:list:* 패턴 키를 찾아 일괄 삭제.
+     * DB 조회 없이 Redis 내에서 완결되므로 캐시 삭제를 위한 추가 DB 부하가 없다.
      */
     private void evictAllProductListCache() {
         try {
-            List<Brand> activeBrands = brandService.getAllActiveBrands();
-            List<String> keys = new ArrayList<>();
-
-            for (ProductSortType sort : ProductSortType.values()) {
-                keys.add(LIST_KEY_PREFIX + sort.name() + ":all");
-                for (Brand brand : activeBrands) {
-                    keys.add(LIST_KEY_PREFIX + sort.name() + ":" + brand.getId());
-                }
-            }
-
-            if (!keys.isEmpty()) {
+            Set<String> keys = redisTemplate.keys(LIST_KEY_PREFIX + "*");
+            if (keys != null && !keys.isEmpty()) {
                 redisTemplate.delete(keys);
             }
         } catch (Exception e) {
@@ -201,5 +189,10 @@ public class ProductCacheManager {
     private String listKey(ProductSortType sort, Long brandId) {
         String brandPart = (brandId != null) ? String.valueOf(brandId) : "all";
         return LIST_KEY_PREFIX + sort.name() + ":" + brandPart;
+    }
+
+    private Duration ttlWithJitter(int baseSeconds, int jitterRange) {
+        int jitter = ThreadLocalRandom.current().nextInt(-jitterRange, jitterRange + 1);
+        return Duration.ofSeconds(baseSeconds + jitter);
     }
 }

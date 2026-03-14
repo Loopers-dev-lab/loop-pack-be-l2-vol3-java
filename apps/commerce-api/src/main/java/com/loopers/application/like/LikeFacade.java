@@ -1,5 +1,6 @@
 package com.loopers.application.like;
 
+import com.loopers.application.cache.ProductCacheManager;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.like.BrandLike;
@@ -30,33 +31,36 @@ public class LikeFacade {
     private final BrandLikeService brandLikeService;
     private final ProductService productService;
     private final BrandService brandService;
+    private final ProductCacheManager productCacheManager;
 
     public LikeFacade(LikeService likeService, BrandLikeService brandLikeService,
-                      ProductService productService, BrandService brandService) {
+                      ProductService productService, BrandService brandService,
+                      ProductCacheManager productCacheManager) {
         this.likeService = likeService;
         this.brandLikeService = brandLikeService;
         this.productService = productService;
         this.brandService = brandService;
+        this.productCacheManager = productCacheManager;
     }
 
-    /** 상품 좋아요 (상품 검증 → 좋아요 생성 → likeCount 증가) */
+    /** 상품 좋아요 (상품 검증 → 좋아요 생성 → likeCount 증가 → 캐시 무효화) */
     @Transactional
     public LikeResult likeProduct(Long userId, Long productId) {
-        productService.getDisplayableProduct(productId);
+        Product product = productService.getDisplayableProduct(productId);
         likeService.like(userId, productId);
         productService.incrementLikeCount(productId);
-        Product updated = productService.getById(productId);
-        return new LikeResult(updated.getLikeCount());
+        productCacheManager.registerEvictAfterCommit(productId);
+        return new LikeResult(product.getLikeCount() + 1);
     }
 
-    /** 상품 좋아요 취소 (상품 존재 검증 → 좋아요 삭제 → likeCount 감소) */
+    /** 상품 좋아요 취소 (상품 존재 검증 → 좋아요 삭제 → likeCount 감소 → 캐시 무효화) */
     @Transactional
     public LikeResult unlikeProduct(Long userId, Long productId) {
-        productService.getById(productId);
+        Product product = productService.getById(productId);
         likeService.unlike(userId, productId);
         productService.decrementLikeCount(productId);
-        Product updated = productService.getById(productId);
-        return new LikeResult(updated.getLikeCount());
+        productCacheManager.registerEvictAfterCommit(productId);
+        return new LikeResult(product.getLikeCount() - 1);
     }
 
     /** 브랜드 좋아요 (활성 브랜드 검증 → 좋아요 생성) */
