@@ -50,7 +50,7 @@ public class ProductAdminFacade {
         Product product = productService.create(brandId, name, description, basePrice);
         Inventory inventory = inventoryService.create(product.getId(), quantity);
 
-        productCacheManager.registerDelayedDoubleDelete(null);
+        productCacheManager.registerEvictAfterCommit(null);
 
         return new ProductAdminDetailResult(
                 ProductInfo.from(product), BrandInfo.from(brand), InventoryInfo.from(inventory));
@@ -88,7 +88,7 @@ public class ProductAdminFacade {
         inventoryService.delete(productId);
         cartItemService.deleteByProductId(productId);
 
-        productCacheManager.registerDelayedDoubleDelete(productId);
+        productCacheManager.registerEvictAfterCommit(productId);
     }
 
     /** 상품 부분 수정 */
@@ -96,7 +96,7 @@ public class ProductAdminFacade {
     public ProductAdminDetailResult updateProduct(Long productId, String name, String description, Integer basePrice) {
         productService.update(productId, name, description, basePrice);
 
-        productCacheManager.registerDelayedDoubleDelete(productId);
+        productCacheManager.registerEvictAfterCommit(productId);
 
         return getProductDetail(productId);
     }
@@ -106,7 +106,7 @@ public class ProductAdminFacade {
     public ProductAdminDetailResult changeProductStatus(Long productId, ProductStatus status) {
         productService.changeStatus(productId, status);
 
-        productCacheManager.registerDelayedDoubleDelete(productId);
+        productCacheManager.registerEvictAfterCommit(productId);
 
         return getProductDetail(productId);
     }

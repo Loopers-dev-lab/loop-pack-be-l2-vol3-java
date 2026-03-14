@@ -19,14 +19,12 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 상품 캐시 매니저
  *
  * Cache-Aside 패턴의 캐시 읽기/저장/무효화를 담당한다.
- * 무효화 전략: Delayed Double Delete (afterCommit DELETE + 500ms 후 2차 DELETE)
+ * 무효화 전략: afterCommit DELETE + TTL 안전망
  *
  * 키 설계:
  *   상품 상세: products:detail:{productId}
@@ -41,7 +39,6 @@ public class ProductCacheManager {
     private static final String LIST_KEY_PREFIX = "products:list:";
     private static final Duration DETAIL_TTL = Duration.ofSeconds(300);
     private static final Duration LIST_TTL = Duration.ofSeconds(60);
-    private static final long DOUBLE_DELETE_DELAY_MS = 500;
 
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
@@ -109,23 +106,20 @@ public class ProductCacheManager {
         }
     }
 
-    // ── Delayed Double Delete (afterCommit 등록) ──
+    // ── afterCommit 캐시 무효화 ──
 
     /**
      * 상품 데이터 변경 시 호출.
-     * afterCommit 콜백에서 1차 DELETE + 500ms 후 2차 DELETE를 수행한다.
+     * afterCommit 콜백에서 캐시를 삭제한다. TTL이 최종 안전망.
      *
      * @param productId null이면 상세 캐시 삭제를 건너뛰고 목록만 삭제
      */
-    public void registerDelayedDoubleDelete(Long productId) {
+    public void registerEvictAfterCommit(Long productId) {
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
                         evictProductCaches(productId);
-
-                        CompletableFuture.delayedExecutor(DOUBLE_DELETE_DELAY_MS, TimeUnit.MILLISECONDS)
-                                .execute(() -> evictProductCaches(productId));
                     }
                 }
         );
@@ -135,19 +129,13 @@ public class ProductCacheManager {
      * 브랜드 삭제 시 호출 — 소속 상품 상세 캐시 + 목록 캐시 전체 삭제.
      * 브랜드 삭제 시 소속 상품이 전부 soft delete되므로 상세 캐시도 무효화 필수.
      */
-    public void registerBrandDeleteDoubleDelete(List<Long> productIds) {
+    public void registerBrandDeleteEvictAfterCommit(List<Long> productIds) {
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
                         evictProductDetailBatch(productIds);
                         evictAllProductListCache();
-
-                        CompletableFuture.delayedExecutor(DOUBLE_DELETE_DELAY_MS, TimeUnit.MILLISECONDS)
-                                .execute(() -> {
-                                    evictProductDetailBatch(productIds);
-                                    evictAllProductListCache();
-                                });
                     }
                 }
         );
@@ -156,15 +144,12 @@ public class ProductCacheManager {
     /**
      * 브랜드 상태 변경 시 호출 — 상품 목록 캐시만 삭제 (상세는 브랜드 상태 무관).
      */
-    public void registerListOnlyDoubleDelete() {
+    public void registerListOnlyEvictAfterCommit() {
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
                         evictAllProductListCache();
-
-                        CompletableFuture.delayedExecutor(DOUBLE_DELETE_DELAY_MS, TimeUnit.MILLISECONDS)
-                                .execute(() -> evictAllProductListCache());
                     }
                 }
         );

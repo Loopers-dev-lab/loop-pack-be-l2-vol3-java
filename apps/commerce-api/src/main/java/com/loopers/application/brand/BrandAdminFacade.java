@@ -66,7 +66,7 @@ public class BrandAdminFacade {
             cartItemService.deleteByProductId(product.getId());
         }
 
-        productCacheManager.registerBrandDeleteDoubleDelete(productIds);
+        productCacheManager.registerBrandDeleteEvictAfterCommit(productIds);
     }
 
     /** 전체 브랜드 목록 페이지네이션 조회 */
@@ -102,7 +102,7 @@ public class BrandAdminFacade {
     public BrandInfo changeBrandStatus(Long brandId, BrandStatus status) {
         Brand brand = brandService.changeStatus(brandId, status);
 
-        productCacheManager.registerListOnlyDoubleDelete();
+        productCacheManager.registerListOnlyEvictAfterCommit();
 
         return BrandInfo.from(brand);
     }

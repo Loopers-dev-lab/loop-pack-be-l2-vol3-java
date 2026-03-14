@@ -335,7 +335,6 @@ public class OrderFacade {
      *
      * @param isDefaultQuery Controller에서 판단: startAt/endAt/cursor 모두 미지정 시 true
      */
-    @Transactional(readOnly = true)
     public OrderCursorResult getOrdersWithCursor(Long userId, ZonedDateTime startAt, ZonedDateTime endAt,
                                                   ZonedDateTime cursorCreatedAt, Long cursorId, int size,
                                                   boolean isDefaultQuery) {

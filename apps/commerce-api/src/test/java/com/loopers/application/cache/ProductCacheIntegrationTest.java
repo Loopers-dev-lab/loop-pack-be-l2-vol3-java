@@ -69,8 +69,8 @@ class ProductCacheIntegrationTest {
                     activeBrand.getId(), "에어맥스", "설명", 150000, 100);
             Long productId = created.product().id();
 
-            // 생성 시 Double Delete로 캐시가 삭제되므로, 잠시 대기 후 조회
-            waitForDoubleDelete();
+            // 생성 시 afterCommit으로 캐시가 삭제되므로, 잠시 대기 후 조회
+            waitForCacheEviction();
 
             // act
             productFacade.getProductDetail(productId);
@@ -89,7 +89,7 @@ class ProductCacheIntegrationTest {
             var created = productAdminFacade.createProduct(
                     activeBrand.getId(), "에어맥스", "설명", 150000, 100);
             Long productId = created.product().id();
-            waitForDoubleDelete();
+            waitForCacheEviction();
 
             // act — 첫 조회 (cache miss → DB → cache put)
             var firstResult = productFacade.getProductDetail(productId);
@@ -108,15 +108,15 @@ class ProductCacheIntegrationTest {
             var created = productAdminFacade.createProduct(
                     activeBrand.getId(), "에어맥스", "설명", 150000, 100);
             Long productId = created.product().id();
-            waitForDoubleDelete();
+            waitForCacheEviction();
 
             productFacade.getProductDetail(productId); // 캐시 저장
             String key = "products:detail:" + productId;
             assertThat(redisTemplate.opsForValue().get(key)).isNotNull();
 
-            // act — 상품 수정 (Delayed Double Delete 트리거)
+            // act — 상품 수정 (afterCommit 캐시 삭제 트리거)
             productAdminFacade.updateProduct(productId, "에어포스", null, null);
-            waitForDoubleDelete();
+            waitForCacheEviction();
 
             // assert — 캐시 삭제됨
             assertThat(redisTemplate.opsForValue().get(key)).isNull();
@@ -128,7 +128,7 @@ class ProductCacheIntegrationTest {
             var created = productAdminFacade.createProduct(
                     activeBrand.getId(), "에어맥스", "설명", 150000, 100);
             Long productId = created.product().id();
-            waitForDoubleDelete();
+            waitForCacheEviction();
 
             productFacade.getProductDetail(productId); // 캐시 저장
             String key = "products:detail:" + productId;
@@ -136,7 +136,7 @@ class ProductCacheIntegrationTest {
 
             // act
             productAdminFacade.deleteProduct(productId);
-            waitForDoubleDelete();
+            waitForCacheEviction();
 
             // assert
             assertThat(redisTemplate.opsForValue().get(key)).isNull();
@@ -152,7 +152,7 @@ class ProductCacheIntegrationTest {
             // arrange
             productAdminFacade.createProduct(activeBrand.getId(), "상품1", "설명", 10000, 100);
             productAdminFacade.createProduct(activeBrand.getId(), "상품2", "설명", 20000, 100);
-            waitForDoubleDelete();
+            waitForCacheEviction();
 
             // act
             productFacade.getDisplayableProductsWithCursor(null, ProductSortType.LATEST, null, 20);
@@ -169,7 +169,7 @@ class ProductCacheIntegrationTest {
         void 브랜드_필터_조회_시_브랜드별_키로_캐싱된다() {
             // arrange
             productAdminFacade.createProduct(activeBrand.getId(), "상품1", "설명", 10000, 100);
-            waitForDoubleDelete();
+            waitForCacheEviction();
 
             // act
             productFacade.getDisplayableProductsWithCursor(
@@ -184,14 +184,14 @@ class ProductCacheIntegrationTest {
         void 상품_생성_시_목록_캐시가_삭제된다() {
             // arrange
             productAdminFacade.createProduct(activeBrand.getId(), "상품1", "설명", 10000, 100);
-            waitForDoubleDelete();
+            waitForCacheEviction();
 
             productFacade.getDisplayableProductsWithCursor(null, ProductSortType.LATEST, null, 20);
             assertThat(redisTemplate.opsForValue().get("products:list:LATEST:all")).isNotNull();
 
             // act — 새 상품 생성 (목록 캐시 무효화)
             productAdminFacade.createProduct(activeBrand.getId(), "상품2", "설명", 20000, 100);
-            waitForDoubleDelete();
+            waitForCacheEviction();
 
             // assert — 목록 캐시 삭제됨
             assertThat(redisTemplate.opsForValue().get("products:list:LATEST:all")).isNull();
@@ -201,7 +201,7 @@ class ProductCacheIntegrationTest {
         void 정렬_타입별로_별도_캐시가_생성된다() {
             // arrange
             productAdminFacade.createProduct(activeBrand.getId(), "상품1", "설명", 10000, 100);
-            waitForDoubleDelete();
+            waitForCacheEviction();
 
             // act
             productFacade.getDisplayableProductsWithCursor(null, ProductSortType.LATEST, null, 20);
@@ -215,12 +215,12 @@ class ProductCacheIntegrationTest {
     }
 
     /**
-     * Delayed Double Delete의 2차 DELETE(500ms 후)가 완료될 때까지 대기.
-     * 테스트에서 캐시 상태를 정확히 확인하기 위해 필요.
+     * afterCommit 캐시 삭제가 완료될 때까지 대기.
+     * 트랜잭션 커밋 후 비동기 처리 여유를 위해 짧은 대기.
      */
-    private void waitForDoubleDelete() {
+    private void waitForCacheEviction() {
         try {
-            Thread.sleep(700);
+            Thread.sleep(100);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

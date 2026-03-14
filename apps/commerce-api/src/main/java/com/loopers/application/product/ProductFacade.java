@@ -10,8 +10,6 @@ import com.loopers.domain.product.ProductCursor;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductSortType;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -35,7 +33,6 @@ public class ProductFacade {
     }
 
     /** 고객 상품 상세 조회 (상품 + 브랜드명) — Cache-Aside */
-    @Transactional(readOnly = true)
     public ProductDetailResult getProductDetail(Long productId) {
         Optional<ProductDetailResult> cached = productCacheManager.getProductDetail(productId);
         if (cached.isPresent()) {
@@ -51,7 +48,6 @@ public class ProductFacade {
     }
 
     /** 고객 상품 목록 커서 조회 (COUNT 쿼리 없음) — 첫 페이지만 Cache-Aside */
-    @Transactional(readOnly = true)
     public ProductCursorResult getDisplayableProductsWithCursor(Long brandId, ProductSortType sort, ProductCursor cursor, int size) {
         boolean isFirstPage = (cursor == null);
 
