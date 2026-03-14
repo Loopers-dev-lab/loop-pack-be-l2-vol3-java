@@ -6,6 +6,9 @@ dependencies {
     implementation(project(":supports:logging"))
     implementation(project(":supports:monitoring"))
 
+    // cache
+    implementation("com.github.ben-manes.caffeine:caffeine")
+
     // security-crypto
     implementation("org.springframework.security:spring-security-crypto")
 

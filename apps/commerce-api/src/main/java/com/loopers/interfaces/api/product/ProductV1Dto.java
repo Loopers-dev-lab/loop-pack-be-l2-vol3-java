@@ -1,8 +1,10 @@
 package com.loopers.interfaces.api.product;
 
+import com.loopers.application.product.ProductReadModel;
 import com.loopers.domain.PageResult;
 import com.loopers.domain.brand.Brand;
-import com.loopers.domain.product.Product;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 import java.util.List;
 import java.util.Map;
@@ -17,10 +19,10 @@ public class ProductV1Dto {
         int price,
         int likeCount
     ) {
-        public static ProductResponse from(Product product, Brand brand) {
+        public static ProductResponse from(ProductReadModel product, Brand brand) {
             return new ProductResponse(
-                product.getId(), product.getBrandId(), brand.getName(), product.getName(),
-                product.getPrice().amount(), product.getLikeCount()
+                product.id(), product.brandId(), brand.getName(), product.name(),
+                product.price(), product.likeCount()
             );
         }
     }
@@ -32,10 +34,15 @@ public class ProductV1Dto {
         long totalElements,
         int totalPages
     ) {
-        public static ProductPageResponse from(PageResult<Product> result, Map<Long, Brand> brandMap) {
+        public static ProductPageResponse from(PageResult<ProductReadModel> result, Map<Long, Brand> brandMap) {
             List<ProductResponse> content = result.items().stream()
-                .filter(product -> brandMap.containsKey(product.getBrandId()))
-                .map(product -> ProductResponse.from(product, brandMap.get(product.getBrandId())))
+                .map(product -> {
+                    Brand brand = brandMap.get(product.brandId());
+                    if (brand == null) {
+                        throw new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.");
+                    }
+                    return ProductResponse.from(product, brand);
+                })
                 .toList();
             return new ProductPageResponse(content, result.page(), result.size(), result.totalElements(), result.totalPages());
         }

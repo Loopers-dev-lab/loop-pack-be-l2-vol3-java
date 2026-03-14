@@ -30,10 +30,24 @@ class ArchitectureTest {
             .layer("Config").definedBy("..config..")
 
             .whereLayer("Interfaces").mayNotBeAccessedByAnyLayer()
-            .whereLayer("Application").mayOnlyBeAccessedByLayers("Interfaces")
+            .whereLayer("Application").mayOnlyBeAccessedByLayers("Interfaces", "Infrastructure", "Config")
             .whereLayer("Domain").mayOnlyBeAccessedByLayers("Application", "Infrastructure", "Interfaces", "Config")
             .whereLayer("Infrastructure").mayNotBeAccessedByAnyLayer()
             .whereLayer("Config").mayNotBeAccessedByAnyLayer();
+
+    // ── 1-1. Infrastructure/Config는 ApplicationService에 직접 의존 금지 ────────
+    // query-side 포트(QueryService, ReadCache, ReadModel 등)만 참조 허용
+    @ArchTest
+    static final ArchRule infrastructure_should_not_depend_on_application_services = noClasses()
+            .that().resideInAPackage("..infrastructure..")
+            .should().dependOnClassesThat()
+            .haveSimpleNameEndingWith("ApplicationService");
+
+    @ArchTest
+    static final ArchRule config_should_not_depend_on_application_services = noClasses()
+            .that().resideInAPackage("..config..")
+            .should().dependOnClassesThat()
+            .haveSimpleNameEndingWith("ApplicationService");
 
     // ── 2. Domain 계층 독립성 (DIP 핵심) ────────────────────────────────────────
     @ArchTest
