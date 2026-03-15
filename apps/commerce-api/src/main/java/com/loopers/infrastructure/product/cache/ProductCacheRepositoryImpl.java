@@ -63,8 +63,8 @@ public class ProductCacheRepositoryImpl implements ProductCacheRepository {
     }
 
     @Override
-    public void initLikeCount(Long productId, long count) {
-        redisCacheManager.setCount(KEY_PREFIX + productId + LIKES_SUFFIX, count, TTL_SECONDS);
+    public void initLikeCountIfAbsent(Long productId, long count) {
+        redisCacheManager.setCountIfAbsent(KEY_PREFIX + productId + LIKES_SUFFIX, count, TTL_SECONDS);
     }
 
     @Override

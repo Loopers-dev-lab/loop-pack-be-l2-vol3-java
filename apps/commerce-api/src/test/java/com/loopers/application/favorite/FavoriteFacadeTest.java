@@ -5,8 +5,8 @@ import com.loopers.domain.favorite.service.FavoriteService;
 import com.loopers.domain.member.model.Member;
 import com.loopers.domain.member.service.MemberService;
 import com.loopers.domain.product.model.Product;
-import com.loopers.domain.product.service.ProductService;
 import com.loopers.domain.product.vo.DisplayStatus;
+import com.loopers.domain.product.service.ProductService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
@@ -46,7 +46,7 @@ class FavoriteFacadeTest {
     }
 
     private static Product createTestProduct() {
-        return Product.reconstruct(1L, 1L, "상품A", 10000, 100, DisplayStatus.DISPLAYING);
+        return Product.reconstruct(1L, 1L, "상품A", 10000, 100, DisplayStatus.DISPLAYING, 0L);
     }
 
     @DisplayName("좋아요 등록")
@@ -98,20 +98,22 @@ class FavoriteFacadeTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT));
         }
 
-        @DisplayName("정상 등록 시 favoriteService.addFavorite이 호출된다")
+        @DisplayName("정상 등록 시 favoriteService.addFavorite과 productService.increaseLikeCount가 호출된다")
         @Test
-        void callsFavoriteServiceAddFavorite_onSuccess() {
+        void callsAddFavoriteAndIncreaseLikeCount_onSuccess() {
             // arrange
             Member member = createTestMember();
             Product product = createTestProduct();
             when(memberService.findMember("testuser", "password")).thenReturn(member);
             when(productService.findProduct(1L)).thenReturn(product);
+            when(favoriteService.addFavorite(any(FavoriteCommand.Add.class))).thenReturn(true);
 
             // act
             favoriteFacade.addFavorite("testuser", "password", 1L);
 
             // assert
             verify(favoriteService).addFavorite(any(FavoriteCommand.Add.class));
+            verify(productService).increaseLikeCount(1L);
         }
     }
 
@@ -149,9 +151,9 @@ class FavoriteFacadeTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
         }
 
-        @DisplayName("정상 취소 시 favoriteService.delete가 호출된다")
+        @DisplayName("정상 취소 시 favoriteService.delete와 productService.decreaseLikeCount가 호출된다")
         @Test
-        void callsFavoriteServiceDelete_onSuccess() {
+        void callsDeleteAndDecreaseLikeCount_onSuccess() {
             // arrange
             Member member = createTestMember();
             Product product = createTestProduct();
@@ -163,6 +165,7 @@ class FavoriteFacadeTest {
 
             // assert
             verify(favoriteService).delete(any(FavoriteCommand.Delete.class));
+            verify(productService).decreaseLikeCount(1L);
         }
     }
 }

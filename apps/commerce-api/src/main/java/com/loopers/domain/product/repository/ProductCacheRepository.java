@@ -23,7 +23,7 @@ public interface ProductCacheRepository {
 
     Optional<Long> getLikeCount(Long productId);
 
-    void initLikeCount(Long productId, long count);
+    void initLikeCountIfAbsent(Long productId, long count);
 
     void incrementLikeCount(Long productId);
 

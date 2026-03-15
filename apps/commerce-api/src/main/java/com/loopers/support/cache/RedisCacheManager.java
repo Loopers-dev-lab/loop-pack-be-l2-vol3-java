@@ -95,4 +95,16 @@ public class RedisCacheManager {
             log.warn("Redis SET count 실패 - key: {}", key, e);
         }
     }
+
+    public void setCountIfAbsent(String key, long value, long ttlSeconds) {
+        try {
+            Boolean wasSet = writeTemplate.opsForValue()
+                    .setIfAbsent(key, String.valueOf(value), ttlSeconds, TimeUnit.SECONDS);
+            if (Boolean.TRUE.equals(wasSet)) {
+                log.debug("Redis SETNX count 성공 - key: {}", key);
+            }
+        } catch (Exception e) {
+            log.warn("Redis SETNX count 실패 - key: {}", key, e);
+        }
+    }
 }

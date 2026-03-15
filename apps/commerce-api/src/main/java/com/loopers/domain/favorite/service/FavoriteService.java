@@ -6,6 +6,7 @@ import com.loopers.domain.favorite.repository.FavoriteRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
@@ -28,8 +29,10 @@ public class FavoriteService {
             favoriteRepository.save(favorite);
             return true;
         } catch (DataIntegrityViolationException e) {
-            // 동시 요청으로 중복 등록 시도 — 이미 등록된 것이므로 무시
-            return false;
+            if (e.getCause() instanceof ConstraintViolationException) {
+                return false;
+            }
+            throw e;
         }
     }
 
@@ -48,7 +51,7 @@ public class FavoriteService {
     }
 
     public Set<Long> getFavoriteProductIds(Long memberId, List<Long> productIds) {
-        if (memberId == null || productIds.isEmpty()) {
+        if (memberId == null || productIds == null || productIds.isEmpty()) {
             return Set.of();
         }
         return favoriteRepository.findByMemberIdAndProductIds(memberId, productIds)

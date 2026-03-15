@@ -65,7 +65,7 @@ public class ProductService {
         if (isFirstPageLatest(brandId, sortFilter, pageable)) {
             productCacheRepository.putFirstPage(result.getContent(), result.getTotalElements());
             result.getContent().forEach(item ->
-                    productCacheRepository.initLikeCount(item.id(), item.favoriteCnt()));
+                    productCacheRepository.initLikeCountIfAbsent(item.id(), item.favoriteCnt()));
         }
 
         return result;
@@ -81,7 +81,7 @@ public class ProductService {
         ProductItem item = productCustomRepository.findProduct(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
         productCacheRepository.put(productId, item);
-        productCacheRepository.initLikeCount(productId, item.favoriteCnt());
+        productCacheRepository.initLikeCountIfAbsent(productId, item.favoriteCnt());
         return item;
     }
 
@@ -141,7 +141,7 @@ public class ProductService {
                     Product product = productRepository.findById(productId)
                             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
                     long count = product.getLikeCount();
-                    productCacheRepository.initLikeCount(productId, count);
+                    productCacheRepository.initLikeCountIfAbsent(productId, count);
                     return count;
                 });
     }

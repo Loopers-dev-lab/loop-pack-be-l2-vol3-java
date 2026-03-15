@@ -82,7 +82,7 @@ class ProductTest {
         @Test
         void reconstructsProduct_withAllFields() {
             // act
-            Product product = Product.reconstruct(1L, 1L, "상품A", 10000, 50, DisplayStatus.DISPLAYING);
+            Product product = Product.reconstruct(1L, 1L, "상품A", 10000, 50, DisplayStatus.DISPLAYING, 0L);
 
             // assert
             assertAll(
@@ -124,7 +124,7 @@ class ProductTest {
         @Test
         void throwsException_whenUpdateNameIsNull() {
             // arrange
-            Product product = Product.reconstruct(1L, 1L, "나이키 에어맥스", 150000, 100, DisplayStatus.DISPLAYING);
+            Product product = Product.reconstruct(1L, 1L, "나이키 에어맥스", 150000, 100, DisplayStatus.DISPLAYING, 0L);
             ProductCommand.Update updateCommand = new ProductCommand.Update(null, 20000, 30, DisplayStatus.NOT_DISPLAYING);
 
             // act & assert
@@ -136,7 +136,7 @@ class ProductTest {
         @Test
         void success_whenUpdatePriceIsZero() {
             // arrange
-            Product product = Product.reconstruct(1L, 1L, "나이키 에어맥스", 150000, 100, DisplayStatus.DISPLAYING);
+            Product product = Product.reconstruct(1L, 1L, "나이키 에어맥스", 150000, 100, DisplayStatus.DISPLAYING, 0L);
             ProductCommand.Update updateCommand = new ProductCommand.Update("상품", 0, 30, DisplayStatus.DISPLAYING);
 
             // act
@@ -155,7 +155,7 @@ class ProductTest {
         @Test
         void decreasesStock_whenSufficientStock() {
             // arrange
-            Product product = Product.reconstruct(1L, 1L, "상품", 10000, 100, DisplayStatus.DISPLAYING);
+            Product product = Product.reconstruct(1L, 1L, "상품", 10000, 100, DisplayStatus.DISPLAYING, 0L);
 
             // act
             product.decreaseStock(30);
@@ -168,7 +168,7 @@ class ProductTest {
         @Test
         void throwsException_whenInsufficientStock() {
             // arrange
-            Product product = Product.reconstruct(1L, 1L, "상품", 10000, 10, DisplayStatus.DISPLAYING);
+            Product product = Product.reconstruct(1L, 1L, "상품", 10000, 10, DisplayStatus.DISPLAYING, 0L);
 
             // act & assert
             assertThatThrownBy(() -> product.decreaseStock(20))
@@ -184,7 +184,7 @@ class ProductTest {
         @Test
         void increasesStock() {
             // arrange
-            Product product = Product.reconstruct(1L, 1L, "상품", 10000, 100, DisplayStatus.DISPLAYING);
+            Product product = Product.reconstruct(1L, 1L, "상품", 10000, 100, DisplayStatus.DISPLAYING, 0L);
 
             // act
             product.increaseStock(50);

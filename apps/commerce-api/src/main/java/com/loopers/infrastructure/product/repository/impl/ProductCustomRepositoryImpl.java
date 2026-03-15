@@ -45,7 +45,7 @@ public class ProductCustomRepositoryImpl implements ProductCustomRepository {
                 .from(productEntity)
                 .innerJoin(brandEntity).on(productEntity.brandId.eq(brandEntity.id))
                 .where(whereProductList(brandId))
-                .orderBy(sortFilter.toOrderSpecifier(productEntity))
+                .orderBy(sortFilter.toOrderSpecifiers(productEntity))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();

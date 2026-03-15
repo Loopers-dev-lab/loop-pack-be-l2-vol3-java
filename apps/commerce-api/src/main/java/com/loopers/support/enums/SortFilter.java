@@ -8,11 +8,11 @@ public enum SortFilter {
     PRICE_ASC,
     LIKES_DESC;
 
-    public OrderSpecifier<?> toOrderSpecifier(QProductEntity product) {
+    public OrderSpecifier<?>[] toOrderSpecifiers(QProductEntity product) {
         return switch (this) {
-            case LATEST -> product.id.desc();
-            case PRICE_ASC -> product.price.asc();
-            case LIKES_DESC -> product.likeCount.desc();
+            case LATEST -> new OrderSpecifier<?>[]{ product.id.desc() };
+            case PRICE_ASC -> new OrderSpecifier<?>[]{ product.price.asc(), product.id.desc() };
+            case LIKES_DESC -> new OrderSpecifier<?>[]{ product.likeCount.desc(), product.id.desc() };
         };
     }
 }
