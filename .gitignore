@@ -39,10 +39,11 @@ out/
 ### Kotlin ###
 .kotlin
 
-### QueryDSL Generated ###
-**/src/main/generated/
+### macOS ###
+.DS_Store
 
 ### Claude Code ###
 .claude/
 
-
+### QueryDSL Generated ###
+**/generated/
