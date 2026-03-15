@@ -1,6 +1,6 @@
-package com.loopers.domain.product;
+package com.loopers.application.product.cache;
 
-import static com.loopers.domain.product.ProductCacheConstants.*;
+import static com.loopers.application.product.cache.ProductCacheConstants.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,16 +13,20 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
-import com.loopers.domain.shared.annotation.DomainService;
-import com.loopers.domain.shared.cache.CacheRepository;
-import com.loopers.domain.shared.cache.CacheType;
+import org.springframework.stereotype.Component;
+
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ProductSortType;
+import com.loopers.support.cache.CacheRepository;
+import com.loopers.support.cache.CacheType;
 import com.loopers.support.page.Page;
 import com.loopers.support.page.PageSize;
 
 import lombok.RequiredArgsConstructor;
 
 /**
- * 캐시를 경유하여 상품을 조회하는 읽기 전용 도메인 서비스.
+ * 캐시를 경유하여 상품을 조회하는 읽기 전용 캐시 오케스트레이터.
  *
  * <p>캐시 레이어링 전략을 사용한다:
  * <ul>
@@ -31,9 +35,9 @@ import lombok.RequiredArgsConstructor;
  * </ul>
  * 목록 조회 시 ID 리스트 캐시 → 상세 일괄 조회 → 부분 미스 시 DB fallback.</p>
  */
-@DomainService
+@Component
 @RequiredArgsConstructor
-public class ProductReader {
+public class ProductCacheReader {
 
     private static final CacheType<ProductIdPage> ID_PAGE_TYPE = new CacheType<>() {};
     private static final String ALL_BRAND = "all";

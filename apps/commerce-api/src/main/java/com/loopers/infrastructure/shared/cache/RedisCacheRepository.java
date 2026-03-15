@@ -19,8 +19,8 @@ import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.domain.shared.cache.CacheRepository;
-import com.loopers.domain.shared.cache.CacheType;
+import com.loopers.support.cache.CacheRepository;
+import com.loopers.support.cache.CacheType;
 
 import lombok.extern.slf4j.Slf4j;
 

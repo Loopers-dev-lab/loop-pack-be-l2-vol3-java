@@ -1,10 +1,11 @@
-package com.loopers.domain.product;
+package com.loopers.application.product.cache;
 
 import java.time.Duration;
 import java.util.concurrent.ThreadLocalRandom;
 
-import com.loopers.domain.shared.cache.CacheKey;
-import com.loopers.domain.shared.cache.CacheType;
+import com.loopers.domain.product.Product;
+import com.loopers.support.cache.CacheKey;
+import com.loopers.support.cache.CacheType;
 
 import lombok.experimental.UtilityClass;
 
@@ -14,8 +15,8 @@ import lombok.experimental.UtilityClass;
  * <p>TTL 메서드는 호출마다 ±10% 범위의 jitter를 적용하여
  * 동시 만료로 인한 thundering herd를 방지한다.</p>
  *
- * @see ProductReader
- * @see ProductWriter
+ * @see ProductCacheReader
+ * @see ProductCacheWriter
  */
 @UtilityClass
 final class ProductCacheConstants {

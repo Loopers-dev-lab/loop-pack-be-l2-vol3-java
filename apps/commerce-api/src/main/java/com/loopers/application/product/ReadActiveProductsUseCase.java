@@ -6,7 +6,7 @@ import java.util.Objects;
 import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductReader;
+import com.loopers.application.product.cache.ProductCacheReader;
 import com.loopers.domain.product.ProductSortType;
 import com.loopers.support.page.Page;
 import com.loopers.support.page.PageSize;
@@ -22,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ReadActiveProductsUseCase {
 
-    private final ProductReader productReader;
+    private final ProductCacheReader productCacheReader;
     private final BrandService brandService;
     private final ProductDetailAssembler productDetailAssembler;
 
@@ -37,7 +37,7 @@ public class ReadActiveProductsUseCase {
         if (Objects.nonNull(brandId)) {
             brandService.validateActiveBrandExists(brandId);
         }
-        Page<Product> products = productReader.readActiveProducts(brandId, sortType, pageSize);
+        Page<Product> products = productCacheReader.readActiveProducts(brandId, sortType, pageSize);
         List<ProductDetail> results = productDetailAssembler.assemble(products.content(), userId);
         return new Page<>(results, products.hasNext());
     }

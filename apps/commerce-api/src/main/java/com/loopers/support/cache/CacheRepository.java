@@ -1,4 +1,4 @@
-package com.loopers.domain.shared.cache;
+package com.loopers.support.cache;
 
 import java.time.Duration;
 import java.util.List;

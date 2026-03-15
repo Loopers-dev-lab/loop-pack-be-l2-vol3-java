@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import com.loopers.domain.shared.cache.CacheType;
+import com.loopers.support.cache.CacheType;
 import com.loopers.support.page.Page;
 import com.loopers.utils.RedisCleanUp;
 

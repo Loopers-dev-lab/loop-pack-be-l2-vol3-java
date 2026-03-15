@@ -5,7 +5,7 @@ import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductReader;
+import com.loopers.application.product.cache.ProductCacheReader;
 
 import lombok.RequiredArgsConstructor;
 
@@ -18,7 +18,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ReadActiveProductDetailUseCase {
 
-    private final ProductReader productReader;
+    private final ProductCacheReader productCacheReader;
     private final BrandService brandService;
     private final LikeService likeService;
 
@@ -28,7 +28,7 @@ public class ReadActiveProductDetailUseCase {
      * @return 상품 상세 정보 (브랜드, 좋아요 정보 포함)
      */
     public ProductDetail execute(Long userId, Long productId) {
-        Product product = productReader.readActiveProduct(productId);
+        Product product = productCacheReader.readActiveProduct(productId);
         Brand brand = brandService.getActiveBrand(product.getBrandId());
         boolean liked = likeService.isLiked(userId, productId);
         return ProductDetail.from(product, brand, liked);

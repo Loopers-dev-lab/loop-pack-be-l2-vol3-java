@@ -1,23 +1,27 @@
-package com.loopers.domain.product;
+package com.loopers.application.product.cache;
 
-import static com.loopers.domain.product.ProductCacheConstants.*;
+import static com.loopers.application.product.cache.ProductCacheConstants.*;
 
-import com.loopers.domain.shared.annotation.DomainService;
-import com.loopers.domain.shared.cache.CacheRepository;
+import org.springframework.stereotype.Component;
+
+import com.loopers.domain.product.ModifyProduct;
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductService;
+import com.loopers.support.cache.CacheRepository;
 
 import lombok.RequiredArgsConstructor;
 
 /**
- * 상품 쓰기를 담당하는 도메인 서비스.
+ * 상품 쓰기를 담당하는 캐시 오케스트레이터.
  *
  * <p>DB 변경과 캐시 무효화/Write-Through를 함께 처리한다.
  * UseCase는 이 서비스만 호출하면 되며, 캐시의 존재를 알 필요가 없다.</p>
  *
- * @see ProductReader
+ * @see ProductCacheReader
  */
-@DomainService
+@Component
 @RequiredArgsConstructor
-public class ProductWriter {
+public class ProductCacheWriter {
 
     private final ProductService productService;
     private final CacheRepository cacheRepository;

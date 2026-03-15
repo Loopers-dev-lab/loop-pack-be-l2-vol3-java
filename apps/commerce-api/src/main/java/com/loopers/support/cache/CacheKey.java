@@ -1,4 +1,4 @@
-package com.loopers.domain.shared.cache;
+package com.loopers.support.cache;
 
 /**
  * 구분자 기반의 범용 캐시 키 생성기.

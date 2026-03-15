@@ -1,4 +1,4 @@
-package com.loopers.domain.product;
+package com.loopers.application.product.cache;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -16,13 +16,17 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.loopers.domain.shared.cache.CacheRepository;
+import com.loopers.domain.product.ModifyProduct;
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ProductSpec;
+import com.loopers.support.cache.CacheRepository;
 
 @ExtendWith(MockitoExtension.class)
-class ProductWriterTest {
+class ProductCacheWriterTest {
 
     @InjectMocks
-    private ProductWriter productWriter;
+    private ProductCacheWriter productCacheWriter;
 
     @Mock
     private ProductService productService;
@@ -43,7 +47,7 @@ class ProductWriterTest {
             given(productService.update(modifyProduct)).willReturn(updatedProduct);
 
             // act
-            productWriter.update(modifyProduct);
+            productCacheWriter.update(modifyProduct);
 
             // assert
             String detailKey = ProductCacheConstants.DETAIL_KEY.of(1L);
@@ -64,7 +68,7 @@ class ProductWriterTest {
             given(productService.delete(productId)).willReturn(true);
 
             // act
-            boolean result = productWriter.delete(productId);
+            boolean result = productCacheWriter.delete(productId);
 
             // assert
             assertThat(result).isTrue();
@@ -80,7 +84,7 @@ class ProductWriterTest {
             given(productService.delete(productId)).willReturn(false);
 
             // act
-            boolean result = productWriter.delete(productId);
+            boolean result = productCacheWriter.delete(productId);
 
             // assert
             assertThat(result).isFalse();
@@ -102,7 +106,7 @@ class ProductWriterTest {
             given(productService.getActiveProduct(productId)).willReturn(product);
 
             // act
-            productWriter.increaseLikeCount(productId);
+            productCacheWriter.increaseLikeCount(productId);
 
             // assert
             then(productService).should().increaseLikeCount(productId);
@@ -125,7 +129,7 @@ class ProductWriterTest {
             given(productService.getActiveProduct(productId)).willReturn(product);
 
             // act
-            productWriter.decreaseLikeCount(productId);
+            productCacheWriter.decreaseLikeCount(productId);
 
             // assert
             then(productService).should().decreaseLikeCount(productId);

@@ -4,7 +4,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.domain.like.LikeService;
-import com.loopers.domain.product.ProductWriter;
+import com.loopers.application.product.cache.ProductCacheWriter;
 
 import lombok.RequiredArgsConstructor;
 
@@ -18,7 +18,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DeleteProductUseCase {
 
-    private final ProductWriter productWriter;
+    private final ProductCacheWriter productCacheWriter;
     private final LikeService likeService;
 
     /**
@@ -26,7 +26,7 @@ public class DeleteProductUseCase {
      */
     @Transactional
     public void execute(Long productId) {
-        boolean deleted = productWriter.delete(productId);
+        boolean deleted = productCacheWriter.delete(productId);
         if (!deleted) {
             return;
         }

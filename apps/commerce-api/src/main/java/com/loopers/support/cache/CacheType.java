@@ -1,4 +1,4 @@
-package com.loopers.domain.shared.cache;
+package com.loopers.support.cache;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;

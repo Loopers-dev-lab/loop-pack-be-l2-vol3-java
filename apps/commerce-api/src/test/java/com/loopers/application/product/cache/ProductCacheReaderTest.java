@@ -1,4 +1,4 @@
-package com.loopers.domain.product;
+package com.loopers.application.product.cache;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -27,15 +27,19 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.loopers.domain.shared.cache.CacheRepository;
-import com.loopers.domain.shared.cache.CacheType;
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductFixture;
+import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ProductSortType;
+import com.loopers.support.cache.CacheRepository;
+import com.loopers.support.cache.CacheType;
 import com.loopers.support.page.Page;
 import com.loopers.support.page.PageSize;
 
 @ExtendWith(MockitoExtension.class)
-class ProductReaderTest {
+class ProductCacheReaderTest {
 
-    private ProductReader productReader;
+    private ProductCacheReader productCacheReader;
 
     @Mock
     private CacheRepository cacheRepository;
@@ -48,7 +52,7 @@ class ProductReaderTest {
 
     @BeforeEach
     void setUp() {
-        productReader = new ProductReader(cacheRepository, productService);
+        productCacheReader = new ProductCacheReader(cacheRepository, productService);
     }
 
     @DisplayName("활성 상품 목록을 조회할 때,")
@@ -62,14 +66,14 @@ class ProductReaderTest {
             var pageSize = new PageSize(0, 20);
             var product1 = ProductFixture.createProduct(1L);
             var product2 = ProductFixture.createProduct(2L);
-            var idPage = new ProductReader.ProductIdPage(List.of(1L, 2L), true);
+            var idPage = new ProductCacheReader.ProductIdPage(List.of(1L, 2L), true);
 
             given(cacheRepository.get(anyString(), any(CacheType.class))).willReturn(idPage);
             given(cacheRepository.multiGet(anyList(), any(CacheType.class)))
                     .willReturn(List.of(product1, product2));
 
             // act
-            Page<Product> result = productReader.readActiveProducts(null, ProductSortType.DEFAULT, pageSize);
+            Page<Product> result = productCacheReader.readActiveProducts(null, ProductSortType.DEFAULT, pageSize);
 
             // assert
             assertAll(
@@ -86,7 +90,7 @@ class ProductReaderTest {
             var pageSize = new PageSize(0, 20);
             var product1 = ProductFixture.createProduct(1L);
             var product3 = ProductFixture.createProduct(3L);
-            var idPage = new ProductReader.ProductIdPage(List.of(1L, 2L, 3L), false);
+            var idPage = new ProductCacheReader.ProductIdPage(List.of(1L, 2L, 3L), false);
 
             given(cacheRepository.get(anyString(), any(CacheType.class))).willReturn(idPage);
             given(cacheRepository.multiGet(anyList(), any(CacheType.class)))
@@ -97,7 +101,7 @@ class ProductReaderTest {
                     .willReturn(Map.of(2L, product2));
 
             // act
-            var result = productReader.readActiveProducts(null, ProductSortType.DEFAULT, pageSize);
+            var result = productCacheReader.readActiveProducts(null, ProductSortType.DEFAULT, pageSize);
 
             // assert
             assertAll(
@@ -124,14 +128,14 @@ class ProductReaderTest {
             given(productService.getActiveProducts(null, ProductSortType.DEFAULT, pageSize)).willReturn(dbPage);
 
             // act
-            var result = productReader.readActiveProducts(null, ProductSortType.DEFAULT, pageSize);
+            var result = productCacheReader.readActiveProducts(null, ProductSortType.DEFAULT, pageSize);
 
             // assert
             assertAll(
                     () -> assertThat(result.content()).containsExactly(product1, product2),
                     () -> assertThat(result.hasNext()).isTrue()
             );
-            then(cacheRepository).should().put(anyString(), any(ProductReader.ProductIdPage.class), any(Duration.class));
+            then(cacheRepository).should().put(anyString(), any(ProductCacheReader.ProductIdPage.class), any(Duration.class));
             then(cacheRepository).should().multiPut(multiPutCaptor.capture(), any(Supplier.class));
             Map<String, Product> cached = multiPutCaptor.getValue();
             assertAll(
@@ -146,7 +150,7 @@ class ProductReaderTest {
             // arrange
             var pageSize = new PageSize(0, 20);
             var product1 = ProductFixture.createProduct(1L);
-            var idPage = new ProductReader.ProductIdPage(List.of(1L), false);
+            var idPage = new ProductCacheReader.ProductIdPage(List.of(1L), false);
 
             given(cacheRepository.get(anyString(), any(CacheType.class)))
                     .willReturn(null)
@@ -155,7 +159,7 @@ class ProductReaderTest {
                     .willReturn(List.of(product1));
 
             // act
-            var result = productReader.readActiveProducts(null, ProductSortType.DEFAULT, pageSize);
+            var result = productCacheReader.readActiveProducts(null, ProductSortType.DEFAULT, pageSize);
 
             // assert
             assertAll(
@@ -177,10 +181,10 @@ class ProductReaderTest {
             given(productService.getActiveProducts(null, ProductSortType.DEFAULT, pageSize)).willReturn(dbPage);
 
             // act
-            productReader.readActiveProducts(null, ProductSortType.DEFAULT, pageSize);
+            productCacheReader.readActiveProducts(null, ProductSortType.DEFAULT, pageSize);
 
             // assert
-            then(cacheRepository).should(never()).put(anyString(), any(ProductReader.ProductIdPage.class), any(Duration.class));
+            then(cacheRepository).should(never()).put(anyString(), any(ProductCacheReader.ProductIdPage.class), any(Duration.class));
             then(cacheRepository).should().multiPut(multiPutCaptor.capture(), any(Supplier.class));
             assertThat(multiPutCaptor.getValue()).containsKey(ProductCacheConstants.DETAIL_KEY.of(1L));
         }
@@ -202,10 +206,10 @@ class ProductReaderTest {
             given(productService.getActiveProducts(null, ProductSortType.DEFAULT, pageSize)).willReturn(dbPage);
 
             // act
-            productReader.readActiveProducts(null, ProductSortType.DEFAULT, pageSize);
+            productCacheReader.readActiveProducts(null, ProductSortType.DEFAULT, pageSize);
 
             // assert
-            assertThat(productReader.lockCount()).isZero();
+            assertThat(productCacheReader.lockCount()).isZero();
         }
 
         @DisplayName("상세 캐시 MISS로 락을 사용한 뒤, 락이 map에서 제거된다.")
@@ -219,10 +223,10 @@ class ProductReaderTest {
             given(productService.getActiveProduct(1L)).willReturn(product);
 
             // act
-            productReader.readActiveProduct(1L);
+            productCacheReader.readActiveProduct(1L);
 
             // assert
-            assertThat(productReader.lockCount()).isZero();
+            assertThat(productCacheReader.lockCount()).isZero();
         }
 
         @DisplayName("여러 키로 락을 사용한 뒤, 모두 제거된다.")
@@ -237,11 +241,11 @@ class ProductReaderTest {
             given(productService.getActiveProduct(2L)).willReturn(product2);
 
             // act
-            productReader.readActiveProduct(1L);
-            productReader.readActiveProduct(2L);
+            productCacheReader.readActiveProduct(1L);
+            productCacheReader.readActiveProduct(2L);
 
             // assert
-            assertThat(productReader.lockCount()).isZero();
+            assertThat(productCacheReader.lockCount()).isZero();
         }
     }
 
@@ -257,7 +261,7 @@ class ProductReaderTest {
             given(cacheRepository.get(anyString(), any(CacheType.class))).willReturn(product);
 
             // act
-            var result = productReader.readActiveProduct(1L);
+            var result = productCacheReader.readActiveProduct(1L);
 
             // assert
             assertThat(result).isEqualTo(product);
@@ -275,7 +279,7 @@ class ProductReaderTest {
             given(productService.getActiveProduct(1L)).willReturn(product);
 
             // act
-            var result = productReader.readActiveProduct(1L);
+            var result = productCacheReader.readActiveProduct(1L);
 
             // assert
             assertAll(
@@ -296,7 +300,7 @@ class ProductReaderTest {
                     .willReturn(product);
 
             // act
-            var result = productReader.readActiveProduct(1L);
+            var result = productCacheReader.readActiveProduct(1L);
 
             // assert
             assertAll(
