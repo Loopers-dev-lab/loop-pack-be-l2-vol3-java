@@ -5,11 +5,17 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.Getter;
 
 @Entity
-@Table(name = "product")
+@Table(name = "product", indexes = {
+        @Index(name = "idx_product_brand_like_count", columnList = "brandId, likeCount DESC"),
+        @Index(name = "idx_product_brand_price", columnList = "brandId, price"),
+        @Index(name = "idx_product_like_count", columnList = "likeCount DESC"),
+        @Index(name = "idx_product_price", columnList = "price")
+})
 @Getter
 public class ProductModel extends BaseEntity {
 
@@ -30,6 +36,9 @@ public class ProductModel extends BaseEntity {
 
     @Column(length = 500)
     private String imageUrl;
+
+    @Column(nullable = false)
+    private int likeCount = 0;
 
     protected ProductModel() {}
 
@@ -70,5 +79,15 @@ public class ProductModel extends BaseEntity {
             throw new CoreException(ErrorType.BAD_REQUEST, "증가 수량은 1 이상이어야 합니다.");
         }
         this.stockQuantity += quantity;
+    }
+
+    public void increaseLikeCount() {
+        this.likeCount++;
+    }
+
+    public void decreaseLikeCount() {
+        if (this.likeCount > 0) {  // 0 미만으로 내려가지 않도록 방어
+            this.likeCount--;
+        }
     }
 }

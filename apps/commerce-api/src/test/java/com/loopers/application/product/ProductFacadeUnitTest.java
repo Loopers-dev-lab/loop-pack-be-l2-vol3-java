@@ -5,7 +5,7 @@ import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.like.ProductLikeService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
-import com.loopers.application.product.ProductSortType;
+import com.loopers.infrastructure.product.ProductCacheService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
@@ -15,17 +15,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Sort;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import org.springframework.test.util.ReflectionTestUtils;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ProductFacadeUnitTest {
@@ -42,6 +45,9 @@ class ProductFacadeUnitTest {
     @InjectMocks
     private ProductFacade productFacade;
 
+    @Mock
+    private ProductCacheService productCacheService;
+
     @DisplayName("상품 상세를 조회할 때,")
     @Nested
     class GetById {
@@ -51,10 +57,12 @@ class ProductFacadeUnitTest {
         void getByIdSuccess() {
             // given
             ProductModel product = new ProductModel(1L, "에어맥스", "러닝화", 129000, 100, "https://example.com/nike.png");
+            ReflectionTestUtils.setField(product, "likeCount", 5);  // product.getLikeCount() 사용하므로 직접 세팅
             BrandModel brand = new BrandModel("나이키", "스포츠 브랜드", "https://example.com/nike.png");
+
+            when(productCacheService.getProductDetail(1L)).thenReturn(Optional.empty());
             when(productService.getById(1L)).thenReturn(product);
             when(brandService.getById(1L)).thenReturn(brand);
-            when(productLikeService.countByProductId(1L)).thenReturn(5L);
 
             // when
             ProductDetailInfo result = productFacade.getById(1L);
@@ -65,15 +73,16 @@ class ProductFacadeUnitTest {
                     () -> assertThat(result.brandName()).isEqualTo("나이키"),
                     () -> assertThat(result.likeCount()).isEqualTo(5L)
             );
+            verify(productCacheService).setProductDetail(eq(1L), any(ProductDetailInfo.class));
         }
-        
+
         @DisplayName("존재하지 않는 상품이면, NOT_FOUND 예외가 발생한다.")
         @Test
         void failWithNotFoundProduct() {
             // given
             when(productService.getById(999L))
                     .thenThrow(new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
-            
+
             // when
             CoreException result = assertThrows(CoreException.class, () ->
                     productFacade.getById(999L)
@@ -81,6 +90,24 @@ class ProductFacadeUnitTest {
 
             // then
             assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+        }
+
+        @DisplayName("캐시에 존재하면, DB를 조회하지 않고 캐시에서 반환된다.")
+        @Test
+        void getByIdCacheHit() {
+            // given
+            ProductDetailInfo cached = new ProductDetailInfo(1L, "에어맥스", "러닝화", 129000, 100,
+                    "https://example.com/nike.png", "나이키", 5L);
+            when(productCacheService.getProductDetail(1L)).thenReturn(Optional.of(cached));
+
+            // when
+            ProductDetailInfo result = productFacade.getById(1L);
+
+            // then
+            assertThat(result.name()).isEqualTo("에어맥스");
+            // DB 조회가 호출되지 않았는지 검증
+            verify(productService, never()).getById(1L);
+            verify(brandService, never()).getById(any());
         }
     }
 
@@ -99,10 +126,8 @@ class ProductFacadeUnitTest {
             BrandModel brand = new BrandModel("나이키", "스포츠 브랜드", "https://example.com/nike.png");
             ReflectionTestUtils.setField(brand, "id", 1L);
 
-            when(productService.getAll()).thenReturn(List.of(expensive, cheap));
-            when(brandService.getById(1L)).thenReturn(brand);
-            when(productLikeService.countByProductId(10L)).thenReturn(0L);
-            when(productLikeService.countByProductId(11L)).thenReturn(0L);
+            when(productService.getAll(any(Sort.class))).thenReturn(List.of(cheap, expensive));
+            when(brandService.getByIds(Set.of(1L))).thenReturn(Map.of(1L, brand));
 
             // when
             List<ProductDetailInfo> result = productFacade.getProducts(ProductSortType.PRICE_ASC);
@@ -111,6 +136,7 @@ class ProductFacadeUnitTest {
             assertThat(result).hasSize(2);
             assertThat(result.get(0).price())
                     .isLessThanOrEqualTo(result.get(1).price());
+            verify(productService).getAll(ProductSortType.PRICE_ASC.toSort());
         }
 
         @DisplayName("LIKES_DESC로 정렬하면, 좋아요 수 내림차순으로 반환된다.")
@@ -124,10 +150,8 @@ class ProductFacadeUnitTest {
             BrandModel brand = new BrandModel("나이키", "스포츠 브랜드", "https://example.com/nike.png");
             ReflectionTestUtils.setField(brand, "id", 1L);
 
-            when(productService.getAll()).thenReturn(List.of(p1, p2));
-            when(brandService.getById(1L)).thenReturn(brand);
-            when(productLikeService.countByProductId(10L)).thenReturn(2L);
-            when(productLikeService.countByProductId(11L)).thenReturn(10L);
+            when(productService.getAll(any(Sort.class))).thenReturn(List.of(p2, p1));
+            when(brandService.getByIds(Set.of(1L))).thenReturn(Map.of(1L, brand));
 
             // when
             List<ProductDetailInfo> result = productFacade.getProducts(ProductSortType.LIKES_DESC);
@@ -135,6 +159,7 @@ class ProductFacadeUnitTest {
             // then
             assertThat(result).hasSize(2);
             assertThat(result.get(0).likeCount()).isGreaterThanOrEqualTo(result.get(1).likeCount());
+            verify(productService).getAll(ProductSortType.LIKES_DESC.toSort());
         }
     }
 
@@ -202,10 +227,8 @@ class ProductFacadeUnitTest {
             BrandModel brand = new BrandModel("나이키", "스포츠 브랜드", "https://example.com/nike.png");
             ReflectionTestUtils.setField(brand, "id", 1L);
 
-            when(productService.getByBrandId(1L)).thenReturn(List.of(p1, p2));
+            when(productService.getByBrandId(eq(1L), any(Sort.class))).thenReturn(List.of(p1, p2));
             when(brandService.getById(1L)).thenReturn(brand);
-            when(productLikeService.countByProductId(10L)).thenReturn(0L);
-            when(productLikeService.countByProductId(11L)).thenReturn(0L);
 
             // when
             List<ProductDetailInfo> result = productFacade.getProductsByBrandId(1L, ProductSortType.LATEST);

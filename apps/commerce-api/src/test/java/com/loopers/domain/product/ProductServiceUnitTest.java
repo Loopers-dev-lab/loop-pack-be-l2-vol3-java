@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 import java.util.Optional;
@@ -95,16 +96,37 @@ public class ProductServiceUnitTest {
         @Test
         void getByBrandIdSuccess() {
             // given
-            List<ProductModel> products = List.of(new ProductModel(1L, "에어맥스", "러닝화", 129000, 100, "url"),
+            Sort sort = Sort.by(Sort.Direction.DESC, "id");
+            List<ProductModel> products = List.of(
+                    new ProductModel(1L, "에어맥스", "러닝화", 129000, 100, "url"),
                     new ProductModel(1L, "에어포스", "캐주얼화", 109000, 50, "url")
             );
-            when(productRepository.findAllByBrandId(1L)).thenReturn(products);
+            when(productRepository.findAllByBrandId(1L, sort)).thenReturn(products);
 
             // when
-            List<ProductModel> result = productService.getByBrandId(1L);
+            List<ProductModel> result = productService.getByBrandId(1L, sort);
 
             // then
             assertThat(result).hasSize(2);
+        }
+
+        @DisplayName("정렬 조건과 함께 조회하면, Sort가 리포지토리에 전달된다.")
+        @Test
+        void getByBrandIdWithSort() {
+            // given
+            Sort sort = Sort.by(Sort.Direction.DESC, "likeCount");
+            List<ProductModel> products = List.of(
+                    new ProductModel(1L, "에어맥스", "러닝화", 129000, 100, "url"),
+                    new ProductModel(1L, "에어포스", "캐주얼화", 109000, 50, "url")
+            );
+            when(productRepository.findAllByBrandId(1L, sort)).thenReturn(products);
+
+            // when
+            List<ProductModel> result = productService.getByBrandId(1L, sort);
+
+            // then
+            assertThat(result).hasSize(2);
+            verify(productRepository).findAllByBrandId(1L, sort);
         }
     }
 

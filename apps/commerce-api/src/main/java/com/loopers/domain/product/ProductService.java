@@ -3,6 +3,7 @@ package com.loopers.domain.product;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,13 +28,13 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public List<ProductModel> getByBrandId(Long brandId) {
-        return productRepository.findAllByBrandId(brandId);
+    public List<ProductModel> getAll(Sort sort) {
+        return productRepository.findAll(sort);
     }
 
     @Transactional(readOnly = true)
-    public List<ProductModel> getAll() {
-        return productRepository.findAll();
+    public List<ProductModel> getByBrandId(Long brandId, Sort sort) {
+        return productRepository.findAllByBrandId(brandId, sort);
     }
 
     @Transactional
@@ -47,5 +48,15 @@ public class ProductService {
         ProductModel product = productRepository.findByIdWithLock(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
         product.decreaseStock(quantity);
+    }
+
+    @Transactional
+    public void increaseLikeCount(Long productId) {
+        productRepository.increaseLikeCount(productId);
+    }
+
+    @Transactional
+    public void decreaseLikeCount(Long productId) {
+        productRepository.decreaseLikeCount(productId);
     }
 }

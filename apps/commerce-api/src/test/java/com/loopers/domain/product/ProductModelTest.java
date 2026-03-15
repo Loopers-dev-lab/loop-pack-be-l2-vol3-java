@@ -195,4 +195,70 @@ public class ProductModelTest {
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
+
+    @DisplayName("좋아요 수를 증가시킬 때,")
+    @Nested
+    class IncreaseLikeCount {
+
+        @DisplayName("likeCount가 1 증가한다.")
+        @Test
+        void increaseLikeCount() {
+            // given
+            ProductModel product = new ProductModel(1L, "에어맥스", "러닝화", 129000, 100, "url");
+
+            // when
+            product.increaseLikeCount();
+
+            // then
+            assertThat(product.getLikeCount()).isEqualTo(1);
+        }
+
+        @DisplayName("여러 번 호출하면 호출 횟수만큼 증가한다.")
+        @Test
+        void increaseLikeCountMultipleTimes() {
+            // given
+            ProductModel product = new ProductModel(1L, "에어맥스", "러닝화", 129000, 100, "url");
+
+            // when
+            product.increaseLikeCount();
+            product.increaseLikeCount();
+            product.increaseLikeCount();
+
+            // then
+            assertThat(product.getLikeCount()).isEqualTo(3);
+        }
+    }
+
+    @DisplayName("좋아요 수를 감소시킬 때,")
+    @Nested
+    class DecreaseLikeCount {
+
+        @DisplayName("likeCount가 1 감소한다.")
+        @Test
+        void decreaseLikeCount() {
+            // given
+            ProductModel product = new ProductModel(1L, "에어맥스", "러닝화", 129000, 100, "url");
+            product.increaseLikeCount();  // likeCount = 1
+
+            // when
+            product.decreaseLikeCount();
+
+            // then
+            assertThat(product.getLikeCount()).isEqualTo(0);
+        }
+
+        @DisplayName("likeCount가 0이면, 0 미만으로 내려가지 않는다.")
+        @Test
+        void decreaseLikeCountNotBelowZero() {
+            // given
+            ProductModel product = new ProductModel(1L, "에어맥스", "러닝화", 129000, 100, "url");
+            // likeCount = 0 (기본값)
+
+            // when
+            product.decreaseLikeCount();
+
+            // then
+            assertThat(product.getLikeCount()).isEqualTo(0);
+        }
+    }
 }

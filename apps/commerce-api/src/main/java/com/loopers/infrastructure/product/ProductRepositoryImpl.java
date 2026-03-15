@@ -3,6 +3,7 @@ package com.loopers.infrastructure.product;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -37,5 +38,25 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public List<ProductModel> findAll() {
         return productJpaRepository.findAll();
+    }
+
+    @Override
+    public void increaseLikeCount(Long id) {
+        productJpaRepository.increaseLikeCount(id);
+    }
+
+    @Override
+    public void decreaseLikeCount(Long id) {
+        productJpaRepository.decreaseLikeCount(id);
+    }
+
+    @Override
+    public List<ProductModel> findAll(Sort sort) {
+        return productJpaRepository.findAll(sort);
+    }
+
+    @Override
+    public List<ProductModel> findAllByBrandId(Long brandId, Sort sort) {
+        return productJpaRepository.findAllByBrandId(brandId, sort);
     }
 }
