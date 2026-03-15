@@ -45,7 +45,7 @@ class BrandFacadeTest {
     }
 
     private static Product createTestProduct(Long id, Long brandId) {
-        return Product.reconstruct(id, brandId, "상품A", 10000, 100, DisplayStatus.DISPLAYING);
+        return Product.reconstruct(id, brandId, "상품A", 10000, 100, DisplayStatus.DISPLAYING, 0L);
     }
 
     @DisplayName("브랜드 상세 조회")

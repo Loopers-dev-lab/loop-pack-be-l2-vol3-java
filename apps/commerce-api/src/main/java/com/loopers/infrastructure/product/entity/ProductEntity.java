@@ -7,13 +7,19 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import org.hibernate.annotations.SQLRestriction;
 
 @Getter
 @Entity
-@Table(name = "product")
+@Table(name = "product", indexes = {
+        @Index(name = "idx_product_price", columnList = "price"),
+        @Index(name = "idx_product_like_count", columnList = "likeCount"),
+        @Index(name = "idx_product_brand_price", columnList = "brandId, price"),
+        @Index(name = "idx_product_brand_like", columnList = "brandId, likeCount")
+})
 @SQLRestriction("deleted_at IS NULL")
 public class ProductEntity extends BaseEntity {
 
@@ -33,6 +39,9 @@ public class ProductEntity extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private DisplayStatus displayStatus;
 
+    @Column(nullable = false)
+    private long likeCount;
+
     protected ProductEntity() {}
 
     private ProductEntity(Long brandId, String name, int price, int stock, DisplayStatus displayStatus) {
@@ -41,6 +50,7 @@ public class ProductEntity extends BaseEntity {
         this.price = price;
         this.stock = stock;
         this.displayStatus = displayStatus;
+        this.likeCount = 0;
     }
 
     public static ProductEntity toEntity(Product product) {
@@ -60,7 +70,8 @@ public class ProductEntity extends BaseEntity {
                 this.name,
                 this.price,
                 this.stock,
-                this.displayStatus
+                this.displayStatus,
+                this.likeCount
         );
     }
 

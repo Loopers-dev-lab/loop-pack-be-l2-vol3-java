@@ -1,17 +1,12 @@
 package com.loopers.infrastructure.product.repository.impl;
 
 import com.loopers.domain.product.model.ProductItem;
-import com.loopers.domain.product.model.ProductItem;
 import com.loopers.domain.product.repository.ProductCustomRepository;
-import com.loopers.infrastructure.favorite.entity.QFavoriteEntity;
-import com.loopers.infrastructure.product.entity.QProductEntity;
 import com.loopers.support.enums.SortFilter;
 import com.loopers.support.util.BooleanBuilderUtil;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Projections;
-import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
-import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
@@ -33,13 +28,7 @@ public class ProductCustomRepositoryImpl implements ProductCustomRepository {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Page<ProductItem> findProductList(Long brandId, Long memberId, SortFilter sortFilter, Pageable pageable) {
-
-        QFavoriteEntity favorite = new QFavoriteEntity("favorite");
-        QFavoriteEntity myFavorite = new QFavoriteEntity("myFavorite");
-
-        NumberExpression<Long> favoriteCnt = favorite.id.count();
-        BooleanExpression isFavorite = memberId != null ? myFavorite.id.count().gt(0L) : Expressions.asBoolean(false);
+    public Page<ProductItem> findProductList(Long brandId, SortFilter sortFilter, Pageable pageable) {
 
         List<ProductItem> content = queryFactory
                 .select(Projections.constructor(ProductItem.class,
@@ -50,16 +39,13 @@ public class ProductCustomRepositoryImpl implements ProductCustomRepository {
                         productEntity.price,
                         productEntity.stock,
                         productEntity.displayStatus,
-                        favoriteCnt,
-                        isFavorite
+                        productEntity.likeCount,
+                        Expressions.asBoolean(false)
                 ))
                 .from(productEntity)
                 .innerJoin(brandEntity).on(productEntity.brandId.eq(brandEntity.id))
-                .leftJoin(favorite).on(favorite.productId.eq(productEntity.id))
-                .leftJoin(myFavorite).on(myFavorite.productId.eq(productEntity.id), myFavorite.memberId.eq(memberId != null ? memberId : 0L))
                 .where(whereProductList(brandId))
-                .groupBy(productEntity.id)
-                .orderBy(sortFilter.toOrderSpecifier(productEntity, favoriteCnt))
+                .orderBy(sortFilter.toOrderSpecifiers(productEntity))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
@@ -72,12 +58,7 @@ public class ProductCustomRepositoryImpl implements ProductCustomRepository {
     }
 
     @Override
-    public Optional<ProductItem> findProduct(Long productId, Long memberId) {
-        QFavoriteEntity favorite = new QFavoriteEntity("favorite");
-        QFavoriteEntity myFavorite = new QFavoriteEntity("myFavorite");
-
-        NumberExpression<Long> favoriteCnt = favorite.id.count();
-        BooleanExpression isFavorite = memberId != null ? myFavorite.id.count().gt(0L) : Expressions.asBoolean(false);
+    public Optional<ProductItem> findProduct(Long productId) {
 
         ProductItem result = queryFactory
                 .select(Projections.constructor(ProductItem.class,
@@ -88,18 +69,15 @@ public class ProductCustomRepositoryImpl implements ProductCustomRepository {
                         productEntity.price,
                         productEntity.stock,
                         productEntity.displayStatus,
-                        favoriteCnt,
-                        isFavorite
+                        productEntity.likeCount,
+                        Expressions.asBoolean(false)
                 ))
                 .from(productEntity)
                 .innerJoin(brandEntity).on(productEntity.brandId.eq(brandEntity.id))
-                .leftJoin(favorite).on(favorite.productId.eq(productEntity.id))
-                .leftJoin(myFavorite).on(myFavorite.productId.eq(productEntity.id), myFavorite.memberId.eq(memberId != null ? memberId : 0L))
                 .where(
                         productEntity.id.eq(productId),
                         productEntity.deletedAt.isNull()
                 )
-                .groupBy(productEntity.id)
                 .fetchOne();
 
         return Optional.ofNullable(result);

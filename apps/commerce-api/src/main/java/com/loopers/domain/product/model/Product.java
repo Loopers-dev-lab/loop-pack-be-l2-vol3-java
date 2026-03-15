@@ -15,6 +15,7 @@ public class Product {
     private Money price;
     private Stock stock;
     private DisplayStatus displayStatus;
+    private long likeCount;
 
     private Product(Long brandId, ProductName name, Money price, Stock stock, DisplayStatus displayStatus) {
         this.brandId = brandId;
@@ -22,6 +23,7 @@ public class Product {
         this.price = price;
         this.stock = stock;
         this.displayStatus = displayStatus;
+        this.likeCount = 0;
     }
 
     public static Product create(Long brandId, ProductCommand.Create command) {
@@ -34,7 +36,7 @@ public class Product {
         );
     }
 
-    public static Product reconstruct(Long id, Long brandId, String name, int price, int stock, DisplayStatus displayStatus) {
+    public static Product reconstruct(Long id, Long brandId, String name, int price, int stock, DisplayStatus displayStatus, long likeCount) {
         Product product = new Product(
                 brandId,
                 new ProductName(name),
@@ -43,6 +45,7 @@ public class Product {
                 displayStatus
         );
         product.id = id;
+        product.likeCount = likeCount;
         return product;
     }
 

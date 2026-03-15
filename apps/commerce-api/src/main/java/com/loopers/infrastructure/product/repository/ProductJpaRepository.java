@@ -28,4 +28,12 @@ public interface ProductJpaRepository extends JpaRepository<ProductEntity, Long>
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM ProductEntity p WHERE p.id = :id")
     Optional<ProductEntity> findByIdWithPessimisticLock(@Param("id") Long id);
+
+    @Modifying
+    @Query("UPDATE ProductEntity p SET p.likeCount = p.likeCount + 1 WHERE p.id = :id")
+    int increaseLikeCount(@Param("id") Long id);
+
+    @Modifying
+    @Query("UPDATE ProductEntity p SET p.likeCount = p.likeCount - 1 WHERE p.id = :id AND p.likeCount > 0")
+    int decreaseLikeCount(@Param("id") Long id);
 }

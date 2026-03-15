@@ -11,6 +11,7 @@ import com.loopers.domain.order.model.Orders;
 import com.loopers.domain.order.service.OrderProductService;
 import com.loopers.domain.order.service.OrderService;
 import com.loopers.domain.product.model.Product;
+import com.loopers.domain.coupon.service.CouponService;
 import com.loopers.domain.product.service.ProductService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -31,7 +32,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -53,12 +53,15 @@ class OrderFacadeTest {
     @Mock
     private ProductService productService;
 
+    @Mock
+    private CouponService couponService;
+
     private static Member createTestMember() {
         return Member.reconstruct(1L, "testuser", "encodedPw", "홍길동", LocalDate.of(1990, 1, 1), "test@test.com");
     }
 
     private static Product createTestProduct(Long id, Long brandId, String name, int price, int stock) {
-        return Product.reconstruct(id, brandId, name, price, stock, DisplayStatus.DISPLAYING);
+        return Product.reconstruct(id, brandId, name, price, stock, DisplayStatus.DISPLAYING, 0L);
     }
 
     @DisplayName("주문 생성")
@@ -101,7 +104,6 @@ class OrderFacadeTest {
             verify(productService).decreaseStockAtomic(1L, 2);
             verify(productService).decreaseStockAtomic(2L, 3);
 
-            // verify the command passed to orderService
             ArgumentCaptor<OrderCommand.Create> captor = ArgumentCaptor.forClass(OrderCommand.Create.class);
             verify(orderService).createOrder(captor.capture());
             OrderCommand.Create captured = captor.getValue();

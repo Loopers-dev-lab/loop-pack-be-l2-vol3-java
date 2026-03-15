@@ -10,4 +10,12 @@ public record ProductItem(
         String displayStatus,
         long favoriteCnt,
         boolean isFavorite
-) {}
+) {
+    public ProductItem withIsFavorite(boolean isFavorite) {
+        return new ProductItem(id, name, brandId, brandName, price, stock, displayStatus, favoriteCnt, isFavorite);
+    }
+
+    public ProductItem withFavoriteCnt(long favoriteCnt) {
+        return new ProductItem(id, name, brandId, brandName, price, stock, displayStatus, favoriteCnt, isFavorite);
+    }
+}

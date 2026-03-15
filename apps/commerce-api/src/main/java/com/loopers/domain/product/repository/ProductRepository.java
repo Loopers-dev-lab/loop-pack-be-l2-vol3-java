@@ -24,4 +24,8 @@ public interface ProductRepository {
     List<Product> findByIds(List<Long> ids);
 
     int decreaseStock(Long id, int quantity);
+
+    int increaseLikeCount(Long id);
+
+    int decreaseLikeCount(Long id);
 }

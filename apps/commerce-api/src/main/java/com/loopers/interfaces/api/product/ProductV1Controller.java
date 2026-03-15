@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductFacade;
+import com.loopers.application.product.dto.FindProductListReqDto;
 import com.loopers.application.product.dto.FindProductListResDto;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.product.dto.FindProductApiResDto;
@@ -32,7 +33,8 @@ public class ProductV1Controller implements ProductV1ApiSpec {
                                                                        @RequestHeader(value = HEADER_LOGIN_PW, required = false) String password,
                                                                        @RequestParam(required = false) Long brandId,
                                                                        @RequestParam SortFilter sortFilter, Pageable pageable) {
-        Page<FindProductListResDto> productList = productFacade.findProductList(loginId, password, brandId, sortFilter, pageable);
+        FindProductListReqDto req = new FindProductListReqDto(loginId, password, brandId, sortFilter);
+        Page<FindProductListResDto> productList = productFacade.findProductList(req, pageable);
         return ApiResponse.success(productList.map(FindProductListApiResDto::from));
     }
 
