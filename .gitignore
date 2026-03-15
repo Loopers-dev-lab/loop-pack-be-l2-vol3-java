@@ -41,3 +41,6 @@ out/
 
 ### Conversations ###
 .docs/conversations/
+
+### k6 ###
+k6/*-report.html

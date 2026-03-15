@@ -106,13 +106,15 @@ public class ProductService {
      * 상품 정보를 수정한다.
      *
      * @param product 상품 수정 정보 (productId 포함)
+     * @return 수정된 상품
      * @throws CoreException 상품이 존재하지 않는 경우
      */
     @Transactional
-    public void update(ModifyProduct product) {
+    public Product update(ModifyProduct product) {
         Product entity = productRepository.findById(product.productId())
                 .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
         entity.update(product);
+        return entity;
     }
 
     /**

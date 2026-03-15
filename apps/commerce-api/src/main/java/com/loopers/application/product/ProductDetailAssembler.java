@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
@@ -30,6 +31,7 @@ public class ProductDetailAssembler {
      * @param userId   사용자 ID (비로그인 시 null)
      * @return 브랜드 및 좋아요 정보가 포함된 상품 상세 목록
      */
+    @Transactional(readOnly = true)
     public List<ProductDetail> assemble(List<Product> products, Long userId) {
         List<Long> productIds = products.stream()
                 .map(Product::getId)
