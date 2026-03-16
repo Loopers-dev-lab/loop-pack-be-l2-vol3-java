@@ -1,16 +1,13 @@
 package com.loopers.application.order;
 
+import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderService;
 import com.loopers.domain.product.Money;
-import com.loopers.domain.product.ProductSnapshot;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ProductSnapshot;
 import com.loopers.domain.product.Quantity;
-import com.loopers.domain.coupon.CouponService;
-import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
-import jakarta.persistence.OptimisticLockException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -18,13 +15,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
@@ -33,7 +28,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * OrderFacade 단위 테스트.
- * 쿠폰 낙관락 재시도(최대 1회) 동작을 검증. (05-transaction-query §3.4, §9.1, output/쿠폰락_트레이드오프_전문가토론.md)
+ * 상품 검증·재고 차감·쿠폰 적용·주문 생성 오케스트레이션을 검증한다.
  */
 @ExtendWith(MockitoExtension.class)
 class OrderFacadeTest {
@@ -52,67 +47,46 @@ class OrderFacadeTest {
     private ProductService productService;
     @Mock
     private CouponService couponService;
-    @Mock
-    private OrderFacade self;
-
     @InjectMocks
     private OrderFacade orderFacade;
 
-    private static OrderInfo createOrderInfo() {
+    private static OrderModel createOrderModel() {
         OrderModel order = OrderModel.create(USER_ID, new BigDecimal("10000"),
                 new BigDecimal("1000"), new BigDecimal("9000"), COUPON_ID);
         order.addItem(OrderItemModel.of(SNAPSHOT, Quantity.of(1), null));
-        return OrderInfo.from(order);
+        return order;
     }
 
-    @DisplayName("placeOrder (쿠폰 적용) 시 낙관락 재시도")
+    private static OrderInfo createOrderInfo() {
+        return OrderInfo.from(createOrderModel());
+    }
+
+    @DisplayName("placeOrder (쿠폰 적용) 시")
     @Nested
     class PlaceOrderWithCouponRetry {
 
         @Test
-        @DisplayName("첫 시도에서 OptimisticLockException 발생 시 1회 재시도 후 성공한다.")
-        void placeOrder_withCoupon_whenFirstCallThrowsOptimisticLock_thenRetriesOnceAndSucceeds() {
-            OrderInfo expected = createOrderInfo();
-            when(self.doPlaceOrder(any(), any(), eq(COUPON_ID)))
-                    .thenThrow(new ObjectOptimisticLockingFailureException("version conflict", new OptimisticLockException()))
-                    .thenReturn(expected);
+        @DisplayName("상품 스냅샷·쿠폰 할인·주문 생성이 한 번씩 호출된다.")
+        void placeOrder_withCoupon_shouldCallServicesOnce() {
+            OrderModel orderModel = createOrderModel();
+            OrderInfo expected = OrderInfo.from(orderModel);
+            when(productService.validateDecreaseStockAndGetSnapshots(any())).thenReturn(List.of(SNAPSHOT));
+            when(couponService.validateAndUse(eq(COUPON_ID), eq(USER_ID), any())).thenReturn(
+                    new com.loopers.domain.coupon.CouponDiscount(
+                            new BigDecimal("10000"),
+                            new BigDecimal("1000"),
+                            new BigDecimal("9000")
+                    )
+            );
+            when(orderService.create(eq(USER_ID), any(), any(), any(), eq(COUPON_ID)))
+                    .thenReturn(orderModel);
 
             OrderInfo result = orderFacade.placeOrder(USER_ID, PARAMS, COUPON_ID);
 
-            assertThat(result).isEqualTo(expected);
-            verify(self, times(2)).doPlaceOrder(any(), any(), eq(COUPON_ID));
-        }
-
-        @Test
-        @DisplayName("첫 시도와 재시도 모두 OptimisticLockException이면 CONFLICT(409) + '잠시 후 다시 시도해 주세요'를 던진다.")
-        void placeOrder_withCoupon_whenBothCallsThrowOptimisticLock_thenThrowsConflictWithRetryMessage() {
-            ObjectOptimisticLockingFailureException ole = new ObjectOptimisticLockingFailureException(
-                    "version conflict", new OptimisticLockException());
-            when(self.doPlaceOrder(any(), any(), eq(COUPON_ID)))
-                    .thenThrow(ole)
-                    .thenThrow(ole);
-
-            CoreException ex = assertThrows(CoreException.class,
-                    () -> orderFacade.placeOrder(USER_ID, PARAMS, COUPON_ID));
-
-            assertThat(ex.getErrorType()).isEqualTo(ErrorType.CONFLICT);
-            assertThat(ex.getCustomMessage()).isEqualTo("잠시 후 다시 시도해 주세요.");
-            verify(self, times(2)).doPlaceOrder(any(), any(), eq(COUPON_ID));
-        }
-
-        @Test
-        @DisplayName("JPA OptimisticLockException도 재시도 후 실패 시 CONFLICT로 변환한다.")
-        void placeOrder_withCoupon_whenBothCallsThrowJpaOptimisticLock_thenThrowsConflict() {
-            when(self.doPlaceOrder(any(), any(), eq(COUPON_ID)))
-                    .thenThrow(new OptimisticLockException())
-                    .thenThrow(new OptimisticLockException());
-
-            CoreException ex = assertThrows(CoreException.class,
-                    () -> orderFacade.placeOrder(USER_ID, PARAMS, COUPON_ID));
-
-            assertThat(ex.getErrorType()).isEqualTo(ErrorType.CONFLICT);
-            assertThat(ex.getCustomMessage()).isEqualTo("잠시 후 다시 시도해 주세요.");
-            verify(self, times(2)).doPlaceOrder(any(), any(), eq(COUPON_ID));
+            assertThat(result).usingRecursiveComparison().isEqualTo(expected);
+            verify(productService, times(1)).validateDecreaseStockAndGetSnapshots(any());
+            verify(couponService, times(1)).validateAndUse(eq(COUPON_ID), eq(USER_ID), any());
+            verify(orderService, times(1)).create(eq(USER_ID), any(), any(), any(), eq(COUPON_ID));
         }
     }
 
@@ -121,15 +95,18 @@ class OrderFacadeTest {
     class PlaceOrderWithoutCoupon {
 
         @Test
-        @DisplayName("쿠폰이 없으면 재시도 없이 doPlaceOrder를 한 번만 호출한다.")
-        void placeOrder_withoutCoupon_callsDoPlaceOrderOnce() {
-            OrderInfo expected = createOrderInfo();
-            when(self.doPlaceOrder(any(), any(), eq(null))).thenReturn(expected);
+        @DisplayName("쿠폰이 없으면 쿠폰 서비스는 호출되지 않는다.")
+        void placeOrder_withoutCoupon_callsCouponServiceNever() {
+            OrderModel orderModel = createOrderModel();
+            OrderInfo expected = OrderInfo.from(orderModel);
+            when(productService.validateDecreaseStockAndGetSnapshots(any())).thenReturn(List.of(SNAPSHOT));
+            when(orderService.create(eq(USER_ID), any(), any(), any(), eq(null)))
+                    .thenReturn(orderModel);
 
             OrderInfo result = orderFacade.placeOrder(USER_ID, PARAMS, null);
 
             assertThat(result).isEqualTo(expected);
-            verify(self, times(1)).doPlaceOrder(any(), any(), eq(null));
+            verify(couponService, times(0)).validateAndUse(any(), any(), any());
         }
     }
 }

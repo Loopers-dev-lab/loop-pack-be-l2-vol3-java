@@ -23,10 +23,13 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
+    private final ProductStatsRepository productStatsRepository;
 
-    public ProductService(ProductRepository productRepository, BrandRepository brandRepository) {
+    public ProductService(ProductRepository productRepository, BrandRepository brandRepository,
+            ProductStatsRepository productStatsRepository) {
         this.productRepository = productRepository;
         this.brandRepository = brandRepository;
+        this.productStatsRepository = productStatsRepository;
     }
 
     @Transactional
@@ -39,7 +42,9 @@ public class ProductService {
                     name,
                     Money.of(price),
                     StockQuantity.of(stockQuantity));
-            return productRepository.save(product);
+            ProductModel saved = productRepository.save(product);
+            productStatsRepository.createIfAbsent(saved.getId());
+            return saved;
         } catch (IllegalArgumentException e) {
             throw new CoreException(ErrorType.BAD_REQUEST, e.getMessage());
         }
@@ -88,6 +93,8 @@ public class ProductService {
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + id));
         product.delete();
         productRepository.save(product);
+        // 상품 삭제 시 집계 테이블도 함께 정리해 PLP/PDP 정렬·카운트에서 제외
+        productStatsRepository.deleteByProductId(id);
     }
 
     /**
@@ -126,7 +133,8 @@ public class ProductService {
      * 주문 항목 목록을 검증하고, 유효 시 각 상품의 스냅샷(이름·가격) 목록을 반환한다.
      * 하나라도 미존재/삭제/재고 부족이면 예외를 던진다.
      * 재고 차감은 하지 않으며, 검증·스냅샷 생성만 수행한다.
-     * placeOrder 등 쓰기 트랜잭션에서 호출되면 readOnly는 미적용되나, 동일 트랜잭션 내 스냅샷·재고·주문의 일관성을 위해 의도적으로 한 트랜잭션에서 실행한다.
+     * placeOrder 등 쓰기 트랜잭션에서 호출되면 readOnly는 미적용되나, 동일 트랜잭션 내 스냅샷·재고·주문의 일관성을 위해
+     * 의도적으로 한 트랜잭션에서 실행한다.
      */
     @Transactional(readOnly = true)
     public List<ProductSnapshot> validateAndGetSnapshots(List<ProductValidationRequest> requests) {
@@ -165,7 +173,8 @@ public class ProductService {
 
     /**
      * 주문 항목별로 비관적 락을 먼저 걸고, 검증·스냅샷·재고 차감을 한 번에 수행한다.
-     * 트랜잭션 시작 직후 락을 선점하여 영속성 컨텍스트 캐시로 인한 락 미적용을 방지한다. (05-transaction-query §2.1, §3.2)
+     * 트랜잭션 시작 직후 락을 선점하여 영속성 컨텍스트 캐시로 인한 락 미적용을 방지한다. (05-transaction-query §2.1,
+     * §3.2)
      * 상품 ID 오름차순으로 락을 잡아 데드락을 방지한다.
      *
      * @param requests 주문 항목(상품 ID, 수량, 옵션 ID)

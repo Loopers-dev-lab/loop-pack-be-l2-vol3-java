@@ -3,6 +3,7 @@ package com.loopers.domain.product;
 import com.loopers.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,9 +15,13 @@ import static lombok.AccessLevel.PROTECTED;
 /**
  * 상품 도메인 엔티티.
  * Soft delete는 BaseEntity의 deletedAt으로 표현한다.
+ * PLP 정렬용 복합 인덱스: latest (deleted_at, brand_id, created_at), price (deleted_at, brand_id, price).
  */
 @Entity
-@Table(name = "product")
+@Table(name = "product", indexes = {
+        @Index(name = "idx_product_deleted_brand_created", columnList = "deleted_at, brand_id, created_at"),
+        @Index(name = "idx_product_deleted_brand_price", columnList = "deleted_at, brand_id, price")
+})
 @Getter
 @NoArgsConstructor(access = PROTECTED)
 public class ProductModel extends BaseEntity {
