@@ -4,6 +4,7 @@ import com.loopers.domain.BaseEntity;
 import com.loopers.domain.product.exception.ProductInsufficientStockException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import lombok.Getter;
@@ -11,7 +12,14 @@ import lombok.Getter;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "products")
+@Table(
+    name = "products",
+    indexes = {
+        @Index(name = "idx_products_brand_id_like_count", columnList = "brand_id, like_count DESC"),
+        @Index(name = "idx_products_brand_id_created_at", columnList = "brand_id, created_at DESC"),
+        @Index(name = "idx_products_brand_id_price", columnList = "brand_id, price ASC")
+    }
+)
 @Getter
 public class Product extends BaseEntity {
 

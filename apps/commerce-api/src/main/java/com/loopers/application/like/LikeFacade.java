@@ -8,6 +8,7 @@ import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.user.UserRepository;
+import com.loopers.infrastructure.product.ProductCacheStore;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.OptimisticLockException;
@@ -36,6 +37,7 @@ public class LikeFacade {
     private final UserRepository userRepository;
     private final BrandRepository brandRepository;
     private final LikeService likeService;
+    private final ProductCacheStore productCacheStore;
 
     @Transactional
     @Retryable(
@@ -80,6 +82,7 @@ public class LikeFacade {
         product.increaseLikeCount();
         Like saved = likeRepository.save(result.like());
         productRepository.save(product);
+        productCacheStore.evictProduct(productId);
         return new LikeDto.LikeResult(LikeDto.LikeInfo.from(saved), false);
     }
 
@@ -109,6 +112,7 @@ public class LikeFacade {
         product.decreaseLikeCount();
         likeRepository.save(like);
         productRepository.save(product);
+        productCacheStore.evictProduct(productId);
     }
 
     @Transactional(readOnly = true)

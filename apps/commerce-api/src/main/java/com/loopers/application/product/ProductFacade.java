@@ -7,6 +7,7 @@ import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.exception.ProductInsufficientStockException;
 import com.loopers.domain.product.exception.ProductNotDeletedException;
+import com.loopers.infrastructure.product.ProductCacheStore;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class ProductFacade {
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
     private final ProductService productService;
+    private final ProductCacheStore productCacheStore;
 
     @Transactional
     public ProductDto.ProductInfo register(Long brandId, String name, String description, BigDecimal price, Integer stock) {
@@ -58,43 +60,65 @@ public class ProductFacade {
         Product saved = productRepository.save(product);
         Brand brand = brandRepository.findById(saved.getBrandId())
             .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
+        productCacheStore.evictProduct(productId);
         return ProductDto.ProductInfo.of(saved, brand.getName());
     }
 
     @Transactional(readOnly = true)
     public Page<ProductDto.ProductInfo> getProducts(ProductSortType sortType, Pageable pageable) {
-        Pageable sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sortType.toSort());
-        Page<Product> products = productRepository.findAll(sorted);
+        int page = pageable.getPageNumber();
+        int size = pageable.getPageSize();
 
-        Set<Long> brandIds = products.stream()
-            .map(Product::getBrandId)
-            .collect(Collectors.toSet());
+        return productCacheStore.getProductList(null, sortType, page, size)
+            .orElseGet(() -> {
+                Pageable sorted = PageRequest.of(page, size, sortType.toSort());
+                Page<Product> products = productRepository.findAll(sorted);
 
-        Map<Long, String> brandNameMap = brandRepository.findAllByIds(brandIds).stream()
-            .collect(Collectors.toMap(Brand::getId, Brand::getName));
+                Set<Long> brandIds = products.stream()
+                    .map(Product::getBrandId)
+                    .collect(Collectors.toSet());
 
-        return products.map(product ->
-            ProductDto.ProductInfo.of(product, brandNameMap.getOrDefault(product.getBrandId(), ""))
-        );
+                Map<Long, String> brandNameMap = brandRepository.findAllByIds(brandIds).stream()
+                    .collect(Collectors.toMap(Brand::getId, Brand::getName));
+
+                Page<ProductDto.ProductInfo> result = products.map(product ->
+                    ProductDto.ProductInfo.of(product, brandNameMap.getOrDefault(product.getBrandId(), ""))
+                );
+                productCacheStore.putProductList(null, sortType, page, size, result);
+                return result;
+            });
     }
 
     @Transactional(readOnly = true)
     public Page<ProductDto.ProductInfo> getProductsByBrand(Long brandId, ProductSortType sortType, Pageable pageable) {
-        Brand brand = brandRepository.findById(brandId)
-            .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
+        int page = pageable.getPageNumber();
+        int size = pageable.getPageSize();
 
-        Pageable sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sortType.toSort());
-        return productRepository.findByBrandId(brandId, sorted)
-            .map(product -> ProductDto.ProductInfo.of(product, brand.getName()));
+        return productCacheStore.getProductList(brandId, sortType, page, size)
+            .orElseGet(() -> {
+                Brand brand = brandRepository.findById(brandId)
+                    .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
+
+                Pageable sorted = PageRequest.of(page, size, sortType.toSort());
+                Page<ProductDto.ProductInfo> result = productRepository.findByBrandId(brandId, sorted)
+                    .map(product -> ProductDto.ProductInfo.of(product, brand.getName()));
+                productCacheStore.putProductList(brandId, sortType, page, size, result);
+                return result;
+            });
     }
 
     @Transactional(readOnly = true)
     public ProductDto.ProductInfo getProduct(Long productId) {
-        Product product = productRepository.findById(productId)
-            .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
-        Brand brand = brandRepository.findById(product.getBrandId())
-            .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
-        return ProductDto.ProductInfo.of(product, brand.getName());
+        return productCacheStore.getProduct(productId)
+            .orElseGet(() -> {
+                Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+                Brand brand = brandRepository.findById(product.getBrandId())
+                    .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
+                ProductDto.ProductInfo info = ProductDto.ProductInfo.of(product, brand.getName());
+                productCacheStore.putProduct(productId, info);
+                return info;
+            });
     }
 
     @Transactional
@@ -105,6 +129,7 @@ public class ProductFacade {
         Product saved = productRepository.save(product);
         Brand brand = brandRepository.findById(saved.getBrandId())
             .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
+        productCacheStore.evictProduct(productId);
         return ProductDto.ProductInfo.of(saved, brand.getName());
     }
 
@@ -120,6 +145,7 @@ public class ProductFacade {
         Product saved = productRepository.save(product);
         Brand brand = brandRepository.findById(saved.getBrandId())
             .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
+        productCacheStore.evictProduct(productId);
         return ProductDto.ProductInfo.of(saved, brand.getName());
     }
 
@@ -129,6 +155,7 @@ public class ProductFacade {
             .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
         productService.deleteProduct(product);
         productRepository.save(product);
+        productCacheStore.evictProduct(productId);
     }
 
     @Transactional
@@ -144,6 +171,7 @@ public class ProductFacade {
         Product saved = productRepository.save(product);
         Brand brand = brandRepository.findByIdIncludingDeleted(saved.getBrandId())
             .orElseThrow(() -> new CoreException(ErrorType.BRAND_NOT_FOUND));
+        productCacheStore.evictProduct(productId);
         return ProductDto.ProductInfo.of(saved, brand.getName());
     }
 

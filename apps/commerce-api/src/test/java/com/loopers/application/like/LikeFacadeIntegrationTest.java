@@ -181,7 +181,7 @@ class LikeFacadeIntegrationTest {
         List<Long> userIds = new ArrayList<>();
         for (int i = 0; i < concurrency; i++) {
             UserDto.UserInfo u = userFacade.register(
-                "likeuser" + i, "TestPass1!", "좋아요유저" + i,
+                "likeuser" + i, "TestPass1!", "좋아요유저",
                 LocalDate.of(2000, 1, 1), "like" + i + "@loopers.com", Gender.MALE
             );
             userIds.add(u.id());
@@ -217,5 +217,51 @@ class LikeFacadeIntegrationTest {
         assertThat(failures).isEmpty();
         Product product = productRepository.findById(productId).orElseThrow();
         assertThat(product.getLikeCount()).isEqualTo(concurrency);
+    }
+
+    @DisplayName("동일한 상품에 여러 명이 동시에 좋아요 취소를 해도 likeCount가 정상 반영된다")
+    @Test
+    void unlike_concurrent_likeCount() throws InterruptedException {
+        int concurrency = 3;
+        List<Long> userIds = new ArrayList<>();
+        for (int i = 0; i < concurrency; i++) {
+            UserDto.UserInfo u = userFacade.register(
+                "unlike" + i, "TestPass1!", "취소유저",
+                LocalDate.of(2000, 1, 1), "unlike" + i + "@loopers.com", Gender.MALE
+            );
+            userIds.add(u.id());
+            likeFacade.like(u.id(), productId);
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(concurrency);
+        CountDownLatch ready = new CountDownLatch(concurrency);
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(concurrency);
+        List<Throwable> failures = Collections.synchronizedList(new ArrayList<>());
+
+        for (int i = 0; i < concurrency; i++) {
+            final Long uid = userIds.get(i);
+            executor.submit(() -> {
+                ready.countDown();
+                try {
+                    start.await();
+                    likeFacade.unlike(uid, productId);
+                } catch (Throwable t) {
+                    failures.add(t);
+                } finally {
+                    done.countDown();
+                }
+            });
+        }
+
+        assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+        start.countDown();
+        assertThat(done.await(15, TimeUnit.SECONDS)).isTrue();
+        executor.shutdown();
+        assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+
+        assertThat(failures).isEmpty();
+        Product product = productRepository.findById(productId).orElseThrow();
+        assertThat(product.getLikeCount()).isZero();
     }
 }

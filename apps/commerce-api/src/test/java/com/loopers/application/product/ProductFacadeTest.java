@@ -7,6 +7,7 @@ import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.infrastructure.product.ProductCacheStore;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,7 +42,8 @@ class ProductFacadeTest {
         productFacade = new ProductFacade(
             productRepository,
             brandRepository,
-            new ProductService()
+            new ProductService(),
+            mock(ProductCacheStore.class)
         );
 
         brand = Brand.create(new BrandName("LOOPERS"), new BrandDescription("루퍼스 브랜드"));

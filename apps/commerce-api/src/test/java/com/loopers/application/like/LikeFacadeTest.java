@@ -8,6 +8,7 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserRepository;
+import com.loopers.infrastructure.product.ProductCacheStore;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +45,8 @@ class LikeFacadeTest {
             productRepository,
             userRepository,
             brandRepository,
-            new LikeService()
+            new LikeService(),
+            mock(ProductCacheStore.class)
         );
     }
 
