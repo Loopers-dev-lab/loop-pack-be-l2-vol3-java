@@ -12,7 +12,11 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
     name = "likes",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "product_id"})
+    uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "product_id"}),
+    indexes = {
+        @Index(name = "idx_likes_product_id", columnList = "product_id"),
+        @Index(name = "idx_likes_user_id", columnList = "user_id")
+    }
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

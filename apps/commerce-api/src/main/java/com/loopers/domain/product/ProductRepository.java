@@ -9,6 +9,6 @@ public interface ProductRepository {
     Optional<ProductModel> findById(Long id);
     Optional<ProductModel> findByIdForUpdate(Long id);
     ProductModel save(ProductModel product);
-    Page<ProductModel> findAll(Pageable pageable);
-    Page<ProductModel> findAllOrderByLikesDesc(Pageable pageable);
+    Page<ProductModel> findAll(Pageable pageable, Long brandId);
+    Page<ProductModel> findAllOrderByLikesDesc(Pageable pageable, Long brandId);
 }

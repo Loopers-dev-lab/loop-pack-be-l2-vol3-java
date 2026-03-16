@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
@@ -26,8 +27,20 @@ public interface ProductJpaRepository extends JpaRepository<ProductModel, Long> 
     Page<ProductModel> findAllByDeletedAtIsNull(Pageable pageable);
 
     @Query(
-        value = "SELECT p FROM ProductModel p JOIN FETCH p.brand LEFT JOIN LikeModel l ON l.product = p WHERE p.deletedAt IS NULL GROUP BY p ORDER BY COUNT(l) DESC",
+        value = "SELECT p FROM ProductModel p JOIN FETCH p.brand WHERE p.deletedAt IS NULL AND p.brand.id = :brandId",
+        countQuery = "SELECT COUNT(p) FROM ProductModel p WHERE p.deletedAt IS NULL AND p.brand.id = :brandId"
+    )
+    Page<ProductModel> findAllByDeletedAtIsNullAndBrandId(@Param("brandId") Long brandId, Pageable pageable);
+
+    @Query(
+        value = "SELECT p FROM ProductModel p JOIN FETCH p.brand WHERE p.deletedAt IS NULL ORDER BY p.likeCount DESC, p.id DESC",
         countQuery = "SELECT COUNT(p) FROM ProductModel p WHERE p.deletedAt IS NULL"
     )
-    Page<ProductModel> findAllOrderByLikesDesc(Pageable pageable);
+    Page<ProductModel> findAllOrderByLikeCountDesc(Pageable pageable);
+
+    @Query(
+        value = "SELECT p FROM ProductModel p JOIN FETCH p.brand WHERE p.deletedAt IS NULL AND p.brand.id = :brandId ORDER BY p.likeCount DESC, p.id DESC",
+        countQuery = "SELECT COUNT(p) FROM ProductModel p WHERE p.deletedAt IS NULL AND p.brand.id = :brandId"
+    )
+    Page<ProductModel> findAllByBrandIdOrderByLikeCountDesc(@Param("brandId") Long brandId, Pageable pageable);
 }

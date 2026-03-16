@@ -98,10 +98,10 @@ class ProductServiceTest {
                 new ProductModel(brand, "에어포스", 120000L, "나이키 에어포스", 50, ProductStatus.ON_SALE)
             );
             Page<ProductModel> productPage = new PageImpl<>(products, pageable, products.size());
-            given(productRepository.findAll(pageable)).willReturn(productPage);
+            given(productRepository.findAll(pageable, null)).willReturn(productPage);
 
             // act
-            Page<ProductModel> result = productService.getAll(pageable, ProductSortType.LATEST);
+            Page<ProductModel> result = productService.getAll(pageable, ProductSortType.LATEST, null);
 
             // assert
             assertThat(result.getContent()).hasSize(2);
@@ -116,14 +116,14 @@ class ProductServiceTest {
                 new ProductModel(brand, "에어맥스", 150000L, "나이키 에어맥스", 100, ProductStatus.ON_SALE)
             );
             Page<ProductModel> productPage = new PageImpl<>(products, pageable, products.size());
-            given(productRepository.findAllOrderByLikesDesc(pageable)).willReturn(productPage);
+            given(productRepository.findAllOrderByLikesDesc(pageable, null)).willReturn(productPage);
 
             // act
-            Page<ProductModel> result = productService.getAll(pageable, ProductSortType.LIKES_DESC);
+            Page<ProductModel> result = productService.getAll(pageable, ProductSortType.LIKES_DESC, null);
 
             // assert
             assertThat(result.getContent()).hasSize(1);
-            verify(productRepository).findAllOrderByLikesDesc(pageable);
+            verify(productRepository).findAllOrderByLikesDesc(pageable, null);
         }
     }
 

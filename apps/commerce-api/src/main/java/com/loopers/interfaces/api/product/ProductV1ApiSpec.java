@@ -4,7 +4,6 @@ import com.loopers.interfaces.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 @Tag(name = "Product V1 API", description = "상품 공개 API 입니다.")
@@ -12,11 +11,12 @@ public interface ProductV1ApiSpec {
 
     @Operation(
         summary = "상품 목록 조회",
-        description = "상품 목록을 페이징하여 조회합니다. 정렬: latest, price_asc, likes_desc"
+        description = "상품 목록을 페이징하여 조회합니다. 정렬: latest, price_asc, likes_desc / 브랜드 필터: brandId"
     )
-    ApiResponse<Page<ProductV1Dto.ProductResponse>> getAll(
+    ApiResponse<ProductV1Dto.ProductListResponse> getAll(
         Pageable pageable,
-        @Parameter(description = "정렬 조건 (latest, price_asc, likes_desc)", example = "latest") String sort
+        @Parameter(description = "정렬 조건 (latest, price_asc, likes_desc)", example = "latest") String sort,
+        @Parameter(description = "브랜드 ID 필터", example = "1") Long brandId
     );
 
     @Operation(

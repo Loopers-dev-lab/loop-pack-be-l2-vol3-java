@@ -1,9 +1,11 @@
 package com.loopers.application.product;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.loopers.domain.product.ProductModel;
 
 import java.time.ZonedDateTime;
 
+@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS)
 public record ProductInfo(
     Long id,
     Long brandId,
@@ -17,7 +19,7 @@ public record ProductInfo(
     ZonedDateTime createdAt,
     ZonedDateTime updatedAt
 ) {
-    public static ProductInfo from(ProductModel product, long likeCount) {
+    public static ProductInfo from(ProductModel product) {
         return new ProductInfo(
             product.getId(),
             product.getBrand().getId(),
@@ -27,7 +29,7 @@ public record ProductInfo(
             product.getDescription(),
             product.getStockQuantity(),
             product.getStatus().name(),
-            likeCount,
+            product.getLikeCount(),
             product.getCreatedAt(),
             product.getUpdatedAt()
         );

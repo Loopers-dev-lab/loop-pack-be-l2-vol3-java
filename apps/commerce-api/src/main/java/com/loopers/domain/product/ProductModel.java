@@ -11,7 +11,15 @@ import lombok.NoArgsConstructor;
 import org.springframework.util.StringUtils;
 
 @Entity
-@Table(name = "products")
+@Table(
+    name = "products",
+    indexes = {
+        @Index(name = "idx_products_deleted_created_id", columnList = "deleted_at, created_at, id"),
+        @Index(name = "idx_products_deleted_price_id", columnList = "deleted_at, price, id"),
+        @Index(name = "idx_products_brand_deleted_like_id", columnList = "brand_id, deleted_at, like_count, id"),
+        @Index(name = "idx_products_deleted_like_id", columnList = "deleted_at, like_count, id")
+    }
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ProductModel extends BaseEntity {
@@ -36,6 +44,9 @@ public class ProductModel extends BaseEntity {
     @Column(name = "status", nullable = false)
     private ProductStatus status;
 
+    @Column(name = "like_count", nullable = false)
+    private long likeCount;
+
     public ProductModel(BrandModel brand, String name, Long price, String description, int stockQuantity, ProductStatus status) {
         validate(brand, name, price, stockQuantity, status);
         this.brand = brand;
@@ -44,6 +55,7 @@ public class ProductModel extends BaseEntity {
         this.description = description;
         this.stockQuantity = stockQuantity;
         this.status = status;
+        this.likeCount = 0L;
     }
 
     public void update(BrandModel brand, String name, Long price, String description, int stockQuantity, ProductStatus status) {
@@ -64,6 +76,17 @@ public class ProductModel extends BaseEntity {
             throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.");
         }
         this.stockQuantity -= quantity;
+    }
+
+    public void increaseLikeCount() {
+        this.likeCount += 1;
+    }
+
+    public void decreaseLikeCount() {
+        if (this.likeCount <= 0) {
+            throw new CoreException(ErrorType.CONFLICT, "좋아요 수가 이미 0입니다.");
+        }
+        this.likeCount -= 1;
     }
 
     private void validate(BrandModel brand, String name, Long price, int stockQuantity, ProductStatus status) {
