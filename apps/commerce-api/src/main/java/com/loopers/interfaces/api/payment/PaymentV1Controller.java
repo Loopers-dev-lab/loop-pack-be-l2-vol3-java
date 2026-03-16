@@ -31,4 +31,13 @@ public class PaymentV1Controller implements PaymentV1ApiSpec {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(PaymentResponse.from(info)));
     }
+
+    @PostMapping("/callback")
+    @Override
+    public ResponseEntity<ApiResponse<Void>> handleCallback(
+            @RequestBody PgCallbackRequest request
+    ) {
+        paymentFacade.handleCallback(request.transactionKey(), request.status(), request.amount());
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
 }

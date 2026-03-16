@@ -4,11 +4,13 @@ import com.loopers.domain.payment.vo.RefOrderId;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentService {
@@ -34,8 +36,9 @@ public class PaymentService {
         PaymentModel payment = paymentRepository.findByPgTransactionId(pgTransactionKey)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다. pgTransactionKey=" + pgTransactionKey));
         if (payment.getAmount().compareTo(pgAmount) != 0) {
-            throw new CoreException(ErrorType.BAD_REQUEST,
-                    "PG 결제 금액 불일치. 저장=" + payment.getAmount() + ", PG=" + pgAmount);
+            log.warn("이상 거래 감지: 금액 불일치. pgTransactionKey={}, 저장={}, PG={}", pgTransactionKey, payment.getAmount(), pgAmount);
+            payment.fail();
+            return payment;
         }
         payment.complete();
         return payment;
