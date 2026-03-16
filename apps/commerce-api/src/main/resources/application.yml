@@ -37,6 +37,9 @@ spring:
             connect-timeout: 1000
             read-timeout: 2000
 
+commerce-api:
+  callback-base-url: http://localhost:8080
+
 pg:
   simulator:
     url: http://localhost:8082
