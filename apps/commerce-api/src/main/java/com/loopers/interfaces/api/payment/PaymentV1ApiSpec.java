@@ -2,11 +2,14 @@ package com.loopers.interfaces.api.payment;
 
 import com.loopers.interfaces.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "결제 API", description = "결제 요청 API")
 public interface PaymentV1ApiSpec {
@@ -29,5 +32,25 @@ public interface PaymentV1ApiSpec {
     })
     ResponseEntity<ApiResponse<Void>> handleCallback(
             @RequestBody PgCallbackRequest request
+    );
+
+    @Operation(summary = "결제 조회", description = "결제 ID로 결제 상세 정보를 조회합니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "결제 조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "결제를 찾을 수 없음")
+    })
+    ResponseEntity<ApiResponse<PaymentDetailResponse>> getPayment(
+            @Parameter(description = "결제 DB PK") @PathVariable Long paymentId,
+            @Parameter(description = "회원 DB PK") @RequestParam Long memberId
+    );
+
+    @Operation(summary = "결제 수동 동기화", description = "PG에서 결제 상태를 조회해 강제 동기화합니다. 콜백 미수신 시 사용합니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "동기화 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "결제를 찾을 수 없음")
+    })
+    ResponseEntity<ApiResponse<PaymentDetailResponse>> syncPayment(
+            @Parameter(description = "결제 DB PK") @PathVariable Long paymentId,
+            @Parameter(description = "회원 DB PK") @RequestParam Long memberId
     );
 }

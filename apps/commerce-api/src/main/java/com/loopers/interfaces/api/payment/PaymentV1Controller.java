@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.payment;
 
+import com.loopers.application.payment.PaymentApp;
 import com.loopers.application.payment.PaymentFacade;
 import com.loopers.application.payment.PaymentInfo;
 import com.loopers.config.CommerceApiProperties;
@@ -8,9 +9,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -18,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class PaymentV1Controller implements PaymentV1ApiSpec {
 
+    private final PaymentApp paymentApp;
     private final PaymentFacade paymentFacade;
     private final CommerceApiProperties commerceApiProperties;
 
@@ -39,5 +44,25 @@ public class PaymentV1Controller implements PaymentV1ApiSpec {
     ) {
         paymentFacade.handleCallback(request.transactionKey(), request.status(), request.amount());
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @GetMapping("/{paymentId}")
+    @Override
+    public ResponseEntity<ApiResponse<PaymentDetailResponse>> getPayment(
+            @PathVariable Long paymentId,
+            @RequestParam Long memberId
+    ) {
+        PaymentInfo info = paymentApp.getPayment(paymentId, memberId);
+        return ResponseEntity.ok(ApiResponse.success(PaymentDetailResponse.from(info)));
+    }
+
+    @PostMapping("/{paymentId}/sync")
+    @Override
+    public ResponseEntity<ApiResponse<PaymentDetailResponse>> syncPayment(
+            @PathVariable Long paymentId,
+            @RequestParam Long memberId
+    ) {
+        PaymentInfo info = paymentFacade.syncPayment(paymentId, memberId);
+        return ResponseEntity.ok(ApiResponse.success(PaymentDetailResponse.from(info)));
     }
 }

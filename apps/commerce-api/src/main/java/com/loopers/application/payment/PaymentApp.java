@@ -45,6 +45,13 @@ public class PaymentApp {
 
     public PaymentInfo syncFromGateway(Long paymentId, Long memberId) {
         PaymentModel payment = paymentService.getById(paymentId);
+        if (payment.getPgTransactionId() != null) {
+            return syncByTransactionId(payment, memberId);
+        }
+        return syncByOrderId(payment, memberId);
+    }
+
+    private PaymentInfo syncByTransactionId(PaymentModel payment, Long memberId) {
         PgResult result = paymentGateway.getPaymentResult(payment.getPgTransactionId(), memberId);
         if (result.isSuccess()) {
             return PaymentInfo.from(paymentService.updateCompleted(payment.getPgTransactionId(), result.amount()));
@@ -53,6 +60,22 @@ public class PaymentApp {
             return PaymentInfo.from(payment);
         }
         return PaymentInfo.from(paymentService.updateFailed(payment.getPgTransactionId()));
+    }
+
+    private PaymentInfo syncByOrderId(PaymentModel payment, Long memberId) {
+        PgResult result = paymentGateway.getPaymentByOrderId(payment.getRefOrderId().value(), memberId);
+        if (result.isUnavailable()) {
+            return PaymentInfo.from(payment);
+        }
+        String transactionKey = result.pgTransactionKey();
+        PaymentModel requested = paymentService.updateRequested(payment.getId(), transactionKey);
+        if (result.isSuccess()) {
+            return PaymentInfo.from(paymentService.updateCompleted(transactionKey, payment.getAmount()));
+        }
+        if (result.isAccepted()) {
+            return PaymentInfo.from(requested);
+        }
+        return PaymentInfo.from(paymentService.updateFailed(transactionKey));
     }
 
     @Transactional(readOnly = true)
