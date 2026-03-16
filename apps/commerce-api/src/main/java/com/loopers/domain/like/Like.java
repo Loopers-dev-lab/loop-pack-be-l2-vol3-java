@@ -10,6 +10,8 @@ import java.time.ZonedDateTime;
 @Entity
 @Table(name = "likes", uniqueConstraints = {
     @UniqueConstraint(name = "uk_likes_member_product", columnNames = {"member_id", "product_id"})
+}, indexes = {
+    @Index(name = "idx_likes_product_id", columnList = "product_id")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

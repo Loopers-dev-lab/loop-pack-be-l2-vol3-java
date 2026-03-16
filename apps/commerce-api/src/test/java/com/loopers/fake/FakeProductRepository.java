@@ -6,6 +6,9 @@ import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.ProductWithBrand;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -65,7 +68,7 @@ public class FakeProductRepository implements ProductRepository {
     public List<ProductWithBrand> findAllWithBrand() {
         return store.values().stream()
                 .filter(product -> product.getDeletedAt() == null)
-                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId()), 0L))
+                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId()), product.getLikeCount()))
                 .toList();
     }
 
@@ -75,7 +78,7 @@ public class FakeProductRepository implements ProductRepository {
         return store.values().stream()
                 .filter(product -> product.getDeletedAt() == null)
                 .sorted(comparator)
-                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId()), 0L))
+                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId()), product.getLikeCount()))
                 .toList();
     }
 
@@ -84,8 +87,42 @@ public class FakeProductRepository implements ProductRepository {
         return store.values().stream()
                 .filter(product -> product.getDeletedAt() == null)
                 .filter(product -> product.getBrandId().equals(brandId))
-                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId()), 0L))
+                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId()), product.getLikeCount()))
                 .toList();
+    }
+
+    @Override
+    public Page<ProductWithBrand> findAllWithBrand(String sort, Pageable pageable) {
+        List<ProductWithBrand> all = findAllWithBrand(sort);
+        return toPage(all, pageable);
+    }
+
+    @Override
+    public Page<ProductWithBrand> findAllByBrandIdWithBrand(Long brandId, String sort, Pageable pageable) {
+        Comparator<Product> comparator = toComparator(sort);
+        List<ProductWithBrand> all = store.values().stream()
+                .filter(product -> product.getDeletedAt() == null)
+                .filter(product -> product.getBrandId().equals(brandId))
+                .sorted(comparator)
+                .map(product -> new ProductWithBrand(product, resolveBrandName(product.getBrandId()), product.getLikeCount()))
+                .toList();
+        return toPage(all, pageable);
+    }
+
+    @Override
+    public int incrementLikeCount(Long productId) {
+        Product product = store.get(productId);
+        if (product == null || product.getDeletedAt() != null) return 0;
+        setLikeCount(product, product.getLikeCount() + 1);
+        return 1;
+    }
+
+    @Override
+    public int decrementLikeCount(Long productId) {
+        Product product = store.get(productId);
+        if (product == null || product.getDeletedAt() != null) return 0;
+        setLikeCount(product, Math.max(0, product.getLikeCount() - 1));
+        return 1;
     }
 
     public void setBrandRepository(BrandRepository brandRepository) {
@@ -105,8 +142,17 @@ public class FakeProductRepository implements ProductRepository {
         }
         return switch (sort) {
             case "price_asc" -> Comparator.comparingInt(p -> p.getPrice().getValue());
+            case "likes_desc" -> Comparator.<Product, Integer>comparing(Product::getLikeCount).reversed()
+                    .thenComparing(Comparator.comparing(Product::getId).reversed());
             default -> Comparator.comparing(Product::getId).reversed();
         };
+    }
+
+    private Page<ProductWithBrand> toPage(List<ProductWithBrand> all, Pageable pageable) {
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), all.size());
+        List<ProductWithBrand> pageContent = start < all.size() ? all.subList(start, end) : List.of();
+        return new PageImpl<>(pageContent, pageable, all.size());
     }
 
     private void setBaseEntityId(Object entity, long id) {
@@ -114,6 +160,16 @@ public class FakeProductRepository implements ProductRepository {
             Field idField = BaseEntity.class.getDeclaredField("id");
             idField.setAccessible(true);
             idField.set(entity, id);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void setLikeCount(Product product, int count) {
+        try {
+            Field likeCountField = Product.class.getDeclaredField("likeCount");
+            likeCountField.setAccessible(true);
+            likeCountField.setInt(product, count);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
