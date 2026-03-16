@@ -8,13 +8,19 @@ import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "products")
+@Table(name = "products", indexes = {
+        @Index(name = "idx_products_brand_deleted_likes", columnList = "brand_id, deleted, like_count DESC"),
+        @Index(name = "idx_products_deleted_likes", columnList = "deleted, like_count DESC"),
+        @Index(name = "idx_products_deleted_created", columnList = "deleted, created_at DESC"),
+        @Index(name = "idx_products_deleted_price", columnList = "deleted, base_price ASC")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Product extends BaseEntity {
@@ -46,16 +52,6 @@ public class Product extends BaseEntity {
 
     public static Product create(Long brandId, String name, Money basePrice) {
         return new Product(brandId, name, basePrice, false, 0L);
-    }
-
-    public void increaseLikeCount() {
-        this.likeCount++;
-    }
-
-    public void decreaseLikeCount() {
-        if (this.likeCount > 0) {
-            this.likeCount--;
-        }
     }
 
     public void update(String name, Money basePrice) {

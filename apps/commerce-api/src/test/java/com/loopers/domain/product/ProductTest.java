@@ -98,38 +98,5 @@ class ProductTest {
 
             assertThat(product.getLikeCount()).isZero();
         }
-
-        @Test
-        @DisplayName("좋아요 수를 증가시킬 수 있다")
-        void increaseLikeCount() {
-            Product product = Product.create(1L, "테스트 상품", Money.of(10000L));
-
-            product.increaseLikeCount();
-            product.increaseLikeCount();
-
-            assertThat(product.getLikeCount()).isEqualTo(2L);
-        }
-
-        @Test
-        @DisplayName("좋아요 수를 감소시킬 수 있다")
-        void decreaseLikeCount() {
-            Product product = Product.create(1L, "테스트 상품", Money.of(10000L));
-            product.increaseLikeCount();
-            product.increaseLikeCount();
-
-            product.decreaseLikeCount();
-
-            assertThat(product.getLikeCount()).isEqualTo(1L);
-        }
-
-        @Test
-        @DisplayName("좋아요 수가 0이면 더 이상 감소하지 않는다")
-        void decreaseLikeCountAtZero() {
-            Product product = Product.create(1L, "테스트 상품", Money.of(10000L));
-
-            product.decreaseLikeCount();
-
-            assertThat(product.getLikeCount()).isZero();
-        }
     }
 }

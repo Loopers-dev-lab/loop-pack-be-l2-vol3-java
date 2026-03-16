@@ -5,6 +5,7 @@ import com.loopers.domain.product.Option;
 import com.loopers.domain.product.OptionRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.application.product.ProductCacheManager;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import java.util.List;
 public class AdminProductAppService {
     private final ProductRepository productRepository;
     private final OptionRepository optionRepository;
+    private final ProductCacheManager productCacheManager;
 
     @Transactional
     public Product create(Long brandId, String name, Money basePrice) {
@@ -36,6 +38,7 @@ public class AdminProductAppService {
     public Product update(Long id, String name, Money basePrice) {
         Product product = getById(id);
         product.update(name, basePrice);
+        productCacheManager.evictProductCaches(id, product.getBrandId());
         return product;
     }
 
@@ -44,6 +47,7 @@ public class AdminProductAppService {
         Product product = getById(id);
         product.delete();
         deleteOptionsByProductId(id);
+        productCacheManager.evictProductCaches(id, product.getBrandId());
     }
 
     @Transactional

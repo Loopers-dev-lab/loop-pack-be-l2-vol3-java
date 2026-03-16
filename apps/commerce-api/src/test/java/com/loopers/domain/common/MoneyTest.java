@@ -1,6 +1,7 @@
 package com.loopers.domain.common;
 
 import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -34,10 +35,11 @@ class MoneyTest {
         }
 
         @Test
-        @DisplayName("음수 금액으로 생성 시 예외가 발생한다")
+        @DisplayName("음수 금액으로 생성 시 BAD_REQUEST 예외가 발생한다")
         void createWithNegativeAmountThrowsException() {
             assertThatThrownBy(() -> Money.of(-1000L))
-                    .isInstanceOf(CoreException.class);
+                    .isInstanceOfSatisfying(CoreException.class, e ->
+                            assertThat(e.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
     }
 
@@ -88,14 +90,14 @@ class MoneyTest {
         }
 
         @Test
-        @DisplayName("빼기 결과가 음수이면 예외가 발생한다")
+        @DisplayName("빼기 결과가 음수이면 BAD_REQUEST 예외가 발생한다")
         void subtractMoneyThrowsExceptionWhenNegative() {
             Money money1 = Money.of(300L);
             Money money2 = Money.of(1000L);
 
             assertThatThrownBy(() -> money1.subtract(money2))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("차감 결과가 음수");
+                    .isInstanceOfSatisfying(CoreException.class, e ->
+                            assertThat(e.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
 
         @Test
@@ -109,14 +111,16 @@ class MoneyTest {
         }
 
         @Test
-        @DisplayName("잘못된 할인율은 예외가 발생한다")
+        @DisplayName("잘못된 할인율은 BAD_REQUEST 예외가 발생한다")
         void percentageWithInvalidRate() {
             Money money = Money.of(10000L);
 
             assertThatThrownBy(() -> money.percentage(101))
-                    .isInstanceOf(CoreException.class);
+                    .isInstanceOfSatisfying(CoreException.class, e ->
+                            assertThat(e.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
             assertThatThrownBy(() -> money.percentage(-1))
-                    .isInstanceOf(CoreException.class);
+                    .isInstanceOfSatisfying(CoreException.class, e ->
+                            assertThat(e.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
 
         @Test
@@ -130,14 +134,16 @@ class MoneyTest {
         }
 
         @Test
-        @DisplayName("BigDecimal 할인율 범위 초과 시 예외가 발생한다")
+        @DisplayName("BigDecimal 할인율 범위 초과 시 BAD_REQUEST 예외가 발생한다")
         void percentageWithInvalidBigDecimalRate() {
             Money money = Money.of(10000L);
 
             assertThatThrownBy(() -> money.percentage(new BigDecimal("100.1")))
-                    .isInstanceOf(CoreException.class);
+                    .isInstanceOfSatisfying(CoreException.class, e ->
+                            assertThat(e.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
             assertThatThrownBy(() -> money.percentage(new BigDecimal("-0.1")))
-                    .isInstanceOf(CoreException.class);
+                    .isInstanceOfSatisfying(CoreException.class, e ->
+                            assertThat(e.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
 
         @Test
