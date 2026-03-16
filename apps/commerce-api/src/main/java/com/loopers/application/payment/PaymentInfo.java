@@ -16,6 +16,10 @@ public record PaymentInfo(
     PaymentStatus status,
     String pgTransactionId
 ) {
+    public boolean isCompleted() {
+        return status == PaymentStatus.COMPLETED;
+    }
+
     public static PaymentInfo from(PaymentModel model) {
         return new PaymentInfo(
             model.getId(),

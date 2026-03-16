@@ -100,6 +100,13 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
+    public OrderModel markPaid(Long orderId) {
+        OrderModel order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
+        order.pay();
+        return orderRepository.save(order);
+    }
+
     public OrderModel getMyOrder(Long memberId, String orderId) {
         OrderModel order = orderRepository.findByOrderId(new OrderId(orderId))
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
