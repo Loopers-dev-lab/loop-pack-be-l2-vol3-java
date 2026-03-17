@@ -204,26 +204,20 @@ class RedisCacheIntegrationTest {
     }
 
     @Test
-    @DisplayName("6. Stock 캐시 — hold 후 캐시 무효화 확인")
-    void stockCache_HoldShouldEvict() {
+    @DisplayName("6. 재고는 캐시 없이 DB 직접 조회 — hold 후 즉시 갱신된 재고 반환")
+    void stock_ShouldAlwaysQueryDb_AfterHold() {
         // given
         BrandModel brand = brandService.createBrand("브랜드", "설명", "서울");
         ProductModel product = productService.createProduct("재고상품", brand.getBrandId(),
                 BigDecimal.valueOf(10000), "설명");
         stockService.createStock(product.getProductId(), 10);
 
-        // 캐시 적재
+        // when: 재고 조회 (캐시 없이 DB 직접 조회)
         ProductStockModel stock = stockService.findByProductId(product.getProductId());
         assertThat(stock.getOnHand()).isEqualTo(10);
-        assertThat(cacheManager.getCache("stockAvailable").get(product.getProductId())).isNotNull();
 
-        // when: hold → CacheEvict
+        // when: hold 후 재조회 → 캐시 지연 없이 즉시 갱신된 재고 반환
         stockService.hold(product.getProductId(), 3);
-
-        // then: 캐시 무효화 확인
-        assertThat(cacheManager.getCache("stockAvailable").get(product.getProductId())).isNull();
-
-        // when: 재조회 → 갱신된 재고
         ProductStockModel afterHold = stockService.findByProductId(product.getProductId());
         assertThat(afterHold.getAvailableQty()).isEqualTo(7);
     }

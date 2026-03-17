@@ -15,8 +15,10 @@ import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.cache.BatchStrategies;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.cache.RedisCacheWriter;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
@@ -61,7 +63,6 @@ public class CacheConfig implements CachingConfigurer {
         Map<String, RedisCacheConfiguration> cacheConfigs = Map.of(
                 "productDetail", defaultConfig.entryTtl(Duration.ofMinutes(10)),
                 "brandDetail", defaultConfig.entryTtl(Duration.ofMinutes(30)),
-                "stockAvailable", defaultConfig.entryTtl(Duration.ofSeconds(30)),
                 "authUser", defaultConfig.entryTtl(Duration.ofMinutes(1)),
                 "statsOverview", defaultConfig.entryTtl(Duration.ofMinutes(5)),
                 "statsDaily", defaultConfig.entryTtl(Duration.ofMinutes(5)),
@@ -74,7 +75,10 @@ public class CacheConfig implements CachingConfigurer {
         Map<String, RedisCacheConfiguration> allConfigs = new java.util.HashMap<>(cacheConfigs);
         allConfigs.put("productList", defaultConfig.entryTtl(Duration.ofMinutes(5)));
 
-        RedisCacheManager manager = RedisCacheManager.builder(connectionFactory)
+        RedisCacheWriter cacheWriter = RedisCacheWriter.nonLockingRedisCacheWriter(
+                connectionFactory, BatchStrategies.scan(1000));
+
+        RedisCacheManager manager = RedisCacheManager.builder(cacheWriter)
                 .cacheDefaults(defaultConfig)
                 .withInitialCacheConfigurations(allConfigs)
                 .build();

@@ -5,8 +5,6 @@ import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
-import com.loopers.domain.product.ProductStockModel;
-import com.loopers.domain.product.StockService;
 import com.loopers.domain.stats.StatsProjection;
 import com.loopers.domain.stats.StatsService;
 import com.loopers.utils.DatabaseCleanUp;
@@ -38,9 +36,6 @@ class TwoLevelCacheIntegrationTest {
 
     @Autowired
     private BrandService brandService;
-
-    @Autowired
-    private StockService stockService;
 
     @Autowired
     private StatsService statsService;
@@ -174,13 +169,13 @@ class TwoLevelCacheIntegrationTest {
     }
 
     @Test
-    @DisplayName("5. L2-only 대상(stockAvailable)은 TwoLevelCache가 아닌 RedisCache 반환")
+    @DisplayName("5. L2-only 대상(brandDetail)은 TwoLevelCache가 아닌 RedisCache 반환")
     void l2OnlyTarget_ShouldNotUseTwoLevelCache() {
-        // given: stockAvailable은 TWO_LEVEL_CACHES에 포함되지 않음
-        Cache stockCache = cacheManager.getCache("stockAvailable");
+        // given: brandDetail은 TWO_LEVEL_CACHES에 포함되지 않음
+        Cache brandCache = cacheManager.getCache("brandDetail");
 
         // then: TwoLevelCache가 아님
-        assertThat(stockCache).isNotInstanceOf(TwoLevelCache.class);
+        assertThat(brandCache).isNotInstanceOf(TwoLevelCache.class);
     }
 
     @Test

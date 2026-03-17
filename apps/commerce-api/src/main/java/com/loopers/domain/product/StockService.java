@@ -3,8 +3,6 @@ package com.loopers.domain.product;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,7 +54,6 @@ public class StockService {
         return productStockRepository.findAllByProductIds(productIds);
     }
 
-    @Cacheable(cacheNames = "stockAvailable", key = "#productId")
     public ProductStockModel findByProductId(Long productId) {
         return productStockRepository.findByProductId(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
@@ -74,7 +71,6 @@ public class StockService {
      * @param qty       예약할 수량
      * @throws CoreException 가용 재고 부족 시 (STOCK_NOT_ENOUGH)
      */
-    @CacheEvict(cacheNames = "stockAvailable", key = "#productId")
     @Transactional
     public void hold(Long productId, int qty) {
         int affected = productStockRepository.reserveStock(productId, qty);
@@ -95,7 +91,6 @@ public class StockService {
      * @param qty       해제할 수량
      * @throws CoreException 예약 재고 부족 시 (STOCK_NOT_ENOUGH)
      */
-    @CacheEvict(cacheNames = "stockAvailable", key = "#productId")
     @Transactional
     public void release(Long productId, int qty) {
         int affected = productStockRepository.releaseStock(productId, qty);
@@ -115,7 +110,6 @@ public class StockService {
      * @param qty       확정할 수량
      * @throws CoreException 확정 실패 시 (STOCK_NOT_ENOUGH)
      */
-    @CacheEvict(cacheNames = "stockAvailable", key = "#productId")
     @Transactional
     public void commit(Long productId, int qty) {
         int affected = productStockRepository.commitStock(productId, qty);

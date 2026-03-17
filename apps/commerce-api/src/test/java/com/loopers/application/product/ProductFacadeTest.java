@@ -66,14 +66,15 @@ class ProductFacadeTest {
         when(stock1.getProductId()).thenReturn(1L);
         when(stock2.getProductId()).thenReturn(2L);
 
+        // keyword가 있으므로 캐시를 거치지 않고 DB 직접 조회
         PagedResult<ProductModel> pagedResult = new PagedResult<>(List.of(product1, product2), 0, 20, 2, 1);
-        when(productService.findAllForCustomer(eq((String) null), eq((Long) null), any(PageQuery.class)))
+        when(productService.findAllForCustomer(eq("검색어"), eq((Long) null), any(PageQuery.class)))
                 .thenReturn(pagedResult);
         when(stockService.findAllByProductIds(List.of(1L, 2L))).thenReturn(List.of(stock1, stock2));
         when(brandService.findAllByIds(List.of(1L))).thenReturn(List.of(brand));
 
         PageResponse<ProductInfo> result = productFacade.getProductsForCustomer(
-                null, null, ProductSortType.LATEST, 0, 20);
+                "검색어", null, ProductSortType.LATEST, 0, 20);
 
         assertThat(result.content()).hasSize(2);
         assertThat(result.content().get(0).getBrandName()).isEqualTo("테스트브랜드");
@@ -105,13 +106,14 @@ class ProductFacadeTest {
 
         PagedResult<ProductModel> pagedResult = new PagedResult<>(List.of(product1, product2), 0, 20, 2, 1);
         ArgumentCaptor<PageQuery> queryCaptor = ArgumentCaptor.forClass(PageQuery.class);
-        when(productService.findAllForCustomer(eq((String) null), eq((Long) null), queryCaptor.capture()))
+        // keyword가 있으므로 캐시 미대상 경로
+        when(productService.findAllForCustomer(eq("키워드"), eq((Long) null), queryCaptor.capture()))
                 .thenReturn(pagedResult);
         when(stockService.findAllByProductIds(List.of(1L, 2L))).thenReturn(List.of(stock1, stock2));
         when(brandService.findAllByIds(List.of(1L))).thenReturn(List.of(brand));
 
         PageResponse<ProductInfo> result = productFacade.getProductsForCustomer(
-                null, null, ProductSortType.LIKES_DESC, 0, 20);
+                "키워드", null, ProductSortType.LIKES_DESC, 0, 20);
 
         assertThat(result.content()).hasSize(2);
         PageQuery capturedQuery = queryCaptor.getValue();
@@ -193,4 +195,36 @@ class ProductFacadeTest {
         verify(stockService).findByProductId(1L);
     }
 
+    @Test
+    @DisplayName("캐시 대상 조건(keyword=null, page=0, size=20) 시 getCachedProductListIds를 통해 ID 캐시 경로로 조회한다")
+    void getProductsForCustomer_CacheTarget_ShouldUseCachedIdPath() {
+        ProductModel product1 = mock(ProductModel.class);
+        when(product1.getProductId()).thenReturn(1L);
+        when(product1.getBrandId()).thenReturn(1L);
+        when(product1.getLikeCount()).thenReturn(5L);
+
+        ProductStockModel stock1 = mock(ProductStockModel.class);
+        when(stock1.getAvailableQty()).thenReturn(50);
+        when(stock1.getProductId()).thenReturn(1L);
+
+        BrandModel brand = mock(BrandModel.class);
+        when(brand.getBrandId()).thenReturn(1L);
+        when(brand.getBrandName()).thenReturn("브랜드");
+
+        // getCachedProductListIds → findAllForCustomer 호출
+        PagedResult<ProductModel> pagedResult = new PagedResult<>(List.of(product1), 0, 20, 1, 1);
+        when(productService.findAllForCustomer(eq((String) null), eq((Long) null), any(PageQuery.class)))
+                .thenReturn(pagedResult);
+        // getProductsFromCachedIds에서 개별 findById 호출 (productDetail 캐시 활용)
+        when(productService.findById(1L)).thenReturn(product1);
+        when(stockService.findAllByProductIds(List.of(1L))).thenReturn(List.of(stock1));
+        when(brandService.findAllByIds(List.of(1L))).thenReturn(List.of(brand));
+
+        PageResponse<ProductInfo> result = productFacade.getProductsForCustomer(
+                null, null, ProductSortType.LATEST, 0, 20);
+
+        assertThat(result.content()).hasSize(1);
+        // 개별 productDetail 캐시 경로를 통해 findById가 호출됨
+        verify(productService).findById(1L);
+    }
 }

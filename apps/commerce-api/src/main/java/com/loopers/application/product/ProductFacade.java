@@ -35,6 +35,11 @@ import java.util.stream.Collectors;
  *   <li>관리자용 상품 목록 조회 (재고 포함)</li>
  *   <li>변경 이력(Revision) 조회</li>
  * </ul>
+ *
+ * <h3>캐시 위계 분리</h3>
+ * <p>상품 목록 캐시(productList)는 상품 ID 목록 + 페이징 메타만 저장하고,
+ * 개별 상품 정보는 productDetail 캐시(L1+L2)에서 조회한다.
+ * 이로써 상품 수정 시 목록 캐시를 invalidate할 필요 없이 productDetail만 evict하면 된다.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -61,31 +66,60 @@ public class ProductFacade {
     public PageResponse<ProductInfo> getProductsForCustomer(String keyword, Long brandId,
                                                             ProductSortType sort, int page, int size) {
         if (keyword == null && page == 0 && size == 20) {
-            return getCachedProductList(brandId, sort, page, size);
+            return getProductsFromCachedIds(brandId, sort, page, size);
         }
         return getProductsFromDb(keyword, brandId, sort, page, size);
     }
 
+    /**
+     * 캐시 위계 분리: productList 캐시에는 ID 목록 + 페이징 메타만 저장한다.
+     * 개별 상품 정보는 productDetail 캐시(L1+L2)에서 조회하여 조합한다.
+     */
+    private PageResponse<ProductInfo> getProductsFromCachedIds(Long brandId,
+                                                               ProductSortType sort, int page, int size) {
+        ProductListIdCache idCache = getCachedProductListIds(brandId, sort, page, size);
+
+        List<ProductModel> products = idCache.productIds().stream()
+                .map(productService::findById)
+                .toList();
+
+        List<ProductInfo> enriched = enrichProducts(products);
+
+        return new PageResponse<>(enriched, idCache.page(), idCache.size(),
+                idCache.totalElements(), idCache.totalPages());
+    }
+
     @Cacheable(cacheNames = "productList",
                key = "T(String).valueOf(#brandId) + ':' + #sort.name() + ':p' + #page + ':s' + #size")
-    public PageResponse<ProductInfo> getCachedProductList(Long brandId,
-                                                          ProductSortType sort, int page, int size) {
-        return getProductsFromDb(null, brandId, sort, page, size);
+    public ProductListIdCache getCachedProductListIds(Long brandId,
+                                                      ProductSortType sort, int page, int size) {
+        PageQuery query = buildPageQuery(sort, page, size);
+        PagedResult<ProductModel> productPage = productService.findAllForCustomer(null, brandId, query);
+
+        List<Long> productIds = productPage.content().stream()
+                .map(ProductModel::getProductId)
+                .toList();
+
+        return new ProductListIdCache(productIds, productPage.page(), productPage.size(),
+                productPage.totalElements(), productPage.totalPages());
     }
 
     private PageResponse<ProductInfo> getProductsFromDb(String keyword, Long brandId,
                                                          ProductSortType sort, int page, int size) {
-        PageQuery query = switch (sort) {
-            case LATEST -> new PageQuery(page, size, "createdAt", false);
-            case PRICE_ASC -> new PageQuery(page, size, "price", true);
-            case LIKES_DESC -> new PageQuery(page, size, "likeCount", false);
-        };
-
+        PageQuery query = buildPageQuery(sort, page, size);
         PagedResult<ProductModel> productPage = productService.findAllForCustomer(keyword, brandId, query);
         List<ProductInfo> enriched = enrichProducts(productPage.content());
 
         return new PageResponse<>(enriched, productPage.page(), productPage.size(),
                 productPage.totalElements(), productPage.totalPages());
+    }
+
+    private PageQuery buildPageQuery(ProductSortType sort, int page, int size) {
+        return switch (sort) {
+            case LATEST -> new PageQuery(page, size, "createdAt", false);
+            case PRICE_ASC -> new PageQuery(page, size, "price", true);
+            case LIKES_DESC -> new PageQuery(page, size, "likeCount", false);
+        };
     }
 
     /**
@@ -124,7 +158,8 @@ public class ProductFacade {
     /**
      * 상품을 신규 등록한다.
      *
-     * <p>브랜드 존재 여부를 검증한 뒤, 상품을 생성하고, 초기 재고를 설정한다.</p>
+     * <p>브랜드 존재 여부를 검증한 뒤, 상품을 생성하고, 초기 재고를 설정한다.
+     * 상품 생성은 목록 구조를 변경하므로 productList 캐시를 전체 무효화한다.</p>
      *
      * @param command 상품 생성 커맨드
      * @return 생성된 상품 정보
@@ -142,12 +177,13 @@ public class ProductFacade {
     /**
      * 상품 정보를 수정한다.
      *
-     * <p>상품을 수정한 뒤 재고 정보를 결합하여 반환한다.</p>
+     * <p>상품을 수정한 뒤 재고 정보를 결합하여 반환한다.
+     * 캐시 위계 분리에 의해 productList는 ID 목록만 캐싱하므로,
+     * 상품 정보 수정 시 productList evict 불필요 (productDetail만 evict됨).</p>
      *
      * @param command 상품 수정 커맨드
      * @return 수정된 상품 정보
      */
-    @CacheEvict(cacheNames = "productList", allEntries = true)
     @Transactional
     public ProductInfo updateProduct(ProductUpdateCommand command) {
         ProductModel product = productService.updateProduct(
