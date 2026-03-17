@@ -333,6 +333,107 @@ class PaymentApiE2ETest {
         }
     }
 
+    @Nested
+    class 주문별_결제_조회 {
+
+        private static final String ORDER_PAYMENT_ENDPOINT = "/api/v1/orders";
+
+        @Test
+        void 결제가_있는_주문을_조회하면_200_응답과_결제_정보를_반환한다() {
+            fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long orderId = fixture.placeOrder(
+                    List.of(new OrderRequest.PlaceItem(productId, 1)),
+                    LOGIN_ID, PASSWORD);
+
+            Payment payment = fixture.requestPayment(orderId, 1L, new BigDecimal("50000"));
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    ORDER_PAYMENT_ENDPOINT + "/" + orderId + "/payment", HttpMethod.GET,
+                    new HttpEntity<>(fixture.userHeaders(LOGIN_ID, PASSWORD)),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().id()).isEqualTo(payment.getId()),
+                    () -> assertThat(response.getBody().data().orderId()).isEqualTo(orderId),
+                    () -> assertThat(response.getBody().data().status()).isEqualTo(PaymentStatus.IN_PROGRESS)
+            );
+        }
+
+        @Test
+        void 결제가_없는_주문을_조회하면_200_응답과_빈_결제_정보를_반환한다() {
+            fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long orderId = fixture.placeOrder(
+                    List.of(new OrderRequest.PlaceItem(productId, 1)),
+                    LOGIN_ID, PASSWORD);
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    ORDER_PAYMENT_ENDPOINT + "/" + orderId + "/payment", HttpMethod.GET,
+                    new HttpEntity<>(fixture.userHeaders(LOGIN_ID, PASSWORD)),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().id()).isNull(),
+                    () -> assertThat(response.getBody().data().orderId()).isEqualTo(orderId),
+                    () -> assertThat(response.getBody().data().status()).isNull()
+            );
+        }
+
+        @Test
+        void 주문이_존재하지_않으면_404_응답() {
+            fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    ORDER_PAYMENT_ENDPOINT + "/999/payment", HttpMethod.GET,
+                    new HttpEntity<>(fixture.userHeaders(LOGIN_ID, PASSWORD)),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
+                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 주문입니다")
+            );
+        }
+
+        @Test
+        void 본인의_주문이_아니면_404_응답() {
+            fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
+            fixture.signUp("otheruser", "Other1234!", "김철수", "other@example.com");
+
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long orderId = fixture.placeOrder(
+                    List.of(new OrderRequest.PlaceItem(productId, 1)),
+                    "otheruser", "Other1234!");
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    ORDER_PAYMENT_ENDPOINT + "/" + orderId + "/payment", HttpMethod.GET,
+                    new HttpEntity<>(fixture.userHeaders(LOGIN_ID, PASSWORD)),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        void 인증_헤더가_누락되면_401_응답() {
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    ORDER_PAYMENT_ENDPOINT + "/1/payment", HttpMethod.GET,
+                    new HttpEntity<>(null),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+    }
+
     private ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> postPayment(PaymentRequest.Request request) {
         return testRestTemplate.exchange(
                 PAYMENT_ENDPOINT, HttpMethod.POST,

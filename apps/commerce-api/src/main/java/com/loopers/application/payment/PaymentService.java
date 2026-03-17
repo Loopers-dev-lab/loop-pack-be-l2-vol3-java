@@ -61,6 +61,11 @@ public class PaymentService {
     }
 
     @Transactional(readOnly = true)
+    public Optional<Payment> getLatestPaymentByOrderId(Long orderId) {
+        return paymentRepository.findLatestByOrderId(orderId);
+    }
+
+    @Transactional(readOnly = true)
     public boolean existsActivePayment(Long orderId) {
         return paymentRepository.existsActiveByOrderId(orderId);
     }

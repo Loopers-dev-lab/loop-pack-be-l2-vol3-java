@@ -164,6 +164,33 @@ class PaymentServiceIntegrationTest {
     }
 
     @Nested
+    class 주문별_최신_결제_조회 {
+
+        @Test
+        void 결제가_있으면_최신_결제를_반환한다() {
+            Payment first = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            first.markFailed("첫 번째 실패");
+            paymentRepository.save(first);
+
+            Payment second = paymentService.createPayment(1L, 100L, CardType.KB, "9999-8888-7777-6666", new BigDecimal("50000"));
+
+            Optional<Payment> found = paymentService.getLatestPaymentByOrderId(1L);
+
+            assertAll(
+                    () -> assertThat(found).isPresent(),
+                    () -> assertThat(found.get().getId()).isEqualTo(second.getId())
+            );
+        }
+
+        @Test
+        void 결제가_없으면_빈_Optional을_반환한다() {
+            Optional<Payment> found = paymentService.getLatestPaymentByOrderId(999L);
+
+            assertThat(found).isEmpty();
+        }
+    }
+
+    @Nested
     class 활성_결제_존재_확인 {
 
         @Test

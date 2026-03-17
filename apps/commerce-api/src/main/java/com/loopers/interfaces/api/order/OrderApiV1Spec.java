@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.order;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.auth.AuthenticatedUser;
+import com.loopers.interfaces.api.payment.PaymentV1Dto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -27,6 +28,15 @@ public interface OrderApiV1Spec {
             description = "본인의 주문 상세 정보를 조회합니다."
     )
     ApiResponse<OrderV1Dto.OrderResponse> getOrderDetail(
+            AuthenticatedUser user,
+            Long orderId
+    );
+
+    @Operation(
+            summary = "주문별 결제 조회",
+            description = "해당 주문에 연결된 결제 정보를 조회합니다."
+    )
+    ApiResponse<PaymentV1Dto.PaymentResponse> getPaymentByOrder(
             AuthenticatedUser user,
             Long orderId
     );

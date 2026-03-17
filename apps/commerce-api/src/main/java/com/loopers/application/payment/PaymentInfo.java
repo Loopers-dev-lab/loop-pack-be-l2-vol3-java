@@ -19,6 +19,10 @@ public record PaymentInfo(
         LocalDateTime createdAt
 ) {
 
+    public static PaymentInfo empty(Long orderId) {
+        return new PaymentInfo(null, orderId, null, null, null, null, null, null, null);
+    }
+
     public static PaymentInfo from(Payment payment) {
         return new PaymentInfo(
                 payment.getId(),

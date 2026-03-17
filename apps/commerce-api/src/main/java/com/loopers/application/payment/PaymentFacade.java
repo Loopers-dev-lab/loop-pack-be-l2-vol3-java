@@ -77,6 +77,17 @@ public class PaymentFacade {
         return PaymentInfo.from(payment);
     }
 
+    @Transactional(readOnly = true)
+    public PaymentInfo getPaymentByOrder(Long userId, Long orderId) {
+        Order order = orderService.getOrder(orderId);
+        if (!order.isOwnedBy(userId)) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다");
+        }
+        return paymentService.getLatestPaymentByOrderId(orderId)
+                .map(PaymentInfo::from)
+                .orElse(PaymentInfo.empty(orderId));
+    }
+
     private BigDecimal validateOrder(Long userId, Long orderId) {
         Order order = orderService.getOrder(orderId);
         if (!order.isOwnedBy(userId)) {
