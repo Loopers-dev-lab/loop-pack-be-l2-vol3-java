@@ -4,6 +4,7 @@ import com.loopers.domain.brand.Brand;
 import com.loopers.domain.product.Product;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -36,6 +37,7 @@ public class DataInitializer {
     @Autowired
     TransactionTemplate transactionTemplate;
 
+    @Disabled("성능 테스트 데이터 시딩 전용 - 수동 실행 필요")
     @Test
     void initialize() {
         List<Long> brandIds = saveBrands(50);
