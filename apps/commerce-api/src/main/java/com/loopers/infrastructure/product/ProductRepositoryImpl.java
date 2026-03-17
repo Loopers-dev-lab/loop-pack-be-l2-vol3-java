@@ -1,5 +1,7 @@
 package com.loopers.infrastructure.product;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.loopers.domain.brand.BrandStatus;
 import com.loopers.domain.common.CursorResult;
 import com.loopers.domain.product.Product;
@@ -14,6 +16,7 @@ import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.springframework.stereotype.Repository;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,10 +30,14 @@ import java.util.Optional;
 @Repository
 public class ProductRepositoryImpl implements ProductRepository {
 
+    private static final String ACTIVE_BRAND_IDS_KEY = "activeBrandIds";
+
     private final ProductJpaRepository productJpaRepository;
     private final ProductMapper productMapper;
     private final JPAQueryFactory queryFactory;
     private final BrandJpaRepository brandJpaRepository;
+
+    private final LoadingCache<String, List<Long>> activeBrandIdsCache;
 
     public ProductRepositoryImpl(
         ProductJpaRepository productJpaRepository,
@@ -42,6 +49,11 @@ public class ProductRepositoryImpl implements ProductRepository {
         this.productMapper = productMapper;
         this.queryFactory = queryFactory;
         this.brandJpaRepository = brandJpaRepository;
+
+        this.activeBrandIdsCache = Caffeine.newBuilder()
+                .expireAfterWrite(Duration.ofSeconds(30))
+                .maximumSize(1)
+                .build(key -> loadActiveBrandIds());
     }
 
     @Override
@@ -187,6 +199,10 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     private List<Long> getActiveBrandIds() {
+        return activeBrandIdsCache.get(ACTIVE_BRAND_IDS_KEY);
+    }
+
+    private List<Long> loadActiveBrandIds() {
         return brandJpaRepository.findAllByStatusAndDeletedAtIsNull(BrandStatus.ACTIVE)
                 .stream()
                 .map(BrandEntity::getId)
