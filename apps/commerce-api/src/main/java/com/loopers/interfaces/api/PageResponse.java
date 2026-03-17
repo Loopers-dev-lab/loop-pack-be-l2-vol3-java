@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api;
 
+import com.loopers.application.PageResult;
 import org.springframework.data.domain.Page;
 
 import java.util.List;
@@ -18,6 +19,16 @@ public record PageResponse<T>(
                 page.getSize(),
                 page.getTotalElements(),
                 page.getTotalPages()
+        );
+    }
+
+    public static <T> PageResponse<T> from(PageResult<T> result) {
+        return new PageResponse<>(
+                result.items(),
+                result.page(),
+                result.size(),
+                result.totalElements(),
+                result.totalPages()
         );
     }
 }

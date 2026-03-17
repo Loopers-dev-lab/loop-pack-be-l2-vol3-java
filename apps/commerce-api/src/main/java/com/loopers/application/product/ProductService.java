@@ -3,9 +3,12 @@ package com.loopers.application.product;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.application.order.OrderItemCommand;
+import com.loopers.config.CacheConfig;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -55,6 +58,10 @@ public class ProductService {
         return productRepository.findAllProducts(brandId, pageable).map(ProductInfo::from);
     }
 
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CacheConfig.PRODUCT, key = "#id"),
+            @CacheEvict(cacheNames = CacheConfig.PRODUCTS, allEntries = true)
+    })
     @Transactional
     public ProductInfo update(Long id, ProductUpdateCommand command) {
         Product product = findById(id);
