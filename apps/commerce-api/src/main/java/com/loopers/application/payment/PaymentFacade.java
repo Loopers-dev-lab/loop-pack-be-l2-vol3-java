@@ -18,6 +18,7 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 @Slf4j
 @Component
@@ -43,6 +44,26 @@ public class PaymentFacade {
         // 3. 최종 상태 조회
         Payment updatedPayment = paymentService.getPayment(payment.getId());
         return PaymentInfo.from(updatedPayment);
+    }
+
+    @Transactional
+    public void handleCallback(PaymentCommand.Callback command) {
+        Optional<Payment> optPayment = paymentService.getPaymentByTransactionKey(command.transactionKey());
+        if (optPayment.isEmpty()) {
+            return;
+        }
+
+        Payment payment = optPayment.get();
+        if (payment.isFinalized()) {
+            return;
+        }
+
+        if (command.isSuccess()) {
+            payment.markSucceeded(command.transactionKey());
+            orderService.payOrder(payment.getOrderId());
+        } else {
+            payment.markFailed(command.reason());
+        }
     }
 
     // Query

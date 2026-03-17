@@ -44,6 +44,13 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
+    @Transactional
+    public void payOrder(Long orderId) {
+        Order order = orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다"));
+        order.pay();
+    }
+
     // Query
 
     @Transactional(readOnly = true)

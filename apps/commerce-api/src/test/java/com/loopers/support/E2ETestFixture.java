@@ -1,5 +1,8 @@
 package com.loopers.support;
 
+import com.loopers.application.payment.PaymentService;
+import com.loopers.domain.payment.CardType;
+import com.loopers.domain.payment.Payment;
 import com.loopers.interfaces.api.brand.BrandRequest;
 import com.loopers.interfaces.api.coupon.CouponAdminV1Dto;
 import com.loopers.interfaces.api.coupon.CouponRequest;
@@ -37,6 +40,9 @@ public class E2ETestFixture {
 
     @Autowired
     private TestRestTemplate restTemplate;
+
+    @Autowired
+    private PaymentService paymentService;
 
     // Auth
 
@@ -154,6 +160,12 @@ public class E2ETestFixture {
     public Long placeOrder(List<OrderRequest.PlaceItem> orderItems,
                            String loginId, String password) {
         return placeOrder(orderItems, null, loginId, password);
+    }
+
+    public Payment requestPayment(Long orderId, Long userId, BigDecimal amount) {
+        Payment payment = paymentService.createPayment(orderId, userId, CardType.SAMSUNG, "1234-5678-9012-3456", amount);
+        paymentService.markInProgress(payment.getId(), "20250317:TR:test-" + payment.getId());
+        return paymentService.getPayment(payment.getId());
     }
 
     // Teardown

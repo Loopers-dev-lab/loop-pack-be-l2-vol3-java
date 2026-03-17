@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -107,6 +108,58 @@ class PaymentServiceIntegrationTest {
             assertThatThrownBy(() -> paymentService.getPayment(999L))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+    }
+
+    @Nested
+    class 상태_변경_SUCCEEDED {
+
+        @Test
+        void PENDING에서_SUCCEEDED로_변경된다() {
+            Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+
+            paymentService.markSucceeded(payment.getId(), "20250317:TR:abc123");
+
+            Payment updated = paymentService.getPayment(payment.getId());
+            assertAll(
+                    () -> assertThat(updated.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED),
+                    () -> assertThat(updated.getTransactionKey()).isEqualTo("20250317:TR:abc123")
+            );
+        }
+
+        @Test
+        void IN_PROGRESS에서_SUCCEEDED로_변경된다() {
+            Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            paymentService.markInProgress(payment.getId(), "20250317:TR:abc123");
+
+            paymentService.markSucceeded(payment.getId(), "20250317:TR:abc123");
+
+            Payment updated = paymentService.getPayment(payment.getId());
+            assertThat(updated.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
+        }
+    }
+
+    @Nested
+    class transactionKey_조회 {
+
+        @Test
+        void 존재하는_transactionKey이면_결제를_반환한다() {
+            Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            paymentService.markInProgress(payment.getId(), "20250317:TR:abc123");
+
+            Optional<Payment> found = paymentService.getPaymentByTransactionKey("20250317:TR:abc123");
+
+            assertAll(
+                    () -> assertThat(found).isPresent(),
+                    () -> assertThat(found.get().getId()).isEqualTo(payment.getId())
+            );
+        }
+
+        @Test
+        void 존재하지_않는_transactionKey이면_빈_Optional을_반환한다() {
+            Optional<Payment> found = paymentService.getPaymentByTransactionKey("nonexistent");
+
+            assertThat(found).isEmpty();
         }
     }
 

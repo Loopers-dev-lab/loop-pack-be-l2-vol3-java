@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.payment;
 
+import com.loopers.infrastructure.payment.dto.PgCallbackPayload;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.AuthenticatedUser;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +16,9 @@ public interface PaymentApiV1Spec {
             AuthenticatedUser user,
             PaymentRequest.Request request
     );
+
+    @Operation(summary = "결제 콜백 수신", description = "PG 시스템이 결제 결과를 콜백으로 전달한다")
+    void handleCallback(PgCallbackPayload payload);
 
     // Query
 
