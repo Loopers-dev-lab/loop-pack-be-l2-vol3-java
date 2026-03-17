@@ -164,6 +164,43 @@ Grafana: http://localhost:3000 (admin/admin)
 - **도구**: `TestRestTemplate`
 - **검증**: 실제 HTTP Status Code와 `ApiResponse` 본문 검증.
 
+## 아키텍처 검증 (ArchUnit) — 절대 규칙
+
+모든 코드는 `ArchitectureTest.java`의 **15개 룰을 무조건 통과**해야 한다. 위반 시 빌드 실패.
+- DB/외부 연동 로직 추가 시: **구현체는 `infrastructure`에, 인터페이스는 `domain` 또는 `application`에 배치** (DIP 절대 준수).
+- 실행: `./gradlew :apps:commerce-api:test --tests "com.loopers.architecture.ArchitectureTest"`
+
+### 계층 의존성 (4개)
+| 룰 | 설명 |
+|-----|------|
+| Domain Purity | domain → application/infrastructure/interfaces 의존 금지 |
+| DIP (App→Infra) | application → infrastructure 의존 금지 |
+| DIP (Interfaces→Infra) | interfaces → infrastructure 의존 금지 |
+| Layered Architecture | 전체 계층 방향 검증 |
+
+### 코드 품질 (5개)
+| 룰 | 설명 |
+|-----|------|
+| No Field Injection | @Autowired 필드 주입 절대 금지. @RequiredArgsConstructor만 사용 |
+| No Cyclic Dependencies | 패키지 간 순환 참조 완전 차단 |
+| No Standard Output | System.out/err, printStackTrace 사용 금지. @Slf4j 사용 |
+| Transactional Enforced | AppService public 메서드는 반드시 @Transactional 명시 |
+| No Entity Leakage | Controller가 도메인 엔티티를 직접 반환 금지. ApiResponse<DTO>만 허용 |
+
+### 네이밍 & 어노테이션 (3개)
+| 룰 | 설명 |
+|-----|------|
+| Controller Convention | *Controller → interfaces 패키지 + @RestController |
+| AppService Convention | *AppService → application 패키지 + @Service |
+| Facade Convention | *Facade → application 패키지 + @Component |
+
+### 접근 제어 (3개)
+| 룰 | 설명 |
+|-----|------|
+| Controller→Repository 차단 | Controller에서 Repository 직접 사용 금지 |
+| Facade→Repository 차단 | Facade에서 Repository 직접 사용 금지. AppService만 사용 |
+| ApiResponse 강제 | Controller public 메서드 반환 타입은 반드시 ApiResponse |
+
 ## AI 페르소나 및 행동 지침
 - **언어**: 한국어 (기술 용어는 영어 병기 가능)
 - **우선순위**:

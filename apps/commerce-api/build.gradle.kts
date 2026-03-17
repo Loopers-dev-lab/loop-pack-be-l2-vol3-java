@@ -19,6 +19,9 @@ dependencies {
     annotationProcessor("jakarta.persistence:jakarta.persistence-api")
     annotationProcessor("jakarta.annotation:jakarta.annotation-api")
 
+    // archunit
+    testImplementation("com.tngtech.archunit:archunit-junit5:${project.properties["archunitVersion"]}")
+
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
