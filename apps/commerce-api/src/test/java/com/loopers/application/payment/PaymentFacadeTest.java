@@ -9,6 +9,7 @@ import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.InMemoryPaymentRepository;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentStatus;
+import com.loopers.infrastructure.client.PgPaymentGateway;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +22,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
 
 class PaymentFacadeTest {
 
@@ -34,7 +36,7 @@ class PaymentFacadeTest {
         paymentRepository = new InMemoryPaymentRepository();
         orderRepository = new InMemoryOrderRepository();
         orderService = new OrderService(orderRepository, new InMemoryOrderItemRepository());
-        paymentFacade = new PaymentFacade(paymentRepository, orderService);
+        paymentFacade = new PaymentFacade(paymentRepository, orderService, mock(PgPaymentGateway.class), "http://localhost:8080/api/v1/payments/callback");
     }
 
     @DisplayName("PG 콜백 수신 시, ")

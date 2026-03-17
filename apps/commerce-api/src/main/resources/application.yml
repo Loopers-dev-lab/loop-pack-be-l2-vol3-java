@@ -33,6 +33,9 @@ pg:
   simulator:
     url: http://localhost:8082
 
+payment:
+  callback-url: http://localhost:8080/api/v1/payments/callback
+
 feign:
   client:
     config:
