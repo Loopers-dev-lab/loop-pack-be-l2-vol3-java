@@ -59,8 +59,11 @@ class ProductCacheE2ETest {
 
     @AfterEach
     void tearDown() {
-        databaseCleanUp.truncateAllTables();
-        redisCleanUp.truncateAll();
+        try {
+            databaseCleanUp.truncateAllTables();
+        } finally {
+            redisCleanUp.truncateAll();
+        }
     }
 
     private HttpHeaders adminHeaders() {
