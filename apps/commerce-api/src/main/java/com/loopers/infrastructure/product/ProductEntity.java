@@ -18,10 +18,10 @@ import java.time.ZonedDateTime;
  */
 @Entity
 @Table(name = "products", indexes = {
-        @Index(name = "idx_products_latest", columnList = "created_at DESC, id DESC, status, deleted_at"),
-        @Index(name = "idx_products_price", columnList = "base_price ASC, id ASC, status, deleted_at"),
-        @Index(name = "idx_products_likes", columnList = "like_count DESC, id DESC, status, deleted_at"),
-        @Index(name = "idx_products_brand", columnList = "brand_id, status, deleted_at")
+        @Index(name = "idx_products_latest", columnList = "created_at DESC, id DESC"),
+        @Index(name = "idx_products_price", columnList = "base_price ASC, id ASC"),
+        @Index(name = "idx_products_likes", columnList = "like_count DESC, id DESC"),
+        @Index(name = "idx_products_brand", columnList = "brand_id, status")
 })
 public class ProductEntity {
 
