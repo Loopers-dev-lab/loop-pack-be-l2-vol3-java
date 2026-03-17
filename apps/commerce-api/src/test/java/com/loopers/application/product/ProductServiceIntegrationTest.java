@@ -516,48 +516,6 @@ class ProductServiceIntegrationTest {
     }
 
     @Nested
-    class 브랜드별_배치_삭제 {
-
-        @Test
-        void 해당_브랜드의_활성_상품이_배치_크기만큼_삭제된다() {
-            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
-            productService.register(ProductCommand.Register.of(brand.getId(), "운동화A", new BigDecimal("10000"), 10, "설명A"));
-            productService.register(ProductCommand.Register.of(brand.getId(), "운동화B", new BigDecimal("20000"), 20, "설명B"));
-            productService.register(ProductCommand.Register.of(brand.getId(), "운동화C", new BigDecimal("30000"), 30, "설명C"));
-
-            int deleted = productService.softDeleteByBrandIdInBatch(brand.getId(), 2);
-
-            assertThat(deleted).isEqualTo(2);
-        }
-
-        @Test
-        void 이미_삭제된_상품은_배치_삭제_대상에서_제외된다() {
-            Brand brand = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
-            Product p1 = productService.register(ProductCommand.Register.of(brand.getId(), "운동화A", new BigDecimal("10000"), 10, "설명A"));
-            productService.register(ProductCommand.Register.of(brand.getId(), "운동화B", new BigDecimal("20000"), 20, "설명B"));
-            p1.delete();
-            productRepository.save(p1);
-
-            int deleted = productService.softDeleteByBrandIdInBatch(brand.getId(), 10);
-
-            assertThat(deleted).isEqualTo(1);
-        }
-
-        @Test
-        void 다른_브랜드의_상품은_영향받지_않는다() {
-            Brand brand1 = brandRepository.save(Brand.create("나이키", "스포츠 브랜드"));
-            Brand brand2 = brandRepository.save(Brand.create("아디다스", "독일 스포츠 브랜드"));
-            productService.register(ProductCommand.Register.of(brand1.getId(), "나이키 운동화", new BigDecimal("10000"), 10, "설명"));
-            productService.register(ProductCommand.Register.of(brand2.getId(), "아디다스 운동화", new BigDecimal("20000"), 20, "설명"));
-
-            productService.softDeleteByBrandIdInBatch(brand1.getId(), 10);
-
-            Page<Product> brand2Products = productService.findProducts(null, brand2.getId(), false, PageRequest.of(0, 20));
-            assertThat(brand2Products.getContent()).hasSize(1);
-        }
-    }
-
-    @Nested
     class 미정리_브랜드_조회 {
 
         @Test

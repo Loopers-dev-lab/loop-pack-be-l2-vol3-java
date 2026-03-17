@@ -28,6 +28,12 @@ auth:
   admin:
     ldap-credential: admin-ldap
 
+pg:
+  base-url: http://localhost:8082
+  callback-url: http://localhost:8080/api/v1/payments/callback
+  connect-timeout: 3000
+  read-timeout: 5000
+
 springdoc:
   use-fqn: true
   swagger-ui:
