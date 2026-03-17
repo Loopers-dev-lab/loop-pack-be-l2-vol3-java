@@ -69,7 +69,24 @@ public class Order extends BaseEntity {
         return new Order(userId, orderItemSnapshots, discountAmount, issuedCouponId);
     }
 
+    public void markPaid() {
+        if (status != Status.ORDERED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "결제 완료 처리는 ORDERED 상태에서만 가능합니다.");
+        }
+
+        this.status = Status.PAID;
+    }
+
+    public void markFailed() {
+        if (status != Status.ORDERED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문 실패 처리는 ORDERED 상태에서만 가능합니다.");
+        }
+        this.status = Status.FAILED;
+    }
+
     public enum Status {
-        ORDERED
+        ORDERED,
+        PAID,
+        FAILED,
     }
 }
