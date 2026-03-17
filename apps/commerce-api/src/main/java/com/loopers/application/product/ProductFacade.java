@@ -25,6 +25,7 @@ public class ProductFacade {
     private final ProductService productService;
     private final LikeService likeService;
 
+    @CacheEvict(cacheNames = CacheConfig.PRODUCTS, allEntries = true)
     @Transactional
     public ProductInfo register(ProductCreateCommand command) {
         brandService.getBrand(command.brandId());

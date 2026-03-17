@@ -22,8 +22,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assumptions.assumeThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -185,6 +187,71 @@ class ProductCacheE2ETest {
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(ids).contains(saved.getId())
+            );
+        }
+
+        @DisplayName("캐시 무효화: 상품 등록 API 호출 후, 목록 재조회 시 신규 상품이 즉시 포함된다.")
+        @Test
+        void includesNewProduct_afterCacheEvictedByRegisterApi() {
+            // arrange
+            Brand brand = saveBrand("나이키");
+            Product productA = saveProduct(brand.getId(), "에어맥스", 150000, 10);
+
+            // 첫 번째 조회 - 캐시 미스 → Redis에 저장 (productA만 포함)
+            testRestTemplate.exchange(
+                    PRODUCT_ENDPOINT,
+                    HttpMethod.GET, null,
+                    new ParameterizedTypeReference<ApiResponse<PageResponse<ProductV1Dto.ProductResponse>>>() {}
+            );
+
+            // DB에 직접 productB 저장 (캐시 eviction 없이 DB 상태 변경)
+            Product productB = saveProduct(brand.getId(), "조던", 200000, 5);
+
+            // 캐시 히트 전제 확인: productB는 DB에 있지만 캐시에는 없으므로 목록에 나타나지 않아야 함
+            ResponseEntity<ApiResponse<PageResponse<ProductV1Dto.ProductResponse>>> cachedResponse =
+                    testRestTemplate.exchange(
+                            PRODUCT_ENDPOINT,
+                            HttpMethod.GET, null,
+                            new ParameterizedTypeReference<>() {}
+                    );
+            List<Long> cachedIds = cachedResponse.getBody().data().content().stream()
+                                                 .map(ProductV1Dto.ProductResponse::id)
+                                                 .toList();
+            assumeThat(cachedIds).doesNotContain(productB.getId());
+
+            // act - Admin API로 productC 등록 → @CacheEvict(allEntries=true) 발동
+            Map<String, Object> createRequest = Map.of(
+                    "brandId", brand.getId(),
+                    "name", "나이키 SB",
+                    "price", 120000,
+                    "stockQuantity", 3
+            );
+            ResponseEntity<ApiResponse<ProductV1Dto.AdminProductResponse>> registerResponse =
+                    testRestTemplate.exchange(
+                            ADMIN_PRODUCT_ENDPOINT,
+                            HttpMethod.POST,
+                            new HttpEntity<>(createRequest, adminHeaders()),
+                            new ParameterizedTypeReference<>() {}
+                    );
+            Long productCId = registerResponse.getBody().data().id();
+
+            // 캐시 무효화 후 재조회: DB 재조회 → productA, productB, productC 모두 포함
+            ResponseEntity<ApiResponse<PageResponse<ProductV1Dto.ProductResponse>>> response =
+                    testRestTemplate.exchange(
+                            PRODUCT_ENDPOINT,
+                            HttpMethod.GET, null,
+                            new ParameterizedTypeReference<>() {}
+                    );
+
+            // assert
+            List<Long> ids = response.getBody().data().content().stream()
+                                     .map(ProductV1Dto.ProductResponse::id)
+                                     .toList();
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(ids).contains(productA.getId()),
+                    () -> assertThat(ids).contains(productB.getId()), // evict 전엔 안 보였던 상품이 이제 보임
+                    () -> assertThat(ids).contains(productCId)        // 방금 등록한 상품도 포함
             );
         }
 
