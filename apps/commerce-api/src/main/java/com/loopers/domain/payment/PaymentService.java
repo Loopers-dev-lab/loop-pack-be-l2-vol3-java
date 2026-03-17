@@ -3,6 +3,8 @@ package com.loopers.domain.payment;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.domain.shared.annotation.DomainService;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,5 +27,17 @@ public class PaymentService {
     public Payment create(NewPayment newPayment) {
         Payment payment = Payment.create(newPayment);
         return paymentRepository.save(payment);
+    }
+
+    /**
+     * 거래 키로 결제를 조회한다.
+     *
+     * @param transactionKey PG 거래 키
+     * @return 결제
+     * @throws CoreException 결제가 존재하지 않는 경우
+     */
+    public Payment getByTransactionKey(String transactionKey) {
+        return paymentRepository.findByTransactionKey(transactionKey)
+                .orElseThrow(() -> new CoreException(ErrorType.PAYMENT_NOT_FOUND));
     }
 }

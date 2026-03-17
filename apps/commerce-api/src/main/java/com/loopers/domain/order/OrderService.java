@@ -50,4 +50,34 @@ public class OrderService {
         order.validateOwner(userId);
         return order;
     }
+
+    /**
+     * 주문을 결제 완료 처리한다.
+     *
+     * @param orderId 주문 ID
+     * @return 결제 완료된 주문
+     * @throws CoreException 주문이 존재하지 않거나 결제할 수 없는 상태인 경우
+     */
+    @Transactional
+    public Order pay(Long orderId) {
+        Order order = orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+        order.pay();
+        return order;
+    }
+
+    /**
+     * 주문을 실패 처리한다.
+     *
+     * @param orderId 주문 ID
+     * @return 실패 처리된 주문 (주문 항목 포함)
+     * @throws CoreException 주문이 존재하지 않거나 취소할 수 없는 상태인 경우
+     */
+    @Transactional
+    public Order fail(Long orderId) {
+        Order order = orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+        order.fail();
+        return order;
+    }
 }

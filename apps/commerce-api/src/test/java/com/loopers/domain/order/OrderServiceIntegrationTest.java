@@ -138,6 +138,95 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
         }
     }
 
+    @DisplayName("주문을 결제 완료할 때,")
+    @Nested
+    class Pay {
+
+        @DisplayName("CREATED 상태의 주문이면, PAID로 변경된다.")
+        @Test
+        void changesStatusToPaid_whenCreated() {
+            // arrange
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
+            Product product = productRepository.findById(productId).orElseThrow();
+            Order created = orderService.create(createCart(1L, product, 1L), Money.ZERO, null);
+
+            // act
+            Order result = orderService.pay(created.getId());
+
+            // assert
+            assertThat(result.getStatus()).isEqualTo(OrderStatus.PAID);
+        }
+
+        @DisplayName("존재하지 않는 주문이면, ORDER_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenOrderNotFound() {
+            assertThatThrownBy(() -> orderService.pay(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_FOUND));
+        }
+
+        @DisplayName("이미 PAID 상태이면, ORDER_NOT_PAYABLE 예외가 발생한다.")
+        @Test
+        void throwsException_whenAlreadyPaid() {
+            // arrange
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
+            Product product = productRepository.findById(productId).orElseThrow();
+            Order created = orderService.create(createCart(1L, product, 1L), Money.ZERO, null);
+            orderService.pay(created.getId());
+
+            // act & assert
+            assertThatThrownBy(() -> orderService.pay(created.getId()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_PAYABLE));
+        }
+    }
+
+    @DisplayName("주문을 실패 처리할 때,")
+    @Nested
+    class Fail {
+
+        @DisplayName("CREATED 상태의 주문이면, FAILED로 변경된다.")
+        @Test
+        void changesStatusToFailed_whenCreated() {
+            // arrange
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
+            Product product = productRepository.findById(productId).orElseThrow();
+            Order created = orderService.create(createCart(1L, product, 1L), Money.ZERO, null);
+
+            // act
+            Order result = orderService.fail(created.getId());
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.getStatus()).isEqualTo(OrderStatus.FAILED),
+                    () -> assertThat(result.getOrderItems()).hasSize(1)
+            );
+        }
+
+        @DisplayName("존재하지 않는 주문이면, ORDER_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenOrderNotFound() {
+            assertThatThrownBy(() -> orderService.fail(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_FOUND));
+        }
+
+        @DisplayName("이미 PAID 상태이면, ORDER_NOT_CANCELLABLE 예외가 발생한다.")
+        @Test
+        void throwsException_whenAlreadyPaid() {
+            // arrange
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
+            Product product = productRepository.findById(productId).orElseThrow();
+            Order created = orderService.create(createCart(1L, product, 1L), Money.ZERO, null);
+            orderService.pay(created.getId());
+
+            // act & assert
+            assertThatThrownBy(() -> orderService.fail(created.getId()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_CANCELLABLE));
+        }
+    }
+
     private Cart createCart(Long userId, Product product, Long quantity) {
         List<Cart.CartItem> items = List.of(new Cart.CartItem(
                 product.getId(),

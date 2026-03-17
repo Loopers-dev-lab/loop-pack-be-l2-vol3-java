@@ -1,5 +1,7 @@
 package com.loopers.infrastructure.payment.persistence;
 
+import java.util.Optional;
+
 import org.springframework.stereotype.Repository;
 
 import com.loopers.domain.payment.Payment;
@@ -21,5 +23,10 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     @Override
     public Payment save(Payment payment) {
         return paymentJpaRepository.save(payment);
+    }
+
+    @Override
+    public Optional<Payment> findByTransactionKey(String transactionKey) {
+        return paymentJpaRepository.findByTransactionKey(transactionKey);
     }
 }

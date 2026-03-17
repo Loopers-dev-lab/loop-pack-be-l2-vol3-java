@@ -63,6 +63,7 @@ public enum ErrorType {
     FORBIDDEN_ORDER_ACCESS(HttpStatus.FORBIDDEN, "FORBIDDEN_ORDER_ACCESS", "접근 권한이 없는 주문입니다."),
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "주문을 찾을 수 없습니다."),
     ORDER_NOT_PAYABLE(HttpStatus.BAD_REQUEST, "ORDER_NOT_PAYABLE", "결제할 수 없는 주문 상태입니다."),
+    ORDER_NOT_CANCELLABLE(HttpStatus.BAD_REQUEST, "ORDER_NOT_CANCELLABLE", "취소할 수 없는 주문 상태입니다."),
 
     /** Like 도메인 에러 */
     REQUIRED_USER_ID(HttpStatus.BAD_REQUEST, "REQUIRED_USER_ID", "사용자 ID는 필수 값입니다."),
@@ -85,7 +86,11 @@ public enum ErrorType {
     COUPON_MIN_ORDER_PRICE_NOT_MET(HttpStatus.BAD_REQUEST, "COUPON_MIN_ORDER_PRICE_NOT_MET", "쿠폰의 최소 주문 금액을 충족하지 못했습니다."),
     FORBIDDEN_COUPON_ACCESS(HttpStatus.FORBIDDEN, "FORBIDDEN_COUPON_ACCESS", "접근 권한이 없는 쿠폰입니다."),
     COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND", "쿠폰을 찾을 수 없습니다."),
-    OWNED_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "OWNED_COUPON_NOT_FOUND", "보유 쿠폰을 찾을 수 없습니다.");
+    OWNED_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "OWNED_COUPON_NOT_FOUND", "보유 쿠폰을 찾을 수 없습니다."),
+
+    /** Payment 도메인 에러 */
+    PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND", "결제를 찾을 수 없습니다."),
+    PAYMENT_ALREADY_PROCESSED(HttpStatus.BAD_REQUEST, "PAYMENT_ALREADY_PROCESSED", "이미 처리된 결제입니다.");
 
     private final HttpStatus status;
     private final String code;

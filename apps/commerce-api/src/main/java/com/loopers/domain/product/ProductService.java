@@ -162,6 +162,20 @@ public class ProductService {
     }
 
     /**
+     * 상품의 재고를 복원한다. 비관적 락으로 조회 후 복원한다.
+     *
+     * @param productId 상품 ID
+     * @param quantity  복원할 수량
+     * @throws CoreException 상품이 존재하지 않거나 삭제된 경우
+     */
+    @Transactional
+    public void restoreStock(Long productId, long quantity) {
+        Product product = productRepository.findByIdAndDeletedAtIsNullForUpdate(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+        product.restoreStock(quantity);
+    }
+
+    /**
      * 상품의 좋아요 수를 1 증가시킨다. 아토믹 업데이트로 동시성을 보장한다.
      *
      * @param productId 상품 ID

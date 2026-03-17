@@ -9,13 +9,15 @@ import jakarta.persistence.Table;
 
 import com.loopers.domain.BaseEntity;
 import com.loopers.domain.shared.Money;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "payments")
+@Table(name = "payment")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
 public class Payment extends BaseEntity {
@@ -55,5 +57,17 @@ public class Payment extends BaseEntity {
         payment.amount = newPayment.amount();
         payment.status = PaymentStatus.PENDING;
         return payment;
+    }
+
+    public void update(PaymentStatus status, String reason) {
+        if (isProcessed()) {
+            throw new CoreException(ErrorType.PAYMENT_ALREADY_PROCESSED);
+        }
+        this.status = status;
+        this.reason = reason;
+    }
+
+    public boolean isProcessed() {
+        return this.status != PaymentStatus.PENDING;
     }
 }

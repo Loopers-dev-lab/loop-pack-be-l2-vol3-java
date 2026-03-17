@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotNull;
 
 import com.loopers.application.payment.CreatePaymentCommand;
 import com.loopers.application.payment.CreatePaymentResult;
+import com.loopers.application.payment.PaymentCallbackCommand;
 import com.loopers.domain.payment.PaymentStatus;
 
 public class PaymentDto {
@@ -32,6 +33,17 @@ public class PaymentDto {
                     result.transactionKey(),
                     result.status()
             );
+        }
+    }
+
+    public record PaymentCallbackRequest(
+            @NotNull(message = "거래 키는 필수입니다.") String transactionKey,
+            @NotNull(message = "결제 상태는 필수입니다.") PaymentStatus status,
+            String reason
+    ) {
+
+        public PaymentCallbackCommand toCommand() {
+            return new PaymentCallbackCommand(transactionKey, status, reason);
         }
     }
 }

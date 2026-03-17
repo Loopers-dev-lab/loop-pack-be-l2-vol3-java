@@ -437,17 +437,34 @@ ADR: [03-concurrency-control-strategy.md](../adr/03-concurrency-control-strategy
 
 `POST /api/v1/orders/{orderId}/payment` · 인증 필요 · 입력: 카드 유형(필수), 카드 번호(필수)
 
-- [ ] Payment 엔티티를 생성한다 (orderId, transactionKey, cardType, cardNo, amount, status, reason)
-- [ ] PaymentStatus enum을 생성한다 (PENDING, SUCCESS, FAILED)
-- [ ] CardType enum을 생성한다
-- [ ] PaymentRepository 인터페이스 및 구현체를 생성한다
-- [ ] PaymentService 도메인 서비스를 생성한다
-- [ ] 결제 생성 UseCase(`CreatePaymentUseCase`)를 구현한다
-- [ ] 결제 생성 API, ApiSpec, Dto를 구현한다
-- [ ] 존재하지 않는 주문에 대해 결제를 생성할 수 없다
-- [ ] 다른 사용자의 주문에 대해 결제를 생성할 수 없다
-- [ ] CREATED 상태의 주문에 대해서만 결제를 생성할 수 있다
-- [ ] 결제 금액은 주문의 최종 결제 금액(totalPrice)이다
-- [ ] PG사에 결제를 요청하고 거래 키와 결제 상태를 반환한다
-- [ ] PG 결제 요청 실패 시 결제 생성에 실패한다
-- [ ] 결제 생성 시 Payment 상태는 PENDING으로 설정한다
+- [x] Payment 엔티티를 생성한다 (orderId, transactionKey, cardType, cardNo, amount, status, reason)
+- [x] PaymentStatus enum을 생성한다 (PENDING, SUCCESS, FAILED)
+- [x] CardType enum을 생성한다
+- [x] PaymentRepository 인터페이스 및 구현체를 생성한다
+- [x] PaymentService 도메인 서비스를 생성한다
+- [x] 결제 생성 UseCase(`CreatePaymentUseCase`)를 구현한다
+- [x] 결제 생성 API, ApiSpec, Dto를 구현한다
+- [x] 존재하지 않는 주문에 대해 결제를 생성할 수 없다
+- [x] 다른 사용자의 주문에 대해 결제를 생성할 수 없다
+- [x] CREATED 상태의 주문에 대해서만 결제를 생성할 수 있다
+- [x] 결제 금액은 주문의 최종 결제 금액(totalPrice)이다
+- [x] PG사에 결제를 요청하고 거래 키와 결제 상태를 반환한다
+- [x] PG 결제 요청 실패 시 결제 생성에 실패한다
+- [x] 결제 생성 시 Payment 상태는 PENDING으로 설정한다
+
+---
+
+### Step 3. 결제 콜백 API (성공)
+
+`POST /api/v1/payments/callback` · 인증 없음 · PG에서 호출
+
+- [x] Payment에 `update(PaymentStatus, String reason)` 메서드를 추가한다 (PENDING 상태가 아니면 예외)
+- [x] PaymentRepository에 `findByTransactionKey()` 메서드를 추가한다
+- [x] PaymentService에 transactionKey로 조회하는 메서드를 추가한다
+- [x] OrderService에 `pay(Long orderId)` 메서드를 추가한다
+- [x] OwnedCouponService에 `use(Long ownedCouponId)` 메서드를 추가한다
+- [x] PaymentRepositoryImpl, PaymentJpaRepository에 findByTransactionKey를 구현한다
+- [x] HandlePaymentCallbackUseCase를 구현한다 (성공 시: Payment 상태 변경 → 주문 완료 → 쿠폰 사용)
+- [x] CallbackV1Api, CallbackV1ApiSpec, DTO를 구현한다
+- [x] WebMvcConfig에 콜백 경로를 인증 제외 처리한다
+- [x] ErrorType에 결제 콜백 관련 에러를 추가한다

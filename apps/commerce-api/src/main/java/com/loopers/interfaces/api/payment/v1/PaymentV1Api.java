@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.loopers.application.payment.CreatePaymentResult;
 import com.loopers.application.payment.CreatePaymentUseCase;
+import com.loopers.application.payment.HandlePaymentCallbackUseCase;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.LoginUser;
 
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 public class PaymentV1Api implements PaymentV1ApiSpec {
 
     private final CreatePaymentUseCase createPaymentUseCase;
+    private final HandlePaymentCallbackUseCase handlePaymentCallbackUseCase;
 
     @PostMapping
     @ResponseStatus(code = HttpStatus.CREATED)
@@ -31,5 +33,14 @@ public class PaymentV1Api implements PaymentV1ApiSpec {
     ) {
         CreatePaymentResult result = createPaymentUseCase.execute(request.toCommand(userId));
         return ApiResponse.success(PaymentDto.CreatePaymentResponse.from(result));
+    }
+
+    @PostMapping("/callback")
+    @Override
+    public ApiResponse<Void> handlePaymentCallback(
+            @RequestBody @Valid PaymentDto.PaymentCallbackRequest request
+    ) {
+        handlePaymentCallbackUseCase.execute(request.toCommand());
+        return ApiResponse.success(null);
     }
 }

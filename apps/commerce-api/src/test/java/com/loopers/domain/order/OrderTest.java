@@ -279,6 +279,90 @@ class OrderTest {
         }
     }
 
+    @DisplayName("주문을 실패 처리할 때,")
+    @Nested
+    class Fail {
+
+        @DisplayName("CREATED 상태이면, FAILED로 변경된다.")
+        @Test
+        void changesStatusToFailed_whenCreated() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
+
+            // act
+            order.fail();
+
+            // assert
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.FAILED);
+        }
+
+        @DisplayName("PAID 상태이면, ORDER_NOT_CANCELLABLE 예외가 발생한다.")
+        @Test
+        void throwsException_whenAlreadyPaid() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
+            order.pay();
+
+            // act & assert
+            assertThatThrownBy(() -> order.fail())
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_CANCELLABLE));
+        }
+
+        @DisplayName("FAILED 상태이면, ORDER_NOT_CANCELLABLE 예외가 발생한다.")
+        @Test
+        void throwsException_whenAlreadyFailed() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
+            order.fail();
+
+            // act & assert
+            assertThatThrownBy(() -> order.fail())
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_CANCELLABLE));
+        }
+    }
+
+    @DisplayName("쿠폰 적용 여부를 확인할 때,")
+    @Nested
+    class HasCoupon {
+
+        @DisplayName("쿠폰이 적용된 주문이면, true를 반환한다.")
+        @Test
+        void returnsTrue_whenCouponApplied() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create("test-order-key", cart, Money.wons(1000L), 100L);
+
+            // act & assert
+            assertThat(order.hasCoupon()).isTrue();
+        }
+
+        @DisplayName("쿠폰이 적용되지 않은 주문이면, false를 반환한다.")
+        @Test
+        void returnsFalse_whenNoCoupon() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
+
+            // act & assert
+            assertThat(order.hasCoupon()).isFalse();
+        }
+    }
+
     @DisplayName("주문 소유자를 검증할 때,")
     @Nested
     class ValidateOwner {
