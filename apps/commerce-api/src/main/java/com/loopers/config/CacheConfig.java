@@ -54,6 +54,7 @@ public class CacheConfig {
         return RedisCacheManager.builder(connectionFactory)
                 .withCacheConfiguration(PRODUCT, productConfig)
                 .withCacheConfiguration(PRODUCTS, productsConfig)
+                .transactionAware()
                 .build();
     }
 }
