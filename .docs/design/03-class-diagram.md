@@ -160,6 +160,12 @@ classDiagram
     }
 
     %% ── Order ──
+    class OrderStatus {
+        <<Enum>>
+        CREATED
+        PAID
+    }
+
     class Order {
         <<Entity>>
         Long id
@@ -174,6 +180,8 @@ classDiagram
         List~OrderItem~ orderItems
         +create(...)$ Order
         +validateOwner(Long userId) void
+        +validatePayable() void
+        +pay() void
     }
 
     class OrderItem {
@@ -186,6 +194,43 @@ classDiagram
         Long quantity
         +create(...)$ OrderItem
         +calculateSubtotal() Money
+    }
+
+    %% ── Payment ──
+    class Payment {
+        <<Entity>>
+        Long id
+        Long userId
+        Long orderId
+        String transactionKey
+        CardType cardType
+        String cardNo
+        Money amount
+        PaymentStatus status
+        String reason
+        +create(...)$ Payment
+        +updateResult(PaymentStatus status, String reason) void
+        +isPending() boolean
+    }
+
+    class PaymentStatus {
+        <<Enum>>
+        PENDING
+        SUCCESS
+        FAILED
+    }
+
+    class CardType {
+        <<Enum>>
+        SAMSUNG
+        KB
+        HYUNDAI
+        SHINHAN
+        LOTTE
+        HANA
+        WOORI
+        NH
+        BC
     }
 
     %% ── Product 관계 ──
@@ -208,10 +253,17 @@ classDiagram
 
     %% ── Order 관계 ──
     Order *-- OrderItem
+    Order --> OrderStatus
     Order --> Money
     Order ..> OwnedCoupon
     OrderItem --> Money
     OrderItem ..> Product
+
+    %% ── Payment 관계 ──
+    Payment --> PaymentStatus
+    Payment --> CardType
+    Payment --> Money
+    Payment ..> Order
 ```
 
 ### 주문 처리 흐름도
@@ -241,3 +293,9 @@ flowchart TD
 **도메인 간 참조**
 - 연관관계는 탐색 가능성을 기준으로 설정한다. 도메인 내부에서 함께 탐색되는 객체만 직접 참조하고, 도메인 경계를 넘는 참조는 ID로 대체한다.
 - 도메인 간 참조를 ID 기반으로 하는 이유는, 직접 객체 참조를 사용하면 JPA가 도메인 간 연관관계를 관리하게 되어 한 도메인의 변경이 다른 도메인에 영향을 미치기 때문이다. ID 참조로 도메인 경계를 명확히 분리한다.
+
+**결제 도메인**
+- Payment는 결제 도메인에 속하며, Order와는 ID 기반으로 참조한다.
+- 주문 생성 시 쿠폰 할인 정보(ownedCouponId, discountAmount)는 Order에 저장하되, 쿠폰 사용 처리는 결제 완료(콜백 SUCCESS) 시점에 수행한다.
+- Payment의 상태 전이: PENDING → SUCCESS / FAILED (PG 콜백에 의해 결정)
+- Order의 상태 전이: CREATED → PAID (결제 성공 시)

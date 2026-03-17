@@ -102,10 +102,26 @@ erDiagram
         timestamp deleted_at "null"
     }
     
+    payment {
+        bigint id PK "not null"
+        bigint user_id FK "not null"
+        bigint order_id FK "not null"
+        varchar transaction_key "not null, unique"
+        varchar card_type "not null"
+        varchar card_no "not null"
+        bigint amount "not null"
+        varchar status "not null, default 'PENDING'"
+        varchar reason "null"
+        timestamp created_at "not null"
+        timestamp updated_at "not null"
+        timestamp deleted_at "null"
+    }
+
     brand ||--o{ product: ""
     product ||--o{ likes: ""
     product ||--o{ order_item: ""
     orders ||--|{ order_item: ""
+    orders ||--o{ payment: ""
     owned_coupon ||--o{ orders: ""
     coupon ||--o{ owned_coupon: ""
 ```
@@ -133,8 +149,15 @@ erDiagram
 ### 주문 상태
 
 - `orders.status`는 `OrderStatus` enum을 문자열로 저장한다.
-- 현재 사용하는 상태값: `CREATED` (주문 생성 시 초기 상태)
-- 상태 전이(배송, 완료, 취소 등)는 현재 과제 범위 밖이다.
+- 상태값: `CREATED` (주문 생성 시 초기 상태), `PAID` (결제 완료)
+- 상태 전이: `CREATED` → `PAID` (결제 성공 콜백 수신 시)
+
+### 결제
+
+- `payment` 테이블은 PG사를 통한 카드 결제 정보를 저장한다.
+- `transaction_key`는 PG사에서 발급하는 고유 식별자로, UNIQUE 제약 조건을 가진다.
+- `status`는 `PaymentStatus` enum을 문자열로 저장한다. 상태값: `PENDING` (결제 요청), `SUCCESS` (결제 성공), `FAILED` (결제 실패)
+- 하나의 주문에 여러 결제 시도가 가능하다 (결제 실패 후 재시도).
 
 ### 쿠폰 발급 동시성 제어
 

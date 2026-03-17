@@ -14,3 +14,7 @@ LAST UPDATED: 2026-03-01
 | 쿠폰 유형 | CouponType    | 쿠폰의 할인 방식을 구분하는 유형 (정액 또는 정률) |
 | 보유 쿠폰 | OwnedCoupon   | 사용자에게 발급되어 소유한 쿠폰 인스턴스       |
 | 보유 쿠폰 상태 | OwnedCouponStatus | 보유 쿠폰의 현재 사용 상태 (사용 가능, 사용 완료, 만료) |
+| 결제    | Payment       | 주문에 대한 카드 결제 정보로 PG사를 통해 처리된다. |
+| 결제 상태 | PaymentStatus | 결제의 처리 상태 (대기, 성공, 실패) |
+| 카드 유형 | CardType      | 결제에 사용되는 카드사 구분 (삼성, KB, 현대 등) |
+| 거래 키  | TransactionKey | PG사에서 발급하는 결제 거래 고유 식별자 |

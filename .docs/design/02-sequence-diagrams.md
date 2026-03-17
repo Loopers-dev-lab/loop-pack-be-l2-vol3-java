@@ -42,6 +42,9 @@ LAST UPDATED: 2026-03-03
   - [[대고객] 주문 요청](#대고객-주문-요청)
   - [[대고객] 주문 목록 조회](#대고객-주문-목록-조회)
   - [[대고객] 주문 상세 조회](#대고객-주문-상세-조회)
+- [Payment (결제)](#payment-결제)
+  - [[대고객] 결제 생성](#대고객-결제-생성)
+  - [[콜백] 결제 결과 수신](#콜백-결제-결과-수신)
 
 ## 개요
 
@@ -983,7 +986,7 @@ sequenceDiagram
     PlaceOrderUseCase ->> PlaceOrderUseCase: Cart 생성 및 orderTotal 계산
 
     opt ownedCouponId가 존재할 경우
-        PlaceOrderUseCase ->>+ OwnedCouponService: 쿠폰 사용 처리 (낙관적 락)
+        PlaceOrderUseCase ->>+ OwnedCouponService: 쿠폰 검증 및 할인 금액 계산
         OwnedCouponService -->>- PlaceOrderUseCase: CouponDiscount
 
         break 쿠폰 검증 실패 (미존재/타인 소유/사용됨/만료/최소금액 미달)
@@ -1060,4 +1063,95 @@ sequenceDiagram
     OrderService -->>- ReadMyOrderDetailUseCase: Order
     ReadMyOrderDetailUseCase -->>- OrderApi: OrderDetailResult
     OrderApi -->>- Client: 200 OK + 주문 상세 정보
+```
+
+## Payment (결제)
+
+### [대고객] 결제 생성
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant PaymentApi
+    participant CreatePaymentUseCase
+    participant OrderService
+    participant PaymentService
+    participant PaymentGateway
+
+    Client ->>+ PaymentApi: POST /api/v1/payments
+    PaymentApi ->>+ CreatePaymentUseCase: 결제 생성 요청
+
+    CreatePaymentUseCase ->>+ OrderService: 내 주문 조회
+    OrderService -->>- CreatePaymentUseCase: Order
+
+    break 주문이 존재하지 않을 경우
+        CreatePaymentUseCase -->> PaymentApi: 조회 실패
+        PaymentApi -->> Client: 404 Not Found
+    end
+
+    break 본인의 주문이 아닐 경우
+        CreatePaymentUseCase -->> PaymentApi: 소유권 검증 실패
+        PaymentApi -->> Client: 403 Forbidden
+    end
+
+    CreatePaymentUseCase ->> CreatePaymentUseCase: 주문 상태 검증
+
+    break CREATED 상태가 아닐 경우
+        CreatePaymentUseCase -->> PaymentApi: 상태 검증 실패
+        PaymentApi -->> Client: 400 Bad Request
+    end
+
+    CreatePaymentUseCase ->>+ PaymentGateway: PG 결제 요청
+    PaymentGateway -->>- CreatePaymentUseCase: TransactionResult
+
+    break PG 요청 실패
+        CreatePaymentUseCase -->> PaymentApi: 결제 실패
+        PaymentApi -->> Client: 502 Bad Gateway
+    end
+
+    CreatePaymentUseCase ->>+ PaymentService: 결제 생성
+    PaymentService -->>- CreatePaymentUseCase: Payment
+
+    CreatePaymentUseCase -->>- PaymentApi: PaymentResult
+    PaymentApi -->>- Client: 201 Created
+```
+
+### [콜백] 결제 결과 수신
+
+```mermaid
+sequenceDiagram
+    participant PG
+    participant PaymentApi
+    participant HandlePaymentCallbackUseCase
+    participant PaymentService
+    participant OrderService
+    participant OwnedCouponService
+
+    PG ->>+ PaymentApi: POST /api/v1/payments/callback
+    PaymentApi ->>+ HandlePaymentCallbackUseCase: 콜백 처리
+
+    HandlePaymentCallbackUseCase ->>+ PaymentService: Payment 조회
+    PaymentService -->>- HandlePaymentCallbackUseCase: Optional<Payment>
+
+    break 결제가 존재하지 않거나 이미 처리됨
+        HandlePaymentCallbackUseCase -->> PaymentApi: 무시
+        PaymentApi -->> PG: 200 OK
+    end
+
+    HandlePaymentCallbackUseCase ->> HandlePaymentCallbackUseCase: 결제 상태 업데이트
+
+    alt 결제 성공 (SUCCESS)
+        HandlePaymentCallbackUseCase ->>+ OrderService: 주문 완료 처리
+        OrderService -->>- HandlePaymentCallbackUseCase: Order
+
+        opt 쿠폰이 적용된 주문
+            HandlePaymentCallbackUseCase ->>+ OwnedCouponService: 쿠폰 사용 처리
+            OwnedCouponService -->>- HandlePaymentCallbackUseCase: void
+        end
+    end
+
+    Note over HandlePaymentCallbackUseCase: 결제 실패(FAILED) 시 Payment 상태만 변경, 추가 처리 없음
+
+    HandlePaymentCallbackUseCase -->>- PaymentApi: 처리 완료
+    PaymentApi -->>- PG: 200 OK
 ```
