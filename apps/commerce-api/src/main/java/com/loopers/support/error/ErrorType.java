@@ -62,6 +62,7 @@ public enum ErrorType {
     INSUFFICIENT_STOCK(HttpStatus.BAD_REQUEST, "INSUFFICIENT_STOCK", "재고가 부족합니다."),
     FORBIDDEN_ORDER_ACCESS(HttpStatus.FORBIDDEN, "FORBIDDEN_ORDER_ACCESS", "접근 권한이 없는 주문입니다."),
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "주문을 찾을 수 없습니다."),
+    ORDER_NOT_PAYABLE(HttpStatus.BAD_REQUEST, "ORDER_NOT_PAYABLE", "결제할 수 없는 주문 상태입니다."),
 
     /** Like 도메인 에러 */
     REQUIRED_USER_ID(HttpStatus.BAD_REQUEST, "REQUIRED_USER_ID", "사용자 ID는 필수 값입니다."),

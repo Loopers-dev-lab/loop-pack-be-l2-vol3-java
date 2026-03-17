@@ -95,6 +95,17 @@ public class Order extends BaseEntity {
         item.setOrder(this);
     }
 
+    public void validatePayable() {
+        if (this.status != OrderStatus.CREATED) {
+            throw new CoreException(ErrorType.ORDER_NOT_PAYABLE);
+        }
+    }
+
+    public void pay() {
+        validatePayable();
+        this.status = OrderStatus.PAID;
+    }
+
     public void validateOwner(Long userId) {
         if (!this.userId.equals(userId)) {
             throw new CoreException(ErrorType.FORBIDDEN_ORDER_ACCESS);

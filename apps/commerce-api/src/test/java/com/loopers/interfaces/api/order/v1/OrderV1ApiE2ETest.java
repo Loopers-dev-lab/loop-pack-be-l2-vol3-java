@@ -18,10 +18,6 @@ import com.loopers.support.error.ErrorType;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -182,84 +178,6 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
 
             // assert
             assertErrorResponse(response, HttpStatus.FORBIDDEN, ErrorType.FORBIDDEN_COUPON_ACCESS);
-        }
-
-        @DisplayName("이미 사용된 쿠폰으로 주문하면, 실패한다.")
-        @Test
-        void failsOrder_whenCouponAlreadyUsed() {
-            // arrange
-            var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
-                    "할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)
-            ));
-            issueCoupon(testRestTemplate, couponId, userHeaders);
-            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, Pageable.ofSize(1))
-                    .getContent().get(0).getId();
-
-            // 첫 번째 주문으로 쿠폰 사용
-            createOrder(testRestTemplate, new OrderDto.CreateOrderRequest(
-                    List.of(new OrderDto.OrderItemRequest(productId, 1L)),
-                    ownedCouponId
-            ), userHeaders);
-
-            // act - 같은 쿠폰으로 두 번째 주문
-            var request = new OrderDto.CreateOrderRequest(
-                    List.of(new OrderDto.OrderItemRequest(productId, 1L)),
-                    ownedCouponId
-            );
-            var response = createOrder(testRestTemplate, request, userHeaders);
-
-            // assert
-            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_USED_COUPON);
-        }
-
-        @DisplayName("동일 쿠폰으로 동시에 주문하면, 하나만 성공하고 나머지는 500 에러로 실패한다.")
-        @Test
-        void onlyOneOrderSucceeds_whenConcurrentOrdersWithSameCoupon() throws InterruptedException {
-            // arrange
-            var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
-                    "동시성 테스트 쿠폰", CouponType.FIXED, 1000L, null, 10000L, ZonedDateTime.now().plusDays(30)
-            ));
-            issueCoupon(testRestTemplate, couponId, userHeaders);
-            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, Pageable.ofSize(1))
-                    .getContent().get(0).getId();
-
-            int threadCount = 5;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
-            AtomicInteger successCount = new AtomicInteger(0);
-            AtomicInteger failCount = new AtomicInteger(0);
-            List<HttpStatus> failStatusCodes = new java.util.concurrent.CopyOnWriteArrayList<>();
-
-            // act
-            for (int i = 0; i < threadCount; i++) {
-                executorService.execute(() -> {
-                    try {
-                        var request = new OrderDto.CreateOrderRequest(
-                                List.of(new OrderDto.OrderItemRequest(productId, 1L)),
-                                ownedCouponId
-                        );
-                        var response = createOrder(testRestTemplate, request, userHeaders);
-                        if (response.getStatusCode().is2xxSuccessful()) {
-                            successCount.incrementAndGet();
-                        } else {
-                            failCount.incrementAndGet();
-                            failStatusCodes.add((HttpStatus) response.getStatusCode());
-                        }
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
-
-            // assert
-            assertAll(
-                    () -> assertThat(successCount.get()).isEqualTo(1),
-                    () -> assertThat(failCount.get()).isEqualTo(threadCount - 1),
-                    () -> assertThat(failStatusCodes).allSatisfy(status ->
-                            assertThat(status).isIn(HttpStatus.INTERNAL_SERVER_ERROR, HttpStatus.BAD_REQUEST))
-            );
         }
 
         @DisplayName("최소 주문 금액 미달 시 쿠폰으로 주문하면, 실패한다.")

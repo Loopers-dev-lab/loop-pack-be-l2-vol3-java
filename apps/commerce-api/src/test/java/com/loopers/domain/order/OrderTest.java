@@ -208,6 +208,77 @@ class OrderTest {
         }
     }
 
+    @DisplayName("결제 가능 여부를 검증할 때,")
+    @Nested
+    class ValidatePayable {
+
+        @DisplayName("CREATED 상태이면, 예외가 발생하지 않는다.")
+        @Test
+        void doesNotThrow_whenStatusIsCreated() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create(cart, Money.ZERO, null);
+
+            // act & assert
+            assertThatCode(() -> order.validatePayable()).doesNotThrowAnyException();
+        }
+
+        @DisplayName("PAID 상태이면, ORDER_NOT_PAYABLE 예외가 발생한다.")
+        @Test
+        void throwsException_whenStatusIsPaid() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create(cart, Money.ZERO, null);
+            order.pay();
+
+            // act & assert
+            assertThatThrownBy(() -> order.validatePayable())
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_PAYABLE));
+        }
+    }
+
+    @DisplayName("주문을 결제 완료할 때,")
+    @Nested
+    class Pay {
+
+        @DisplayName("CREATED 상태이면, PAID로 변경된다.")
+        @Test
+        void changesStatusToPaid_whenCreated() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create(cart, Money.ZERO, null);
+
+            // act
+            order.pay();
+
+            // assert
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        }
+
+        @DisplayName("PAID 상태이면, ORDER_NOT_PAYABLE 예외가 발생한다.")
+        @Test
+        void throwsException_whenAlreadyPaid() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create(cart, Money.ZERO, null);
+            order.pay();
+
+            // act & assert
+            assertThatThrownBy(() -> order.pay())
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_PAYABLE));
+        }
+    }
+
     @DisplayName("주문 소유자를 검증할 때,")
     @Nested
     class ValidateOwner {

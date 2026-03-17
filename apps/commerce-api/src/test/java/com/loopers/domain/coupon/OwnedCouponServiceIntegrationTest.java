@@ -106,6 +106,30 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         }
     }
 
+    @DisplayName("주문에 쿠폰 할인을 계산할 때,")
+    @Nested
+    class ValidateAndCalculateDiscount {
+
+        @DisplayName("유효한 쿠폰이면, 할인이 계산되고 AVAILABLE 상태가 유지된다.")
+        @Test
+        void calculatesDiscountAndKeepsAvailable() {
+            // arrange
+            var coupon = couponService.create(new CouponTerms("5000원 할인", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
+            var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
+
+            // act
+            var result = ownedCouponService.validateAndCalculateDiscount(ownedCoupon.getId(), 1L, Money.wons(20000L));
+
+            // assert
+            var saved = ownedCouponRepository.findByIdWithCoupon(ownedCoupon.getId()).orElseThrow();
+            assertAll(
+                    () -> assertThat(result.discountAmount()).isEqualTo(Money.wons(5000L)),
+                    () -> assertThat(result.ownedCouponId()).isEqualTo(ownedCoupon.getId()),
+                    () -> assertThat(saved.getStatus()).isEqualTo("AVAILABLE")
+            );
+        }
+    }
+
     @DisplayName("주문에 쿠폰을 적용할 때,")
     @Nested
     class ApplyForOrder {
