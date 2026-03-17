@@ -103,7 +103,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
             Order created = orderService.create(createCart(1L, product, 2L), Money.ZERO, null);
 
             // act
-            Order result = orderService.getMyOrder(1L, created.getId());
+            Order result = orderService.getMyOrder(1L, created.getOrderKey());
 
             // assert
             assertAll(
@@ -118,7 +118,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void throwsException_whenOrderNotFound() {
             // act & assert
-            assertThatThrownBy(() -> orderService.getMyOrder(1L, 999L))
+            assertThatThrownBy(() -> orderService.getMyOrder(1L, "non-existent-key"))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_FOUND));
         }
@@ -132,7 +132,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
             Order created = orderService.create(createCart(1L, product, 1L), Money.ZERO, null);
 
             // act & assert
-            assertThatThrownBy(() -> orderService.getMyOrder(999L, created.getId()))
+            assertThatThrownBy(() -> orderService.getMyOrder(999L, created.getOrderKey()))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.FORBIDDEN_ORDER_ACCESS));
         }

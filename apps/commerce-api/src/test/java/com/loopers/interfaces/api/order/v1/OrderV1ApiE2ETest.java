@@ -81,7 +81,8 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             // assert
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED),
-                    () -> assertThat(response.getBody().data().orderId()).isNotNull()
+                    () -> assertThat(response.getBody().data().orderId()).isNotNull(),
+                    () -> assertThat(response.getBody().data().orderKey()).isNotBlank()
             );
         }
 
@@ -107,8 +108,8 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 
-            var orderId = response.getBody().data().orderId();
-            var detail = getMyOrder(testRestTemplate, orderId, userHeaders).getBody().data();
+            var orderKey = response.getBody().data().orderKey();
+            var detail = getMyOrder(testRestTemplate, orderKey, userHeaders).getBody().data();
             assertAll(
                     () -> assertThat(detail.originalTotalPrice()).isEqualTo(20000L),
                     () -> assertThat(detail.discountAmount()).isEqualTo(5000L),
@@ -129,8 +130,8 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             var response = createOrder(testRestTemplate, request, userHeaders);
 
             // assert
-            var orderId = response.getBody().data().orderId();
-            var detail = getMyOrder(testRestTemplate, orderId, userHeaders).getBody().data();
+            var orderKey = response.getBody().data().orderKey();
+            var detail = getMyOrder(testRestTemplate, orderKey, userHeaders).getBody().data();
             assertAll(
                     () -> assertThat(detail.originalTotalPrice()).isEqualTo(20000L),
                     () -> assertThat(detail.discountAmount()).isEqualTo(0L),
@@ -292,27 +293,27 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         }
     }
 
-    @DisplayName("GET /api/v1/orders/{orderId}")
+    @DisplayName("GET /api/v1/orders/{orderKey}")
     @Nested
     class ReadMyOrderDetail {
 
         @DisplayName("주문 상세 정보를 조회하면, 주문 정보와 주문 항목이 반환된다.")
         @Test
-        void returnsOrderDetail_whenValidOrderId() {
+        void returnsOrderDetail_whenValidOrderKey() {
             // arrange
             var request = new OrderDto.CreateOrderRequest(
                     List.of(new OrderDto.OrderItemRequest(productId, 2L)),
                     null
             );
-            var orderId = createOrder(testRestTemplate, request, userHeaders).getBody().data().orderId();
+            var orderKey = createOrder(testRestTemplate, request, userHeaders).getBody().data().orderKey();
 
             // act
-            var response = getMyOrder(testRestTemplate, orderId, userHeaders);
+            var response = getMyOrder(testRestTemplate, orderKey, userHeaders);
 
             // assert
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(response.getBody().data().orderId()).isEqualTo(orderId),
+                    () -> assertThat(response.getBody().data().orderKey()).isEqualTo(orderKey),
                     () -> assertThat(response.getBody().data().name()).isEqualTo("테스트 상품"),
                     () -> assertThat(response.getBody().data().totalPrice()).isEqualTo(20000L),
                     () -> assertThat(response.getBody().data().orderItems()).hasSize(1),
@@ -326,7 +327,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         @Test
         void returnsNotFound_whenOrderDoesNotExist() {
             // act
-            var response = getMyOrder(testRestTemplate, 999L, userHeaders);
+            var response = getMyOrder(testRestTemplate, "non-existent-key", userHeaders);
 
             // assert
             assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.ORDER_NOT_FOUND);
@@ -340,13 +341,13 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
                     List.of(new OrderDto.OrderItemRequest(productId, 1L)),
                     null
             );
-            var orderId = createOrder(testRestTemplate, request, userHeaders).getBody().data().orderId();
+            var orderKey = createOrder(testRestTemplate, request, userHeaders).getBody().data().orderKey();
 
             signUp(testRestTemplate, new UserV1Dto.SignUpRequest("otheruser", "Password1!", "다른유저", "1995-05-05", "other@test.com"));
             var otherHeaders = userAuthHeaders("otheruser", "Password1!");
 
             // act
-            var response = getMyOrder(testRestTemplate, orderId, otherHeaders);
+            var response = getMyOrder(testRestTemplate, orderKey, otherHeaders);
 
             // assert
             assertErrorResponse(response, HttpStatus.FORBIDDEN, ErrorType.FORBIDDEN_ORDER_ACCESS);

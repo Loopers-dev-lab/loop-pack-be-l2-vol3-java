@@ -17,9 +17,12 @@ import lombok.RequiredArgsConstructor;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final OrderKeyGenerator orderKeyGenerator;
 
     /**
      * 새로운 주문을 생성한다.
+     *
+     * <p>고유한 주문 키를 생성하여 주문에 할당한다.</p>
      *
      * @param cart           장바구니
      * @param discountAmount 쿠폰 할인 금액
@@ -28,20 +31,21 @@ public class OrderService {
      */
     @Transactional
     public Order create(Cart cart, Money discountAmount, Long ownedCouponId) {
-        Order order = Order.create(cart, discountAmount, ownedCouponId);
+        String orderKey = orderKeyGenerator.generate();
+        Order order = Order.create(orderKey, cart, discountAmount, ownedCouponId);
         return orderRepository.save(order);
     }
 
     /**
-     * 사용자의 주문을 조회한다.
+     * 주문 키로 사용자의 주문을 조회한다.
      *
-     * @param userId  사용자 ID
-     * @param orderId 주문 ID
+     * @param userId   사용자 ID
+     * @param orderKey 주문 키
      * @return 주문 항목을 포함한 주문
      * @throws CoreException 주문이 존재하지 않거나 본인의 주문이 아닌 경우
      */
-    public Order getMyOrder(Long userId, Long orderId) {
-        Order order = orderRepository.findByIdWithItems(orderId)
+    public Order getMyOrder(Long userId, String orderKey) {
+        Order order = orderRepository.findByOrderKeyWithItems(orderKey)
                 .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
         order.validateOwner(userId);
         return order;

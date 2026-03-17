@@ -9,6 +9,7 @@ import com.loopers.domain.order.OrderStatus;
 
 public record OrderDetailResult(
         Long id,
+        String orderKey,
         String name,
         OrderStatus status,
         Long originalTotalPrice,
@@ -21,6 +22,7 @@ public record OrderDetailResult(
     public static OrderDetailResult from(Order order) {
         return new OrderDetailResult(
                 order.getId(),
+                order.getOrderKey(),
                 order.getName(),
                 order.getStatus(),
                 order.getOriginalTotalPrice().getAmount(),

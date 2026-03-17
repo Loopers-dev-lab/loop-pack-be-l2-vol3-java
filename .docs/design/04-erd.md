@@ -78,6 +78,7 @@ erDiagram
         bigint id PK "not null"
         bigint user_id FK "not null"
         bigint owned_coupon_id FK "null"
+        varchar order_key "not null, unique"
         varchar name "not null"
         varchar status "not null"
         bigint original_total_price "not null"

@@ -31,7 +31,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // assert
             assertThat(order.getName()).isEqualTo("테스트 상품");
@@ -48,7 +48,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // assert
             assertThat(order.getName()).isEqualTo("첫 번째 상품 외 2건");
@@ -64,7 +64,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // assert
             assertThat(order.getTotalPrice()).isEqualTo(Money.wons(35000L));
@@ -79,7 +79,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // assert
             assertThat(order.getStatus()).isEqualTo(OrderStatus.CREATED);
@@ -94,7 +94,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // assert
             assertThat(order.getOrderedAt()).isNotNull();
@@ -110,7 +110,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // assert
             assertAll(
@@ -128,7 +128,7 @@ class OrderTest {
             var cart = new Cart(1L, Collections.emptyList());
 
             // act & assert
-            assertThatThrownBy(() -> Order.create(cart, Money.ZERO, null))
+            assertThatThrownBy(() -> Order.create("test-order-key", cart, Money.ZERO, null))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.REQUIRED_ORDER_ITEM.getMessage());
         }
@@ -143,7 +143,7 @@ class OrderTest {
             ));
 
             // act & assert
-            assertThatThrownBy(() -> Order.create(cart, Money.ZERO, null))
+            assertThatThrownBy(() -> Order.create("test-order-key", cart, Money.ZERO, null))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.DUPLICATE_ORDER_PRODUCT.getMessage());
         }
@@ -157,7 +157,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.wons(5000L), 100L);
+            var order = Order.create("test-order-key", cart, Money.wons(5000L), 100L);
 
             // assert
             assertAll(
@@ -177,7 +177,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.wons(10000L), 100L);
+            var order = Order.create("test-order-key", cart, Money.wons(10000L), 100L);
 
             // assert
             assertAll(
@@ -196,7 +196,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // assert
             assertAll(
@@ -219,7 +219,7 @@ class OrderTest {
             var cart = new Cart(1L, List.of(
                     new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
             ));
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // act & assert
             assertThatCode(() -> order.validatePayable()).doesNotThrowAnyException();
@@ -232,7 +232,7 @@ class OrderTest {
             var cart = new Cart(1L, List.of(
                     new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
             ));
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
             order.pay();
 
             // act & assert
@@ -253,7 +253,7 @@ class OrderTest {
             var cart = new Cart(1L, List.of(
                     new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
             ));
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // act
             order.pay();
@@ -269,7 +269,7 @@ class OrderTest {
             var cart = new Cart(1L, List.of(
                     new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
             ));
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
             order.pay();
 
             // act & assert
@@ -290,7 +290,7 @@ class OrderTest {
             var cart = new Cart(1L, List.of(
                     new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
             ));
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // act & assert
             assertThatCode(() -> order.validateOwner(1L)).doesNotThrowAnyException();
@@ -303,7 +303,7 @@ class OrderTest {
             var cart = new Cart(1L, List.of(
                     new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
             ));
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // act & assert
             assertThatThrownBy(() -> order.validateOwner(999L))

@@ -33,6 +33,9 @@ public class Order extends BaseEntity {
     @Column(nullable = false)
     private Long userId;
 
+    @Column(nullable = false, unique = true)
+    private String orderKey;
+
     @Column(nullable = false)
     private String name;
 
@@ -58,7 +61,7 @@ public class Order extends BaseEntity {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems = new ArrayList<>();
 
-    public static Order create(Cart cart, Money discountAmount, Long ownedCouponId) {
+    public static Order create(String orderKey, Cart cart, Money discountAmount, Long ownedCouponId) {
         List<OrderItem> orderItems = cart.cartItems().stream()
                 .map(OrderItem::create)
                 .toList();
@@ -70,6 +73,7 @@ public class Order extends BaseEntity {
 
         Order order = new Order();
         order.userId = cart.userId();
+        order.orderKey = orderKey;
         order.orderedAt = LocalDateTime.now();
         order.status = OrderStatus.CREATED;
         orderItems.forEach(order::addItem);

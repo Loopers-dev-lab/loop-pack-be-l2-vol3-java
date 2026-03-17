@@ -170,6 +170,7 @@ classDiagram
         <<Entity>>
         Long id
         Long userId
+        String orderKey
         String name
         LocalDateTime orderedAt
         OrderStatus status

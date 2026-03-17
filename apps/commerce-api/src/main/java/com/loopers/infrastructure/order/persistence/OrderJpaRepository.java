@@ -17,6 +17,9 @@ public interface OrderJpaRepository extends JpaRepository<Order, Long> {
     @Query("SELECT o FROM Order o JOIN FETCH o.orderItems WHERE o.id = :orderId")
     Optional<Order> findByIdWithItems(@Param("orderId") Long orderId);
 
+    @Query("SELECT o FROM Order o JOIN FETCH o.orderItems WHERE o.orderKey = :orderKey")
+    Optional<Order> findByOrderKeyWithItems(@Param("orderKey") String orderKey);
+
     Slice<Order> findAllBy(Pageable pageable);
 
     Slice<Order> findAllByUserIdAndOrderedAtGreaterThanEqualAndOrderedAtLessThan(
