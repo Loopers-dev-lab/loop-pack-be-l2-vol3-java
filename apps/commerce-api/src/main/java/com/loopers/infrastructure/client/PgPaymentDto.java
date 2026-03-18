@@ -25,4 +25,13 @@ public class PgPaymentDto {
             String status,
             String reason
     ) {}
+
+    // PG 공통 응답 래퍼: {"meta":{"result":"SUCCESS",...},"data":{...}}
+    public record ApiResponse<T>(Meta meta, T data) {
+        public boolean isSuccess() {
+            return meta != null && "SUCCESS".equals(meta.result());
+        }
+
+        public record Meta(String result, String errorCode, String message) {}
+    }
 }

@@ -11,13 +11,13 @@ import org.springframework.web.bind.annotation.RequestHeader;
 public interface PgClient {
 
     @PostMapping("/api/v1/payments")
-    PgPaymentDto.TransactionResponse requestPayment(
+    PgPaymentDto.ApiResponse<PgPaymentDto.TransactionResponse> requestPayment(
             @RequestHeader("X-USER-ID") String userId,
             @RequestBody PgPaymentDto.PaymentRequest request
     );
 
     @GetMapping("/api/v1/payments/{transactionKey}")
-    PgPaymentDto.TransactionDetailResponse getTransaction(
+    PgPaymentDto.ApiResponse<PgPaymentDto.TransactionDetailResponse> getTransaction(
             @RequestHeader("X-USER-ID") String userId,
             @PathVariable("transactionKey") String transactionKey
     );

@@ -19,13 +19,21 @@ public class PgPaymentGateway {
     @CircuitBreaker(name = "pgCircuit", fallbackMethod = "requestPaymentFallback")
     @Retry(name = "pgRetry")
     public Optional<PgPaymentDto.TransactionResponse> requestPayment(String userId, PgPaymentDto.PaymentRequest request) {
-        return Optional.of(pgClient.requestPayment(userId, request));
+        PgPaymentDto.ApiResponse<PgPaymentDto.TransactionResponse> response = pgClient.requestPayment(userId, request);
+        if (!response.isSuccess()) {
+            throw new PgPaymentException("PG 결제 요청 실패: " + (response.meta() != null ? response.meta().message() : "unknown"));
+        }
+        return Optional.ofNullable(response.data());
     }
 
     @CircuitBreaker(name = "pgCircuit", fallbackMethod = "getTransactionFallback")
     @Retry(name = "pgRetry")
     public Optional<PgPaymentDto.TransactionDetailResponse> getTransaction(String userId, String transactionKey) {
-        return Optional.of(pgClient.getTransaction(userId, transactionKey));
+        PgPaymentDto.ApiResponse<PgPaymentDto.TransactionDetailResponse> response = pgClient.getTransaction(userId, transactionKey);
+        if (!response.isSuccess()) {
+            throw new PgPaymentException("PG 거래 조회 실패: " + (response.meta() != null ? response.meta().message() : "unknown"));
+        }
+        return Optional.ofNullable(response.data());
     }
 
     private Optional<PgPaymentDto.TransactionResponse> requestPaymentFallback(String userId, PgPaymentDto.PaymentRequest request, Throwable t) {

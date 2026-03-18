@@ -60,6 +60,7 @@ resilience4j:
         wait-duration: 1s                    # 재시도 간격 1초
         retry-exceptions:
           - feign.FeignException
+          - com.loopers.infrastructure.client.PgPaymentException
 
 ---
 spring:
