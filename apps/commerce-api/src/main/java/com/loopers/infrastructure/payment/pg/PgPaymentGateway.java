@@ -3,10 +3,12 @@ package com.loopers.infrastructure.payment.pg;
 import com.loopers.domain.payment.PaymentGateway;
 import com.loopers.domain.payment.PaymentModel;
 import com.loopers.domain.payment.PgResult;
+import io.github.resilience4j.bulkhead.BulkheadFullException;
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -20,6 +22,7 @@ import java.util.List;
 public class PgPaymentGateway implements PaymentGateway {
 
     private final PgClient pgClient;
+    private final MeterRegistry meterRegistry;
 
     @Bulkhead(name = "pg-request")
     @CircuitBreaker(name = "pg-request", fallbackMethod = "requestPaymentFallback")
@@ -40,16 +43,20 @@ public class PgPaymentGateway implements PaymentGateway {
 
     PgResult requestPaymentFallback(PaymentModel payment, String callbackUrl, CallNotPermittedException e) {
         log.warn("PG CB Open — 결제 요청 차단: orderId={}", payment.getRefOrderId().value());
+        meterRegistry.counter("payment.gateway.fallback", "reason", "cb_open").increment();
         return PgResult.unavailable();
     }
 
     PgResult requestPaymentFallback(PaymentModel payment, String callbackUrl, IOException e) {
         log.error("PG 네트워크 오류 — 결제 요청 실패: orderId={}", payment.getRefOrderId().value(), e);
+        meterRegistry.counter("payment.gateway.fallback", "reason", "io_error").increment();
         return PgResult.unavailable();
     }
 
     PgResult requestPaymentFallback(PaymentModel payment, String callbackUrl, Throwable t) {
         log.error("PG 오류 — 결제 요청 실패: orderId={}", payment.getRefOrderId().value(), t);
+        String reason = t instanceof BulkheadFullException ? "bulkhead_full" : "unknown";
+        meterRegistry.counter("payment.gateway.fallback", "reason", reason).increment();
         return PgResult.unavailable();
     }
 
