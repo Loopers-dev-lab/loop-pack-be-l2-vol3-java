@@ -11,6 +11,42 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class OrderStatusTest {
 
     @Test
+    @DisplayName("PENDING에서 PAID로 전이 가능")
+    void canTransition_pendingToPaid() {
+        // given
+        OrderStatus status = OrderStatus.PENDING;
+
+        // when
+        boolean canTransition = status.canTransitionTo(OrderStatus.PAID);
+
+        // then
+        assertThat(canTransition).isTrue();
+    }
+
+    @Test
+    @DisplayName("PAID에서 어떤 상태로도 전이 불가")
+    void cannotTransition_fromPaid() {
+        // given
+        OrderStatus status = OrderStatus.PAID;
+
+        // when & then
+        assertThat(status.canTransitionTo(OrderStatus.PENDING)).isFalse();
+        assertThat(status.canTransitionTo(OrderStatus.PAID)).isFalse();
+        assertThat(status.canTransitionTo(OrderStatus.CANCELED)).isFalse();
+    }
+
+    @Test
+    @DisplayName("PAID 상태에서 전이 시도 시 예외 발생")
+    void validateTransition_fromPaid_throwsException() {
+        // given
+        OrderStatus status = OrderStatus.PAID;
+
+        // when & then
+        assertThatThrownBy(() -> status.validateTransition(OrderStatus.CANCELED))
+                .isInstanceOf(CoreException.class);
+    }
+
+    @Test
     @DisplayName("PENDING에서 CANCELED로 전이 가능")
     void canTransition_pendingToCanceled() {
         // given

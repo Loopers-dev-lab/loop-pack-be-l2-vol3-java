@@ -46,6 +46,11 @@ public class OrderApp {
     }
 
     @Transactional
+    public void markOrderPaid(Long orderId) {
+        orderService.markPaid(orderId);
+    }
+
+    @Transactional
     public OrderInfo cancelOrder(Long memberId, String orderId) {
         OrderModel order = orderService.cancelOrder(memberId, orderId);
         return OrderInfo.from(order);
