@@ -43,23 +43,23 @@ public class LikeFacade {
         this.productCacheManager = productCacheManager;
     }
 
-    /** 상품 좋아요 (상품 검증 → 좋아요 생성 → likeCount 증가 → 캐시 무효화) */
+    /** 상품 좋아요 (상품 검증 → 좋아요 생성 → likeCount 증가 → 상세 캐시만 삭제) */
     @Transactional
     public LikeResult likeProduct(Long userId, Long productId) {
         Product product = productService.getDisplayableProduct(productId);
         likeService.like(userId, productId);
         productService.incrementLikeCount(productId);
-        productCacheManager.registerEvictAfterCommit(productId);
+        productCacheManager.registerDetailOnlyEvictAfterCommit(productId);
         return new LikeResult(product.getLikeCount() + 1);
     }
 
-    /** 상품 좋아요 취소 (상품 존재 검증 → 좋아요 삭제 → likeCount 감소 → 캐시 무효화) */
+    /** 상품 좋아요 취소 (상품 존재 검증 → 좋아요 삭제 → likeCount 감소 → 상세 캐시만 삭제) */
     @Transactional
     public LikeResult unlikeProduct(Long userId, Long productId) {
         Product product = productService.getById(productId);
         likeService.unlike(userId, productId);
         productService.decrementLikeCount(productId);
-        productCacheManager.registerEvictAfterCommit(productId);
+        productCacheManager.registerDetailOnlyEvictAfterCommit(productId);
         return new LikeResult(product.getLikeCount() - 1);
     }
 
