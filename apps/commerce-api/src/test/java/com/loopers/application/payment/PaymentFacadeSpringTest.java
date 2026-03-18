@@ -190,8 +190,11 @@ class PaymentFacadeSpringTest {
             payment.assignPgTransaction("TXN-003");
             paymentJpaRepository.save(payment);
 
-            given(pgPaymentGateway.getTransaction(anyString(), anyString()))
-                    .willReturn(Optional.of(new PgPaymentDto.TransactionDetailResponse("TXN-003", "pgOrderCode-003", "HYUNDAI", "1234-5678-9012-3456", 10000L, "SUCCESS", null)));
+            given(pgPaymentGateway.getTransactionsByOrder(anyString(), anyString()))
+                    .willReturn(Optional.of(new PgPaymentDto.OrderTransactionResponse(
+                            "pgOrderCode-003",
+                            List.of(new PgPaymentDto.TransactionSummary("TXN-003", "SUCCESS", null))
+                    )));
 
             // act
             PaymentInfo result = paymentFacade.syncPayment(userId, payment.getId());
@@ -217,7 +220,53 @@ class PaymentFacadeSpringTest {
 
             // assert
             assertThat(result.status()).isEqualTo(PaymentStatus.COMPLETED);
-            then(pgPaymentGateway).should(never()).getTransaction(anyString(), anyString());
+            then(pgPaymentGateway).should(never()).getTransactionsByOrder(anyString(), anyString());
+        }
+
+        @DisplayName("pgOrderCode로 PG 조회하여 SUCCESS면 COMPLETED로 전환되고 transactionKey가 저장된다.")
+        @Test
+        void completesPaymentWithTransactionKey_whenPgOrderCodeQueryReturnsSuccess() {
+            // arrange
+            Payment payment = paymentJpaRepository.save(
+                    Payment.create(order.getId(), "pgOrderCode-005", CardType.SAMSUNG, "1234-5678-9012-3456", 10000L)
+            );
+            // pgTransactionKey 미할당(타임아웃 등의 케이스)
+
+            given(pgPaymentGateway.getTransactionsByOrder(anyString(), anyString()))
+                    .willReturn(Optional.of(new PgPaymentDto.OrderTransactionResponse(
+                            "pgOrderCode-005",
+                            List.of(new PgPaymentDto.TransactionSummary("TXN-005", "SUCCESS", null))
+                    )));
+
+            // act
+            PaymentInfo result = paymentFacade.syncPayment(userId, payment.getId());
+
+            // assert
+            Payment updated = paymentJpaRepository.findById(payment.getId()).orElseThrow();
+            assertAll(
+                    () -> assertThat(result.status()).isEqualTo(PaymentStatus.COMPLETED),
+                    () -> assertThat(updated.getPgTransactionKey()).isEqualTo("TXN-005"),
+                    () -> assertThat(orderJpaRepository.findById(order.getId()).orElseThrow().getStatus()).isEqualTo(Order.Status.PAID)
+            );
+        }
+
+        @DisplayName("pgOrderCode로 PG 조회하여 확정된 거래가 없으면 PENDING 유지된다.")
+        @Test
+        void keepsPending_whenPgOrderCodeQueryReturnsEmpty() {
+            // arrange
+            Payment payment = paymentJpaRepository.save(
+                    Payment.create(order.getId(), "pgOrderCode-006", CardType.KB, "1234-5678-9012-3456", 10000L)
+            );
+            // pgTransactionKey 미할당(타임아웃 등의 케이스)
+
+            given(pgPaymentGateway.getTransactionsByOrder(anyString(), anyString()))
+                    .willReturn(Optional.empty());
+
+            // act
+            PaymentInfo result = paymentFacade.syncPayment(userId, payment.getId());
+
+            // assert
+            assertThat(result.status()).isEqualTo(PaymentStatus.PENDING);
         }
     }
 }

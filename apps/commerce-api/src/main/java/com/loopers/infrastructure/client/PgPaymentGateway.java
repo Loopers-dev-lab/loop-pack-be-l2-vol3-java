@@ -40,8 +40,23 @@ public class PgPaymentGateway {
         return Optional.empty();
     }
 
+    @CircuitBreaker(name = "pgCircuit", fallbackMethod = "getTransactionsByOrderFallback")
+    @Retry(name = "pgRetry")
+    public Optional<PgPaymentDto.OrderTransactionResponse> getTransactionsByOrder(String userId, String pgOrderCode) {
+        PgPaymentDto.ApiResponse<PgPaymentDto.OrderTransactionResponse> response = pgClient.getTransactionsByOrderCode(userId, pgOrderCode);
+        if (!response.isSuccess()) {
+            throw new PgPaymentException("PG 주문 거래 조회 실패: " + (response.meta() != null ? response.meta().message() : "unknown"));
+        }
+        return Optional.ofNullable(response.data());
+    }
+
     private Optional<PgPaymentDto.TransactionDetailResponse> getTransactionFallback(String userId, String transactionKey, Throwable t) {
         log.warn("PG 상태 조회 실패 - fallback 처리. transactionKey={}, cause={}", transactionKey, t.getMessage());
+        return Optional.empty();
+    }
+
+    private Optional<PgPaymentDto.OrderTransactionResponse> getTransactionsByOrderFallback(String userId, String pgOrderCode, Throwable t) {
+        log.warn("PG 주문 거래 조회 실패 - fallback 처리. pgOrderCode={}, cause={}", pgOrderCode, t.getMessage());
         return Optional.empty();
     }
 }

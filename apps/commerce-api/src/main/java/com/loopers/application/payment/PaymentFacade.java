@@ -62,7 +62,7 @@ public class PaymentFacade {
     @Transactional
     public PaymentInfo syncPayment(Long userId, Long paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "결제건이 존재하지 않습니다."));
+                                           .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "결제건이 존재하지 않습니다."));
 
         orderService.getOrder(userId, payment.getOrderId()); // 소유권 검증
 
@@ -70,26 +70,14 @@ public class PaymentFacade {
             return PaymentInfo.from(payment);
         }
 
-        if (payment.getPgTransactionKey() == null) {
-            return PaymentInfo.from(payment);
-        }
-
-        Optional<PgPaymentDto.TransactionDetailResponse> pgResponse = pgPaymentGateway.getTransaction(
-                String.valueOf(userId), payment.getPgTransactionKey()
-        );
-
-        pgResponse.ifPresent(response -> {
-            switch (response.status()) {
-                case "SUCCESS" -> {
-                    payment.complete();
-                    orderService.markOrderPaid(payment.getOrderId());
-                }
-                case "FAILED" -> {
-                    payment.fail(response.reason());
-                    orderService.markOrderFailed(payment.getOrderId());
-                }
-            }
-        });
+        pgPaymentGateway.getTransactionsByOrder(String.valueOf(userId), payment.getPgOrderCode())
+                .flatMap(response -> response.transactions().stream()
+                        .filter(t -> "SUCCESS".equals(t.status()) || "FAILED".equals(t.status()))
+                        .findFirst())
+                .ifPresent(t -> {
+                    payment.assignPgTransaction(t.transactionKey());
+                    applyPgResult(payment, t.status(), t.reason());
+                });
 
         return PaymentInfo.from(payment);
     }
@@ -99,16 +87,23 @@ public class PaymentFacade {
         Payment payment = paymentRepository.findByPgTransactionKey(command.transactionKey())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "결제건이 존재하지 않습니다. transactionKey: " + command.transactionKey()));
 
-        switch (command.status()) {
+        if (!"SUCCESS".equals(command.status()) && !"FAILED".equals(command.status())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "처리할 수 없는 PG 상태입니다: " + command.status());
+        }
+
+        applyPgResult(payment, command.status(), command.reason());
+    }
+
+    private void applyPgResult(Payment payment, String status, String reason) {
+        switch (status) {
             case "SUCCESS" -> {
                 payment.complete();
                 orderService.markOrderPaid(payment.getOrderId());
             }
             case "FAILED" -> {
-                payment.fail(command.reason());
+                payment.fail(reason);
                 orderService.markOrderFailed(payment.getOrderId());
             }
-            default -> throw new CoreException(ErrorType.BAD_REQUEST, "처리할 수 없는 PG 상태입니다: " + command.status());
         }
     }
 }

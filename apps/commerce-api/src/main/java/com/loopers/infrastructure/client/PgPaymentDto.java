@@ -26,6 +26,17 @@ public class PgPaymentDto {
             String reason
     ) {}
 
+    public record OrderTransactionResponse(
+            String orderId,
+            java.util.List<TransactionSummary> transactions
+    ) {}
+
+    public record TransactionSummary(
+            String transactionKey,
+            String status,
+            String reason
+    ) {}
+
     // PG 공통 응답 래퍼: {"meta":{"result":"SUCCESS",...},"data":{...}}
     public record ApiResponse<T>(Meta meta, T data) {
         public boolean isSuccess() {

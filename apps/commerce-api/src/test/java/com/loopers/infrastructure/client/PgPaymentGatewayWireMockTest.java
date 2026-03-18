@@ -151,4 +151,65 @@ class PgPaymentGatewayWireMockTest {
             assertThat(result).isEmpty();
         }
     }
+
+    @DisplayName("주문코드로 거래 조회 시, ")
+    @Nested
+    class GetTransactionsByOrder {
+
+        @DisplayName("PG가 SUCCESS 응답을 내려주면 OrderTransactionResponse가 반환된다.")
+        @Test
+        void returnsOrderTransactionResponse_whenPgReturnsSuccess() {
+            // arrange
+            stubFor(get(urlEqualTo("/api/v1/payments?orderId=pgOrderCode-001"))
+                    .withHeader("X-USER-ID", equalTo("user-1"))
+                    .willReturn(aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                    .withBody("""
+                            {
+                              "meta": { "result": "SUCCESS", "errorCode": null, "message": null },
+                              "data": {
+                                "orderId": "pgOrderCode-001",
+                                "transactions": [
+                                  { "transactionKey": "TXN-001", "status": "SUCCESS", "reason": null }
+                                ]
+                              }
+                            }
+                            """)));
+
+            // act
+            Optional<PgPaymentDto.OrderTransactionResponse> result =
+                    pgPaymentGateway.getTransactionsByOrder("user-1", "pgOrderCode-001");
+
+            // assert
+            assertThat(result).isPresent();
+            assertThat(result.get().orderId()).isEqualTo("pgOrderCode-001");
+            assertThat(result.get().transactions()).hasSize(1);
+            assertThat(result.get().transactions().get(0).transactionKey()).isEqualTo("TXN-001");
+            assertThat(result.get().transactions().get(0).status()).isEqualTo("SUCCESS");
+        }
+
+        @DisplayName("PG가 FAILED 응답을 내려주면 fallback으로 Optional.empty()가 반환된다.")
+        @Test
+        void returnsFallback_whenPgReturnsFailed() {
+            // arrange
+            stubFor(get(urlEqualTo("/api/v1/payments?orderId=pgOrderCode-999"))
+                    .willReturn(aResponse()
+                            .withStatus(200)
+                            .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                            .withBody("""
+                                    {
+                                      "meta": { "result": "FAILED", "errorCode": "NOT_FOUND", "message": "주문 없음" },
+                                      "data": null
+                                    }
+                                    """)));
+
+            // act
+            Optional<PgPaymentDto.OrderTransactionResponse> result =
+                    pgPaymentGateway.getTransactionsByOrder("user-1", "pgOrderCode-999");
+
+            // assert: PgPaymentException → fallback
+            assertThat(result).isEmpty();
+        }
+    }
 }
