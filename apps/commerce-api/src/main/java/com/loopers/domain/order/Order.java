@@ -77,6 +77,30 @@ public class Order extends BaseEntity {
         }
     }
 
+    public void startPayment() {
+        if (this.status != OrderStatus.ORDERED) {
+            throw new CoreException(ErrorType.BAD_REQUEST,
+                "결제를 시작할 수 없는 상태입니다. 현재 상태: " + this.status);
+        }
+        this.status = OrderStatus.PAYMENT_PENDING;
+    }
+
+    public void completePayment() {
+        if (this.status != OrderStatus.PAYMENT_PENDING) {
+            throw new CoreException(ErrorType.BAD_REQUEST,
+                "결제 완료 처리할 수 없는 상태입니다. 현재 상태: " + this.status);
+        }
+        this.status = OrderStatus.PAID;
+    }
+
+    public void failPayment() {
+        if (this.status != OrderStatus.PAYMENT_PENDING) {
+            throw new CoreException(ErrorType.BAD_REQUEST,
+                "결제 실패 처리할 수 없는 상태입니다. 현재 상태: " + this.status);
+        }
+        this.status = OrderStatus.PAYMENT_FAILED;
+    }
+
     public void cancel() {
         if (this.status != OrderStatus.ORDERED) {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 취소가 불가능한 상태입니다.");

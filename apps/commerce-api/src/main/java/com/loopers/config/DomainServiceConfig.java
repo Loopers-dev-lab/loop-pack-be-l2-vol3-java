@@ -12,6 +12,8 @@ import com.loopers.domain.like.LikeDomainService;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.order.OrderDomainService;
 import com.loopers.domain.order.OrderRepository;
+import com.loopers.domain.payment.PaymentDomainService;
+import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.product.ProductDomainService;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.stock.ProductStockDomainService;
@@ -68,5 +70,10 @@ public class DomainServiceConfig {
     @Bean
     public ProductStockDomainService productStockDomainService(ProductStockRepository productStockRepository) {
         return new ProductStockDomainService(productStockRepository);
+    }
+
+    @Bean
+    public PaymentDomainService paymentDomainService(PaymentRepository paymentRepository) {
+        return new PaymentDomainService(paymentRepository);
     }
 }

@@ -56,6 +56,9 @@ public class CouponIssue extends BaseEntity {
     }
 
     public void restore() {
+        if (this.status == CouponIssueStatus.AVAILABLE) {
+            return; // 이미 복원됨 → 멱등하게 무시
+        }
         if (this.status != CouponIssueStatus.USED) {
             throw new CoreException(ErrorType.BAD_REQUEST, "사용된 쿠폰만 복원할 수 있습니다.");
         }

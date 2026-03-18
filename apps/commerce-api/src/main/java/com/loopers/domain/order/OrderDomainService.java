@@ -73,6 +73,19 @@ public class OrderDomainService {
         return order;
     }
 
+    public Order getByIdForUpdate(Long id) {
+        return orderRepository.findByIdForUpdate(id)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
+    }
+
+    public Order getByIdAndUserIdForUpdate(Long id, Long userId) {
+        Order order = getByIdForUpdate(id);
+        if (!order.getUserId().equals(userId)) {
+            throw new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.");
+        }
+        return order;
+    }
+
     public Order getByIdAndUserIdWithItems(Long id, Long userId) {
         Order order = getByIdWithItems(id);
         if (!order.getUserId().equals(userId)) {
