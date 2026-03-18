@@ -80,19 +80,45 @@ class PaymentApplicationServiceTest {
             );
         }
 
-        @DisplayName("PG 요청 실패 시, CoreException이 발생하고 Payment는 PENDING 상태로 남는다.")
+        @DisplayName("PG 일시적 장애(timeout/5xx) 시, PENDING 상태의 Payment를 정상 반환한다.")
         @Test
-        void throwsException_andPaymentStaysPending_whenPgFails() {
+        void returnsPendingPayment_whenPgRetryableFails() {
             stubOrderService.setOrder(new Order(1L, new Money(50000)));
-            fakeGateway.willFail();
+            fakeGateway.willFail(); // retryable exception (timeout/5xx)
 
-            assertThrows(CoreException.class,
+            Payment result = paymentApplicationService.requestPayment(
+                1L, 1L, CardType.SAMSUNG, "1234-5678-9012-3456"
+            );
+
+            assertAll(
+                () -> assertThat(result.getStatus()).isEqualTo(PaymentStatus.PENDING),
+                () -> assertThat(result.getAmount()).isEqualTo(50000),
+                () -> assertThat(stubOrderService.getLastOrder().getStatus())
+                    .isEqualTo(OrderStatus.PAYMENT_PENDING)
+            );
+        }
+
+        @DisplayName("PG 비재시도 장애(4xx/계약 오류) 시, CoreException이 발생하고 Payment/Order가 즉시 FAILED로 전환된다.")
+        @Test
+        void throwsExceptionAndFailsPayment_whenPgNonRetryableFails() {
+            stubOrderService.setOrder(new Order(1L, new Money(50000)));
+            fakeGateway.willFailNonRetryable();
+
+            CoreException result = assertThrows(CoreException.class,
                 () -> paymentApplicationService.requestPayment(
                     1L, 1L, CardType.SAMSUNG, "1234-5678-9012-3456"
                 ));
 
-            // Payment는 PENDING으로 남아있어야 함 (복구 가능)
-            // FakePaymentRepository에 저장된 Payment 확인
+            assertAll(
+                () -> assertThat(result.getMessage()).contains("PG 요청에 실패했습니다"),
+                () -> assertThat(stubOrderService.getLastOrder().getStatus())
+                    .isEqualTo(OrderStatus.PAYMENT_FAILED),
+                () -> {
+                    List<Payment> payments = paymentDomainService.getByOrderId(1L);
+                    assertThat(payments).hasSize(1);
+                    assertThat(payments.get(0).getStatus()).isEqualTo(PaymentStatus.FAILED);
+                }
+            );
         }
 
         @DisplayName("같은 주문에 대해 이미 결제가 진행 중이면, CONFLICT 예외가 발생한다.")
@@ -112,40 +138,42 @@ class PaymentApplicationServiceTest {
             assertThat(result.getErrorType()).isEqualTo(ErrorType.CONFLICT);
         }
 
-        @DisplayName("이전 결제가 FAILED 상태이면, 새로운 결제 요청이 가능하다.")
+        @DisplayName("이전 결제가 FAILED 상태이면, 같은 주문에 대해 재결제가 가능하다.")
         @Test
         void allowsNewPayment_whenPreviousFailed() {
             stubOrderService.setOrder(new Order(1L, new Money(50000)));
             fakeGateway.willSucceed("20250316:TR:abc123");
 
-            // 첫 번째 결제 → 실패
+            // 첫 번째 결제 → 성공 후 FAILED 콜백
             paymentApplicationService.requestPayment(1L, 1L, CardType.SAMSUNG, "1234-5678-9012-3456");
             paymentApplicationService.handleCallback("20250316:TR:abc123", "FAILED", "한도초과");
 
-            // Order 상태를 다시 ORDERED로 돌려야 함 (실제로는 PAYMENT_FAILED → ORDERED 전이가 필요)
-            // 현재 구조에서는 PAYMENT_FAILED 상태에서 다시 결제를 시작할 수 없으므로
-            // 이 테스트는 새 Order로 진행
-            stubOrderService.setOrder(new Order(2L, new Money(30000)));
+            // 같은 주문에 대해 재결제 (PAYMENT_FAILED → PAYMENT_PENDING)
             fakeGateway.willSucceed("20250316:TR:def456");
 
             Payment result = paymentApplicationService.requestPayment(
-                2L, 2L, CardType.KB, "1234-5678-9012-3456"
+                1L, 1L, CardType.KB, "1234-5678-9012-3456"
             );
-            assertThat(result.getStatus()).isEqualTo(PaymentStatus.IN_PROGRESS);
+
+            assertAll(
+                () -> assertThat(result.getStatus()).isEqualTo(PaymentStatus.IN_PROGRESS),
+                () -> assertThat(result.getTransactionKey()).isEqualTo("20250316:TR:def456"),
+                () -> assertThat(stubOrderService.getLastOrder().getStatus())
+                    .isEqualTo(OrderStatus.PAYMENT_PENDING)
+            );
         }
 
-        @DisplayName("PG 타임아웃 시, CoreException이 발생한다.")
+        @DisplayName("PG 타임아웃 시, PENDING 상태의 Payment를 정상 반환한다.")
         @Test
-        void throwsException_whenPgTimeout() {
+        void returnsPendingPayment_whenPgTimeout() {
             stubOrderService.setOrder(new Order(1L, new Money(50000)));
             fakeGateway.willTimeout();
 
-            CoreException result = assertThrows(CoreException.class,
-                () -> paymentApplicationService.requestPayment(
-                    1L, 1L, CardType.SAMSUNG, "1234-5678-9012-3456"
-                ));
+            Payment result = paymentApplicationService.requestPayment(
+                1L, 1L, CardType.SAMSUNG, "1234-5678-9012-3456"
+            );
 
-            assertThat(result.getMessage()).contains("PG 요청에 실패했습니다");
+            assertThat(result.getStatus()).isEqualTo(PaymentStatus.PENDING);
         }
     }
 
@@ -218,6 +246,24 @@ class PaymentApplicationServiceTest {
 
             Payment payment = paymentDomainService.getByTransactionKey("20250316:TR:abc123");
             assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
+        }
+
+        @DisplayName("알 수 없는 상태 콜백이면, 상태 전이 없이 IN_PROGRESS를 유지한다.")
+        @Test
+        void doesNotChangeState_whenUnknownCallbackStatus() {
+            stubOrderService.setOrder(new Order(1L, new Money(50000)));
+            fakeGateway.willSucceed("20250316:TR:abc123");
+            paymentApplicationService.requestPayment(1L, 1L, CardType.SAMSUNG, "1234-5678-9012-3456");
+
+            // 알 수 없는 상태로 콜백
+            paymentApplicationService.handleCallback("20250316:TR:abc123", "PROCESSING", null);
+
+            Payment payment = paymentDomainService.getByTransactionKey("20250316:TR:abc123");
+            assertAll(
+                () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.IN_PROGRESS),
+                () -> assertThat(stubOrderService.getLastOrder().getStatus())
+                    .isEqualTo(OrderStatus.PAYMENT_PENDING)
+            );
         }
     }
 
@@ -293,10 +339,9 @@ class PaymentApplicationServiceTest {
         @Test
         void recoversPendingPayment_whenPgHasOneTransaction() {
             stubOrderService.setOrder(new Order(1L, new Money(50000)));
-            fakeGateway.willFail(); // PG 요청 실패 → Payment PENDING으로 남음
+            fakeGateway.willFail(); // PG 일시적 장애 → PENDING fallback
 
-            assertThrows(CoreException.class,
-                () -> paymentApplicationService.requestPayment(1L, 1L, CardType.SAMSUNG, "1234-5678-9012-3456"));
+            paymentApplicationService.requestPayment(1L, 1L, CardType.SAMSUNG, "1234-5678-9012-3456");
 
             // PG에서 실제로는 접수되었다고 가정 (Read Timeout 시나리오)
             fakeGateway.setNextOrderResults(List.of(
@@ -313,10 +358,9 @@ class PaymentApplicationServiceTest {
         @Test
         void failsPendingPayment_whenPgConfirmsZeroTransactions() {
             stubOrderService.setOrder(new Order(1L, new Money(50000)));
-            fakeGateway.willFail();
+            fakeGateway.willFail(); // retryable → PENDING fallback
 
-            assertThrows(CoreException.class,
-                () -> paymentApplicationService.requestPayment(1L, 1L, CardType.SAMSUNG, "1234-5678-9012-3456"));
+            paymentApplicationService.requestPayment(1L, 1L, CardType.SAMSUNG, "1234-5678-9012-3456");
 
             fakeGateway.setNextOrderResults(List.of()); // PG 정상 응답 0건 → 미접수 확정
 
@@ -332,10 +376,9 @@ class PaymentApplicationServiceTest {
         @Test
         void throwsInternalError_whenPgHasMultipleTransactions() {
             stubOrderService.setOrder(new Order(1L, new Money(50000)));
-            fakeGateway.willFail();
+            fakeGateway.willFail(); // retryable → PENDING fallback
 
-            assertThrows(CoreException.class,
-                () -> paymentApplicationService.requestPayment(1L, 1L, CardType.SAMSUNG, "1234-5678-9012-3456"));
+            paymentApplicationService.requestPayment(1L, 1L, CardType.SAMSUNG, "1234-5678-9012-3456");
 
             fakeGateway.setNextOrderResults(List.of(
                 new PaymentGateway.TransactionResult("20250316:TR:first", "SUCCESS", "정상 승인"),
@@ -364,10 +407,9 @@ class PaymentApplicationServiceTest {
         @Test
         void transitionsToInProgressOnly_whenPgStillPending() {
             stubOrderService.setOrder(new Order(1L, new Money(50000)));
-            fakeGateway.willFail();
+            fakeGateway.willFail(); // retryable → PENDING fallback
 
-            assertThrows(CoreException.class,
-                () -> paymentApplicationService.requestPayment(1L, 1L, CardType.SAMSUNG, "1234-5678-9012-3456"));
+            paymentApplicationService.requestPayment(1L, 1L, CardType.SAMSUNG, "1234-5678-9012-3456");
 
             fakeGateway.setNextOrderResults(List.of(
                 new PaymentGateway.TransactionResult("20250316:TR:pending", "PENDING", null)

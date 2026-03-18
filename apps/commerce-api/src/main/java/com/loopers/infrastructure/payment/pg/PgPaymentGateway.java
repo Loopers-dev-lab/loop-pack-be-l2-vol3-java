@@ -88,10 +88,10 @@ public class PgPaymentGateway implements PaymentGateway {
 
         } catch (ResourceAccessException e) {
             log.warn("[PG 타임아웃] orderId={}, error={}", orderId, e.getMessage());
-            throw new PaymentGatewayException("PG 요청 타임아웃: " + e.getMessage(), e);
+            throw new PaymentGatewayRetryableException("PG 요청 타임아웃: " + e.getMessage(), e);
         } catch (HttpServerErrorException e) {
             log.warn("[PG 서버 에러] orderId={}, status={}", orderId, e.getStatusCode());
-            throw new PaymentGatewayException("PG 서버 에러: " + e.getStatusCode(), e);
+            throw new PaymentGatewayRetryableException("PG 서버 에러: " + e.getStatusCode(), e);
         } catch (RestClientException e) {
             log.warn("[PG 요청 실패] orderId={}, error={}", orderId, e.getMessage());
             throw new PaymentGatewayException("PG 요청 실패: " + e.getMessage(), e);

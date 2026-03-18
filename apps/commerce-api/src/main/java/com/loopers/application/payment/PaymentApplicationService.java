@@ -6,6 +6,7 @@ import com.loopers.domain.payment.PaymentDomainService;
 import com.loopers.domain.payment.PaymentGateway;
 import com.loopers.domain.payment.PaymentGateway.TransactionResult;
 import com.loopers.domain.payment.PaymentGatewayException;
+import com.loopers.domain.payment.PaymentGatewayRetryableException;
 import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -45,13 +46,17 @@ public class PaymentApplicationService {
                 userId, orderId, cardType, cardNo, payment.getAmount()
             );
         } catch (CallNotPermittedException e) {
-            log.warn("[서킷 브레이커 Open] orderId={}, 결제 요청이 차단되었습니다.", orderId);
-            throw new CoreException(ErrorType.INTERNAL_ERROR,
-                "현재 결제 시스템이 불안정하여 요청이 대기 상태로 접수되었습니다. 잠시 후 다시 시도해주세요.");
+            log.warn("[서킷 브레이커 Open] orderId={}, PENDING 상태로 응답합니다.", orderId);
+            return payment;
+        } catch (PaymentGatewayRetryableException e) {
+            log.warn("[PG 일시적 장애] orderId={}, error={}. PENDING 상태로 응답합니다.", orderId, e.getMessage());
+            return payment;
         } catch (PaymentGatewayException e) {
-            log.warn("[결제 요청 실패] orderId={}, error={}", orderId, e.getMessage());
+            log.warn("[결제 요청 거절] orderId={}, userId={}, error={}. PENDING 결제를 즉시 실패 처리합니다.",
+                orderId, userId, e.getMessage());
+            transactionHelper.cancelPendingPayment(orderId, userId, "PG 요청 거절: " + e.getMessage());
             throw new CoreException(ErrorType.INTERNAL_ERROR,
-                "PG 요청에 실패했습니다. 결제가 대기 상태로 접수되었습니다.");
+                "PG 요청에 실패했습니다: " + e.getMessage());
         }
 
         // TX2: IN_PROGRESS로 전환

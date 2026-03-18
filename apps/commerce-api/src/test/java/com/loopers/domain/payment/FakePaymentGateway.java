@@ -10,6 +10,7 @@ public class FakePaymentGateway implements PaymentGateway {
 
     private boolean shouldFail = false;
     private boolean shouldTimeout = false;
+    private boolean shouldFailNonRetryable = false;
     private String nextTransactionKey = "20250316:TR:fake01";
     private TransactionResult nextTransactionResult;
     private List<TransactionResult> nextOrderResults;
@@ -17,17 +18,26 @@ public class FakePaymentGateway implements PaymentGateway {
     public void willSucceed(String transactionKey) {
         this.shouldFail = false;
         this.shouldTimeout = false;
+        this.shouldFailNonRetryable = false;
         this.nextTransactionKey = transactionKey;
     }
 
     public void willFail() {
         this.shouldFail = true;
         this.shouldTimeout = false;
+        this.shouldFailNonRetryable = false;
     }
 
     public void willTimeout() {
         this.shouldTimeout = true;
         this.shouldFail = false;
+        this.shouldFailNonRetryable = false;
+    }
+
+    public void willFailNonRetryable() {
+        this.shouldFailNonRetryable = true;
+        this.shouldFail = false;
+        this.shouldTimeout = false;
     }
 
     public void setNextTransactionResult(TransactionResult result) {
@@ -41,10 +51,13 @@ public class FakePaymentGateway implements PaymentGateway {
     @Override
     public String requestPayment(Long userId, Long orderId, CardType cardType, String cardNo, int amount) {
         if (shouldTimeout) {
-            throw new PaymentGatewayException("PG 요청 타임아웃");
+            throw new PaymentGatewayRetryableException("PG 요청 타임아웃");
         }
         if (shouldFail) {
-            throw new PaymentGatewayException("PG 요청 실패: 현재 서버가 불안정합니다.");
+            throw new PaymentGatewayRetryableException("PG 요청 실패: 현재 서버가 불안정합니다.");
+        }
+        if (shouldFailNonRetryable) {
+            throw new PaymentGatewayException("PG 요청 실패: 잘못된 카드 정보입니다.");
         }
         return nextTransactionKey;
     }
