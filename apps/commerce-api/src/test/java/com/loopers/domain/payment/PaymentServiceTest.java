@@ -2,6 +2,7 @@ package com.loopers.domain.payment;
 
 import com.loopers.domain.payment.vo.RefOrderId;
 import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -53,12 +54,23 @@ class PaymentServiceTest {
         @DisplayName("정상 입력으로 PENDING 상태 결제가 저장된다")
         void createPending_success() {
             PaymentModel expected = pendingPayment();
+            given(paymentRepository.findByRefOrderId(any(RefOrderId.class))).willReturn(Optional.empty());
             given(paymentRepository.save(any(PaymentModel.class))).willReturn(expected);
 
             PaymentModel result = paymentService.createPending(ORDER_ID, MEMBER_ID, CARD_TYPE, CARD_NUMBER, AMOUNT);
 
             assertThat(result.getStatus()).isEqualTo(PaymentStatus.PENDING);
             assertThat(result.getRefOrderId().value()).isEqualTo(ORDER_ID);
+        }
+
+        @Test
+        @DisplayName("동일한 orderId로 이미 결제가 존재하면 CONFLICT 예외가 발생한다")
+        void createPending_duplicateOrder_throwsConflict() {
+            given(paymentRepository.findByRefOrderId(any(RefOrderId.class))).willReturn(Optional.of(pendingPayment()));
+
+            assertThatThrownBy(() -> paymentService.createPending(ORDER_ID, MEMBER_ID, CARD_TYPE, CARD_NUMBER, AMOUNT))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT));
         }
     }
 
@@ -104,13 +116,14 @@ class PaymentServiceTest {
         }
 
         @Test
-        @DisplayName("PG 금액과 저장 금액이 다르면 예외가 발생한다")
-        void updateCompleted_amountMismatch_throwsException() {
+        @DisplayName("PG 금액과 저장 금액이 다르면 이상 거래로 감지하여 FAILED 상태가 된다")
+        void updateCompleted_amountMismatch_becomesFailed() {
             PaymentModel payment = requestedPayment();
             given(paymentRepository.findByPgTransactionId(PG_TRANSACTION_KEY)).willReturn(Optional.of(payment));
 
-            assertThatThrownBy(() -> paymentService.updateCompleted(PG_TRANSACTION_KEY, new BigDecimal("9999")))
-                    .isInstanceOf(CoreException.class);
+            PaymentModel result = paymentService.updateCompleted(PG_TRANSACTION_KEY, new BigDecimal("9999"));
+
+            assertThat(result.getStatus()).isEqualTo(PaymentStatus.FAILED);
         }
 
         @Test
