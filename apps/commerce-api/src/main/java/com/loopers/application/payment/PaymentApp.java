@@ -40,6 +40,9 @@ public class PaymentApp {
         if (pgStatus == PgStatus.SUCCESS) {
             return PaymentInfo.from(paymentService.updateCompleted(pgTransactionId, pgAmount));
         }
+        if (pgStatus == PgStatus.PENDING) {
+            return PaymentInfo.from(paymentService.getByPgTransactionKey(pgTransactionId));
+        }
         return PaymentInfo.from(paymentService.updateFailed(pgTransactionId));
     }
 
