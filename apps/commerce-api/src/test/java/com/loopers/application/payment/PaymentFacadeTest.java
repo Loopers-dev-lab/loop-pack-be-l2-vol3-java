@@ -122,6 +122,17 @@ class PaymentFacadeTest {
             assertThatThrownBy(() -> paymentFacade.handleCallback(PG_TRANSACTION_ID, PgStatus.SUCCESS, AMOUNT))
                     .isInstanceOf(CoreException.class);
         }
+
+        @Test
+        @DisplayName("COMPLETED 콜백 수신 시 OrderApp에서 낙관락 예외가 발생하면 전파되어 PG가 재전송할 수 있다")
+        void handleCallback_completed_optimisticLockException_propagates() {
+            given(paymentApp.handleCallback(PG_TRANSACTION_ID, PgStatus.SUCCESS, AMOUNT)).willReturn(completedPaymentInfo());
+            doThrow(new RuntimeException("OptimisticLockingFailureException"))
+                    .when(orderApp).markOrderPaid(ORDER_ID);
+
+            assertThatThrownBy(() -> paymentFacade.handleCallback(PG_TRANSACTION_ID, PgStatus.SUCCESS, AMOUNT))
+                    .isInstanceOf(RuntimeException.class);
+        }
     }
 
     @Nested

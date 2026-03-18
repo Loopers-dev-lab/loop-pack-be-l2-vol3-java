@@ -1,6 +1,8 @@
 package com.loopers.application.payment;
 
 import com.loopers.domain.payment.*;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -184,6 +186,28 @@ class PaymentAppTest {
 
             assertThat(result.status()).isEqualTo(PaymentStatus.FAILED);
             verify(paymentService).updateFailed(PG_TRANSACTION_ID);
+        }
+
+        @Test
+        @DisplayName("pgTransactionId null인 결제에서 PG SUCCESS 조회 시 updateCompleted가 이미 처리된 상태라면 현재 상태를 반환한다")
+        void syncByOrderId_updateCompletedConflict_returnsCurrentState() {
+            PaymentModel pending = pendingPayment();
+            PaymentModel requested = requestedPayment();
+            PaymentModel completed = requestedPayment();
+            completed.complete();
+
+            given(paymentService.getById(PAYMENT_ID)).willReturn(pending);
+            given(paymentGateway.getPaymentByOrderId(any(), any()))
+                .willReturn(new PgResult(PG_TRANSACTION_ID, PgStatus.SUCCESS, "정상 승인", AMOUNT));
+            given(paymentService.updateRequested(any(), any())).willReturn(requested);
+            given(paymentService.updateCompleted(PG_TRANSACTION_ID, AMOUNT))
+                .willThrow(new CoreException(ErrorType.BAD_REQUEST, "결제 상태 전이 불가: COMPLETED → COMPLETED"));
+            given(paymentService.getByPgTransactionKey(PG_TRANSACTION_ID)).willReturn(completed);
+
+            PaymentInfo result = paymentApp.syncFromGateway(PAYMENT_ID, MEMBER_ID);
+
+            assertThat(result.status()).isEqualTo(PaymentStatus.COMPLETED);
+            verify(paymentService).getByPgTransactionKey(PG_TRANSACTION_ID);
         }
     }
 }

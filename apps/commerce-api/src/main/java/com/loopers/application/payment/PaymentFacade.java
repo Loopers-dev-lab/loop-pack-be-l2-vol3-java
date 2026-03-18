@@ -2,6 +2,7 @@ package com.loopers.application.payment;
 
 import com.loopers.application.order.OrderApp;
 import com.loopers.domain.payment.PgStatus;
+import com.loopers.support.error.CoreException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -26,8 +27,9 @@ public class PaymentFacade {
         if (payment.isCompleted()) {
             try {
                 orderApp.markOrderPaid(payment.orderId());
-            } catch (Exception e) {
-                log.error("Order 상태 업데이트 실패 — 환불 확인 필요. paymentId={}, orderId={}", payment.id(), payment.orderId(), e);
+            } catch (CoreException e) {
+                log.warn("Order 상태 업데이트 실패 (도메인 오류) — 확인 필요. paymentId={}, orderId={}, error={}",
+                        payment.id(), payment.orderId(), e.getMessage());
             }
         }
     }
@@ -37,8 +39,11 @@ public class PaymentFacade {
         if (payment.isCompleted()) {
             try {
                 orderApp.markOrderPaid(payment.orderId());
+            } catch (CoreException e) {
+                log.warn("Order 상태 업데이트 실패 (도메인 오류) — 확인 필요. paymentId={}, orderId={}, error={}",
+                        payment.id(), payment.orderId(), e.getMessage());
             } catch (Exception e) {
-                log.error("Order 상태 업데이트 실패 — 환불 확인 필요. paymentId={}, orderId={}", payment.id(), payment.orderId(), e);
+                log.error("Order 상태 업데이트 실패 — 확인 필요. paymentId={}, orderId={}", payment.id(), payment.orderId(), e);
             }
         }
         return payment;

@@ -5,6 +5,7 @@ import com.loopers.domain.payment.PaymentModel;
 import com.loopers.domain.payment.PaymentService;
 import com.loopers.domain.payment.PgResult;
 import com.loopers.domain.payment.PgStatus;
+import com.loopers.support.error.CoreException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,12 +74,20 @@ public class PaymentApp {
         String transactionKey = result.pgTransactionKey();
         PaymentModel requested = paymentService.updateRequested(payment.getId(), transactionKey);
         if (result.isSuccess()) {
-            return PaymentInfo.from(paymentService.updateCompleted(transactionKey, payment.getAmount()));
+            try {
+                return PaymentInfo.from(paymentService.updateCompleted(transactionKey, payment.getAmount()));
+            } catch (CoreException e) {
+                return PaymentInfo.from(paymentService.getByPgTransactionKey(transactionKey));
+            }
         }
         if (result.isAccepted()) {
             return PaymentInfo.from(requested);
         }
-        return PaymentInfo.from(paymentService.updateFailed(transactionKey));
+        try {
+            return PaymentInfo.from(paymentService.updateFailed(transactionKey));
+        } catch (CoreException e) {
+            return PaymentInfo.from(paymentService.getByPgTransactionKey(transactionKey));
+        }
     }
 
     @Transactional(readOnly = true)
