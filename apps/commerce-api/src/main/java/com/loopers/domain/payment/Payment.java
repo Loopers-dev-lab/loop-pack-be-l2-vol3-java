@@ -21,8 +21,8 @@ public class Payment extends BaseEntity {
     @Column(name = "pg_order_code", nullable = false, unique = true)
     private String pgOrderCode;
 
-    @Column(name = "pg_transaction_id")
-    private String pgTransactionId;
+    @Column(name = "pg_transaction_key")
+    private String pgTransactionKey;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -57,7 +57,7 @@ public class Payment extends BaseEntity {
     }
 
     public void assignPgTransaction(String pgTransactionId) {
-        this.pgTransactionId = pgTransactionId;
+        this.pgTransactionKey = pgTransactionId;
     }
 
     public void complete() {

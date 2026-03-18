@@ -49,6 +49,7 @@ resilience4j:
       pgCircuit:
         failure-rate-threshold: 50           # 실패율 50% 초과 시 Open
         sliding-window-size: 10              # 최근 10개 요청 기준
+        minimum-number-of-calls: 10          # 서킷 평가 시작 최소 호출 수 (기본값 100)
         wait-duration-in-open-state: 10s     # Open 후 10초 뒤 Half-Open 전환
         permitted-number-of-calls-in-half-open-state: 3  # Half-Open 시 3개 요청만 허용
         slow-call-duration-threshold: 3s     # 3초 이상 응답도 실패로 간주

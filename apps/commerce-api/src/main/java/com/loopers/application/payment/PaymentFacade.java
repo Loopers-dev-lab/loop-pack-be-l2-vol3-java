@@ -3,14 +3,13 @@ package com.loopers.application.payment;
 import com.loopers.application.order.OrderInfo;
 import com.loopers.application.order.OrderService;
 import com.loopers.domain.order.Order;
-import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentRepository;
+import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.infrastructure.client.PgPaymentDto;
 import com.loopers.infrastructure.client.PgPaymentGateway;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,16 +66,16 @@ public class PaymentFacade {
 
         orderService.getOrder(userId, payment.getOrderId()); // 소유권 검증
 
-        if (payment.getStatus() != com.loopers.domain.payment.PaymentStatus.PENDING) {
+        if (payment.getStatus() != PaymentStatus.PENDING) {
             return PaymentInfo.from(payment);
         }
 
-        if (payment.getPgTransactionId() == null) {
+        if (payment.getPgTransactionKey() == null) {
             return PaymentInfo.from(payment);
         }
 
         Optional<PgPaymentDto.TransactionDetailResponse> pgResponse = pgPaymentGateway.getTransaction(
-                String.valueOf(userId), payment.getPgTransactionId()
+                String.valueOf(userId), payment.getPgTransactionKey()
         );
 
         pgResponse.ifPresent(response -> {

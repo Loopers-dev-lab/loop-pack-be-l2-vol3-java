@@ -25,7 +25,7 @@ class PaymentTest {
             // assert
             assertAll(
                     () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING),
-                    () -> assertThat(payment.getPgTransactionId()).isNull(),
+                    () -> assertThat(payment.getPgTransactionKey()).isNull(),
                     () -> assertThat(payment.getFailReason()).isNull()
             );
         }
@@ -45,7 +45,7 @@ class PaymentTest {
             payment.assignPgTransaction("20250317:TR:abc123");
 
             // assert
-            assertThat(payment.getPgTransactionId()).isEqualTo("20250317:TR:abc123");
+            assertThat(payment.getPgTransactionKey()).isEqualTo("20250317:TR:abc123");
         }
     }
 
