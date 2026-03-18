@@ -17,7 +17,6 @@ public class PgPaymentGateway {
     private final PgClient pgClient;
 
     @CircuitBreaker(name = "pgCircuit", fallbackMethod = "requestPaymentFallback")
-    @Retry(name = "pgRetry")
     public Optional<PgPaymentDto.TransactionResponse> requestPayment(String userId, PgPaymentDto.PaymentRequest request) {
         PgPaymentDto.ApiResponse<PgPaymentDto.TransactionResponse> response = pgClient.requestPayment(userId, request);
         if (!response.isSuccess()) {
