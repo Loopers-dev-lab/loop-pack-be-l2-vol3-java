@@ -16,7 +16,12 @@ import java.util.regex.Pattern;
 @Entity
 @Table(
         name = "payments",
-        uniqueConstraints = {@UniqueConstraint(name = "uq_payments_ref_order_id", columnNames = "ref_order_id")}
+        uniqueConstraints = {@UniqueConstraint(name = "uq_payments_ref_order_id", columnNames = "ref_order_id")},
+        indexes = {
+                @Index(name = "idx_payments_pg_transaction_id", columnList = "pg_transaction_id"),
+                @Index(name = "idx_payments_status", columnList = "status"),
+                @Index(name = "idx_payments_ref_member_id", columnList = "ref_member_id")
+        }
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
