@@ -38,7 +38,7 @@ public class PaymentV1Controller implements PaymentV1ApiSpec {
         @Valid @RequestBody PaymentV1Dto.PaymentCallbackRequest request
     ) {
         paymentApplicationService.handleCallback(
-            request.transactionKey(), request.status(), request.reason()
+            request.transactionKey(), request.status().name(), request.reason()
         );
         return ApiResponse.success();
     }

@@ -78,7 +78,7 @@ public class Order extends BaseEntity {
     }
 
     public void startPayment() {
-        if (this.status != OrderStatus.ORDERED) {
+        if (this.status != OrderStatus.ORDERED && this.status != OrderStatus.PAYMENT_FAILED) {
             throw new CoreException(ErrorType.BAD_REQUEST,
                 "결제를 시작할 수 없는 상태입니다. 현재 상태: " + this.status);
         }

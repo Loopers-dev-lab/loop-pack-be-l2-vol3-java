@@ -39,6 +39,11 @@ public class FakePaymentRepository implements PaymentRepository {
     }
 
     @Override
+    public Optional<Payment> findByTransactionKeyForUpdate(String transactionKey) {
+        return findByTransactionKey(transactionKey);
+    }
+
+    @Override
     public List<Payment> findByOrderId(Long orderId) {
         return store.values().stream()
             .filter(p -> p.getOrderId().equals(orderId))

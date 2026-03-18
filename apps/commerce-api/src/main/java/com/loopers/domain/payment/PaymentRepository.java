@@ -13,6 +13,8 @@ public interface PaymentRepository {
 
     Optional<Payment> findByTransactionKey(String transactionKey);
 
+    Optional<Payment> findByTransactionKeyForUpdate(String transactionKey);
+
     List<Payment> findByOrderId(Long orderId);
 
     List<Payment> findByStatusIn(List<PaymentStatus> statuses);

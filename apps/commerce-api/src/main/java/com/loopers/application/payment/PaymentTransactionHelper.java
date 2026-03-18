@@ -4,6 +4,7 @@ import com.loopers.domain.coupon.CouponIssueDomainService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderDomainService;
 import com.loopers.domain.order.OrderItem;
+import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentDomainService;
@@ -54,6 +55,12 @@ public class PaymentTransactionHelper {
             throw new CoreException(ErrorType.CONFLICT, "이미 진행 중인 결제가 있습니다.");
         }
 
+        // 재결제 시 재고/쿠폰 재선점 (실패 시 이미 복원되었으므로 다시 차감)
+        if (order.getStatus() == OrderStatus.PAYMENT_FAILED) {
+            Order orderWithItems = orderDomainService.getByIdWithItems(orderId);
+            reserveStockAndCoupon(orderWithItems, userId);
+        }
+
         int amount = order.getTotalPrice().amount();
         Payment payment = paymentDomainService.createPayment(orderId, userId, cardType, cardNo, amount);
         order.startPayment();
@@ -86,7 +93,7 @@ public class PaymentTransactionHelper {
      */
     @Transactional
     public Payment applyPaymentResult(String transactionKey, String status, String reason) {
-        Payment payment = paymentDomainService.getByTransactionKey(transactionKey);
+        Payment payment = paymentDomainService.getByTransactionKeyForUpdate(transactionKey);
 
         // 이미 최종 상태이면 멱등하게 처리 (재고/쿠폰 중복 복원 방지)
         if (payment.getStatus() == PaymentStatus.PAID || payment.getStatus() == PaymentStatus.FAILED) {
@@ -98,10 +105,13 @@ public class PaymentTransactionHelper {
         if ("SUCCESS".equals(status)) {
             payment.markPaid();
             order.completePayment();
-        } else {
+        } else if ("FAILED".equals(status)) {
             payment.markFailed(reason);
             order.failPayment();
             restoreStockAndCoupon(order);
+        } else {
+            log.warn("[콜백 상태 미인식] transactionKey={}, status={}, 상태 전이 없이 유지합니다.",
+                transactionKey, status);
         }
 
         return payment;
@@ -206,6 +216,23 @@ public class PaymentTransactionHelper {
         }
         if (order.getCouponIssueId() != null) {
             couponIssueDomainService.restoreCoupon(order.getCouponIssueId());
+        }
+    }
+
+    /**
+     * 재결제 시 재고/쿠폰 재선점. deadlock 방지를 위해 productId 기준 정렬.
+     * PAYMENT_FAILED 후 같은 주문에 대해 새 결제를 시작할 때,
+     * 이미 복원된 재고/쿠폰을 다시 차감한다.
+     */
+    private void reserveStockAndCoupon(Order order, Long userId) {
+        List<OrderItem> sortedItems = order.getItems().stream()
+            .sorted(Comparator.comparing(OrderItem::getProductId))
+            .toList();
+        for (OrderItem item : sortedItems) {
+            productStockDomainService.deductWithLock(item.getProductId(), item.getQuantity().value());
+        }
+        if (order.getCouponIssueId() != null) {
+            couponIssueDomainService.useCoupon(order.getCouponIssueId(), userId);
         }
     }
 }

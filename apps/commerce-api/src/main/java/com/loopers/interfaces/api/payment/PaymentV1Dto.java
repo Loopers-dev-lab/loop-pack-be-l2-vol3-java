@@ -57,8 +57,8 @@ public class PaymentV1Dto {
         @NotBlank(message = "트랜잭션 키는 필수입니다.")
         String transactionKey,
 
-        @NotBlank(message = "결제 상태는 필수입니다.")
-        String status,
+        @NotNull(message = "결제 상태는 필수입니다.")
+        PaymentCallbackStatus status,
 
         String reason
     ) {}

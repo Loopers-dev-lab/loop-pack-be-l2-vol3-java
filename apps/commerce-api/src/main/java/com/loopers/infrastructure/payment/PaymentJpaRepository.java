@@ -26,6 +26,10 @@ public interface PaymentJpaRepository extends JpaRepository<Payment, Long> {
     Optional<Payment> findByIdForUpdate(@Param("id") Long id);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Payment p WHERE p.transactionKey = :transactionKey AND p.deletedAt IS NULL")
+    Optional<Payment> findByTransactionKeyForUpdate(@Param("transactionKey") String transactionKey);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Payment p WHERE p.orderId = :orderId AND p.userId = :userId AND p.status = :status AND p.deletedAt IS NULL ORDER BY p.id")
     List<Payment> findByOrderIdAndUserIdAndStatusForUpdate(
         @Param("orderId") Long orderId,

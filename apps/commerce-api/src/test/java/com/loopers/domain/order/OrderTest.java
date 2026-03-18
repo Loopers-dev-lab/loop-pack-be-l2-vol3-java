@@ -118,11 +118,44 @@ class OrderTest {
             assertThat(order.getStatus()).isEqualTo(OrderStatus.PAYMENT_PENDING);
         }
 
-        @DisplayName("ORDERED가 아닌 상태이면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("PAYMENT_FAILED 상태이면, PAYMENT_PENDING으로 전환된다 (재결제 허용).")
         @Test
-        void throwsBadRequest_whenStatusIsNotOrdered() {
+        void startsPayment_whenStatusIsPaymentFailed() {
+            Order order = new Order(1L, new Money(50000));
+            order.startPayment();
+            order.failPayment(); // PAYMENT_FAILED
+
+            order.startPayment();
+
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PAYMENT_PENDING);
+        }
+
+        @DisplayName("PAYMENT_PENDING 상태이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenStatusIsPaymentPending() {
             Order order = new Order(1L, new Money(50000));
             order.startPayment(); // PAYMENT_PENDING
+
+            CoreException result = assertThrows(CoreException.class, order::startPayment);
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("PAID 상태이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenStatusIsPaid() {
+            Order order = new Order(1L, new Money(50000));
+            order.startPayment();
+            order.completePayment(); // PAID
+
+            CoreException result = assertThrows(CoreException.class, order::startPayment);
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("CANCELLED 상태이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenStatusIsCancelled() {
+            Order order = new Order(1L, new Money(50000));
+            order.cancel(); // CANCELLED
 
             CoreException result = assertThrows(CoreException.class, order::startPayment);
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);

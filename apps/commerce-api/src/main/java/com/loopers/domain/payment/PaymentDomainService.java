@@ -35,6 +35,12 @@ public class PaymentDomainService {
                 "트랜잭션 키에 해당하는 결제 정보를 찾을 수 없습니다. transactionKey=" + transactionKey));
     }
 
+    public Payment getByTransactionKeyForUpdate(String transactionKey) {
+        return paymentRepository.findByTransactionKeyForUpdate(transactionKey)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND,
+                "트랜잭션 키에 해당하는 결제 정보를 찾을 수 없습니다. transactionKey=" + transactionKey));
+    }
+
     public Optional<Payment> findByTransactionKey(String transactionKey) {
         return paymentRepository.findByTransactionKey(transactionKey);
     }
