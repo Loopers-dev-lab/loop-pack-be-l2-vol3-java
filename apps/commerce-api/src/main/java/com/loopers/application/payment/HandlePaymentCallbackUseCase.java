@@ -51,7 +51,7 @@ public class HandlePaymentCallbackUseCase {
     private void handleSuccess(Payment payment) {
         Order order = orderService.pay(payment.getOrderId());
 
-        if (order.hasCoupon()) {
+        if (order.hasAppliedCoupon()) {
             ownedCouponService.use(order.getOwnedCouponId());
         }
     }

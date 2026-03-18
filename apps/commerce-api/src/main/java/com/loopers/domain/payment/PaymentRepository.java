@@ -16,6 +16,14 @@ public interface PaymentRepository {
     Payment save(Payment payment);
 
     /**
+     * ID로 결제를 조회한다.
+     *
+     * @param id 결제 ID
+     * @return 결제 (존재하지 않으면 빈 Optional)
+     */
+    Optional<Payment> findById(Long id);
+
+    /**
      * 거래 키로 결제를 조회한다.
      *
      * @param transactionKey PG 거래 키

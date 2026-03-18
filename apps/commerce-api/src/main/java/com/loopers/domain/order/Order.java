@@ -117,7 +117,7 @@ public class Order extends BaseEntity {
         this.status = OrderStatus.FAILED;
     }
 
-    public boolean hasCoupon() {
+    public boolean hasAppliedCoupon() {
         return ownedCouponId != null;
     }
 

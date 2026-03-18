@@ -1,6 +1,7 @@
 package com.loopers.domain.payment;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.stream.Stream;
@@ -13,6 +14,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import com.loopers.domain.shared.Money;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 class PaymentTest {
 
@@ -20,12 +23,12 @@ class PaymentTest {
     @Nested
     class Create {
 
-        @DisplayName("정상 입력이면, PENDING 상태의 결제가 생성된다.")
+        @DisplayName("정상 입력이면, READY 상태의 결제가 생성된다.")
         @Test
-        void createsPaymentWithPendingStatus() {
+        void createsPaymentWithReadyStatus() {
             // arrange
             NewPayment newPayment = new NewPayment(
-                    1L, 100L, "txn-key-123",
+                    1L, 100L,
                     CardType.SHINHAN, "1234-5678-9012-3456", Money.wons(50000L)
             );
 
@@ -36,13 +39,46 @@ class PaymentTest {
             assertAll(
                     () -> assertThat(payment.getUserId()).isEqualTo(newPayment.userId()),
                     () -> assertThat(payment.getOrderId()).isEqualTo(newPayment.orderId()),
-                    () -> assertThat(payment.getTransactionKey()).isEqualTo(newPayment.transactionKey()),
+                    () -> assertThat(payment.getTransactionKey()).isNull(),
                     () -> assertThat(payment.getCardType()).isEqualTo(newPayment.cardType()),
                     () -> assertThat(payment.getCardNo()).isEqualTo(newPayment.cardNo()),
                     () -> assertThat(payment.getAmount()).isEqualTo(newPayment.amount()),
-                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING),
+                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.READY),
                     () -> assertThat(payment.getReason()).isNull()
             );
+        }
+    }
+
+    @DisplayName("결제를 시작할 때,")
+    @Nested
+    class StartPayment {
+
+        @DisplayName("READY 상태이면, PENDING으로 전이되고 transactionKey가 할당된다.")
+        @Test
+        void transitionsToPending_whenReady() {
+            // arrange
+            Payment payment = PaymentFixture.createReadyPayment();
+
+            // act
+            payment.confirmPayment("txn-key-123");
+
+            // assert
+            assertAll(
+                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING),
+                    () -> assertThat(payment.getTransactionKey()).isEqualTo("txn-key-123")
+            );
+        }
+
+        @DisplayName("READY 상태가 아니면, PAYMENT_NOT_READY 예외가 발생한다.")
+        @Test
+        void throwsException_whenNotReady() {
+            // arrange
+            Payment payment = PaymentFixture.createPendingPayment();
+
+            // act & assert
+            assertThatThrownBy(() -> payment.confirmPayment("txn-key-456"))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PAYMENT_NOT_READY));
         }
     }
 
@@ -84,6 +120,7 @@ class PaymentTest {
 
         static Stream<Arguments> statusAndExpected() {
             return Stream.of(
+                    Arguments.of(PaymentStatus.READY, false),
                     Arguments.of(PaymentStatus.PENDING, false),
                     Arguments.of(PaymentStatus.SUCCESS, true),
                     Arguments.of(PaymentStatus.FAILED, true)

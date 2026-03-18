@@ -28,7 +28,7 @@ public class Payment extends BaseEntity {
     @Column(nullable = false)
     private Long orderId;
 
-    @Column(nullable = false, unique = true)
+    @Column(unique = true)
     private String transactionKey;
 
     @Enumerated(EnumType.STRING)
@@ -51,12 +51,19 @@ public class Payment extends BaseEntity {
         Payment payment = new Payment();
         payment.userId = newPayment.userId();
         payment.orderId = newPayment.orderId();
-        payment.transactionKey = newPayment.transactionKey();
         payment.cardType = newPayment.cardType();
         payment.cardNo = newPayment.cardNo();
         payment.amount = newPayment.amount();
-        payment.status = PaymentStatus.PENDING;
+        payment.status = PaymentStatus.READY;
         return payment;
+    }
+
+    public void confirmPayment(String transactionKey) {
+        if (this.status != PaymentStatus.READY) {
+            throw new CoreException(ErrorType.PAYMENT_NOT_READY);
+        }
+        this.transactionKey = transactionKey;
+        this.status = PaymentStatus.PENDING;
     }
 
     public void update(PaymentStatus status, String reason) {
@@ -68,6 +75,6 @@ public class Payment extends BaseEntity {
     }
 
     public boolean isProcessed() {
-        return this.status != PaymentStatus.PENDING;
+        return this.status != PaymentStatus.PENDING && this.status != PaymentStatus.READY;
     }
 }

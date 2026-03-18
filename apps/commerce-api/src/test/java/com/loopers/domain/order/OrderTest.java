@@ -346,7 +346,7 @@ class OrderTest {
             var order = Order.create("test-order-key", cart, Money.wons(1000L), 100L);
 
             // act & assert
-            assertThat(order.hasCoupon()).isTrue();
+            assertThat(order.hasAppliedCoupon()).isTrue();
         }
 
         @DisplayName("쿠폰이 적용되지 않은 주문이면, false를 반환한다.")
@@ -359,7 +359,7 @@ class OrderTest {
             var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // act & assert
-            assertThat(order.hasCoupon()).isFalse();
+            assertThat(order.hasAppliedCoupon()).isFalse();
         }
     }
 

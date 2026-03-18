@@ -1,8 +1,7 @@
 package com.loopers.application.payment;
 
 import com.loopers.domain.payment.CardType;
-import com.loopers.domain.payment.NewPayment;
-import com.loopers.domain.shared.Money;
+import com.loopers.domain.payment.PaymentMethod;
 
 public record CreatePaymentCommand(
         Long userId,
@@ -12,14 +11,7 @@ public record CreatePaymentCommand(
         String callbackUrl
 ) {
 
-    public NewPayment toNewPayment(Long orderId, String transactionKey, Money amount) {
-        return new NewPayment(
-                userId,
-                orderId,
-                transactionKey,
-                CardType.valueOf(cardType),
-                cardNo,
-                amount
-        );
+    public PaymentMethod toPaymentMethod() {
+        return new PaymentMethod(CardType.valueOf(cardType), cardNo);
     }
 }
