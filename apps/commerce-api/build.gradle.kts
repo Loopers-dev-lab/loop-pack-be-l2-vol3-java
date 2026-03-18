@@ -28,4 +28,7 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+
+    // wiremock
+    testImplementation("org.springframework.cloud:spring-cloud-contract-wiremock")
 }
