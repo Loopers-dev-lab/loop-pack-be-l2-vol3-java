@@ -82,4 +82,8 @@ public class PaymentApp {
     public PaymentInfo getPayment(Long paymentId, Long memberId) {
         return PaymentInfo.from(paymentService.getById(paymentId));
     }
+
+    public PaymentInfo forceFailPayment(Long paymentId) {
+        return PaymentInfo.from(paymentService.forceFailById(paymentId));
+    }
 }

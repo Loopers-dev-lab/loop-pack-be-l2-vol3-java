@@ -40,6 +40,12 @@ spring:
 commerce-api:
   callback-base-url: http://localhost:8080
 
+payment:
+  scheduler:
+    sync-interval-ms: 60000
+    stale-requested-minutes: 10
+    cb-fast-fail-expiry-minutes: 10
+
 pg:
   simulator:
     url: http://localhost:8082
@@ -108,6 +114,12 @@ spring:
   config:
     activate:
       on-profile: local, test
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-shedlock.sql
+  jpa:
+    defer-datasource-initialization: true
   cloud:
     openfeign:
       client:

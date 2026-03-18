@@ -69,4 +69,12 @@ public class PaymentService {
         return paymentRepository.findByRefOrderId(new RefOrderId(orderId))
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다. orderId=" + orderId));
     }
+
+    @Transactional
+    public PaymentModel forceFailById(Long paymentId) {
+        PaymentModel payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다. id=" + paymentId));
+        payment.fail();
+        return payment;
+    }
 }
