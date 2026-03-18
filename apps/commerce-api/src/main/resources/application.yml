@@ -26,6 +26,54 @@ spring:
 
 pg:
   base-url: http://localhost:8082
+  connect-timeout: 3000
+  read-timeout: 5000
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      pg-payment:
+        sliding-window-type: TIME_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 5
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-duration-threshold: 3s
+        slow-call-rate-threshold: 80
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
+      pg-query:
+        sliding-window-type: TIME_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 5
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-duration-threshold: 3s
+        slow-call-rate-threshold: 80
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
+      test-direct-on-interface:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 5
+      test-on-wrapper:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 5
+  retry:
+    instances:
+      pg-query:
+        max-attempts: 3
+        wait-duration: 500ms
+        exponential-backoff-multiplier: 2
+        enable-randomized-wait: true
+        randomized-wait-factor: 0.5
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
 
 springdoc:
   use-fqn: true

@@ -8,21 +8,29 @@ import org.springframework.web.service.annotation.GetExchange;
 import org.springframework.web.service.annotation.HttpExchange;
 import org.springframework.web.service.annotation.PostExchange;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
+
 @HttpExchange("/api/v1/payments")
 public interface PgPaymentHttpInterface {
 
+    @CircuitBreaker(name = "pg-payment")
     @PostExchange
     PgApiResponse<PgTransactionResponse> requestPayment(
             @RequestHeader("X-USER-ID") Long userId,
             @RequestBody PgPaymentRequest request
     );
 
+    @Retry(name = "pg-query")
+    @CircuitBreaker(name = "pg-query")
     @GetExchange("/{transactionKey}")
     PgApiResponse<PgTransactionDetailResponse> getTransaction(
             @RequestHeader("X-USER-ID") Long userId,
             @PathVariable String transactionKey
     );
 
+    @Retry(name = "pg-query")
+    @CircuitBreaker(name = "pg-query")
     @GetExchange
     PgApiResponse<PgOrderResponse> getTransactionsByOrder(
             @RequestHeader("X-USER-ID") Long userId,
