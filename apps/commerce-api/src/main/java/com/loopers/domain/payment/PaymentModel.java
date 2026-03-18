@@ -16,7 +16,6 @@ import java.util.regex.Pattern;
 @Entity
 @Table(
         name = "payments",
-        uniqueConstraints = {@UniqueConstraint(name = "uq_payments_ref_order_id", columnNames = "ref_order_id")},
         indexes = {
                 @Index(name = "idx_payments_pg_transaction_id", columnList = "pg_transaction_id"),
                 @Index(name = "idx_payments_status", columnList = "status"),
@@ -91,17 +90,14 @@ public class PaymentModel extends BaseEntity {
     }
 
     public void fail() {
-        if (this.status == PaymentStatus.PENDING || this.status == PaymentStatus.REQUESTED) {
-            this.status = PaymentStatus.FAILED;
-            return;
-        }
-        throw new CoreException(ErrorType.BAD_REQUEST, "FAILED 전이 불가 상태: " + this.status);
+        validateTransition(PaymentStatus.FAILED);
+        this.status = PaymentStatus.FAILED;
     }
 
     private void validateTransition(PaymentStatus next) {
         boolean allowed = switch (this.status) {
-            case PENDING -> next == PaymentStatus.REQUESTED;
-            case REQUESTED -> next == PaymentStatus.COMPLETED;
+            case PENDING -> next == PaymentStatus.REQUESTED || next == PaymentStatus.FAILED;
+            case REQUESTED -> next == PaymentStatus.COMPLETED || next == PaymentStatus.FAILED;
             case COMPLETED, FAILED -> false;
         };
         if (!allowed) {

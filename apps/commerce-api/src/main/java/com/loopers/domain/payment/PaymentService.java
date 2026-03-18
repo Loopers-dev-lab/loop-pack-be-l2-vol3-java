@@ -19,6 +19,10 @@ public class PaymentService {
 
     @Transactional
     public PaymentModel createPending(Long refOrderId, Long refMemberId, CardType cardType, String cardNo, BigDecimal amount) {
+        paymentRepository.findByRefOrderId(new RefOrderId(refOrderId))
+                .ifPresent(existing -> {
+                    throw new CoreException(ErrorType.CONFLICT, "이미 진행 중인 결제가 있습니다. orderId=" + refOrderId);
+                });
         PaymentModel payment = PaymentModel.create(refOrderId, refMemberId, cardType, cardNo, amount);
         return paymentRepository.save(payment);
     }
