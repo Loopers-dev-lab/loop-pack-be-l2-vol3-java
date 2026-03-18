@@ -23,11 +23,13 @@
 ### 1차 방어: Order 상태 검증 (도메인 규칙)
 ```java
 // Order.startPayment()
-if (this.status != OrderStatus.ORDERED) {
+if (this.status != OrderStatus.ORDERED && this.status != OrderStatus.PAYMENT_FAILED) {
     throw new CoreException(ErrorType.BAD_REQUEST,
         "결제를 시작할 수 없는 상태입니다. 현재 상태: " + this.status);
 }
 ```
+- ORDERED 또는 PAYMENT_FAILED에서만 결제 시작 가능
+- PAYMENT_FAILED 후 같은 주문에 대해 재결제 허용 (재고/쿠폰 재선점 포함)
 - 이미 PAYMENT_PENDING인 Order에 대해 다시 `startPayment()` 호출 시 예외
 - 하지만 동시 요청 시 두 트랜잭션이 둘 다 ORDERED를 읽을 수 있음 → 불충분
 
@@ -69,22 +71,38 @@ Order order = orderDomainService.getByIdAndUserIdForUpdate(orderId, userId);
 2. FAILED 후 같은 주문에 대해 새 결제를 시작할 수 있어야 함
 3. 결제 요청은 빈번하지 않아 락 대기 비용이 낮음
 
-## 콜백 멱등성 (이미 구현됨)
+## 콜백 멱등성
 
 ```java
 // PaymentTransactionHelper.applyPaymentResult()
+Payment payment = paymentDomainService.getByTransactionKeyForUpdate(transactionKey);
 if (payment.getStatus() == PaymentStatus.PAID || payment.getStatus() == PaymentStatus.FAILED) {
     return payment; // 이미 최종 상태 → 무시
 }
 ```
+- `SELECT ... FOR UPDATE`로 동시 중복 콜백을 직렬화
+- 첫 번째 콜백이 상태를 전이하고 커밋하면, 두 번째 콜백은 이미 최종 상태 → 멱등 반환
 - PG 콜백이 중복으로 들어와도 안전
 - sync API를 여러 번 호출해도 안전
+
+## 재결제 시 재고/쿠폰 재선점
+
+PAYMENT_FAILED 후 재결제 시, 이미 복원된 재고/쿠폰을 다시 차감해야 한다.
+`initializePayment()`에서 Order가 PAYMENT_FAILED 상태이면 `reserveStockAndCoupon()`을 호출한다.
+
+```java
+if (order.getStatus() == OrderStatus.PAYMENT_FAILED) {
+    Order orderWithItems = orderDomainService.getByIdWithItems(orderId);
+    reserveStockAndCoupon(orderWithItems, userId);
+}
+```
 
 ## 테스트 결과
 
 | 테스트 | 결과 |
 |---|---|
 | 같은 orderId로 결제 2번 → CONFLICT | ✅ |
-| 이전 결제 FAILED 후 새 결제 가능 | ✅ |
-| 중복 콜백 처리 → 멱등 | ✅ (Phase 2에서 구현) |
+| 이전 결제 FAILED 후 같은 주문 재결제 가능 | ✅ |
+| 중복 SUCCESS/SUCCESS 동시 콜백 → 멱등 직렬화 | ✅ |
+| 중복 FAILED/FAILED 동시 콜백 → 멱등 직렬화 | ✅ |
 | 기존 테스트 전부 통과 | ✅ |

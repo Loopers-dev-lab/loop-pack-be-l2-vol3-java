@@ -68,16 +68,26 @@ PG 시뮬레이터 30회 요청 실측 결과:
 ## Fallback 전략: Level 2 (PENDING 저장)
 
 ```
-PG 호출 실패 또는 서킷 Open 시:
+외부 장애(timeout/5xx/서킷 Open) 시:
 1. Payment는 TX1에서 이미 PENDING으로 저장됨
-2. 사용자에게 "결제가 대기 상태로 접수되었습니다" 응답
+2. 사용자에게 HTTP 200 + status=PENDING 정상 응답
 3. 나중에 sync API 또는 스케줄러로 복구
+
+비재시도 장애(4xx/계약 오류) 시:
+1. Payment는 PENDING으로 남음
+2. HTTP 500으로 실패 전파 (운영 중 원인 추적 필요)
 ```
+
+### Fallback 범위 구분
+- `CallNotPermittedException` (서킷 Open) → PENDING 정상 응답
+- `PaymentGatewayRetryableException` (timeout/5xx) → PENDING 정상 응답
+- `PaymentGatewayException` (4xx/계약 오류) → 500 실패 전파
 
 ### Fallback에서 하지 않는 것
 - 또 다른 외부 호출 ❌ (장애 전파)
 - 무거운 DB 쿼리 ❌ (커넥션 풀 압박)
 - 사용자에게 거짓 성공 응답 ❌ (신뢰 훼손)
+- 4xx/계약 오류를 정상 응답으로 숨기기 ❌ (원인 추적 불가)
 
 ### Fallback이 동작하는 이유
 현재 구조에서 PG 호출은 TX1(PENDING 저장) 이후에 발생하므로, PG 호출이 실패해도 Payment는 이미 DB에 저장되어 있다. 이것이 **트랜잭션 경계 분리의 또 다른 이점**: Fallback 시 별도 저장 로직 없이 자연스럽게 PENDING 상태가 유지된다.
