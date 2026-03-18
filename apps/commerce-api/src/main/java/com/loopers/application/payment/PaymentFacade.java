@@ -8,6 +8,7 @@ import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.infrastructure.client.PgPaymentDto;
 import com.loopers.infrastructure.client.PgPaymentGateway;
+import com.loopers.infrastructure.client.PgTransactionStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,7 +54,6 @@ public class PaymentFacade {
                 String.valueOf(userId),
                 new PgPaymentDto.PaymentRequest(pgOrderCode, command.cardType().name(), command.cardNo(), order.finalAmount(), callbackUrl)
         );
-
         pgResponse.ifPresent(r -> payment.assignPgTransaction(r.transactionKey()));
 
         return PaymentInfo.from(payment);
@@ -72,11 +72,11 @@ public class PaymentFacade {
 
         pgPaymentGateway.getTransactionsByOrder(String.valueOf(userId), payment.getPgOrderCode())
                 .flatMap(response -> response.transactions().stream()
-                        .filter(t -> "SUCCESS".equals(t.status()) || "FAILED".equals(t.status()))
+                        .filter(t -> t.pgStatus().hasResult())
                         .findFirst())
                 .ifPresent(t -> {
                     payment.assignPgTransaction(t.transactionKey());
-                    applyPgResult(payment, t.status(), t.reason());
+                    applyPgResult(payment, t.pgStatus(), t.reason());
                 });
 
         return PaymentInfo.from(payment);
@@ -87,20 +87,21 @@ public class PaymentFacade {
         Payment payment = paymentRepository.findByPgTransactionKey(command.transactionKey())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "결제건이 존재하지 않습니다. transactionKey: " + command.transactionKey()));
 
-        if (!"SUCCESS".equals(command.status()) && !"FAILED".equals(command.status())) {
+        PgTransactionStatus pgStatus = PgTransactionStatus.from(command.status());
+        if (pgStatus == PgTransactionStatus.UNKNOWN) {
             throw new CoreException(ErrorType.BAD_REQUEST, "처리할 수 없는 PG 상태입니다: " + command.status());
         }
 
-        applyPgResult(payment, command.status(), command.reason());
+        applyPgResult(payment, pgStatus, command.reason());
     }
 
-    private void applyPgResult(Payment payment, String status, String reason) {
+    private void applyPgResult(Payment payment, PgTransactionStatus status, String reason) {
         switch (status) {
-            case "SUCCESS" -> {
+            case SUCCESS -> {
                 payment.complete();
                 orderService.markOrderPaid(payment.getOrderId());
             }
-            case "FAILED" -> {
+            case FAILED -> {
                 payment.fail(reason);
                 orderService.markOrderFailed(payment.getOrderId());
             }

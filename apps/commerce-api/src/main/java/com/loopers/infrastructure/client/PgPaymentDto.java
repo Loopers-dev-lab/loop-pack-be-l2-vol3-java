@@ -35,7 +35,11 @@ public class PgPaymentDto {
             String transactionKey,
             String status,
             String reason
-    ) {}
+    ) {
+        public PgTransactionStatus pgStatus() {
+            return PgTransactionStatus.from(status);
+        }
+    }
 
     // PG 공통 응답 래퍼: {"meta":{"result":"SUCCESS",...},"data":{...}}
     public record ApiResponse<T>(Meta meta, T data) {
