@@ -6,6 +6,7 @@ import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.infrastructure.client.PgPaymentDto;
+import com.loopers.infrastructure.client.PgPaymentException;
 import com.loopers.infrastructure.client.PgPaymentGateway;
 import com.loopers.infrastructure.order.OrderJpaRepository;
 import com.loopers.infrastructure.payment.PaymentJpaRepository;
@@ -24,7 +25,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -79,7 +79,7 @@ class PaymentFacadeSpringTest {
         void savesPaymentWithTransactionKey_whenPgSucceeds() {
             // arrange
             given(pgPaymentGateway.requestPayment(anyString(), any()))
-                    .willReturn(Optional.of(new PgPaymentDto.TransactionResponse("TXN-001", "PENDING", null)));
+                    .willReturn(new PgPaymentDto.TransactionResponse("TXN-001", "PENDING", null));
 
             // act
             PaymentInfo result = paymentFacade.requestPayment(userId, new PaymentCommand(order.getId(), CardType.SAMSUNG, "1234-5678-9012-3456"));
@@ -96,7 +96,7 @@ class PaymentFacadeSpringTest {
         @Test
         void savesPaymentAsPending_whenPgFallback() {
             // arrange
-            given(pgPaymentGateway.requestPayment(anyString(), any())).willReturn(Optional.empty());
+            given(pgPaymentGateway.requestPayment(anyString(), any())).willThrow(new PgPaymentException("PG 장애"));
 
             // act
             PaymentInfo result = paymentFacade.requestPayment(userId, new PaymentCommand(order.getId(), CardType.KB, "1234-5678-9012-3456"));
@@ -191,10 +191,10 @@ class PaymentFacadeSpringTest {
             paymentJpaRepository.save(payment);
 
             given(pgPaymentGateway.getTransactionsByOrder(anyString(), anyString()))
-                    .willReturn(Optional.of(new PgPaymentDto.OrderTransactionResponse(
+                    .willReturn(new PgPaymentDto.OrderTransactionResponse(
                             "pgOrderCode-003",
                             List.of(new PgPaymentDto.TransactionSummary("TXN-003", "SUCCESS", null))
-                    )));
+                    ));
 
             // act
             PaymentInfo result = paymentFacade.syncPayment(userId, payment.getId());
@@ -233,10 +233,10 @@ class PaymentFacadeSpringTest {
             // pgTransactionKey 미할당(타임아웃 등의 케이스)
 
             given(pgPaymentGateway.getTransactionsByOrder(anyString(), anyString()))
-                    .willReturn(Optional.of(new PgPaymentDto.OrderTransactionResponse(
+                    .willReturn(new PgPaymentDto.OrderTransactionResponse(
                             "pgOrderCode-005",
                             List.of(new PgPaymentDto.TransactionSummary("TXN-005", "SUCCESS", null))
-                    )));
+                    ));
 
             // act
             PaymentInfo result = paymentFacade.syncPayment(userId, payment.getId());
@@ -260,7 +260,7 @@ class PaymentFacadeSpringTest {
             // pgTransactionKey 미할당(타임아웃 등의 케이스)
 
             given(pgPaymentGateway.getTransactionsByOrder(anyString(), anyString()))
-                    .willReturn(Optional.empty());
+                    .willThrow(new PgPaymentException("PG 장애"));
 
             // act
             PaymentInfo result = paymentFacade.syncPayment(userId, payment.getId());

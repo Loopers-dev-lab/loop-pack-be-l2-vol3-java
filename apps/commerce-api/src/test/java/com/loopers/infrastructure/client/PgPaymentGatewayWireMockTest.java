@@ -9,8 +9,6 @@ import org.springframework.cloud.contract.wiremock.AutoConfigureWireMock;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 
-import java.util.Optional;
-
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
@@ -19,6 +17,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @AutoConfigureWireMock(port = 0)
@@ -57,16 +56,15 @@ class PgPaymentGatewayWireMockTest {
                     "pgOrderCode-001", "SAMSUNG", "1234-5678-9012-3456", 10000L, "http://callback");
 
             // act
-            Optional<PgPaymentDto.TransactionResponse> result = pgPaymentGateway.requestPayment("user-1", request);
+            PgPaymentDto.TransactionResponse result = pgPaymentGateway.requestPayment("user-1", request);
 
             // assert
-            assertThat(result).isPresent();
-            assertThat(result.get().transactionKey()).isEqualTo("TXN-001");
+            assertThat(result.transactionKey()).isEqualTo("TXN-001");
         }
 
-        @DisplayName("PG가 FAILED 응답을 내려주면 fallback으로 Optional.empty()가 반환된다.")
+        @DisplayName("PG가 FAILED 응답을 내려주면 PgPaymentException이 발생한다.")
         @Test
-        void returnsFallback_whenPgReturnsFailed() {
+        void throwsPgPaymentException_whenPgReturnsFailed() {
             // arrange
             stubFor(post(urlEqualTo("/api/v1/payments"))
                     .willReturn(aResponse()
@@ -82,11 +80,9 @@ class PgPaymentGatewayWireMockTest {
             PgPaymentDto.PaymentRequest request = new PgPaymentDto.PaymentRequest(
                     "pgOrderCode-002", "KB", "1234-5678-9012-3456", 10000L, "http://callback");
 
-            // act
-            Optional<PgPaymentDto.TransactionResponse> result = pgPaymentGateway.requestPayment("user-1", request);
-
-            // assert: PgPaymentException → fallback
-            assertThat(result).isEmpty();
+            // act & assert
+            assertThatThrownBy(() -> pgPaymentGateway.requestPayment("user-1", request))
+                    .isInstanceOf(PgPaymentException.class);
         }
     }
 
@@ -119,18 +115,17 @@ class PgPaymentGatewayWireMockTest {
                                     """)));
 
             // act
-            Optional<PgPaymentDto.TransactionDetailResponse> result =
+            PgPaymentDto.TransactionDetailResponse result =
                     pgPaymentGateway.getTransaction("user-1", "TXN-001");
 
             // assert
-            assertThat(result).isPresent();
-            assertThat(result.get().transactionKey()).isEqualTo("TXN-001");
-            assertThat(result.get().status()).isEqualTo("SUCCESS");
+            assertThat(result.transactionKey()).isEqualTo("TXN-001");
+            assertThat(result.status()).isEqualTo("SUCCESS");
         }
 
-        @DisplayName("PG가 FAILED 응답을 내려주면 fallback으로 Optional.empty()가 반환된다.")
+        @DisplayName("PG가 FAILED 응답을 내려주면 PgPaymentException이 발생한다.")
         @Test
-        void returnsFallback_whenPgReturnsFailed() {
+        void throwsPgPaymentException_whenPgReturnsFailed() {
             // arrange
             stubFor(get(urlEqualTo("/api/v1/payments/TXN-002"))
                     .willReturn(aResponse()
@@ -143,12 +138,9 @@ class PgPaymentGatewayWireMockTest {
                                     }
                                     """)));
 
-            // act
-            Optional<PgPaymentDto.TransactionDetailResponse> result =
-                    pgPaymentGateway.getTransaction("user-1", "TXN-002");
-
-            // assert: PgPaymentException → fallback
-            assertThat(result).isEmpty();
+            // act & assert
+            assertThatThrownBy(() -> pgPaymentGateway.getTransaction("user-1", "TXN-002"))
+                    .isInstanceOf(PgPaymentException.class);
         }
     }
 
@@ -178,20 +170,19 @@ class PgPaymentGatewayWireMockTest {
                             """)));
 
             // act
-            Optional<PgPaymentDto.OrderTransactionResponse> result =
+            PgPaymentDto.OrderTransactionResponse result =
                     pgPaymentGateway.getTransactionsByOrder("user-1", "pgOrderCode-001");
 
             // assert
-            assertThat(result).isPresent();
-            assertThat(result.get().orderId()).isEqualTo("pgOrderCode-001");
-            assertThat(result.get().transactions()).hasSize(1);
-            assertThat(result.get().transactions().get(0).transactionKey()).isEqualTo("TXN-001");
-            assertThat(result.get().transactions().get(0).status()).isEqualTo("SUCCESS");
+            assertThat(result.orderId()).isEqualTo("pgOrderCode-001");
+            assertThat(result.transactions()).hasSize(1);
+            assertThat(result.transactions().get(0).transactionKey()).isEqualTo("TXN-001");
+            assertThat(result.transactions().get(0).status()).isEqualTo("SUCCESS");
         }
 
-        @DisplayName("PG가 FAILED 응답을 내려주면 fallback으로 Optional.empty()가 반환된다.")
+        @DisplayName("PG가 FAILED 응답을 내려주면 PgPaymentException이 발생한다.")
         @Test
-        void returnsFallback_whenPgReturnsFailed() {
+        void throwsPgPaymentException_whenPgReturnsFailed() {
             // arrange
             stubFor(get(urlEqualTo("/api/v1/payments?orderId=pgOrderCode-999"))
                     .willReturn(aResponse()
@@ -204,12 +195,9 @@ class PgPaymentGatewayWireMockTest {
                                     }
                                     """)));
 
-            // act
-            Optional<PgPaymentDto.OrderTransactionResponse> result =
-                    pgPaymentGateway.getTransactionsByOrder("user-1", "pgOrderCode-999");
-
-            // assert: PgPaymentException → fallback
-            assertThat(result).isEmpty();
+            // act & assert
+            assertThatThrownBy(() -> pgPaymentGateway.getTransactionsByOrder("user-1", "pgOrderCode-999"))
+                    .isInstanceOf(PgPaymentException.class);
         }
     }
 }

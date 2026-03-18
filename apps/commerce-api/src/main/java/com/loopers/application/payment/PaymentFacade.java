@@ -7,6 +7,7 @@ import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.infrastructure.client.PgPaymentDto;
+import com.loopers.infrastructure.client.PgPaymentException;
 import com.loopers.infrastructure.client.PgPaymentGateway;
 import com.loopers.infrastructure.client.PgTransactionStatus;
 import com.loopers.support.error.CoreException;
@@ -15,7 +16,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -50,11 +50,15 @@ public class PaymentFacade {
                 Payment.create(command.orderId(), pgOrderCode, command.cardType(), command.cardNo(), order.finalAmount())
         );
 
-        Optional<PgPaymentDto.TransactionResponse> pgResponse = pgPaymentGateway.requestPayment(
-                String.valueOf(userId),
-                new PgPaymentDto.PaymentRequest(pgOrderCode, command.cardType().name(), command.cardNo(), order.finalAmount(), callbackUrl)
-        );
-        pgResponse.ifPresent(r -> payment.assignPgTransaction(r.transactionKey()));
+        try {
+            PgPaymentDto.TransactionResponse pgResponse = pgPaymentGateway.requestPayment(
+                    String.valueOf(userId),
+                    new PgPaymentDto.PaymentRequest(pgOrderCode, command.cardType().name(), command.cardNo(), order.finalAmount(), callbackUrl)
+            );
+            payment.assignPgTransaction(pgResponse.transactionKey());
+        } catch (PgPaymentException e) {
+            // PG 장애 - payment는 PENDING 유지, transactionKey 미할당
+        }
 
         return PaymentInfo.from(payment);
     }
@@ -70,14 +74,18 @@ public class PaymentFacade {
             return PaymentInfo.from(payment);
         }
 
-        pgPaymentGateway.getTransactionsByOrder(String.valueOf(userId), payment.getPgOrderCode())
-                .flatMap(response -> response.transactions().stream()
-                        .filter(t -> t.pgStatus().hasResult())
-                        .findFirst())
-                .ifPresent(t -> {
-                    payment.assignPgTransaction(t.transactionKey());
-                    applyPgResult(payment, t.pgStatus(), t.reason());
-                });
+        try {
+            pgPaymentGateway.getTransactionsByOrder(String.valueOf(userId), payment.getPgOrderCode())
+                    .transactions().stream()
+                    .filter(t -> t.pgStatus().hasResult())
+                    .findFirst()
+                    .ifPresent(t -> {
+                        payment.assignPgTransaction(t.transactionKey());
+                        applyPgResult(payment, t.pgStatus(), t.reason());
+                    });
+        } catch (PgPaymentException e) {
+            // PG 장애 - 이번 sync에서는 상태 확정 못함
+        }
 
         return PaymentInfo.from(payment);
     }

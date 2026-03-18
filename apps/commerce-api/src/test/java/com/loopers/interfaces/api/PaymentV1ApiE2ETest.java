@@ -32,7 +32,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -94,7 +93,7 @@ class PaymentV1ApiE2ETest {
         void returnsAccepted_whenValidRequest() {
             // arrange
             given(pgPaymentGateway.requestPayment(anyString(), any()))
-                    .willReturn(Optional.of(new PgPaymentDto.TransactionResponse("TXN-001", "PENDING", null)));
+                    .willReturn(new PgPaymentDto.TransactionResponse("TXN-001", "PENDING", null));
 
             PaymentV1Dto.PaymentRequest request = new PaymentV1Dto.PaymentRequest(savedOrder.getId(), CardType.SAMSUNG, "1234-5678-9012-3456");
             HttpEntity<PaymentV1Dto.PaymentRequest> entity = new HttpEntity<>(request, userHeaders());
@@ -170,8 +169,11 @@ class PaymentV1ApiE2ETest {
             payment.assignPgTransaction("TXN-002");
             paymentJpaRepository.save(payment);
 
-            given(pgPaymentGateway.getTransaction(anyString(), anyString()))
-                    .willReturn(Optional.of(new PgPaymentDto.TransactionDetailResponse("TXN-002", "pgOrderCode-002", "KB", "1234-5678-9012-3456", 10000L, "SUCCESS", null)));
+            given(pgPaymentGateway.getTransactionsByOrder(anyString(), anyString()))
+                    .willReturn(new PgPaymentDto.OrderTransactionResponse(
+                            "pgOrderCode-002",
+                            List.of(new PgPaymentDto.TransactionSummary("TXN-002", "SUCCESS", null))
+                    ));
 
             HttpEntity<Void> entity = new HttpEntity<>(userHeaders());
 

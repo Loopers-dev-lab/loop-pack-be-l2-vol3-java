@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -48,27 +49,28 @@ class PgPaymentGatewayCircuitBreakerTest {
         // → 10번 중 6번 이상 실패 시 OPEN (여기서는 10번 모두 실패 = 100%)
         PgPaymentDto.PaymentRequest request = new PgPaymentDto.PaymentRequest("pgOrderCode-001", "SAMSUNG", "1234-5678-9012-3456", 10000L, "http://callback");
 
-        // act: minimum-number-of-calls(10)만큼 호출 → 전부 실패 → fallback 반환
+        // act: minimum-number-of-calls(10)만큼 호출 → 전부 실패 → fallback에서 PgPaymentException
         for (int i = 0; i < 10; i++) {
-            pgPaymentGateway.requestPayment("user-1", request);
+            try {
+                pgPaymentGateway.requestPayment("user-1", request);
+            } catch (PgPaymentException ignored) {
+            }
         }
 
         // assert
         assertThat(circuitBreaker.getState()).isEqualTo(CircuitBreaker.State.OPEN);
     }
 
-    @DisplayName("서킷이 OPEN 상태이면 PgClient를 호출하지 않고 즉시 fallback을 반환한다.")
+    @DisplayName("서킷이 OPEN 상태이면 PgClient를 호출하지 않고 즉시 PgPaymentException이 발생한다.")
     @Test
-    void returnsFallback_whenCircuitIsOpen() {
+    void throwsPgPaymentException_whenCircuitIsOpen() {
         // arrange: 서킷을 강제로 OPEN
         circuitBreaker.transitionToOpenState();
         PgPaymentDto.PaymentRequest request = new PgPaymentDto.PaymentRequest("pgOrderCode-002", "KB", "1234-5678-9012-3456", 10000L, "http://callback");
 
-        // act
-        var result = pgPaymentGateway.requestPayment("user-1", request);
-
-        // assert: fallback → Optional.empty(), PgClient는 호출되지 않음
-        assertThat(result).isEmpty();
+        // act & assert
+        assertThatThrownBy(() -> pgPaymentGateway.requestPayment("user-1", request))
+                .isInstanceOf(PgPaymentException.class);
         then(pgClient).shouldHaveNoInteractions();
     }
 }
