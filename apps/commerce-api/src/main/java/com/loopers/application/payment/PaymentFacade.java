@@ -96,7 +96,7 @@ public class PaymentFacade {
 
     @Transactional
     public void handleCallback(PgCallbackCommand command) {
-        Payment payment = paymentRepository.findByPgTransactionId(command.transactionKey())
+        Payment payment = paymentRepository.findByPgTransactionKey(command.transactionKey())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "결제건이 존재하지 않습니다. transactionKey: " + command.transactionKey()));
 
         switch (command.status()) {

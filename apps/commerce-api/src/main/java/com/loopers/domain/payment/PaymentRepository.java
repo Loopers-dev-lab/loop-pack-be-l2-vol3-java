@@ -7,6 +7,6 @@ public interface PaymentRepository {
     Payment save(Payment payment);
     Optional<Payment> findById(Long id);
     Optional<Payment> findByPgOrderCode(String pgOrderCode);
-    Optional<Payment> findByPgTransactionId(String pgTransactionId);
+    Optional<Payment> findByPgTransactionKey(String pgTransactionId);
     List<Payment> findAllByStatus(PaymentStatus status);
 }

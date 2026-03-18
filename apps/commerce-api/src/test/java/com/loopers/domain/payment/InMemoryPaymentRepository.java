@@ -39,7 +39,7 @@ public class InMemoryPaymentRepository implements PaymentRepository {
     }
 
     @Override
-    public Optional<Payment> findByPgTransactionId(String pgTransactionId) {
+    public Optional<Payment> findByPgTransactionKey(String pgTransactionId) {
         return store.values().stream()
                     .filter(p -> pgTransactionId.equals(p.getPgTransactionKey()))
                     .findFirst();
