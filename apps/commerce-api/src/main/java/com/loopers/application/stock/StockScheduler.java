@@ -26,13 +26,8 @@ public class StockScheduler {
     private final StockService stockService;
     private final TransactionTemplate transactionTemplate;
 
-    @Scheduled(fixedDelayString = "${stock.reconciliation.interval-ms:300000}")
-    public void reconcile() {
-        reconcileLeakedReservations();
-        reconcileMissingConfirmations();
-    }
-
-    private void reconcileLeakedReservations() {
+    @Scheduled(fixedDelayString = "${stock.reconciliation.leaked-reservation.interval-ms:300000}")
+    public void reconcileLeakedReservations() {
         Set<Long> reservedProductIds = stockService.findProductIdsWithReservedStock();
         if (reservedProductIds.isEmpty()) return;
 
@@ -57,7 +52,8 @@ public class StockScheduler {
         }
     }
 
-    private void reconcileMissingConfirmations() {
+    @Scheduled(fixedDelayString = "${stock.reconciliation.missing-confirmation.interval-ms:300000}")
+    public void reconcileMissingConfirmations() {
         Set<Long> reservedProductIds = stockService.findProductIdsWithReservedStock();
         if (reservedProductIds.isEmpty()) return;
 

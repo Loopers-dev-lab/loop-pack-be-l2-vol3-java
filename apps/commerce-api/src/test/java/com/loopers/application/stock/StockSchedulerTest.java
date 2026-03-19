@@ -63,7 +63,7 @@ class StockSchedulerTest {
             order.cancel();
             orderRepository.save(order);
 
-            stockScheduler.reconcile();
+            stockScheduler.reconcileLeakedReservations();
 
             Stock stock1 = stockRepository.findByProductId(1L).orElseThrow();
             Stock stock2 = stockRepository.findByProductId(2L).orElseThrow();
@@ -92,7 +92,7 @@ class StockSchedulerTest {
             payment.markSucceeded();
             paymentRepository.save(payment);
 
-            stockScheduler.reconcile();
+            stockScheduler.reconcileMissingConfirmations();
 
             Stock stock = stockRepository.findByProductId(1L).orElseThrow();
             assertAll(
@@ -110,7 +110,8 @@ class StockSchedulerTest {
         void 보정_대상이_없으면_아무_작업_없이_종료한다() {
             stockRepository.save(Stock.create(1L, 100));
 
-            stockScheduler.reconcile();
+            stockScheduler.reconcileLeakedReservations();
+            stockScheduler.reconcileMissingConfirmations();
 
             Stock stock = stockRepository.findByProductId(1L).orElseThrow();
             assertAll(
@@ -140,7 +141,7 @@ class StockSchedulerTest {
             order2.cancel();
             orderRepository.save(order2);
 
-            stockScheduler.reconcile();
+            stockScheduler.reconcileLeakedReservations();
 
             // order1은 정상 보정
             Stock stock1 = stockRepository.findByProductId(1L).orElseThrow();
