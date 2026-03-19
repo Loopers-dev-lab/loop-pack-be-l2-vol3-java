@@ -3,6 +3,7 @@ package com.loopers.application.payment;
 import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentRepository;
+import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +22,8 @@ public class PaymentService {
     // Command
 
     @Transactional
-    public Payment createPayment(Long orderId, Long userId, CardType cardType, String cardNo, BigDecimal amount) {
-        Payment payment = Payment.create(orderId, userId, cardType, cardNo, amount);
+    public Payment createPayment(Long orderId, Long userId, PgType pgType, CardType cardType, String cardNo, BigDecimal amount) {
+        Payment payment = Payment.create(orderId, userId, pgType, cardType, cardNo, amount);
         return paymentRepository.save(payment);
     }
 

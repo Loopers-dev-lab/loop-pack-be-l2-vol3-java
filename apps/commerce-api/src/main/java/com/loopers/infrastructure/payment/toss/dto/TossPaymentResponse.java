@@ -1,4 +1,4 @@
-package com.loopers.infrastructure.payment.dto;
+package com.loopers.infrastructure.payment.toss.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
@@ -26,9 +26,5 @@ public record TossPaymentResponse(
 
     public boolean isDone() {
         return "DONE".equals(status);
-    }
-
-    public boolean isCanceled() {
-        return "CANCELED".equals(status) || "PARTIAL_CANCELED".equals(status);
     }
 }

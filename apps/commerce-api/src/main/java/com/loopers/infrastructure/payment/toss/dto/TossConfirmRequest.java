@@ -1,4 +1,4 @@
-package com.loopers.infrastructure.payment.dto;
+package com.loopers.infrastructure.payment.toss.dto;
 
 public record TossConfirmRequest(
         String paymentKey,

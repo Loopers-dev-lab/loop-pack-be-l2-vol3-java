@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.payment;
 
 import com.loopers.application.payment.PaymentFacade;
 import com.loopers.application.payment.PaymentInfo;
+import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.AuthUser;
 import com.loopers.interfaces.api.auth.AuthenticatedUser;
@@ -13,6 +14,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/payments")
@@ -60,5 +63,11 @@ public class PaymentV1Controller implements PaymentApiV1Spec {
             @PathVariable Long paymentId) {
         PaymentInfo info = paymentFacade.getPaymentDetail(user.id(), paymentId);
         return ApiResponse.success(PaymentV1Dto.PaymentResponse.from(info));
+    }
+
+    @GetMapping("/available-methods")
+    @Override
+    public ApiResponse<List<PgType>> getAvailableMethods() {
+        return ApiResponse.success(paymentFacade.getAvailableMethods());
     }
 }

@@ -4,6 +4,7 @@ import com.loopers.application.order.OrderService;
 import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentStatus;
+import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.application.payment.PaymentService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.order.OrderRequest;
@@ -68,7 +69,7 @@ class PaymentApiE2ETest {
             fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
 
             PaymentRequest.Request request = new PaymentRequest.Request(
-                    999L, CardType.SAMSUNG, "1234-5678-9012-3456");
+                    999L, CardType.SAMSUNG, "1234-5678-9012-3456", PgType.TOSS);
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = postPayment(request);
 
@@ -90,7 +91,7 @@ class PaymentApiE2ETest {
                     "otheruser", "Other1234!");
 
             PaymentRequest.Request request = new PaymentRequest.Request(
-                    orderId, CardType.SAMSUNG, "1234-5678-9012-3456");
+                    orderId, CardType.SAMSUNG, "1234-5678-9012-3456", PgType.TOSS);
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = postPayment(request);
 
@@ -110,10 +111,10 @@ class PaymentApiE2ETest {
                     LOGIN_ID, PASSWORD);
 
             // 결제 하나 직접 생성 (PENDING 상태)
-            paymentService.createPayment(orderId, 1L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            paymentService.createPayment(orderId, 1L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             PaymentRequest.Request request = new PaymentRequest.Request(
-                    orderId, CardType.SAMSUNG, "9999-8888-7777-6666");
+                    orderId, CardType.SAMSUNG, "9999-8888-7777-6666", PgType.TOSS);
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = postPayment(request);
 
@@ -135,7 +136,7 @@ class PaymentApiE2ETest {
             orderService.payOrder(orderId);
 
             PaymentRequest.Request request = new PaymentRequest.Request(
-                    orderId, CardType.SAMSUNG, "1234-5678-9012-3456");
+                    orderId, CardType.SAMSUNG, "1234-5678-9012-3456", PgType.TOSS);
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = postPayment(request);
 
@@ -150,7 +151,7 @@ class PaymentApiE2ETest {
             fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
 
             PaymentRequest.Request request = new PaymentRequest.Request(
-                    null, null, "invalid-card");
+                    null, null, "invalid-card", null);
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = postPayment(request);
 
@@ -160,7 +161,7 @@ class PaymentApiE2ETest {
         @Test
         void 인증_헤더가_누락되면_401_응답() {
             PaymentRequest.Request request = new PaymentRequest.Request(
-                    1L, CardType.SAMSUNG, "1234-5678-9012-3456");
+                    1L, CardType.SAMSUNG, "1234-5678-9012-3456", PgType.TOSS);
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
                     PAYMENT_ENDPOINT, HttpMethod.POST,
@@ -174,7 +175,7 @@ class PaymentApiE2ETest {
         @Test
         void 인증에_실패하면_401_응답() {
             PaymentRequest.Request request = new PaymentRequest.Request(
-                    1L, CardType.SAMSUNG, "1234-5678-9012-3456");
+                    1L, CardType.SAMSUNG, "1234-5678-9012-3456", PgType.TOSS);
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Loopers-LoginId", "wronguser");

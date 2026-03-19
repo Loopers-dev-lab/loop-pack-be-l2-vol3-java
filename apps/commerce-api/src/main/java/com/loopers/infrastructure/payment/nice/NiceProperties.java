@@ -1,10 +1,11 @@
-package com.loopers.infrastructure.payment;
+package com.loopers.infrastructure.payment.nice;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties(prefix = "payment.toss")
-public record TossProperties(
+@ConfigurationProperties(prefix = "payment.nice")
+public record NiceProperties(
         String baseUrl,
+        String clientKey,
         String secretKey,
         int connectTimeout,
         int readTimeout

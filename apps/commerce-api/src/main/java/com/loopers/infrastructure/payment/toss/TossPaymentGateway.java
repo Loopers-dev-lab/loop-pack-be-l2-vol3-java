@@ -1,8 +1,15 @@
-package com.loopers.infrastructure.payment;
+package com.loopers.infrastructure.payment.toss;
 
-import com.loopers.infrastructure.payment.dto.TossCancelRequest;
-import com.loopers.infrastructure.payment.dto.TossConfirmRequest;
-import com.loopers.infrastructure.payment.dto.TossPaymentResponse;
+import com.loopers.domain.payment.gateway.PaymentCancelCommand;
+import com.loopers.domain.payment.gateway.PaymentCancelResult;
+import com.loopers.domain.payment.gateway.PaymentConfirmCommand;
+import com.loopers.domain.payment.gateway.PaymentConfirmResult;
+import com.loopers.domain.payment.gateway.PaymentGateway;
+import com.loopers.domain.payment.gateway.PaymentQueryResult;
+import com.loopers.domain.payment.gateway.PgType;
+import com.loopers.infrastructure.payment.toss.dto.TossCancelRequest;
+import com.loopers.infrastructure.payment.toss.dto.TossConfirmRequest;
+import com.loopers.infrastructure.payment.toss.dto.TossPaymentResponse;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -17,53 +24,76 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 @Component
-public class TossPaymentClient {
+public class TossPaymentGateway implements PaymentGateway {
 
     private final RestTemplate tossRestTemplate;
     private final TossProperties tossProperties;
 
-    public TossPaymentClient(
+    public TossPaymentGateway(
             @Qualifier("tossRestTemplate") RestTemplate tossRestTemplate,
             TossProperties tossProperties) {
         this.tossRestTemplate = tossRestTemplate;
         this.tossProperties = tossProperties;
     }
 
+    @Override
+    public PgType getType() {
+        return PgType.TOSS;
+    }
+
+    @Override
+    public String getCircuitBreakerName() {
+        return "toss-request";
+    }
+
     // Command
 
     @CircuitBreaker(name = "toss-request", fallbackMethod = "confirmFallback")
-    public TossPaymentResponse confirmPayment(TossConfirmRequest request) {
+    @Override
+    public PaymentConfirmResult confirm(PaymentConfirmCommand command) {
+        TossConfirmRequest request = new TossConfirmRequest(
+                command.paymentKey(), command.orderId(), command.amount());
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-
         HttpEntity<TossConfirmRequest> entity = new HttpEntity<>(request, headers);
 
-        return tossRestTemplate.postForObject(
+        TossPaymentResponse response = tossRestTemplate.postForObject(
                 tossProperties.baseUrl() + "/v1/payments/confirm",
                 entity,
                 TossPaymentResponse.class
         );
+
+        boolean success = response != null && response.isDone();
+        return new PaymentConfirmResult(success, command.paymentKey(),
+                success ? null : "PG 승인 실패");
     }
 
     @Retry(name = "toss-cancel")
-    public TossPaymentResponse cancelPayment(String paymentKey, TossCancelRequest request) {
+    @Override
+    public PaymentCancelResult cancel(String paymentKey, PaymentCancelCommand command) {
+        TossCancelRequest request = new TossCancelRequest(
+                command.cancelReason(), command.cancelAmount());
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-
         HttpEntity<TossCancelRequest> entity = new HttpEntity<>(request, headers);
 
-        return tossRestTemplate.postForObject(
+        tossRestTemplate.postForObject(
                 tossProperties.baseUrl() + "/v1/payments/" + paymentKey + "/cancel",
                 entity,
                 TossPaymentResponse.class
         );
+
+        return new PaymentCancelResult(true, null);
     }
 
     // Query
 
-    @CircuitBreaker(name = "toss-query", fallbackMethod = "getPaymentFallback")
+    @CircuitBreaker(name = "toss-query", fallbackMethod = "queryFallback")
     @Retry(name = "toss-query")
-    public TossPaymentResponse getPayment(String paymentKey) {
+    @Override
+    public PaymentQueryResult query(String paymentKey) {
         HttpEntity<Void> entity = new HttpEntity<>(null);
 
         ResponseEntity<TossPaymentResponse> response = tossRestTemplate.exchange(
@@ -73,14 +103,18 @@ public class TossPaymentClient {
                 TossPaymentResponse.class
         );
 
-        return response.getBody();
+        TossPaymentResponse body = response.getBody();
+        if (body == null) {
+            return new PaymentQueryResult(false, false, null);
+        }
+        return new PaymentQueryResult(true, body.isDone(), body.status());
     }
 
-    private TossPaymentResponse confirmFallback(TossConfirmRequest request, Throwable t) {
+    private PaymentConfirmResult confirmFallback(PaymentConfirmCommand command, Throwable t) {
         throw new CoreException(ErrorType.INTERNAL_ERROR, "현재 결제 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해주세요");
     }
 
-    private TossPaymentResponse getPaymentFallback(String paymentKey, Throwable t) {
+    private PaymentQueryResult queryFallback(String paymentKey, Throwable t) {
         throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 상태를 확인할 수 없습니다. 잠시 후 다시 시도해주세요");
     }
 }

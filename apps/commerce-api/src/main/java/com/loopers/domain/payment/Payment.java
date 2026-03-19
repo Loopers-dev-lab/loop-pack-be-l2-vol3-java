@@ -1,5 +1,6 @@
 package com.loopers.domain.payment;
 
+import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
@@ -42,6 +43,10 @@ public class Payment {
     private String paymentKey;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "pg_type", nullable = false, length = 20)
+    private PgType pgType;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "card_type", nullable = false, length = 20)
     private CardType cardType;
 
@@ -73,9 +78,10 @@ public class Payment {
     protected Payment() {
     }
 
-    public static Payment create(Long orderId, Long userId, CardType cardType, String cardNo, BigDecimal amount) {
+    public static Payment create(Long orderId, Long userId, PgType pgType, CardType cardType, String cardNo, BigDecimal amount) {
         validateOrderId(orderId);
         validateUserId(userId);
+        validatePgType(pgType);
         validateCardType(cardType);
         validateCardNo(cardNo);
         validateAmount(amount);
@@ -84,6 +90,7 @@ public class Payment {
         payment.orderId = orderId;
         payment.userId = userId;
         payment.paymentKey = UUID.randomUUID().toString();
+        payment.pgType = pgType;
         payment.cardType = cardType;
         payment.cardNo = cardNo;
         payment.amount = amount;
@@ -146,6 +153,12 @@ public class Payment {
     private static void validateUserId(Long userId) {
         if (userId == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "사용자 ID는 필수입니다");
+        }
+    }
+
+    private static void validatePgType(PgType pgType) {
+        if (pgType == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "PG 종류는 필수입니다");
         }
     }
 

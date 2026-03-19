@@ -1,5 +1,6 @@
 package com.loopers.domain.payment;
 
+import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayNameGeneration;
@@ -21,7 +22,7 @@ class PaymentTest {
 
         @Test
         void 유효한_값이면_결제가_PENDING_상태로_생성된다() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             assertAll(
                     () -> assertThat(payment.getOrderId()).isEqualTo(1L),
@@ -37,14 +38,14 @@ class PaymentTest {
 
         @Test
         void 주문ID가_null이면_예외() {
-            assertThatThrownBy(() -> Payment.create(null, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")))
+            assertThatThrownBy(() -> Payment.create(null, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
 
         @Test
         void 결제금액이_0이하이면_예외() {
-            assertThatThrownBy(() -> Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", BigDecimal.ZERO))
+            assertThatThrownBy(() -> Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", BigDecimal.ZERO))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
@@ -55,7 +56,7 @@ class PaymentTest {
 
         @Test
         void PENDING에서_SUCCEEDED로_변경된다() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             payment.markSucceeded();
 
@@ -64,7 +65,7 @@ class PaymentTest {
 
         @Test
         void FAILED_상태에서_SUCCEEDED로_변경하면_예외() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             payment.markFailed("한도초과");
 
             assertThatThrownBy(() -> payment.markSucceeded())
@@ -78,7 +79,7 @@ class PaymentTest {
 
         @Test
         void PENDING에서_FAILED로_변경된다() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             payment.markFailed("PG 요청 실패");
 
@@ -90,7 +91,7 @@ class PaymentTest {
 
         @Test
         void SUCCEEDED_상태에서_FAILED로_변경하면_예외() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             payment.markSucceeded();
 
             assertThatThrownBy(() -> payment.markFailed("취소"))
@@ -104,7 +105,7 @@ class PaymentTest {
 
         @Test
         void SUCCEEDED에서_CANCELED로_변경된다() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             payment.markSucceeded();
 
             payment.markCanceled("단순 변심");
@@ -118,7 +119,7 @@ class PaymentTest {
 
         @Test
         void PENDING_상태에서_취소하면_예외() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             assertThatThrownBy(() -> payment.markCanceled("변심"))
                     .isInstanceOf(CoreException.class)
@@ -127,7 +128,7 @@ class PaymentTest {
 
         @Test
         void FAILED_상태에서_취소하면_예외() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             payment.markFailed("실패");
 
             assertThatThrownBy(() -> payment.markCanceled("변심"))
@@ -141,7 +142,7 @@ class PaymentTest {
 
         @Test
         void SUCCEEDED이면_확정이다() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             payment.markSucceeded();
 
             assertThat(payment.isFinalized()).isTrue();
@@ -149,7 +150,7 @@ class PaymentTest {
 
         @Test
         void FAILED이면_확정이다() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             payment.markFailed("실패");
 
             assertThat(payment.isFinalized()).isTrue();
@@ -157,7 +158,7 @@ class PaymentTest {
 
         @Test
         void CANCELED이면_확정이다() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             payment.markSucceeded();
             payment.markCanceled("변심");
 
@@ -166,7 +167,7 @@ class PaymentTest {
 
         @Test
         void PENDING이면_미확정이다() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             assertThat(payment.isFinalized()).isFalse();
         }
@@ -177,14 +178,14 @@ class PaymentTest {
 
         @Test
         void 본인의_결제이면_true를_반환한다() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             assertThat(payment.isOwnedBy(100L)).isTrue();
         }
 
         @Test
         void 본인의_결제가_아니면_false를_반환한다() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             assertThat(payment.isOwnedBy(999L)).isFalse();
         }

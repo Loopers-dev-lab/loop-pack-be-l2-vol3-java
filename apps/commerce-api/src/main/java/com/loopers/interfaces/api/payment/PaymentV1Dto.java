@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.payment;
 import com.loopers.application.payment.PaymentInfo;
 import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.PaymentStatus;
+import com.loopers.domain.payment.gateway.PgType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -15,6 +16,7 @@ public class PaymentV1Dto {
             Long id,
             Long orderId,
             String paymentKey,
+            PgType pgType,
             CardType cardType,
             String cardNo,
             BigDecimal amount,
@@ -30,6 +32,7 @@ public class PaymentV1Dto {
                     info.id(),
                     info.orderId(),
                     info.paymentKey(),
+                    info.pgType(),
                     info.cardType(),
                     info.cardNo(),
                     info.amount(),

@@ -34,11 +34,28 @@ payment:
     secret-key: test_sk_xxxx
     connect-timeout: 3000
     read-timeout: 5000
+  nice:
+    base-url: http://localhost:8091
+    client-key: test_client_xxxx
+    secret-key: test_sk_nice_xxxx
+    connect-timeout: 3000
+    read-timeout: 5000
 
 resilience4j:
   circuitbreaker:
     instances:
       toss-request:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        failureRateThreshold: 50
+        slowCallDurationThreshold: 3s
+        slowCallRateThreshold: 80
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
+        ignoreExceptions:
+          - com.loopers.support.error.CoreException
+      nice-request:
         slidingWindowSize: 10
         minimumNumberOfCalls: 5
         automaticTransitionFromOpenToHalfOpenEnabled: true
@@ -58,6 +75,15 @@ resilience4j:
         waitDurationInOpenState: 15s
         ignoreExceptions:
           - com.loopers.support.error.CoreException
+      nice-query:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        failureRateThreshold: 50
+        slowCallDurationThreshold: 2s
+        waitDurationInOpenState: 15s
+        ignoreExceptions:
+          - com.loopers.support.error.CoreException
   retry:
     instances:
       toss-query:
@@ -65,7 +91,18 @@ resilience4j:
         waitDuration: 500ms
         retryExceptions:
           - org.springframework.web.client.ResourceAccessException
+      nice-query:
+        maxAttempts: 3
+        waitDuration: 500ms
+        retryExceptions:
+          - org.springframework.web.client.ResourceAccessException
       toss-cancel:
+        maxAttempts: 3
+        waitDuration: 1s
+        retryExceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpServerErrorException
+      nice-cancel:
         maxAttempts: 3
         waitDuration: 1s
         retryExceptions:

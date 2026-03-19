@@ -4,6 +4,7 @@ import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.payment.PaymentStatus;
+import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.utils.DatabaseCleanUp;
@@ -45,7 +46,7 @@ class PaymentServiceIntegrationTest {
 
         @Test
         void 유효한_값이면_PENDING_상태로_생성된다() {
-            Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = paymentService.createPayment(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             assertAll(
                     () -> assertThat(payment.getId()).isNotNull(),
@@ -63,7 +64,7 @@ class PaymentServiceIntegrationTest {
 
         @Test
         void PENDING에서_SUCCEEDED로_변경된다() {
-            Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = paymentService.createPayment(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             paymentService.markSucceeded(payment.getId());
 
@@ -77,7 +78,7 @@ class PaymentServiceIntegrationTest {
 
         @Test
         void PENDING에서_FAILED로_변경된다() {
-            Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = paymentService.createPayment(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             paymentService.markFailed(payment.getId(), "PG 요청 실패");
 
@@ -94,7 +95,7 @@ class PaymentServiceIntegrationTest {
 
         @Test
         void SUCCEEDED에서_CANCELED로_변경된다() {
-            Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = paymentService.createPayment(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             paymentService.markSucceeded(payment.getId());
 
             paymentService.markCanceled(payment.getId(), "단순 변심");
@@ -113,7 +114,7 @@ class PaymentServiceIntegrationTest {
 
         @Test
         void ID로_조회하면_결제_정보를_반환한다() {
-            Payment created = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment created = paymentService.createPayment(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             Payment payment = paymentService.getPayment(created.getId());
 
@@ -133,7 +134,7 @@ class PaymentServiceIntegrationTest {
 
         @Test
         void 존재하는_paymentKey이면_결제를_반환한다() {
-            Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = paymentService.createPayment(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             Optional<Payment> found = paymentService.getPaymentByPaymentKey(payment.getPaymentKey());
 
@@ -156,11 +157,11 @@ class PaymentServiceIntegrationTest {
 
         @Test
         void 결제가_있으면_최신_결제를_반환한다() {
-            Payment first = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment first = paymentService.createPayment(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             first.markFailed("첫 번째 실패");
             paymentRepository.save(first);
 
-            Payment second = paymentService.createPayment(1L, 100L, CardType.KB, "9999-8888-7777-6666", new BigDecimal("50000"));
+            Payment second = paymentService.createPayment(1L, 100L, PgType.TOSS, CardType.KB, "9999-8888-7777-6666", new BigDecimal("50000"));
 
             Optional<Payment> found = paymentService.getLatestPaymentByOrderId(1L);
 
@@ -183,14 +184,14 @@ class PaymentServiceIntegrationTest {
 
         @Test
         void PENDING_상태의_결제가_있으면_true() {
-            paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            paymentService.createPayment(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             assertThat(paymentService.existsActivePayment(1L)).isTrue();
         }
 
         @Test
         void SUCCEEDED_상태의_결제가_있으면_true() {
-            Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = paymentService.createPayment(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             payment.markSucceeded();
             paymentRepository.save(payment);
 
@@ -199,7 +200,7 @@ class PaymentServiceIntegrationTest {
 
         @Test
         void FAILED_상태의_결제만_있으면_false() {
-            Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = paymentService.createPayment(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             payment.markFailed("한도초과");
             paymentRepository.save(payment);
 
@@ -208,7 +209,7 @@ class PaymentServiceIntegrationTest {
 
         @Test
         void CANCELED_상태의_결제만_있으면_false() {
-            Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = paymentService.createPayment(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             payment.markSucceeded();
             payment.markCanceled("변심");
             paymentRepository.save(payment);
