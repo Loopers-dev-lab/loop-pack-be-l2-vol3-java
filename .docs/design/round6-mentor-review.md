@@ -226,7 +226,7 @@ retry-exceptions:
 
 ---
 
-### 3-3. 결제 실패 시 보상 트랜잭션 — OrderCompensationService 분리
+### 3-3. 보상 트랜잭션 실패 시 미복구 상태 대응
 
 > **리뷰 요청**: 보상 로직을 PaymentFacade에서 OrderCompensationService로 분리해 하나의 진입점으로 통일했습니다. **`compensate()` 자체가 실패하는 경우**(예: 재고 원복 중 예외) 현재는 트랜잭션 전체가 롤백되어 보상이 아예 안 된 상태로 남는데, **이 케이스에 대한 별도 대응이 필요할지** 의견 부탁드립니다.
 
