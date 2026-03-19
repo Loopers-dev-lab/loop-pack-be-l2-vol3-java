@@ -8,8 +8,11 @@ import com.loopers.infrastructure.payment.PgClient;
 import com.loopers.infrastructure.payment.PgProperties;
 import com.loopers.infrastructure.payment.dto.PgPaymentRequest;
 import com.loopers.infrastructure.payment.dto.PgPaymentResponse;
+import com.loopers.infrastructure.payment.dto.PgTransactionResponse;
+import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -32,6 +35,7 @@ public class PaymentFacade {
 
     // Command
 
+    @Bulkhead(name = "pg-payment", fallbackMethod = "paymentBulkheadFallback")
     public PaymentInfo requestPayment(Long userId, PaymentCommand.Request command) {
         // 1. 트랜잭션: 주문 검증 + 중복 결제 확인 + Payment 생성
         BigDecimal finalAmount = validateOrder(userId, command.orderId());
@@ -66,6 +70,53 @@ public class PaymentFacade {
         }
     }
 
+    @Bulkhead(name = "pg-payment", fallbackMethod = "verifyBulkheadFallback")
+    public PaymentInfo verifyPayment(Long userId, Long paymentId) {
+        Payment payment = paymentService.getPayment(paymentId);
+        if (!payment.isOwnedBy(userId)) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다");
+        }
+        if (payment.isFinalized()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "이미 확정된 결제입니다");
+        }
+
+        if (payment.getStatus() == PaymentStatus.PENDING) {
+            paymentService.markFailed(payment.getId(), "PG 요청 미도달");
+            return PaymentInfo.from(paymentService.getPayment(payment.getId()));
+        }
+
+        PgTransactionResponse response;
+        try {
+            response = pgClient.getTransaction(userId, payment.getTransactionKey());
+        } catch (Exception e) {
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 상태를 확인할 수 없습니다. 잠시 후 다시 시도해주세요");
+        }
+
+        String pgStatus = response.data() != null ? response.data().status() : null;
+        String pgReason = response.data() != null ? response.data().reason() : null;
+
+        if ("SUCCESS".equals(pgStatus) || "FAILED".equals(pgStatus)) {
+            confirmPaymentResult(payment.getId(), pgStatus, pgReason);
+        }
+
+        return PaymentInfo.from(paymentService.getPayment(payment.getId()));
+    }
+
+    @Transactional
+    public void confirmPaymentResult(Long paymentId, String pgStatus, String reason) {
+        Payment payment = paymentService.getPayment(paymentId);
+        if (payment.isFinalized()) {
+            return;
+        }
+
+        if ("SUCCESS".equals(pgStatus)) {
+            payment.markSucceeded(payment.getTransactionKey());
+            orderService.payOrder(payment.getOrderId());
+        } else {
+            payment.markFailed(reason);
+        }
+    }
+
     // Query
 
     @Transactional(readOnly = true)
@@ -86,6 +137,20 @@ public class PaymentFacade {
         return paymentService.getLatestPaymentByOrderId(orderId)
                 .map(PaymentInfo::from)
                 .orElse(PaymentInfo.empty(orderId));
+    }
+
+    private PaymentInfo paymentBulkheadFallback(Long userId, PaymentCommand.Request command, Throwable t) {
+        if (t instanceof CoreException) {
+            throw (CoreException) t;
+        }
+        throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 요청이 많습니다. 잠시 후 다시 시도해주세요");
+    }
+
+    private PaymentInfo verifyBulkheadFallback(Long userId, Long paymentId, Throwable t) {
+        if (t instanceof CoreException) {
+            throw (CoreException) t;
+        }
+        throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 확인 요청이 많습니다. 잠시 후 다시 시도해주세요");
     }
 
     private BigDecimal validateOrder(Long userId, Long orderId) {

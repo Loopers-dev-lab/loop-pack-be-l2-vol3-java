@@ -20,6 +20,12 @@ public interface PaymentApiV1Spec {
     @Operation(summary = "결제 콜백 수신", description = "PG 시스템이 결제 결과를 콜백으로 전달한다")
     void handleCallback(PgCallbackPayload payload);
 
+    @Operation(summary = "결제 수동 확인", description = "PG에 결제 상태를 수동으로 조회하여 확정한다")
+    ApiResponse<PaymentV1Dto.PaymentResponse> verifyPayment(
+            AuthenticatedUser user,
+            Long paymentId
+    );
+
     // Query
 
     @Operation(summary = "결제 상세 조회", description = "단일 결제의 상태를 확인한다")

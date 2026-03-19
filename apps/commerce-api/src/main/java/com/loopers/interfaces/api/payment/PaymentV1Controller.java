@@ -42,6 +42,15 @@ public class PaymentV1Controller implements PaymentApiV1Spec {
         paymentFacade.handleCallback(command);
     }
 
+    @PostMapping("/{paymentId}/verify")
+    @Override
+    public ApiResponse<PaymentV1Dto.PaymentResponse> verifyPayment(
+            @AuthUser AuthenticatedUser user,
+            @PathVariable Long paymentId) {
+        PaymentInfo info = paymentFacade.verifyPayment(user.id(), paymentId);
+        return ApiResponse.success(PaymentV1Dto.PaymentResponse.from(info));
+    }
+
     // Query
 
     @GetMapping("/{paymentId}")

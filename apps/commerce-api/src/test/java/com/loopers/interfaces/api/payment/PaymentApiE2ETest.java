@@ -126,6 +126,28 @@ class PaymentApiE2ETest {
         }
 
         @Test
+        void 주문_상태가_PENDING이_아니면_400_응답() {
+            fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long orderId = fixture.placeOrder(
+                    List.of(new OrderRequest.PlaceItem(productId, 1)),
+                    LOGIN_ID, PASSWORD);
+
+            orderService.payOrder(orderId);
+
+            PaymentRequest.Request request = new PaymentRequest.Request(
+                    orderId, CardType.SAMSUNG, "1234-5678-9012-3456");
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = postPayment(request);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody().meta().message()).contains("결제할 수 없는 주문 상태입니다")
+            );
+        }
+
+        @Test
         void 요청_필드_규칙_위반_시_400_응답() {
             fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
 
@@ -235,6 +257,32 @@ class PaymentApiE2ETest {
             );
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        void 인증_헤더가_누락되면_401_응답() {
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    PAYMENT_ENDPOINT + "/1", HttpMethod.GET,
+                    new HttpEntity<>(null),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void 인증에_실패하면_401_응답() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "wronguser");
+            headers.set("X-Loopers-LoginPw", "wrongpw");
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    PAYMENT_ENDPOINT + "/1", HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
     }
 
@@ -427,6 +475,138 @@ class PaymentApiE2ETest {
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
                     ORDER_PAYMENT_ENDPOINT + "/1/payment", HttpMethod.GET,
                     new HttpEntity<>(null),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void 인증에_실패하면_401_응답() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "wronguser");
+            headers.set("X-Loopers-LoginPw", "wrongpw");
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    ORDER_PAYMENT_ENDPOINT + "/1/payment", HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+    }
+
+    @Nested
+    class 결제_수동_확인 {
+
+        @Test
+        void PENDING_상태이면_FAILED로_처리되고_200_응답() {
+            fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long orderId = fixture.placeOrder(
+                    List.of(new OrderRequest.PlaceItem(productId, 1)),
+                    LOGIN_ID, PASSWORD);
+
+            // PENDING 상태 결제 (markInProgress 미호출)
+            Payment payment = paymentService.createPayment(orderId, 1L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    PAYMENT_ENDPOINT + "/" + payment.getId() + "/verify", HttpMethod.POST,
+                    new HttpEntity<>(fixture.userHeaders(LOGIN_ID, PASSWORD)),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().status()).isEqualTo(PaymentStatus.FAILED),
+                    () -> assertThat(response.getBody().data().failReason()).isEqualTo("PG 요청 미도달")
+            );
+        }
+
+        @Test
+        void 이미_확정된_결제이면_400_응답() {
+            fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long orderId = fixture.placeOrder(
+                    List.of(new OrderRequest.PlaceItem(productId, 1)),
+                    LOGIN_ID, PASSWORD);
+
+            Payment payment = fixture.requestPayment(orderId, 1L, new BigDecimal("50000"));
+            paymentService.markFailed(payment.getId(), "이전 실패");
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    PAYMENT_ENDPOINT + "/" + payment.getId() + "/verify", HttpMethod.POST,
+                    new HttpEntity<>(fixture.userHeaders(LOGIN_ID, PASSWORD)),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody().meta().message()).contains("이미 확정된 결제입니다")
+            );
+        }
+
+        @Test
+        void 존재하지_않는_결제이면_404_응답() {
+            fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    PAYMENT_ENDPOINT + "/999/verify", HttpMethod.POST,
+                    new HttpEntity<>(fixture.userHeaders(LOGIN_ID, PASSWORD)),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
+                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 결제입니다")
+            );
+        }
+
+        @Test
+        void 본인의_결제가_아니면_404_응답() {
+            fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
+            fixture.signUp("otheruser", "Other1234!", "김철수", "other@example.com");
+
+            Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
+            Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
+            Long orderId = fixture.placeOrder(
+                    List.of(new OrderRequest.PlaceItem(productId, 1)),
+                    "otheruser", "Other1234!");
+
+            Payment payment = fixture.requestPayment(orderId, 2L, new BigDecimal("50000"));
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    PAYMENT_ENDPOINT + "/" + payment.getId() + "/verify", HttpMethod.POST,
+                    new HttpEntity<>(fixture.userHeaders(LOGIN_ID, PASSWORD)),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        void 인증_헤더가_누락되면_401_응답() {
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    PAYMENT_ENDPOINT + "/1/verify", HttpMethod.POST,
+                    new HttpEntity<>(null),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void 인증에_실패하면_401_응답() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "wronguser");
+            headers.set("X-Loopers-LoginPw", "wrongpw");
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    PAYMENT_ENDPOINT + "/1/verify", HttpMethod.POST,
+                    new HttpEntity<>(null, headers),
                     new ParameterizedTypeReference<>() {}
             );
 

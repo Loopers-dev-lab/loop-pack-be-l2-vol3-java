@@ -25,15 +25,15 @@ User
 | cardType | String | 카드 종류 |
 | cardNo | String | 카드 번호 |
 | amount | BigDecimal | 결제 금액 |
-| status | String | 결제 상태 (REQUESTED, PENDING, FAILED) |
+| status | String | 결제 상태 (PENDING, IN_PROGRESS, FAILED) |
 | failReason | String | 실패 사유 (null 가능) |
 | createdAt | LocalDateTime | 결제 요청일시 |
 
 ## 인수 조건
 - [ ] 유효한 정보로 결제 요청하면 200 응답과 결제 정보를 반환한다
-- [ ] PG 접수 성공 시 결제 상태는 PENDING이고 transactionKey가 반환된다
+- [ ] PG 접수 성공 시 결제 상태는 IN_PROGRESS이고 transactionKey가 반환된다
 - [ ] 결제 금액은 주문의 finalAmount를 사용한다
-- [ ] PG 요청 타임아웃 시 200 응답, 결제 상태는 REQUESTED, transactionKey는 null이다
+- [ ] PG 요청 타임아웃 시 200 응답, 결제 상태는 PENDING, transactionKey는 null이다
 - [ ] PG 요청 실패(서버 에러) 시 500 응답, 결제 상태는 FAILED로 저장된다
 - [ ] 해당 주문이 존재하지 않으면 404 응답, 메시지: "존재하지 않는 주문입니다"
 - [ ] 본인의 주문이 아니면 404 응답, 메시지: "존재하지 않는 주문입니다"

@@ -26,11 +26,11 @@ POST /api/v1/payments/callback
 | - | - | 본문 없이 200 응답 |
 
 ## 인수 조건
-- [ ] PG 콜백으로 SUCCESS를 수신하면 결제 상태가 SUCCESS로 변경된다
+- [ ] PG 콜백으로 SUCCESS를 수신하면 결제 상태가 SUCCEEDED로 변경된다
 - [ ] PG 콜백으로 SUCCESS를 수신하면 해당 주문 상태가 PAID로 전이된다
 - [ ] PG 콜백으로 FAILED를 수신하면 결제 상태가 FAILED로 변경되고 failReason이 저장된다
 - [ ] PG 콜백으로 FAILED를 수신해도 주문 상태는 PENDING을 유지한다
-- [ ] 이미 확정(SUCCESS/FAILED)된 결제에 대한 콜백이면 무시하고 200 응답한다 (멱등성)
+- [ ] 이미 확정(SUCCEEDED/FAILED)된 결제에 대한 콜백이면 무시하고 200 응답한다 (멱등성)
 - [ ] transactionKey에 해당하는 결제가 없으면 200 응답한다 (무시)
 
 ## 제약
