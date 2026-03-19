@@ -3,6 +3,7 @@ package com.loopers.application.product;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.application.order.OrderItemCommand;
+import com.loopers.application.order.OrderItemInfo;
 import com.loopers.config.CacheConfig;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -127,6 +128,21 @@ public class ProductService {
             boolean decreased = productRepository.decreaseStockIfEnough(item.productId(), item.quantity());
             if (!decreased) {
                 throw new CoreException(ErrorType.INSUFFICIENT_STOCK, "재고가 부족한 상품이 있습니다.");
+            }
+        }
+    }
+
+    @Transactional
+    public void restoreStock(List<OrderItemInfo> items) {
+        List<OrderItemInfo> sorted = items.stream()
+                                          .sorted(Comparator.comparing(OrderItemInfo::productId))
+                                          .toList();
+
+        for (OrderItemInfo item : sorted) {
+            int affected = productRepository.increaseStock(item.productId(), item.quantity());
+            if (affected == 0) {
+                throw new CoreException(ErrorType.NOT_FOUND,
+                        "[productId = " + item.productId() + "] 재고 복원 대상 상품을 찾을 수 없습니다.");
             }
         }
     }

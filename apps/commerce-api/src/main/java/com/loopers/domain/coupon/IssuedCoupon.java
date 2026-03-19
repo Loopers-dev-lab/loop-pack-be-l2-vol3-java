@@ -43,6 +43,10 @@ public class IssuedCoupon extends BaseEntity {
         this.usedAt = LocalDateTime.now();
     }
 
+    public void restore() {
+        this.usedAt = null;
+    }
+
     public Status getStatus() {
         if (usedAt != null) {
             return Status.USED;

@@ -1,15 +1,21 @@
 package com.loopers.application.payment;
 
+import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderItemSnapshot;
 import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentStatus;
+import com.loopers.domain.product.Product;
 import com.loopers.infrastructure.client.PgPaymentDto;
 import com.loopers.infrastructure.client.PgPaymentException;
 import com.loopers.infrastructure.client.PgPaymentGateway;
+import com.loopers.infrastructure.coupon.IssuedCouponJpaRepository;
+import com.loopers.infrastructure.order.OrderItemJpaRepository;
 import com.loopers.infrastructure.order.OrderJpaRepository;
 import com.loopers.infrastructure.payment.PaymentJpaRepository;
+import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.infrastructure.user.UserJpaRepository;
 import com.loopers.domain.user.UserFixture;
 import com.loopers.support.error.CoreException;
@@ -24,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,6 +56,15 @@ class PaymentFacadeSpringTest {
 
     @Autowired
     private UserJpaRepository userJpaRepository;
+
+    @Autowired
+    private IssuedCouponJpaRepository issuedCouponJpaRepository;
+
+    @Autowired
+    private ProductJpaRepository productJpaRepository;
+
+    @Autowired
+    private OrderItemJpaRepository orderItemJpaRepository;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -174,6 +190,41 @@ class PaymentFacadeSpringTest {
                     () -> assertThat(updatedOrder.getStatus()).isEqualTo(Order.Status.FAILED)
             );
         }
+
+        @DisplayName("FAILED 콜백 수신 시 쿠폰이 AVAILABLE로 복원되고 재고가 원복된다.")
+        @Test
+        void restoresCouponAndStock_whenFailedCallback() {
+            // arrange
+            int initialStock = 5;
+            int orderQuantity = 2;
+            int stockAfterOrder = initialStock - orderQuantity;
+            Product product = productJpaRepository.save(Product.create(1L, "테스트상품", null, 10000, stockAfterOrder));
+            IssuedCoupon coupon = IssuedCoupon.create(userId, 1L, LocalDateTime.now().plusDays(30));
+            coupon.markAsUsed();
+            IssuedCoupon savedCoupon = issuedCouponJpaRepository.save(coupon);
+
+            Order orderWithCoupon = orderJpaRepository.save(
+                    Order.create(userId, List.of(new OrderItemSnapshot(product.getId(), "테스트상품", 10000L, orderQuantity)), 0L, savedCoupon.getId())
+            );
+            orderItemJpaRepository.save(OrderItem.create(orderWithCoupon.getId(), product.getId(), "테스트상품", 10000L, orderQuantity));
+
+            Payment payment = paymentJpaRepository.save(
+                    Payment.create(orderWithCoupon.getId(), "pgOrderCode-rollback", CardType.SAMSUNG, "1234-5678-9012-3456", 20000L)
+            );
+            payment.assignPgTransaction("TXN-ROLLBACK");
+            paymentJpaRepository.save(payment);
+
+            // act
+            paymentFacade.handleCallback(new PgCallbackCommand("TXN-ROLLBACK", "FAILED", "한도초과"));
+
+            // assert
+            IssuedCoupon updatedCoupon = issuedCouponJpaRepository.findById(savedCoupon.getId()).orElseThrow();
+            Product updatedProduct = productJpaRepository.findById(product.getId()).orElseThrow();
+            assertAll(
+                    () -> assertThat(updatedCoupon.getStatus()).isEqualTo(IssuedCoupon.Status.AVAILABLE),
+                    () -> assertThat(updatedProduct.getStockQuantity()).isEqualTo(initialStock)
+            );
+        }
     }
 
     @DisplayName("PG 결제 상태 조회 시, ")
@@ -267,6 +318,49 @@ class PaymentFacadeSpringTest {
 
             // assert
             assertThat(result.status()).isEqualTo(PaymentStatus.PENDING);
+        }
+
+        @DisplayName("PENDING 결제건을 PG에 조회해 FAILED면 Payment/Order가 FAILED로 전환되고 쿠폰/재고가 복원된다.")
+        @Test
+        void failsPaymentAndRestores_whenPgReturnsFailed() {
+            // arrange
+            int initialStock = 5;
+            int orderQuantity = 2;
+            int stockAfterOrder = initialStock - orderQuantity;
+            Product product = productJpaRepository.save(Product.create(1L, "sync테스트상품", null, 10000, stockAfterOrder));
+            IssuedCoupon coupon = IssuedCoupon.create(userId, 1L, LocalDateTime.now().plusDays(30));
+            coupon.markAsUsed();
+            IssuedCoupon savedCoupon = issuedCouponJpaRepository.save(coupon);
+
+            Order orderForSync = orderJpaRepository.save(
+                    Order.create(userId, List.of(new OrderItemSnapshot(product.getId(), "sync테스트상품", 10000L, orderQuantity)), 0L, savedCoupon.getId())
+            );
+            orderItemJpaRepository.save(OrderItem.create(orderForSync.getId(), product.getId(), "sync테스트상품", 10000L, orderQuantity));
+
+            Payment payment = paymentJpaRepository.save(
+                    Payment.create(orderForSync.getId(), "pgOrderCode-sync-failed", CardType.SAMSUNG, "1234-5678-9012-3456", 20000L)
+            );
+            payment.assignPgTransaction("TXN-SYNC-FAILED");
+            paymentJpaRepository.save(payment);
+
+            given(pgPaymentGateway.getTransactionsByOrder(anyString(), anyString()))
+                    .willReturn(new PgPaymentDto.OrderTransactionResponse(
+                            "pgOrderCode-sync-failed",
+                            List.of(new PgPaymentDto.TransactionSummary("TXN-SYNC-FAILED", "FAILED", "한도초과"))
+                    ));
+
+            // act
+            PaymentInfo result = paymentFacade.syncPayment(userId, payment.getId());
+
+            // assert
+            IssuedCoupon updatedCoupon = issuedCouponJpaRepository.findById(savedCoupon.getId()).orElseThrow();
+            Product updatedProduct = productJpaRepository.findById(product.getId()).orElseThrow();
+            assertAll(
+                    () -> assertThat(result.status()).isEqualTo(PaymentStatus.FAILED),
+                    () -> assertThat(orderJpaRepository.findById(orderForSync.getId()).orElseThrow().getStatus()).isEqualTo(Order.Status.FAILED),
+                    () -> assertThat(updatedCoupon.getStatus()).isEqualTo(IssuedCoupon.Status.AVAILABLE),
+                    () -> assertThat(updatedProduct.getStockQuantity()).isEqualTo(initialStock)
+            );
         }
     }
 }

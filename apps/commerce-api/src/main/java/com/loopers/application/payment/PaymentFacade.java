@@ -1,5 +1,6 @@
 package com.loopers.application.payment;
 
+import com.loopers.application.order.OrderCompensationService;
 import com.loopers.application.order.OrderInfo;
 import com.loopers.application.order.OrderService;
 import com.loopers.domain.order.Order;
@@ -22,17 +23,20 @@ import java.util.UUID;
 public class PaymentFacade {
     private final PaymentRepository paymentRepository;
     private final OrderService orderService;
+    private final OrderCompensationService orderCompensationService;
     private final PgPaymentGateway pgPaymentGateway;
     private final String callbackUrl;
 
     public PaymentFacade(
             PaymentRepository paymentRepository,
             OrderService orderService,
+            OrderCompensationService orderCompensationService,
             PgPaymentGateway pgPaymentGateway,
             @Value("${payment.callback-url}") String callbackUrl
     ) {
         this.paymentRepository = paymentRepository;
         this.orderService = orderService;
+        this.orderCompensationService = orderCompensationService;
         this.pgPaymentGateway = pgPaymentGateway;
         this.callbackUrl = callbackUrl;
     }
@@ -111,7 +115,7 @@ public class PaymentFacade {
             }
             case FAILED -> {
                 payment.fail(reason);
-                orderService.markOrderFailed(payment.getOrderId());
+                orderCompensationService.compensate(payment.getOrderId());
             }
         }
     }

@@ -56,6 +56,11 @@ public class InMemoryIssuedCouponRepository implements IssuedCouponRepository {
     }
 
     @Override
+    public int restoreById(Long id, Long userId) {
+        throw new UnsupportedOperationException("Atomic UPDATE는 DB에 의존하므로 통합테스트에서 커버합니다.");
+    }
+
+    @Override
     public Page<IssuedCoupon> findByCouponId(Long couponId, Pageable pageable) {
         List<IssuedCoupon> result = store.values().stream()
             .filter(ic -> ic.getCouponId().equals(couponId))

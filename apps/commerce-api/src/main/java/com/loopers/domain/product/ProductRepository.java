@@ -14,6 +14,7 @@ public interface ProductRepository {
     List<Product> findAllByBrandIdAndDeletedAtIsNull(Long brandId);
     List<Product> findAllByIdInAndDeletedAtIsNull(List<Long> ids);
     boolean decreaseStockIfEnough(Long productId, Integer quantity);
+    int increaseStock(Long productId, Integer quantity);
     void increaseLikeCount(Long productId);
     void decreaseLikeCount(Long productId);
 }

@@ -1,8 +1,9 @@
 package com.loopers.application.payment;
 
-import com.loopers.application.order.OrderService;
 import com.loopers.domain.order.InMemoryOrderItemRepository;
 import com.loopers.domain.order.InMemoryOrderRepository;
+import com.loopers.application.order.OrderCompensationService;
+import com.loopers.application.order.OrderService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItemSnapshot;
 import com.loopers.domain.payment.CardType;
@@ -22,6 +23,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
 class PaymentFacadeTest {
@@ -29,6 +31,7 @@ class PaymentFacadeTest {
     private InMemoryPaymentRepository paymentRepository;
     private InMemoryOrderRepository orderRepository;
     private OrderService orderService;
+    private OrderCompensationService orderCompensationService;
     private PaymentFacade paymentFacade;
 
     @BeforeEach
@@ -36,7 +39,8 @@ class PaymentFacadeTest {
         paymentRepository = new InMemoryPaymentRepository();
         orderRepository = new InMemoryOrderRepository();
         orderService = new OrderService(orderRepository, new InMemoryOrderItemRepository());
-        paymentFacade = new PaymentFacade(paymentRepository, orderService, mock(PgPaymentGateway.class), "http://localhost:8080/api/v1/payments/callback");
+        orderCompensationService = mock(OrderCompensationService.class);
+        paymentFacade = new PaymentFacade(paymentRepository, orderService, orderCompensationService, mock(PgPaymentGateway.class), "http://localhost:8080/api/v1/payments/callback");
     }
 
     @DisplayName("PG 콜백 수신 시, ")
@@ -61,9 +65,9 @@ class PaymentFacadeTest {
             );
         }
 
-        @DisplayName("FAILED 콜백을 받으면 Payment는 FAILED, Order는 FAILED로 전환된다.")
+        @DisplayName("FAILED 콜백을 받으면 Payment는 FAILED로 전환되고 compensate()가 호출된다.")
         @Test
-        void failsPaymentAndMarksOrderFailed_whenFailed() {
+        void failsPaymentAndCallsCompensate_whenFailed() {
             // arrange
             Order order = orderRepository.save(Order.create(1L, List.of(new OrderItemSnapshot(1L, "상품", 10000L, 1))));
             Payment payment = paymentRepository.save(Payment.create(order.getId(), "pgOrderCode-002", CardType.KB, "1234-5678-9012-3456", 10000L));
@@ -76,7 +80,7 @@ class PaymentFacadeTest {
             assertAll(
                     () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED),
                     () -> assertThat(payment.getFailReason()).isEqualTo("한도초과입니다."),
-                    () -> assertThat(orderRepository.findById(order.getId()).get().getStatus()).isEqualTo(Order.Status.FAILED)
+                    () -> then(orderCompensationService).should().compensate(order.getId())
             );
         }
 

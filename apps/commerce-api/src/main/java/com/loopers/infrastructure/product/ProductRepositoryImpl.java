@@ -111,6 +111,11 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public int increaseStock(Long productId, Integer quantity) {
+        return productJpaRepository.increaseStock(productId, quantity);
+    }
+
+    @Override
     public void increaseLikeCount(Long productId) {
         productJpaRepository.increaseLikeCount(productId);
     }
