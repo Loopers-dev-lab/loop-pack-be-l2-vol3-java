@@ -29,6 +29,19 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+# Phase 1: PG 연동 Timeout
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 500   # ms — 연결 실패 시 빠른 포기(Fail-fast)
+        readTimeout: 2000    # ms — PG P99 ≈ 500ms 포함, 타임아웃 시 PENDING + 폴링 복구
+
+# PG-Simulator base URL (프로파일별 오버라이드)
+pg:
+  simulator:
+    url: http://localhost:8090
+
 ---
 spring:
   config:
