@@ -53,6 +53,7 @@ public class PaymentFacade {
         return PaymentInfo.from(updatedPayment);
     }
 
+    // Bulkhead 미적용: 취소는 반드시 성공해야 하므로 동시 요청 제한으로 거절하면 안 됨. 일시적 실패는 Retry로 커버.
     public PaymentInfo cancelPayment(Long userId, Long paymentId, PaymentCommand.Cancel command) {
         Payment payment = paymentService.getPayment(paymentId);
         if (!payment.isOwnedBy(userId)) {
@@ -68,7 +69,7 @@ public class PaymentFacade {
         // 토스/나이스 취소 API 호출
         gateway.cancel(
                 payment.getPaymentKey(),
-                new PaymentCancelCommand(command.cancelReason(), command.cancelAmount()));
+                new PaymentCancelCommand(String.valueOf(payment.getOrderId()), command.cancelReason(), command.cancelAmount()));
 
         // TX2: DB 상태 업데이트
         paymentService.markCanceled(paymentId, command.cancelReason());

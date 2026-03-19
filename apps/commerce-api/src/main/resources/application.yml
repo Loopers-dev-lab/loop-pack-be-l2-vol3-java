@@ -43,71 +43,58 @@ payment:
 
 resilience4j:
   circuitbreaker:
+    configs:
+      default-request:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        failureRateThreshold: 50
+        slowCallDurationThreshold: 3s
+        slowCallRateThreshold: 80
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
+        ignoreExceptions:
+          - com.loopers.support.error.CoreException
+      default-query:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        failureRateThreshold: 50
+        slowCallDurationThreshold: 2s
+        waitDurationInOpenState: 15s
+        ignoreExceptions:
+          - com.loopers.support.error.CoreException
     instances:
       toss-request:
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        automaticTransitionFromOpenToHalfOpenEnabled: true
-        failureRateThreshold: 50
-        slowCallDurationThreshold: 3s
-        slowCallRateThreshold: 80
-        waitDurationInOpenState: 30s
-        permittedNumberOfCallsInHalfOpenState: 3
-        ignoreExceptions:
-          - com.loopers.support.error.CoreException
+        baseConfig: default-request
       nice-request:
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        automaticTransitionFromOpenToHalfOpenEnabled: true
-        failureRateThreshold: 50
-        slowCallDurationThreshold: 3s
-        slowCallRateThreshold: 80
-        waitDurationInOpenState: 30s
-        permittedNumberOfCallsInHalfOpenState: 3
-        ignoreExceptions:
-          - com.loopers.support.error.CoreException
+        baseConfig: default-request
       toss-query:
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        automaticTransitionFromOpenToHalfOpenEnabled: true
-        failureRateThreshold: 50
-        slowCallDurationThreshold: 2s
-        waitDurationInOpenState: 15s
-        ignoreExceptions:
-          - com.loopers.support.error.CoreException
+        baseConfig: default-query
       nice-query:
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        automaticTransitionFromOpenToHalfOpenEnabled: true
-        failureRateThreshold: 50
-        slowCallDurationThreshold: 2s
-        waitDurationInOpenState: 15s
-        ignoreExceptions:
-          - com.loopers.support.error.CoreException
+        baseConfig: default-query
   retry:
+    configs:
+      default-query-retry:
+        maxAttempts: 3
+        waitDuration: 500ms
+        retryExceptions:
+          - org.springframework.web.client.ResourceAccessException
+      default-cancel-retry:
+        maxAttempts: 3
+        waitDuration: 1s
+        retryExceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpServerErrorException
     instances:
       toss-query:
-        maxAttempts: 3
-        waitDuration: 500ms
-        retryExceptions:
-          - org.springframework.web.client.ResourceAccessException
+        baseConfig: default-query-retry
       nice-query:
-        maxAttempts: 3
-        waitDuration: 500ms
-        retryExceptions:
-          - org.springframework.web.client.ResourceAccessException
+        baseConfig: default-query-retry
       toss-cancel:
-        maxAttempts: 3
-        waitDuration: 1s
-        retryExceptions:
-          - org.springframework.web.client.ResourceAccessException
-          - org.springframework.web.client.HttpServerErrorException
+        baseConfig: default-cancel-retry
       nice-cancel:
-        maxAttempts: 3
-        waitDuration: 1s
-        retryExceptions:
-          - org.springframework.web.client.ResourceAccessException
-          - org.springframework.web.client.HttpServerErrorException
+        baseConfig: default-cancel-retry
   bulkhead:
     instances:
       pg-payment:
@@ -124,6 +111,10 @@ spring:
   config:
     activate:
       on-profile: local, test
+
+logging:
+  level:
+    io.github.resilience4j: DEBUG
 
 ---
 spring:

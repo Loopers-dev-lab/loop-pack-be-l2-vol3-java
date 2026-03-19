@@ -72,7 +72,7 @@ public class NicePaymentGateway implements PaymentGateway {
     @Override
     public PaymentCancelResult cancel(String paymentKey, PaymentCancelCommand command) {
         NiceCancelRequest request = new NiceCancelRequest(
-                command.cancelReason(), "ORDER-" + paymentKey, command.cancelAmount());
+                command.cancelReason(), command.orderId(), command.cancelAmount());
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);

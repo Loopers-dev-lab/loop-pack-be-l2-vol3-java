@@ -12,6 +12,10 @@ management:
         include:
           - health
           - prometheus
+          - circuitbreakers
+          - bulkheads
+          - retries
+          - metrics
   endpoint:
     health:
       probes:
@@ -26,6 +30,8 @@ management:
     prometheus:
       access: read_only
   health:
+    circuitbreakers:
+      enabled: true
     livenessState:
       enabled: true
     readinessState:

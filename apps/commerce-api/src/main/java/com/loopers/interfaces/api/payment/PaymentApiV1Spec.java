@@ -40,6 +40,6 @@ public interface PaymentApiV1Spec {
             Long paymentId
     );
 
-    @Operation(summary = "사용 가능한 결제수단 조회", description = "서킷 상태를 확인하여 가용한 PG 목록을 반환한다")
+    @Operation(summary = "사용 가능한 결제수단 조회", description = "서킷 상태를 확인하여 가용한 PG 목록을 반환한다. 인증 불필요 — 결제 전 프론트가 PG 목록을 조회하는 용도")
     ApiResponse<List<PgType>> getAvailableMethods();
 }
