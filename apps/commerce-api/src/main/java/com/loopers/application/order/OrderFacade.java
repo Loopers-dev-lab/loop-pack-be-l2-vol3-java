@@ -16,7 +16,9 @@ import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderService;
 import com.loopers.domain.payment.Payment;
+import com.loopers.domain.payment.PaymentResult;
 import com.loopers.domain.payment.PaymentService;
+import com.loopers.domain.payment.PgApproveRequest;
 import com.loopers.domain.point.PointAccount;
 import com.loopers.domain.point.PointService;
 import com.loopers.domain.product.Product;
@@ -236,16 +238,45 @@ public class OrderFacade {
      */
     private OrderCreateResult processPaymentAndConfirm(OrderPaymentContext context) {
         try {
-            // PG 결제 (트랜잭션 밖 — 락 미보유 상태에서 외부 호출)
-            String pgTxnId = simulatePgPayment();
+            // PG 결제 (트랜잭션 밖 — PaymentService가 PG 호출 + 결과 해석을 캡슐화)
+            PgApproveRequest pgRequest = new PgApproveRequest(
+                    context.userId(),
+                    context.orderNumber(),
+                    context.paymentMethod(),
+                    "0000-0000-0000-0000",
+                    context.totalAmount(),
+                    null
+            );
+            Payment payment = paymentService.getById(context.paymentId());
+            PaymentResult pgResult = paymentService.requestPayment(payment, pgRequest);
 
-            // TX2: 결제 확정 + 재고 확정 + 주문 확정 + 포인트 적립
+            if (pgResult.isApproved()) {
+                // TX2: 결제 확정 + 재고 확정 + 주문 확정 + 포인트 적립
+                return txTemplate.execute(status -> {
+                    paymentService.approve(context.paymentId(), pgResult.transactionKey(), context.totalAmount());
+                    inventoryService.commitAll(context.productQtyMap());
+                    orderService.confirm(context.orderId(), context.paymentId(), context.paymentMethod());
+                    pointService.earn(context.userId(), context.totalAmount());
+
+                    Order order = orderService.getById(context.orderId());
+                    return new OrderCreateResult(
+                            order.getId(), order.getOrderNumber(), order.getStatus().name(),
+                            order.getTotalAmount(), order.getPaymentId());
+                });
+            }
+
+            if (pgResult.isUnknown()) {
+                // UNKNOWN — 대사 배치에서 확인 예정
+                txTemplate.executeWithoutResult(status ->
+                        paymentService.markUnknown(context.paymentId()));
+                log.warn("PG 결제 결과 불확실 — 보상 진행 (orderId={}, reason={})",
+                        context.orderId(), pgResult.reason());
+            }
+
+            // FAILED 또는 UNKNOWN — 보상 트랜잭션 실행
+            compensateOrder(context);
+
             return txTemplate.execute(status -> {
-                paymentService.approve(context.paymentId(), pgTxnId, context.totalAmount());
-                inventoryService.commitAll(context.productQtyMap());
-                orderService.confirm(context.orderId(), context.paymentId(), context.paymentMethod());
-                pointService.earn(context.userId(), context.totalAmount());
-
                 Order order = orderService.getById(context.orderId());
                 return new OrderCreateResult(
                         order.getId(), order.getOrderNumber(), order.getStatus().name(),
@@ -291,14 +322,6 @@ public class OrderFacade {
                     context.orderId(), context.paymentId(), compensateEx);
             // 보상 실패 시 캐시 삭제도 안 됨 → TTL 안전망 (300초)
         }
-    }
-
-    /**
-     * PG 결제 시뮬레이션 — 항상 성공
-     * 실제 PG 연동 시 이 메서드를 외부 PG API 호출로 교체한다.
-     */
-    private String simulatePgPayment() {
-        return "PG-TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
     /**

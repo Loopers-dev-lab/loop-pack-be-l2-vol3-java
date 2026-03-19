@@ -10,7 +10,9 @@ import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderService;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.payment.Payment;
+import com.loopers.domain.payment.PaymentResult;
 import com.loopers.domain.payment.PaymentService;
+import com.loopers.domain.payment.PgApproveRequest;
 import com.loopers.domain.point.PointAccount;
 import com.loopers.domain.point.PointService;
 import com.loopers.domain.product.Product;
@@ -22,6 +24,9 @@ import com.loopers.support.error.PaymentErrorType;
 import com.loopers.support.error.PointErrorType;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.ZonedDateTime;
 import java.util.Map;
@@ -38,6 +43,8 @@ import java.util.stream.Collectors;
 @Component
 public class PaymentFacade {
 
+    private static final Logger log = LoggerFactory.getLogger(PaymentFacade.class);
+
     private final OrderService orderService;
     private final PaymentService paymentService;
     private final InventoryService inventoryService;
@@ -46,10 +53,13 @@ public class PaymentFacade {
     private final ProductService productService;
     private final OrderCacheManager orderCacheManager;
 
+    private final org.springframework.transaction.support.TransactionTemplate txTemplate;
+
     public PaymentFacade(OrderService orderService, PaymentService paymentService,
                          InventoryService inventoryService, PointService pointService,
                          CouponService couponService, ProductService productService,
-                         OrderCacheManager orderCacheManager) {
+                         OrderCacheManager orderCacheManager,
+                         org.springframework.transaction.PlatformTransactionManager txManager) {
         this.orderService = orderService;
         this.paymentService = paymentService;
         this.inventoryService = inventoryService;
@@ -57,6 +67,8 @@ public class PaymentFacade {
         this.couponService = couponService;
         this.productService = productService;
         this.orderCacheManager = orderCacheManager;
+        this.txTemplate = new org.springframework.transaction.support.TransactionTemplate(txManager);
+        this.txTemplate.setTimeout(30);
     }
 
     /**
@@ -99,82 +111,89 @@ public class PaymentFacade {
     /**
      * 결제 요청 (F-13)
      *
-     * 1. 주문 조회 + 소유권 검증 + PENDING 확인
-     * 2. Payment(REQUESTED) 생성 + idempotencyKey
-     * 3. PG 결제 승인 요청 (시뮬레이션 — 항상 성공)
-     * 4. 성공 시: Payment→APPROVED, 재고 확정, 포인트 차감, 쿠폰 USED, Order→PAID
-     * 5. 실패 시: Payment→FAILED, reserved_qty 복구
+     * TX 분리 전략:
+     * TX1: 주문 검증 + Payment 생성 → 커밋
+     * TX 밖: PaymentService.requestPayment() — PG 호출 + 결과 해석
+     * TX2-성공: Payment 승인 + 재고 확정 + 쿠폰 사용 + 포인트 차감 + 주문 확정 + 포인트 적립
+     * TX2-실패: Payment FAILED + 재고 복구
      */
-    @Transactional
     public PaymentRequestResult requestPayment(Long orderId, Long userId, String paymentMethod,
                                                 Long issuedCouponId) {
-        Order order = orderService.getOrder(orderId, userId);
-        order.validateOwnership(userId);
+        // TX1: 주문 검증 + Payment 생성
+        PaymentContext context = txTemplate.execute(status -> {
+            Order order = orderService.getOrder(orderId, userId);
+            order.validateOwnership(userId);
 
-        if (order.getStatus() != OrderStatus.PENDING) {
-            throw new CoreException(OrderErrorType.INVALID_ORDER_STATUS);
-        }
-
-        // 결제 시점 가격 재검증 — 주문 생성 후 상품 가격이 변경되었는지 확인
-        for (OrderItem item : order.getItems()) {
-            Product product = productService.getById(item.getProductId());
-            if (product.getBasePrice() != item.getUnitPrice()) {
-                throw new CoreException(PaymentErrorType.PRICE_CHANGED);
+            if (order.getStatus() != OrderStatus.PENDING) {
+                throw new CoreException(OrderErrorType.INVALID_ORDER_STATUS);
             }
-        }
 
-        Payment payment = paymentService.create(
-                orderId, order.getTotalAmount(), paymentMethod, generateIdempotencyKey());
+            for (OrderItem item : order.getItems()) {
+                Product product = productService.getById(item.getProductId());
+                if (product.getBasePrice() != item.getUnitPrice()) {
+                    throw new CoreException(PaymentErrorType.PRICE_CHANGED);
+                }
+            }
 
-        // PG 결제 승인 시뮬레이션 (항상 성공)
-        boolean pgSuccess = simulatePgApproval(payment);
+            Payment payment = paymentService.create(
+                    orderId, order.getTotalAmount(), paymentMethod, generateIdempotencyKey());
 
-        if (pgSuccess) {
-            String pgTxnId = "PG-TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-            payment.approve(pgTxnId, order.getTotalAmount());
-
-            // 재고 확정 (quantity 차감 + reserved_qty 감소)
             Map<Long, Integer> productQtyMap = order.getItems().stream()
                     .collect(Collectors.toMap(OrderItem::getProductId, OrderItem::getQuantity));
-            inventoryService.commitAll(productQtyMap);
 
-            // 포인트 차감 (결제 성공 시에만)
-            if (order.getPointUsedAmount() > 0) {
-                pointService.use(userId, order.getPointUsedAmount());
-            }
+            return new PaymentContext(
+                    order.getId(), order.getOrderNumber(), userId, payment.getId(), order.getTotalAmount(),
+                    order.getPointUsedAmount(), paymentMethod, issuedCouponId, productQtyMap);
+        });
 
-            // 쿠폰 USED 처리 (결제 성공 시에만)
-            if (issuedCouponId != null) {
-                couponService.use(issuedCouponId, userId, orderId);
-            }
+        // TX 밖: PG 호출 (PaymentService가 PG 호출 + 결과 해석을 캡슐화)
+        PgApproveRequest pgRequest = new PgApproveRequest(
+                userId, context.orderNumber(), paymentMethod,
+                "0000-0000-0000-0000", context.totalAmount(), null);
+        Payment payment = paymentService.getById(context.paymentId());
+        PaymentResult pgResult = paymentService.requestPayment(payment, pgRequest);
 
-            // Order → PAID
-            orderService.confirm(orderId, payment.getId(), paymentMethod);
+        if (pgResult.isApproved()) {
+            // TX2: 결제 확정
+            txTemplate.executeWithoutResult(status -> {
+                paymentService.approve(context.paymentId(), pgResult.transactionKey(), context.totalAmount());
 
-            // 포인트 적립
-            pointService.earn(userId, order.getTotalAmount());
+                inventoryService.commitAll(context.productQtyMap());
 
-            // 주문 상태 변경(PENDING → PAID) → afterCommit에서 캐시 삭제
-            orderCacheManager.registerEvictAfterCommit(userId);
+                if (context.pointUsedAmount() > 0) {
+                    pointService.use(userId, context.pointUsedAmount());
+                }
+                if (context.issuedCouponId() != null) {
+                    couponService.use(context.issuedCouponId(), userId, orderId);
+                }
+
+                orderService.confirm(orderId, context.paymentId(), paymentMethod);
+                pointService.earn(userId, context.totalAmount());
+                orderCacheManager.registerEvictAfterCommit(userId);
+            });
         } else {
-            payment.reject();
-
-            // reserved_qty 복구
-            Map<Long, Integer> productQtyMap = order.getItems().stream()
-                    .collect(Collectors.toMap(OrderItem::getProductId, OrderItem::getQuantity));
-            inventoryService.releaseAll(productQtyMap);
+            // 실패 또는 UNKNOWN — 보상
+            txTemplate.executeWithoutResult(status -> {
+                if (pgResult.isUnknown()) {
+                    paymentService.markUnknown(context.paymentId());
+                } else {
+                    paymentService.fail(context.paymentId());
+                }
+                inventoryService.releaseAll(context.productQtyMap());
+            });
         }
 
+        Payment updatedPayment = paymentService.getById(context.paymentId());
         return new PaymentRequestResult(
-                payment.getId(), payment.getOrderId(), payment.getStatus().name(),
-                payment.getPaymentMethod(), payment.getRequestedAmount(),
-                payment.getApprovedAmount(), payment.getPgTxnId(), payment.getApprovedAt());
+                updatedPayment.getId(), updatedPayment.getOrderId(), updatedPayment.getStatus().name(),
+                updatedPayment.getPaymentMethod(), updatedPayment.getRequestedAmount(),
+                updatedPayment.getApprovedAmount(), updatedPayment.getPgTxnId(), updatedPayment.getApprovedAt());
     }
 
-    private boolean simulatePgApproval(Payment payment) {
-        // PG 승인 시뮬레이션 — 항상 성공으로 처리
-        return true;
-    }
+    private record PaymentContext(
+            Long orderId, String orderNumber, Long userId, Long paymentId, int totalAmount,
+            int pointUsedAmount, String paymentMethod, Long issuedCouponId,
+            Map<Long, Integer> productQtyMap) {}
 
     private String generateIdempotencyKey() {
         return "PAY-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase();

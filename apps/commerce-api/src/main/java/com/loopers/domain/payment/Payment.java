@@ -81,6 +81,10 @@ public class Payment {
         this.failedAt = ZonedDateTime.now();
     }
 
+    public void markUnknown() {
+        this.status = PaymentStatus.UNKNOWN;
+    }
+
     public void cancel() {
         if (this.status != PaymentStatus.APPROVED) {
             throw new CoreException(PaymentErrorType.INVALID_PAYMENT_STATUS);

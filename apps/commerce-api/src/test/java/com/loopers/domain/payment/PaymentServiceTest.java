@@ -22,12 +22,14 @@ import static org.mockito.Mockito.when;
 class PaymentServiceTest {
 
     private PaymentRepository paymentRepository;
+    private PaymentClient paymentClient;
     private PaymentService paymentService;
 
     @BeforeEach
     void setUp() {
         paymentRepository = Mockito.mock(PaymentRepository.class);
-        paymentService = new PaymentService(paymentRepository);
+        paymentClient = Mockito.mock(PaymentClient.class);
+        paymentService = new PaymentService(paymentRepository, paymentClient);
     }
 
     @DisplayName("결제를 생성할 때,")
