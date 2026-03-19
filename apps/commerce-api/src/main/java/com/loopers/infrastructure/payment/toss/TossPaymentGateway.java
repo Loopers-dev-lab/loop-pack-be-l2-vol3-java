@@ -21,6 +21,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 @Component
@@ -94,20 +95,24 @@ public class TossPaymentGateway implements PaymentGateway {
     @Retry(name = "toss-query")
     @Override
     public PaymentQueryResult query(String paymentKey) {
-        HttpEntity<Void> entity = new HttpEntity<>(null);
+        try {
+            HttpEntity<Void> entity = new HttpEntity<>(null);
 
-        ResponseEntity<TossPaymentResponse> response = tossRestTemplate.exchange(
-                tossProperties.baseUrl() + "/v1/payments/" + paymentKey,
-                HttpMethod.GET,
-                entity,
-                TossPaymentResponse.class
-        );
+            ResponseEntity<TossPaymentResponse> response = tossRestTemplate.exchange(
+                    tossProperties.baseUrl() + "/v1/payments/" + paymentKey,
+                    HttpMethod.GET,
+                    entity,
+                    TossPaymentResponse.class
+            );
 
-        TossPaymentResponse body = response.getBody();
-        if (body == null) {
+            TossPaymentResponse body = response.getBody();
+            if (body == null) {
+                return new PaymentQueryResult(false, false, null);
+            }
+            return new PaymentQueryResult(true, body.isDone(), body.status());
+        } catch (HttpClientErrorException.NotFound e) {
             return new PaymentQueryResult(false, false, null);
         }
-        return new PaymentQueryResult(true, body.isDone(), body.status());
     }
 
     private PaymentConfirmResult confirmFallback(PaymentConfirmCommand command, Throwable t) {

@@ -23,11 +23,14 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
 public class E2ETestFixture {
 
@@ -170,7 +173,29 @@ public class E2ETestFixture {
     public Payment createSucceededPayment(Long orderId, Long userId, BigDecimal amount) {
         Payment payment = paymentService.createPayment(orderId, userId, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", amount);
         paymentService.markSucceeded(payment.getId());
+        seedMockTossPayment(payment.getPaymentKey(), orderId, amount);
         return paymentService.getPayment(payment.getId());
+    }
+
+    private void seedMockTossPayment(String paymentKey, Long orderId, BigDecimal amount) {
+        String tossBaseUrl = System.getProperty("payment.toss.base-url");
+        if (tossBaseUrl == null) return;
+
+        String auth = Base64.getEncoder().encodeToString("test_sk_xxxx:".getBytes());
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Basic " + auth);
+
+        Map<String, Object> body = Map.of(
+                "paymentKey", paymentKey,
+                "orderId", String.valueOf(orderId),
+                "amount", amount.longValue()
+        );
+
+        new RestTemplate().postForEntity(
+                tossBaseUrl + "/v1/payments/confirm",
+                new HttpEntity<>(body, headers),
+                String.class
+        );
     }
 
     // Teardown

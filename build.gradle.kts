@@ -84,6 +84,7 @@ subprojects {
         useJUnitPlatform()
         systemProperty("user.timezone", "Asia/Seoul")
         systemProperty("spring.profiles.active", "test")
+        systemProperty("project.root", rootProject.projectDir.absolutePath)
         jvmArgs("-Xshare:off")
     }
 

@@ -21,6 +21,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 @Component
@@ -93,20 +94,24 @@ public class NicePaymentGateway implements PaymentGateway {
     @Retry(name = "nice-query")
     @Override
     public PaymentQueryResult query(String paymentKey) {
-        HttpEntity<Void> entity = new HttpEntity<>(null);
+        try {
+            HttpEntity<Void> entity = new HttpEntity<>(null);
 
-        ResponseEntity<NicePaymentResponse> response = niceRestTemplate.exchange(
-                niceProperties.baseUrl() + "/v1/payments/" + paymentKey,
-                HttpMethod.GET,
-                entity,
-                NicePaymentResponse.class
-        );
+            ResponseEntity<NicePaymentResponse> response = niceRestTemplate.exchange(
+                    niceProperties.baseUrl() + "/v1/payments/" + paymentKey,
+                    HttpMethod.GET,
+                    entity,
+                    NicePaymentResponse.class
+            );
 
-        NicePaymentResponse body = response.getBody();
-        if (body == null || !body.isSuccess()) {
+            NicePaymentResponse body = response.getBody();
+            if (body == null || !body.isSuccess()) {
+                return new PaymentQueryResult(false, false, null);
+            }
+            return new PaymentQueryResult(true, body.isPaid(), body.status());
+        } catch (HttpClientErrorException.NotFound e) {
             return new PaymentQueryResult(false, false, null);
         }
-        return new PaymentQueryResult(true, body.isPaid(), body.status());
     }
 
     private PaymentConfirmResult confirmFallback(PaymentConfirmCommand command, Throwable t) {

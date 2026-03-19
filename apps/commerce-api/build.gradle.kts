@@ -28,3 +28,7 @@ dependencies {
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
 }
+
+tasks.test {
+    dependsOn(":mocks:mock-toss:bootJar", ":mocks:mock-nice:bootJar")
+}

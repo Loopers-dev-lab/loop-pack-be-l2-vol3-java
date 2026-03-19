@@ -16,6 +16,7 @@ import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
@@ -25,6 +26,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -56,9 +58,19 @@ class PaymentApiE2ETest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
+    @Value("${payment.toss.base-url}")
+    private String tossBaseUrl;
+
+    @Value("${payment.nice.base-url}")
+    private String niceBaseUrl;
+
+    private final RestTemplate mockPgClient = new RestTemplate();
+
     @BeforeEach
     void setUp() {
         databaseCleanUp.truncateAllTables();
+        mockPgClient.delete(tossBaseUrl + "/test/reset");
+        mockPgClient.delete(niceBaseUrl + "/test/reset");
     }
 
     @Nested
