@@ -25,14 +25,14 @@ public interface PgSimulatorClient {
     PgSimulatorResponse requestPayment(@RequestBody PgSimulatorRequest request);
 
     /**
-     * 결제 정보 조회 (폴링/복구용).
+     * 결제 정보 조회 (폴링/복구용). Phase 8에서 타입 안전하게 사용 (06-payment-change-issues §5.2).
      */
     @GetMapping("/api/v1/payments/{paymentId}")
-    Object getPaymentStatus(@PathVariable("paymentId") String paymentId);
+    PgPaymentStatusResponse getPaymentStatus(@PathVariable("paymentId") String paymentId);
 
     /**
-     * 주문별 결제 정보 조회 (폴링/복구용).
+     * 주문별 결제 정보 조회 (폴링/복구용). Phase 8에서 리스트 파싱 시 동일 DTO 활용.
      */
     @GetMapping(value = "/api/v1/payments", params = "orderId")
-    Object getPaymentsByOrderId(@RequestParam("orderId") Long orderId);
+    PgPaymentStatusResponse getPaymentsByOrderId(@RequestParam("orderId") Long orderId);
 }
