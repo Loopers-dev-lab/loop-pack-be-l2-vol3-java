@@ -30,13 +30,13 @@ public class PaymentPersistenceService {
 
     /**
      * 주문 검증 후 PENDING 결제를 저장한다. 단일 트랜잭션으로 커밋된다.
-     * 호출 후 트랜잭션 밖에서 PG를 호출해야 한다.
+     * 주문 행 락으로 동시 PENDING 중복 생성 방지 (06-payment-change-issues §2.1).
      */
     @Transactional
     public PendingPaymentResult savePendingAndGetRequestParam(Long userId, Long orderId,
                                                               String cardType, String cardNo,
                                                               String callbackUrl) {
-        OrderModel order = orderService.findById(userId, orderId)
+        OrderModel order = orderService.findByIdForUpdate(userId, orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
         if (order.getStatus() != OrderStatus.ORDERED) {
             throw new CoreException(ErrorType.BAD_REQUEST,

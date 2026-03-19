@@ -1,27 +1,68 @@
 package com.loopers.application.payment;
 
+import com.loopers.domain.order.OrderModel;
+import com.loopers.domain.order.OrderService;
+import com.loopers.domain.order.OrderRepository;
+import com.loopers.domain.payment.PaymentModel;
+import com.loopers.domain.payment.PaymentRepository;
+import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.infrastructure.payment.PgSimulatorClient;
 import com.loopers.infrastructure.payment.PgSimulatorRequest;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 /**
  * 결제 유스케이스 조율 (06 §10.2).
  * (1) DB 트랜잭션으로 PENDING 저장 (2) 트랜잭션 종료 후 PG 호출.
+ * (3) Phase 3: 콜백 처리 handleCallback.
  */
 @Service
 public class PaymentFacade {
 
+    private static final Logger log = LoggerFactory.getLogger(PaymentFacade.class);
+
     private final PaymentPersistenceService persistenceService;
     private final PgSimulatorClient pgSimulatorClient;
     private final String callbackUrl;
+    private final String callbackSecret;
+    private final OrderService orderService;
+    private final OrderRepository orderRepository;
+    private final PaymentRepository paymentRepository;
 
     public PaymentFacade(PaymentPersistenceService persistenceService,
                          PgSimulatorClient pgSimulatorClient,
-                         @Value("${pg.simulator.callback-url}") String callbackUrl) {
+                         @Value("${pg.simulator.callback-url}") String callbackUrl,
+                         @Value("${pg.simulator.callback-secret:}") String callbackSecret,
+                         OrderService orderService,
+                         OrderRepository orderRepository,
+                         PaymentRepository paymentRepository) {
         this.persistenceService = persistenceService;
         this.pgSimulatorClient = pgSimulatorClient;
         this.callbackUrl = callbackUrl;
+        this.callbackSecret = callbackSecret != null ? callbackSecret : "";
+        this.orderService = orderService;
+        this.orderRepository = orderRepository;
+        this.paymentRepository = paymentRepository;
+    }
+
+    /**
+     * 콜백 발신 주체 검증 (06-payment-change-issues §4.1). 시크릿이 설정된 경우에만 검사.
+     */
+    public void verifyCallbackSecret(String headerSecret) {
+        if (callbackSecret.isEmpty()) {
+            return;
+        }
+        if (headerSecret == null || !callbackSecret.equals(headerSecret)) {
+            throw new CoreException(ErrorType.UNAUTHORIZED, "콜백 인증에 실패했습니다.");
+        }
     }
 
     /**
@@ -31,7 +72,7 @@ public class PaymentFacade {
     public PaymentInfo requestPayment(Long userId, Long orderId, String cardType, String cardNo) {
         PendingPaymentResult result = persistenceService.savePendingAndGetRequestParam(
                 userId, orderId, cardType, cardNo, callbackUrl);
-        // 트랜잭션 밖: PG 호출 (06 §5.1)
+        // 트랜잭션 밖: PG 호출 (06 §5.1). 실패 시에도 200 + PENDING 반환 (06-payment-change-issues §3.1).
         PaymentRequestParam param = result.requestParam();
         PgSimulatorRequest request = new PgSimulatorRequest(
                 param.orderId(),
@@ -40,8 +81,46 @@ public class PaymentFacade {
                 param.amount(),
                 param.callbackUrl()
         );
-        pgSimulatorClient.requestPayment(request);
-        // Phase 3에서 콜백으로 최종 처리. 여기서는 접수 응답만 반환
+        try {
+            pgSimulatorClient.requestPayment(request);
+        } catch (Exception e) {
+            // PENDING 저장은 이미 커밋됨. PG 타임아웃/5xx 시에도 200 + PENDING으로 응답해 UX·재시도 일관성 유지.
+        }
         return result.paymentInfo();
+    }
+
+    /**
+     * PG 콜백 처리 (06 §3, §9). PENDING 결제를 먼저 조회한 뒤 처리 (06-payment-change-issues §3.2).
+     * 없으면 이미 처리된 건으로 멱등 반환.
+     */
+    @Transactional
+    public void handleCallback(PaymentCallbackParam param) {
+        var pendingOpt = paymentRepository.findTopByOrderIdOrderByCreatedAtDesc(param.orderId())
+                .filter(PaymentModel::isPending);
+
+        if (pendingOpt.isEmpty()) {
+            return;
+        }
+        PaymentModel payment = pendingOpt.get();
+
+        if (param.success()) {
+            if (param.amount() != null) {
+                OrderModel order = orderRepository.findById(param.orderId())
+                        .orElse(null);
+                if (order != null) {
+                    long orderAmountWon = order.getFinalAmount().setScale(0, RoundingMode.HALF_UP).longValue();
+                    if (param.amount() != orderAmountWon) {
+                        log.warn("콜백 금액 불일치 orderId={} pgAmount={} orderAmount={}", param.orderId(), param.amount(), orderAmountWon);
+                        return;
+                    }
+                }
+            }
+            orderService.completePayment(param.orderId());
+            payment.markSuccess(param.pgTransactionId());
+            paymentRepository.save(payment);
+        } else {
+            payment.markFailed();
+            paymentRepository.save(payment);
+        }
     }
 }
