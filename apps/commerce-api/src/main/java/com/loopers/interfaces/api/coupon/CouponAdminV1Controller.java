@@ -1,8 +1,6 @@
 package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponAdminFacade;
-import com.loopers.application.coupon.CouponTemplateRegisterCommand;
-import com.loopers.application.coupon.CouponTemplateUpdateCommand;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -19,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api-admin/v1/coupons")
-public class CouponAdminV1Controller {
+public class CouponAdminV1Controller implements CouponAdminV1ApiSpec {
 
     private final CouponAdminFacade couponAdminFacade;
 
@@ -49,16 +47,9 @@ public class CouponAdminV1Controller {
     public ApiResponse<CouponAdminV1Dto.CouponTemplateResponse> registerTemplate(
             @RequestBody CouponAdminV1Dto.CouponTemplateRegisterRequest request)
     {
-        CouponTemplateRegisterCommand command = new CouponTemplateRegisterCommand(
-                request.name(),
-                request.type(),
-                request.value(),
-                request.minOrderAmount(),
-                request.expiredAt()
-        );
         return ApiResponse.success(
                 CouponAdminV1Dto.CouponTemplateResponse.from(
-                        couponAdminFacade.register(command)));
+                        couponAdminFacade.register(request.toCommand())));
     }
 
     // 쿠폰 템플릿 수정 (US-C06)
@@ -67,16 +58,9 @@ public class CouponAdminV1Controller {
             @PathVariable Long couponId,
             @RequestBody CouponAdminV1Dto.CouponTemplateUpdateRequest request)
     {
-        CouponTemplateUpdateCommand command = new CouponTemplateUpdateCommand(
-                request.name(),
-                request.type(),
-                request.value(),
-                request.minOrderAmount(),
-                request.expiredAt()
-        );
         return ApiResponse.success(
                 CouponAdminV1Dto.CouponTemplateResponse.from(
-                        couponAdminFacade.update(couponId, command)));
+                        couponAdminFacade.update(couponId, request.toCommand())));
     }
 
     // 쿠폰 템플릿 삭제 (US-C07)

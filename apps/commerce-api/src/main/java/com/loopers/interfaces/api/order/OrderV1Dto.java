@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.order;
 
+import com.loopers.application.order.OrderCreateCommand;
 import com.loopers.application.order.OrderInfo;
 
 import java.time.ZonedDateTime;
@@ -13,7 +14,14 @@ public class OrderV1Dto {
     public record OrderCreateRequest(
             List<OrderItemRequest> items,
             Long userCouponId  // nullable. 쿠폰 미적용 시 null (BR-O09)
-    ) {}
+    ) {
+        public OrderCreateCommand toCommand() {
+            List<OrderCreateCommand.Item> commandItems = items.stream()
+                    .map(item -> new OrderCreateCommand.Item(item.productId(), item.quantity()))
+                    .toList();
+            return new OrderCreateCommand(commandItems, userCouponId);
+        }
+    }
 
     public record OrderItemRequest(
             Long productId,
@@ -26,6 +34,7 @@ public class OrderV1Dto {
     public record OrderResponse(
             Long orderId,
             Long userCouponId,
+            String status,
             int originalAmount,
             int discountAmount,
             int finalAmount,
@@ -36,6 +45,7 @@ public class OrderV1Dto {
             return new OrderResponse(
                     info.id(),
                     info.userCouponId(),
+                    info.status(),
                     info.originalAmount(),
                     info.discountAmount(),
                     info.finalAmount(),
