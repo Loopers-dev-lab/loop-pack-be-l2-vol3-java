@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class PaymentBusinessProcessor {
 
+    private final PaymentService paymentService;
     private final StockService stockService;
     private final IssuedCouponService issuedCouponService;
     private final OrderService orderService;
@@ -26,11 +27,24 @@ public class PaymentBusinessProcessor {
     }
 
     /**
-     * 결제 실패/취소 시 비즈니스 보상
-     * - 재고 복원, 쿠폰 복원, 주문 취소
+     * 결제 실패 처리 + 비즈니스 보상 (원자적)
      * 호출 측에서 트랜잭션 보장 필요
      */
-    public void compensate(Order order) {
+    public void failAndCompensate(Long paymentId, Long orderId, String reason) {
+        paymentService.markFailed(paymentId, reason);
+        compensate(orderService.getOrder(orderId));
+    }
+
+    /**
+     * 결제 취소 처리 + 비즈니스 보상 (원자적)
+     * 호출 측에서 트랜잭션 보장 필요
+     */
+    public void cancelAndCompensate(Long paymentId, Long orderId, String reason) {
+        paymentService.markCanceled(paymentId, reason);
+        compensate(orderService.getOrder(orderId));
+    }
+
+    private void compensate(Order order) {
         stockService.releaseConfirmed(order.getProductQuantities());
 
         if (order.getIssuedCouponId() != null) {
