@@ -1,11 +1,14 @@
 package com.loopers.infrastructure.payment.persistence;
 
+import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
 
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentRepository;
+import com.loopers.domain.payment.PaymentStatus;
 
 import lombok.RequiredArgsConstructor;
 
@@ -33,5 +36,15 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     @Override
     public Optional<Payment> findByTransactionKey(String transactionKey) {
         return paymentJpaRepository.findByTransactionKey(transactionKey);
+    }
+
+    @Override
+    public List<Payment> findPendingPaymentsBefore(ZonedDateTime threshold) {
+        return paymentJpaRepository.findByStatusAndUpdatedAtBefore(PaymentStatus.PENDING, threshold);
+    }
+
+    @Override
+    public List<Payment> findReadyPaymentsBefore(ZonedDateTime threshold) {
+        return paymentJpaRepository.findByStatusAndUpdatedAtBefore(PaymentStatus.READY, threshold);
     }
 }

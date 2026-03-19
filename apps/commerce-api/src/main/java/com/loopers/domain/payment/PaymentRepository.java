@@ -1,5 +1,7 @@
 package com.loopers.domain.payment;
 
+import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -30,4 +32,14 @@ public interface PaymentRepository {
      * @return 결제 (존재하지 않으면 빈 Optional)
      */
     Optional<Payment> findByTransactionKey(String transactionKey);
+
+    List<Payment> findPendingPaymentsBefore(ZonedDateTime threshold);
+
+    /**
+     * 기준 시각 이전에 READY 상태로 남아 있는 결제 목록을 조회한다.
+     *
+     * @param threshold 기준 시각
+     * @return READY 상태이며 updatedAt이 기준 시각 이전인 결제 목록
+     */
+    List<Payment> findReadyPaymentsBefore(ZonedDateTime threshold);
 }

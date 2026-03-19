@@ -3,12 +3,8 @@ package com.loopers.application.payment;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.application.shared.annotation.UseCase;
-import com.loopers.domain.coupon.OwnedCouponService;
-import com.loopers.domain.order.Order;
-import com.loopers.domain.order.OrderService;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentService;
-import com.loopers.domain.product.ProductService;
 import com.loopers.support.error.CoreException;
 
 import lombok.RequiredArgsConstructor;
@@ -24,9 +20,7 @@ import lombok.RequiredArgsConstructor;
 public class HandlePaymentCallbackUseCase {
 
     private final PaymentService paymentService;
-    private final OrderService orderService;
-    private final OwnedCouponService ownedCouponService;
-    private final ProductService productService;
+    private final PaymentProcessor paymentProcessor;
 
     /**
      * @param command 결제 콜백 커맨드 (transactionKey, status, reason)
@@ -43,24 +37,8 @@ public class HandlePaymentCallbackUseCase {
         payment.update(command.status(), command.reason());
 
         switch (command.status()) {
-            case SUCCESS -> handleSuccess(payment);
-            case FAILED -> handleFailure(payment);
+            case SUCCESS -> paymentProcessor.handleSuccess(payment.getOrderId());
+            case FAILED -> paymentProcessor.handleFailure(payment.getOrderId());
         }
-    }
-
-    private void handleSuccess(Payment payment) {
-        Order order = orderService.pay(payment.getOrderId());
-
-        if (order.hasAppliedCoupon()) {
-            ownedCouponService.use(order.getOwnedCouponId());
-        }
-    }
-
-    private void handleFailure(Payment payment) {
-        Order order = orderService.fail(payment.getOrderId());
-
-        order.getOrderItems().forEach(item ->
-                productService.restoreStock(item.getProductId(), item.getQuantity())
-        );
     }
 }

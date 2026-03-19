@@ -468,3 +468,17 @@ ADR: [03-concurrency-control-strategy.md](../adr/03-concurrency-control-strategy
 - [x] CallbackV1Api, CallbackV1ApiSpec, DTO를 구현한다
 - [x] WebMvcConfig에 콜백 경로를 인증 제외 처리한다
 - [x] ErrorType에 결제 콜백 관련 에러를 추가한다
+
+---
+
+### Step 4. 결제 상태 폴링 (콜백 유실 대비)
+
+스케줄러가 1분 주기로 PENDING 경과(3분) 결제를 PG에 조회하여 상태를 동기화한다.
+근거: [payment-polling-interval.md](conversations/week6/payment-polling-interval.md)
+
+- [x] PaymentRepository에 `findPendingPaymentsBefore(ZonedDateTime threshold)` 메서드를 추가한다
+- [x] PaymentJpaRepository, PaymentRepositoryImpl에 위 메서드를 구현한다
+- [x] PaymentService에 PENDING 경과 결제 조회 메서드를 추가한다
+- [x] `PendingPaymentSyncScheduler`를 생성한다 (@Scheduled 1분 주기, PENDING 결제 조회 → PG 상태 확인 → HandlePaymentCallbackUseCase 위임)
+- [x] `@EnableScheduling` 설정을 추가한다
+- [x] 테스트를 작성한다

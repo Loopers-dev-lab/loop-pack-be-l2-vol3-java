@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +17,7 @@ import com.loopers.domain.order.Cart;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.shared.Money;
 import com.loopers.infrastructure.order.persistence.OrderJpaRepository;
+import com.loopers.infrastructure.payment.persistence.PaymentJpaRepository;
 import com.loopers.support.BaseIntegrationTest;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -27,6 +29,9 @@ class PaymentServiceIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private OrderJpaRepository orderJpaRepository;
+
+    @Autowired
+    private PaymentJpaRepository paymentJpaRepository;
 
     private Order savedOrder;
 
@@ -85,6 +90,14 @@ class PaymentServiceIntegrationTest extends BaseIntegrationTest {
                     () -> assertThat(result.getTransactionKey()).isEqualTo("txn-start-test")
             );
         }
+
+        @DisplayName("존재하지 않는 결제 ID이면, PAYMENT_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenPaymentNotFound() {
+            assertThatThrownBy(() -> paymentService.confirmPayment(999L, "txn-not-found"))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PAYMENT_NOT_FOUND));
+        }
     }
 
     @DisplayName("거래 키로 결제를 조회할 때,")
@@ -110,6 +123,168 @@ class PaymentServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void throwsException_whenTransactionKeyNotFound() {
             assertThatThrownBy(() -> paymentService.getByTransactionKey("non-existent-key"))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PAYMENT_NOT_FOUND));
+        }
+    }
+
+    @DisplayName("PENDING 경과 결제를 조회할 때,")
+    @Nested
+    class GetPendingPaymentsBefore {
+
+        @DisplayName("기준 시각 이전에 PENDING 상태가 된 결제만 반환한다.")
+        @Test
+        void returnsPendingPayments_whenUpdatedBeforeThreshold() {
+            // arrange
+            PaymentMethod paymentMethod = new PaymentMethod(CardType.SHINHAN, "1234-5678-9012-3456");
+            Payment payment = paymentService.create(savedOrder, paymentMethod);
+            paymentService.confirmPayment(payment.getId(), "txn-pending-test");
+
+            ZonedDateTime threshold = ZonedDateTime.now().plusMinutes(1);
+
+            // act
+            List<Payment> result = paymentService.getPendingPaymentsBefore(threshold);
+
+            // assert
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getTransactionKey()).isEqualTo("txn-pending-test");
+        }
+
+        @DisplayName("기준 시각 이후에 PENDING 상태가 된 결제는 반환하지 않는다.")
+        @Test
+        void excludesPendingPayments_whenUpdatedAfterThreshold() {
+            // arrange
+            PaymentMethod paymentMethod = new PaymentMethod(CardType.SHINHAN, "1234-5678-9012-3456");
+            Payment payment = paymentService.create(savedOrder, paymentMethod);
+            paymentService.confirmPayment(payment.getId(), "txn-recent-test");
+
+            ZonedDateTime threshold = ZonedDateTime.now().minusMinutes(1);
+
+            // act
+            List<Payment> result = paymentService.getPendingPaymentsBefore(threshold);
+
+            // assert
+            assertThat(result).isEmpty();
+        }
+
+        @DisplayName("SUCCESS 상태의 결제는 반환하지 않는다.")
+        @Test
+        void excludesSuccessPayments() {
+            // arrange
+            PaymentMethod paymentMethod = new PaymentMethod(CardType.SHINHAN, "1234-5678-9012-3456");
+            Payment payment = paymentService.create(savedOrder, paymentMethod);
+            Payment confirmed = paymentService.confirmPayment(payment.getId(), "txn-success-test");
+            confirmed.update(PaymentStatus.SUCCESS, null);
+            paymentJpaRepository.save(confirmed);
+
+            ZonedDateTime threshold = ZonedDateTime.now().plusMinutes(1);
+
+            // act
+            List<Payment> result = paymentService.getPendingPaymentsBefore(threshold);
+
+            // assert
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @DisplayName("READY 경과 결제를 조회할 때,")
+    @Nested
+    class GetReadyPaymentsBefore {
+
+        @DisplayName("기준 시각 이전에 READY 상태인 결제만 반환한다.")
+        @Test
+        void returnsReadyPayments_whenUpdatedBeforeThreshold() {
+            // arrange
+            PaymentMethod paymentMethod = new PaymentMethod(CardType.SHINHAN, "1234-5678-9012-3456");
+            paymentService.create(savedOrder, paymentMethod);
+
+            ZonedDateTime threshold = ZonedDateTime.now().plusMinutes(1);
+
+            // act
+            List<Payment> result = paymentService.getReadyPaymentsBefore(threshold);
+
+            // assert
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getStatus()).isEqualTo(PaymentStatus.READY);
+        }
+
+        @DisplayName("기준 시각 이후에 READY 상태인 결제는 반환하지 않는다.")
+        @Test
+        void excludesReadyPayments_whenUpdatedAfterThreshold() {
+            // arrange
+            PaymentMethod paymentMethod = new PaymentMethod(CardType.SHINHAN, "1234-5678-9012-3456");
+            paymentService.create(savedOrder, paymentMethod);
+
+            ZonedDateTime threshold = ZonedDateTime.now().minusMinutes(1);
+
+            // act
+            List<Payment> result = paymentService.getReadyPaymentsBefore(threshold);
+
+            // assert
+            assertThat(result).isEmpty();
+        }
+
+        @DisplayName("PENDING/SUCCESS 상태는 반환하지 않는다.")
+        @Test
+        void excludesPendingAndSuccessPayments() {
+            // arrange
+            PaymentMethod paymentMethod = new PaymentMethod(CardType.SHINHAN, "1234-5678-9012-3456");
+            Payment payment = paymentService.create(savedOrder, paymentMethod);
+            paymentService.confirmPayment(payment.getId(), "txn-not-ready");
+
+            ZonedDateTime threshold = ZonedDateTime.now().plusMinutes(1);
+
+            // act
+            List<Payment> result = paymentService.getReadyPaymentsBefore(threshold);
+
+            // assert
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @DisplayName("결제를 실패 처리할 때,")
+    @Nested
+    class Fail {
+
+        @DisplayName("READY 상태의 결제이면, FAILED로 전이되고 사유가 저장된다.")
+        @Test
+        void transitionsToFailed_whenReadyPayment() {
+            // arrange
+            PaymentMethod paymentMethod = new PaymentMethod(CardType.SHINHAN, "1234-5678-9012-3456");
+            Payment payment = paymentService.create(savedOrder, paymentMethod);
+
+            // act
+            Payment result = paymentService.fail(payment.getId(), "PG 요청 타임아웃");
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.getStatus()).isEqualTo(PaymentStatus.FAILED),
+                    () -> assertThat(result.getReason()).isEqualTo("PG 요청 타임아웃")
+            );
+        }
+
+        @DisplayName("PENDING 상태의 결제이면, FAILED로 전이되고 사유가 저장된다.")
+        @Test
+        void transitionsToFailed_whenPendingPayment() {
+            // arrange
+            PaymentMethod paymentMethod = new PaymentMethod(CardType.SHINHAN, "1234-5678-9012-3456");
+            Payment payment = paymentService.create(savedOrder, paymentMethod);
+            paymentService.confirmPayment(payment.getId(), "txn-fail-test");
+
+            // act
+            Payment result = paymentService.fail(payment.getId(), "PG 승인 실패");
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.getStatus()).isEqualTo(PaymentStatus.FAILED),
+                    () -> assertThat(result.getReason()).isEqualTo("PG 승인 실패")
+            );
+        }
+
+        @DisplayName("존재하지 않는 결제 ID이면, PAYMENT_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenPaymentNotFound() {
+            assertThatThrownBy(() -> paymentService.fail(999L, "실패 사유"))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PAYMENT_NOT_FOUND));
         }

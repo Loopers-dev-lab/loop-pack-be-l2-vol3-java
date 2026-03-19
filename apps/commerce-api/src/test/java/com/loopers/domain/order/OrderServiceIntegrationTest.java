@@ -90,6 +90,38 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
         }
     }
 
+    @DisplayName("ID로 주문을 조회할 때,")
+    @Nested
+    class GetById {
+
+        @DisplayName("존재하는 주문이면, 주문 항목을 포함하여 반환한다.")
+        @Test
+        void returnsOrderWithItems_whenOrderExists() {
+            // arrange
+            var productId = createProduct(brandId, "테스트 상품", 10000L, 100L);
+            Product product = productRepository.findById(productId).orElseThrow();
+            Order created = orderService.create(createCart(1L, product, 2L), Money.ZERO, null);
+
+            // act
+            Order result = orderService.getById(created.getId());
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.getId()).isEqualTo(created.getId()),
+                    () -> assertThat(result.getUserId()).isEqualTo(1L),
+                    () -> assertThat(result.getOrderItems()).hasSize(1)
+            );
+        }
+
+        @DisplayName("존재하지 않는 주문이면, ORDER_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenOrderNotFound() {
+            assertThatThrownBy(() -> orderService.getById(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_FOUND));
+        }
+    }
+
     @DisplayName("내 주문을 조회할 때,")
     @Nested
     class GetMyOrder {

@@ -1,5 +1,8 @@
 package com.loopers.domain.payment;
 
+import java.time.ZonedDateTime;
+import java.util.List;
+
 import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.domain.order.Order;
@@ -57,5 +60,47 @@ public class PaymentService {
     public Payment getByTransactionKey(String transactionKey) {
         return paymentRepository.findByTransactionKey(transactionKey)
                 .orElseThrow(() -> new CoreException(ErrorType.PAYMENT_NOT_FOUND));
+    }
+
+    /**
+     * 기준 시각 이전에 PENDING 상태로 남아 있는 결제 목록을 조회한다.
+     *
+     * <p>PG 승인 요청 후 응답을 받지 못한 채
+     * PENDING 상태에 머물러 있는 결제를 복구하기 위해 사용된다.</p>
+     *
+     * @param threshold 기준 시각
+     * @return PENDING 상태이며 updatedAt이 기준 시각 이전인 결제 목록
+     */
+    public List<Payment> getPendingPaymentsBefore(ZonedDateTime threshold) {
+        return paymentRepository.findPendingPaymentsBefore(threshold);
+    }
+
+    /**
+     * 기준 시각 이전에 READY 상태로 남아 있는 결제 목록을 조회한다.
+     *
+     * <p>PG 요청 타임아웃 등으로 transactionKey가 할당되지 않은 채
+     * READY 상태에 머물러 있는 결제를 복구하기 위해 사용된다.</p>
+     *
+     * @param threshold 기준 시각
+     * @return READY 상태이며 updatedAt이 기준 시각 이전인 결제 목록
+     */
+    public List<Payment> getReadyPaymentsBefore(ZonedDateTime threshold) {
+        return paymentRepository.findReadyPaymentsBefore(threshold);
+    }
+
+    /**
+     * 결제를 실패 처리한다.
+     *
+     * @param paymentId 결제 ID
+     * @param reason    실패 사유
+     * @return 실패 처리된 결제
+     * @throws CoreException 결제가 존재하지 않거나 이미 처리된 경우
+     */
+    @Transactional
+    public Payment fail(Long paymentId, String reason) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new CoreException(ErrorType.PAYMENT_NOT_FOUND));
+        payment.update(PaymentStatus.FAILED, reason);
+        return payment;
     }
 }

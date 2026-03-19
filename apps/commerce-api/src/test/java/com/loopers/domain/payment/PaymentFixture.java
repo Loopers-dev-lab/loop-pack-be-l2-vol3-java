@@ -32,4 +32,10 @@ public class PaymentFixture {
         payment.confirmPayment("txn-key-123");
         return payment;
     }
+
+    public static Payment createPendingPaymentWithTransactionKey(String transactionKey) {
+        Payment payment = createReadyPayment();
+        payment.confirmPayment(transactionKey);
+        return payment;
+    }
 }

@@ -37,6 +37,18 @@ public class OrderService {
     }
 
     /**
+     * ID로 주문을 조회한다.
+     *
+     * @param orderId 주문 ID
+     * @return 주문 항목을 포함한 주문
+     * @throws CoreException 주문이 존재하지 않는 경우
+     */
+    public Order getById(Long orderId) {
+        return orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+    }
+
+    /**
      * 주문 키로 사용자의 주문을 조회한다.
      *
      * @param userId   사용자 ID
