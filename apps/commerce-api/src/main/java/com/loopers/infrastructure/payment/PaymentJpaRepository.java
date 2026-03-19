@@ -18,4 +18,6 @@ public interface PaymentJpaRepository extends JpaRepository<Payment, Long> {
     Optional<Payment> findLatestByOrderId(@Param("orderId") Long orderId);
 
     boolean existsByOrderIdAndStatusIn(Long orderId, java.util.Collection<PaymentStatus> statuses);
+
+    boolean existsByOrderIdAndStatus(Long orderId, PaymentStatus status);
 }

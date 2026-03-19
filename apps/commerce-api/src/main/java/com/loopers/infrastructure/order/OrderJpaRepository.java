@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface OrderJpaRepository extends JpaRepository<Order, Long> {
@@ -45,4 +46,7 @@ public interface OrderJpaRepository extends JpaRepository<Order, Long> {
            countQuery = "SELECT COUNT(DISTINCT o) FROM Order o JOIN o.orderItems oi "
                       + "WHERE oi.productId = :productId")
     Page<Order> findAllByProductId(@Param("productId") Long productId, Pageable pageable);
+
+    @Query("SELECT DISTINCT o FROM Order o JOIN FETCH o.orderItems WHERE o.status = :status")
+    List<Order> findAllByStatusWithItems(@Param("status") OrderStatus status);
 }

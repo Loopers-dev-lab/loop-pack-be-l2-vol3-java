@@ -46,4 +46,9 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     public boolean existsActiveByOrderId(Long orderId) {
         return paymentJpaRepository.existsByOrderIdAndStatusIn(orderId, ACTIVE_STATUSES);
     }
+
+    @Override
+    public boolean existsSucceededByOrderId(Long orderId) {
+        return paymentJpaRepository.existsByOrderIdAndStatus(orderId, PaymentStatus.SUCCEEDED);
+    }
 }

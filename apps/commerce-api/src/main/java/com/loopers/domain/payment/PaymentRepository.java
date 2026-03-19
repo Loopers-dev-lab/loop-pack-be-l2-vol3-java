@@ -17,4 +17,6 @@ public interface PaymentRepository {
     Optional<Payment> findLatestByOrderId(Long orderId);
 
     boolean existsActiveByOrderId(Long orderId);
+
+    boolean existsSucceededByOrderId(Long orderId);
 }

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 @RequiredArgsConstructor
@@ -37,5 +38,10 @@ public class StockRepositoryImpl implements StockRepository {
     @Override
     public List<Stock> findAllByProductIdInForUpdate(Collection<Long> productIds) {
         return stockJpaRepository.findAllByProductIdInForUpdate(productIds);
+    }
+
+    @Override
+    public Set<Long> findProductIdsWithReservedStock() {
+        return stockJpaRepository.findProductIdsWithReservedStock();
     }
 }

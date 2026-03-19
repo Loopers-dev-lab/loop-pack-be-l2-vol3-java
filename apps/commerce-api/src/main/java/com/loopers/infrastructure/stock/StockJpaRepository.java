@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface StockJpaRepository extends JpaRepository<Stock, Long> {
 
@@ -23,4 +24,7 @@ public interface StockJpaRepository extends JpaRepository<Stock, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM Stock s WHERE s.productId IN :productIds ORDER BY s.productId")
     List<Stock> findAllByProductIdInForUpdate(@Param("productIds") Collection<Long> productIds);
+
+    @Query("SELECT s.productId FROM Stock s WHERE s.reservedQuantity > 0")
+    Set<Long> findProductIdsWithReservedStock();
 }
