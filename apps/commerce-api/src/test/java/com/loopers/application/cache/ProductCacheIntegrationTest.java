@@ -157,12 +157,12 @@ class ProductCacheIntegrationTest {
             // act
             productFacade.getDisplayableProductsWithCursor(null, ProductSortType.LATEST, null, 20);
 
-            // assert
+            // assert — 목록 캐시는 ID만 저장하는 구조
             String key = "products:list:LATEST:all";
             String cached = redisTemplate.opsForValue().get(key);
             assertThat(cached).isNotNull();
-            assertThat(cached).contains("상품1");
-            assertThat(cached).contains("상품2");
+            assertThat(cached).contains("productIds");
+            assertThat(cached).contains("hasNext");
         }
 
         @Test
