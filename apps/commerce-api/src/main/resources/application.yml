@@ -23,6 +23,22 @@ spring:
       - redis.yml
       - logging.yml
       - monitoring.yml
+  cloud:
+    openfeign:
+      client:
+        config:
+          pgSimulatorPayClient:
+            connectTimeout: 1000
+            readTimeout: 3000
+            loggerLevel: basic
+          pgSimulatorCancelClient:
+            connectTimeout: 1000
+            readTimeout: 3000
+            loggerLevel: basic
+          pgSimulatorQueryClient:
+            connectTimeout: 1000
+            readTimeout: 3000
+            loggerLevel: basic
 
 springdoc:
   use-fqn: true
@@ -40,6 +56,13 @@ loopers:
   cache:
     brand-category:
       enabled: true
+  payment:
+    pg-simulator:
+      url: http://localhost:8082
+    completion:
+      polling:
+        enabled: true
+        fixed-delay-ms: 5000
 
 ---
 spring:
