@@ -10,6 +10,8 @@ import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.infrastructure.payment.toss.dto.TossCancelRequest;
 import com.loopers.infrastructure.payment.toss.dto.TossConfirmRequest;
 import com.loopers.infrastructure.payment.toss.dto.TossPaymentResponse;
+import com.loopers.domain.payment.gateway.PgCommunicationException;
+import com.loopers.domain.payment.gateway.PgTimeoutException;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -22,6 +24,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 @Component
@@ -52,41 +56,53 @@ public class TossPaymentGateway implements PaymentGateway {
     @CircuitBreaker(name = "toss-request", fallbackMethod = "confirmFallback")
     @Override
     public PaymentConfirmResult confirm(PaymentConfirmCommand command) {
-        TossConfirmRequest request = new TossConfirmRequest(
-                command.paymentKey(), command.orderId(), command.amount());
+        try {
+            TossConfirmRequest request = new TossConfirmRequest(
+                    command.paymentKey(), command.orderId(), command.amount());
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<TossConfirmRequest> entity = new HttpEntity<>(request, headers);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<TossConfirmRequest> entity = new HttpEntity<>(request, headers);
 
-        TossPaymentResponse response = tossRestTemplate.postForObject(
-                tossProperties.baseUrl() + "/v1/payments/confirm",
-                entity,
-                TossPaymentResponse.class
-        );
+            TossPaymentResponse response = tossRestTemplate.postForObject(
+                    tossProperties.baseUrl() + "/v1/payments/confirm",
+                    entity,
+                    TossPaymentResponse.class
+            );
 
-        boolean success = response != null && response.isDone();
-        return new PaymentConfirmResult(success, command.paymentKey(),
-                success ? null : "PG 승인 실패");
+            boolean success = response != null && response.isDone();
+            return new PaymentConfirmResult(success, command.paymentKey(),
+                    success ? null : "PG 승인 실패");
+        } catch (ResourceAccessException e) {
+            throw new PgTimeoutException("토스 결제 승인 타임아웃: paymentKey=" + command.paymentKey(), e);
+        } catch (RestClientException e) {
+            throw new PgCommunicationException("토스 결제 승인 통신 실패: paymentKey=" + command.paymentKey(), e);
+        }
     }
 
     @Retry(name = "toss-cancel")
     @Override
     public PaymentCancelResult cancel(String paymentKey, PaymentCancelCommand command) {
-        TossCancelRequest request = new TossCancelRequest(
-                command.cancelReason(), command.cancelAmount());
+        try {
+            TossCancelRequest request = new TossCancelRequest(
+                    command.cancelReason(), command.cancelAmount());
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<TossCancelRequest> entity = new HttpEntity<>(request, headers);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<TossCancelRequest> entity = new HttpEntity<>(request, headers);
 
-        tossRestTemplate.postForObject(
-                tossProperties.baseUrl() + "/v1/payments/" + paymentKey + "/cancel",
-                entity,
-                TossPaymentResponse.class
-        );
+            tossRestTemplate.postForObject(
+                    tossProperties.baseUrl() + "/v1/payments/" + paymentKey + "/cancel",
+                    entity,
+                    TossPaymentResponse.class
+            );
 
-        return new PaymentCancelResult(true, null);
+            return new PaymentCancelResult(true, null);
+        } catch (ResourceAccessException e) {
+            throw new PgTimeoutException("토스 결제 취소 타임아웃: paymentKey=" + paymentKey, e);
+        } catch (RestClientException e) {
+            throw new PgCommunicationException("토스 결제 취소 통신 실패: paymentKey=" + paymentKey, e);
+        }
     }
 
     // Query
@@ -112,6 +128,10 @@ public class TossPaymentGateway implements PaymentGateway {
             return new PaymentQueryResult(true, body.isDone(), body.status());
         } catch (HttpClientErrorException.NotFound e) {
             return new PaymentQueryResult(false, false, null);
+        } catch (ResourceAccessException e) {
+            throw new PgTimeoutException("토스 결제 조회 타임아웃: paymentKey=" + paymentKey, e);
+        } catch (RestClientException e) {
+            throw new PgCommunicationException("토스 결제 조회 통신 실패: paymentKey=" + paymentKey, e);
         }
     }
 

@@ -6,12 +6,13 @@ import com.loopers.domain.payment.gateway.PaymentConfirmCommand;
 import com.loopers.domain.payment.gateway.PaymentConfirmResult;
 import com.loopers.domain.payment.gateway.PaymentGateway;
 import com.loopers.domain.payment.gateway.PaymentQueryResult;
+import com.loopers.domain.payment.gateway.PgCommunicationException;
+import com.loopers.domain.payment.gateway.PgTimeoutException;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.ResourceAccessException;
 
 @Slf4j
 @Component
@@ -33,12 +34,16 @@ public class PaymentGatewayExecutor {
             return result.success()
                     ? new PgConfirmOutcome.Success()
                     : new PgConfirmOutcome.Failed(result.message());
-        } catch (ResourceAccessException e) {
+        } catch (PgTimeoutException e) {
             log.warn("PG 결제 승인 타임아웃: paymentId={}, pgType={}, message={}",
                     payment.getId(), gateway.getType(), e.getMessage());
             return new PgConfirmOutcome.Timeout();
         } catch (CoreException e) {
             throw e;
+        } catch (PgCommunicationException e) {
+            log.error("PG 결제 승인 통신 실패: paymentId={}, pgType={}, message={}",
+                    payment.getId(), gateway.getType(), e.getMessage());
+            return new PgConfirmOutcome.Failed(e.getMessage());
         } catch (Exception e) {
             log.error("PG 결제 승인 실패: paymentId={}, pgType={}, message={}",
                     payment.getId(), gateway.getType(), e.getMessage());
@@ -53,7 +58,7 @@ public class PaymentGatewayExecutor {
                     payment.getPaymentKey(),
                     new PaymentCancelCommand(String.valueOf(payment.getOrderId()), cancelReason, payment.getAmount().longValue()));
         } catch (Exception e) {
-            throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 취소에 실패했습니다. 잠시 후 다시 시도해주세요");
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 취소에 실패했습니다. 잠시 후 다시 시도해주세요", e);
         }
     }
 
@@ -62,7 +67,7 @@ public class PaymentGatewayExecutor {
         try {
             return gateway.query(payment.getPaymentKey());
         } catch (Exception e) {
-            throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 상태를 확인할 수 없습니다. 잠시 후 다시 시도해주세요");
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 상태를 확인할 수 없습니다. 잠시 후 다시 시도해주세요", e);
         }
     }
 }

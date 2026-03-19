@@ -10,6 +10,8 @@ import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.infrastructure.payment.nice.dto.NiceApproveRequest;
 import com.loopers.infrastructure.payment.nice.dto.NiceCancelRequest;
 import com.loopers.infrastructure.payment.nice.dto.NicePaymentResponse;
+import com.loopers.domain.payment.gateway.PgCommunicationException;
+import com.loopers.domain.payment.gateway.PgTimeoutException;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -22,6 +24,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 @Component
@@ -52,40 +56,52 @@ public class NicePaymentGateway implements PaymentGateway {
     @CircuitBreaker(name = "nice-request", fallbackMethod = "confirmFallback")
     @Override
     public PaymentConfirmResult confirm(PaymentConfirmCommand command) {
-        NiceApproveRequest request = new NiceApproveRequest(command.amount());
+        try {
+            NiceApproveRequest request = new NiceApproveRequest(command.amount());
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<NiceApproveRequest> entity = new HttpEntity<>(request, headers);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<NiceApproveRequest> entity = new HttpEntity<>(request, headers);
 
-        NicePaymentResponse response = niceRestTemplate.postForObject(
-                niceProperties.baseUrl() + "/v1/payments/" + command.paymentKey(),
-                entity,
-                NicePaymentResponse.class
-        );
+            NicePaymentResponse response = niceRestTemplate.postForObject(
+                    niceProperties.baseUrl() + "/v1/payments/" + command.paymentKey(),
+                    entity,
+                    NicePaymentResponse.class
+            );
 
-        boolean success = response != null && response.isSuccess() && response.isPaid();
-        return new PaymentConfirmResult(success, command.paymentKey(),
-                success ? null : (response != null ? response.resultMsg() : "PG 승인 실패"));
+            boolean success = response != null && response.isSuccess() && response.isPaid();
+            return new PaymentConfirmResult(success, command.paymentKey(),
+                    success ? null : (response != null ? response.resultMsg() : "PG 승인 실패"));
+        } catch (ResourceAccessException e) {
+            throw new PgTimeoutException("나이스 결제 승인 타임아웃: paymentKey=" + command.paymentKey(), e);
+        } catch (RestClientException e) {
+            throw new PgCommunicationException("나이스 결제 승인 통신 실패: paymentKey=" + command.paymentKey(), e);
+        }
     }
 
     @Retry(name = "nice-cancel")
     @Override
     public PaymentCancelResult cancel(String paymentKey, PaymentCancelCommand command) {
-        NiceCancelRequest request = new NiceCancelRequest(
-                command.cancelReason(), command.orderId(), command.cancelAmount());
+        try {
+            NiceCancelRequest request = new NiceCancelRequest(
+                    command.cancelReason(), command.orderId(), command.cancelAmount());
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<NiceCancelRequest> entity = new HttpEntity<>(request, headers);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<NiceCancelRequest> entity = new HttpEntity<>(request, headers);
 
-        niceRestTemplate.postForObject(
-                niceProperties.baseUrl() + "/v1/payments/" + paymentKey + "/cancel",
-                entity,
-                NicePaymentResponse.class
-        );
+            niceRestTemplate.postForObject(
+                    niceProperties.baseUrl() + "/v1/payments/" + paymentKey + "/cancel",
+                    entity,
+                    NicePaymentResponse.class
+            );
 
-        return new PaymentCancelResult(true, null);
+            return new PaymentCancelResult(true, null);
+        } catch (ResourceAccessException e) {
+            throw new PgTimeoutException("나이스 결제 취소 타임아웃: paymentKey=" + paymentKey, e);
+        } catch (RestClientException e) {
+            throw new PgCommunicationException("나이스 결제 취소 통신 실패: paymentKey=" + paymentKey, e);
+        }
     }
 
     // Query
@@ -111,6 +127,10 @@ public class NicePaymentGateway implements PaymentGateway {
             return new PaymentQueryResult(true, body.isPaid(), body.status());
         } catch (HttpClientErrorException.NotFound e) {
             return new PaymentQueryResult(false, false, null);
+        } catch (ResourceAccessException e) {
+            throw new PgTimeoutException("나이스 결제 조회 타임아웃: paymentKey=" + paymentKey, e);
+        } catch (RestClientException e) {
+            throw new PgCommunicationException("나이스 결제 조회 통신 실패: paymentKey=" + paymentKey, e);
         }
     }
 
