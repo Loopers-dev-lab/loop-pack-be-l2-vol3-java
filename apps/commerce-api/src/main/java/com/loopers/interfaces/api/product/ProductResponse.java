@@ -47,13 +47,16 @@ public class ProductResponse {
         }
     }
 
-    /** 상품 목록 + 페이지네이션 메타 정보 */
-    public record ProductListResponse(
+    /** 상품 목록 + Cursor 페이지네이션 메타 정보 */
+    public record ProductCursorListResponse(
             List<ProductSummary> products,
-            int page,
-            int size,
-            long totalElements,
-            int totalPages
+            PagingInfo paging
+    ) {}
+
+    public record PagingInfo(
+            boolean hasNext,
+            String nextCursor,
+            int size
     ) {}
 
     /** 상품 상태 → 고객용 재고 상태 문자열 변환 */

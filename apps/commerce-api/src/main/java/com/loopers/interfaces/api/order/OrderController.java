@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.order;
 import com.loopers.application.order.OrderFacade;
 import com.loopers.domain.user.User;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.common.CursorEncoder;
 import com.loopers.support.auth.AuthUser;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.OrderErrorType;
@@ -17,7 +18,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.ZonedDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/orders")
@@ -66,14 +69,28 @@ public class OrderController implements OrderApiSpec {
 
     @GetMapping
     @Override
-    public ApiResponse<OrderResponse.OrderListResponse> getOrders(
+    public ApiResponse<OrderResponse.OrderCursorListResponse> getOrders(
             @AuthUser User user,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime startAt,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime endAt) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime endAt,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(defaultValue = "20") int size) {
+
+        boolean isDefaultQuery = (startAt == null && endAt == null && (cursor == null || cursor.isBlank()));
+
         ZonedDateTime start = startAt != null ? startAt : ZonedDateTime.now().minusMonths(3);
         ZonedDateTime end = endAt != null ? endAt : ZonedDateTime.now();
 
-        OrderFacade.OrderListResult result = orderFacade.getOrders(user.getId(), start, end);
+        ZonedDateTime cursorCreatedAt = null;
+        Long cursorId = null;
+        if (cursor != null && !cursor.isBlank()) {
+            Map<String, Object> data = CursorEncoder.decode(cursor);
+            cursorCreatedAt = ZonedDateTime.parse((String) data.get("createdAt"));
+            cursorId = ((Number) data.get("id")).longValue();
+        }
+
+        OrderFacade.OrderCursorResult result = orderFacade.getOrdersWithCursor(
+                user.getId(), start, end, cursorCreatedAt, cursorId, size, isDefaultQuery);
 
         List<OrderResponse.OrderSummary> summaries = result.orders().stream()
                 .map(o -> new OrderResponse.OrderSummary(
@@ -81,7 +98,18 @@ public class OrderController implements OrderApiSpec {
                         o.totalAmount(), o.createdAt()))
                 .toList();
 
-        return ApiResponse.success(new OrderResponse.OrderListResponse(summaries));
+        String nextCursor = null;
+        if (result.hasNext() && !result.orders().isEmpty()) {
+            OrderFacade.OrderSummaryResult lastOrder = result.orders().get(result.orders().size() - 1);
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("createdAt", lastOrder.createdAt().toString());
+            data.put("id", lastOrder.orderId());
+            nextCursor = CursorEncoder.encode(data);
+        }
+
+        return ApiResponse.success(new OrderResponse.OrderCursorListResponse(
+                summaries,
+                new OrderResponse.PagingInfo(result.hasNext(), nextCursor, size)));
     }
 
     @GetMapping("/{orderId}")

@@ -10,14 +10,12 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -196,42 +194,6 @@ class OrderServiceTest {
 
             // assert
             assertThat(result.getOrderNumber()).isEqualTo("ORD-20260222-001");
-        }
-    }
-
-    @DisplayName("주문 목록을 조회할 때,")
-    @Nested
-    class 목록조회 {
-
-        @Test
-        void 사용자의_주문_목록이_반환된다() {
-            // arrange
-            ZonedDateTime startAt = ZonedDateTime.now().minusMonths(3);
-            ZonedDateTime endAt = ZonedDateTime.now();
-            List<Order> orders = List.of(createOrder());
-            when(orderRepository.findAllByUserId(eq(1L), any(ZonedDateTime.class), any(ZonedDateTime.class)))
-                    .thenReturn(orders);
-
-            // act
-            List<Order> result = orderService.getOrders(1L, startAt, endAt);
-
-            // assert
-            assertThat(result).hasSize(1);
-        }
-
-        @Test
-        void 주문이_없으면_빈_리스트가_반환된다() {
-            // arrange
-            ZonedDateTime startAt = ZonedDateTime.now().minusMonths(3);
-            ZonedDateTime endAt = ZonedDateTime.now();
-            when(orderRepository.findAllByUserId(eq(1L), any(ZonedDateTime.class), any(ZonedDateTime.class)))
-                    .thenReturn(List.of());
-
-            // act
-            List<Order> result = orderService.getOrders(1L, startAt, endAt);
-
-            // assert
-            assertThat(result).isEmpty();
         }
     }
 

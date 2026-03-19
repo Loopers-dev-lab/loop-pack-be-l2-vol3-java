@@ -1,5 +1,6 @@
 package com.loopers.application.payment;
 
+import com.loopers.application.cache.OrderCacheManager;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.CouponTemplate;
 import com.loopers.domain.coupon.IssuedCoupon;
@@ -12,9 +13,12 @@ import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentService;
 import com.loopers.domain.point.PointAccount;
 import com.loopers.domain.point.PointService;
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.CouponErrorType;
 import com.loopers.support.error.OrderErrorType;
+import com.loopers.support.error.PaymentErrorType;
 import com.loopers.support.error.PointErrorType;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,15 +43,20 @@ public class PaymentFacade {
     private final InventoryService inventoryService;
     private final PointService pointService;
     private final CouponService couponService;
+    private final ProductService productService;
+    private final OrderCacheManager orderCacheManager;
 
     public PaymentFacade(OrderService orderService, PaymentService paymentService,
                          InventoryService inventoryService, PointService pointService,
-                         CouponService couponService) {
+                         CouponService couponService, ProductService productService,
+                         OrderCacheManager orderCacheManager) {
         this.orderService = orderService;
         this.paymentService = paymentService;
         this.inventoryService = inventoryService;
         this.pointService = pointService;
         this.couponService = couponService;
+        this.productService = productService;
+        this.orderCacheManager = orderCacheManager;
     }
 
     /**
@@ -106,6 +115,14 @@ public class PaymentFacade {
             throw new CoreException(OrderErrorType.INVALID_ORDER_STATUS);
         }
 
+        // 결제 시점 가격 재검증 — 주문 생성 후 상품 가격이 변경되었는지 확인
+        for (OrderItem item : order.getItems()) {
+            Product product = productService.getById(item.getProductId());
+            if (product.getBasePrice() != item.getUnitPrice()) {
+                throw new CoreException(PaymentErrorType.PRICE_CHANGED);
+            }
+        }
+
         Payment payment = paymentService.create(
                 orderId, order.getTotalAmount(), paymentMethod, generateIdempotencyKey());
 
@@ -136,6 +153,9 @@ public class PaymentFacade {
 
             // 포인트 적립
             pointService.earn(userId, order.getTotalAmount());
+
+            // 주문 상태 변경(PENDING → PAID) → afterCommit에서 캐시 삭제
+            orderCacheManager.registerEvictAfterCommit(userId);
         } else {
             payment.reject();
 

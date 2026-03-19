@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.time.ZonedDateTime;
 
@@ -13,7 +14,9 @@ import java.time.ZonedDateTime;
  * JPA 어노테이션만 사용
  */
 @Entity
-@Table(name = "user_addresses")
+@Table(name = "user_addresses", indexes = {
+        @Index(name = "idx_user_addresses_user_created", columnList = "user_id, created_at")
+})
 public class UserAddressEntity {
 
     @Id

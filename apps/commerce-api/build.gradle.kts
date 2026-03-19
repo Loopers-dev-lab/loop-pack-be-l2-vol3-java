@@ -9,6 +9,9 @@ dependencies {
     // web
     implementation("org.springframework.boot:spring-boot-starter-web")
 
+    // local cache
+    implementation("com.github.ben-manes.caffeine:caffeine")
+
     // security (BCrypt)
     implementation("org.springframework.security:spring-security-crypto")
     implementation("org.springframework.boot:spring-boot-starter-actuator")

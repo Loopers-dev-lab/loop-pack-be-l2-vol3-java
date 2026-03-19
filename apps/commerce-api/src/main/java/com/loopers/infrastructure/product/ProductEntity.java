@@ -8,6 +8,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.time.ZonedDateTime;
 
@@ -16,7 +17,12 @@ import java.time.ZonedDateTime;
  * JPA 어노테이션만 사용
  */
 @Entity
-@Table(name = "products")
+@Table(name = "products", indexes = {
+        @Index(name = "idx_products_latest", columnList = "created_at DESC, id DESC"),
+        @Index(name = "idx_products_price", columnList = "base_price ASC, id ASC"),
+        @Index(name = "idx_products_likes", columnList = "like_count DESC, id DESC"),
+        @Index(name = "idx_products_brand", columnList = "brand_id, status")
+})
 public class ProductEntity {
 
     @Id

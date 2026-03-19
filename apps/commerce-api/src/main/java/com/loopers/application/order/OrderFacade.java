@@ -1,5 +1,6 @@
 package com.loopers.application.order;
 
+import com.loopers.application.cache.OrderCacheManager;
 import com.loopers.domain.address.UserAddress;
 import com.loopers.domain.address.UserAddressService;
 import com.loopers.domain.brand.Brand;
@@ -10,6 +11,7 @@ import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.CouponTemplate;
 import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.inventory.InventoryService;
+import com.loopers.domain.common.CursorResult;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderService;
@@ -64,13 +66,15 @@ public class OrderFacade {
     private final PointService pointService;
     private final PaymentService paymentService;
     private final TransactionTemplate txTemplate;
+    private final OrderCacheManager orderCacheManager;
 
     public OrderFacade(OrderService orderService, UserAddressService userAddressService,
                        ProductService productService, BrandService brandService,
                        InventoryService inventoryService, CartItemService cartItemService,
                        CouponService couponService, PointService pointService,
                        PaymentService paymentService,
-                       PlatformTransactionManager txManager) {
+                       PlatformTransactionManager txManager,
+                       OrderCacheManager orderCacheManager) {
         this.orderService = orderService;
         this.userAddressService = userAddressService;
         this.productService = productService;
@@ -82,6 +86,7 @@ public class OrderFacade {
         this.paymentService = paymentService;
         this.txTemplate = new TransactionTemplate(txManager);
         this.txTemplate.setTimeout(30);
+        this.orderCacheManager = orderCacheManager;
     }
 
     /**
@@ -94,7 +99,10 @@ public class OrderFacade {
                 userId, userName, ordererPhone, itemCommands, addressId,
                 issuedCouponId, pointAmount, paymentMethod);
 
-        return processPaymentAndConfirm(context);
+        OrderCreateResult result = processPaymentAndConfirm(context);
+
+        orderCacheManager.evictOrderList(userId);
+        return result;
     }
 
     /**
@@ -125,6 +133,7 @@ public class OrderFacade {
             log.warn("장바구니 삭제 실패 — 주문은 정상 완료 (orderId={})", result.orderId(), e);
         }
 
+        orderCacheManager.evictOrderList(userId);
         return result;
     }
 
@@ -274,9 +283,13 @@ public class OrderFacade {
                 inventoryService.releaseAll(context.productQtyMap());
                 orderService.cancel(context.orderId(), context.userId());
             });
+
+            // txTemplate 완료 = 커밋 완료 → 직접 캐시 삭제
+            orderCacheManager.evictOrderList(context.userId());
         } catch (Exception compensateEx) {
             log.error("CRITICAL: 보상 트랜잭션 실패 — 수동 복구 필요 (orderId={}, paymentId={})",
                     context.orderId(), context.paymentId(), compensateEx);
+            // 보상 실패 시 캐시 삭제도 안 됨 → TTL 안전망 (300초)
         }
     }
 
@@ -305,6 +318,8 @@ public class OrderFacade {
         Map<Long, Integer> productQtyMap = order.getItems().stream()
                 .collect(Collectors.toMap(OrderItem::getProductId, OrderItem::getQuantity, Integer::sum));
         inventoryService.releaseAll(productQtyMap);
+
+        orderCacheManager.registerEvictAfterCommit(userId);
     }
 
     private String generateOrderNumber() {
@@ -315,18 +330,36 @@ public class OrderFacade {
         return "PAY-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase();
     }
 
-    /** 주문 목록 조회 */
-    @Transactional(readOnly = true)
-    public OrderListResult getOrders(Long userId, ZonedDateTime startAt, ZonedDateTime endAt) {
-        List<Order> orders = orderService.getOrders(userId, startAt, endAt);
+    /**
+     * 주문 목록 커서 조회 — 기본 조회(첫 페이지 + 커스텀 기간 없음)만 Cache-Aside
+     *
+     * @param isDefaultQuery Controller에서 판단: startAt/endAt/cursor 모두 미지정 시 true
+     */
+    public OrderCursorResult getOrdersWithCursor(Long userId, ZonedDateTime startAt, ZonedDateTime endAt,
+                                                  ZonedDateTime cursorCreatedAt, Long cursorId, int size,
+                                                  boolean isDefaultQuery) {
+        if (isDefaultQuery) {
+            java.util.Optional<OrderCursorResult> cached = orderCacheManager.getOrderList(userId);
+            if (cached.isPresent()) {
+                return cached.get();
+            }
+        }
 
-        List<OrderSummaryResult> summaries = orders.stream()
+        CursorResult<Order> result = orderService.getOrdersWithCursor(userId, startAt, endAt, cursorCreatedAt, cursorId, size);
+
+        List<OrderSummaryResult> summaries = result.items().stream()
                 .map(o -> new OrderSummaryResult(
                         o.getId(), o.getOrderNumber(), o.getStatus().name(),
                         o.getTotalAmount(), o.getCreatedAt()))
                 .toList();
 
-        return new OrderListResult(summaries);
+        OrderCursorResult cursorResult = new OrderCursorResult(summaries, result.hasNext(), size);
+
+        if (isDefaultQuery) {
+            orderCacheManager.putOrderList(userId, cursorResult);
+        }
+
+        return cursorResult;
     }
 
     /** 주문 상세 조회 */
@@ -361,7 +394,11 @@ public class OrderFacade {
 
     public record OrderItemCommand(Long productId, int quantity) {}
 
-    public record OrderListResult(List<OrderSummaryResult> orders) {}
+    public record OrderCursorResult(
+            List<OrderSummaryResult> orders,
+            boolean hasNext,
+            int size
+    ) {}
 
     public record OrderSummaryResult(
             Long orderId, String orderNumber, String status,

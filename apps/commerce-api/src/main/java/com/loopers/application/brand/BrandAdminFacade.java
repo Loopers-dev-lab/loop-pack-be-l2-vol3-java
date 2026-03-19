@@ -1,5 +1,6 @@
 package com.loopers.application.brand;
 
+import com.loopers.application.cache.ProductCacheManager;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
@@ -26,13 +27,16 @@ public class BrandAdminFacade {
     private final ProductService productService;
     private final InventoryService inventoryService;
     private final CartItemService cartItemService;
+    private final ProductCacheManager productCacheManager;
 
     public BrandAdminFacade(BrandService brandService, ProductService productService,
-                            InventoryService inventoryService, CartItemService cartItemService) {
+                            InventoryService inventoryService, CartItemService cartItemService,
+                            ProductCacheManager productCacheManager) {
         this.brandService = brandService;
         this.productService = productService;
         this.inventoryService = inventoryService;
         this.cartItemService = cartItemService;
+        this.productCacheManager = productCacheManager;
     }
 
     /** 어드민 브랜드 상세 조회 (브랜드 + 전체 상품 목록, status 포함) */
@@ -54,11 +58,15 @@ public class BrandAdminFacade {
         brandService.delete(brandId);
 
         List<Product> products = productService.getAllProductsByBrandId(brandId);
+        List<Long> productIds = products.stream().map(Product::getId).toList();
+
         for (Product product : products) {
             productService.delete(product.getId());
             inventoryService.delete(product.getId());
             cartItemService.deleteByProductId(product.getId());
         }
+
+        productCacheManager.registerBrandDeleteEvictAfterCommit(productIds);
     }
 
     /** 전체 브랜드 목록 페이지네이션 조회 */
@@ -89,10 +97,13 @@ public class BrandAdminFacade {
         return BrandInfo.from(brand);
     }
 
-    /** 브랜드 상태 변경 */
+    /** 브랜드 상태 변경 — 상품 목록 캐시 무효화 (브랜드 필터 변경) */
     @Transactional
     public BrandInfo changeBrandStatus(Long brandId, BrandStatus status) {
         Brand brand = brandService.changeStatus(brandId, status);
+
+        productCacheManager.registerListOnlyEvictAfterCommit();
+
         return BrandInfo.from(brand);
     }
 

@@ -1,5 +1,7 @@
 package com.loopers.domain.product;
 
+import com.loopers.domain.common.CursorResult;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -17,9 +19,8 @@ public interface ProductRepository {
     List<Product> findAll(int page, int size, Long brandId);
     long count(Long brandId);
 
-    /** 고객 노출 가능 상품 페이지 조회 (brandId null이면 전체) */
-    List<Product> findAllDisplayable(Long brandId, ProductSortType sort, int page, int size);
-    long countDisplayable(Long brandId);
+    /** 고객 노출 가능 상품 커서 조회 (brandId null이면 전체) */
+    CursorResult<Product> findAllDisplayableWithCursor(Long brandId, ProductSortType sort, ProductCursor cursor, int size);
 
     /** BrandFacade용: 브랜드별 ACTIVE 상품 조회 */
     List<Product> findAllActiveByBrandId(Long brandId);
