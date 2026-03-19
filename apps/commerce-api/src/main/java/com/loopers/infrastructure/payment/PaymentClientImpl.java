@@ -4,7 +4,11 @@ import com.loopers.domain.payment.PaymentClient;
 import com.loopers.domain.payment.PgApproveRequest;
 import com.loopers.domain.payment.PgApproveResult;
 import com.loopers.domain.payment.PgCancelResult;
+import com.loopers.domain.payment.PgClientException;
 import com.loopers.domain.payment.PgQueryResult;
+import com.loopers.domain.payment.PgServerException;
+import com.loopers.domain.payment.PgTimeoutException;
+import io.github.resilience4j.retry.annotation.Retry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,14 +25,16 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
  * PG 시뮬레이터 HTTP 구현체 (Infrastructure Layer — Adapter)
  *
- * PaymentClient 인터페이스(Port)를 RestTemplate으로 구현한다.
- * PG 시뮬레이터 API 스펙에 맞춰 요청/응답을 변환한다.
+ * 예외 전략:
+ * - 4xx → PgClientException (비즈니스 거절, CB ignore)
+ * - 500 → PgServerException (인프라 장애, CB record)
+ * - 타임아웃/연결 실패 → PgTimeoutException (인프라 장애, CB record)
+ * - 성공 → Result 객체 반환
  */
 @Component
 public class PaymentClientImpl implements PaymentClient {
@@ -69,7 +75,7 @@ public class PaymentClientImpl implements PaymentClient {
 
             Map<String, Object> data = extractData(response.getBody());
             if (data == null) {
-                return PgApproveResult.error("PG 응답 데이터 없음");
+                throw new PgServerException("PG 응답 데이터 없음");
             }
 
             String status = (String) data.get("status");
@@ -79,27 +85,27 @@ public class PaymentClientImpl implements PaymentClient {
                 return PgApproveResult.pending(transactionKey);
             }
 
-            return PgApproveResult.error("예상하지 못한 PG 응답 상태: " + status);
+            throw new PgServerException("예상하지 못한 PG 응답 상태: " + status);
 
         } catch (HttpClientErrorException e) {
             log.warn("PG 결제 요청 클라이언트 에러: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
-            return PgApproveResult.rejected(extractErrorMessage(e.getResponseBodyAsString()));
+            throw new PgClientException(extractErrorMessage(e.getResponseBodyAsString()), e);
         } catch (HttpServerErrorException e) {
             log.warn("PG 서버 에러: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
-            return PgApproveResult.error(extractErrorMessage(e.getResponseBodyAsString()));
+            throw new PgServerException(extractErrorMessage(e.getResponseBodyAsString()), e);
         } catch (ResourceAccessException e) {
             log.warn("PG 연결 실패/타임아웃: {}", e.getMessage());
-            return PgApproveResult.timeout();
+            throw new PgTimeoutException("PG 응답 타임아웃", e);
         }
     }
 
+    @Retry(name = "pgQuery")
     @Override
     public PgQueryResult query(String transactionKey, Long userId) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-USER-ID", String.valueOf(userId));
         HttpEntity<Void> httpEntity = new HttpEntity<>(headers);
 
-        // transactionKey가 있으면 단건 조회, 없으면 orderId로 조회 불가 → NOT_FOUND
         if (transactionKey == null) {
             return PgQueryResult.notFound();
         }
@@ -111,7 +117,7 @@ public class PaymentClientImpl implements PaymentClient {
 
             Map<String, Object> data = extractData(response.getBody());
             if (data == null) {
-                return PgQueryResult.error("PG 조회 응답 데이터 없음");
+                throw new PgServerException("PG 조회 응답 데이터 없음");
             }
 
             String status = (String) data.get("status");
@@ -130,16 +136,18 @@ public class PaymentClientImpl implements PaymentClient {
                 return PgQueryResult.notFound();
             }
             log.warn("PG 조회 클라이언트 에러: {}", e.getMessage());
-            return PgQueryResult.error(e.getMessage());
+            throw new PgClientException(e.getMessage(), e);
+        } catch (HttpServerErrorException e) {
+            log.warn("PG 조회 서버 에러: {}", e.getMessage());
+            throw new PgServerException(e.getMessage(), e);
         } catch (ResourceAccessException e) {
             log.warn("PG 조회 연결 실패: {}", e.getMessage());
-            return PgQueryResult.error("PG 조회 타임아웃");
+            throw new PgTimeoutException("PG 조회 타임아웃", e);
         }
     }
 
     @Override
     public PgCancelResult cancel(String transactionKey, Long userId) {
-        // PG 시뮬레이터에 취소 API가 없으므로 현재는 미구현
         log.warn("PG 취소 API 미구현: transactionKey={}", transactionKey);
         return PgCancelResult.ofFailure("PG 시뮬레이터에 취소 API 미제공");
     }
@@ -154,7 +162,6 @@ public class PaymentClientImpl implements PaymentClient {
 
     private String extractErrorMessage(String responseBody) {
         try {
-            // 간단한 JSON 파싱 — meta.message 추출
             if (responseBody != null && responseBody.contains("\"message\"")) {
                 int msgStart = responseBody.indexOf("\"message\"") + 11;
                 int msgEnd = responseBody.indexOf("\"", msgStart);

@@ -16,6 +16,8 @@ import com.loopers.domain.payment.PaymentResult;
 import com.loopers.domain.payment.PaymentService;
 import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.domain.payment.PgApproveRequest;
+import com.loopers.domain.payment.PgServerException;
+import com.loopers.domain.payment.PgTimeoutException;
 import com.loopers.domain.point.PointAccount;
 import com.loopers.domain.point.PointService;
 import com.loopers.domain.product.Product;
@@ -25,6 +27,10 @@ import com.loopers.support.error.CouponErrorType;
 import com.loopers.support.error.OrderErrorType;
 import com.loopers.support.error.PaymentErrorType;
 import com.loopers.support.error.PointErrorType;
+import io.github.resilience4j.bulkhead.BulkheadFullException;
+import io.github.resilience4j.bulkhead.annotation.Bulkhead;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,16 +46,10 @@ import java.util.stream.Collectors;
 /**
  * 결제 Facade (F-12, F-13, 콜백 처리)
  *
- * Order + Payment + Inventory + Point + Coupon 5개 도메인 조율.
- * - F-12: 할인 적용 (쿠폰/포인트)
- * - F-13: 결제 요청 → PG 승인 → 비동기 콜백 대기
- * - 콜백/배치: PG 결과 도착 시 TX2(확정) 또는 보상
- *
- * TX 분리 전략:
- * TX1: 주문 검증 + 쿠폰/포인트 선차감 + Payment 생성 → 커밋
- * TX 밖: PaymentService.requestPayment() — PG 호출 + 결과 해석
- * TX2-성공 (콜백): Payment 승인 + 재고 확정 + 주문 확정 + 포인트 적립
- * TX2-실패 (콜백): Payment FAILED + 쿠폰 복원 + 포인트 환급 + 재고 해제 + 주문 취소
+ * Resilience4j 배치:
+ * - @CircuitBreaker: PG 장애 패턴 감지 → OPEN 시 TX1 전에 즉시 차단
+ * - @Bulkhead: PG 호출 동시 수 제한 → 톰캣 스레드 보호
+ * - Fallback: CB OPEN/Bulkhead 거절 시 즉시 실패, PG 장애 시 보상 실행
  */
 @Component
 public class PaymentFacade {
@@ -119,11 +119,18 @@ public class PaymentFacade {
     }
 
     /**
-     * 결제 요청 (F-13) — TX1 선차감 + PG 호출 + 비동기 콜백 대기
+     * 결제 요청 (F-13) — CB/Bulkhead → TX1 선차감 → PG 호출 → 비동기 콜백 대기
      *
-     * TX1: 주문 검증 + 쿠폰 사용 + 포인트 차감 + Payment 생성 → 커밋
-     * TX 밖: PG approve() → PENDING이면 콜백 대기, 즉시 실패면 보상
+     * @CircuitBreaker: 메서드 진입 전에 서킷 상태 체크. OPEN이면 TX1 전에 즉시 차단.
+     * @Bulkhead: 동시 20개 초과 시 즉시 차단.
+     *
+     * PG 장애 시 예외 전파:
+     *   PgServerException (500) → CB record → fallback에서 보상
+     *   PgTimeoutException (조회도 실패) → CB record → fallback에서 보상
+     *   PgClientException (4xx) → PaymentService에서 소화 → 정상 흐름에서 보상
      */
+    @CircuitBreaker(name = "pgPayment", fallbackMethod = "fallbackRequestPayment")
+    @Bulkhead(name = "pgPayment", fallbackMethod = "fallbackRequestPayment")
     public PaymentRequestResult requestPayment(Long orderId, Long userId, String paymentMethod,
                                                 Long issuedCouponId) {
         // TX1: 주문 검증 + 선차감 + Payment 생성
@@ -163,7 +170,7 @@ public class PaymentFacade {
                     order.getPointUsedAmount(), paymentMethod, issuedCouponId, productQtyMap);
         });
 
-        // TX 밖: PG 호출
+        // TX 밖: PG 호출 (PgServerException / PgTimeoutException → fallback으로 전파)
         PgApproveRequest pgRequest = new PgApproveRequest(
                 userId, context.orderNumber(), paymentMethod,
                 "0000-0000-0000-0000", context.totalAmount(), null);
@@ -189,27 +196,60 @@ public class PaymentFacade {
     }
 
     /**
-     * PG 콜백 처리 — PG 결과 검증 후 TX2(확정) 또는 보상 실행
+     * Fallback — CB OPEN / Bulkhead 거절 / PG 인프라 장애 시 호출
      *
-     * 1. PG 조회 API로 콜백 검증 (위조 방지)
-     * 2. Payment 상태 확인 (이미 처리된 건 무시 — 멱등성)
-     * 3. 검증된 결과에 따라 TX2 또는 보상
-     *
-     * Order/Payment 조회로 컨텍스트를 복원한다 (별도 테이블 불필요).
+     * 4가지 시나리오:
+     * 1. CoreException (비즈니스 예외): CB가 ignore했지만 Bulkhead fallback에 잡힘 → re-throw
+     * 2. CallNotPermittedException (CB OPEN): TX1 미실행 → 보상 불필요 → 즉시 실패
+     * 3. BulkheadFullException (동시 호출 초과): TX1 미실행 → 보상 불필요 → 즉시 실패
+     * 4. PgServerException/PgTimeoutException (PG 장애): TX1 커밋됨 → 보상 실행
+     */
+    private PaymentRequestResult fallbackRequestPayment(Long orderId, Long userId, String paymentMethod,
+                                                         Long issuedCouponId, Throwable t) {
+        // CB가 ignore한 비즈니스 예외 → 그대로 re-throw (원래 HTTP 상태 코드 유지)
+        if (t instanceof CoreException ce) {
+            throw ce;
+        }
+
+        if (t instanceof CallNotPermittedException) {
+            log.warn("[CB OPEN] PG 호출 차단 — orderId={}", orderId);
+            return new PaymentRequestResult(null, orderId, "FAILED", paymentMethod, 0, null, null, null);
+        }
+
+        if (t instanceof BulkheadFullException) {
+            log.warn("[Bulkhead Full] PG 동시 호출 초과 — orderId={}", orderId);
+            return new PaymentRequestResult(null, orderId, "FAILED", paymentMethod, 0, null, null, null);
+        }
+
+        // PG 인프라 장애 — TX1 커밋됨 → 보상 필요
+        log.warn("[PG 장애] 결제 실패 — 보상 실행: orderId={}, cause={}", orderId, t.getMessage());
+        compensatePayment(orderId);
+
+        try {
+            Payment payment = paymentService.getByOrderId(orderId);
+            return new PaymentRequestResult(
+                    payment.getId(), orderId, payment.getStatus().name(),
+                    payment.getPaymentMethod(), payment.getRequestedAmount(),
+                    payment.getApprovedAmount(), payment.getPgTxnId(), payment.getApprovedAt());
+        } catch (Exception e) {
+            log.error("Fallback 응답 생성 실패 — orderId={}", orderId, e);
+            return new PaymentRequestResult(null, orderId, "FAILED", paymentMethod, 0, null, null, null);
+        }
+    }
+
+    /**
+     * PG 콜백 처리 — CB를 거치지 않는다 (콜백은 PG가 보내는 것이므로 CB 차단 대상 아님)
      */
     public void processCallback(String transactionKey, String callbackOrderNumber, Long callbackUserId) {
-        // 1. Order 조회로 컨텍스트 복원 (userId를 Order에서 가져옴 — 콜백에 userId가 없을 수 있음)
         Order order = orderService.getByOrderNumber(callbackOrderNumber);
         Long userId = callbackUserId != null ? callbackUserId : order.getUserId();
 
-        // 2. Payment 상태 확인 — 이미 처리된 건이면 무시 (멱등성)
         Payment payment = paymentService.getByOrderId(order.getId());
         if (payment.getStatus() != PaymentStatus.REQUESTED && payment.getStatus() != PaymentStatus.UNKNOWN) {
             log.info("이미 처리된 결제 — 콜백 무시: paymentId={}, status={}", payment.getId(), payment.getStatus());
             return;
         }
 
-        // 3. PG 조회 API로 콜백 검증 (위조 방지)
         PaymentResult verifiedResult = paymentService.verifyCallback(transactionKey, userId);
 
         if (verifiedResult.isPending()) {
@@ -221,7 +261,6 @@ public class PaymentFacade {
             return;
         }
 
-        // 4. 검증된 결과에 따라 TX2 또는 보상
         if (verifiedResult.isApproved()) {
             confirmPayment(order.getId(), verifiedResult.transactionKey());
         } else if (verifiedResult.isFailed()) {
@@ -230,12 +269,7 @@ public class PaymentFacade {
     }
 
     /**
-     * TX2: 결제 확정 — Payment 승인 + 재고 확정 + 주문 확정 + 포인트 적립
-     *
-     * OrderFacade, 콜백, 대사 배치 모두 이 메서드를 사용한다.
-     *
-     * @param orderId 주문 ID
-     * @param pgTxnId PG 거래 ID (approve 시점 또는 콜백 검증 시점에 확보)
+     * TX2: 결제 확정
      */
     public void confirmPayment(Long orderId, String pgTxnId) {
         txTemplate.executeWithoutResult(status -> {
@@ -255,16 +289,7 @@ public class PaymentFacade {
     }
 
     /**
-     * 보상 트랜잭션: TX1에서 선차감한 변경을 되돌린다.
-     *
-     * - Payment → FAILED
-     * - 쿠폰 → ISSUED 복원
-     * - 포인트 → 환급
-     * - 재고 → 예약 해제
-     * - 주문 → CANCELED
-     *
-     * 실패 시 500ms 후 1회 재시도. 재시도도 실패하면 DLQ 테이블에 저장한다.
-     * OrderFacade, 콜백, 대사 배치 모두 이 메서드를 사용한다.
+     * 보상 트랜잭션 — 실패 시 500ms 후 1회 재시도, 재시도도 실패하면 DLQ 저장
      */
     public void compensatePayment(Long orderId) {
         try {
@@ -287,11 +312,6 @@ public class PaymentFacade {
         }
     }
 
-    /**
-     * 보상 트랜잭션 실행 (하나의 TX에서 전체 되돌림)
-     *
-     * 부분 보상 방지: 하나라도 실패하면 전체 롤백된다.
-     */
     private void executeCompensation(Long orderId) {
         txTemplate.executeWithoutResult(status -> {
             Order order = orderService.getById(orderId);
@@ -316,11 +336,6 @@ public class PaymentFacade {
         });
     }
 
-    /**
-     * DLQ 저장 — 보상 실패 건을 DB에 기록한다.
-     *
-     * DLQ 저장 자체도 실패하면 CRITICAL 로그만 남긴다 (DB 장애 시).
-     */
     private void saveToDlq(Long orderId, String failureReason) {
         try {
             Payment payment = paymentService.getByOrderId(orderId);
@@ -332,12 +347,6 @@ public class PaymentFacade {
         }
     }
 
-    /**
-     * DLQ 재처리 — 대사 배치에서 호출한다.
-     *
-     * PENDING 상태인 DLQ 항목을 하나씩 재시도한다.
-     * 성공하면 COMPLETED, 최대 재시도 초과 시 FAILED.
-     */
     public void retryPendingCompensations() {
         List<CompensationDlq> pendingItems = compensationDlqRepository.findAllPending();
 

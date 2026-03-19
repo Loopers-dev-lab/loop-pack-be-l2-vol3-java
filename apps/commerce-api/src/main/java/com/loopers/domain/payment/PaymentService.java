@@ -20,7 +20,6 @@ public class PaymentService {
         this.paymentClient = paymentClient;
     }
 
-    /** 결제 생성 — 멱등성 키 중복 시 CONFLICT (동일 요청 재처리 방지) */
     @Transactional
     public Payment create(Long orderId, int requestedAmount, String paymentMethod, String idempotencyKey) {
         paymentRepository.findByIdempotencyKey(idempotencyKey)
@@ -67,52 +66,34 @@ public class PaymentService {
     /**
      * PG 결제 요청 + 결과 해석 (트랜잭션 없음 — 외부 HTTP 호출 포함)
      *
-     * 응답별 분기:
-     * - 4xx (REJECTED): 요청 자체가 잘못됨 → 즉시 FAILED
-     * - 500 (ERROR): PG 서버 에러 → 즉시 FAILED (재시도하지 않음 — 같은 에러 반복 가능성 높음)
-     * - 타임아웃 (TIMEOUT): 결제 여부 불확실 → 조회 API로 한 번 확인
-     * - PENDING: PG 접수 완료 → 콜백 대기
-     *
-     * 500 에러를 재시도하지 않는 근거 (케브 멘토):
-     * "500은 다시 호출해도 500이 발생될 가능성이 높다. 타임아웃은 일시적인 상황이 많은데
-     *  500이 발생하면 두 번째도 500이 더 크다. 이런 경우 retry를 시도하지 않는다."
+     * 예외 전파 전략:
+     * - PgClientException (4xx): catch → PaymentResult.failed() (CB 안 보임)
+     * - PgTimeoutException: catch → query로 복구 시도 → 복구 실패 시 re-throw (CB record)
+     * - PgServerException (500): catch 안 함 → Facade까지 전파 (CB record)
      */
     public PaymentResult requestPayment(Payment payment, PgApproveRequest request) {
-        // 1. PG 결제 승인 요청
-        PgApproveResult approveResult = paymentClient.approve(request);
+        try {
+            PgApproveResult approveResult = paymentClient.approve(request);
 
-        // 2. 응답별 분기
-        if (approveResult.isRejected()) {
-            log.info("PG 결제 거절 (4xx): orderId={}, reason={}", payment.getOrderId(), approveResult.reason());
-            return PaymentResult.failed(approveResult.reason());
-        }
+            if (approveResult.isPending()) {
+                log.info("PG 결제 접수 완료 — 콜백 대기: orderId={}, txnKey={}",
+                        payment.getOrderId(), approveResult.transactionKey());
+                return PaymentResult.pending(approveResult.transactionKey());
+            }
 
-        if (approveResult.isError()) {
-            log.warn("PG 서버 에러 (500): orderId={}, reason={}", payment.getOrderId(), approveResult.reason());
-            return PaymentResult.failed(approveResult.reason());
-        }
+            return PaymentResult.failed("알 수 없는 PG 응답");
 
-        if (approveResult.isTimeout()) {
-            log.warn("PG 결제 타임아웃: orderId={}", payment.getOrderId());
+        } catch (PgClientException e) {
+            log.info("PG 결제 거절 (4xx): orderId={}, reason={}", payment.getOrderId(), e.getMessage());
+            return PaymentResult.failed(e.getMessage());
+
+        } catch (PgTimeoutException e) {
+            log.warn("PG 결제 타임아웃 — 조회 시도: orderId={}", payment.getOrderId());
             return handleTimeoutWithQuery(payment, request);
         }
-
-        // 3. PENDING — PG가 접수함, 결과는 콜백으로 수신
-        if (approveResult.isPending()) {
-            log.info("PG 결제 접수 완료 — 콜백 대기: orderId={}, txnKey={}",
-                    payment.getOrderId(), approveResult.transactionKey());
-            return PaymentResult.pending(approveResult.transactionKey());
-        }
-
-        return PaymentResult.failed("알 수 없는 PG 응답");
+        // PgServerException (500) — catch 안 함 → Facade까지 전파 → CB record
     }
 
-    /**
-     * PG 콜백 검증: PG 조회 API로 실제 상태를 확인한다.
-     *
-     * 콜백은 누구든 POST 요청을 보낼 수 있으므로, 콜백 데이터를 그대로 신뢰하지 않는다.
-     * PG 조회 API로 transactionKey의 실제 상태를 확인한 뒤 PaymentResult를 반환한다.
-     */
     public PaymentResult verifyCallback(String transactionKey, Long userId) {
         PgQueryResult queryResult = paymentClient.query(transactionKey, userId);
 
@@ -133,12 +114,6 @@ public class PaymentService {
         return PaymentResult.unknown("콜백 검증 시 PG 상태 확인 실패");
     }
 
-    /**
-     * PG 결제 취소 — 뒤늦은 PG 성공 시 대사 배치에서 호출
-     *
-     * PG cancel() API를 호출하여 승인된 결제를 취소한다.
-     * cancel() 실패 시 다음 배치에서 재시도한다.
-     */
     public PgCancelResult cancelPgPayment(String transactionKey, Long userId) {
         log.info("PG 결제 취소 요청: txnKey={}", transactionKey);
         PgCancelResult result = paymentClient.cancel(transactionKey, userId);
@@ -153,12 +128,17 @@ public class PaymentService {
     /**
      * 타임아웃 시 조회 API로 결제 상태 확인
      *
-     * 타임아웃은 "모르는 상태"이므로, 즉시 재시도보다 조회 API로 결과 확인이 우선이다.
-     * 조회 결과에 따라 성공/실패/UNKNOWN을 반환한다.
+     * - query 성공(SUCCESS/FAILED) → 결과 반환 (CB "성공"으로 봄)
+     * - query NOT_FOUND → PG에 요청 미도달 → PgTimeoutException re-throw (CB record)
+     * - query 자체 실패 → PG 진짜 죽음 → PgTimeoutException re-throw (CB record)
      */
     private PaymentResult handleTimeoutWithQuery(Payment payment, PgApproveRequest request) {
-        PgQueryResult queryResult = paymentClient.query(
-                null, request.userId());
+        PgQueryResult queryResult;
+        try {
+            queryResult = paymentClient.query(null, request.userId());
+        } catch (PgException e) {
+            throw new PgTimeoutException("결제 승인 타임아웃 + 조회도 실패", e);
+        }
 
         if (queryResult.isSuccess()) {
             return PaymentResult.approved(queryResult.transactionKey());
@@ -167,9 +147,9 @@ public class PaymentService {
             return PaymentResult.failed(queryResult.reason());
         }
         if (queryResult.isNotFound()) {
-            return PaymentResult.failed("PG에 결제 요청이 도달하지 않음");
+            throw new PgTimeoutException("결제 승인 타임아웃 — PG에 요청 미도달");
         }
 
-        return PaymentResult.unknown("타임아웃 후 상태 확인 실패");
+        return PaymentResult.unknown("타임아웃 후 상태 확인 — 아직 PENDING");
     }
 }
