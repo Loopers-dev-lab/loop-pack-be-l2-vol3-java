@@ -321,6 +321,56 @@ class CouponServiceTest {
     }
 
     @Nested
+    @DisplayName("쿠폰 복원")
+    class RestoreUserCoupon {
+
+        @Test
+        @DisplayName("성공: 사용된 쿠폰을 복원한다")
+        void restoreUserCoupon_Success() {
+            // Given
+            Long userCouponId = 1L;
+            UserCoupon userCoupon = UserCoupon.create(1L, 10L);
+            userCoupon.use();
+
+            given(userCouponRepository.findById(userCouponId)).willReturn(Optional.of(userCoupon));
+
+            // When
+            couponService.restoreUserCoupon(userCouponId);
+
+            // Then
+            assertThat(userCoupon.getStatus()).isEqualTo(CouponStatus.AVAILABLE);
+        }
+
+        @Test
+        @DisplayName("실패: AVAILABLE 상태 쿠폰은 복원할 수 없다")
+        void restoreUserCoupon_AlreadyAvailable() {
+            // Given
+            Long userCouponId = 1L;
+            UserCoupon userCoupon = UserCoupon.create(1L, 10L);
+
+            given(userCouponRepository.findById(userCouponId)).willReturn(Optional.of(userCoupon));
+
+            // When & Then
+            assertThatThrownBy(() -> couponService.restoreUserCoupon(userCouponId))
+                    .isInstanceOf(CoreException.class)
+                    .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST);
+        }
+
+        @Test
+        @DisplayName("실패: 존재하지 않는 쿠폰이면 NOT_FOUND")
+        void restoreUserCoupon_NotFound() {
+            // Given
+            Long userCouponId = 999L;
+            given(userCouponRepository.findById(userCouponId)).willReturn(Optional.empty());
+
+            // When & Then
+            assertThatThrownBy(() -> couponService.restoreUserCoupon(userCouponId))
+                    .isInstanceOf(CoreException.class)
+                    .hasFieldOrPropertyWithValue("errorType", ErrorType.NOT_FOUND);
+        }
+    }
+
+    @Nested
     @DisplayName("사용자 쿠폰 목록 조회")
     class GetUserCoupons {
 
