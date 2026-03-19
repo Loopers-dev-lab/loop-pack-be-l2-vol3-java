@@ -12,9 +12,11 @@ sequenceDiagram
     participant PF as PaymentFacade
     participant OS as OrderService
     participant PS as PaymentService
+    participant PP as PaymentProcessor
     participant SS as StockService
     participant ICS as IssuedCouponService
-    participant PG as PgClient
+    participant GE as PaymentGatewayExecutor
+    participant GW as PaymentGateway
 
     사용자->>PC: POST /api/v1/payments
     activate PC
@@ -34,84 +36,104 @@ sequenceDiagram
         PS-->>PF: 없음
         deactivate PS
 
-        PF->>PS: 결제 생성 (REQUESTED)
+        PF->>PS: 결제 생성 (REQUESTED, paymentKey=UUID)
         activate PS
         PS-->>PF: Payment
         deactivate PS
 
-        PF->>SS: 재고 확정 (confirm)
+        PF->>PP: confirm(order)
+        activate PP
+        PP->>SS: 재고 확정 (confirm)
         activate SS
-        SS-->>PF: void
+        SS-->>PP: void
         deactivate SS
-
-        PF->>OS: 주문 결제 완료 (PAID)
+        PP->>OS: 주문 결제 완료 (PAID)
         activate OS
-        OS-->>PF: void
+        OS-->>PP: void
         deactivate OS
+        PP-->>PF: void
+        deactivate PP
     end
 
-    alt PG 접수 성공
-        PF->>PG: 결제 요청 (CB + Retry)
-        activate PG
-        PG-->>PF: transactionKey
-        deactivate PG
+    PF->>GE: confirm(payment)
+    activate GE
+
+    alt PG 승인 성공
+        GE->>GW: confirm(command) [CB: pg-request]
+        activate GW
+        GW-->>GE: PaymentConfirmResult(success)
+        deactivate GW
+        GE-->>PF: PgConfirmOutcome.Success
 
         critical @Transactional
-            PF->>PS: 상태 변경 (IN_PROGRESS)
+            PF->>PS: markSucceeded()
             activate PS
             PS-->>PF: void
             deactivate PS
         end
 
-    else PG 타임아웃
-        PF->>PG: 결제 요청 (CB + Retry)
-        activate PG
-        PG--xPF: 타임아웃
-        deactivate PG
+    else PG 타임아웃 (readTimeout 3초 초과)
+        GE->>GW: confirm(command) [CB: pg-request]
+        activate GW
+        GW--xGE: PgTimeoutException
+        deactivate GW
+        GE-->>PF: PgConfirmOutcome.Timeout
+        deactivate GE
 
-        Note over PF: REQUESTED 유지<br/>비즈니스는 이미 확정<br/>콜백/수동확인으로 최종 결정
+        Note over PF: REQUESTED 유지<br/>비즈니스는 이미 확정<br/>콜백/수동확인/보정스케줄러로 최종 결정
 
     else PG 요청 실패 / 서킷 오픈
-        PF->>PG: 결제 요청 (CB + Retry)
-        activate PG
-        PG--xPF: 실패
-        deactivate PG
+        GE->>GW: confirm(command) [CB: pg-request]
+        activate GW
+        GW--xGE: PgCommunicationException / CoreException
+        deactivate GW
+        GE-->>PF: PgConfirmOutcome.Failed
+        deactivate GE
 
         critical @Transactional (보상)
-            PF->>PS: 결제 실패 처리 (FAILED)
+            PF->>PP: failAndCompensate()
+            activate PP
+            PP->>PS: 결제 실패 처리 (FAILED)
             activate PS
-            PS-->>PF: void
+            PS-->>PP: void
             deactivate PS
 
-            PF->>SS: 재고 확정 복원 (releaseConfirmed)
+            PP->>SS: 재고 확정 복원 (releaseConfirmed)
             activate SS
-            SS-->>PF: void
+            SS-->>PP: void
             deactivate SS
 
             opt 쿠폰 적용 주문인 경우
-                PF->>ICS: 쿠폰 복원
+                PP->>ICS: 쿠폰 복원
                 activate ICS
-                ICS-->>PF: void
+                ICS-->>PP: void
                 deactivate ICS
             end
 
-            PF->>OS: 주문 취소 (CANCELED)
+            PP->>OS: 주문 취소 (CANCELED)
             activate OS
-            OS-->>PF: void
+            OS-->>PP: void
             deactivate OS
+            PP-->>PF: void
+            deactivate PP
         end
     end
 
     PF-->>PC: PaymentInfo
     deactivate PF
-    PC-->>사용자: 200 OK / 500 에러
+    PC-->>사용자: 200 OK (성공/타임아웃) / 500 에러 (실패)
     deactivate PC
 ```
 
 ## 핵심 포인트
 - **비즈니스 먼저 확정**: 결제 생성 + 재고 확정 + 주문 PAID를 하나의 트랜잭션으로 PG 호출 전에 수행
 - **PG 호출은 트랜잭션 밖**: DB 커넥션 점유 방지
-- **PG 실패 시 보상**: 별도 트랜잭션으로 재고 확정 복원 + 쿠폰 복원 + 주문 CANCELED
-- **PG 타임아웃 시 즉시 보상하지 않음**: PG에서 처리되었을 수 있으므로 콜백/수동확인으로 최종 결정
-- Facade의 결제 요청 메서드 자체에는 @Transactional을 선언하지 않는다 (내부 서비스 호출이 각자 트랜잭션 관리)
+- **PG 승인 성공 → 즉시 SUCCEEDED**: PG confirm 응답이 success면 바로 SUCCEEDED 처리 (동기 확인)
+- **PG 실패 시 보상**: PaymentProcessor가 별도 트랜잭션으로 재고 확정 복원 + 쿠폰 복원 + 주문 CANCELED
+- **PG 타임아웃 시 즉시 보상하지 않음**: PG에서 처리되었을 수 있으므로 콜백/수동확인/보정스케줄러로 최종 결정
+- **타임아웃 시에도 정상 응답**: PaymentInfo(status=REQUESTED) 반환 → 프론트가 polling 시작
+- **Bulkhead(pg-payment)**: requestPayment에 동시 PG 호출 20건 제한, 초과 시 즉시 거절
+- **PaymentGatewayExecutor**: PG 예외를 PgConfirmOutcome으로 변환, Facade는 Outcome만 처리
+- **PG 예외 도메인화**: Gateway 구현체에서 ResourceAccessException → PgTimeoutException으로 래핑, Resilience4j retryExceptions에 도메인 예외 사용
+- Facade의 결제 요청 메서드 자체에는 @Transactional을 선언하지 않는다 (TransactionTemplate 사용)
 - 기존 001-payment-request 시퀀스를 대체한다

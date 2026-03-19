@@ -111,12 +111,15 @@ erDiagram
         bigint id PK
         bigint order_id FK "주문 ID"
         bigint user_id FK "결제 요청자"
-        varchar transaction_key "PG 거래 키 (nullable)"
+        varchar payment_key UK "결제 키 (UUID)"
+        varchar pg_type "TOSS / NICE"
         varchar card_type "SAMSUNG / KB / HYUNDAI"
         varchar card_no "카드 번호"
         decimal amount "결제 금액"
-        varchar status "REQUESTED / IN_PROGRESS / SUCCEEDED / FAILED / CANCELED"
+        varchar status "REQUESTED / SUCCEEDED / FAILED / CANCELED"
         varchar fail_reason "실패 사유 (nullable)"
+        varchar cancel_reason "취소 사유 (nullable)"
+        datetime canceled_at "취소 일시 (nullable)"
         datetime created_at
         datetime updated_at
     }

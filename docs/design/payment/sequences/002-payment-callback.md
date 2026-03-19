@@ -11,6 +11,7 @@ sequenceDiagram
     participant PC as PaymentCallbackController
     participant PF as PaymentFacade
     participant PS as PaymentService
+    participant PP as PaymentProcessor
     participant SS as StockService
     participant ICS as IssuedCouponService
     participant OS as OrderService
@@ -21,42 +22,46 @@ sequenceDiagram
     activate PF
 
     critical @Transactional
-        PF->>PS: transactionKey로 결제 조회
+        PF->>PS: paymentKey로 결제 조회
         activate PS
-        PS-->>PF: Payment
+        PS-->>PF: Payment (or null)
         deactivate PS
 
-        alt 이미 확정된 결제
+        alt 결제 미존재 또는 이미 확정된 결제
             Note over PF: 무시 (멱등성)
         else PG 결과 SUCCESS
-            PF->>PS: 결제 성공 처리 (SUCCEEDED)
+            PF->>PS: 결제 성공 처리 (markSucceeded)
             activate PS
             PS-->>PF: void
             deactivate PS
 
             Note over PF: 주문은 이미 PAID — 추가 작업 없음
         else PG 결과 FAILED
-            PF->>PS: 결제 실패 처리 (FAILED)
+            PF->>PP: failAndCompensate()
+            activate PP
+            PP->>PS: 결제 실패 처리 (FAILED)
             activate PS
-            PS-->>PF: void
+            PS-->>PP: void
             deactivate PS
 
-            PF->>SS: 재고 확정 복원 (releaseConfirmed)
+            PP->>SS: 재고 확정 복원 (releaseConfirmed)
             activate SS
-            SS-->>PF: void
+            SS-->>PP: void
             deactivate SS
 
             opt 쿠폰 적용 주문인 경우
-                PF->>ICS: 쿠폰 복원
+                PP->>ICS: 쿠폰 복원
                 activate ICS
-                ICS-->>PF: void
+                ICS-->>PP: void
                 deactivate ICS
             end
 
-            PF->>OS: 주문 취소 (CANCELED)
+            PP->>OS: 주문 취소 (CANCELED)
             activate OS
-            OS-->>PF: void
+            OS-->>PP: void
             deactivate OS
+            PP-->>PF: void
+            deactivate PP
         end
     end
 
@@ -68,7 +73,8 @@ sequenceDiagram
 
 ## 핵심 포인트
 - 콜백 처리와 보상 트랜잭션은 같은 트랜잭션에서 원자적으로 처리한다
-- 이미 확정(SUCCEEDED/FAILED/CANCELED)된 결제에 대한 중복 콜백은 무시한다 (멱등성)
+- paymentKey로 결제를 조회한다 (PG가 paymentKey를 콜백에 포함)
+- 결제 미존재 또는 이미 확정(SUCCEEDED/FAILED/CANCELED)된 결제에 대한 콜백은 무시한다 (멱등성)
 - 결제 성공 시 주문은 이미 PAID 상태이므로 추가 상태 전이가 불필요하다
-- 결제 실패 시 보상 트랜잭션: 재고 확정 복원 + 쿠폰 복원 + 주문 CANCELED
+- 결제 실패 시 보상 로직은 PaymentProcessor.failAndCompensate()에 위임한다
 - 인증 없이 호출 가능하다 (PG 시스템이 호출하는 내부 API)

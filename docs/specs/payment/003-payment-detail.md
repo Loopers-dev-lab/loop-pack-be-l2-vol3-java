@@ -23,7 +23,7 @@ User
 | cardType | String | 카드 종류 |
 | cardNo | String | 카드 번호 |
 | amount | BigDecimal | 결제 금액 |
-| status | String | 결제 상태 (PENDING, IN_PROGRESS, SUCCEEDED, FAILED) |
+| status | String | 결제 상태 (REQUESTED, SUCCEEDED, FAILED, CANCELED) |
 | failReason | String | 실패 사유 (null 가능) |
 | createdAt | LocalDateTime | 결제 요청일시 |
 

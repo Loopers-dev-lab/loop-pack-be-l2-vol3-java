@@ -14,7 +14,7 @@
 ### 결제 요청 흐름 변경 (PM-01)
 - [ ] 결제 요청 시 PG 호출 전에 재고 확정 + 주문 PAID 전이가 먼저 수행된다
 - [ ] 결제 요청 시 주문 상태가 CREATED인 경우에만 결제할 수 있다 (기존 PENDING → CREATED)
-- [ ] PG 접수 성공 시 결제 상태가 IN_PROGRESS로 변경된다
+- [ ] PG 승인 성공 시 결제 상태가 SUCCEEDED로 변경된다
 - [ ] PG 타임아웃 시 결제 상태는 REQUESTED를 유지하고, 비즈니스는 이미 확정 상태를 유지한다
 - [ ] PG 요청 실패 시 보상 트랜잭션이 실행된다: 재고 확정 복원 + 주문 CANCELED + 쿠폰 복원
 - [ ] PG 요청 실패 시 결제 상태는 FAILED로 변경된다
@@ -26,10 +26,9 @@
 - [ ] PG 콜백 FAILED 수신 시 결제 상태는 FAILED로 변경된다
 
 ### 수동 확인 흐름 변경 (PM-05)
-- [ ] PG 조회 결과 SUCCESS이면 결제 상태만 SUCCEEDED로 변경된다 (주문은 이미 PAID)
-- [ ] PG 조회 결과 FAILED이면 보상 트랜잭션이 실행된다
-- [ ] PG에 결제 정보가 없으면 보상 트랜잭션이 실행된다
-- [ ] REQUESTED 상태(transactionKey 없음)는 PG 조회 없이 FAILED 처리 후 보상 트랜잭션이 실행된다
+- [ ] REQUESTED 상태의 결제를 확인하면 PG에 조회하여 최종 결정한다
+- [ ] PG 조회 결과 결제 완료(found && done)이면 결제 상태가 SUCCEEDED로 변경된다 (주문은 이미 PAID)
+- [ ] PG 조회 결과 결제 미완료이면 보상 트랜잭션이 실행된다
 
 ### 결제 취소 (PM-06)
 - [ ] SUCCEEDED 상태의 결제만 취소할 수 있다
@@ -51,7 +50,7 @@
 - [ ] 쿠폰 미적용 주문의 보상 트랜잭션에서는 쿠폰 복원을 수행하지 않는다
 
 ## 제약
-- 기존 Payment 상태에 CANCELED를 추가한다 (REQUESTED, IN_PROGRESS, SUCCEEDED, FAILED, CANCELED)
+- Payment 상태는 REQUESTED, SUCCEEDED, FAILED, CANCELED 4가지이다
 - 비즈니스 확정(재고 확정 + 주문 PAID)은 트랜잭션 안에서, PG 호출은 트랜잭션 밖에서 처리한다
 - 보상 트랜잭션은 인프로세스로 즉시 실행하며, 실패 시 보정 스케줄러가 후속 처리한다
 - 기존 001-payment-request, 002-payment-callback, 005-payment-verify spec의 관련 AC가 이 문서로 대체된다

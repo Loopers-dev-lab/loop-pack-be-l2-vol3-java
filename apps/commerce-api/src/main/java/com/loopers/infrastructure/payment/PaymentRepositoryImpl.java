@@ -15,7 +15,7 @@ import java.util.Optional;
 public class PaymentRepositoryImpl implements PaymentRepository {
 
     private static final List<PaymentStatus> ACTIVE_STATUSES =
-            List.of(PaymentStatus.REQUESTED, PaymentStatus.IN_PROGRESS, PaymentStatus.SUCCEEDED);
+            List.of(PaymentStatus.REQUESTED, PaymentStatus.SUCCEEDED);
 
     private final PaymentJpaRepository paymentJpaRepository;
 

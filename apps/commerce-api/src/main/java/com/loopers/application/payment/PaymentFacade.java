@@ -91,19 +91,11 @@ public class PaymentFacade {
             throw new CoreException(ErrorType.BAD_REQUEST, "이미 확정된 결제입니다");
         }
 
-        if (payment.getStatus() == PaymentStatus.REQUESTED) {
-            transactionTemplate.executeWithoutResult(status ->
-                    processor.failAndCompensate(payment.getId(), payment.getOrderId(), "결제 미완료"));
-            return PaymentInfo.from(paymentService.getPayment(payment.getId()));
-        }
-
-        // IN_PROGRESS: PG에서 상태 조회
+        // REQUESTED: PG에 조회하여 최종 결정
         PaymentQueryResult result = gatewayExecutor.query(payment);
 
         if (result.found() && result.done()) {
             paymentService.markSucceeded(payment.getId());
-        } else if (result.found()) {
-            // PG에서 아직 처리 중 → 상태 변경 없음
         } else {
             transactionTemplate.executeWithoutResult(status ->
                     processor.failAndCompensate(payment.getId(), payment.getOrderId(), "결제 미완료"));

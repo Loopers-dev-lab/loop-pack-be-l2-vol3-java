@@ -30,13 +30,6 @@ public class PaymentService {
     }
 
     @Transactional
-    public void markInProgress(Long paymentId) {
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다"));
-        payment.markInProgress();
-    }
-
-    @Transactional
     public void markSucceeded(Long paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다"));
