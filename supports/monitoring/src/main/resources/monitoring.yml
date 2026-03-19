@@ -12,6 +12,8 @@ management:
         include:
           - health
           - prometheus
+          - circuitbreakers   # GET /actuator/circuitbreakers — CB 상태 실시간 확인
+          - retries            # GET /actuator/retries — Retry 통계 확인
   endpoint:
     health:
       probes:
