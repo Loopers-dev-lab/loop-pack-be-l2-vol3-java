@@ -6,6 +6,7 @@ import com.loopers.domain.payment.gateway.PaymentConfirmCommand;
 import com.loopers.domain.payment.gateway.PaymentConfirmResult;
 import com.loopers.domain.payment.gateway.PaymentGateway;
 import com.loopers.domain.payment.gateway.PaymentQueryResult;
+import com.loopers.domain.payment.gateway.PgBusinessException;
 import com.loopers.domain.payment.gateway.PgCommunicationException;
 import com.loopers.domain.payment.gateway.PgTimeoutException;
 import com.loopers.support.error.CoreException;
@@ -38,6 +39,10 @@ public class PaymentGatewayExecutor {
             log.warn("PG 결제 승인 타임아웃: paymentId={}, pgType={}, message={}",
                     payment.getId(), gateway.getType(), e.getMessage());
             return new PgConfirmOutcome.Timeout();
+        } catch (PgBusinessException e) {
+            log.warn("PG 결제 승인 거절: paymentId={}, pgType={}, message={}",
+                    payment.getId(), gateway.getType(), e.getMessage());
+            return new PgConfirmOutcome.Failed(e.getMessage());
         } catch (CoreException e) {
             throw e;
         } catch (PgCommunicationException e) {

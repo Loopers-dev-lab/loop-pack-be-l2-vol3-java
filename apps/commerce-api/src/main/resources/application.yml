@@ -43,6 +43,7 @@ payment:
 
 resilience4j:
   circuitbreaker:
+    circuitBreakerAspectOrder: 1
     configs:
       default-request:
         slidingWindowSize: 10
@@ -56,6 +57,7 @@ resilience4j:
         maxWaitDurationInHalfOpenState: 10s
         ignoreExceptions:
           - com.loopers.support.error.CoreException
+          - com.loopers.domain.payment.gateway.PgBusinessException
       default-query:
         slidingWindowSize: 10
         minimumNumberOfCalls: 5
@@ -68,6 +70,7 @@ resilience4j:
         maxWaitDurationInHalfOpenState: 10s
         ignoreExceptions:
           - com.loopers.support.error.CoreException
+          - com.loopers.domain.payment.gateway.PgBusinessException
     instances:
       toss-request:
         baseConfig: default-request
@@ -78,6 +81,7 @@ resilience4j:
       nice-query:
         baseConfig: default-query
   retry:
+    retryAspectOrder: 2
     configs:
       default-query-retry:
         maxAttempts: 3
@@ -100,6 +104,7 @@ resilience4j:
       nice-cancel:
         baseConfig: default-cancel-retry
   bulkhead:
+    bulkheadAspectOrder: 0
     instances:
       pg-payment:
         maxConcurrentCalls: 20

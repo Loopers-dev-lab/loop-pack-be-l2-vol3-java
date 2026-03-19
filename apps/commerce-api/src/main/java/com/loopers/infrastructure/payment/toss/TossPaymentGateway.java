@@ -1,17 +1,20 @@
 package com.loopers.infrastructure.payment.toss;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.payment.gateway.PaymentCancelCommand;
 import com.loopers.domain.payment.gateway.PaymentCancelResult;
 import com.loopers.domain.payment.gateway.PaymentConfirmCommand;
 import com.loopers.domain.payment.gateway.PaymentConfirmResult;
 import com.loopers.domain.payment.gateway.PaymentGateway;
 import com.loopers.domain.payment.gateway.PaymentQueryResult;
+import com.loopers.domain.payment.gateway.PgBusinessException;
+import com.loopers.domain.payment.gateway.PgCommunicationException;
+import com.loopers.domain.payment.gateway.PgTimeoutException;
 import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.infrastructure.payment.toss.dto.TossCancelRequest;
 import com.loopers.infrastructure.payment.toss.dto.TossConfirmRequest;
 import com.loopers.infrastructure.payment.toss.dto.TossPaymentResponse;
-import com.loopers.domain.payment.gateway.PgCommunicationException;
-import com.loopers.domain.payment.gateway.PgTimeoutException;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -24,21 +27,38 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Set;
+
 @Component
 public class TossPaymentGateway implements PaymentGateway {
 
+    private static final Set<String> RETRYABLE_ERROR_CODES = Set.of(
+            "PROVIDER_ERROR",
+            "CARD_PROCESSING_ERROR",
+            "FAILED_INTERNAL_SYSTEM_PROCESSING"
+    );
+
+    private static final Set<String> UNKNOWN_OUTCOME_ERROR_CODES = Set.of(
+            "FAILED_PAYMENT_INTERNAL_SYSTEM_PROCESSING",
+            "UNKNOWN_PAYMENT_ERROR"
+    );
+
     private final RestTemplate tossRestTemplate;
     private final TossProperties tossProperties;
+    private final ObjectMapper objectMapper;
 
     public TossPaymentGateway(
             @Qualifier("tossRestTemplate") RestTemplate tossRestTemplate,
-            TossProperties tossProperties) {
+            TossProperties tossProperties,
+            ObjectMapper objectMapper) {
         this.tossRestTemplate = tossRestTemplate;
         this.tossProperties = tossProperties;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -73,6 +93,10 @@ public class TossPaymentGateway implements PaymentGateway {
             boolean success = response != null && response.isDone();
             return new PaymentConfirmResult(success, command.paymentKey(),
                     success ? null : "PG 승인 실패");
+        } catch (HttpClientErrorException e) {
+            throw classifyClientError(e, "토스 결제 승인", command.paymentKey());
+        } catch (HttpServerErrorException e) {
+            throw classifyServerError(e, "토스 결제 승인", command.paymentKey());
         } catch (ResourceAccessException e) {
             throw new PgTimeoutException("토스 결제 승인 타임아웃: paymentKey=" + command.paymentKey(), e);
         } catch (RestClientException e) {
@@ -98,6 +122,10 @@ public class TossPaymentGateway implements PaymentGateway {
             );
 
             return new PaymentCancelResult(true, null);
+        } catch (HttpClientErrorException e) {
+            throw classifyClientError(e, "토스 결제 취소", paymentKey);
+        } catch (HttpServerErrorException e) {
+            throw classifyServerError(e, "토스 결제 취소", paymentKey);
         } catch (ResourceAccessException e) {
             throw new PgTimeoutException("토스 결제 취소 타임아웃: paymentKey=" + paymentKey, e);
         } catch (RestClientException e) {
@@ -128,10 +156,50 @@ public class TossPaymentGateway implements PaymentGateway {
             return new PaymentQueryResult(true, body.isDone(), body.status());
         } catch (HttpClientErrorException.NotFound e) {
             return new PaymentQueryResult(false, false, null);
+        } catch (HttpClientErrorException e) {
+            throw classifyClientError(e, "토스 결제 조회", paymentKey);
+        } catch (HttpServerErrorException e) {
+            throw classifyServerError(e, "토스 결제 조회", paymentKey);
         } catch (ResourceAccessException e) {
             throw new PgTimeoutException("토스 결제 조회 타임아웃: paymentKey=" + paymentKey, e);
         } catch (RestClientException e) {
             throw new PgCommunicationException("토스 결제 조회 통신 실패: paymentKey=" + paymentKey, e);
+        }
+    }
+
+    private RuntimeException classifyServerError(HttpServerErrorException e, String operation, String paymentKey) {
+        String errorCode = parseErrorCode(e.getResponseBodyAsString());
+
+        if (UNKNOWN_OUTCOME_ERROR_CODES.contains(errorCode)) {
+            return new PgTimeoutException(operation + " 결과 미확정: code=" + errorCode
+                    + ", paymentKey=" + paymentKey, e);
+        }
+        return new PgCommunicationException(operation + " 서버 오류: code=" + errorCode
+                + ", paymentKey=" + paymentKey, e);
+    }
+
+    private RuntimeException classifyClientError(HttpClientErrorException e, String operation, String paymentKey) {
+        String body = e.getResponseBodyAsString();
+        String errorCode = parseErrorCode(body);
+
+        if (RETRYABLE_ERROR_CODES.contains(errorCode)) {
+            return new PgCommunicationException(operation + " 일시적 오류: code=" + errorCode
+                    + ", paymentKey=" + paymentKey, e);
+        }
+        if (UNKNOWN_OUTCOME_ERROR_CODES.contains(errorCode)) {
+            return new PgTimeoutException(operation + " 결과 미확정: code=" + errorCode
+                    + ", paymentKey=" + paymentKey, e);
+        }
+        return new PgBusinessException(operation + " 거절: code=" + errorCode
+                + ", paymentKey=" + paymentKey + ", body=" + body, e);
+    }
+
+    private String parseErrorCode(String body) {
+        try {
+            JsonNode node = objectMapper.readTree(body);
+            return node.has("code") ? node.get("code").asText() : null;
+        } catch (Exception e) {
+            return null;
         }
     }
 
