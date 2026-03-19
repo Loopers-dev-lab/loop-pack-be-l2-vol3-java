@@ -5,8 +5,6 @@ import com.loopers.domain.stock.StockRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
-import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -23,21 +21,31 @@ public class StockRepositoryImpl implements StockRepository {
         return stockJpaRepository.save(stock);
     }
 
+    @Override
+    public int reserveIfAvailable(Long productId, int amount) {
+        return stockJpaRepository.reserveIfAvailable(productId, amount);
+    }
+
+    @Override
+    public int confirmIfReserved(Long productId, int amount) {
+        return stockJpaRepository.confirmIfReserved(productId, amount);
+    }
+
+    @Override
+    public int releaseReservedIfEnough(Long productId, int amount) {
+        return stockJpaRepository.releaseReservedIfEnough(productId, amount);
+    }
+
+    @Override
+    public int releaseConfirmedIfEnough(Long productId, int amount) {
+        return stockJpaRepository.releaseConfirmedIfEnough(productId, amount);
+    }
+
     // Query
 
     @Override
     public Optional<Stock> findByProductId(Long productId) {
         return stockJpaRepository.findByProductId(productId);
-    }
-
-    @Override
-    public Optional<Stock> findByProductIdForUpdate(Long productId) {
-        return stockJpaRepository.findByProductIdForUpdate(productId);
-    }
-
-    @Override
-    public List<Stock> findAllByProductIdInForUpdate(Collection<Long> productIds) {
-        return stockJpaRepository.findAllByProductIdInForUpdate(productIds);
     }
 
     @Override

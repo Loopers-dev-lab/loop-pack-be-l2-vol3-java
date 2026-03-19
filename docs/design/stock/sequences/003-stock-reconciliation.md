@@ -13,7 +13,6 @@ sequenceDiagram
     participant Scheduler as StockScheduler
     participant SS as StockService
     participant OS as OrderService
-    participant Stock as Stock
 
     Note over Scheduler: @Scheduled reconcileLeakedReservations (5분 간격)
 
@@ -37,10 +36,7 @@ sequenceDiagram
         critical TransactionTemplate (건별 트랜잭션)
             Scheduler->>SS: 점유 해제 (releaseReserved)
             activate SS
-            SS->>Stock: releaseReserved(amount)
-            activate Stock
-            Stock-->>SS: void
-            deactivate Stock
+            Note over SS: Atomic UPDATE (Fail-Fast)
             SS-->>Scheduler: void
             deactivate SS
         end
@@ -58,7 +54,6 @@ sequenceDiagram
     participant SS as StockService
     participant OS as OrderService
     participant PS as PaymentService
-    participant Stock as Stock
 
     Note over Scheduler: @Scheduled reconcileMissingConfirmations (5분 간격)
 
@@ -91,10 +86,7 @@ sequenceDiagram
         critical TransactionTemplate (건별 트랜잭션)
             Scheduler->>SS: 재고 확정 (confirm)
             activate SS
-            SS->>Stock: confirm(amount)
-            activate Stock
-            Stock-->>SS: void
-            deactivate Stock
+            Note over SS: Atomic UPDATE (Fail-Fast)
             SS-->>Scheduler: void
             deactivate SS
         end

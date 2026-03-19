@@ -1,7 +1,11 @@
 package com.loopers.support;
 
+import com.loopers.application.order.OrderService;
 import com.loopers.application.payment.PaymentCommand;
 import com.loopers.application.payment.PaymentService;
+import com.loopers.application.stock.StockService;
+import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.gateway.PgType;
@@ -34,6 +38,7 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class E2ETestFixture {
 
@@ -50,6 +55,12 @@ public class E2ETestFixture {
 
     @Autowired
     private PaymentService paymentService;
+
+    @Autowired
+    private OrderService orderService;
+
+    @Autowired
+    private StockService stockService;
 
     @Autowired
     private StockRepository stockRepository;
@@ -175,14 +186,25 @@ public class E2ETestFixture {
     }
 
     public Payment createRequestedPayment(Long orderId, Long userId, BigDecimal amount) {
-        return paymentService.createPayment(PaymentCommand.Create.of(orderId, userId, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", amount));
+        Payment payment = paymentService.createPayment(PaymentCommand.Create.of(orderId, userId, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", amount));
+        confirmStockAndPayOrder(orderId);
+        return payment;
     }
 
     public Payment createSucceededPayment(Long orderId, Long userId, BigDecimal amount) {
         Payment payment = paymentService.createPayment(PaymentCommand.Create.of(orderId, userId, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", amount));
+        confirmStockAndPayOrder(orderId);
         paymentService.markSucceeded(payment.getId());
         seedMockTossPayment(payment.getPaymentKey(), orderId, amount);
         return paymentService.getPayment(payment.getId());
+    }
+
+    private void confirmStockAndPayOrder(Long orderId) {
+        Order order = orderService.getOrder(orderId);
+        Map<Long, Integer> productQuantities = order.getOrderItems().stream()
+                .collect(Collectors.toMap(OrderItem::getProductId, OrderItem::getQuantity));
+        stockService.confirm(productQuantities);
+        orderService.payOrder(orderId);
     }
 
     private void seedMockTossPayment(String paymentKey, Long orderId, BigDecimal amount) {

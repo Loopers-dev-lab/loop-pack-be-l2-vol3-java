@@ -13,10 +13,6 @@ classDiagram
         -int reservedQuantity
         -int confirmedQuantity
         +create(productId, quantity)$ Stock
-        +reserve(amount)
-        +confirm(amount)
-        +releaseReserved(amount)
-        +releaseConfirmed(amount)
         +getAvailableQuantity() int
     }
 
@@ -31,8 +27,5 @@ classDiagram
 - `reservedQuantity`: 현재 점유 중인 수량
 - `confirmedQuantity`: 확정된 차감 수량
 - `getAvailableQuantity()`: quantity - reservedQuantity - confirmedQuantity
-- `reserve(amount)`: 가용 재고 확인 후 reservedQuantity 증가 (불변식: 가용 재고 >= amount)
-- `confirm(amount)`: reservedQuantity 감소 + confirmedQuantity 증가
-- `releaseReserved(amount)`: reservedQuantity 감소 (결제 실패 시 점유 해제)
-- `releaseConfirmed(amount)`: confirmedQuantity 감소 (주문 취소 시 확정 복원)
-- 동시성 제어: reserve 시 비관적 락(SELECT FOR UPDATE)을 사용한다
+- 재고 점유/확정/해제는 JPQL Atomic UPDATE(Fail-Fast 패턴)로 처리한다 — Entity 메서드 대신 DB 레벨에서 원자적 연산
+- 동시성 제어: Atomic UPDATE의 WHERE 조건으로 Fail-Fast 처리 (비관적 락 불필요)

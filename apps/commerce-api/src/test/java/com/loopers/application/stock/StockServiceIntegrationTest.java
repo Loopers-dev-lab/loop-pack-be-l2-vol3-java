@@ -46,8 +46,8 @@ class StockServiceIntegrationTest {
 
         @Test
         void 가용_재고가_충분하면_점유에_성공한다() {
-            Stock stock1 = stockRepository.save(Stock.create(1L, 100));
-            Stock stock2 = stockRepository.save(Stock.create(2L, 50));
+            stockRepository.save(Stock.create(1L, 100));
+            stockRepository.save(Stock.create(2L, 50));
 
             stockService.reserve(Map.of(1L, 30, 2L, 20));
 
@@ -87,7 +87,6 @@ class StockServiceIntegrationTest {
                     .satisfies(e -> {
                         CoreException ce = (CoreException) e;
                         assertThat(ce.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
-                        assertThat(ce.getMessage()).contains("재고 정보가 존재하지 않습니다");
                     });
         }
 

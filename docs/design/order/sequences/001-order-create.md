@@ -37,7 +37,7 @@ sequenceDiagram
 
         OF->>SS: 재고 점유 (reserve)
         activate SS
-        Note over SS: 가용 재고 확인 + 비관적 락
+        Note over SS: Atomic UPDATE (Fail-Fast)
         SS-->>OF: void
         deactivate SS
 
@@ -64,5 +64,5 @@ sequenceDiagram
 - 기존 ProductService.decreaseStocks()가 StockService.reserve()로 대체된다
 - 재고 점유, 쿠폰 사용 처리, 주문 생성은 하나의 트랜잭션에서 원자적으로 처리한다
 - 주문은 CREATED 상태로 생성된다 (기존에는 상태 관리 없었음)
-- 재고 점유 시 비관적 락(SELECT FOR UPDATE)으로 동시성을 제어한다
+- 재고 점유 시 Atomic UPDATE + Fail-Fast 패턴으로 동시성을 제어한다 (락 대기 없음)
 - IssuedCoupon이 발급 시점의 Coupon 데이터를 스냅샷하므로, 주문 시 CouponService 조회가 불필요하다

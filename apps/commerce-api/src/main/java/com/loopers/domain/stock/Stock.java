@@ -44,26 +44,6 @@ public class Stock extends BaseEntity {
         return new Stock(productId, quantity);
     }
 
-    public void reserve(int amount) {
-        if (getAvailableQuantity() < amount) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족한 상품이 있습니다");
-        }
-        this.reservedQuantity += amount;
-    }
-
-    public void confirm(int amount) {
-        this.reservedQuantity -= amount;
-        this.confirmedQuantity += amount;
-    }
-
-    public void releaseReserved(int amount) {
-        this.reservedQuantity -= amount;
-    }
-
-    public void releaseConfirmed(int amount) {
-        this.confirmedQuantity -= amount;
-    }
-
     public int getAvailableQuantity() {
         return this.quantity - this.reservedQuantity - this.confirmedQuantity;
     }
