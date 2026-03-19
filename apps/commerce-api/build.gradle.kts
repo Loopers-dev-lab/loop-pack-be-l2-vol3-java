@@ -29,6 +29,9 @@ dependencies {
     // awaitility
     testImplementation("org.awaitility:awaitility:4.2.2")
 
+    // wiremock
+    testImplementation("org.wiremock:wiremock-standalone:3.13.0")
+
     // archunit
     testImplementation("com.tngtech.archunit:archunit-junit5:${project.properties["archunitVersion"]}")
 }
