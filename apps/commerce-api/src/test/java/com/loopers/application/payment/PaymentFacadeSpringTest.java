@@ -263,8 +263,8 @@ class PaymentFacadeSpringTest {
                     Payment.create(order.getId(), "pgOrderCode-004", CardType.SAMSUNG, "1234-5678-9012-3456", 10000L)
             );
             payment.assignPgTransaction("TXN-004");
-            payment.complete();
             paymentJpaRepository.save(payment);
+            paymentJpaRepository.completeIfPending(payment.getId());
 
             // act
             PaymentInfo result = paymentFacade.syncPayment(userId, payment.getId());

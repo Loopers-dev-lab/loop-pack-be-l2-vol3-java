@@ -38,4 +38,14 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     public List<Payment> findAllByStatus(PaymentStatus status) {
         return paymentJpaRepository.findAllByStatus(status);
     }
+
+    @Override
+    public int completeIfPending(Long id) {
+        return paymentJpaRepository.completeIfPending(id);
+    }
+
+    @Override
+    public int failIfPending(Long id, String reason) {
+        return paymentJpaRepository.failIfPending(id, reason);
+    }
 }

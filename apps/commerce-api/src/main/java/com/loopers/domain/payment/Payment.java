@@ -1,8 +1,6 @@
 package com.loopers.domain.payment;
 
 import com.loopers.domain.BaseEntity;
-import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -60,20 +58,4 @@ public class Payment extends BaseEntity {
         this.pgTransactionKey = pgTransactionId;
     }
 
-    public void complete() {
-        if (status != PaymentStatus.PENDING) {
-            throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 완료 처리는 PENDING 상태에서만 가능합니다.");
-        }
-
-        this.status = PaymentStatus.COMPLETED;
-    }
-
-    public void fail(String reason) {
-        if (status != PaymentStatus.PENDING) {
-            throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 실패 처리는 PENDING 상태에서만 가능합니다.");
-        }
-
-        this.status = PaymentStatus.FAILED;
-        this.failReason = reason;
-    }
 }

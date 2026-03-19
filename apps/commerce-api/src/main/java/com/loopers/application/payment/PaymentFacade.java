@@ -91,7 +91,7 @@ public class PaymentFacade {
             // PG 장애 - 이번 sync에서는 상태 확정 못함
         }
 
-        return PaymentInfo.from(payment);
+        return PaymentInfo.from(paymentRepository.findById(paymentId).orElseThrow());
     }
 
     @Transactional
@@ -110,12 +110,16 @@ public class PaymentFacade {
     private void applyPgResult(Payment payment, PgTransactionStatus status, String reason) {
         switch (status) {
             case SUCCESS -> {
-                payment.complete();
-                orderService.markOrderPaid(payment.getOrderId());
+                int affected = paymentRepository.completeIfPending(payment.getId());
+                if (affected > 0) {
+                    orderService.markOrderPaid(payment.getOrderId());
+                }
             }
             case FAILED -> {
-                payment.fail(reason);
-                orderCompensationService.compensate(payment.getOrderId());
+                int affected = paymentRepository.failIfPending(payment.getId(), reason);
+                if (affected > 0) {
+                    orderCompensationService.compensate(payment.getOrderId());
+                }
             }
         }
     }
