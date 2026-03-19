@@ -12,6 +12,7 @@ include(
     ":supports:monitoring",
     ":mocks:mock-common",
     ":mocks:mock-toss",
+    ":mocks:mock-nice",
 )
 
 // configurations
