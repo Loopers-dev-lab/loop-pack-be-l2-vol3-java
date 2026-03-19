@@ -20,16 +20,18 @@ classDiagram
         +markInProgress(transactionKey)
         +markSucceeded(transactionKey)
         +markFailed(reason)
+        +markCanceled()
         +isFinalized() boolean
         +isOwnedBy(userId) boolean
     }
 
     class PaymentStatus {
         <<enumeration>>
-        PENDING
+        REQUESTED
         IN_PROGRESS
         SUCCEEDED
         FAILED
+        CANCELED
     }
 
     class CardType {
@@ -50,9 +52,10 @@ classDiagram
 - Payment는 BaseEntity를 상속한다 (createdAt, updatedAt 필요 — 상태 변경 추적)
 - transactionKey는 nullable — PG 요청 전(REQUESTED)에는 아직 없음
 - failReason은 nullable — 성공 시에는 없음
-- `markInProgress()`: PENDING → IN_PROGRESS (PG 접수 성공)
-- `markSucceeded()`: PENDING/IN_PROGRESS → SUCCEEDED (PG 콜백 또는 수동 확인)
-- `markFailed()`: PENDING/IN_PROGRESS → FAILED (PG 실패 또는 요청 실패)
-- `isFinalized()`: SUCCEEDED 또는 FAILED 여부 반환 (사실 제공, 멱등성 판단용)
+- `markInProgress()`: REQUESTED → IN_PROGRESS (PG 접수 성공)
+- `markSucceeded()`: REQUESTED/IN_PROGRESS → SUCCEEDED (PG 콜백 또는 수동 확인)
+- `markFailed()`: REQUESTED/IN_PROGRESS → FAILED (PG 실패 또는 요청 실패)
+- `markCanceled()`: SUCCEEDED → CANCELED (주문 취소 시 PG 취소 성공 후)
+- `isFinalized()`: SUCCEEDED, FAILED 또는 CANCELED 여부 반환 (사실 제공, 멱등성 판단용)
 - `isOwnedBy()`: 소유권 확인 (사실 제공, Facade가 접근 제어 판단)
 - 1주문 1결제: 비즈니스 규칙으로 Facade에서 검증 (DB UNIQUE 제약 아님 — 실패 후 재결제 허용)

@@ -1,7 +1,7 @@
-# 주문 요청 시퀀스다이어그램
+# 재고 점유/확정 시퀀스다이어그램
 
 ## 개요
-사용자가 상품을 주문할 때 재고 점유, 쿠폰 적용, 주문 생성을 트랜잭션으로 처리하는 흐름을 정의한다.
+주문 생성 시 재고를 점유하고, 결제 요청 시 비즈니스 먼저 확정(재고 확정 + 주문 PAID)하는 흐름을 정의한다.
 
 ## 시퀀스
 
@@ -10,9 +10,9 @@ sequenceDiagram
     actor 사용자
     participant OC as OrderController
     participant OF as OrderFacade
+    participant SS as StockService
     participant ICS as IssuedCouponService
     participant PS as ProductService
-    participant SS as StockService
     participant OS as OrderService
 
     사용자->>OC: POST /api/v1/orders
@@ -63,6 +63,6 @@ sequenceDiagram
 ## 핵심 포인트
 - 기존 ProductService.decreaseStocks()가 StockService.reserve()로 대체된다
 - 재고 점유, 쿠폰 사용 처리, 주문 생성은 하나의 트랜잭션에서 원자적으로 처리한다
-- 주문은 CREATED 상태로 생성된다 (기존에는 상태 관리 없었음)
+- 주문은 CREATED 상태로 생성된다 (기존 PENDING에서 변경)
 - 재고 점유 시 비관적 락(SELECT FOR UPDATE)으로 동시성을 제어한다
-- IssuedCoupon이 발급 시점의 Coupon 데이터를 스냅샷하므로, 주문 시 CouponService 조회가 불필요하다
+- 재고 확정은 결제 요청 시퀀스(payment/006)에서 처리한다

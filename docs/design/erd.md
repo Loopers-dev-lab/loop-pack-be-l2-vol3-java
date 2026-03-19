@@ -75,14 +75,26 @@ erDiagram
         datetime created_at
     }
 
+    STOCK {
+        bigint id PK
+        bigint product_id FK "상품 ID"
+        int quantity "총 재고 수량"
+        int reserved_quantity "점유 수량"
+        int confirmed_quantity "확정 차감 수량"
+        datetime created_at
+        datetime updated_at
+    }
+
     ORDERS {
         bigint id PK
         bigint user_id FK "주문자"
+        varchar status "CREATED / PAID / CANCELED"
         decimal total_amount "쿠폰 적용 전 금액"
         decimal discount_amount "할인 금액"
         decimal final_amount "최종 결제 금액"
         bigint issued_coupon_id "적용된 발급 쿠폰"
         datetime created_at
+        datetime updated_at
     }
 
     ORDER_ITEM {
@@ -103,12 +115,13 @@ erDiagram
         varchar card_type "SAMSUNG / KB / HYUNDAI"
         varchar card_no "카드 번호"
         decimal amount "결제 금액"
-        varchar status "REQUESTED / PENDING / SUCCESS / FAILED"
+        varchar status "REQUESTED / IN_PROGRESS / SUCCEEDED / FAILED / CANCELED"
         varchar fail_reason "실패 사유 (nullable)"
         datetime created_at
         datetime updated_at
     }
 
+    PRODUCT ||--|| STOCK : ""
     BRAND ||--o{ PRODUCT : ""
     USER ||--o{ LIKES : ""
     PRODUCT ||--o{ LIKES : ""
@@ -131,6 +144,7 @@ erDiagram
 | LIKES | Like | 사용자-상품 간 좋아요 | Hard Delete |
 | COUPON | Coupon | 할인 쿠폰 템플릿 | Soft Delete |
 | ISSUED_COUPON | Coupon | 사용자에게 발급된 쿠폰 | 삭제 불가 |
+| STOCK | Stock | 상품별 재고 (점유/확정 관리) | 삭제 불가 |
 | ORDERS | Order | 사용자의 주문 | 삭제 불가 |
 | ORDER_ITEM | Order | 주문 시점 상품 스냅샷 | 삭제 불가 |
 | PAYMENT | Payment | PG 연동 카드 결제 | 삭제 불가 |
@@ -146,3 +160,5 @@ erDiagram
 | PAYMENT | INDEX | order_id, status | 주문별 결제 조회 + 중복 결제 방지 |
 | PAYMENT | INDEX | user_id | 사용자별 결제 조회 |
 | PAYMENT | INDEX | transaction_key | PG 콜백 시 거래 키로 조회 |
+| STOCK | UNIQUE | product_id | 상품당 1개 재고 레코드 |
+| ORDERS | INDEX | user_id, status | 사용자별 주문 조회 + 상태 필터 |

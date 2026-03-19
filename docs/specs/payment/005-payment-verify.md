@@ -29,10 +29,10 @@ User
 
 ## 인수 조건
 - [ ] IN_PROGRESS 상태의 결제를 확인 요청하면 PG 조회 후 상태가 확정되고 200 응답을 반환한다
-- [ ] PG 조회 결과 SUCCESS이면 결제 상태가 SUCCEEDED로 변경되고 주문이 PAID로 전이된다
-- [ ] PG 조회 결과 FAILED이면 결제 상태가 FAILED로 변경된다 (주문은 PENDING 유지)
+- [ ] PG 조회 결과 SUCCESS이면 결제 상태가 SUCCEEDED로 변경된다 (주문은 이미 PAID)
+- [ ] PG 조회 결과 FAILED이면 결제 상태가 FAILED로 변경되고, 보상 트랜잭션이 실행된다: 재고 확정 복원 + 주문 CANCELED + 쿠폰 복원
 - [ ] PG 조회 결과 PENDING이면 결제 상태를 변경하지 않고 현재 상태 그대로 반환한다
-- [ ] PENDING 상태(transactionKey 없음)의 결제를 확인 요청하면 결제를 FAILED로 처리하고 200 응답을 반환한다
+- [ ] REQUESTED 상태(transactionKey 없음)의 결제를 확인 요청하면 결제를 FAILED로 처리하고 보상 트랜잭션을 수행한 뒤 200 응답을 반환한다
 - [ ] 해당 결제가 존재하지 않으면 404 응답, 메시지: "존재하지 않는 결제입니다"
 - [ ] 본인의 결제가 아니면 404 응답, 메시지: "존재하지 않는 결제입니다"
 - [ ] 이미 확정(SUCCEEDED/FAILED) 상태이면 400 응답, 메시지: "이미 확정된 결제입니다"
