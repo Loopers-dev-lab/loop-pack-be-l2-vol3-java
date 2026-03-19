@@ -1,12 +1,10 @@
 package com.loopers.interfaces.api.payment;
 
-import com.loopers.domain.order.OrderStatus;
+import com.loopers.application.order.OrderService;
 import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentStatus;
-import com.loopers.application.order.OrderService;
 import com.loopers.application.payment.PaymentService;
-import com.loopers.infrastructure.payment.dto.PgCallbackPayload;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.order.OrderRequest;
 import com.loopers.support.E2ETestFixture;
@@ -204,8 +202,7 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     LOGIN_ID, PASSWORD);
 
-            // userId=1L로 가정 (첫 번째 회원가입)
-            var payment = paymentService.createPayment(orderId, 1L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = fixture.createPendingPayment(orderId, 1L, new BigDecimal("50000"));
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
                     PAYMENT_ENDPOINT + "/" + payment.getId(), HttpMethod.GET,
@@ -217,6 +214,7 @@ class PaymentApiE2ETest {
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().id()).isEqualTo(payment.getId()),
                     () -> assertThat(response.getBody().data().status()).isEqualTo(PaymentStatus.PENDING),
+                    () -> assertThat(response.getBody().data().paymentKey()).isNotNull(),
                     () -> assertThat(response.getBody().data().amount()).isEqualByComparingTo(new BigDecimal("50000"))
             );
         }
@@ -248,7 +246,7 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     "otheruser", "Other1234!");
 
-            var payment = paymentService.createPayment(orderId, 2L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = fixture.createPendingPayment(orderId, 2L, new BigDecimal("50000"));
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
                     PAYMENT_ENDPOINT + "/" + payment.getId(), HttpMethod.GET,
@@ -287,10 +285,10 @@ class PaymentApiE2ETest {
     }
 
     @Nested
-    class 결제_콜백 {
+    class 결제_취소 {
 
         @Test
-        void SUCCESS_콜백이면_결제_SUCCEEDED_주문_PAID로_전이된다() {
+        void SUCCEEDED_결제를_취소하면_CANCELED_상태로_변경된다() {
             fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
@@ -298,25 +296,25 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     LOGIN_ID, PASSWORD);
 
-            Payment payment = fixture.requestPayment(orderId, 1L, new BigDecimal("50000"));
+            Payment payment = fixture.createSucceededPayment(orderId, 1L, new BigDecimal("50000"));
 
-            PgCallbackPayload payload = new PgCallbackPayload(
-                    payment.getTransactionKey(), String.valueOf(orderId), "SAMSUNG",
-                    "1234-5678-9012-3456", 50000L, "SUCCESS", null);
+            PaymentRequest.Cancel cancelRequest = new PaymentRequest.Cancel("단순 변심", null);
 
-            ResponseEntity<Void> response = testRestTemplate.postForEntity(
-                    PAYMENT_ENDPOINT + "/callback", payload, Void.class);
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    PAYMENT_ENDPOINT + "/" + payment.getId() + "/cancel", HttpMethod.POST,
+                    new HttpEntity<>(cancelRequest, fixture.userHeaders(LOGIN_ID, PASSWORD)),
+                    new ParameterizedTypeReference<>() {}
+            );
 
-            Payment updated = paymentService.getPayment(payment.getId());
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(updated.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED),
-                    () -> assertThat(orderService.getOrder(orderId).getStatus()).isEqualTo(OrderStatus.PAID)
+                    () -> assertThat(response.getBody().data().status()).isEqualTo(PaymentStatus.CANCELED),
+                    () -> assertThat(response.getBody().data().cancelReason()).isEqualTo("단순 변심")
             );
         }
 
         @Test
-        void FAILED_콜백이면_결제_FAILED_주문_PENDING_유지() {
+        void PENDING_결제를_취소하면_400_응답() {
             fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
@@ -324,60 +322,92 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     LOGIN_ID, PASSWORD);
 
-            Payment payment = fixture.requestPayment(orderId, 1L, new BigDecimal("50000"));
+            Payment payment = fixture.createPendingPayment(orderId, 1L, new BigDecimal("50000"));
 
-            PgCallbackPayload payload = new PgCallbackPayload(
-                    payment.getTransactionKey(), String.valueOf(orderId), "SAMSUNG",
-                    "1234-5678-9012-3456", 50000L, "FAILED", "한도초과");
+            PaymentRequest.Cancel cancelRequest = new PaymentRequest.Cancel("변심", null);
 
-            ResponseEntity<Void> response = testRestTemplate.postForEntity(
-                    PAYMENT_ENDPOINT + "/callback", payload, Void.class);
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    PAYMENT_ENDPOINT + "/" + payment.getId() + "/cancel", HttpMethod.POST,
+                    new HttpEntity<>(cancelRequest, fixture.userHeaders(LOGIN_ID, PASSWORD)),
+                    new ParameterizedTypeReference<>() {}
+            );
 
-            Payment updated = paymentService.getPayment(payment.getId());
             assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(updated.getStatus()).isEqualTo(PaymentStatus.FAILED),
-                    () -> assertThat(updated.getFailReason()).isEqualTo("한도초과"),
-                    () -> assertThat(orderService.getOrder(orderId).getStatus()).isEqualTo(OrderStatus.PENDING)
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
+                    () -> assertThat(response.getBody().meta().message()).contains("취소할 수 없는 결제 상태입니다")
             );
         }
 
         @Test
-        void 이미_확정된_결제이면_무시하고_200_응답() {
+        void 본인의_결제가_아니면_404_응답() {
             fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
+            fixture.signUp("otheruser", "Other1234!", "김철수", "other@example.com");
+
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
             Long orderId = fixture.placeOrder(
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
-                    LOGIN_ID, PASSWORD);
+                    "otheruser", "Other1234!");
 
-            Payment payment = fixture.requestPayment(orderId, 1L, new BigDecimal("50000"));
-            paymentService.markFailed(payment.getId(), "이전 실패");
+            Payment payment = fixture.createSucceededPayment(orderId, 2L, new BigDecimal("50000"));
 
-            PgCallbackPayload payload = new PgCallbackPayload(
-                    payment.getTransactionKey(), String.valueOf(orderId), "SAMSUNG",
-                    "1234-5678-9012-3456", 50000L, "SUCCESS", null);
+            PaymentRequest.Cancel cancelRequest = new PaymentRequest.Cancel("변심", null);
 
-            ResponseEntity<Void> response = testRestTemplate.postForEntity(
-                    PAYMENT_ENDPOINT + "/callback", payload, Void.class);
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    PAYMENT_ENDPOINT + "/" + payment.getId() + "/cancel", HttpMethod.POST,
+                    new HttpEntity<>(cancelRequest, fixture.userHeaders(LOGIN_ID, PASSWORD)),
+                    new ParameterizedTypeReference<>() {}
+            );
 
-            Payment updated = paymentService.getPayment(payment.getId());
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        void 존재하지_않는_결제이면_404_응답() {
+            fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
+
+            PaymentRequest.Cancel cancelRequest = new PaymentRequest.Cancel("변심", null);
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    PAYMENT_ENDPOINT + "/999/cancel", HttpMethod.POST,
+                    new HttpEntity<>(cancelRequest, fixture.userHeaders(LOGIN_ID, PASSWORD)),
+                    new ParameterizedTypeReference<>() {}
+            );
+
             assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(updated.getStatus()).isEqualTo(PaymentStatus.FAILED)
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND),
+                    () -> assertThat(response.getBody().meta().message()).contains("존재하지 않는 결제입니다")
             );
         }
 
         @Test
-        void transactionKey에_해당하는_결제가_없으면_200_응답() {
-            PgCallbackPayload payload = new PgCallbackPayload(
-                    "nonexistent-key", "1", "SAMSUNG",
-                    "1234-5678-9012-3456", 50000L, "SUCCESS", null);
+        void 인증_헤더가_누락되면_401_응답() {
+            PaymentRequest.Cancel cancelRequest = new PaymentRequest.Cancel("변심", null);
 
-            ResponseEntity<Void> response = testRestTemplate.postForEntity(
-                    PAYMENT_ENDPOINT + "/callback", payload, Void.class);
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    PAYMENT_ENDPOINT + "/1/cancel", HttpMethod.POST,
+                    new HttpEntity<>(cancelRequest),
+                    new ParameterizedTypeReference<>() {}
+            );
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void 인증에_실패하면_401_응답() {
+            PaymentRequest.Cancel cancelRequest = new PaymentRequest.Cancel("변심", null);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Loopers-LoginId", "wronguser");
+            headers.set("X-Loopers-LoginPw", "wrongpw");
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    PAYMENT_ENDPOINT + "/1/cancel", HttpMethod.POST,
+                    new HttpEntity<>(cancelRequest, headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
     }
 
@@ -395,7 +425,7 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     LOGIN_ID, PASSWORD);
 
-            Payment payment = fixture.requestPayment(orderId, 1L, new BigDecimal("50000"));
+            Payment payment = fixture.createPendingPayment(orderId, 1L, new BigDecimal("50000"));
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
                     ORDER_PAYMENT_ENDPOINT + "/" + orderId + "/payment", HttpMethod.GET,
@@ -407,7 +437,7 @@ class PaymentApiE2ETest {
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().id()).isEqualTo(payment.getId()),
                     () -> assertThat(response.getBody().data().orderId()).isEqualTo(orderId),
-                    () -> assertThat(response.getBody().data().status()).isEqualTo(PaymentStatus.IN_PROGRESS)
+                    () -> assertThat(response.getBody().data().status()).isEqualTo(PaymentStatus.PENDING)
             );
         }
 
@@ -501,7 +531,7 @@ class PaymentApiE2ETest {
     class 결제_수동_확인 {
 
         @Test
-        void PENDING_상태이면_FAILED로_처리되고_200_응답() {
+        void PENDING_상태이면_결제_미완료로_FAILED_처리되고_200_응답() {
             fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
@@ -509,8 +539,7 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     LOGIN_ID, PASSWORD);
 
-            // PENDING 상태 결제 (markInProgress 미호출)
-            Payment payment = paymentService.createPayment(orderId, 1L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            Payment payment = fixture.createPendingPayment(orderId, 1L, new BigDecimal("50000"));
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
                     PAYMENT_ENDPOINT + "/" + payment.getId() + "/verify", HttpMethod.POST,
@@ -520,8 +549,7 @@ class PaymentApiE2ETest {
 
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(response.getBody().data().status()).isEqualTo(PaymentStatus.FAILED),
-                    () -> assertThat(response.getBody().data().failReason()).isEqualTo("PG 요청 미도달")
+                    () -> assertThat(response.getBody().data().status()).isEqualTo(PaymentStatus.FAILED)
             );
         }
 
@@ -534,7 +562,7 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     LOGIN_ID, PASSWORD);
 
-            Payment payment = fixture.requestPayment(orderId, 1L, new BigDecimal("50000"));
+            Payment payment = fixture.createPendingPayment(orderId, 1L, new BigDecimal("50000"));
             paymentService.markFailed(payment.getId(), "이전 실패");
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
@@ -576,7 +604,7 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     "otheruser", "Other1234!");
 
-            Payment payment = fixture.requestPayment(orderId, 2L, new BigDecimal("50000"));
+            Payment payment = fixture.createPendingPayment(orderId, 2L, new BigDecimal("50000"));
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
                     PAYMENT_ENDPOINT + "/" + payment.getId() + "/verify", HttpMethod.POST,

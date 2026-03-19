@@ -27,10 +27,10 @@ public class PaymentService {
     }
 
     @Transactional
-    public void markInProgress(Long paymentId, String transactionKey) {
+    public void markSucceeded(Long paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다"));
-        payment.markInProgress(transactionKey);
+        payment.markSucceeded();
     }
 
     @Transactional
@@ -41,10 +41,10 @@ public class PaymentService {
     }
 
     @Transactional
-    public void markSucceeded(Long paymentId, String transactionKey) {
+    public void markCanceled(Long paymentId, String reason) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다"));
-        payment.markSucceeded(transactionKey);
+        payment.markCanceled(reason);
     }
 
     // Query
@@ -56,8 +56,8 @@ public class PaymentService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<Payment> getPaymentByTransactionKey(String transactionKey) {
-        return paymentRepository.findByTransactionKey(transactionKey);
+    public Optional<Payment> getPaymentByPaymentKey(String paymentKey) {
+        return paymentRepository.findByPaymentKey(paymentKey);
     }
 
     @Transactional(readOnly = true)

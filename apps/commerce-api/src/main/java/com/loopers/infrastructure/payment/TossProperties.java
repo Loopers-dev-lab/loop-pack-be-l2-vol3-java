@@ -2,10 +2,10 @@ package com.loopers.infrastructure.payment;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties(prefix = "pg")
-public record PgProperties(
+@ConfigurationProperties(prefix = "payment.toss")
+public record TossProperties(
         String baseUrl,
-        String callbackUrl,
+        String secretKey,
         int connectTimeout,
         int readTimeout
 ) {

@@ -14,7 +14,7 @@ import java.util.Optional;
 public class PaymentRepositoryImpl implements PaymentRepository {
 
     private static final List<PaymentStatus> ACTIVE_STATUSES =
-            List.of(PaymentStatus.PENDING, PaymentStatus.IN_PROGRESS, PaymentStatus.SUCCEEDED);
+            List.of(PaymentStatus.PENDING, PaymentStatus.SUCCEEDED);
 
     private final PaymentJpaRepository paymentJpaRepository;
 
@@ -33,8 +33,8 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     }
 
     @Override
-    public Optional<Payment> findByTransactionKey(String transactionKey) {
-        return paymentJpaRepository.findByTransactionKey(transactionKey);
+    public Optional<Payment> findByPaymentKey(String paymentKey) {
+        return paymentJpaRepository.findByPaymentKey(paymentKey);
     }
 
     @Override

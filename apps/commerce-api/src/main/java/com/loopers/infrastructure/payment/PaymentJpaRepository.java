@@ -12,7 +12,7 @@ public interface PaymentJpaRepository extends JpaRepository<Payment, Long> {
 
     // Query
 
-    Optional<Payment> findByTransactionKey(String transactionKey);
+    Optional<Payment> findByPaymentKey(String paymentKey);
 
     @Query("SELECT p FROM Payment p WHERE p.orderId = :orderId ORDER BY p.createdAt DESC LIMIT 1")
     Optional<Payment> findLatestByOrderId(@Param("orderId") Long orderId);

@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.payment;
 
-import com.loopers.infrastructure.payment.dto.PgCallbackPayload;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.AuthenticatedUser;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,16 +10,20 @@ public interface PaymentApiV1Spec {
 
     // Command
 
-    @Operation(summary = "결제 요청", description = "주문에 대한 PG 카드 결제를 요청한다")
+    @Operation(summary = "결제 요청", description = "주문에 대한 토스 카드 결제를 요청한다")
     ApiResponse<PaymentV1Dto.PaymentResponse> requestPayment(
             AuthenticatedUser user,
             PaymentRequest.Request request
     );
 
-    @Operation(summary = "결제 콜백 수신", description = "PG 시스템이 결제 결과를 콜백으로 전달한다")
-    void handleCallback(PgCallbackPayload payload);
+    @Operation(summary = "결제 취소", description = "결제 성공 건을 취소한다")
+    ApiResponse<PaymentV1Dto.PaymentResponse> cancelPayment(
+            AuthenticatedUser user,
+            Long paymentId,
+            PaymentRequest.Cancel request
+    );
 
-    @Operation(summary = "결제 수동 확인", description = "PG에 결제 상태를 수동으로 조회하여 확정한다")
+    @Operation(summary = "결제 수동 확인", description = "토스에 결제 상태를 수동으로 조회하여 확정한다")
     ApiResponse<PaymentV1Dto.PaymentResponse> verifyPayment(
             AuthenticatedUser user,
             Long paymentId

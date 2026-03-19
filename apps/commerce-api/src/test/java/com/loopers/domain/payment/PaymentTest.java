@@ -30,7 +30,7 @@ class PaymentTest {
                     () -> assertThat(payment.getCardNo()).isEqualTo("1234-5678-9012-3456"),
                     () -> assertThat(payment.getAmount()).isEqualByComparingTo(new BigDecimal("50000")),
                     () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING),
-                    () -> assertThat(payment.getTransactionKey()).isNull(),
+                    () -> assertThat(payment.getPaymentKey()).isNotNull(),
                     () -> assertThat(payment.getFailReason()).isNull()
             );
         }
@@ -51,54 +51,15 @@ class PaymentTest {
     }
 
     @Nested
-    class 상태전이_IN_PROGRESS {
-
-        @Test
-        void PENDING에서_IN_PROGRESS로_변경된다() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
-
-            payment.markInProgress("20250317:TR:abc123");
-
-            assertAll(
-                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.IN_PROGRESS),
-                    () -> assertThat(payment.getTransactionKey()).isEqualTo("20250317:TR:abc123")
-            );
-        }
-
-        @Test
-        void IN_PROGRESS_상태에서_markInProgress_호출하면_예외() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
-            payment.markInProgress("20250317:TR:abc123");
-
-            assertThatThrownBy(() -> payment.markInProgress("20250317:TR:def456"))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
-        }
-    }
-
-    @Nested
     class 상태전이_SUCCEEDED {
-
-        @Test
-        void IN_PROGRESS에서_SUCCEEDED로_변경된다() {
-            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
-            payment.markInProgress("20250317:TR:abc123");
-
-            payment.markSucceeded("20250317:TR:abc123");
-
-            assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
-        }
 
         @Test
         void PENDING에서_SUCCEEDED로_변경된다() {
             Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
-            payment.markSucceeded("20250317:TR:abc123");
+            payment.markSucceeded();
 
-            assertAll(
-                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED),
-                    () -> assertThat(payment.getTransactionKey()).isEqualTo("20250317:TR:abc123")
-            );
+            assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
         }
 
         @Test
@@ -106,7 +67,7 @@ class PaymentTest {
             Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             payment.markFailed("한도초과");
 
-            assertThatThrownBy(() -> payment.markSucceeded("20250317:TR:abc123"))
+            assertThatThrownBy(() -> payment.markSucceeded())
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
@@ -128,24 +89,48 @@ class PaymentTest {
         }
 
         @Test
-        void IN_PROGRESS에서_FAILED로_변경된다() {
+        void SUCCEEDED_상태에서_FAILED로_변경하면_예외() {
             Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
-            payment.markInProgress("20250317:TR:abc123");
+            payment.markSucceeded();
 
-            payment.markFailed("한도초과");
+            assertThatThrownBy(() -> payment.markFailed("취소"))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+    }
+
+    @Nested
+    class 상태전이_CANCELED {
+
+        @Test
+        void SUCCEEDED에서_CANCELED로_변경된다() {
+            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            payment.markSucceeded();
+
+            payment.markCanceled("단순 변심");
 
             assertAll(
-                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED),
-                    () -> assertThat(payment.getFailReason()).isEqualTo("한도초과")
+                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CANCELED),
+                    () -> assertThat(payment.getCancelReason()).isEqualTo("단순 변심"),
+                    () -> assertThat(payment.getCanceledAt()).isNotNull()
             );
         }
 
         @Test
-        void SUCCEEDED_상태에서_FAILED로_변경하면_예외() {
+        void PENDING_상태에서_취소하면_예외() {
             Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
-            payment.markSucceeded("20250317:TR:abc123");
 
-            assertThatThrownBy(() -> payment.markFailed("취소"))
+            assertThatThrownBy(() -> payment.markCanceled("변심"))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+
+        @Test
+        void FAILED_상태에서_취소하면_예외() {
+            Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            payment.markFailed("실패");
+
+            assertThatThrownBy(() -> payment.markCanceled("변심"))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
@@ -157,7 +142,7 @@ class PaymentTest {
         @Test
         void SUCCEEDED이면_확정이다() {
             Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
-            payment.markSucceeded("20250317:TR:abc123");
+            payment.markSucceeded();
 
             assertThat(payment.isFinalized()).isTrue();
         }
@@ -171,16 +156,17 @@ class PaymentTest {
         }
 
         @Test
-        void PENDING이면_미확정이다() {
+        void CANCELED이면_확정이다() {
             Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            payment.markSucceeded();
+            payment.markCanceled("변심");
 
-            assertThat(payment.isFinalized()).isFalse();
+            assertThat(payment.isFinalized()).isTrue();
         }
 
         @Test
-        void IN_PROGRESS이면_미확정이다() {
+        void PENDING이면_미확정이다() {
             Payment payment = Payment.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
-            payment.markInProgress("20250317:TR:abc123");
 
             assertThat(payment.isFinalized()).isFalse();
         }

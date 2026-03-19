@@ -10,29 +10,33 @@ import java.time.LocalDateTime;
 public record PaymentInfo(
         Long id,
         Long orderId,
-        String transactionKey,
+        String paymentKey,
         CardType cardType,
         String cardNo,
         BigDecimal amount,
         PaymentStatus status,
         String failReason,
+        String cancelReason,
+        LocalDateTime canceledAt,
         LocalDateTime createdAt
 ) {
 
     public static PaymentInfo empty(Long orderId) {
-        return new PaymentInfo(null, orderId, null, null, null, null, null, null, null);
+        return new PaymentInfo(null, orderId, null, null, null, null, null, null, null, null, null);
     }
 
     public static PaymentInfo from(Payment payment) {
         return new PaymentInfo(
                 payment.getId(),
                 payment.getOrderId(),
-                payment.getTransactionKey(),
+                payment.getPaymentKey(),
                 payment.getCardType(),
                 payment.getCardNo(),
                 payment.getAmount(),
                 payment.getStatus(),
                 payment.getFailReason(),
+                payment.getCancelReason(),
+                payment.getCanceledAt() != null ? payment.getCanceledAt().toLocalDateTime() : null,
                 payment.getCreatedAt().toLocalDateTime()
         );
     }

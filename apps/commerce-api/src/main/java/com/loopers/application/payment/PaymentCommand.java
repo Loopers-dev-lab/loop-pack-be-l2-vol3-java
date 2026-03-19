@@ -11,14 +11,10 @@ public record PaymentCommand() {
         }
     }
 
-    public record Callback(String transactionKey, String status, String reason) {
+    public record Cancel(String cancelReason, Long cancelAmount) {
 
-        public static Callback of(String transactionKey, String status, String reason) {
-            return new Callback(transactionKey, status, reason);
-        }
-
-        public boolean isSuccess() {
-            return "SUCCESS".equals(status);
+        public static Cancel of(String cancelReason, Long cancelAmount) {
+            return new Cancel(cancelReason, cancelAmount);
         }
     }
 }

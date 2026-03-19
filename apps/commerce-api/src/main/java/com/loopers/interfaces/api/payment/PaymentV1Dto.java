@@ -14,12 +14,14 @@ public class PaymentV1Dto {
     public record PaymentResponse(
             Long id,
             Long orderId,
-            String transactionKey,
+            String paymentKey,
             CardType cardType,
             String cardNo,
             BigDecimal amount,
             PaymentStatus status,
             String failReason,
+            String cancelReason,
+            LocalDateTime canceledAt,
             LocalDateTime createdAt
     ) {
 
@@ -27,12 +29,14 @@ public class PaymentV1Dto {
             return new PaymentResponse(
                     info.id(),
                     info.orderId(),
-                    info.transactionKey(),
+                    info.paymentKey(),
                     info.cardType(),
                     info.cardNo(),
                     info.amount(),
                     info.status(),
                     info.failReason(),
+                    info.cancelReason(),
+                    info.canceledAt(),
                     info.createdAt()
             );
         }

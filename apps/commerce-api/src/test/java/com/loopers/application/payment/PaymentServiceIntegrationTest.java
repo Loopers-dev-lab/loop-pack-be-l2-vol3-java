@@ -52,25 +52,23 @@ class PaymentServiceIntegrationTest {
                     () -> assertThat(payment.getOrderId()).isEqualTo(1L),
                     () -> assertThat(payment.getUserId()).isEqualTo(100L),
                     () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING),
+                    () -> assertThat(payment.getPaymentKey()).isNotNull(),
                     () -> assertThat(payment.getAmount()).isEqualByComparingTo(new BigDecimal("50000"))
             );
         }
     }
 
     @Nested
-    class 상태_변경_IN_PROGRESS {
+    class 상태_변경_SUCCEEDED {
 
         @Test
-        void PENDING에서_IN_PROGRESS로_변경된다() {
+        void PENDING에서_SUCCEEDED로_변경된다() {
             Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
-            paymentService.markInProgress(payment.getId(), "20250317:TR:abc123");
+            paymentService.markSucceeded(payment.getId());
 
             Payment updated = paymentService.getPayment(payment.getId());
-            assertAll(
-                    () -> assertThat(updated.getStatus()).isEqualTo(PaymentStatus.IN_PROGRESS),
-                    () -> assertThat(updated.getTransactionKey()).isEqualTo("20250317:TR:abc123")
-            );
+            assertThat(updated.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
         }
     }
 
@@ -87,6 +85,25 @@ class PaymentServiceIntegrationTest {
             assertAll(
                     () -> assertThat(updated.getStatus()).isEqualTo(PaymentStatus.FAILED),
                     () -> assertThat(updated.getFailReason()).isEqualTo("PG 요청 실패")
+            );
+        }
+    }
+
+    @Nested
+    class 상태_변경_CANCELED {
+
+        @Test
+        void SUCCEEDED에서_CANCELED로_변경된다() {
+            Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            paymentService.markSucceeded(payment.getId());
+
+            paymentService.markCanceled(payment.getId(), "단순 변심");
+
+            Payment updated = paymentService.getPayment(payment.getId());
+            assertAll(
+                    () -> assertThat(updated.getStatus()).isEqualTo(PaymentStatus.CANCELED),
+                    () -> assertThat(updated.getCancelReason()).isEqualTo("단순 변심"),
+                    () -> assertThat(updated.getCanceledAt()).isNotNull()
             );
         }
     }
@@ -112,42 +129,13 @@ class PaymentServiceIntegrationTest {
     }
 
     @Nested
-    class 상태_변경_SUCCEEDED {
+    class paymentKey_조회 {
 
         @Test
-        void PENDING에서_SUCCEEDED로_변경된다() {
+        void 존재하는_paymentKey이면_결제를_반환한다() {
             Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
-            paymentService.markSucceeded(payment.getId(), "20250317:TR:abc123");
-
-            Payment updated = paymentService.getPayment(payment.getId());
-            assertAll(
-                    () -> assertThat(updated.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED),
-                    () -> assertThat(updated.getTransactionKey()).isEqualTo("20250317:TR:abc123")
-            );
-        }
-
-        @Test
-        void IN_PROGRESS에서_SUCCEEDED로_변경된다() {
-            Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
-            paymentService.markInProgress(payment.getId(), "20250317:TR:abc123");
-
-            paymentService.markSucceeded(payment.getId(), "20250317:TR:abc123");
-
-            Payment updated = paymentService.getPayment(payment.getId());
-            assertThat(updated.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
-        }
-    }
-
-    @Nested
-    class transactionKey_조회 {
-
-        @Test
-        void 존재하는_transactionKey이면_결제를_반환한다() {
-            Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
-            paymentService.markInProgress(payment.getId(), "20250317:TR:abc123");
-
-            Optional<Payment> found = paymentService.getPaymentByTransactionKey("20250317:TR:abc123");
+            Optional<Payment> found = paymentService.getPaymentByPaymentKey(payment.getPaymentKey());
 
             assertAll(
                     () -> assertThat(found).isPresent(),
@@ -156,8 +144,8 @@ class PaymentServiceIntegrationTest {
         }
 
         @Test
-        void 존재하지_않는_transactionKey이면_빈_Optional을_반환한다() {
-            Optional<Payment> found = paymentService.getPaymentByTransactionKey("nonexistent");
+        void 존재하지_않는_paymentKey이면_빈_Optional을_반환한다() {
+            Optional<Payment> found = paymentService.getPaymentByPaymentKey("nonexistent");
 
             assertThat(found).isEmpty();
         }
@@ -203,7 +191,7 @@ class PaymentServiceIntegrationTest {
         @Test
         void SUCCEEDED_상태의_결제가_있으면_true() {
             Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
-            payment.markSucceeded("20250317:TR:abc123");
+            payment.markSucceeded();
             paymentRepository.save(payment);
 
             assertThat(paymentService.existsActivePayment(1L)).isTrue();
@@ -213,6 +201,16 @@ class PaymentServiceIntegrationTest {
         void FAILED_상태의_결제만_있으면_false() {
             Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             payment.markFailed("한도초과");
+            paymentRepository.save(payment);
+
+            assertThat(paymentService.existsActivePayment(1L)).isFalse();
+        }
+
+        @Test
+        void CANCELED_상태의_결제만_있으면_false() {
+            Payment payment = paymentService.createPayment(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            payment.markSucceeded();
+            payment.markCanceled("변심");
             paymentRepository.save(payment);
 
             assertThat(paymentService.existsActivePayment(1L)).isFalse();

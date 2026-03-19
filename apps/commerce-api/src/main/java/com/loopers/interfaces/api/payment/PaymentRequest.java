@@ -21,4 +21,14 @@ public record PaymentRequest() {
             return PaymentCommand.Request.of(orderId, cardType, cardNo);
         }
     }
+
+    public record Cancel(
+            @NotBlank String cancelReason,
+            Long cancelAmount
+    ) {
+
+        public PaymentCommand.Cancel toCommand() {
+            return PaymentCommand.Cancel.of(cancelReason, cancelAmount);
+        }
+    }
 }

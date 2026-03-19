@@ -162,9 +162,13 @@ public class E2ETestFixture {
         return placeOrder(orderItems, null, loginId, password);
     }
 
-    public Payment requestPayment(Long orderId, Long userId, BigDecimal amount) {
+    public Payment createPendingPayment(Long orderId, Long userId, BigDecimal amount) {
+        return paymentService.createPayment(orderId, userId, CardType.SAMSUNG, "1234-5678-9012-3456", amount);
+    }
+
+    public Payment createSucceededPayment(Long orderId, Long userId, BigDecimal amount) {
         Payment payment = paymentService.createPayment(orderId, userId, CardType.SAMSUNG, "1234-5678-9012-3456", amount);
-        paymentService.markInProgress(payment.getId(), "20250317:TR:test-" + payment.getId());
+        paymentService.markSucceeded(payment.getId());
         return paymentService.getPayment(payment.getId());
     }
 

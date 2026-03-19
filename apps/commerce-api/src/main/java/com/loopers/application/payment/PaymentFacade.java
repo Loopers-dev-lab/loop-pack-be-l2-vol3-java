@@ -4,12 +4,11 @@ import com.loopers.application.order.OrderService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.payment.Payment;
-import com.loopers.infrastructure.payment.PgClient;
-import com.loopers.infrastructure.payment.PgProperties;
-import com.loopers.infrastructure.payment.dto.PgPaymentRequest;
-import com.loopers.infrastructure.payment.dto.PgPaymentResponse;
-import com.loopers.infrastructure.payment.dto.PgTransactionResponse;
 import com.loopers.domain.payment.PaymentStatus;
+import com.loopers.infrastructure.payment.TossPaymentClient;
+import com.loopers.infrastructure.payment.dto.TossCancelRequest;
+import com.loopers.infrastructure.payment.dto.TossConfirmRequest;
+import com.loopers.infrastructure.payment.dto.TossPaymentResponse;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
@@ -18,10 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 
 @Slf4j
 @Component
@@ -30,44 +27,43 @@ public class PaymentFacade {
 
     private final PaymentService paymentService;
     private final OrderService orderService;
-    private final PgClient pgClient;
-    private final PgProperties pgProperties;
+    private final TossPaymentClient tossClient;
 
     // Command
 
     @Bulkhead(name = "pg-payment", fallbackMethod = "paymentBulkheadFallback")
     public PaymentInfo requestPayment(Long userId, PaymentCommand.Request command) {
-        // 1. 트랜잭션: 주문 검증 + 중복 결제 확인 + Payment 생성
+        // TX1: 주문 검증 + 중복 결제 확인 + Payment 생성 (PENDING)
         BigDecimal finalAmount = validateOrder(userId, command.orderId());
         Payment payment = paymentService.createPayment(
                 command.orderId(), userId, command.cardType(), command.cardNo(), finalAmount);
 
-        // 2. 트랜잭션 밖: PG 호출
-        requestPaymentToPg(payment, userId);
+        // 토스 confirm 호출 (트랜잭션 밖 — DB 커넥션 미점유)
+        confirmPaymentWithToss(payment);
 
-        // 3. 최종 상태 조회
+        // 최종 상태 조회
         Payment updatedPayment = paymentService.getPayment(payment.getId());
         return PaymentInfo.from(updatedPayment);
     }
 
-    @Transactional
-    public void handleCallback(PaymentCommand.Callback command) {
-        Optional<Payment> optPayment = paymentService.getPaymentByTransactionKey(command.transactionKey());
-        if (optPayment.isEmpty()) {
-            return;
+    public PaymentInfo cancelPayment(Long userId, Long paymentId, PaymentCommand.Cancel command) {
+        Payment payment = paymentService.getPayment(paymentId);
+        if (!payment.isOwnedBy(userId)) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다");
+        }
+        if (payment.getStatus() != PaymentStatus.SUCCEEDED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "취소할 수 없는 결제 상태입니다");
         }
 
-        Payment payment = optPayment.get();
-        if (payment.isFinalized()) {
-            return;
-        }
+        // 토스 취소 API 호출
+        tossClient.cancelPayment(
+                payment.getPaymentKey(),
+                new TossCancelRequest(command.cancelReason(), command.cancelAmount()));
 
-        if (command.isSuccess()) {
-            payment.markSucceeded(command.transactionKey());
-            orderService.payOrder(payment.getOrderId());
-        } else {
-            payment.markFailed(command.reason());
-        }
+        // TX2: DB 상태 업데이트
+        paymentService.markCanceled(paymentId, command.cancelReason());
+
+        return PaymentInfo.from(paymentService.getPayment(paymentId));
     }
 
     @Bulkhead(name = "pg-payment", fallbackMethod = "verifyBulkheadFallback")
@@ -80,41 +76,31 @@ public class PaymentFacade {
             throw new CoreException(ErrorType.BAD_REQUEST, "이미 확정된 결제입니다");
         }
 
-        if (payment.getStatus() == PaymentStatus.PENDING) {
-            paymentService.markFailed(payment.getId(), "PG 요청 미도달");
-            return PaymentInfo.from(paymentService.getPayment(payment.getId()));
-        }
-
-        PgTransactionResponse response;
+        // PENDING 상태: 토스에서 상태 조회
+        TossPaymentResponse response;
         try {
-            response = pgClient.getTransaction(userId, payment.getTransactionKey());
+            response = tossClient.getPayment(payment.getPaymentKey());
         } catch (Exception e) {
             throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 상태를 확인할 수 없습니다. 잠시 후 다시 시도해주세요");
         }
 
-        String pgStatus = response.data() != null ? response.data().status() : null;
-        String pgReason = response.data() != null ? response.data().reason() : null;
-
-        if ("SUCCESS".equals(pgStatus) || "FAILED".equals(pgStatus)) {
-            confirmPaymentResult(payment.getId(), pgStatus, pgReason);
+        if (response != null && response.isDone()) {
+            confirmPaymentResult(payment.getId());
+        } else {
+            paymentService.markFailed(payment.getId(), "결제 미완료");
         }
 
         return PaymentInfo.from(paymentService.getPayment(payment.getId()));
     }
 
     @Transactional
-    public void confirmPaymentResult(Long paymentId, String pgStatus, String reason) {
+    public void confirmPaymentResult(Long paymentId) {
         Payment payment = paymentService.getPayment(paymentId);
         if (payment.isFinalized()) {
             return;
         }
-
-        if ("SUCCESS".equals(pgStatus)) {
-            payment.markSucceeded(payment.getTransactionKey());
-            orderService.payOrder(payment.getOrderId());
-        } else {
-            payment.markFailed(reason);
-        }
+        payment.markSucceeded();
+        orderService.payOrder(payment.getOrderId());
     }
 
     // Query
@@ -167,31 +153,29 @@ public class PaymentFacade {
         return order.getFinalAmount();
     }
 
-    private void requestPaymentToPg(Payment payment, Long userId) {
-        PgPaymentRequest pgRequest = PgPaymentRequest.of(
-                payment.getOrderId(),
-                payment.getCardType().name(),
-                payment.getCardNo(),
-                payment.getAmount().longValue(),
-                pgProperties.callbackUrl()
+    private void confirmPaymentWithToss(Payment payment) {
+        TossConfirmRequest confirmRequest = new TossConfirmRequest(
+                payment.getPaymentKey(),
+                String.valueOf(payment.getOrderId()),
+                payment.getAmount().longValue()
         );
 
         try {
-            PgPaymentResponse pgResponse = pgClient.requestPayment(userId, pgRequest);
-            if (pgResponse != null && pgResponse.isSuccess() && pgResponse.data() != null) {
-                paymentService.markInProgress(payment.getId(), pgResponse.data().transactionKey());
+            TossPaymentResponse response = tossClient.confirmPayment(confirmRequest);
+            if (response != null && response.isDone()) {
+                // TX2: 결제 성공 + 주문 상태 전이
+                confirmPaymentResult(payment.getId());
             } else {
-                String reason = (pgResponse != null && pgResponse.meta() != null)
-                        ? pgResponse.meta().message()
-                        : "PG 응답 오류";
-                paymentService.markFailed(payment.getId(), reason);
+                paymentService.markFailed(payment.getId(), "PG 승인 실패");
                 throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 요청에 실패했습니다. 잠시 후 다시 시도해주세요");
             }
         } catch (ResourceAccessException e) {
-            log.warn("PG 요청 타임아웃: paymentId={}, message={}", payment.getId(), e.getMessage());
-            // PENDING 상태 유지 (보류)
-        } catch (RestClientException e) {
-            log.error("PG 요청 실패: paymentId={}, message={}", payment.getId(), e.getMessage());
+            log.warn("토스 결제 승인 타임아웃: paymentId={}, message={}", payment.getId(), e.getMessage());
+            // PENDING 상태 유지 (verify로 확인)
+        } catch (CoreException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("토스 결제 승인 실패: paymentId={}, message={}", payment.getId(), e.getMessage());
             paymentService.markFailed(payment.getId(), e.getMessage());
             throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 요청에 실패했습니다. 잠시 후 다시 시도해주세요");
         }

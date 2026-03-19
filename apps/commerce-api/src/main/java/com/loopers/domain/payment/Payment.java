@@ -17,12 +17,13 @@ import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "payment", indexes = {
         @Index(name = "idx_payment_order_status", columnList = "order_id, status"),
         @Index(name = "idx_payment_user", columnList = "user_id"),
-        @Index(name = "idx_payment_transaction_key", columnList = "transaction_key")
+        @Index(name = "idx_payment_payment_key", columnList = "payment_key")
 })
 @Getter
 public class Payment {
@@ -37,8 +38,8 @@ public class Payment {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(name = "transaction_key")
-    private String transactionKey;
+    @Column(name = "payment_key", nullable = false, unique = true)
+    private String paymentKey;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "card_type", nullable = false, length = 20)
@@ -56,6 +57,12 @@ public class Payment {
 
     @Column(name = "fail_reason")
     private String failReason;
+
+    @Column(name = "cancel_reason")
+    private String cancelReason;
+
+    @Column(name = "canceled_at")
+    private ZonedDateTime canceledAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private ZonedDateTime createdAt;
@@ -76,6 +83,7 @@ public class Payment {
         Payment payment = new Payment();
         payment.orderId = orderId;
         payment.userId = userId;
+        payment.paymentKey = UUID.randomUUID().toString();
         payment.cardType = cardType;
         payment.cardNo = cardNo;
         payment.amount = amount;
@@ -83,35 +91,34 @@ public class Payment {
         return payment;
     }
 
-    public void markInProgress(String transactionKey) {
+    public void markSucceeded() {
         if (this.status != PaymentStatus.PENDING) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "PENDING 상태에서만 IN_PROGRESS로 변경할 수 있습니다");
-        }
-        validateTransactionKey(transactionKey);
-        this.transactionKey = transactionKey;
-        this.status = PaymentStatus.IN_PROGRESS;
-    }
-
-    public void markSucceeded(String transactionKey) {
-        if (this.status != PaymentStatus.PENDING && this.status != PaymentStatus.IN_PROGRESS) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "PENDING 또는 IN_PROGRESS 상태에서만 SUCCEEDED로 변경할 수 있습니다");
-        }
-        if (transactionKey != null) {
-            this.transactionKey = transactionKey;
+            throw new CoreException(ErrorType.BAD_REQUEST, "PENDING 상태에서만 SUCCEEDED로 변경할 수 있습니다");
         }
         this.status = PaymentStatus.SUCCEEDED;
     }
 
     public void markFailed(String reason) {
-        if (this.status != PaymentStatus.PENDING && this.status != PaymentStatus.IN_PROGRESS) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "PENDING 또는 IN_PROGRESS 상태에서만 FAILED로 변경할 수 있습니다");
+        if (this.status != PaymentStatus.PENDING) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "PENDING 상태에서만 FAILED로 변경할 수 있습니다");
         }
         this.status = PaymentStatus.FAILED;
         this.failReason = reason;
     }
 
+    public void markCanceled(String reason) {
+        if (this.status != PaymentStatus.SUCCEEDED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "SUCCEEDED 상태에서만 취소할 수 있습니다");
+        }
+        this.status = PaymentStatus.CANCELED;
+        this.cancelReason = reason;
+        this.canceledAt = ZonedDateTime.now();
+    }
+
     public boolean isFinalized() {
-        return this.status == PaymentStatus.SUCCEEDED || this.status == PaymentStatus.FAILED;
+        return this.status == PaymentStatus.SUCCEEDED
+                || this.status == PaymentStatus.FAILED
+                || this.status == PaymentStatus.CANCELED;
     }
 
     public boolean isOwnedBy(Long userId) {
@@ -157,12 +164,6 @@ public class Payment {
     private static void validateAmount(BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new CoreException(ErrorType.BAD_REQUEST, "결제 금액은 0보다 커야 합니다");
-        }
-    }
-
-    private void validateTransactionKey(String transactionKey) {
-        if (transactionKey == null || transactionKey.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "거래 키는 필수입니다");
         }
     }
 }
