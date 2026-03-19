@@ -10,6 +10,8 @@ include(
     ":supports:jackson",
     ":supports:logging",
     ":supports:monitoring",
+    ":mocks:mock-common",
+    ":mocks:mock-toss",
 )
 
 // configurations
