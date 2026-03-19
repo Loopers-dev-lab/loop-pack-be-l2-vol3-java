@@ -74,6 +74,7 @@ public class TossPaymentGateway implements PaymentGateway {
     // Command
 
     @CircuitBreaker(name = "toss-request", fallbackMethod = "confirmFallback")
+    @Retry(name = "toss-confirm")
     @Override
     public PaymentConfirmResult confirm(PaymentConfirmCommand command) {
         try {

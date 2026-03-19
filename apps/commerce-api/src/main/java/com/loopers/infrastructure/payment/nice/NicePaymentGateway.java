@@ -69,6 +69,7 @@ public class NicePaymentGateway implements PaymentGateway {
     // Command
 
     @CircuitBreaker(name = "nice-request", fallbackMethod = "confirmFallback")
+    @Retry(name = "nice-confirm")
     @Override
     public PaymentConfirmResult confirm(PaymentConfirmCommand command) {
         try {

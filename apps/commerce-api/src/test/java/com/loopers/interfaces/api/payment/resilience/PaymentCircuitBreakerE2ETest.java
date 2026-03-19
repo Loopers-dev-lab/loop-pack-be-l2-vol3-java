@@ -44,14 +44,17 @@ class PaymentCircuitBreakerE2ETest extends PaymentResilienceTestBase {
 
         @Test
         void slowCall_누적시_서킷_OPEN으로_전이된다() {
-            // slowCallDurationThreshold: 3s, slowCallRateThreshold: 80%
-            setChaosToss("SLOW", "slowMinMs=4000&slowMaxMs=4500");
+            // slowCallDurationThreshold: 2s, slowCallRateThreshold: 80%
+            // TIME_BASED slidingWindowSize: 10초 → 5건이 10초 안에 완료되어야 함
+            // 각 요청 ~2.1s × 5건 ≈ 10.5초 → 경계. mock 처리 포함 여유분 고려하여
+            // slowMin/Max를 threshold 바로 위로 설정
+            setChaosToss("SLOW", "slowMinMs=2050&slowMaxMs=2100");
 
             for (int i = 0; i < 5; i++) {
                 requestPayment(PgType.TOSS);
             }
 
-            // 5건 전부 slow(4s > 3s) → slowCallRate 100% > 80% → OPEN
+            // 5건 전부 slow(~2.1s > 2s) → slowCallRate 100% > 80% → OPEN
             assertThat(getCircuitBreakerState("toss-request"))
                     .isEqualTo(CircuitBreaker.State.OPEN);
         }

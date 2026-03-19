@@ -43,9 +43,10 @@ payment:
 
 resilience4j:
   circuitbreaker:
-    circuitBreakerAspectOrder: 1
+    circuitBreakerAspectOrder: 0
     configs:
       default-request:
+        slidingWindowType: TIME_BASED
         slidingWindowSize: 10
         minimumNumberOfCalls: 5
         automaticTransitionFromOpenToHalfOpenEnabled: true
@@ -59,6 +60,7 @@ resilience4j:
           - com.loopers.support.error.CoreException
           - com.loopers.domain.payment.gateway.PgBusinessException
       default-query:
+        slidingWindowType: TIME_BASED
         slidingWindowSize: 10
         minimumNumberOfCalls: 5
         automaticTransitionFromOpenToHalfOpenEnabled: true
@@ -81,13 +83,18 @@ resilience4j:
       nice-query:
         baseConfig: default-query
   retry:
-    retryAspectOrder: 2
+    retryAspectOrder: 1
     configs:
       default-query-retry:
         maxAttempts: 3
         waitDuration: 500ms
         retryExceptions:
           - com.loopers.domain.payment.gateway.PgTimeoutException
+      default-confirm-retry:
+        maxAttempts: 2
+        waitDuration: 1s
+        retryExceptions:
+          - com.loopers.domain.payment.gateway.PgCommunicationException
       default-cancel-retry:
         maxAttempts: 3
         waitDuration: 1s
@@ -95,6 +102,10 @@ resilience4j:
           - com.loopers.domain.payment.gateway.PgTimeoutException
           - com.loopers.domain.payment.gateway.PgCommunicationException
     instances:
+      toss-confirm:
+        baseConfig: default-confirm-retry
+      nice-confirm:
+        baseConfig: default-confirm-retry
       toss-query:
         baseConfig: default-query-retry
       nice-query:
@@ -104,7 +115,6 @@ resilience4j:
       nice-cancel:
         baseConfig: default-cancel-retry
   bulkhead:
-    bulkheadAspectOrder: 0
     instances:
       pg-payment:
         maxConcurrentCalls: 20
