@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.payment;
 
+import com.loopers.application.payment.PaymentCallbackParam;
 import com.loopers.application.payment.PaymentFacade;
 import com.loopers.application.user.UserFacade;
 import com.loopers.interfaces.api.ApiResponse;
@@ -37,5 +38,23 @@ public class PaymentV1Controller implements PaymentV1ApiSpec {
                 request.cardNo()
         );
         return ApiResponse.success(PaymentV1Dto.PaymentResponse.from(info));
+    }
+
+    @PostMapping("/callback")
+    @ResponseStatus(HttpStatus.OK)
+    @Override
+    public void paymentCallback(
+            @RequestHeader(value = "X-PG-Callback-Secret", required = false) String callbackSecret,
+            @Valid @RequestBody PaymentV1Dto.PaymentCallbackRequest request
+    ) {
+        paymentFacade.verifyCallbackSecret(callbackSecret);
+        PaymentCallbackParam param = new PaymentCallbackParam(
+                request.orderId(),
+                request.success(),
+                request.paymentId(),
+                request.failureReason(),
+                request.amount()
+        );
+        paymentFacade.handleCallback(param);
     }
 }

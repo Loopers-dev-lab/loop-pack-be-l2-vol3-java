@@ -18,4 +18,14 @@ public interface PaymentV1ApiSpec {
             String loginId,
             @Valid PaymentV1Dto.PaymentRequest request
     );
+
+    @Operation(
+            summary = "결제 콜백 (PG 호출)",
+            description = "PG-Simulator가 결제 처리 결과를 전달. X-PG-Callback-Secret이 설정된 경우 일치해야 함."
+    )
+    void paymentCallback(
+            @Parameter(description = "콜백 검증 시크릿 (pg.simulator.callback-secret 설정 시 필수)")
+            String callbackSecret,
+            @Valid PaymentV1Dto.PaymentCallbackRequest request
+    );
 }

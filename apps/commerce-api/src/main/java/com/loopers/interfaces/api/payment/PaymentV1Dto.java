@@ -18,6 +18,18 @@ public class PaymentV1Dto {
     ) {
     }
 
+    /** PG 콜백 Body (06 §3). amount 있으면 주문 금액과 대조 (06 §11.7). */
+    public record PaymentCallbackRequest(
+            String paymentId,
+            @NotNull(message = "orderId는 필수입니다.")
+            Long orderId,
+            @NotNull(message = "success는 필수입니다.")
+            Boolean success,
+            String failureReason,
+            Long amount
+    ) {
+    }
+
     public record PaymentResponse(
             Long paymentId,
             Long orderId,
