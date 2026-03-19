@@ -2,7 +2,6 @@
 
 > Round 6 - 외부 PG 시스템 연동, 서킷브레이커, Fallback, 쿠폰 복원 전략
 >
-> **상세 시각 자료**: [pg-resilience-overview.html](https://htmlpreview.github.io/?https://github.com/move-wook/loop-pack-be-l2-vol3-java/blob/round6/doc/pg-integration/pg-resilience-overview.html)
 
 ---
 
