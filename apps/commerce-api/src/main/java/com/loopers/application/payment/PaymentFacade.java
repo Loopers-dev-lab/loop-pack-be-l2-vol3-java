@@ -53,21 +53,6 @@ public class PaymentFacade {
         return PaymentInfo.from(paymentService.getPayment(payment.getId()));
     }
 
-    @Transactional
-    public void handleCallback(String paymentKey, String pgStatus, String reason) {
-        Payment payment = paymentService.getPaymentByPaymentKey(paymentKey)
-                .orElse(null);
-        if (payment == null || payment.isFinalized()) {
-            return;
-        }
-
-        if ("SUCCESS".equals(pgStatus)) {
-            payment.markSucceeded();
-        } else {
-            processor.failAndCompensate(payment.getId(), payment.getOrderId(), reason);
-        }
-    }
-
     public void cancelPayment(Long userId, Long orderId) {
         Payment payment = paymentService.getLatestPaymentByOrderId(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다"));

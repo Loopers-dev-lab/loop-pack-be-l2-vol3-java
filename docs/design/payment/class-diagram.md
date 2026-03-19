@@ -115,7 +115,7 @@ classDiagram
 - paymentKey는 생성 시 UUID로 결정된다 — PG 요청 전에도 항상 존재
 - failReason은 nullable — 성공 시에는 없음
 - cancelReason, canceledAt은 nullable — 취소 시에만 존재
-- `markSucceeded()`: REQUESTED → SUCCEEDED (PG 승인 성공 또는 콜백/수동 확인)
+- `markSucceeded()`: REQUESTED → SUCCEEDED (PG 승인 성공 또는 수동 확인/보정 스케줄러)
 - `markFailed(reason)`: REQUESTED → FAILED (PG 실패 또는 요청 실패)
 - `markCanceled(reason)`: SUCCEEDED → CANCELED (주문 취소 시 PG 취소 성공 후)
 - `isFinalized()`: SUCCEEDED, FAILED 또는 CANCELED 여부 반환 (사실 제공, 멱등성 판단용)

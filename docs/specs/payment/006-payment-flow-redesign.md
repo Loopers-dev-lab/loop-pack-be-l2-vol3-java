@@ -20,11 +20,6 @@
 - [ ] PG 요청 실패 시 결제 상태는 FAILED로 변경된다
 - [ ] 서킷 브레이커 오픈 시 보상 트랜잭션이 실행된다
 
-### 콜백 수신 흐름 변경 (PM-02)
-- [ ] PG 콜백 SUCCESS 수신 시 결제 상태만 SUCCEEDED로 변경된다 (주문은 이미 PAID)
-- [ ] PG 콜백 FAILED 수신 시 보상 트랜잭션이 실행된다: 재고 확정 복원 + 주문 CANCELED + 쿠폰 복원
-- [ ] PG 콜백 FAILED 수신 시 결제 상태는 FAILED로 변경된다
-
 ### 수동 확인 흐름 변경 (PM-05)
 - [ ] REQUESTED 상태의 결제를 확인하면 PG에 조회하여 최종 결정한다
 - [ ] PG 조회 결과 결제 완료(found && done)이면 결제 상태가 SUCCEEDED로 변경된다 (주문은 이미 PAID)
@@ -53,4 +48,4 @@
 - Payment 상태는 REQUESTED, SUCCEEDED, FAILED, CANCELED 4가지이다
 - 비즈니스 확정(재고 확정 + 주문 PAID)은 트랜잭션 안에서, PG 호출은 트랜잭션 밖에서 처리한다
 - 보상 트랜잭션은 인프로세스로 즉시 실행하며, 실패 시 보정 스케줄러가 후속 처리한다
-- 기존 001-payment-request, 002-payment-callback, 005-payment-verify spec의 관련 AC가 이 문서로 대체된다
+- 기존 001-payment-request, 005-payment-verify spec의 관련 AC가 이 문서로 대체된다

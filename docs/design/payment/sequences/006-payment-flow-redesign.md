@@ -80,7 +80,7 @@ sequenceDiagram
         GE-->>PF: PgConfirmOutcome.Timeout
         deactivate GE
 
-        Note over PF: REQUESTED 유지<br/>비즈니스는 이미 확정<br/>콜백/수동확인/보정스케줄러로 최종 결정
+        Note over PF: REQUESTED 유지<br/>비즈니스는 이미 확정<br/>수동확인/보정스케줄러로 최종 결정
 
     else PG 요청 실패 / 서킷 오픈
         GE->>GW: confirm(command) [CB: pg-request]
@@ -130,7 +130,7 @@ sequenceDiagram
 - **PG 호출은 트랜잭션 밖**: DB 커넥션 점유 방지
 - **PG 승인 성공 → 즉시 SUCCEEDED**: PG confirm 응답이 success면 바로 SUCCEEDED 처리 (동기 확인)
 - **PG 실패 시 보상**: PaymentProcessor가 별도 트랜잭션으로 재고 확정 복원 + 쿠폰 복원 + 주문 CANCELED
-- **PG 타임아웃 시 즉시 보상하지 않음**: PG에서 처리되었을 수 있으므로 콜백/수동확인/보정스케줄러로 최종 결정
+- **PG 타임아웃 시 즉시 보상하지 않음**: PG에서 처리되었을 수 있으므로 수동확인/보정스케줄러로 최종 결정
 - **타임아웃 시에도 정상 응답**: PaymentInfo(status=REQUESTED) 반환 → 프론트가 polling 시작
 - **Bulkhead(pg-payment)**: requestPayment에 동시 PG 호출 20건 제한, 초과 시 즉시 거절
 - **PaymentGatewayExecutor**: PG 예외를 PgConfirmOutcome으로 변환, Facade는 Outcome만 처리

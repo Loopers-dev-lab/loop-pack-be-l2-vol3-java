@@ -162,6 +162,6 @@ erDiagram
 | ISSUED_COUPON | UNIQUE | coupon_id, user_id | 1인 1매 보장 (활성 데이터 기준) |
 | PAYMENT | INDEX | order_id, status | 주문별 결제 조회 + 중복 결제 방지 |
 | PAYMENT | INDEX | user_id | 사용자별 결제 조회 |
-| PAYMENT | INDEX | transaction_key | PG 콜백 시 거래 키로 조회 |
+| PAYMENT | UNIQUE | payment_key | PG 통신 시 결제 키로 조회 |
 | STOCK | UNIQUE | product_id | 상품당 1개 재고 레코드 |
 | ORDERS | INDEX | user_id, status | 사용자별 주문 조회 + 상태 필터 |
