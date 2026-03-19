@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class PaymentBusinessProcessor {
+public class PaymentProcessor {
 
     private final PaymentService paymentService;
     private final StockService stockService;

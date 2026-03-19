@@ -25,7 +25,7 @@ public class PaymentFacade {
     private final OrderService orderService;
     private final PaymentGatewayRegistry gatewayRegistry;
     private final PaymentGatewayExecutor gatewayExecutor;
-    private final PaymentBusinessProcessor businessProcessor;
+    private final PaymentProcessor processor;
     private final TransactionTemplate transactionTemplate;
 
     // Command
@@ -41,7 +41,7 @@ public class PaymentFacade {
                     command.cardType(), command.cardNo(), order.getFinalAmount());
             Payment created = paymentService.createPayment(createCommand);
 
-            businessProcessor.confirm(order);
+            processor.confirm(order);
 
             return created;
         });
@@ -64,7 +64,7 @@ public class PaymentFacade {
         if ("SUCCESS".equals(pgStatus)) {
             payment.markSucceeded();
         } else {
-            businessProcessor.failAndCompensate(payment.getId(), payment.getOrderId(), reason);
+            processor.failAndCompensate(payment.getId(), payment.getOrderId(), reason);
         }
     }
 
@@ -93,7 +93,7 @@ public class PaymentFacade {
 
         if (payment.getStatus() == PaymentStatus.REQUESTED) {
             transactionTemplate.executeWithoutResult(status ->
-                    businessProcessor.failAndCompensate(payment.getId(), payment.getOrderId(), "결제 미완료"));
+                    processor.failAndCompensate(payment.getId(), payment.getOrderId(), "결제 미완료"));
             return PaymentInfo.from(paymentService.getPayment(payment.getId()));
         }
 
@@ -106,7 +106,7 @@ public class PaymentFacade {
             // PG에서 아직 처리 중 → 상태 변경 없음
         } else {
             transactionTemplate.executeWithoutResult(status ->
-                    businessProcessor.failAndCompensate(payment.getId(), payment.getOrderId(), "결제 미완료"));
+                    processor.failAndCompensate(payment.getId(), payment.getOrderId(), "결제 미완료"));
         }
 
         return PaymentInfo.from(paymentService.getPayment(payment.getId()));
@@ -145,7 +145,7 @@ public class PaymentFacade {
 
         // TX: 결제 취소 + 보상
         transactionTemplate.executeWithoutResult(status ->
-                businessProcessor.cancelAndCompensate(payment.getId(), payment.getOrderId(), cancelReason));
+                processor.cancelAndCompensate(payment.getId(), payment.getOrderId(), cancelReason));
     }
 
     private void handleConfirmOutcome(Payment payment, PgConfirmOutcome outcome) {
@@ -156,7 +156,7 @@ public class PaymentFacade {
             });
             case PgConfirmOutcome.Failed(String reason) -> {
                 transactionTemplate.executeWithoutResult(status ->
-                        businessProcessor.failAndCompensate(payment.getId(), payment.getOrderId(), reason));
+                        processor.failAndCompensate(payment.getId(), payment.getOrderId(), reason));
                 throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 요청에 실패했습니다. 잠시 후 다시 시도해주세요");
             }
             case PgConfirmOutcome.Timeout() -> {

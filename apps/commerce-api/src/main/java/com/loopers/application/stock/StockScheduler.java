@@ -1,95 +1,22 @@
 package com.loopers.application.stock;
 
-import com.loopers.application.order.OrderService;
-import com.loopers.application.payment.PaymentService;
-import com.loopers.domain.order.Order;
-import com.loopers.domain.order.OrderItem;
-import com.loopers.domain.order.OrderStatus;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionTemplate;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class StockScheduler {
 
-    private final OrderService orderService;
-    private final PaymentService paymentService;
-    private final StockService stockService;
-    private final TransactionTemplate transactionTemplate;
+    private final StockReconciler stockReconciler;
 
     @Scheduled(fixedDelayString = "${stock.reconciliation.leaked-reservation.interval-ms:300000}")
     public void reconcileLeakedReservations() {
-        Set<Long> reservedProductIds = stockService.findProductIdsWithReservedStock();
-        if (reservedProductIds.isEmpty()) return;
-
-        List<Order> canceledOrders = orderService.findOrdersByStatusWithItems(OrderStatus.CANCELED);
-        List<Order> targets = canceledOrders.stream()
-                .filter(order -> hasReservedProduct(order, reservedProductIds))
-                .toList();
-        if (targets.isEmpty()) return;
-
-        log.info("점유 누수 보정 대상 주문 {}건 탐지", targets.size());
-
-        for (Order order : targets) {
-            try {
-                transactionTemplate.executeWithoutResult(status -> {
-                    Map<Long, Integer> productQuantities = toProductQuantities(order, reservedProductIds);
-                    stockService.releaseReserved(productQuantities);
-                });
-                log.info("주문 {} 점유 누수 보정 완료", order.getId());
-            } catch (Exception e) {
-                log.error("주문 {} 점유 누수 보정 실패", order.getId(), e);
-            }
-        }
+        stockReconciler.reconcileLeakedReservations();
     }
 
     @Scheduled(fixedDelayString = "${stock.reconciliation.missing-confirmation.interval-ms:300000}")
     public void reconcileMissingConfirmations() {
-        Set<Long> reservedProductIds = stockService.findProductIdsWithReservedStock();
-        if (reservedProductIds.isEmpty()) return;
-
-        List<Order> paidOrders = orderService.findOrdersByStatusWithItems(OrderStatus.PAID);
-        List<Order> targets = paidOrders.stream()
-                .filter(order -> hasReservedProduct(order, reservedProductIds))
-                .filter(order -> paymentService.existsSucceededPayment(order.getId()))
-                .toList();
-        if (targets.isEmpty()) return;
-
-        log.info("확정 누락 보정 대상 주문 {}건 탐지", targets.size());
-
-        for (Order order : targets) {
-            try {
-                transactionTemplate.executeWithoutResult(status -> {
-                    Map<Long, Integer> productQuantities = toProductQuantities(order, reservedProductIds);
-                    stockService.confirm(productQuantities);
-                });
-                log.info("주문 {} 확정 누락 보정 완료", order.getId());
-            } catch (Exception e) {
-                log.error("주문 {} 확정 누락 보정 실패", order.getId(), e);
-            }
-        }
-    }
-
-    private boolean hasReservedProduct(Order order, Set<Long> reservedProductIds) {
-        return order.getOrderItems().stream()
-                .anyMatch(item -> reservedProductIds.contains(item.getProductId()));
-    }
-
-    private Map<Long, Integer> toProductQuantities(Order order, Set<Long> reservedProductIds) {
-        return order.getOrderItems().stream()
-                .filter(item -> reservedProductIds.contains(item.getProductId()))
-                .collect(Collectors.toMap(
-                        OrderItem::getProductId,
-                        OrderItem::getQuantity
-                ));
+        stockReconciler.reconcileMissingConfirmations();
     }
 }
