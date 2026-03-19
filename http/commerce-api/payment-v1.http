@@ -11,3 +11,18 @@ X-Loopers-LoginId: your-login-id
 
 ### Expected: 200 OK, paymentId/orderId/status(PENDING)
 ### PG-Simulator 미기동 시: Connection refused 등 Feign 예외
+
+### 결제 콜백 (PG-Simulator가 호출, Phase 3)
+POST {{commerce-api}}/api/v1/payments/callback
+Content-Type: application/json
+
+{
+  "paymentId": "pg-tx-001",
+  "orderId": 1,
+  "success": true,
+  "failureReason": null
+}
+
+### 실패 콜백 예시
+# POST {{commerce-api}}/api/v1/payments/callback
+# {"paymentId": "pg-tx-002", "orderId": 1, "success": false, "failureReason": "LIMIT_EXCEEDED"}

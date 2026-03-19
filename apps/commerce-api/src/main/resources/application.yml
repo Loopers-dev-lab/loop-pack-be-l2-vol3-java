@@ -37,11 +37,12 @@ feign:
         connectTimeout: 500   # ms — 연결 실패 시 빠른 포기(Fail-fast)
         readTimeout: 2000    # ms — PG P99 ≈ 500ms 포함, 타임아웃 시 PENDING + 폴링 복구
 
-# PG-Simulator (Phase 2)
+# PG-Simulator (Phase 2). callback-secret 설정 시 콜백 요청에 X-PG-Callback-Secret 헤더 필요 (06-payment-change-issues §4.1).
 pg:
   simulator:
     url: http://localhost:8090
     callback-url: http://localhost:8080/api/v1/payments/callback
+    callback-secret: ""
 
 ---
 spring:
