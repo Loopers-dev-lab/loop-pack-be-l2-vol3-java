@@ -76,6 +76,23 @@ public class ProductService {
         }
     }
 
+    @Transactional
+    public void updateLikeCount(Long id, int likeCount) {
+        int updatedCount = productRepository.updateLikeCount(id, likeCount);
+        if (updatedCount == 0) {
+            throw new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다. id: " + id);
+        }
+    }
+
+    @Transactional
+    public void resetLikeCountsNotIn(List<Long> ids) {
+        if (ids.isEmpty()) {
+            productRepository.resetAllLikeCounts();
+        } else {
+            productRepository.resetLikeCountsNotIn(ids);
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<Product> getProductsByIds(List<Long> ids) {
         return productReader.findAllByIds(ids);

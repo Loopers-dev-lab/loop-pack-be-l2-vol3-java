@@ -5,6 +5,8 @@ import com.loopers.domain.product.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @Component
 public class ProductRepositoryImpl implements ProductRepository {
@@ -24,5 +26,20 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public int decreaseLikeCount(Long id) {
         return productJpaRepository.decreaseLikeCount(id);
+    }
+
+    @Override
+    public int updateLikeCount(Long id, int likeCount) {
+        return productJpaRepository.updateLikeCount(id, likeCount);
+    }
+
+    @Override
+    public int resetLikeCountsNotIn(List<Long> ids) {
+        return productJpaRepository.resetLikeCountsNotIn(ids);
+    }
+
+    @Override
+    public int resetAllLikeCounts() {
+        return productJpaRepository.resetAllLikeCounts();
     }
 }

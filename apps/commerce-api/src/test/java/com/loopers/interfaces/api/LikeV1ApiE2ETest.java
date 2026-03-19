@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api;
 
+import com.loopers.application.like.LikeCountSyncScheduler;
 import com.loopers.interfaces.api.brand.BrandV1Dto;
 import com.loopers.interfaces.api.like.LikeV1Dto;
 import com.loopers.interfaces.api.member.MemberV1Dto;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.cache.CacheManager;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -32,16 +34,22 @@ class LikeV1ApiE2ETest {
 
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
+    private final CacheManager cacheManager;
+    private final LikeCountSyncScheduler likeCountSyncScheduler;
 
     @Autowired
-    public LikeV1ApiE2ETest(TestRestTemplate testRestTemplate, DatabaseCleanUp databaseCleanUp) {
+    public LikeV1ApiE2ETest(TestRestTemplate testRestTemplate, DatabaseCleanUp databaseCleanUp,
+                            CacheManager cacheManager, LikeCountSyncScheduler likeCountSyncScheduler) {
         this.testRestTemplate = testRestTemplate;
         this.databaseCleanUp = databaseCleanUp;
+        this.cacheManager = cacheManager;
+        this.likeCountSyncScheduler = likeCountSyncScheduler;
     }
 
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        cacheManager.getCacheNames().forEach(name -> cacheManager.getCache(name).clear());
     }
 
     @DisplayName("POST /api/v1/products/{productId}/likes (상품 좋아요 토글)")
@@ -105,13 +113,48 @@ class LikeV1ApiE2ETest {
             );
         }
 
-        @DisplayName("좋아요 후 상품 상세 조회에서 likeCount가 반영된다.")
+        @DisplayName("좋아요 후 스케줄러 동기화 전까지 상품 상세의 likeCount는 0이다.")
         @Test
-        void reflectsLikeCount_inProductDetail() {
+        void likeCountNotReflectedBeforeSync() {
             // Arrange
             registerMember("user1", "Test1234!");
             Long brandId = registerBrand("Nike", "Just Do It");
             Long productId = registerProduct(brandId, "에어맥스 90", 139000L, 100, 5);
+
+            // Act - 좋아요 (MV 방식: product.likeCount는 즉시 갱신되지 않음)
+            testRestTemplate.exchange(
+                "/api/v1/products/" + productId + "/likes",
+                HttpMethod.POST,
+                new HttpEntity<>(authHeaders("user1", "Test1234!")),
+                new ParameterizedTypeReference<ApiResponse<LikeV1Dto.ToggleResponse>>() {}
+            );
+
+            // Assert - 스케줄러 실행 전이므로 상품 상세의 likeCount는 아직 0
+            ResponseEntity<ApiResponse<ProductV1Dto.ProductResponse>> productResponse = testRestTemplate.exchange(
+                "/api/v1/products/" + productId,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {}
+            );
+            assertThat(productResponse.getBody().data().product().likeCount()).isZero();
+        }
+
+        @DisplayName("좋아요 후 스케줄러 동기화하면 상품 상세 캐시가 갱신되어 likeCount가 반영된다.")
+        @Test
+        void likeCountReflectedAfterSync() {
+            // Arrange
+            registerMember("user1", "Test1234!");
+            Long brandId = registerBrand("Nike", "Just Do It");
+            Long productId = registerProduct(brandId, "에어맥스 90", 139000L, 100, 5);
+
+            // 캐시 워밍업 - 상품 상세 조회 (likeCount=0 캐싱)
+            ResponseEntity<ApiResponse<ProductV1Dto.ProductResponse>> cached = testRestTemplate.exchange(
+                "/api/v1/products/" + productId,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {}
+            );
+            assertThat(cached.getBody().data().product().likeCount()).isZero();
 
             // Act - 좋아요
             testRestTemplate.exchange(
@@ -121,7 +164,10 @@ class LikeV1ApiE2ETest {
                 new ParameterizedTypeReference<ApiResponse<LikeV1Dto.ToggleResponse>>() {}
             );
 
-            // Assert - 상품 상세에서 likeCount 확인
+            // 스케줄러 수동 실행 (캐시 evict 포함)
+            likeCountSyncScheduler.syncLikeCounts();
+
+            // Assert - 스케줄러가 캐시를 무효화하여 re-fetch 시 likeCount=1 반영
             ResponseEntity<ApiResponse<ProductV1Dto.ProductResponse>> productResponse = testRestTemplate.exchange(
                 "/api/v1/products/" + productId,
                 HttpMethod.GET,
@@ -129,6 +175,106 @@ class LikeV1ApiE2ETest {
                 new ParameterizedTypeReference<>() {}
             );
             assertThat(productResponse.getBody().data().product().likeCount()).isEqualTo(1);
+        }
+
+        @DisplayName("좋아요 후 스케줄러 동기화하면 LIKES_DESC 목록 캐시가 갱신되어 likeCount가 반영된다.")
+        @Test
+        void likesDescListCacheRefreshedAfterSync() {
+            // Arrange
+            registerMember("user1", "Test1234!");
+            Long brandId = registerBrand("Nike", "Just Do It");
+            Long productId = registerProduct(brandId, "에어맥스 90", 139000L, 100, 5);
+
+            // 캐시 워밍업 - LIKES_DESC 목록 조회 (likeCount=0 캐싱)
+            ResponseEntity<ApiResponse<ProductV1Dto.ProductListResponse>> cachedList = testRestTemplate.exchange(
+                "/api/v1/products?sort=LIKES_DESC&page=0&size=20",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {}
+            );
+            assertThat(cachedList.getBody().data().products())
+                .allMatch(p -> p.likeCount() == 0);
+
+            // Act - 좋아요
+            testRestTemplate.exchange(
+                "/api/v1/products/" + productId + "/likes",
+                HttpMethod.POST,
+                new HttpEntity<>(authHeaders("user1", "Test1234!")),
+                new ParameterizedTypeReference<ApiResponse<LikeV1Dto.ToggleResponse>>() {}
+            );
+
+            // 스케줄러 수동 실행 (캐시 evict 포함)
+            likeCountSyncScheduler.syncLikeCounts();
+
+            // Assert - 스케줄러가 캐시를 무효화하여 re-fetch 시 likeCount=1 반영
+            ResponseEntity<ApiResponse<ProductV1Dto.ProductListResponse>> listResponse = testRestTemplate.exchange(
+                "/api/v1/products?sort=LIKES_DESC&page=0&size=20",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {}
+            );
+            assertThat(listResponse.getBody().data().products())
+                .anyMatch(p -> p.id().equals(productId) && p.likeCount() == 1);
+        }
+
+        @DisplayName("좋아요 후 동기화 → 좋아요 취소 후 동기화하면 상품/브랜드 likeCount가 0이 된다.")
+        @Test
+        void likeCountResetToZero_afterUnlikeAndSync() {
+            // Arrange
+            registerMember("user1", "Test1234!");
+            Long brandId = registerBrand("Nike", "Just Do It");
+            Long productId = registerProduct(brandId, "에어맥스 90", 139000L, 100, 5);
+            HttpHeaders headers = authHeaders("user1", "Test1234!");
+
+            // 캐시 워밍업 - 상품 상세 조회 (likeCount=0 캐싱)
+            testRestTemplate.exchange(
+                "/api/v1/products/" + productId,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<ApiResponse<ProductV1Dto.ProductResponse>>() {}
+            );
+
+            // Act 1 - 좋아요 + 동기화 (스케줄러가 캐시 evict)
+            toggleProductLike(headers, productId);
+            toggleBrandLike(headers, brandId);
+            likeCountSyncScheduler.syncLikeCounts();
+
+            // Assert 1 - 스케줄러가 캐시를 무효화하여 likeCount=1 반영
+            ResponseEntity<ApiResponse<ProductV1Dto.ProductResponse>> afterLike = testRestTemplate.exchange(
+                "/api/v1/products/" + productId,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {}
+            );
+            assertThat(afterLike.getBody().data().product().likeCount()).isEqualTo(1);
+            assertThat(afterLike.getBody().data().product().brand().likeCount()).isEqualTo(1);
+
+            // Act 2 - 좋아요 취소 + 동기화 (스케줄러가 캐시 evict)
+            toggleProductLike(headers, productId);
+            toggleBrandLike(headers, brandId);
+            likeCountSyncScheduler.syncLikeCounts();
+
+            // Assert 2 - 스케줄러가 캐시를 무효화하여 likeCount=0 반영
+            ResponseEntity<ApiResponse<ProductV1Dto.ProductResponse>> afterUnlike = testRestTemplate.exchange(
+                "/api/v1/products/" + productId,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {}
+            );
+            assertAll(
+                () -> assertThat(afterUnlike.getBody().data().product().likeCount()).isZero(),
+                () -> assertThat(afterUnlike.getBody().data().product().brand().likeCount()).isZero()
+            );
+
+            // Assert 3 - 좋아요순 목록에서도 likeCount가 0
+            ResponseEntity<ApiResponse<ProductV1Dto.ProductListResponse>> listResponse = testRestTemplate.exchange(
+                "/api/v1/products?sort=LIKES_DESC&page=0&size=20",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {}
+            );
+            assertThat(listResponse.getBody().data().products())
+                .allMatch(p -> p.likeCount() == 0);
         }
 
         @DisplayName("존재하지 않는 상품에 좋아요하면, 404 Not Found를 반환한다.")

@@ -61,6 +61,23 @@ public class BrandService {
         }
     }
 
+    @Transactional
+    public void updateLikeCount(Long id, int likeCount) {
+        int updatedCount = brandRepository.updateLikeCount(id, likeCount);
+        if (updatedCount == 0) {
+            throw new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.");
+        }
+    }
+
+    @Transactional
+    public void resetLikeCountsNotIn(List<Long> ids) {
+        if (ids.isEmpty()) {
+            brandRepository.resetAllLikeCounts();
+        } else {
+            brandRepository.resetLikeCountsNotIn(ids);
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<Brand> getBrandsByIds(List<Long> ids) {
         return brandReader.findAllByIds(ids);
