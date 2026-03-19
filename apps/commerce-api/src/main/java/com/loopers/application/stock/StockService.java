@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -62,6 +63,13 @@ public class StockService {
             Stock stock = stockMap.get(entry.getKey());
             stock.releaseReserved(entry.getValue());
         }
+    }
+
+    // Query
+
+    @Transactional(readOnly = true)
+    public Set<Long> findProductIdsWithReservedStock() {
+        return stockRepository.findProductIdsWithReservedStock();
     }
 
     @Transactional

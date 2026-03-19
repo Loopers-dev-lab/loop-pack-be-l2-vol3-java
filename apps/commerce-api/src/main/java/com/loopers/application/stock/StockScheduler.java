@@ -1,11 +1,10 @@
 package com.loopers.application.stock;
 
+import com.loopers.application.order.OrderService;
+import com.loopers.application.payment.PaymentService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
-import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.order.OrderStatus;
-import com.loopers.domain.payment.PaymentRepository;
-import com.loopers.domain.stock.StockRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -20,11 +19,10 @@ import java.util.stream.Collectors;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class StockReconciliationScheduler {
+public class StockScheduler {
 
-    private final OrderRepository orderRepository;
-    private final PaymentRepository paymentRepository;
-    private final StockRepository stockRepository;
+    private final OrderService orderService;
+    private final PaymentService paymentService;
     private final StockService stockService;
     private final TransactionTemplate transactionTemplate;
 
@@ -35,10 +33,10 @@ public class StockReconciliationScheduler {
     }
 
     private void reconcileLeakedReservations() {
-        Set<Long> reservedProductIds = stockRepository.findProductIdsWithReservedStock();
+        Set<Long> reservedProductIds = stockService.findProductIdsWithReservedStock();
         if (reservedProductIds.isEmpty()) return;
 
-        List<Order> canceledOrders = orderRepository.findAllByStatusWithItems(OrderStatus.CANCELED);
+        List<Order> canceledOrders = orderService.findOrdersByStatusWithItems(OrderStatus.CANCELED);
         List<Order> targets = canceledOrders.stream()
                 .filter(order -> hasReservedProduct(order, reservedProductIds))
                 .toList();
@@ -60,13 +58,13 @@ public class StockReconciliationScheduler {
     }
 
     private void reconcileMissingConfirmations() {
-        Set<Long> reservedProductIds = stockRepository.findProductIdsWithReservedStock();
+        Set<Long> reservedProductIds = stockService.findProductIdsWithReservedStock();
         if (reservedProductIds.isEmpty()) return;
 
-        List<Order> paidOrders = orderRepository.findAllByStatusWithItems(OrderStatus.PAID);
+        List<Order> paidOrders = orderService.findOrdersByStatusWithItems(OrderStatus.PAID);
         List<Order> targets = paidOrders.stream()
                 .filter(order -> hasReservedProduct(order, reservedProductIds))
-                .filter(order -> paymentRepository.existsSucceededByOrderId(order.getId()))
+                .filter(order -> paymentService.existsSucceededPayment(order.getId()))
                 .toList();
         if (targets.isEmpty()) return;
 

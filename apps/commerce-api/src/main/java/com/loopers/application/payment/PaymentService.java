@@ -75,4 +75,9 @@ public class PaymentService {
     public boolean existsActivePayment(Long orderId) {
         return paymentRepository.existsActiveByOrderId(orderId);
     }
+
+    @Transactional(readOnly = true)
+    public boolean existsSucceededPayment(Long orderId) {
+        return paymentRepository.existsSucceededByOrderId(orderId);
+    }
 }
