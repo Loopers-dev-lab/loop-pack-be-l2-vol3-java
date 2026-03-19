@@ -5,8 +5,6 @@ import com.loopers.domain.order.OrderService;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.payment.PaymentModel;
 import com.loopers.domain.payment.PaymentRepository;
-import com.loopers.domain.payment.PaymentStatus;
-import com.loopers.infrastructure.payment.PgSimulatorClient;
 import com.loopers.infrastructure.payment.PgSimulatorRequest;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -16,7 +14,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 /**
@@ -30,7 +27,7 @@ public class PaymentFacade {
     private static final Logger log = LoggerFactory.getLogger(PaymentFacade.class);
 
     private final PaymentPersistenceService persistenceService;
-    private final PgSimulatorClient pgSimulatorClient;
+    private final PgPaymentRequester pgPaymentRequester;
     private final String callbackUrl;
     private final String callbackSecret;
     private final OrderService orderService;
@@ -38,14 +35,14 @@ public class PaymentFacade {
     private final PaymentRepository paymentRepository;
 
     public PaymentFacade(PaymentPersistenceService persistenceService,
-                         PgSimulatorClient pgSimulatorClient,
                          @Value("${pg.simulator.callback-url}") String callbackUrl,
                          @Value("${pg.simulator.callback-secret:}") String callbackSecret,
                          OrderService orderService,
                          OrderRepository orderRepository,
-                         PaymentRepository paymentRepository) {
+                         PaymentRepository paymentRepository,
+                         PgPaymentRequester pgPaymentRequester) {
         this.persistenceService = persistenceService;
-        this.pgSimulatorClient = pgSimulatorClient;
+        this.pgPaymentRequester = pgPaymentRequester;
         this.callbackUrl = callbackUrl;
         this.callbackSecret = callbackSecret != null ? callbackSecret : "";
         this.orderService = orderService;
@@ -82,7 +79,7 @@ public class PaymentFacade {
                 param.callbackUrl()
         );
         try {
-            pgSimulatorClient.requestPayment(request);
+            pgPaymentRequester.requestPaymentToPg(request);
         } catch (Exception e) {
             // PENDING 저장은 이미 커밋됨. PG 타임아웃/5xx 시에도 200 + PENDING으로 응답해 UX·재시도 일관성 유지.
         }
