@@ -6,6 +6,7 @@ import com.loopers.domain.payment.PaymentStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,6 +41,11 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     @Override
     public Optional<Payment> findLatestByOrderId(Long orderId) {
         return paymentJpaRepository.findLatestByOrderId(orderId);
+    }
+
+    @Override
+    public List<Payment> findByStatusOlderThan(PaymentStatus status, ZonedDateTime threshold) {
+        return paymentJpaRepository.findByStatusAndCreatedAtBefore(status, threshold);
     }
 
     @Override

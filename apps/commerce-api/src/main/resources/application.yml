@@ -33,13 +33,13 @@ payment:
     base-url: http://localhost:8090
     secret-key: test_sk_xxxx
     connect-timeout: 3000
-    read-timeout: 5000
+    read-timeout: 3000
   nice:
     base-url: http://localhost:8091
     client-key: test_client_xxxx
     secret-key: test_sk_nice_xxxx
     connect-timeout: 3000
-    read-timeout: 5000
+    read-timeout: 3000
 
 resilience4j:
   circuitbreaker:
@@ -49,10 +49,11 @@ resilience4j:
         minimumNumberOfCalls: 5
         automaticTransitionFromOpenToHalfOpenEnabled: true
         failureRateThreshold: 50
-        slowCallDurationThreshold: 3s
+        slowCallDurationThreshold: 2s
         slowCallRateThreshold: 80
         waitDurationInOpenState: 30s
         permittedNumberOfCallsInHalfOpenState: 3
+        maxWaitDurationInHalfOpenState: 10s
         ignoreExceptions:
           - com.loopers.support.error.CoreException
       default-query:
@@ -60,8 +61,11 @@ resilience4j:
         minimumNumberOfCalls: 5
         automaticTransitionFromOpenToHalfOpenEnabled: true
         failureRateThreshold: 50
-        slowCallDurationThreshold: 2s
+        slowCallDurationThreshold: 1500ms
+        slowCallRateThreshold: 80
         waitDurationInOpenState: 15s
+        permittedNumberOfCallsInHalfOpenState: 3
+        maxWaitDurationInHalfOpenState: 10s
         ignoreExceptions:
           - com.loopers.support.error.CoreException
     instances:
@@ -79,13 +83,13 @@ resilience4j:
         maxAttempts: 3
         waitDuration: 500ms
         retryExceptions:
-          - org.springframework.web.client.ResourceAccessException
+          - com.loopers.domain.payment.gateway.PgTimeoutException
       default-cancel-retry:
         maxAttempts: 3
         waitDuration: 1s
         retryExceptions:
-          - org.springframework.web.client.ResourceAccessException
-          - org.springframework.web.client.HttpServerErrorException
+          - com.loopers.domain.payment.gateway.PgTimeoutException
+          - com.loopers.domain.payment.gateway.PgCommunicationException
     instances:
       toss-query:
         baseConfig: default-query-retry

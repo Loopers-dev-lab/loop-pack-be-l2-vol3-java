@@ -2,11 +2,15 @@ package com.loopers.application.payment;
 
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentRepository;
+import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -79,5 +83,10 @@ public class PaymentService {
     @Transactional(readOnly = true)
     public boolean existsSucceededPayment(Long orderId) {
         return paymentRepository.existsSucceededByOrderId(orderId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Payment> findRequestedOlderThan(ZonedDateTime threshold) {
+        return paymentRepository.findByStatusOlderThan(PaymentStatus.REQUESTED, threshold);
     }
 }
