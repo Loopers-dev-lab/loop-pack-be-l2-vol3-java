@@ -164,6 +164,7 @@ classDiagram
         <<Enum>>
         CREATED
         PAID
+        FAILED
     }
 
     class Order {
@@ -216,6 +217,7 @@ classDiagram
 
     class PaymentStatus {
         <<Enum>>
+        READY
         PENDING
         SUCCESS
         FAILED
@@ -267,6 +269,30 @@ classDiagram
     Payment ..> Order
 ```
 
+### 주문 상태 머신
+
+```mermaid
+stateDiagram-v2
+    [*] --> CREATED : 주문 생성
+    CREATED --> PAID : 결제 성공
+    CREATED --> FAILED : 결제 실패
+    PAID --> [*]
+    FAILED --> [*]
+```
+
+### 결제 상태 머신
+
+```mermaid
+stateDiagram-v2
+    [*] --> READY : 결제 생성
+    READY --> PENDING : PG 요청 성공
+    READY --> FAILED : 복구 스케줄러
+    PENDING --> SUCCESS : 콜백 성공
+    PENDING --> FAILED : 콜백 실패
+    SUCCESS --> [*]
+    FAILED --> [*]
+```
+
 ### 주문 처리 흐름도
 
 ```mermaid
@@ -277,12 +303,12 @@ flowchart TD
     C -- Yes --> D[재고 차감]
     D --> E{재고 충분?}
     E -- No --> FAIL
-    E -- Yes --> G["쿠폰 사용 처리"]
+    E -- Yes --> F[Cart 생성 및 주문 금액 계산]
+    F --> G[쿠폰 할인 금액 계산]
     G --> G1{검증 통과?}
     G1 -- No --> FAIL
-    G1 -- Yes --> H[주문 생성]
-    H --> I[주문 저장]
-    I --> SUCCESS[성공]
+    G1 -- Yes --> H[주문 생성 및 저장]
+    H --> SUCCESS[성공]
 ```
 
 ### 설계 포인트
@@ -298,5 +324,5 @@ flowchart TD
 **결제 도메인**
 - Payment는 결제 도메인에 속하며, Order와는 ID 기반으로 참조한다.
 - 주문 생성 시 쿠폰 할인 정보(ownedCouponId, discountAmount)는 Order에 저장하되, 쿠폰 사용 처리는 결제 완료(콜백 SUCCESS) 시점에 수행한다.
-- Payment의 상태 전이: PENDING → SUCCESS / FAILED (PG 콜백에 의해 결정)
-- Order의 상태 전이: CREATED → PAID (결제 성공 시)
+- Payment의 상태 전이: READY → PENDING → SUCCESS / FAILED
+- Order의 상태 전이: CREATED → PAID / FAILED

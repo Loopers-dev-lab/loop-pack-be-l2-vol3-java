@@ -1101,6 +1101,9 @@ sequenceDiagram
         PaymentApi -->> Client: 400 Bad Request
     end
 
+    CreatePaymentUseCase ->>+ PaymentService: Payment READY 저장
+    PaymentService -->>- CreatePaymentUseCase: Payment
+
     CreatePaymentUseCase ->>+ PaymentGateway: PG 결제 요청
     PaymentGateway -->>- CreatePaymentUseCase: TransactionResult
 
@@ -1109,10 +1112,10 @@ sequenceDiagram
         PaymentApi -->> Client: 502 Bad Gateway
     end
 
-    CreatePaymentUseCase ->>+ PaymentService: 결제 생성
+    CreatePaymentUseCase ->>+ PaymentService: Payment PENDING 전이
     PaymentService -->>- CreatePaymentUseCase: Payment
 
-    CreatePaymentUseCase -->>- PaymentApi: PaymentResult
+    CreatePaymentUseCase -->>- PaymentApi: CreatePaymentResult
     PaymentApi -->>- Client: 201 Created
 ```
 
@@ -1124,33 +1127,44 @@ sequenceDiagram
     participant PaymentApi
     participant HandlePaymentCallbackUseCase
     participant PaymentService
+    participant PaymentProcessor
     participant OrderService
     participant OwnedCouponService
+    participant ProductService
 
     PG ->>+ PaymentApi: POST /api/v1/payments/callback
     PaymentApi ->>+ HandlePaymentCallbackUseCase: 콜백 처리
 
     HandlePaymentCallbackUseCase ->>+ PaymentService: Payment 조회
-    PaymentService -->>- HandlePaymentCallbackUseCase: Optional<Payment>
+    PaymentService -->>- HandlePaymentCallbackUseCase: Payment
 
-    break 결제가 존재하지 않거나 이미 처리됨
+    break 이미 처리된 결제
         HandlePaymentCallbackUseCase -->> PaymentApi: 무시
         PaymentApi -->> PG: 200 OK
     end
 
     HandlePaymentCallbackUseCase ->> HandlePaymentCallbackUseCase: 결제 상태 업데이트
 
-    alt 결제 성공 (SUCCESS)
-        HandlePaymentCallbackUseCase ->>+ OrderService: 주문 완료 처리
-        OrderService -->>- HandlePaymentCallbackUseCase: Order
+    alt 결제 성공
+        HandlePaymentCallbackUseCase ->>+ PaymentProcessor: handleSuccess
+        PaymentProcessor ->>+ OrderService: 주문 완료 처리
+        OrderService -->>- PaymentProcessor: Order
 
         opt 쿠폰이 적용된 주문
-            HandlePaymentCallbackUseCase ->>+ OwnedCouponService: 쿠폰 사용 처리
-            OwnedCouponService -->>- HandlePaymentCallbackUseCase: void
+            PaymentProcessor ->>+ OwnedCouponService: 쿠폰 사용 처리
+            OwnedCouponService -->>- PaymentProcessor: void
         end
-    end
+        PaymentProcessor -->>- HandlePaymentCallbackUseCase: void
 
-    Note over HandlePaymentCallbackUseCase: 결제 실패(FAILED) 시 Payment 상태만 변경, 추가 처리 없음
+    else 결제 실패
+        HandlePaymentCallbackUseCase ->>+ PaymentProcessor: handleFailure
+        PaymentProcessor ->>+ OrderService: 주문 실패 처리
+        OrderService -->>- PaymentProcessor: Order
+
+        PaymentProcessor ->>+ ProductService: 주문 항목별 재고 복원
+        ProductService -->>- PaymentProcessor: void
+        PaymentProcessor -->>- HandlePaymentCallbackUseCase: void
+    end
 
     HandlePaymentCallbackUseCase -->>- PaymentApi: 처리 완료
     PaymentApi -->>- PG: 200 OK
