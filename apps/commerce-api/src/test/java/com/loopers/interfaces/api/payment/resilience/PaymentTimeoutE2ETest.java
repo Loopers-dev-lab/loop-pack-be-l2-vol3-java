@@ -22,32 +22,32 @@ class PaymentTimeoutE2ETest extends PaymentResilienceTestBase {
     class PG_타임아웃 {
 
         @Test
-        void 타임아웃시_결제_상태가_PENDING으로_유지된다() {
+        void 타임아웃시_결제_상태가_REQUESTED으로_유지된다() {
             setChaosToss("TIMEOUT");
 
             Long orderId = createOrderForPayment();
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response =
                     requestPaymentWithOrder(orderId, PgType.TOSS);
 
-            // readTimeout(5s) 발동 → fallback → 500 응답, DB 상태는 PENDING 유지
+            // readTimeout(5s) 발동 → fallback → 500 응답, DB 상태는 REQUESTED 유지
             Payment payment = getPaymentByOrderId(orderId);
 
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR),
                     () -> assertThat(payment).isNotNull(),
-                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING)
+                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REQUESTED)
             );
         }
 
         @Test
-        void PENDING_상태에서_PG_복구_후_verify로_미완료_확인시_FAILED로_전이된다() {
-            // 1단계: 타임아웃으로 PENDING 생성
+        void REQUESTED_상태에서_PG_복구_후_verify로_미완료_확인시_FAILED로_전이된다() {
+            // 1단계: 타임아웃으로 REQUESTED 생성
             setChaosToss("TIMEOUT");
             Long orderId = createOrderForPayment();
             requestPaymentWithOrder(orderId, PgType.TOSS);
 
             Payment pendingPayment = getPaymentByOrderId(orderId);
-            assertThat(pendingPayment.getStatus()).isEqualTo(PaymentStatus.PENDING);
+            assertThat(pendingPayment.getStatus()).isEqualTo(PaymentStatus.REQUESTED);
 
             // 2단계: PG 복구 + 서킷 리셋 (타임아웃이 서킷에 실패로 집계되었을 수 있음)
             setChaosToss("NORMAL");

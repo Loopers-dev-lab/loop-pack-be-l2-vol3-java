@@ -94,20 +94,27 @@ public class Payment {
         payment.cardType = cardType;
         payment.cardNo = cardNo;
         payment.amount = amount;
-        payment.status = PaymentStatus.PENDING;
+        payment.status = PaymentStatus.REQUESTED;
         return payment;
     }
 
+    public void markInProgress() {
+        if (this.status != PaymentStatus.REQUESTED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "REQUESTED 상태에서만 IN_PROGRESS로 변경할 수 있습니다");
+        }
+        this.status = PaymentStatus.IN_PROGRESS;
+    }
+
     public void markSucceeded() {
-        if (this.status != PaymentStatus.PENDING) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "PENDING 상태에서만 SUCCEEDED로 변경할 수 있습니다");
+        if (this.status != PaymentStatus.REQUESTED && this.status != PaymentStatus.IN_PROGRESS) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "REQUESTED 또는 IN_PROGRESS 상태에서만 SUCCEEDED로 변경할 수 있습니다");
         }
         this.status = PaymentStatus.SUCCEEDED;
     }
 
     public void markFailed(String reason) {
-        if (this.status != PaymentStatus.PENDING) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "PENDING 상태에서만 FAILED로 변경할 수 있습니다");
+        if (this.status != PaymentStatus.REQUESTED && this.status != PaymentStatus.IN_PROGRESS) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "REQUESTED 또는 IN_PROGRESS 상태에서만 FAILED로 변경할 수 있습니다");
         }
         this.status = PaymentStatus.FAILED;
         this.failReason = reason;

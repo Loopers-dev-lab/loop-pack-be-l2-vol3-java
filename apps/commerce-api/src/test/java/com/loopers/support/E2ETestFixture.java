@@ -174,7 +174,7 @@ public class E2ETestFixture {
         return placeOrder(orderItems, null, loginId, password);
     }
 
-    public Payment createPendingPayment(Long orderId, Long userId, BigDecimal amount) {
+    public Payment createRequestedPayment(Long orderId, Long userId, BigDecimal amount) {
         return paymentService.createPayment(PaymentCommand.Create.of(orderId, userId, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", amount));
     }
 

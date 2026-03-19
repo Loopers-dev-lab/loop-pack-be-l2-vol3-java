@@ -21,6 +21,15 @@ public interface OrderApiV1Spec {
             OrderRequest.Place request
     );
 
+    @Operation(
+            summary = "주문 취소",
+            description = "결제 완료된 주문을 취소합니다. PG 결제 취소 + 재고 복원 + 쿠폰 복원이 함께 처리됩니다."
+    )
+    ApiResponse<Void> cancelOrder(
+            AuthenticatedUser user,
+            Long orderId
+    );
+
     // Query
 
     @Operation(

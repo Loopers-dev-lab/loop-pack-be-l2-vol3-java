@@ -21,7 +21,7 @@ class PaymentTest {
     class 생성 {
 
         @Test
-        void 유효한_값이면_결제가_PENDING_상태로_생성된다() {
+        void 유효한_값이면_결제가_REQUESTED_상태로_생성된다() {
             Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             assertAll(
@@ -30,7 +30,7 @@ class PaymentTest {
                     () -> assertThat(payment.getCardType()).isEqualTo(CardType.SAMSUNG),
                     () -> assertThat(payment.getCardNo()).isEqualTo("1234-5678-9012-3456"),
                     () -> assertThat(payment.getAmount()).isEqualByComparingTo(new BigDecimal("50000")),
-                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING),
+                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REQUESTED),
                     () -> assertThat(payment.getPaymentKey()).isNotNull(),
                     () -> assertThat(payment.getFailReason()).isNull()
             );
@@ -55,7 +55,7 @@ class PaymentTest {
     class 상태전이_SUCCEEDED {
 
         @Test
-        void PENDING에서_SUCCEEDED로_변경된다() {
+        void REQUESTED에서_SUCCEEDED로_변경된다() {
             Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             payment.markSucceeded();
@@ -78,7 +78,7 @@ class PaymentTest {
     class 상태전이_FAILED {
 
         @Test
-        void PENDING에서_FAILED로_변경된다() {
+        void REQUESTED에서_FAILED로_변경된다() {
             Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             payment.markFailed("PG 요청 실패");
@@ -118,7 +118,7 @@ class PaymentTest {
         }
 
         @Test
-        void PENDING_상태에서_취소하면_예외() {
+        void REQUESTED_상태에서_취소하면_예외() {
             Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             assertThatThrownBy(() -> payment.markCanceled("변심"))
@@ -166,7 +166,7 @@ class PaymentTest {
         }
 
         @Test
-        void PENDING이면_미확정이다() {
+        void REQUESTED이면_미확정이다() {
             Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
 
             assertThat(payment.isFinalized()).isFalse();

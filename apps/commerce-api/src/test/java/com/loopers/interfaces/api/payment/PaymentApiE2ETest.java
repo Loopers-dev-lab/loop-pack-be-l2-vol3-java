@@ -123,7 +123,7 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     LOGIN_ID, PASSWORD);
 
-            // 결제 하나 직접 생성 (PENDING 상태)
+            // 결제 하나 직접 생성 (REQUESTED 상태)
             paymentService.createPayment(PaymentCommand.Create.of(orderId, 1L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")));
 
             PaymentRequest.Request request = new PaymentRequest.Request(
@@ -216,7 +216,7 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     LOGIN_ID, PASSWORD);
 
-            Payment payment = fixture.createPendingPayment(orderId, 1L, new BigDecimal("50000"));
+            Payment payment = fixture.createRequestedPayment(orderId, 1L, new BigDecimal("50000"));
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
                     PAYMENT_ENDPOINT + "/" + payment.getId(), HttpMethod.GET,
@@ -227,7 +227,7 @@ class PaymentApiE2ETest {
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().id()).isEqualTo(payment.getId()),
-                    () -> assertThat(response.getBody().data().status()).isEqualTo(PaymentStatus.PENDING),
+                    () -> assertThat(response.getBody().data().status()).isEqualTo(PaymentStatus.REQUESTED),
                     () -> assertThat(response.getBody().data().paymentKey()).isNotNull(),
                     () -> assertThat(response.getBody().data().amount()).isEqualByComparingTo(new BigDecimal("50000"))
             );
@@ -260,7 +260,7 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     "otheruser", "Other1234!");
 
-            Payment payment = fixture.createPendingPayment(orderId, 2L, new BigDecimal("50000"));
+            Payment payment = fixture.createRequestedPayment(orderId, 2L, new BigDecimal("50000"));
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
                     PAYMENT_ENDPOINT + "/" + payment.getId(), HttpMethod.GET,
@@ -328,7 +328,7 @@ class PaymentApiE2ETest {
         }
 
         @Test
-        void PENDING_결제를_취소하면_400_응답() {
+        void REQUESTED_결제를_취소하면_400_응답() {
             fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
@@ -336,7 +336,7 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     LOGIN_ID, PASSWORD);
 
-            Payment payment = fixture.createPendingPayment(orderId, 1L, new BigDecimal("50000"));
+            Payment payment = fixture.createRequestedPayment(orderId, 1L, new BigDecimal("50000"));
 
             PaymentRequest.Cancel cancelRequest = new PaymentRequest.Cancel("변심", null);
 
@@ -439,7 +439,7 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     LOGIN_ID, PASSWORD);
 
-            Payment payment = fixture.createPendingPayment(orderId, 1L, new BigDecimal("50000"));
+            Payment payment = fixture.createRequestedPayment(orderId, 1L, new BigDecimal("50000"));
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
                     ORDER_PAYMENT_ENDPOINT + "/" + orderId + "/payment", HttpMethod.GET,
@@ -451,7 +451,7 @@ class PaymentApiE2ETest {
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().id()).isEqualTo(payment.getId()),
                     () -> assertThat(response.getBody().data().orderId()).isEqualTo(orderId),
-                    () -> assertThat(response.getBody().data().status()).isEqualTo(PaymentStatus.PENDING)
+                    () -> assertThat(response.getBody().data().status()).isEqualTo(PaymentStatus.REQUESTED)
             );
         }
 
@@ -545,7 +545,7 @@ class PaymentApiE2ETest {
     class 결제_수동_확인 {
 
         @Test
-        void PENDING_상태이면_결제_미완료로_FAILED_처리되고_200_응답() {
+        void REQUESTED_상태이면_결제_미완료로_FAILED_처리되고_200_응답() {
             fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");
@@ -553,7 +553,7 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     LOGIN_ID, PASSWORD);
 
-            Payment payment = fixture.createPendingPayment(orderId, 1L, new BigDecimal("50000"));
+            Payment payment = fixture.createRequestedPayment(orderId, 1L, new BigDecimal("50000"));
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
                     PAYMENT_ENDPOINT + "/" + payment.getId() + "/verify", HttpMethod.POST,
@@ -576,7 +576,7 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     LOGIN_ID, PASSWORD);
 
-            Payment payment = fixture.createPendingPayment(orderId, 1L, new BigDecimal("50000"));
+            Payment payment = fixture.createRequestedPayment(orderId, 1L, new BigDecimal("50000"));
             paymentService.markFailed(payment.getId(), "이전 실패");
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
@@ -618,7 +618,7 @@ class PaymentApiE2ETest {
                     List.of(new OrderRequest.PlaceItem(productId, 1)),
                     "otheruser", "Other1234!");
 
-            Payment payment = fixture.createPendingPayment(orderId, 2L, new BigDecimal("50000"));
+            Payment payment = fixture.createRequestedPayment(orderId, 2L, new BigDecimal("50000"));
 
             ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
                     PAYMENT_ENDPOINT + "/" + payment.getId() + "/verify", HttpMethod.POST,

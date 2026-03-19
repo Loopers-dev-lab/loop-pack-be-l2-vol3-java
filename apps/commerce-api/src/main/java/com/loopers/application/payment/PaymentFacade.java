@@ -1,7 +1,10 @@
 package com.loopers.application.payment;
 
+import com.loopers.application.coupon.IssuedCouponService;
 import com.loopers.application.order.OrderService;
+import com.loopers.application.stock.StockService;
 import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentStatus;
@@ -23,6 +26,8 @@ import org.springframework.web.client.ResourceAccessException;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -31,6 +36,8 @@ public class PaymentFacade {
 
     private final PaymentService paymentService;
     private final OrderService orderService;
+    private final StockService stockService;
+    private final IssuedCouponService issuedCouponService;
     private final PaymentGatewayRegistry gatewayRegistry;
     private final TransactionTemplate transactionTemplate;
 
@@ -38,17 +45,27 @@ public class PaymentFacade {
 
     @Bulkhead(name = "pg-payment", fallbackMethod = "paymentBulkheadFallback")
     public PaymentInfo requestPayment(Long userId, PaymentCommand.Request command) {
-        // TX1: 주문 검증 + 중복 결제 확인 + Payment 생성 (PENDING)
-        BigDecimal finalAmount = validateOrder(userId, command.orderId());
-        PaymentCommand.Create createCommand = PaymentCommand.Create.of(
-                command.orderId(), userId, command.pgType(),
-                command.cardType(), command.cardNo(), finalAmount);
-        Payment payment = paymentService.createPayment(createCommand);
+        // TX1: 주문 검증 + Payment 생성 + 비즈니스 확정 (재고 확정 + 주문 PAID)
+        Payment payment = transactionTemplate.execute(status -> {
+            Order order = validateAndGetOrder(userId, command.orderId());
+
+            PaymentCommand.Create createCommand = PaymentCommand.Create.of(
+                    command.orderId(), userId, command.pgType(),
+                    command.cardType(), command.cardNo(), order.getFinalAmount());
+            Payment created = paymentService.createPayment(createCommand);
+
+            // 비즈니스 먼저 확정
+            Map<Long, Integer> productQuantities = extractProductQuantities(order);
+            stockService.confirm(productQuantities);
+            orderService.payOrder(order.getId());
+
+            return created;
+        });
 
         // PG 라우팅
         PaymentGateway gateway = gatewayRegistry.getGateway(command.pgType());
 
-        // confirm 호출 (트랜잭션 밖 — DB 커넥션 미점유)
+        // PG 호출 (트랜잭션 밖)
         confirmPaymentWithGateway(payment, gateway);
 
         // 최종 상태 조회
@@ -56,9 +73,38 @@ public class PaymentFacade {
         return PaymentInfo.from(updatedPayment);
     }
 
-    // Bulkhead 미적용: 취소는 반드시 성공해야 하므로 동시 요청 제한으로 거절하면 안 됨. 일시적 실패는 Retry로 커버.
-    public PaymentInfo cancelPayment(Long userId, Long paymentId, PaymentCommand.Cancel command) {
+    @Transactional
+    public void handleCallback(String paymentKey, String pgStatus, String reason) {
+        Payment payment = paymentService.getPaymentByPaymentKey(paymentKey)
+                .orElse(null);
+        if (payment == null || payment.isFinalized()) {
+            return;
+        }
+
+        if ("SUCCESS".equals(pgStatus)) {
+            payment.markSucceeded();
+        } else {
+            payment.markFailed(reason);
+            compensate(payment.getOrderId());
+        }
+    }
+
+    public void cancelPayment(Long userId, Long orderId) {
+        Payment payment = paymentService.getLatestPaymentByOrderId(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다"));
+
+        doCancelPayment(userId, payment, "주문 취소");
+    }
+
+    public PaymentInfo cancelPaymentById(Long userId, Long paymentId, PaymentCommand.Cancel command) {
         Payment payment = paymentService.getPayment(paymentId);
+
+        doCancelPayment(userId, payment, command.cancelReason());
+
+        return PaymentInfo.from(paymentService.getPayment(paymentId));
+    }
+
+    private void doCancelPayment(Long userId, Payment payment, String cancelReason) {
         if (!payment.isOwnedBy(userId)) {
             throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다");
         }
@@ -66,18 +112,29 @@ public class PaymentFacade {
             throw new CoreException(ErrorType.BAD_REQUEST, "취소할 수 없는 결제 상태입니다");
         }
 
-        // PG 라우팅 (저장된 pgType으로)
+        // PG 취소 (트랜잭션 밖)
         PaymentGateway gateway = gatewayRegistry.getGateway(payment.getPgType());
+        try {
+            gateway.cancel(
+                    payment.getPaymentKey(),
+                    new PaymentCancelCommand(String.valueOf(payment.getOrderId()), cancelReason, payment.getAmount().longValue()));
+        } catch (Exception e) {
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 취소에 실패했습니다. 잠시 후 다시 시도해주세요");
+        }
 
-        // 토스/나이스 취소 API 호출
-        gateway.cancel(
-                payment.getPaymentKey(),
-                new PaymentCancelCommand(String.valueOf(payment.getOrderId()), command.cancelReason(), command.cancelAmount()));
+        // TX: 결제 취소 + 재고 복원 + 쿠폰 복원 + 주문 취소
+        transactionTemplate.executeWithoutResult(status -> {
+            paymentService.markCanceled(payment.getId(), cancelReason);
 
-        // TX2: DB 상태 업데이트
-        paymentService.markCanceled(paymentId, command.cancelReason());
+            Order order = orderService.getOrder(payment.getOrderId());
+            Map<Long, Integer> productQuantities = extractProductQuantities(order);
+            stockService.releaseConfirmed(productQuantities);
 
-        return PaymentInfo.from(paymentService.getPayment(paymentId));
+            if (order.getIssuedCouponId() != null) {
+                issuedCouponService.restore(order.getIssuedCouponId());
+            }
+            orderService.cancelOrder(order.getId());
+        });
     }
 
     @Bulkhead(name = "pg-payment", fallbackMethod = "verifyBulkheadFallback")
@@ -90,10 +147,17 @@ public class PaymentFacade {
             throw new CoreException(ErrorType.BAD_REQUEST, "이미 확정된 결제입니다");
         }
 
-        // PG 라우팅
-        PaymentGateway gateway = gatewayRegistry.getGateway(payment.getPgType());
+        if (payment.getStatus() == PaymentStatus.REQUESTED) {
+            // REQUESTED (transactionKey 없음) → PG 조회 없이 FAILED + 보상
+            transactionTemplate.executeWithoutResult(status -> {
+                paymentService.markFailed(payment.getId(), "결제 미완료");
+                compensate(payment.getOrderId());
+            });
+            return PaymentInfo.from(paymentService.getPayment(payment.getId()));
+        }
 
-        // PENDING 상태: PG에서 상태 조회
+        // IN_PROGRESS: PG에서 상태 조회
+        PaymentGateway gateway = gatewayRegistry.getGateway(payment.getPgType());
         PaymentQueryResult result;
         try {
             result = gateway.query(payment.getPaymentKey());
@@ -102,9 +166,15 @@ public class PaymentFacade {
         }
 
         if (result.found() && result.done()) {
-            confirmPaymentResult(payment.getId());
+            paymentService.markSucceeded(payment.getId());
+        } else if (result.found() && !result.done()) {
+            // PG에서 아직 처리 중 → 상태 변경 없음
         } else {
-            paymentService.markFailed(payment.getId(), "결제 미완료");
+            // PG에 결제 정보 없음 또는 실패
+            transactionTemplate.executeWithoutResult(status -> {
+                paymentService.markFailed(payment.getId(), "결제 미완료");
+                compensate(payment.getOrderId());
+            });
         }
 
         return PaymentInfo.from(paymentService.getPayment(payment.getId()));
@@ -150,7 +220,7 @@ public class PaymentFacade {
         throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 확인 요청이 많습니다. 잠시 후 다시 시도해주세요");
     }
 
-    private BigDecimal validateOrder(Long userId, Long orderId) {
+    private Order validateAndGetOrder(Long userId, Long orderId) {
         Order order = orderService.getOrder(orderId);
         if (!order.isOwnedBy(userId)) {
             throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다");
@@ -161,7 +231,7 @@ public class PaymentFacade {
         if (paymentService.existsActivePayment(orderId)) {
             throw new CoreException(ErrorType.CONFLICT, "이미 결제가 진행 중이거나 완료된 주문입니다");
         }
-        return order.getFinalAmount();
+        return order;
     }
 
     private void confirmPaymentWithGateway(Payment payment, PaymentGateway gateway) {
@@ -174,34 +244,50 @@ public class PaymentFacade {
         try {
             PaymentConfirmResult result = gateway.confirm(confirmCommand);
             if (result.success()) {
-                // TX2: 결제 성공 + 주문 상태 전이
-                confirmPaymentResult(payment.getId());
+                // TX: PG 접수 성공 → IN_PROGRESS + 결제 성공
+                transactionTemplate.executeWithoutResult(status -> {
+                    Payment p = paymentService.getPayment(payment.getId());
+                    if (p.isFinalized()) return;
+                    p.markSucceeded();
+                });
             } else {
-                paymentService.markFailed(payment.getId(), result.message());
+                // PG 명시적 실패 → 보상
+                transactionTemplate.executeWithoutResult(status -> {
+                    paymentService.markFailed(payment.getId(), result.message());
+                    compensate(payment.getOrderId());
+                });
                 throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 요청에 실패했습니다. 잠시 후 다시 시도해주세요");
             }
         } catch (ResourceAccessException e) {
             log.warn("PG 결제 승인 타임아웃: paymentId={}, pgType={}, message={}",
                     payment.getId(), gateway.getType(), e.getMessage());
-            // PENDING 상태 유지 (verify로 확인)
+            // REQUESTED 상태 유지, 비즈니스 확정 유지 (콜백/verify로 최종 결정)
         } catch (CoreException e) {
             throw e;
         } catch (Exception e) {
             log.error("PG 결제 승인 실패: paymentId={}, pgType={}, message={}",
                     payment.getId(), gateway.getType(), e.getMessage());
-            paymentService.markFailed(payment.getId(), e.getMessage());
+            transactionTemplate.executeWithoutResult(status -> {
+                paymentService.markFailed(payment.getId(), e.getMessage());
+                compensate(payment.getOrderId());
+            });
             throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 요청에 실패했습니다. 잠시 후 다시 시도해주세요");
         }
     }
 
-    private void confirmPaymentResult(Long paymentId) {
-        transactionTemplate.executeWithoutResult(status -> {
-            Payment payment = paymentService.getPayment(paymentId);
-            if (payment.isFinalized()) {
-                return;
-            }
-            payment.markSucceeded();
-            orderService.payOrder(payment.getOrderId());
-        });
+    private void compensate(Long orderId) {
+        Order order = orderService.getOrder(orderId);
+        Map<Long, Integer> productQuantities = extractProductQuantities(order);
+        stockService.releaseConfirmed(productQuantities);
+
+        if (order.getIssuedCouponId() != null) {
+            issuedCouponService.restore(order.getIssuedCouponId());
+        }
+        orderService.cancelOrder(orderId);
+    }
+
+    private Map<Long, Integer> extractProductQuantities(Order order) {
+        return order.getOrderItems().stream()
+                .collect(Collectors.toMap(OrderItem::getProductId, OrderItem::getQuantity));
     }
 }

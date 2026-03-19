@@ -2,6 +2,8 @@ package com.loopers.application.order;
 
 import com.loopers.application.coupon.IssuedCouponService;
 import com.loopers.application.coupon.IssuedCouponSnapshot;
+import com.loopers.application.payment.PaymentCommand;
+import com.loopers.application.payment.PaymentFacade;
 import com.loopers.application.product.ProductService;
 import com.loopers.application.stock.StockService;
 import com.loopers.domain.order.Order;
@@ -28,6 +30,7 @@ public class OrderFacade {
     private final ProductService productService;
     private final StockService stockService;
     private final IssuedCouponService issuedCouponService;
+    private final PaymentFacade paymentFacade;
 
     // Command
 
@@ -58,6 +61,18 @@ public class OrderFacade {
         Order order = orderService.createOrder(OrderCommand.Create.of(userId, orderItems, orderCoupon));
 
         return OrderInfo.from(order);
+    }
+
+    public void cancelOrder(Long userId, Long orderId) {
+        Order order = orderService.getOrder(orderId);
+        if (!order.isOwnedBy(userId)) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다");
+        }
+        if (!order.isPaid()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다");
+        }
+
+        paymentFacade.cancelPayment(userId, orderId);
     }
 
     // Query

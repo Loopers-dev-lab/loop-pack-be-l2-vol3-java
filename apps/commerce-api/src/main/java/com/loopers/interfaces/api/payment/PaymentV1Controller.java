@@ -41,7 +41,7 @@ public class PaymentV1Controller implements PaymentApiV1Spec {
             @AuthUser AuthenticatedUser user,
             @PathVariable Long paymentId,
             @RequestBody @Valid PaymentRequest.Cancel request) {
-        PaymentInfo info = paymentFacade.cancelPayment(user.id(), paymentId, request.toCommand());
+        PaymentInfo info = paymentFacade.cancelPaymentById(user.id(), paymentId, request.toCommand());
         return ApiResponse.success(PaymentV1Dto.PaymentResponse.from(info));
     }
 

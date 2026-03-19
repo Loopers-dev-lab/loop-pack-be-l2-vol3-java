@@ -38,6 +38,15 @@ public class OrderV1Controller implements OrderApiV1Spec {
         return ApiResponse.success(OrderV1Dto.OrderResponse.from(info));
     }
 
+    @PostMapping("/{orderId}/cancel")
+    @Override
+    public ApiResponse<Void> cancelOrder(
+            @AuthUser AuthenticatedUser user,
+            @PathVariable Long orderId) {
+        orderFacade.cancelOrder(user.id(), orderId);
+        return ApiResponse.success(null);
+    }
+
     // Query
 
     @GetMapping("/{orderId}")

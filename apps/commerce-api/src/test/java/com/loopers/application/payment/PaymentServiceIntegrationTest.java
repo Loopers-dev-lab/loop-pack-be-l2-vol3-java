@@ -45,14 +45,14 @@ class PaymentServiceIntegrationTest {
     class 결제_생성 {
 
         @Test
-        void 유효한_값이면_PENDING_상태로_생성된다() {
+        void 유효한_값이면_REQUESTED_상태로_생성된다() {
             Payment payment = paymentService.createPayment(PaymentCommand.Create.of(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")));
 
             assertAll(
                     () -> assertThat(payment.getId()).isNotNull(),
                     () -> assertThat(payment.getOrderId()).isEqualTo(1L),
                     () -> assertThat(payment.getUserId()).isEqualTo(100L),
-                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING),
+                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REQUESTED),
                     () -> assertThat(payment.getPaymentKey()).isNotNull(),
                     () -> assertThat(payment.getAmount()).isEqualByComparingTo(new BigDecimal("50000"))
             );
@@ -63,7 +63,7 @@ class PaymentServiceIntegrationTest {
     class 상태_변경_SUCCEEDED {
 
         @Test
-        void PENDING에서_SUCCEEDED로_변경된다() {
+        void REQUESTED에서_SUCCEEDED로_변경된다() {
             Payment payment = paymentService.createPayment(PaymentCommand.Create.of(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")));
 
             paymentService.markSucceeded(payment.getId());
@@ -77,7 +77,7 @@ class PaymentServiceIntegrationTest {
     class 상태_변경_FAILED {
 
         @Test
-        void PENDING에서_FAILED로_변경된다() {
+        void REQUESTED에서_FAILED로_변경된다() {
             Payment payment = paymentService.createPayment(PaymentCommand.Create.of(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")));
 
             paymentService.markFailed(payment.getId(), "PG 요청 실패");
@@ -183,7 +183,7 @@ class PaymentServiceIntegrationTest {
     class 활성_결제_존재_확인 {
 
         @Test
-        void PENDING_상태의_결제가_있으면_true() {
+        void REQUESTED_상태의_결제가_있으면_true() {
             paymentService.createPayment(PaymentCommand.Create.of(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")));
 
             assertThat(paymentService.existsActivePayment(1L)).isTrue();
