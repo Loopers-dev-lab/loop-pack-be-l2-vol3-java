@@ -34,7 +34,7 @@ allprojects {
 }
 
 subprojects {
-    if (name == "pg-simulator" || parent?.name == "mocks") return@subprojects
+    if (parent?.name == "mocks") return@subprojects
 
     apply(plugin = "java")
     apply(plugin = "org.springframework.boot")
