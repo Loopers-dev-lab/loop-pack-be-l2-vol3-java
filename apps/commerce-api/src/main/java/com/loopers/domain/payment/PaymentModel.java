@@ -51,24 +51,33 @@ public class PaymentModel extends BaseEntity {
     }
 
     /**
-     * 상태를 SUCCESS로 전이한다. 콜백 처리 시 사용 (Phase 3).
+     * 상태를 SUCCESS로 전이한다.
      */
     public void markSuccess(String pgTransactionId) {
+        if (this.status != PaymentStatus.PENDING) {
+            throw new IllegalStateException("PENDING 상태에서만 SUCCESS로 전이할 수 있습니다. 현재: " + status);
+        }
         this.pgTransactionId = pgTransactionId;
         this.status = PaymentStatus.SUCCESS;
     }
 
     /**
-     * 상태를 FAILED로 전이한다.
+     * 상태를 FAILED로 전이한다. PENDING일 때만 전이.
      */
     public void markFailed() {
+        if (this.status != PaymentStatus.PENDING) {
+            throw new IllegalStateException("PENDING 상태에서만 FAILED로 전이할 수 있습니다. 현재: " + status);
+        }
         this.status = PaymentStatus.FAILED;
     }
 
     /**
-     * 상태를 TIMEOUT으로 전이한다. 폴링/복구 시 사용 (Phase 8).
+     * 상태를 TIMEOUT으로 전이한다. PENDING일 때만 전이 (폴링/복구 시 Phase 8).
      */
     public void markTimeout() {
+        if (this.status != PaymentStatus.PENDING) {
+            throw new IllegalStateException("PENDING 상태에서만 TIMEOUT으로 전이할 수 있습니다. 현재: " + status);
+        }
         this.status = PaymentStatus.TIMEOUT;
     }
 
