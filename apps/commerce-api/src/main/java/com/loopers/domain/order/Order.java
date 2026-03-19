@@ -20,6 +20,8 @@ import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "orders", indexes = {
@@ -107,6 +109,11 @@ public class Order {
         this.status = OrderStatus.CANCELED;
     }
 
+    public Map<Long, Integer> getProductQuantities() {
+        return orderItems.stream()
+                .collect(Collectors.toMap(OrderItem::getProductId, OrderItem::getQuantity));
+    }
+
     public boolean isPaid() {
         return this.status == OrderStatus.PAID;
     }
@@ -118,6 +125,12 @@ public class Order {
 
     public boolean isOwnedBy(Long userId) {
         return this.userId.equals(userId);
+    }
+
+    public void validateOwnership(Long userId) {
+        if (!isOwnedBy(userId)) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다");
+        }
     }
 
     private void validateMaxSize() {

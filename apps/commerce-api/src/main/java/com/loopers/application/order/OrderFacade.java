@@ -65,9 +65,7 @@ public class OrderFacade {
 
     public void cancelOrder(Long userId, Long orderId) {
         Order order = orderService.getOrder(orderId);
-        if (!order.isOwnedBy(userId)) {
-            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다");
-        }
+        order.validateOwnership(userId);
         if (!order.isPaid()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다");
         }
@@ -80,9 +78,7 @@ public class OrderFacade {
     @Transactional(readOnly = true)
     public OrderInfo getOrderDetail(Long userId, Long orderId) {
         Order order = orderService.getOrder(orderId);
-        if (!order.isOwnedBy(userId)) {
-            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다");
-        }
+        order.validateOwnership(userId);
         return OrderInfo.from(order);
     }
 

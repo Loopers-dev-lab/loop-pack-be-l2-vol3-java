@@ -139,6 +139,12 @@ public class Payment {
         return this.userId.equals(userId);
     }
 
+    public void validateOwnership(Long userId) {
+        if (!isOwnedBy(userId)) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다");
+        }
+    }
+
     @PrePersist
     protected void onCreate() {
         ZonedDateTime now = ZonedDateTime.now();

@@ -5,7 +5,6 @@ import com.loopers.application.payment.PaymentCommand;
 import com.loopers.application.payment.PaymentService;
 import com.loopers.application.stock.StockService;
 import com.loopers.domain.order.Order;
-import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.gateway.PgType;
@@ -36,7 +35,6 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class E2ETestFixture {
 
@@ -194,9 +192,7 @@ public class E2ETestFixture {
 
     private void confirmStockAndPayOrder(Long orderId) {
         Order order = orderService.getOrder(orderId);
-        Map<Long, Integer> productQuantities = order.getOrderItems().stream()
-                .collect(Collectors.toMap(OrderItem::getProductId, OrderItem::getQuantity));
-        stockService.confirm(productQuantities);
+        stockService.confirm(order.getProductQuantities());
         orderService.payOrder(orderId);
     }
 
