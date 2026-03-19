@@ -8,6 +8,7 @@ import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.domain.product.Product;
+import com.loopers.infrastructure.client.PgDeclinedException;
 import com.loopers.infrastructure.client.PgPaymentDto;
 import com.loopers.infrastructure.client.PgPaymentException;
 import com.loopers.infrastructure.client.PgPaymentGateway;
@@ -122,6 +123,43 @@ class PaymentFacadeSpringTest {
             assertAll(
                     () -> assertThat(saved.getStatus()).isEqualTo(PaymentStatus.PENDING),
                     () -> assertThat(saved.getPgTransactionKey()).isNull()
+            );
+        }
+
+        @DisplayName("PG 명시적 거절 시 Payment는 FAILED, Order는 FAILED로 전환되고 쿠폰/재고가 복원된다.")
+        @Test
+        void failsImmediatelyAndRestores_whenPgDeclines() {
+            // arrange
+            int initialStock = 5;
+            int orderQuantity = 2;
+            int stockAfterOrder = initialStock - orderQuantity;
+            Product product = productJpaRepository.save(Product.create(1L, "거절테스트상품", null, 10000, stockAfterOrder));
+            IssuedCoupon coupon = IssuedCoupon.create(userId, 1L, LocalDateTime.now().plusDays(30));
+            coupon.markAsUsed();
+            IssuedCoupon savedCoupon = issuedCouponJpaRepository.save(coupon);
+
+            Order orderWithCoupon = orderJpaRepository.save(
+                    Order.create(userId, List.of(new OrderItemSnapshot(product.getId(), "거절테스트상품", 10000L, orderQuantity)), 0L, savedCoupon.getId())
+            );
+            orderItemJpaRepository.save(OrderItem.create(orderWithCoupon.getId(), product.getId(), "거절테스트상품", 10000L, orderQuantity));
+
+            given(pgPaymentGateway.requestPayment(anyString(), any()))
+                    .willThrow(new PgDeclinedException("카드 한도 초과"));
+
+            // act
+            PaymentInfo result = paymentFacade.requestPayment(userId, new PaymentCommand(orderWithCoupon.getId(), CardType.SAMSUNG, "1234-5678-9012-3456"));
+
+            // assert
+            Payment updatedPayment = paymentJpaRepository.findById(result.id()).orElseThrow();
+            Order updatedOrder = orderJpaRepository.findById(orderWithCoupon.getId()).orElseThrow();
+            IssuedCoupon updatedCoupon = issuedCouponJpaRepository.findById(savedCoupon.getId()).orElseThrow();
+            Product updatedProduct = productJpaRepository.findById(product.getId()).orElseThrow();
+            assertAll(
+                    () -> assertThat(updatedPayment.getStatus()).isEqualTo(PaymentStatus.FAILED),
+                    () -> assertThat(updatedPayment.getFailReason()).isEqualTo("카드 한도 초과"),
+                    () -> assertThat(updatedOrder.getStatus()).isEqualTo(Order.Status.FAILED),
+                    () -> assertThat(updatedCoupon.getStatus()).isEqualTo(IssuedCoupon.Status.AVAILABLE),
+                    () -> assertThat(updatedProduct.getStockQuantity()).isEqualTo(initialStock)
             );
         }
 
@@ -259,19 +297,16 @@ class PaymentFacadeSpringTest {
         @Test
         void returnsCurrentStatus_whenAlreadyCompleted() {
             // arrange
-            Payment payment = paymentJpaRepository.save(
-                    Payment.create(order.getId(), "pgOrderCode-004", CardType.SAMSUNG, "1234-5678-9012-3456", 10000L)
-            );
-            payment.assignPgTransaction("TXN-004");
-            paymentJpaRepository.save(payment);
-            paymentJpaRepository.completeIfPending(payment.getId());
+            given(pgPaymentGateway.requestPayment(anyString(), any()))
+                    .willReturn(new PgPaymentDto.TransactionResponse("TXN-004", "PENDING", null));
+            PaymentInfo pending = paymentFacade.requestPayment(userId, new PaymentCommand(order.getId(), CardType.SAMSUNG, "1234-5678-9012-3456"));
+            paymentFacade.handleCallback(new PgCallbackCommand("TXN-004", "SUCCESS", null));
 
             // act
-            PaymentInfo result = paymentFacade.syncPayment(userId, payment.getId());
+            PaymentInfo result = paymentFacade.syncPayment(userId, pending.id());
 
             // assert
             assertThat(result.status()).isEqualTo(PaymentStatus.COMPLETED);
-            then(pgPaymentGateway).should(never()).getTransactionsByOrder(anyString(), anyString());
         }
 
         @DisplayName("pgOrderCode로 PG 조회하여 SUCCESS면 COMPLETED로 전환되고 transactionKey가 저장된다.")

@@ -10,6 +10,9 @@ import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.InMemoryPaymentRepository;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentStatus;
+import com.loopers.infrastructure.client.PgDeclinedException;
+import com.loopers.infrastructure.client.PgPaymentDto;
+import com.loopers.infrastructure.client.PgPaymentException;
 import com.loopers.infrastructure.client.PgPaymentGateway;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -23,6 +26,9 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
@@ -32,6 +38,7 @@ class PaymentFacadeTest {
     private InMemoryOrderRepository orderRepository;
     private OrderService orderService;
     private OrderCompensationService orderCompensationService;
+    private PgPaymentGateway pgPaymentGateway;
     private PaymentFacade paymentFacade;
 
     @BeforeEach
@@ -40,7 +47,50 @@ class PaymentFacadeTest {
         orderRepository = new InMemoryOrderRepository();
         orderService = new OrderService(orderRepository, new InMemoryOrderItemRepository());
         orderCompensationService = mock(OrderCompensationService.class);
-        paymentFacade = new PaymentFacade(paymentRepository, orderService, orderCompensationService, mock(PgPaymentGateway.class), "http://localhost:8080/api/v1/payments/callback");
+        pgPaymentGateway = mock(PgPaymentGateway.class);
+        paymentFacade = new PaymentFacade(paymentRepository, orderService, orderCompensationService, pgPaymentGateway, "http://localhost:8080/api/v1/payments/callback");
+    }
+
+    @DisplayName("결제 요청 시, ")
+    @Nested
+    class RequestPayment {
+
+        @DisplayName("PG가 명시적으로 거절하면 즉시 FAILED 처리되고 보상이 실행된다.")
+        @Test
+        void failsImmediately_whenPgDeclines() {
+            // arrange
+            Order order = orderRepository.save(Order.create(1L, List.of(new OrderItemSnapshot(1L, "상품", 10000L, 1))));
+            given(pgPaymentGateway.requestPayment(anyString(), any()))
+                    .willThrow(new PgDeclinedException("카드 한도 초과"));
+
+            // act
+            PaymentInfo result = paymentFacade.requestPayment(1L, new PaymentCommand(order.getId(), CardType.SAMSUNG, "1234-5678-9012-3456"));
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.status()).isEqualTo(PaymentStatus.FAILED),
+                    () -> assertThat(result.failReason()).isEqualTo("카드 한도 초과"),
+                    () -> then(orderCompensationService).should().compensate(order.getId())
+            );
+        }
+
+        @DisplayName("PG 일시 장애(timeout/circuit open)면 PENDING 유지된다.")
+        @Test
+        void staysPending_whenPgTemporaryFailure() {
+            // arrange
+            Order order = orderRepository.save(Order.create(1L, List.of(new OrderItemSnapshot(1L, "상품", 10000L, 1))));
+            given(pgPaymentGateway.requestPayment(anyString(), any()))
+                    .willThrow(new PgPaymentException("PG 결제 요청 불가: Read timed out"));
+
+            // act
+            PaymentInfo result = paymentFacade.requestPayment(1L, new PaymentCommand(order.getId(), CardType.SAMSUNG, "1234-5678-9012-3456"));
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.status()).isEqualTo(PaymentStatus.PENDING),
+                    () -> then(orderCompensationService).shouldHaveNoInteractions()
+            );
+        }
     }
 
     @DisplayName("PG 콜백 수신 시, ")

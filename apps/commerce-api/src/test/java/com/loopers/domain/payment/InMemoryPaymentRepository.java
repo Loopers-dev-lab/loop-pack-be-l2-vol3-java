@@ -51,4 +51,41 @@ public class InMemoryPaymentRepository implements PaymentRepository {
                     .filter(p -> p.getStatus() == status)
                     .toList();
     }
+
+    @Override
+    public int completeIfPending(Long id) {
+        return findById(id)
+                .filter(p -> p.getStatus() == PaymentStatus.PENDING)
+                .map(p -> {
+                    try {
+                        var statusField = Payment.class.getDeclaredField("status");
+                        statusField.setAccessible(true);
+                        statusField.set(p, PaymentStatus.COMPLETED);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return 1;
+                })
+                .orElse(0);
+    }
+
+    @Override
+    public int failIfPending(Long id, String reason) {
+        return findById(id)
+                .filter(p -> p.getStatus() == PaymentStatus.PENDING)
+                .map(p -> {
+                    try {
+                        var statusField = Payment.class.getDeclaredField("status");
+                        statusField.setAccessible(true);
+                        statusField.set(p, PaymentStatus.FAILED);
+                        var reasonField = Payment.class.getDeclaredField("failReason");
+                        reasonField.setAccessible(true);
+                        reasonField.set(p, reason);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return 1;
+                })
+                .orElse(0);
+    }
 }

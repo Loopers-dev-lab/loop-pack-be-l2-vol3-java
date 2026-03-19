@@ -7,18 +7,21 @@ import com.loopers.domain.order.Order;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.payment.PaymentStatus;
+import com.loopers.infrastructure.client.PgDeclinedException;
 import com.loopers.infrastructure.client.PgPaymentDto;
 import com.loopers.infrastructure.client.PgPaymentException;
 import com.loopers.infrastructure.client.PgPaymentGateway;
 import com.loopers.infrastructure.client.PgTransactionStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class PaymentFacade {
     private final PaymentRepository paymentRepository;
@@ -60,8 +63,14 @@ public class PaymentFacade {
                     new PgPaymentDto.PaymentRequest(pgOrderCode, command.cardType().name(), command.cardNo(), order.finalAmount(), callbackUrl)
             );
             payment.assignPgTransaction(pgResponse.transactionKey());
+        } catch (PgDeclinedException e) {
+            // PG 명시적 거절 — 즉시 FAILED 처리 + 보상
+            int affected = paymentRepository.failIfPending(payment.getId(), e.getMessage());
+            if (affected > 0) {
+                orderCompensationService.compensate(payment.getOrderId());
+            }
         } catch (PgPaymentException e) {
-            // PG 장애 - payment는 PENDING 유지, transactionKey 미할당
+            log.warn("PG 결제 요청 실패 - PENDING 유지. paymentId={}, cause={}", payment.getId(), e.getMessage());
         }
 
         return PaymentInfo.from(payment);

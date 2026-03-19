@@ -18,7 +18,7 @@ public class PgPaymentGateway {
     public PgPaymentDto.TransactionResponse requestPayment(String userId, PgPaymentDto.PaymentRequest request) {
         PgPaymentDto.ApiResponse<PgPaymentDto.TransactionResponse> response = pgClient.requestPayment(userId, request);
         if (!response.isSuccess()) {
-            throw new PgPaymentException("PG 결제 요청 실패: " + (response.meta() != null ? response.meta().message() : "unknown"));
+            throw new PgDeclinedException("PG 결제 요청 실패: " + (response.meta() != null ? response.meta().message() : "unknown"));
         }
         if (response.data() == null) {
             throw new PgPaymentException("PG 결제 요청 응답 데이터가 없습니다.");

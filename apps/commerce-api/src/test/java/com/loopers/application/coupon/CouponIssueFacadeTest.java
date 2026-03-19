@@ -97,9 +97,15 @@ public class CouponIssueFacadeTest {
         @Test
         void throwsCouponExpired_whenCouponExpired() {
             // arrange
-            Coupon savedCoupon = couponRepository.save(
-                Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().minusDays(1))
-            );
+            Coupon coupon = Coupon.create("신규 회원 쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(1));
+            try {
+                var field = Coupon.class.getDeclaredField("expiresAt");
+                field.setAccessible(true);
+                field.set(coupon, LocalDateTime.now().minusDays(1));
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            Coupon savedCoupon = couponRepository.save(coupon);
 
             // act
             CoreException result = assertThrows(CoreException.class, () ->
