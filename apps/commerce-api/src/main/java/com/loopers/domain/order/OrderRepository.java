@@ -16,6 +16,8 @@ public interface OrderRepository {
     CursorResult<Order> findAllByUserIdWithCursor(Long userId, ZonedDateTime startAt, ZonedDateTime endAt,
                                                    ZonedDateTime cursorCreatedAt, Long cursorId, int size);
 
+    Optional<Order> findByOrderNumber(String orderNumber);
+
     List<Order> findAll(int page, int size);
     long count();
 }

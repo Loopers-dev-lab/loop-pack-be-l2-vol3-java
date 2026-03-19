@@ -1,6 +1,7 @@
 package com.loopers.application.order;
 
 import com.loopers.application.cache.OrderCacheManager;
+import com.loopers.application.payment.PaymentFacade;
 import com.loopers.domain.address.UserAddress;
 import com.loopers.domain.address.UserAddressService;
 import com.loopers.domain.brand.Brand;
@@ -67,6 +68,7 @@ public class OrderFacade {
     private final CouponService couponService;
     private final PointService pointService;
     private final PaymentService paymentService;
+    private final PaymentFacade paymentFacade;
     private final TransactionTemplate txTemplate;
     private final OrderCacheManager orderCacheManager;
 
@@ -74,7 +76,7 @@ public class OrderFacade {
                        ProductService productService, BrandService brandService,
                        InventoryService inventoryService, CartItemService cartItemService,
                        CouponService couponService, PointService pointService,
-                       PaymentService paymentService,
+                       PaymentService paymentService, PaymentFacade paymentFacade,
                        PlatformTransactionManager txManager,
                        OrderCacheManager orderCacheManager) {
         this.orderService = orderService;
@@ -86,6 +88,7 @@ public class OrderFacade {
         this.couponService = couponService;
         this.pointService = pointService;
         this.paymentService = paymentService;
+        this.paymentFacade = paymentFacade;
         this.txTemplate = new TransactionTemplate(txManager);
         this.txTemplate.setTimeout(30);
         this.orderCacheManager = orderCacheManager;
@@ -231,10 +234,13 @@ public class OrderFacade {
     }
 
     /**
-     * PG 결제 + TX2 (확정 또는 보상)
+     * PG 결제 요청 + 결과에 따른 즉시 처리 또는 콜백 대기
      *
      * PG 호출은 트랜잭션 밖에서 수행되어 락 보유 시간을 최소화한다.
-     * PG 실패 또는 확정 실패 시 보상 트랜잭션으로 TX1의 변경을 되돌린다.
+     * - APPROVED: 즉시 TX2 실행 (PaymentFacade.confirmPayment)
+     * - FAILED: 즉시 보상 실행 (PaymentFacade.compensatePayment)
+     * - PENDING: 콜백 대기 (아무것도 안 함)
+     * - UNKNOWN: 보상하지 않고 대기 (콜백 또는 대사 배치에서 처리)
      */
     private OrderCreateResult processPaymentAndConfirm(OrderPaymentContext context) {
         try {
@@ -251,30 +257,16 @@ public class OrderFacade {
             PaymentResult pgResult = paymentService.requestPayment(payment, pgRequest);
 
             if (pgResult.isApproved()) {
-                // TX2: 결제 확정 + 재고 확정 + 주문 확정 + 포인트 적립
-                return txTemplate.execute(status -> {
-                    paymentService.approve(context.paymentId(), pgResult.transactionKey(), context.totalAmount());
-                    inventoryService.commitAll(context.productQtyMap());
-                    orderService.confirm(context.orderId(), context.paymentId(), context.paymentMethod());
-                    pointService.earn(context.userId(), context.totalAmount());
-
-                    Order order = orderService.getById(context.orderId());
-                    return new OrderCreateResult(
-                            order.getId(), order.getOrderNumber(), order.getStatus().name(),
-                            order.getTotalAmount(), order.getPaymentId());
-                });
-            }
-
-            if (pgResult.isUnknown()) {
-                // UNKNOWN — 대사 배치에서 확인 예정
+                paymentFacade.confirmPayment(context.orderId(), pgResult.transactionKey());
+            } else if (pgResult.isFailed()) {
+                paymentFacade.compensatePayment(context.orderId());
+            } else if (pgResult.isUnknown()) {
+                // UNKNOWN — 보상하지 않고 대기 (콜백 또는 대사 배치에서 처리)
                 txTemplate.executeWithoutResult(status ->
                         paymentService.markUnknown(context.paymentId()));
-                log.warn("PG 결제 결과 불확실 — 보상 진행 (orderId={}, reason={})",
-                        context.orderId(), pgResult.reason());
+                log.warn("PG 결제 결과 불확실 — 콜백/대사 배치 대기 (orderId={})", context.orderId());
             }
-
-            // FAILED 또는 UNKNOWN — 보상 트랜잭션 실행
-            compensateOrder(context);
+            // PENDING — 콜백 대기 (아무것도 안 함)
 
             return txTemplate.execute(status -> {
                 Order order = orderService.getById(context.orderId());
@@ -283,44 +275,8 @@ public class OrderFacade {
                         order.getTotalAmount(), order.getPaymentId());
             });
         } catch (Exception e) {
-            compensateOrder(context);
+            paymentFacade.compensatePayment(context.orderId());
             throw e;
-        }
-    }
-
-    /**
-     * 보상 트랜잭션: TX1에서 커밋된 변경을 되돌린다.
-     *
-     * - Payment → FAILED
-     * - 쿠폰 → ISSUED 복원 (USED → ISSUED)
-     * - 포인트 → 환급 (차감 금액 반환)
-     * - 재고 → 예약 해제
-     * - 주문 → CANCELED
-     *
-     * 보상 자체가 실패하면 CRITICAL 로그를 남기고 수동 복구가 필요하다.
-     */
-    private void compensateOrder(OrderPaymentContext context) {
-        try {
-            txTemplate.executeWithoutResult(status -> {
-                paymentService.fail(context.paymentId());
-
-                if (context.issuedCouponId() != null) {
-                    couponService.restore(context.issuedCouponId(), context.orderId());
-                }
-                if (context.pointAmount() > 0) {
-                    pointService.refund(context.userId(), context.pointAmount());
-                }
-
-                inventoryService.releaseAll(context.productQtyMap());
-                orderService.cancel(context.orderId(), context.userId());
-            });
-
-            // txTemplate 완료 = 커밋 완료 → 직접 캐시 삭제
-            orderCacheManager.evictOrderList(context.userId());
-        } catch (Exception compensateEx) {
-            log.error("CRITICAL: 보상 트랜잭션 실패 — 수동 복구 필요 (orderId={}, paymentId={})",
-                    context.orderId(), context.paymentId(), compensateEx);
-            // 보상 실패 시 캐시 삭제도 안 됨 → TTL 안전망 (300초)
         }
     }
 

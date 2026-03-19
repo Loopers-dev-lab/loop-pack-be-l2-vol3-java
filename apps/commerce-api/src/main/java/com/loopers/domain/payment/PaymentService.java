@@ -11,8 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentService {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
-    private static final int PG_POLL_MAX_ATTEMPTS = 5;
-    private static final long PG_POLL_INTERVAL_MS = 1500;
 
     private final PaymentRepository paymentRepository;
     private final PaymentClient paymentClient;
@@ -36,6 +34,12 @@ public class PaymentService {
     @Transactional(readOnly = true)
     public Payment getById(Long paymentId) {
         return paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new CoreException(PaymentErrorType.PAYMENT_NOT_FOUND));
+    }
+
+    @Transactional(readOnly = true)
+    public Payment getByOrderId(Long orderId) {
+        return paymentRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new CoreException(PaymentErrorType.PAYMENT_NOT_FOUND));
     }
 
@@ -63,12 +67,15 @@ public class PaymentService {
     /**
      * PG 결제 요청 + 결과 해석 (트랜잭션 없음 — 외부 HTTP 호출 포함)
      *
-     * 1. PG에 결제 승인 요청 (POST)
-     * 2. PENDING 응답 시 → 폴링으로 최종 결과 확인 (GET)
-     * 3. 결과를 해석하여 PaymentResult 반환
+     * 응답별 분기:
+     * - 4xx (REJECTED): 요청 자체가 잘못됨 → 즉시 FAILED
+     * - 500 (ERROR): PG 서버 에러 → 즉시 FAILED (재시도하지 않음 — 같은 에러 반복 가능성 높음)
+     * - 타임아웃 (TIMEOUT): 결제 여부 불확실 → 조회 API로 한 번 확인
+     * - PENDING: PG 접수 완료 → 콜백 대기
      *
-     * Facade는 이 결과만 보고 TX2(확정) 또는 보상을 결정한다.
-     * PG 응답 코드 해석, 타임아웃 분기, 폴링 로직은 이 메서드 안에 캡슐화된다.
+     * 500 에러를 재시도하지 않는 근거 (케브 멘토):
+     * "500은 다시 호출해도 500이 발생될 가능성이 높다. 타임아웃은 일시적인 상황이 많은데
+     *  500이 발생하면 두 번째도 500이 더 크다. 이런 경우 retry를 시도하지 않는다."
      */
     public PaymentResult requestPayment(Payment payment, PgApproveRequest request) {
         // 1. PG 결제 승인 요청
@@ -76,7 +83,12 @@ public class PaymentService {
 
         // 2. 응답별 분기
         if (approveResult.isRejected()) {
-            log.info("PG 결제 거절: orderId={}, reason={}", payment.getOrderId(), approveResult.reason());
+            log.info("PG 결제 거절 (4xx): orderId={}, reason={}", payment.getOrderId(), approveResult.reason());
+            return PaymentResult.failed(approveResult.reason());
+        }
+
+        if (approveResult.isError()) {
+            log.warn("PG 서버 에러 (500): orderId={}, reason={}", payment.getOrderId(), approveResult.reason());
             return PaymentResult.failed(approveResult.reason());
         }
 
@@ -85,53 +97,64 @@ public class PaymentService {
             return handleTimeoutWithQuery(payment, request);
         }
 
-        if (approveResult.isError()) {
-            log.warn("PG 서버 에러: orderId={}, reason={}", payment.getOrderId(), approveResult.reason());
-            return PaymentResult.failed(approveResult.reason());
-        }
-
-        // 3. PENDING — 비동기 결과 폴링
+        // 3. PENDING — PG가 접수함, 결과는 콜백으로 수신
         if (approveResult.isPending()) {
-            return pollForResult(payment, approveResult.transactionKey(), request.userId());
+            log.info("PG 결제 접수 완료 — 콜백 대기: orderId={}, txnKey={}",
+                    payment.getOrderId(), approveResult.transactionKey());
+            return PaymentResult.pending(approveResult.transactionKey());
         }
 
         return PaymentResult.failed("알 수 없는 PG 응답");
     }
 
     /**
-     * PG PENDING 상태에서 폴링으로 최종 결과 확인
+     * PG 콜백 검증: PG 조회 API로 실제 상태를 확인한다.
+     *
+     * 콜백은 누구든 POST 요청을 보낼 수 있으므로, 콜백 데이터를 그대로 신뢰하지 않는다.
+     * PG 조회 API로 transactionKey의 실제 상태를 확인한 뒤 PaymentResult를 반환한다.
      */
-    private PaymentResult pollForResult(Payment payment, String transactionKey, Long userId) {
-        for (int attempt = 1; attempt <= PG_POLL_MAX_ATTEMPTS; attempt++) {
-            try {
-                Thread.sleep(PG_POLL_INTERVAL_MS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return PaymentResult.unknown("폴링 중 인터럽트 발생");
-            }
+    public PaymentResult verifyCallback(String transactionKey, Long userId) {
+        PgQueryResult queryResult = paymentClient.query(transactionKey, userId);
 
-            PgQueryResult queryResult = paymentClient.query(transactionKey, userId);
-
-            if (queryResult.isSuccess()) {
-                log.info("PG 결제 승인 확인: orderId={}, txnKey={}", payment.getOrderId(), transactionKey);
-                return PaymentResult.approved(transactionKey);
-            }
-
-            if (queryResult.isFailed()) {
-                log.info("PG 결제 거절 확인: orderId={}, reason={}", payment.getOrderId(), queryResult.reason());
-                return PaymentResult.failed(queryResult.reason());
-            }
-
-            log.debug("PG 상태 조회 attempt {}/{}: 아직 PENDING (orderId={})",
-                    attempt, PG_POLL_MAX_ATTEMPTS, payment.getOrderId());
+        if (queryResult.isSuccess()) {
+            log.info("PG 콜백 검증 성공: txnKey={}", transactionKey);
+            return PaymentResult.approved(transactionKey);
+        }
+        if (queryResult.isFailed()) {
+            log.info("PG 콜백 검증 — 결제 실패 확인: txnKey={}, reason={}", transactionKey, queryResult.reason());
+            return PaymentResult.failed(queryResult.reason());
+        }
+        if (queryResult.isPending()) {
+            log.warn("PG 콜백 검증 — 아직 PENDING: txnKey={}", transactionKey);
+            return PaymentResult.pending(transactionKey);
         }
 
-        log.warn("PG 폴링 한도 초과: orderId={}, txnKey={} — UNKNOWN 처리", payment.getOrderId(), transactionKey);
-        return PaymentResult.unknown("PG 결과 확인 한도 초과 — 대사 배치에서 확인 예정");
+        log.warn("PG 콜백 검증 실패 — 상태 불확실: txnKey={}", transactionKey);
+        return PaymentResult.unknown("콜백 검증 시 PG 상태 확인 실패");
+    }
+
+    /**
+     * PG 결제 취소 — 뒤늦은 PG 성공 시 대사 배치에서 호출
+     *
+     * PG cancel() API를 호출하여 승인된 결제를 취소한다.
+     * cancel() 실패 시 다음 배치에서 재시도한다.
+     */
+    public PgCancelResult cancelPgPayment(String transactionKey, Long userId) {
+        log.info("PG 결제 취소 요청: txnKey={}", transactionKey);
+        PgCancelResult result = paymentClient.cancel(transactionKey, userId);
+        if (result.canceled()) {
+            log.info("PG 결제 취소 성공: txnKey={}", transactionKey);
+        } else {
+            log.warn("PG 결제 취소 실패: txnKey={}, reason={}", transactionKey, result.reason());
+        }
+        return result;
     }
 
     /**
      * 타임아웃 시 조회 API로 결제 상태 확인
+     *
+     * 타임아웃은 "모르는 상태"이므로, 즉시 재시도보다 조회 API로 결과 확인이 우선이다.
+     * 조회 결과에 따라 성공/실패/UNKNOWN을 반환한다.
      */
     private PaymentResult handleTimeoutWithQuery(Payment payment, PgApproveRequest request) {
         PgQueryResult queryResult = paymentClient.query(
