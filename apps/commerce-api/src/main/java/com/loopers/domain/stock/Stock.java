@@ -16,6 +16,8 @@ import lombok.Getter;
 @Getter
 public class Stock extends BaseEntity {
 
+    private static final int QUANTITY_MAX = 9_999_999;
+
     @Column(name = "product_id", nullable = false)
     private Long productId;
 
@@ -48,15 +50,18 @@ public class Stock extends BaseEntity {
         return this.quantity - this.reservedQuantity - this.confirmedQuantity;
     }
 
-    private static void validateProductId(Long productId) {
-        if (productId == null) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "상품 ID는 필수입니다");
+    public static void validateQuantity(int quantity) {
+        if (quantity < 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "재고 수량은 0 이상이어야 합니다");
+        }
+        if (quantity > QUANTITY_MAX) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "재고 수량은 9,999,999 이하여야 합니다");
         }
     }
 
-    private static void validateQuantity(int quantity) {
-        if (quantity < 0) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "재고 수량은 0 이상이어야 합니다");
+    private static void validateProductId(Long productId) {
+        if (productId == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "상품 ID는 필수입니다");
         }
     }
 }

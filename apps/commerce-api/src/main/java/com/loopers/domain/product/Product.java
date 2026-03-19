@@ -29,7 +29,6 @@ public class Product extends BaseEntity {
     private static final int NAME_MAX_LENGTH = 200;
     private static final int DESCRIPTION_MAX_LENGTH = 1000;
     private static final BigDecimal PRICE_MAX = new BigDecimal("999999999");
-    private static final int STOCK_QUANTITY_MAX = 9_999_999;
 
     @Column(name = "brand_id", nullable = false)
     private Long brandId;
@@ -39,9 +38,6 @@ public class Product extends BaseEntity {
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal price;
-
-    @Column(name = "stock_quantity", nullable = false)
-    private Integer stockQuantity;
 
     @Column(length = DESCRIPTION_MAX_LENGTH)
     private String description;
@@ -55,25 +51,23 @@ public class Product extends BaseEntity {
     protected Product() {
     }
 
-    private Product(Long brandId, String name, BigDecimal price, Integer stockQuantity, String description) {
+    private Product(Long brandId, String name, BigDecimal price, String description) {
         this.brandId = brandId;
         this.name = name;
         this.price = price;
-        this.stockQuantity = stockQuantity;
         this.description = description;
         this.likeCount = 0;
     }
 
-    public static Product create(Long brandId, String name, BigDecimal price, Integer stockQuantity, String description) {
+    public static Product create(Long brandId, String name, BigDecimal price, String description) {
         validateBrandId(brandId);
         validateName(name);
         validatePrice(price);
-        validateStockQuantity(stockQuantity);
         validateDescription(description);
-        return new Product(brandId, name, price, stockQuantity, description);
+        return new Product(brandId, name, price, description);
     }
 
-    public void updateInfo(String name, BigDecimal price, Integer stockQuantity, String description) {
+    public void updateInfo(String name, BigDecimal price, String description) {
         validateNotDeleted();
         if (name != null) {
             validateName(name);
@@ -83,10 +77,6 @@ public class Product extends BaseEntity {
             validatePrice(price);
             this.price = price;
         }
-        if (stockQuantity != null) {
-            validateStockQuantity(stockQuantity);
-            this.stockQuantity = stockQuantity;
-        }
         if (description != null) {
             validateDescription(description);
             this.description = description;
@@ -95,12 +85,6 @@ public class Product extends BaseEntity {
 
     public boolean isDeleted() {
         return getDeletedAt() != null;
-    }
-
-    public void validateStockSufficient(int quantity) {
-        if (this.stockQuantity < quantity) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다");
-        }
     }
 
     private void validateNotDeleted() {
@@ -133,18 +117,6 @@ public class Product extends BaseEntity {
         }
         if (price.compareTo(PRICE_MAX) > 0) {
             throw new CoreException(ErrorType.BAD_REQUEST, "가격은 999,999,999 이하여야 합니다");
-        }
-    }
-
-    private static void validateStockQuantity(Integer stockQuantity) {
-        if (stockQuantity == null) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "재고 수량은 필수입니다");
-        }
-        if (stockQuantity < 0) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "재고 수량은 0 이상이어야 합니다");
-        }
-        if (stockQuantity > STOCK_QUANTITY_MAX) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "재고 수량은 9,999,999 이하여야 합니다");
         }
     }
 

@@ -26,8 +26,7 @@ public class ProductService {
 
     @Transactional
     public Product register(ProductCommand.Register command) {
-        Product product = Product.create(command.brandId(), command.name(), command.price(),
-                command.stockQuantity(), command.description());
+        Product product = Product.create(command.brandId(), command.name(), command.price(), command.description());
         return productRepository.save(product);
     }
 
@@ -36,7 +35,7 @@ public class ProductService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다"));
 
-        product.updateInfo(command.name(), command.price(), command.stockQuantity(), command.description());
+        product.updateInfo(command.name(), command.price(), command.description());
         return product;
     }
 
@@ -57,22 +56,6 @@ public class ProductService {
         productRepository.decrementLikeCountIfPositive(productId);
     }
 
-    @Transactional
-    public void decreaseStocks(Map<Long, Integer> productQuantities) {
-        List<Long> sortedIds = productQuantities.keySet().stream()
-                .sorted()
-                .toList();
-
-        for (Long productId : sortedIds) {
-            int updated = productRepository.decreaseStockIfEnough(
-                    productId, productQuantities.get(productId)
-            );
-            if (updated == 0) {
-                throw new CoreException(ErrorType.BAD_REQUEST, "상품(id: " + productId + ")의 재고가 부족합니다");
-            }
-        }
-    }
-
     @Transactional(readOnly = true)
     public List<Long> findIdsForCleanup(Long brandId, int batchSize) {
         return productRepository.findIdsByBrandIdForCleanup(brandId, batchSize);
@@ -82,7 +65,6 @@ public class ProductService {
     public int softDeleteByIds(List<Long> ids) {
         return productRepository.softDeleteByIds(ids);
     }
-
 
     // Query
 

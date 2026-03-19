@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -34,8 +36,15 @@ public interface StockJpaRepository extends JpaRepository<Stock, Long> {
            "WHERE s.productId = :productId AND s.confirmedQuantity >= :amount")
     int releaseConfirmedIfEnough(@Param("productId") Long productId, @Param("amount") int amount);
 
+    @Modifying
+    @Query("UPDATE Stock s SET s.quantity = :quantity " +
+           "WHERE s.productId = :productId")
+    int updateQuantity(@Param("productId") Long productId, @Param("quantity") int quantity);
+
     // Query
     Optional<Stock> findByProductId(Long productId);
+
+    List<Stock> findAllByProductIdIn(Collection<Long> productIds);
 
     @Query("SELECT s.productId FROM Stock s WHERE s.reservedQuantity > 0")
     Set<Long> findProductIdsWithReservedStock();

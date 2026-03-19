@@ -21,7 +21,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
-import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,7 +59,6 @@ class ProductServiceIntegrationTest {
             assertThat(result.getBrandId()).isEqualTo(1L);
             assertThat(result.getName()).isEqualTo("운동화");
             assertThat(result.getPrice()).isEqualByComparingTo(new BigDecimal("50000"));
-            assertThat(result.getStockQuantity()).isEqualTo(100);
             assertThat(result.getDescription()).isEqualTo("편한 운동화");
             assertThat(result.getLikeCount()).isEqualTo(0);
         }
@@ -77,7 +75,6 @@ class ProductServiceIntegrationTest {
 
             assertThat(result.getName()).isEqualTo("런닝화");
             assertThat(result.getPrice()).isEqualByComparingTo(new BigDecimal("60000"));
-            assertThat(result.getStockQuantity()).isEqualTo(200);
             assertThat(result.getDescription()).isEqualTo("가벼운 런닝화");
         }
 
@@ -552,69 +549,6 @@ class ProductServiceIntegrationTest {
             var result = productService.findBrandIdsWithUncleanedProducts();
 
             assertThat(result).isEmpty();
-        }
-    }
-
-    @Nested
-    class 재고_일괄_차감 {
-
-        @Test
-        void 유효한_상품에_재고를_차감하면_차감된다() {
-            Product product1 = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
-            Product product2 = productService.register(ProductCommand.Register.of(1L, "셔츠", new BigDecimal("30000"), 50, "멋진 셔츠"));
-
-            productService.decreaseStocks(Map.of(product1.getId(), 10, product2.getId(), 5));
-
-            Product found1 = productRepository.findById(product1.getId()).orElseThrow();
-            Product found2 = productRepository.findById(product2.getId()).orElseThrow();
-            assertThat(found1.getStockQuantity()).isEqualTo(90);
-            assertThat(found2.getStockQuantity()).isEqualTo(45);
-        }
-
-        @Test
-        void 미존재_상품이_포함되면_예외() {
-            Product product = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
-
-            assertThatThrownBy(() -> productService.decreaseStocks(Map.of(product.getId(), 10, 999L, 5)))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
-                    .hasMessageContaining("재고가 부족합니다");
-        }
-
-        @Test
-        void 삭제된_상품이_포함되면_예외() {
-            Product product = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
-            product.delete();
-            productRepository.save(product);
-
-            assertThatThrownBy(() -> productService.decreaseStocks(Map.of(product.getId(), 10)))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
-                    .hasMessageContaining("재고가 부족합니다");
-        }
-
-        @Test
-        void 재고가_부족한_상품이_있으면_예외() {
-            Product product = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 10, "편한 운동화"));
-
-            assertThatThrownBy(() -> productService.decreaseStocks(Map.of(product.getId(), 11)))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
-                    .hasMessageContaining("재고가 부족합니다");
-        }
-
-        @Test
-        void 재고_부족_시_어떤_상품의_재고도_차감되지_않는다() {
-            Product product1 = productService.register(ProductCommand.Register.of(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
-            Product product2 = productService.register(ProductCommand.Register.of(1L, "셔츠", new BigDecimal("30000"), 5, "멋진 셔츠"));
-
-            assertThatThrownBy(() -> productService.decreaseStocks(Map.of(product1.getId(), 10, product2.getId(), 10)))
-                    .isInstanceOf(CoreException.class);
-
-            Product found1 = productRepository.findById(product1.getId()).orElseThrow();
-            Product found2 = productRepository.findById(product2.getId()).orElseThrow();
-            assertThat(found1.getStockQuantity()).isEqualTo(100);
-            assertThat(found2.getStockQuantity()).isEqualTo(5);
         }
     }
 }

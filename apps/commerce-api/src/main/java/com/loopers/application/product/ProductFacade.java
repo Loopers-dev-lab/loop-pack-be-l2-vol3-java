@@ -1,7 +1,9 @@
 package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandService;
+import com.loopers.application.stock.StockService;
 import com.loopers.domain.brand.Brand;
+import com.loopers.domain.stock.Stock;
 import com.loopers.infrastructure.product.ProductCacheManager;
 import com.loopers.infrastructure.product.ProductCacheManager.CachedPage;
 import com.loopers.support.error.CoreException;
@@ -27,6 +29,7 @@ public class ProductFacade {
 
     private final ProductService productService;
     private final BrandService brandService;
+    private final StockService stockService;
     private final ProductCacheManager productCacheManager;
 
     // Command
@@ -35,7 +38,8 @@ public class ProductFacade {
     public ProductInfo register(ProductCommand.Register command) {
         Brand brand = brandService.getActiveBrand(command.brandId());
         Product product = productService.register(command);
-        ProductInfo info = ProductInfo.from(product, brand.getName());
+        stockService.createStock(product.getId(), command.stockQuantity());
+        ProductInfo info = ProductInfo.from(product, brand.getName(), command.stockQuantity());
         afterCommit(() -> productCacheManager.evictAllLists());
         return info;
     }
@@ -43,8 +47,12 @@ public class ProductFacade {
     @Transactional
     public ProductInfo updateInfo(Long productId, ProductCommand.UpdateInfo command) {
         Product product = productService.updateInfo(productId, command);
+        if (command.stockQuantity() != null) {
+            stockService.updateQuantity(productId, command.stockQuantity());
+        }
         Brand brand = brandService.getBrand(product.getBrandId());
-        ProductInfo info = ProductInfo.from(product, brand.getName());
+        Stock stock = stockService.getStock(productId);
+        ProductInfo info = ProductInfo.from(product, brand.getName(), stock.getQuantity());
         afterCommit(() -> {
             productCacheManager.evictDetail(productId);
             productCacheManager.evictAllLists();
@@ -67,7 +75,8 @@ public class ProductFacade {
     public ProductInfo getDetail(Long productId) {
         Product product = productService.getProduct(productId);
         Brand brand = brandService.getBrand(product.getBrandId());
-        return ProductInfo.from(product, brand.getName());
+        Stock stock = stockService.getStock(productId);
+        return ProductInfo.from(product, brand.getName(), stock.getQuantity());
     }
 
     @Transactional(readOnly = true)
@@ -79,7 +88,8 @@ public class ProductFacade {
 
         Product product = productService.getActiveProduct(productId);
         Brand brand = brandService.getBrand(product.getBrandId());
-        ProductInfo info = ProductInfo.from(product, brand.getName());
+        Stock stock = stockService.getStock(productId);
+        ProductInfo info = ProductInfo.from(product, brand.getName(), stock.getQuantity());
         productCacheManager.putDetail(productId, info);
         return info;
     }
@@ -97,21 +107,7 @@ public class ProductFacade {
         }
 
         Page<Product> products = productService.findActiveProducts(brandId, pageable);
-
-        Set<Long> brandIds = products.getContent().stream()
-                .map(Product::getBrandId)
-                .collect(Collectors.toSet());
-
-        Map<Long, Brand> brandMap = brandService.getBrandsMapByIds(brandIds);
-
-        for (Product product : products.getContent()) {
-            if (!brandMap.containsKey(product.getBrandId())) {
-                throw new CoreException(ErrorType.NOT_FOUND,
-                        "브랜드 매핑 누락. productId=" + product.getId() + ", brandId=" + product.getBrandId());
-            }
-        }
-
-        Page<ProductInfo> result = products.map(product -> ProductInfo.from(product, brandMap.get(product.getBrandId()).getName()));
+        Page<ProductInfo> result = toProductInfoPage(products);
         productCacheManager.putList(brandId, sort, page, size,
                 new CachedPage(result.getContent(), page, size, result.getTotalElements()));
         return result;
@@ -120,12 +116,21 @@ public class ProductFacade {
     @Transactional(readOnly = true)
     public Page<ProductInfo> getList(String name, Long brandId, Boolean deleted, Pageable pageable) {
         Page<Product> products = productService.findProducts(name, brandId, deleted, pageable);
+        return toProductInfoPage(products);
+    }
 
+    private Page<ProductInfo> toProductInfoPage(Page<Product> products) {
         Set<Long> brandIds = products.getContent().stream()
                 .map(Product::getBrandId)
                 .collect(Collectors.toSet());
+        Set<Long> productIds = products.getContent().stream()
+                .map(Product::getId)
+                .collect(Collectors.toSet());
 
         Map<Long, Brand> brandMap = brandService.getBrandsMapByIds(brandIds);
+        Map<Long, Stock> stockMap = productIds.isEmpty()
+                ? Map.of()
+                : stockService.getStocksMapByProductIds(productIds);
 
         for (Product product : products.getContent()) {
             if (!brandMap.containsKey(product.getBrandId())) {
@@ -134,6 +139,10 @@ public class ProductFacade {
             }
         }
 
-        return products.map(product -> ProductInfo.from(product, brandMap.get(product.getBrandId()).getName()));
+        return products.map(product -> {
+            Stock stock = stockMap.get(product.getId());
+            int stockQuantity = stock != null ? stock.getQuantity() : 0;
+            return ProductInfo.from(product, brandMap.get(product.getBrandId()).getName(), stockQuantity);
+        });
     }
 }

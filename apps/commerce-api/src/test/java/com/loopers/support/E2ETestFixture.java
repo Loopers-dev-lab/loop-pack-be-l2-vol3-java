@@ -9,8 +9,6 @@ import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.gateway.PgType;
-import com.loopers.domain.stock.Stock;
-import com.loopers.domain.stock.StockRepository;
 import com.loopers.interfaces.api.brand.BrandRequest;
 import com.loopers.interfaces.api.coupon.CouponAdminV1Dto;
 import com.loopers.interfaces.api.coupon.CouponRequest;
@@ -61,9 +59,6 @@ public class E2ETestFixture {
 
     @Autowired
     private StockService stockService;
-
-    @Autowired
-    private StockRepository stockRepository;
 
     // Auth
 
@@ -134,9 +129,7 @@ public class E2ETestFixture {
                 new HttpEntity<>(request, adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
-        Long productId = response.getBody().data().id();
-        stockRepository.save(Stock.create(productId, stockQuantity));
-        return productId;
+        return response.getBody().data().id();
     }
 
     public void updateProduct(Long productId, String name, BigDecimal price,
