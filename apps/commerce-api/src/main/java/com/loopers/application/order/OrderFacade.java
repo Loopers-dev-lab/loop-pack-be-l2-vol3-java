@@ -3,6 +3,7 @@ package com.loopers.application.order;
 import com.loopers.application.coupon.IssuedCouponService;
 import com.loopers.application.coupon.IssuedCouponSnapshot;
 import com.loopers.application.product.ProductService;
+import com.loopers.application.stock.StockService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.order.OrderStatus;
@@ -25,6 +26,7 @@ public class OrderFacade {
 
     private final OrderService orderService;
     private final ProductService productService;
+    private final StockService stockService;
     private final IssuedCouponService issuedCouponService;
 
     // Command
@@ -35,9 +37,6 @@ public class OrderFacade {
         // -- 1단계: 검증 + 계산 (읽기/순수 연산, 상태 변경 없음) --
         Map<Long, Integer> productQuantities = command.toQuantityMap();
         List<Product> products = productService.getActiveProducts(productQuantities.keySet());
-        for (Product product : products) {
-            product.validateStockSufficient(productQuantities.get(product.getId()));
-        }
 
         List<OrderCommand.CreateItem> orderItems = command.toCreateItems(products);
         BigDecimal totalAmount = OrderCommand.CreateItem.calculateTotalAmount(orderItems);
@@ -46,7 +45,9 @@ public class OrderFacade {
                 ? issuedCouponService.createDiscountSnapshot(command.issuedCouponId(), userId, totalAmount)
                 : IssuedCouponSnapshot.none();
 
-        // -- 2단계: 상태 변경 (원자적 UPDATE) --
+        // -- 2단계: 상태 변경 (원자적) --
+        stockService.reserve(productQuantities);
+
         if (couponSnapshot.isApplied()) {
             issuedCouponService.markUsedIfAvailable(command.issuedCouponId(), userId);
         }
@@ -55,8 +56,6 @@ public class OrderFacade {
                 couponSnapshot.issuedCouponId(), couponSnapshot.discountAmount());
 
         Order order = orderService.createOrder(OrderCommand.Create.of(userId, orderItems, orderCoupon));
-
-        productService.decreaseStocks(productQuantities);
 
         return OrderInfo.from(order);
     }

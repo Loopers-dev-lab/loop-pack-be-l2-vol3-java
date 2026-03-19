@@ -1,16 +1,12 @@
 package com.loopers.application.payment;
 
-import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentRepository;
-import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
 import java.util.Optional;
 
 @Service
@@ -22,8 +18,10 @@ public class PaymentService {
     // Command
 
     @Transactional
-    public Payment createPayment(Long orderId, Long userId, PgType pgType, CardType cardType, String cardNo, BigDecimal amount) {
-        Payment payment = Payment.create(orderId, userId, pgType, cardType, cardNo, amount);
+    public Payment createPayment(PaymentCommand.Create command) {
+        Payment payment = Payment.create(
+                command.orderId(), command.userId(), command.pgType(),
+                command.cardType(), command.cardNo(), command.amount());
         return paymentRepository.save(payment);
     }
 

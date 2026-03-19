@@ -1,9 +1,12 @@
 package com.loopers.support;
 
+import com.loopers.application.payment.PaymentCommand;
 import com.loopers.application.payment.PaymentService;
 import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.gateway.PgType;
+import com.loopers.domain.stock.Stock;
+import com.loopers.domain.stock.StockRepository;
 import com.loopers.interfaces.api.brand.BrandRequest;
 import com.loopers.interfaces.api.coupon.CouponAdminV1Dto;
 import com.loopers.interfaces.api.coupon.CouponRequest;
@@ -47,6 +50,9 @@ public class E2ETestFixture {
 
     @Autowired
     private PaymentService paymentService;
+
+    @Autowired
+    private StockRepository stockRepository;
 
     // Auth
 
@@ -117,7 +123,9 @@ public class E2ETestFixture {
                 new HttpEntity<>(request, adminHeaders()),
                 new ParameterizedTypeReference<>() {}
         );
-        return response.getBody().data().id();
+        Long productId = response.getBody().data().id();
+        stockRepository.save(Stock.create(productId, stockQuantity));
+        return productId;
     }
 
     public void updateProduct(Long productId, String name, BigDecimal price,
@@ -167,11 +175,11 @@ public class E2ETestFixture {
     }
 
     public Payment createPendingPayment(Long orderId, Long userId, BigDecimal amount) {
-        return paymentService.createPayment(orderId, userId, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", amount);
+        return paymentService.createPayment(PaymentCommand.Create.of(orderId, userId, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", amount));
     }
 
     public Payment createSucceededPayment(Long orderId, Long userId, BigDecimal amount) {
-        Payment payment = paymentService.createPayment(orderId, userId, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", amount);
+        Payment payment = paymentService.createPayment(PaymentCommand.Create.of(orderId, userId, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", amount));
         paymentService.markSucceeded(payment.getId());
         seedMockTossPayment(payment.getPaymentKey(), orderId, amount);
         return paymentService.getPayment(payment.getId());

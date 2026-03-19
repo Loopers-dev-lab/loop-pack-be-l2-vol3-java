@@ -5,6 +5,7 @@ import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.domain.payment.gateway.PgType;
+import com.loopers.application.payment.PaymentCommand;
 import com.loopers.application.payment.PaymentService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.order.OrderRequest;
@@ -123,7 +124,7 @@ class PaymentApiE2ETest {
                     LOGIN_ID, PASSWORD);
 
             // 결제 하나 직접 생성 (PENDING 상태)
-            paymentService.createPayment(orderId, 1L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            paymentService.createPayment(PaymentCommand.Create.of(orderId, 1L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")));
 
             PaymentRequest.Request request = new PaymentRequest.Request(
                     orderId, CardType.SAMSUNG, "9999-8888-7777-6666", PgType.TOSS);
@@ -137,7 +138,7 @@ class PaymentApiE2ETest {
         }
 
         @Test
-        void 주문_상태가_PENDING이_아니면_400_응답() {
+        void 주문_상태가_CREATED가_아니면_400_응답() {
             fixture.signUp(LOGIN_ID, PASSWORD, "홍길동", "test@example.com");
             Long brandId = fixture.registerBrand("나이키", "스포츠 브랜드");
             Long productId = fixture.registerProduct(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화");

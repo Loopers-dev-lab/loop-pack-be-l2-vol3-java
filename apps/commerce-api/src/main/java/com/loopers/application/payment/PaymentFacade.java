@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.ResourceAccessException;
 
 import java.math.BigDecimal;
@@ -31,6 +32,7 @@ public class PaymentFacade {
     private final PaymentService paymentService;
     private final OrderService orderService;
     private final PaymentGatewayRegistry gatewayRegistry;
+    private final TransactionTemplate transactionTemplate;
 
     // Command
 
@@ -38,9 +40,10 @@ public class PaymentFacade {
     public PaymentInfo requestPayment(Long userId, PaymentCommand.Request command) {
         // TX1: 주문 검증 + 중복 결제 확인 + Payment 생성 (PENDING)
         BigDecimal finalAmount = validateOrder(userId, command.orderId());
-        Payment payment = paymentService.createPayment(
+        PaymentCommand.Create createCommand = PaymentCommand.Create.of(
                 command.orderId(), userId, command.pgType(),
                 command.cardType(), command.cardNo(), finalAmount);
+        Payment payment = paymentService.createPayment(createCommand);
 
         // PG 라우팅
         PaymentGateway gateway = gatewayRegistry.getGateway(command.pgType());
@@ -107,16 +110,6 @@ public class PaymentFacade {
         return PaymentInfo.from(paymentService.getPayment(payment.getId()));
     }
 
-    @Transactional
-    public void confirmPaymentResult(Long paymentId) {
-        Payment payment = paymentService.getPayment(paymentId);
-        if (payment.isFinalized()) {
-            return;
-        }
-        payment.markSucceeded();
-        orderService.payOrder(payment.getOrderId());
-    }
-
     // Query
 
     @Transactional(readOnly = true)
@@ -162,7 +155,7 @@ public class PaymentFacade {
         if (!order.isOwnedBy(userId)) {
             throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다");
         }
-        if (order.getStatus() != OrderStatus.PENDING) {
+        if (order.getStatus() != OrderStatus.CREATED) {
             throw new CoreException(ErrorType.BAD_REQUEST, "결제할 수 없는 주문 상태입니다");
         }
         if (paymentService.existsActivePayment(orderId)) {
@@ -199,5 +192,16 @@ public class PaymentFacade {
             paymentService.markFailed(payment.getId(), e.getMessage());
             throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 요청에 실패했습니다. 잠시 후 다시 시도해주세요");
         }
+    }
+
+    private void confirmPaymentResult(Long paymentId) {
+        transactionTemplate.executeWithoutResult(status -> {
+            Payment payment = paymentService.getPayment(paymentId);
+            if (payment.isFinalized()) {
+                return;
+            }
+            payment.markSucceeded();
+            orderService.payOrder(payment.getOrderId());
+        });
     }
 }

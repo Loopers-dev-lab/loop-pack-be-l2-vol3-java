@@ -68,7 +68,7 @@ public class Order {
         validateUserId(userId);
         Order order = new Order();
         order.userId = userId;
-        order.status = OrderStatus.PENDING;
+        order.status = OrderStatus.CREATED;
         order.totalAmount = BigDecimal.ZERO;
         order.discountAmount = BigDecimal.ZERO;
         order.finalAmount = BigDecimal.ZERO;
@@ -94,31 +94,21 @@ public class Order {
     }
 
     public void pay() {
-        if (this.status != OrderStatus.PENDING) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "결제는 PENDING 상태에서만 가능합니다");
+        if (this.status != OrderStatus.CREATED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "결제할 수 없는 주문 상태입니다");
         }
         this.status = OrderStatus.PAID;
     }
 
-    public void ship() {
-        if (this.status != OrderStatus.PAID) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "배송은 PAID 상태에서만 가능합니다");
-        }
-        this.status = OrderStatus.SHIPPING;
-    }
-
-    public void deliver() {
-        if (this.status != OrderStatus.SHIPPING) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "배송완료는 SHIPPING 상태에서만 가능합니다");
-        }
-        this.status = OrderStatus.DELIVERED;
-    }
-
     public void cancel() {
-        if (this.status == OrderStatus.DELIVERED) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "배송완료된 주문은 취소할 수 없습니다");
+        if (this.status != OrderStatus.PAID && this.status != OrderStatus.CREATED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다");
         }
-        this.status = OrderStatus.CANCELLED;
+        this.status = OrderStatus.CANCELED;
+    }
+
+    public boolean isPaid() {
+        return this.status == OrderStatus.PAID;
     }
 
     @PrePersist

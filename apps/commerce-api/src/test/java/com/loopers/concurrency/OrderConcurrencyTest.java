@@ -13,6 +13,8 @@ import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.coupon.IssuedCouponRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.stock.Stock;
+import com.loopers.domain.stock.StockRepository;
 import com.loopers.support.ConcurrencyTestHelper;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +55,9 @@ class OrderConcurrencyTest {
     private IssuedCouponRepository issuedCouponRepository;
 
     @Autowired
+    private StockRepository stockRepository;
+
+    @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
     @BeforeEach
@@ -69,6 +74,7 @@ class OrderConcurrencyTest {
             Product product = productService.register(
                     ProductCommand.Register.of(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
             Long productId = product.getId();
+            stockRepository.save(Stock.create(productId, 100));
 
             int threadCount = 10;
             Queue<Exception> exceptions = ConcurrencyTestHelper.executeConcurrently(threadCount, i ->
@@ -77,8 +83,9 @@ class OrderConcurrencyTest {
                     ))
             );
 
-            Product found = productRepository.findById(productId).orElseThrow();
-            assertThat(found.getStockQuantity()).isEqualTo(90);
+            Stock stock = stockRepository.findByProductId(productId).orElseThrow();
+            assertThat(stock.getReservedQuantity()).isEqualTo(10);
+            assertThat(stock.getAvailableQuantity()).isEqualTo(90);
             assertThat(exceptions).isEmpty();
         }
 
@@ -88,6 +95,7 @@ class OrderConcurrencyTest {
             Product product = productService.register(
                     ProductCommand.Register.of(brandId, "운동화", new BigDecimal("50000"), 5, "편한 운동화"));
             Long productId = product.getId();
+            stockRepository.save(Stock.create(productId, 5));
 
             int threadCount = 10;
             Queue<Exception> exceptions = ConcurrencyTestHelper.executeConcurrently(threadCount, i ->
@@ -96,11 +104,11 @@ class OrderConcurrencyTest {
                     ))
             );
 
-            Product found = productRepository.findById(productId).orElseThrow();
-            assertThat(found.getStockQuantity()).isGreaterThanOrEqualTo(0);
+            Stock stock = stockRepository.findByProductId(productId).orElseThrow();
+            assertThat(stock.getAvailableQuantity()).isGreaterThanOrEqualTo(0);
             assertThat(exceptions).isNotEmpty();
             int successCount = threadCount - exceptions.size();
-            assertThat(found.getStockQuantity()).isEqualTo(5 - successCount);
+            assertThat(stock.getReservedQuantity()).isEqualTo(successCount);
         }
     }
 
@@ -114,6 +122,7 @@ class OrderConcurrencyTest {
             Product product = productService.register(
                     ProductCommand.Register.of(brandId, "운동화", new BigDecimal("50000"), 100, "편한 운동화"));
             Long productId = product.getId();
+            stockRepository.save(Stock.create(productId, 100));
 
             IssuedCouponInfo issuedCouponInfo = couponFacade.issueCoupon(
                     couponFacade.registerCoupon(CouponCommand.Register.of(
@@ -137,8 +146,8 @@ class OrderConcurrencyTest {
             IssuedCoupon issuedCoupon = issuedCouponRepository.findById(issuedCouponId).orElseThrow();
             assertThat(issuedCoupon.isUsed()).isTrue();
 
-            Product found = productRepository.findById(productId).orElseThrow();
-            assertThat(found.getStockQuantity()).isEqualTo(99);
+            Stock stock = stockRepository.findByProductId(productId).orElseThrow();
+            assertThat(stock.getReservedQuantity()).isEqualTo(1);
         }
     }
 }
