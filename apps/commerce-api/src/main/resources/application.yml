@@ -44,6 +44,7 @@ resilience4j:
         slow-call-rate-threshold: 80
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 3
+        max-wait-duration-in-half-open-state: 60s               # 함정7 방지: 0이면 느린 탐색 요청이 슬롯 점유 시 HALF_OPEN 무한 대기
         automatic-transition-from-open-to-half-open-enabled: true
         record-exceptions:
           - com.loopers.domain.payment.PgServerException
