@@ -785,14 +785,14 @@ resilience4j:
 | 구분 | 테스트 | 내용 |
 |------|--------|------|
 | Unit/Integration | `PgSimulatorClient_getPaymentsByOrderId_returnType` | `getPaymentStatus`, `getPaymentsByOrderId` 반환 타입이 Object가 아닌 구체 DTO로 변경된 경우 타입 검증 (change-issues §5.2) |
-| Integration | `recoverOrPoll_whenPgReturnsSuccess_shouldReflectCompletePayment` | PENDING 건에 대해 PG 조회 API로 SUCCESS 확인 후 completePayment 호출·상태 반영 (수동 복구 API 또는 폴링 배치 구현 후) |
-| Integration | `recoverOrPoll_whenPgReturnsNotAccepted_shouldMarkTimeoutOrFailed` | PENDING인데 PG에 해당 orderId 없음 → PAYMENT_TIMEOUT 또는 FAILED 반영 (정책에 따라) |
+| Integration | `recoverOrPoll_whenPgReturnsSuccess_shouldReflectCompletePayment` | `PaymentFacade.recoverPendingFromPgSimulator` + `PaymentRecoverPollIntegrationTest` — PG `getPaymentsByOrderId` SUCCESS 시 `handleCallback` 경유 반영 |
+| Integration | `recoverOrPoll_whenPgReturnsNotAccepted_shouldMarkTimeoutOrFailed` | [~] PG 응답 `null`/조회 예외 시 상태 유지·로그만 (TIMEOUT/FAILED 자동 전이는 미구현) |
 
 ### 보안 (change-issues §4)
 
 | 구분 | 테스트 | 내용 |
 |------|--------|------|
-| E2E (구현 후) | `paymentCallback_whenVerificationFails_shouldReturn403` | 콜백 발신자 검증(IP/시크릿) 실패 시 403, completePayment 미수행 (change-issues §4.1) |
+| E2E | `PaymentV1PaymentCallbackSecretE2ETest` | 시크릿 실패 시 **HTTP 401** (`ErrorType.UNAUTHORIZED`). 문서상 403과 다르면 `ErrorType`/핸들러 조정 검토 (change-issues §4.1) |
 | Integration (구현 후) | `handleCallback_whenAmountMismatch_shouldNotCompletePayment` | 콜백 금액 ≠ Order.finalAmount 시 completePayment 호출하지 않음, 로그/알림 등 (change-issues §4.2, §11.7) |
 
 ### 스펙·DTO (change-issues §5.1)
