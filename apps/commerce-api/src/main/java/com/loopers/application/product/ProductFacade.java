@@ -6,7 +6,6 @@ import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductStockModel;
 import com.loopers.domain.product.StockService;
-import com.loopers.interfaces.api.PageResponse;
 import com.loopers.support.enums.ProductSortType;
 import com.loopers.support.page.PageQuery;
 import com.loopers.support.page.PagedResult;
@@ -63,7 +62,7 @@ public class ProductFacade {
      * @param size    페이지 크기
      * @return 페이징된 상품 정보 목록 (재고, 브랜드명, 좋아요 수 포함)
      */
-    public PageResponse<ProductInfo> getProductsForCustomer(String keyword, Long brandId,
+    public PagedResult<ProductInfo> getProductsForCustomer(String keyword, Long brandId,
                                                             ProductSortType sort, int page, int size) {
         if (keyword == null && page == 0 && size == 20) {
             return getProductsFromCachedIds(brandId, sort, page, size);
@@ -75,7 +74,7 @@ public class ProductFacade {
      * 캐시 위계 분리: productList 캐시에는 ID 목록 + 페이징 메타만 저장한다.
      * 개별 상품 정보는 productDetail 캐시(L1+L2)에서 조회하여 조합한다.
      */
-    private PageResponse<ProductInfo> getProductsFromCachedIds(Long brandId,
+    private PagedResult<ProductInfo> getProductsFromCachedIds(Long brandId,
                                                                ProductSortType sort, int page, int size) {
         ProductListIdCache idCache = getCachedProductListIds(brandId, sort, page, size);
 
@@ -85,7 +84,7 @@ public class ProductFacade {
 
         List<ProductInfo> enriched = enrichProducts(products);
 
-        return new PageResponse<>(enriched, idCache.page(), idCache.size(),
+        return new PagedResult<>(enriched, idCache.page(), idCache.size(),
                 idCache.totalElements(), idCache.totalPages());
     }
 
@@ -104,13 +103,13 @@ public class ProductFacade {
                 productPage.totalElements(), productPage.totalPages());
     }
 
-    private PageResponse<ProductInfo> getProductsFromDb(String keyword, Long brandId,
+    private PagedResult<ProductInfo> getProductsFromDb(String keyword, Long brandId,
                                                          ProductSortType sort, int page, int size) {
         PageQuery query = buildPageQuery(sort, page, size);
         PagedResult<ProductModel> productPage = productService.findAllForCustomer(keyword, brandId, query);
         List<ProductInfo> enriched = enrichProducts(productPage.content());
 
-        return new PageResponse<>(enriched, productPage.page(), productPage.size(),
+        return new PagedResult<>(enriched, productPage.page(), productPage.size(),
                 productPage.totalElements(), productPage.totalPages());
     }
 

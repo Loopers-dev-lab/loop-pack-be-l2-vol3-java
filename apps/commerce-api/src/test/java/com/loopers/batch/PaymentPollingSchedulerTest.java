@@ -1,12 +1,17 @@
 package com.loopers.batch;
 
+import com.loopers.application.order.OrderFacade;
 import com.loopers.application.payment.PaymentFacade;
+import com.loopers.domain.order.OrderService;
 import com.loopers.domain.payment.GatewayPaymentResult;
 import com.loopers.domain.payment.PaymentGateway;
 import com.loopers.domain.payment.PaymentModel;
 import com.loopers.domain.payment.PaymentService;
+import com.loopers.domain.product.StockService;
 import com.loopers.support.enums.CardType;
 import com.loopers.support.enums.PaymentStatus;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -24,6 +29,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +39,9 @@ class PaymentPollingSchedulerTest {
     @Mock PaymentService paymentService;
     @Mock PaymentFacade paymentFacade;
     @Mock PaymentGateway paymentGateway;
+    @Mock OrderService orderService;
+    @Mock OrderFacade orderFacade;
+    @Mock StockService stockService;
 
     @InjectMocks PaymentPollingScheduler scheduler;
 
@@ -177,6 +186,70 @@ class PaymentPollingSchedulerTest {
             // 고아는 FAILED 처리, 정상 건은 콜백 복구
             verify(paymentService).completePayment(any(), eq(PaymentStatus.FAILED), anyString());
             verify(paymentFacade).handleCallback("TXN-NORMAL", "SUCCESS", null);
+        }
+    }
+
+    @Nested
+    @DisplayName("CircuitBreaker OPEN 시 즉시 종료")
+    class CircuitBreakerOpenEarlyTermination {
+
+        @Test
+        @DisplayName("CB OPEN 시 사이클을 즉시 종료하고 나머지 건을 처리하지 않는다")
+        void pollPendingPayments_WhenCbOpen_ShouldTerminateImmediately() {
+            PaymentModel first = createPaymentWithTransactionKey("TXN-CB1");
+            PaymentModel second = createPaymentWithTransactionKey("TXN-CB2");
+            PaymentModel third = createPaymentWithTransactionKey("TXN-CB3");
+            given(paymentService.findRequestedBefore(any(LocalDateTime.class)))
+                    .willReturn(List.of(first, second, third));
+            given(paymentGateway.getPaymentStatus("TXN-CB1"))
+                    .willThrow(new CoreException(ErrorType.PAYMENT_SERVICE_UNAVAILABLE));
+
+            scheduler.pollPendingPayments();
+
+            // 첫 번째 건에서 CB OPEN → 즉시 종료, 2~3번째 건은 PG 조회 시도 자체를 하지 않음
+            verify(paymentGateway, times(1)).getPaymentStatus(any());
+            verify(paymentGateway, never()).getPaymentsByOrderId(any());
+            verify(paymentFacade, never()).handleCallback(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("고아 Payment에서 CB OPEN 발생해도 즉시 종료한다")
+        void pollPendingPayments_WhenCbOpenOnOrphan_ShouldTerminateImmediately() {
+            PaymentModel orphan = createOrphanPayment(600L);
+            PaymentModel normal = createPaymentWithTransactionKey("TXN-AFTER");
+            given(paymentService.findRequestedBefore(any(LocalDateTime.class)))
+                    .willReturn(List.of(orphan, normal));
+            given(paymentGateway.getPaymentsByOrderId(600L))
+                    .willThrow(new CoreException(ErrorType.PAYMENT_SERVICE_UNAVAILABLE));
+
+            scheduler.pollPendingPayments();
+
+            // 고아 건에서 CB OPEN → 즉시 종료, 정상 건은 처리하지 않음
+            verify(paymentGateway, times(1)).getPaymentsByOrderId(any());
+            verify(paymentGateway, never()).getPaymentStatus(any());
+            verify(paymentFacade, never()).handleCallback(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("일반 실패는 연속 3건까지 계속하고, CB OPEN은 즉시 종료한다")
+        void pollPendingPayments_WithNormalFailureThenCbOpen_ShouldDifferentiate() {
+            PaymentModel p1 = createPaymentWithTransactionKey("TXN-F1");
+            PaymentModel p2 = createPaymentWithTransactionKey("TXN-CB");
+            PaymentModel p3 = createPaymentWithTransactionKey("TXN-OK");
+            given(paymentService.findRequestedBefore(any(LocalDateTime.class)))
+                    .willReturn(List.of(p1, p2, p3));
+            // 1건째: 일반 실패 (consecutiveFailures = 1, 계속 진행)
+            given(paymentGateway.getPaymentStatus("TXN-F1"))
+                    .willThrow(new RuntimeException("일반 PG 에러"));
+            // 2건째: CB OPEN (즉시 종료)
+            given(paymentGateway.getPaymentStatus("TXN-CB"))
+                    .willThrow(new CoreException(ErrorType.PAYMENT_SERVICE_UNAVAILABLE));
+
+            scheduler.pollPendingPayments();
+
+            // 1건째 일반 실패 후 2건째에서 CB OPEN → 즉시 종료, 3건째는 미처리
+            verify(paymentGateway, times(2)).getPaymentStatus(any());
+            verify(paymentGateway, never()).getPaymentStatus("TXN-OK");
         }
     }
 

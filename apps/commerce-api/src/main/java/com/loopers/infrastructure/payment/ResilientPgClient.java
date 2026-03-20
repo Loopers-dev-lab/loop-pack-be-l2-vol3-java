@@ -106,11 +106,32 @@ public class ResilientPgClient implements PaymentGateway {
 
     @Override
     public GatewayPaymentResult getPaymentStatus(String transactionKey) {
-        return pgHttpClient.getPaymentStatus(transactionKey);
+        // CB만 적용 — PG 장애 시 Polling이 PG를 반복 호출하는 것을 방지
+        // Retry/Bulkhead 불필요: Polling은 60초마다 재실행, 단일 스레드 순차 처리
+        Supplier<GatewayPaymentResult> supplier =
+                () -> pgHttpClient.getPaymentStatus(transactionKey);
+        Supplier<GatewayPaymentResult> withCb =
+                CircuitBreaker.decorateSupplier(circuitBreaker, supplier);
+        try {
+            return withCb.get();
+        } catch (CallNotPermittedException e) {
+            log.info("CircuitBreaker OPEN — PG 조회 차단. transactionKey={}", transactionKey);
+            throw new CoreException(ErrorType.PAYMENT_SERVICE_UNAVAILABLE);
+        }
     }
 
     @Override
     public List<GatewayPaymentResult> getPaymentsByOrderId(Long orderId) {
-        return pgHttpClient.getPaymentsByOrderId(orderId);
+        // CB만 적용 — PG 장애 시 Polling이 PG를 반복 호출하는 것을 방지
+        Supplier<List<GatewayPaymentResult>> supplier =
+                () -> pgHttpClient.getPaymentsByOrderId(orderId);
+        Supplier<List<GatewayPaymentResult>> withCb =
+                CircuitBreaker.decorateSupplier(circuitBreaker, supplier);
+        try {
+            return withCb.get();
+        } catch (CallNotPermittedException e) {
+            log.info("CircuitBreaker OPEN — PG orderId 조회 차단. orderId={}", orderId);
+            throw new CoreException(ErrorType.PAYMENT_SERVICE_UNAVAILABLE);
+        }
     }
 }

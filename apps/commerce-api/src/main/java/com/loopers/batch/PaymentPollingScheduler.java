@@ -12,6 +12,8 @@ import com.loopers.domain.product.StockService;
 import com.loopers.support.enums.PaymentStatus;
 import com.loopers.support.enums.RestoreReason;
 import com.loopers.support.enums.RestoreTriggerSource;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -98,6 +100,18 @@ public class PaymentPollingScheduler {
                     }
                 }
                 consecutiveFailures = 0;
+            } catch (CoreException e) {
+                if (e.getErrorType() == ErrorType.PAYMENT_SERVICE_UNAVAILABLE) {
+                    // CB OPEN — PG 장애 확정, 나머지 건도 실패할 것이므로 즉시 종료
+                    int processed = recovered + orphanRecovered + orphanFailed;
+                    log.warn("CircuitBreaker OPEN → 사이클 즉시 종료. 처리 {}/전체 {}, 잔여 {}건 다음 사이클에서 처리",
+                            processed, total, total - processed);
+                    break;
+                }
+                consecutiveFailures++;
+                log.warn("폴링 실패 (연속 {}/{}): paymentId={}, error={}",
+                        consecutiveFailures, MAX_CONSECUTIVE_FAILURES,
+                        payment.getPaymentId(), e.getMessage());
             } catch (Exception e) {
                 consecutiveFailures++;
                 log.warn("폴링 실패 (연속 {}/{}): paymentId={}, error={}",

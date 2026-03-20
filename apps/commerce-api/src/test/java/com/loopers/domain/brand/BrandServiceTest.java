@@ -1,5 +1,6 @@
 package com.loopers.domain.brand;
 
+import com.loopers.domain.product.ProductService;
 import com.loopers.support.enums.DisplayStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -24,6 +25,9 @@ class BrandServiceTest {
 
     @Mock
     BrandRepository brandRepository;
+
+    @Mock
+    ProductService productService;
 
     @InjectMocks
     BrandService brandService;

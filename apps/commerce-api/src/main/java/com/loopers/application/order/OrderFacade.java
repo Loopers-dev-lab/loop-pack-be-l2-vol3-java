@@ -12,12 +12,15 @@ import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderItemSnapshot;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.payment.PaymentService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.StockService;
 import com.loopers.support.enums.OrderType;
 import com.loopers.support.enums.RestoreReason;
 import com.loopers.support.enums.RestoreTriggerSource;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,6 +64,7 @@ public class OrderFacade {
     private final StockService stockService;
     private final CartService cartService;
     private final CouponService couponService;
+    private final PaymentService paymentService;
 
     /**
      * 직접 주문을 생성한다.
@@ -215,12 +219,21 @@ public class OrderFacade {
     /**
      * 주문을 취소한다.
      * <p>
+     * 결제가 진행 중(REQUESTED 상태)이면 취소를 거부한다.
+     * PG에서 결제가 승인된 후 주문이 취소되면 상태 불일치가 발생하므로,
+     * 결제 진행 중에는 반드시 결제 완료/실패를 기다린 후 취소해야 한다.
+     * </p>
+     * <p>
      * 재고 release는 수행하지 않는다. 결제 시도 전이면 hold 없음,
      * 결제 시도 후면 PaymentFacade에서 release를 담당한다.
      * </p>
      */
     @Transactional
     public void cancelOrder(Long userId, Long orderId) {
+        if (paymentService.hasActivePayment(orderId)) {
+            throw new CoreException(ErrorType.ORDER_NOT_CANCELLABLE,
+                    "결제가 진행 중인 주문은 취소할 수 없습니다");
+        }
         Optional<OrderModel> order = orderService.cancelOrder(userId, orderId);
         order.ifPresent(o -> restoreOrderResources(o, RestoreReason.USER_CANCELLED, RestoreTriggerSource.CANCEL_API));
     }

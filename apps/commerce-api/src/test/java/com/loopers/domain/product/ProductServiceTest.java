@@ -4,6 +4,7 @@ import com.loopers.support.enums.ProductRevisionAction;
 import com.loopers.support.enums.ProductSaleStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -31,8 +34,19 @@ class ProductServiceTest {
     @Mock
     ProductRevisionRepository revisionRepository;
 
+    @Mock
+    CacheManager cacheManager;
+
+    @Mock
+    Cache cache;
+
     @InjectMocks
     ProductService productService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(cacheManager.getCache(any())).thenReturn(cache);
+    }
 
     // === 생성 ===
 

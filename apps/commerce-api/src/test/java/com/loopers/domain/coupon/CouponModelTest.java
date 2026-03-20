@@ -182,29 +182,29 @@ class CouponModelTest {
     class GuardTests {
 
         @Test
-        @DisplayName("할인값이 0 이하이면 예외가 발생한다")
+        @DisplayName("할인값이 0 이하이면 guard 호출 시 예외가 발생한다")
         void guard_WhenValueZeroOrNegative_ShouldThrow() {
-            assertThatThrownBy(() ->
-                    CouponModel.create("쿠폰", DiscountType.FIXED, BigDecimal.ZERO, null,
-                            LocalDateTime.now().plusDays(10)))
+            CouponModel coupon = CouponModel.create("쿠폰", DiscountType.FIXED, BigDecimal.ZERO, null,
+                    LocalDateTime.now().plusDays(10));
+            assertThatThrownBy(coupon::guard)
                     .isInstanceOf(CoreException.class);
         }
 
         @Test
-        @DisplayName("RATE 쿠폰의 할인율이 100을 초과하면 예외가 발생한다")
+        @DisplayName("RATE 쿠폰의 할인율이 100을 초과하면 guard 호출 시 예외가 발생한다")
         void guard_WhenRateExceeds100_ShouldThrow() {
-            assertThatThrownBy(() ->
-                    CouponModel.create("쿠폰", DiscountType.RATE, BigDecimal.valueOf(101), null,
-                            LocalDateTime.now().plusDays(10)))
+            CouponModel coupon = CouponModel.create("쿠폰", DiscountType.RATE, BigDecimal.valueOf(101), null,
+                    LocalDateTime.now().plusDays(10));
+            assertThatThrownBy(coupon::guard)
                     .isInstanceOf(CoreException.class);
         }
 
         @Test
-        @DisplayName("쿠폰명이 공백이면 예외가 발생한다")
+        @DisplayName("쿠폰명이 공백이면 guard 호출 시 예외가 발생한다")
         void guard_WhenNameBlank_ShouldThrow() {
-            assertThatThrownBy(() ->
-                    CouponModel.create("  ", DiscountType.FIXED, BigDecimal.valueOf(1000), null,
-                            LocalDateTime.now().plusDays(10)))
+            CouponModel coupon = CouponModel.create("  ", DiscountType.FIXED, BigDecimal.valueOf(1000), null,
+                    LocalDateTime.now().plusDays(10));
+            assertThatThrownBy(coupon::guard)
                     .isInstanceOf(CoreException.class);
         }
     }

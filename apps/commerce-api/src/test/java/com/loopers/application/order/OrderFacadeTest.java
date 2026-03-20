@@ -11,6 +11,7 @@ import com.loopers.domain.order.OrderItemCommand;
 import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.payment.PaymentService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.StockService;
@@ -49,6 +50,7 @@ class OrderFacadeTest {
     @Mock StockService stockService;
     @Mock CartService cartService;
     @Mock CouponService couponService;
+    @Mock PaymentService paymentService;
 
     @InjectMocks
     OrderFacade orderFacade;
@@ -275,6 +277,7 @@ class OrderFacadeTest {
         @DisplayName("취소 시 쿠폰이 복원되고 재고 release는 수행하지 않는다")
         void cancelOrder_ShouldRestoreCoupon_NotReleaseStock() {
             OrderModel order = OrderModel.create(USER_ID, OrderType.CART, BigDecimal.valueOf(10000));
+            when(paymentService.hasActivePayment(1L)).thenReturn(false);
             when(orderService.cancelOrder(USER_ID, 1L)).thenReturn(Optional.of(order));
 
             orderFacade.cancelOrder(USER_ID, 1L);
@@ -287,6 +290,7 @@ class OrderFacadeTest {
         @DisplayName("DIRECT 주문 취소 시 장바구니가 복원된다")
         void cancelOrder_DIRECT_ShouldRestoreToCart() {
             OrderModel order = OrderModel.create(USER_ID, OrderType.DIRECT, BigDecimal.valueOf(10000));
+            when(paymentService.hasActivePayment(1L)).thenReturn(false);
             when(orderService.cancelOrder(USER_ID, 1L)).thenReturn(Optional.of(order));
             when(orderService.existsCartRestore(any())).thenReturn(false);
             OrderItemModel item = OrderItemModel.create(1L, 1, USER_ID, 1L, 3,
@@ -303,6 +307,7 @@ class OrderFacadeTest {
         @DisplayName("CART 주문 취소 시 장바구니 변경 없음")
         void cancelOrder_CART_ShouldNotRestoreCart() {
             OrderModel order = OrderModel.create(USER_ID, OrderType.CART, BigDecimal.valueOf(10000));
+            when(paymentService.hasActivePayment(1L)).thenReturn(false);
             when(orderService.cancelOrder(USER_ID, 1L)).thenReturn(Optional.of(order));
 
             orderFacade.cancelOrder(USER_ID, 1L);
@@ -312,8 +317,23 @@ class OrderFacadeTest {
         }
 
         @Test
+        @DisplayName("결제 진행 중인 주문 취소 시 ORDER_NOT_CANCELLABLE 예외가 발생한다")
+        void cancelOrder_WhenPaymentInProgress_ShouldThrow() {
+            when(paymentService.hasActivePayment(1L)).thenReturn(true);
+
+            assertThatThrownBy(() -> orderFacade.cancelOrder(USER_ID, 1L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
+                            .isEqualTo(ErrorType.ORDER_NOT_CANCELLABLE));
+
+            // 취소 로직 자체가 실행되지 않음
+            verify(orderService, never()).cancelOrder(any(), any());
+        }
+
+        @Test
         @DisplayName("이미 CANCELLED인 주문 취소 시 에러 없이 무시된다 (멱등)")
         void cancelOrder_WhenAlreadyCancelled_ShouldBeIdempotent() {
+            when(paymentService.hasActivePayment(1L)).thenReturn(false);
             when(orderService.cancelOrder(USER_ID, 1L)).thenReturn(Optional.empty());
 
             assertThatCode(() -> orderFacade.cancelOrder(USER_ID, 1L))

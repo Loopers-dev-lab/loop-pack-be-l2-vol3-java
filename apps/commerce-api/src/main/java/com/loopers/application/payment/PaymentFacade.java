@@ -10,6 +10,7 @@ import com.loopers.domain.payment.PaymentGateway;
 import com.loopers.domain.payment.PaymentModel;
 import com.loopers.domain.payment.PaymentService;
 import com.loopers.domain.product.StockService;
+import com.loopers.domain.payment.PaymentLock;
 import com.loopers.support.enums.CardType;
 import com.loopers.support.enums.OrderStatus;
 import com.loopers.support.enums.PaymentStatus;
@@ -77,6 +78,7 @@ public class PaymentFacade {
     private final OrderFacade orderFacade;
     private final StockService stockService;
     private final PaymentGateway paymentGateway;
+    private final PaymentLock paymentLock;
 
     @Value("${pg.callback-url:}")
     private String callbackUrl;
@@ -98,56 +100,68 @@ public class PaymentFacade {
      */
     public PaymentInfo requestPayment(Long userId, Long orderId,
                                        CardType cardType, String cardNo) {
-        // ━━ TX-1: 주문 검증 + 재고 hold + Payment 생성 (Service 내부 TX) ━━
+        // ━━ 1차 검증: SELECT 기반 빠른 필터 ━━
         OrderModel order = orderService.findByIdAndUserId(orderId, userId);
         validatePayable(order);
 
-        List<OrderItemModel> orderItems = orderService.findOrderItems(orderId);
-        holdStocksForPayment(orderItems);
+        // ━━ 2차 검증: Redis 분산락 (동시 결제 요청 차단) ━━
+        String lockContext = userId + ":" + System.currentTimeMillis();
+        boolean locked = acquirePaymentLock(orderId, lockContext);
 
-        PaymentModel payment = paymentService.createPayment(
-                orderId, userId, cardType, cardNo, order.getTotalAmount()
-        );
-        // → TX-1 커밋, DB 커넥션 반환
-
-        // ━━ NO TX: PG 외부 호출 (DB 커넥션 점유 없음) ━━
         try {
-            GatewayPaymentResult pgResult = paymentGateway.requestPayment(
-                    orderId, userId, cardType, cardNo,
-                    order.getTotalAmount(), callbackUrl
+            // ━━ TX-1: 재고 hold + Payment 생성 (Service 내부 TX) ━━
+            List<OrderItemModel> orderItems = orderService.findOrderItems(orderId);
+            holdStocksForPayment(orderItems);
+
+            PaymentModel payment = paymentService.createPayment(
+                    orderId, userId, cardType, cardNo, order.getTotalAmount()
             );
+            // → TX-1 커밋, DB 커넥션 반환
 
-            // ━━ TX-2: transactionKey 저장 (Service 내부 TX) ━━
-            PaymentModel updated = paymentService.assignTransactionKey(
-                    payment.getPaymentId(), pgResult.transactionKey()
-            );
-            // → TX-2 커밋, DB 커넥션 반환
+            // ━━ NO TX: PG 외부 호출 (DB 커넥션 점유 없음) ━━
+            try {
+                GatewayPaymentResult pgResult = paymentGateway.requestPayment(
+                        orderId, userId, cardType, cardNo,
+                        order.getTotalAmount(), callbackUrl
+                );
 
-            return PaymentInfo.of(updated, pgResult);
+                // ━━ TX-2: transactionKey 저장 (Service 내부 TX) ━━
+                PaymentModel updated = paymentService.assignTransactionKey(
+                        payment.getPaymentId(), pgResult.transactionKey()
+                );
+                // → TX-2 커밋, DB 커넥션 반환
 
-        } catch (CoreException e) {
-            // Phase A: Resilience4j fallback이 분류한 CoreException 기반 후처리
-            if (e.getErrorType() == ErrorType.PAYMENT_PG_TIMEOUT) {
-                // 타임아웃: PG에 요청 도달 → 돈 빠졌을 수 있음 → hold 유지 (폴링이 처리)
-                log.warn("PG 타임아웃 — Payment REQUESTED + 재고 hold 유지. paymentId={}, orderId={}",
-                        payment.getPaymentId(), orderId);
-            } else {
-                // CB OPEN(503), PG 에러(502) 등: 확실한 실패 → 즉시 FAILED + 재고 release
+                return PaymentInfo.of(updated, pgResult);
+
+            } catch (CoreException e) {
+                // Phase A: Resilience4j fallback이 분류한 CoreException 기반 후처리
+                if (e.getErrorType() == ErrorType.PAYMENT_PG_TIMEOUT) {
+                    // 타임아웃: PG에 요청 도달 → 돈 빠졌을 수 있음 → hold 유지 (폴링이 처리)
+                    log.warn("PG 타임아웃 — Payment REQUESTED + 재고 hold 유지. paymentId={}, orderId={}",
+                            payment.getPaymentId(), orderId);
+                } else {
+                    // CB OPEN(503), PG 에러(502) 등: 확실한 실패 → 즉시 FAILED + 재고 release
+                    releaseStocksForPayment(orderItems);
+                    paymentService.completePayment(
+                            payment.getPaymentId(), PaymentStatus.FAILED, e.getMessage());
+                    log.info("PG 실패 → Payment 즉시 FAILED + 재고 release. paymentId={}, errorType={}",
+                            payment.getPaymentId(), e.getErrorType());
+                }
+                throw e;
+            } catch (Exception e) {
+                // 예상치 못한 예외: 안전하게 FAILED + 재고 release
                 releaseStocksForPayment(orderItems);
                 paymentService.completePayment(
                         payment.getPaymentId(), PaymentStatus.FAILED, e.getMessage());
-                log.info("PG 실패 → Payment 즉시 FAILED + 재고 release. paymentId={}, errorType={}",
-                        payment.getPaymentId(), e.getErrorType());
+                log.warn("PG 예상치 못한 에러 → Payment 즉시 FAILED + 재고 release. paymentId={}",
+                        payment.getPaymentId(), e);
+                throw new CoreException(ErrorType.PAYMENT_PG_ERROR, e.getMessage());
             }
-            throw e;
-        } catch (Exception e) {
-            // 예상치 못한 예외: 안전하게 FAILED + 재고 release
-            releaseStocksForPayment(orderItems);
-            paymentService.completePayment(
-                    payment.getPaymentId(), PaymentStatus.FAILED, e.getMessage());
-            log.warn("PG 예상치 못한 에러 → Payment 즉시 FAILED + 재고 release. paymentId={}",
-                    payment.getPaymentId(), e);
-            throw new CoreException(ErrorType.PAYMENT_PG_ERROR, e.getMessage());
+        } finally {
+            // ━━ 분산락 해제 (정상/예외 모두) — owner 검증으로 타인 락 오삭제 방지 ━━
+            if (locked) {
+                paymentLock.unlock(orderId, lockContext);
+            }
         }
     }
 
@@ -256,6 +270,29 @@ public class PaymentFacade {
         }
         if (paymentService.hasActivePayment(order.getOrderId())) {
             throw new CoreException(ErrorType.PAYMENT_ALREADY_IN_PROGRESS);
+        }
+    }
+
+    /**
+     * 결제 분산락을 획득한다.
+     * <p>
+     * Redis 장애 시 락 없이 진행한다 (기존 hasActivePayment가 1차 방어).
+     * 결제 가용성 > 완벽한 멱등성 — 분산락은 best-effort 보호이다.
+     * </p>
+     *
+     * @return true: 락 획득 성공 (finally에서 해제 필요), false: Redis 장애로 락 건너뜀
+     * @throws CoreException 다른 결제가 이미 진행 중인 경우 (PAYMENT_ALREADY_IN_PROGRESS)
+     */
+    private boolean acquirePaymentLock(Long orderId, String lockContext) {
+        try {
+            boolean acquired = paymentLock.tryLock(orderId, lockContext);
+            if (!acquired) {
+                throw new CoreException(ErrorType.PAYMENT_ALREADY_IN_PROGRESS);
+            }
+            return true;
+        } catch (PaymentLock.PaymentLockException e) {
+            log.warn("Redis 분산락 장애 — 락 없이 진행 (fallback). orderId={}", orderId);
+            return false;
         }
     }
 

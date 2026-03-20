@@ -344,11 +344,11 @@ class ResilientPgClientTest {
     }
 
     @Nested
-    @DisplayName("위임 검증")
-    class DelegationTests {
+    @DisplayName("PG 조회 메서드 CB 적용 검증")
+    class QueryMethodCbTests {
 
         @Test
-        @DisplayName("getPaymentStatus는 PgHttpClient에 직접 위임한다")
+        @DisplayName("getPaymentStatus는 CB를 통해 PgHttpClient에 위임한다")
         void getPaymentStatus_ShouldDelegateToHttpClient() {
             when(pgHttpClient.getPaymentStatus("txn-001"))
                     .thenReturn(new GatewayPaymentResult("txn-001", true, "SUCCESS", null));
@@ -360,7 +360,7 @@ class ResilientPgClientTest {
         }
 
         @Test
-        @DisplayName("getPaymentsByOrderId는 PgHttpClient에 직접 위임한다")
+        @DisplayName("getPaymentsByOrderId는 CB를 통해 PgHttpClient에 위임한다")
         void getPaymentsByOrderId_ShouldDelegateToHttpClient() {
             when(pgHttpClient.getPaymentsByOrderId(100L)).thenReturn(List.of());
 
@@ -368,6 +368,47 @@ class ResilientPgClientTest {
 
             assertThat(results).isEmpty();
             verify(pgHttpClient).getPaymentsByOrderId(100L);
+        }
+
+        @Test
+        @DisplayName("CB OPEN 시 getPaymentStatus는 HTTP 호출 없이 503을 반환한다")
+        void getPaymentStatus_WhenCbOpen_ShouldThrow503() {
+            circuitBreaker.transitionToOpenState();
+
+            assertThatThrownBy(() -> client.getPaymentStatus("txn-001"))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
+                            .isEqualTo(ErrorType.PAYMENT_SERVICE_UNAVAILABLE));
+
+            verify(pgHttpClient, never()).getPaymentStatus(any());
+        }
+
+        @Test
+        @DisplayName("CB OPEN 시 getPaymentsByOrderId는 HTTP 호출 없이 503을 반환한다")
+        void getPaymentsByOrderId_WhenCbOpen_ShouldThrow503() {
+            circuitBreaker.transitionToOpenState();
+
+            assertThatThrownBy(() -> client.getPaymentsByOrderId(100L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
+                            .isEqualTo(ErrorType.PAYMENT_SERVICE_UNAVAILABLE));
+
+            verify(pgHttpClient, never()).getPaymentsByOrderId(any());
+        }
+
+        @Test
+        @DisplayName("getPaymentStatus 실패가 CB에 실패로 기록된다")
+        void getPaymentStatus_Failure_ShouldCountAsCbFailure() {
+            when(pgHttpClient.getPaymentStatus("txn-fail"))
+                    .thenThrow(new RuntimeException("PG 조회 실패"));
+
+            try {
+                client.getPaymentStatus("txn-fail");
+            } catch (Exception ignored) {
+            }
+
+            CircuitBreaker.Metrics metrics = circuitBreaker.getMetrics();
+            assertThat(metrics.getNumberOfFailedCalls()).isEqualTo(1);
         }
     }
 }

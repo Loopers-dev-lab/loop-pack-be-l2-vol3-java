@@ -7,6 +7,7 @@ import com.loopers.domain.order.OrderService;
 import com.loopers.domain.payment.GatewayPaymentResult;
 import com.loopers.domain.payment.PaymentGateway;
 import com.loopers.domain.payment.PaymentCompensationService;
+import com.loopers.domain.payment.PaymentLock;
 import com.loopers.domain.payment.PaymentModel;
 import com.loopers.domain.payment.PaymentService;
 import com.loopers.domain.product.StockService;
@@ -18,6 +19,7 @@ import com.loopers.support.enums.RestoreReason;
 import com.loopers.support.enums.RestoreTriggerSource;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -34,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("PaymentFacade 단위 테스트")
@@ -53,9 +56,16 @@ class PaymentFacadeTest {
     @Mock PaymentCompensationService compensationService;
     @Mock StockService stockService;
     @Mock PaymentGateway paymentGateway;
+    @Mock PaymentLock paymentLock;
 
     @InjectMocks
     PaymentFacade paymentFacade;
+
+    @BeforeEach
+    void setUp() {
+        // 분산락은 기본적으로 획득 성공 (개별 테스트에서 오버라이드 가능)
+        lenient().when(paymentLock.tryLock(any(), any())).thenReturn(true);
+    }
 
     private OrderModel createPendingOrder() {
         return OrderModel.create(USER_ID, OrderType.DIRECT, AMOUNT);
@@ -368,6 +378,98 @@ class PaymentFacadeTest {
             paymentFacade.handleCallback(TRANSACTION_KEY, "SUCCESS", null);
 
             verify(compensationService, never()).recordFailedCommit(any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("분산락 동작 검증")
+    class PaymentLockTests {
+
+        @Test
+        @DisplayName("분산락 획득 실패 시 PAYMENT_ALREADY_IN_PROGRESS를 반환한다")
+        void requestPayment_WithLockConflict_ShouldThrowAlreadyInProgress() {
+            OrderModel order = createPendingOrder();
+            when(orderService.findByIdAndUserId(ORDER_ID, USER_ID)).thenReturn(order);
+            when(paymentService.hasActivePayment(any())).thenReturn(false);
+            when(paymentLock.tryLock(any(), any())).thenReturn(false);
+
+            assertThatThrownBy(() -> paymentFacade.requestPayment(USER_ID, ORDER_ID, CARD_TYPE, CARD_NO))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
+                            .isEqualTo(ErrorType.PAYMENT_ALREADY_IN_PROGRESS));
+
+            verify(paymentService, never()).createPayment(any(), any(), any(), any(), any());
+            verify(paymentGateway, never()).requestPayment(any(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("Redis 장애 시 분산락 없이 결제를 진행한다 (fallback)")
+        void requestPayment_WithRedisFailure_ShouldProceedWithoutLock() {
+            OrderModel order = createPendingOrder();
+            PaymentModel payment = createRequestedPayment();
+            GatewayPaymentResult pgResult = createSuccessPgResult();
+
+            when(orderService.findByIdAndUserId(ORDER_ID, USER_ID)).thenReturn(order);
+            when(paymentService.hasActivePayment(any())).thenReturn(false);
+            when(paymentLock.tryLock(any(), any()))
+                    .thenThrow(new PaymentLock.PaymentLockException(new RuntimeException("Redis down")));
+            when(paymentService.createPayment(any(), eq(USER_ID), eq(CARD_TYPE), eq(CARD_NO), any()))
+                    .thenReturn(payment);
+            when(paymentGateway.requestPayment(any(), eq(USER_ID), eq(CARD_TYPE), eq(CARD_NO), any(), any()))
+                    .thenReturn(pgResult);
+            when(paymentService.assignTransactionKey(any(), eq(TRANSACTION_KEY)))
+                    .thenReturn(payment);
+
+            PaymentInfo result = paymentFacade.requestPayment(USER_ID, ORDER_ID, CARD_TYPE, CARD_NO);
+
+            assertThat(result).isNotNull();
+            // Redis 장애여도 PG 호출 정상 진행
+            verify(paymentGateway).requestPayment(any(), eq(USER_ID), eq(CARD_TYPE), eq(CARD_NO), any(), any());
+            // 락을 획득하지 못했으므로 unlock 호출 없음
+            verify(paymentLock, never()).unlock(any(), any());
+        }
+
+        @Test
+        @DisplayName("정상 결제 완료 후 분산락이 해제된다")
+        void requestPayment_WithSuccess_ShouldUnlockAfterCompletion() {
+            OrderModel order = createPendingOrder();
+            PaymentModel payment = createRequestedPayment();
+            GatewayPaymentResult pgResult = createSuccessPgResult();
+
+            when(orderService.findByIdAndUserId(ORDER_ID, USER_ID)).thenReturn(order);
+            when(paymentService.hasActivePayment(any())).thenReturn(false);
+            when(paymentLock.tryLock(any(), any())).thenReturn(true);
+            when(paymentService.createPayment(any(), eq(USER_ID), eq(CARD_TYPE), eq(CARD_NO), any()))
+                    .thenReturn(payment);
+            when(paymentGateway.requestPayment(any(), eq(USER_ID), eq(CARD_TYPE), eq(CARD_NO), any(), any()))
+                    .thenReturn(pgResult);
+            when(paymentService.assignTransactionKey(any(), eq(TRANSACTION_KEY)))
+                    .thenReturn(payment);
+
+            paymentFacade.requestPayment(USER_ID, ORDER_ID, CARD_TYPE, CARD_NO);
+
+            verify(paymentLock).unlock(any(), any());
+        }
+
+        @Test
+        @DisplayName("PG 에러 발생 시에도 분산락이 해제된다")
+        void requestPayment_WithPgError_ShouldUnlockInFinally() {
+            OrderModel order = createPendingOrder();
+            PaymentModel payment = createRequestedPayment();
+
+            when(orderService.findByIdAndUserId(ORDER_ID, USER_ID)).thenReturn(order);
+            when(paymentService.hasActivePayment(any())).thenReturn(false);
+            when(paymentLock.tryLock(any(), any())).thenReturn(true);
+            when(paymentService.createPayment(any(), eq(USER_ID), eq(CARD_TYPE), eq(CARD_NO), any()))
+                    .thenReturn(payment);
+            when(paymentGateway.requestPayment(any(), eq(USER_ID), eq(CARD_TYPE), eq(CARD_NO), any(), any()))
+                    .thenThrow(new CoreException(ErrorType.PAYMENT_PG_ERROR));
+
+            assertThatThrownBy(() -> paymentFacade.requestPayment(USER_ID, ORDER_ID, CARD_TYPE, CARD_NO))
+                    .isInstanceOf(CoreException.class);
+
+            // 예외 발생 시에도 finally에서 unlock
+            verify(paymentLock).unlock(any(), any());
         }
     }
 }
