@@ -130,7 +130,7 @@ public class PaymentFacade {
      *   PgClientException (4xx) → PaymentService에서 소화 → 정상 흐름에서 보상
      */
     @CircuitBreaker(name = "pgPayment", fallbackMethod = "fallbackRequestPayment")
-    @Bulkhead(name = "pgPayment", fallbackMethod = "fallbackRequestPayment")
+    @Bulkhead(name = "pgPayment")
     public PaymentRequestResult requestPayment(Long orderId, Long userId, String paymentMethod,
                                                 Long issuedCouponId) {
         // TX1: 주문 검증 + 선차감 + Payment 생성

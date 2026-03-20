@@ -30,8 +30,8 @@ pg:
     callback-base-url: http://localhost:8080
 
 # ── Resilience4j ──────────────────────────────────────────────
-# 데코레이터 순서 (바깥→안쪽): Bulkhead → CircuitBreaker → Retry → Timeout(RestTemplate)
-# aspect order는 Resilience4jConfig.java에서 설정 (yml 미지원)
+# 기본 Aspect 순서 (바깥→안쪽): Retry → CircuitBreaker → RateLimiter → TimeLimiter → Bulkhead
+# 현재 사용: CB(Facade) + Bulkhead(Facade) + Retry(Client.query) — 메서드 분리로 순서 충돌 회피
 resilience4j:
   circuitbreaker:
     instances:
@@ -52,6 +52,7 @@ resilience4j:
         ignore-exceptions:
           - com.loopers.domain.payment.PgClientException
           - com.loopers.support.error.CoreException
+          - io.github.resilience4j.bulkhead.BulkheadFullException
 
   bulkhead:
     instances:
