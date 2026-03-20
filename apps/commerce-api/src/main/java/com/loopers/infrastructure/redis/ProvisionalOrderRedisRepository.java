@@ -6,13 +6,12 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.ScanOptions;
+
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /**
  * 가주문(Provisional Order) Redis 저장소.
@@ -101,11 +100,18 @@ public class ProvisionalOrderRedisRepository {
      */
     public Set<Long> getAllOrderIds() {
         try {
-            Set<String> keys = readTemplate.keys(KEY_PREFIX + "*");
-            if (keys == null) return Collections.emptySet();
-            return keys.stream()
-                .map(key -> Long.parseLong(key.substring(KEY_PREFIX.length())))
-                .collect(Collectors.toSet());
+            Set<Long> orderIds = new HashSet<>();
+            ScanOptions options = ScanOptions.scanOptions()
+                .match(KEY_PREFIX + "*")
+                .count(100)
+                .build();
+            try (Cursor<String> cursor = readTemplate.scan(options)) {
+                while (cursor.hasNext()) {
+                    String key = cursor.next();
+                    orderIds.add(Long.parseLong(key.substring(KEY_PREFIX.length())));
+                }
+            }
+            return orderIds;
         } catch (Exception e) {
             log.warn("가주문 목록 조회 실패", e);
             return Collections.emptySet();

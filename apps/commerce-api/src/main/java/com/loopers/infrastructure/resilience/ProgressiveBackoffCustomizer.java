@@ -96,7 +96,8 @@ public class ProgressiveBackoffCustomizer {
     }
 
     private Duration calculateWaitDuration(int openCount) {
-        long seconds = Math.min(BASE_WAIT_SECONDS * (1L << openCount), MAX_WAIT_SECONDS);
+        int capped = Math.min(openCount, 20);
+        long seconds = Math.min(BASE_WAIT_SECONDS * (1L << capped), MAX_WAIT_SECONDS);
         return Duration.ofSeconds(seconds);
     }
 }

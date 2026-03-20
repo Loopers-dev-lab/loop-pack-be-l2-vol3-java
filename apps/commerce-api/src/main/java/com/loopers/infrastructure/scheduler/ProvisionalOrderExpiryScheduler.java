@@ -39,16 +39,20 @@ public class ProvisionalOrderExpiryScheduler {
         int cleanedCount = 0;
 
         for (Long orderId : orderIds) {
-            long ttl = provisionalOrderRedisRepository.getTtlSeconds(orderId);
+            try {
+                long ttl = provisionalOrderRedisRepository.getTtlSeconds(orderId);
 
-            if (ttl == -2) {
-                // 키가 이미 만료됨 → 다음 사이클에서 자연 정리
-                continue;
-            }
+                if (ttl == -2) {
+                    // 키가 이미 만료됨 → 다음 사이클에서 자연 정리
+                    continue;
+                }
 
-            if (ttl >= 0 && ttl < EXPIRY_THRESHOLD_SECONDS) {
-                cleanupProvisionalOrder(orderId);
-                cleanedCount++;
+                if (ttl >= 0 && ttl < EXPIRY_THRESHOLD_SECONDS) {
+                    cleanupProvisionalOrder(orderId);
+                    cleanedCount++;
+                }
+            } catch (Exception e) {
+                log.warn("가주문 선제 정리 실패 (건너뜀): orderId={}, error={}", orderId, e.getMessage());
             }
         }
 

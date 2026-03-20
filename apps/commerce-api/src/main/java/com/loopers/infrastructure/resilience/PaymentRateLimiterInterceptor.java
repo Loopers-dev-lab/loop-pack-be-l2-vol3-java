@@ -31,7 +31,7 @@ public class PaymentRateLimiterInterceptor {
     public Object checkRateLimit(ProceedingJoinPoint joinPoint) throws Throwable {
         if (!paymentRateLimiter.tryAcquire()) {
             log.warn("결제 요청 Rate Limit 초과 — 429 응답");
-            throw new CoreException(ErrorType.BAD_REQUEST,
+            throw new CoreException(ErrorType.TOO_MANY_REQUESTS,
                 "결제 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
         }
         return joinPoint.proceed();
