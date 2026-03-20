@@ -58,7 +58,7 @@ class AdminStatsV1ApiE2ETest {
     @Test
     @DisplayName("주문 현황 overview 조회")
     void GET_overview_ShouldReturn200() throws Exception {
-        orderJpaRepository.save(OrderModel.create("user-1", OrderType.DIRECT, BigDecimal.valueOf(10000)));
+        orderJpaRepository.save(OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(10000)));
 
         mockMvc.perform(get("/api-admin/v1/stats/overview")
                         .header(ADMIN_HEADER, ADMIN_VALUE)
@@ -71,7 +71,7 @@ class AdminStatsV1ApiE2ETest {
     @Test
     @DisplayName("일별 주문 통계 조회")
     void GET_dailyOrderStats_ShouldReturn200() throws Exception {
-        orderJpaRepository.save(OrderModel.create("user-1", OrderType.DIRECT, BigDecimal.valueOf(10000)));
+        orderJpaRepository.save(OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(10000)));
 
         mockMvc.perform(get("/api-admin/v1/stats/orders/daily")
                         .header(ADMIN_HEADER, ADMIN_VALUE)
@@ -88,7 +88,7 @@ class AdminStatsV1ApiE2ETest {
         ProductModel product = productJpaRepository.save(
                 ProductModel.create("인기상품", brand.getBrandId(), BigDecimal.valueOf(10000),
                         null, null, null, null, null, null, null));
-        likeJpaRepository.save(LikeModel.create("user-1", product.getProductId()));
+        likeJpaRepository.save(LikeModel.create(1L, product.getProductId()));
 
         mockMvc.perform(get("/api-admin/v1/stats/products/top-liked")
                         .header(ADMIN_HEADER, ADMIN_VALUE)

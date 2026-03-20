@@ -83,6 +83,12 @@ subprojects {
         systemProperty("user.timezone", "Asia/Seoul")
         systemProperty("spring.profiles.active", "test")
         jvmArgs("-Xshare:off")
+        // Testcontainers Docker socket (WSL2 + Docker Desktop)
+        val dockerHost = System.getenv("DOCKER_HOST")
+        if (!dockerHost.isNullOrBlank()) {
+            environment("DOCKER_HOST", dockerHost)
+            environment("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", dockerHost.removePrefix("unix://"))
+        }
     }
 
     tasks.withType<JacocoReport> {

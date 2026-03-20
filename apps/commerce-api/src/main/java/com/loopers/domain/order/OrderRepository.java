@@ -30,7 +30,7 @@ public interface OrderRepository {
      * @param orderId 주문 ID
      * @return 주문 엔티티 (존재하지 않으면 빈 Optional)
      */
-    Optional<OrderModel> findById(String orderId);
+    Optional<OrderModel> findById(Long orderId);
 
     /**
      * 주문 ID와 사용자 ID로 주문을 조회한다.
@@ -39,7 +39,7 @@ public interface OrderRepository {
      * @param userId  사용자 ID
      * @return 주문 엔티티 (존재하지 않으면 빈 Optional)
      */
-    Optional<OrderModel> findByIdAndUserId(String orderId, String userId);
+    Optional<OrderModel> findByIdAndUserId(Long orderId, Long userId);
 
     /**
      * 특정 사용자의 기간별 주문 목록을 조회한다.
@@ -49,7 +49,7 @@ public interface OrderRepository {
      * @param end    조회 종료 일시
      * @return 해당 기간의 주문 목록
      */
-    List<OrderModel> findAllByUserIdAndPeriod(String userId, LocalDateTime start, LocalDateTime end);
+    List<OrderModel> findAllByUserIdAndPeriod(Long userId, LocalDateTime start, LocalDateTime end);
 
     /**
      * 기간별 전체 주문 목록을 조회한다 (관리자용).
@@ -73,7 +73,7 @@ public interface OrderRepository {
      * @param to      변경 후 상태
      * @return 영향받은 행 수 (0이면 상태 변경 실패 -- 이미 다른 상태로 전이됨)
      */
-    int casUpdateStatus(String orderId, OrderStatus from, OrderStatus to);
+    int casUpdateStatus(Long orderId, OrderStatus from, OrderStatus to);
 
     /**
      * 특정 사용자의 특정 상태 주문 건수를 조회한다.
@@ -82,7 +82,7 @@ public interface OrderRepository {
      * @param status 주문 상태
      * @return 해당 상태의 주문 건수
      */
-    long countByUserIdAndStatus(String userId, OrderStatus status);
+    long countByUserIdAndStatus(Long userId, OrderStatus status);
 
     /**
      * 만료 시간이 지난 결제 대기(PENDING_PAYMENT) 주문 목록을 조회한다.

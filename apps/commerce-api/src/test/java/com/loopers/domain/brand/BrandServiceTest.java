@@ -56,9 +56,9 @@ class BrandServiceTest {
         @DisplayName("존재하는 ID로 조회하면 BrandModel을 반환한다")
         void findById_Existing_ShouldReturn() {
             BrandModel brand = BrandModel.create("브랜드", "설명", "서울");
-            when(brandRepository.findById("brand-id")).thenReturn(Optional.of(brand));
+            when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
 
-            BrandModel result = brandService.findById("brand-id");
+            BrandModel result = brandService.findById(1L);
 
             assertThat(result.getBrandName()).isEqualTo("브랜드");
         }
@@ -66,9 +66,9 @@ class BrandServiceTest {
         @Test
         @DisplayName("존재하지 않는 ID 조회 시 BRAND_NOT_FOUND 예외가 발생한다")
         void findById_NotFound_ShouldThrowBRAND_NOT_FOUND() {
-            when(brandRepository.findById("nonexistent")).thenReturn(Optional.empty());
+            when(brandRepository.findById(999L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> brandService.findById("nonexistent"))
+            assertThatThrownBy(() -> brandService.findById(999L))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.BRAND_NOT_FOUND));
@@ -79,9 +79,9 @@ class BrandServiceTest {
         void findVisibleById_WhenHidden_ShouldThrowBRAND_NOT_FOUND() {
             BrandModel brand = BrandModel.create("브랜드", "설명", "서울");
             brand.hide();
-            when(brandRepository.findById("brand-id")).thenReturn(Optional.of(brand));
+            when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
 
-            assertThatThrownBy(() -> brandService.findVisibleById("brand-id"))
+            assertThatThrownBy(() -> brandService.findVisibleById(1L))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.BRAND_NOT_FOUND));
@@ -92,9 +92,9 @@ class BrandServiceTest {
         void findVisibleById_WhenDeleted_ShouldThrowBRAND_NOT_FOUND() {
             BrandModel brand = BrandModel.create("브랜드", "설명", "서울");
             brand.softDelete();
-            when(brandRepository.findById("brand-id")).thenReturn(Optional.of(brand));
+            when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
 
-            assertThatThrownBy(() -> brandService.findVisibleById("brand-id"))
+            assertThatThrownBy(() -> brandService.findVisibleById(1L))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.BRAND_NOT_FOUND));
@@ -140,9 +140,9 @@ class BrandServiceTest {
         @DisplayName("수정 후 변경된 BrandModel을 반환한다")
         void updateBrand_ShouldUpdateAndReturn() {
             BrandModel brand = BrandModel.create("기존이름", "기존설명", "기존주소");
-            when(brandRepository.findById("brand-id")).thenReturn(Optional.of(brand));
+            when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
 
-            BrandModel result = brandService.updateBrand("brand-id", "새이름", "새설명", "새주소");
+            BrandModel result = brandService.updateBrand(1L, "새이름", "새설명", "새주소");
 
             assertThat(result.getBrandName()).isEqualTo("새이름");
             assertThat(result.getDescription()).isEqualTo("새설명");
@@ -158,9 +158,9 @@ class BrandServiceTest {
         @DisplayName("소프트 삭제가 정상적으로 수행된다")
         void deleteBrand_ShouldSoftDeleteBrand() {
             BrandModel brand = BrandModel.create("브랜드", "설명", "서울");
-            when(brandRepository.findById("brand-id")).thenReturn(Optional.of(brand));
+            when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
 
-            brandService.deleteBrand("brand-id");
+            brandService.deleteBrand(1L);
 
             assertThat(brand.isDeleted()).isTrue();
         }
@@ -170,9 +170,9 @@ class BrandServiceTest {
         void deleteBrand_AlreadyDeleted_ShouldBeIdempotent() {
             BrandModel brand = BrandModel.create("브랜드", "설명", "서울");
             brand.softDelete();
-            when(brandRepository.findById("brand-id")).thenReturn(Optional.of(brand));
+            when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
 
-            assertThatCode(() -> brandService.deleteBrand("brand-id"))
+            assertThatCode(() -> brandService.deleteBrand(1L))
                     .doesNotThrowAnyException();
         }
     }

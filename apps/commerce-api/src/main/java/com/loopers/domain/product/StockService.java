@@ -32,7 +32,7 @@ public class StockService {
      * @return 생성된 재고 엔티티
      */
     @Transactional
-    public ProductStockModel createStock(String productId, int onHand) {
+    public ProductStockModel createStock(Long productId, int onHand) {
         ProductStockModel stock = ProductStockModel.create(productId, onHand);
         return productStockRepository.save(stock);
     }
@@ -50,11 +50,11 @@ public class StockService {
      * @param productIds 상품 ID 목록
      * @return 재고 엔티티 목록
      */
-    public List<ProductStockModel> findAllByProductIds(Collection<String> productIds) {
+    public List<ProductStockModel> findAllByProductIds(Collection<Long> productIds) {
         return productStockRepository.findAllByProductIds(productIds);
     }
 
-    public ProductStockModel findByProductId(String productId) {
+    public ProductStockModel findByProductId(Long productId) {
         return productStockRepository.findByProductId(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
     }
@@ -72,7 +72,7 @@ public class StockService {
      * @throws CoreException 가용 재고 부족 시 (STOCK_NOT_ENOUGH)
      */
     @Transactional
-    public void hold(String productId, int qty) {
+    public void hold(Long productId, int qty) {
         int affected = productStockRepository.reserveStock(productId, qty);
         if (affected == 0) {
             throw new CoreException(ErrorType.STOCK_NOT_ENOUGH);
@@ -92,7 +92,7 @@ public class StockService {
      * @throws CoreException 예약 재고 부족 시 (STOCK_NOT_ENOUGH)
      */
     @Transactional
-    public void release(String productId, int qty) {
+    public void release(Long productId, int qty) {
         int affected = productStockRepository.releaseStock(productId, qty);
         if (affected == 0) {
             throw new CoreException(ErrorType.STOCK_NOT_ENOUGH);
@@ -111,7 +111,7 @@ public class StockService {
      * @throws CoreException 확정 실패 시 (STOCK_NOT_ENOUGH)
      */
     @Transactional
-    public void commit(String productId, int qty) {
+    public void commit(Long productId, int qty) {
         int affected = productStockRepository.commitStock(productId, qty);
         if (affected == 0) {
             throw new CoreException(ErrorType.STOCK_NOT_ENOUGH);

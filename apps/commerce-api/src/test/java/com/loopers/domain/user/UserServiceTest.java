@@ -83,9 +83,9 @@ class UserServiceTest {
         @DisplayName("ID로 사용자 조회 성공")
         void findByUserId_Existing_ShouldReturn() {
             UserModel user = createTestUser();
-            when(userRepository.findByUserId("user-id")).thenReturn(Optional.of(user));
+            when(userRepository.findByUserId(1L)).thenReturn(Optional.of(user));
 
-            UserModel result = userService.findByUserId("user-id");
+            UserModel result = userService.findByUserId(1L);
 
             assertThat(result.getLoginId()).isEqualTo("testuser01");
         }
@@ -93,9 +93,9 @@ class UserServiceTest {
         @Test
         @DisplayName("존재하지 않는 ID 조회 시 USER_NOT_FOUND")
         void findByUserId_NotFound_ShouldThrow_USER_NOT_FOUND() {
-            when(userRepository.findByUserId("nonexistent")).thenReturn(Optional.empty());
+            when(userRepository.findByUserId(999L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> userService.findByUserId("nonexistent"))
+            assertThatThrownBy(() -> userService.findByUserId(999L))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.USER_NOT_FOUND));

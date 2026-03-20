@@ -65,7 +65,7 @@ class StatsServiceTest {
     void getTopLikedProducts_ShouldReturnTopN() {
         List<StatsProjection.ProductStat> stats = List.of(
                 StatsProjection.ProductStat.builder()
-                        .productId("p1").productName("인기상품").count(100).build()
+                        .productId(1L).productName("인기상품").count(100).build()
         );
         when(statsRepository.getTopLikedProducts(10)).thenReturn(stats);
 
@@ -80,7 +80,7 @@ class StatsServiceTest {
     void getTopOrderedProducts_ShouldReturnTopN() {
         List<StatsProjection.ProductStat> stats = List.of(
                 StatsProjection.ProductStat.builder()
-                        .productId("p1").productName("베스트상품").count(50).build()
+                        .productId(1L).productName("베스트상품").count(50).build()
         );
         when(statsRepository.getTopOrderedProducts(10)).thenReturn(stats);
 
@@ -95,7 +95,7 @@ class StatsServiceTest {
     void getLowStockProducts_ShouldReturnBelowThreshold() {
         List<StatsProjection.LowStockProduct> stats = List.of(
                 StatsProjection.LowStockProduct.builder()
-                        .productId("p1").productName("부족상품")
+                        .productId(1L).productName("부족상품")
                         .onHand(10).reserved(8).availableQty(2).build()
         );
         when(statsRepository.getLowStockProducts(5)).thenReturn(stats);

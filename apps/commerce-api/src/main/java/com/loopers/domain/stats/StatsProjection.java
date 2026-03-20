@@ -9,7 +9,7 @@ import java.time.LocalDate;
 
 /**
  * 운영 통계 도메인 프로젝션 DTO 모음.
- * 도메인/인프라 레이어에서 사용되며, application 레이어의 {@link com.loopers.application.stats.StatsInfo}로 변환된다.
+ * 도메인/인프라 레이어에서 사용되며, Controller에서 API 응답 DTO로 변환된다.
  */
 public class StatsProjection {
 
@@ -44,7 +44,7 @@ public class StatsProjection {
     @Builder
     @AllArgsConstructor
     public static class ProductStat {
-        private final String productId;
+        private final Long productId;
         private final String productName;
         private final long count;
     }
@@ -56,7 +56,7 @@ public class StatsProjection {
     @Builder
     @AllArgsConstructor
     public static class LowStockProduct {
-        private final String productId;
+        private final Long productId;
         private final String productName;
         private final int onHand;
         private final int reserved;

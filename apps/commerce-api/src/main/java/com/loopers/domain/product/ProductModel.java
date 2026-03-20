@@ -9,12 +9,13 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.UuidGenerator;
 
 import java.math.BigDecimal;
 
@@ -37,12 +38,12 @@ import java.math.BigDecimal;
 public class ProductModel extends BaseStringIdEntity {
 
     @Id
-    @UuidGenerator
-    @Column(name = "product_id", length = 36)
-    private String productId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "product_id")
+    private Long productId;
 
-    @Column(name = "brand_id", nullable = false, length = 36)
-    private String brandId;
+    @Column(name = "brand_id", nullable = false)
+    private Long brandId;
 
     @Column(name = "product_name", nullable = false)
     private String productName;
@@ -82,7 +83,10 @@ public class ProductModel extends BaseStringIdEntity {
     @Column(name = "revision_seq", nullable = false)
     private Long revisionSeq;
 
-    private ProductModel(String productName, String brandId, BigDecimal price,
+    @Column(name = "like_count", nullable = false)
+    private long likeCount = 0;
+
+    private ProductModel(String productName, Long brandId, BigDecimal price,
                          String description, String category, String color,
                          String size, String option, String imageUrl, String attachFile) {
         validateProductName(productName);
@@ -120,7 +124,7 @@ public class ProductModel extends BaseStringIdEntity {
      * @return 생성된 ProductModel 인스턴스
      * @throws CoreException productName/brandId null 또는 price <= 0인 경우 (BAD_REQUEST)
      */
-    public static ProductModel create(String productName, String brandId, BigDecimal price,
+    public static ProductModel create(String productName, Long brandId, BigDecimal price,
                                        String description, String category, String color,
                                        String size, String option, String imageUrl, String attachFile) {
         return new ProductModel(productName, brandId, price, description, category, color,
@@ -213,8 +217,8 @@ public class ProductModel extends BaseStringIdEntity {
         }
     }
 
-    private static void validateBrandId(String brandId) {
-        if (brandId == null || brandId.isBlank()) {
+    private static void validateBrandId(Long brandId) {
+        if (brandId == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "브랜드 ID는 필수입니다.");
         }
     }

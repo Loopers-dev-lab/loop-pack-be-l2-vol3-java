@@ -30,11 +30,11 @@ import java.time.LocalDateTime;
 public class OrderCartRestoreModel {
 
     @Id
-    @Column(name = "order_id", length = 36)
-    private String orderId;
+    @Column(name = "order_id")
+    private Long orderId;
 
-    @Column(name = "user_id", nullable = false, length = 36)
-    private String userId;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -47,7 +47,7 @@ public class OrderCartRestoreModel {
     @Column(name = "restored_at", nullable = false)
     private LocalDateTime restoredAt;
 
-    private OrderCartRestoreModel(String orderId, String userId,
+    private OrderCartRestoreModel(Long orderId, Long userId,
                                    RestoreReason reason, RestoreTriggerSource triggerSource) {
         this.orderId = orderId;
         this.userId = userId;
@@ -65,7 +65,7 @@ public class OrderCartRestoreModel {
      * @param triggerSource 복원 트리거 출처 (CANCEL_API / EXPIRE_JOB 등)
      * @return 생성된 OrderCartRestoreModel 인스턴스
      */
-    public static OrderCartRestoreModel create(String orderId, String userId,
+    public static OrderCartRestoreModel create(Long orderId, Long userId,
                                                 RestoreReason reason, RestoreTriggerSource triggerSource) {
         return new OrderCartRestoreModel(orderId, userId, reason, triggerSource);
     }

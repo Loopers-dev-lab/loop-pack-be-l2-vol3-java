@@ -31,8 +31,8 @@ import java.time.LocalDateTime;
 public class ProductRevisionModel {
 
     @Id
-    @Column(name = "product_id", length = 36)
-    private String productId;
+    @Column(name = "product_id")
+    private Long productId;
 
     @Id
     @Column(name = "revision_seq")
@@ -57,7 +57,7 @@ public class ProductRevisionModel {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    private ProductRevisionModel(String productId, Long revisionSeq, ProductRevisionAction action,
+    private ProductRevisionModel(Long productId, Long revisionSeq, ProductRevisionAction action,
                                   String changedBy, String changeReason,
                                   String beforeSnapshot, String afterSnapshot) {
         this.productId = productId;
@@ -82,7 +82,7 @@ public class ProductRevisionModel {
      * @param afterSnapshot  변경 후 상품 상태 JSON (DELETE 시 null)
      * @return 생성된 ProductRevisionModel 인스턴스
      */
-    public static ProductRevisionModel create(String productId, Long revisionSeq,
+    public static ProductRevisionModel create(Long productId, Long revisionSeq,
                                                ProductRevisionAction action,
                                                String changedBy, String changeReason,
                                                String beforeSnapshot, String afterSnapshot) {

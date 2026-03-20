@@ -14,7 +14,7 @@ import java.math.BigDecimal;
  * @param description  상품 설명
  * @param initialStock 초기 재고 수량
  */
-public record ProductCreateCommand(String productName, String brandId,
+public record ProductCreateCommand(String productName, Long brandId,
                                     BigDecimal price, String description,
                                     int initialStock) {
 }

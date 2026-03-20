@@ -1,6 +1,6 @@
 package com.loopers.interfaces.apiadmin;
 
-import com.loopers.application.brand.BrandInfo;
+import com.loopers.domain.brand.BrandModel;
 import com.loopers.support.enums.DisplayStatus;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -52,7 +52,7 @@ public class AdminBrandV1Dto {
     @AllArgsConstructor
     @Builder
     public static class AdminBrandResponse {
-        private String brandId;
+        private Long brandId;
         private String brandName;
         private String description;
         private String address;
@@ -62,21 +62,21 @@ public class AdminBrandV1Dto {
         private ZonedDateTime createdAt;
 
         /**
-         * {@link BrandInfo}를 관리자 브랜드 응답 DTO로 변환하는 정적 팩토리 메서드.
+         * {@link BrandModel}을 관리자 브랜드 응답 DTO로 변환하는 정적 팩토리 메서드.
          *
-         * @param info 브랜드 정보 DTO
+         * @param model 브랜드 도메인 모델
          * @return 변환된 관리자 브랜드 응답 DTO
          */
-        public static AdminBrandResponse from(BrandInfo info) {
+        public static AdminBrandResponse from(BrandModel model) {
             return AdminBrandResponse.builder()
-                    .brandId(info.getBrandId())
-                    .brandName(info.getBrandName())
-                    .description(info.getDescription())
-                    .address(info.getAddress())
-                    .displayStatus(info.getDisplayStatus())
-                    .delYn(info.getDelYn())
-                    .deletedAt(info.getDeletedAt())
-                    .createdAt(info.getCreatedAt())
+                    .brandId(model.getBrandId())
+                    .brandName(model.getBrandName())
+                    .description(model.getDescription())
+                    .address(model.getAddress())
+                    .displayStatus(model.getDisplayStatus())
+                    .delYn(model.getDelYn())
+                    .deletedAt(model.getDeletedAt())
+                    .createdAt(model.getCreatedAt())
                     .build();
         }
     }

@@ -38,7 +38,7 @@ public class OrderCartRestoreRepositoryImpl implements OrderCartRestoreRepositor
      * @return 존재 여부
      */
     @Override
-    public boolean existsById(String orderId) {
+    public boolean existsById(Long orderId) {
         return jpaRepository.existsById(orderId);
     }
 }

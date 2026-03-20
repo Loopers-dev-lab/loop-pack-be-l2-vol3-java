@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.user;
 
-import com.loopers.application.user.UserInfo;
+import com.loopers.domain.user.UserModel;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -55,7 +55,7 @@ public class UserV1Dto {
     @AllArgsConstructor
     @Builder
     public static class RegisterResponse {
-        private String userId;
+        private Long userId;
         private String loginId;
         private String maskedName;
         private String birthday;
@@ -63,19 +63,19 @@ public class UserV1Dto {
         private String address;
 
         /**
-         * {@link UserInfo}를 회원가입 응답 DTO로 변환하는 팩토리 메서드.
+         * {@link UserModel}을 회원가입 응답 DTO로 변환하는 팩토리 메서드.
          *
-         * @param info 변환할 사용자 도메인 Info 객체
+         * @param model 변환할 사용자 도메인 모델
          * @return 변환된 RegisterResponse
          */
-        public static RegisterResponse from(UserInfo info) {
+        public static RegisterResponse from(UserModel model) {
             return RegisterResponse.builder()
-                    .userId(info.getUserId())
-                    .loginId(info.getLoginId())
-                    .maskedName(info.getMaskedName())
-                    .birthday(info.getBirthday())
-                    .email(info.getEmail())
-                    .address(info.getAddress())
+                    .userId(model.getUserId())
+                    .loginId(model.getLoginId())
+                    .maskedName(model.getMaskedName())
+                    .birthday(model.getBirthday())
+                    .email(model.getEmail())
+                    .address(model.getAddress())
                     .build();
         }
     }
@@ -89,7 +89,7 @@ public class UserV1Dto {
     @AllArgsConstructor
     @Builder
     public static class MyInfoResponse {
-        private String userId;
+        private Long userId;
         private String loginId;
         private String maskedName;
         private String birthday;
@@ -97,19 +97,19 @@ public class UserV1Dto {
         private String address;
 
         /**
-         * {@link UserInfo}를 내 정보 조회 응답 DTO로 변환하는 팩토리 메서드.
+         * {@link UserModel}을 내 정보 조회 응답 DTO로 변환하는 팩토리 메서드.
          *
-         * @param info 변환할 사용자 도메인 Info 객체
+         * @param model 변환할 사용자 도메인 모델
          * @return 변환된 MyInfoResponse
          */
-        public static MyInfoResponse from(UserInfo info) {
+        public static MyInfoResponse from(UserModel model) {
             return MyInfoResponse.builder()
-                    .userId(info.getUserId())
-                    .loginId(info.getLoginId())
-                    .maskedName(info.getMaskedName())
-                    .birthday(info.getBirthday())
-                    .email(info.getEmail())
-                    .address(info.getAddress())
+                    .userId(model.getUserId())
+                    .loginId(model.getLoginId())
+                    .maskedName(model.getMaskedName())
+                    .birthday(model.getBirthday())
+                    .email(model.getEmail())
+                    .address(model.getAddress())
                     .build();
         }
     }

@@ -30,21 +30,21 @@ class CartItemRepositoryImplTest {
     @Test
     @DisplayName("장바구니 항목 저장")
     void save_ShouldPersist() {
-        CartItemModel item = CartItemModel.create("user-1", "product-1", 2);
+        CartItemModel item = CartItemModel.create(1L, 1L, 2);
 
         CartItemModel saved = cartItemRepository.save(item);
 
-        assertThat(saved.getUserId()).isEqualTo("user-1");
-        assertThat(saved.getProductId()).isEqualTo("product-1");
+        assertThat(saved.getUserId()).isEqualTo(1L);
+        assertThat(saved.getProductId()).isEqualTo(1L);
         assertThat(saved.getQuantity()).isEqualTo(2);
     }
 
     @Test
     @DisplayName("복합 PK로 조회 - 존재하는 항목")
     void findById_Existing_ShouldReturn() {
-        cartItemRepository.save(CartItemModel.create("user-1", "product-1", 2));
+        cartItemRepository.save(CartItemModel.create(1L, 1L, 2));
 
-        Optional<CartItemModel> found = cartItemRepository.findById(new CartItemId("user-1", "product-1"));
+        Optional<CartItemModel> found = cartItemRepository.findById(new CartItemId(1L, 1L));
 
         assertThat(found).isPresent();
         assertThat(found.get().getQuantity()).isEqualTo(2);
@@ -53,7 +53,7 @@ class CartItemRepositoryImplTest {
     @Test
     @DisplayName("복합 PK로 조회 - 존재하지 않는 항목")
     void findById_NotExisting_ShouldReturnEmpty() {
-        Optional<CartItemModel> found = cartItemRepository.findById(new CartItemId("user-1", "product-1"));
+        Optional<CartItemModel> found = cartItemRepository.findById(new CartItemId(1L, 1L));
 
         assertThat(found).isEmpty();
     }
@@ -61,23 +61,23 @@ class CartItemRepositoryImplTest {
     @Test
     @DisplayName("장바구니 항목 삭제")
     void delete_ShouldRemove() {
-        CartItemModel item = cartItemRepository.save(CartItemModel.create("user-1", "product-1", 2));
+        CartItemModel item = cartItemRepository.save(CartItemModel.create(1L, 1L, 2));
 
         cartItemRepository.delete(item);
         entityManager.flush();
 
-        Optional<CartItemModel> found = cartItemRepository.findById(new CartItemId("user-1", "product-1"));
+        Optional<CartItemModel> found = cartItemRepository.findById(new CartItemId(1L, 1L));
         assertThat(found).isEmpty();
     }
 
     @Test
     @DisplayName("사용자별 장바구니 목록 조회")
     void findAllByUserId_ShouldReturnUserCart() {
-        cartItemRepository.save(CartItemModel.create("user-1", "product-1", 1));
-        cartItemRepository.save(CartItemModel.create("user-1", "product-2", 3));
-        cartItemRepository.save(CartItemModel.create("user-2", "product-1", 2));
+        cartItemRepository.save(CartItemModel.create(1L, 1L, 1));
+        cartItemRepository.save(CartItemModel.create(1L, 2L, 3));
+        cartItemRepository.save(CartItemModel.create(2L, 1L, 2));
 
-        List<CartItemModel> result = cartItemRepository.findAllByUserId("user-1");
+        List<CartItemModel> result = cartItemRepository.findAllByUserId(1L);
 
         assertThat(result).hasSize(2);
     }
@@ -85,14 +85,14 @@ class CartItemRepositoryImplTest {
     @Test
     @DisplayName("동일 복합 PK로 save 시 수량이 업데이트된다")
     void save_ExistingItem_ShouldUpdate() {
-        CartItemModel item = cartItemRepository.save(CartItemModel.create("user-1", "product-1", 2));
+        CartItemModel item = cartItemRepository.save(CartItemModel.create(1L, 1L, 2));
         item.changeQuantity(5);
 
         cartItemRepository.save(item);
         entityManager.flush();
         entityManager.clear();
 
-        Optional<CartItemModel> found = cartItemRepository.findById(new CartItemId("user-1", "product-1"));
+        Optional<CartItemModel> found = cartItemRepository.findById(new CartItemId(1L, 1L));
         assertThat(found).isPresent();
         assertThat(found.get().getQuantity()).isEqualTo(5);
     }

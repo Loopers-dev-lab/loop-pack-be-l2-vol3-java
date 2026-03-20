@@ -11,7 +11,7 @@ import java.util.Optional;
  * <p>JpaRepository를 상속받아 기본 CRUD 메서드(save, findById, findAll, delete 등)가 자동 제공되며,
  * 메서드 이름 규칙 기반의 쿼리 메서드를 추가로 정의한다.</p>
  */
-public interface UserJpaRepository extends JpaRepository<UserModel, String> {
+public interface UserJpaRepository extends JpaRepository<UserModel, Long> {
 
     /**
      * 로그인 ID로 사용자를 조회한다.

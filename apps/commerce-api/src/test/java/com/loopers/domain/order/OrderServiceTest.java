@@ -21,6 +21,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,7 +44,7 @@ class OrderServiceTest {
         @Test
         @DisplayName("빈 항목으로 주문 시 ORDER_ITEM_EMPTY 예외가 발생한다")
         void validateAndPrepare_EmptyItems_ShouldThrow() {
-            assertThatThrownBy(() -> orderService.validateAndPrepare("user-1", List.of()))
+            assertThatThrownBy(() -> orderService.validateAndPrepare(1L, List.of()))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.ORDER_ITEM_EMPTY));
@@ -52,7 +53,7 @@ class OrderServiceTest {
         @Test
         @DisplayName("null 항목으로 주문 시 ORDER_ITEM_EMPTY 예외가 발생한다")
         void validateAndPrepare_NullItems_ShouldThrow() {
-            assertThatThrownBy(() -> orderService.validateAndPrepare("user-1", null))
+            assertThatThrownBy(() -> orderService.validateAndPrepare(1L, null))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.ORDER_ITEM_EMPTY));
@@ -61,10 +62,10 @@ class OrderServiceTest {
         @Test
         @DisplayName("PENDING 주문 3건 이상일 때 ORDER_PENDING_LIMIT_EXCEEDED 예외가 발생한다")
         void validateAndPrepare_ExceedPendingLimit_ShouldThrow() {
-            when(orderRepository.countByUserIdAndStatus("user-1", OrderStatus.PENDING_PAYMENT)).thenReturn(3L);
+            when(orderRepository.countByUserIdAndStatus(1L, OrderStatus.PENDING_PAYMENT)).thenReturn(3L);
 
-            assertThatThrownBy(() -> orderService.validateAndPrepare("user-1",
-                    List.of(new OrderItemCommand("product-1", 1))))
+            assertThatThrownBy(() -> orderService.validateAndPrepare(1L,
+                    List.of(new OrderItemCommand(1L, 1))))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.ORDER_PENDING_LIMIT_EXCEEDED));
@@ -73,11 +74,11 @@ class OrderServiceTest {
         @Test
         @DisplayName("동일 productId가 중복 전달되면 수량을 합산한다")
         void validateAndPrepare_DuplicateProductId_ShouldMergeQuantity() {
-            when(orderRepository.countByUserIdAndStatus("user-1", OrderStatus.PENDING_PAYMENT)).thenReturn(0L);
+            when(orderRepository.countByUserIdAndStatus(1L, OrderStatus.PENDING_PAYMENT)).thenReturn(0L);
 
-            List<OrderItemCommand> result = orderService.validateAndPrepare("user-1", List.of(
-                    new OrderItemCommand("product-1", 2),
-                    new OrderItemCommand("product-1", 3)));
+            List<OrderItemCommand> result = orderService.validateAndPrepare(1L, List.of(
+                    new OrderItemCommand(1L, 2),
+                    new OrderItemCommand(1L, 3)));
 
             assertThat(result).hasSize(1);
             assertThat(result.get(0).quantity()).isEqualTo(5);
@@ -86,14 +87,14 @@ class OrderServiceTest {
         @Test
         @DisplayName("결과가 productId 오름차순으로 정렬된다")
         void validateAndPrepare_ShouldSortByProductIdAsc() {
-            when(orderRepository.countByUserIdAndStatus("user-1", OrderStatus.PENDING_PAYMENT)).thenReturn(0L);
+            when(orderRepository.countByUserIdAndStatus(1L, OrderStatus.PENDING_PAYMENT)).thenReturn(0L);
 
-            List<OrderItemCommand> result = orderService.validateAndPrepare("user-1", List.of(
-                    new OrderItemCommand("zzz-product", 1),
-                    new OrderItemCommand("aaa-product", 1)));
+            List<OrderItemCommand> result = orderService.validateAndPrepare(1L, List.of(
+                    new OrderItemCommand(3L, 1),
+                    new OrderItemCommand(1L, 1)));
 
             assertThat(result).extracting(OrderItemCommand::productId)
-                    .containsExactly("aaa-product", "zzz-product");
+                    .containsExactly(1L, 3L);
         }
     }
 
@@ -112,10 +113,11 @@ class OrderServiceTest {
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
             List<OrderItemSnapshot> snapshots = List.of(
-                    new OrderItemSnapshot("product-1", 2, "테스트상품",
-                            BigDecimal.valueOf(10000), "brand-id", "테스트브랜드", null));
+                    new OrderItemSnapshot(1L, 2, "테스트상품",
+                            BigDecimal.valueOf(10000), "brand-id", "테스트브랜드", null,
+                            BigDecimal.valueOf(20000), BigDecimal.ZERO, BigDecimal.valueOf(20000)));
 
-            OrderModel result = orderService.createOrder("user-1", OrderType.DIRECT,
+            OrderModel result = orderService.createOrder(1L, OrderType.DIRECT,
                     BigDecimal.valueOf(20000), snapshots);
 
             assertThat(result).isNotNull();
@@ -131,10 +133,11 @@ class OrderServiceTest {
             when(orderItemRepository.saveAll(anyList()))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            orderService.createOrder("user-1", OrderType.CART,
+            orderService.createOrder(1L, OrderType.CART,
                     BigDecimal.valueOf(10000), List.of(
-                            new OrderItemSnapshot("product-1", 1, "상품",
-                                    BigDecimal.valueOf(10000), "brand-id", "브랜드", null)));
+                            new OrderItemSnapshot(1L, 1, "상품",
+                                    BigDecimal.valueOf(10000), "brand-id", "브랜드", null,
+                                    BigDecimal.valueOf(10000), BigDecimal.ZERO, BigDecimal.valueOf(10000))));
 
             ArgumentCaptor<OrderModel> captor = ArgumentCaptor.forClass(OrderModel.class);
             verify(orderRepository).save(captor.capture());
@@ -149,10 +152,11 @@ class OrderServiceTest {
             when(orderItemRepository.saveAll(anyList()))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            orderService.createOrder("user-1", OrderType.DIRECT,
+            orderService.createOrder(1L, OrderType.DIRECT,
                     BigDecimal.valueOf(30000), List.of(
-                            new OrderItemSnapshot("product-1", 3, "상품",
-                                    BigDecimal.valueOf(10000), "brand-id", "브랜드", null)));
+                            new OrderItemSnapshot(1L, 3, "상품",
+                                    BigDecimal.valueOf(10000), "brand-id", "브랜드", null,
+                                    BigDecimal.valueOf(30000), BigDecimal.ZERO, BigDecimal.valueOf(30000))));
 
             ArgumentCaptor<OrderModel> captor = ArgumentCaptor.forClass(OrderModel.class);
             verify(orderRepository).save(captor.capture());
@@ -170,25 +174,25 @@ class OrderServiceTest {
         @Test
         @DisplayName("CAS 상태 전이 성공 시 주문 엔티티를 반환한다")
         void cancelOrder_ShouldReturnOrder_WhenCASSucceeds() {
-            OrderModel order = OrderModel.create("user-1", OrderType.DIRECT, BigDecimal.valueOf(10000));
-            when(orderRepository.findByIdAndUserId("order-1", "user-1"))
+            OrderModel order = OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(10000));
+            when(orderRepository.findByIdAndUserId(1L, 1L))
                     .thenReturn(Optional.of(order));
-            when(orderRepository.casUpdateStatus("order-1", OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED))
+            when(orderRepository.casUpdateStatus(1L, OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED))
                     .thenReturn(1);
 
-            Optional<OrderModel> result = orderService.cancelOrder("user-1", "order-1");
+            Optional<OrderModel> result = orderService.cancelOrder(1L, 1L);
 
             assertThat(result).isPresent();
-            verify(orderRepository).casUpdateStatus("order-1", OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED);
+            verify(orderRepository).casUpdateStatus(1L, OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED);
         }
 
         @Test
         @DisplayName("다른 사용자의 주문 취소 시 예외가 발생한다")
         void cancelOrder_WhenNotOwner_ShouldThrow() {
-            when(orderRepository.findByIdAndUserId("order-1", "other-user"))
+            when(orderRepository.findByIdAndUserId(1L, 2L))
                     .thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> orderService.cancelOrder("other-user", "order-1"))
+            assertThatThrownBy(() -> orderService.cancelOrder(2L, 1L))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.ORDER_NOT_FOUND));
@@ -197,16 +201,16 @@ class OrderServiceTest {
         @Test
         @DisplayName("이미 CANCELLED인 주문 취소 시 빈 Optional을 반환한다 (멱등)")
         void cancelOrder_WhenAlreadyCancelled_ShouldReturnEmpty() {
-            OrderModel order = OrderModel.create("user-1", OrderType.DIRECT, BigDecimal.valueOf(10000));
-            when(orderRepository.findByIdAndUserId("order-1", "user-1"))
+            OrderModel order = OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(10000));
+            when(orderRepository.findByIdAndUserId(1L, 1L))
                     .thenReturn(Optional.of(order));
-            when(orderRepository.casUpdateStatus("order-1", OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED))
+            when(orderRepository.casUpdateStatus(1L, OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED))
                     .thenReturn(0);
-            OrderModel cancelledOrder = OrderModel.create("user-1", OrderType.DIRECT, BigDecimal.valueOf(10000));
+            OrderModel cancelledOrder = OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(10000));
             cancelledOrder.cancel();
-            when(orderRepository.findById("order-1")).thenReturn(Optional.of(cancelledOrder));
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(cancelledOrder));
 
-            Optional<OrderModel> result = orderService.cancelOrder("user-1", "order-1");
+            Optional<OrderModel> result = orderService.cancelOrder(1L, 1L);
 
             assertThat(result).isEmpty();
         }
@@ -214,16 +218,16 @@ class OrderServiceTest {
         @Test
         @DisplayName("EXPIRED 상태인 주문 취소 시 ORDER_NOT_CANCELLABLE 예외가 발생한다")
         void cancelOrder_WhenExpired_ShouldThrow_ORDER_NOT_CANCELLABLE() {
-            OrderModel order = OrderModel.create("user-1", OrderType.DIRECT, BigDecimal.valueOf(10000));
-            when(orderRepository.findByIdAndUserId("order-1", "user-1"))
+            OrderModel order = OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(10000));
+            when(orderRepository.findByIdAndUserId(1L, 1L))
                     .thenReturn(Optional.of(order));
-            when(orderRepository.casUpdateStatus("order-1", OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED))
+            when(orderRepository.casUpdateStatus(1L, OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED))
                     .thenReturn(0);
-            OrderModel expiredOrder = OrderModel.create("user-1", OrderType.DIRECT, BigDecimal.valueOf(10000));
+            OrderModel expiredOrder = OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(10000));
             expiredOrder.expire();
-            when(orderRepository.findById("order-1")).thenReturn(Optional.of(expiredOrder));
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(expiredOrder));
 
-            assertThatThrownBy(() -> orderService.cancelOrder("user-1", "order-1"))
+            assertThatThrownBy(() -> orderService.cancelOrder(1L, 1L))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.ORDER_NOT_CANCELLABLE));
@@ -239,24 +243,24 @@ class OrderServiceTest {
         @Test
         @DisplayName("CAS 상태 전이 성공 시 주문 엔티티를 반환한다")
         void expireOrder_ShouldReturnOrder_WhenCASSucceeds() {
-            when(orderRepository.casUpdateStatus("order-1", OrderStatus.PENDING_PAYMENT, OrderStatus.EXPIRED))
+            when(orderRepository.casUpdateStatus(1L, OrderStatus.PENDING_PAYMENT, OrderStatus.EXPIRED))
                     .thenReturn(1);
-            OrderModel order = OrderModel.create("user-1", OrderType.CART, BigDecimal.valueOf(10000));
-            when(orderRepository.findById("order-1")).thenReturn(Optional.of(order));
+            OrderModel order = OrderModel.create(1L, OrderType.CART, BigDecimal.valueOf(10000));
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
 
-            Optional<OrderModel> result = orderService.expireOrder("order-1");
+            Optional<OrderModel> result = orderService.expireOrder(1L);
 
             assertThat(result).isPresent();
-            verify(orderRepository).casUpdateStatus("order-1", OrderStatus.PENDING_PAYMENT, OrderStatus.EXPIRED);
+            verify(orderRepository).casUpdateStatus(1L, OrderStatus.PENDING_PAYMENT, OrderStatus.EXPIRED);
         }
 
         @Test
         @DisplayName("CAS 실패 시 빈 Optional을 반환한다 (멱등)")
         void expireOrder_AlreadyExpiredOrCancelled_ShouldReturnEmpty() {
-            when(orderRepository.casUpdateStatus("order-1", OrderStatus.PENDING_PAYMENT, OrderStatus.EXPIRED))
+            when(orderRepository.casUpdateStatus(1L, OrderStatus.PENDING_PAYMENT, OrderStatus.EXPIRED))
                     .thenReturn(0);
 
-            Optional<OrderModel> result = orderService.expireOrder("order-1");
+            Optional<OrderModel> result = orderService.expireOrder(1L);
 
             assertThat(result).isEmpty();
         }
@@ -271,24 +275,24 @@ class OrderServiceTest {
         @Test
         @DisplayName("본인 주문 조회 성공")
         void findByIdAndUserId_Existing_ShouldReturn() {
-            OrderModel order = OrderModel.create("user-1", OrderType.DIRECT, BigDecimal.valueOf(10000));
-            when(orderRepository.findByIdAndUserId("order-1", "user-1"))
+            OrderModel order = OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(10000));
+            when(orderRepository.findByIdAndUserId(1L, 1L))
                     .thenReturn(Optional.of(order));
 
-            OrderModel result = orderService.findByIdAndUserId("order-1", "user-1");
+            OrderModel result = orderService.findByIdAndUserId(1L, 1L);
 
             assertThat(result).isNotNull();
-            assertThat(result.getUserId()).isEqualTo("user-1");
+            assertThat(result.getUserId()).isEqualTo(1L);
         }
 
         @Test
         @DisplayName("내 주문 목록 조회 성공")
         void findAllByUserId_ShouldReturnOrders() {
-            OrderModel order = OrderModel.create("user-1", OrderType.DIRECT, BigDecimal.valueOf(10000));
-            when(orderRepository.findAllByUserIdAndPeriod(eq("user-1"), any(), any()))
+            OrderModel order = OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(10000));
+            when(orderRepository.findAllByUserIdAndPeriod(eq(1L), any(), any()))
                     .thenReturn(List.of(order));
 
-            List<OrderModel> result = orderService.findAllByUserId("user-1",
+            List<OrderModel> result = orderService.findAllByUserId(1L,
                     LocalDateTime.now().minusDays(30), LocalDateTime.now());
 
             assertThat(result).hasSize(1);
@@ -297,14 +301,14 @@ class OrderServiceTest {
         @Test
         @DisplayName("주문 항목 조회 성공")
         void findOrderItems_ShouldReturnItems() {
-            OrderItemModel item = OrderItemModel.create("order-1", 1, "user-1", "product-1", 2,
+            OrderItemModel item = OrderItemModel.create(1L, 1, 1L, 1L, 2,
                     "상품명", BigDecimal.valueOf(10000), "brand-id", "브랜드", null);
-            when(orderItemRepository.findAllByOrderId("order-1")).thenReturn(List.of(item));
+            when(orderItemRepository.findAllByOrderId(1L)).thenReturn(List.of(item));
 
-            List<OrderItemModel> result = orderService.findOrderItems("order-1");
+            List<OrderItemModel> result = orderService.findOrderItems(1L);
 
             assertThat(result).hasSize(1);
-            assertThat(result.get(0).getProductId()).isEqualTo("product-1");
+            assertThat(result.get(0).getProductId()).isEqualTo(1L);
         }
     }
 }

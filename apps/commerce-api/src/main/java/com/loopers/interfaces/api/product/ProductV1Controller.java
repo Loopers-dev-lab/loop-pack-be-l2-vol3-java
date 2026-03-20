@@ -38,7 +38,7 @@ public class ProductV1Controller {
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<ProductV1Dto.ProductResponse>>> list(
             @RequestParam(value = "q", required = false) String keyword,
-            @RequestParam(value = "brandId", required = false) String brandId,
+            @RequestParam(value = "brandId", required = false) Long brandId,
             @RequestParam(value = "sort", defaultValue = "LATEST") ProductSortType sort,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
@@ -61,7 +61,7 @@ public class ProductV1Controller {
      */
     @GetMapping("/{productId}")
     public ResponseEntity<ApiResponse<ProductV1Dto.ProductDetailResponse>> detail(
-            @PathVariable String productId) {
+            @PathVariable Long productId) {
         ProductInfo info = productFacade.getProductDetailForCustomer(productId);
         return ResponseEntity.ok(ApiResponse.success(ProductV1Dto.ProductDetailResponse.from(info)));
     }

@@ -17,7 +17,7 @@ import java.util.Optional;
  * <p>JpaRepository를 상속받아 기본 CRUD 메서드가 자동 제공되며,
  * CAS(Compare-And-Set) 기반의 상태 변경 쿼리와 다양한 조회 쿼리를 정의한다.</p>
  */
-public interface OrderJpaRepository extends JpaRepository<OrderModel, String> {
+public interface OrderJpaRepository extends JpaRepository<OrderModel, Long> {
 
     /**
      * 주문 ID와 사용자 ID로 주문을 조회한다.
@@ -28,7 +28,7 @@ public interface OrderJpaRepository extends JpaRepository<OrderModel, String> {
      * @param userId  사용자 ID
      * @return 주문 (Optional)
      */
-    Optional<OrderModel> findByOrderIdAndUserId(String orderId, String userId);
+    Optional<OrderModel> findByOrderIdAndUserId(Long orderId, Long userId);
 
     /**
      * 사용자 ID와 기간으로 주문 목록을 조회한다 (최신순 정렬).
@@ -41,7 +41,7 @@ public interface OrderJpaRepository extends JpaRepository<OrderModel, String> {
     @Query("SELECT o FROM OrderModel o " +
            "WHERE o.userId = :userId AND o.createdAt BETWEEN :start AND :end " +
            "ORDER BY o.createdAt DESC")
-    List<OrderModel> findAllByUserIdAndPeriod(@Param("userId") String userId,
+    List<OrderModel> findAllByUserIdAndPeriod(@Param("userId") Long userId,
                                               @Param("start") LocalDateTime start,
                                               @Param("end") LocalDateTime end);
 
@@ -72,7 +72,7 @@ public interface OrderJpaRepository extends JpaRepository<OrderModel, String> {
     @Modifying
     @Query("UPDATE OrderModel o SET o.status = :toStatus, o.updatedAt = CURRENT_TIMESTAMP " +
            "WHERE o.orderId = :orderId AND o.status = :fromStatus")
-    int casUpdateStatus(@Param("orderId") String orderId,
+    int casUpdateStatus(@Param("orderId") Long orderId,
                         @Param("fromStatus") OrderStatus fromStatus,
                         @Param("toStatus") OrderStatus toStatus);
 
@@ -85,7 +85,7 @@ public interface OrderJpaRepository extends JpaRepository<OrderModel, String> {
      * @param status 주문 상태
      * @return 조건에 해당하는 주문 건수
      */
-    long countByUserIdAndStatus(String userId, OrderStatus status);
+    long countByUserIdAndStatus(Long userId, OrderStatus status);
 
     /**
      * 만료 시각이 지난 결제 대기 주문 목록을 조회한다.

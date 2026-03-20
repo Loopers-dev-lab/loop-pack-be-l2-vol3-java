@@ -17,24 +17,24 @@ class CartItemModelTest {
         @Test
         @DisplayName("유효한 입력으로 생성 성공")
         void create_WithValidInputs_ShouldSuccess() {
-            CartItemModel cartItem = CartItemModel.create("user-001", "product-001", 3);
+            CartItemModel cartItem = CartItemModel.create(1L, 1L, 3);
 
-            assertThat(cartItem.getUserId()).isEqualTo("user-001");
-            assertThat(cartItem.getProductId()).isEqualTo("product-001");
+            assertThat(cartItem.getUserId()).isEqualTo(1L);
+            assertThat(cartItem.getProductId()).isEqualTo(1L);
             assertThat(cartItem.getQuantity()).isEqualTo(3);
         }
 
         @Test
         @DisplayName("수량이 0이면 CoreException 발생")
         void create_WithZeroQuantity_ShouldThrow() {
-            assertThatThrownBy(() -> CartItemModel.create("user-001", "product-001", 0))
+            assertThatThrownBy(() -> CartItemModel.create(1L, 1L, 0))
                     .isInstanceOf(CoreException.class);
         }
 
         @Test
         @DisplayName("수량이 음수이면 CoreException 발생")
         void create_WithNegativeQuantity_ShouldThrow() {
-            assertThatThrownBy(() -> CartItemModel.create("user-001", "product-001", -1))
+            assertThatThrownBy(() -> CartItemModel.create(1L, 1L, -1))
                     .isInstanceOf(CoreException.class);
         }
     }
@@ -79,6 +79,6 @@ class CartItemModelTest {
     // === Helper ===
 
     private CartItemModel createTestCartItem() {
-        return CartItemModel.create("user-001", "product-001", 3);
+        return CartItemModel.create(1L, 1L, 3);
     }
 }

@@ -22,8 +22,8 @@ import java.util.List;
 @Getter
 @Builder
 public class OrderInfo {
-    private final String orderId;
-    private final String userId;
+    private final Long orderId;
+    private final Long userId;
     private final OrderType orderType;
     private final OrderStatus status;
     private final BigDecimal totalAmount;
@@ -33,10 +33,6 @@ public class OrderInfo {
 
     /**
      * OrderModel과 OrderItemModel 목록을 조합하여 OrderInfo DTO로 변환한다.
-     *
-     * @param order 주문 엔티티
-     * @param items 주문 항목 엔티티 목록 (null이면 빈 리스트)
-     * @return 주문 정보 DTO (주문 항목 스냅샷 포함)
      */
     public static OrderInfo from(OrderModel order, List<OrderItemModel> items) {
         return OrderInfo.builder()
@@ -55,29 +51,25 @@ public class OrderInfo {
 
     /**
      * 주문 항목 정보 DTO.
-     * <p>
-     * 주문 시점의 상품 스냅샷 데이터(상품명, 단가, 브랜드, 이미지 등)를 포함하여
-     * 주문 후 상품 정보가 변경되더라도 주문 당시 정보를 보존한다.
-     * </p>
      */
     @Getter
     @Builder
     public static class OrderItemInfo {
-        private final String orderId;
+        private final Long orderId;
         private final int orderItemSeq;
-        private final String productId;
+        private final Long productId;
         private final int quantity;
         private final String snapshotProductName;
         private final BigDecimal snapshotUnitPrice;
         private final String snapshotBrandId;
         private final String snapshotBrandName;
         private final String snapshotImageUrl;
+        private final BigDecimal originalAmount;
+        private final BigDecimal discountAmount;
+        private final BigDecimal finalAmount;
 
         /**
          * OrderItemModel을 OrderItemInfo DTO로 변환한다.
-         *
-         * @param item 주문 항목 엔티티
-         * @return 주문 항목 정보 DTO (스냅샷 데이터 포함)
          */
         public static OrderItemInfo from(OrderItemModel item) {
             return OrderItemInfo.builder()
@@ -90,6 +82,9 @@ public class OrderInfo {
                     .snapshotBrandId(item.getSnapshotBrandId())
                     .snapshotBrandName(item.getSnapshotBrandName())
                     .snapshotImageUrl(item.getSnapshotImageUrl())
+                    .originalAmount(item.getOriginalAmount())
+                    .discountAmount(item.getDiscountAmount())
+                    .finalAmount(item.getFinalAmount())
                     .build();
         }
     }

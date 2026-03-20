@@ -12,7 +12,7 @@ import java.util.List;
  * <p>JpaRepository를 상속받아 기본 CRUD 메서드(save, findById, findAll, delete 등)가 자동 제공되며,
  * 메서드 이름 규칙 기반의 쿼리 메서드를 추가로 정의한다.</p>
  */
-public interface BrandJpaRepository extends JpaRepository<BrandModel, String> {
+public interface BrandJpaRepository extends JpaRepository<BrandModel, Long> {
 
     /**
      * 삭제 여부와 노출 상태로 브랜드 목록을 조회한다.

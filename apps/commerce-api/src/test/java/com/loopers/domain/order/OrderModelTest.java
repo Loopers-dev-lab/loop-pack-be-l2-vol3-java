@@ -24,7 +24,7 @@ class OrderModelTest {
         void create_WithValidInputs_ShouldSuccess() {
             OrderModel order = createTestOrder();
 
-            assertThat(order.getUserId()).isEqualTo("user-001");
+            assertThat(order.getUserId()).isEqualTo(1L);
             assertThat(order.getOrderType()).isEqualTo(OrderType.DIRECT);
             assertThat(order.getTotalAmount()).isEqualByComparingTo(BigDecimal.valueOf(30000));
         }
@@ -168,6 +168,6 @@ class OrderModelTest {
     // === Helper ===
 
     private OrderModel createTestOrder() {
-        return OrderModel.create("user-001", OrderType.DIRECT, BigDecimal.valueOf(30000));
+        return OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(30000));
     }
 }

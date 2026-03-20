@@ -64,43 +64,46 @@ Only `apps/*` modules produce BootJar. All other modules produce plain Jar.
 Layered Architecture with strict dependency direction (DIP):
 
 ```
+CustomerAuthInterceptor (고객 인증, userId를 request attribute에 저장)
+    ↓
 interfaces/ → application/ → domain/ ← infrastructure/
-(Controller)   (AppService/Facade)  (Service, Model, Repository interface)   (Repository impl)
+(Controller)   (Facade only)    (Service, Model, Repository interface)   (Repository impl)
 ```
 
 ### Application Layer 적용 기준
 
 | 구분 | 구조 | 해당 도메인 |
 |------|------|------------|
-| **단순 도메인** | Controller → **AppService** → Service (returns Model) | Example, User, Brand, Like, Stats |
-| **복잡한 도메인** | Controller → **Facade** → 여러 Service (returns Model) | Product, Cart, Order |
+| **단순 도메인** | Controller → **Service** 직접 호출 | User, Brand, Like, Stats |
+| **복잡한 도메인** | Controller → **Facade** → 여러 Service | Product, Cart, Order |
 
-- **AppService**: 단일 도메인 서비스를 호출하고 Model → Info 변환을 담당하는 얇은 application 레이어 클래스.
-- **Facade**: 여러 도메인 서비스를 조합(orchestration)하고 Model → Info 변환을 담당하는 application 레이어 클래스.
-- **도메인 서비스는 Model을 반환**한다. Info DTO 변환은 항상 application 레이어(AppService/Facade)에서 수행한다.
+- **Facade**: 여러 도메인 서비스를 조합(orchestration)하고, 복잡한 비즈니스 플로우(재고 hold/release, 보상 트랜잭션 등)를 담당하는 application 레이어 클래스.
+- **단순 도메인은 AppService 없이 Controller에서 Service를 직접 호출**한다.
+- **인증은 `CustomerAuthInterceptor`에서 처리**하고, 인증된 사용자는 `@AuthUser` 어노테이션으로 Controller에 주입된다.
 
 ### Layer Responsibilities
 
-**interfaces/** — HTTP concerns only. Controllers receive requests, call AppService/Facade, return `ApiResponse<T>`.
+**interfaces/** — HTTP concerns only. Controllers receive requests, call Service/Facade, return `ApiResponse<T>`.
 - DTOs are inner static classes in a wrapper class (e.g., `UserV1Dto.RegisterRequest`, `UserV1Dto.RegisterResponse`)
 - Request DTOs use Bean Validation annotations (`@NotBlank`, `@Size`, etc.)
-- Response DTOs have `static from(Info)` factory methods
+- Response DTOs have `static from(Model)` factory methods — 도메인 모델에서 직접 변환
 - All responses wrapped in `ApiResponse<T>` — `record ApiResponse<T>(Metadata meta, T data)`
+- `CustomerAuthInterceptor`: 고객 API 인증 처리, `@AuthUser`로 인증된 사용자 주입
+- `AdminAuthInterceptor`: 관리자 API 인증 처리
 
-**application/** — AppService (단순) / Facade (복잡). Orchestrates domain services, sets transaction boundaries, converts Domain Model → Info DTO.
-- AppService: `*AppService` (annotated `@Service`) — 단일 서비스 호출 + Model → Info 변환
-- Facade: `*Facade` (annotated `@Service`) — 여러 서비스 조합 + Model → Info 변환
-- `*Info` DTO는 여기에 위치 — application 레이어에서 정의, interfaces 레이어로 전달
+**application/** — Facade만 사용 (복잡한 도메인). 여러 도메인 서비스를 조합, 트랜잭션 경계 설정.
+- Facade: `*Facade` (annotated `@Service`) — 여러 서비스 조합 + 트랜잭션 관리
+- `*Info` DTO는 복잡한 도메인(Order, Cart, Product)에서 조합된 결과를 표현할 때만 사용
 - `@Transactional(readOnly = true)` at class level, `@Transactional` on write methods
 
 **domain/** — Business logic. Service + Model (JPA Entity) + Repository interface.
-- `*Service` contains business logic, returns `*Model` (NOT Info DTO)
+- `*Service` contains business logic, returns `*Model`
 - `*Model` is the JPA entity with validation logic and factory methods
-- `*Repository` is a plain Java interface (no Spring Data extends). Repository 반환 타입도 도메인 레이어 타입만 사용 (application 레이어 DTO 금지)
-- 통계 등 집계 쿼리는 `*Projection` DTO를 도메인 레이어에 정의하여 Repository/Service가 반환하고, application 레이어에서 `*Info`로 변환한다 (예: `StatsProjection` → `StatsInfo`)
+- `*Repository` is a plain Java interface (no Spring Data extends)
+- 통계 등 집계 쿼리는 `*Projection` DTO를 도메인 레이어에 정의하여 Repository/Service가 반환하고, Controller에서 Response DTO로 변환한다
 - Domain models do NOT depend on infrastructure (e.g., password encoding via `PasswordEncoder` interface defined in domain)
 - 비즈니스 규칙은 도메인 객체/enum에 캡슐화한다 (예: `UnavailableReason.evaluate()` 정적 팩토리로 주문 불가 사유 판별)
-- **도메인 서비스 독립성**: `*Service`는 자신의 Repository만 의존한다. 다른 도메인 서비스를 직접 참조하지 않는다. 크로스 도메인 조합은 반드시 AppService/Facade에서 수행한다.
+- **도메인 서비스 크로스 참조 허용**: `*Service`는 비즈니스 로직 수행을 위해 다른 `*Service`를 참조할 수 있다. (예: `LikeService` → `ProductService`로 상품 존재 검증)
 
 **infrastructure/** — Implements domain repository interfaces.
 - `*RepositoryImpl` delegates to `*JpaRepository` (Spring Data JPA)
@@ -108,22 +111,22 @@ interfaces/ → application/ → domain/ ← infrastructure/
 
 ### DTO Conversion Chain
 
-**단순 도메인**: `V1Dto.Request` → AppService → Service (returns Model) → `Info.from(Model)` → `V1Dto.Response`
-**복잡한 도메인**: `V1Dto.Request` → Facade → 여러 Service (returns Model) → `Info.from(Model)` → `V1Dto.Response`
+**단순 도메인**: `V1Dto.Request` → Service (returns Model) → `V1Dto.Response.from(Model)`
+**복잡한 도메인**: `V1Dto.Request` → Facade → 여러 Service (returns Model) → `Info.from(Model)` → `V1Dto.Response.from(Info)`
 
 ## Domain Catalog
 
 | 도메인 | 설명 | Base Entity | Application Layer |
 |--------|------|-------------|-------------------|
-| **Example** | 예제 도메인 | `BaseEntity` (Long PK) | AppService |
-| **User** | 회원 (Like/Cart/Order가 참조) | `BaseStringIdEntity` (String PK) | AppService |
-| **Brand** | 브랜드 CRUD, 소프트 삭제, display_status | `BaseStringIdEntity` | AppService |
+| **Example** | 예제 도메인 | `BaseEntity` (Long PK) | - |
+| **User** | 회원 (Like/Cart/Order가 참조) | `BaseStringIdEntity` (Long PK) | Service 직접 호출 |
+| **Brand** | 브랜드 CRUD, 소프트 삭제, display_status | `BaseStringIdEntity` | Service 직접 호출 |
 | **Product** | 상품 CRUD, revision 이력, sale_status | `BaseStringIdEntity` | Facade |
 | **ProductStock** | 재고 관리 (on_hand, reserved), CAS hold/release | - | (Product Facade) |
-| **Like** | 상품 좋아요 등록/취소 (멱등), 복합 PK | `BaseStringIdEntity` | AppService |
+| **Like** | 상품 좋아요 등록/취소 (멱등), 복합 PK, ProductService 참조 | `BaseStringIdEntity` | Service 직접 호출 |
 | **Cart** | 장바구니 CRUD, 주문 연계 복원, 복합 PK | `BaseStringIdEntity` | Facade |
 | **Order** | 주문 생성(DIRECT/CART), 취소, 만료 | `BaseStringIdEntity` | Facade |
-| **Stats** | 운영 통계 (주문 현황, 인기 상품) | - | AppService |
+| **Stats** | 운영 통계 (주문 현황, 인기 상품) | - | Service 직접 호출 |
 
 ## Entity Base Classes
 
@@ -131,7 +134,7 @@ Two coexisting base entity patterns in `modules/jpa`:
 
 | 항목 | `BaseEntity` (기존) | `BaseStringIdEntity` (신규) |
 |------|--------------------|-----------------------------|
-| PK | `Long` (auto-increment) | 서브클래스에서 `@Id @UuidGenerator`로 정의 (String UUID 36자) |
+| PK | `Long` (auto-increment) | 서브클래스에서 `@Id @GeneratedValue(IDENTITY)`로 정의 (Long, bigint auto_increment) |
 | PK 컬럼명 | `id` (고정) | 서브클래스에서 직접 정의 (user_id, brand_id, product_id, order_id) |
 | 삭제 방식 | `deletedAt` 단일 | `del_yn` + `deletedAt` 이중 관리 |
 | 삭제 메서드 | `delete()` / `restore()` | `softDelete()` / `restore()` (멱등) |
@@ -141,10 +144,17 @@ Both provide: `createdAt`, `updatedAt`, `guard()` override for entity validation
 
 ## API Authentication
 
-| 구분 | Prefix | 인증 방식 |
-|------|--------|-----------|
-| 고객 API | `/api/v1` | `X-Loopers-LoginId` + `X-Loopers-LoginPw` headers |
-| 관리자 API | `/api-admin/v1` | `X-Loopers-Ldap: loopers.admin` header |
+| 구분 | Prefix | 인증 방식 | 처리 |
+|------|--------|-----------|------|
+| 고객 API | `/api/v1` | `X-Loopers-LoginId` + `X-Loopers-LoginPw` headers | `CustomerAuthInterceptor` → `@AuthUser` |
+| 관리자 API | `/api-admin/v1` | `X-Loopers-Ldap: loopers.admin` header | `AdminAuthInterceptor` |
+
+### 고객 인증 흐름
+
+1. `CustomerAuthInterceptor`가 인증 헤더 검증 및 `UserService.authenticate()` 호출
+2. 인증된 `UserModel`을 request attribute에 저장
+3. `AuthUserArgumentResolver`가 `@AuthUser` 어노테이션 파라미터에 `UserModel` 주입
+4. Controller에서 `@AuthUser UserModel user`로 인증된 사용자 접근
 
 ## Error Handling
 
@@ -244,10 +254,11 @@ DIRECT 주문 취소/만료 시 `order_cart_restore` 테이블 `existsById` 확�
 ## 설계 원칙
 
 - 도메인 객체는 비즈니스 규칙을 캡슐화한다. 규칙이 여러 서비스에 나타나면 도메인 객체에 속할 가능성이 높다.
-- 애플리케이션 서비스(AppService/Facade)는 서로 다른 도메인을 조립하여 기능을 제공한다.
-- API request/response DTO와 application 레이어의 Info DTO는 분리한다.
-- 도메인 모델(`*Model`)은 interfaces 레이어에 노출하지 않는다. application 레이어에서 `*Info` DTO로 변환하여 반환한다.
-- 각 기능에 대한 책임과 결합도에 대해 개발자의 의도를 확인하고 개발을 진행한다.
+- **단순 도메인은 Controller에서 Service를 직접 호출**한다. AppService 레이어는 제거되었다.
+- **복잡한 도메인(Product, Cart, Order)은 Facade를 통해 여러 서비스를 조합**한다.
+- **도메인 서비스는 필요시 다른 도메인 서비스를 참조**할 수 있다. (예: `LikeService` → `ProductService`)
+- **인증은 Interceptor에서 처리**하고, `@AuthUser`로 Controller에 주입한다.
+- Response DTO는 도메인 모델에서 직접 변환한다 (`V1Dto.Response.from(Model)`).
 - 패키징 전략은 4개 레이어 패키지를 두고, 하위에 도메인 별로 패키징한다.
 
 ## Implementation Guide

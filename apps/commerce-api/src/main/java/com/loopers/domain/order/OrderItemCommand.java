@@ -10,5 +10,5 @@ package com.loopers.domain.order;
  * @param productId 상품 ID
  * @param quantity  주문 수량
  */
-public record OrderItemCommand(String productId, int quantity) {
+public record OrderItemCommand(Long productId, int quantity) {
 }

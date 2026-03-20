@@ -25,7 +25,7 @@ public interface LikeJpaRepository extends JpaRepository<LikeModel, LikeId> {
      * @param userId 사용자 ID
      * @return 해당 사용자의 좋아요 목록
      */
-    List<LikeModel> findAllByUserId(String userId);
+    List<LikeModel> findAllByUserId(Long userId);
 
     /**
      * 상품 ID에 대한 좋아요 수를 조회한다.
@@ -35,7 +35,7 @@ public interface LikeJpaRepository extends JpaRepository<LikeModel, LikeId> {
      * @param productId 상품 ID
      * @return 해당 상품의 좋아요 수
      */
-    long countByProductId(String productId);
+    long countByProductId(Long productId);
 
     /**
      * 여러 상품의 좋아요 수를 GROUP BY로 일괄 조회한다.
@@ -44,5 +44,5 @@ public interface LikeJpaRepository extends JpaRepository<LikeModel, LikeId> {
      * @return [productId, count] 배열 목록
      */
     @Query("SELECT l.productId, COUNT(l) FROM LikeModel l WHERE l.productId IN :productIds GROUP BY l.productId")
-    List<Object[]> countByProductIdIn(@Param("productIds") Collection<String> productIds);
+    List<Object[]> countByProductIdIn(@Param("productIds") Collection<Long> productIds);
 }

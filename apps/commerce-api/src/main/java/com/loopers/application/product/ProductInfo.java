@@ -20,8 +20,8 @@ import java.math.BigDecimal;
 @Getter
 @Builder
 public class ProductInfo {
-    private final String productId;
-    private final String brandId;
+    private final Long productId;
+    private final Long brandId;
     private final String productName;
     private final String description;
     private final BigDecimal price;

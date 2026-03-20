@@ -23,8 +23,8 @@ public class ProductV1Dto {
     @AllArgsConstructor
     @Builder
     public static class ProductResponse {
-        private String productId;
-        private String brandId;
+        private Long productId;
+        private Long brandId;
         private String brandName;
         private String productName;
         private BigDecimal price;
@@ -61,8 +61,8 @@ public class ProductV1Dto {
     @AllArgsConstructor
     @Builder
     public static class ProductDetailResponse {
-        private String productId;
-        private String brandId;
+        private Long productId;
+        private Long brandId;
         private String brandName;
         private String productName;
         private String description;

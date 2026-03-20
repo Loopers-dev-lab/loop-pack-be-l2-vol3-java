@@ -26,7 +26,7 @@ public interface BrandRepository {
      * @param brandId 브랜드 ID
      * @return 브랜드 (Optional)
      */
-    Optional<BrandModel> findById(String brandId);
+    Optional<BrandModel> findById(Long brandId);
 
     /**
      * 전체 브랜드 목록을 조회한다 (관리자용, 삭제 포함).
@@ -58,5 +58,5 @@ public interface BrandRepository {
      * @param brandIds 브랜드 ID 목록
      * @return 해당 브랜드 목록
      */
-    List<BrandModel> findAllByIds(Collection<String> brandIds);
+    List<BrandModel> findAllByIds(Collection<Long> brandIds);
 }

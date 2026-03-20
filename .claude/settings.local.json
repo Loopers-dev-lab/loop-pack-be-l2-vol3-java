@@ -1,7 +1,39 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(./gradlew :apps:commerce-api:test:*)",
+      "Bash(./gradlew:*)",
+      "Bash(find /mnt/c/Users/kdj10/Git/loop-pack-be-l2-vol3-java -name \"CacheConfig.java\" -o -name \"*CacheConfig*\" 2>/dev/null | head -20)",
+      "Bash(JAVA_HOME=\"/mnt/c/Users/kdj10/.jdks/ms-21.0.10\" ./gradlew :apps:commerce-api:compileJava 2>&1 | tail -30)",
+      "Bash(ls \"/mnt/c/Users/kdj10/.jdks/ms-21.0.10/bin/\" | head -5; \"/mnt/c/Users/kdj10/.jdks/ms-21.0.10/bin/java\" -version 2>&1 | head -3)",
+      "Read(//home/ubuntu/projects/loop-pack-be-l2-vol3-java/**)",
+      "Bash(sg docker:*)",
+      "Bash(cd ~/projects/loop-pack-be-l2-vol3-java && sg docker -c \"./gradlew :apps:commerce-api:test --tests 'com.loopers.domain.brand.BrandServiceTest'\" 2>&1 | grep -A5 \"FAILED\")",
+      "Bash(cd ~/projects/loop-pack-be-l2-vol3-java && sg docker -c \"./gradlew :apps:commerce-api:test --tests 'com.loopers.domain.*'\" 2>&1 | grep \"FAILED\\\\|tests completed\" | tail -5)",
+      "Bash(cd ~/projects/loop-pack-be-l2-vol3-java && sg docker -c \"./gradlew :apps:commerce-api:test --tests 'com.loopers.domain.coupon.CouponModelTest'\" 2>&1 | grep -A3 \"FAILED\")",
+      "Bash(cd ~/projects/loop-pack-be-l2-vol3-java && sg docker -c \"./gradlew :apps:commerce-api:test --tests 'com.loopers.domain.order.OrderCartRestoreIdempotencyTest'\" 2>&1 | grep -A3 \"FAILED\")",
+      "Bash(cd ~/projects/loop-pack-be-l2-vol3-java && sg docker -c \"./gradlew :apps:commerce-api:test --tests 'com.loopers.infrastructure.*'\" 2>&1 | grep \"FAILED\\\\|tests completed\" | tail -5)",
+      "Bash(chmod +x /mnt/c/Users/kdj10/Git/loop-pack-be-l2-vol3-java/k6/seed.sh)",
+      "Bash(docker compose:*)",
+      "Bash(docker ps:*)",
+      "Bash(mysql -h 127.0.0.1 -P 3306 -u application -papplication loopers -e \"\nSELECT 'users' AS tbl, COUNT\\(*\\) AS cnt FROM users\nUNION ALL\nSELECT 'brands', COUNT\\(*\\) FROM brands\nUNION ALL\nSELECT 'products', COUNT\\(*\\) FROM products\nUNION ALL\nSELECT 'product_stocks', COUNT\\(*\\) FROM product_stocks;\n\" 2>/dev/null)",
+      "Bash(docker exec:*)",
+      "Bash(pip3 install:*)",
+      "Bash(python3 docs/DDL/seed.py 2>&1)",
+      "Bash(curl -s -X POST http://localhost:8080/api/v1/users \\\\\n  -H \"Content-Type: application/json; charset=UTF-8\" \\\\\n  -d '{\"loginId\":\"testuser\",\"password\":\"Test1234!\",\"userName\":\"testuser\",\"birthday\":\"19900101\",\"email\":\"test@loopers.com\",\"address\":\"Seoul\"}' 2>/dev/null)",
+      "Bash(curl -v -X POST http://localhost:8080/api/v1/users \\\\\n  -H \"Content-Type: application/json\" \\\\\n  -d '{\"loginId\":\"testuser\",\"password\":\"Test1234!\",\"userName\":\"testuser\",\"birthday\":\"19900101\",\"email\":\"test@loopers.com\",\"address\":\"Seoul\"}' 2>&1 | tail -20)",
+      "Bash(curl -s http://localhost:8080/api/v1/products/1 \\\\\n  -H \"X-Loopers-LoginId: testuser\" \\\\\n  -H \"X-Loopers-LoginPw: Test1234!\" | python3 -m json.tool 2>/dev/null | head -20)",
+      "Bash(sleep 40 && curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/actuator/health 2>/dev/null || echo \"not ready\")",
+      "Bash(kill 88108 2>/dev/null; sleep 15 && curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/actuator/health)",
+      "Bash(sleep 20 && curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/actuator/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -H \"X-Loopers-LoginId: testuser\" -H \"X-Loopers-LoginPw: Test1234!\" \"http://localhost:8080/api/v1/products/1\")",
+      "Bash(docker run:*)",
+      "Bash(find /mnt/c/Users/kdj10/Git/loop-pack-be-l2-vol3-java/apps/commerce-api/src/main/java/com/loopers/infrastructure/cache -type f -name \"*.java\" 2>/dev/null | sort)",
+      "Bash(find:*)",
+      "Bash(git checkout:*)",
+      "Bash(BASE=~/projects/loop-pack-be-l2-vol3-java/apps/commerce-api/src)",
+      "Read(//mnt/c/Users/kdj10/Git/loop-pack-be-l2-vol3-java/$BASE/main/java/com/loopers/infrastructure/cache/**)"
     ]
   },
   "hooks": {

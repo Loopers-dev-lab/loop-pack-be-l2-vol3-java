@@ -48,7 +48,7 @@ public class OrderService {
      * @return 병합/정렬된 주문 항목 목록
      * @throws CoreException 주문 항목이 비어있거나, 결제 대기 주문 수 초과 시
      */
-    public List<OrderItemCommand> validateAndPrepare(String userId, List<OrderItemCommand> items) {
+    public List<OrderItemCommand> validateAndPrepare(Long userId, List<OrderItemCommand> items) {
         validateNotEmpty(items);
         validatePendingLimit(userId);
         return mergeAndSort(items);
@@ -64,7 +64,7 @@ public class OrderService {
      * @return 저장된 주문 엔티티
      */
     @Transactional
-    public OrderModel createOrder(String userId, OrderType orderType,
+    public OrderModel createOrder(Long userId, OrderType orderType,
                                   BigDecimal totalAmount, List<OrderItemSnapshot> snapshots) {
         OrderModel order = OrderModel.create(userId, orderType, totalAmount);
         order = orderRepository.save(order);
@@ -86,7 +86,7 @@ public class OrderService {
      * @throws CoreException 주문이 존재하지 않거나 취소 불가한 상태일 때
      */
     @Transactional
-    public Optional<OrderModel> cancelOrder(String userId, String orderId) {
+    public Optional<OrderModel> cancelOrder(Long userId, Long orderId) {
         OrderModel order = orderRepository.findByIdAndUserId(orderId, userId)
                 .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
 
@@ -114,7 +114,7 @@ public class OrderService {
      * @return 만료된 주문 엔티티 (이미 상태 전이된 경우 빈 Optional)
      */
     @Transactional
-    public Optional<OrderModel> expireOrder(String orderId) {
+    public Optional<OrderModel> expireOrder(Long orderId) {
         int affected = orderRepository.casUpdateStatus(orderId, OrderStatus.PENDING_PAYMENT, OrderStatus.EXPIRED);
         if (affected == 0) {
             return Optional.empty();
@@ -131,7 +131,7 @@ public class OrderService {
      * @param orderId 주문 ID
      * @return 존재 여부
      */
-    public boolean existsCartRestore(String orderId) {
+    public boolean existsCartRestore(Long orderId) {
         return orderCartRestoreRepository.existsById(orderId);
     }
 
@@ -154,7 +154,7 @@ public class OrderService {
      *
      * @return 만료 대상 주문 ID 목록
      */
-    public List<String> findExpiredPendingOrderIds() {
+    public List<Long> findExpiredPendingOrderIds() {
         return orderRepository.findExpiredPendingOrders().stream()
                 .map(OrderModel::getOrderId)
                 .toList();
@@ -167,7 +167,7 @@ public class OrderService {
      * @return 주문 엔티티
      * @throws CoreException 주문이 존재하지 않을 때 (ORDER_NOT_FOUND)
      */
-    public OrderModel findOrderById(String orderId) {
+    public OrderModel findOrderById(Long orderId) {
         return orderRepository.findById(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
     }
@@ -191,7 +191,7 @@ public class OrderService {
      * @return 주문 엔티티
      * @throws CoreException 주문이 존재하지 않을 때 (ORDER_NOT_FOUND)
      */
-    public OrderModel findByIdAndUserId(String orderId, String userId) {
+    public OrderModel findByIdAndUserId(Long orderId, Long userId) {
         return orderRepository.findByIdAndUserId(orderId, userId)
                 .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
     }
@@ -204,7 +204,7 @@ public class OrderService {
      * @param end    조회 종료 일시
      * @return 주문 엔티티 목록
      */
-    public List<OrderModel> findAllByUserId(String userId, LocalDateTime start, LocalDateTime end) {
+    public List<OrderModel> findAllByUserId(Long userId, LocalDateTime start, LocalDateTime end) {
         return orderRepository.findAllByUserIdAndPeriod(userId, start, end);
     }
 
@@ -214,7 +214,7 @@ public class OrderService {
      * @param orderId 주문 ID
      * @return 주문 항목 엔티티 목록
      */
-    public List<OrderItemModel> findOrderItems(String orderId) {
+    public List<OrderItemModel> findOrderItems(Long orderId) {
         return orderItemRepository.findAllByOrderId(orderId);
     }
 
@@ -224,7 +224,7 @@ public class OrderService {
      * @param orderIds 주문 ID 목록
      * @return 주문 ID를 키로, 주문 항목 목록을 값으로 하는 맵
      */
-    public Map<String, List<OrderItemModel>> findOrderItemsByOrderIds(List<String> orderIds) {
+    public Map<Long, List<OrderItemModel>> findOrderItemsByOrderIds(List<Long> orderIds) {
         if (orderIds.isEmpty()) {
             return Map.of();
         }
@@ -238,7 +238,7 @@ public class OrderService {
         }
     }
 
-    private void validatePendingLimit(String userId) {
+    private void validatePendingLimit(Long userId) {
         long pendingCount = orderRepository.countByUserIdAndStatus(userId, OrderStatus.PENDING_PAYMENT);
         if (pendingCount >= MAX_PENDING_ORDERS) {
             throw new CoreException(ErrorType.ORDER_PENDING_LIMIT_EXCEEDED);
@@ -246,7 +246,7 @@ public class OrderService {
     }
 
     private List<OrderItemCommand> mergeAndSort(List<OrderItemCommand> items) {
-        Map<String, Integer> merged = items.stream()
+        Map<Long, Integer> merged = items.stream()
                 .collect(Collectors.groupingBy(OrderItemCommand::productId,
                         Collectors.summingInt(OrderItemCommand::quantity)));
         return merged.entrySet().stream()
@@ -255,7 +255,7 @@ public class OrderService {
                 .toList();
     }
 
-    private List<OrderItemModel> saveOrderItems(OrderModel order, String userId,
+    private List<OrderItemModel> saveOrderItems(OrderModel order, Long userId,
                                                  List<OrderItemSnapshot> snapshots) {
         List<OrderItemModel> items = new ArrayList<>();
         int seq = 1;
@@ -264,9 +264,24 @@ public class OrderService {
                     order.getOrderId(), seq++, userId,
                     snapshot.productId(), snapshot.quantity(),
                     snapshot.productName(), snapshot.unitPrice(),
-                    snapshot.brandId(), snapshot.brandName(), snapshot.imageUrl()));
+                    snapshot.brandId(), snapshot.brandName(), snapshot.imageUrl(),
+                    snapshot.originalAmount(), snapshot.discountAmount(), snapshot.finalAmount()));
         }
         return orderItemRepository.saveAll(items);
     }
 
+    /**
+     * 주문 목록을 배치 로딩으로 주문 항목을 포함하여 반환한다.
+     * N+1 쿼리 대신 단일 IN 쿼리로 주문 항목을 일괄 조회한다.
+     *
+     * @param orders 주문 엔티티 목록
+     * @return 주문 ID를 키로, 주문 항목 목록을 값으로 하는 맵이 포함된 쌍
+     */
+    public Map<Long, List<OrderItemModel>> batchLoadOrderItems(List<OrderModel> orders) {
+        if (orders.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> orderIds = orders.stream().map(OrderModel::getOrderId).toList();
+        return findOrderItemsByOrderIds(orderIds);
+    }
 }

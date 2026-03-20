@@ -2,21 +2,20 @@ package com.loopers.application.product;
 
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.brand.BrandService;
-import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductStockModel;
 import com.loopers.domain.product.StockService;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.support.enums.ProductSortType;
+import com.loopers.support.page.PageQuery;
+import com.loopers.support.page.PagedResult;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -36,6 +35,11 @@ import java.util.stream.Collectors;
  *   <li>관리자용 상품 목록 조회 (재고 포함)</li>
  *   <li>변경 이력(Revision) 조회</li>
  * </ul>
+ *
+ * <h3>캐시 위계 분리</h3>
+ * <p>상품 목록 캐시(productList)는 상품 ID 목록 + 페이징 메타만 저장하고,
+ * 개별 상품 정보는 productDetail 캐시(L1+L2)에서 조회한다.
+ * 이로써 상품 수정 시 목록 캐시를 invalidate할 필요 없이 productDetail만 evict하면 된다.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -45,7 +49,6 @@ public class ProductFacade {
     private final ProductService productService;
     private final StockService stockService;
     private final BrandService brandService;
-    private final LikeService likeService;
 
     /**
      * 고객용 상품 목록을 정렬 + 페이징하여 조회한다.
@@ -60,24 +63,63 @@ public class ProductFacade {
      * @param size    페이지 크기
      * @return 페이징된 상품 정보 목록 (재고, 브랜드명, 좋아요 수 포함)
      */
-    public PageResponse<ProductInfo> getProductsForCustomer(String keyword, String brandId,
+    public PageResponse<ProductInfo> getProductsForCustomer(String keyword, Long brandId,
                                                             ProductSortType sort, int page, int size) {
-        if (sort == ProductSortType.LIKES_DESC) {
-            return getProductsSortedByLikes(keyword, brandId, page, size);
+        if (keyword == null && page == 0 && size == 20) {
+            return getProductsFromCachedIds(brandId, sort, page, size);
         }
+        return getProductsFromDb(keyword, brandId, sort, page, size);
+    }
 
-        Sort dbSort = switch (sort) {
-            case LATEST -> Sort.by(Sort.Direction.DESC, "createdAt");
-            case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price");
-            default -> Sort.by(Sort.Direction.DESC, "createdAt");
+    /**
+     * 캐시 위계 분리: productList 캐시에는 ID 목록 + 페이징 메타만 저장한다.
+     * 개별 상품 정보는 productDetail 캐시(L1+L2)에서 조회하여 조합한다.
+     */
+    private PageResponse<ProductInfo> getProductsFromCachedIds(Long brandId,
+                                                               ProductSortType sort, int page, int size) {
+        ProductListIdCache idCache = getCachedProductListIds(brandId, sort, page, size);
+
+        List<ProductModel> products = idCache.productIds().stream()
+                .map(productService::findById)
+                .toList();
+
+        List<ProductInfo> enriched = enrichProducts(products);
+
+        return new PageResponse<>(enriched, idCache.page(), idCache.size(),
+                idCache.totalElements(), idCache.totalPages());
+    }
+
+    @Cacheable(cacheNames = "productList",
+               key = "T(String).valueOf(#brandId) + ':' + #sort.name() + ':p' + #page + ':s' + #size")
+    public ProductListIdCache getCachedProductListIds(Long brandId,
+                                                      ProductSortType sort, int page, int size) {
+        PageQuery query = buildPageQuery(sort, page, size);
+        PagedResult<ProductModel> productPage = productService.findAllForCustomer(null, brandId, query);
+
+        List<Long> productIds = productPage.content().stream()
+                .map(ProductModel::getProductId)
+                .toList();
+
+        return new ProductListIdCache(productIds, productPage.page(), productPage.size(),
+                productPage.totalElements(), productPage.totalPages());
+    }
+
+    private PageResponse<ProductInfo> getProductsFromDb(String keyword, Long brandId,
+                                                         ProductSortType sort, int page, int size) {
+        PageQuery query = buildPageQuery(sort, page, size);
+        PagedResult<ProductModel> productPage = productService.findAllForCustomer(keyword, brandId, query);
+        List<ProductInfo> enriched = enrichProducts(productPage.content());
+
+        return new PageResponse<>(enriched, productPage.page(), productPage.size(),
+                productPage.totalElements(), productPage.totalPages());
+    }
+
+    private PageQuery buildPageQuery(ProductSortType sort, int page, int size) {
+        return switch (sort) {
+            case LATEST -> new PageQuery(page, size, "createdAt", false);
+            case PRICE_ASC -> new PageQuery(page, size, "price", true);
+            case LIKES_DESC -> new PageQuery(page, size, "likeCount", false);
         };
-
-        Page<ProductModel> productPage = productService.findAllForCustomer(keyword, brandId,
-                PageRequest.of(page, size, dbSort));
-        List<ProductInfo> enriched = enrichProducts(productPage.getContent());
-
-        return new PageResponse<>(enriched, productPage.getNumber(), productPage.getSize(),
-                productPage.getTotalElements(), productPage.getTotalPages());
     }
 
     /**
@@ -88,12 +130,11 @@ public class ProductFacade {
      * @param productId 조회할 상품 ID
      * @return 상품 상세 정보 (재고, 브랜드명, 좋아요 수 포함)
      */
-    public ProductInfo getProductDetailForCustomer(String productId) {
+    public ProductInfo getProductDetailForCustomer(Long productId) {
         ProductModel product = productService.findById(productId);
         ProductStockModel stock = stockService.findByProductId(productId);
         BrandModel brand = brandService.findById(product.getBrandId());
-        long likeCount = likeService.countByProductId(productId);
-        return ProductInfo.from(product, stock, brand.getBrandName(), likeCount);
+        return ProductInfo.from(product, stock, brand.getBrandName(), product.getLikeCount());
     }
 
     /**
@@ -106,22 +147,24 @@ public class ProductFacade {
      */
     public List<ProductInfo> getProductsForAdmin(boolean includeDeleted) {
         List<ProductModel> products = productService.findAllForAdmin(includeDeleted);
+        List<Long> productIds = products.stream().map(ProductModel::getProductId).toList();
+        Map<Long, ProductStockModel> stockMap = stockService.findAllByProductIds(productIds).stream()
+                .collect(Collectors.toMap(ProductStockModel::getProductId, Function.identity()));
         return products.stream()
-                .map(product -> {
-                    ProductStockModel stock = stockService.findByProductId(product.getProductId());
-                    return ProductInfo.from(product, stock);
-                })
+                .map(product -> ProductInfo.from(product, stockMap.get(product.getProductId())))
                 .toList();
     }
 
     /**
      * 상품을 신규 등록한다.
      *
-     * <p>브랜드 존재 여부를 검증한 뒤, 상품을 생성하고, 초기 재고를 설정한다.</p>
+     * <p>브랜드 존재 여부를 검증한 뒤, 상품을 생성하고, 초기 재고를 설정한다.
+     * 상품 생성은 목록 구조를 변경하므로 productList 캐시를 전체 무효화한다.</p>
      *
      * @param command 상품 생성 커맨드
      * @return 생성된 상품 정보
      */
+    @CacheEvict(cacheNames = "productList", allEntries = true)
     @Transactional
     public ProductInfo createProduct(ProductCreateCommand command) {
         brandService.findById(command.brandId());
@@ -134,7 +177,9 @@ public class ProductFacade {
     /**
      * 상품 정보를 수정한다.
      *
-     * <p>상품을 수정한 뒤 재고 정보를 결합하여 반환한다.</p>
+     * <p>상품을 수정한 뒤 재고 정보를 결합하여 반환한다.
+     * 캐시 위계 분리에 의해 productList는 ID 목록만 캐싱하므로,
+     * 상품 정보 수정 시 productList evict 불필요 (productDetail만 evict됨).</p>
      *
      * @param command 상품 수정 커맨드
      * @return 수정된 상품 정보
@@ -149,48 +194,28 @@ public class ProductFacade {
     }
 
     /**
-     * 좋아요 수 기준 내림차순 정렬 + 수동 페이징. like count가 별도 테이블이므로 DB-level 정렬 불가.
-     */
-    private PageResponse<ProductInfo> getProductsSortedByLikes(String keyword, String brandId,
-                                                               int page, int size) {
-        List<ProductModel> allProducts = productService.findAllForCustomer(keyword, brandId);
-        List<ProductInfo> enriched = enrichProducts(allProducts);
-
-        List<ProductInfo> sorted = enriched.stream()
-                .sorted(Comparator.comparingLong(ProductInfo::getLikeCount).reversed())
-                .toList();
-
-        int totalElements = sorted.size();
-        int totalPages = (totalElements + size - 1) / size;
-        int fromIndex = Math.min(page * size, totalElements);
-        int toIndex = Math.min(fromIndex + size, totalElements);
-        List<ProductInfo> pageContent = sorted.subList(fromIndex, toIndex);
-
-        return new PageResponse<>(pageContent, page, size, totalElements, totalPages);
-    }
-
-    /**
-     * 상품 목록에 재고, 브랜드명, 좋아요 수를 배치 조회하여 결합한다 (N+1 방지).
+     * 상품 목록에 재고, 브랜드명을 배치 조회하여 결합한다 (N+1 방지).
+     * likeCount는 ProductModel에서 직접 읽는다 (비정규화).
      */
     private List<ProductInfo> enrichProducts(List<ProductModel> products) {
         if (products.isEmpty()) {
             return List.of();
         }
 
-        List<String> productIds = products.stream().map(ProductModel::getProductId).toList();
-        List<String> brandIds = products.stream().map(ProductModel::getBrandId).distinct().toList();
+        List<Long> productIds = products.stream().map(ProductModel::getProductId).toList();
+        List<Long> brandIds = products.stream().map(ProductModel::getBrandId).distinct().toList();
 
-        Map<String, BrandModel> brandMap = brandService.findAllByIds(brandIds).stream()
+        Map<Long, ProductStockModel> stockMap = stockService.findAllByProductIds(productIds).stream()
+                .collect(Collectors.toMap(ProductStockModel::getProductId, Function.identity()));
+        Map<Long, BrandModel> brandMap = brandService.findAllByIds(brandIds).stream()
                 .collect(Collectors.toMap(BrandModel::getBrandId, Function.identity()));
-        Map<String, Long> likeCountMap = likeService.countByProductIds(productIds);
 
         return products.stream()
                 .map(product -> {
-                    ProductStockModel stock = stockService.findByProductId(product.getProductId());
+                    ProductStockModel stock = stockMap.get(product.getProductId());
                     BrandModel brand = brandMap.get(product.getBrandId());
                     String brandName = brand != null ? brand.getBrandName() : null;
-                    long likeCount = likeCountMap.getOrDefault(product.getProductId(), 0L);
-                    return ProductInfo.from(product, stock, brandName, likeCount);
+                    return ProductInfo.from(product, stock, brandName, product.getLikeCount());
                 })
                 .toList();
     }

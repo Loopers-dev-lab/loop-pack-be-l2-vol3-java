@@ -33,21 +33,21 @@ class ProductRepositoryImplTest {
         return brandJpaRepository.save(BrandModel.create("테스트브랜드", "설명", "서울"));
     }
 
-    private ProductModel createProduct(String brandId, String name) {
+    private ProductModel createProduct(Long brandId, String name) {
         return ProductModel.create(name, brandId, BigDecimal.valueOf(10000),
                 "설명", "카테고리", "블랙", "M", null, null, null);
     }
 
     @Test
-    @DisplayName("저장 시 UUID ID가 자동 생성된다")
-    void save_ShouldPersistWithUuidId() {
+    @DisplayName("저장 시 ID가 자동 생성된다")
+    void save_ShouldPersistWithAutoId() {
         BrandModel brand = createBrand();
         ProductModel product = createProduct(brand.getBrandId(), "테스트상품");
 
         ProductModel saved = productRepository.save(product);
 
         assertThat(saved.getProductId()).isNotNull();
-        assertThat(saved.getProductId()).hasSize(36);
+        assertThat(saved.getProductId()).isGreaterThan(0L);
     }
 
     @Test
@@ -65,7 +65,7 @@ class ProductRepositoryImplTest {
     @Test
     @DisplayName("ID로 조회 - 존재하지 않는 상품")
     void findById_NotExisting_ShouldReturnEmpty() {
-        Optional<ProductModel> found = productRepository.findById("nonexistent-uuid");
+        Optional<ProductModel> found = productRepository.findById(999L);
 
         assertThat(found).isEmpty();
     }

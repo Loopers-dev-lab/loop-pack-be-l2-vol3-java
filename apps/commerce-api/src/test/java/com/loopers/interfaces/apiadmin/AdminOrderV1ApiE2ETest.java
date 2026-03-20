@@ -38,8 +38,8 @@ class AdminOrderV1ApiE2ETest {
     @Test
     @DisplayName("관리자가 모든 사용자의 주문을 조회할 수 있다")
     void GET_orders_ShouldReturn200WithAllOrders() throws Exception {
-        orderJpaRepository.save(OrderModel.create("user-1", OrderType.DIRECT, BigDecimal.valueOf(10000)));
-        orderJpaRepository.save(OrderModel.create("user-2", OrderType.CART, BigDecimal.valueOf(20000)));
+        orderJpaRepository.save(OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(10000)));
+        orderJpaRepository.save(OrderModel.create(2L, OrderType.CART, BigDecimal.valueOf(20000)));
 
         mockMvc.perform(get("/api-admin/v1/orders")
                         .header(ADMIN_HEADER, ADMIN_VALUE))
@@ -51,9 +51,9 @@ class AdminOrderV1ApiE2ETest {
     @DisplayName("주문 상세에 스냅샷이 포함된다")
     void GET_orderDetail_ShouldReturn200WithSnapshots() throws Exception {
         OrderModel order = orderJpaRepository.save(
-                OrderModel.create("user-1", OrderType.DIRECT, BigDecimal.valueOf(30000)));
+                OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(30000)));
         orderItemJpaRepository.save(OrderItemModel.create(
-                order.getOrderId(), 1, "user-1", "p1", 2,
+                order.getOrderId(), 1, 1L, 1L, 2,
                 "테스트상품", BigDecimal.valueOf(15000), "b1", "테스트브랜드", null));
 
         mockMvc.perform(get("/api-admin/v1/orders/" + order.getOrderId())

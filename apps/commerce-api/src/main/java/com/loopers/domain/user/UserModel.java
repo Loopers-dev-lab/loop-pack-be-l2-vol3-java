@@ -5,12 +5,13 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.UuidGenerator;
 
 import java.util.regex.Pattern;
 
@@ -31,9 +32,9 @@ public class UserModel extends BaseStringIdEntity {
     private static final int PASSWORD_MAX_LENGTH = 16;
 
     @Id
-    @UuidGenerator
-    @Column(name = "user_id", length = 36)
-    private String userId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_id")
+    private Long userId;
 
     @Column(name = "login_id", nullable = false, unique = true, length = 50)
     private String loginId;

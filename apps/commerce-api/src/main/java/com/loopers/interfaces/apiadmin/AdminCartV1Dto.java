@@ -22,8 +22,8 @@ public class AdminCartV1Dto {
     @AllArgsConstructor
     @Builder
     public static class AdminCartItemResponse {
-        private String userId;
-        private String productId;
+        private Long userId;
+        private Long productId;
         private int quantity;
         private boolean available;
         private UnavailableReason unavailableReason;

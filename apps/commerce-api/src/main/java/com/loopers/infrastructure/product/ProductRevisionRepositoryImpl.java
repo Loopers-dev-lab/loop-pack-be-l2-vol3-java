@@ -39,7 +39,7 @@ public class ProductRevisionRepositoryImpl implements ProductRevisionRepository 
      * @return 해당 상품의 변경 이력 목록 (최신순)
      */
     @Override
-    public List<ProductRevisionModel> findAllByProductId(String productId) {
+    public List<ProductRevisionModel> findAllByProductId(Long productId) {
         return jpaRepository.findAllByProductIdOrderByRevisionSeqDesc(productId);
     }
 

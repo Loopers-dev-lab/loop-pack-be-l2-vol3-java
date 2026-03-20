@@ -32,18 +32,18 @@ import java.time.LocalDateTime;
 public class OrderItemModel {
 
     @Id
-    @Column(name = "order_id", length = 36)
-    private String orderId;
+    @Column(name = "order_id")
+    private Long orderId;
 
     @Id
     @Column(name = "order_item_seq")
     private int orderItemSeq;
 
-    @Column(name = "user_id", nullable = false, length = 36)
-    private String userId;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
-    @Column(name = "product_id", nullable = false, length = 36)
-    private String productId;
+    @Column(name = "product_id", nullable = false)
+    private Long productId;
 
     @Column(nullable = false)
     private int quantity;
@@ -63,6 +63,15 @@ public class OrderItemModel {
     @Column(name = "snapshot_image_url")
     private String snapshotImageUrl;
 
+    @Column(name = "original_amount", precision = 12, scale = 2)
+    private BigDecimal originalAmount;
+
+    @Column(name = "discount_amount", precision = 12, scale = 2)
+    private BigDecimal discountAmount;
+
+    @Column(name = "final_amount", precision = 12, scale = 2)
+    private BigDecimal finalAmount;
+
     @Column(name = "del_yn", nullable = false, length = 1)
     private String delYn = "N";
 
@@ -75,11 +84,12 @@ public class OrderItemModel {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    private OrderItemModel(String orderId, int orderItemSeq, String userId,
-                           String productId, int quantity,
+    private OrderItemModel(Long orderId, int orderItemSeq, Long userId,
+                           Long productId, int quantity,
                            String snapshotProductName, BigDecimal snapshotUnitPrice,
                            String snapshotBrandId, String snapshotBrandName,
-                           String snapshotImageUrl) {
+                           String snapshotImageUrl,
+                           BigDecimal originalAmount, BigDecimal discountAmount, BigDecimal finalAmount) {
         validateQuantity(quantity);
         this.orderId = orderId;
         this.orderItemSeq = orderItemSeq;
@@ -91,41 +101,50 @@ public class OrderItemModel {
         this.snapshotBrandId = snapshotBrandId;
         this.snapshotBrandName = snapshotBrandName;
         this.snapshotImageUrl = snapshotImageUrl;
+        this.originalAmount = originalAmount;
+        this.discountAmount = discountAmount;
+        this.finalAmount = finalAmount;
     }
 
     /**
-     * 주문 항목 엔티티를 생성한다. 주문 시점의 상품 정보를 스냅샷으로 보존한다.
-     * <p>정적 팩토리 메서드 패턴을 사용하여 생성자를 대신한다.</p>
-     *
-     * @param orderId             주문 ID
-     * @param orderItemSeq        주문 내 항목 순번
-     * @param userId              주문자 ID
-     * @param productId           상품 ID
-     * @param quantity            주문 수량 (1 이상)
-     * @param snapshotProductName 주문 시점 상품명
-     * @param snapshotUnitPrice   주문 시점 단가
-     * @param snapshotBrandId     주문 시점 브랜드 ID
-     * @param snapshotBrandName   주문 시점 브랜드명
-     * @param snapshotImageUrl    주문 시점 이미지 URL
-     * @return 생성된 OrderItemModel 인스턴스
-     * @throws CoreException quantity <= 0인 경우 (BAD_REQUEST)
+     * 주문 항목 엔티티를 생성한다 (하위 호환 — 할인 없음).
      */
-    public static OrderItemModel create(String orderId, int orderItemSeq, String userId,
-                                         String productId, int quantity,
+    public static OrderItemModel create(Long orderId, int orderItemSeq, Long userId,
+                                         Long productId, int quantity,
                                          String snapshotProductName, BigDecimal snapshotUnitPrice,
                                          String snapshotBrandId, String snapshotBrandName,
                                          String snapshotImageUrl) {
+        BigDecimal lineTotal = snapshotUnitPrice != null
+                ? snapshotUnitPrice.multiply(BigDecimal.valueOf(quantity))
+                : null;
         return new OrderItemModel(orderId, orderItemSeq, userId, productId, quantity,
                 snapshotProductName, snapshotUnitPrice, snapshotBrandId, snapshotBrandName,
-                snapshotImageUrl);
+                snapshotImageUrl, lineTotal, BigDecimal.ZERO, lineTotal);
     }
 
     /**
-     * 주문 항목 소계를 계산한다 (snapshotUnitPrice x quantity).
-     *
-     * @return 소계 금액
+     * 주문 항목 엔티티를 생성한다 (할인 금액 포함).
+     */
+    public static OrderItemModel create(Long orderId, int orderItemSeq, Long userId,
+                                         Long productId, int quantity,
+                                         String snapshotProductName, BigDecimal snapshotUnitPrice,
+                                         String snapshotBrandId, String snapshotBrandName,
+                                         String snapshotImageUrl,
+                                         BigDecimal originalAmount, BigDecimal discountAmount,
+                                         BigDecimal finalAmount) {
+        return new OrderItemModel(orderId, orderItemSeq, userId, productId, quantity,
+                snapshotProductName, snapshotUnitPrice, snapshotBrandId, snapshotBrandName,
+                snapshotImageUrl, originalAmount, discountAmount, finalAmount);
+    }
+
+    /**
+     * 주문 항목 소계를 계산한다.
+     * finalAmount가 있으면 finalAmount를, 없으면 snapshotUnitPrice x quantity를 반환한다.
      */
     public BigDecimal getSubtotal() {
+        if (finalAmount != null) {
+            return finalAmount;
+        }
         return snapshotUnitPrice.multiply(BigDecimal.valueOf(quantity));
     }
 

@@ -48,7 +48,7 @@ public class OrderItemRepositoryImpl implements OrderItemRepository {
      * @return 해당 주문의 주문 항목 목록
      */
     @Override
-    public List<OrderItemModel> findAllByOrderId(String orderId) {
+    public List<OrderItemModel> findAllByOrderId(Long orderId) {
         return jpaRepository.findAllByOrderId(orderId);
     }
 
@@ -59,7 +59,7 @@ public class OrderItemRepositoryImpl implements OrderItemRepository {
      * @return 해당 주문들의 주문 항목 목록
      */
     @Override
-    public List<OrderItemModel> findAllByOrderIds(List<String> orderIds) {
+    public List<OrderItemModel> findAllByOrderIds(List<Long> orderIds) {
         return jpaRepository.findAllByOrderIdIn(orderIds);
     }
 }

@@ -14,7 +14,7 @@ import java.math.BigDecimal;
  * @param description 변경할 상품 설명
  * @param imageUrl    변경할 이미지 URL
  */
-public record ProductUpdateCommand(String productId, String productName,
+public record ProductUpdateCommand(Long productId, String productName,
                                     BigDecimal price, String description,
                                     String imageUrl) {
 }

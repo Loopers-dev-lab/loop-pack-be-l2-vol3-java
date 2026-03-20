@@ -22,8 +22,8 @@ class UserRepositoryImplTest {
     UserRepositoryImpl userRepository;
 
     @Test
-    @DisplayName("저장 시 UUID ID가 자동 생성된다")
-    void save_ShouldPersistWithUuidId() {
+    @DisplayName("저장 시 ID가 자동 생성된다")
+    void save_ShouldPersistWithAutoId() {
         UserModel user = UserModel.createWithEncodedPassword(
                 "testuser01", "{bcrypt}pw", "홍길동", "19900101", "a@b.com", "서울"
         );
@@ -31,7 +31,7 @@ class UserRepositoryImplTest {
         UserModel saved = userRepository.save(user);
 
         assertThat(saved.getUserId()).isNotNull();
-        assertThat(saved.getUserId()).hasSize(36);
+        assertThat(saved.getUserId()).isGreaterThan(0L);
     }
 
     @Test
@@ -51,7 +51,7 @@ class UserRepositoryImplTest {
     @Test
     @DisplayName("ID로 조회 - 존재하지 않는 사용자")
     void findByUserId_NotExisting_ShouldReturnEmpty() {
-        Optional<UserModel> found = userRepository.findByUserId("nonexistent-uuid");
+        Optional<UserModel> found = userRepository.findByUserId(999L);
 
         assertThat(found).isEmpty();
     }

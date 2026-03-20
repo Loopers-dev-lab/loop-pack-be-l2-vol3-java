@@ -4,9 +4,11 @@ import com.loopers.support.enums.ProductRevisionAction;
 import com.loopers.support.enums.ProductSaleStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import com.loopers.support.page.PageQuery;
+import com.loopers.support.page.PagedResult;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final ProductRevisionRepository revisionRepository;
+    private final org.springframework.cache.CacheManager cacheManager;
 
     /**
      * 상품을 생성한다.
@@ -44,7 +47,7 @@ public class ProductService {
      * @return 생성된 상품 엔티티
      */
     @Transactional
-    public ProductModel createProduct(String productName, String brandId, BigDecimal price,
+    public ProductModel createProduct(String productName, Long brandId, BigDecimal price,
                                      String description) {
         ProductModel product = ProductModel.create(productName, brandId, price,
                 description, null, null, null, null, null, null);
@@ -65,8 +68,23 @@ public class ProductService {
      * @return 상품 엔티티
      * @throws CoreException 상품이 존재하지 않을 때 (PRODUCT_NOT_FOUND)
      */
-    public ProductModel findById(String productId) {
+    @Cacheable(cacheNames = "productDetail", key = "#productId")
+    public ProductModel findById(Long productId) {
         return productRepository.findById(productId)
+                .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+    }
+
+    /**
+     * 비관적 쓰기 락으로 상품을 조회한다.
+     * 동일 상품에 대한 좋아요 연산 직렬화를 위해 사용된다.
+     *
+     * @param productId 상품 ID
+     * @return 상품 엔티티
+     * @throws CoreException 상품이 존재하지 않을 때 (PRODUCT_NOT_FOUND)
+     */
+    @Transactional
+    public ProductModel findByIdWithLock(Long productId) {
+        return productRepository.findByIdWithLock(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
     }
 
@@ -86,11 +104,11 @@ public class ProductService {
      * @param productIds 상품 ID 목록
      * @return 상품 엔티티 목록
      */
-    public List<ProductModel> findAllByIds(Collection<String> productIds) {
+    public List<ProductModel> findAllByIds(Collection<Long> productIds) {
         return productRepository.findAllByProductIds(productIds);
     }
 
-    public ProductModel findOrderableById(String productId) {
+    public ProductModel findOrderableById(Long productId) {
         ProductModel product = findById(productId);
         if (!product.isOrderable()) {
             throw new CoreException(ErrorType.PRODUCT_NOT_ORDERABLE);
@@ -118,20 +136,20 @@ public class ProductService {
      * @param brandId 브랜드 ID 필터 (null이면 전체)
      * @return 고객 노출 조건을 만족하는 상품 목록
      */
-    public List<ProductModel> findAllForCustomer(String keyword, String brandId) {
+    public List<ProductModel> findAllForCustomer(String keyword, Long brandId) {
         return productRepository.findAllForCustomer(keyword, brandId);
     }
 
     /**
      * 고객용 상품 목록을 페이징하여 조회한다.
      *
-     * @param keyword  검색 키워드 (null이면 전체)
-     * @param brandId  브랜드 ID 필터 (null이면 전체)
-     * @param pageable 페이징/정렬 정보
+     * @param keyword 검색 키워드 (null이면 전체)
+     * @param brandId 브랜드 ID 필터 (null이면 전체)
+     * @param query   페이징/정렬 요청 정보
      * @return 페이징된 상품 목록
      */
-    public Page<ProductModel> findAllForCustomer(String keyword, String brandId, Pageable pageable) {
-        return productRepository.findAllForCustomer(keyword, brandId, pageable);
+    public PagedResult<ProductModel> findAllForCustomer(String keyword, Long brandId, PageQuery query) {
+        return productRepository.findAllForCustomer(keyword, brandId, query);
     }
 
     /**
@@ -149,8 +167,9 @@ public class ProductService {
      * @return 수정된 상품 엔티티
      * @throws CoreException 상품이 존재하지 않을 때 (PRODUCT_NOT_FOUND)
      */
+    @CacheEvict(cacheNames = "productDetail", key = "#productId")
     @Transactional
-    public ProductModel updateProduct(String productId, String productName, BigDecimal price,
+    public ProductModel updateProduct(Long productId, String productName, BigDecimal price,
                                      String description, String imageUrl) {
         ProductModel product = findById(productId);
 
@@ -176,8 +195,9 @@ public class ProductService {
      * @param productId 상품 ID
      * @throws CoreException 상품이 존재하지 않을 때 (PRODUCT_NOT_FOUND)
      */
+    @CacheEvict(cacheNames = "productDetail", key = "#productId")
     @Transactional
-    public void deleteProduct(String productId) {
+    public void deleteProduct(Long productId) {
         ProductModel product = findById(productId);
         if (product.isDeleted()) {
             return;
@@ -201,8 +221,9 @@ public class ProductService {
      * @param brandId 브랜드 ID
      */
     @Transactional
-    public void softDeleteByBrandId(String brandId) {
+    public void softDeleteByBrandId(Long brandId) {
         List<ProductModel> products = productRepository.findAllByBrandId(brandId);
+        org.springframework.cache.Cache cache = cacheManager.getCache("productDetail");
         for (ProductModel product : products) {
             if (!product.isDeleted()) {
                 String beforeSnapshot = toSnapshot(product);
@@ -213,6 +234,10 @@ public class ProductService {
                         product.getProductId(), revSeq, ProductRevisionAction.DELETE,
                         null, null, beforeSnapshot, null);
                 revisionRepository.save(revision);
+
+                if (cache != null) {
+                    cache.evict(product.getProductId());
+                }
             }
         }
     }
@@ -227,8 +252,9 @@ public class ProductService {
      * @param newStatus 새 판매 상태
      * @throws CoreException 상품이 존재하지 않을 때 (PRODUCT_NOT_FOUND)
      */
+    @CacheEvict(cacheNames = "productDetail", key = "#productId")
     @Transactional
-    public void changeSaleStatus(String productId, ProductSaleStatus newStatus) {
+    public void changeSaleStatus(Long productId, ProductSaleStatus newStatus) {
         ProductModel product = findById(productId);
         String beforeSnapshot = toSnapshot(product);
         product.changeSaleStatus(newStatus);
@@ -247,7 +273,7 @@ public class ProductService {
      * @param productId 상품 ID
      * @return 변경 이력 목록
      */
-    public List<ProductRevisionModel> findRevisionsByProductId(String productId) {
+    public List<ProductRevisionModel> findRevisionsByProductId(Long productId) {
         return revisionRepository.findAllByProductId(productId);
     }
 
@@ -259,9 +285,31 @@ public class ProductService {
      * @return 변경 이력 엔티티
      * @throws CoreException 변경 이력이 존재하지 않을 때 (PRODUCT_NOT_FOUND)
      */
-    public ProductRevisionModel findRevisionById(String productId, Long revisionSeq) {
+    public ProductRevisionModel findRevisionById(Long productId, Long revisionSeq) {
         return revisionRepository.findById(new ProductRevisionId(productId, revisionSeq))
                 .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+    }
+
+    /**
+     * 상품의 좋아요 수를 1 증가시킨다.
+     *
+     * @param productId 상품 ID
+     */
+    @CacheEvict(cacheNames = "productDetail", key = "#productId")
+    @Transactional
+    public void incrementLikeCount(Long productId) {
+        productRepository.incrementLikeCount(productId);
+    }
+
+    /**
+     * 상품의 좋아요 수를 1 감소시킨다 (최솟값 0 보장).
+     *
+     * @param productId 상품 ID
+     */
+    @CacheEvict(cacheNames = "productDetail", key = "#productId")
+    @Transactional
+    public void decrementLikeCount(Long productId) {
+        productRepository.decrementLikeCount(productId);
     }
 
     private String toSnapshot(ProductModel product) {

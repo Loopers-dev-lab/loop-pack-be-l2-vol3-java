@@ -40,7 +40,7 @@ public class BrandRepositoryImpl implements BrandRepository {
      * @return 브랜드 (Optional)
      */
     @Override
-    public Optional<BrandModel> findById(String brandId) {
+    public Optional<BrandModel> findById(Long brandId) {
         return jpaRepository.findById(brandId);
     }
 
@@ -88,7 +88,7 @@ public class BrandRepositoryImpl implements BrandRepository {
      * @return 해당 브랜드 목록
      */
     @Override
-    public List<BrandModel> findAllByIds(Collection<String> brandIds) {
+    public List<BrandModel> findAllByIds(Collection<Long> brandIds) {
         return jpaRepository.findAllById(brandIds);
     }
 }

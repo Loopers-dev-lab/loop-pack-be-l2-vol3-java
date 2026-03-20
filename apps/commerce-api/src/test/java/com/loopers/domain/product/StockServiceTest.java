@@ -30,19 +30,19 @@ class StockServiceTest {
         @Test
         @DisplayName("충분한 재고가 있으면 예외 없이 정상 완료된다")
         void hold_WithSufficientStock_ShouldReturnTrue() {
-            when(productStockRepository.reserveStock("product-1", 5)).thenReturn(1);
+            when(productStockRepository.reserveStock(1L, 5)).thenReturn(1);
 
-            assertThatCode(() -> stockService.hold("product-1", 5))
+            assertThatCode(() -> stockService.hold(1L, 5))
                     .doesNotThrowAnyException();
-            verify(productStockRepository).reserveStock("product-1", 5);
+            verify(productStockRepository).reserveStock(1L, 5);
         }
 
         @Test
         @DisplayName("재고 부족 시 STOCK_NOT_ENOUGH 예외가 발생한다")
         void hold_WithInsufficientStock_ShouldThrowSTOCK_NOT_ENOUGH() {
-            when(productStockRepository.reserveStock("product-1", 100)).thenReturn(0);
+            when(productStockRepository.reserveStock(1L, 100)).thenReturn(0);
 
-            assertThatThrownBy(() -> stockService.hold("product-1", 100))
+            assertThatThrownBy(() -> stockService.hold(1L, 100))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.STOCK_NOT_ENOUGH));
@@ -56,19 +56,19 @@ class StockServiceTest {
         @Test
         @DisplayName("정상 해제 시 예외 없이 완료된다")
         void release_WithValidQty_ShouldReturnTrue() {
-            when(productStockRepository.releaseStock("product-1", 5)).thenReturn(1);
+            when(productStockRepository.releaseStock(1L, 5)).thenReturn(1);
 
-            assertThatCode(() -> stockService.release("product-1", 5))
+            assertThatCode(() -> stockService.release(1L, 5))
                     .doesNotThrowAnyException();
-            verify(productStockRepository).releaseStock("product-1", 5);
+            verify(productStockRepository).releaseStock(1L, 5);
         }
 
         @Test
         @DisplayName("예약량보다 많은 해제 시도 시 예외가 발생한다")
         void release_WithExcessiveQty_ShouldThrow() {
-            when(productStockRepository.releaseStock("product-1", 100)).thenReturn(0);
+            when(productStockRepository.releaseStock(1L, 100)).thenReturn(0);
 
-            assertThatThrownBy(() -> stockService.release("product-1", 100))
+            assertThatThrownBy(() -> stockService.release(1L, 100))
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.STOCK_NOT_ENOUGH));
@@ -82,11 +82,11 @@ class StockServiceTest {
         @Test
         @DisplayName("정상 확정 시 예외 없이 완료된다")
         void commit_WithValidQty_ShouldReturnTrue() {
-            when(productStockRepository.commitStock("product-1", 5)).thenReturn(1);
+            when(productStockRepository.commitStock(1L, 5)).thenReturn(1);
 
-            assertThatCode(() -> stockService.commit("product-1", 5))
+            assertThatCode(() -> stockService.commit(1L, 5))
                     .doesNotThrowAnyException();
-            verify(productStockRepository).commitStock("product-1", 5);
+            verify(productStockRepository).commitStock(1L, 5);
         }
     }
 }

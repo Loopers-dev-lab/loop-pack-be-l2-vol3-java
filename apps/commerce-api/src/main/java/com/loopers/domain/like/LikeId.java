@@ -17,6 +17,6 @@ import java.io.Serializable;
 @AllArgsConstructor
 @EqualsAndHashCode
 public class LikeId implements Serializable {
-    private String userId;
-    private String productId;
+    private Long userId;
+    private Long productId;
 }

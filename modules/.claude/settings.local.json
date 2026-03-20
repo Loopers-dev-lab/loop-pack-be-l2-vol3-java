@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /mnt/c/Users/kdj10/Git/loop-pack-be-l2-vol3-java && ./gradlew :apps:commerce-api:compileJava :apps:commerce-api:compileTestJava --no-daemon -q 2>&1)"
+    ]
+  }
+}

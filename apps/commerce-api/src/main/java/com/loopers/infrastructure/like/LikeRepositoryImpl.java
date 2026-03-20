@@ -64,7 +64,7 @@ public class LikeRepositoryImpl implements LikeRepository {
      * @return 해당 사용자의 좋아요 목록
      */
     @Override
-    public List<LikeModel> findAllByUserId(String userId) {
+    public List<LikeModel> findAllByUserId(Long userId) {
         return jpaRepository.findAllByUserId(userId);
     }
 
@@ -75,18 +75,18 @@ public class LikeRepositoryImpl implements LikeRepository {
      * @return 해당 상품의 좋아요 수
      */
     @Override
-    public long countByProductId(String productId) {
+    public long countByProductId(Long productId) {
         return jpaRepository.countByProductId(productId);
     }
 
     @Override
-    public Map<String, Long> countByProductIds(Collection<String> productIds) {
+    public Map<Long, Long> countByProductIds(Collection<Long> productIds) {
         if (productIds == null || productIds.isEmpty()) {
             return Collections.emptyMap();
         }
         return jpaRepository.countByProductIdIn(productIds).stream()
                 .collect(Collectors.toMap(
-                        row -> (String) row[0],
+                        row -> (Long) row[0],
                         row -> (Long) row[1]
                 ));
     }

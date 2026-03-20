@@ -48,9 +48,9 @@ class AdminCartV1ApiE2ETest {
                 ProductModel.create("테스트상품", brand.getBrandId(), BigDecimal.valueOf(10000),
                         null, null, null, null, null, null, null));
         productStockJpaRepository.save(ProductStockModel.create(product.getProductId(), 100));
-        cartItemJpaRepository.save(CartItemModel.create("user-1", product.getProductId(), 3));
+        cartItemJpaRepository.save(CartItemModel.create(1L, product.getProductId(), 3));
 
-        mockMvc.perform(get("/api-admin/v1/users/user-1/cart")
+        mockMvc.perform(get("/api-admin/v1/users/1/cart")
                         .header(ADMIN_HEADER, ADMIN_VALUE))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(1))

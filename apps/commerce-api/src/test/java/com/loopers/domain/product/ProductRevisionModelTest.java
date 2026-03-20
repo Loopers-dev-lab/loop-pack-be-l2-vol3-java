@@ -13,12 +13,12 @@ class ProductRevisionModelTest {
     @DisplayName("유효한 입력으로 생성 성공")
     void create_WithValidInputs_ShouldSuccess() {
         ProductRevisionModel revision = ProductRevisionModel.create(
-                "product-001", 1L, ProductRevisionAction.UPDATE,
+                1L, 1L, ProductRevisionAction.UPDATE,
                 "admin", "가격 변경",
                 "{\"price\": 10000}", "{\"price\": 20000}"
         );
 
-        assertThat(revision.getProductId()).isEqualTo("product-001");
+        assertThat(revision.getProductId()).isEqualTo(1L);
         assertThat(revision.getRevisionSeq()).isEqualTo(1L);
         assertThat(revision.getAction()).isEqualTo(ProductRevisionAction.UPDATE);
         assertThat(revision.getChangedBy()).isEqualTo("admin");
@@ -31,7 +31,7 @@ class ProductRevisionModelTest {
     @DisplayName("CREATE action 시 beforeSnapshot은 null이다")
     void create_WithCreateAction_BeforeSnapshotShouldBeNull() {
         ProductRevisionModel revision = ProductRevisionModel.create(
-                "product-001", 0L, ProductRevisionAction.CREATE,
+                1L, 0L, ProductRevisionAction.CREATE,
                 "admin", "상품 생성",
                 null, "{\"name\": \"상품A\"}"
         );

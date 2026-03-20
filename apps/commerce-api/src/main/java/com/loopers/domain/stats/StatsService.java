@@ -1,6 +1,7 @@
 package com.loopers.domain.stats;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class StatsService {
      * @param endAt   조회 종료일
      * @return 결제 대기·취소·만료 건수를 포함하는 주문 현황 개요
      */
+    @Cacheable(cacheNames = "statsOverview", key = "#startAt.toString() + ':' + #endAt.toString()")
     public StatsProjection.Overview getOverview(LocalDate startAt, LocalDate endAt) {
         return statsRepository.getOverview(startAt, endAt);
     }
@@ -37,6 +39,7 @@ public class StatsService {
      * @param endAt   조회 종료일
      * @return 일별 주문 건수 및 총 금액 목록
      */
+    @Cacheable(cacheNames = "statsDaily", key = "#startAt.toString() + ':' + #endAt.toString()")
     public List<StatsProjection.DailyOrderStat> getDailyOrderStats(LocalDate startAt, LocalDate endAt) {
         return statsRepository.getDailyOrderStats(startAt, endAt);
     }
@@ -47,6 +50,7 @@ public class StatsService {
      * @param limit 조회할 상위 상품 수
      * @return 좋아요 수 내림차순 상품 목록
      */
+    @Cacheable(cacheNames = "statsTopLiked", key = "#limit")
     public List<StatsProjection.ProductStat> getTopLikedProducts(int limit) {
         return statsRepository.getTopLikedProducts(limit);
     }
@@ -57,6 +61,7 @@ public class StatsService {
      * @param limit 조회할 상위 상품 수
      * @return 주문 수 내림차순 상품 목록
      */
+    @Cacheable(cacheNames = "statsTopOrdered", key = "#limit")
     public List<StatsProjection.ProductStat> getTopOrderedProducts(int limit) {
         return statsRepository.getTopOrderedProducts(limit);
     }
@@ -67,6 +72,7 @@ public class StatsService {
      * @param threshold 재고 임계값
      * @return 저재고 상품 목록
      */
+    @Cacheable(cacheNames = "statsLowStock", key = "#threshold")
     public List<StatsProjection.LowStockProduct> getLowStockProducts(int threshold) {
         return statsRepository.getLowStockProducts(threshold);
     }

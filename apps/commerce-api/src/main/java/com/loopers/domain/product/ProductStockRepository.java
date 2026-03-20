@@ -29,7 +29,7 @@ public interface ProductStockRepository {
      * @param productId 상품 ID
      * @return 재고 엔티티 (존재하지 않으면 빈 Optional)
      */
-    Optional<ProductStockModel> findByProductId(String productId);
+    Optional<ProductStockModel> findByProductId(Long productId);
 
     /**
      * CAS(Compare-And-Set) 방식으로 재고를 예약(hold)한다.
@@ -42,7 +42,7 @@ public interface ProductStockRepository {
      * @param qty       예약할 수량
      * @return 영향받은 행 수 (0이면 가용 재고 부족으로 예약 실패)
      */
-    int reserveStock(String productId, int qty);
+    int reserveStock(Long productId, int qty);
 
     /**
      * CAS(Compare-And-Set) 방식으로 예약된 재고를 해제(release)한다.
@@ -56,7 +56,7 @@ public interface ProductStockRepository {
      * @param qty       해제할 수량
      * @return 영향받은 행 수 (0이면 예약 재고 부족으로 해제 실패)
      */
-    int releaseStock(String productId, int qty);
+    int releaseStock(Long productId, int qty);
 
     /**
      * CAS(Compare-And-Set) 방식으로 예약된 재고를 확정(commit)한다.
@@ -69,7 +69,7 @@ public interface ProductStockRepository {
      * @param qty       확정할 수량
      * @return 영향받은 행 수 (0이면 확정 실패)
      */
-    int commitStock(String productId, int qty);
+    int commitStock(Long productId, int qty);
 
     /**
      * 상품 ID 목록으로 재고를 일괄 조회한다.
@@ -77,5 +77,5 @@ public interface ProductStockRepository {
      * @param productIds 상품 ID 목록
      * @return 해당 상품들의 재고 목록
      */
-    List<ProductStockModel> findAllByProductIds(Collection<String> productIds);
+    List<ProductStockModel> findAllByProductIds(Collection<Long> productIds);
 }

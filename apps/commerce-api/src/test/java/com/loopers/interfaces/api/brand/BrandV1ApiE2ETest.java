@@ -77,7 +77,7 @@ class BrandV1ApiE2ETest {
         @Test
         @DisplayName("존재하지 않는 브랜드 ID로 404 반환")
         void GET_brandDetail_NotFound_ShouldReturn404() throws Exception {
-            mockMvc.perform(get("/api/v1/brands/{brandId}", "nonexistent"))
+            mockMvc.perform(get("/api/v1/brands/{brandId}", 999L))
                     .andExpect(status().isNotFound());
         }
 

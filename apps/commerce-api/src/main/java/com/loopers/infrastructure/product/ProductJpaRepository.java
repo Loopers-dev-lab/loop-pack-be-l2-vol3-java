@@ -4,10 +4,15 @@ import com.loopers.domain.product.ProductModel;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
+
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 상품 엔티티에 대한 Spring Data JPA Repository 인터페이스.
@@ -15,7 +20,7 @@ import java.util.List;
  * <p>JpaRepository를 상속받아 기본 CRUD 메서드가 자동 제공되며,
  * 고객용 검색 쿼리와 관리자용 조회 쿼리를 정의한다.</p>
  */
-public interface ProductJpaRepository extends JpaRepository<ProductModel, String> {
+public interface ProductJpaRepository extends JpaRepository<ProductModel, Long> {
 
     /**
      * 고객용 상품 목록을 조회한다.
@@ -32,7 +37,7 @@ public interface ProductJpaRepository extends JpaRepository<ProductModel, String
            "AND (:keyword IS NULL OR p.productName LIKE %:keyword%) " +
            "AND (:brandId IS NULL OR p.brandId = :brandId)")
     List<ProductModel> findAllForCustomer(@Param("keyword") String keyword,
-                                          @Param("brandId") String brandId);
+                                          @Param("brandId") Long brandId);
 
     /**
      * 브랜드 ID로 상품 목록을 조회한다.
@@ -42,7 +47,7 @@ public interface ProductJpaRepository extends JpaRepository<ProductModel, String
      * @param brandId 브랜드 ID
      * @return 해당 브랜드의 상품 목록
      */
-    List<ProductModel> findAllByBrandId(String brandId);
+    List<ProductModel> findAllByBrandId(Long brandId);
 
     /**
      * 삭제 여부로 상품 목록을 조회한다.
@@ -67,6 +72,19 @@ public interface ProductJpaRepository extends JpaRepository<ProductModel, String
            "AND (:keyword IS NULL OR p.productName LIKE %:keyword%) " +
            "AND (:brandId IS NULL OR p.brandId = :brandId)")
     Page<ProductModel> findAllForCustomerPaged(@Param("keyword") String keyword,
-                                               @Param("brandId") String brandId,
+                                               @Param("brandId") Long brandId,
                                                Pageable pageable);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM ProductModel p WHERE p.productId = :productId")
+    Optional<ProductModel> findByIdWithLock(@Param("productId") Long productId);
+
+    @Modifying
+    @Query("UPDATE ProductModel p SET p.likeCount = p.likeCount + 1 WHERE p.productId = :productId")
+    void incrementLikeCount(@Param("productId") Long productId);
+
+    @Modifying
+    @Query("UPDATE ProductModel p SET p.likeCount = GREATEST(p.likeCount - 1, 0) WHERE p.productId = :productId")
+    void decrementLikeCount(@Param("productId") Long productId);
+
 }

@@ -14,12 +14,12 @@ class OrderCartRestoreModelTest {
     @DisplayName("유효한 입력으로 생성 성공")
     void create_WithValidInputs_ShouldSuccess() {
         OrderCartRestoreModel restore = OrderCartRestoreModel.create(
-                "order-001", "user-001",
+                1L, 1L,
                 RestoreReason.USER_CANCELLED, RestoreTriggerSource.CANCEL_API
         );
 
-        assertThat(restore.getOrderId()).isEqualTo("order-001");
-        assertThat(restore.getUserId()).isEqualTo("user-001");
+        assertThat(restore.getOrderId()).isEqualTo(1L);
+        assertThat(restore.getUserId()).isEqualTo(1L);
         assertThat(restore.getReason()).isEqualTo(RestoreReason.USER_CANCELLED);
         assertThat(restore.getTriggerSource()).isEqualTo(RestoreTriggerSource.CANCEL_API);
     }
@@ -28,7 +28,7 @@ class OrderCartRestoreModelTest {
     @DisplayName("restoredAt은 @PrePersist에서 설정된다")
     void create_ShouldSetRestoredAt() {
         OrderCartRestoreModel restore = OrderCartRestoreModel.create(
-                "order-001", "user-001",
+                1L, 1L,
                 RestoreReason.EXPIRED, RestoreTriggerSource.EXPIRE_JOB
         );
         // restoredAt은 @PrePersist에서 설정되므로 JPA 없이는 null

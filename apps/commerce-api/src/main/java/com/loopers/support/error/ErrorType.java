@@ -55,7 +55,14 @@ public enum ErrorType {
     ORDER_PENDING_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "ORDER_PENDING_LIMIT_EXCEEDED", "동시 결제 대기 주문은 최대 3건까지 가능합니다."),
 
     /** Admin */
-    ADMIN_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "ADMIN_UNAUTHORIZED", "관리자 인증에 실패했습니다.");
+    ADMIN_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "ADMIN_UNAUTHORIZED", "관리자 인증에 실패했습니다."),
+
+    /** Coupon */
+    COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND", "쿠폰을 찾을 수 없습니다."),
+    COUPON_ALREADY_ISSUED(HttpStatus.CONFLICT, "COUPON_ALREADY_ISSUED", "이미 발급된 쿠폰입니다."),
+    COUPON_NOT_APPLICABLE(HttpStatus.BAD_REQUEST, "COUPON_NOT_APPLICABLE", "적용할 수 없는 쿠폰입니다."),
+    COUPON_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "COUPON_NOT_AVAILABLE", "사용 불가능한 쿠폰입니다."),
+    USER_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_COUPON_NOT_FOUND", "발급된 쿠폰을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

@@ -20,14 +20,14 @@ import java.math.BigDecimal;
 @Getter
 @Builder
 public class CartInfo {
-    private final String userId;
-    private final String productId;
+    private final Long userId;
+    private final Long productId;
     private final int quantity;
     private final boolean available;
     private final UnavailableReason unavailableReason;
     private final String productName;
     private final BigDecimal price;
-    private final String brandId;
+    private final Long brandId;
     private final String brandName;
     private final String imageUrl;
     private final int availableStock;

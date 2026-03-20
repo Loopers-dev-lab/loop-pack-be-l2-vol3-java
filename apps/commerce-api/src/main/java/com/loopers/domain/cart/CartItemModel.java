@@ -30,12 +30,12 @@ import java.time.LocalDateTime;
 public class CartItemModel {
 
     @Id
-    @Column(name = "user_id", length = 36)
-    private String userId;
+    @Column(name = "user_id")
+    private Long userId;
 
     @Id
-    @Column(name = "product_id", length = 36)
-    private String productId;
+    @Column(name = "product_id")
+    private Long productId;
 
     @Column(nullable = false)
     private int quantity;
@@ -46,7 +46,7 @@ public class CartItemModel {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    private CartItemModel(String userId, String productId, int quantity) {
+    private CartItemModel(Long userId, Long productId, int quantity) {
         validateQuantity(quantity);
         this.userId = userId;
         this.productId = productId;
@@ -63,7 +63,7 @@ public class CartItemModel {
      * @return 생성된 CartItemModel 인스턴스
      * @throws CoreException quantity <= 0인 경우 (BAD_REQUEST)
      */
-    public static CartItemModel create(String userId, String productId, int quantity) {
+    public static CartItemModel create(Long userId, Long productId, int quantity) {
         return new CartItemModel(userId, productId, quantity);
     }
 

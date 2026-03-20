@@ -22,5 +22,5 @@ public interface ProductRevisionJpaRepository extends JpaRepository<ProductRevis
      * @param productId 상품 ID
      * @return 해당 상품의 변경 이력 목록 (최신순)
      */
-    List<ProductRevisionModel> findAllByProductIdOrderByRevisionSeqDesc(String productId);
+    List<ProductRevisionModel> findAllByProductIdOrderByRevisionSeqDesc(Long productId);
 }

@@ -71,7 +71,7 @@ class AdminProductV1ApiE2ETest {
         @DisplayName("미존재 브랜드로 404 반환")
         void POST_createProduct_NonExistingBrand_ShouldReturn404() throws Exception {
             var request = AdminProductV1Dto.CreateProductRequest.builder()
-                    .productName("테스트상품").brandId("nonexistent")
+                    .productName("테스트상품").brandId(999L)
                     .price(BigDecimal.valueOf(10000)).initialStock(100).build();
 
             mockMvc.perform(post("/api-admin/v1/products")

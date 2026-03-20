@@ -13,7 +13,6 @@ import com.loopers.infrastructure.order.OrderItemJpaRepository;
 import com.loopers.infrastructure.order.OrderJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.infrastructure.product.ProductStockJpaRepository;
-import com.loopers.support.enums.OrderStatus;
 import com.loopers.support.enums.OrderType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -71,14 +70,14 @@ class StatsRepositoryImplTest {
     @DisplayName("주문 상태별 건수가 정확하게 집계된다")
     void getOverview_ShouldCountByOrderStatus() {
         // PENDING 3건
-        orderJpaRepository.save(OrderModel.create("user-1", OrderType.DIRECT, BigDecimal.valueOf(10000)));
-        orderJpaRepository.save(OrderModel.create("user-2", OrderType.DIRECT, BigDecimal.valueOf(20000)));
-        orderJpaRepository.save(OrderModel.create("user-3", OrderType.CART, BigDecimal.valueOf(30000)));
+        orderJpaRepository.save(OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(10000)));
+        orderJpaRepository.save(OrderModel.create(2L, OrderType.DIRECT, BigDecimal.valueOf(20000)));
+        orderJpaRepository.save(OrderModel.create(3L, OrderType.CART, BigDecimal.valueOf(30000)));
         // CANCELLED 2건
         OrderModel cancelled1 = orderJpaRepository.save(
-                OrderModel.create("user-4", OrderType.DIRECT, BigDecimal.valueOf(10000)));
+                OrderModel.create(4L, OrderType.DIRECT, BigDecimal.valueOf(10000)));
         OrderModel cancelled2 = orderJpaRepository.save(
-                OrderModel.create("user-5", OrderType.DIRECT, BigDecimal.valueOf(10000)));
+                OrderModel.create(5L, OrderType.DIRECT, BigDecimal.valueOf(10000)));
         entityManager.flush();
         entityManager.clear();
         orderJpaRepository.findById(cancelled1.getOrderId()).ifPresent(o -> {
@@ -91,7 +90,7 @@ class StatsRepositoryImplTest {
         });
         // EXPIRED 1건
         OrderModel expired = orderJpaRepository.save(
-                OrderModel.create("user-6", OrderType.DIRECT, BigDecimal.valueOf(10000)));
+                OrderModel.create(6L, OrderType.DIRECT, BigDecimal.valueOf(10000)));
         entityManager.flush();
         entityManager.clear();
         orderJpaRepository.findById(expired.getOrderId()).ifPresent(o -> {
@@ -112,8 +111,8 @@ class StatsRepositoryImplTest {
     @Test
     @DisplayName("일별 주문 통계가 GROUP BY 날짜로 집계된다")
     void getDailyOrderStats_ShouldGroupByDate() {
-        orderJpaRepository.save(OrderModel.create("user-1", OrderType.DIRECT, BigDecimal.valueOf(10000)));
-        orderJpaRepository.save(OrderModel.create("user-2", OrderType.DIRECT, BigDecimal.valueOf(20000)));
+        orderJpaRepository.save(OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(10000)));
+        orderJpaRepository.save(OrderModel.create(2L, OrderType.DIRECT, BigDecimal.valueOf(20000)));
         entityManager.flush();
         entityManager.clear();
 
@@ -139,12 +138,12 @@ class StatsRepositoryImplTest {
                         null, null, null, null, null, null, null));
 
         // product3: 3 likes, product1: 2 likes, product2: 1 like
-        likeJpaRepository.save(LikeModel.create("user-1", product1.getProductId()));
-        likeJpaRepository.save(LikeModel.create("user-2", product1.getProductId()));
-        likeJpaRepository.save(LikeModel.create("user-1", product2.getProductId()));
-        likeJpaRepository.save(LikeModel.create("user-1", product3.getProductId()));
-        likeJpaRepository.save(LikeModel.create("user-2", product3.getProductId()));
-        likeJpaRepository.save(LikeModel.create("user-3", product3.getProductId()));
+        likeJpaRepository.save(LikeModel.create(1L, product1.getProductId()));
+        likeJpaRepository.save(LikeModel.create(2L, product1.getProductId()));
+        likeJpaRepository.save(LikeModel.create(1L, product2.getProductId()));
+        likeJpaRepository.save(LikeModel.create(1L, product3.getProductId()));
+        likeJpaRepository.save(LikeModel.create(2L, product3.getProductId()));
+        likeJpaRepository.save(LikeModel.create(3L, product3.getProductId()));
         entityManager.flush();
         entityManager.clear();
 
@@ -159,15 +158,23 @@ class StatsRepositoryImplTest {
     @DisplayName("주문 상위 상품이 GROUP BY로 정렬된다")
     void getTopOrderedProducts_ShouldJoinAndAggregate() {
         OrderModel order = orderJpaRepository.save(
-                OrderModel.create("user-1", OrderType.DIRECT, BigDecimal.valueOf(50000)));
+                OrderModel.create(1L, OrderType.DIRECT, BigDecimal.valueOf(50000)));
+        entityManager.flush();
+
+        ProductModel product1 = productJpaRepository.save(
+                ProductModel.create("상품A", brand.getBrandId(), BigDecimal.valueOf(10000),
+                        null, null, null, null, null, null, null));
+        ProductModel product2 = productJpaRepository.save(
+                ProductModel.create("상품B", brand.getBrandId(), BigDecimal.valueOf(20000),
+                        null, null, null, null, null, null, null));
         entityManager.flush();
 
         orderItemJpaRepository.save(OrderItemModel.create(
-                order.getOrderId(), 1, "user-1", "p1", 3,
-                "상품A", BigDecimal.valueOf(10000), brand.getBrandId(), "테스트브랜드", null));
+                order.getOrderId(), 1, 1L, product1.getProductId(), 3,
+                "상품A", BigDecimal.valueOf(10000), String.valueOf(brand.getBrandId()), "테스트브랜드", null));
         orderItemJpaRepository.save(OrderItemModel.create(
-                order.getOrderId(), 2, "user-1", "p2", 1,
-                "상품B", BigDecimal.valueOf(20000), brand.getBrandId(), "테스트브랜드", null));
+                order.getOrderId(), 2, 1L, product2.getProductId(), 1,
+                "상품B", BigDecimal.valueOf(20000), String.valueOf(brand.getBrandId()), "테스트브랜드", null));
         entityManager.flush();
         entityManager.clear();
 

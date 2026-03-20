@@ -20,6 +20,6 @@ import java.io.Serializable;
 @AllArgsConstructor
 @EqualsAndHashCode
 public class CartItemId implements Serializable {
-    private String userId;
-    private String productId;
+    private Long userId;
+    private Long productId;
 }

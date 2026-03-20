@@ -20,6 +20,6 @@ import java.io.Serializable;
 @AllArgsConstructor
 @EqualsAndHashCode
 public class OrderItemId implements Serializable {
-    private String orderId;
+    private Long orderId;
     private int orderItemSeq;
 }

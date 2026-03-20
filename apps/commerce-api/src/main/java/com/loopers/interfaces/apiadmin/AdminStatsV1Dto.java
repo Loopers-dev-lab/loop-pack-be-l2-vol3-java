@@ -1,6 +1,6 @@
 package com.loopers.interfaces.apiadmin;
 
-import com.loopers.application.stats.StatsInfo;
+import com.loopers.domain.stats.StatsProjection;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -27,16 +27,16 @@ public class AdminStatsV1Dto {
         private long expiredCount;
 
         /**
-         * {@link StatsInfo.Overview}를 주문 현황 개요 응답 DTO로 변환하는 정적 팩토리 메서드.
+         * {@link StatsProjection.Overview}를 주문 현황 개요 응답 DTO로 변환하는 정적 팩토리 메서드.
          *
-         * @param overview 주문 현황 개요 정보
+         * @param projection 주문 현황 개요 프로젝션
          * @return 변환된 주문 현황 개요 응답 DTO
          */
-        public static OverviewResponse from(StatsInfo.Overview overview) {
+        public static OverviewResponse from(StatsProjection.Overview projection) {
             return OverviewResponse.builder()
-                    .pendingCount(overview.getPendingCount())
-                    .cancelledCount(overview.getCancelledCount())
-                    .expiredCount(overview.getExpiredCount())
+                    .pendingCount(projection.getPendingCount())
+                    .cancelledCount(projection.getCancelledCount())
+                    .expiredCount(projection.getExpiredCount())
                     .build();
         }
     }
@@ -55,16 +55,16 @@ public class AdminStatsV1Dto {
         private BigDecimal totalAmount;
 
         /**
-         * {@link StatsInfo.DailyOrderStat}을 일별 주문 통계 응답 DTO로 변환하는 정적 팩토리 메서드.
+         * {@link StatsProjection.DailyOrderStat}을 일별 주문 통계 응답 DTO로 변환하는 정적 팩토리 메서드.
          *
-         * @param stat 일별 주문 통계 정보
+         * @param projection 일별 주문 통계 프로젝션
          * @return 변환된 일별 주문 통계 응답 DTO
          */
-        public static DailyOrderStatResponse from(StatsInfo.DailyOrderStat stat) {
+        public static DailyOrderStatResponse from(StatsProjection.DailyOrderStat projection) {
             return DailyOrderStatResponse.builder()
-                    .date(stat.getDate())
-                    .orderCount(stat.getOrderCount())
-                    .totalAmount(stat.getTotalAmount())
+                    .date(projection.getDate())
+                    .orderCount(projection.getOrderCount())
+                    .totalAmount(projection.getTotalAmount())
                     .build();
         }
     }
@@ -78,21 +78,21 @@ public class AdminStatsV1Dto {
     @AllArgsConstructor
     @Builder
     public static class ProductStatResponse {
-        private String productId;
+        private Long productId;
         private String productName;
         private long count;
 
         /**
-         * {@link StatsInfo.ProductStat}을 상품 통계 응답 DTO로 변환하는 정적 팩토리 메서드.
+         * {@link StatsProjection.ProductStat}을 상품 통계 응답 DTO로 변환하는 정적 팩토리 메서드.
          *
-         * @param stat 상품 통계 정보
+         * @param projection 상품 통계 프로젝션
          * @return 변환된 상품 통계 응답 DTO
          */
-        public static ProductStatResponse from(StatsInfo.ProductStat stat) {
+        public static ProductStatResponse from(StatsProjection.ProductStat projection) {
             return ProductStatResponse.builder()
-                    .productId(stat.getProductId())
-                    .productName(stat.getProductName())
-                    .count(stat.getCount())
+                    .productId(projection.getProductId())
+                    .productName(projection.getProductName())
+                    .count(projection.getCount())
                     .build();
         }
     }
@@ -106,25 +106,25 @@ public class AdminStatsV1Dto {
     @AllArgsConstructor
     @Builder
     public static class LowStockProductResponse {
-        private String productId;
+        private Long productId;
         private String productName;
         private int onHand;
         private int reserved;
         private int availableQty;
 
         /**
-         * {@link StatsInfo.LowStockProduct}를 저재고 상품 응답 DTO로 변환하는 정적 팩토리 메서드.
+         * {@link StatsProjection.LowStockProduct}를 저재고 상품 응답 DTO로 변환하는 정적 팩토리 메서드.
          *
-         * @param stock 저재고 상품 정보
+         * @param projection 저재고 상품 프로젝션
          * @return 변환된 저재고 상품 응답 DTO
          */
-        public static LowStockProductResponse from(StatsInfo.LowStockProduct stock) {
+        public static LowStockProductResponse from(StatsProjection.LowStockProduct projection) {
             return LowStockProductResponse.builder()
-                    .productId(stock.getProductId())
-                    .productName(stock.getProductName())
-                    .onHand(stock.getOnHand())
-                    .reserved(stock.getReserved())
-                    .availableQty(stock.getAvailableQty())
+                    .productId(projection.getProductId())
+                    .productName(projection.getProductName())
+                    .onHand(projection.getOnHand())
+                    .reserved(projection.getReserved())
+                    .availableQty(projection.getAvailableQty())
                     .build();
         }
     }
