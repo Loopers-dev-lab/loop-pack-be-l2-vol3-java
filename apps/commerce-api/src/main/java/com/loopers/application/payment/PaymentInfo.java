@@ -26,10 +26,20 @@ public class PaymentInfo {
                 .userId(payment.getUserId())
                 .transactionId(payment.getTransactionId())
                 .cardType(payment.getCardType())
-                .cardNo(payment.getCardNo())
+                .cardNo(maskCardNo(payment.getCardNo()))
                 .amount(payment.getAmount())
                 .status(payment.getStatus())
                 .pgResponseMessage(payment.getPgResponseMessage())
                 .build();
+    }
+
+    static String maskCardNo(String cardNo) {
+        if (cardNo == null || cardNo.isBlank()) {
+            return cardNo;
+        }
+        if (cardNo.length() <= 4) {
+            return "*".repeat(cardNo.length());
+        }
+        return "*".repeat(cardNo.length() - 4) + cardNo.substring(cardNo.length() - 4);
     }
 }
