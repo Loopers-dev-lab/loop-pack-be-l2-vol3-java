@@ -84,6 +84,65 @@ class PgRouterTest {
     }
 
     @Nested
+    @DisplayName("Multi-PG Fallback + 타임아웃 규칙")
+    class MultiPgFallback {
+
+        @DisplayName("U6-3: Simulator 실패 → Toss 자동 전환 → SUCCESS")
+        @Test
+        void simulatorFail_fallbackToToss_success() {
+            FakePgClient simulator = new FakePgClient("SIMULATOR");
+            simulator.setShouldFail(true);
+            FakePgClient toss = new FakePgClient("TOSS");
+            toss.setResponseStatus("SUCCESS");
+
+            PgRouter router = new PgRouter(List.of(simulator, toss));
+            PgPaymentRequest request = PgPaymentRequest.of(1L, "SAMSUNG", "1234", 5000, "http://test");
+
+            PgPaymentResponse response = router.requestPayment(request);
+
+            assertThat(response.status()).isEqualTo("SUCCESS");
+            assertThat(response.pgProvider()).isEqualTo("TOSS");
+            assertThat(response.transactionKey()).isNotNull();
+            assertThat(simulator.getCallCount()).isEqualTo(1);
+            assertThat(toss.getCallCount()).isEqualTo(1);
+        }
+
+        @DisplayName("U6-4: Simulator 타임아웃 → Toss 전환하지 않음 → 예외 (중복 결제 방지)")
+        @Test
+        void simulatorTimeout_noFallback_throwsException() {
+            FakePgClient simulator = new FakePgClient("SIMULATOR");
+            simulator.setThrowTimeout(true);
+            FakePgClient toss = new FakePgClient("TOSS");
+            toss.setResponseStatus("SUCCESS");
+
+            PgRouter router = new PgRouter(List.of(simulator, toss));
+            PgPaymentRequest request = PgPaymentRequest.of(1L, "SAMSUNG", "1234", 5000, "http://test");
+
+            assertThatThrownBy(() -> router.requestPayment(request))
+                .isInstanceOf(CoreException.class)
+                .hasMessageContaining("타임아웃");
+
+            // Toss는 호출되지 않음 (중복 결제 방지)
+            assertThat(toss.getCallCount()).isZero();
+        }
+
+        @DisplayName("Primary 성공 시 pgProvider 추적")
+        @Test
+        void primarySuccess_providerTracked() {
+            FakePgClient simulator = new FakePgClient("SIMULATOR");
+            FakePgClient toss = new FakePgClient("TOSS");
+
+            PgRouter router = new PgRouter(List.of(simulator, toss));
+            PgPaymentRequest request = PgPaymentRequest.of(1L, "SAMSUNG", "1234", 5000, "http://test");
+
+            PgPaymentResponse response = router.requestPayment(request);
+
+            assertThat(response.pgProvider()).isEqualTo("SIMULATOR");
+            assertThat(toss.getCallCount()).isZero();
+        }
+    }
+
+    @Nested
     @DisplayName("결제 상태 조회")
     class GetPaymentStatus {
 
