@@ -35,7 +35,7 @@ class LikeServiceTest {
 
     @DisplayName("좋아요 등록")
     @Nested
-    class Like {
+    class LikeTests {
 
         @DisplayName("존재하는 상품에 좋아요를 등록하면 성공한다")
         @Test
