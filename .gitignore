@@ -38,3 +38,6 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+# k6 raw artifacts
+docs/performance/k6/results/*

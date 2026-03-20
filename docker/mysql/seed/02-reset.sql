@@ -1,5 +1,16 @@
+SET FOREIGN_KEY_CHECKS = 0;
+
+TRUNCATE TABLE read_model_sync_task;
 TRUNCATE TABLE likes;
+TRUNCATE TABLE payments;
+TRUNCATE TABLE order_items;
+TRUNCATE TABLE orders;
+TRUNCATE TABLE issued_coupons;
+TRUNCATE TABLE coupons;
+TRUNCATE TABLE point_balances;
 TRUNCATE TABLE members;
 TRUNCATE TABLE products;
 TRUNCATE TABLE brands;
 TRUNCATE TABLE categories;
+
+SET FOREIGN_KEY_CHECKS = 1;
