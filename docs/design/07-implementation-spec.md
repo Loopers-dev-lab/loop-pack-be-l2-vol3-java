@@ -1146,3 +1146,272 @@ Phase 7: 종합 테스트
 | U2-4~U2-6 (PaymentFacadeTest 추가) | 완료 |
 | F2-1~F2-7 (Fault Injection) | Phase 7 종합 테스트에서 WireMock과 함께 검증 예정 |
 | P2-1 (RateLimiter Performance) | Phase 7 종합 테스트에서 검증 예정 |
+
+### Phase 3: Redis Resilience — 완료
+
+**구현일**: 2026-03-20
+
+#### 생성된 파일 (2개)
+
+| # | 파일 | 설명 |
+|---|------|------|
+| 1 | `infrastructure/scheduler/StockReconcileScheduler.java` | Redis-DB 재고 정합성 배치 (30초 주기, DB 기준 보정) |
+| 2 | `infrastructure/scheduler/ProvisionalOrderExpiryScheduler.java` | 가주문 TTL 만료 선제 정리 (30초 주기, 재고 복원 + 삭제) |
+
+#### 수정된 파일 (3개)
+
+| # | 파일 | 변경 사항 |
+|---|------|----------|
+| 1 | `application/order/ProvisionalOrderService.java` | @CircuitBreaker("redis-write") + DB Fallback, items 파라미터 추가, ProvisionalOrderResult 반환 타입 |
+| 2 | `infrastructure/redis/ProvisionalOrderRedisRepository.java` | getAllOrderIds(), getTtlSeconds() 메서드 추가 |
+| 3 | `CommerceApiApplication.java` | @EnableScheduling 추가 |
+
+#### 테스트 파일 (4개 생성 + 1개 수정)
+
+| # | 파일 | 테스트 수 | 결과 |
+|---|------|----------|------|
+| 1 | `application/order/ProvisionalOrderServiceTest.java` | 4 | PASS (U3-1, U3-2 + 조회/삭제 2건) |
+| 2 | `infrastructure/redis/StockReservationTest.java` | 4 | PASS (U3-3, U3-4 + 추가 2건) |
+| 3 | `infrastructure/scheduler/StockReconcileSchedulerTest.java` | 3 | PASS (불일치/키없음/일치) |
+| 4 | `infrastructure/scheduler/ProvisionalOrderExpirySchedulerTest.java` | 3 | PASS (만료임박/정상/혼합) |
+| 5 | `fake/FakeProvisionalOrderRedisRepository.java` (수정) | - | getAllOrderIds, getTtlSeconds, setTtl 추가 |
+
+**총 14개 Unit 테스트 PASS**
+
+#### 핵심 설계 결정
+
+| 결정 | 근거 |
+|------|------|
+| Redis 쓰기만 CB (redis-write) | 읽기 CB는 복구 경로 차단 위험 (06 §18) |
+| DB Fallback = Order(CREATED) 직접 생성 | Redis 장애 시 가주문 단계 생략, 진주문으로 직행 |
+| StockReconcileScheduler 30초 주기 | ~5개 상품 × ~2ms = 10ms, 부하율 0.03% |
+| ProvisionalOrderExpiryScheduler TTL < 30초 | 배치 주기와 같은 임계치 → 최대 60초 내 감지 |
+| @EnableScheduling 별도 추가 | commerce-api에 기존 스케줄링 없었음 |
+
+#### 07 명세 대비 완료 현황
+
+| 명세 항목 | 상태 |
+|----------|------|
+| 15: Redis CB 1개 (redis-write만) | 완료 (Phase 2에서 YAML 설정, Phase 3에서 @CircuitBreaker 적용) |
+| 16: Redis Fallback (DB 직접 주문) | 완료 |
+| 17: 재고 예약 DECR + DB UPDATE 이중 관리 | 완료 (Phase 1 DECR/INCR + Phase 3 Fallback DB 차감) |
+| 18: Redis-DB 재고 정합성 배치 | 완료 (Lua Script는 Integration 테스트 범위) |
+| 19: 가주문 선제 만료 배치 | 완료 |
+| U3-1~U3-2 (ProvisionalOrderServiceTest) | 완료 |
+| U3-3~U3-4 (StockReservationTest) | 완료 |
+| I3-1~I3-3 (Integration) | Phase 7 종합 테스트에서 Testcontainers와 함께 검증 예정 |
+| R3-1~R3-2 (Recovery) | Phase 7 종합 테스트에서 검증 예정 |
+| C3-1 (Concurrency) | Phase 7 종합 테스트에서 검증 예정 |
+
+### Phase 4: 콜백 + 상태 동기화 — 완료
+
+**구현일**: 2026-03-20
+
+#### 생성된 파일 (6개)
+
+| # | 파일 | 설명 |
+|---|------|------|
+| 1 | `domain/payment/CallbackInbox.java` | 콜백 원본 저장 엔티티 (DLQ), RECEIVED→PROCESSED/FAILED 상태 전이 |
+| 2 | `domain/payment/CallbackInboxStatus.java` | CallbackInbox 상태 enum (RECEIVED, PROCESSED, FAILED) |
+| 3 | `domain/payment/CallbackInboxRepository.java` | CallbackInbox Repository 인터페이스 (DIP) |
+| 4 | `infrastructure/payment/CallbackInboxJpaRepository.java` | JPA Repository |
+| 5 | `infrastructure/payment/CallbackInboxRepositoryImpl.java` | Repository 구현체 |
+| 6 | `application/payment/PaymentRecoveryService.java` | 콜백 처리 + Polling Hybrid (@Scheduled 10초 주기) |
+
+#### 수정된 파일 (3개)
+
+| # | 파일 | 변경 사항 |
+|---|------|----------|
+| 1 | `domain/order/Order.java` | pay() 메서드 추가 (CREATED→PAID 상태 전이) |
+| 2 | `interfaces/api/payment/PaymentV1Controller.java` | POST /callback 엔드포인트 추가, PaymentRecoveryService 의존성 |
+| 3 | `interfaces/api/payment/PaymentV1Dto.java` | CallbackRequest record 추가 |
+
+#### 테스트 파일 (3개 생성)
+
+| # | 파일 | 테스트 수 | 결과 |
+|---|------|----------|------|
+| 1 | `application/payment/PaymentCallbackTest.java` | 4 | PASS (U4-1~U4-4: SUCCESS/FAILED/PENDING/Unknown TX) |
+| 2 | `application/payment/PaymentRecoveryServiceTest.java` | 2 | PASS (U4-5~U4-6: Polling SUCCESS/threshold 미달) |
+| 3 | `domain/payment/CallbackInboxTest.java` | 3 | PASS (U4-7 + PROCESSED/FAILED 상태 전이) |
+| 4 | `fake/FakeCallbackInboxRepository.java` (생성) | - | ConcurrentHashMap + Reflection 기반 Fake |
+
+**총 9개 Unit 테스트 PASS**
+
+#### 핵심 설계 결정
+
+| 결정 | 근거 |
+|------|------|
+| CallbackInbox extends BaseEntity | 기존 프로젝트 패턴 준수 (createdAt/updatedAt/deletedAt 자동 관리) |
+| 조건부 UPDATE (WHERE status IN PENDING, UNKNOWN) | 콜백+배치 동시 처리 시 1건만 성공 → 멱등성 보장 |
+| Polling Hybrid = @Scheduled 10초 주기 | PaymentFacade의 TaskScheduler 대신 단순한 폴링 방식, PENDING은 10초 경과 후만 폴링 |
+| PENDING 콜백 무시 (06 §14.4) | PG에서 PENDING 콜백은 상태 변경이 아닌 중간 알림, 처리 불필요 |
+| 콜백 Controller = 기존 PaymentV1Controller 확장 | 별도 Controller 불필요, /api/v1/payments/callback 엔드포인트로 자연스러운 확장 |
+| 재고 복원 = Redis INCR + DB increaseStock | 이중 관리 원칙 유지 (Phase 3과 동일) |
+
+#### 07 명세 대비 완료 현황
+
+| 명세 항목 | 상태 |
+|----------|------|
+| 20: Callback Inbox DLQ 테이블 + 엔티티 + Repository | 완료 |
+| 21: 콜백 수신 API (POST /callback) | 완료 |
+| 22: 조건부 UPDATE 기반 상태 전이 | 완료 (FakePaymentRepository에서 검증, 실 DB는 Phase 7) |
+| 23: 결제 실패 시 재고 복원 + 쿠폰 복원 | 완료 |
+| 24: Polling Hybrid | 완료 (@Scheduled 10초 주기) |
+| U4-1~U4-4 (PaymentCallbackTest) | 완료 |
+| U4-5~U4-6 (PaymentRecoveryServiceTest) | 완료 |
+| U4-7 (CallbackInboxTest) | 완료 |
+| D4-1~D4-3 (Idempotency) | Phase 7 종합 테스트에서 검증 예정 |
+| C4-1~C4-2 (Concurrency) | Phase 7 종합 테스트에서 검증 예정 |
+| I4-1~I4-2 (Integration) | Phase 7 종합 테스트에서 Testcontainers와 함께 검증 예정 |
+
+### Phase 5: Outbox + 복구 + 대사 — 완료
+
+**구현일**: 2026-03-20
+
+#### 생성된 파일 — commerce-api (12개)
+
+| # | 파일 | 설명 |
+|---|------|------|
+| 1 | `domain/payment/PaymentOutbox.java` | Outbox 엔티티 (PENDING→PROCESSED/FAILED) |
+| 2 | `domain/payment/PaymentOutboxStatus.java` | Outbox 상태 enum |
+| 3 | `domain/payment/PaymentOutboxRepository.java` | Outbox Repository 인터페이스 |
+| 4 | `infrastructure/payment/PaymentOutboxJpaRepository.java` | JPA Repository |
+| 5 | `infrastructure/payment/PaymentOutboxRepositoryImpl.java` | Repository 구현체 |
+| 6 | `domain/payment/ReconciliationMismatch.java` | 대사 불일치 기록 엔티티 |
+| 7 | `domain/payment/ReconciliationMismatchRepository.java` | 불일치 Repository 인터페이스 |
+| 8 | `infrastructure/payment/ReconciliationMismatchJpaRepository.java` | JPA Repository |
+| 9 | `infrastructure/payment/ReconciliationMismatchRepositoryImpl.java` | Repository 구현체 |
+| 10 | `infrastructure/payment/PaymentWalWriter.java` | Local WAL — PG 응답 로컬 파일 기록/읽기/삭제 |
+| 11 | `infrastructure/scheduler/OutboxPollerScheduler.java` | Outbox 폴러 (5초 주기) — PG 호출 누락 재시도 |
+| 12 | `infrastructure/scheduler/WalRecoveryScheduler.java` | WAL Recovery (10초 주기) — 파일→DB 반영 |
+| 13 | `infrastructure/scheduler/CallbackDlqScheduler.java` | Callback DLQ 재처리 (30초 주기) |
+
+#### 생성된 파일 — commerce-batch (8개)
+
+| # | 파일 | 설명 |
+|---|------|------|
+| 1 | `batch/job/paymentrecovery/PaymentRecoveryJobConfig.java` | 결제 복구 배치 Job 설정 |
+| 2 | `batch/job/paymentrecovery/step/PaymentRecoveryTasklet.java` | REQUESTED/PENDING/UNKNOWN 복구 (네이티브 SQL) |
+| 3 | `batch/job/reconciliation/PgPaymentReconciliationJobConfig.java` | [R1] PG↔Payment 대사 Job |
+| 4 | `batch/job/reconciliation/step/PgPaymentReconciliationTasklet.java` | PG API 대조 (PG 연동은 Phase 6 이후) |
+| 5 | `batch/job/reconciliation/PaymentOrderReconciliationJobConfig.java` | [R2] Payment↔Order 대사 Job |
+| 6 | `batch/job/reconciliation/step/PaymentOrderReconciliationTasklet.java` | JOIN 쿼리 불일치 감지 + 자동 보정 |
+| 7 | `batch/job/reconciliation/PaymentCouponReconciliationJobConfig.java` | [R3] Payment↔Coupon 대사 Job |
+| 8 | `batch/job/reconciliation/step/PaymentCouponReconciliationTasklet.java` | 쿠폰 복원 누락 감지 + 자동 복원 |
+
+#### 수정된 파일 (1개)
+
+| # | 파일 | 변경 사항 |
+|---|------|----------|
+| 1 | `application/payment/PaymentFacade.java` | PaymentOutboxRepository 의존성 추가, TX-1에 Outbox(PENDING) 저장 |
+| 2 | `application/payment/PaymentRecoveryService.java` | manualConfirm() 메서드 추가 |
+| 3 | `interfaces/api/payment/PaymentV1Controller.java` | POST /{paymentId}/confirm 수동 복구 엔드포인트 추가 |
+
+#### 테스트 파일 (4개 생성)
+
+| # | 파일 | 테스트 수 | 결과 |
+|---|------|----------|------|
+| 1 | `infrastructure/scheduler/OutboxPollerTest.java` | 3 | PASS (U5-1~U5-3: PG호출/이미해결/retry초과) |
+| 2 | `infrastructure/payment/PaymentWalWriterTest.java` | 3 | PASS (U5-7: 기록/읽기/삭제 + 추가 2건) |
+| 3 | `infrastructure/scheduler/CallbackDlqSchedulerTest.java` | 2 | PASS (U5-8 + 최근 건 무시) |
+| 4 | `application/payment/ManualRecoveryTest.java` | 2 | PASS (U5-9 + 최종 상태 무시) |
+| 5 | `fake/FakePaymentOutboxRepository.java` (생성) | - | Outbox Fake |
+| 6 | `fake/FakeReconciliationMismatchRepository.java` (생성) | - | 대사 불일치 Fake |
+
+**총 10개 Unit 테스트 PASS** (U5-4~U5-6 배치 Tasklet은 Integration 범위, Phase 7에서 검증)
+
+#### 핵심 설계 결정
+
+| 결정 | 근거 |
+|------|------|
+| Outbox 폴러 5초 주기 | 배치(1분)보다 빠른 1차 복구, 서버 부하 미미 (PENDING 건만 조회) |
+| TX-1에서 Payment+Outbox 동시 저장 | "PG를 호출해야 한다"는 의도를 명시적으로 보존 |
+| WAL = 로컬 파일 시스템 | DB 독립적 저장소, DB 장애 시에도 PG 응답 보존 |
+| CallbackDlqScheduler 30초 threshold | 정상 콜백 처리(< 1초)와 구분되는 충분한 여유 |
+| 배치 Tasklet = 네이티브 SQL | commerce-batch가 commerce-api 도메인에 의존하지 않음 |
+| R3 쿠폰 대사 자동 복원 | 복원 누락은 명확한 버그 → 자동 보정이 안전 |
+| R1 PG 대사 = Phase 6 이후 완성 | PG API 연동(Feign)이 Phase 6에서 구현되므로 |
+
+#### 07 명세 대비 완료 현황
+
+| 명세 항목 | 상태 |
+|----------|------|
+| 24: PaymentOutbox 엔티티 + TX-1 저장 | 완료 |
+| 25: Outbox 폴러 스케줄러 (5초 주기) | 완료 |
+| 26: 배치 복구 (commerce-batch) | 완료 (네이티브 SQL Tasklet) |
+| 27: 수동 복구 API | 완료 (POST /{paymentId}/confirm) |
+| 28: Local WAL | 완료 (파일 기반 WAL + Recovery 스케줄러) |
+| 29: Callback DLQ 재처리 스케줄러 | 완료 |
+| 30: [R1] PG↔Payment 대사 | 완료 (인프라 준비, PG API는 Phase 6 이후) |
+| 31: [R2] Payment↔Order 대사 | 완료 (JOIN 쿼리 + 자동 보정) |
+| 32: [R3] Payment↔Coupon 대사 | 완료 (자동 복원) |
+| U5-1~U5-3 (OutboxPollerTest) | 완료 |
+| U5-7 (PaymentWalWriterTest) | 완료 |
+| U5-8 (CallbackDlqSchedulerTest) | 완료 |
+| U5-9 (ManualRecoveryTest) | 완료 |
+| U5-4~U5-6 (PaymentRecoveryTaskletTest) | Phase 7 종합 테스트에서 검증 예정 |
+| I5-1~I5-2 (Integration) | Phase 7 종합 테스트에서 검증 예정 |
+| R5-1~R5-4 (Recovery/Reconciliation) | Phase 7 종합 테스트에서 검증 예정 |
+
+### Phase 6: Multi-PG (Toss Sandbox) — 완료
+
+**구현일**: 2026-03-20
+
+#### 생성된 파일 (3개)
+
+| # | 파일 | 설명 |
+|---|------|------|
+| 1 | `infrastructure/pg/toss/TossFeignClient.java` | Toss Sandbox Feign interface (POST /v1/payments/confirm, GET /v1/payments/{paymentKey}) |
+| 2 | `infrastructure/pg/toss/TossSandboxPgConfig.java` | Toss 전용 Timeout 설정 (connect 500ms, read 2000ms) |
+| 3 | `infrastructure/pg/toss/TossSandboxPgClient.java` | Toss PG 구현체 (@CircuitBreaker("pgToss-request"), 동기 결제) |
+
+#### 수정된 파일 (5개)
+
+| # | 파일 | 변경 사항 |
+|---|------|----------|
+| 1 | `infrastructure/pg/PgPaymentResponse.java` | pgProvider 필드 추가 (PG 제공자 추적) |
+| 2 | `infrastructure/pg/PgRouter.java` | 타임아웃 인식 Fallback (SocketTimeoutException → 전환 안 함), 응답에 pgProvider 주입 |
+| 3 | `infrastructure/pg/simulator/SimulatorPgClient.java` | @Order(1) 추가 (Primary PG 순서 보장) |
+| 4 | `application/payment/PaymentFacade.java` | 동기 PG 응답 처리 (SUCCESS→PAID 즉시, FAILED→FAILED 즉시), pgProvider 추적 |
+| 5 | `infrastructure/scheduler/OutboxPollerScheduler.java` | pgResponse.pgProvider() 사용으로 변경 |
+
+#### 설정 변경 (1개)
+
+| # | 파일 | 변경 사항 |
+|---|------|----------|
+| 1 | `application.yml` | pg.toss.url/connect-timeout/read-timeout 추가 |
+
+#### 테스트 파일 (2개 생성 + 1개 수정)
+
+| # | 파일 | 테스트 수 | 결과 |
+|---|------|----------|------|
+| 1 | `infrastructure/pg/toss/TossSandboxPgClientTest.java` (생성) | 2 | PASS (U6-1: SUCCESS→PAID 즉시, U6-2: FAILED→FAILED 즉시) |
+| 2 | `infrastructure/pg/PgRouterTest.java` (수정 — MultiPgFallback 추가) | 3 | PASS (U6-3: Fallback 전환, U6-4: 타임아웃 전환 안 함, pgProvider 추적) |
+| 3 | `fake/FakePgClient.java` (수정) | - | setResponseStatus(), setThrowTimeout() 추가 |
+
+**총 5개 Unit 테스트 PASS** (기존 테스트 전체 통과 확인)
+
+#### 핵심 설계 결정
+
+| 결정 | 근거 |
+|------|------|
+| PgPaymentResponse에 pgProvider 추가 | PG Fallback 시 어떤 PG가 처리했는지 정확히 추적 (기존 getPrimaryClient() 대체) |
+| 타임아웃 → Fallback 전환 안 함 | PG가 요청을 수신했을 수 있음 → Toss로 전환하면 중복 결제 위험 (05 §8.3) |
+| ConnectException/500/CB Open → Fallback 전환 | PG에 도달하지 않은 경우는 안전하게 다른 PG로 전환 가능 |
+| Toss 동기 응답 → PaymentFacade에서 즉시 처리 | SUCCESS → PAID + Order.pay() 즉시, 콜백 대기 불필요 |
+| @Order(1)/@Order(2) 로 PG 우선순위 보장 | List<PgClient> 주입 순서를 Spring @Order로 제어 |
+| Toss readTimeout 2000ms (Simulator보다 여유) | 동기 결제는 내부적으로 PG 승인까지 진행하므로 응답 시간이 더 김 |
+
+#### 07 명세 대비 완료 현황
+
+| 명세 항목 | 상태 |
+|----------|------|
+| 33: TossSandboxPgClient 구현 (동기 결제) | 완료 |
+| 34: Toss 전용 CB/Retry 설정 | 완료 (pgToss-request CB 이미 application.yml에 존재) |
+| 35: PgRouter에 Toss 등록 + Fallback 전환 로직 검증 | 완료 (타임아웃 인식 Fallback) |
+| U6-1 (Toss SUCCESS → PAID 즉시) | 완료 |
+| U6-2 (Toss FAILED → FAILED 즉시) | 완료 |
+| U6-3 (Simulator 실패 → Toss Fallback) | 완료 |
+| U6-4 (타임아웃 → Toss 전환 안 함) | 완료 |
+| F6-1~F6-3 (Fault Injection — WireMock) | Phase 7 종합 테스트에서 검증 예정 |
+| I6-1 (Toss Integration) | Phase 7 종합 테스트에서 검증 예정 |
