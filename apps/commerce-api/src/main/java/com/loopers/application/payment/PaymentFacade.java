@@ -5,11 +5,14 @@ import com.loopers.domain.order.OrderService;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.payment.PaymentModel;
 import com.loopers.domain.payment.PaymentRepository;
+import com.loopers.infrastructure.payment.PgPaymentStatusResponse;
+import com.loopers.infrastructure.payment.PgSimulatorClient;
 import com.loopers.infrastructure.payment.PgSimulatorRequest;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +23,7 @@ import java.math.RoundingMode;
  * 결제 유스케이스 조율 (06 §10.2).
  * (1) DB 트랜잭션으로 PENDING 저장 (2) 트랜잭션 종료 후 PG 호출.
  * (3) Phase 3: 콜백 처리 handleCallback.
+ * (4) Phase 8: PG 조회 API로 PENDING 동기화 {@link #recoverPendingFromPgSimulator(Long)}.
  */
 @Service
 public class PaymentFacade {
@@ -28,6 +32,8 @@ public class PaymentFacade {
 
     private final PaymentPersistenceService persistenceService;
     private final PgPaymentRequester pgPaymentRequester;
+    private final PgSimulatorClient pgSimulatorClient;
+    private final ObjectProvider<PaymentFacade> paymentFacadeSelf;
     private final String callbackUrl;
     private final String callbackSecret;
     private final OrderService orderService;
@@ -40,9 +46,13 @@ public class PaymentFacade {
                          OrderService orderService,
                          OrderRepository orderRepository,
                          PaymentRepository paymentRepository,
-                         PgPaymentRequester pgPaymentRequester) {
+                         PgPaymentRequester pgPaymentRequester,
+                         PgSimulatorClient pgSimulatorClient,
+                         ObjectProvider<PaymentFacade> paymentFacadeSelf) {
         this.persistenceService = persistenceService;
         this.pgPaymentRequester = pgPaymentRequester;
+        this.pgSimulatorClient = pgSimulatorClient;
+        this.paymentFacadeSelf = paymentFacadeSelf;
         this.callbackUrl = callbackUrl;
         this.callbackSecret = callbackSecret != null ? callbackSecret : "";
         this.orderService = orderService;
@@ -118,6 +128,47 @@ public class PaymentFacade {
         } else {
             payment.markFailed();
             paymentRepository.save(payment);
+        }
+    }
+
+    /**
+     * 콜백 미수신 시 PG 주문별 조회로 PENDING 건을 동기화한다 (06 §11.3~11.4, Phase 8).
+     * {@link #handleCallback(PaymentCallbackParam)}는 프록시를 통해 호출되어 트랜잭션이 적용된다.
+     */
+    public void recoverPendingFromPgSimulator(Long orderId) {
+        if (orderId == null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "orderId는 필수입니다.");
+        }
+        boolean hasPending = paymentRepository.findTopByOrderIdOrderByCreatedAtDesc(orderId)
+                .filter(PaymentModel::isPending)
+                .isPresent();
+        if (!hasPending) {
+            return;
+        }
+        PgPaymentStatusResponse pg;
+        try {
+            pg = pgSimulatorClient.getPaymentsByOrderId(orderId);
+        } catch (Exception e) {
+            log.warn("PG 주문별 조회 실패 orderId={}", orderId, e);
+            return;
+        }
+        if (pg == null) {
+            log.warn("PG 주문별 조회 응답이 비어 있음 orderId={}", orderId);
+            return;
+        }
+        Long amountForCallback = pg.amount();
+        if (amountForCallback == null) {
+            amountForCallback = orderRepository.findById(orderId)
+                    .map(o -> o.getFinalAmount().setScale(0, RoundingMode.HALF_UP).longValue())
+                    .orElse(null);
+        }
+        PaymentFacade facade = paymentFacadeSelf.getObject();
+        if (Boolean.TRUE.equals(pg.success())) {
+            facade.handleCallback(new PaymentCallbackParam(
+                    orderId, true, pg.paymentId(), pg.failureReason(), amountForCallback));
+        } else if (Boolean.FALSE.equals(pg.success())) {
+            facade.handleCallback(new PaymentCallbackParam(
+                    orderId, false, pg.paymentId(), pg.failureReason(), pg.amount()));
         }
     }
 }

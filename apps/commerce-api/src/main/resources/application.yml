@@ -53,6 +53,10 @@ resilience4j:
       pgRetry:
         max-attempts: 3
         wait-duration: 250ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        enable-randomized-wait: true
+        randomized-wait-factor: 0.5
         ignore-exceptions:
           - feign.FeignException$BadRequest
           - feign.FeignException$Unauthorized
