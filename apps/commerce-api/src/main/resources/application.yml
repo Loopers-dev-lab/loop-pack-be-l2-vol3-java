@@ -29,6 +29,50 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+# Phase 1: PG 연동 Timeout
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 500   # ms — 연결 실패 시 빠른 포기(Fail-fast)
+        readTimeout: 2000    # ms — PG P99 ≈ 500ms 포함, 타임아웃 시 PENDING + 폴링 복구
+
+# Resilience4j (06 Phase 4~5). CB가 Retry 바깥(먼저)에 오도록 aspect order 고정 (Spring Boot 3 기본값 역전 보정).
+resilience4j:
+  circuitbreaker:
+    circuit-breaker-aspect-order: 1
+    instances:
+      pgCircuit:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 1s
+        slow-call-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+  retry:
+    retry-aspect-order: 2
+    instances:
+      pgRetry:
+        max-attempts: 3
+        wait-duration: 250ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        enable-randomized-wait: true
+        randomized-wait-factor: 0.5
+        ignore-exceptions:
+          - feign.FeignException$BadRequest
+          - feign.FeignException$Unauthorized
+          - feign.FeignException$Forbidden
+          - feign.FeignException$NotFound
+          - feign.FeignException$Conflict
+
+# PG-Simulator (Phase 2). callback-secret 설정 시 콜백 요청에 X-PG-Callback-Secret 헤더 필요 (06-payment-change-issues §4.1).
+pg:
+  simulator:
+    url: http://localhost:8090
+    callback-url: http://localhost:8080/api/v1/payments/callback
+    callback-secret: ""
+
 ---
 spring:
   config:

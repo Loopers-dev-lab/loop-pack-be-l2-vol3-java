@@ -1,0 +1,28 @@
+### 결제 요청 (Phase 2: PENDING 저장 후 PG 호출)
+POST {{commerce-api}}/api/v1/payments
+Content-Type: application/json
+X-Loopers-LoginId: your-login-id
+
+{
+  "orderId": 1,
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9814-1451"
+}
+
+### Expected: 200 OK, paymentId/orderId/status(PENDING)
+### PG-Simulator 미기동 시: Connection refused 등 Feign 예외
+
+### 결제 콜백 (PG-Simulator가 호출, Phase 3)
+POST {{commerce-api}}/api/v1/payments/callback
+Content-Type: application/json
+
+{
+  "paymentId": "pg-tx-001",
+  "orderId": 1,
+  "success": true,
+  "failureReason": null
+}
+
+### 실패 콜백 예시
+# POST {{commerce-api}}/api/v1/payments/callback
+# {"paymentId": "pg-tx-002", "orderId": 1, "success": false, "failureReason": "LIMIT_EXCEEDED"}

@@ -12,6 +12,9 @@ public interface OrderRepository {
 
     Optional<OrderModel> findById(Long orderId);
 
+    /** 비관적 락. 동시 PENDING 중복 방지 등에 사용. */
+    Optional<OrderModel> findByIdForUpdate(Long orderId);
+
     OrderModel save(OrderModel order);
 
     List<OrderModel> findByUserIdAndOrderedAtBetween(

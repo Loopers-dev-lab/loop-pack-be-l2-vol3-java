@@ -1,9 +1,11 @@
 package com.loopers.infrastructure.order;
 
 import com.loopers.domain.order.OrderModel;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -14,6 +16,10 @@ public interface OrderJpaRepository extends JpaRepository<OrderModel, Long> {
 
     @Query("SELECT o FROM OrderModel o LEFT JOIN FETCH o.orderItems WHERE o.id = :id")
     Optional<OrderModel> findByIdWithOrderItems(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT o FROM OrderModel o LEFT JOIN FETCH o.orderItems WHERE o.id = :id")
+    Optional<OrderModel> findByIdForUpdate(@Param("id") Long id);
 
     /** orderedAt >= start and orderedAt < end, orderedAt DESC */
     Page<OrderModel> findByUserIdAndOrderedAtGreaterThanEqualAndOrderedAtLessThanOrderByOrderedAtDesc(

@@ -1,0 +1,5 @@
+# Gradle test 태스크(spring.profiles.active=test) 전용. @Scheduled 폴링이 TC와 경쟁하지 않도록 비활성화 (06 Phase 8).
+payment:
+  recovery:
+    scheduler:
+      enabled: false

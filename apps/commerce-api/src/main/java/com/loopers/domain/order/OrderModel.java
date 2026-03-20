@@ -146,6 +146,16 @@ public class OrderModel extends BaseEntity {
     }
 
     /**
+     * 결제 완료로 전이한다. ORDERED 상태일 때만 호출 (06 §10.1).
+     */
+    public void markPaid() {
+        if (status != OrderStatus.ORDERED) {
+            throw new IllegalStateException("결제 완료할 수 없는 상태입니다: " + status);
+        }
+        this.status = OrderStatus.PAID;
+    }
+
+    /**
      * 취소 가능 여부. ORDERED, PAID만 취소 가능.
      */
     public boolean canCancel() {

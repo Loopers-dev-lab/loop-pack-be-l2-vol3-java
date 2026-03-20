@@ -325,6 +325,14 @@ Example: signUp_withDuplicateId_shouldFail()
    - Add Javadoc for public APIs and complex logic
    - Follow Java naming conventions (PascalCase for classes, camelCase for methods/variables)
 
+5. **External Integration & Resilience** (결제, PG, 서드파티 API 연동 시):
+   - 외부 호출은 `@Transactional` 메서드 밖에서 수행 (DB 커넥션 점유 방지)
+   - Connection/Read Timeout을 명시적으로 설정 (타임아웃 부재 시 스레드·커넥션 고갈)
+   - Circuit Breaker로 장애 확산 방지, Fallback으로 내부 시스템 정상 응답 유지
+   - 비동기 결제: 콜백 + 결제 상태 조회 API로 복구 가능한 구조 설계
+   - 멱등성 보장 (orderId/Idempotency-Key 기반 중복 방지)
+   - 설계 검증: `skills/analize_external_integration/SKILL.md` 적용
+
 ### 🛡️ Priority Checklist (Every Implementation)
 
 Before committing code, verify:
@@ -583,6 +591,37 @@ Based on `.codeguide/loopers-1-week.md` and project requirements, follow these c
 }
 ```
 
+### 💳 Payment (PG 결제 연동)
+
+**Business Rules**:
+
+- 주문에 대한 결제는 ORDERED 상태에서만 가능하다.
+- PG-Simulator는 **비동기 결제** (요청 접수 60%, 처리 1~5초, 콜백으로 결과 수신).
+- 재고 차감은 **결제 완료(PAID) 시점**에 수행한다 (01-requirements §3.1).
+
+**Implementation Checklist**:
+
+- [ ] PG 연동: RestTemplate 또는 FeignClient, Connection/Read Timeout 설정 (예: 500ms / 2s)
+- [ ] 외부 호출은 `@Transactional` 밖에서 수행 (트랜잭션 경계 분리)
+- [ ] Circuit Breaker + Retry + Fallback 적용 (Resilience4j)
+- [ ] 콜백 + PG 결제 조회 API로 상태 복구 (콜백 미수신 시 폴링/수동 API)
+- [ ] orderId 기반 멱등성 (중복 결제 요청 차단, 콜백 중복 처리 방지)
+- [ ] Fallback: PG 장애 시에도 내부 시스템 정상 응답 (PENDING 저장, "잠시 후 다시 시도" 안내)
+
+**Endpoint**: `POST /api/v1/payments`
+
+**Request**:
+
+```json
+{
+  "orderId": 1351039135,
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9814-1451"
+}
+```
+
+**참고**: 상세 구현 계획은 `.docs/design/06-payment-implementation-plan.md`를 따른다. 외부 연동 설계 검증 시 `skills/analize_external_integration/SKILL.md`를 적용한다.
+
 ### Domain & Architecture Implementation Checklist
 
 Use this checklist to verify design and implementation alignment. **구현 시 유의**: (1) 고객 식별은 API에서 X-Loopers-LoginId(문자열); Facade에서 User.id(Long)로 변환 후 도메인/Service에 전달(01 §4.6, 04 §5). (2) Brand/Product soft-delete는 BaseEntity.deletedAt 사용, isDeleted() = getDeletedAt() != null(03 §0, 04 §5). (3) validateProducts/restoreStock 등 Service 파라미터는 도메인·application 전용 타입만 사용, interfaces DTO 재사용 금지(03 §0). (4) optionId는 option 테이블 없음—존재 검증 제외, 값 보존만(01 §4.6). (5) 도메인 구현 순서: Brand → Product(이후 Brand 연쇄 삭제 연결) → Like → Order. 상세는 03-class-diagram, 04-erd 참고.
@@ -606,6 +645,7 @@ Use this checklist to verify design and implementation alignment. **구현 시 �
 - [ ] Order creation **validates** stock; stock **decrement** happens at payment completion (01-requirements §3.1).
 - [ ] Design covers insufficient-stock exception flow.
 - [ ] Unit tests cover both success and exception order flows.
+- [ ] Payment: ORDERED → PAID 전이, `OrderService.completePayment`, 콜백 멱등성 (06-payment-implementation-plan 참고).
 
 #### Domain Service
 
@@ -771,7 +811,8 @@ Each feature MUST have three test levels:
 2. Read `TDD.md` if implementing tests
 3. Read `.codeguide/{relevant-guide}.md` for feature-specific requirements
 4. Study existing code patterns in the same layer/domain
-5. Propose your implementation plan and wait for approval
+5. **결제·외부 연동** 구현 시: `.docs/design/06-payment-implementation-plan.md` 및 `skills/analize_external_integration/SKILL.md` 참고
+6. Propose your implementation plan and wait for approval
 
 ### During Implementation
 
@@ -813,6 +854,12 @@ Each feature MUST have three test levels:
 - `build.gradle.kts`: Common dependencies, test configuration
 - `settings.gradle.kts`: Module definitions
 - `apps/commerce-api/src/main/resources/application.yml`: Runtime configuration
+
+### Design & Implementation Plans
+
+- `.docs/design/01-requirements.md`: 요구사항
+- `.docs/design/06-payment-implementation-plan.md`: 결제(PG) 연동 및 Resilience 설계
+- `.docs/design/08-resilience-workflow-and-decision-perspective.md`: Resilience·워크플로우·의사결정 멘토링 관점(k6, 시퀀스 다이어그램, YAGNI)
 
 ### Development Tools
 

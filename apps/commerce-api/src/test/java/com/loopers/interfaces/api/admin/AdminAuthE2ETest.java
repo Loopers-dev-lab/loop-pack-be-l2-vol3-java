@@ -22,11 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 /**
  * 어드민 API 인증 E2E.
- *
- * <ul>
- *   <li>헤더 없음 / LDAP 단일 헤더만 / 잘못된 서명 → 401</li>
- *   <li>유효한 관리자 서명(헤더 커넥터 시나리오) → 통과</li>
- * </ul>
+ * - 헤더 없음 / LDAP 단일 헤더만 / 잘못된 서명 → 401
+ * - 유효한 관리자 서명(헤더 커넥터 시나리오) → 통과
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(MySqlTestContainersConfig.class)

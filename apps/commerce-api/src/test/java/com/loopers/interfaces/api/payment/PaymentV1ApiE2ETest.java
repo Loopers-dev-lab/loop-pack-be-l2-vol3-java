@@ -1,0 +1,368 @@
+package com.loopers.interfaces.api.payment;
+
+import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.product.ProductModel;
+import com.loopers.domain.product.ProductService;
+import com.loopers.infrastructure.payment.PgSimulatorClient;
+import com.loopers.infrastructure.payment.PgSimulatorRequest;
+import com.loopers.infrastructure.payment.PgSimulatorResponse;
+import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.order.OrderV1Dto;
+import com.loopers.interfaces.api.user.UserV1Dto;
+import com.loopers.testcontainers.MySqlTestContainersConfig;
+import com.loopers.utils.DatabaseCleanUp;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.context.annotation.Import;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.*;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
+
+import static com.loopers.interfaces.api.ApiResponse.Metadata.Result;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.when;
+
+/**
+ * 역할: {@code POST /api/v1/payments} 등 결제 HTTP 계약을 실제 포트 기동으로 검증한다.
+ * - PG는 MockBean으로 격리(응답·예외 시나리오 제어).
+ * - Feign readTimeout 실지연은 MockBean 한계가 있어 {@code PaymentFeignReadTimeoutWireMockIntegrationTest}로 보완.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(MySqlTestContainersConfig.class)
+class PaymentV1ApiE2ETest {
+
+    private static final String LOGIN_ID = "paye2euser";
+    private static final String ENDPOINT_PAYMENTS = "/api/v1/payments";
+    private static final String ENDPOINT_CALLBACK = "/api/v1/payments/callback";
+
+    @Autowired
+    private TestRestTemplate testRestTemplate;
+    @Autowired
+    private DatabaseCleanUp databaseCleanUp;
+    @Autowired
+    private BrandService brandService;
+    @Autowired
+    private ProductService productService;
+
+    @Autowired
+    private CircuitBreakerRegistry circuitBreakerRegistry;
+
+    @MockBean
+    private PgSimulatorClient pgSimulatorClient;
+
+    private Long productId;
+
+    @BeforeEach
+    void setUp() {
+        when(pgSimulatorClient.requestPayment(any(PgSimulatorRequest.class)))
+                .thenReturn(new PgSimulatorResponse("e2e-tx"));
+
+        UserV1Dto.SignUpRequest signUp = new UserV1Dto.SignUpRequest(
+                LOGIN_ID, "SecurePass1!", "paye2e@example.com", "1990-01-15", "MALE");
+        testRestTemplate.exchange("/api/v1/users", HttpMethod.POST, new HttpEntity<>(signUp),
+                new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {
+                });
+        var brand = brandService.registerBrand("PayE2EBrand");
+        var product = productService.registerProduct(brand.getId(), "PayE2EItem", new BigDecimal("12000"), 15);
+        productId = product.getId();
+    }
+
+    @AfterEach
+    void tearDown() {
+        circuitBreakerRegistry.circuitBreaker("pgCircuit").transitionToClosedState();
+        databaseCleanUp.truncateAllTables();
+    }
+
+    private HttpHeaders authHeaders() {
+        HttpHeaders h = new HttpHeaders();
+        h.set("X-Loopers-LoginId", LOGIN_ID);
+        h.setContentType(MediaType.APPLICATION_JSON);
+        return h;
+    }
+
+    private Long createOrderedOrderViaApi() {
+        OrderV1Dto.CreateOrderRequest req = new OrderV1Dto.CreateOrderRequest(
+                List.of(new OrderV1Dto.OrderItemRequest(productId, 1, null)), null);
+        ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> res = testRestTemplate.exchange(
+                "/api/v1/orders", HttpMethod.POST, new HttpEntity<>(req, authHeaders()),
+                new ParameterizedTypeReference<>() {
+                });
+        return res.getBody().data().id();
+    }
+
+    @Nested
+    @DisplayName("POST /api/v1/payments")
+    class RequestPayment {
+
+        @Test
+        void requestPayment_withValidRequest_shouldReturn200WithPENDING() {
+            Long orderId = createOrderedOrderViaApi();
+            PaymentV1Dto.PaymentRequest body = new PaymentV1Dto.PaymentRequest(orderId, "SAMSUNG", "1111-2222");
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(body, authHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.SUCCESS),
+                    () -> assertThat(response.getBody().data().orderId()).isEqualTo(orderId),
+                    () -> assertThat(response.getBody().data().status()).isEqualTo("PENDING")
+            );
+        }
+
+        @Test
+        void requestPayment_withoutLogin_shouldReturn401() {
+            Long orderId = createOrderedOrderViaApi();
+            PaymentV1Dto.PaymentRequest body = new PaymentV1Dto.PaymentRequest(orderId, "SAMSUNG", "1");
+            HttpHeaders h = new HttpHeaders();
+            h.setContentType(MediaType.APPLICATION_JSON);
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(body, h),
+                    new ParameterizedTypeReference<>() {
+                    });
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void requestPayment_whenDuplicatePending_shouldReturn409() {
+            Long orderId = createOrderedOrderViaApi();
+            PaymentV1Dto.PaymentRequest body = new PaymentV1Dto.PaymentRequest(orderId, "SAMSUNG", "1");
+            testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(body, authHeaders()),
+                    new ParameterizedTypeReference<ApiResponse<PaymentV1Dto.PaymentResponse>>() {
+                    });
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> second = testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(body, authHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+
+            assertThat(second.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        }
+
+        @Test
+        void requestPayment_whenPgThrows_shouldStillReturn200WithPENDING() {
+            doThrow(new RuntimeException("pg down"))
+                    .when(pgSimulatorClient).requestPayment(any(PgSimulatorRequest.class));
+            Long orderId = createOrderedOrderViaApi();
+            PaymentV1Dto.PaymentRequest body = new PaymentV1Dto.PaymentRequest(orderId, "SAMSUNG", "1");
+
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(body, authHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().status()).isEqualTo("PENDING")
+            );
+        }
+
+        @Test
+        void requestPayment_withNonExistentOrder_shouldReturn404() {
+            // given
+            PaymentV1Dto.PaymentRequest body = new PaymentV1Dto.PaymentRequest(9_999_999L, "SAMSUNG", "1");
+            // when
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(body, authHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+            // then
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        void requestPayment_whenOrderNotORDERED_shouldReturn400() {
+            // given
+            Long orderId = createOrderedOrderViaApi();
+            testRestTemplate.exchange(
+                    "/api/v1/orders/" + orderId + "/cancel", HttpMethod.POST, new HttpEntity<>(authHeaders()),
+                    new ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {
+                    });
+            PaymentV1Dto.PaymentRequest body = new PaymentV1Dto.PaymentRequest(orderId, "SAMSUNG", "1");
+            // when
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(body, authHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+            // then
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        void requestPayment_whenOrderAlreadyPAID_shouldReturn400() {
+            // given — 결제·콜백으로 PAID
+            Long orderId = createOrderedOrderViaApi();
+            PaymentV1Dto.PaymentRequest payReq = new PaymentV1Dto.PaymentRequest(orderId, "SAMSUNG", "1");
+            testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(payReq, authHeaders()),
+                    new ParameterizedTypeReference<ApiResponse<PaymentV1Dto.PaymentResponse>>() {
+                    });
+            ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> orderRes = testRestTemplate.exchange(
+                    "/api/v1/orders/" + orderId, HttpMethod.GET, new HttpEntity<>(authHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+            long amountWon = orderRes.getBody().data().finalAmount()
+                    .setScale(0, RoundingMode.HALF_UP).longValue();
+            String callbackJson = """
+                    {"paymentId":"pg-paid","orderId":%d,"success":true,"amount":%d}
+                    """.formatted(orderId, amountWon);
+            HttpHeaders cbHeaders = new HttpHeaders();
+            cbHeaders.setContentType(MediaType.APPLICATION_JSON);
+            testRestTemplate.exchange(
+                    ENDPOINT_CALLBACK, HttpMethod.POST, new HttpEntity<>(callbackJson, cbHeaders), Void.class);
+
+            PaymentV1Dto.PaymentRequest again = new PaymentV1Dto.PaymentRequest(orderId, "SAMSUNG", "1");
+            // when
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(again, authHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+            // then — ORDERED가 아니므로 PENDING 저장 단계에서 BAD_REQUEST (06 §11.5)
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /api/v1/payments/callback")
+    class Callback {
+
+        @Test
+        void paymentCallback_whenSuccess_shouldMarkOrderPaid() {
+            Long orderId = createOrderedOrderViaApi();
+            PaymentV1Dto.PaymentRequest payReq = new PaymentV1Dto.PaymentRequest(orderId, "SAMSUNG", "1");
+            testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(payReq, authHeaders()),
+                    new ParameterizedTypeReference<ApiResponse<PaymentV1Dto.PaymentResponse>>() {
+                    });
+
+            ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> orderBefore = testRestTemplate.exchange(
+                    "/api/v1/orders/" + orderId, HttpMethod.GET, new HttpEntity<>(authHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+            long amountWon = orderBefore.getBody().data().finalAmount()
+                    .setScale(0, RoundingMode.HALF_UP).longValue();
+
+            String callbackJson = """
+                    {"paymentId":"pg-p1","orderId":%d,"success":true,"amount":%d}
+                    """.formatted(orderId, amountWon);
+            HttpHeaders cbHeaders = new HttpHeaders();
+            cbHeaders.setContentType(MediaType.APPLICATION_JSON);
+            ResponseEntity<Void> cbRes = testRestTemplate.exchange(
+                    ENDPOINT_CALLBACK, HttpMethod.POST, new HttpEntity<>(callbackJson, cbHeaders), Void.class);
+
+            assertThat(cbRes.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+            ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> orderAfter = testRestTemplate.exchange(
+                    "/api/v1/orders/" + orderId, HttpMethod.GET, new HttpEntity<>(authHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+            assertThat(orderAfter.getBody().data().status()).isEqualTo("PAID");
+        }
+
+        @Test
+        void paymentCallback_whenFailure_shouldKeepOrderORDERED() {
+            Long orderId = createOrderedOrderViaApi();
+            PaymentV1Dto.PaymentRequest payReq = new PaymentV1Dto.PaymentRequest(orderId, "SAMSUNG", "1");
+            testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(payReq, authHeaders()),
+                    new ParameterizedTypeReference<ApiResponse<PaymentV1Dto.PaymentResponse>>() {
+                    });
+
+            String callbackJson = """
+                    {"paymentId":"pg-p2","orderId":%d,"success":false,"failureReason":"LIMIT"}
+                    """.formatted(orderId);
+            HttpHeaders cbHeaders = new HttpHeaders();
+            cbHeaders.setContentType(MediaType.APPLICATION_JSON);
+            testRestTemplate.exchange(
+                    ENDPOINT_CALLBACK, HttpMethod.POST, new HttpEntity<>(callbackJson, cbHeaders), Void.class);
+
+            ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> orderAfter = testRestTemplate.exchange(
+                    "/api/v1/orders/" + orderId, HttpMethod.GET, new HttpEntity<>(authHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+            assertThat(orderAfter.getBody().data().status()).isEqualTo("ORDERED");
+        }
+
+        @Test
+        void paymentCallback_idempotent_whenAlreadyPaid_shouldReturn200WithoutDoubleDeduction() {
+            // given
+            Long orderId = createOrderedOrderViaApi();
+            PaymentV1Dto.PaymentRequest payReq = new PaymentV1Dto.PaymentRequest(orderId, "SAMSUNG", "1");
+            testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(payReq, authHeaders()),
+                    new ParameterizedTypeReference<ApiResponse<PaymentV1Dto.PaymentResponse>>() {
+                    });
+
+            ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> orderBefore = testRestTemplate.exchange(
+                    "/api/v1/orders/" + orderId, HttpMethod.GET, new HttpEntity<>(authHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+            long amountWon = orderBefore.getBody().data().finalAmount()
+                    .setScale(0, RoundingMode.HALF_UP).longValue();
+
+            String callbackJson = """
+                    {"paymentId":"pg-idem","orderId":%d,"success":true,"amount":%d}
+                    """.formatted(orderId, amountWon);
+            HttpHeaders cbHeaders = new HttpHeaders();
+            cbHeaders.setContentType(MediaType.APPLICATION_JSON);
+
+            int stockBeforePaid = productService.findById(productId).map(ProductModel::getStockQuantity).orElseThrow();
+
+            // when — 동일 성공 콜백 2회
+            ResponseEntity<Void> first = testRestTemplate.exchange(
+                    ENDPOINT_CALLBACK, HttpMethod.POST, new HttpEntity<>(callbackJson, cbHeaders), Void.class);
+            ResponseEntity<Void> second = testRestTemplate.exchange(
+                    ENDPOINT_CALLBACK, HttpMethod.POST, new HttpEntity<>(callbackJson, cbHeaders), Void.class);
+
+            // then
+            assertThat(first.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(second.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+            ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> orderAfter = testRestTemplate.exchange(
+                    "/api/v1/orders/" + orderId, HttpMethod.GET, new HttpEntity<>(authHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+            assertThat(orderAfter.getBody().data().status()).isEqualTo("PAID");
+
+            int stockAfter = productService.findById(productId).map(ProductModel::getStockQuantity).orElseThrow();
+            assertThat(stockAfter).isEqualTo(stockBeforePaid - 1);
+        }
+
+        @Test
+        void paymentCallback_whenBodyIsInvalidJson_shouldReturn400() {
+            Long orderId = createOrderedOrderViaApi();
+            PaymentV1Dto.PaymentRequest payReq = new PaymentV1Dto.PaymentRequest(orderId, "SAMSUNG", "1");
+            testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(payReq, authHeaders()),
+                    new ParameterizedTypeReference<ApiResponse<PaymentV1Dto.PaymentResponse>>() {
+                    });
+
+            HttpHeaders cbHeaders = new HttpHeaders();
+            cbHeaders.setContentType(MediaType.APPLICATION_JSON);
+            ResponseEntity<String> res = testRestTemplate.exchange(
+                    ENDPOINT_CALLBACK, HttpMethod.POST,
+                    new HttpEntity<>("{not-json", cbHeaders),
+                    String.class);
+            assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+    }
+}
