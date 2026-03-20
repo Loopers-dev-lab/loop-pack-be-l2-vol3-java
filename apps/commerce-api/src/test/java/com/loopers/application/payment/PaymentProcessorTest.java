@@ -47,37 +47,14 @@ class PaymentProcessorTest {
     @Nested
     class HandleSuccess {
 
-        @DisplayName("쿠폰이 적용된 주문이면, 주문 완료 후 쿠폰을 사용 처리한다.")
+        @DisplayName("주문을 결제 완료 상태로 변경한다.")
         @Test
-        void paysOrderAndUsesCoupon_whenCouponApplied() {
-            // arrange
-            Order order = mock(Order.class);
-            given(orderService.pay(1L)).willReturn(order);
-            given(order.hasAppliedCoupon()).willReturn(true);
-            given(order.getOwnedCouponId()).willReturn(10L);
-
+        void paysOrder() {
             // act
             paymentProcessor.handleSuccess(1L);
 
             // assert
             then(orderService).should().pay(1L);
-            then(ownedCouponService).should().use(10L);
-        }
-
-        @DisplayName("쿠폰이 적용되지 않은 주문이면, 주문 완료만 수행한다.")
-        @Test
-        void paysOrderOnly_whenNoCouponApplied() {
-            // arrange
-            Order order = mock(Order.class);
-            given(orderService.pay(1L)).willReturn(order);
-            given(order.hasAppliedCoupon()).willReturn(false);
-
-            // act
-            paymentProcessor.handleSuccess(1L);
-
-            // assert
-            then(orderService).should().pay(1L);
-            then(ownedCouponService).should(never()).use(1L);
         }
     }
 
@@ -85,21 +62,19 @@ class PaymentProcessorTest {
     @Nested
     class HandleFailure {
 
-        @DisplayName("주문을 실패 처리하고 재고를 복원한다.")
+        @DisplayName("쿠폰이 적용된 주문이면, 재고 복원 후 쿠폰도 복원한다.")
         @Test
-        void failsOrderAndRestoresStock() {
+        void restoresStockAndCoupon_whenCouponApplied() {
             // arrange
             OrderItem item1 = mock(OrderItem.class);
             given(item1.getProductId()).willReturn(1L);
             given(item1.getQuantity()).willReturn(3L);
 
-            OrderItem item2 = mock(OrderItem.class);
-            given(item2.getProductId()).willReturn(2L);
-            given(item2.getQuantity()).willReturn(5L);
-
             Order order = mock(Order.class);
             given(orderService.fail(1L)).willReturn(order);
-            given(order.getOrderItems()).willReturn(List.of(item1, item2));
+            given(order.getOrderItems()).willReturn(List.of(item1));
+            given(order.hasAppliedCoupon()).willReturn(true);
+            given(order.getOwnedCouponId()).willReturn(10L);
 
             // act
             paymentProcessor.handleFailure(1L);
@@ -107,7 +82,29 @@ class PaymentProcessorTest {
             // assert
             then(orderService).should().fail(1L);
             then(productService).should().restoreStock(1L, 3L);
-            then(productService).should().restoreStock(2L, 5L);
+            then(ownedCouponService).should().restore(10L);
+        }
+
+        @DisplayName("쿠폰이 적용되지 않은 주문이면, 재고만 복원한다.")
+        @Test
+        void restoresStockOnly_whenNoCouponApplied() {
+            // arrange
+            OrderItem item1 = mock(OrderItem.class);
+            given(item1.getProductId()).willReturn(1L);
+            given(item1.getQuantity()).willReturn(3L);
+
+            Order order = mock(Order.class);
+            given(orderService.fail(1L)).willReturn(order);
+            given(order.getOrderItems()).willReturn(List.of(item1));
+            given(order.hasAppliedCoupon()).willReturn(false);
+
+            // act
+            paymentProcessor.handleFailure(1L);
+
+            // assert
+            then(orderService).should().fail(1L);
+            then(productService).should().restoreStock(1L, 3L);
+            then(ownedCouponService).should(never()).restore(10L);
         }
     }
 
@@ -122,10 +119,6 @@ class PaymentProcessorTest {
             Payment payment = PaymentFixture.createReadyPayment();
             given(paymentService.confirmPayment(payment.getId(), "txn-recovered"))
                     .willReturn(payment);
-
-            Order order = mock(Order.class);
-            given(orderService.pay(payment.getOrderId())).willReturn(order);
-            given(order.hasAppliedCoupon()).willReturn(false);
 
             // act
             paymentProcessor.recoverWithTransaction(
@@ -148,6 +141,7 @@ class PaymentProcessorTest {
             Order order = mock(Order.class);
             given(orderService.fail(payment.getOrderId())).willReturn(order);
             given(order.getOrderItems()).willReturn(List.of());
+            given(order.hasAppliedCoupon()).willReturn(false);
 
             // act
             paymentProcessor.recoverWithTransaction(
@@ -175,6 +169,7 @@ class PaymentProcessorTest {
             Order order = mock(Order.class);
             given(orderService.fail(payment.getOrderId())).willReturn(order);
             given(order.getOrderItems()).willReturn(List.of());
+            given(order.hasAppliedCoupon()).willReturn(false);
 
             // act
             paymentProcessor.recoverWithoutTransaction(

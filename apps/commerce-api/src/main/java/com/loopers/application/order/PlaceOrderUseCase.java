@@ -51,7 +51,7 @@ public class PlaceOrderUseCase {
         Cart cart = command.toCart(products);
         Money orderTotal = Money.sum(cart.cartItems(), Cart.CartItem::totalPrice);
 
-        CouponDiscount couponResult = ownedCouponService.calculateDiscount(command.ownedCouponId(), command.userId(), orderTotal);
+        CouponDiscount couponResult = ownedCouponService.applyDiscount(command.ownedCouponId(), command.userId(), orderTotal);
         Order order = orderService.create(cart, couponResult.discountAmount(), couponResult.ownedCouponId());
         return PlaceOrderResult.from(order);
     }

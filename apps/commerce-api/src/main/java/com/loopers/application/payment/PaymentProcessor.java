@@ -30,22 +30,19 @@ public class PaymentProcessor {
     /**
      * 결제 성공 후속 처리를 수행한다.
      *
-     * <p>주문을 결제 완료 상태로 변경하고, 쿠폰이 적용된 주문이면 쿠폰을 사용 처리한다.</p>
+     * <p>주문을 결제 완료 상태로 변경한다.</p>
      *
      * @param orderId 결제 대상 주문 ID
      */
     public void handleSuccess(Long orderId) {
-        Order order = orderService.pay(orderId);
-
-        if (order.hasAppliedCoupon()) {
-            ownedCouponService.use(order.getOwnedCouponId());
-        }
+        orderService.pay(orderId);
     }
 
     /**
      * 결제 실패 후속 처리를 수행한다.
      *
-     * <p>주문을 실패 상태로 변경하고, 주문 항목별로 차감된 재고를 복원한다.</p>
+     * <p>주문을 실패 상태로 변경하고, 주문 항목별로 차감된 재고를 복원한다.
+     * 쿠폰이 적용된 주문이면 쿠폰을 복원한다.</p>
      *
      * @param orderId 결제 대상 주문 ID
      */
@@ -55,6 +52,9 @@ public class PaymentProcessor {
         order.getOrderItems().forEach(item ->
                 productService.restoreStock(item.getProductId(), item.getQuantity())
         );
+        if (order.hasAppliedCoupon()) {
+            ownedCouponService.restore(order.getOwnedCouponId());
+        }
     }
 
     /**

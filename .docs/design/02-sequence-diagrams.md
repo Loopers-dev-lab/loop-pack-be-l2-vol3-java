@@ -1,6 +1,6 @@
 # Sequence Diagrams
 
-LAST UPDATED: 2026-03-03
+LAST UPDATED: 2026-03-20
 
 ## 목차
 - [개요](#개요)
@@ -986,7 +986,7 @@ sequenceDiagram
     PlaceOrderUseCase ->> PlaceOrderUseCase: Cart 생성 및 orderTotal 계산
 
     opt ownedCouponId가 존재할 경우
-        PlaceOrderUseCase ->>+ OwnedCouponService: 쿠폰 검증 및 할인 금액 계산
+        PlaceOrderUseCase ->>+ OwnedCouponService: 쿠폰 검증 + 할인 계산 + 사용 처리
         OwnedCouponService -->>- PlaceOrderUseCase: CouponDiscount
 
         break 쿠폰 검증 실패 (미존재/타인 소유/사용됨/만료/최소금액 미달)
@@ -1148,12 +1148,7 @@ sequenceDiagram
     alt 결제 성공
         HandlePaymentCallbackUseCase ->>+ PaymentProcessor: handleSuccess
         PaymentProcessor ->>+ OrderService: 주문 완료 처리
-        OrderService -->>- PaymentProcessor: Order
-
-        opt 쿠폰이 적용된 주문
-            PaymentProcessor ->>+ OwnedCouponService: 쿠폰 사용 처리
-            OwnedCouponService -->>- PaymentProcessor: void
-        end
+        OrderService -->>- PaymentProcessor: void
         PaymentProcessor -->>- HandlePaymentCallbackUseCase: void
 
     else 결제 실패
@@ -1163,6 +1158,11 @@ sequenceDiagram
 
         PaymentProcessor ->>+ ProductService: 주문 항목별 재고 복원
         ProductService -->>- PaymentProcessor: void
+
+        opt 쿠폰이 적용된 주문
+            PaymentProcessor ->>+ OwnedCouponService: 쿠폰 복원
+            OwnedCouponService -->>- PaymentProcessor: void
+        end
         PaymentProcessor -->>- HandlePaymentCallbackUseCase: void
     end
 
