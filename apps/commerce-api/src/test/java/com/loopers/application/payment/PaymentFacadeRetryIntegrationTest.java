@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
@@ -61,6 +62,9 @@ class PaymentFacadeRetryIntegrationTest {
 
     @MockBean
     private PgSimulatorClient pgSimulatorClient;
+
+    @SpyBean
+    private PgPaymentRequester pgPaymentRequester;
 
     @AfterEach
     void tearDown() {
@@ -160,5 +164,9 @@ class PaymentFacadeRetryIntegrationTest {
 
         assertThat(info.status()).isEqualTo("PENDING");
         verify(pgSimulatorClient, times(3)).requestPayment(any(PgSimulatorRequest.class));
+
+        // Retry 소진 시(정상 CB OPEN 전제) retry fallback이 호출되는지 확인한다.
+        verify(pgPaymentRequester, times(1))
+                .pgRetryFallback(any(PgSimulatorRequest.class), any(Throwable.class));
     }
 }
