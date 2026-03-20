@@ -6,6 +6,7 @@ import java.util.List;
 
 public record FindOrderResDto(
         Long id,
+        String orderNumber,
         int totalPrice,
         int discountAmount,
         Long userCouponId,
@@ -17,6 +18,7 @@ public record FindOrderResDto(
                 .toList();
         return new FindOrderResDto(
                 orders.getId(),
+                orders.getOrderNumber(),
                 orders.getTotalPrice().value(),
                 orders.getDiscountAmount().value(),
                 orders.getUserCouponId(),

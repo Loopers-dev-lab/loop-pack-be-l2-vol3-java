@@ -69,9 +69,9 @@ public class OrderFacade {
 
         List<OrderProduct> savedProducts = orderProductService.saveAll(savedOrder.getId(), orderProducts);
         Orders result = Orders.reconstruct(
-                savedOrder.getId(), savedOrder.getMemberId(),
+                savedOrder.getId(), savedOrder.getOrderNumber(), savedOrder.getMemberId(),
                 savedOrder.getTotalPrice().value(), savedOrder.getDiscountAmount().value(),
-                savedOrder.getUserCouponId(), savedProducts
+                savedOrder.getUserCouponId(), savedOrder.getStatus(), savedProducts
         );
         return FindOrderResDto.from(result);
     }
@@ -94,9 +94,9 @@ public class OrderFacade {
     private FindOrderResDto populateAndConvert(Orders orders) {
         List<OrderProduct> orderProducts = orderProductService.findByOrderId(orders.getId());
         Orders populated = Orders.reconstruct(
-                orders.getId(), orders.getMemberId(),
+                orders.getId(), orders.getOrderNumber(), orders.getMemberId(),
                 orders.getTotalPrice().value(), orders.getDiscountAmount().value(),
-                orders.getUserCouponId(), orderProducts
+                orders.getUserCouponId(), orders.getStatus(), orderProducts
         );
         return FindOrderResDto.from(populated);
     }

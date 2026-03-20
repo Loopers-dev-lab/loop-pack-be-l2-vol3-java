@@ -4,6 +4,7 @@ import com.loopers.application.order.dto.CreateOrderReqDto;
 import com.loopers.application.order.dto.FindOrderResDto;
 import com.loopers.domain.member.model.Member;
 import com.loopers.domain.member.service.MemberService;
+import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.order.model.OrderCommand;
 import com.loopers.domain.order.model.OrderProduct;
 import com.loopers.domain.product.vo.DisplayStatus;
@@ -86,7 +87,7 @@ class OrderFacadeTest {
             when(productService.decreaseStockAtomic(2L, 3)).thenReturn(product2);
             when(orderService.createOrder(any(OrderCommand.Create.class))).thenAnswer(invocation -> {
                 OrderCommand.Create command = invocation.getArgument(0);
-                return Orders.reconstruct(1L, command.memberId(), 35000, 0, null, command.orderProducts());
+                return Orders.reconstruct(1L, "ORD-001", command.memberId(), 35000, 0, null, OrderStatus.CREATED, command.orderProducts());
             });
             when(orderProductService.saveAll(eq(1L), any())).thenAnswer(invocation -> {
                 List<OrderProduct> products = invocation.getArgument(1);
@@ -174,7 +175,7 @@ class OrderFacadeTest {
         void returnsOrdersWithProducts() {
             // arrange
             Member member = createTestMember();
-            Orders orders = Orders.reconstruct(1L, member.getId(), 10000, 0, null, List.of());
+            Orders orders = Orders.reconstruct(1L, "ORD-001", member.getId(), 10000, 0, null, OrderStatus.CREATED, List.of());
             OrderProduct orderProduct = OrderProduct.reconstruct(1L, 10L, "상품A", 10000, 1);
 
             when(memberService.findMember("testuser", "password")).thenReturn(member);
@@ -214,7 +215,7 @@ class OrderFacadeTest {
         void returnsOrderWithProducts() {
             // arrange
             Member member = createTestMember();
-            Orders orders = Orders.reconstruct(1L, member.getId(), 20000, 0, null, List.of());
+            Orders orders = Orders.reconstruct(1L, "ORD-001", member.getId(), 20000, 0, null, OrderStatus.CREATED, List.of());
             OrderProduct orderProduct1 = OrderProduct.reconstruct(1L, 10L, "상품A", 10000, 1);
             OrderProduct orderProduct2 = OrderProduct.reconstruct(2L, 11L, "상품B", 10000, 1);
 

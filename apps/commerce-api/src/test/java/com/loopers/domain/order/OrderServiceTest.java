@@ -1,5 +1,6 @@
 package com.loopers.domain.order;
 
+import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.order.model.OrderCommand;
 import com.loopers.domain.order.model.OrderProduct;
 import com.loopers.domain.order.model.Orders;
@@ -59,7 +60,7 @@ class OrderServiceTest {
             // arrange
             OrderProduct orderProduct = OrderProduct.create(1L, "상품명", 10000, 2);
             OrderCommand.Create command = new OrderCommand.Create(1L, List.of(orderProduct), 0, null);
-            Orders savedOrders = Orders.reconstruct(1L, 1L, 20000, 0, null, List.of(orderProduct));
+            Orders savedOrders = Orders.reconstruct(1L, "ORD-001", 1L, 20000, 0, null, OrderStatus.CREATED, List.of(orderProduct));
             when(orderRepository.save(any(Orders.class))).thenReturn(savedOrders);
 
             // act
@@ -98,7 +99,7 @@ class OrderServiceTest {
         void returnsOrders_forGivenPeriod() {
             // arrange
             OrderProduct orderProduct = OrderProduct.create(1L, "상품명", 10000, 1);
-            Orders orders = Orders.reconstruct(1L, 1L, 10000, 0, null, List.of(orderProduct));
+            Orders orders = Orders.reconstruct(1L, "ORD-001", 1L, 10000, 0, null, OrderStatus.CREATED, List.of(orderProduct));
             LocalDateTime startAt = LocalDateTime.of(2025, 1, 1, 0, 0);
             LocalDateTime endAt = LocalDateTime.of(2025, 12, 31, 23, 59);
             OrderCommand.GetByPeriod command = new OrderCommand.GetByPeriod(1L, startAt, endAt);
@@ -140,7 +141,7 @@ class OrderServiceTest {
         void throwsException_whenOrderBelongsToOtherMember() {
             // arrange
             OrderProduct orderProduct = OrderProduct.create(1L, "상품명", 10000, 1);
-            Orders orders = Orders.reconstruct(1L, 2L, 10000, 0, null, List.of(orderProduct));
+            Orders orders = Orders.reconstruct(1L, "ORD-001", 2L, 10000, 0, null, OrderStatus.CREATED, List.of(orderProduct));
             OrderCommand.GetByMember command = new OrderCommand.GetByMember(1L, 1L);
             when(orderRepository.findById(1L)).thenReturn(Optional.of(orders));
 
@@ -158,7 +159,7 @@ class OrderServiceTest {
         void returnsOrder_whenMemberIdMatches() {
             // arrange
             OrderProduct orderProduct = OrderProduct.create(1L, "상품명", 10000, 1);
-            Orders orders = Orders.reconstruct(1L, 1L, 10000, 0, null, List.of(orderProduct));
+            Orders orders = Orders.reconstruct(1L, "ORD-001", 1L, 10000, 0, null, OrderStatus.CREATED, List.of(orderProduct));
             OrderCommand.GetByMember command = new OrderCommand.GetByMember(1L, 1L);
             when(orderRepository.findById(1L)).thenReturn(Optional.of(orders));
 
