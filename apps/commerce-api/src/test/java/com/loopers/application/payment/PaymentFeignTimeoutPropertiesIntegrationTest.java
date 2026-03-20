@@ -12,7 +12,8 @@ import org.springframework.core.env.Environment;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Phase 1: Feign 기본 타임아웃이 application.yml에 반영되는지 검증 (06 §14 Phase 1).
+ * 역할: 운영 설정과 동일하게 Feign connect/read 타임아웃이 Environment에 바인딩되는지 확인한다.
+ * WireMock 등으로 실제 지연을 재현하기 전, 숫자(500ms/2s)가 의도대로 로드되는지 빠르게 검증 (06 Phase 1).
  */
 @SpringBootTest(classes = CommerceApiApplication.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @Import(MySqlTestContainersConfig.class)
@@ -21,6 +22,7 @@ class PaymentFeignTimeoutPropertiesIntegrationTest {
     @Autowired
     private Environment environment;
 
+    /** default Feign 클라이언트에 connect 500ms, read 2000ms가 적용되는지 검증. */
     @Test
     @DisplayName("feign default connect/read timeout이 06 계획과 동일하게 바인딩된다.")
     void feignDefaultConfig_shouldBindConnectAndReadTimeouts() {

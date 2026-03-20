@@ -31,8 +31,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
- * Phase 4: 연속 실패로 Circuit OPEN 후 PG 미호출 (06 checklist 리스크 매핑).
- * Retry는 maxAttempts=1로 두어 CB 실패 카운트와 주문 건수를 1:1로 맞춘다.
+ * 역할: PG가 연속으로 예외를 던질 때 서킷이 OPEN 되고, 이후 결제 요청에서 PG 호출이 멈추는지 검증한다.
+ * Retry {@code maxAttempts=1}로 두어 “주문 1건 = CB 실패 1카운트”에 가깝게 맞춘다 (06 checklist).
  */
 @SpringBootTest
 @Import(MySqlTestContainersConfig.class)
@@ -78,6 +78,7 @@ class PaymentFacadeCircuitBreakerFailureIntegrationTest {
                 new ProductValidationRequest(product.getId(), Quantity.of(1), null)));
     }
 
+    /** RuntimeException 연속 → 실패율로 OPEN → 네 번째 주문부터는 PG 미호출. */
     @Test
     @DisplayName("PG가 연속 실패하면 서킷이 OPEN 되고 이후 주문은 PG 호출이 스킵된다.")
     void requestPayment_whenPgFailsRepeatedly_shouldOpenCircuitAndSkipFurtherPgCalls() {

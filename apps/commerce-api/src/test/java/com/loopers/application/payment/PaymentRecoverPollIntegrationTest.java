@@ -37,7 +37,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Phase 8: PG 조회 기반 PENDING 복구 (06 §11.3~11.4).
+ * 역할: 콜백 미수신 등으로 남은 PENDING을 {@link PaymentFacade#recoverPendingFromPgSimulator}로 PG 조회 API에 맞춰 정리한다.
+ * - SUCCESS → 주문 PAID·결제 SUCCESS (콜백 경로와 동일한 완료 흐름).
+ * - FAILED → 결제 FAILED, 주문 ORDERED 유지.
+ * - PG 응답 null → 미접수 근사로 결제 TIMEOUT.
+ * - PG 예외 → 호출은 삼키고 PENDING 유지(재시도 여지).
  */
 @SpringBootTest
 @Import(MySqlTestContainersConfig.class)
@@ -79,6 +83,7 @@ class PaymentRecoverPollIntegrationTest {
                 new ProductValidationRequest(product.getId(), Quantity.of(1), null)));
     }
 
+    /** 폴링으로 PG가 이미 성공 처리한 건을 내부 상태에 반영하는 해피 패스. */
     @Test
     @DisplayName("PG 조회가 SUCCESS면 completePayment·결제 SUCCESS로 반영된다.")
     void recoverOrPoll_whenPgReturnsSuccess_shouldReflectCompletePayment() {
@@ -99,6 +104,7 @@ class PaymentRecoverPollIntegrationTest {
                 .isEqualTo(PaymentStatus.SUCCESS);
     }
 
+    /** PG가 명시적 실패를 반환하면 결제만 FAILED로 닫고 주문은 주문 확정 상태 유지. */
     @Test
     @DisplayName("PG 조회가 실패(false)면 결제 FAILED·주문 ORDERED다.")
     void recoverOrPoll_whenPgReturnsFailure_shouldMarkFailed() {
@@ -118,6 +124,7 @@ class PaymentRecoverPollIntegrationTest {
                 .isEqualTo(PaymentStatus.FAILED);
     }
 
+    /** 복구 API가 불필요한 PG 트래픽을 내지 않도록 가드. */
     @Test
     @DisplayName("PENDING이 없으면 PG 조회를 호출하지 않는다.")
     void recoverOrPoll_whenNoPending_shouldNotCallPg() {
@@ -131,6 +138,7 @@ class PaymentRecoverPollIntegrationTest {
         verify(pgSimulatorClient, never()).getPaymentsByOrderId(anyLong());
     }
 
+    /** orderId로 PG에 기록이 없음(null) → 요청 미도달/타임아웃 등으로 PENDING을 TIMEOUT 처리. */
     @Test
     @DisplayName("PG 조회 응답이 null이면 PENDING을 TIMEOUT으로 바꾼다 (06 §11.4 미접수 근사).")
     void recoverOrPoll_whenPgReturnsNull_shouldMarkTimeout() {
@@ -148,6 +156,7 @@ class PaymentRecoverPollIntegrationTest {
                 .isEqualTo(PaymentStatus.TIMEOUT);
     }
 
+    /** 복구 호출 입력 검증. */
     @Test
     @DisplayName("orderId가 null이면 BAD_REQUEST다.")
     void recoverOrPoll_whenOrderIdNull_shouldThrowBadRequest() {
@@ -155,6 +164,7 @@ class PaymentRecoverPollIntegrationTest {
         assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
     }
 
+    /** PG 일시 장애 시 복구 스케줄/수동 호출이 죽지 않고 PENDING 유지(재폴링 가능). */
     @Test
     @DisplayName("PG 조회가 예외를 던져도 복구 호출은 전파하지 않는다.")
     void recoverOrPoll_whenPgThrows_shouldSwallowAndKeepPending() {

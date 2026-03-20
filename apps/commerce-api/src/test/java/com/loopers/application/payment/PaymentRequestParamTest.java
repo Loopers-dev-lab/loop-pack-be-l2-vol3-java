@@ -10,7 +10,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * PG 요청 파라미터 금액 변환 (06-payment-change-issues §1.2: 반올림 후 정수 원).
+ * 역할: PG로 넘길 {@link PaymentRequestParam} 생성 시 주문 최종 금액을
+ * null 검증·반올림 후 정수 원으로 바꾸는 규칙을 단위 테스트한다 (06 §1.2).
  */
 class PaymentRequestParamTest {
 

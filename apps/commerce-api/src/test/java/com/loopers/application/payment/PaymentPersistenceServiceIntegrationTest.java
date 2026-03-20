@@ -28,7 +28,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * PENDING 저장·주문 락 (06-payment-change-issues §2.1, §7).
+ * 역할: {@link PaymentPersistenceService#savePendingAndGetRequestParam}가 주문 상태·락·금액 검증을 통과할 때만
+ * PENDING 행을 남기는지, 실패 시 {@link com.loopers.support.error.ErrorType}별로 떨어지는지 검증한다 (06 §2.1, §7).
  */
 @SpringBootTest
 @Import(MySqlTestContainersConfig.class)

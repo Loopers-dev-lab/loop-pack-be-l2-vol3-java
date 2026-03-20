@@ -31,7 +31,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
- * 콜백 시크릿 E2E (06 §11.3 위조/비정상 콜백). CoreException(UNAUTHORIZED) → HTTP 401.
+ * 역할: {@code POST /api/v1/payments/callback}에 대해 시크릿 헤더/바디 검증이
+ * HTTP 레벨에서 401로 드러나는지 E2E로 확인한다 (06 §11.3, {@code ErrorType.UNAUTHORIZED}).
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

@@ -37,8 +37,9 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 /**
- * 결제 API E2E (06-payment-change-issues §3.1, §7). PG는 MockBean으로 격리.
- * Feign readTimeout 실경로 E2E는 MockBean이 프록시를 대체하므로 WireMock/실 PG 없이는 생략한다.
+ * 역할: {@code POST /api/v1/payments} 등 결제 HTTP 계약을 실제 포트 기동으로 검증한다.
+ * - PG는 MockBean으로 격리(응답·예외 시나리오 제어).
+ * - Feign readTimeout 실지연은 MockBean 한계가 있어 {@code PaymentFeignReadTimeoutWireMockIntegrationTest}로 보완.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(MySqlTestContainersConfig.class)

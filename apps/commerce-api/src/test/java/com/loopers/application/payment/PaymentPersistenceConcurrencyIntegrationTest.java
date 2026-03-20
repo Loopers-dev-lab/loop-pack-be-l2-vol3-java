@@ -28,7 +28,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 동시 결제 요청 시 PENDING 1건만 허용 (06-payment-change-issues §2.1).
+ * 역할: 동일 주문에 대한 동시 {@code savePending} 호출 시 PENDING이 한 건만 생기거나
+ * 나머지는 충돌로 막히는지(멱등·동시성) 검증한다 (06 §2.1).
  */
 @SpringBootTest
 @Import(MySqlTestContainersConfig.class)

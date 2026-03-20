@@ -26,7 +26,8 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 
 /**
- * §14: PENDING 조회 후에만 completePayment가 수행되는지(중간 시점 검증).
+ * 역할: 콜백 처리 시 도메인 호출 순서를 검증한다.
+ * {@code completePayment} 진입 시점에 DB 결제 행이 아직 PENDING인지(Spy) 확인해, 잘못된 순서 전이를 막는다 (06 §14).
  */
 @SpringBootTest
 @Import(MySqlTestContainersConfig.class)
@@ -55,6 +56,7 @@ class PaymentFacadeCallbackOrderIntegrationTest {
         databaseCleanUp.truncateAllTables();
     }
 
+    /** completePayment 호출 직전 스냅샷이 PENDING임을 보장(성공 콜백 플로우). */
     @Test
     @DisplayName("completePayment 진입 시점에 DB상 결제는 아직 PENDING이다 (이후 markSuccess).")
     void handleCallback_orderOfOperations_pendingFetchedBeforeCompletePayment() {

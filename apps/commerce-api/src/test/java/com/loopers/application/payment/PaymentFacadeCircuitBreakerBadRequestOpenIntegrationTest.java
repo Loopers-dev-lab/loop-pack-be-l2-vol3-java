@@ -35,7 +35,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
- * Feign 4xx(비재시도)가 연속되면 CB 실패로 집계되어 Open 될 수 있음 (06 §14 Phase 4 예외 집계).
+ * 역할: 서킷 브레이커가 4xx(Feign BadRequest)를 실패로 집계하는 설정에서 OPEN 되는지 검증한다.
+ * - Retry로 재호출되지 않는 400이 연속되면 minimumNumberOfCalls 이후 실패율로 OPEN.
+ * - OPEN 이후에는 PG 클라이언트 호출이 스킵되는지(호출 횟수) 확인한다 (06 §14 Phase 4).
  */
 @SpringBootTest
 @Import(MySqlTestContainersConfig.class)
@@ -81,6 +83,7 @@ class PaymentFacadeCircuitBreakerBadRequestOpenIntegrationTest {
                 new ProductValidationRequest(product.getId(), Quantity.of(1), null)));
     }
 
+    /** 서로 다른 주문 4건 결제 요청 시 3회까지 PG 호출, OPEN 후 4번째는 호출 없음을 검증. */
     @Test
     @DisplayName("Feign 400이 주문별로 연속되면 서킷이 OPEN 되고 이후 PG 호출이 스킵된다.")
     void requestPayment_whenPgReturns400Repeatedly_shouldOpenCircuitAndSkipFurtherPgCalls() {

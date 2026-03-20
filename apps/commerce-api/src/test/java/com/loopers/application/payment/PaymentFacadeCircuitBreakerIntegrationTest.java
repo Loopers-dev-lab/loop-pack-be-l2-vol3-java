@@ -38,7 +38,8 @@ import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Phase 4: Circuit Breaker OPEN 시 PG 호출 스킵·PENDING 유지·중복 요청 CONFLICT (06 §14).
+ * 역할: {@code pgCircuit}이 OPEN일 때 결제 요청이 PG를 치지 않고 PENDING으로 안전하게 떨어지는지,
+ * 그리고 CLOSED 복귀 후 정상 호출·동시 중복 요청 시 CONFLICT 등 정책을 검증한다 (06 §14).
  */
 @SpringBootTest
 @Import(MySqlTestContainersConfig.class)
@@ -77,6 +78,7 @@ class PaymentFacadeCircuitBreakerIntegrationTest {
         databaseCleanUp.truncateAllTables();
     }
 
+    /** OPEN 상태에서는 Feign까지 가지 않고 곧바로 대기 응답(PENDING). */
     @Test
     @DisplayName("CircuitBreaker가 OPEN이면 PG 호출을 스킵하고 PENDING을 반환한다.")
     void requestPayment_whenCircuitBreakerOpen_shouldSkipPgCallAndReturnPending() {
@@ -103,6 +105,7 @@ class PaymentFacadeCircuitBreakerIntegrationTest {
         verify(pgSimulatorClient, never()).requestPayment(any(PgSimulatorRequest.class));
     }
 
+    /** 정상(CLOSED) 시 PG 요청이 실제로 1회 나간다. */
     @Test
     @DisplayName("CircuitBreaker가 CLOSED이면 PG 호출이 1회 수행된다.")
     void requestPayment_whenCircuitBreakerClosed_shouldCallPgOnce() {
@@ -128,6 +131,7 @@ class PaymentFacadeCircuitBreakerIntegrationTest {
         verify(pgSimulatorClient, times(1)).requestPayment(any(PgSimulatorRequest.class));
     }
 
+    /** 이미 PENDING인 주문에 대한 중복 결제 시도는 멱등/동시성 정책으로 거절. */
     @Test
     @DisplayName("CircuitBreaker OPEN 중 동일 주문 재요청은 CONFLICT로 차단된다.")
     void requestPayment_whenCircuitBreakerOpenAndDuplicateOrder_shouldThrowConflict() {

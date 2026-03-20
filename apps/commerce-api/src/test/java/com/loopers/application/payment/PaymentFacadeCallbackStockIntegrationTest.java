@@ -30,7 +30,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * §11.3: 콜백 시점 completePayment 실패(재고 부족) 시 트랜잭션 롤백·PENDING 유지.
+ * 역할: 결제 완료 시점(콜백)에 재고 부족이 나면 트랜잭션이 롤백되고
+ * 결제는 PENDING·주문은 ORDERED로 남는지 검증한다 (요구 §11.3, 재고는 결제 완료 시 차감).
  */
 @SpringBootTest
 @Import(MySqlTestContainersConfig.class)
@@ -61,6 +62,7 @@ class PaymentFacadeCallbackStockIntegrationTest {
         databaseCleanUp.truncateAllTables();
     }
 
+    /** 주문 시점과 달리 콜백 시점에 재고가 0이 된 경우: 완료 실패·일관성 유지. */
     @Test
     @DisplayName("성공 콜백인데 재고가 부족하면 예외이고 결제는 PENDING·주문은 ORDERED다.")
     void handleCallback_whenStockInsufficientAtPaymentTime_shouldThrowAndKeepPending() {

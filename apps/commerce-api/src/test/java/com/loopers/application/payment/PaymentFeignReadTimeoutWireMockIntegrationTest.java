@@ -35,7 +35,9 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * MockBean 없이 실 Feign + WireMock 지연으로 readTimeout을 유발한다 (06 Phase 1 E2E에 준하는 검증).
+ * 역할: PG Feign readTimeout이 실제로 발생할 때의 동작을 검증한다.
+ * - MockBean으로 클라이언트를 바꾸면 지연 응답으로 타임아웃을 재현하기 어려워, WireMock + 실제 Feign을 쓴다.
+ * - 타임아웃 후에도 PENDING 저장·응답 일관성(06 Phase 1, checklist)을 본다.
  */
 @SpringBootTest(properties = {
         "feign.client.config.default.readTimeout=500",
@@ -86,6 +88,7 @@ class PaymentFeignReadTimeoutWireMockIntegrationTest {
         databaseCleanUp.truncateAllTables();
     }
 
+    /** PG 응답이 readTimeout보다 늦을 때: 예외 처리 후에도 DB·응답이 PENDING으로 남는지 확인. */
     @Test
     @DisplayName("Feign readTimeout이 나도 PENDING은 저장되고 200 응답 흐름과 동일하게 유지된다.")
     void requestPayment_whenFeignReadTimeout_shouldKeepPendingInDb() {

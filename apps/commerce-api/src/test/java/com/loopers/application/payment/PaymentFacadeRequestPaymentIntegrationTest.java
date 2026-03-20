@@ -37,7 +37,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
- * PG 호출 실패 시에도 PENDING 유지·예외 삼킴 (06-payment-change-issues §3.1).
+ * 역할: 결제 요청 플로우에서 트랜잭션 경계(PENDING 커밋 후 PG 호출)와
+ * PG 예외 시 사용자 응답(PENDING)·내부 예외 미전파를 검증한다 (06 change-issues §3.1).
  */
 @SpringBootTest
 @Import(MySqlTestContainersConfig.class)
@@ -69,6 +70,7 @@ class PaymentFacadeRequestPaymentIntegrationTest {
         databaseCleanUp.truncateAllTables();
     }
 
+    /** Fallback: PG 장애 시에도 API는 PENDING으로 응답하고 DB에 진행 중 상태를 남긴다. */
     @Test
     @DisplayName("PG 호출이 예외를 던져도 PENDING 정보를 반환하고 DB에 PENDING이 남는다.")
     void requestPayment_whenPgThrows_shouldStillReturnPendingInfo() {
@@ -91,6 +93,7 @@ class PaymentFacadeRequestPaymentIntegrationTest {
         verify(pgSimulatorClient, times(3)).requestPayment(any(PgSimulatorRequest.class));
     }
 
+    /** 외부 PG 호출은 DB 커넥션 점유를 피하도록 트랜잭션 밖에서만 일어난다. */
     @Test
     @DisplayName("PENDING 커밋 이후 PG 호출 시점에는 활성 트랜잭션이 없다.")
     void requestPayment_afterPersistenceCommit_callsPgClientOutsideTx() {

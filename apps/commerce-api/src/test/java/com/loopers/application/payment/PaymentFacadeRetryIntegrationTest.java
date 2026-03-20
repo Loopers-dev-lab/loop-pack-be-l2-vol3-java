@@ -36,7 +36,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Phase 5: Retry(pgRetry) 동작 (06 checklist §14).
+ * 역할: {@code @Retry}(pgRetry)가 재시도 대상 오류에만 동작하는지 통합 검증한다.
+ * - 일시적 RuntimeException·Feign 503 → 설정된 횟수만큼 PG 재호출.
+ * - Feign 400 → 재시도 없이 1회 호출 (비재시도 예외 정책).
  */
 @SpringBootTest
 @Import(MySqlTestContainersConfig.class)
@@ -73,6 +75,7 @@ class PaymentFacadeRetryIntegrationTest {
                 new ProductValidationRequest(product.getId(), Quantity.of(1), null)));
     }
 
+    /** RuntimeException 같은 일시 오류에 Retry가 개입해 최종 성공까지 여러 번 호출. */
     @Test
     @DisplayName("PG가 일시 실패했다가 성공하면 maxAttempts만큼 호출된다.")
     void requestPayment_whenPgFailsTransiently_shouldRetryUpToConfiguredAttempts() {
@@ -94,6 +97,7 @@ class PaymentFacadeRetryIntegrationTest {
         verify(pgSimulatorClient, times(3)).requestPayment(any(PgSimulatorRequest.class));
     }
 
+    /** HTTP 503은 재시도 가능한 장애로 간주되어 동일하게 maxAttempts 검증. */
     @Test
     @DisplayName("Feign 503(Service Unavailable)는 재시도 설정만큼 PG를 호출한다.")
     void requestPayment_whenPgReturns503_shouldRetryUpToConfiguredAttempts() {
@@ -121,6 +125,7 @@ class PaymentFacadeRetryIntegrationTest {
         verify(pgSimulatorClient, times(3)).requestPayment(any(PgSimulatorRequest.class));
     }
 
+    /** 4xx는 재시도하지 않아 호출 수 1회로 고정(잘못된 요청 반복 방지). */
     @Test
     @DisplayName("Feign 400(BadRequest)는 재시도하지 않고 1회만 PG를 호출한다.")
     void requestPayment_whenPgReturns400_shouldNotRetry() {
