@@ -27,11 +27,16 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public Optional<Product> findByIdForUpdate(Long id) {
+        return productJpaRepository.findByIdForUpdate(id);
+    }
+
+    @Override
     public List<Product> findAll(SortCondition sort) {
         return switch (sort) {
-            case latest -> productJpaRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
-            case price_asc -> productJpaRepository.findAll(Sort.by(Sort.Direction.ASC, "price"));
-            case likes_desc -> productJpaRepository.findAllOrderByLikesDesc();
+            case latest -> productJpaRepository.findByDeletedAtIsNull(Sort.by(Sort.Direction.DESC, "createdAt"));
+            case price_asc -> productJpaRepository.findByDeletedAtIsNull(Sort.by(Sort.Direction.ASC, "price"));
+            case likes_desc -> productJpaRepository.findByDeletedAtIsNull(Sort.by(Sort.Direction.DESC, "likesCount"));
         };
     }
 }
