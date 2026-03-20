@@ -551,4 +551,115 @@ class Ch8_PgSimulatorExperimentTest {
             assertThat(elapsedB).isLessThanOrEqualTo(elapsedA);
         }
     }
+
+    // ========== 실험 5: Aspect Order 비교 — CB 바깥 vs Retry 바깥 ==========
+
+    @Nested
+    @DisplayName("실험 5: Aspect Order — CB outer vs Retry outer")
+    class Experiment5_AspectOrder {
+
+        @Test
+        @DisplayName("5-1: 정상 상태(40% 실패)에서 Aspect Order별 CB 동작 비교")
+        void aspect_order_비교_40퍼센트_실패() {
+            CircuitBreakerConfig cbConfig = CircuitBreakerConfig.custom()
+                    .slidingWindowType(CircuitBreakerConfig.SlidingWindowType.COUNT_BASED)
+                    .slidingWindowSize(10)
+                    .failureRateThreshold(60)
+                    .minimumNumberOfCalls(5)
+                    .build();
+            RetryConfig retryConfig = RetryConfig.custom()
+                    .maxAttempts(3)
+                    .waitDuration(Duration.ofMillis(100))
+                    .retryExceptions(FeignException.class)
+                    .build();
+
+            // --- A: 공식 권장 (Retry 바깥 → CB 안쪽) ---
+            // Retry가 CB를 감싸므로, 매 재시도마다 CB에 실패가 기록됨
+            setupFortyPercentFailureScenario();
+
+            CircuitBreaker cbA = CircuitBreaker.of("exp5-retry-outer", cbConfig);
+            Retry retryA = Retry.of("exp5-retry-outer", retryConfig);
+
+            int successA = 0, failA = 0, blockedA = 0;
+            for (int i = 0; i < 30; i++) {
+                // Retry(outer) → CB(inner) → Feign
+                Supplier<PgApiResponse<PgPaymentResponse>> decorated =
+                        Retry.decorateSupplier(retryA,
+                                CircuitBreaker.decorateSupplier(cbA,
+                                        () -> pgQueryClient.getPayment(USER_ID, TRANSACTION_KEY)));
+                try {
+                    decorated.get();
+                    successA++;
+                } catch (CallNotPermittedException e) {
+                    blockedA++;
+                } catch (Exception e) {
+                    failA++;
+                }
+            }
+
+            CircuitBreaker.State stateA = cbA.getState();
+            CircuitBreaker.Metrics metricsA = cbA.getMetrics();
+            float failRateA = metricsA.getFailureRate();
+
+            // --- B: 우리 선택 (CB 바깥 → Retry 안쪽) ---
+            resetAllScenarios();
+            resetAllRequests();
+            removeAllMappings();
+            setupFortyPercentFailureScenario();
+
+            CircuitBreaker cbB = CircuitBreaker.of("exp5-cb-outer", cbConfig);
+            Retry retryB = Retry.of("exp5-cb-outer", retryConfig);
+
+            int successB = 0, failB = 0, blockedB = 0;
+            for (int i = 0; i < 30; i++) {
+                // CB(outer) → Retry(inner) → Feign
+                Supplier<PgApiResponse<PgPaymentResponse>> decorated =
+                        CircuitBreaker.decorateSupplier(cbB,
+                                Retry.decorateSupplier(retryB,
+                                        () -> pgQueryClient.getPayment(USER_ID, TRANSACTION_KEY)));
+                try {
+                    decorated.get();
+                    successB++;
+                } catch (CallNotPermittedException e) {
+                    blockedB++;
+                } catch (Exception e) {
+                    failB++;
+                }
+            }
+
+            CircuitBreaker.State stateB = cbB.getState();
+            CircuitBreaker.Metrics metricsB = cbB.getMetrics();
+            float failRateB = metricsB.getFailureRate();
+
+            // --- 결과 출력 ---
+            System.out.println("\n=== 실험 5: Aspect Order 비교 (정상 상태: 40% 실패, 30회 호출) ===");
+            System.out.println();
+            System.out.println("Resilience4j 공식 권장: Retry(바깥) → CB(안쪽)");
+            System.out.println("우리 선택:            CB(바깥) → Retry(안쪽)");
+            System.out.println();
+            System.out.printf("| %-24s | %-10s | %-8s | %-4s | %-4s | %-7s | %-12s |%n",
+                    "순서", "CB 상태", "CB 실패율", "성공", "실패", "CB 차단", "판정");
+            System.out.println("|--------------------------|------------|----------|------|------|---------|--------------|");
+
+            String verdictA = stateA == CircuitBreaker.State.OPEN ? "⚠️ 오탐 위험" : "정상";
+            String verdictB = stateB == CircuitBreaker.State.OPEN ? "⚠️ 오탐 위험" : "정상";
+            System.out.printf("| %-24s | %-10s | %-8s | %-4d | %-4d | %-7d | %-12s |%n",
+                    "A: Retry→CB (공식 권장)", stateA, String.format("%.1f%%", failRateA),
+                    successA, failA, blockedA, verdictA);
+            System.out.printf("| %-24s | %-10s | %-8s | %-4d | %-4d | %-7d | %-12s |%n",
+                    "B: CB→Retry (우리 선택)", stateB, String.format("%.1f%%", failRateB),
+                    successB, failB, blockedB, verdictB);
+
+            System.out.println();
+            System.out.println("분석:");
+            System.out.printf("  A(공식): CB에 매 시도마다 기록 → CB 실패율 %.1f%% → %s%n",
+                    failRateA, stateA == CircuitBreaker.State.OPEN ? "OPEN (정상인데 차단됨)" : "CLOSED");
+            System.out.printf("  B(선택): CB에 최종 결과만 기록 → CB 실패율 %.1f%% → %s%n",
+                    failRateB, stateB == CircuitBreaker.State.OPEN ? "OPEN" : "CLOSED (정상 유지)");
+            System.out.println();
+            System.out.println("→ 도출: PG 정상 실패율 40% 환경에서는 CB→Retry(우리 선택)이 안정적.");
+            System.out.println("  공식 권장(Retry→CB)은 실패율이 낮은 일반 환경(1~5%)에 적합하다.");
+            System.out.println("  우리 PG의 높은 정상 실패율을 고려하여 CB→Retry를 선택했다.");
+        }
+    }
 }
