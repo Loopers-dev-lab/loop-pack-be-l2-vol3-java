@@ -1,4 +1,4 @@
-package com.loopers.infrastructure.order.keygen;
+package com.loopers.domain.order;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -10,9 +10,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-class UuidOrderKeyGeneratorTest {
+class OrderKeyGeneratorTest {
 
-    private final UuidOrderKeyGenerator generator = new UuidOrderKeyGenerator();
+    private final OrderKeyGenerator generator = new OrderKeyGenerator();
 
     @DisplayName("주문 키를 생성할 때,")
     @Nested
