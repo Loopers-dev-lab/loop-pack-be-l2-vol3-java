@@ -28,6 +28,7 @@ graph TB
         LC["LikeController"]
         MC["MemberV1Controller"]
         CC["CouponController\nCouponAdminController"]
+        PAYC["PaymentV1Controller"]
     end
 
     subgraph Application ["Application Layer — Facade (유스케이스 조율, 트랜잭션)"]
@@ -37,6 +38,9 @@ graph TB
         LF["LikeFacade\n· 좋아요 추가 (멱등)\n· 좋아요 취소 (멱등)"]
         MF["MemberFacade\n· 회원가입\n· 비밀번호 변경"]
         CF["CouponFacade\n· 쿠폰 CRUD (Admin)\n· 쿠폰 발급/조회\n· 주문 연동 (적용/복원)"]
+        PAYF["PaymentFacade\n· 결제 요청 (수동 Retry + Multi-PG)\n· 콜백 수신 + 진주문 전환\n· Polling Hybrid 복구"]
+        PRS["PaymentRecoveryService\n· 콜백 비동기 처리\n· 조건부 UPDATE (멱등)\n· 재고/쿠폰 복원"]
+        POS["ProvisionalOrderService\n· Redis 가주문 생성 (CB Fallback → DB)\n· 가주문 조회/삭제"]
     end
 
     subgraph Domain ["Domain Layer — Entity, VO, Repository Interface"]
@@ -48,9 +52,13 @@ graph TB
         MR["«interface»\nMemberRepository"]
         CR["«interface»\nCouponRepository"]
         CIR["«interface»\nCouponIssueRepository"]
+        PAYR["«interface»\nPaymentRepository"]
+        POR["«interface»\nPaymentOutboxRepository"]
+        CIBR["«interface»\nCallbackInboxRepository"]
+        RMR["«interface»\nReconciliationMismatchRepository"]
     end
 
-    subgraph Infrastructure ["Infrastructure Layer — Repository 구현체 (JPA)"]
+    subgraph Infrastructure ["Infrastructure Layer — Repository 구현체 + PG + Resilience"]
         BRI["BrandRepositoryImpl\nBrandJpaRepository"]
         PRI["ProductRepositoryImpl\nProductJpaRepository"]
         ORI["OrderRepositoryImpl\nOrderJpaRepository"]
@@ -58,6 +66,10 @@ graph TB
         MRI["MemberRepositoryImpl\nMemberJpaRepository"]
         CRI2["CouponRepositoryImpl\nCouponJpaRepository"]
         CIRI["CouponIssueRepositoryImpl\nCouponIssueJpaRepository"]
+        PAYRI["PaymentRepositoryImpl\nPaymentOutboxRepositoryImpl\nCallbackInboxRepositoryImpl\nReconciliationMismatchRepositoryImpl"]
+        PGR["PgRouter → «interface» PgClient\nSimulatorPgClient (Primary)\nTossSandboxPgClient (Fallback)"]
+        RESL["SlidingWindowRateLimiter (50/sec)\nPaymentRateLimiterInterceptor (AOP)\nProgressiveBackoffCustomizer"]
+        WAL["PaymentWalWriter\n(로컬 WAL — 크래시 복구)"]
     end
 
     BC --> BF
@@ -66,6 +78,7 @@ graph TB
     LC --> LF
     MC --> MF
     CC --> CF
+    PAYC --> PAYF
 
     BF --> BR
     BF --> PR
@@ -82,6 +95,13 @@ graph TB
     MF --> MR
     CF --> CR
     CF --> CIR
+    PAYF --> PAYR
+    PAYF --> POR
+    PAYF --> PRS
+    PAYF --> POS
+    PRS --> PAYR
+    PRS --> CIBR
+    PRS --> RMR
 
     BRI -.->|implements| BR
     PRI -.->|implements| PR
@@ -90,6 +110,13 @@ graph TB
     MRI -.->|implements| MR
     CRI2 -.->|implements| CR
     CIRI -.->|implements| CIR
+    PAYRI -.->|implements| PAYR
+    PAYRI -.->|implements| POR
+    PAYRI -.->|implements| CIBR
+    PAYRI -.->|implements| RMR
+    PGR -.->|PG 호출| PAYF
+    RESL -.->|Rate Limit + CB| PGR
+    WAL -.->|크래시 복구| PRS
 ```
 
 ### 의존 방향
@@ -111,6 +138,9 @@ Interfaces → Application → Domain ← Infrastructure
 | LikeFacade | 좋아요 추가/취소(멱등) | Like, Product |
 | CouponFacade | 쿠폰 템플릿 CRUD, 발급, 내 쿠폰 조회, 주문 연동(적용/복원) | Coupon, CouponIssue |
 | MemberFacade | 회원가입, 비밀번호 변경 | Member |
+| PaymentFacade | 결제 요청(수동 Retry + Rate Limiter + CB + Multi-PG), 콜백 처리, Polling Hybrid | Payment, PaymentOutbox, PaymentRecoveryService, ProvisionalOrderService |
+| PaymentRecoveryService | 콜백 비동기 처리, 조건부 UPDATE(멱등), 재고/쿠폰 복원, PG 폴링 | Payment, CallbackInbox, ReconciliationMismatch |
+| ProvisionalOrderService | Redis 가주문 CRUD, CB Open 시 DB Fallback | Redis, Order |
 
 ---
 
@@ -137,7 +167,19 @@ Interfaces → Application → Domain ← Infrastructure
 │                 │   │                 │   │ │   Status       │
 └─────────────────┘   └─────────────────┘   └─────────────────┘
 
-ID 참조: brandId, memberId, productId, couponId, couponIssueId
+┌─────────────────────────────────────────────────────────────┐
+│                   Payment Aggregate Group                    │
+├──────────────┬──────────────┬──────────────┬────────────────┤
+│ PaymentModel │ PaymentOutbox│ CallbackInbox│ Reconciliation │
+│ (Root)       │ (Outbox 패턴)│ (DLQ 패턴)   │ Mismatch       │
+│ ├ PaymentSt. │ ├ OutboxSt.  │ ├ InboxSt.   │ (대사 감사)     │
+│ ├ orderId    │ ├ paymentId  │ ├ txnKey     │ ├ paymentId    │
+│ ├ amount     │ ├ payload    │ ├ payload    │ ├ ourStatus    │
+│ ├ pgProvider │ ├ retryCount │ ├ retryCount │ ├ externalSt.  │
+│ └ txnKey     │              │              │ └ resolution   │
+└──────────────┴──────────────┴──────────────┴────────────────┘
+
+ID 참조: brandId, memberId, productId, couponId, couponIssueId, orderId, paymentId
 ```
 
 ---
@@ -349,6 +391,133 @@ classDiagram
     Member *-- Email : contains
     Member *-- BirthDate : contains
 
+    %% ===== Payment Aggregate =====
+    class PaymentModel {
+        <<Aggregate Root>>
+        -Long id
+        -Long orderId
+        -PaymentStatus status
+        -int amount
+        -String cardType
+        -String cardNo
+        -String pgProvider
+        -String transactionKey
+        -String failureReason
+        +create(orderId, amount, cardType, cardNo)$ PaymentModel
+        +markPending(transactionKey, pgProvider)
+        +markPaid(transactionKey)
+        +markFailed(reason)
+        +markUnknown()
+    }
+
+    class PaymentStatus {
+        <<Enumeration>>
+        REQUESTED
+        PENDING
+        PAID
+        FAILED
+        UNKNOWN
+        +canTransitionTo(target) boolean
+        +isTerminal() boolean
+    }
+
+    PaymentModel --> PaymentStatus : has
+
+    class PaymentOutbox {
+        <<Entity · Outbox 패턴>>
+        -Long id
+        -Long paymentId
+        -Long orderId
+        -String eventType
+        -String payload
+        -PaymentOutboxStatus status
+        -int retryCount
+        +create(paymentId, orderId, eventType, payload)$ PaymentOutbox
+        +markProcessed()
+        +markFailed()
+        +incrementRetry()
+    }
+
+    class PaymentOutboxStatus {
+        <<Enumeration>>
+        PENDING
+        PROCESSED
+        FAILED
+    }
+
+    PaymentOutbox --> PaymentOutboxStatus : has
+    PaymentOutbox ..> PaymentModel : paymentId
+
+    class CallbackInbox {
+        <<Entity · DLQ 패턴>>
+        -Long id
+        -String transactionKey
+        -Long orderId
+        -String pgStatus
+        -String payload
+        -CallbackInboxStatus status
+        -int retryCount
+        -String errorMessage
+        +create(transactionKey, orderId, pgStatus, payload)$ CallbackInbox
+        +markProcessed()
+        +markFailed(errorMessage)
+    }
+
+    class CallbackInboxStatus {
+        <<Enumeration>>
+        RECEIVED
+        PROCESSED
+        FAILED
+    }
+
+    CallbackInbox --> CallbackInboxStatus : has
+
+    class ReconciliationMismatch {
+        <<Entity · 대사 감사>>
+        -Long id
+        -String type
+        -Long paymentId
+        -String ourStatus
+        -String externalStatus
+        -ZonedDateTime detectedAt
+        -ZonedDateTime resolvedAt
+        -String resolution
+        -String note
+        +create(type, paymentId, ourStatus, externalStatus)$ ReconciliationMismatch
+        +resolve(resolution)
+    }
+
+    ReconciliationMismatch ..> PaymentModel : paymentId
+
+    %% ===== PG 연동 (Infrastructure) =====
+    class PgClient {
+        <<Interface · Strategy>>
+        +requestPayment(request) PgPaymentResponse
+        +getPaymentStatus(transactionKey) PgPaymentStatusResponse
+        +getPaymentByOrderId(orderId) PgPaymentStatusResponse
+        +getProviderName() String
+    }
+
+    class PgRouter {
+        <<Strategy Router>>
+        -List~PgClient~ pgClients
+        +requestPayment(request) PgPaymentResponse
+        +getPaymentStatus(key, provider) PgPaymentStatusResponse
+        +getPaymentByOrderId(orderId) PgPaymentStatusResponse
+        -isTimeoutException(e) boolean
+    }
+
+    class SlidingWindowRateLimiter {
+        <<Custom Rate Limiter>>
+        -int limit
+        -long windowSizeMs
+        -AtomicLong prevWindowCount
+        -AtomicLong currWindowCount
+        +tryAcquire() boolean
+    }
+
+    PgRouter --> PgClient : routes to (Primary → Fallback)
+
     %% ===== Aggregate 간 ID 참조 =====
     Product ..> Brand : brandId
     Order ..> Member : memberId
@@ -356,6 +525,8 @@ classDiagram
     OrderItem ..> Product : productId
     Like ..> Member : memberId
     Like ..> Product : productId
+    PaymentModel ..> Order : orderId
+    CallbackInbox ..> Order : orderId
 ```
 
 ---
@@ -419,6 +590,11 @@ classDiagram
 | CouponIssue → Coupon | 단방향 | `couponId` (ID 참조) |
 | CouponIssue → Member | 단방향 | `memberId` (ID 참조) |
 | CouponIssue → Order | 단방향 | `usedOrderId` (ID 참조, nullable) |
+| PaymentModel → Order | 단방향 | `orderId` (ID 참조, UNIQUE) |
+| PaymentOutbox → PaymentModel | 단방향 | `paymentId` (ID 참조) |
+| CallbackInbox → Order | 단방향 | `orderId` (ID 참조, nullable) |
+| ReconciliationMismatch → PaymentModel | 단방향 | `paymentId` (ID 참조) |
+| PgRouter → PgClient | 다형성 | `List<PgClient>` (Strategy, @Order 기반 우선순위) |
 
 **원칙**:
 - **Aggregate 간 참조는 ID로**: 다른 Aggregate의 Root Entity를 직접 참조하지 않음
@@ -436,3 +612,8 @@ classDiagram
 | **Aggregate 경계 넘는 참조** | ID로만 참조 | 성능을 위해 Join이 필요하면 읽기 전용 Query 모델 분리 고려 |
 | **OrderItem 목록 크기** | 제한 없음 | 한 주문에 너무 많은 상품 시 트랜잭션 비대화. 최대 개수 제한 권장 |
 | **Order 상태 전이** | 단순 enum + cancel() 검증 | 복잡해지면 상태 머신 패턴 또는 이벤트 소싱 고려 |
+| **PaymentStatus 상태 전이 검증** | `canTransitionTo()` + 조건부 UPDATE | 동시 실행(콜백/배치/폴링) 시 1건만 성공, 나머지는 멱등 무시 |
+| **PG 타임아웃 시 유령 결제** | UNKNOWN + Polling Hybrid + 배치 복구 | 타임아웃 시 Fallback 전환 불가 (중복 결제 방지) |
+| **Redis-DB 재고 이중 존재** | Lua Script 원자적 보정 (30초) | DB가 SOT, Redis는 DB 기준으로 보정 |
+| **Payment Aggregate 크기** | 4개 Entity가 독립적 라이프사이클 | Aggregate로 묶지 않음. ID 참조로 느슨한 결합 유지 |
+| **PgClient 추가 확장** | Strategy 패턴 + @Order | 새 PG 추가 시 PgClient 구현 + @Order 설정만으로 확장 |

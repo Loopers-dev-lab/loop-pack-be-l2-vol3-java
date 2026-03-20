@@ -19,6 +19,10 @@ erDiagram
     orders ||--|{ order_item : "contains"
     coupon ||--o{ coupon_issue : "issued as"
     coupon_issue |o--o| orders : "applied to"
+    orders ||--o| payments : "has payment"
+    payments ||--o| payment_outbox : "outbox event"
+    payments ||--o{ reconciliation_mismatch : "audited by"
+    payments ||--o{ callback_inbox : "receives callback"
 
     member {
         bigint id PK
@@ -104,6 +108,65 @@ erDiagram
         varchar brand_name "브랜드명 스냅샷"
         int quantity "주문 수량"
         timestamp created_at
+    }
+
+    payments {
+        bigint id PK
+        bigint order_id FK_UK "주문 참조 (1:1)"
+        varchar status "REQUESTED/PENDING/PAID/FAILED/UNKNOWN"
+        int amount "결제 금액"
+        varchar card_type "카드 유형"
+        varchar card_no "마스킹된 카드 번호"
+        varchar pg_provider "PG사 (SIMULATOR/TOSS)"
+        varchar transaction_key "PG 트랜잭션 키"
+        varchar failure_reason "실패 사유"
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at "soft delete"
+    }
+
+    payment_outbox {
+        bigint id PK
+        bigint payment_id FK "결제 참조"
+        bigint order_id FK "주문 참조"
+        varchar event_type "이벤트 유형 (PAYMENT_REQUEST)"
+        text payload "JSON 페이로드"
+        varchar status "PENDING/PROCESSED/FAILED"
+        timestamp processed_at "처리 완료 시각"
+        int retry_count "재시도 횟수"
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at "soft delete"
+    }
+
+    callback_inbox {
+        bigint id PK
+        varchar transaction_key "PG 트랜잭션 키"
+        bigint order_id FK "주문 참조"
+        varchar pg_status "PG 콜백 상태 (SUCCESS/FAILED)"
+        text payload "콜백 원본 페이로드"
+        varchar status "RECEIVED/PROCESSED/FAILED"
+        timestamp processed_at "처리 완료 시각"
+        int retry_count "재시도 횟수"
+        varchar error_message "오류 메시지"
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at "soft delete"
+    }
+
+    reconciliation_mismatch {
+        bigint id PK
+        varchar type "대사 유형 (PG/ORDER/COUPON)"
+        bigint payment_id FK "결제 참조"
+        varchar our_status "내부 상태"
+        varchar external_status "외부(PG) 상태"
+        timestamp detected_at "감지 시각"
+        timestamp resolved_at "해소 시각"
+        varchar resolution "해소 방법"
+        text note "비고"
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at "soft delete"
     }
 ```
 
@@ -288,6 +351,130 @@ erDiagram
 
 ---
 
+### 3.9 payments (결제)
+
+| 컬럼명 | 타입 | 제약조건 | 설명 |
+|--------|------|----------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | 결제 고유 ID |
+| order_id | BIGINT | FK (논리적), UNIQUE, NOT NULL | 주문 참조 (1:1) |
+| status | VARCHAR(20) | NOT NULL | 결제 상태 |
+| amount | INT | NOT NULL | 결제 금액 |
+| card_type | VARCHAR(20) | NULL | 카드 유형 (VISA, MASTERCARD 등) |
+| card_no | VARCHAR(30) | NULL | 마스킹된 카드 번호 |
+| pg_provider | VARCHAR(20) | NULL | PG사 (SIMULATOR/TOSS) |
+| transaction_key | VARCHAR(100) | NULL | PG 트랜잭션 키 |
+| failure_reason | VARCHAR(255) | NULL | 실패 사유 |
+| created_at | TIMESTAMP | NOT NULL | 생성 일시 |
+| updated_at | TIMESTAMP | NOT NULL | 수정 일시 |
+| deleted_at | TIMESTAMP | NULL | 삭제 일시 (soft delete) |
+
+**인덱스**:
+- `uk_payments_order_id`: order_id (UNIQUE — 주문당 결제 1건)
+- `idx_payments_transaction_key`: transaction_key (PG 트랜잭션 키 조회)
+- `idx_payments_status`: status (상태별 배치 조회)
+
+**결제 상태 값**:
+
+| 상태 | 설명 | 전이 가능 대상 |
+|------|------|---------------|
+| REQUESTED | 결제 요청 생성됨 (PG 호출 전) | PENDING, FAILED, UNKNOWN |
+| PENDING | PG에 요청 전달됨 (비동기 PG 응답 대기) | PAID, FAILED, UNKNOWN |
+| PAID | 결제 완료 (최종) | — |
+| FAILED | 결제 실패 (최종) | — |
+| UNKNOWN | 타임아웃 등으로 PG 응답 불명 | PAID, FAILED |
+
+**설계 결정**:
+- `order_id` UNIQUE: 하나의 주문에는 하나의 결제만 존재 (재결제 시 새 Payment 생성)
+- 조건부 UPDATE: `WHERE status IN ('PENDING','UNKNOWN')` → 콜백/배치/폴링 동시 실행 시 1건만 성공
+- `transaction_key`는 PG 응답 이후 설정 → REQUESTED 시점에는 NULL
+
+---
+
+### 3.10 payment_outbox (결제 아웃박스)
+
+| 컬럼명 | 타입 | 제약조건 | 설명 |
+|--------|------|----------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | 아웃박스 고유 ID |
+| payment_id | BIGINT | FK (논리적), NOT NULL | 결제 참조 |
+| order_id | BIGINT | FK (논리적), NOT NULL | 주문 참조 |
+| event_type | VARCHAR(50) | NOT NULL | 이벤트 유형 (PAYMENT_REQUEST) |
+| payload | TEXT | NOT NULL | JSON 페이로드 |
+| status | VARCHAR(20) | NOT NULL, DEFAULT 'PENDING' | 처리 상태 |
+| processed_at | TIMESTAMP | NULL | 처리 완료 시각 |
+| retry_count | INT | NOT NULL, DEFAULT 0 | 재시도 횟수 |
+| created_at | TIMESTAMP | NOT NULL | 생성 일시 |
+| updated_at | TIMESTAMP | NOT NULL | 수정 일시 |
+| deleted_at | TIMESTAMP | NULL | 삭제 일시 (soft delete) |
+
+**인덱스**:
+- `idx_payment_outbox_status`: status (PENDING 건 조회 — 5초 폴링)
+- `idx_payment_outbox_payment_id`: payment_id (결제별 아웃박스 조회)
+
+**설계 결정 (Outbox 패턴)**:
+- Payment INSERT + Outbox INSERT = 같은 TX-1 → 서버 크래시 시에도 PG 호출 누락 방지
+- 5초 주기 폴러가 PENDING 건을 PG에 재전송
+- `retry_count`로 무한 재시도 방지 (최대 횟수 도달 시 FAILED 전환)
+
+---
+
+### 3.11 callback_inbox (콜백 인박스 — DLQ)
+
+| 컬럼명 | 타입 | 제약조건 | 설명 |
+|--------|------|----------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | 인박스 고유 ID |
+| transaction_key | VARCHAR(100) | NOT NULL | PG 트랜잭션 키 |
+| order_id | BIGINT | NULL | 주문 참조 |
+| pg_status | VARCHAR(20) | NOT NULL | PG 콜백 상태 (SUCCESS/FAILED) |
+| payload | TEXT | NULL | 콜백 원본 페이로드 (JSON) |
+| status | VARCHAR(20) | NOT NULL, DEFAULT 'RECEIVED' | 처리 상태 |
+| processed_at | TIMESTAMP | NULL | 처리 완료 시각 |
+| retry_count | INT | NOT NULL, DEFAULT 0 | 재시도 횟수 |
+| error_message | VARCHAR(255) | NULL | 오류 메시지 |
+| created_at | TIMESTAMP | NOT NULL | 생성 일시 |
+| updated_at | TIMESTAMP | NOT NULL | 수정 일시 |
+| deleted_at | TIMESTAMP | NULL | 삭제 일시 (soft delete) |
+
+**인덱스**:
+- `idx_callback_inbox_transaction_key`: transaction_key (트랜잭션 키로 조회)
+- `idx_callback_inbox_status`: status (RECEIVED + 30초 경과 건 DLQ 재처리)
+
+**설계 결정 (Callback Inbox DLQ)**:
+- PG 콜백 수신 즉시 원본 저장 (RECEIVED) → PG에게 200 OK 즉시 반환
+- 내부 처리는 비동기: RECEIVED → PROCESSED 또는 FAILED
+- RECEIVED + 30초 경과 건은 DLQ 스케줄러가 재처리
+- `payload` 원본 보존으로 콜백 유실 원천 차단
+
+---
+
+### 3.12 reconciliation_mismatch (대사 불일치)
+
+| 컬럼명 | 타입 | 제약조건 | 설명 |
+|--------|------|----------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | 대사 불일치 고유 ID |
+| type | VARCHAR(50) | NOT NULL | 대사 유형 (PG_PAYMENT/PAYMENT_ORDER/PAYMENT_COUPON) |
+| payment_id | BIGINT | FK (논리적), NOT NULL | 결제 참조 |
+| our_status | VARCHAR(20) | NOT NULL | 내부 상태 |
+| external_status | VARCHAR(20) | NULL | 외부(PG) 상태 |
+| detected_at | TIMESTAMP | NOT NULL | 감지 시각 |
+| resolved_at | TIMESTAMP | NULL | 해소 시각 |
+| resolution | VARCHAR(255) | NULL | 해소 방법 |
+| note | TEXT | NULL | 비고 |
+| created_at | TIMESTAMP | NOT NULL | 생성 일시 |
+| updated_at | TIMESTAMP | NOT NULL | 수정 일시 |
+| deleted_at | TIMESTAMP | NULL | 삭제 일시 (soft delete) |
+
+**인덱스**:
+- `idx_recon_mismatch_type`: type (대사 유형별 조회)
+- `idx_recon_mismatch_payment_id`: payment_id (결제별 불일치 조회)
+
+**설계 결정 (대사 배치)**:
+- 3종 대사: R1(PG↔Payment), R2(Payment↔Order), R3(Payment↔Coupon) — 1시간 주기
+- 불일치 0건 = 복구 로직이 정상 동작하는지 검증하는 최종 안전망
+- 자동 보상 가능한 케이스(Payment FAILED + PG SUCCESS)는 자동 보정 후 기록
+- 자동 보상 불가한 케이스는 `note`에 기록 + 알림
+
+---
+
 ## 4. 관계 요약
 
 | 관계 | 카디널리티 | 설명 |
@@ -301,6 +488,10 @@ erDiagram
 | coupon - coupon_issue | 1:N | 쿠폰 템플릿에서 여러 번 발급 |
 | member - coupon_issue | 1:N | 회원은 여러 쿠폰 보유 |
 | coupon_issue - orders | 1:0..1 | 쿠폰은 최대 1건 주문에 사용 |
+| orders - payments | 1:0..1 | 주문은 최대 1건 결제 보유 |
+| payments - payment_outbox | 1:0..1 | 결제당 1건의 아웃박스 이벤트 |
+| payments - callback_inbox | 1:N | 결제에 여러 콜백 수신 가능 (중복 콜백) |
+| payments - reconciliation_mismatch | 1:N | 결제에 여러 대사 불일치 기록 가능 |
 
 ---
 
@@ -316,6 +507,10 @@ erDiagram
 | coupon_issue → coupon | 논리적 | 쿠폰 삭제(soft) 후에도 발급 이력 보존 |
 | coupon_issue → member | 논리적 | 회원 삭제 시에도 쿠폰 이력 보존 |
 | orders → coupon_issue | 논리적 | 쿠폰 없는 주문도 가능 (nullable) |
+| payments → orders | 논리적 | 주문 삭제 시에도 결제 이력 보존 |
+| payment_outbox → payments | 논리적 | 결제와 아웃박스 같은 TX에서 생성 |
+| callback_inbox → payments | 논리적 | 트랜잭션 키로 논리적 참조 |
+| reconciliation_mismatch → payments | 논리적 | 대사 불일치 기록은 감사 목적 |
 
 **참고**: 대규모 트래픽에서 FK 제약은 데드락, Cascading 이슈를 유발할 수 있어 논리적 관계로 설계. 데이터 정합성은 애플리케이션 레벨에서 보장.
 
@@ -420,6 +615,78 @@ CREATE TABLE coupon_issue (
     INDEX idx_coupon_issue_coupon_id (coupon_id),
     INDEX idx_coupon_issue_member_id (member_id)
 );
+
+-- 결제 테이블
+CREATE TABLE payments (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    amount INT NOT NULL,
+    card_type VARCHAR(20) NULL,
+    card_no VARCHAR(30) NULL,
+    pg_provider VARCHAR(20) NULL,
+    transaction_key VARCHAR(100) NULL,
+    failure_reason VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+    UNIQUE KEY uk_payments_order_id (order_id),
+    INDEX idx_payments_transaction_key (transaction_key),
+    INDEX idx_payments_status (status)
+);
+
+-- 결제 아웃박스 테이블 (Outbox Pattern)
+CREATE TABLE payment_outbox (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    payment_id BIGINT NOT NULL,
+    order_id BIGINT NOT NULL,
+    event_type VARCHAR(50) NOT NULL,
+    payload TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    processed_at TIMESTAMP NULL,
+    retry_count INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+    INDEX idx_payment_outbox_status (status),
+    INDEX idx_payment_outbox_payment_id (payment_id)
+);
+
+-- 콜백 인박스 테이블 (DLQ Pattern)
+CREATE TABLE callback_inbox (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    transaction_key VARCHAR(100) NOT NULL,
+    order_id BIGINT NULL,
+    pg_status VARCHAR(20) NOT NULL,
+    payload TEXT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'RECEIVED',
+    processed_at TIMESTAMP NULL,
+    retry_count INT NOT NULL DEFAULT 0,
+    error_message VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+    INDEX idx_callback_inbox_transaction_key (transaction_key),
+    INDEX idx_callback_inbox_status (status)
+);
+
+-- 대사 불일치 테이블
+CREATE TABLE reconciliation_mismatch (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    type VARCHAR(50) NOT NULL,
+    payment_id BIGINT NOT NULL,
+    our_status VARCHAR(20) NOT NULL,
+    external_status VARCHAR(20) NULL,
+    detected_at TIMESTAMP NOT NULL,
+    resolved_at TIMESTAMP NULL,
+    resolution VARCHAR(255) NULL,
+    note TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+    INDEX idx_recon_mismatch_type (type),
+    INDEX idx_recon_mismatch_payment_id (payment_id)
+);
 ```
 
 ---
@@ -435,3 +702,8 @@ CREATE TABLE coupon_issue (
 | **인덱스 과다** | 정렬/필터용 여러 인덱스 | 쓰기 성능 저하 가능. 실제 쿼리 패턴 분석 후 최적화 |
 | **orders.status VARCHAR** | 문자열 저장 | ENUM 타입으로 변경하거나 코드 테이블 분리 고려 |
 | **쿠폰 조건부 UPDATE 경합** | WHERE 조건으로 원자적 처리 | 동일 쿠폰 동시 사용 시 1건만 성공. 실패한 요청은 "이미 사용" 에러 |
+| **payments.status VARCHAR** | 문자열 저장 (5개 상태) | `canTransitionTo()` + 조건부 UPDATE로 상태 머신 보장 |
+| **payment_outbox 폴링 부하** | 5초 주기 SELECT | PENDING 건만 조회, idx_payment_outbox_status 인덱스 활용. 처리량 증가 시 폴링 주기 조정 |
+| **callback_inbox 중복 콜백** | 같은 transaction_key로 다중 콜백 수신 가능 | 조건부 UPDATE로 멱등 처리. 첫 번째만 반영, 나머지 무시 |
+| **reconciliation_mismatch 데이터 증가** | 대사 주기(1시간)마다 조회 | resolved_at 기준으로 아카이빙 정책 적용 권장 |
+| **Redis 가주문 ↔ DB 결제 정합성** | Redis(가주문) → DB(진주문) 전환 | SOT 전환: Redis 임시 → DB 확정. Lua Script로 재고 원자적 보정 |

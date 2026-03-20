@@ -596,7 +596,334 @@ sequenceDiagram
 
 ---
 
-## 10. 잠재 리스크
+## 10. 결제 요청 (Payment Request) — TX 분리 + 7계층 Fallback
+
+### 왜 이 다이어그램이 필요한가?
+
+결제 요청은 PG 외부 시스템 연동이 포함된 가장 복잡한 비동기 흐름이다. 다음을 검증하기 위해 필요:
+- **TX 분리**: PG 호출이 트랜잭션 밖에서 실행되는지 (DB 커넥션 비점유)
+- **가주문 → 진주문 전환**: Redis 가주문 생성 → 결제 완료 시 DB 진주문 전환
+- **멱등성**: 수동 Retry 루프에서 PG 상태 확인 후 재시도 판단
+- **Outbox**: Payment + Outbox가 같은 TX에서 원자적으로 저장되는지
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Controller as PaymentController
+    participant Facade as PaymentFacade
+    participant ProvisionalSvc as ProvisionalOrderService
+    participant Redis as Redis Master
+    participant PaymentRepo as PaymentRepository
+    participant OutboxRepo as PaymentOutboxRepository
+    participant PgRouter as PgRouter
+    participant PG as PG (Simulator/Toss)
+    participant DB as Database
+
+    Client->>Controller: POST /api/v1/payments (orderId, cardType, cardNo, amount)
+    activate Controller
+    Controller->>Facade: requestPayment(orderId, cardType, cardNo, amount)
+    activate Facade
+
+    Note over Facade: 1. 주문 검증
+    Facade->>DB: findOrderById(orderId)
+    DB-->>Facade: Order
+
+    alt 주문 미존재 / 이미 결제됨
+        Facade-->>Controller: 400 예외
+    end
+
+    rect rgb(255, 248, 240)
+        Note over Facade,DB: TX-0: 쿠폰 선차감
+
+        Facade->>DB: CouponIssue UPDATE SET status='USED' WHERE status='AVAILABLE'
+        DB-->>Facade: affected rows
+        alt affected rows = 0
+            Facade-->>Controller: 쿠폰 사용 불가 예외
+        end
+    end
+
+    rect rgb(240, 255, 240)
+        Note over Facade,Redis: Redis: 가주문 생성 + 재고 예약
+
+        Facade->>ProvisionalSvc: createProvisionalOrder(request)
+        activate ProvisionalSvc
+
+        alt redis-write CB Closed (정상)
+            ProvisionalSvc->>Redis: DECR stock:{productId}
+            ProvisionalSvc->>Redis: HSET provisional:order:{orderId} (TTL 25~35분 Jitter)
+            ProvisionalSvc->>Redis: SADD provisional:orders {orderId}
+            ProvisionalSvc-->>Facade: ProvisionalOrderResult
+        else redis-write CB Open (Redis 장애)
+            Note over ProvisionalSvc: DB Fallback
+            ProvisionalSvc->>DB: INSERT Order(CREATED) + UPDATE stock
+            ProvisionalSvc-->>Facade: DirectOrderResult
+        end
+        deactivate ProvisionalSvc
+    end
+
+    rect rgb(240, 248, 255)
+        Note over Facade,DB: TX-1: Payment + Outbox 원자적 저장
+
+        Facade->>PaymentRepo: save(Payment REQUESTED)
+        PaymentRepo->>DB: INSERT payment (status=REQUESTED)
+        Facade->>OutboxRepo: save(Outbox PENDING)
+        OutboxRepo->>DB: INSERT payment_outbox (status=PENDING)
+        Note over DB: TX-1 commit
+    end
+
+    rect rgb(255, 255, 240)
+        Note over Facade,PG: PG 호출 (트랜잭션 없음 — DB 커넥션 비점유)
+
+        loop 수동 Retry (최대 3회, 지수 백오프 500ms→1s→2s)
+            Note over Facade: 재시도 전 PG 상태 확인 (멱등성 보장)
+            Facade->>PgRouter: getPaymentByOrderId(orderId)
+            PgRouter->>PG: GET /payments?orderId={orderId}
+            PG-->>PgRouter: 404 (기록 없음) or 200 (이미 처리됨)
+
+            alt PG에 이미 기록 있음
+                Note over Facade: 재시도 안 함 → 기존 건 추적
+            else PG에 기록 없음 → 안전하게 재시도
+                Facade->>PgRouter: requestPayment(request)
+                Note over PgRouter: SlidingWindowRateLimiter(50/sec) → CB → Feign
+                PgRouter->>PG: POST /payments
+                alt Simulator(비동기) 성공
+                    PG-->>PgRouter: {status: PENDING, transactionKey: TX-001}
+                else Toss(동기) 성공
+                    PG-->>PgRouter: {status: SUCCESS, transactionKey: TX-002}
+                else 타임아웃 (SocketTimeoutException)
+                    Note over PgRouter: Fallback PG 전환하지 않음 (중복 결제 방지)
+                    PgRouter-->>Facade: 예외
+                else 500/연결실패
+                    Note over PgRouter: 다음 PG로 Fallback 전환
+                end
+            end
+        end
+    end
+
+    rect rgb(240, 248, 255)
+        Note over Facade,DB: TX-2: 상태 업데이트
+
+        alt PG 응답 PENDING (비동기 PG)
+            Facade->>DB: Payment → PENDING + Outbox → PROCESSED
+            Facade->>Facade: Delayed Task 등록 (10초 후 Polling)
+            Facade-->>Controller: "결제 처리 중"
+        else PG 응답 SUCCESS (동기 PG — Toss)
+            Facade->>DB: Payment → PAID + Order → PAID
+            Facade-->>Controller: "결제 완료"
+        else 모든 PG 실패
+            Facade->>DB: Payment → UNKNOWN
+            Facade-->>Controller: "결제 확인 중"
+        end
+    end
+
+    deactivate Facade
+    Controller-->>Client: 200 OK (결제 상태)
+    deactivate Controller
+```
+
+### 읽는 법
+
+1. **4개의 rect 블록**이 각각 별도 트랜잭션(TX-0, Redis, TX-1, TX-2) — PG 호출은 TX 밖
+2. **수동 Retry 루프**: 재시도 전 PG 상태 확인 → 중복 결제 방지 (멱등성)
+3. **PgRouter 분기**: 타임아웃 시 Fallback 전환 불가, 500/연결실패만 Fallback
+4. **Redis Fallback**: CB Open 시 DB 직접 주문으로 자동 전환
+
+### 핵심 설계 포인트
+
+| 포인트 | 설명 |
+|--------|------|
+| **TX 분리** | PG 호출 중 DB 커넥션 비점유 (초당 100건 기준 450 → 5 커넥션·초) |
+| **Outbox 패턴** | Payment + Outbox 같은 TX에서 저장 → 서버 크래시에도 PG 호출 누락 없음 |
+| **수동 Retry** | PG 상태 확인 후 재시도 → PG가 멱등하지 않아도 중복 결제 방지 |
+| **Multi-PG** | 타임아웃 외 실패 시 자동 Fallback (Simulator → Toss) |
+| **가주문** | Redis TTL Jitter(±5분)로 동시 만료 분산, CB Open 시 DB Fallback |
+
+---
+
+## 11. 콜백 수신 + 진주문 전환 (Callback → Real Order)
+
+### 왜 이 다이어그램이 필요한가?
+
+PG 콜백 수신 후 가주문→진주문 전환 과정에서 다음을 검증:
+- **Callback Inbox (DLQ)**: 원본 먼저 저장 → PG에게 즉시 200 → 내부 처리
+- **조건부 UPDATE**: 콜백/배치/폴링 동시 실행에서 멱등성 보장
+- **SOT 전환**: Redis(가주문) → DB(진주문) 원자적 전환
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant PG as PG Simulator
+    participant CallbackCtrl as CallbackController
+    participant RecoverySvc as PaymentRecoveryService
+    participant PaymentRepo as PaymentRepository
+    participant OrderRepo as OrderRepository
+    participant Redis as Redis Master
+    participant DB as Database
+
+    PG->>CallbackCtrl: POST /api/v1/payments/callback (transactionKey, status, payload)
+    activate CallbackCtrl
+
+    rect rgb(240, 248, 255)
+        Note over CallbackCtrl,DB: 1단계: 콜백 원본 보존 (DLQ)
+
+        CallbackCtrl->>DB: INSERT callback_inbox (status=RECEIVED, payload=원본)
+        Note over CallbackCtrl: PG에게 즉시 200 OK 반환 (처리 실패해도 원본 보존)
+    end
+
+    CallbackCtrl-->>PG: 200 OK
+    CallbackCtrl->>RecoverySvc: processCallback(transactionKey, status, payload)
+    activate RecoverySvc
+
+    RecoverySvc->>PaymentRepo: findByTransactionKey(transactionKey)
+    PaymentRepo->>DB: SELECT payment WHERE transaction_key = ?
+    DB-->>PaymentRepo: Payment
+    PaymentRepo-->>RecoverySvc: Payment
+
+    alt Payment 미존재
+        Note over RecoverySvc: 로그 남김 + callback_inbox에 보존
+    else status = SUCCESS
+        rect rgb(240, 255, 240)
+            Note over RecoverySvc,DB: TX-3: 조건부 UPDATE + 진주문 전환
+
+            RecoverySvc->>DB: UPDATE payment SET status='PAID' WHERE id=? AND status IN ('PENDING','UNKNOWN')
+            DB-->>RecoverySvc: affected rows
+
+            alt affected rows = 0
+                Note over RecoverySvc: 이미 다른 경로(배치/폴링)에서 처리 완료 → 무시
+            else affected rows = 1
+                RecoverySvc->>DB: INSERT Order(PAID) + OrderItems (진주문 생성)
+                RecoverySvc->>DB: UPDATE stock (DB 재고 확정 차감)
+                RecoverySvc->>Redis: DEL provisional:order:{orderId} (가주문 정리)
+                RecoverySvc->>Redis: SREM provisional:orders {orderId}
+                Note over Redis: Redis DEL 실패해도 TTL + 배치가 보정 → 실패 허용
+            end
+        end
+
+        RecoverySvc->>DB: UPDATE callback_inbox SET status='PROCESSED'
+    else status = FAILED
+        rect rgb(255, 240, 240)
+            Note over RecoverySvc,DB: 결제 실패 처리
+
+            RecoverySvc->>DB: UPDATE payment SET status='FAILED' WHERE id=? AND status IN ('PENDING','UNKNOWN')
+            RecoverySvc->>Redis: INCR stock:{productId} (재고 복원)
+            RecoverySvc->>Redis: DEL provisional:order:{orderId}
+            RecoverySvc->>DB: 쿠폰 복원 (CouponIssue → AVAILABLE)
+        end
+
+        RecoverySvc->>DB: UPDATE callback_inbox SET status='PROCESSED'
+    end
+
+    deactivate RecoverySvc
+    deactivate CallbackCtrl
+```
+
+### 핵심 설계 포인트
+
+| 포인트 | 설명 |
+|--------|------|
+| **Callback Inbox** | 원본 먼저 저장 → PG에게 200 즉시 반환 → 콜백 유실 원천 차단 |
+| **조건부 UPDATE** | `WHERE status IN ('PENDING','UNKNOWN')` → 콜백/배치/폴링 동시 실행 시 1건만 성공 |
+| **SOT 전환** | DB INSERT(진주문) + DB 재고 차감 = 같은 TX / Redis DEL = TX 밖 (실패 허용) |
+| **DLQ 재처리** | RECEIVED + 30초 경과 건 → DLQ 스케줄러가 재처리 |
+
+---
+
+## 12. 복구 흐름 — Polling Hybrid + 배치 복구 + 대사
+
+### 왜 이 다이어그램이 필요한가?
+
+콜백 미수신, 서버 크래시, DB 장애 등에서 자동 복구가 동작하는지 검증:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Scheduler as Scheduler (다중)
+    participant RecoverySvc as PaymentRecoveryService
+    participant PaymentRepo as PaymentRepository
+    participant PgRouter as PgRouter
+    participant PG as PG
+    participant Redis as Redis
+    participant DB as Database
+
+    rect rgb(255, 255, 240)
+        Note over Scheduler,PG: [실시간] Polling Hybrid — 10초 후 능동 조회
+
+        Scheduler->>RecoverySvc: checkPendingPayments()
+        RecoverySvc->>PaymentRepo: findPendingAndUnknown()
+        PaymentRepo-->>RecoverySvc: List<Payment>
+
+        loop 각 PENDING/UNKNOWN Payment에 대해
+            alt transactionKey 있음
+                RecoverySvc->>PgRouter: getPaymentStatus(transactionKey, pgProvider)
+            else transactionKey 없음 (UNKNOWN — 타임아웃)
+                RecoverySvc->>PgRouter: getPaymentByOrderId(orderId)
+            end
+
+            PgRouter->>PG: GET /payments/{key} or ?orderId={id}
+            PG-->>PgRouter: {status: SUCCESS/FAILED/PENDING}
+
+            alt PG SUCCESS
+                RecoverySvc->>DB: 조건부 UPDATE → PAID + 진주문 전환
+            else PG FAILED
+                RecoverySvc->>DB: 조건부 UPDATE → FAILED + 재고 복원
+            else PG PENDING
+                Note over RecoverySvc: 아직 처리 중 → 다음 주기에 재확인
+            end
+        end
+    end
+
+    rect rgb(240, 248, 255)
+        Note over Scheduler,DB: [주기적] Outbox Poller — 5초 주기
+
+        Scheduler->>DB: SELECT * FROM payment_outbox WHERE status='PENDING'
+        DB-->>Scheduler: List<Outbox>
+
+        loop 각 미처리 Outbox
+            Note over Scheduler: PG 상태 확인 (멱등성) → 필요 시 PG 호출
+            Scheduler->>PG: POST /payments (재시도)
+            PG-->>Scheduler: 응답
+            Scheduler->>DB: Outbox → PROCESSED
+        end
+    end
+
+    rect rgb(240, 255, 240)
+        Note over Scheduler,Redis: [주기적] 재고 정합성 배치 — 30초 주기 (Lua Script)
+
+        Scheduler->>DB: SELECT stock FROM product (DB 재고)
+        Scheduler->>Redis: SCARD provisional:orders (진행 중 가주문 수)
+        Note over Redis: Lua Script 원자적 실행: SET stock = DB stock - active provisionals
+    end
+
+    rect rgb(255, 248, 240)
+        Note over Scheduler,DB: [대사] PG ↔ Payment — 1시간 주기
+
+        Scheduler->>DB: SELECT PAID/FAILED payments (reconciled=false)
+        loop 각 Payment
+            Scheduler->>PG: GET /payments/{transactionKey}
+            alt 우리 PAID + PG SUCCESS → 일치
+                Scheduler->>DB: reconciled = true
+            else 우리 PAID + PG FAILED → 불일치
+                Scheduler->>DB: INSERT reconciliation_mismatch + 알림
+            else 우리 FAILED + PG SUCCESS → 불일치
+                Scheduler->>DB: 자동 보상 (PAID 전환) + 알림
+            end
+        end
+    end
+```
+
+### 핵심 설계 포인트
+
+| 포인트 | 설명 |
+|--------|------|
+| **3단계 복구** | 실시간(Polling 10초) → 주기적(배치 1분) → 대사(1시간) |
+| **UNKNOWN 복구** | transactionKey 없는 UNKNOWN → orderId 기반 PG 조회로 복구 |
+| **Lua Script** | Redis 재고 보정을 GET + SCARD + SET 원자적으로 실행 → Lost Update 방지 |
+| **대사 역할** | 복구가 잘 동작하는지 검증하는 최종 안전망. 불일치 0건 = 복구 정상 |
+
+---
+
+## 13. 잠재 리스크
 
 | 리스크 | 현재 상태 | 대응 방안 |
 |--------|----------|----------|
@@ -604,3 +931,7 @@ sequenceDiagram
 | **좋아요 COUNT 비용** | 배치 GROUP BY로 최적화 완료 | 극단적 트래픽 시 캐시 도입 |
 | **브랜드 삭제 시 대량 처리** | 배치 DELETE로 최적화 완료 | 상품이 매우 많으면 비동기 이벤트 처리 고려 |
 | **쿠폰 조건부 UPDATE 경합** | affected rows 검증 | 동시 사용 시 1건만 성공, 나머지는 명확한 에러 |
+| **PG 타임아웃 시 유령 결제** | UNKNOWN 상태 + 3단계 복구 경로 | 콜백 + Polling + 배치 이중 안전망 |
+| **Redis-DB 재고 이중 존재** | Lua Script 원자적 보정 (30초) | DB가 SOT, Redis를 DB 기준으로 보정 |
+| **콜백/배치/폴링 동시 실행** | 조건부 UPDATE (WHERE status IN) | affected rows = 0이면 무시 (멱등) |
+| **Redis 가주문 TTL 만료 시 재고 미복원** | Proactive Expiry Scanner (30초) | TTL < 30초 감지 → 선제 정리 + INCR |
