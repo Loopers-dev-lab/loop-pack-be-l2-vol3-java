@@ -293,5 +293,17 @@ class PaymentDomainTest {
             assertThat(reconcileRequired.status()).isEqualTo(PaymentStatus.CANCEL_RECONCILE_REQUIRED);
             assertThat(reconcileRequired.reason()).isEqualTo("조회 불가");
         }
+
+        @Test
+        @DisplayName("거래 키 없는 REQUESTED 결제도 취소 재처리 대기 상태로 전이할 수 있다")
+        void markCancelReconcileRequired_RequestedPaymentWithoutTransactionKey_ChangesStatus() {
+            Payment payment = new Payment(MEMBER_ID, ORDER_ID, CardType.SAMSUNG, CARD_NO, 5000);
+
+            Payment reconcileRequired = payment.markCancelReconcileRequiredFromRequested("거래 키 조회 대기");
+
+            assertThat(reconcileRequired.status()).isEqualTo(PaymentStatus.CANCEL_RECONCILE_REQUIRED);
+            assertThat(reconcileRequired.pgTransactionKey()).isNull();
+            assertThat(reconcileRequired.reason()).isEqualTo("거래 키 조회 대기");
+        }
     }
 }

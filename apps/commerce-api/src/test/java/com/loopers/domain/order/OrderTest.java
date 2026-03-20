@@ -66,6 +66,7 @@ class OrderTest {
             Order cancelled = order.cancel();
 
             assertThat(cancelled.status()).isEqualTo(OrderStatus.CANCELLED);
+            assertThat(cancelled.deletedAt()).isNotNull();
         }
 
         @Test
@@ -98,6 +99,33 @@ class OrderTest {
             Order order = new Order(MEMBER_ID, "ORDER-001", List.of(SAMPLE_ITEM));
 
             assertThat(order.isOwner(OTHER_MEMBER_ID)).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("재고 차감 마킹")
+    class StockDeduction {
+
+        @Test
+        @DisplayName("ORDERED 상태 주문은 재고 차감 마킹 시 차감 시각이 기록된다")
+        void markStockDeducted() {
+            Order order = new Order(MEMBER_ID, "ORDER-001", List.of(SAMPLE_ITEM));
+
+            Order marked = order.markStockDeducted();
+
+            assertThat(marked.stockDeductedAt()).isNotNull();
+            assertThat(marked.isStockDeducted()).isTrue();
+        }
+
+        @Test
+        @DisplayName("이미 재고 차감된 주문은 재마킹해도 동일 상태를 유지한다")
+        void markStockDeductedIdempotent() {
+            Order order = new Order(MEMBER_ID, "ORDER-001", List.of(SAMPLE_ITEM));
+            Order marked = order.markStockDeducted();
+
+            Order remark = marked.markStockDeducted();
+
+            assertThat(remark.stockDeductedAt()).isEqualTo(marked.stockDeductedAt());
         }
     }
 }
