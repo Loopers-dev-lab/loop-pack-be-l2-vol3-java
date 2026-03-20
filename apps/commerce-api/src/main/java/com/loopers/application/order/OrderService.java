@@ -2,6 +2,7 @@ package com.loopers.application.order;
 
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderRepository;
+import com.loopers.domain.order.OrderStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -52,12 +53,22 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Order> findOrdersByUserIdAndDateRange(Long userId, ZonedDateTime startDate, ZonedDateTime endDate, Pageable pageable) {
-        return orderRepository.findAllByUserIdAndCreatedAtBetween(userId, startDate, endDate, pageable);
+    public Page<Order> findAllOrders(Pageable pageable) {
+        return orderRepository.findAll(pageable);
     }
 
     @Transactional(readOnly = true)
-    public Page<Order> findAllOrders(Pageable pageable) {
-        return orderRepository.findAll(pageable);
+    public Page<Order> findOrdersByUserIdAndStatusAndDateRange(Long userId, OrderStatus status, ZonedDateTime startDate, ZonedDateTime endDate, Pageable pageable) {
+        return orderRepository.findAllByUserIdAndStatusAndCreatedAtBetween(userId, status, startDate, endDate, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Order> findOrdersByStatus(OrderStatus status, Pageable pageable) {
+        return orderRepository.findAllByStatus(status, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Order> findOrdersByProductId(Long productId, Pageable pageable) {
+        return orderRepository.findAllByProductId(productId, pageable);
     }
 }

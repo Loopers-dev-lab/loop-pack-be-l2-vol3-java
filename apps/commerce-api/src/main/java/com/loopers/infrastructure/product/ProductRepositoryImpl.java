@@ -40,8 +40,13 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public int softDeleteByBrandIdInBatch(Long brandId, int batchSize) {
-        return productJpaRepository.softDeleteByBrandIdInBatch(brandId, batchSize);
+    public List<Long> findIdsByBrandIdForCleanup(Long brandId, int batchSize) {
+        return productJpaRepository.findIdsByBrandIdForCleanup(brandId, batchSize);
+    }
+
+    @Override
+    public int softDeleteByIds(List<Long> ids) {
+        return productJpaRepository.softDeleteByIds(ids);
     }
 
     // Query
@@ -93,5 +98,10 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public List<Long> findBrandIdsWithUncleanedProducts() {
         return productJpaRepository.findBrandIdsWithUncleanedProducts();
+    }
+
+    @Override
+    public List<Product> findAllActiveCursor(Long brandId, Long cursor, int limit) {
+        return productJpaRepository.findAllActiveCursor(brandId, cursor, limit);
     }
 }

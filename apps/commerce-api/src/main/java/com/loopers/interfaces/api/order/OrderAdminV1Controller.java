@@ -25,7 +25,7 @@ public class OrderAdminV1Controller implements OrderAdminApiV1Spec {
     @Override
     public ApiResponse<PageResponse<OrderAdminV1Dto.OrderListResponse>> list(
             @Valid OrderRequest.ListAll request) {
-        Page<OrderInfo.OrderAdminSummary> orders = orderFacade.getAdminOrderList(request.toPageable());
+        Page<OrderInfo.OrderAdminSummary> orders = orderFacade.getAdminOrderList(request.status(), request.toPageable());
         PageResponse<OrderAdminV1Dto.OrderListResponse> pageResponse =
                 PageResponse.from(orders, OrderAdminV1Dto.OrderListResponse::from);
         return ApiResponse.success(pageResponse);
@@ -36,5 +36,15 @@ public class OrderAdminV1Controller implements OrderAdminApiV1Spec {
     public ApiResponse<OrderAdminV1Dto.OrderResponse> detail(@PathVariable Long orderId) {
         OrderInfo info = orderFacade.getAdminOrderDetail(orderId);
         return ApiResponse.success(OrderAdminV1Dto.OrderResponse.from(info));
+    }
+
+    @GetMapping("/by-product")
+    @Override
+    public ApiResponse<PageResponse<OrderAdminV1Dto.OrderListResponse>> listByProduct(
+            @Valid OrderRequest.ListByProduct request) {
+        Page<OrderInfo.OrderAdminSummary> orders = orderFacade.getAdminOrdersByProduct(request.productId(), request.toPageable());
+        PageResponse<OrderAdminV1Dto.OrderListResponse> pageResponse =
+                PageResponse.from(orders, OrderAdminV1Dto.OrderListResponse::from);
+        return ApiResponse.success(pageResponse);
     }
 }

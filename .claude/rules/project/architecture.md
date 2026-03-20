@@ -1,6 +1,6 @@
 # 아키텍처
 
-## 패키지 구조 (DDD)
+## 패키지 구조 (4-Layered_Architecture)
 ```
 com.loopers/
 ├── interfaces/          # REST 컨트롤러, Request DTO, Response DTO (V1Dto)

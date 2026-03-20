@@ -120,7 +120,7 @@ class OrderServiceIntegrationTest {
                     OrderCommand.CreateItem.of(3L, "바지", new BigDecimal("40000"), 1)
             )));
 
-            Page<Order> result = orderService.findOrdersByUserIdAndDateRange(1L, null, null, PageRequest.of(0, 20));
+            Page<Order> result = orderService.findOrdersByUserIdAndStatusAndDateRange(1L, null, null, null, PageRequest.of(0, 20));
 
             assertThat(result.getContent()).hasSize(2);
             assertThat(result.getContent()).allMatch(order -> order.getUserId().equals(1L));
@@ -134,7 +134,7 @@ class OrderServiceIntegrationTest {
                 )));
             }
 
-            Page<Order> result = orderService.findOrdersByUserIdAndDateRange(1L, null, null, PageRequest.of(0, 2));
+            Page<Order> result = orderService.findOrdersByUserIdAndStatusAndDateRange(1L, null, null, null, PageRequest.of(0, 2));
 
             assertThat(result.getContent()).hasSize(2);
             assertThat(result.getTotalElements()).isEqualTo(5);

@@ -3,6 +3,7 @@ package com.loopers.application.like;
 import com.loopers.application.brand.BrandService;
 import com.loopers.application.product.ProductService;
 import com.loopers.domain.brand.Brand;
+import com.loopers.infrastructure.product.ProductCacheManager;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.product.Product;
 import com.loopers.support.error.CoreException;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import static com.loopers.support.transaction.TransactionHelper.afterCommit;
 
 import java.util.Map;
 import java.util.Set;
@@ -24,6 +26,7 @@ public class LikeFacade {
     private final LikeService likeService;
     private final ProductService productService;
     private final BrandService brandService;
+    private final ProductCacheManager productCacheManager;
 
     // Command
 
@@ -34,6 +37,7 @@ public class LikeFacade {
         boolean created = likeService.like(userId, productId);
         if (created) {
             productService.incrementLikeCount(productId);
+            afterCommit(() -> productCacheManager.evictDetail(productId));
         }
     }
 
@@ -42,6 +46,7 @@ public class LikeFacade {
         boolean deleted = likeService.unlike(userId, productId);
         if (deleted) {
             productService.decrementLikeCountIfPositive(productId);
+            afterCommit(() -> productCacheManager.evictDetail(productId));
         }
     }
 

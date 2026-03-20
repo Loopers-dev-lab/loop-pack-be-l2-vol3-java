@@ -14,7 +14,11 @@ public interface OrderRepository {
     // Query
     Optional<Order> findByIdWithItems(Long id);
 
-    Page<Order> findAllByUserIdAndCreatedAtBetween(Long userId, ZonedDateTime startDate, ZonedDateTime endDate, Pageable pageable);
-
     Page<Order> findAll(Pageable pageable);
+
+    Page<Order> findAllByUserIdAndStatusAndCreatedAtBetween(Long userId, OrderStatus status, ZonedDateTime startDate, ZonedDateTime endDate, Pageable pageable);
+
+    Page<Order> findAllByStatus(OrderStatus status, Pageable pageable);
+
+    Page<Order> findAllByProductId(Long productId, Pageable pageable);
 }

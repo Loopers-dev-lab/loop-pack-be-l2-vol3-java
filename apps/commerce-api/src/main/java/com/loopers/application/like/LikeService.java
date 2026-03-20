@@ -41,6 +41,11 @@ public class LikeService {
     // Query
 
     @Transactional(readOnly = true)
+    public boolean isLiked(Long userId, Long productId) {
+        return likeRepository.existsByUserIdAndProductId(userId, productId);
+    }
+
+    @Transactional(readOnly = true)
     public Page<Like> findLikedActiveProducts(Long userId, Pageable pageable) {
         return likeRepository.findAllByUserIdWithActiveProduct(userId, pageable);
     }

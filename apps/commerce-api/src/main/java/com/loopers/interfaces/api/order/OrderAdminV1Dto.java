@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.order;
 
 import com.loopers.application.order.OrderInfo;
+import com.loopers.domain.order.OrderStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -13,6 +14,7 @@ public class OrderAdminV1Dto {
     public record OrderResponse(
             Long id,
             Long userId,
+            OrderStatus status,
             BigDecimal totalAmount,
             BigDecimal discountAmount,
             BigDecimal finalAmount,
@@ -28,6 +30,7 @@ public class OrderAdminV1Dto {
             return new OrderResponse(
                     info.id(),
                     info.userId(),
+                    info.status(),
                     info.totalAmount(),
                     info.discountAmount(),
                     info.finalAmount(),
@@ -60,6 +63,7 @@ public class OrderAdminV1Dto {
     public record OrderListResponse(
             Long id,
             Long userId,
+            OrderStatus status,
             BigDecimal totalAmount,
             BigDecimal discountAmount,
             BigDecimal finalAmount,
@@ -71,6 +75,7 @@ public class OrderAdminV1Dto {
             return new OrderListResponse(
                     summary.id(),
                     summary.userId(),
+                    summary.status(),
                     summary.totalAmount(),
                     summary.discountAmount(),
                     summary.finalAmount(),

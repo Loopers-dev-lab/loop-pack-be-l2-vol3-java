@@ -29,11 +29,13 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
     @Query("UPDATE Product p SET p.likeCount = p.likeCount - 1 WHERE p.id = :id AND p.likeCount > 0")
     int decrementLikeCountIfPositive(@Param("id") Long id);
 
+    @Query(value = "SELECT id FROM products WHERE brand_id = :brandId AND deleted_at IS NULL ORDER BY id LIMIT :batchSize",
+           nativeQuery = true)
+    List<Long> findIdsByBrandIdForCleanup(@Param("brandId") Long brandId, @Param("batchSize") int batchSize);
+
     @Modifying
-    @Query(value = "UPDATE products p SET p.deleted_at = NOW() " +
-           "WHERE p.brand_id = :brandId AND p.deleted_at IS NULL " +
-           "ORDER BY p.id LIMIT :batchSize", nativeQuery = true)
-    int softDeleteByBrandIdInBatch(@Param("brandId") Long brandId, @Param("batchSize") int batchSize);
+    @Query("UPDATE Product p SET p.deletedAt = CURRENT_TIMESTAMP WHERE p.id IN :ids")
+    int softDeleteByIds(@Param("ids") List<Long> ids);
 
     // Query
     @Query("SELECT p FROM Product p WHERE p.id = :id AND p.deletedAt IS NULL")
@@ -89,4 +91,16 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
            "JOIN Brand b ON p.brandId = b.id " +
            "WHERE b.deletedAt IS NOT NULL AND p.deletedAt IS NULL")
     List<Long> findBrandIdsWithUncleanedProducts();
+
+    @Query(value = "SELECT p.* FROM products p " +
+                   "JOIN brands b ON p.brand_id = b.id " +
+                   "WHERE p.deleted_at IS NULL AND b.deleted_at IS NULL " +
+                   "AND (:brandId IS NULL OR p.brand_id = :brandId) " +
+                   "AND (:cursor IS NULL OR p.id < :cursor) " +
+                   "ORDER BY p.id DESC " +
+                   "LIMIT :limit",
+           nativeQuery = true)
+    List<Product> findAllActiveCursor(@Param("brandId") Long brandId,
+                                     @Param("cursor") Long cursor,
+                                     @Param("limit") int limit);
 }

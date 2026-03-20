@@ -23,4 +23,12 @@ public interface OrderAdminApiV1Spec {
             description = "특정 주문의 상세 정보를 조회합니다."
     )
     ApiResponse<OrderAdminV1Dto.OrderResponse> detail(Long orderId);
+
+    @Operation(
+            summary = "상품별 주문 목록 조회 (Admin)",
+            description = "특정 상품이 포함된 주문을 최신순으로 페이징 조회합니다."
+    )
+    ApiResponse<PageResponse<OrderAdminV1Dto.OrderListResponse>> listByProduct(
+            OrderRequest.ListByProduct request
+    );
 }

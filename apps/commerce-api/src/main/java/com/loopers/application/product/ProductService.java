@@ -68,14 +68,19 @@ public class ProductService {
                     productId, productQuantities.get(productId)
             );
             if (updated == 0) {
-                throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다");
+                throw new CoreException(ErrorType.BAD_REQUEST, "상품(id: " + productId + ")의 재고가 부족합니다");
             }
         }
     }
 
+    @Transactional(readOnly = true)
+    public List<Long> findIdsForCleanup(Long brandId, int batchSize) {
+        return productRepository.findIdsByBrandIdForCleanup(brandId, batchSize);
+    }
+
     @Transactional
-    public int softDeleteByBrandIdInBatch(Long brandId, int batchSize) {
-        return productRepository.softDeleteByBrandIdInBatch(brandId, batchSize);
+    public int softDeleteByIds(List<Long> ids) {
+        return productRepository.softDeleteByIds(ids);
     }
 
 
@@ -117,6 +122,11 @@ public class ProductService {
     @Transactional(readOnly = true)
     public Page<Product> findActiveProducts(Long brandId, Pageable pageable) {
         return productRepository.findAllActiveWithActiveBrand(brandId, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Product> findActiveProductsCursor(Long brandId, Long cursor, int limit) {
+        return productRepository.findAllActiveCursor(brandId, cursor, limit);
     }
 
     @Transactional(readOnly = true)
