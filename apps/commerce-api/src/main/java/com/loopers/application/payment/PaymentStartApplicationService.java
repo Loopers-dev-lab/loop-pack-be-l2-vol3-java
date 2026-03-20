@@ -5,11 +5,13 @@ import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentGateway;
 import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.payment.PaymentStatus;
+import com.loopers.infrastructure.payment.PaymentRecoveryRequiredException;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @Service
 @RequiredArgsConstructor
@@ -42,18 +44,32 @@ public class PaymentStartApplicationService {
                 command.amount()
         );
 
-        Payment requested = paymentRepository.save(paymentToRequest);
+        Payment requested;
+        try {
+            requested = paymentRepository.save(paymentToRequest);
+        } catch (DataIntegrityViolationException e) {
+            return paymentRepository.findByMemberIdAndOrderId(command.memberId(), command.orderId())
+                    .orElseThrow(() -> new CoreException(
+                            ErrorType.CONFLICT,
+                            "결제를 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."
+                    ));
+        }
 
-        PaymentGateway.PaymentGatewayTransaction gatewayResult = paymentGateway.requestPayment(
-                new PaymentGateway.PaymentGatewayRequest(
-                        command.memberId(),
-                        command.orderId().toString(),
-                        command.cardType(),
-                        command.cardNo(),
-                        command.amount(),
-                        command.callbackUrl()
-                )
-        );
+        PaymentGateway.PaymentGatewayTransaction gatewayResult;
+        try {
+            gatewayResult = paymentGateway.requestPayment(
+                    new PaymentGateway.PaymentGatewayRequest(
+                            command.memberId(),
+                            command.orderId().toString(),
+                            command.cardType(),
+                            command.cardNo(),
+                            command.amount(),
+                            command.callbackUrl()
+                    )
+            );
+        } catch (PaymentRecoveryRequiredException e) {
+            return requested;
+        }
 
         Payment resolved = switch (gatewayResult.status()) {
             case REQUESTED -> new Payment(
@@ -82,6 +98,14 @@ public class PaymentStartApplicationService {
             );
         };
 
-        return paymentRepository.save(resolved);
+        try {
+            return paymentRepository.save(resolved);
+        } catch (DataIntegrityViolationException e) {
+            return paymentRepository.findByMemberIdAndOrderId(command.memberId(), command.orderId())
+                    .orElseThrow(() -> new CoreException(
+                            ErrorType.CONFLICT,
+                            "결제를 갱신하지 못했습니다. 잠시 후 다시 시도해 주세요."
+                    ));
+        }
     }
 }

@@ -60,6 +60,15 @@ public class PaymentController {
         return ApiResponse.success(PaymentDto.PaymentResponse.from(payment));
     }
 
+    @PostMapping("/{orderId}/reconcile")
+    public ApiResponse<PaymentDto.PaymentResponse> reconcilePayment(
+            @AuthMember Member member,
+            @PathVariable UUID orderId
+    ) {
+        Payment payment = paymentUseCase.reconcile(member.id().value(), orderId);
+        return ApiResponse.success(PaymentDto.PaymentResponse.from(payment));
+    }
+
     @GetMapping
     public ApiResponse<PaymentDto.PaymentListResponse> getPayments(
             @AuthMember Member member,

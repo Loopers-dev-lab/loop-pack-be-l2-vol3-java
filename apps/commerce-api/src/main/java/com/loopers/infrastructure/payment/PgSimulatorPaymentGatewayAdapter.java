@@ -2,6 +2,9 @@ package com.loopers.infrastructure.payment;
 
 import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.PaymentGateway;
+import com.loopers.domain.payment.PaymentGateway.PaymentGatewayCancelRequest;
+import com.loopers.domain.payment.PaymentGateway.PaymentGatewayRequest;
+import com.loopers.domain.payment.PaymentGateway.PaymentGatewayTransaction;
 import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.infrastructure.payment.pgsimulator.PgSimulatorCancelClient;
 import com.loopers.infrastructure.payment.pgsimulator.PgSimulatorPayClient;
@@ -14,6 +17,7 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import feign.FeignException;
 import feign.RetryableException;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -27,11 +31,10 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class PgSimulatorPaymentGatewayAdapter implements ProviderPaymentGateway {
 
-    private static final int CONNECTION_RETRY_MAX_ATTEMPTS = 3;
-
     private final PgSimulatorPayClient pgSimulatorPayClient;
     private final PgSimulatorCancelClient pgSimulatorCancelClient;
     private final PgSimulatorQueryClient pgSimulatorQueryClient;
+    private final PaymentGatewayResilienceExecutor paymentGatewayResilienceExecutor;
 
     @Override
     public boolean supports(CardType cardType) {
@@ -40,72 +43,109 @@ public class PgSimulatorPaymentGatewayAdapter implements ProviderPaymentGateway 
 
     @Override
     public PaymentGatewayTransaction requestPayment(PaymentGatewayRequest request) {
-        for (int attempt = 1; attempt <= CONNECTION_RETRY_MAX_ATTEMPTS; attempt++) {
-            try {
-                PgSimulatorApiResponse<PgSimulatorTransactionResponse> response = pgSimulatorPayClient.requestPayment(
-                        request.memberId(),
-                        new PgSimulatorRequestPaymentRequest(
-                                request.orderReference(),
-                                request.cardType().name(),
-                                request.cardNo(),
-                                request.amount(),
-                                request.callbackUrl()
-                        )
-                );
-                return toGatewayTransaction(response.data());
-            } catch (RetryableException e) {
-                if (!isConnectionFailure(e.getCause())) {
-                    return recoverRequestByOrderReference(request.memberId(), request.orderReference());
-                }
-                if (attempt == CONNECTION_RETRY_MAX_ATTEMPTS) {
-                    throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 요청 연결에 실패했습니다.");
-                }
-            } catch (FeignException.NotFound e) {
-                throw new CoreException(ErrorType.NOT_FOUND, "PG 결제 요청 대상을 찾을 수 없습니다.");
-            } catch (FeignException.BadRequest e) {
-                throw new CoreException(ErrorType.BAD_REQUEST, "PG 결제 요청이 거부되었습니다.");
-            } catch (FeignException e) {
-                throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 요청 중 오류가 발생했습니다.");
-            }
+        try {
+            return paymentGatewayResilienceExecutor.executeRequest(() -> doRequestPayment(request));
+        } catch (PaymentGatewayConnectionException | CallNotPermittedException e) {
+            return recoverRequestByOrderReferenceOrThrowRecoveryRequired(request.memberId(), request.orderReference());
         }
-
-        throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 요청 연결에 실패했습니다.");
     }
 
     @Override
     public PaymentGatewayTransaction cancelPayment(PaymentGatewayCancelRequest request) {
-        for (int attempt = 1; attempt <= CONNECTION_RETRY_MAX_ATTEMPTS; attempt++) {
-            try {
-                PgSimulatorApiResponse<PgSimulatorTransactionResponse> response = pgSimulatorCancelClient.cancelPayment(
-                        request.memberId(),
-                        request.transactionKey()
-                );
-                return toGatewayTransaction(response.data());
-            } catch (RetryableException e) {
-                if (!isConnectionFailure(e.getCause())) {
-                    return recoverByTransactionKey(request.memberId(), request.transactionKey());
-                }
-                if (attempt == CONNECTION_RETRY_MAX_ATTEMPTS) {
-                    throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 취소 요청 연결에 실패했습니다.");
-                }
-            } catch (FeignException.NotFound e) {
-                throw new CoreException(ErrorType.NOT_FOUND, "PG 결제 취소 대상을 찾을 수 없습니다.");
-            } catch (FeignException.Conflict e) {
-                throw new CoreException(ErrorType.CONFLICT, "PG 결제 취소 요청이 충돌되었습니다.");
-            } catch (FeignException e) {
-                throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 취소 중 오류가 발생했습니다.");
-            }
+        try {
+            return paymentGatewayResilienceExecutor.executeCancel(() -> doCancelPayment(request));
+        } catch (PaymentGatewayConnectionException | CallNotPermittedException e) {
+            return recoverByTransactionKeyOrThrowRecoveryRequired(request.memberId(), request.transactionKey());
         }
-
-        throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 취소 요청 연결에 실패했습니다.");
     }
 
     @Override
     public PaymentGatewayTransaction getPayment(String memberId, String transactionKey) {
         try {
+            return paymentGatewayResilienceExecutor.executeQuery(() -> doGetPayment(memberId, transactionKey));
+        } catch (PaymentGatewayConnectionException | CallNotPermittedException e) {
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 조회 연결에 실패했습니다.");
+        }
+    }
+
+    @Override
+    public List<PaymentGatewayTransaction> getPaymentsByOrderId(String memberId, String orderReference) {
+        try {
+            return paymentGatewayResilienceExecutor.executeQuery(() -> doGetPaymentsByOrderId(memberId, orderReference));
+        } catch (PaymentGatewayConnectionException | CallNotPermittedException e) {
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 주문 결제 조회 연결에 실패했습니다.");
+        }
+    }
+
+    private PaymentGatewayTransaction doRequestPayment(PaymentGatewayRequest request) {
+        try {
+            PgSimulatorApiResponse<PgSimulatorTransactionResponse> response = pgSimulatorPayClient.requestPayment(
+                    request.memberId(),
+                    new PgSimulatorRequestPaymentRequest(
+                            request.orderReference(),
+                            request.cardType().name(),
+                            request.cardNo(),
+                            request.amount(),
+                            request.callbackUrl()
+                    )
+            );
+            return toGatewayTransaction(response.data());
+        } catch (RetryableException e) {
+            if (isConnectionFailure(e.getCause())) {
+                throw new PaymentGatewayConnectionException("PG 결제 요청 연결에 실패했습니다.", e);
+            }
+            return recoverRequestByOrderReferenceOrThrowRecoveryRequired(request.memberId(), request.orderReference());
+        } catch (FeignException.NotFound e) {
+            throw new CoreException(ErrorType.NOT_FOUND, "PG 결제 요청 대상을 찾을 수 없습니다.");
+        } catch (FeignException.BadRequest e) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "PG 결제 요청이 거부되었습니다.");
+        } catch (FeignException.Conflict e) {
+            throw new CoreException(ErrorType.CONFLICT, "PG 결제 요청이 충돌되었습니다.");
+        } catch (FeignException e) {
+            if (e.status() == 409) {
+                throw new CoreException(ErrorType.CONFLICT, "PG 결제 요청이 충돌되었습니다.");
+            }
+            if (e.status() >= 400 && e.status() < 500) {
+                throw new CoreException(ErrorType.BAD_REQUEST, "PG 결제 요청이 거부되었습니다.");
+            }
+            if (e.status() >= 500 || e.status() == -1) {
+                return recoverRequestByOrderReferenceOrThrowRecoveryRequired(request.memberId(), request.orderReference());
+            }
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 요청 중 오류가 발생했습니다.");
+        }
+    }
+
+    private PaymentGatewayTransaction doCancelPayment(PaymentGatewayCancelRequest request) {
+        try {
+            PgSimulatorApiResponse<PgSimulatorTransactionResponse> response = pgSimulatorCancelClient.cancelPayment(
+                    request.memberId(),
+                    request.transactionKey()
+            );
+            return toGatewayTransaction(response.data());
+        } catch (RetryableException e) {
+            if (isConnectionFailure(e.getCause())) {
+                throw new PaymentGatewayConnectionException("PG 결제 취소 요청 연결에 실패했습니다.", e);
+            }
+            return recoverByTransactionKeyOrThrowRecoveryRequired(request.memberId(), request.transactionKey());
+        } catch (FeignException.NotFound e) {
+            throw new CoreException(ErrorType.NOT_FOUND, "PG 결제 취소 대상을 찾을 수 없습니다.");
+        } catch (FeignException.Conflict e) {
+            throw new CoreException(ErrorType.CONFLICT, "PG 결제 취소 요청이 충돌되었습니다.");
+        } catch (FeignException e) {
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 취소 중 오류가 발생했습니다.");
+        }
+    }
+
+    private PaymentGatewayTransaction doGetPayment(String memberId, String transactionKey) {
+        try {
             PgSimulatorApiResponse<PgSimulatorTransactionResponse> response =
                     pgSimulatorQueryClient.getPayment(memberId, transactionKey);
             return toGatewayTransaction(response.data());
+        } catch (RetryableException e) {
+            if (isConnectionFailure(e.getCause())) {
+                throw new PaymentGatewayConnectionException("PG 결제 조회 연결에 실패했습니다.", e);
+            }
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 조회 중 오류가 발생했습니다.");
         } catch (FeignException.NotFound e) {
             throw new CoreException(ErrorType.NOT_FOUND, "PG 결제 조회 대상을 찾을 수 없습니다.");
         } catch (FeignException e) {
@@ -113,8 +153,7 @@ public class PgSimulatorPaymentGatewayAdapter implements ProviderPaymentGateway 
         }
     }
 
-    @Override
-    public List<PaymentGatewayTransaction> getPaymentsByOrderId(String memberId, String orderReference) {
+    private List<PaymentGatewayTransaction> doGetPaymentsByOrderId(String memberId, String orderReference) {
         try {
             PgSimulatorApiResponse<PgSimulatorOrderTransactionsResponse> response =
                     pgSimulatorQueryClient.getPaymentsByOrderId(memberId, orderReference);
@@ -127,6 +166,11 @@ public class PgSimulatorPaymentGatewayAdapter implements ProviderPaymentGateway 
                 transactions.add(toGatewayTransaction(transaction));
             }
             return transactions;
+        } catch (RetryableException e) {
+            if (isConnectionFailure(e.getCause())) {
+                throw new PaymentGatewayConnectionException("PG 주문 결제 조회 연결에 실패했습니다.", e);
+            }
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "PG 주문 결제 조회 중 오류가 발생했습니다.");
         } catch (FeignException.NotFound e) {
             throw new CoreException(ErrorType.NOT_FOUND, "PG 주문 결제 조회 대상을 찾을 수 없습니다.");
         } catch (FeignException e) {
@@ -174,19 +218,22 @@ public class PgSimulatorPaymentGatewayAdapter implements ProviderPaymentGateway 
         return false;
     }
 
-    private PaymentGatewayTransaction recoverRequestByOrderReference(String memberId, String orderReference) {
+    private PaymentGatewayTransaction recoverRequestByOrderReferenceOrThrowRecoveryRequired(String memberId, String orderReference) {
         try {
             List<PaymentGatewayTransaction> transactions = getPaymentsByOrderId(memberId, orderReference);
             if (transactions.isEmpty()) {
-                throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 요청 결과가 불명확하고 조회 결과도 없습니다.");
+                throw new PaymentRecoveryRequiredException("결제 요청 결과가 불명확하고 조회 결과도 없습니다.");
+            }
+            if (transactions.size() != 1) {
+                throw new PaymentRecoveryRequiredException("결제 요청 결과가 불명확합니다. 주문 결제 내역이 여러 건 조회됩니다.");
             }
             return transactions.get(0);
         } catch (CoreException e) {
-            throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 요청 결과가 불명확하며 상태 조회에도 실패했습니다.");
+            throw new PaymentRecoveryRequiredException("결제 요청 결과가 불명확하며 상태 조회에도 실패했습니다.");
         }
     }
 
-    private PaymentGatewayTransaction recoverByTransactionKey(String memberId, String transactionKey) {
+    private PaymentGatewayTransaction recoverByTransactionKeyOrThrowRecoveryRequired(String memberId, String transactionKey) {
         try {
             return getPayment(memberId, transactionKey);
         } catch (CoreException e) {

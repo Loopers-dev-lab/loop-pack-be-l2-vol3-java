@@ -7,6 +7,8 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -17,7 +19,9 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.server.ServerWebInputException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -120,6 +124,21 @@ public class ApiControllerAdvice {
     }
 
     @ExceptionHandler
+    public ResponseEntity<ApiResponse<?>> handleConflict(DataIntegrityViolationException e) {
+        log.warn("DataIntegrityViolationException : {}", e.getMessage(), e);
+        if (isDuplicateKeyViolation(e)) {
+            return failureResponse(ErrorType.CONFLICT, "중복 요청으로 충돌이 발생했습니다.");
+        }
+        return failureResponse(ErrorType.INTERNAL_ERROR, null);
+    }
+
+    @ExceptionHandler
+    public ResponseEntity<ApiResponse<?>> handleConflict(CannotAcquireLockException e) {
+        log.warn("CannotAcquireLockException : {}", e.getMessage(), e);
+        return failureResponse(ErrorType.CONFLICT, "요청 처리 중 경합이 발생했습니다. 잠시 후 다시 시도해 주세요.");
+    }
+
+    @ExceptionHandler
     public ResponseEntity<ApiResponse<?>> handle(Throwable e) {
         log.error("Exception : {}", e.getMessage(), e);
         return failureResponse(ErrorType.INTERNAL_ERROR, null);
@@ -129,6 +148,24 @@ public class ApiControllerAdvice {
         Pattern pattern = Pattern.compile("'(.+?)'");
         Matcher matcher = pattern.matcher(message);
         return matcher.find() ? matcher.group(1) : "";
+    }
+
+    private boolean isDuplicateKeyViolation(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SQLIntegrityConstraintViolationException) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null) {
+                String normalized = message.toLowerCase(Locale.ROOT);
+                if (normalized.contains("duplicate") || normalized.contains("unique") || normalized.contains("uq_")) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private ResponseEntity<ApiResponse<?>> failureResponse(ErrorType errorType) {

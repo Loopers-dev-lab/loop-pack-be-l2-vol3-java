@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -30,5 +31,10 @@ public class PaymentQueryApplicationService {
         }
 
         return payments;
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Payment> getPaymentByOrder(String memberId, UUID orderId) {
+        return paymentRepository.findByMemberIdAndOrderId(memberId, orderId);
     }
 }

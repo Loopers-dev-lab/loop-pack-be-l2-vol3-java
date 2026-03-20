@@ -11,6 +11,8 @@ public interface PaymentRepository {
 
     Optional<Payment> findByMemberIdAndOrderId(String memberId, UUID orderId);
 
+    Optional<Payment> findByMemberIdAndOrderIdForUpdate(String memberId, UUID orderId);
+
     Optional<Payment> findByPgTransactionKey(String memberId, String pgTransactionKey);
 
     List<Payment> findAllByOrderId(UUID orderId);

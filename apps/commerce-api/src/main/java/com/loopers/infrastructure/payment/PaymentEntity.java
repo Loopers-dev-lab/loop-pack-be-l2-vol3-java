@@ -8,13 +8,17 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Table;
 import lombok.Getter;
 
 import java.util.UUID;
 
 @Entity
-@Table(name = "payments")
+@Table(name = "payments", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_payments_member_order", columnNames = {"member_id", "order_id"}),
+        @UniqueConstraint(name = "uk_payments_pg_transaction_key", columnNames = {"pg_transaction_key"})
+})
 public class PaymentEntity extends BaseEntity {
 
     @Getter

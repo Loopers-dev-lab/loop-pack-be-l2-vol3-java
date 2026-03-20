@@ -63,6 +63,46 @@ loopers:
       polling:
         enabled: true
         fixed-delay-ms: 5000
+        requested-min-age-ms: 15000
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        slowCallRateThreshold: 50
+        slowCallDurationThreshold: 2s
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+    instances:
+      pg-request:
+        baseConfig: default
+      pg-cancel:
+        baseConfig: default
+      pg-query:
+        baseConfig: default
+  retry:
+    instances:
+      pg-request-connection:
+        maxAttempts: 1
+        waitDuration: 150ms
+        retryExceptions:
+          - com.loopers.infrastructure.payment.PaymentGatewayConnectionException
+      pg-cancel-connection:
+        maxAttempts: 1
+        waitDuration: 150ms
+        retryExceptions:
+          - com.loopers.infrastructure.payment.PaymentGatewayConnectionException
+      pg-query-connection:
+        maxAttempts: 2
+        waitDuration: 100ms
+        retryExceptions:
+          - com.loopers.infrastructure.payment.PaymentGatewayConnectionException
 
 ---
 spring:

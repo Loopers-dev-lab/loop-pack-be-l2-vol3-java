@@ -21,20 +21,25 @@ public class PaymentCancelApplicationService {
 
     @Transactional
     public Payment cancel(CancelPaymentCommand command) {
-        Payment payment = paymentRepository.findByMemberIdAndOrderId(command.memberId(), command.orderId())
+        Payment payment = paymentRepository.findByMemberIdAndOrderIdForUpdate(command.memberId(), command.orderId())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "결제 내역을 찾을 수 없습니다."));
 
-        if (payment.status() == PaymentStatus.CANCELLED
-                || payment.status() == PaymentStatus.CANCEL_REQUESTED
-                || payment.status() == PaymentStatus.CANCEL_RECONCILE_REQUIRED) {
+        if (payment.status() == PaymentStatus.CANCELLED) {
             return payment;
         }
 
-        Payment cancelRequested = payment.requestCancel();
-        Payment saved = paymentRepository.save(cancelRequested);
+        Payment saved = switch (payment.status()) {
+            case REQUESTED, SUCCEEDED, CANCEL_FAILED -> paymentRepository.save(payment.requestCancel());
+            case CANCEL_REQUESTED, CANCEL_RECONCILE_REQUIRED -> payment;
+            default -> throw new CoreException(ErrorType.CONFLICT, "취소 요청이 가능한 결제 상태가 아닙니다.");
+        };
 
         if (saved.pgTransactionKey() == null || saved.pgTransactionKey().isBlank()) {
-            throw new CoreException(ErrorType.CONFLICT, "취소 가능한 결제 거래 키가 없습니다.");
+            if (saved.status() == PaymentStatus.CANCEL_REQUESTED) {
+                Payment reconcileRequired = saved.markCancelReconcileRequired("결제 취소 재처리 대기");
+                return paymentRepository.save(reconcileRequired);
+            }
+            return saved;
         }
 
         PaymentGateway.PaymentGatewayTransaction gatewayResult;
@@ -43,8 +48,11 @@ public class PaymentCancelApplicationService {
                     new PaymentGateway.PaymentGatewayCancelRequest(command.memberId(), saved.pgTransactionKey())
             );
         } catch (PaymentRecoveryRequiredException e) {
-            Payment reconcileRequired = saved.markCancelReconcileRequired(e.getMessage());
-            return paymentRepository.save(reconcileRequired);
+            if (saved.status() == PaymentStatus.CANCEL_REQUESTED) {
+                Payment reconcileRequired = saved.markCancelReconcileRequired(e.getMessage());
+                return paymentRepository.save(reconcileRequired);
+            }
+            return saved;
         }
 
         Payment resolved = switch (gatewayResult.status()) {

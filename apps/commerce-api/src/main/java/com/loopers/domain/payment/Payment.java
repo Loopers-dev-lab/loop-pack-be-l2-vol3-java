@@ -47,7 +47,6 @@ public record Payment(
 
         if ((status == PaymentStatus.SUCCEEDED
                 || status == PaymentStatus.CANCEL_REQUESTED
-                || status == PaymentStatus.CANCEL_RECONCILE_REQUIRED
                 || status == PaymentStatus.CANCELLED
                 || status == PaymentStatus.CANCEL_FAILED)
                 && (pgTransactionKey == null || pgTransactionKey.isBlank())) {
@@ -128,7 +127,9 @@ public record Payment(
     }
 
     public Payment requestCancel() {
-        if (status != PaymentStatus.SUCCEEDED && status != PaymentStatus.CANCEL_FAILED) {
+        if (status != PaymentStatus.REQUESTED
+                && status != PaymentStatus.SUCCEEDED
+                && status != PaymentStatus.CANCEL_FAILED) {
             throw new CoreException(ErrorType.CONFLICT, "취소 요청 가능한 결제 상태가 아닙니다.");
         }
 
@@ -201,6 +202,30 @@ public record Payment(
         }
         if (status != PaymentStatus.CANCEL_REQUESTED) {
             throw new CoreException(ErrorType.CONFLICT, "취소 요청 상태의 결제만 재처리 대기 상태로 전이할 수 있습니다.");
+        }
+
+        return new Payment(
+                id,
+                memberId,
+                orderId,
+                cardType,
+                cardNo,
+                amount,
+                PaymentStatus.CANCEL_RECONCILE_REQUIRED,
+                pgTransactionKey,
+                reconcileReason,
+                createdAt,
+                ZonedDateTime.now(),
+                deletedAt
+        );
+    }
+
+    public Payment markCancelReconcileRequiredFromRequested(String reconcileReason) {
+        if (reconcileReason == null || reconcileReason.isBlank()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "재처리 사유는 필수입니다.");
+        }
+        if (status != PaymentStatus.REQUESTED) {
+            throw new CoreException(ErrorType.CONFLICT, "요청 상태의 결제만 취소 재처리 대기로 전환할 수 있습니다.");
         }
 
         return new Payment(

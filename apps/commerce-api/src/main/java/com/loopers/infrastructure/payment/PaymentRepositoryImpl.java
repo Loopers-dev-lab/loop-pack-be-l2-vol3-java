@@ -24,11 +24,11 @@ public class PaymentRepositoryImpl implements PaymentRepository {
             if (existing.isPresent()) {
                 PaymentEntity entity = existing.get();
                 entity.updateFrom(payment);
-                return paymentJpaRepository.save(entity).toDomain();
+                return paymentJpaRepository.saveAndFlush(entity).toDomain();
             }
         }
 
-        return paymentJpaRepository.save(PaymentEntity.from(payment)).toDomain();
+        return paymentJpaRepository.saveAndFlush(PaymentEntity.from(payment)).toDomain();
     }
 
     @Override
@@ -41,6 +41,12 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     @Override
     public Optional<Payment> findByMemberIdAndOrderId(String memberId, UUID orderId) {
         return paymentJpaRepository.findByMemberIdAndOrderIdAndDeletedAtIsNull(memberId, orderId)
+                .map(PaymentEntity::toDomain);
+    }
+
+    @Override
+    public Optional<Payment> findByMemberIdAndOrderIdForUpdate(String memberId, UUID orderId) {
+        return paymentJpaRepository.findByMemberIdAndOrderIdForUpdate(memberId, orderId)
                 .map(PaymentEntity::toDomain);
     }
 
