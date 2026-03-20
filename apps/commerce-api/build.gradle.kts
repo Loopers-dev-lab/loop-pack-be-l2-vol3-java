@@ -28,4 +28,7 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+
+    // PG Feign readTimeout 실경로 검증 (WireMock 지연 응답)
+    testImplementation("org.wiremock:wiremock-standalone:3.10.0")
 }

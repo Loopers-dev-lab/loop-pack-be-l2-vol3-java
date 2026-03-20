@@ -786,7 +786,7 @@ resilience4j:
 |------|--------|------|
 | Unit/Integration | `PgSimulatorClient_getPaymentsByOrderId_returnType` | `getPaymentStatus`, `getPaymentsByOrderId` 반환 타입이 Object가 아닌 구체 DTO로 변경된 경우 타입 검증 (change-issues §5.2) |
 | Integration | `recoverOrPoll_whenPgReturnsSuccess_shouldReflectCompletePayment` | `PaymentFacade.recoverPendingFromPgSimulator` + `PaymentRecoverPollIntegrationTest` — PG `getPaymentsByOrderId` SUCCESS 시 `handleCallback` 경유 반영 |
-| Integration | `recoverOrPoll_whenPgReturnsNotAccepted_shouldMarkTimeoutOrFailed` | [~] PG 응답 `null`/조회 예외 시 상태 유지·로그만 (TIMEOUT/FAILED 자동 전이는 미구현) |
+| Integration | `recoverOrPoll_whenPgReturnsNotAccepted_shouldMarkTimeoutOrFailed` | [x] PG 응답 `null` → 최신 PENDING `TIMEOUT` (`timeoutPendingPaymentForOrder`). 조회 **예외**는 스왈로·PENDING 유지 (`recoverOrPoll_whenPgThrows_shouldSwallowAndKeepPending`) |
 
 ### 보안 (change-issues §4)
 

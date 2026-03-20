@@ -10,7 +10,8 @@
 ## Phase 1: Timeout
 
 - [x] `PaymentFeignTimeoutPropertiesIntegrationTest` — Feign connect/read 타임아웃 바인딩
-- [~] Feign **readTimeout 실경로 E2E** — MockBean이 `PgSimulatorClient`를 대체하여 **지연 응답으로도 Feign 타임아웃을 재현하지 못함**. `PaymentV1ApiE2ETest` 클래스 주석·WireMock/실 PG 필요.
+- [x] `PaymentFeignReadTimeoutWireMockIntegrationTest` — **실 Feign + WireMock** 지연으로 readTimeout, DB PENDING 유지
+- [~] `PaymentV1ApiE2ETest` 전 구간 HTTP — MockBean PG 사용 시 지연으로 Feign 타임아웃 재현 한계 (위 WireMock·Facade 경로로 보완)
 
 ## Phase 2: 트랜잭션 경계
 
@@ -42,7 +43,8 @@
 
 - [x] `PaymentFacadeCircuitBreakerIntegrationTest` — OPEN 스킵·CLOSED 호출·중복 CONFLICT
 - [x] `PaymentFacadeCircuitBreakerFailureIntegrationTest` — 연속 실패 시 OPEN 후 PG 미호출
-- [~] §14 Phase 4 **리스크 표 전항** (오탐·slow call·4xx CB 집계 등) — WireMock·전용 프로파일 미도입, 핵심 경로만 커버
+- [x] `PaymentFacadeCircuitBreakerBadRequestOpenIntegrationTest` — 연속 **400**으로 CB OPEN 후 PG 추가 호출 없음
+- [~] §14 Phase 4 **리스크 표 전항** (오탐·slow call 등) — 일부만 커버, 전 항목 자동화는 미완
 
 ## Phase 5: Retry
 
@@ -62,7 +64,7 @@
 ## Phase 8: 콜백 미수신 복구
 
 - [x] `PgSimulatorClientReturnTypeTest` — 조회 API 반환 타입 DTO
-- [x] `PaymentFacade.recoverPendingFromPgSimulator` + `PaymentRecoverPollIntegrationTest` — PG 조회 SUCCESS/FAILED/null/예외/무PENDING·orderId null
+- [x] `PaymentFacade.recoverPendingFromPgSimulator` + `PaymentRecoverPollIntegrationTest` — PG 조회 SUCCESS/FAILED/**null→TIMEOUT**/예외/무PENDING·orderId null
 
 ## 보안
 
@@ -72,7 +74,7 @@
 
 ## 스펙·DTO
 
-- [~] paymentId vs pgTransactionId — 필드 매핑은 코드·`PgPaymentStatusResponse` 주석; **전용 단위 테스트 없음**
+- [x] `PaymentInfoTest` — pending/SUCCESS 시 `pgTransactionId`·`paymentId`(BaseEntity 미영속 0L) 매핑
 
 ## 여전히 범위 밖·미흡 (참고)
 

@@ -153,7 +153,8 @@ public class PaymentFacade {
             return;
         }
         if (pg == null) {
-            log.warn("PG 주문별 조회 응답이 비어 있음 orderId={}", orderId);
+            log.warn("PG 주문별 조회 응답이 비어 있음 orderId={}, PENDING을 TIMEOUT 처리", orderId);
+            paymentFacadeSelf.getObject().timeoutPendingPaymentForOrder(orderId);
             return;
         }
         Long amountForCallback = pg.amount();
@@ -170,5 +171,18 @@ public class PaymentFacade {
             facade.handleCallback(new PaymentCallbackParam(
                     orderId, false, pg.paymentId(), pg.failureReason(), pg.amount()));
         }
+    }
+
+    /**
+     * PG에 결제 기록이 없을 때(응답 null 등) PENDING을 TIMEOUT으로 정리한다 (06 §11.4 미접수 근사).
+     */
+    @Transactional
+    public void timeoutPendingPaymentForOrder(Long orderId) {
+        paymentRepository.findTopByOrderIdOrderByCreatedAtDesc(orderId)
+                .filter(PaymentModel::isPending)
+                .ifPresent(p -> {
+                    p.markTimeout();
+                    paymentRepository.save(p);
+                });
     }
 }

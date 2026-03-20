@@ -132,8 +132,8 @@ class PaymentRecoverPollIntegrationTest {
     }
 
     @Test
-    @DisplayName("PG 조회 응답이 null이면 상태를 바꾸지 않는다.")
-    void recoverOrPoll_whenPgReturnsNull_shouldKeepPending() {
+    @DisplayName("PG 조회 응답이 null이면 PENDING을 TIMEOUT으로 바꾼다 (06 §11.4 미접수 근사).")
+    void recoverOrPoll_whenPgReturnsNull_shouldMarkTimeout() {
         // given
         OrderModel order = createOrderedOrder();
         persistenceService.savePendingAndGetRequestParam(USER_ID, order.getId(), "SAMSUNG", "1", CB);
@@ -145,7 +145,7 @@ class PaymentRecoverPollIntegrationTest {
         // then
         assertThat(orderService.findById(USER_ID, order.getId()).orElseThrow().getStatus()).isEqualTo(OrderStatus.ORDERED);
         assertThat(paymentRepository.findTopByOrderIdOrderByCreatedAtDesc(order.getId()).orElseThrow().getStatus())
-                .isEqualTo(PaymentStatus.PENDING);
+                .isEqualTo(PaymentStatus.TIMEOUT);
     }
 
     @Test
