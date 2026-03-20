@@ -4,11 +4,13 @@ import com.loopers.application.order.command.CreateOrderCommand;
 import com.loopers.application.order.query.OrderListByUserRequest;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
+import com.loopers.domain.payment.CardType;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -24,17 +26,31 @@ public class OrderDto {
             @NotEmpty(message = "주문 항목은 1개 이상이어야 합니다")
             @Valid
             List<OrderItemRequest> items,
-            UUID couponId
+            UUID couponId,
+            @Min(value = 0, message = "사용 포인트는 0 이상이어야 합니다")
+            int pointAmount,
+            CardType cardType,
+            @Pattern(regexp = "^\\d{4}-\\d{4}-\\d{4}-\\d{4}$", message = "카드 번호 형식이 올바르지 않습니다")
+            String cardNo
     ) {
+        private static final CardType DEFAULT_CARD_TYPE = CardType.SAMSUNG;
+        private static final String DEFAULT_CARD_NO = "1234-5678-1234-5678";
+
         public CreateOrderRequest(List<OrderItemRequest> items) {
-            this(items, null);
+            this(items, null, 0, DEFAULT_CARD_TYPE, DEFAULT_CARD_NO);
+        }
+
+        public CreateOrderRequest(List<OrderItemRequest> items, UUID couponId) {
+            this(items, couponId, 0, DEFAULT_CARD_TYPE, DEFAULT_CARD_NO);
         }
 
         public CreateOrderCommand toCommand(String memberId) {
             List<CreateOrderCommand.OrderItemCommand> itemCommands = items.stream()
                     .map(i -> new CreateOrderCommand.OrderItemCommand(i.productId(), i.quantity()))
                     .toList();
-            return new CreateOrderCommand(memberId, itemCommands, couponId);
+            CardType resolvedCardType = cardType == null ? DEFAULT_CARD_TYPE : cardType;
+            String resolvedCardNo = cardNo == null || cardNo.isBlank() ? DEFAULT_CARD_NO : cardNo;
+            return new CreateOrderCommand(memberId, itemCommands, couponId, pointAmount, resolvedCardType, resolvedCardNo);
         }
     }
 

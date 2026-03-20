@@ -52,13 +52,12 @@ public class IssuedCouponRepositoryImpl implements IssuedCouponRepository {
     }
 
     @Override
-    public int markAvailableAtomically(String memberId, UUID couponId, LocalDateTime now) {
+    public int markAvailableAtomically(String memberId, UUID couponId) {
         return issuedCouponJpaRepository.markAvailableAtomically(
                 memberId,
                 couponId,
                 CouponStatus.AVAILABLE,
-                CouponStatus.USED,
-                now
+                CouponStatus.USED
         );
     }
 

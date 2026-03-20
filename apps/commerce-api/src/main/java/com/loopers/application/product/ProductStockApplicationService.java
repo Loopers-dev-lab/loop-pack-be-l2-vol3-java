@@ -10,8 +10,10 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -67,6 +69,11 @@ public class ProductStockApplicationService {
                 .map(CreateOrderCommand.OrderItemCommand::productId)
                 .toList();
 
+        Map<UUID, Integer> requestedQuantityByProductId = new HashMap<>();
+        for (CreateOrderCommand.OrderItemCommand item : items) {
+            requestedQuantityByProductId.merge(item.productId(), item.quantity(), Integer::sum);
+        }
+
         List<Product> products = productRepository.findAllByIdIn(productIds);
         if (products.size() != productIds.size()) {
             throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품이 포함되어 있습니다.");
@@ -75,6 +82,10 @@ public class ProductStockApplicationService {
         for (Product product : products) {
             if (product.isDeleted()) {
                 throw new CoreException(ErrorType.BAD_REQUEST, "삭제된 상품이 포함되어 있습니다.");
+            }
+            int requestedQuantity = requestedQuantityByProductId.getOrDefault(product.id(), 0);
+            if (requestedQuantity > product.stock()) {
+                throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.");
             }
         }
 
@@ -91,6 +102,13 @@ public class ProductStockApplicationService {
     @Transactional
     public void decreaseStockForOrder(List<CreateOrderCommand.OrderItemCommand> items) {
         for (CreateOrderCommand.OrderItemCommand item : items) {
+            decreaseStockWithAtomicUpdate(item.productId(), item.quantity());
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void decreaseStockForOrderItems(List<OrderItem> items) {
+        for (OrderItem item : items) {
             decreaseStockWithAtomicUpdate(item.productId(), item.quantity());
         }
     }
@@ -117,7 +135,7 @@ public class ProductStockApplicationService {
     @Transactional
     public void restoreForOrder(List<OrderItem> items) {
         for (OrderItem item : items) {
-            productRepository.findById(item.productId()).ifPresent(product -> {
+            productRepository.findByIdIncludingDeleted(item.productId()).ifPresent(product -> {
                 Product restored = product.increaseStock(item.quantity());
                 productRepository.save(restored);
             });
