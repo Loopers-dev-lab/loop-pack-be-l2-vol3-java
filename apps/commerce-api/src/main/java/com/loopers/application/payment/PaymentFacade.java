@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +40,7 @@ public class PaymentFacade {
     private final OrderService orderService;
     private final OrderRepository orderRepository;
     private final PaymentRepository paymentRepository;
+    private final Environment environment;
 
     public PaymentFacade(PaymentPersistenceService persistenceService,
                          @Value("${pg.simulator.callback-url}") String callbackUrl,
@@ -48,7 +50,8 @@ public class PaymentFacade {
                          PaymentRepository paymentRepository,
                          PgPaymentRequester pgPaymentRequester,
                          PgSimulatorClient pgSimulatorClient,
-                         ObjectProvider<PaymentFacade> paymentFacadeSelf) {
+                         ObjectProvider<PaymentFacade> paymentFacadeSelf,
+                         Environment environment) {
         this.persistenceService = persistenceService;
         this.pgPaymentRequester = pgPaymentRequester;
         this.pgSimulatorClient = pgSimulatorClient;
@@ -58,6 +61,7 @@ public class PaymentFacade {
         this.orderService = orderService;
         this.orderRepository = orderRepository;
         this.paymentRepository = paymentRepository;
+        this.environment = environment;
     }
 
     /**
@@ -65,6 +69,9 @@ public class PaymentFacade {
      */
     public void verifyCallbackSecret(String headerSecret) {
         if (callbackSecret.isEmpty()) {
+            if (isProductionProfile()) {
+                throw new CoreException(ErrorType.UNAUTHORIZED, "운영 환경 callback secret이 설정되지 않았습니다.");
+            }
             return;
         }
         if (headerSecret == null || !callbackSecret.equals(headerSecret)) {
@@ -92,6 +99,7 @@ public class PaymentFacade {
             pgPaymentRequester.requestPaymentToPg(request);
         } catch (Exception e) {
             // PENDING 저장은 이미 커밋됨. PG 타임아웃/5xx 시에도 200 + PENDING으로 응답해 UX·재시도 일관성 유지.
+            log.warn("PG 호출 실패 - PENDING 유지 orderId={} reason={}", orderId, e.toString(), e);
         }
         return result.paymentInfo();
     }
@@ -118,6 +126,8 @@ public class PaymentFacade {
                     long orderAmountWon = order.getFinalAmount().setScale(0, RoundingMode.HALF_UP).longValue();
                     if (param.amount() != orderAmountWon) {
                         log.warn("콜백 금액 불일치 orderId={} pgAmount={} orderAmount={}", param.orderId(), param.amount(), orderAmountWon);
+                        payment.markFailed();
+                        paymentRepository.save(payment);
                         return;
                     }
                 }
@@ -170,6 +180,9 @@ public class PaymentFacade {
         } else if (Boolean.FALSE.equals(pg.success())) {
             facade.handleCallback(new PaymentCallbackParam(
                     orderId, false, pg.paymentId(), pg.failureReason(), pg.amount()));
+        } else {
+            log.warn("PG 주문별 조회 success 값 비정상(null) orderId={}, PENDING을 TIMEOUT 처리", orderId);
+            facade.timeoutPendingPaymentForOrder(orderId);
         }
     }
 
@@ -184,5 +197,14 @@ public class PaymentFacade {
                     p.markTimeout();
                     paymentRepository.save(p);
                 });
+    }
+
+    private boolean isProductionProfile() {
+        for (String profile : environment.getActiveProfiles()) {
+            if ("prd".equalsIgnoreCase(profile)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
