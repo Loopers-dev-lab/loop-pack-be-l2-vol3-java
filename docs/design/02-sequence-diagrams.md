@@ -2,7 +2,7 @@
 
 ## 주문 요청 (POST /api/v1/orders)
 
-주문 생성은 이 시스템에서 가장 복잡한 로직이다. 재고 차감, 쿠폰 사용, 주문 생성이 하나의 유스케이스 트랜잭션에서 원자적으로 처리되고, 실패 시 전체 롤백되는지 검증한다.
+주문 생성은 `쿠폰/포인트/주문 저장`까지만 트랜잭션으로 처리하고, 결제 요청은 트랜잭션 커밋 이후 비동기로 분리한다. 재고 차감은 결제 콜백(또는 상태 수렴)에서 결제 성공이 확인된 뒤 수행한다.
 
 ```mermaid
 sequenceDiagram
@@ -12,16 +12,19 @@ sequenceDiagram
     participant OU as OrderCreateUseCase
     participant PS as ProductStockApplicationService
     participant CS as CouponApplicationService
+    participant PT as PointApplicationService
     participant OS as OrderApplicationService
+    participant PE as OrderPaymentEventHandler
+    participant PG as PaymentGateway
+    participant PC as PaymentCompletionApplicationService
     participant DB as DB
 
-    C->>OC: POST /api/v1/orders (items, couponId?)
+    C->>OC: POST /api/v1/orders (items, couponId?, pointAmount, cardType, cardNo)
     OC->>OU: 주문 생성 유스케이스 실행
     note over OU: @Transactional 시작
 
-    OU->>PS: 재고 예약/차감(락 기반)
-    PS->>DB: 상품 행 잠금 + 재고 검증/차감
-    DB-->>PS: 예약 완료
+    OU->>PS: 상품 존재/삭제/재고 검증
+    PS-->>OU: 주문 가능 상품 정보
 
     alt couponId 있음
         OU->>CS: 쿠폰 검증/사용
@@ -29,8 +32,12 @@ sequenceDiagram
         DB-->>CS: 성공 또는 실패
     end
 
+    OU->>PT: 포인트 차감
+    PT->>DB: 포인트 잔액 차감
+    DB-->>PT: 차감 완료
+
     OU->>OS: 주문 생성(스냅샷 포함)
-    OS->>DB: Order + OrderItem + CouponSnapshot 저장
+    OS->>DB: Order + OrderItem 저장
     DB-->>OS: 저장 완료
 
     alt 중간 실패 발생
@@ -41,23 +48,33 @@ sequenceDiagram
         note over OU: 트랜잭션 커밋
         OU-->>OC: 주문 정보 반환
         OC-->>C: 201 Created
+
+        OU--)PE: OrderPaymentRequestEvent (AFTER_COMMIT, @Async)
+        PE->>PG: 결제 요청
+        PG-->>PE: REQUESTED/SUCCEEDED/FAILED
+
+        PG--)PC: 결제 콜백
+        PC->>DB: 결제 상태 수렴 (SUCCEEDED)
+        PC--)PS: 결제 성공 시 재고 차감
+        PS->>DB: 재고 원자적 차감
     end
 ```
 
 ### 핵심 포인트
-- **전체 실패 정책**: 여러 상품 중 하나라도 문제가 있으면 전체 주문이 실패한다 (부분 성공 없음).
-- **유스케이스 중심**: Controller는 유스케이스를 호출하고, 유스케이스 내부에서 재고/쿠폰/주문 흐름을 오케스트레이션한다.
-- **트랜잭션 경계**: 주문 유스케이스(`@Transactional`)에서 재고 차감 + 쿠폰 사용 + 주문 저장을 원자적으로 처리한다.
+- **전체 실패 정책**: 트랜잭션 구간(쿠폰/포인트/주문 저장) 중 하나라도 실패하면 전체 롤백한다.
+- **유스케이스 중심**: Controller는 유스케이스를 호출하고, 유스케이스 내부에서 쿠폰/포인트/주문을 오케스트레이션한다.
+- **트랜잭션 경계 분리**: 주문 트랜잭션에서는 외부 결제 호출을 수행하지 않고, AFTER_COMMIT 비동기 이벤트로 위임한다.
+- **재고 차감 시점**: 결제 성공 상태가 확인된 뒤 콜백/상태수렴 경로에서 차감한다.
 
 ### 설계 리스크
-- **락 경합**: 동시 주문이 몰리면 상품/쿠폰 락 대기가 길어질 수 있다. 락 순서 고정과 짧은 트랜잭션 유지가 필요.
+- **결제-재고 비동기 간극**: 결제 성공과 재고 차감 사이에 짧은 시간차가 존재하므로, 재시도/수렴 정책이 필요하다.
 - **쿠폰 만료 판정**: 도메인 정책(상태/시간)과 저장 정책(ERD) 간 불일치가 있으면 경계 시점 버그가 발생할 수 있다.
 
 ---
 
 ## 주문 취소 (PATCH /orders/{orderId}/cancel)
 
-주문 취소는 고객/어드민 모두 가능하되 권한이 다르다. 상태 변경과 재고 복원이 처리되는지, 이미 취소된 주문에 대한 처리를 검증한다.
+주문 취소는 고객/어드민 모두 가능하되 권한이 다르다. 트랜잭션 내에서 쿠폰/포인트/재고를 복구하고 주문을 소프트 삭제한 뒤, 결제 취소는 커밋 이후 비동기로 요청한다.
 
 ```mermaid
 sequenceDiagram
@@ -65,54 +82,65 @@ sequenceDiagram
     participant C as Client
     participant OC as OrderController
     participant OU as OrderCancelUseCase
-    participant OS as OrderService
-    participant PS as ProductService
+    participant OS as OrderApplicationService
+    participant PS as ProductStockApplicationService
+    participant PT as PointApplicationService
     participant CS as CouponApplicationService
+    participant PE as OrderPaymentEventHandler
+    participant PG as PaymentGateway
     participant DB as DB
 
     C->>OC: PATCH /orders/{orderId}/cancel
     OC->>OU: 주문 취소 유스케이스 실행
     note over OU: @Transactional 시작
 
-    OU->>OS: 주문 + 주문항목 조회
+    OU->>OS: 주문 + 주문항목 조회/권한 검증
     OS-->>OU: 주문 정보 반환
-
-    note over OU: 권한 확인 (고객: 본인만, 어드민: 모두)
-
-    OU->>OS: 주문 취소 처리
 
     alt 이미 CANCELLED
         OS-->>OU: 409 Conflict
         OU-->>OC: 409 Conflict
         OC-->>C: 409 (이미 취소됨)
     else ORDERED 상태
-        OS-->>OU: 취소 완료
-
-        loop 각 OrderItem에 대해
-            OU->>PS: 재고 복원 요청
-            PS->>DB: 재고 증가
-            DB-->>PS: 복원 완료
-        end
-
         alt 주문에 적용된 쿠폰 있음
             OU->>CS: 쿠폰 사용 취소(AVAILABLE 복원)
             CS->>DB: 쿠폰 상태 복원
             DB-->>CS: 복원 완료
         end
 
+        alt 사용 포인트 있음
+            OU->>PT: 포인트 복구
+            PT->>DB: 포인트 잔액 복구
+            DB-->>PT: 복구 완료
+        end
+
+        alt 결제 성공으로 재고가 이미 차감됨
+            loop 각 OrderItem에 대해
+                OU->>PS: 재고 복원 요청
+                PS->>DB: 재고 증가
+                DB-->>PS: 복원 완료
+            end
+        end
+
+        OU->>OS: 주문 취소 + 소프트 삭제
+        OS->>DB: Order 상태 변경 및 deleted_at 반영
+        DB-->>OS: 저장 완료
+
         note over OU: 트랜잭션 커밋
+        OU--)PE: OrderPaymentCancelRequestEvent (AFTER_COMMIT, @Async)
+        PE->>PG: 결제 취소 요청
         OU-->>OC: 취소 완료
         OC-->>C: 200 OK
     end
 ```
 
 ### 핵심 포인트
-- **유스케이스 중심**: OrderCancelUseCase가 권한 확인, 주문 취소, 재고 복원, 쿠폰 복원을 오케스트레이션한다.
-- **트랜잭션 경계**: 주문 취소 유스케이스(`@Transactional`)에서 취소/복원 동작을 원자적으로 처리한다.
+- **유스케이스 중심**: OrderCancelUseCase가 권한 확인, 쿠폰/포인트/재고 복원, 주문 소프트 삭제를 오케스트레이션한다.
+- **트랜잭션 경계**: 주문 취소 트랜잭션에서는 내부 데이터 복구만 처리하고, 외부 결제 취소 호출은 AFTER_COMMIT 비동기로 분리한다.
 
 ### 설계 리스크
-- **삭제된 상품의 재고 복원**: 주문 후 상품이 Soft Delete된 경우, 취소 시 재고를 복원해야 하는지 정책 결정 필요. 현재는 복원하는 것으로 가정.
-- **쿠폰 복원 정책**: 주문 취소 시 쿠폰 재사용 허용 여부(AVAILABLE 복원) 정책을 명확히 합의해야 한다.
+- **보상 순서 정합성**: 쿠폰/포인트/재고 복구와 결제 취소 비동기 요청 간의 실패 조합을 관찰하고, 보정 정책을 유지해야 한다.
+- **삭제된 상품의 재고 복원**: 주문 후 상품이 Soft Delete된 경우에도 재고 복원 여부를 일관되게 유지해야 한다.
 
 ---
 

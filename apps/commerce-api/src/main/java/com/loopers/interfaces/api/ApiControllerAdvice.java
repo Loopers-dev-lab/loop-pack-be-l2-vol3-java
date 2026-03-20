@@ -7,7 +7,6 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -130,12 +129,6 @@ public class ApiControllerAdvice {
             return failureResponse(ErrorType.CONFLICT, "중복 요청으로 충돌이 발생했습니다.");
         }
         return failureResponse(ErrorType.INTERNAL_ERROR, null);
-    }
-
-    @ExceptionHandler
-    public ResponseEntity<ApiResponse<?>> handleConflict(CannotAcquireLockException e) {
-        log.warn("CannotAcquireLockException : {}", e.getMessage(), e);
-        return failureResponse(ErrorType.CONFLICT, "요청 처리 중 경합이 발생했습니다. 잠시 후 다시 시도해 주세요.");
     }
 
     @ExceptionHandler

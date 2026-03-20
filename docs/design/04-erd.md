@@ -40,8 +40,8 @@ erDiagram
         datetime orderDate
         string status
         int totalAmount
-        int originalAmount
-        int discountAmount
+        int usedPointAmount
+        datetime stockDeductedAt
     }
     ORDER_ITEM {
         bigint productId
@@ -63,6 +63,19 @@ erDiagram
         datetime expiredAt
         datetime usedAt
     }
+    POINT_BALANCE {
+        string memberId
+        int balance
+    }
+    PAYMENT {
+        string memberId
+        string cardType
+        string cardNo
+        int amount
+        string status
+        string pgTransactionKey
+        string reason
+    }
 
     USER ||--o{ ORDER : "주문한다"
     LIKE {
@@ -75,8 +88,10 @@ erDiagram
     BRAND ||--o{ PRODUCT : "보유한다"
     CATEGORY ||--o{ PRODUCT : "분류한다"
     USER ||--o{ ISSUED_COUPON : "소유한다"
+    USER ||--|| POINT_BALANCE : "보유한다"
     COUPON ||--o{ ISSUED_COUPON : "발급된다"
     ORDER o|--o| ISSUED_COUPON : "사용한다"
+    ORDER ||--o{ PAYMENT : "결제 이력을 가진다"
 ```
 
 ## 핵심 포인트
@@ -85,6 +100,8 @@ erDiagram
 - **OrderItem 스냅샷 비정규화**: OrderItem은 Product와 FK 관계가 없다. 다만 `productId`를 논리 참조로 함께 저장해 역추적성을 확보하고, 주문 시점의 상품명/가격/브랜드명은 스냅샷으로 고정한다. ERD에서 Product-OrderItem 간 관계선이 없는 이유.
 - **Order-OrderItem 컴포지션**: Order 삭제 시 OrderItem도 함께 삭제되는 강한 소유 관계. 최소 1개 이상의 OrderItem이 필요하다 (`||--|{`).
 - **쿠폰 모델 분리**: 쿠폰 정책(COUPON)과 개인 보유 쿠폰(ISSUED_COUPON)을 분리해 소유권/상태 전이를 표현한다.
+- **결제 분리 저장**: PAYMENT는 주문/회원 기준으로 저장되며, 외부 PG 거래 키(`pgTransactionKey`)와 상태 수렴 이력을 기록한다.
+- **포인트 잔액 엔티티**: POINT_BALANCE는 회원별 단일 행으로 유지되어 주문 시 차감/복구에 사용된다.
 - **ERD 만료 정책(B안)**: ISSUED_COUPON의 상태는 `AVAILABLE`/`USED`만 저장하고, 만료는 `expiredAt` 비교로 판단한다.
 
 ## 엔티티 삭제 전략
@@ -96,6 +113,8 @@ erDiagram
 | PRODUCT | Soft Delete | 주문 스냅샷 및 좋아요 이력과의 추적성 유지 |
 | ORDER | Soft Delete | 감사/정산 목적 보관 필요 |
 | ORDER_ITEM | Soft Delete | 주문 감사 추적 일관성 유지 |
+| PAYMENT | Soft Delete | 결제/취소 상태 이력 추적 필요 |
+| POINT_BALANCE | Soft Delete | 회원별 포인트 이력 추적 필요 |
 | COUPON | Soft Delete | 과거 발급/사용 이력 추적 필요 |
 | ISSUED_COUPON | Soft Delete | 주문 이력 정합성 및 감사 추적 필요 |
 | LIKE | Hard Delete | 사용자 취소 가능한 임시 관계 데이터 |
@@ -105,3 +124,4 @@ erDiagram
 - **OrderItem-Product 논리 참조**: `productId`는 FK 없이 보관하므로 삭제된 상품에 대해 조인 무결성은 강제되지 않는다. 조회/리포트 로직은 `productId` 미해결 케이스를 허용하도록 설계해야 한다.
 - **쿠폰 단일 사용 경쟁 조건**: ISSUED_COUPON 상태 전이(AVAILABLE->USED)는 동시 요청에서 경쟁이 발생할 수 있다. 상태 조건 업데이트 + 제약조건으로 보장해야 한다.
 - **만료 판정 일관성**: ERD는 B안(시간 기반)이라 `EXPIRED` 상태를 저장하지 않는다. 조회 계층에서 `now > expiredAt && status=AVAILABLE`이면 EXPIRED로 해석한다.
+- **결제-재고 비동기 간극**: PAYMENT 상태 수렴과 ORDER 재고 차감 시점이 분리되어, 이벤트 중복 처리 방지(`stockDeductedAt`)가 필요하다.
