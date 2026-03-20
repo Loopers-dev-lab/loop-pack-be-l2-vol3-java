@@ -12,6 +12,8 @@ import com.loopers.domain.product.Quantity;
 import com.loopers.infrastructure.payment.PgSimulatorClient;
 import com.loopers.infrastructure.payment.PgSimulatorRequest;
 import com.loopers.infrastructure.payment.PgSimulatorResponse;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
@@ -30,14 +32,13 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Phase 4: Circuit Breaker OPEN 상태에서 PG 호출이 스킵되고 "PENDING 유지"가 되는지 검증한다.
- *
- * 아직 Circuit Breaker가 실제로 PG 호출 경로에 연결되지 않았다면 이 테스트는 실패하며,
- * 이후 코드 구현으로 Green 상태를 만드는 목표 테스트다.
+ * Phase 4: Circuit Breaker OPEN 시 PG 호출 스킵·PENDING 유지·중복 요청 CONFLICT (06 §14).
  */
 @SpringBootTest
 @Import(MySqlTestContainersConfig.class)
@@ -99,6 +100,54 @@ class PaymentFacadeCircuitBreakerIntegrationTest {
         // then
         assertThat(info.status()).isEqualTo("PENDING");
         assertThat(paymentRepository.existsByOrderIdAndStatus(order.getId(), PaymentStatus.PENDING)).isTrue();
+        verify(pgSimulatorClient, never()).requestPayment(any(PgSimulatorRequest.class));
+    }
+
+    @Test
+    @DisplayName("CircuitBreaker가 CLOSED이면 PG 호출이 1회 수행된다.")
+    void requestPayment_whenCircuitBreakerClosed_shouldCallPgOnce() {
+        // given
+        CircuitBreaker circuitBreaker = circuitBreakerRegistry.circuitBreaker("pgCircuit");
+        circuitBreaker.transitionToClosedState();
+        assertThat(circuitBreaker.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
+
+        when(pgSimulatorClient.requestPayment(any(PgSimulatorRequest.class)))
+                .thenReturn(new PgSimulatorResponse("phase4-closed-tx"));
+
+        Long brandId = brandService.registerBrand("cb-phase4-closed-brand").getId();
+        ProductModel product = productService.registerProduct(
+                brandId, "cb-phase4-closed-product", new BigDecimal("10000"), 10);
+        OrderModel order = orderService.create(USER_ID, List.of(
+                new ProductValidationRequest(product.getId(), Quantity.of(1), null)));
+
+        // when
+        PaymentInfo info = paymentFacade.requestPayment(USER_ID, order.getId(), "SAMSUNG", "1111");
+
+        // then
+        assertThat(info.status()).isEqualTo("PENDING");
+        verify(pgSimulatorClient, times(1)).requestPayment(any(PgSimulatorRequest.class));
+    }
+
+    @Test
+    @DisplayName("CircuitBreaker OPEN 중 동일 주문 재요청은 CONFLICT로 차단된다.")
+    void requestPayment_whenCircuitBreakerOpenAndDuplicateOrder_shouldThrowConflict() {
+        // given
+        CircuitBreaker circuitBreaker = circuitBreakerRegistry.circuitBreaker("pgCircuit");
+        circuitBreaker.transitionToOpenState();
+        assertThat(circuitBreaker.getState()).isEqualTo(CircuitBreaker.State.OPEN);
+
+        Long brandId = brandService.registerBrand("cb-phase4-dup-brand").getId();
+        ProductModel product = productService.registerProduct(
+                brandId, "cb-phase4-dup-product", new BigDecimal("10000"), 10);
+        OrderModel order = orderService.create(USER_ID, List.of(
+                new ProductValidationRequest(product.getId(), Quantity.of(1), null)));
+
+        paymentFacade.requestPayment(USER_ID, order.getId(), "SAMSUNG", "1111");
+
+        // when / then
+        CoreException ex = assertThrows(CoreException.class,
+                () -> paymentFacade.requestPayment(USER_ID, order.getId(), "SAMSUNG", "1111"));
+        assertThat(ex.getErrorType()).isEqualTo(ErrorType.CONFLICT);
         verify(pgSimulatorClient, never()).requestPayment(any(PgSimulatorRequest.class));
     }
 }
