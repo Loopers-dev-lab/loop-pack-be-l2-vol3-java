@@ -1,14 +1,35 @@
 package com.loopers;
 
+import com.loopers.application.payment.PgPaymentRequester;
+import com.loopers.infrastructure.payment.PgSimulatorClient;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Phase 0: 결제·Feign·Resilience4j 빈 로드 (06 checklist, {@code checklist.md}).
+ */
 @SpringBootTest
 class CommerceApiContextTest {
 
+    @Autowired
+    private ApplicationContext applicationContext;
+
     @Test
     void contextLoads() {
-        // 이 테스트는 Spring Boot 애플리케이션 컨텍스트가 로드되는지 확인합니다.
-        // 모든 빈이 올바르게 로드되었는지 확인하는 데 사용됩니다.
+        // given / when / then — 컨텍스트 기동
+        assertThat(applicationContext).isNotNull();
+    }
+
+    @Test
+    void context_shouldContainPaymentResilienceAndFeignBeans() {
+        // given / when / then
+        assertThat(applicationContext.getBean(CircuitBreakerRegistry.class)).isNotNull();
+        assertThat(applicationContext.getBean(PgPaymentRequester.class)).isNotNull();
+        assertThat(applicationContext.getBean(PgSimulatorClient.class)).isNotNull();
     }
 }
