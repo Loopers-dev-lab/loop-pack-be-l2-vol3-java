@@ -33,9 +33,14 @@ resilience4j:
   circuitbreaker:
     instances:
       pg:
+        # COUNT_BASED vs TIME_BASED 고민:
+        # - TIME_BASED는 트래픽이 많을 때 유리하지만, minimumNumberOfCalls 없으면
+        #   샘플 1개만으로 100% 실패율이 계산되는 함정이 있다.
+        # - COUNT_BASED는 트래픽이 적은 환경에서 예측 가능하고 단순하다.
+        # → 현재 단계는 소규모 트래픽이므로 COUNT_BASED 채택
         sliding-window-type: COUNT_BASED
-        sliding-window-size: 10
-        failure-rate-threshold: 50
+        sliding-window-size: 10         # 최근 10건 기준으로 실패율 계산
+        failure-rate-threshold: 50      # 50% 초과 시 OPEN (k6 결과: 50 VU에서 너무 민감하게 반응 → 운영 시 재조정 필요)
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 3
         register-health-indicator: true
@@ -43,9 +48,24 @@ resilience4j:
     instances:
       pg:
         max-attempts: 3
+        # 고정 500ms 대신 Exponential Backoff + Jitter를 고민했으나
+        # Resilience4j에서 Jitter는 별도 설정이 필요하고 현재 pg-simulator 환경에서는
+        # 동시 재시도 분산 효과가 크지 않아 일단 고정 대기시간 유지
         wait-duration: 500ms
         retry-exceptions:
-          - org.springframework.web.client.HttpServerErrorException
+          # 핵심 고민: 어떤 예외를 재시도 대상으로 삼을 것인가
+          #
+          # 처음엔 HttpServerErrorException (모든 5xx)을 재시도 대상으로 했으나
+          # 이는 레질리언스(가용성)와 멱등성(정합성)의 긴장 관계를 간과한 설정이다.
+          #
+          # 500 Internal Server Error = PG가 요청을 처리했는지 불확실
+          #   → 재시도하면 이중 결제 위험
+          # 503 Service Unavailable   = PG가 요청을 받기 전에 거부한 것이 확실
+          #   → 재시도해도 안전
+          #
+          # 결론: 503만 재시도 대상으로 좁힌다.
+          # 가용성을 희생하더라도 정합성을 지키는 것이 결제 도메인의 우선순위다.
+          - org.springframework.web.client.HttpServerErrorException$ServiceUnavailable
 
 ---
 spring:
