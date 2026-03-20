@@ -1,6 +1,7 @@
 package com.loopers.application.payment;
 
 import com.loopers.application.payment.command.CompletePaymentCommand;
+import com.loopers.application.payment.event.PaymentStatusChangedEvent;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentGateway;
 import com.loopers.domain.payment.PaymentRepository;
@@ -8,6 +9,7 @@ import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,7 @@ public class PaymentCompletionApplicationService {
 
     private final PaymentRepository paymentRepository;
     private final PaymentGateway paymentGateway;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Transactional
     public Payment complete(CompletePaymentCommand command) {
@@ -45,13 +48,18 @@ public class PaymentCompletionApplicationService {
                 yield payment;
             }
             case CANCEL_REQUESTED -> {
-                if (payment.status() == PaymentStatus.SUCCEEDED || payment.status() == PaymentStatus.CANCEL_FAILED) {
+                if (payment.status() == PaymentStatus.REQUESTED
+                        || payment.status() == PaymentStatus.SUCCEEDED
+                        || payment.status() == PaymentStatus.CANCEL_FAILED) {
                     yield payment.requestCancel();
                 }
                 yield payment;
             }
             case CANCEL_RECONCILE_REQUIRED -> payment;
             case CANCELLED -> {
+                if (payment.status() == PaymentStatus.REQUESTED) {
+                    yield payment.requestCancel().markCancelled();
+                }
                 if (payment.status() == PaymentStatus.CANCEL_REQUESTED
                         || payment.status() == PaymentStatus.CANCEL_RECONCILE_REQUIRED) {
                     yield payment.markCancelled();
@@ -59,6 +67,13 @@ public class PaymentCompletionApplicationService {
                 yield payment;
             }
             case CANCEL_FAILED -> {
+                if (payment.status() == PaymentStatus.REQUESTED) {
+                    yield payment.requestCancel().markCancelFailed(
+                            gatewayResult.reason() == null || gatewayResult.reason().isBlank()
+                                    ? "결제 취소 실패"
+                                    : gatewayResult.reason()
+                    );
+                }
                 if (payment.status() == PaymentStatus.CANCEL_REQUESTED
                         || payment.status() == PaymentStatus.CANCEL_RECONCILE_REQUIRED) {
                     yield payment.markCancelFailed(
@@ -74,6 +89,12 @@ public class PaymentCompletionApplicationService {
         if (resolved.equals(payment)) {
             return payment;
         }
-        return paymentRepository.save(resolved);
+        Payment saved = paymentRepository.save(resolved);
+        if (saved.status() != payment.status()) {
+            applicationEventPublisher.publishEvent(
+                    new PaymentStatusChangedEvent(saved.memberId(), saved.orderId(), payment.status(), saved.status())
+            );
+        }
+        return saved;
     }
 }

@@ -4,14 +4,21 @@ import com.loopers.application.brand.BrandApplicationService;
 import com.loopers.application.coupon.CouponApplicationService;
 import com.loopers.application.coupon.command.UseCouponCommand;
 import com.loopers.application.order.command.CreateOrderCommand;
+import com.loopers.application.order.event.OrderPaymentCancelRequestEvent;
+import com.loopers.application.order.event.OrderPaymentRequestEvent;
+import com.loopers.application.payment.PaymentQueryApplicationService;
+import com.loopers.application.point.PointApplicationService;
 import com.loopers.application.order.query.OrderAccessRequest;
 import com.loopers.application.product.ProductStockApplicationService;
 import com.loopers.application.product.dto.OrderProductInfo;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
+import com.loopers.domain.payment.Payment;
+import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +35,9 @@ public class OrderUseCase {
     private final ProductStockApplicationService productStockApplicationService;
     private final BrandApplicationService brandApplicationService;
     private final CouponApplicationService couponApplicationService;
+    private final PointApplicationService pointApplicationService;
+    private final PaymentQueryApplicationService paymentQueryApplicationService;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Transactional
     public Order create(CreateOrderCommand command) {
@@ -59,22 +69,71 @@ public class OrderUseCase {
                 })
                 .toList();
 
+        int orderAmount = orderItems.stream().mapToInt(OrderItem::totalPrice).sum();
+        int discountAmount = 0;
         if (command.couponId() != null) {
-            int orderAmount = orderItems.stream().mapToInt(OrderItem::totalPrice).sum();
             couponApplicationService.use(new UseCouponCommand(command.couponId(), command.memberId(), orderAmount));
+            discountAmount = couponApplicationService.calculateDiscount(command.couponId(), orderAmount);
         }
 
-        Order createdOrder = orderApplicationService.create(command.memberId(), orderItems, command.couponId());
-        productStockApplicationService.decreaseStockForOrder(command.items());
+        int amountAfterCoupon = Math.max(orderAmount - discountAmount, 0);
+        if (command.pointAmount() > amountAfterCoupon) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "사용 포인트가 결제 예정 금액을 초과할 수 없습니다.");
+        }
+        int usedPointAmount = pointApplicationService.use(command.memberId(), command.pointAmount());
+        int paymentAmount = amountAfterCoupon - usedPointAmount;
+
+        Order createdOrder = orderApplicationService.create(
+                command.memberId(),
+                orderItems,
+                command.couponId(),
+                paymentAmount,
+                usedPointAmount
+        );
+        applicationEventPublisher.publishEvent(
+                new OrderPaymentRequestEvent(
+                        command.memberId(),
+                        createdOrder.id(),
+                        command.cardType(),
+                        command.cardNo(),
+                        createdOrder.totalAmount()
+                )
+        );
+
         return createdOrder;
     }
 
     @Transactional
     public Order cancel(OrderAccessRequest request) {
+        Order order = orderApplicationService.getById(request);
+        boolean stockWasDeducted = order.isStockDeducted();
+
+        if (order.couponId() != null) {
+            couponApplicationService.cancelUse(order.couponId(), order.memberId());
+        }
+
+        if (order.usedPointAmount() > 0) {
+            pointApplicationService.restore(order.memberId(), order.usedPointAmount());
+        }
+
+        if (stockWasDeducted) {
+            productStockApplicationService.restoreForOrder(order.items());
+        }
+
         Order cancelled = orderApplicationService.cancel(request);
-        productStockApplicationService.restoreForOrder(cancelled.items());
-        if (cancelled.couponId() != null) {
-            couponApplicationService.cancelUse(cancelled.couponId(), cancelled.memberId());
+        if (!stockWasDeducted && cancelled.isStockDeducted()) {
+            productStockApplicationService.restoreForOrder(cancelled.items());
+        }
+
+        PaymentStatus paymentStatus = paymentQueryApplicationService
+                .getPaymentByOrder(cancelled.memberId(), cancelled.id())
+                .map(Payment::status)
+                .orElse(null);
+
+        if (paymentStatus == PaymentStatus.SUCCEEDED || paymentStatus == PaymentStatus.CANCEL_FAILED) {
+            applicationEventPublisher.publishEvent(
+                    new OrderPaymentCancelRequestEvent(cancelled.memberId(), cancelled.id())
+            );
         }
         return cancelled;
     }
