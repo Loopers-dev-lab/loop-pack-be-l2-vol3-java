@@ -24,6 +24,10 @@ public interface UserCouponRepository {
     // 반환값: 업데이트된 행 수 (1이면 성공, 0이면 이미 사용됨)
     int useIfAvailable(Long id, Long userId, LocalDateTime now);
 
+    // 결제 실패 시 쿠폰 사용 취소 (보상 트랜잭션). WHERE used_at IS NOT NULL로 멱등성 보장
+    // 반환값: 업데이트된 행 수 (1이면 복구 성공, 0이면 이미 복구됨)
+    int restoreUsedCoupon(Long id, Long userId);
+
     // 쿠폰 템플릿 삭제 시 연쇄 soft delete (US-C07, BR-C05)
     void deleteAllByCouponTemplateId(Long couponTemplateId);
 }

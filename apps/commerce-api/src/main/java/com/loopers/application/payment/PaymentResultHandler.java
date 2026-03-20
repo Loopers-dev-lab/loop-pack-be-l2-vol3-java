@@ -1,5 +1,6 @@
 package com.loopers.application.payment;
 
+import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderService;
 import com.loopers.domain.payment.Payment;
@@ -32,6 +33,7 @@ public class PaymentResultHandler {
     private final PaymentService paymentService;
     private final OrderService orderService;
     private final ProductService productService;
+    private final CouponService couponService;
 
     // PG 접수 성공: transactionKey만 저장 (최종 결과는 콜백으로 수신)
     @Transactional
@@ -56,8 +58,9 @@ public class PaymentResultHandler {
         order.markPaymentFailed();
 
         restoreStock(order);
+        restoreCoupon(order);
 
-        log.warn("PG 결제 접수 실패 → 재고 복구 완료: paymentId={}, orderId={}, reason={}",
+        log.warn("PG 결제 접수 실패 → 재고/쿠폰 복구 완료: paymentId={}, orderId={}, reason={}",
                 paymentId, orderId, reason);
     }
 
@@ -84,8 +87,9 @@ public class PaymentResultHandler {
         order.markPaymentTimeout();
 
         restoreStock(order);
+        restoreCoupon(order);
 
-        log.warn("결제 최종 타임아웃 → 재고 복구 완료: paymentId={}, orderId={}, reason={}",
+        log.warn("결제 최종 타임아웃 → 재고/쿠폰 복구 완료: paymentId={}, orderId={}, reason={}",
                 paymentId, orderId, reason);
     }
 
@@ -121,11 +125,21 @@ public class PaymentResultHandler {
             Order order = orderService.findById(payment.getOrderId());
             order.markPaymentFailed();
             restoreStock(order);
-            log.warn("결제 실패 콜백 처리 → 재고 복구: transactionKey={}, orderId={}, reason={}",
+            restoreCoupon(order);
+            log.warn("결제 실패 콜백 처리 → 재고/쿠폰 복구: transactionKey={}, orderId={}, reason={}",
                     transactionKey, order.getId(), failureReason);
         }
 
         return true;
+    }
+
+    // 쿠폰이 적용된 주문이면 쿠폰 사용 취소
+    private void restoreCoupon(Order order) {
+        if (order.getUserCouponId() == null) {
+            return;
+        }
+        couponService.restoreCoupon(order.getUserCouponId(), order.getUserId());
+        log.info("쿠폰 사용 취소 완료: orderId={}, userCouponId={}", order.getId(), order.getUserCouponId());
     }
 
     // 주문 항목 기반 재고 복구

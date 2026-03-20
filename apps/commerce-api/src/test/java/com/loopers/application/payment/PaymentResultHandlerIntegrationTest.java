@@ -1,6 +1,9 @@
 package com.loopers.application.payment;
 
 import com.loopers.domain.brand.Brand;
+import com.loopers.domain.coupon.CouponTemplate;
+import com.loopers.domain.coupon.CouponType;
+import com.loopers.domain.coupon.UserCoupon;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderStatus;
@@ -12,6 +15,8 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.Quantity;
 import com.loopers.domain.product.Stock;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
+import com.loopers.infrastructure.coupon.CouponTemplateJpaRepository;
+import com.loopers.infrastructure.coupon.UserCouponJpaRepository;
 import com.loopers.infrastructure.order.OrderJpaRepository;
 import com.loopers.infrastructure.payment.PaymentJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
@@ -23,7 +28,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,6 +42,7 @@ public class PaymentResultHandlerIntegrationTest {
     private static final Money PRODUCT_PRICE = new Money(10000);
     private static final int INITIAL_STOCK = 10;
     private static final int ORDER_QUANTITY = 2;
+    private static final int COUPON_DISCOUNT = 3000;
     private static final String CARD_TYPE = "SAMSUNG";
     private static final String CARD_NO = "4111-1111-1111-1111";
     private static final String PG_TRANSACTION_KEY = "20260319:TR:abc123";
@@ -53,6 +61,15 @@ public class PaymentResultHandlerIntegrationTest {
 
     @Autowired
     private PaymentJpaRepository paymentJpaRepository;
+
+    @Autowired
+    private CouponTemplateJpaRepository couponTemplateJpaRepository;
+
+    @Autowired
+    private UserCouponJpaRepository userCouponJpaRepository;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -97,6 +114,34 @@ public class PaymentResultHandlerIntegrationTest {
                 PRODUCT_PRICE.getAmount() * ORDER_QUANTITY, CARD_TYPE, CARD_NO);
         payment.assignTransactionKey(PG_TRANSACTION_KEY);
         return paymentJpaRepository.save(payment);
+    }
+
+    // 쿠폰이 적용된 주문 생성 (쿠폰 사용 처리 포함)
+    // useIfAvailable은 @Modifying 쿼리로 트랜잭션 필수 → TransactionTemplate으로 감싸서 실행
+    // @Modifying UPDATE는 영속성 컨텍스트를 갱신하지 않으므로, 커밋 후 별도 조회로 최신 상태 확인
+    private UserCoupon savedUsedCoupon() {
+        Long couponId = transactionTemplate.execute(status -> {
+            CouponTemplate template = couponTemplateJpaRepository.save(
+                    new CouponTemplate("테스트 쿠폰", CouponType.FIXED, COUPON_DISCOUNT, null,
+                            LocalDateTime.now().plusDays(30)));
+            UserCoupon userCoupon = userCouponJpaRepository.save(
+                    new UserCoupon(template.getId(), USER_ID, template.getExpiredAt()));
+            userCouponJpaRepository.useIfAvailable(userCoupon.getId(), USER_ID, LocalDateTime.now());
+            return userCoupon.getId();
+        });
+        // 커밋 후 새 영속성 컨텍스트에서 fresh read
+        return userCouponJpaRepository.findById(couponId).get();
+    }
+
+    private Order savedOrderWithCoupon(Long userId, Product product, Long userCouponId) {
+        int originalAmount = PRODUCT_PRICE.getAmount() * ORDER_QUANTITY;
+        List<OrderItem> items = List.of(
+                new OrderItem(product.getId(), new Quantity(ORDER_QUANTITY),
+                        product.getName(), "나이키", product.getPrice())
+        );
+        Order order = new Order(userId, items, userCouponId,
+                new Money(originalAmount), new Money(COUPON_DISCOUNT));
+        return orderJpaRepository.save(order);
     }
 
     @Nested
@@ -168,6 +213,24 @@ public class PaymentResultHandlerIntegrationTest {
             // assert
             Product updatedProduct = productJpaRepository.findById(product.getId()).get();
             assertThat(updatedProduct.getStock().getQuantity()).isEqualTo(stockBeforeRestore + ORDER_QUANTITY);
+        }
+
+        @Test
+        @DisplayName("쿠폰이 적용된 주문이면 쿠폰 사용이 취소된다")
+        void success_restoresCoupon() {
+            // arrange
+            Brand brand = savedBrand();
+            Product product = savedProduct(brand.getId());
+            UserCoupon usedCoupon = savedUsedCoupon();
+            Order order = savedOrderWithCoupon(USER_ID, product, usedCoupon.getId());
+            Payment payment = savedPayment(order.getId());
+
+            // act
+            resultHandler.handlePgFailed(payment.getId(), order.getId(), "PG 연동 실패");
+
+            // assert
+            UserCoupon restoredCoupon = userCouponJpaRepository.findById(usedCoupon.getId()).get();
+            assertThat(restoredCoupon.getUsedAt()).isNull();
         }
     }
 
@@ -266,6 +329,24 @@ public class PaymentResultHandlerIntegrationTest {
             Product updatedProduct = productJpaRepository.findById(product.getId()).get();
             assertThat(updatedProduct.getStock().getQuantity()).isEqualTo(stockBeforeRestore + ORDER_QUANTITY);
         }
+
+        @Test
+        @DisplayName("쿠폰이 적용된 주문이면 쿠폰 사용이 취소된다")
+        void success_restoresCoupon() {
+            // arrange
+            Brand brand = savedBrand();
+            Product product = savedProduct(brand.getId());
+            UserCoupon usedCoupon = savedUsedCoupon();
+            Order order = savedOrderWithCoupon(USER_ID, product, usedCoupon.getId());
+            Payment payment = savedPayment(order.getId());
+
+            // act
+            resultHandler.handleFinalTimeout(payment.getId(), order.getId(), "결제 최종 타임아웃");
+
+            // assert
+            UserCoupon restoredCoupon = userCouponJpaRepository.findById(usedCoupon.getId()).get();
+            assertThat(restoredCoupon.getUsedAt()).isNull();
+        }
     }
 
     @Nested
@@ -323,6 +404,47 @@ public class PaymentResultHandlerIntegrationTest {
 
             Product updatedProduct = productJpaRepository.findById(product.getId()).get();
             assertThat(updatedProduct.getStock().getQuantity()).isEqualTo(INITIAL_STOCK);
+        }
+
+        @Test
+        @DisplayName("FAILED 콜백: 쿠폰이 적용된 주문이면 쿠폰 사용이 취소된다")
+        void failed_callback_restoresCoupon() {
+            // arrange
+            Brand brand = savedBrand();
+            Product product = savedProduct(brand.getId());
+            product.decreaseStock(new Quantity(ORDER_QUANTITY));
+            productJpaRepository.save(product);
+
+            UserCoupon usedCoupon = savedUsedCoupon();
+            assertThat(usedCoupon.getUsedAt()).isNotNull(); // 사용 상태 확인
+
+            Order order = savedOrderWithCoupon(USER_ID, product, usedCoupon.getId());
+            Payment payment = savedPaymentWithTransactionKey(order.getId());
+
+            // act
+            resultHandler.handleCallback(PG_TRANSACTION_KEY, "FAILED", "잔액 부족");
+
+            // assert — 쿠폰 사용이 취소되어 usedAt이 null
+            UserCoupon restoredCoupon = userCouponJpaRepository.findById(usedCoupon.getId()).get();
+            assertThat(restoredCoupon.getUsedAt()).isNull();
+        }
+
+        @Test
+        @DisplayName("SUCCESS 콜백: 쿠폰이 적용된 주문이어도 쿠폰은 사용 상태를 유지한다")
+        void success_callback_keepsCouponUsed() {
+            // arrange
+            Brand brand = savedBrand();
+            Product product = savedProduct(brand.getId());
+            UserCoupon usedCoupon = savedUsedCoupon();
+            Order order = savedOrderWithCoupon(USER_ID, product, usedCoupon.getId());
+            Payment payment = savedPaymentWithTransactionKey(order.getId());
+
+            // act
+            resultHandler.handleCallback(PG_TRANSACTION_KEY, "SUCCESS", null);
+
+            // assert — 결제 성공이므로 쿠폰은 사용 상태 유지
+            UserCoupon coupon = userCouponJpaRepository.findById(usedCoupon.getId()).get();
+            assertThat(coupon.getUsedAt()).isNotNull();
         }
 
         @Test

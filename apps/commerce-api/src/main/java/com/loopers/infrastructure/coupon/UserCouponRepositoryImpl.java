@@ -44,6 +44,11 @@ public class UserCouponRepositoryImpl implements UserCouponRepository {
     }
 
     @Override
+    public int restoreUsedCoupon(Long id, Long userId) {
+        return userCouponJpaRepository.restoreUsedCoupon(id, userId);
+    }
+
+    @Override
     public void deleteAllByCouponTemplateId(Long couponTemplateId) {
         userCouponJpaRepository.softDeleteAllByCouponTemplateId(couponTemplateId, ZonedDateTime.now());
     }
