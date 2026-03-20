@@ -39,6 +39,29 @@ class PaymentModelTest {
     }
 
     @Nested
+    @DisplayName("isPending 시")
+    class IsPending {
+
+        @Test
+        @DisplayName("상태별 isPending() 기대값이 일치한다.")
+        void isPending_accordingToStatus_returnsCorrectly() {
+            // given
+            PaymentModel pending = PaymentModel.createPending(1L);
+            PaymentModel success = PaymentModel.createPending(2L);
+            success.markSuccess("s");
+            PaymentModel failed = PaymentModel.createPending(3L);
+            failed.markFailed();
+            PaymentModel timeout = PaymentModel.createPending(4L);
+            timeout.markTimeout();
+            // when / then
+            assertThat(pending.isPending()).isTrue();
+            assertThat(success.isPending()).isFalse();
+            assertThat(failed.isPending()).isFalse();
+            assertThat(timeout.isPending()).isFalse();
+        }
+    }
+
+    @Nested
     @DisplayName("markSuccess 시")
     class MarkSuccess {
 
