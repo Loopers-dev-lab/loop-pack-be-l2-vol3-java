@@ -139,6 +139,9 @@ class PgClientResilienceIntegrationTest {
         assertThat(result.accepted()).isFalse();
         assertThat(result.transactionId()).isNull();
         assertThat(result.message()).contains("PG 응답 지연");
+
+        // then — 5xx도 ConnectException이 아니므로 재시도 없이 1회만 호출
+        wireMockServer.verify(1, postRequestedFor(urlEqualTo("/api/v1/payments")));
     }
 
     @Test
