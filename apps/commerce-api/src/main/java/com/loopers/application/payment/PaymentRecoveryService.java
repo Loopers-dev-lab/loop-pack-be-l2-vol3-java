@@ -191,6 +191,13 @@ public class PaymentRecoveryService {
         return "확인 완료: " + updated.getStatus();
     }
 
+    /**
+     * PG 상태 폴링 → 직접 조건부 UPDATE.
+     *
+     * <p>processCallback()과 달리, 이미 Payment 참조를 갖고 있으므로
+     * transactionKey 검색 없이 직접 업데이트한다.
+     * UNKNOWN 상태에서 transactionKey가 없는 유령 결제도 orderId로 PG를 조회하여 복구.</p>
+     */
     private void pollPgStatus(PaymentModel payment) {
         try {
             PgPaymentStatusResponse pgStatus;
@@ -205,13 +212,26 @@ public class PaymentRecoveryService {
 
             if (pgStatus == null) return;
 
+            List<PaymentStatus> allowedStatuses = List.of(PaymentStatus.PENDING, PaymentStatus.UNKNOWN);
+
             switch (pgStatus.status()) {
-                case "SUCCESS" -> processCallback(
-                    payment.getTransactionKey(), "SUCCESS",
-                    "polling-recovery");
-                case "FAILED" -> processCallback(
-                    payment.getTransactionKey(), "FAILED",
-                    "polling-recovery: " + pgStatus.reason());
+                case "SUCCESS" -> {
+                    int affected = paymentRepository.updateStatusConditionally(
+                        payment.getId(), PaymentStatus.PAID, allowedStatuses);
+                    if (affected > 0) {
+                        handlePaymentSuccess(payment);
+                        log.info("Polling 복구 성공: paymentId={}, → PAID", payment.getId());
+                    }
+                }
+                case "FAILED" -> {
+                    int affected = paymentRepository.updateStatusConditionally(
+                        payment.getId(), PaymentStatus.FAILED, allowedStatuses);
+                    if (affected > 0) {
+                        handlePaymentFailure(payment);
+                        log.info("Polling 복구: paymentId={}, → FAILED (reason={})",
+                            payment.getId(), pgStatus.reason());
+                    }
+                }
                 default -> log.debug("PG 폴링 — 아직 처리 중: paymentId={}, pgStatus={}",
                     payment.getId(), pgStatus.status());
             }
