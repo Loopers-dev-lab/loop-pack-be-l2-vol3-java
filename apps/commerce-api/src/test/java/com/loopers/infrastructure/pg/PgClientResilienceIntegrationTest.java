@@ -100,6 +100,49 @@ class PgClientResilienceIntegrationTest {
 
     @Test
     @Order(2)
+    @DisplayName("PG 4xx 응답 시 재시도 없이 즉시 Fallback 반환 — 클라이언트 오류")
+    void clientError_4xx_no_retry_returns_fallback() {
+        // given — PG가 400 Bad Request 반환
+        wireMockServer.stubFor(post(urlEqualTo("/api/v1/payments"))
+                .willReturn(aResponse()
+                        .withStatus(400)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"error\":\"invalid card number\"}")));
+
+        // when
+        PgPaymentResult result = pgClient.requestPayment(createCommand());
+
+        // then — Fallback 반환 확인
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.transactionId()).isNull();
+        assertThat(result.message()).contains("PG 응답 지연");
+
+        // then — 4xx는 재시도 불필요, 1회만 호출
+        wireMockServer.verify(1, postRequestedFor(urlEqualTo("/api/v1/payments")));
+    }
+
+    @Test
+    @Order(3)
+    @DisplayName("PG 5xx 응답 시 Fallback 반환 — 서버 오류")
+    void serverError_5xx_returns_fallback() {
+        // given — PG가 500 Internal Server Error 반환
+        wireMockServer.stubFor(post(urlEqualTo("/api/v1/payments"))
+                .willReturn(aResponse()
+                        .withStatus(500)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"error\":\"internal server error\"}")));
+
+        // when
+        PgPaymentResult result = pgClient.requestPayment(createCommand());
+
+        // then — Fallback 반환 확인
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.transactionId()).isNull();
+        assertThat(result.message()).contains("PG 응답 지연");
+    }
+
+    @Test
+    @Order(5)
     @DisplayName("ConnectException 발생 시 Smart Retry 후 Fallback 반환")
     void connectException_triggers_retry_then_fallback() {
         // given — WireMock 서버 중지로 ConnectException 유발

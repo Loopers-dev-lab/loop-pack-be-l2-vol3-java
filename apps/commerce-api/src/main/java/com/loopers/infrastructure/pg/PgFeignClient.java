@@ -9,7 +9,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 
 @FeignClient(
         name = "pg-client",
-        url = "${pg.base-url}"
+        url = "${pg.base-url}",
+        configuration = PgFeignConfig.class
 )
 public interface PgFeignClient {
 
