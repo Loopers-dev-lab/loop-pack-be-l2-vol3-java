@@ -117,7 +117,7 @@ resilience4j:
   bulkhead:
     instances:
       pg-payment:
-        maxConcurrentCalls: 20
+        maxConcurrentCalls: 18
         maxWaitDuration: 0
 
 springdoc:

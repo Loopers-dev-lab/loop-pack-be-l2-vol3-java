@@ -123,11 +123,8 @@ public class PaymentFacade {
         // TX1: SUCCEEDED → CANCEL_REQUESTED 선점 (비관락)
         paymentService.markCancelRequested(payment.getId(), cancelReason);
 
-        // PG 취소 (트랜잭션 밖, 1회 재시도)
+        // PG 취소 (트랜잭션 밖, Gateway @Retry가 재시도 담당)
         boolean canceled = gatewayExecutor.cancel(payment, cancelReason);
-        if (!canceled) {
-            canceled = gatewayExecutor.cancel(payment, cancelReason);
-        }
 
         if (canceled) {
             // TX2: CANCEL_REQUESTED → CANCELED + 보상
