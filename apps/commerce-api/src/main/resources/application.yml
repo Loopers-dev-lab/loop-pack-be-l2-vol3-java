@@ -50,7 +50,7 @@ resilience4j:
         slidingWindowSize: 10
         minimumNumberOfCalls: 5
         automaticTransitionFromOpenToHalfOpenEnabled: true
-        failureRateThreshold: 50
+        failureRateThreshold: 30
         slowCallDurationThreshold: 2s
         slowCallRateThreshold: 80
         waitDurationInOpenState: 30s
@@ -64,7 +64,7 @@ resilience4j:
         slidingWindowSize: 10
         minimumNumberOfCalls: 5
         automaticTransitionFromOpenToHalfOpenEnabled: true
-        failureRateThreshold: 50
+        failureRateThreshold: 30
         slowCallDurationThreshold: 1500ms
         slowCallRateThreshold: 80
         waitDurationInOpenState: 15s
