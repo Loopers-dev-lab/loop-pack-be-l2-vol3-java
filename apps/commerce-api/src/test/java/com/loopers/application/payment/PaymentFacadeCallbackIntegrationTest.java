@@ -99,6 +99,26 @@ class PaymentFacadeCallbackIntegrationTest {
         }
 
         @Test
+        @DisplayName("성공 콜백에서 amount가 null이면 금액 대조를 건너뛰고 결제 완료 처리된다.")
+        void handleCallback_whenSuccessAndAmountNull_shouldCompletePayment() {
+            // given
+            OrderAndProduct ctx = createOrderedOrderWithStock(10);
+            persistenceService.savePendingAndGetRequestParam(
+                    USER_ID, ctx.order().getId(), "SAMSUNG", "1", CB);
+
+            // when
+            paymentFacade.handleCallback(new PaymentCallbackParam(
+                    ctx.order().getId(), true, "pg-null-amt", null, null));
+
+            // then
+            OrderModel after = orderService.findById(USER_ID, ctx.order().getId()).orElseThrow();
+            assertThat(after.getStatus()).isEqualTo(OrderStatus.PAID);
+            assertThat(productService.findById(ctx.productId()).orElseThrow().getStockQuantity()).isEqualTo(9);
+            var pay = paymentRepository.findTopByOrderIdOrderByCreatedAtDesc(ctx.order().getId()).orElseThrow();
+            assertThat(pay.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        }
+
+        @Test
         @DisplayName("실패 콜백이면 결제 FAILED이고 주문은 ORDERED다.")
         void handleCallback_whenFailure_shouldMarkFailedAndOrderStaysORDERED() {
             // given

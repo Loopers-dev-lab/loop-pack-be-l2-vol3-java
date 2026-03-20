@@ -14,7 +14,6 @@ import com.loopers.utils.DatabaseCleanUp;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -39,6 +38,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * 결제 API E2E (06-payment-change-issues §3.1, §7). PG는 MockBean으로 격리.
+ * Feign readTimeout 실경로 E2E는 MockBean이 프록시를 대체하므로 WireMock/실 PG 없이는 생략한다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(MySqlTestContainersConfig.class)
@@ -158,12 +158,6 @@ class PaymentV1ApiE2ETest {
         }
 
         @Test
-        @Disabled("MockBean은 Feign readTimeout 경로를 타지 않아 실제 타임아웃 E2E는 PG 실서버/WireMock 지연이 필요 (checklist.md Phase 1)")
-        void requestPayment_whenPgTimeout_shouldReturn200WithPendingMessage() {
-            // Phase 1 E2E placeholder — 구현 시: 지연 응답 + 200 + PENDING + DB 1건
-        }
-
-        @Test
         void requestPayment_whenPgThrows_shouldStillReturn200WithPENDING() {
             doThrow(new RuntimeException("pg down"))
                     .when(pgSimulatorClient).requestPayment(any(PgSimulatorRequest.class));
@@ -209,6 +203,39 @@ class PaymentV1ApiE2ETest {
                     new ParameterizedTypeReference<>() {
                     });
             // then
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        void requestPayment_whenOrderAlreadyPAID_shouldReturn400() {
+            // given — 결제·콜백으로 PAID
+            Long orderId = createOrderedOrderViaApi();
+            PaymentV1Dto.PaymentRequest payReq = new PaymentV1Dto.PaymentRequest(orderId, "SAMSUNG", "1");
+            testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(payReq, authHeaders()),
+                    new ParameterizedTypeReference<ApiResponse<PaymentV1Dto.PaymentResponse>>() {
+                    });
+            ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> orderRes = testRestTemplate.exchange(
+                    "/api/v1/orders/" + orderId, HttpMethod.GET, new HttpEntity<>(authHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+            long amountWon = orderRes.getBody().data().finalAmount()
+                    .setScale(0, RoundingMode.HALF_UP).longValue();
+            String callbackJson = """
+                    {"paymentId":"pg-paid","orderId":%d,"success":true,"amount":%d}
+                    """.formatted(orderId, amountWon);
+            HttpHeaders cbHeaders = new HttpHeaders();
+            cbHeaders.setContentType(MediaType.APPLICATION_JSON);
+            testRestTemplate.exchange(
+                    ENDPOINT_CALLBACK, HttpMethod.POST, new HttpEntity<>(callbackJson, cbHeaders), Void.class);
+
+            PaymentV1Dto.PaymentRequest again = new PaymentV1Dto.PaymentRequest(orderId, "SAMSUNG", "1");
+            // when
+            ResponseEntity<ApiResponse<PaymentV1Dto.PaymentResponse>> response = testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(again, authHeaders()),
+                    new ParameterizedTypeReference<>() {
+                    });
+            // then — ORDERED가 아니므로 PENDING 저장 단계에서 BAD_REQUEST (06 §11.5)
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
     }
@@ -317,6 +344,24 @@ class PaymentV1ApiE2ETest {
 
             int stockAfter = productService.findById(productId).map(ProductModel::getStockQuantity).orElseThrow();
             assertThat(stockAfter).isEqualTo(stockBeforePaid - 1);
+        }
+
+        @Test
+        void paymentCallback_whenBodyIsInvalidJson_shouldReturn400() {
+            Long orderId = createOrderedOrderViaApi();
+            PaymentV1Dto.PaymentRequest payReq = new PaymentV1Dto.PaymentRequest(orderId, "SAMSUNG", "1");
+            testRestTemplate.exchange(
+                    ENDPOINT_PAYMENTS, HttpMethod.POST, new HttpEntity<>(payReq, authHeaders()),
+                    new ParameterizedTypeReference<ApiResponse<PaymentV1Dto.PaymentResponse>>() {
+                    });
+
+            HttpHeaders cbHeaders = new HttpHeaders();
+            cbHeaders.setContentType(MediaType.APPLICATION_JSON);
+            ResponseEntity<String> res = testRestTemplate.exchange(
+                    ENDPOINT_CALLBACK, HttpMethod.POST,
+                    new HttpEntity<>("{not-json", cbHeaders),
+                    String.class);
+            assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
     }
 }

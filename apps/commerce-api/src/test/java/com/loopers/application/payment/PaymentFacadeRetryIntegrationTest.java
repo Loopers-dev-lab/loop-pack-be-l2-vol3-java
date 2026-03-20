@@ -95,6 +95,33 @@ class PaymentFacadeRetryIntegrationTest {
     }
 
     @Test
+    @DisplayName("Feign 503(Service Unavailable)는 재시도 설정만큼 PG를 호출한다.")
+    void requestPayment_whenPgReturns503_shouldRetryUpToConfiguredAttempts() {
+        // given
+        Request feignRequest = Request.create(
+                Request.HttpMethod.POST,
+                "/api/v1/payments",
+                Collections.emptyMap(),
+                null,
+                StandardCharsets.UTF_8);
+        AtomicInteger calls = new AtomicInteger();
+        when(pgSimulatorClient.requestPayment(any(PgSimulatorRequest.class))).thenAnswer(inv -> {
+            if (calls.incrementAndGet() < 3) {
+                throw new FeignException.ServiceUnavailable("503", feignRequest, null, null);
+            }
+            return new PgSimulatorResponse("503-ok");
+        });
+        OrderModel order = createOrderedOrder();
+
+        // when
+        PaymentInfo info = paymentFacade.requestPayment(USER_ID, order.getId(), "SAMSUNG", "1");
+
+        // then
+        assertThat(info.status()).isEqualTo("PENDING");
+        verify(pgSimulatorClient, times(3)).requestPayment(any(PgSimulatorRequest.class));
+    }
+
+    @Test
     @DisplayName("Feign 400(BadRequest)는 재시도하지 않고 1회만 PG를 호출한다.")
     void requestPayment_whenPgReturns400_shouldNotRetry() {
         // given
