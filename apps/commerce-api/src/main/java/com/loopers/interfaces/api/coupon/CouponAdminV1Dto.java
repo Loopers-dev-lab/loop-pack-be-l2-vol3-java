@@ -1,5 +1,7 @@
 package com.loopers.interfaces.api.coupon;
 
+import com.loopers.application.coupon.CouponTemplateRegisterCommand;
+import com.loopers.application.coupon.CouponTemplateUpdateCommand;
 import com.loopers.application.coupon.UserCouponInfo;
 import com.loopers.application.coupon.CouponTemplateInfo;
 import com.loopers.domain.coupon.CouponStatus;
@@ -20,7 +22,11 @@ public class CouponAdminV1Dto {
             int value,
             Integer minOrderAmount,
             LocalDateTime expiredAt
-    ) {}
+    ) {
+        public CouponTemplateRegisterCommand toCommand() {
+            return new CouponTemplateRegisterCommand(name, type, value, minOrderAmount, expiredAt);
+        }
+    }
 
     /**
      * 쿠폰 템플릿 수정 요청
@@ -31,7 +37,11 @@ public class CouponAdminV1Dto {
             int value,
             Integer minOrderAmount,
             LocalDateTime expiredAt
-    ) {}
+    ) {
+        public CouponTemplateUpdateCommand toCommand() {
+            return new CouponTemplateUpdateCommand(name, type, value, minOrderAmount, expiredAt);
+        }
+    }
 
     /**
      * 쿠폰 템플릿 응답 (단건/목록 공용)

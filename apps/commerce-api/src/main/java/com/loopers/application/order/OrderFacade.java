@@ -1,5 +1,6 @@
 package com.loopers.application.order;
 
+import com.loopers.application.product.ProductDetailCacheEvictEvent;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.order.Order;
@@ -12,6 +13,7 @@ import com.loopers.domain.product.Quantity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,7 @@ public class OrderFacade {
     private final ProductService productService;
     private final BrandService brandService;
     private final CouponService couponService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 주문 생성 (US-O01)
@@ -90,6 +93,8 @@ public class OrderFacade {
             Quantity quantity = quantityByProductId.get(product.getId());
             product.decreaseStock(quantity);
         }
+        // 재고 변동 → 주문된 각 상품 상세 캐시 즉시 무효화 (커밋 후 처리)
+        products.forEach(p -> eventPublisher.publishEvent(new ProductDetailCacheEvictEvent(p.getId())));
 
         // 브랜드명 일괄 조회 (스냅샷용)
         List<Long> brandIds = products.stream().map(Product::getBrandId).distinct().toList();

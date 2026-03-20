@@ -16,7 +16,7 @@ public class Money {
 
     public Money(int amount) {
         if (amount < 0) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "가격은 0 이상이어야 합니다.");
+            throw new CoreException(ErrorType.BAD_REQUEST, "금액은 0 이상이어야 합니다.");
         }
         this.amount = amount;
     }

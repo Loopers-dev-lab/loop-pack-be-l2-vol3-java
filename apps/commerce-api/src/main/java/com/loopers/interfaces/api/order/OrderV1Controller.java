@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.order;
 
-import com.loopers.application.order.OrderCreateCommand;
 import com.loopers.application.order.OrderFacade;
 import com.loopers.application.user.UserInfo;
 import com.loopers.interfaces.api.ApiResponse;
@@ -31,12 +30,8 @@ public class OrderV1Controller implements OrderV1ApiSpec {
             @LoginUser UserInfo loginUser,
             @RequestBody OrderV1Dto.OrderCreateRequest request)
     {
-        List<OrderCreateCommand.Item> items = request.items().stream()
-                .map(item -> new OrderCreateCommand.Item(item.productId(), item.quantity()))
-                .toList();
-        OrderCreateCommand command = new OrderCreateCommand(items, request.userCouponId());
         return ApiResponse.success(OrderV1Dto.OrderResponse.from(
-                orderFacade.create(loginUser.id(), command)));
+                orderFacade.create(loginUser.id(), request.toCommand())));
     }
 
     @GetMapping
