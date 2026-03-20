@@ -299,7 +299,7 @@ class OrderTest {
             assertThat(order.getStatus()).isEqualTo(OrderStatus.FAILED);
         }
 
-        @DisplayName("PAID 상태이면, ORDER_NOT_CANCELLABLE 예외가 발생한다.")
+        @DisplayName("PAID 상태이면, ORDER_NOT_FAILABLE 예외가 발생한다.")
         @Test
         void throwsException_whenAlreadyPaid() {
             // arrange
@@ -312,10 +312,10 @@ class OrderTest {
             // act & assert
             assertThatThrownBy(() -> order.fail())
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_CANCELLABLE));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_FAILABLE));
         }
 
-        @DisplayName("FAILED 상태이면, ORDER_NOT_CANCELLABLE 예외가 발생한다.")
+        @DisplayName("FAILED 상태이면, ORDER_NOT_FAILABLE 예외가 발생한다.")
         @Test
         void throwsException_whenAlreadyFailed() {
             // arrange
@@ -328,7 +328,7 @@ class OrderTest {
             // act & assert
             assertThatThrownBy(() -> order.fail())
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_CANCELLABLE));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_FAILABLE));
         }
     }
 

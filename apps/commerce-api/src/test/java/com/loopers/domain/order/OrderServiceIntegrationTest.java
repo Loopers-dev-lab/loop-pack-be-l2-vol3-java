@@ -243,7 +243,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_FOUND));
         }
 
-        @DisplayName("이미 PAID 상태이면, ORDER_NOT_CANCELLABLE 예외가 발생한다.")
+        @DisplayName("이미 PAID 상태이면, ORDER_NOT_FAILABLE 예외가 발생한다.")
         @Test
         void throwsException_whenAlreadyPaid() {
             // arrange
@@ -255,7 +255,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
             // act & assert
             assertThatThrownBy(() -> orderService.fail(created.getId()))
                     .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_CANCELLABLE));
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_FAILABLE));
         }
     }
 

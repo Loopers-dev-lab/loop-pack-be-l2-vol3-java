@@ -112,7 +112,7 @@ public class Order extends BaseEntity {
 
     public void fail() {
         if (this.status != OrderStatus.CREATED) {
-            throw new CoreException(ErrorType.ORDER_NOT_CANCELLABLE);
+            throw new CoreException(ErrorType.ORDER_NOT_FAILABLE);
         }
         this.status = OrderStatus.FAILED;
     }
