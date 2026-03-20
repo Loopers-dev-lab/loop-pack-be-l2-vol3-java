@@ -5,6 +5,8 @@ import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.payment.PaymentStatus;
 import org.springframework.stereotype.Repository;
 
+import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -37,5 +39,10 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     @Override
     public Optional<PaymentModel> findTopByOrderIdOrderByCreatedAtDesc(Long orderId) {
         return jpaRepository.findFirstByOrderIdOrderByCreatedAtDesc(orderId);
+    }
+
+    @Override
+    public List<PaymentModel> findAllByStatusAndCreatedAtLessThanEqual(PaymentStatus status, ZonedDateTime createdAt) {
+        return jpaRepository.findAllByStatusAndCreatedAtLessThanEqual(status, createdAt);
     }
 }

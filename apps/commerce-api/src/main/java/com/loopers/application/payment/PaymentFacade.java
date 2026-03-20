@@ -5,6 +5,7 @@ import com.loopers.domain.order.OrderService;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.payment.PaymentModel;
 import com.loopers.domain.payment.PaymentRepository;
+import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.infrastructure.payment.PgPaymentStatusResponse;
 import com.loopers.infrastructure.payment.PgSimulatorClient;
 import com.loopers.infrastructure.payment.PgSimulatorRequest;
@@ -18,7 +19,10 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.math.RoundingMode;
+import java.time.ZonedDateTime;
+import java.util.List;
 
 /**
  * 결제 유스케이스 조율 (06 §10.2).
@@ -41,6 +45,7 @@ public class PaymentFacade {
     private final OrderRepository orderRepository;
     private final PaymentRepository paymentRepository;
     private final Environment environment;
+    private final Duration pendingMinAge;
 
     public PaymentFacade(PaymentPersistenceService persistenceService,
                          @Value("${pg.simulator.callback-url}") String callbackUrl,
@@ -51,7 +56,8 @@ public class PaymentFacade {
                          PgPaymentRequester pgPaymentRequester,
                          PgSimulatorClient pgSimulatorClient,
                          ObjectProvider<PaymentFacade> paymentFacadeSelf,
-                         Environment environment) {
+                         Environment environment,
+                         @Value("${payment.recovery.pending-min-age:5m}") Duration pendingMinAge) {
         this.persistenceService = persistenceService;
         this.pgPaymentRequester = pgPaymentRequester;
         this.pgSimulatorClient = pgSimulatorClient;
@@ -62,6 +68,7 @@ public class PaymentFacade {
         this.orderRepository = orderRepository;
         this.paymentRepository = paymentRepository;
         this.environment = environment;
+        this.pendingMinAge = pendingMinAge;
     }
 
     /**
@@ -183,6 +190,23 @@ public class PaymentFacade {
         } else {
             log.warn("PG 주문별 조회 success 값 비정상(null) orderId={}, PENDING을 TIMEOUT 처리", orderId);
             facade.timeoutPendingPaymentForOrder(orderId);
+        }
+    }
+
+    /**
+     * 콜백 유실 등으로 오래 PENDING으로 남은 건만 PG에서 동기화한다 (Phase 8 배치).
+     * <p>
+     * 외부 호출을 오래 트랜잭션에 묶지 않기 위해, 여기서는 배치 대상 조회만 DB에서 수행한다.
+     */
+    public void recoverStalePendingPayments() {
+        ZonedDateTime cutoff = ZonedDateTime.now().minus(pendingMinAge);
+        List<PaymentModel> stalePayments = paymentRepository
+                .findAllByStatusAndCreatedAtLessThanEqual(PaymentStatus.PENDING, cutoff);
+        if (stalePayments.isEmpty()) {
+            return;
+        }
+        for (PaymentModel payment : stalePayments) {
+            recoverPendingFromPgSimulator(payment.getOrderId());
         }
     }
 

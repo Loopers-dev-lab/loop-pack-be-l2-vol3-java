@@ -1,5 +1,7 @@
 package com.loopers.domain.payment;
 
+import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -21,4 +23,10 @@ public interface PaymentRepository {
      * 주문 ID로 결제 조회 (폴링/복구 시 사용). 최신 1건 등 정책에 따라 확장 가능.
      */
     Optional<PaymentModel> findTopByOrderIdOrderByCreatedAtDesc(Long orderId);
+
+    /**
+     * stale PENDING(= createdAt이 임계값 이하) 결제 목록 조회.
+     * Phase 8 배치/수동 복구용.
+     */
+    List<PaymentModel> findAllByStatusAndCreatedAtLessThanEqual(PaymentStatus status, ZonedDateTime createdAt);
 }
