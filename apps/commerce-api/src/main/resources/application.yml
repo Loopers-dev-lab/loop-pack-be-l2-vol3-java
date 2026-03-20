@@ -49,7 +49,7 @@ resilience4j:
   retry:
     instances:
       pg-payment-request:
-        max-attempts: 2
+        max-attempts: 3
         wait-duration: 500ms
         retry-exception-predicate: com.loopers.infrastructure.pg.ConnectExceptionPredicate
         ignore-exceptions:
