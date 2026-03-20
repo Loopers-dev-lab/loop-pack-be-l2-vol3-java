@@ -64,25 +64,25 @@ class FullOrderFlowIntegrationTest {
     }
 
     @Test
-    @DisplayName("scenario1: 바로 주문 → 취소 → 재고 해제 + 장바구니 복원")
-    void directOrder_Cancel_ShouldReleaseStockAndRestoreCart() {
+    @DisplayName("scenario1: 바로 주문 → 취소 → 재고 영향 없음 + 장바구니 복원")
+    void directOrder_Cancel_ShouldNotAffectStockAndRestoreCart() {
         BrandModel brand = brandService.createBrand("테스트브랜드", "설명", "서울");
         ProductInfo product = productFacade.createProduct(
                 new ProductCreateCommand("테스트상품", brand.getBrandId(), BigDecimal.valueOf(10000), "설명", 10));
 
-        // 바로 주문 (수량 2)
+        // 바로 주문 (수량 2) — Optimistic Stock: hold 없음
         List<OrderItemCommand> items = List.of(new OrderItemCommand(product.getProductId(), 2));
         OrderInfo order = orderFacade.createDirectOrder(userId, items, null);
 
-        // 재고 확인: reserved=2
+        // 재고 확인: hold 없으므로 reserved=0 유지
         ProductStockModel stock = stockService.findByProductId(product.getProductId());
-        assertThat(stock.getReserved()).isEqualTo(2);
-        assertThat(stock.getAvailableQty()).isEqualTo(8);
+        assertThat(stock.getReserved()).isEqualTo(0);
+        assertThat(stock.getAvailableQty()).isEqualTo(10);
 
         // 주문 취소
         orderFacade.cancelOrder(userId, order.getOrderId());
 
-        // 재고 원복 확인
+        // 재고 여전히 변화 없음
         stock = stockService.findByProductId(product.getProductId());
         assertThat(stock.getReserved()).isEqualTo(0);
         assertThat(stock.getAvailableQty()).isEqualTo(10);
@@ -95,8 +95,8 @@ class FullOrderFlowIntegrationTest {
     }
 
     @Test
-    @DisplayName("scenario2: 장바구니 주문 → 취소 → 재고 해제 + 장바구니 유지")
-    void cartOrder_Cancel_ShouldReleaseStockAndKeepCart() {
+    @DisplayName("scenario2: 장바구니 주문 → 취소 → 재고 영향 없음 + 장바구니 유지")
+    void cartOrder_Cancel_ShouldNotAffectStockAndKeepCart() {
         BrandModel brand = brandService.createBrand("테스트브랜드", "설명", "서울");
         ProductInfo product1 = productFacade.createProduct(
                 new ProductCreateCommand("상품1", brand.getBrandId(), BigDecimal.valueOf(10000), "설명", 10));
@@ -107,20 +107,20 @@ class FullOrderFlowIntegrationTest {
         cartService.addItem(userId, product1.getProductId(), 3);
         cartService.addItem(userId, product2.getProductId(), 2);
 
-        // 장바구니 주문
+        // 장바구니 주문 — Optimistic Stock: hold 없음
         List<OrderItemCommand> items = List.of(
                 new OrderItemCommand(product1.getProductId(), 3),
                 new OrderItemCommand(product2.getProductId(), 2));
         OrderInfo order = orderFacade.createCartOrder(userId, items, null);
 
-        // 재고 확인
-        assertThat(stockService.findByProductId(product1.getProductId()).getAvailableQty()).isEqualTo(7);
-        assertThat(stockService.findByProductId(product2.getProductId()).getAvailableQty()).isEqualTo(8);
+        // 재고 확인: hold 없으므로 가용 재고 유지
+        assertThat(stockService.findByProductId(product1.getProductId()).getAvailableQty()).isEqualTo(10);
+        assertThat(stockService.findByProductId(product2.getProductId()).getAvailableQty()).isEqualTo(10);
 
         // 주문 취소
         orderFacade.cancelOrder(userId, order.getOrderId());
 
-        // 재고 원복
+        // 재고 여전히 변화 없음
         assertThat(stockService.findByProductId(product1.getProductId()).getAvailableQty()).isEqualTo(10);
         assertThat(stockService.findByProductId(product2.getProductId()).getAvailableQty()).isEqualTo(10);
     }
@@ -147,30 +147,20 @@ class FullOrderFlowIntegrationTest {
     }
 
     @Test
-    @DisplayName("scenario6: PENDING 제한 초과 → 취소 후 재주문 가능")
-    void pendingLimit_ShouldBlockAndAllowAfterCancel() {
+    @DisplayName("scenario6: Optimistic Stock — 주문 생성은 재고 hold 없이 가능하고 재고에 영향 없다")
+    void optimisticStock_ShouldNotHoldStockOnOrderCreation() {
         BrandModel brand = brandService.createBrand("테스트브랜드", "설명", "서울");
         ProductInfo product = productFacade.createProduct(
-                new ProductCreateCommand("테스트상품", brand.getBrandId(), BigDecimal.valueOf(10000), "설명", 100));
+                new ProductCreateCommand("테스트상품", brand.getBrandId(), BigDecimal.valueOf(10000), "설명", 5));
 
         List<OrderItemCommand> items = List.of(new OrderItemCommand(product.getProductId(), 1));
 
-        // 3건 생성 (PENDING_PAYMENT)
+        // 여러 건 생성 가능 (PENDING limit 제거, 재고 hold 없음)
         OrderInfo order1 = orderFacade.createDirectOrder(userId, items, null);
         OrderInfo order2 = orderFacade.createDirectOrder(userId, items, null);
         OrderInfo order3 = orderFacade.createDirectOrder(userId, items, null);
-
-        // 4번째 주문 시도 → 실패
-        assertThatThrownBy(() -> orderFacade.createDirectOrder(userId, items, null))
-                .isInstanceOf(CoreException.class)
-                .satisfies(e -> assertThat(((CoreException) e).getErrorType())
-                        .isEqualTo(ErrorType.ORDER_PENDING_LIMIT_EXCEEDED));
-
-        // 1건 취소
-        orderFacade.cancelOrder(userId, order1.getOrderId());
-
-        // 다시 주문 가능
         OrderInfo order4 = orderFacade.createDirectOrder(userId, items, null);
+
         assertThat(order4.getStatus()).isEqualTo(OrderStatus.PENDING_PAYMENT);
     }
 }

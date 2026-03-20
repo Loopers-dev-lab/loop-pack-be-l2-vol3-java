@@ -69,8 +69,9 @@ public interface OrderJpaRepository extends JpaRepository<OrderModel, Long> {
      * @param toStatus   변경 후 상태
      * @return 변경된 행 수 (0이면 상태 전이 실패)
      */
-    @Modifying
-    @Query("UPDATE OrderModel o SET o.status = :toStatus, o.updatedAt = CURRENT_TIMESTAMP " +
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE OrderModel o SET o.status = :toStatus, o.updatedAt = CURRENT_TIMESTAMP, " +
+           "o.paidAt = CASE WHEN :toStatus = 'PAID' THEN CURRENT_TIMESTAMP ELSE o.paidAt END " +
            "WHERE o.orderId = :orderId AND o.status = :fromStatus")
     int casUpdateStatus(@Param("orderId") Long orderId,
                         @Param("fromStatus") OrderStatus fromStatus,

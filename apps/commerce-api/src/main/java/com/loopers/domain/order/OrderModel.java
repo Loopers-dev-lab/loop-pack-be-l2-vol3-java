@@ -119,6 +119,19 @@ public class OrderModel extends BaseStringIdEntity {
     }
 
     /**
+     * 결제가 완료되어 주문 상태를 PAID로 전이한다 (PENDING_PAYMENT → PAID).
+     *
+     * @throws CoreException PENDING_PAYMENT가 아닌 상태에서 호출 시 (ORDER_NOT_FOUND)
+     */
+    public void markAsPaid() {
+        if (this.status != OrderStatus.PENDING_PAYMENT) {
+            throw new CoreException(ErrorType.ORDER_NOT_FOUND, "결제 가능한 상태가 아닙니다");
+        }
+        this.status = OrderStatus.PAID;
+        this.paidAt = LocalDateTime.now();
+    }
+
+    /**
      * 사용자 취소가 가능한지 판별한다. PENDING_PAYMENT 상태이고 시간 만료되지 않은 경우에만 true.
      *
      * @return 취소 가능하면 true

@@ -10,26 +10,36 @@ Group: `com.loopers` | 감성 이커머스 MVP: 좋아요 → 장바구니 → �
 
 ## Build & Test Commands
 
+**중요: WSL 성능 최적화** — 프로젝트가 Windows 마운트(`/mnt/c/`)에 있어 Gradle 빌드/테스트가 느리다.
+`./gradlew` 명령(build, test, bootRun 등)은 반드시 WSL 네이티브 경로에 동기화한 후 실행한다.
+
 ```bash
+# ━━ Step 1: 프로젝트 동기화 (테스트/빌드 전 항상 실행) ━━
+rsync -a --delete \
+  --exclude='.gradle' --exclude='build' --exclude='.idea' --exclude='*.iml' \
+  /mnt/c/Users/kdj10/Git/loop-pack-be-l2-vol3-java/ \
+  ~/projects/loop-pack-be-l2-vol3-java/
+
+# ━━ Step 2: WSL 네이티브 경로에서 Gradle 명령 실행 ━━
 # Full build (all modules)
-./gradlew build
+cd ~/projects/loop-pack-be-l2-vol3-java && ./gradlew build
 
 # Run all tests (uses Testcontainers — Docker must be running)
-./gradlew test
+cd ~/projects/loop-pack-be-l2-vol3-java && ./gradlew test
 
 # Run a single module's tests
-./gradlew :apps:commerce-api:test
+cd ~/projects/loop-pack-be-l2-vol3-java && ./gradlew :apps:commerce-api:test
 
 # Run a single test class
-./gradlew :apps:commerce-api:test --tests "com.loopers.domain.user.UserServiceTest"
+cd ~/projects/loop-pack-be-l2-vol3-java && ./gradlew :apps:commerce-api:test --tests "com.loopers.domain.user.UserServiceTest"
 
 # Run a single test method
-./gradlew :apps:commerce-api:test --tests "com.loopers.domain.user.UserServiceTest.register_WithValidInput_ShouldSuccess"
+cd ~/projects/loop-pack-be-l2-vol3-java && ./gradlew :apps:commerce-api:test --tests "com.loopers.domain.user.UserServiceTest.register_WithValidInput_ShouldSuccess"
 
 # Run application
-./gradlew :apps:commerce-api:bootRun
-./gradlew :apps:commerce-batch:bootRun
-./gradlew :apps:commerce-streamer:bootRun
+cd ~/projects/loop-pack-be-l2-vol3-java && ./gradlew :apps:commerce-api:bootRun
+cd ~/projects/loop-pack-be-l2-vol3-java && ./gradlew :apps:commerce-batch:bootRun
+cd ~/projects/loop-pack-be-l2-vol3-java && ./gradlew :apps:commerce-streamer:bootRun
 
 # Local infrastructure (MySQL, Redis, Kafka)
 docker compose -f docker/infra-compose.yml up -d
@@ -38,7 +48,27 @@ docker compose -f docker/infra-compose.yml up -d
 docker compose -f docker/monitoring-compose.yml up -d
 ```
 
+**규칙:**
+- 코드 편집은 항상 원본 경로(`/mnt/c/Users/kdj10/Git/loop-pack-be-l2-vol3-java/`)에서 수행
+- `./gradlew` 실행이 필요할 때마다 rsync → cd → gradlew 순서로 실행
+- rsync와 gradlew 명령은 하나의 Bash 호출에서 `&&`로 체이닝
+
 Test config: profile=`test`, timezone=`Asia/Seoul`, maxParallelForks=1.
+
+### 테스트 환경 트러블슈팅 (Docker 29+ / Testcontainers)
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| **Testcontainers `BadRequestException (Status 400: {"ID":"","Containers":0,...})`** | Docker 29+는 최소 API version 1.44 요구. Testcontainers 1.21.0 이하는 docker-java API 1.32로 요청하여 빈 응답 수신 | `build.gradle.kts`에서 Testcontainers **1.21.4+** 강제 적용 (`resolutionStrategy.eachDependency`). TC 1.21.4부터 API 1.44로 먼저 시도함 |
+| **`SQLSyntaxErrorException` — `option` 컬럼 DDL 실패** | `option`은 MySQL 8.0 예약어. Hibernate DDL 자동 생성 시 백틱 없이 사용되어 구문 오류 | `@Column(name = "\`option\`")` 으로 백틱 이스케이프 (ProductModel) |
+| **E2E 테스트에서 userId 불일치로 404** | `@Transactional` 롤백이 auto_increment를 리셋하지 않음. userId를 `1L`로 하드코딩하면 2번째 테스트부터 불일치 | `UserJpaRepository.findByLoginId()`로 실제 등록된 userId 조회 후 사용 |
+| **인증 없이 요청 시 400 vs 401** | `CustomerAuthInterceptor`는 헤더 없으면 통과, `AuthUserArgumentResolver`에서 user가 null이면 `UNAUTHORIZED(401)` 반환 | 인증 필요 API에 인증 없이 요청 시 기대값은 `401` |
+
+**`~/.testcontainers.properties` 권장 설정:**
+```properties
+docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
+testcontainers.reuse.enable=true
+```
 
 ## Module Structure
 

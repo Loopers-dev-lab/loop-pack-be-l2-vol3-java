@@ -60,21 +60,8 @@ class OrderServiceTest {
         }
 
         @Test
-        @DisplayName("PENDING 주문 3건 이상일 때 ORDER_PENDING_LIMIT_EXCEEDED 예외가 발생한다")
-        void validateAndPrepare_ExceedPendingLimit_ShouldThrow() {
-            when(orderRepository.countByUserIdAndStatus(1L, OrderStatus.PENDING_PAYMENT)).thenReturn(3L);
-
-            assertThatThrownBy(() -> orderService.validateAndPrepare(1L,
-                    List.of(new OrderItemCommand(1L, 1))))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
-                            .isEqualTo(ErrorType.ORDER_PENDING_LIMIT_EXCEEDED));
-        }
-
-        @Test
         @DisplayName("동일 productId가 중복 전달되면 수량을 합산한다")
         void validateAndPrepare_DuplicateProductId_ShouldMergeQuantity() {
-            when(orderRepository.countByUserIdAndStatus(1L, OrderStatus.PENDING_PAYMENT)).thenReturn(0L);
 
             List<OrderItemCommand> result = orderService.validateAndPrepare(1L, List.of(
                     new OrderItemCommand(1L, 2),
@@ -87,8 +74,6 @@ class OrderServiceTest {
         @Test
         @DisplayName("결과가 productId 오름차순으로 정렬된다")
         void validateAndPrepare_ShouldSortByProductIdAsc() {
-            when(orderRepository.countByUserIdAndStatus(1L, OrderStatus.PENDING_PAYMENT)).thenReturn(0L);
-
             List<OrderItemCommand> result = orderService.validateAndPrepare(1L, List.of(
                     new OrderItemCommand(3L, 1),
                     new OrderItemCommand(1L, 1)));
@@ -263,6 +248,47 @@ class OrderServiceTest {
             Optional<OrderModel> result = orderService.expireOrder(1L);
 
             assertThat(result).isEmpty();
+        }
+    }
+
+    // === 결제 완료 ===
+
+    @Nested
+    @DisplayName("결제 완료 (markAsPaid)")
+    class MarkAsPaidTests {
+
+        @Test
+        @DisplayName("CAS 성공 시 true를 반환한다")
+        void markAsPaid_WithPendingPayment_ShouldReturnTrue() {
+            when(orderRepository.casUpdateStatus(1L, OrderStatus.PENDING_PAYMENT, OrderStatus.PAID))
+                    .thenReturn(1);
+
+            boolean result = orderService.markAsPaid(1L);
+
+            assertThat(result).isTrue();
+            verify(orderRepository).casUpdateStatus(1L, OrderStatus.PENDING_PAYMENT, OrderStatus.PAID);
+        }
+
+        @Test
+        @DisplayName("이미 EXPIRED된 주문에 대해 CAS 실패 시 false를 반환한다")
+        void markAsPaid_WithAlreadyExpired_ShouldReturnFalse() {
+            when(orderRepository.casUpdateStatus(1L, OrderStatus.PENDING_PAYMENT, OrderStatus.PAID))
+                    .thenReturn(0);
+
+            boolean result = orderService.markAsPaid(1L);
+
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("이미 CANCELLED된 주문에 대해 CAS 실패 시 false를 반환한다")
+        void markAsPaid_WithAlreadyCancelled_ShouldReturnFalse() {
+            when(orderRepository.casUpdateStatus(1L, OrderStatus.PENDING_PAYMENT, OrderStatus.PAID))
+                    .thenReturn(0);
+
+            boolean result = orderService.markAsPaid(1L);
+
+            assertThat(result).isFalse();
         }
     }
 

@@ -43,7 +43,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/v1/products/*/likes")
                 .addPathPatterns("/api/v1/cart/**")
                 .addPathPatterns("/api/v1/orders/**")
-                .addPathPatterns("/api/v1/coupons/**");
+                .addPathPatterns("/api/v1/coupons/**")
+                .addPathPatterns("/api/v1/payments/**")
+                .excludePathPatterns("/api/v1/payments/callback");
     }
 
     /**

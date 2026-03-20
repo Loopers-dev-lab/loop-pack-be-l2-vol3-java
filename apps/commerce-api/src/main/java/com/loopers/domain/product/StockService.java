@@ -60,6 +60,23 @@ public class StockService {
     }
 
     /**
+     * 가용 재고가 충분한지 읽기 전용으로 확인한다 (hold 없음, 낙관적 확인).
+     * <p>
+     * 주문 생성 시점의 사전 검증용이며, 최종 재고 보장은 결제 시점의 CAS hold가 담당한다.
+     * </p>
+     *
+     * @param productId 상품 ID
+     * @param qty       요청 수량
+     * @throws CoreException 가용 재고 부족 시 (STOCK_NOT_ENOUGH)
+     */
+    public void validateAvailability(Long productId, int qty) {
+        ProductStockModel stock = findByProductId(productId);
+        if (!stock.canHold(qty)) {
+            throw new CoreException(ErrorType.STOCK_NOT_ENOUGH);
+        }
+    }
+
+    /**
      * CAS(Compare-And-Set) 방식으로 재고를 예약(hold)한다.
      * <p>
      * 조건부 UPDATE({@code SET reserved += :qty WHERE (on_hand - reserved) >= :qty})로

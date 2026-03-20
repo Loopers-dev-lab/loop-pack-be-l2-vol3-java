@@ -1,5 +1,6 @@
 package com.loopers.domain.coupon;
 
+import com.loopers.domain.order.OrderItemSnapshot;
 import com.loopers.support.enums.DiscountType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -108,6 +110,70 @@ class CouponModelTest {
             CouponModel coupon = CouponModel.create("쿠폰", DiscountType.FIXED, BigDecimal.valueOf(1000),
                     BigDecimal.valueOf(10000), LocalDateTime.now().plusDays(10));
             coupon.validateApplicable(BigDecimal.valueOf(20000)); // 예외 없음
+        }
+    }
+
+    @Nested
+    @DisplayName("distributeDiscount - 할인 비례 배분")
+    class DistributeDiscountTests {
+
+        private OrderItemSnapshot createSnapshot(BigDecimal unitPrice, int quantity) {
+            BigDecimal originalAmount = unitPrice.multiply(BigDecimal.valueOf(quantity));
+            return new OrderItemSnapshot(1L, quantity, "상품", unitPrice, "1", "브랜드", null,
+                    originalAmount, BigDecimal.ZERO, originalAmount);
+        }
+
+        @Test
+        @DisplayName("단일 항목에 전체 할인이 적용된다")
+        void distributeDiscount_SingleItem_ShouldApplyFullDiscount() {
+            CouponModel coupon = createFixedCoupon(BigDecimal.valueOf(3000));
+            OrderItemSnapshot snapshot = createSnapshot(BigDecimal.valueOf(10000), 2);
+
+            List<OrderItemSnapshot> result = coupon.distributeDiscount(
+                    List.of(snapshot), BigDecimal.valueOf(3000));
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).discountAmount()).isEqualByComparingTo(BigDecimal.valueOf(3000));
+            assertThat(result.get(0).finalAmount()).isEqualByComparingTo(BigDecimal.valueOf(17000));
+        }
+
+        @Test
+        @DisplayName("다건 항목에 originalAmount 비율로 배분되고 반올림 오차는 마지막 항목이 흡수한다")
+        void distributeDiscount_MultipleItems_ShouldDistributeProportionally() {
+            CouponModel coupon = createFixedCoupon(BigDecimal.valueOf(1000));
+
+            // 항목1: 10000 * 1 = 10000, 항목2: 20000 * 1 = 20000, 합계: 30000
+            OrderItemSnapshot snap1 = createSnapshot(BigDecimal.valueOf(10000), 1);
+            OrderItemSnapshot snap2 = new OrderItemSnapshot(2L, 1, "상품2", BigDecimal.valueOf(20000),
+                    "1", "브랜드", null, BigDecimal.valueOf(20000), BigDecimal.ZERO, BigDecimal.valueOf(20000));
+
+            List<OrderItemSnapshot> result = coupon.distributeDiscount(
+                    List.of(snap1, snap2), BigDecimal.valueOf(1000));
+
+            // 항목1: 1000 * 10000 / 30000 = 333.33 → FLOOR → 333
+            // 항목2: 1000 - 333 = 667 (마지막 항목이 오차 흡수)
+            assertThat(result.get(0).discountAmount()).isEqualByComparingTo(BigDecimal.valueOf(333));
+            assertThat(result.get(1).discountAmount()).isEqualByComparingTo(BigDecimal.valueOf(667));
+
+            // 할인 합계가 totalDiscount와 일치
+            BigDecimal totalDiscount = result.stream()
+                    .map(OrderItemSnapshot::discountAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            assertThat(totalDiscount).isEqualByComparingTo(BigDecimal.valueOf(1000));
+        }
+
+        @Test
+        @DisplayName("할인 금액 0일 때 원본 스냅샷이 그대로 반환된다")
+        void distributeDiscount_ZeroDiscount_ShouldReturnOriginalSnapshots() {
+            CouponModel coupon = createFixedCoupon(BigDecimal.valueOf(1000));
+            OrderItemSnapshot snapshot = createSnapshot(BigDecimal.valueOf(10000), 1);
+
+            List<OrderItemSnapshot> result = coupon.distributeDiscount(
+                    List.of(snapshot), BigDecimal.ZERO);
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0)).isSameAs(snapshot);
+            assertThat(result.get(0).discountAmount()).isEqualByComparingTo(BigDecimal.ZERO);
         }
     }
 

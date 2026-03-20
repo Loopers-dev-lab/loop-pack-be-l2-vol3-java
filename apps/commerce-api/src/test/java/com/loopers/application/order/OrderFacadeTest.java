@@ -86,8 +86,8 @@ class OrderFacadeTest {
     class DirectOrderTests {
 
         @Test
-        @DisplayName("상품 검증 → 재고 hold → 주문 저장의 전체 플로우가 수행된다")
-        void createDirectOrder_ShouldValidateProduct_ReserveStock_SaveOrder() {
+        @DisplayName("상품 검증 → 낙관적 재고 확인 → 주문 저장의 전체 플로우가 수행된다")
+        void createDirectOrder_ShouldValidateProduct_CheckStock_SaveOrder() {
             setupOrderCreationMocks();
 
             List<OrderItemCommand> items = List.of(new OrderItemCommand(1L, 2));
@@ -95,12 +95,13 @@ class OrderFacadeTest {
 
             assertThat(result).isNotNull();
             verify(productService).findOrderableById(1L);
-            verify(stockService).hold(1L, 2);
+            verify(stockService).validateAvailability(1L, 2);
+            verify(stockService, never()).hold(anyLong(), anyInt());
             verify(orderService).createOrder(eq(USER_ID), eq(OrderType.DIRECT), any(BigDecimal.class), anyList());
         }
 
         @Test
-        @DisplayName("주문 불가 상품으로 주문 시 예외가 발생하고 hold가 호출되지 않는다")
+        @DisplayName("주문 불가 상품으로 주문 시 예외가 발생하고 재고 확인이 호출되지 않는다")
         void createDirectOrder_ProductNotOrderable_ShouldThrow() {
             List<OrderItemCommand> merged = List.of(new OrderItemCommand(1L, 2));
             when(orderService.validateAndPrepare(eq(USER_ID), anyList())).thenReturn(merged);
@@ -112,18 +113,18 @@ class OrderFacadeTest {
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.PRODUCT_NOT_ORDERABLE));
-            verify(stockService, never()).hold(anyLong(), anyInt());
+            verify(stockService, never()).validateAvailability(anyLong(), anyInt());
         }
 
         @Test
-        @DisplayName("재고 부족 시 STOCK_NOT_ENOUGH 예외가 발생한다")
+        @DisplayName("낙관적 재고 확인에서 부족 시 STOCK_NOT_ENOUGH 예외가 발생한다")
         void createDirectOrder_InsufficientStock_ShouldThrow() {
             List<OrderItemCommand> merged = List.of(new OrderItemCommand(1L, 100));
             when(orderService.validateAndPrepare(eq(USER_ID), anyList())).thenReturn(merged);
             when(productService.findOrderableById(1L)).thenReturn(createTestProduct());
             when(brandService.findById(1L)).thenReturn(createTestBrand());
             doThrow(new CoreException(ErrorType.STOCK_NOT_ENOUGH))
-                    .when(stockService).hold(1L, 100);
+                    .when(stockService).validateAvailability(1L, 100);
 
             assertThatThrownBy(() -> orderFacade.createDirectOrder(USER_ID,
                     List.of(new OrderItemCommand(1L, 100)), null))
@@ -181,8 +182,8 @@ class OrderFacadeTest {
         }
 
         @Test
-        @DisplayName("쿠폰 검증 실패 시 재고 hold가 호출되지 않는다")
-        void createDirectOrder_CouponValidationFails_ShouldNotHoldStocks() {
+        @DisplayName("쿠폰 검증 실패 시 재고 확인이 호출되지 않는다")
+        void createDirectOrder_CouponValidationFails_ShouldNotCheckStocks() {
             List<OrderItemCommand> merged = List.of(new OrderItemCommand(1L, 2));
             when(orderService.validateAndPrepare(eq(USER_ID), anyList())).thenReturn(merged);
             when(couponService.validateAndGetUserCoupon(USER_ID, USER_COUPON_ID))
@@ -193,7 +194,7 @@ class OrderFacadeTest {
                     .isInstanceOf(CoreException.class)
                     .satisfies(ex -> assertThat(((CoreException) ex).getErrorType())
                             .isEqualTo(ErrorType.COUPON_NOT_AVAILABLE));
-            verify(stockService, never()).hold(anyLong(), anyInt());
+            verify(stockService, never()).validateAvailability(anyLong(), anyInt());
         }
 
         @Test
@@ -226,8 +227,8 @@ class OrderFacadeTest {
     class CartOrderTests {
 
         @Test
-        @DisplayName("모든 상품이 순서대로 검증되고 hold된다")
-        void createCartOrder_ShouldValidateAllProducts_ReserveAllStocks() {
+        @DisplayName("모든 상품이 검증되고 낙관적 재고 확인이 수행된다")
+        void createCartOrder_ShouldValidateAllProducts_CheckAllStocks() {
             setupOrderCreationMocks();
 
             OrderInfo result = orderFacade.createCartOrder(USER_ID,
@@ -235,54 +236,32 @@ class OrderFacadeTest {
 
             assertThat(result).isNotNull();
             verify(productService).findOrderableById(1L);
-            verify(stockService).hold(1L, 2);
+            verify(stockService).validateAvailability(1L, 2);
+            verify(stockService, never()).hold(anyLong(), anyInt());
             verify(orderService).createOrder(eq(USER_ID), eq(OrderType.CART), any(BigDecimal.class), anyList());
         }
 
         @Test
-        @DisplayName("2번째 상품 hold 실패 시 1번째 hold가 release된다 (부분 성공 금지)")
-        void createCartOrder_PartialStockFailure_ShouldRollbackAllReservations() {
+        @DisplayName("2번째 상품 재고 확인 실패 시 예외가 발생한다 (hold 없으므로 보상 불필요)")
+        void createCartOrder_PartialStockFailure_ShouldThrowWithoutCompensation() {
             List<OrderItemCommand> merged = List.of(
                     new OrderItemCommand(1L, 2),
                     new OrderItemCommand(2L, 3));
             when(orderService.validateAndPrepare(eq(USER_ID), anyList())).thenReturn(merged);
-            when(productService.findOrderableById(1L)).thenReturn(createTestProduct(1L));
-            when(productService.findOrderableById(2L)).thenReturn(createTestProduct(2L));
-            when(brandService.findById(1L)).thenReturn(createTestBrand());
-            doNothing().when(stockService).hold(1L, 2);
+            when(productService.findOrderableById(anyLong())).thenAnswer(inv ->
+                    createTestProduct(inv.getArgument(0)));
+            when(brandService.findById(anyLong())).thenReturn(createTestBrand());
+            doNothing().when(stockService).validateAvailability(1L, 2);
             doThrow(new CoreException(ErrorType.STOCK_NOT_ENOUGH))
-                    .when(stockService).hold(2L, 3);
+                    .when(stockService).validateAvailability(2L, 3);
 
             assertThatThrownBy(() -> orderFacade.createCartOrder(USER_ID, List.of(
                     new OrderItemCommand(1L, 2),
                     new OrderItemCommand(2L, 3)), null))
                     .isInstanceOf(CoreException.class);
 
-            verify(stockService).release(1L, 2);
-        }
-
-        @Test
-        @DisplayName("hold 순서가 productId 오름차순이다 (데드락 방지)")
-        void createCartOrder_ShouldHoldInProductIdAscOrder() {
-            List<OrderItemCommand> merged = List.of(
-                    new OrderItemCommand(1L, 1),
-                    new OrderItemCommand(3L, 1));
-            when(orderService.validateAndPrepare(eq(USER_ID), anyList())).thenReturn(merged);
-            when(productService.findOrderableById(1L)).thenReturn(createTestProduct(1L));
-            when(productService.findOrderableById(3L)).thenReturn(createTestProduct(3L));
-            when(brandService.findById(1L)).thenReturn(createTestBrand());
-            OrderModel savedOrder = OrderModel.create(USER_ID, OrderType.CART, BigDecimal.valueOf(20000));
-            when(orderService.createOrder(eq(USER_ID), any(OrderType.class), any(BigDecimal.class), anyList()))
-                    .thenReturn(savedOrder);
-            when(orderService.findOrderItems(any())).thenReturn(List.of());
-
-            orderFacade.createCartOrder(USER_ID, List.of(
-                    new OrderItemCommand(3L, 1),
-                    new OrderItemCommand(1L, 1)), null);
-
-            var inOrder = inOrder(stockService);
-            inOrder.verify(stockService).hold(1L, 1);
-            inOrder.verify(stockService).hold(3L, 1);
+            verify(stockService, never()).hold(anyLong(), anyInt());
+            verify(stockService, never()).release(anyLong(), anyInt());
         }
     }
 
@@ -293,17 +272,14 @@ class OrderFacadeTest {
     class CancelOrderTests {
 
         @Test
-        @DisplayName("취소 시 모든 주문 항목의 재고가 release되고 쿠폰이 복원된다")
-        void cancelOrder_ShouldReleaseAllStocks() {
+        @DisplayName("취소 시 쿠폰이 복원되고 재고 release는 수행하지 않는다")
+        void cancelOrder_ShouldRestoreCoupon_NotReleaseStock() {
             OrderModel order = OrderModel.create(USER_ID, OrderType.CART, BigDecimal.valueOf(10000));
             when(orderService.cancelOrder(USER_ID, 1L)).thenReturn(Optional.of(order));
-            OrderItemModel item = OrderItemModel.create(1L, 1, USER_ID, 1L, 3,
-                    "상품명", BigDecimal.valueOf(10000), "brand-id", "브랜드", null);
-            when(orderService.findOrderItems(1L)).thenReturn(List.of(item));
 
             orderFacade.cancelOrder(USER_ID, 1L);
 
-            verify(stockService).release(1L, 3);
+            verify(stockService, never()).release(anyLong(), anyInt());
             verify(couponService).restoreCoupon(order.getOrderId());
         }
 
@@ -312,9 +288,10 @@ class OrderFacadeTest {
         void cancelOrder_DIRECT_ShouldRestoreToCart() {
             OrderModel order = OrderModel.create(USER_ID, OrderType.DIRECT, BigDecimal.valueOf(10000));
             when(orderService.cancelOrder(USER_ID, 1L)).thenReturn(Optional.of(order));
+            when(orderService.existsCartRestore(any())).thenReturn(false);
             OrderItemModel item = OrderItemModel.create(1L, 1, USER_ID, 1L, 3,
                     "상품명", BigDecimal.valueOf(10000), "brand-id", "브랜드", null);
-            when(orderService.findOrderItems(1L)).thenReturn(List.of(item));
+            when(orderService.findOrderItems(any())).thenReturn(List.of(item));
 
             orderFacade.cancelOrder(USER_ID, 1L);
 
@@ -327,7 +304,6 @@ class OrderFacadeTest {
         void cancelOrder_CART_ShouldNotRestoreCart() {
             OrderModel order = OrderModel.create(USER_ID, OrderType.CART, BigDecimal.valueOf(10000));
             when(orderService.cancelOrder(USER_ID, 1L)).thenReturn(Optional.of(order));
-            when(orderService.findOrderItems(1L)).thenReturn(List.of());
 
             orderFacade.cancelOrder(USER_ID, 1L);
 
@@ -353,17 +329,14 @@ class OrderFacadeTest {
     class ExpireOrderTests {
 
         @Test
-        @DisplayName("만료 시 재고가 release되고 쿠폰이 복원된다")
-        void expireOrder_ShouldReleaseAllStocks() {
+        @DisplayName("만료 시 쿠폰이 복원되고 재고 release는 수행하지 않는다")
+        void expireOrder_ShouldRestoreCoupon_NotReleaseStock() {
             OrderModel order = OrderModel.create(USER_ID, OrderType.CART, BigDecimal.valueOf(10000));
             when(orderService.expireOrder(1L)).thenReturn(Optional.of(order));
-            OrderItemModel item = OrderItemModel.create(1L, 1, USER_ID, 1L, 3,
-                    "상품명", BigDecimal.valueOf(10000), "brand-id", "브랜드", null);
-            when(orderService.findOrderItems(1L)).thenReturn(List.of(item));
 
             orderFacade.expireOrder(1L);
 
-            verify(stockService).release(1L, 3);
+            verify(stockService, never()).release(anyLong(), anyInt());
             verify(couponService).restoreCoupon(order.getOrderId());
         }
 
@@ -372,9 +345,10 @@ class OrderFacadeTest {
         void expireOrder_DIRECT_ShouldRestoreToCart() {
             OrderModel order = OrderModel.create(USER_ID, OrderType.DIRECT, BigDecimal.valueOf(10000));
             when(orderService.expireOrder(1L)).thenReturn(Optional.of(order));
+            when(orderService.existsCartRestore(any())).thenReturn(false);
             OrderItemModel item = OrderItemModel.create(1L, 1, USER_ID, 1L, 2,
                     "상품명", BigDecimal.valueOf(10000), "brand-id", "브랜드", null);
-            when(orderService.findOrderItems(1L)).thenReturn(List.of(item));
+            when(orderService.findOrderItems(any())).thenReturn(List.of(item));
 
             orderFacade.expireOrder(1L);
 

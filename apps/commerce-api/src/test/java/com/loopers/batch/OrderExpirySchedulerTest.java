@@ -20,8 +20,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.persistence.EntityManager;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -41,6 +43,7 @@ class OrderExpirySchedulerTest {
     @Autowired BrandJpaRepository brandJpaRepository;
     @Autowired CartItemJpaRepository cartItemJpaRepository;
     @Autowired DatabaseCleanUp databaseCleanUp;
+    @Autowired EntityManager entityManager;
 
     private BrandModel brand;
     private ProductModel product;
@@ -75,6 +78,7 @@ class OrderExpirySchedulerTest {
     }
 
     @Test
+    @Transactional
     @DisplayName("만료 시 예약 재고가 해제된다")
     void shouldReleaseStock_ForExpiredOrders() {
         // 재고 hold 후 만료 처리 시 release 되는지 검증 (통합 흐름)
@@ -85,6 +89,7 @@ class OrderExpirySchedulerTest {
         // hold 3개
         productStockJpaRepository.reserveStock(product.getProductId(), 3);
         productStockJpaRepository.flush();
+        entityManager.clear(); // CAS UPDATE는 1차 캐시를 우회하므로 clear 후 재조회
 
         stock = productStockJpaRepository.findById(product.getProductId()).get();
         assertThat(stock.getReserved()).isEqualTo(3);

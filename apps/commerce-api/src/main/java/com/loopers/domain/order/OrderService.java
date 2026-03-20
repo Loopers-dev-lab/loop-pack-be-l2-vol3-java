@@ -30,8 +30,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class OrderService {
 
-    private static final int MAX_PENDING_ORDERS = 3;
-
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderCartRestoreRepository orderCartRestoreRepository;
@@ -50,7 +48,6 @@ public class OrderService {
      */
     public List<OrderItemCommand> validateAndPrepare(Long userId, List<OrderItemCommand> items) {
         validateNotEmpty(items);
-        validatePendingLimit(userId);
         return mergeAndSort(items);
     }
 
@@ -150,6 +147,22 @@ public class OrderService {
     }
 
     /**
+     * 주문을 결제 완료(PAID) 상태로 전이한다.
+     * <p>
+     * CAS(Compare-And-Set) 방식으로 PENDING_PAYMENT → PAID 상태 전이를 수행한다.
+     * 만료 스케줄러와의 레이스 컨디션을 구조적으로 방지한다.
+     * </p>
+     *
+     * @param orderId 주문 ID
+     * @return 상태 전이 성공 여부 (이미 만료/취소된 경우 false)
+     */
+    @Transactional
+    public boolean markAsPaid(Long orderId) {
+        int affected = orderRepository.casUpdateStatus(orderId, OrderStatus.PENDING_PAYMENT, OrderStatus.PAID);
+        return affected > 0;
+    }
+
+    /**
      * 만료 시간이 지난 결제 대기(PENDING_PAYMENT) 주문 ID 목록을 조회한다.
      *
      * @return 만료 대상 주문 ID 목록
@@ -235,13 +248,6 @@ public class OrderService {
     private void validateNotEmpty(List<OrderItemCommand> items) {
         if (items == null || items.isEmpty()) {
             throw new CoreException(ErrorType.ORDER_ITEM_EMPTY);
-        }
-    }
-
-    private void validatePendingLimit(Long userId) {
-        long pendingCount = orderRepository.countByUserIdAndStatus(userId, OrderStatus.PENDING_PAYMENT);
-        if (pendingCount >= MAX_PENDING_ORDERS) {
-            throw new CoreException(ErrorType.ORDER_PENDING_LIMIT_EXCEEDED);
         }
     }
 
