@@ -139,9 +139,9 @@ class PaymentFacadeCallbackIntegrationTest {
         }
 
         @Test
-        @DisplayName("성공 콜백을 두 번내도 재고는 한 번만 차감된다.")
-        void handleCallback_whenSuccessTwice_shouldBeIdempotent() {
-            // given
+        @DisplayName("이미 PAID인 주문에 성공 콜백이 재수신되면 completePayment를 스킵하고 재고는 1회만 차감된다.")
+        void handleCallback_whenOrderAlreadyPAID_shouldSkipCompletePayment() {
+            // given — 이미 PAID(멱등): 첫 콜백 후 PENDING 없음, 두 번째 콜백은 completePayment 스킵
             OrderAndProduct ctx = createOrderedOrderWithStock(10);
             persistenceService.savePendingAndGetRequestParam(
                     USER_ID, ctx.order().getId(), "SAMSUNG", "1", CB);
@@ -149,10 +149,12 @@ class PaymentFacadeCallbackIntegrationTest {
             Long orderId = ctx.order().getId();
 
             // when
-            paymentFacade.handleCallback(new PaymentCallbackParam(orderId, true, "pg-1", null, amount));
-            paymentFacade.handleCallback(new PaymentCallbackParam(orderId, true, "pg-1", null, amount));
+            paymentFacade.handleCallback(new PaymentCallbackParam(orderId, true, "pg-paid", null, amount));
+            paymentFacade.handleCallback(new PaymentCallbackParam(orderId, true, "pg-paid", null, amount));
 
             // then
+            OrderModel after = orderService.findById(USER_ID, orderId).orElseThrow();
+            assertThat(after.getStatus()).isEqualTo(OrderStatus.PAID);
             assertThat(productService.findById(ctx.productId()).orElseThrow().getStockQuantity()).isEqualTo(9);
             Optional<PaymentModel> latest =
                     paymentRepository.findTopByOrderIdOrderByCreatedAtDesc(orderId);

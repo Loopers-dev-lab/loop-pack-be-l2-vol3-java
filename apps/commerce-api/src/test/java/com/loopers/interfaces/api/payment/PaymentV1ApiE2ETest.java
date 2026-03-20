@@ -14,6 +14,7 @@ import com.loopers.utils.DatabaseCleanUp;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -154,6 +155,12 @@ class PaymentV1ApiE2ETest {
                     });
 
             assertThat(second.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        }
+
+        @Test
+        @Disabled("MockBean은 Feign readTimeout 경로를 타지 않아 실제 타임아웃 E2E는 PG 실서버/WireMock 지연이 필요 (checklist.md Phase 1)")
+        void requestPayment_whenPgTimeout_shouldReturn200WithPendingMessage() {
+            // Phase 1 E2E placeholder — 구현 시: 지연 응답 + 200 + PENDING + DB 1건
         }
 
         @Test
