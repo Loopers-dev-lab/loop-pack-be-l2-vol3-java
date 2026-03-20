@@ -4,10 +4,7 @@ import com.loopers.domain.brand.Brand;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.payment.PaymentModel;
 import com.loopers.domain.payment.PaymentStatus;
-import com.loopers.fake.FakeBrandRepository;
-import com.loopers.fake.FakeOrderRepository;
-import com.loopers.fake.FakePaymentRepository;
-import com.loopers.fake.FakePgClient;
+import com.loopers.fake.*;
 import com.loopers.infrastructure.pg.PgPaymentStatusResponse;
 import com.loopers.infrastructure.pg.PgRouter;
 import com.loopers.support.error.CoreException;
@@ -28,6 +25,7 @@ class PaymentFacadeTest {
     private PaymentFacade paymentFacade;
     private FakePaymentRepository paymentRepository;
     private FakeOrderRepository orderRepository;
+    private FakePaymentOutboxRepository outboxRepository;
     private FakePgClient primaryPgClient;
     private PgRouter pgRouter;
 
@@ -35,10 +33,11 @@ class PaymentFacadeTest {
     void setUp() throws Exception {
         paymentRepository = new FakePaymentRepository();
         orderRepository = new FakeOrderRepository();
+        outboxRepository = new FakePaymentOutboxRepository();
         primaryPgClient = new FakePgClient("SIMULATOR");
         pgRouter = new PgRouter(List.of(primaryPgClient));
 
-        paymentFacade = new PaymentFacade(paymentRepository, orderRepository, pgRouter);
+        paymentFacade = new PaymentFacade(paymentRepository, orderRepository, pgRouter, outboxRepository);
 
         // @Value 필드 주입 (Spring 컨텍스트 없이)
         setField(paymentFacade, "callbackUrl", "http://test/callback");

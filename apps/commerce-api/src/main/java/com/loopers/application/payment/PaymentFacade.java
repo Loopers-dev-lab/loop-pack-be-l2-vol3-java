@@ -3,9 +3,7 @@ package com.loopers.application.payment;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.order.OrderStatus;
-import com.loopers.domain.payment.PaymentModel;
-import com.loopers.domain.payment.PaymentRepository;
-import com.loopers.domain.payment.PaymentStatus;
+import com.loopers.domain.payment.*;
 import com.loopers.infrastructure.pg.*;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -40,6 +38,7 @@ public class PaymentFacade {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final PgRouter pgRouter;
+    private final PaymentOutboxRepository outboxRepository;
 
     @Value("${payment.callback-url:http://localhost:8080/api/v1/payments/callback}")
     private String callbackUrl;
@@ -76,14 +75,18 @@ public class PaymentFacade {
             }
         });
 
-        // 3. Payment(REQUESTED) 생성
+        // 3. Payment(REQUESTED) + Outbox(PENDING) 같은 TX에서 생성
         PaymentModel payment = paymentRepository.save(
             PaymentModel.create(orderId, amount, cardType, cardNo));
+        String outboxPayload = String.format(
+            "{\"orderId\":%d,\"amount\":%d,\"cardType\":\"%s\",\"cardNo\":\"%s\"}",
+            orderId, amount, cardType, cardNo);
+        outboxRepository.save(PaymentOutbox.create(payment.getId(), orderId, outboxPayload));
         log.info("결제 요청 생성: paymentId={}, orderId={}", payment.getId(), orderId);
 
         // 4. 수동 Retry 루프 (PG 상태 확인 후 멱등 재시도)
         PgPaymentRequest pgRequest = PgPaymentRequest.of(orderId, cardType, cardNo, amount, callbackUrl);
-        return executeWithRetry(payment, pgRequest);
+        return executeWithRetry(payment, order, pgRequest);
     }
 
     /**
@@ -92,9 +95,11 @@ public class PaymentFacade {
      * <p>1차 실패 → PG 상태 확인 (기록 존재?) → 있으면 재시도 안 함 → 없으면 재시도.
      * 모든 시도 실패 → UNKNOWN 상태 저장 + "결제 확인 중" 응답.</p>
      *
+     * <p>Phase 6: 동기 PG (Toss) 대응 — SUCCESS 즉시 반환 시 PAID 처리.</p>
+     *
      * @see <a href="05-payment-resilience.md §6.4">멱등성 보장</a>
      */
-    private PaymentResult executeWithRetry(PaymentModel payment, PgPaymentRequest pgRequest) {
+    private PaymentResult executeWithRetry(PaymentModel payment, Order order, PgPaymentRequest pgRequest) {
         Exception lastException = null;
         long waitMs = initialWaitMs;
 
@@ -102,16 +107,8 @@ public class PaymentFacade {
             try {
                 PgPaymentResponse pgResponse = pgRouter.requestPayment(pgRequest);
 
-                // PG 성공 → PENDING 전이
-                payment.markPending(pgResponse.transactionKey(),
-                    pgRouter.getPrimaryClient().getProviderName());
-                paymentRepository.save(payment);
-
-                log.info("결제 PENDING: paymentId={}, transactionKey={}, attempt={}",
-                    payment.getId(), pgResponse.transactionKey(), attempt);
-
-                return new PaymentResult(payment.getId(), pgResponse.transactionKey(),
-                    payment.getStatus().name(), null);
+                // PG 응답 상태에 따른 분기
+                return handlePgResponse(payment, order, pgResponse, attempt);
 
             } catch (Exception e) {
                 lastException = e;
@@ -134,6 +131,53 @@ public class PaymentFacade {
 
         // 모든 시도 실패 → UNKNOWN Fallback
         return handleUnknownFallback(payment, lastException);
+    }
+
+    /**
+     * PG 응답 상태별 처리.
+     *
+     * <ul>
+     *   <li>PENDING (Simulator 비동기) → Payment PENDING, 콜백 대기</li>
+     *   <li>SUCCESS (Toss 동기) → Payment PAID + Order PAID 즉시 확정</li>
+     *   <li>FAILED (Toss 동기) → Payment FAILED 즉시 확정</li>
+     * </ul>
+     */
+    private PaymentResult handlePgResponse(PaymentModel payment, Order order,
+                                           PgPaymentResponse pgResponse, int attempt) {
+        String pgProvider = pgResponse.pgProvider();
+
+        switch (pgResponse.status()) {
+            case "SUCCESS" -> {
+                // 동기 PG (Toss): 즉시 결제 확정
+                payment.markPending(pgResponse.transactionKey(), pgProvider);
+                payment.markPaid();
+                paymentRepository.save(payment);
+                order.pay();
+                orderRepository.save(order);
+                log.info("결제 즉시 확정 (동기 PG): paymentId={}, transactionKey={}, provider={}, attempt={}",
+                    payment.getId(), pgResponse.transactionKey(), pgProvider, attempt);
+                return new PaymentResult(payment.getId(), pgResponse.transactionKey(),
+                    PaymentStatus.PAID.name(), null);
+            }
+            case "FAILED" -> {
+                // 동기 PG (Toss): 즉시 실패
+                payment.markFailed("PG 결제 실패 (provider=" + pgProvider + ")");
+                paymentRepository.save(payment);
+                log.info("결제 즉시 실패 (동기 PG): paymentId={}, provider={}, attempt={}",
+                    payment.getId(), pgProvider, attempt);
+                return new PaymentResult(payment.getId(), pgResponse.transactionKey(),
+                    PaymentStatus.FAILED.name(), "PG 결제 실패");
+            }
+            default -> {
+                // PENDING (Simulator 비동기): 콜백 대기
+                payment.markPending(pgResponse.transactionKey(), pgProvider);
+                paymentRepository.save(payment);
+                log.info("결제 PENDING: paymentId={}, transactionKey={}, provider={}, attempt={}",
+                    payment.getId(), pgResponse.transactionKey(), pgProvider, attempt);
+                return new PaymentResult(payment.getId(), pgResponse.transactionKey(),
+                    payment.getStatus().name(), null);
+            }
+        }
     }
 
     /**

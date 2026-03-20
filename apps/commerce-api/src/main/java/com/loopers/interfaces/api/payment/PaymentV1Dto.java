@@ -31,6 +31,12 @@ public class PaymentV1Dto {
         }
     }
 
+    public record CallbackRequest(
+        @NotBlank String transactionKey,
+        @NotBlank String status,
+        String payload
+    ) {}
+
     public record PaymentDetailResponse(
         Long paymentId,
         Long orderId,
