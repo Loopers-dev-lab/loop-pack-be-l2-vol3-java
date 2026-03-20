@@ -19,6 +19,7 @@ public class ProductV1Dto {
         Long price,
         Integer stock,
         String imageUrl,
+        Long likeCount,
         ZonedDateTime createdAt,
         ZonedDateTime updatedAt
     ) {
@@ -31,6 +32,7 @@ public class ProductV1Dto {
                 result.price(),
                 result.stock(),
                 result.imageUrl(),
+                result.likeCount(),
                 result.createdAt(),
                 result.updatedAt()
             );

@@ -4,14 +4,17 @@ import com.loopers.domain.common.Money;
 import com.loopers.domain.like.LikeDomainService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.Stock;
+import com.loopers.fake.FakeLikeCountCacheService;
 import com.loopers.fake.FakeLikeRepository;
 import com.loopers.fake.FakeProductRepository;
+import com.loopers.infrastructure.cache.LikeCountCacheService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -23,6 +26,7 @@ class LikeApplicationServiceTest {
     private FakeLikeRepository fakeLikeRepository;
     private FakeProductRepository fakeProductRepository;
     private LikeDomainService likeDomainService;
+    private LikeCountCacheService likeCountCacheService;
     private LikeApplicationService likeApplicationService;
 
     @BeforeEach
@@ -30,7 +34,13 @@ class LikeApplicationServiceTest {
         fakeLikeRepository = new FakeLikeRepository();
         fakeProductRepository = new FakeProductRepository();
         likeDomainService = new LikeDomainService(fakeLikeRepository);
-        likeApplicationService = new LikeApplicationService(likeDomainService, fakeProductRepository);
+        likeCountCacheService = Mockito.mock(LikeCountCacheService.class);
+        likeApplicationService = new LikeApplicationService(
+            likeDomainService,
+            fakeProductRepository,
+            fakeLikeRepository,
+            likeCountCacheService
+        );
     }
 
     private Product createAndSaveProduct() {

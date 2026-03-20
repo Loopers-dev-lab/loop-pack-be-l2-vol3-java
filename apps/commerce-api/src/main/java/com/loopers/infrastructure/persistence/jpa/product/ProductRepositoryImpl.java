@@ -104,7 +104,8 @@ public class ProductRepositoryImpl implements ProductRepository {
         Sort jpaSort = switch (sort) {
             case LATEST -> Sort.by(Sort.Direction.DESC, "createdAt");
             case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price");
-            case LIKES_DESC -> Sort.by(Sort.Direction.DESC, "createdAt"); // likes_desc는 Application에서 처리
+            case LIKES_DESC -> Sort.by(Sort.Direction.DESC, "likeCount")
+                .and(Sort.by(Sort.Direction.DESC, "createdAt"));
         };
         return PageRequest.of(page, limit, jpaSort);
     }

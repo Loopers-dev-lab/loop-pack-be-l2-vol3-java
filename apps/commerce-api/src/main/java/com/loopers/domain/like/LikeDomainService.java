@@ -41,10 +41,15 @@ public class LikeDomainService {
      *
      * @param userId 사용자 ID
      * @param productId 상품 ID
+     * @return 삭제 여부 (존재했으면 true)
      */
-    public void unlike(Long userId, Long productId) {
-        likeRepository.findByUserIdAndProductId(userId, productId)
-            .ifPresent(likeRepository::delete);
+    public boolean unlike(Long userId, Long productId) {
+        return likeRepository.findByUserIdAndProductId(userId, productId)
+            .map(like -> {
+                likeRepository.delete(like);
+                return true;
+            })
+            .orElse(false);
     }
 
     /**

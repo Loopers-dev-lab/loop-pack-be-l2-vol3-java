@@ -3,6 +3,7 @@ package com.loopers.infrastructure.persistence.jpa.product;
 import com.loopers.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 /**
@@ -10,7 +11,15 @@ import jakarta.persistence.Table;
  * Infrastructure Layer에 위치하며 영속성을 담당.
  */
 @Entity
-@Table(name = "products")
+@Table(
+    name = "products",
+    indexes = {
+        @Index(name = "idx_products_like_count", columnList = "like_count DESC, created_at DESC"),
+        @Index(name = "idx_products_brand_like", columnList = "brand_id, like_count DESC"),
+        @Index(name = "idx_products_brand_price", columnList = "brand_id, price ASC"),
+        @Index(name = "idx_products_created_at", columnList = "created_at DESC")
+    }
+)
 public class ProductJpaEntity extends BaseEntity {
 
     @Column(name = "brand_id", nullable = false)
@@ -30,6 +39,9 @@ public class ProductJpaEntity extends BaseEntity {
 
     @Column(name = "image_url", length = 500)
     private String imageUrl;
+
+    @Column(name = "like_count", nullable = false)
+    private Long likeCount = 0L;
 
     protected ProductJpaEntity() {}
 
@@ -89,5 +101,13 @@ public class ProductJpaEntity extends BaseEntity {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public Long getLikeCount() {
+        return likeCount;
+    }
+
+    public void setLikeCount(Long likeCount) {
+        this.likeCount = likeCount;
     }
 }

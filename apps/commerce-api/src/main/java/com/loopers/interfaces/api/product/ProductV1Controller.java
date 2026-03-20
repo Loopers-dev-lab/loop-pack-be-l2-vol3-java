@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductResult;
 import com.loopers.application.product.ProductService;
+import com.loopers.domain.product.ProductSort;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -23,9 +24,10 @@ public class ProductV1Controller implements ProductV1ApiSpec {
     @Override
     public ApiResponse<Page<ProductV1Dto.ProductResponse>> getProducts(
         @RequestParam(required = false) Long brandId,
+        @RequestParam(required = false) ProductSort sort,
         Pageable pageable
     ) {
-        Page<ProductResult> results = productService.findAll(brandId, pageable);
+        Page<ProductResult> results = productService.findAll(brandId, sort, pageable);
         Page<ProductV1Dto.ProductResponse> responses = results.map(ProductV1Dto.ProductResponse::from);
         return ApiResponse.success(responses);
     }

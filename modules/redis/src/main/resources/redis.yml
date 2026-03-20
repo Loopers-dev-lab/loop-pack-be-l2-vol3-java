@@ -4,6 +4,10 @@ spring:
       repositories:
         enabled: false
 
+cache:
+  like-count:
+    version: 1
+
 datasource:
   redis:
     database: 0
