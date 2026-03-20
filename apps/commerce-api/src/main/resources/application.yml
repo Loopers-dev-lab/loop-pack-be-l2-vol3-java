@@ -37,6 +37,8 @@ resilience4j:
       pgRetry:
         max-attempts: 3
         wait-duration: 1s
+        enable-randomized-wait: true
+        randomized-wait-factor: 0.5
         retry-exceptions:
           - java.net.SocketTimeoutException
           - org.springframework.web.client.ResourceAccessException
@@ -51,10 +53,15 @@ resilience4j:
         sliding-window-size: 50
         minimum-number-of-calls: 10
         failure-rate-threshold: 80
-        slow-call-duration-threshold: 10s
-        slow-call-rate-threshold: 100
+        slow-call-duration-threshold: 3s
+        slow-call-rate-threshold: 80
         wait-duration-in-open-state: 15s
         permitted-number-of-calls-in-half-open-state: 5
+  bulkhead:
+    instances:
+      pgBulkhead:
+        max-concurrent-calls: 40
+        max-wait-duration: 0
 
 springdoc:
   use-fqn: true

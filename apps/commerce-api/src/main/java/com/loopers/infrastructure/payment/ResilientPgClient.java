@@ -5,6 +5,9 @@ import com.loopers.domain.payment.PaymentGateway;
 import com.loopers.support.enums.CardType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import io.github.resilience4j.bulkhead.Bulkhead;
+import io.github.resilience4j.bulkhead.BulkheadFullException;
+import io.github.resilience4j.bulkhead.BulkheadRegistry;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
@@ -25,9 +28,10 @@ import java.util.function.Supplier;
  * Decorator 패턴으로 실행 순서를 코드에서 명시적으로 제어한다:
  * </p>
  * <pre>
- * CircuitBreaker (outer)
- *   → Retry (inner)
- *     → PgHttpClient.requestPayment() (실제 HTTP 호출)
+ * Bulkhead (outermost)
+ *   → CircuitBreaker
+ *     → Retry (inner)
+ *       → PgHttpClient.requestPayment() (실제 HTTP 호출)
  * </pre>
  * <p>
  * 이 순서는 yml의 aspect order가 아니라 코드에서 결정되므로,
@@ -41,13 +45,16 @@ import java.util.function.Supplier;
 public class ResilientPgClient implements PaymentGateway {
 
     private final PgHttpClient pgHttpClient;
+    private final Bulkhead bulkhead;
     private final CircuitBreaker circuitBreaker;
     private final Retry retry;
 
     public ResilientPgClient(PgHttpClient pgHttpClient,
+                              BulkheadRegistry bulkheadRegistry,
                               CircuitBreakerRegistry circuitBreakerRegistry,
                               RetryRegistry retryRegistry) {
         this.pgHttpClient = pgHttpClient;
+        this.bulkhead = bulkheadRegistry.bulkhead("pgBulkhead");
         this.circuitBreaker = circuitBreakerRegistry.circuitBreaker("pgCircuit");
         this.retry = retryRegistry.retry("pgRetry");
     }
@@ -56,15 +63,19 @@ public class ResilientPgClient implements PaymentGateway {
     public GatewayPaymentResult requestPayment(Long orderId, Long userId,
                                                 CardType cardType, String cardNo,
                                                 BigDecimal amount, String callbackUrl) {
-        // ━━ Decorator 체인: CB(outer) → Retry(inner) → HTTP 호출 ━━
+        // ━━ Decorator 체인: Bulkhead(outer) → CB → Retry(inner) → HTTP 호출 ━━
         Supplier<GatewayPaymentResult> supplier =
                 () -> pgHttpClient.requestPayment(orderId, userId, cardType, cardNo, amount, callbackUrl);
 
         Supplier<GatewayPaymentResult> withRetry = Retry.decorateSupplier(retry, supplier);
-        Supplier<GatewayPaymentResult> withCbAndRetry = CircuitBreaker.decorateSupplier(circuitBreaker, withRetry);
+        Supplier<GatewayPaymentResult> withCb = CircuitBreaker.decorateSupplier(circuitBreaker, withRetry);
+        Supplier<GatewayPaymentResult> withBulkhead = Bulkhead.decorateSupplier(bulkhead, withCb);
 
         try {
-            return withCbAndRetry.get();
+            return withBulkhead.get();
+        } catch (BulkheadFullException e) {
+            log.warn("Bulkhead FULL — PG 동시 호출 한도 초과. orderId={}", orderId);
+            throw new CoreException(ErrorType.PAYMENT_SERVICE_UNAVAILABLE);
         } catch (CallNotPermittedException e) {
             log.warn("CircuitBreaker OPEN — PG 호출 차단. orderId={}", orderId);
             throw new CoreException(ErrorType.PAYMENT_SERVICE_UNAVAILABLE);

@@ -45,6 +45,8 @@ public class PaymentPollingScheduler {
     private final OrderFacade orderFacade;
     private final StockService stockService;
 
+    private static final int MAX_CONSECUTIVE_FAILURES = 3;
+
     /**
      * REQUESTED 상태가 1분 이상 지속된 결제를 PG에 직접 조회하여 상태를 반영한다.
      * <p>
@@ -53,6 +55,8 @@ public class PaymentPollingScheduler {
      * - transactionKey가 없는 결제(고아): orderId로 PG 조회하여 복구 시도(Phase C).
      *   PG에 결제가 없으면 안전하게 FAILED 처리한다.
      * - 개별 건 실패 시에도 나머지 건의 처리를 계속한다.
+     * - PG 연속 {@value #MAX_CONSECUTIVE_FAILURES}건 실패 시 사이클을 조기 종료하여
+     *   PG 완전 장애 시 스레드 장시간 점유를 방지한다.
      * </p>
      */
     @Scheduled(fixedDelay = 60000)
@@ -67,9 +71,16 @@ public class PaymentPollingScheduler {
         int recovered = 0;
         int orphanRecovered = 0;
         int orphanFailed = 0;
+        int consecutiveFailures = 0;
         int total = pendingPayments.size();
 
         for (PaymentModel payment : pendingPayments) {
+            if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                int processed = recovered + orphanRecovered + orphanFailed;
+                log.warn("PG 연속 {}건 실패 → 사이클 조기 종료. 처리 {}/전체 {}, 잔여 {}건 다음 사이클에서 처리",
+                        MAX_CONSECUTIVE_FAILURES, processed, total, total - processed);
+                break;
+            }
             try {
                 if (payment.getTransactionKey() == null) {
                     // Phase C: transactionKey 없는 고아 → orderId로 PG 조회
@@ -86,8 +97,11 @@ public class PaymentPollingScheduler {
                         recovered++;
                     }
                 }
+                consecutiveFailures = 0;
             } catch (Exception e) {
-                log.warn("폴링 실패: paymentId={}, error={}",
+                consecutiveFailures++;
+                log.warn("폴링 실패 (연속 {}/{}): paymentId={}, error={}",
+                        consecutiveFailures, MAX_CONSECUTIVE_FAILURES,
                         payment.getPaymentId(), e.getMessage());
             }
         }

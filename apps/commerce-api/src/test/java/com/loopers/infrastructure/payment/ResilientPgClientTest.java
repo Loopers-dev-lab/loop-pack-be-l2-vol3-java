@@ -4,6 +4,7 @@ import com.loopers.domain.payment.GatewayPaymentResult;
 import com.loopers.support.enums.CardType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import io.github.resilience4j.bulkhead.BulkheadRegistry;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
@@ -77,7 +78,8 @@ class ResilientPgClientTest {
                 .build();
         CircuitBreakerRegistry cbRegistry = CircuitBreakerRegistry.of(cbConfig);
 
-        client = new ResilientPgClient(pgHttpClient, cbRegistry, retryRegistry);
+        BulkheadRegistry bulkheadRegistry = BulkheadRegistry.ofDefaults();
+        client = new ResilientPgClient(pgHttpClient, bulkheadRegistry, cbRegistry, retryRegistry);
         circuitBreaker = cbRegistry.circuitBreaker("pgCircuit");
     }
 
