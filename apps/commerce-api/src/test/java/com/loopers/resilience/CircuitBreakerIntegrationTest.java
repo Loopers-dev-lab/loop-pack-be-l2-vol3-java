@@ -12,6 +12,10 @@ import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentResult;
 import com.loopers.domain.payment.PaymentService;
 import com.loopers.domain.payment.PaymentRepository;
+import io.github.resilience4j.bulkhead.Bulkhead;
+import io.github.resilience4j.bulkhead.BulkheadConfig;
+import io.github.resilience4j.bulkhead.BulkheadFullException;
+import io.github.resilience4j.bulkhead.BulkheadRegistry;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
@@ -25,6 +29,10 @@ import org.mockito.Mockito;
 
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -370,6 +378,121 @@ class CircuitBreakerIntegrationTest {
         }
     }
 
+    // ── Bulkhead 동시성 검증 ──────────────────────────────────────────────
+
+    @DisplayName("Bulkhead 동시성 검증")
+    @Nested
+    class Bulkhead_동시성 {
+
+        private Bulkhead bulkhead;
+
+        @BeforeEach
+        void setUpBulkhead() {
+            BulkheadConfig bulkheadConfig = BulkheadConfig.custom()
+                    .maxConcurrentCalls(20)
+                    .maxWaitDuration(Duration.ofMillis(0)) // fail-fast
+                    .build();
+            bulkhead = BulkheadRegistry.of(bulkheadConfig).bulkhead("pgPayment-test");
+        }
+
+        @Test
+        @DisplayName("동시 30건 중 20건만 통과하고 10건은 BulkheadFullException으로 거절된다")
+        void 동시_호출이_maxConcurrentCalls를_초과하면_거절된다() throws InterruptedException {
+            // arrange — SLOW 모드: approve()에서 2초 지연 → 세마포어 점유 유지
+            paymentClient.setMode(ControllablePaymentClient.Mode.SLOW);
+
+            int totalCalls = 30;
+            CountDownLatch readyLatch = new CountDownLatch(totalCalls);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(totalCalls);
+            AtomicInteger passedCount = new AtomicInteger(0);
+            AtomicInteger rejectedCount = new AtomicInteger(0);
+
+            ExecutorService executor = Executors.newFixedThreadPool(totalCalls);
+
+            // act — 30개 스레드가 동시에 Bulkhead 진입 시도
+            for (int i = 0; i < totalCalls; i++) {
+                executor.submit(() -> {
+                    readyLatch.countDown();
+                    try {
+                        startLatch.await(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+
+                    try {
+                        bulkhead.executeRunnable(() -> {
+                            Payment payment = Payment.request(1L, 10000, "CARD", "IDEM-" + UUID.randomUUID());
+                            paymentService.requestPayment(payment, createRequest());
+                        });
+                        passedCount.incrementAndGet();
+                    } catch (BulkheadFullException e) {
+                        rejectedCount.incrementAndGet();
+                    } catch (Exception e) {
+                        // PG 예외는 Bulkhead 통과 후 발생 → "통과"로 집계
+                        passedCount.incrementAndGet();
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                });
+            }
+
+            readyLatch.await(5, TimeUnit.SECONDS);  // 30개 스레드 준비 대기
+            startLatch.countDown();                   // 동시 시작
+            doneLatch.await(10, TimeUnit.SECONDS);    // 전체 완료 대기
+            executor.shutdown();
+
+            // assert — maxConcurrentCalls=20 → 20건 통과, 10건 거절
+            assertThat(passedCount.get()).isEqualTo(20);
+            assertThat(rejectedCount.get()).isEqualTo(10);
+        }
+
+        @Test
+        @DisplayName("Bulkhead 거절 시 PG 호출이 발생하지 않는다 (스레드 보호)")
+        void Bulkhead_거절되면_PG_호출_없음() throws InterruptedException {
+            // arrange — SLOW 모드로 20개 슬롯을 점유시킨 뒤 추가 10건 시도
+            paymentClient.setMode(ControllablePaymentClient.Mode.SLOW);
+
+            int totalCalls = 30;
+            CountDownLatch readyLatch = new CountDownLatch(totalCalls);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            CountDownLatch doneLatch = new CountDownLatch(totalCalls);
+
+            ExecutorService executor = Executors.newFixedThreadPool(totalCalls);
+
+            for (int i = 0; i < totalCalls; i++) {
+                executor.submit(() -> {
+                    readyLatch.countDown();
+                    try {
+                        startLatch.await(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+
+                    try {
+                        bulkhead.executeRunnable(() -> {
+                            Payment payment = Payment.request(1L, 10000, "CARD", "IDEM-" + UUID.randomUUID());
+                            paymentService.requestPayment(payment, createRequest());
+                        });
+                    } catch (Exception ignored) {
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                });
+            }
+
+            readyLatch.await(5, TimeUnit.SECONDS);
+            startLatch.countDown();
+            doneLatch.await(10, TimeUnit.SECONDS);
+            executor.shutdown();
+
+            // assert — Bulkhead를 통과한 20건만 PG approve()를 호출했다
+            assertThat(paymentClient.getApproveCallCount()).isEqualTo(20);
+        }
+    }
+
     // ── Helper ──────────────────────────────────────────────────────────
 
     /**
@@ -401,7 +524,8 @@ class CircuitBreakerIntegrationTest {
             SERVER_ERROR,
             CLIENT_ERROR,
             TIMEOUT,
-            TIMEOUT_THEN_QUERY_SUCCESS
+            TIMEOUT_THEN_QUERY_SUCCESS,
+            SLOW
         }
 
         private volatile Mode mode = Mode.SUCCESS;
@@ -423,6 +547,10 @@ class CircuitBreakerIntegrationTest {
                 case SERVER_ERROR -> throw new PgServerException("PG 서버 에러 (테스트)");
                 case CLIENT_ERROR -> throw new PgClientException("잔액 부족 (테스트)");
                 case TIMEOUT, TIMEOUT_THEN_QUERY_SUCCESS -> throw new PgTimeoutException("PG 타임아웃 (테스트)");
+                case SLOW -> {
+                    try { Thread.sleep(2000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                    yield PgApproveResult.pending("TXN-SLOW-" + UUID.randomUUID().toString().substring(0, 8));
+                }
             };
         }
 
