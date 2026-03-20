@@ -147,4 +147,18 @@ class PaymentFacadeRetryIntegrationTest {
         assertThat(info.status()).isEqualTo("PENDING");
         verify(pgSimulatorClient, times(1)).requestPayment(any(PgSimulatorRequest.class));
     }
+
+    /** Phase 6: Retry 소진 시 fallback으로 예외가 상위로 전파되지 않고 PENDING 유지. */
+    @Test
+    @DisplayName("PG가 계속 실패하면 재시도 소진 후에도 PENDING 응답이며 호출은 maxAttempts와 같다.")
+    void requestPayment_whenPgAlwaysFails_shouldFallbackWithoutThrowing() {
+        when(pgSimulatorClient.requestPayment(any(PgSimulatorRequest.class)))
+                .thenThrow(new RuntimeException("persistent failure"));
+        OrderModel order = createOrderedOrder();
+
+        PaymentInfo info = paymentFacade.requestPayment(USER_ID, order.getId(), "SAMSUNG", "1");
+
+        assertThat(info.status()).isEqualTo("PENDING");
+        verify(pgSimulatorClient, times(3)).requestPayment(any(PgSimulatorRequest.class));
+    }
 }
