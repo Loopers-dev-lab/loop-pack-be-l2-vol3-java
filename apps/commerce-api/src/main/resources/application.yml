@@ -40,7 +40,6 @@ resilience4j:
         enable-randomized-wait: true
         randomized-wait-factor: 0.5
         retry-exceptions:
-          - java.net.SocketTimeoutException
           - org.springframework.web.client.ResourceAccessException
           - org.springframework.web.client.HttpServerErrorException
         ignore-exceptions:

@@ -63,9 +63,19 @@ public class ResilientPgClient implements PaymentGateway {
     public GatewayPaymentResult requestPayment(Long orderId, Long userId,
                                                 CardType cardType, String cardNo,
                                                 BigDecimal amount, String callbackUrl) {
-        // ━━ Decorator 체인: Bulkhead(outer) → CB → Retry(inner) → HTTP 호출 ━━
-        Supplier<GatewayPaymentResult> supplier =
-                () -> pgHttpClient.requestPayment(orderId, userId, cardType, cardNo, amount, callbackUrl);
+        // ━━ Decorator 체인: Bulkhead(outer) → CB → Retry(inner) → 타임아웃 가드 → HTTP 호출 ━━
+        Supplier<GatewayPaymentResult> supplier = () -> {
+            try {
+                return pgHttpClient.requestPayment(orderId, userId, cardType, cardNo, amount, callbackUrl);
+            } catch (ResourceAccessException e) {
+                if (e.getCause() instanceof SocketTimeoutException) {
+                    // PG에 요청이 도달했을 수 있음 → retry하면 이중결제 위험 → 즉시 CoreException으로 변환
+                    log.warn("타임아웃 가드: PG 타임아웃 감지, retry 차단. orderId={}", orderId);
+                    throw new CoreException(ErrorType.PAYMENT_PG_TIMEOUT);
+                }
+                throw e; // ConnectException 등은 그대로 → Retry 대상
+            }
+        };
 
         Supplier<GatewayPaymentResult> withRetry = Retry.decorateSupplier(retry, supplier);
         Supplier<GatewayPaymentResult> withCb = CircuitBreaker.decorateSupplier(circuitBreaker, withRetry);

@@ -19,6 +19,7 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 
 import java.math.BigDecimal;
+import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.time.Duration;
 import java.util.List;
@@ -33,11 +34,15 @@ import static org.mockito.Mockito.*;
  * ResilientPgClient 단위 테스트.
  * <p>
  * PgHttpClient를 Mock으로 주입하고, 실제 Retry/CB 인스턴스를 사용하여
- * Decorator 체인(CB outer → Retry inner → HTTP)의 동작을 검증한다.
+ * Decorator 체인(CB outer → Retry inner → 타임아웃 가드 → HTTP)의 동작을 검증한다.
  * </p>
  * <p>
- * 핵심 검증: Retry 소진 후 CB에 실패 1건만 기록되는지 (3건이 아님).
- * 이것이 기존 어노테이션 방식에서 발생했던 Retry 무력화 버그의 구조적 해결을 증명한다.
+ * 핵심 검증:
+ * <ul>
+ *   <li>Retry 소진 후 CB에 실패 1건만 기록되는지 (3건이 아님)</li>
+ *   <li>타임아웃 가드가 SocketTimeout을 CoreException으로 변환하여 retry를 차단하는지</li>
+ *   <li>ConnectException은 여전히 retry 대상인지</li>
+ * </ul>
  * </p>
  */
 @DisplayName("ResilientPgClient — Decorator 패턴 Resilience 테스트")
@@ -62,9 +67,10 @@ class ResilientPgClientTest {
                 .maxAttempts(3)
                 .waitDuration(Duration.ofMillis(50))
                 .retryExceptions(
-                        SocketTimeoutException.class,
                         ResourceAccessException.class,
                         HttpServerErrorException.class)
+                .ignoreExceptions(
+                        CoreException.class)
                 .build();
         RetryRegistry retryRegistry = RetryRegistry.of(retryConfig);
 
@@ -123,21 +129,6 @@ class ResilientPgClientTest {
         }
 
         @Test
-        @DisplayName("Retry 3회 모두 타임아웃 시 504 PAYMENT_PG_TIMEOUT을 반환한다")
-        void retryExhausted_WithTimeout_ShouldThrow504() {
-            when(pgHttpClient.requestPayment(any(), any(), any(), any(), any(), any()))
-                    .thenThrow(new ResourceAccessException(
-                            "I/O error", new SocketTimeoutException("Read timed out")));
-
-            assertThatThrownBy(ResilientPgClientTest.this::callRequestPayment)
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
-                            .isEqualTo(ErrorType.PAYMENT_PG_TIMEOUT));
-
-            verify(pgHttpClient, times(3)).requestPayment(any(), any(), any(), any(), any(), any());
-        }
-
-        @Test
         @DisplayName("Retry 3회 모두 PG 500 시 502 PAYMENT_PG_ERROR를 반환한다")
         void retryExhausted_WithServerError_ShouldThrow502() {
             when(pgHttpClient.requestPayment(any(), any(), any(), any(), any(), any()))
@@ -150,6 +141,65 @@ class ResilientPgClientTest {
                             .isEqualTo(ErrorType.PAYMENT_PG_ERROR));
 
             verify(pgHttpClient, times(3)).requestPayment(any(), any(), any(), any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("타임아웃 가드 검증 (이중결제 방지 핵심)")
+    class TimeoutGuardTests {
+
+        @Test
+        @DisplayName("SocketTimeout 시 HTTP 1회만 호출하고 즉시 504를 반환한다 — retry하지 않는다")
+        void socketTimeout_ShouldNotRetry_AndThrow504() {
+            when(pgHttpClient.requestPayment(any(), any(), any(), any(), any(), any()))
+                    .thenThrow(new ResourceAccessException(
+                            "I/O error", new SocketTimeoutException("Read timed out")));
+
+            assertThatThrownBy(ResilientPgClientTest.this::callRequestPayment)
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
+                            .isEqualTo(ErrorType.PAYMENT_PG_TIMEOUT));
+
+            // 핵심: HTTP 1회만 호출 (타임아웃 가드가 CoreException으로 변환 → Retry 차단)
+            verify(pgHttpClient, times(1)).requestPayment(any(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("ConnectException은 타임아웃 가드를 통과하여 retry 대상이다")
+        void connectException_ShouldRetry() {
+            AtomicInteger count = new AtomicInteger(0);
+            when(pgHttpClient.requestPayment(any(), any(), any(), any(), any(), any()))
+                    .thenAnswer(inv -> {
+                        if (count.incrementAndGet() < 3) {
+                            throw new ResourceAccessException("Connection refused",
+                                    new ConnectException("Connection refused"));
+                        }
+                        return new GatewayPaymentResult("txn-recovered", true, "PENDING", null);
+                    });
+
+            GatewayPaymentResult result = callRequestPayment();
+
+            assertThat(result.transactionKey()).isEqualTo("txn-recovered");
+            // ConnectException은 PG 미도달 → retry 안전 → 3회 시도
+            verify(pgHttpClient, times(3)).requestPayment(any(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("SocketTimeout 후 CB에 실패 1건 기록된다")
+        void socketTimeout_ShouldCountAsOneCbFailure() {
+            when(pgHttpClient.requestPayment(any(), any(), any(), any(), any(), any()))
+                    .thenThrow(new ResourceAccessException(
+                            "I/O error", new SocketTimeoutException("Read timed out")));
+
+            try {
+                callRequestPayment();
+            } catch (CoreException ignored) {
+            }
+
+            // HTTP 1회 호출 + CB 실패 1건
+            verify(pgHttpClient, times(1)).requestPayment(any(), any(), any(), any(), any(), any());
+            CircuitBreaker.Metrics metrics = circuitBreaker.getMetrics();
+            assertThat(metrics.getNumberOfFailedCalls()).isEqualTo(1);
         }
     }
 

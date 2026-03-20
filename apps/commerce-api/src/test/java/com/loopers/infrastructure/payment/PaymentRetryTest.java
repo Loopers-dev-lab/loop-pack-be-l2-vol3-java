@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.payment;
 
+import com.loopers.support.error.CoreException;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
@@ -22,6 +23,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * resilience4j Retry가 올바르게 구성되어 PG 일시 장애 시
  * 자동 재시도가 수행되는지 검증한다.
  * </p>
+ * <p>
+ * SocketTimeoutException은 PG에 요청이 도달했을 수 있으므로
+ * retry 대상에서 제외하여 이중결제를 방지한다.
+ * 타임아웃 가드(ResilientPgClient supplier 내부)가 CoreException으로 변환하여
+ * Retry를 원천 차단한다.
+ * </p>
  */
 @DisplayName("Phase 3-2: PG Retry 설정 테스트")
 class PaymentRetryTest {
@@ -31,9 +38,11 @@ class PaymentRetryTest {
                 .maxAttempts(3)
                 .waitDuration(Duration.ofMillis(100)) // 테스트용 짧은 대기
                 .retryExceptions(
-                        SocketTimeoutException.class,
                         ResourceAccessException.class,
                         HttpServerErrorException.class
+                )
+                .ignoreExceptions(
+                        CoreException.class
                 )
                 .build();
     }
@@ -74,16 +83,34 @@ class PaymentRetryTest {
     }
 
     @Test
-    @DisplayName("ResourceAccessException(SocketTimeoutException) 발생 시 재시도한다")
-    void retry_WithSocketTimeout_ShouldRetry() {
+    @DisplayName("타임아웃 가드가 CoreException으로 변환하면 retry하지 않는다")
+    void retry_WithCoreExceptionFromTimeoutGuard_ShouldNotRetry() {
+        Retry retry = RetryRegistry.of(buildPgRetryConfig()).retry("pgRetry");
+        AtomicInteger callCount = new AtomicInteger(0);
+
+        // 타임아웃 가드가 SocketTimeout을 CoreException으로 변환한 상황을 시뮬레이션
+        Supplier<String> decorated = Retry.decorateSupplier(retry, () -> {
+            callCount.incrementAndGet();
+            throw new CoreException(com.loopers.support.error.ErrorType.PAYMENT_PG_TIMEOUT);
+        });
+
+        assertThatThrownBy(decorated::get)
+                .isInstanceOf(CoreException.class);
+        // CoreException은 ignore-exceptions → 1회만 호출하고 즉시 포기
+        assertThat(callCount.get()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("ResourceAccessException(ConnectException)은 retry 대상이다")
+    void retry_WithConnectException_ShouldRetry() {
         Retry retry = RetryRegistry.of(buildPgRetryConfig()).retry("pgRetry");
         AtomicInteger callCount = new AtomicInteger(0);
 
         Supplier<String> decorated = Retry.decorateSupplier(retry, () -> {
             int attempt = callCount.incrementAndGet();
             if (attempt == 1) {
-                throw new ResourceAccessException("I/O error",
-                        new SocketTimeoutException("Read timed out"));
+                throw new ResourceAccessException("Connection refused",
+                        new java.net.ConnectException("Connection refused"));
             }
             return "SUCCESS";
         });
@@ -94,17 +121,20 @@ class PaymentRetryTest {
     }
 
     @Test
-    @DisplayName("최악 응답 시간은 (read timeout × max attempts) + (wait duration × (max attempts - 1)) 이내이다")
+    @DisplayName("최악 응답 시간: 타임아웃은 retry 안 하므로 PG 500 기준으로 계산한다")
     void retry_WorstCaseResponseTime_ShouldBeWithinLimit() {
-        // 설정값 기준 최악 응답 시간 계산:
-        // (2초 × 3회) + (1초 × 2회) = 8초
+        // 타임아웃: 즉시 중단 → 최악 2초 (read timeout 1회)
+        // PG 500: 3회 retry → 최악 (2초 × 3회) + (1초 × 2회) = 8초
+        // 전체 최악: PG 500 기준 8초 (타임아웃은 2초로 더 빠름)
         int readTimeoutMs = 2000;
         int maxAttempts = 3;
         int waitDurationMs = 1000;
 
-        int worstCaseMs = (readTimeoutMs * maxAttempts) + (waitDurationMs * (maxAttempts - 1));
+        int worstCaseServerErrorMs = (readTimeoutMs * maxAttempts) + (waitDurationMs * (maxAttempts - 1));
+        int worstCaseTimeoutMs = readTimeoutMs; // retry 안 함
 
-        assertThat(worstCaseMs).isEqualTo(8000);
-        assertThat(worstCaseMs).isLessThanOrEqualTo(10000); // 10초 이내
+        assertThat(worstCaseServerErrorMs).isEqualTo(8000);
+        assertThat(worstCaseServerErrorMs).isLessThanOrEqualTo(10000);
+        assertThat(worstCaseTimeoutMs).isEqualTo(2000); // 타임아웃은 2초 만에 끝남
     }
 }
