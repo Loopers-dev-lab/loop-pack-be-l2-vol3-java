@@ -5,9 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.loopers.domain.brand.BrandModel;
+import com.loopers.domain.product.ImageType;
+import com.loopers.domain.product.ProductImageModel;
 import com.loopers.domain.product.ProductLikeModel;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
+import com.loopers.infrastructure.product.ProductImageJpaRepository;
 import com.loopers.infrastructure.product.ProductLikeJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.interfaces.api.ApiResponse;
@@ -21,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.cache.CacheManager;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -35,7 +39,9 @@ class ProductV1ApiE2ETest {
     private final BrandJpaRepository brandJpaRepository;
     private final ProductJpaRepository productJpaRepository;
     private final ProductLikeJpaRepository productLikeJpaRepository;
+    private final ProductImageJpaRepository productImageJpaRepository;
     private final DatabaseCleanUp databaseCleanUp;
+    private final CacheManager cacheManager;
 
     private BrandModel savedBrand;
 
@@ -45,13 +51,17 @@ class ProductV1ApiE2ETest {
         BrandJpaRepository brandJpaRepository,
         ProductJpaRepository productJpaRepository,
         ProductLikeJpaRepository productLikeJpaRepository,
-        DatabaseCleanUp databaseCleanUp
+        ProductImageJpaRepository productImageJpaRepository,
+        DatabaseCleanUp databaseCleanUp,
+        CacheManager cacheManager
     ) {
         this.testRestTemplate = testRestTemplate;
         this.brandJpaRepository = brandJpaRepository;
         this.productJpaRepository = productJpaRepository;
         this.productLikeJpaRepository = productLikeJpaRepository;
+        this.productImageJpaRepository = productImageJpaRepository;
         this.databaseCleanUp = databaseCleanUp;
+        this.cacheManager = cacheManager;
     }
 
     @BeforeEach
@@ -63,11 +73,19 @@ class ProductV1ApiE2ETest {
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        cacheManager.getCacheNames().forEach(name -> cacheManager.getCache(name).clear());
     }
 
     private ProductModel saveProduct(String name, int price, int stock) {
         ProductModel product = ProductModel.create(savedBrand.getId(), name, price, stock);
         return productJpaRepository.save(product);
+    }
+
+    private void saveLike(Long userId, Long productId) {
+        productLikeJpaRepository.save(ProductLikeModel.create(userId, productId));
+        ProductModel product = productJpaRepository.findById(productId).get();
+        product.addLikeCount();
+        productJpaRepository.save(product);
     }
 
     @DisplayName("GET /api/v1/products")
@@ -168,8 +186,8 @@ class ProductV1ApiE2ETest {
             // arrange
             ProductModel product1 = saveProduct("에어맥스", 150000, 100);
             saveProduct("에어포스", 120000, 50);
-            productLikeJpaRepository.save(ProductLikeModel.create(1L, product1.getId()));
-            productLikeJpaRepository.save(ProductLikeModel.create(2L, product1.getId()));
+            saveLike(1L, product1.getId());
+            saveLike(2L, product1.getId());
 
             // act
             ParameterizedTypeReference<ApiResponse<ProductV1Dto.ListResponse>> responseType = new ParameterizedTypeReference<>() {};
@@ -191,10 +209,10 @@ class ProductV1ApiE2ETest {
             ProductModel product1 = saveProduct("에어맥스", 150000, 100);
             ProductModel product2 = saveProduct("에어포스", 120000, 50);
             ProductModel product3 = saveProduct("조던1", 200000, 30);
-            productLikeJpaRepository.save(ProductLikeModel.create(1L, product2.getId()));
-            productLikeJpaRepository.save(ProductLikeModel.create(2L, product2.getId()));
-            productLikeJpaRepository.save(ProductLikeModel.create(3L, product2.getId()));
-            productLikeJpaRepository.save(ProductLikeModel.create(1L, product3.getId()));
+            saveLike(1L, product2.getId());
+            saveLike(2L, product2.getId());
+            saveLike(3L, product2.getId());
+            saveLike(1L, product3.getId());
 
             // act
             ParameterizedTypeReference<ApiResponse<ProductV1Dto.ListResponse>> responseType = new ParameterizedTypeReference<>() {};
@@ -227,8 +245,8 @@ class ProductV1ApiE2ETest {
             // arrange
             ProductModel product = saveProduct("에어맥스", 150000, 100);
             Long productId = product.getId();
-            productLikeJpaRepository.save(ProductLikeModel.create(1L, productId));
-            productLikeJpaRepository.save(ProductLikeModel.create(2L, productId));
+            saveLike(1L, productId);
+            saveLike(2L, productId);
 
             // act
             ParameterizedTypeReference<ApiResponse<ProductV1Dto.DetailResponse>> responseType = new ParameterizedTypeReference<>() {};
@@ -245,6 +263,36 @@ class ProductV1ApiE2ETest {
                 () -> assertThat(response.getBody().data().price()).isEqualTo(150000),
                 () -> assertThat(response.getBody().data().stock()).isEqualTo(100),
                 () -> assertThat(response.getBody().data().likeCount()).isEqualTo(2L)
+            );
+        }
+
+        @DisplayName("메인 이미지와 디테일 이미지가 분리되어 반환된다.")
+        @Test
+        void returnsProductDetail_withMainAndDetailImages() {
+            // arrange
+            ProductModel product = saveProduct("에어맥스", 150000, 100);
+            Long productId = product.getId();
+            productImageJpaRepository.save(
+                    ProductImageModel.create(productId, "https://img.com/main1.jpg", ImageType.MAIN, 0));
+            productImageJpaRepository.save(
+                    ProductImageModel.create(productId, "https://img.com/main2.jpg", ImageType.MAIN, 1));
+            productImageJpaRepository.save(
+                    ProductImageModel.create(productId, "https://img.com/detail1.jpg", ImageType.DETAIL, 0));
+
+            // act
+            ParameterizedTypeReference<ApiResponse<ProductV1Dto.DetailResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<ProductV1Dto.DetailResponse>> response =
+                testRestTemplate.exchange(ENDPOINT_PRODUCTS + "/" + productId, HttpMethod.GET, null, responseType);
+
+            // assert
+            assertAll(
+                () -> assertTrue(response.getStatusCode().is2xxSuccessful()),
+                () -> assertThat(response.getBody().data().mainImages()).hasSize(2),
+                () -> assertThat(response.getBody().data().detailImages()).hasSize(1),
+                () -> assertThat(response.getBody().data().mainImages().get(0).imageUrl())
+                        .isEqualTo("https://img.com/main1.jpg"),
+                () -> assertThat(response.getBody().data().mainImages().get(0).imageType()).isEqualTo("MAIN"),
+                () -> assertThat(response.getBody().data().detailImages().get(0).imageType()).isEqualTo("DETAIL")
             );
         }
 

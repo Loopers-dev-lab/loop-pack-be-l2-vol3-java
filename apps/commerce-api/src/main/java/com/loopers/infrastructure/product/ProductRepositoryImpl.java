@@ -48,4 +48,25 @@ public class ProductRepositoryImpl implements ProductRepository {
     public List<ProductModel> findAllByIdIn(List<Long> ids) {
         return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids);
     }
+
+    @Override
+    public Page<ProductModel> findAllSortedByLikeCountDesc(Pageable pageable) {
+        return productJpaRepository.findAllByDeletedAtIsNullOrderByLikeCountDesc(pageable);
+    }
+
+    @Override
+    public Page<ProductModel> findAllByBrandIdSortedByLikeCountDesc(Long brandId, Pageable pageable) {
+        return productJpaRepository.findAllByBrandIdAndDeletedAtIsNullOrderByLikeCountDesc(
+                brandId, pageable);
+    }
+
+    @Override
+    public void incrementLikeCount(Long id) {
+        productJpaRepository.incrementLikeCount(id);
+    }
+
+    @Override
+    public void decrementLikeCount(Long id) {
+        productJpaRepository.decrementLikeCount(id);
+    }
 }

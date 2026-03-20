@@ -1,6 +1,7 @@
 package com.loopers.domain.product;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -92,4 +93,52 @@ public class FakeProductRepository implements ProductRepository {
             .toList();
     }
 
+    @Override
+    public Page<ProductModel> findAllSortedByLikeCountDesc(Pageable pageable) {
+        List<ProductModel> sorted = store.values().stream()
+            .filter(product -> product.getDeletedAt() == null)
+            .sorted(Comparator.comparingInt(ProductModel::getLikeCount).reversed())
+            .toList();
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), sorted.size());
+
+        List<ProductModel> pageContent = start >= sorted.size()
+            ? new ArrayList<>()
+            : sorted.subList(start, end);
+
+        return new PageImpl<>(pageContent, pageable, sorted.size());
+    }
+
+    @Override
+    public Page<ProductModel> findAllByBrandIdSortedByLikeCountDesc(Long brandId, Pageable pageable) {
+        List<ProductModel> sorted = store.values().stream()
+            .filter(product -> product.getDeletedAt() == null)
+            .filter(product -> product.getBrandId().equals(brandId))
+            .sorted(Comparator.comparingInt(ProductModel::getLikeCount).reversed())
+            .toList();
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), sorted.size());
+
+        List<ProductModel> pageContent = start >= sorted.size()
+            ? new ArrayList<>()
+            : sorted.subList(start, end);
+
+        return new PageImpl<>(pageContent, pageable, sorted.size());
+    }
+
+    @Override
+    public void incrementLikeCount(Long id) {
+        Optional.ofNullable(store.get(id))
+            .filter(product -> product.getDeletedAt() == null)
+            .ifPresent(ProductModel::addLikeCount);
+    }
+
+    @Override
+    public void decrementLikeCount(Long id) {
+        Optional.ofNullable(store.get(id))
+            .filter(product -> product.getDeletedAt() == null)
+            .ifPresent(ProductModel::subtractLikeCount);
+    }
 }

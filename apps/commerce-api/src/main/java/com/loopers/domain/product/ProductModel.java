@@ -5,6 +5,7 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.util.List;
@@ -14,7 +15,13 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "products")
+@Table(name = "products", indexes = {
+        @Index(name = "idx_products_deleted_like", columnList = "deleted_at, like_count"),
+        @Index(name = "idx_products_deleted_price", columnList = "deleted_at, price"),
+        @Index(name = "idx_products_deleted_created", columnList = "deleted_at, created_at DESC"),
+        @Index(name = "idx_products_brand_deleted_like", columnList = "brand_id, deleted_at, like_count"),
+        @Index(name = "idx_products_brand_deleted_price", columnList = "brand_id, deleted_at, price"),
+        @Index(name = "idx_products_brand_deleted_created", columnList = "brand_id, deleted_at, created_at DESC")})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ProductModel extends BaseEntity {
 
@@ -30,9 +37,14 @@ public class ProductModel extends BaseEntity {
     @Column(name = "stock", nullable = false)
     private int stock;
 
+    @Column(name = "like_count", nullable = false)
+    private int likeCount;
+
+    @Column(name = "thumbnail_url")
+    private String thumbnailUrl;
+
     @Version
     private Long version;
-
 
     // === 생성 === //
 
@@ -87,6 +99,20 @@ public class ProductModel extends BaseEntity {
 
     public boolean isSoldOut() {
         return this.stock == 0;
+    }
+
+    public void addLikeCount() {
+        this.likeCount++;
+    }
+
+    public void subtractLikeCount() {
+        if (this.likeCount > 0) {
+            this.likeCount--;
+        }
+    }
+
+    public void updateThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
     }
 
     // === 컬렉션 유틸 === //

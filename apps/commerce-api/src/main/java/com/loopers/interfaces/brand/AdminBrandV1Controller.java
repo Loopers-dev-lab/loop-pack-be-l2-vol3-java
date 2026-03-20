@@ -6,7 +6,6 @@ import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.brand.dto.AdminBrandV1Dto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,14 +31,14 @@ public class AdminBrandV1Controller implements AdminBrandV1ApiSpec {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
-        Page<BrandResult> brandInfoPage = brandFacade.getBrands(PageRequest.of(page, size));
+        BrandResult.ListPage listPage = brandFacade.getBrands(PageRequest.of(page, size));
         return ApiResponse.success(
                 new AdminBrandV1Dto.ListResponse(
-                        brandInfoPage.getNumber(),
-                        brandInfoPage.getSize(),
-                        brandInfoPage.getTotalElements(),
-                        brandInfoPage.getTotalPages(),
-                        brandInfoPage.getContent().stream()
+                        listPage.page(),
+                        listPage.size(),
+                        listPage.totalElements(),
+                        listPage.totalPages(),
+                        listPage.items().stream()
                                 .map(AdminBrandV1Dto.ListResponse.ListItem::from)
                                 .toList()));
     }
@@ -49,8 +48,8 @@ public class AdminBrandV1Controller implements AdminBrandV1ApiSpec {
     public ApiResponse<AdminBrandV1Dto.DetailResponse> getById(
         @PathVariable Long brandId
     ) {
-        BrandResult brandInfo = brandFacade.getBrand(brandId);
-        return ApiResponse.success(AdminBrandV1Dto.DetailResponse.from(brandInfo));
+        return ApiResponse.success(
+                AdminBrandV1Dto.DetailResponse.from(brandFacade.getBrand(brandId)));
     }
 
     @PutMapping("/{brandId}")

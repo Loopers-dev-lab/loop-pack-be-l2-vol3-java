@@ -2,6 +2,7 @@ package com.loopers.interfaces.user;
 
 import com.loopers.application.user.UserFacade;
 import com.loopers.application.user.dto.UserResult;
+import com.loopers.domain.user.UserService;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.auth.Login;
 import com.loopers.interfaces.auth.LoginUser;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserV1Controller implements UserV1ApiSpec {
 
     private final UserFacade userFacade;
+    private final UserService userService;
 
     @PostMapping("/signup")
     @Override
@@ -44,5 +46,21 @@ public class UserV1Controller implements UserV1ApiSpec {
         userFacade.changePassword(loginUser.loginId(), request.toCriteria());
 
         return ApiResponse.success(UserV1Dto.ChangePasswordResponse.success());
+    }
+
+    @PostMapping("/me/point")
+    public ApiResponse<UserV1Dto.PointResponse> chargePoint(
+        @Login LoginUser loginUser,
+        @Valid @RequestBody UserV1Dto.ChargePointRequest request
+    ) {
+        userService.addPoint(loginUser.id(), request.amount());
+        long currentPoint = userService.getById(loginUser.id()).getPoint();
+        return ApiResponse.success(new UserV1Dto.PointResponse(currentPoint));
+    }
+
+    @GetMapping("/me/point")
+    public ApiResponse<UserV1Dto.PointResponse> getMyPoint(@Login LoginUser loginUser) {
+        long currentPoint = userService.getById(loginUser.id()).getPoint();
+        return ApiResponse.success(new UserV1Dto.PointResponse(currentPoint));
     }
 }

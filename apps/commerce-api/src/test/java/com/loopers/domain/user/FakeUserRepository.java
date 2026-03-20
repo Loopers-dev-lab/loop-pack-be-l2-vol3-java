@@ -1,9 +1,14 @@
 package com.loopers.domain.user;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 public class FakeUserRepository implements UserRepository {
 
@@ -36,5 +41,28 @@ public class FakeUserRepository implements UserRepository {
     @Override
     public Optional<UserModel> findByLoginId(String loginId) {
         return Optional.ofNullable(storeByLoginId.get(loginId));
+    }
+
+    @Override
+    public Page<UserModel> findAll(Pageable pageable) {
+        List<UserModel> activeUsers = storeById.values().stream()
+            .filter(user -> user.getDeletedAt() == null)
+            .toList();
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), activeUsers.size());
+
+        List<UserModel> pageContent = start >= activeUsers.size()
+            ? new ArrayList<>()
+            : activeUsers.subList(start, end);
+
+        return new PageImpl<>(pageContent, pageable, activeUsers.size());
+    }
+
+    @Override
+    public List<UserModel> findAll() {
+        return storeById.values().stream()
+            .filter(user -> user.getDeletedAt() == null)
+            .toList();
     }
 }

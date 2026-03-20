@@ -19,4 +19,12 @@ public interface ProductRepository {
     List<ProductModel> findAllByIdIn(List<Long> ids);
 
     List<ProductModel> findAll();
+
+    Page<ProductModel> findAllSortedByLikeCountDesc(Pageable pageable);
+
+    Page<ProductModel> findAllByBrandIdSortedByLikeCountDesc(Long brandId, Pageable pageable);
+
+    void incrementLikeCount(Long id);
+
+    void decrementLikeCount(Long id);
 }

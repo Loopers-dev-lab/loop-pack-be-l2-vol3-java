@@ -34,6 +34,24 @@ spring:
   config:
     activate:
       on-profile: local, test
+  web:
+    resources:
+      static-locations:
+        - file:apps/commerce-api/src/main/resources/static/
+        - classpath:/static/
+
+app:
+  data-generator:
+    enabled: false
+    brand-count: 100
+    product-count: 100000
+    user-count: 10000
+    like-count: 500000
+    order-count: 100000
+    soft-delete:
+      brand-percent: 10
+      product-without-like-percent: 3
+      product-with-like-percent: 2
 
 ---
 spring:

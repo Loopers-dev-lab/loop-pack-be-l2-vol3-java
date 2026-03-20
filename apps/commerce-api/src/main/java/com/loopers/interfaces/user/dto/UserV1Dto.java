@@ -60,14 +60,16 @@ public class UserV1Dto {
         String loginId,
         String name,
         String birthDate,
-        String email
+        String email,
+        long point
     ) {
         public static MyInfoResponse from(UserResult info) {
             return new MyInfoResponse(
                     info.loginId(),
                     maskName(info.name()),
                     info.birthDate(),
-                    info.email());
+                    info.email(),
+                    info.point());
         }
     }
 
@@ -94,6 +96,15 @@ public class UserV1Dto {
             return new ChangePasswordResponse("비밀번호가 성공적으로 변경되었습니다.");
         }
     }
+
+    public record ChargePointRequest(
+        @jakarta.validation.constraints.Min(value = 1, message = "충전 금액은 1 이상이어야 합니다.")
+        long amount
+    ) {}
+
+    public record PointResponse(
+        long point
+    ) {}
 
     private static String maskName(String name) {
         if (name == null || name.isEmpty()) return name;

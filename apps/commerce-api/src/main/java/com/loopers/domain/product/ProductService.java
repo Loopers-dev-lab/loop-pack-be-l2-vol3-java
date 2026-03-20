@@ -90,6 +90,26 @@ public class ProductService {
         getById(productId).increaseStock(quantity);
     }
 
+    @Transactional(readOnly = true)
+    public Page<ProductModel> getAllSortedByLikeCountDesc(Pageable pageable) {
+        return productRepository.findAllSortedByLikeCountDesc(pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ProductModel> getAllByBrandIdSortedByLikeCountDesc(Long brandId, Pageable pageable) {
+        return productRepository.findAllByBrandIdSortedByLikeCountDesc(brandId, pageable);
+    }
+
+    @Transactional
+    public void incrementLikeCount(Long id) {
+        productRepository.incrementLikeCount(id);
+    }
+
+    @Transactional
+    public void decrementLikeCount(Long id) {
+        productRepository.decrementLikeCount(id);
+    }
+
     @Transactional
     public List<ProductInfo.StockDeduction> validateAndDeductStock(
             List<ProductCommand.StockDeduction> commands) {

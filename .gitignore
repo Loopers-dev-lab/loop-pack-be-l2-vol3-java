@@ -45,6 +45,9 @@ claude/*
 .claude/settings.local.json
 .interview-state/
 
+### Static Resources ###
+**/src/main/resources/static/
+
 ### Documentation ###
 docs/*
 !docs/design/

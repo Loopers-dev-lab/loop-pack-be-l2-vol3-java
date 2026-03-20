@@ -7,7 +7,8 @@ public record UserResult(
     String loginId,
     String name,
     String birthDate,
-    String email
+    String email,
+    long point
 ) {
     public static UserResult from(UserModel model) {
         return new UserResult(
@@ -15,6 +16,7 @@ public record UserResult(
                 model.getLoginId(),
                 model.getName(),
                 model.getBirthDateString(),
-                model.getEmail());
+                model.getEmail(),
+                model.getPoint());
     }
 }

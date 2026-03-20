@@ -18,11 +18,13 @@ public class ProductLikeFacade {
     public void like(Long userId, Long productId) {
         productService.validateExists(productId);
         productLikeService.like(userId, productId);
+        productService.incrementLikeCount(productId);
     }
 
     @Transactional
     public void unlike(Long userId, Long productId) {
         productLikeService.unlike(userId, productId);
+        productService.decrementLikeCount(productId);
     }
 
     @Transactional(readOnly = true)

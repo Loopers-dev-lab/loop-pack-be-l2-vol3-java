@@ -28,7 +28,8 @@ public class AuthFilter extends OncePerRequestFilter {
         "/api/v1/users/me",
         "/api/v1/users/password",
         "/api/v1/users/me/likes",
-        "/api/v1/users/me/coupons"
+        "/api/v1/users/me/coupons",
+        "/api/v1/users/me/point"
     );
     private static final String AUTH_REQUIRED_SUFFIX = "/likes";
     private static final String AUTH_REQUIRED_PREFIX_ORDERS = "/api/v1/orders";
