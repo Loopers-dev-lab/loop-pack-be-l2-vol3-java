@@ -11,6 +11,7 @@ import com.loopers.domain.product.ProductValidationRequest;
 import com.loopers.domain.product.Quantity;
 import com.loopers.infrastructure.payment.PgSimulatorClient;
 import com.loopers.infrastructure.payment.PgSimulatorRequest;
+import com.loopers.infrastructure.payment.PgSimulatorResponse;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
@@ -26,8 +27,13 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import org.mockito.stubbing.Answer;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -82,6 +88,28 @@ class PaymentFacadeRequestPaymentIntegrationTest {
         assertThat(info.status()).isEqualTo("PENDING");
         assertThat(info.orderId()).isEqualTo(order.getId());
         assertThat(paymentRepository.existsByOrderIdAndStatus(order.getId(), PaymentStatus.PENDING)).isTrue();
-        verify(pgSimulatorClient).requestPayment(any(PgSimulatorRequest.class));
+        verify(pgSimulatorClient, times(3)).requestPayment(any(PgSimulatorRequest.class));
+    }
+
+    @Test
+    @DisplayName("PENDING 커밋 이후 PG 호출 시점에는 활성 트랜잭션이 없다.")
+    void requestPayment_afterPersistenceCommit_callsPgClientOutsideTx() {
+        // given
+        Answer<PgSimulatorResponse> assertNoActiveTx = invocation -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return new PgSimulatorResponse("tx-outside");
+        };
+        doAnswer(assertNoActiveTx).when(pgSimulatorClient).requestPayment(any(PgSimulatorRequest.class));
+
+        Long brandId = brandService.registerBrand("tx-boundary-brand").getId();
+        ProductModel product = productService.registerProduct(brandId, "t", new BigDecimal("7000"), 4);
+        OrderModel order = orderService.create(1L, List.of(
+                new ProductValidationRequest(product.getId(), Quantity.of(1), null)));
+
+        // when
+        paymentFacade.requestPayment(1L, order.getId(), "SAMSUNG", "2222");
+
+        // then
+        verify(pgSimulatorClient, times(1)).requestPayment(any(PgSimulatorRequest.class));
     }
 }
