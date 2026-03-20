@@ -116,6 +116,16 @@ class PaymentServiceTest {
             }
             return response;
         }
+
+        @Override
+        public Optional<PgPaymentResponse> getPaymentByTransactionKey(String transactionKey) {
+            return Optional.ofNullable(response);
+        }
+
+        @Override
+        public Optional<PgPaymentResponse> getPaymentByOrderId(String orderId) {
+            return Optional.ofNullable(response);
+        }
     }
 
     static class FakePaymentRepository implements PaymentRepository {
@@ -140,6 +150,13 @@ class PaymentServiceTest {
             return list.stream()
                 .filter(p -> pgTransactionKey.equals(p.getPgTransactionKey()))
                 .findFirst();
+        }
+
+        @Override
+        public List<Payment> findByStatus(PaymentStatus status) {
+            return list.stream()
+                .filter(p -> p.getStatus() == status)
+                .toList();
         }
     }
 }
