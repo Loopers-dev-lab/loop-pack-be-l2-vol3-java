@@ -1,17 +1,18 @@
 package com.loopers.application.product;
 
+import com.loopers.application.brand.BrandCacheRepository;
+import com.loopers.application.coupon.category.CategoryCacheRepository;
+import com.loopers.application.product.cache.EvictPublicProductDetailCache;
 import com.loopers.application.product.command.CreateProductCommand;
 import com.loopers.application.product.command.UpdateProductCommand;
-import com.loopers.domain.brand.BrandRepository;
-import com.loopers.domain.category.CategoryRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.product.query.ProductCursorPage;
 import com.loopers.domain.product.query.ProductListCriteria;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,15 +24,15 @@ import java.util.UUID;
 public class ProductApplicationService {
 
     private final ProductRepository productRepository;
-    private final BrandRepository brandRepository;
-    private final CategoryRepository categoryRepository;
+    private final BrandCacheRepository brandCacheRepository;
+    private final CategoryCacheRepository categoryCacheRepository;
 
     @Transactional
     public Product create(CreateProductCommand command) {
-        if (brandRepository.findById(command.brandId()).isEmpty()) {
+        if (!brandCacheRepository.existsById(command.brandId())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "존재하지 않거나 삭제된 브랜드입니다.");
         }
-        if (categoryRepository.findById(command.categoryId()).isEmpty()) {
+        if (!categoryCacheRepository.existsById(command.categoryId())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "존재하지 않거나 삭제된 카테고리입니다.");
         }
 
@@ -53,13 +54,8 @@ public class ProductApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Product> list(UUID brandId, Pageable pageable) {
-        return productRepository.findAll(brandId, pageable);
-    }
-
-    @Transactional(readOnly = true)
-    public Page<Product> list(ProductListCriteria criteria) {
-        return productRepository.findAll(criteria.brandId(), criteria.toPageable());
+    public ProductCursorPage listByCursor(ProductListCriteria criteria) {
+        return productRepository.searchByCursor(criteria);
     }
 
     @Transactional(readOnly = true)
@@ -69,13 +65,8 @@ public class ProductApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Product> listIncludingDeleted(UUID brandId, Pageable pageable) {
-        return productRepository.findAllIncludingDeleted(brandId, pageable);
-    }
-
-    @Transactional(readOnly = true)
     public Page<Product> listIncludingDeleted(ProductListCriteria criteria) {
-        return productRepository.findAllIncludingDeleted(criteria.brandId(), criteria.toPageable());
+        return productRepository.findAllIncludingDeleted(criteria);
     }
 
     @Transactional(readOnly = true)
@@ -89,6 +80,7 @@ public class ProductApplicationService {
     }
 
     @Transactional
+    @EvictPublicProductDetailCache
     public Product update(UUID productId, UpdateProductCommand command) {
         Product existing = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
@@ -97,7 +89,7 @@ public class ProductApplicationService {
             throw new CoreException(ErrorType.BAD_REQUEST, "브랜드는 수정할 수 없습니다.");
         }
 
-        if (categoryRepository.findById(command.categoryId()).isEmpty()) {
+        if (!categoryCacheRepository.existsById(command.categoryId())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "존재하지 않거나 삭제된 카테고리입니다.");
         }
 
@@ -116,6 +108,7 @@ public class ProductApplicationService {
     }
 
     @Transactional
+    @EvictPublicProductDetailCache
     public void deleteSoft(UUID productId) {
         Product existing = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));

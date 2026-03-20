@@ -4,13 +4,20 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+
 import java.util.UUID;
 
 public record ProductListCriteria(
         UUID brandId,
+        UUID categoryId,
+        Integer minPrice,
+        Integer maxPrice,
+        Boolean deleted,
         int page,
         int size,
-        ProductSortOption sortOption
+        ProductSortOption sortOption,
+        boolean useCursor,
+        ProductCursor cursor
 ) {
     public static final int DEFAULT_PAGE = 0;
     public static final int DEFAULT_SIZE = 20;
@@ -29,13 +36,87 @@ public record ProductListCriteria(
         if (sortOption == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "정렬 옵션은 필수입니다.");
         }
+        if (minPrice != null && minPrice < 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "minPrice는 0 이상이어야 합니다.");
+        }
+        if (maxPrice != null && maxPrice < 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "maxPrice는 0 이상이어야 합니다.");
+        }
+        if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "minPrice는 maxPrice보다 클 수 없습니다.");
+        }
+        if (useCursor && page > 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "커서 페이징에서는 page를 사용할 수 없습니다.");
+        }
+        if (cursor != null && cursor.sortOption() != sortOption) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "커서 정렬 조건이 현재 요청과 일치하지 않습니다.");
+        }
     }
 
-    public static ProductListCriteria of(UUID brandId, Integer page, Integer size, ProductSortOption sortOption) {
+    public static ProductListCriteria of(
+            UUID brandId,
+            UUID categoryId,
+            Integer minPrice,
+            Integer maxPrice,
+            Boolean deleted,
+            Integer page,
+            Integer size,
+            ProductSortOption sortOption,
+            Boolean useCursor,
+            ProductCursor cursor
+    ) {
         int resolvedPage = page == null ? DEFAULT_PAGE : page;
         int resolvedSize = size == null ? DEFAULT_SIZE : size;
         ProductSortOption resolvedSortOption = sortOption == null ? ProductSortOption.defaultOption() : sortOption;
-        return new ProductListCriteria(brandId, resolvedPage, resolvedSize, resolvedSortOption);
+        return new ProductListCriteria(
+                brandId,
+                categoryId,
+                minPrice,
+                maxPrice,
+                deleted,
+                resolvedPage,
+                resolvedSize,
+                resolvedSortOption,
+                Boolean.TRUE.equals(useCursor),
+                cursor
+        );
+    }
+
+    public static ProductListCriteria fromPublic(ProductListQuery query) {
+        if (query.deleted() != null) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "삭제 상품 조회 조건은 관리자만 사용할 수 있습니다.");
+        }
+
+        ProductSortOption sortOption = ProductSortOption.fromApiValue(query.sort());
+        boolean useCursor = Boolean.TRUE.equals(query.useCursor()) || (query.cursor() != null && !query.cursor().isBlank());
+        return of(
+                query.brandId(),
+                query.categoryId(),
+                query.minPrice(),
+                query.maxPrice(),
+                null,
+                query.page(),
+                query.size(),
+                sortOption,
+                useCursor,
+                query.cursor() == null || query.cursor().isBlank() ? null : ProductCursor.from(query.cursor())
+        );
+    }
+
+    public static ProductListCriteria fromAdmin(ProductListQuery query) {
+        ProductSortOption sortOption = ProductSortOption.fromApiValue(query.sort());
+        return of(
+                query.brandId(),
+                query.categoryId(),
+                query.minPrice(),
+                query.maxPrice(),
+                query.deleted(),
+                query.page(),
+                query.size(),
+                sortOption,
+                false,
+                null
+        );
     }
 
     public Pageable toPageable() {

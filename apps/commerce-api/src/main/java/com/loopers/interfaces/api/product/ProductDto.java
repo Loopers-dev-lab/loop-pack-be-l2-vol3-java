@@ -4,6 +4,8 @@ import com.loopers.application.product.command.CreateProductCommand;
 import com.loopers.application.product.command.UpdateProductCommand;
 import com.loopers.application.product.view.ProductListView;
 import com.loopers.application.product.view.ProductView;
+import com.loopers.application.product.view.PublicProductListItemView;
+import com.loopers.application.product.view.PublicProductListView;
 import com.loopers.domain.product.Product;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -137,6 +139,47 @@ public class ProductDto {
                     .map(ProductResponse::from)
                     .toList();
             return new ProductListResponse(items, view.page(), view.size(), view.totalElements(), view.totalPages());
+        }
+    }
+
+    public record PublicProductListItemResponse(
+            UUID id,
+            String name,
+            Integer price,
+            Integer stock,
+            UUID categoryId,
+            UUID brandId,
+            BrandInfo brand,
+            Integer likeCount
+    ) {
+        public static PublicProductListItemResponse from(PublicProductListItemView view) {
+            return new PublicProductListItemResponse(
+                    view.id(),
+                    view.name(),
+                    view.price(),
+                    view.stock(),
+                    view.categoryId(),
+                    view.brandId(),
+                    new BrandInfo(view.brandId(), view.brandName()),
+                    view.likeCount()
+            );
+        }
+    }
+
+    public record PublicProductListResponse(
+            List<PublicProductListItemResponse> items,
+            Integer page,
+            Integer size,
+            Long totalElements,
+            Integer totalPages,
+            boolean hasNext,
+            String nextCursor
+    ) {
+        public static PublicProductListResponse from(PublicProductListView view) {
+            List<PublicProductListItemResponse> items = view.items().stream()
+                    .map(PublicProductListItemResponse::from)
+                    .toList();
+            return new PublicProductListResponse(items, view.page(), view.size(), view.totalElements(), view.totalPages(), view.hasNext(), view.nextCursor());
         }
     }
 }

@@ -1,10 +1,10 @@
 package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandApplicationService;
+import com.loopers.application.product.cache.CachedPublicProductDetail;
 import com.loopers.application.product.view.ProductListView;
 import com.loopers.application.product.view.ProductView;
 import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.query.ProductListCriteria;
 import com.loopers.domain.product.query.ProductListQuery;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +21,8 @@ public class ProductQueryFacade {
 
     private final ProductApplicationService productApplicationService;
     private final BrandApplicationService brandApplicationService;
-    private final ProductService productService;
 
+    @CachedPublicProductDetail
     public ProductView get(UUID productId) {
         Product product = productApplicationService.get(productId);
         Map<UUID, String> brandNames = brandApplicationService.findNamesByIds(List.of(product.brandId()));
@@ -35,26 +35,8 @@ public class ProductQueryFacade {
         return ProductView.from(product, brandNames.get(product.brandId()));
     }
 
-    public ProductListView list(ProductListQuery query) {
-        ProductListCriteria criteria = productService.toCriteria(query);
-        Page<Product> products = productApplicationService.list(criteria);
-        Map<UUID, String> brandNames = brandApplicationService.findNamesByIds(
-                products.getContent().stream().map(Product::brandId).toList()
-        );
-        List<ProductView> items = products.getContent().stream()
-                .map(product -> ProductView.from(product, brandNames.get(product.brandId())))
-                .toList();
-        return new ProductListView(
-                items,
-                products.getNumber(),
-                products.getSize(),
-                products.getTotalElements(),
-                products.getTotalPages()
-        );
-    }
-
     public ProductListView listIncludingDeleted(ProductListQuery query) {
-        ProductListCriteria criteria = productService.toCriteria(query);
+        ProductListCriteria criteria = ProductListCriteria.fromAdmin(query);
         Page<Product> products = productApplicationService.listIncludingDeleted(criteria);
         Map<UUID, String> brandNames = brandApplicationService.findNamesByIds(
                 products.getContent().stream().map(Product::brandId).toList()

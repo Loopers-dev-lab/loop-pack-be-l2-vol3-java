@@ -1,0 +1,5 @@
+TRUNCATE TABLE likes;
+TRUNCATE TABLE members;
+TRUNCATE TABLE products;
+TRUNCATE TABLE brands;
+TRUNCATE TABLE categories;

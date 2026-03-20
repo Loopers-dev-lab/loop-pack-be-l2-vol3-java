@@ -1,8 +1,10 @@
 package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductApplicationService;
+import com.loopers.application.product.PublicProductListQueryApplicationService;
 import com.loopers.application.product.ProductQueryFacade;
 import com.loopers.domain.product.Product;
+import com.loopers.domain.product.query.ProductListCriteria;
 import com.loopers.domain.product.query.ProductListQuery;
 import com.loopers.interfaces.api.ApiResponse;
 import jakarta.validation.Valid;
@@ -24,6 +26,7 @@ public class ProductController {
 
     private final ProductApplicationService productApplicationService;
     private final ProductQueryFacade productQueryFacade;
+    private final PublicProductListQueryApplicationService publicProductListQueryApplicationService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -40,9 +43,9 @@ public class ProductController {
     }
 
     @GetMapping
-    public ApiResponse<ProductDto.ProductListResponse> getProducts(ProductListQuery query) {
-        return ApiResponse.success(ProductDto.ProductListResponse.from(
-                productQueryFacade.list(query)
+    public ApiResponse<ProductDto.PublicProductListResponse> getProducts(ProductListQuery query) {
+        return ApiResponse.success(ProductDto.PublicProductListResponse.from(
+                publicProductListQueryApplicationService.list(ProductListCriteria.fromPublic(query))
         ));
     }
 }

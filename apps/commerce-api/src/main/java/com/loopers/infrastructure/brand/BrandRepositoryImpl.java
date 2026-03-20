@@ -19,14 +19,21 @@ public class BrandRepositoryImpl implements BrandRepository {
 
     @Override
     public Brand save(Brand brand) {
-        BrandEntity entity = BrandEntity.from(brand);
-        BrandEntity saved = brandJpaRepository.save(entity);
-        return saved.toDomain();
+        if (brand.id() != null) {
+            return brandJpaRepository.findByReferenceIdAndDeletedAtIsNull(brand.id())
+                    .map(entity -> {
+                        entity.updateFrom(brand);
+                        return brandJpaRepository.save(entity).toDomain();
+                    })
+                    .orElseGet(() -> brandJpaRepository.save(BrandEntity.from(brand)).toDomain());
+        }
+
+        return brandJpaRepository.save(BrandEntity.from(brand)).toDomain();
     }
 
     @Override
     public Optional<Brand> findById(UUID id) {
-        return brandJpaRepository.findByIdAndDeletedAtIsNull(id)
+        return brandJpaRepository.findByReferenceIdAndDeletedAtIsNull(id)
                 .map(BrandEntity::toDomain);
     }
 
@@ -38,7 +45,7 @@ public class BrandRepositoryImpl implements BrandRepository {
 
     @Override
     public boolean existsById(UUID id) {
-        return brandJpaRepository.existsById(id);
+        return brandJpaRepository.existsByReferenceIdAndDeletedAtIsNull(id);
     }
 
     @Override
@@ -48,7 +55,7 @@ public class BrandRepositoryImpl implements BrandRepository {
 
     @Override
     public void delete(Brand brand) {
-        brandJpaRepository.findById(brand.id())
+        brandJpaRepository.findByReferenceId(brand.id())
                 .ifPresent(BrandEntity::delete);
     }
 }

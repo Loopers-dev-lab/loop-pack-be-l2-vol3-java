@@ -6,6 +6,8 @@ import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.brand.vo.BrandName;
 import com.loopers.domain.category.Category;
 import com.loopers.domain.category.CategoryRepository;
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -46,6 +48,9 @@ class ProductControllerTest {
 
     @Autowired
     private CategoryRepository categoryRepository;
+
+    @Autowired
+    private ProductRepository productRepository;
 
     @AfterEach
     void tearDown() {
@@ -155,22 +160,105 @@ class ProductControllerTest {
         @DisplayName("브랜드 필터로 목록을 조회한다")
         void listByBrandFilter() throws Exception {
             UUID categoryId = createCategory("푸드");
+            UUID otherCategoryId = createCategory("위생");
             UUID brandIdForList = createBrand("퍼피박스");
             UUID otherBrandId = createBrand("포메피아");
 
             createProduct("사료A", 10000, 10, "설명", categoryId, brandIdForList);
+            createProduct("사료B", 30000, 10, "설명", categoryId, brandIdForList);
+            createProduct("사료C", 10000, 10, "설명", otherCategoryId, brandIdForList);
             createProduct("사료B", 11000, 10, "설명", categoryId, otherBrandId);
 
             mockMvc.perform(get("/api/v1/products")
                             .param("brandId", brandIdForList.toString())
-                            .param("sort", "latest")
+                            .param("categoryId", categoryId.toString())
+                            .param("minPrice", "9000")
+                            .param("maxPrice", "20000")
+                            .param("sort", "price")
                             .param("page", "0")
                             .param("size", "20"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
-                    .andExpect(jsonPath("$.data.totalElements").value(1))
+                    .andExpect(jsonPath("$.data.totalElements").doesNotExist())
                     .andExpect(jsonPath("$.data.items[0].brandId").value(brandIdForList.toString()))
-                    .andExpect(jsonPath("$.data.items[0].categoryId").value(categoryId.toString()));
+                    .andExpect(jsonPath("$.data.items[0].categoryId").value(categoryId.toString()))
+                    .andExpect(jsonPath("$.data.hasNext").value(false))
+                    .andExpect(jsonPath("$.data.nextCursor").doesNotExist())
+                    .andExpect(jsonPath("$.data.items[0].description").doesNotExist());
+        }
+
+        @Test
+        @DisplayName("유저 목록 조회에서 삭제 조건을 주면 400과 메시지를 반환한다")
+        void listWithDeletedFilterFails() throws Exception {
+            mockMvc.perform(get("/api/v1/products")
+                            .param("deleted", "true"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.meta.result").value("FAIL"))
+                    .andExpect(jsonPath("$.meta.message").value("삭제 상품 조회 조건은 관리자만 사용할 수 있습니다."));
+        }
+
+        @Test
+        @DisplayName("likes 정렬은 커서 페이징 응답을 반환한다")
+        void listWithCursorPaging() throws Exception {
+            UUID categoryId = createCategory("푸드");
+            UUID brandId = createBrand("퍼피박스");
+
+            UUID first = createProduct("사료A", 10000, 10, "설명", categoryId, brandId);
+            UUID second = createProduct("사료B", 11000, 10, "설명", categoryId, brandId);
+            UUID third = createProduct("사료C", 12000, 10, "설명", categoryId, brandId);
+
+            productRepository.save(new Product(first, "사료A", 10000, 10, "설명", categoryId, brandId, 5, null));
+            productRepository.save(new Product(second, "사료B", 11000, 10, "설명", categoryId, brandId, 3, null));
+            productRepository.save(new Product(third, "사료C", 12000, 10, "설명", categoryId, brandId, 1, null));
+
+            mockMvc.perform(get("/api/v1/products")
+                            .param("brandId", brandId.toString())
+                            .param("sort", "likes")
+                            .param("size", "2"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.page").doesNotExist())
+                    .andExpect(jsonPath("$.data.totalElements").doesNotExist())
+                    .andExpect(jsonPath("$.data.hasNext").value(true))
+                    .andExpect(jsonPath("$.data.nextCursor").isString())
+                    .andExpect(jsonPath("$.data.items[0].name").value("사료A"))
+                    .andExpect(jsonPath("$.data.items[1].name").value("사료B"));
+        }
+
+        @Test
+        @DisplayName("커서를 전달하면 다음 페이지를 조회한다")
+        void listWithCursorToken() throws Exception {
+            UUID categoryId = createCategory("푸드");
+            UUID brandId = createBrand("퍼피박스");
+
+            UUID first = createProduct("사료A", 10000, 10, "설명", categoryId, brandId);
+            UUID second = createProduct("사료B", 11000, 10, "설명", categoryId, brandId);
+            UUID third = createProduct("사료C", 12000, 10, "설명", categoryId, brandId);
+
+            productRepository.save(new Product(first, "사료A", 10000, 10, "설명", categoryId, brandId, 5, null));
+            productRepository.save(new Product(second, "사료B", 11000, 10, "설명", categoryId, brandId, 3, null));
+            productRepository.save(new Product(third, "사료C", 12000, 10, "설명", categoryId, brandId, 1, null));
+
+            String cursor = objectMapper.readTree(
+                            mockMvc.perform(get("/api/v1/products")
+                                            .param("brandId", brandId.toString())
+                                            .param("sort", "likes")
+                                            .param("size", "2"))
+                                    .andReturn()
+                                    .getResponse()
+                                    .getContentAsString())
+                    .path("data")
+                    .path("nextCursor")
+                    .asText();
+
+            mockMvc.perform(get("/api/v1/products")
+                            .param("brandId", brandId.toString())
+                            .param("sort", "likes")
+                            .param("size", "2")
+                            .param("cursor", cursor))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.items.length()").value(1))
+                    .andExpect(jsonPath("$.data.items[0].name").value("사료C"))
+                    .andExpect(jsonPath("$.data.hasNext").value(false));
         }
     }
 

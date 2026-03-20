@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.brand;
 
-import com.loopers.domain.BaseEntity;
+import com.loopers.domain.AutoIncrementBaseEntity;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.vo.BrandName;
 import jakarta.persistence.Column;
@@ -8,9 +8,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.Getter;
 
+import java.util.UUID;
+
 @Entity
 @Table(name = "brands")
-public class BrandEntity extends BaseEntity {
+public class BrandEntity extends AutoIncrementBaseEntity {
+    @Column(name = "reference_id", columnDefinition = "BINARY(16)", nullable = false, updatable = false, unique = true)
+    private UUID referenceId;
 
     @Getter
     @Column(name = "name", nullable = false, unique = true)
@@ -24,14 +28,17 @@ public class BrandEntity extends BaseEntity {
 
     protected BrandEntity() {}
 
-    public BrandEntity(String name, String description, String imageUrl) {
+    public BrandEntity(UUID referenceId, String name, String description, String imageUrl) {
+        this.referenceId = referenceId;
         this.name = name;
         this.description = description;
         this.imageUrl = imageUrl;
     }
 
     public static BrandEntity from(Brand brand) {
+        UUID resolvedReferenceId = brand.id() != null ? brand.id() : UUID.randomUUID();
         return new BrandEntity(
+                resolvedReferenceId,
                 brand.name().value(),
                 brand.description(),
                 brand.imageUrl()
@@ -40,7 +47,7 @@ public class BrandEntity extends BaseEntity {
 
     public Brand toDomain() {
         return new Brand(
-                getId(),
+                referenceId,
                 new BrandName(name),
                 description,
                 imageUrl

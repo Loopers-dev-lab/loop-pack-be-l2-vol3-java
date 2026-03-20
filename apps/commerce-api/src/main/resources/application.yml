@@ -29,6 +29,18 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+cache:
+  public-product-detail:
+    enabled: true
+    ttl: 30s
+    jitter-enabled: false
+    jitter-ratio: 0.1
+
+loopers:
+  cache:
+    brand-category:
+      enabled: true
+
 ---
 spring:
   config:

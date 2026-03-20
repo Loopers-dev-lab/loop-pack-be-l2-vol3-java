@@ -4,13 +4,11 @@ import com.loopers.application.member.command.AuthenticateCommand;
 import com.loopers.domain.member.PasswordEncoder;
 import com.loopers.domain.member.Member;
 import com.loopers.domain.member.MemberRepository;
-import com.loopers.domain.member.vo.MemberId;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.UUID;
 
 @RequiredArgsConstructor
 @Service
@@ -29,15 +27,5 @@ public class MemberAuthenticationService {
         }
 
         return member;
-    }
-
-    public UUID findDbIdByMemberId(MemberId memberId) {
-        return memberRepository.findDbIdByMemberId(memberId)
-                .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "회원을 찾을 수 없습니다."));
-    }
-
-    public UUID findDbIdByMember(Member member) {
-        return memberRepository.findDbIdByMemberId(member.id())
-                .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "회원을 찾을 수 없습니다."));
     }
 }

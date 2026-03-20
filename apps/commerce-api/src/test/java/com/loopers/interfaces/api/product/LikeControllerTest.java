@@ -262,7 +262,7 @@ class LikeControllerTest {
     }
 
     private void deleteProduct(UUID productId) {
-        ProductEntity product = productJpaRepository.findById(productId)
+        ProductEntity product = productJpaRepository.findByReferenceId(productId)
                 .orElseThrow(() -> new IllegalArgumentException("product not found: " + productId));
         product.delete();
         productJpaRepository.save(product);
