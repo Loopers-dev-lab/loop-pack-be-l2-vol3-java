@@ -28,7 +28,7 @@ sequenceDiagram
     PS-->>PF: Payment
     deactivate PS
 
-    Note over PF: 소유권 확인 (validateOwnership)<br/>확정 여부 확인 (isFinalized)
+    Note over PF: 소유권 확인 (validateOwnership)<br/>확정 여부 확인 (isFinalized || isCancelRequested)
 
     PF->>GE: query(payment)
     activate GE
@@ -84,7 +84,7 @@ sequenceDiagram
 ```
 
 ## 핵심 포인트
-- REQUESTED 상태(미확정)의 결제만 확인 가능하다 — 확정(SUCCEEDED/FAILED/CANCELED) 상태는 거부
+- REQUESTED 상태(미확정)의 결제만 확인 가능하다 — 확정(SUCCEEDED/FAILED/CANCELED) 또는 취소 진행 중(CANCEL_REQUESTED) 상태는 거부
 - PG에 조회하여 결제 완료 여부를 확인한 후 최종 결정한다
 - PG 조회에는 별도 서킷 브레이커(pg-query) + Retry를 적용한다
 - PG 결과 결제 미완료 또는 미존재이면 보상 트랜잭션을 수행한다

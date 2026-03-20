@@ -30,11 +30,24 @@ public class PendingPaymentScheduler {
         log.info("미결 결제 보정 대상 {}건 탐지", pendings.size());
 
         for (Payment payment : pendings) {
-            reconcile(payment);
+            reconcilePending(payment);
         }
     }
 
-    private void reconcile(Payment payment) {
+    @Scheduled(fixedDelayString = "${payment.reconciliation.cancel.interval-ms:60000}")
+    public void reconcileCancelRequestedPayments() {
+        List<Payment> cancelRequested = paymentService.findCancelRequestedOlderThan(
+                ZonedDateTime.now().minusMinutes(2));
+        if (cancelRequested.isEmpty()) return;
+
+        log.info("취소 미완료 결제 보정 대상 {}건 탐지", cancelRequested.size());
+
+        for (Payment payment : cancelRequested) {
+            reconcileCancel(payment);
+        }
+    }
+
+    private void reconcilePending(Payment payment) {
         try {
             PaymentQueryResult result = gatewayExecutor.query(payment);
 
@@ -49,6 +62,21 @@ public class PendingPaymentScheduler {
             }
         } catch (Exception e) {
             log.warn("미결 결제 보정 처리 실패: paymentId={}", payment.getId(), e);
+        }
+    }
+
+    private void reconcileCancel(Payment payment) {
+        try {
+            boolean canceled = gatewayExecutor.cancel(payment, payment.getCancelReason());
+            if (canceled) {
+                transactionTemplate.executeWithoutResult(status ->
+                        processor.cancelAndCompensate(payment.getId(), payment.getOrderId()));
+                log.info("취소 미완료 결제 보정 완료: paymentId={}", payment.getId());
+            } else {
+                log.warn("취소 미완료 결제 PG 취소 재시도 실패: paymentId={}", payment.getId());
+            }
+        } catch (Exception e) {
+            log.warn("취소 미완료 결제 보정 처리 실패: paymentId={}", payment.getId(), e);
         }
     }
 }

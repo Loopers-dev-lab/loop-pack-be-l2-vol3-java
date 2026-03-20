@@ -72,15 +72,18 @@ public class PaymentFacade {
     public PaymentInfo verifyPayment(Long userId, Long paymentId) {
         Payment payment = paymentService.getPayment(paymentId);
         payment.validateOwnership(userId);
-        if (payment.isFinalized()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "이미 확정된 결제입니다");
+        if (payment.isFinalized() || payment.isCancelRequested()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "이미 확정되었거나 취소 진행 중인 결제입니다");
         }
 
         // REQUESTED: PG에 조회하여 최종 결정
         PaymentQueryResult result = gatewayExecutor.query(payment);
 
         if (result.found() && result.done()) {
-            paymentService.markSucceeded(payment.getId());
+            transactionTemplate.executeWithoutResult(status -> {
+                Payment p = paymentService.getPayment(payment.getId());
+                if (!p.isFinalized()) p.markSucceeded();
+            });
         } else {
             transactionTemplate.executeWithoutResult(status ->
                     processor.failAndCompensate(payment.getId(), payment.getOrderId(), "결제 미완료"));
@@ -117,12 +120,21 @@ public class PaymentFacade {
             throw new CoreException(ErrorType.BAD_REQUEST, "취소할 수 없는 결제 상태입니다");
         }
 
-        // PG 취소 (트랜잭션 밖)
-        gatewayExecutor.cancel(payment, cancelReason);
+        // TX1: SUCCEEDED → CANCEL_REQUESTED 선점 (비관락)
+        paymentService.markCancelRequested(payment.getId(), cancelReason);
 
-        // TX: 결제 취소 + 보상
-        transactionTemplate.executeWithoutResult(status ->
-                processor.cancelAndCompensate(payment.getId(), payment.getOrderId(), cancelReason));
+        // PG 취소 (트랜잭션 밖, 1회 재시도)
+        boolean canceled = gatewayExecutor.cancel(payment, cancelReason);
+        if (!canceled) {
+            canceled = gatewayExecutor.cancel(payment, cancelReason);
+        }
+
+        if (canceled) {
+            // TX2: CANCEL_REQUESTED → CANCELED + 보상
+            transactionTemplate.executeWithoutResult(status ->
+                    processor.cancelAndCompensate(payment.getId(), payment.getOrderId()));
+        }
+        // 실패 시 CANCEL_REQUESTED 유지 → 스케줄러가 수거
     }
 
     private void handleConfirmOutcome(Payment payment, PgConfirmOutcome outcome) {

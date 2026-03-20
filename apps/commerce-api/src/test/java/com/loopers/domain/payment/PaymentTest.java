@@ -101,14 +101,51 @@ class PaymentTest {
     }
 
     @Nested
-    class 상태전이_CANCELED {
+    class 상태전이_CANCEL_REQUESTED {
 
         @Test
-        void SUCCEEDED에서_CANCELED로_변경된다() {
+        void SUCCEEDED에서_CANCEL_REQUESTED로_변경된다() {
             Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             payment.markSucceeded();
 
-            payment.markCanceled("단순 변심");
+            payment.markCancelRequested("단순 변심");
+
+            assertAll(
+                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CANCEL_REQUESTED),
+                    () -> assertThat(payment.getCancelReason()).isEqualTo("단순 변심")
+            );
+        }
+
+        @Test
+        void REQUESTED_상태에서_취소요청하면_예외() {
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+
+            assertThatThrownBy(() -> payment.markCancelRequested("변심"))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+
+        @Test
+        void FAILED_상태에서_취소요청하면_예외() {
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            payment.markFailed("실패");
+
+            assertThatThrownBy(() -> payment.markCancelRequested("변심"))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
+        }
+    }
+
+    @Nested
+    class 상태전이_CANCELED {
+
+        @Test
+        void CANCEL_REQUESTED에서_CANCELED로_변경된다() {
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            payment.markSucceeded();
+            payment.markCancelRequested("단순 변심");
+
+            payment.markCanceled();
 
             assertAll(
                     () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CANCELED),
@@ -118,20 +155,11 @@ class PaymentTest {
         }
 
         @Test
-        void REQUESTED_상태에서_취소하면_예외() {
+        void SUCCEEDED_상태에서_취소확정하면_예외() {
             Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            payment.markSucceeded();
 
-            assertThatThrownBy(() -> payment.markCanceled("변심"))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
-        }
-
-        @Test
-        void FAILED_상태에서_취소하면_예외() {
-            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
-            payment.markFailed("실패");
-
-            assertThatThrownBy(() -> payment.markCanceled("변심"))
+            assertThatThrownBy(() -> payment.markCanceled())
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.BAD_REQUEST));
         }
@@ -160,9 +188,19 @@ class PaymentTest {
         void CANCELED이면_확정이다() {
             Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
             payment.markSucceeded();
-            payment.markCanceled("변심");
+            payment.markCancelRequested("변심");
+            payment.markCanceled();
 
             assertThat(payment.isFinalized()).isTrue();
+        }
+
+        @Test
+        void CANCEL_REQUESTED이면_미확정이다() {
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            payment.markSucceeded();
+            payment.markCancelRequested("변심");
+
+            assertThat(payment.isFinalized()).isFalse();
         }
 
         @Test

@@ -15,7 +15,7 @@ import java.util.Optional;
 public class PaymentRepositoryImpl implements PaymentRepository {
 
     private static final List<PaymentStatus> ACTIVE_STATUSES =
-            List.of(PaymentStatus.REQUESTED, PaymentStatus.SUCCEEDED);
+            List.of(PaymentStatus.REQUESTED, PaymentStatus.SUCCEEDED, PaymentStatus.CANCEL_REQUESTED);
 
     private final PaymentJpaRepository paymentJpaRepository;
 
@@ -31,6 +31,11 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     @Override
     public Optional<Payment> findById(Long id) {
         return paymentJpaRepository.findById(id);
+    }
+
+    @Override
+    public Optional<Payment> findByIdForUpdate(Long id) {
+        return paymentJpaRepository.findByIdForUpdate(id);
     }
 
     @Override

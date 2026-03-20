@@ -56,14 +56,17 @@ public class PaymentGatewayExecutor {
         }
     }
 
-    public void cancel(Payment payment, String cancelReason) {
+    public boolean cancel(Payment payment, String cancelReason) {
         PaymentGateway gateway = gatewayRegistry.getGateway(payment.getPgType());
         try {
             gateway.cancel(
                     payment.getPaymentKey(),
                     new PaymentCancelCommand(String.valueOf(payment.getOrderId()), cancelReason, payment.getAmount().longValue()));
+            return true;
         } catch (Exception e) {
-            throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 취소에 실패했습니다. 잠시 후 다시 시도해주세요", e);
+            log.warn("PG 결제 취소 실패: paymentId={}, pgType={}, message={}",
+                    payment.getId(), gateway.getType(), e.getMessage());
+            return false;
         }
     }
 

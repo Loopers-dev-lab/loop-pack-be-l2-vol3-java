@@ -44,10 +44,17 @@ public class PaymentService {
     }
 
     @Transactional
-    public void markCanceled(Long paymentId, String reason) {
+    public void markCancelRequested(Long paymentId, String reason) {
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다"));
+        payment.markCancelRequested(reason);
+    }
+
+    @Transactional
+    public void markCanceled(Long paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다"));
-        payment.markCanceled(reason);
+        payment.markCanceled();
     }
 
     // Query
@@ -81,5 +88,10 @@ public class PaymentService {
     @Transactional(readOnly = true)
     public List<Payment> findRequestedOlderThan(ZonedDateTime threshold) {
         return paymentRepository.findByStatusOlderThan(PaymentStatus.REQUESTED, threshold);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Payment> findCancelRequestedOlderThan(ZonedDateTime threshold) {
+        return paymentRepository.findByStatusOlderThan(PaymentStatus.CANCEL_REQUESTED, threshold);
     }
 }

@@ -24,8 +24,10 @@ classDiagram
         +create(orderId, userId, pgType, cardType, cardNo, amount)$ Payment
         +markSucceeded()
         +markFailed(reason)
-        +markCanceled(reason)
+        +markCancelRequested(reason)
+        +markCanceled()
         +isFinalized() boolean
+        +isCancelRequested() boolean
         +isOwnedBy(userId) boolean
         +validateOwnership(userId)
     }
@@ -35,6 +37,7 @@ classDiagram
         REQUESTED
         SUCCEEDED
         FAILED
+        CANCEL_REQUESTED
         CANCELED
     }
 
@@ -62,7 +65,7 @@ classDiagram
 
     class PaymentGatewayExecutor {
         +confirm(payment) PgConfirmOutcome
-        +cancel(payment, cancelReason)
+        +cancel(payment, cancelReason) boolean
         +query(payment) PaymentQueryResult
     }
 
@@ -80,7 +83,7 @@ classDiagram
     class PaymentProcessor {
         +confirm(order)
         +failAndCompensate(paymentId, orderId, reason)
-        +cancelAndCompensate(paymentId, orderId, reason)
+        +cancelAndCompensate(paymentId, orderId)
     }
 
     class PgException {
@@ -117,12 +120,14 @@ classDiagram
 - cancelReason, canceledAt은 nullable — 취소 시에만 존재
 - `markSucceeded()`: REQUESTED → SUCCEEDED (PG 승인 성공 또는 수동 확인/보정 스케줄러)
 - `markFailed(reason)`: REQUESTED → FAILED (PG 실패 또는 요청 실패)
-- `markCanceled(reason)`: SUCCEEDED → CANCELED (주문 취소 시 PG 취소 성공 후)
+- `markCancelRequested(reason)`: SUCCEEDED → CANCEL_REQUESTED (취소 선점, 비관락으로 이중 취소 방지)
+- `markCanceled()`: CANCEL_REQUESTED → CANCELED (PG 취소 성공 후 확정)
 - `isFinalized()`: SUCCEEDED, FAILED 또는 CANCELED 여부 반환 (사실 제공, 멱등성 판단용)
+- `isCancelRequested()`: CANCEL_REQUESTED 여부 반환 (취소 진행 중 가드용)
 - `isOwnedBy()`: 소유권 확인 (사실 제공, Facade가 접근 제어 판단)
 - `validateOwnership()`: 소유권 불변식 강제 — 위반 시 NOT_FOUND 예외 (존재 여부 노출 방지)
 - 1주문 1결제: 비즈니스 규칙으로 Facade에서 검증 (DB UNIQUE 제약 아님 — 실패 후 재결제 허용)
 - **PaymentGatewayExecutor**: PG 호출을 중개하고, 도메인 예외(PgTimeoutException 등)를 PgConfirmOutcome으로 변환
-- **PaymentProcessor**: confirm/failAndCompensate/cancelAndCompensate 비즈니스 오케스트레이션 전담
+- **PaymentProcessor**: confirm/failAndCompensate/cancelAndCompensate 비즈니스 오케스트레이션 전담 (cancelAndCompensate는 reason 없이 호출 — markCancelRequested에서 이미 저장됨)
 - **PgException 계열**: Gateway 구현체에서 인프라 예외(ResourceAccessException 등)를 도메인 예외로 래핑. Resilience4j retryExceptions에 사용
 - **Bulkhead(pg-payment)**: PaymentFacade의 requestPayment, verifyPayment에 적용 (동시 PG 호출 20건 제한)

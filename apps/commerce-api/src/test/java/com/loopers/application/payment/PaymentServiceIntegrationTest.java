@@ -91,14 +91,33 @@ class PaymentServiceIntegrationTest {
     }
 
     @Nested
-    class 상태_변경_CANCELED {
+    class 상태_변경_CANCEL_REQUESTED {
 
         @Test
-        void SUCCEEDED에서_CANCELED로_변경된다() {
+        void SUCCEEDED에서_CANCEL_REQUESTED로_변경된다() {
             Payment payment = paymentService.createPayment(PaymentCommand.Create.of(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")));
             paymentService.markSucceeded(payment.getId());
 
-            paymentService.markCanceled(payment.getId(), "단순 변심");
+            paymentService.markCancelRequested(payment.getId(), "단순 변심");
+
+            Payment updated = paymentService.getPayment(payment.getId());
+            assertAll(
+                    () -> assertThat(updated.getStatus()).isEqualTo(PaymentStatus.CANCEL_REQUESTED),
+                    () -> assertThat(updated.getCancelReason()).isEqualTo("단순 변심")
+            );
+        }
+    }
+
+    @Nested
+    class 상태_변경_CANCELED {
+
+        @Test
+        void CANCEL_REQUESTED에서_CANCELED로_변경된다() {
+            Payment payment = paymentService.createPayment(PaymentCommand.Create.of(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")));
+            paymentService.markSucceeded(payment.getId());
+            paymentService.markCancelRequested(payment.getId(), "단순 변심");
+
+            paymentService.markCanceled(payment.getId());
 
             Payment updated = paymentService.getPayment(payment.getId());
             assertAll(
@@ -211,7 +230,8 @@ class PaymentServiceIntegrationTest {
         void CANCELED_상태의_결제만_있으면_false() {
             Payment payment = paymentService.createPayment(PaymentCommand.Create.of(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")));
             payment.markSucceeded();
-            payment.markCanceled("변심");
+            payment.markCancelRequested("변심");
+            payment.markCanceled();
             paymentRepository.save(payment);
 
             assertThat(paymentService.existsActivePayment(1L)).isFalse();

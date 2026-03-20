@@ -113,12 +113,19 @@ public class Payment {
         this.failReason = reason;
     }
 
-    public void markCanceled(String reason) {
+    public void markCancelRequested(String reason) {
         if (this.status != PaymentStatus.SUCCEEDED) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "SUCCEEDED 상태에서만 취소할 수 있습니다");
+            throw new CoreException(ErrorType.BAD_REQUEST, "SUCCEEDED 상태에서만 취소 요청할 수 있습니다");
+        }
+        this.status = PaymentStatus.CANCEL_REQUESTED;
+        this.cancelReason = reason;
+    }
+
+    public void markCanceled() {
+        if (this.status != PaymentStatus.CANCEL_REQUESTED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "CANCEL_REQUESTED 상태에서만 취소 확정할 수 있습니다");
         }
         this.status = PaymentStatus.CANCELED;
-        this.cancelReason = reason;
         this.canceledAt = ZonedDateTime.now();
     }
 
@@ -126,6 +133,10 @@ public class Payment {
         return this.status == PaymentStatus.SUCCEEDED
                 || this.status == PaymentStatus.FAILED
                 || this.status == PaymentStatus.CANCELED;
+    }
+
+    public boolean isCancelRequested() {
+        return this.status == PaymentStatus.CANCEL_REQUESTED;
     }
 
     public boolean isOwnedBy(Long userId) {

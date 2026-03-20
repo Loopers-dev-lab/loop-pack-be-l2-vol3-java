@@ -587,7 +587,7 @@ class PaymentApiE2ETest {
 
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody().meta().message()).contains("이미 확정된 결제입니다")
+                    () -> assertThat(response.getBody().meta().message()).contains("이미 확정되었거나 취소 진행 중인 결제입니다")
             );
         }
 

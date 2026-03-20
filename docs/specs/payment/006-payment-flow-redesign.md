@@ -27,12 +27,13 @@
 
 ### 결제 취소 (PM-06)
 - [ ] SUCCEEDED 상태의 결제만 취소할 수 있다
-- [ ] 결제 취소 시 PG에 취소를 요청한다
+- [ ] 결제 취소 시 CANCEL_REQUESTED로 선점한다 (비관락, 이중 취소 방지)
+- [ ] CANCEL_REQUESTED 선점 후 PG에 취소를 요청한다 (실패 시 1회 재시도)
 - [ ] PG 취소 성공 시 결제 상태가 CANCELED로 변경된다
 - [ ] PG 취소 성공 시 확정된 재고가 복원된다
 - [ ] PG 취소 성공 시 사용된 쿠폰이 있으면 복원된다
 - [ ] PG 취소 성공 시 주문 상태가 CANCELED로 변경된다
-- [ ] PG 취소 실패 시 500 응답, 메시지: "결제 취소에 실패했습니다. 잠시 후 다시 시도해주세요"
+- [ ] PG 취소 실패 시 CANCEL_REQUESTED 상태를 유지하고 보정 스케줄러가 후속 처리한다
 
 ### 주문 상태 변경
 - [ ] OrderStatus가 CREATED, PAID, CANCELED 3가지 상태를 가진다 (기존 PENDING → CREATED, CANCELLED → CANCELED)
@@ -45,7 +46,8 @@
 - [ ] 쿠폰 미적용 주문의 보상 트랜잭션에서는 쿠폰 복원을 수행하지 않는다
 
 ## 제약
-- Payment 상태는 REQUESTED, SUCCEEDED, FAILED, CANCELED 4가지이다
+- Payment 상태는 REQUESTED, SUCCEEDED, FAILED, CANCEL_REQUESTED, CANCELED 5가지이다
 - 비즈니스 확정(재고 확정 + 주문 PAID)은 트랜잭션 안에서, PG 호출은 트랜잭션 밖에서 처리한다
 - 보상 트랜잭션은 인프로세스로 즉시 실행하며, 실패 시 보정 스케줄러가 후속 처리한다
+- CANCEL_REQUESTED는 되돌릴 수 없는 상태이다 — 스케줄러가 PG 취소를 재시도하여 CANCELED로 확정한다
 - 기존 001-payment-request, 005-payment-verify spec의 관련 AC가 이 문서로 대체된다
