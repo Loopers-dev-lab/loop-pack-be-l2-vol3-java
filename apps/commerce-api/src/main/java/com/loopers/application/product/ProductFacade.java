@@ -4,11 +4,11 @@ import com.loopers.domain.product.Brand;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.SortCondition;
-import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.BrandRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -21,8 +21,8 @@ public class ProductFacade {
 
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
-    private final LikeRepository likeRepository;
 
+    @Cacheable(value = "product:detail", key = "#productId")
     public ProductDetailInfo getProductDetail(Long productId) {
         Product product = productRepository.findById(productId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "[id = " + productId + "] 상품을 찾을 수 없습니다."));
@@ -30,10 +30,10 @@ public class ProductFacade {
             ? brandRepository.findById(product.getBrandId())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다."))
             : null;
-        long likeCount = likeRepository.countByProductId(productId);
-        return ProductDetailInfo.of(product, brand, likeCount);
+        return ProductDetailInfo.of(product, brand, product.getLikesCount());
     }
 
+    @Cacheable(value = "product:list", key = "#sort.name()")
     public List<ProductListInfo> getProductList(SortCondition sort) {
         List<Product> products = productRepository.findAll(sort);
         if (products.isEmpty()) {
@@ -49,11 +49,11 @@ public class ProductFacade {
             .flatMap(id -> brandRepository.findById(id).stream())
             .collect(Collectors.toMap(Brand::getId, b -> b));
 
-        List<Long> productIds = products.stream().map(Product::getId).toList();
-        Map<Long, Long> likeCountMap = likeRepository.countByProductIds(productIds);
-
         return products.stream()
-            .map(p -> ProductListInfo.of(p, brandMap, likeCountMap))
+            .map(p -> {
+                Brand brand = p.getBrandId() != null ? brandMap.get(p.getBrandId()) : null;
+                return ProductListInfo.of(p, brand, p.getLikesCount());
+            })
             .toList();
     }
 }

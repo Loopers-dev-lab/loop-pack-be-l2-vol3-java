@@ -15,7 +15,9 @@ public class OrderV1Dto {
 
         @Valid
         @NotNull(message = "주문 항목은 필수입니다")
-        List<OrderLineRequest> items
+        List<OrderLineRequest> items,
+
+        Long couponId
     ) {}
 
     public record OrderLineRequest(
@@ -30,6 +32,8 @@ public class OrderV1Dto {
     public record OrderCreateResponse(
         Long orderId,
         String status,
+        long originalAmount,
+        long discountAmount,
         long totalAmount,
         List<OrderLineResponse> orderLines
     ) {
@@ -40,6 +44,8 @@ public class OrderV1Dto {
             return new OrderCreateResponse(
                 result.orderId(),
                 result.status(),
+                result.originalAmount(),
+                result.discountAmount(),
                 result.totalAmount(),
                 lines
             );

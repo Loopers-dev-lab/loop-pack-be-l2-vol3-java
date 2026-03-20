@@ -1,0 +1,37 @@
+---
+description: Coupon 도메인 작업 시 적용. 쿠폰 템플릿, 발급 쿠폰, 주문 할인 관련.
+globs: ["**/domain/coupon/**", "**/application/coupon/**", "**/infrastructure/coupon/**", "**/interfaces/api/coupon/**"]
+alwaysApply: false
+---
+
+# Coupon 도메인 규칙
+
+- `domain/coupon/README.md`, `CLAUDE.md` 참조
+
+## 도메인 모델
+
+- **CouponTemplate**: Admin이 생성하는 쿠폰 종류 정의 (정액 FIXED / 정률 RATE)
+- **IssuedCoupon**: 사용자에게 발급된 개별 쿠폰. 상태 관리 (AVAILABLE → USED)
+- CouponTemplate과 IssuedCoupon은 ID 참조 관계 (JPA 연관관계 X)
+
+## 핵심 규칙
+
+- 쿠폰은 1회만 사용 가능. `IssuedCoupon.use()`로 상태 전이
+- 쿠폰 사용 시 반드시 **비관적 락**(`findByIdForUpdate`) 사용
+- 쿠폰 소유자 검증: `validateOwnership(memberId)`
+- 쿠폰 만료 검증: `CouponTemplate.isExpired()`
+- 최소 주문 금액 검증: `CouponTemplate.validateMinOrderAmount()`
+- 할인 계산: `CouponTemplate.calculateDiscount(orderAmount)`
+  - FIXED: min(value, orderAmount)
+  - RATE: orderAmount * value / 100
+
+## 주문과의 관계
+
+- 쿠폰은 Order 도메인과 다른 도메인. 조합은 `OrderService`(Application Layer)에서 담당
+- Order 엔티티에 `couponId`, `originalAmount`, `discountAmount` 스냅샷 저장
+- 주문 실패 시 트랜잭션 롤백으로 쿠폰 사용도 함께 롤백
+
+## 동시성
+
+- IssuedCoupon: `PESSIMISTIC_WRITE` 락으로 동시 사용 방지
+- 동일 쿠폰으로 동시 주문 시 1건만 성공, 나머지 실패

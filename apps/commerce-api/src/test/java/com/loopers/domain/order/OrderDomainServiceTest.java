@@ -40,12 +40,13 @@ class OrderDomainServiceTest {
         @Test
         void success() {
             Long memberId = 1L;
-            Product product = fakeProductRepository.save(new Product(1L, "상품", 10_000L, 10));
+            fakeProductRepository.save(new Product(1L, "상품", 10_000L, 10));
             Long productId = 1L;
 
-            Order order = orderDomainService.placeOrder(memberId, List.of(
+            List<OrderLine> orderLines = orderDomainService.prepareOrderLines(List.of(
                 new OrderDomainService.OrderLineRequest(productId, 3)
             ));
+            Order order = orderDomainService.createOrder(memberId, orderLines);
 
             assertThat(order.getMemberId()).isEqualTo(memberId);
             assertThat(order.getOrderLines()).hasSize(1);
@@ -62,7 +63,7 @@ class OrderDomainServiceTest {
             fakeProductRepository.save(new Product(1L, "상품", 10_000L, 5));
             Long productId = 1L;
 
-            assertThatThrownBy(() -> orderDomainService.placeOrder(memberId, List.of(
+            assertThatThrownBy(() -> orderDomainService.prepareOrderLines(List.of(
                 new OrderDomainService.OrderLineRequest(productId, 10)
             )))
                 .isInstanceOf(CoreException.class)
@@ -74,10 +75,9 @@ class OrderDomainServiceTest {
         @DisplayName("존재하지 않는 상품이 포함되면 NOT_FOUND 예외가 발생한다")
         @Test
         void failsWhenProductNotFound() {
-            Long memberId = 1L;
             Long nonExistentProductId = 999L;
 
-            assertThatThrownBy(() -> orderDomainService.placeOrder(memberId, List.of(
+            assertThatThrownBy(() -> orderDomainService.prepareOrderLines(List.of(
                 new OrderDomainService.OrderLineRequest(nonExistentProductId, 1)
             )))
                 .isInstanceOf(CoreException.class)
@@ -104,9 +104,12 @@ class OrderDomainServiceTest {
 
         @Override
         public Optional<Product> findById(Long id) {
-            Product product = store.get(id);
-            if (product == null) return Optional.empty();
-            return Optional.of(product);
+            return Optional.ofNullable(store.get(id));
+        }
+
+        @Override
+        public Optional<Product> findByIdForUpdate(Long id) {
+            return findById(id);
         }
 
         @Override

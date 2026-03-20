@@ -35,7 +35,7 @@ class LikeServiceTest {
 
     @DisplayName("좋아요 등록")
     @Nested
-    class Like {
+    class LikeTest {
 
         @DisplayName("존재하는 상품에 좋아요를 등록하면 성공한다")
         @Test
@@ -84,7 +84,7 @@ class LikeServiceTest {
             Long memberId = 1L;
             fakeProductRepository.save(new Product(1L, "상품", 10_000L, 10));
             Long productId = 1L;
-            fakeLikeRepository.save(new Like(memberId, productId));
+            fakeLikeRepository.save(new com.loopers.domain.like.Like(memberId, productId));
 
             likeService.unlike(memberId, productId);
 
@@ -123,6 +123,11 @@ class LikeServiceTest {
         @Override
         public Optional<Product> findById(Long id) {
             return Optional.ofNullable(store.get(id));
+        }
+
+        @Override
+        public Optional<Product> findByIdForUpdate(Long id) {
+            return findById(id);
         }
 
         @Override

@@ -1,0 +1,22 @@
+---
+description: Like 도메인 작업 시 적용. 좋아요 등록/취소, 집계 관련.
+globs: ["**/domain/like/**", "**/application/like/**", "**/infrastructure/like/**"]
+alwaysApply: false
+---
+
+# Like 도메인 규칙
+
+이 규칙은 Like 도메인 및 관련 Application/Infrastructure 코드 작업 시 적용됩니다.
+
+## 필수 참조
+
+- `apps/commerce-api/src/main/java/com/loopers/domain/like/README.md` — 도메인 설계 상세
+- `apps/commerce-api/src/main/java/com/loopers/application/like/README.md` — Application Layer 상세
+- `CLAUDE.md` — 전체 아키텍처
+
+## 핵심 규칙
+
+1. **(member_id, product_id) UNIQUE** — 한 회원이 한 상품에 한 번만 좋아요
+2. **Product와 분리** — Product에 likeCount 필드 없음
+3. **멱등성** — like() 중복 시 무시, unlike() 없어도 예외 없음
+4. **집계** — countByProductId, countByProductIds로 조회 시점 집계

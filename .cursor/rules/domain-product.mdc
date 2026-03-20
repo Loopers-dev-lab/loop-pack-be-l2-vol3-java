@@ -1,0 +1,22 @@
+---
+description: Product/Brand 도메인 작업 시 적용. 상품, 브랜드, 재고, 정렬 관련.
+globs: ["**/domain/product/**", "**/application/product/**", "**/infrastructure/product/**"]
+alwaysApply: false
+---
+
+# Product / Brand 도메인 규칙
+
+이 규칙은 Product, Brand 도메인 및 관련 Application/Infrastructure 코드 작업 시 적용됩니다.
+
+## 필수 참조
+
+- `apps/commerce-api/src/main/java/com/loopers/domain/product/README.md` — 도메인 설계 상세
+- `apps/commerce-api/src/main/java/com/loopers/application/product/README.md` — Application Layer 상세
+- `CLAUDE.md` — 전체 아키텍처
+
+## 핵심 규칙
+
+1. **Product는 likeCount를 직접 가지지 않음** — Like 도메인에서 집계
+2. **재고 차감** — `Product.decreaseStock()` 내부에서 처리, INSUFFICIENT_STOCK 예외
+3. **Setter 금지** — 행위 메서드(`decreaseStock` 등) 사용
+4. **정렬** — SortCondition (latest, price_asc, likes_desc) Infrastructure에서 구현
