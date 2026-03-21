@@ -24,13 +24,14 @@ public class OrderRepositoryImpl implements OrderRepository {
         if (order.id() != null) {
             entity = orderJpaRepository.findById(order.id())
                     .orElseGet(() -> OrderEntity.from(order));
-            entity.cancel();
+            entity.updateFrom(order);
         } else {
             entity = OrderEntity.from(order);
             for (OrderItem item : order.items()) {
                 OrderItemEntity itemEntity = new OrderItemEntity(entity, item);
                 entity.addItem(itemEntity);
             }
+            entity.updateFrom(order);
         }
         return orderJpaRepository.save(entity).toDomain();
     }
@@ -38,7 +39,6 @@ public class OrderRepositoryImpl implements OrderRepository {
     @Override
     public Optional<Order> findById(UUID id) {
         return orderJpaRepository.findById(id)
-                .filter(e -> e.getDeletedAt() == null)
                 .map(OrderEntity::toDomain);
     }
 

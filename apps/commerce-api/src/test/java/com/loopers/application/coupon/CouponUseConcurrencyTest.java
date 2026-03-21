@@ -148,7 +148,10 @@ class CouponUseConcurrencyTest {
                         startLatch.await();
                         Map<String, Object> body = Map.of(
                                 "items", List.of(Map.of("productId", productId, "quantity", 1)),
-                                "couponId", couponId
+                                "couponId", couponId,
+                                "pointAmount", 0,
+                                "cardType", "SAMSUNG",
+                                "cardNo", "1234-5678-1234-5678"
                         );
 
                         ResponseEntity<ApiResponse<Map<String, Object>>> response = testRestTemplate.exchange(

@@ -106,9 +106,16 @@ public class CouponApplicationService {
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "발급된 쿠폰을 찾을 수 없습니다."));
 
         issuedCoupon.validateOwner(memberId);
-        int updatedCount = issuedCouponRepository.markAvailableAtomically(memberId, couponId, LocalDateTime.now());
+        int updatedCount = issuedCouponRepository.markAvailableAtomically(memberId, couponId);
         if (updatedCount == 0) {
             throw new CoreException(ErrorType.CONFLICT, "사용 취소할 수 없는 쿠폰입니다.");
         }
+    }
+
+    @Transactional(readOnly = true)
+    public int calculateDiscount(UUID couponId, int orderAmount) {
+        Coupon coupon = couponRepository.findById(couponId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
+        return coupon.calculateDiscount(orderAmount);
     }
 }

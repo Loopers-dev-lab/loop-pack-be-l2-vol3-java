@@ -43,14 +43,12 @@ public interface IssuedCouponJpaRepository extends JpaRepository<IssuedCouponEnt
              where ic.memberId = :memberId
                and ic.couponId = :couponId
                and ic.status = :usedStatus
-               and ic.expiredAt >= :now
             """)
     int markAvailableAtomically(
             @Param("memberId") String memberId,
             @Param("couponId") UUID couponId,
             @Param("availableStatus") CouponStatus availableStatus,
-            @Param("usedStatus") CouponStatus usedStatus,
-            @Param("now") LocalDateTime now
+            @Param("usedStatus") CouponStatus usedStatus
     );
 
     List<IssuedCouponEntity> findByMemberIdOrderByCreatedAtDesc(String memberId);

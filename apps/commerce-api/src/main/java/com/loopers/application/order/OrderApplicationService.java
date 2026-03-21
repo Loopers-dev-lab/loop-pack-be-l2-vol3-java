@@ -38,6 +38,23 @@ public class OrderApplicationService {
     }
 
     @Transactional
+    public Order create(String memberId, List<OrderItem> items, UUID couponId, int totalAmount, int usedPointAmount) {
+        if (items == null || items.isEmpty()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문 항목은 1개 이상이어야 합니다.");
+        }
+        if (totalAmount < 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문 금액은 0 이상이어야 합니다.");
+        }
+        if (usedPointAmount < 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "사용 포인트는 0 이상이어야 합니다.");
+        }
+
+        String orderNumber = UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT);
+        Order order = new Order(memberId, orderNumber, items, couponId, totalAmount, usedPointAmount);
+        return orderRepository.save(order);
+    }
+
+    @Transactional
     public Order cancel(OrderAccessRequest request) {
         Order order = orderRepository.findById(request.orderId())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
@@ -60,6 +77,23 @@ public class OrderApplicationService {
         }
 
         return order;
+    }
+
+    @Transactional(readOnly = true)
+    public Order getByIdForSystem(UUID orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
+    }
+
+    @Transactional
+    public Order markStockDeducted(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
+        Order updated = order.markStockDeducted();
+        if (updated.equals(order)) {
+            return order;
+        }
+        return orderRepository.save(updated);
     }
 
     @Transactional(readOnly = true)

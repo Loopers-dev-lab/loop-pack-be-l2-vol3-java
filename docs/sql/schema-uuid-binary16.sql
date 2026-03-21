@@ -35,6 +35,17 @@ CREATE TABLE IF NOT EXISTS members (
     UNIQUE KEY uk_members_member_id (member_id)
 );
 
+CREATE TABLE IF NOT EXISTS point_balances (
+    id BINARY(16) NOT NULL,
+    member_id VARCHAR(255) NOT NULL,
+    balance INT NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    deleted_at DATETIME(6),
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_point_balances_member_id (member_id)
+);
+
 CREATE TABLE IF NOT EXISTS products (
     id BINARY(16) NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -54,20 +65,49 @@ CREATE TABLE IF NOT EXISTS products (
     CONSTRAINT fk_products_brand FOREIGN KEY (brand_id) REFERENCES brands (id)
 );
 
-CREATE TABLE IF NOT EXISTS orders (
+CREATE TABLE IF NOT EXISTS coupons (
     id BINARY(16) NOT NULL,
-    user_id BINARY(16) NOT NULL,
-    order_number VARCHAR(255) NOT NULL,
-    order_date DATETIME(6) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(255) NOT NULL,
+    value INT NOT NULL,
+    min_order_amount INT NOT NULL,
+    expired_at DATETIME(6) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    deleted_at DATETIME(6),
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS issued_coupons (
+    id BINARY(16) NOT NULL,
+    member_id VARCHAR(255) NOT NULL,
+    coupon_id BINARY(16) NOT NULL,
     status VARCHAR(255) NOT NULL,
-    total_amount INT NOT NULL,
+    issued_at DATETIME(6) NOT NULL,
+    expired_at DATETIME(6) NOT NULL,
+    used_at DATETIME(6),
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
     deleted_at DATETIME(6),
     PRIMARY KEY (id),
-    UNIQUE KEY uk_orders_order_number (order_number),
-    KEY idx_orders_user_id (user_id),
-    CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES members (id)
+    UNIQUE KEY uk_issued_coupons_member_coupon (member_id, coupon_id)
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+    id BINARY(16) NOT NULL,
+    member_id VARCHAR(255) NOT NULL,
+    order_number VARCHAR(255) NOT NULL,
+    order_date DATETIME(6) NOT NULL,
+    status VARCHAR(255) NOT NULL,
+    total_amount INT NOT NULL,
+    coupon_id BINARY(16),
+    used_point_amount INT NOT NULL,
+    stock_deducted_at DATETIME(6),
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    deleted_at DATETIME(6),
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_orders_order_number (order_number)
 );
 
 CREATE TABLE IF NOT EXISTS order_items (
@@ -82,6 +122,24 @@ CREATE TABLE IF NOT EXISTS order_items (
     KEY idx_order_items_order_id (order_id),
     KEY idx_order_items_product_id (product_id),
     CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders (id)
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+    id BINARY(16) NOT NULL,
+    member_id VARCHAR(255) NOT NULL,
+    order_id BINARY(16) NOT NULL,
+    card_type VARCHAR(255) NOT NULL,
+    card_no VARCHAR(255) NOT NULL,
+    amount INT NOT NULL,
+    status VARCHAR(255) NOT NULL,
+    pg_transaction_key VARCHAR(255),
+    reason VARCHAR(255),
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    deleted_at DATETIME(6),
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_payments_member_order (member_id, order_id),
+    UNIQUE KEY uk_payments_pg_transaction_key (pg_transaction_key)
 );
 
 CREATE TABLE IF NOT EXISTS likes (

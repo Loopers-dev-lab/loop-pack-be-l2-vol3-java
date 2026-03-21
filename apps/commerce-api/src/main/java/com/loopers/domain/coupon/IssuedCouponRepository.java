@@ -15,7 +15,7 @@ public interface IssuedCouponRepository {
 
     int markUsedAtomically(String memberId, UUID couponId, LocalDateTime now);
 
-    int markAvailableAtomically(String memberId, UUID couponId, LocalDateTime now);
+    int markAvailableAtomically(String memberId, UUID couponId);
 
     Page<IssuedCoupon> findByCouponId(UUID couponId, Pageable pageable);
 

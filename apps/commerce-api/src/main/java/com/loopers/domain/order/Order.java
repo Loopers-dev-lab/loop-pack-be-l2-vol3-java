@@ -15,8 +15,10 @@ public record Order(
         OrderStatus status,
         int totalAmount,
         UUID couponId,
+        int usedPointAmount,
         List<OrderItem> items,
-        ZonedDateTime deletedAt
+        ZonedDateTime deletedAt,
+        ZonedDateTime stockDeductedAt
 ) {
 
     public Order {
@@ -37,35 +39,78 @@ public record Order(
                 OrderStatus.ORDERED,
                 items.stream().mapToInt(OrderItem::totalPrice).sum(),
                 null,
+                0,
                 items,
+                null,
                 null
         );
     }
 
     public Order(String memberId, String orderNumber, List<OrderItem> items, UUID couponId) {
+        this(memberId, orderNumber, items, couponId, items.stream().mapToInt(OrderItem::totalPrice).sum(), 0);
+    }
+
+    public Order(String memberId, String orderNumber, List<OrderItem> items, UUID couponId, int totalAmount, int usedPointAmount) {
         this(
                 null,
                 memberId,
                 orderNumber,
                 ZonedDateTime.now(),
                 OrderStatus.ORDERED,
-                items.stream().mapToInt(OrderItem::totalPrice).sum(),
+                totalAmount,
                 couponId,
+                usedPointAmount,
                 items,
+                null,
                 null
         );
     }
 
     public Order(UUID id, String memberId, String orderNumber, ZonedDateTime orderDate, OrderStatus status,
                  int totalAmount, List<OrderItem> items, ZonedDateTime deletedAt) {
-        this(id, memberId, orderNumber, orderDate, status, totalAmount, null, items, deletedAt);
+        this(id, memberId, orderNumber, orderDate, status, totalAmount, null, 0, items, deletedAt, null);
     }
 
     public Order cancel() {
         if (this.status == OrderStatus.CANCELLED) {
             throw new CoreException(ErrorType.CONFLICT, "이미 취소된 주문입니다.");
         }
-        return new Order(id, memberId, orderNumber, orderDate, OrderStatus.CANCELLED, totalAmount, couponId, items, deletedAt);
+        return new Order(
+                id,
+                memberId,
+                orderNumber,
+                orderDate,
+                OrderStatus.CANCELLED,
+                totalAmount,
+                couponId,
+                usedPointAmount,
+                items,
+                ZonedDateTime.now(),
+                stockDeductedAt
+        );
+    }
+
+    public Order markStockDeducted() {
+        if (stockDeductedAt != null) {
+            return this;
+        }
+        if (status != OrderStatus.ORDERED) {
+            return this;
+        }
+
+        return new Order(
+                id,
+                memberId,
+                orderNumber,
+                orderDate,
+                status,
+                totalAmount,
+                couponId,
+                usedPointAmount,
+                items,
+                deletedAt,
+                ZonedDateTime.now()
+        );
     }
 
     public boolean isOwner(String memberId) {
@@ -74,5 +119,9 @@ public record Order(
 
     public boolean isCancelled() {
         return this.status == OrderStatus.CANCELLED;
+    }
+
+    public boolean isStockDeducted() {
+        return this.stockDeductedAt != null;
     }
 }
