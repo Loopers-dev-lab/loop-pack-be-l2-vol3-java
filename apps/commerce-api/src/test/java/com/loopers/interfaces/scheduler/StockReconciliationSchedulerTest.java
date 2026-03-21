@@ -1,5 +1,6 @@
-package com.loopers.application.stock;
+package com.loopers.interfaces.scheduler;
 
+import com.loopers.application.stock.StockService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.payment.CardType;
@@ -25,10 +26,10 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest
 @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
-class StockSchedulerTest {
+class StockReconciliationSchedulerTest {
 
     @Autowired
-    private StockScheduler stockScheduler;
+    private StockReconciliationScheduler stockScheduler;
 
     @Autowired
     private StockService stockService;

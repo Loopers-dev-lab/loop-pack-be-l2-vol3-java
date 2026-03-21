@@ -1,5 +1,6 @@
-package com.loopers.application.product;
+package com.loopers.interfaces.scheduler;
 
+import com.loopers.application.product.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -10,7 +11,7 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ProductScheduler {
+public class ProductCleanupScheduler {
 
     private static final int BATCH_SIZE = 100;
 

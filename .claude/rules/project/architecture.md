@@ -3,7 +3,7 @@
 ## 패키지 구조 (4-Layered_Architecture)
 ```
 com.loopers/
-├── interfaces/          # REST 컨트롤러, Request DTO, Response DTO (V1Dto)
+├── interfaces/          # 진입점 (REST 컨트롤러, 스케줄러), Request DTO, Response DTO (V1Dto)
 ├── application/         # Facade, ApplicationService(xxxService), Command, Info
 ├── domain/              # Entity, Domain Service, Repository 인터페이스, VO
 ├── infrastructure/      # Repository 구현체, 외부 어댑터
@@ -35,11 +35,17 @@ interfaces → application → domain ← infrastructure
 
 ## 계층별 역할
 
-### Controller (interfaces)
+### Controller (interfaces/api)
 - HTTP 요청/응답 변환 + 입력 검증 + Facade 호출
 - API별 enum은 Response DTO 내부에 inner enum으로 정의
 - 입출력 데이터 흐름은 `conventions/dto.md` 참고
 - 검증 규칙은 `conventions/validation.md` 참고
+
+### Scheduler (interfaces/scheduler)
+- 시간 기반 트리거의 진입점 — Controller와 동일한 어댑터 역할
+- `@Scheduled` 어노테이션으로 트리거, 실제 로직은 Facade에 위임
+- 스케줄러의 책임: 대상 조회 + 루프 + 예외 격리 + 로깅
+- 비즈니스 오케스트레이션은 Facade에서 수행
 
 ### Facade (application)
 - 여러 도메인의 ApplicationService 호출 오케스트레이션

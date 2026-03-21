@@ -1,12 +1,13 @@
-package com.loopers.application.stock;
+package com.loopers.interfaces.scheduler;
 
+import com.loopers.application.stock.StockReconciler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class StockScheduler {
+public class StockReconciliationScheduler {
 
     private final StockReconciler stockReconciler;
 

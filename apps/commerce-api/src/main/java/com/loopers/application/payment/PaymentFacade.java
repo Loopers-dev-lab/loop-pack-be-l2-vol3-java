@@ -83,6 +83,30 @@ public class PaymentFacade {
         return PaymentInfo.from(paymentService.getPayment(payment.getId()));
     }
 
+    // Reconciliation (스케줄러 위임)
+
+    public void reconcilePending(Long paymentId) {
+        Payment payment = paymentService.getPayment(paymentId);
+        PgResult.Query result = gatewayExecutor.query(payment);
+
+        if (result.found() && result.done()) {
+            transactionTemplate.executeWithoutResult(status ->
+                    processor.confirmAndSettle(payment.getId(), payment.getOrderId()));
+        } else {
+            transactionTemplate.executeWithoutResult(status ->
+                    processor.failAndRelease(payment.getId(), payment.getOrderId(), "PG 확인 불가 — 자동 만료"));
+        }
+    }
+
+    public void reconcileCancel(Long paymentId) {
+        Payment payment = paymentService.getPayment(paymentId);
+        boolean canceled = gatewayExecutor.cancel(payment, payment.getCancelReason());
+        if (canceled) {
+            transactionTemplate.executeWithoutResult(status ->
+                    processor.cancelAndCompensate(payment.getId(), payment.getOrderId()));
+        }
+    }
+
     // Query
 
     @Transactional(readOnly = true)
