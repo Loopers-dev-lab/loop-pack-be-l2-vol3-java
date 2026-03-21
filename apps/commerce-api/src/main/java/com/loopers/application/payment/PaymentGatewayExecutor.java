@@ -22,7 +22,7 @@ public class PaymentGatewayExecutor {
 
     public PgConfirmOutcome confirm(Payment payment) {
         PaymentGateway gateway = gatewayRegistry.getGateway(payment.getPgType());
-        PgCommand.Confirm command = new PgCommand.Confirm(
+        PgCommand.Confirm command = PgCommand.Confirm.of(
                 payment.getPaymentKey(),
                 String.valueOf(payment.getOrderId()),
                 payment.getAmount().longValue()
@@ -59,7 +59,7 @@ public class PaymentGatewayExecutor {
         try {
             gateway.cancel(
                     payment.getPaymentKey(),
-                    new PgCommand.Cancel(String.valueOf(payment.getOrderId()), cancelReason, payment.getAmount().longValue()));
+                    PgCommand.Cancel.of(String.valueOf(payment.getOrderId()), cancelReason, payment.getAmount().longValue()));
             return true;
         } catch (Exception e) {
             log.warn("PG 결제 취소 실패: paymentId={}, pgType={}, message={}",

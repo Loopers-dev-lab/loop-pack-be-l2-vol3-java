@@ -83,7 +83,7 @@ public class NicePaymentGateway implements PaymentGateway {
             );
 
             boolean success = response != null && response.isSuccess() && response.isPaid();
-            return new PgResult.Confirm(success, command.paymentKey(),
+            return PgResult.Confirm.of(success, command.paymentKey(),
                     success ? null : (response != null ? response.resultMsg() : "PG 승인 실패"));
         } catch (HttpClientErrorException e) {
             throw classifyClientError(e, "나이스 결제 승인", command.paymentKey());
@@ -115,7 +115,7 @@ public class NicePaymentGateway implements PaymentGateway {
                     NicePaymentResponse.class
             );
 
-            return new PgResult.Cancel(true, null);
+            return PgResult.Cancel.of(true, null);
         } catch (HttpClientErrorException e) {
             throw classifyClientError(e, "나이스 결제 취소", paymentKey);
         } catch (HttpServerErrorException e) {
@@ -147,11 +147,11 @@ public class NicePaymentGateway implements PaymentGateway {
 
             NicePaymentResponse body = response.getBody();
             if (body == null || !body.isSuccess()) {
-                return new PgResult.Query(false, false, null);
+                return PgResult.Query.of(false, false, null);
             }
-            return new PgResult.Query(true, body.isPaid(), body.status());
+            return PgResult.Query.of(true, body.isPaid(), body.status());
         } catch (HttpClientErrorException.NotFound e) {
-            return new PgResult.Query(false, false, null);
+            return PgResult.Query.of(false, false, null);
         } catch (HttpClientErrorException e) {
             throw classifyClientError(e, "나이스 결제 조회", paymentKey);
         } catch (HttpServerErrorException e) {
