@@ -4,7 +4,6 @@ import com.loopers.application.order.OrderService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.payment.Payment;
-import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.domain.payment.gateway.PaymentQueryResult;
 import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.support.error.CoreException;
@@ -116,7 +115,7 @@ public class PaymentFacade {
 
     private void doCancelPayment(Long userId, Payment payment, String cancelReason) {
         payment.validateOwnership(userId);
-        if (payment.getStatus() != PaymentStatus.SUCCEEDED) {
+        if (!payment.isSucceeded()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "취소할 수 없는 결제 상태입니다");
         }
 
@@ -127,7 +126,7 @@ public class PaymentFacade {
         boolean canceled = gatewayExecutor.cancel(payment, cancelReason);
 
         if (canceled) {
-            // TX2: CANCEL_REQUESTED → CANCELED + 보상
+            // TX2: CANCEL_REQUESTED → CANCELED + 보상 (이미 처리된 건은 내부에서 스킵)
             transactionTemplate.executeWithoutResult(status ->
                     processor.cancelAndCompensate(payment.getId(), payment.getOrderId()));
         }

@@ -51,10 +51,12 @@ public class PaymentService {
     }
 
     @Transactional
-    public void markCanceled(Long paymentId) {
-        Payment payment = paymentRepository.findById(paymentId)
+    public boolean markCanceledIfRequested(Long paymentId) {
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다"));
+        if (payment.isCanceled()) return false;
         payment.markCanceled();
+        return true;
     }
 
     // Query

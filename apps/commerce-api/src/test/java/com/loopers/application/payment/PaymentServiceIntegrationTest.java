@@ -117,14 +117,27 @@ class PaymentServiceIntegrationTest {
             paymentService.markSucceeded(payment.getId());
             paymentService.markCancelRequested(payment.getId(), "단순 변심");
 
-            paymentService.markCanceled(payment.getId());
+            boolean result = paymentService.markCanceledIfRequested(payment.getId());
 
             Payment updated = paymentService.getPayment(payment.getId());
             assertAll(
+                    () -> assertThat(result).isTrue(),
                     () -> assertThat(updated.getStatus()).isEqualTo(PaymentStatus.CANCELED),
                     () -> assertThat(updated.getCancelReason()).isEqualTo("단순 변심"),
                     () -> assertThat(updated.getCanceledAt()).isNotNull()
             );
+        }
+
+        @Test
+        void 이미_CANCELED_상태이면_false를_반환한다() {
+            Payment payment = paymentService.createPayment(PaymentCommand.Create.of(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")));
+            paymentService.markSucceeded(payment.getId());
+            paymentService.markCancelRequested(payment.getId(), "단순 변심");
+            paymentService.markCanceledIfRequested(payment.getId());
+
+            boolean result = paymentService.markCanceledIfRequested(payment.getId());
+
+            assertThat(result).isFalse();
         }
     }
 

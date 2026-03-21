@@ -40,7 +40,7 @@ public class PaymentProcessor {
      * 호출 측에서 트랜잭션 보장 필요
      */
     public void cancelAndCompensate(Long paymentId, Long orderId) {
-        paymentService.markCanceled(paymentId);
+        if (!paymentService.markCanceledIfRequested(paymentId)) return;
         compensate(orderService.getOrder(orderId));
     }
 

@@ -212,6 +212,48 @@ class PaymentTest {
     }
 
     @Nested
+    class 성공_여부_확인 {
+
+        @Test
+        void SUCCEEDED이면_true를_반환한다() {
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            payment.markSucceeded();
+
+            assertThat(payment.isSucceeded()).isTrue();
+        }
+
+        @Test
+        void REQUESTED이면_false를_반환한다() {
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+
+            assertThat(payment.isSucceeded()).isFalse();
+        }
+    }
+
+    @Nested
+    class 취소_여부_확인 {
+
+        @Test
+        void CANCELED이면_true를_반환한다() {
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            payment.markSucceeded();
+            payment.markCancelRequested("변심");
+            payment.markCanceled();
+
+            assertThat(payment.isCanceled()).isTrue();
+        }
+
+        @Test
+        void CANCEL_REQUESTED이면_false를_반환한다() {
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            payment.markSucceeded();
+            payment.markCancelRequested("변심");
+
+            assertThat(payment.isCanceled()).isFalse();
+        }
+    }
+
+    @Nested
     class 소유권_확인 {
 
         @Test
