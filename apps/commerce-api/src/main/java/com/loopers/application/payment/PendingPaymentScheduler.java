@@ -1,7 +1,7 @@
 package com.loopers.application.payment;
 
 import com.loopers.domain.payment.Payment;
-import com.loopers.domain.payment.gateway.PaymentQueryResult;
+import com.loopers.domain.payment.gateway.PgResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -49,7 +49,7 @@ public class PendingPaymentScheduler {
 
     private void reconcilePending(Payment payment) {
         try {
-            PaymentQueryResult result = gatewayExecutor.query(payment);
+            PgResult.Query result = gatewayExecutor.query(payment);
 
             if (result.found() && result.done()) {
                 transactionTemplate.executeWithoutResult(status ->

@@ -1,13 +1,11 @@
 package com.loopers.application.payment;
 
 import com.loopers.domain.payment.Payment;
-import com.loopers.domain.payment.gateway.PaymentCancelCommand;
-import com.loopers.domain.payment.gateway.PaymentConfirmCommand;
-import com.loopers.domain.payment.gateway.PaymentConfirmResult;
 import com.loopers.domain.payment.gateway.PaymentGateway;
-import com.loopers.domain.payment.gateway.PaymentQueryResult;
 import com.loopers.domain.payment.gateway.PgBusinessException;
+import com.loopers.domain.payment.gateway.PgCommand;
 import com.loopers.domain.payment.gateway.PgCommunicationException;
+import com.loopers.domain.payment.gateway.PgResult;
 import com.loopers.domain.payment.gateway.PgTimeoutException;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -24,14 +22,14 @@ public class PaymentGatewayExecutor {
 
     public PgConfirmOutcome confirm(Payment payment) {
         PaymentGateway gateway = gatewayRegistry.getGateway(payment.getPgType());
-        PaymentConfirmCommand command = new PaymentConfirmCommand(
+        PgCommand.Confirm command = new PgCommand.Confirm(
                 payment.getPaymentKey(),
                 String.valueOf(payment.getOrderId()),
                 payment.getAmount().longValue()
         );
 
         try {
-            PaymentConfirmResult result = gateway.confirm(command);
+            PgResult.Confirm result = gateway.confirm(command);
             return result.success()
                     ? new PgConfirmOutcome.Success()
                     : new PgConfirmOutcome.Failed(result.message());
@@ -61,7 +59,7 @@ public class PaymentGatewayExecutor {
         try {
             gateway.cancel(
                     payment.getPaymentKey(),
-                    new PaymentCancelCommand(String.valueOf(payment.getOrderId()), cancelReason, payment.getAmount().longValue()));
+                    new PgCommand.Cancel(String.valueOf(payment.getOrderId()), cancelReason, payment.getAmount().longValue()));
             return true;
         } catch (Exception e) {
             log.warn("PG 결제 취소 실패: paymentId={}, pgType={}, message={}",
@@ -70,7 +68,7 @@ public class PaymentGatewayExecutor {
         }
     }
 
-    public PaymentQueryResult query(Payment payment) {
+    public PgResult.Query query(Payment payment) {
         PaymentGateway gateway = gatewayRegistry.getGateway(payment.getPgType());
         try {
             return gateway.query(payment.getPaymentKey());

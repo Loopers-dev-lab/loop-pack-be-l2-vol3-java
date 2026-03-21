@@ -6,9 +6,9 @@ public interface PaymentGateway {
 
     String getCircuitBreakerName();
 
-    PaymentConfirmResult confirm(PaymentConfirmCommand command);
+    PgResult.Confirm confirm(PgCommand.Confirm command);
 
-    PaymentCancelResult cancel(String paymentKey, PaymentCancelCommand command);
+    PgResult.Cancel cancel(String paymentKey, PgCommand.Cancel command);
 
-    PaymentQueryResult query(String paymentKey);
+    PgResult.Query query(String paymentKey);
 }

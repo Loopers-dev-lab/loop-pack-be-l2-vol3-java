@@ -4,7 +4,7 @@ import com.loopers.application.order.OrderService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.payment.Payment;
-import com.loopers.domain.payment.gateway.PaymentQueryResult;
+import com.loopers.domain.payment.gateway.PgResult;
 import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -74,7 +74,7 @@ public class PaymentFacade {
         }
 
         // REQUESTED: PG에 조회하여 최종 결정
-        PaymentQueryResult result = gatewayExecutor.query(payment);
+        PgResult.Query result = gatewayExecutor.query(payment);
 
         if (result.found() && result.done()) {
             transactionTemplate.executeWithoutResult(status -> {

@@ -2,14 +2,11 @@ package com.loopers.infrastructure.payment.toss;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.domain.payment.gateway.PaymentCancelCommand;
-import com.loopers.domain.payment.gateway.PaymentCancelResult;
-import com.loopers.domain.payment.gateway.PaymentConfirmCommand;
-import com.loopers.domain.payment.gateway.PaymentConfirmResult;
 import com.loopers.domain.payment.gateway.PaymentGateway;
-import com.loopers.domain.payment.gateway.PaymentQueryResult;
 import com.loopers.domain.payment.gateway.PgBusinessException;
+import com.loopers.domain.payment.gateway.PgCommand;
 import com.loopers.domain.payment.gateway.PgCommunicationException;
+import com.loopers.domain.payment.gateway.PgResult;
 import com.loopers.domain.payment.gateway.PgTimeoutException;
 import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.infrastructure.payment.toss.dto.TossCancelRequest;
@@ -76,7 +73,7 @@ public class TossPaymentGateway implements PaymentGateway {
     @CircuitBreaker(name = "toss-request", fallbackMethod = "confirmFallback")
     @Retry(name = "toss-confirm")
     @Override
-    public PaymentConfirmResult confirm(PaymentConfirmCommand command) {
+    public PgResult.Confirm confirm(PgCommand.Confirm command) {
         try {
             TossConfirmRequest request = new TossConfirmRequest(
                     command.paymentKey(), command.orderId(), command.amount());
@@ -92,7 +89,7 @@ public class TossPaymentGateway implements PaymentGateway {
             );
 
             boolean success = response != null && response.isDone();
-            return new PaymentConfirmResult(success, command.paymentKey(),
+            return new PgResult.Confirm(success, command.paymentKey(),
                     success ? null : "PG 승인 실패");
         } catch (HttpClientErrorException e) {
             throw classifyClientError(e, "토스 결제 승인", command.paymentKey());
@@ -107,7 +104,7 @@ public class TossPaymentGateway implements PaymentGateway {
 
     @Retry(name = "toss-cancel")
     @Override
-    public PaymentCancelResult cancel(String paymentKey, PaymentCancelCommand command) {
+    public PgResult.Cancel cancel(String paymentKey, PgCommand.Cancel command) {
         try {
             TossCancelRequest request = new TossCancelRequest(
                     command.cancelReason(), command.cancelAmount());
@@ -122,7 +119,7 @@ public class TossPaymentGateway implements PaymentGateway {
                     TossPaymentResponse.class
             );
 
-            return new PaymentCancelResult(true, null);
+            return new PgResult.Cancel(true, null);
         } catch (HttpClientErrorException e) {
             throw classifyClientError(e, "토스 결제 취소", paymentKey);
         } catch (HttpServerErrorException e) {
@@ -139,7 +136,7 @@ public class TossPaymentGateway implements PaymentGateway {
     @CircuitBreaker(name = "toss-query", fallbackMethod = "queryFallback")
     @Retry(name = "toss-query")
     @Override
-    public PaymentQueryResult query(String paymentKey) {
+    public PgResult.Query query(String paymentKey) {
         try {
             HttpEntity<Void> entity = new HttpEntity<>(null);
 
@@ -152,11 +149,11 @@ public class TossPaymentGateway implements PaymentGateway {
 
             TossPaymentResponse body = response.getBody();
             if (body == null) {
-                return new PaymentQueryResult(false, false, null);
+                return new PgResult.Query(false, false, null);
             }
-            return new PaymentQueryResult(true, body.isDone(), body.status());
+            return new PgResult.Query(true, body.isDone(), body.status());
         } catch (HttpClientErrorException.NotFound e) {
-            return new PaymentQueryResult(false, false, null);
+            return new PgResult.Query(false, false, null);
         } catch (HttpClientErrorException e) {
             throw classifyClientError(e, "토스 결제 조회", paymentKey);
         } catch (HttpServerErrorException e) {
@@ -204,11 +201,11 @@ public class TossPaymentGateway implements PaymentGateway {
         }
     }
 
-    private PaymentConfirmResult confirmFallback(PaymentConfirmCommand command, Throwable t) {
+    private PgResult.Confirm confirmFallback(PgCommand.Confirm command, Throwable t) {
         throw new CoreException(ErrorType.INTERNAL_ERROR, "현재 결제 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해주세요");
     }
 
-    private PaymentQueryResult queryFallback(String paymentKey, Throwable t) {
+    private PgResult.Query queryFallback(String paymentKey, Throwable t) {
         throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 상태를 확인할 수 없습니다. 잠시 후 다시 시도해주세요");
     }
 }
