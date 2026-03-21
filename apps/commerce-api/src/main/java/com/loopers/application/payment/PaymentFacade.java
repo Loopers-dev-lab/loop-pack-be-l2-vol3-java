@@ -30,14 +30,12 @@ public class PaymentFacade {
     // Command
 
     @Bulkhead(name = "pg-payment", fallbackMethod = "paymentBulkheadFallback")
-    public PaymentInfo requestPayment(Long userId, PaymentCommand.Request command) {
+    public PaymentInfo requestPayment(Long userId, PaymentCommand.Request reqCommand) {
         // TX1: 주문 검증 + Payment 생성 + 비즈니스 확정
         Payment payment = transactionTemplate.execute(status -> {
-            Order order = validateAndGetOrder(userId, command.orderId());
+            Order order = validateAndGetOrder(userId, reqCommand.orderId());
 
-            PaymentCommand.Create createCommand = PaymentCommand.Create.of(
-                    command.orderId(), userId, command.pgType(),
-                    command.cardType(), command.cardNo(), order.getFinalAmount());
+            PaymentCommand.Create createCommand = PaymentCommand.Create.from(reqCommand, userId, order.getFinalAmount());
             Payment created = paymentService.createPayment(createCommand);
 
             processor.confirm(order);
