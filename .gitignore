@@ -43,6 +43,7 @@ out/
 /docs/plan
 /docs/test
 /docs/technical_writing
+/docs/guides
 
 ### claude settings ###
 *.local.json

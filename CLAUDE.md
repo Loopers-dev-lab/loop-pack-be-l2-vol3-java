@@ -92,7 +92,10 @@ Infrastructure Layer (RepositoryImpl, JpaRepository, Converter)
 
 ## 과정 기록 (필수)
 
-의사결정, 실험 결과, 트레이드오프 논의는 **`docs/discussion/{현재 브랜치명}-discussion.md`** 에 기록.
+의사결정, 실험 결과, 트레이드오프 논의는 **`docs/discussion/{주차}/{현재 브랜치명}-discussion.md`** 에 기록.
+- 주차는 브랜치명에서 추출 (예: `feat/week7-event-driven` → `docs/discussion/week7/feat-week7-event-driven-discussion.md`)
+- 주차를 식별할 수 없는 경우: `docs/discussion/misc/{브랜치명}-discussion.md`
+
 파일이 없으면 대화 시작 시 생성. 있으면 기존 내용에 **추가(append)**.
 
 기록 대상: 설계 방향 선택, 구현 방식 변경, 테스트 실행 결과(PASS/FAIL·수치·EXPLAIN), 기각된 대안
@@ -156,5 +159,5 @@ B: [방법명] — 방식 / 장점 / 단점
 - `/analyze-query` — 트랜잭션·쿼리 분석
 - `/requirements-analysis` — 요구사항 설계
 - `/pr-creation` — PR 작성
-- `/commit-plan` — 현재 브랜치 구현 방향·진행 상태를 docs/plan/{브랜치명}-plan.md 로 정리
+- `/commit-plan` — 현재 브랜치 구현 방향·진행 상태를 docs/plan/{주차}/{브랜치명}-plan.md 로 정리
 - `/analyze-external-integration` — 외부 시스템 연동 설계 리뷰 (트랜잭션 경계·상태 불일치·장애 시나리오·Observability)
