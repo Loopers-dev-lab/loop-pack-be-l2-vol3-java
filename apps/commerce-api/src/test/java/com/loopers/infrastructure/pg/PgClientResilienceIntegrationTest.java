@@ -149,22 +149,51 @@ class PgClientResilienceIntegrationTest {
     @DisplayName("ConnectException 발생 시 Smart Retry 후 Fallback 반환")
     void connectException_triggers_retry_then_fallback() {
         // given — WireMock 서버 중지로 ConnectException 유발
+        int port = wireMockServer.port();
         wireMockServer.stop();
 
-        long failedBefore = retryRegistry.retry("pg-payment-request")
-                .getMetrics().getNumberOfFailedCallsWithRetryAttempt();
+        try {
+            long failedBefore = retryRegistry.retry("pg-payment-request")
+                    .getMetrics().getNumberOfFailedCallsWithRetryAttempt();
+
+            // when
+            PgPaymentResult result = pgClient.requestPayment(createCommand());
+
+            // then — Fallback 반환 확인
+            assertThat(result.accepted()).isFalse();
+            assertThat(result.transactionId()).isNull();
+            assertThat(result.message()).contains("PG 응답 지연");
+
+            // then — Retry 메트릭으로 재시도 발생 확인
+            long failedAfter = retryRegistry.retry("pg-payment-request")
+                    .getMetrics().getNumberOfFailedCallsWithRetryAttempt();
+            assertThat(failedAfter).isGreaterThan(failedBefore);
+        } finally {
+            // 동일 포트로 재시작하여 후속 테스트 격리 보장
+            wireMockServer = new WireMockServer(WireMockConfiguration.wireMockConfig().port(port));
+            wireMockServer.start();
+        }
+    }
+
+    @Test
+    @Order(6)
+    @DisplayName("PG 장애 복구 후 정상 응답 반환 — 서버 재시작 회귀 검증")
+    void after_restart_normal_response_succeeds() {
+        // given — PG가 정상 응답
+        wireMockServer.stubFor(post(urlEqualTo("/api/v1/payments"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {"transactionKey":"tx-recovery","orderId":"ORD-000001","status":"ACCEPTED","message":"ok"}
+                                """)));
 
         // when
         PgPaymentResult result = pgClient.requestPayment(createCommand());
 
-        // then — Fallback 반환 확인
-        assertThat(result.accepted()).isFalse();
-        assertThat(result.transactionId()).isNull();
-        assertThat(result.message()).contains("PG 응답 지연");
-
-        // then — Retry 메트릭으로 재시도 발생 확인
-        long failedAfter = retryRegistry.retry("pg-payment-request")
-                .getMetrics().getNumberOfFailedCallsWithRetryAttempt();
-        assertThat(failedAfter).isGreaterThan(failedBefore);
+        // then — 정상 응답 확인
+        assertThat(result.accepted()).isTrue();
+        assertThat(result.transactionId()).isEqualTo("tx-recovery");
+        wireMockServer.verify(1, postRequestedFor(urlEqualTo("/api/v1/payments")));
     }
 }
