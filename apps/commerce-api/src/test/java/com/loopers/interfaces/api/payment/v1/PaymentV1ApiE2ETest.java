@@ -1,9 +1,5 @@
 package com.loopers.interfaces.api.payment.v1;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.post;
-import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static com.loopers.interfaces.api.order.v1.OrderSteps.createOrder;
 import static com.loopers.interfaces.api.payment.v1.PaymentSteps.createPayment;
@@ -14,7 +10,6 @@ import static com.loopers.support.E2ETestHelper.userAuthHeaders;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -29,14 +24,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.support.RestClientAdapter;
-import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
-import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderRepository;
@@ -55,6 +45,8 @@ import com.loopers.interfaces.api.product.v1.ProductSteps;
 import com.loopers.interfaces.api.user.v1.UserV1Dto;
 import com.loopers.support.BaseE2ETest;
 import com.loopers.support.error.ErrorType;
+import com.loopers.support.wiremock.PgApiStub;
+import com.loopers.support.wiremock.WireMockClientFactory;
 
 @Import(PaymentV1ApiE2ETest.WireMockPgClientConfig.class)
 class PaymentV1ApiE2ETest extends BaseE2ETest {
@@ -62,25 +54,14 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
     /**
      * WireMock과 호환되는 {@link PgPaymentHttpInterface} 빈을 제공한다.
      *
-     * <p>기본 {@code PgPaymentClientConfig}는 {@code JdkClientHttpRequestFactory}를 사용하는데,
-     * {@code HttpServiceProxyFactory} 프록시를 통해 WireMock에 요청하면 EOF 에러가 발생한다. {@code SimpleClientHttpRequestFactory}(HTTP/1.1)로 교체하여 이 문제를 우회한다.
-     *
      * <p>{@code @TestConfiguration}은 내부 클래스여도 자동 로드되지 않으므로,
      * 반드시 {@code @Import}로 명시적으로 등록해야 한다.
+     *
+     * @see WireMockClientFactory
      */
     @TestConfiguration
     static class WireMockPgClientConfig {
 
-        /**
-         * WireMock URL을 가리키는 {@link PgPaymentHttpInterface} 빈을 생성한다.
-         *
-         * <p>{@code @Primary}로 선언하여 기본 {@code PgPaymentClientConfig}의 빈을 대체한다.
-         *
-         * @param baseUrl        WireMock URL ({@code @DynamicPropertySource}로 주입)
-         * @param connectTimeout 연결 타임아웃 (ms)
-         * @param readTimeout    읽기 타임아웃 (ms)
-         * @return WireMock과 통신하는 PG 클라이언트 프록시
-         */
         @Bean
         @Primary
         PgPaymentHttpInterface wireMockPgPaymentHttpInterface(
@@ -88,18 +69,7 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
                 @Value("${pg.connect-timeout}") int connectTimeout,
                 @Value("${pg.read-timeout}") int readTimeout
         ) {
-            var factory = new SimpleClientHttpRequestFactory();
-            factory.setConnectTimeout(Duration.ofMillis(connectTimeout));
-            factory.setReadTimeout(Duration.ofMillis(readTimeout));
-
-            RestClient restClient = RestClient.builder()
-                    .baseUrl(baseUrl)
-                    .requestFactory(factory)
-                    .build();
-            return HttpServiceProxyFactory
-                    .builderFor(RestClientAdapter.create(restClient))
-                    .build()
-                    .createClient(PgPaymentHttpInterface.class);
+            return WireMockClientFactory.create(PgPaymentHttpInterface.class, baseUrl, connectTimeout, readTimeout);
         }
     }
 
@@ -112,6 +82,8 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
     static void configureProperties(DynamicPropertyRegistry registry) {
         registry.add("pg.base-url", wireMock::baseUrl);
     }
+
+    private final PgApiStub pgStub = new PgApiStub(wireMock);
 
     @Autowired
     private PaymentRepository paymentRepository;
@@ -126,13 +98,12 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
     private String orderKey;
     private Long productId;
 
-    private static final String PG_PAYMENT_URL = "/api/v1/payments";
     private static final long INITIAL_STOCK = 100L;
     private static final long ORDER_QUANTITY = 2L;
 
     @BeforeEach
     void setUp() {
-        wireMock.resetAll();
+        pgStub.resetAll();
 
         var loginId = "testuser1";
         var loginPw = "Password1!";
@@ -160,7 +131,7 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
     @Test
     void createPayment_createsPayment_whenPgRespondsSuccessfully() {
         // arrange
-        stubPgSuccess("txn-test-001");
+        pgStub.willRespondSuccess("txn-test-001");
         var request = paymentRequest();
 
         // act
@@ -174,8 +145,7 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
                 () -> assertThat(response.getBody().data().paymentId()).isNotNull()
         );
 
-        wireMock.verify(postRequestedFor(urlEqualTo(PG_PAYMENT_URL))
-                .withHeader("X-USER-ID", equalTo("1")));
+        pgStub.verifyPaymentRequested("1");
     }
 
     @DisplayName("결제 생성: 존재하지 않는 주문이면, 404를 반환한다.")
@@ -200,13 +170,13 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
     @Test
     void createPayment_returnsBadRequest_whenOrderNotPayable() {
         // arrange
-        stubPgSuccess("txn-paid-001");
+        pgStub.willRespondSuccess("txn-paid-001");
         createPayment(testRestTemplate, paymentRequest(), userHeaders);
         handlePaymentCallback(testRestTemplate,
                 new PaymentDto.PaymentCallbackRequest("txn-paid-001", PaymentStatus.SUCCESS, null));
+        pgStub.willRespondSuccess("txn-paid-002");
 
         // act
-        stubPgSuccess("txn-paid-002");
         var response = createPayment(testRestTemplate, paymentRequest(), userHeaders);
 
         // assert
@@ -217,12 +187,7 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
     @Test
     void createPayment_returnsBadRequest_whenPgReturns400() {
         // arrange
-        wireMock.stubFor(post(urlEqualTo(PG_PAYMENT_URL))
-                .willReturn(WireMock.aResponse()
-                        .withStatus(400)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("""
-                                {"meta":{"result":"FAIL","errorCode":"INVALID_CARD","message":"유효하지 않은 카드"},"data":null}""")));
+        pgStub.willRespondError(400, "INVALID_CARD", "유효하지 않은 카드");
         var request = paymentRequest();
 
         // act
@@ -236,12 +201,7 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
     @Test
     void createPayment_returnsServiceUnavailable_whenPgReturns500() {
         // arrange
-        wireMock.stubFor(post(urlEqualTo(PG_PAYMENT_URL))
-                .willReturn(WireMock.aResponse()
-                        .withStatus(500)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("""
-                                {"meta":{"result":"FAIL","errorCode":"INTERNAL_ERROR","message":"서버 오류"},"data":null}""")));
+        pgStub.willRespondError(500, "INTERNAL_ERROR", "서버 오류");
         var request = paymentRequest();
 
         // act
@@ -255,7 +215,7 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
     @Test
     void callback_updatesToSuccess_whenSuccessCallback() {
         // arrange
-        stubPgSuccess("txn-success-001");
+        pgStub.willRespondSuccess("txn-success-001");
         createPayment(testRestTemplate, paymentRequest(), userHeaders);
 
         // act
@@ -277,7 +237,7 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
     @Test
     void callback_updatesToFailed_whenFailureCallback() {
         // arrange
-        stubPgSuccess("txn-fail-001");
+        pgStub.willRespondSuccess("txn-fail-001");
         createPayment(testRestTemplate, paymentRequest(), userHeaders);
 
         // act
@@ -302,7 +262,7 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
     @Test
     void callback_remainsUnchanged_whenDuplicateCallback() {
         // arrange
-        stubPgSuccess("txn-dup-001");
+        pgStub.willRespondSuccess("txn-dup-001");
         createPayment(testRestTemplate, paymentRequest(), userHeaders);
         handlePaymentCallback(testRestTemplate, new PaymentDto.PaymentCallbackRequest("txn-dup-001", PaymentStatus.SUCCESS, null));
 
@@ -321,16 +281,6 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
                 () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS),
                 () -> assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID)
         );
-    }
-
-    private void stubPgSuccess(String transactionKey) {
-        String body = """
-                {"meta":{"result":"SUCCESS","errorCode":null,"message":null},"data":{"transactionKey":"%s","status":"PENDING","reason":null}}""".formatted(transactionKey);
-        wireMock.stubFor(post(urlEqualTo(PG_PAYMENT_URL))
-                .willReturn(WireMock.aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(body)));
     }
 
     private PaymentDto.CreatePaymentRequest paymentRequest() {
