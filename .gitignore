@@ -41,3 +41,10 @@ out/
 
 /docs/discussion
 /docs/plan
+/docs/test
+/docs/technical_writing
+
+### claude settings ###
+*.local.json
+
+exp*

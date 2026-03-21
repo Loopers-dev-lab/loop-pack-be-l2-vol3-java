@@ -7,393 +7,120 @@ allowed-tools: Read, Grep
 
 # 아키텍처 패턴
 
-## 레이어드 아키텍처
-
-### 전체 구조
-```
-┌─────────────────────────────────────────┐
-│         Interfaces Layer                │  ← 외부 통신
-│  (Controller, ApiSpec, Dto, Response)   │
-└─────────────────────────────────────────┘
-              ↓
-┌─────────────────────────────────────────┐
-│        Application Layer                │  ← 유스케이스 조합
-│       (App, Facade, Info)               │
-└─────────────────────────────────────────┘
-              ↓
-┌─────────────────────────────────────────┐
-│          Domain Layer                   │  ← 핵심 비즈니스 로직
-│  (Model, Reader, Service, Repository, VO) │
-└─────────────────────────────────────────┘
-              ↓
-┌─────────────────────────────────────────┐
-│      Infrastructure Layer               │  ← 외부 시스템 연동
-│  (RepositoryImpl, JpaRepository, etc)   │
-└─────────────────────────────────────────┘
-```
-
-### 의존성 규칙
-- **상위 레이어 → 하위 레이어**: 의존 가능
-- **하위 레이어 → 상위 레이어**: 의존 불가
-- **Domain Layer**: 다른 레이어에 의존하지 않음 (순수 비즈니스 로직)
-- **Infrastructure Layer**: Domain Layer의 인터페이스 구현
+> 모든 패턴은 실제 코드베이스에서 확인할 것. 이 문서는 방향과 규칙만 기술한다.
+> 경로 prefix: `apps/commerce-api/src/main/java/com/loopers/`
 
 ---
 
-## Domain Layer (도메인 계층)
+## 레이어 구조
 
-### 책임
-- 핵심 비즈니스 로직
-- 도메인 규칙 및 제약사항
-- 엔티티 및 Value Object 관리
-
-### 구성 요소
-
-#### 1. Model (Entity)
-```java
-@Entity
-@Table(name = "member")
-public class MemberModel extends BaseEntity {
-    private static final Pattern PASSWORD_PATTERN = Pattern.compile(
-            "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?]).{8,16}$"
-    );
-
-    @Getter
-    @Convert(converter = MemberIdConverter.class)
-    @Column(nullable = false, unique = true, length = 10)
-    private MemberId memberId;
-
-    @Getter
-    @Column(nullable = false)
-    private String password;
-
-    protected MemberModel() {}
-
-    public MemberModel(String memberId, String password, String email) {
-        this.memberId = new MemberId(memberId);
-        this.password = password;
-        this.email = new Email(email);
-    }
-
-    public static MemberModel create(String memberId, String rawPassword, String email,
-                                      String birthDate, String name, Gender gender,
-                                      PasswordHasher passwordHasher) {
-        validateRawPassword(rawPassword);
-        validatePasswordNotContainsBirthDate(rawPassword, birthDate);
-        validateGender(gender);
-        String hashedPassword = passwordHasher.hash(rawPassword);
-        return new MemberModel(memberId, hashedPassword, email, birthDate, name, gender);
-    }
-
-    public void matchesPassword(PasswordHasher passwordHasher, String rawPassword) {
-        if (!passwordHasher.matches(rawPassword, this.password)) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호가 일치하지 않습니다.");
-        }
-    }
-
-    public void changePassword(String rawCurrentPassword, String newRawPassword,
-                               PasswordHasher passwordHasher) {
-        matchesPassword(passwordHasher, rawCurrentPassword);
-        if (passwordHasher.matches(newRawPassword, this.password)) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "새 비밀번호는 기존 비밀번호와 다르게 설정해야 합니다.");
-        }
-        validateRawPassword(newRawPassword);
-        validatePasswordNotContainsBirthDate(newRawPassword,
-                this.birthDate != null ? this.birthDate.asString() : null);
-        this.password = passwordHasher.hash(newRawPassword);
-    }
-}
+```
+┌──────────────────────────────────────────┐
+│           Interfaces Layer               │  ← 외부 통신
+│   Controller, ApiSpec, Dto, Response     │
+└──────────────────────────────────────────┘
+                    ↓
+┌──────────────────────────────────────────┐
+│          Application Layer               │  ← 유스케이스 조합
+│          App, Facade, Info               │
+└──────────────────────────────────────────┘
+                    ↓
+┌──────────────────────────────────────────┐
+│            Domain Layer                  │  ← 핵심 비즈니스 로직
+│     Model, Service, Repository, VO       │
+└──────────────────────────────────────────┘
+                    ↓
+┌──────────────────────────────────────────┐
+│         Infrastructure Layer             │  ← 외부 시스템 연동
+│   RepositoryImpl, JpaRepository, ...     │
+└──────────────────────────────────────────┘
 ```
 
-**특징**:
-- JPA Entity
-- `BaseEntity` 상속 (id, createdAt, updatedAt, deletedAt)
-- Value Object를 필드로 사용
-- 정적 팩토리 메서드 `create()`로 생성 시 검증 + 암호화 캡슐화
-- `matchesPassword()`로 비밀번호 검증 위임
+**의존성 방향**: 상위 → 하위만 허용. Domain Layer는 어떤 레이어에도 의존하지 않는다.
 
-#### 2. Value Object
-```java
-public record MemberId(String value) {
-    private static final Pattern PATTERN = Pattern.compile("^[A-Za-z0-9]{1,10}$");
+---
 
-    public MemberId {
-        if (value == null || value.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "memberId가 비어 있습니다");
-        }
-        value = value.trim();
+## Domain Layer
 
-        if (!PATTERN.matcher(value).matches()) {
-            throw new CoreException(ErrorType.BAD_REQUEST,
-                "memberId는 영문+숫자, 1~10자로 이루어져야 합니다: " + value);
-        }
-    }
-}
-```
+| 컴포넌트 | 책임 | 레퍼런스 |
+|---------|------|---------|
+| **Model** | JPA Entity, 도메인 행위 메서드, 비즈니스 규칙 캡슐화 | `domain/member/MemberModel.java` |
+| **Value Object** | 불변 record, Compact Constructor에서 유효성 검증 | `domain/member/vo/MemberId.java` |
+| **Service** | 트랜잭션, 교차 엔티티 규칙, Repository 호출 | `domain/member/MemberService.java` |
+| **Repository** | 도메인 용어 인터페이스 (구현은 Infrastructure) | `domain/member/MemberRepository.java` |
 
-**특징**:
+**Model 설계 원칙**
+- `BaseEntity` 상속 → `modules/jpa/src/main/java/com/loopers/domain/BaseEntity.java`
+- 정적 팩토리 메서드 `create()`로 생성 시 검증 캡슐화
+- 도메인 행위 메서드 (예: `changePassword()`, `decreaseStock()`)는 Model에 위치
+- `protected` 기본 생성자 (JPA 요구사항)
+
+**Value Object 설계 원칙**
 - `record` 타입 (불변)
-- Compact Constructor에서 유효성 검증
-- 비즈니스 규칙 캡슐화
-- 도메인 개념 표현
-
-#### 3. Reader (읽기 전용 도메인 컴포넌트)
-```java
-@Component
-@RequiredArgsConstructor
-public class MemberReader {
-    private final MemberRepository memberRepository;
-
-    @Transactional(readOnly = true)
-    public MemberModel getMemberByMemberId(String memberId) {
-        return memberRepository.findByMemberId(new MemberId(memberId))
-                .orElse(null);
-    }
-
-    @Transactional(readOnly = true)
-    public MemberModel getOrThrow(String memberId) {
-        return memberRepository.findByMemberId(new MemberId(memberId))
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "해당 ID의 회원이 존재하지 않습니다."));
-    }
-
-    @Transactional(readOnly = true)
-    public boolean existsByMemberId(String memberId) {
-        return memberRepository.existsByMemberId(new MemberId(memberId));
-    }
-}
-```
-
-**특징**:
-- 읽기 전용 조회 로직 캡슐화
-- VO 변환(`new MemberId(memberId)`)을 한 곳에서 관리
-- 조회 + 예외 처리를 통합 (`getOrThrow`)
-- Service와 Repository 사이의 중간 계층
-
-#### 4. Service
-```java
-@Service
-@RequiredArgsConstructor
-public class MemberService {
-    private final MemberRepository memberRepository;
-    private final MemberReader memberReader;
-    private final PasswordHasher passwordHasher;
-
-    @Transactional
-    public MemberModel register(String memberId, String rawPassword, String email,
-                                 String birthDate, String name, Gender gender) {
-        if (memberReader.existsByMemberId(memberId)) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "이미 가입된 ID 입니다.");
-        }
-
-        MemberModel member = MemberModel.create(memberId, rawPassword, email, birthDate, name, gender, passwordHasher);
-        return memberRepository.save(member);
-    }
-
-    @Transactional(readOnly = true)
-    public MemberModel authenticate(String loginId, String loginPw) {
-        MemberModel member = memberReader.getOrThrow(loginId);
-        member.matchesPassword(passwordHasher, loginPw);
-        return member;
-    }
-
-    @Transactional
-    public void changePassword(String loginId, String loginPw,
-                               String currentPassword, String newPassword) {
-        MemberModel member = memberReader.getOrThrow(loginId);
-        member.matchesPassword(passwordHasher, loginPw);
-        member.changePassword(currentPassword, newPassword, passwordHasher);
-    }
-}
-```
-
-**특징**:
-- 도메인 간 조율 및 트랜잭션 관리
-- MemberReader를 통한 조회 (읽기 전용 분리)
-- MemberModel.create()에 생성 검증 위임
-- 중복 체크 등 교차 엔티티 규칙만 Service에서 관리
-- changePassword()는 JPA dirty checking으로 자동 반영
-
-#### 5. Repository Interface
-```java
-public interface MemberRepository {
-    MemberModel save(MemberModel member);
-    boolean existsByMemberId(MemberId memberId);
-    Optional<MemberModel> findByMemberId(MemberId memberId);
-}
-```
-
-**특징**:
-- 도메인 계층에 위치
-- 구현체는 Infrastructure 계층
-- 도메인 용어 사용
-- 기술 세부사항 숨김
+- Compact Constructor에서 null 체크 + 형식 검증 → `CoreException(ErrorType.BAD_REQUEST, ...)`
+- 타 도메인 PK 참조 VO는 `RefOOOId` 명명 → `domain/common/vo/RefMemberId.java`
 
 ---
 
-## Application Layer (응용 계층)
+## Application Layer
 
-### 책임
-- **App**: 단일 도메인의 유스케이스 처리, Service 호출 및 Model → Info 변환
-- **Facade**: **2개 이상의 App을 조합**할 때만 사용, 크로스 도메인 오케스트레이션
+### App vs Facade 선택
 
-### App 예시 (단일 도메인 — 기본 패턴)
-```java
-@Component
-@RequiredArgsConstructor
-public class MemberApp {
-    private final MemberService memberService;
+| 상황 | 선택 |
+|------|------|
+| 단일 도메인 유스케이스 | `{Domain}App` |
+| 2개 이상 App 조합 필요 | `{Domain}Facade` |
 
-    public MemberInfo register(String memberId, String password, String email,
-                               String birthDate, String name, Gender gender) {
-        MemberModel member = memberService.register(memberId, password, email, birthDate, name, gender);
-        return MemberInfo.from(member);
-    }
+### App 의존성 규칙
 
-    @Transactional(readOnly = true)
-    public MemberInfo getMe(String loginId, String loginPw) {
-        MemberModel member = memberService.authenticate(loginId, loginPw);
-        return MemberInfo.from(member);
-    }
-
-    public void changePassword(String loginId, String loginPw,
-                               String currentPassword, String newPassword) {
-        memberService.changePassword(loginId, loginPw, currentPassword, newPassword);
-    }
-}
+```
+✅ App → Service  (비즈니스 로직·상태 변경 있을 때)
+✅ App → Repository  (단순 조회, 비즈니스 규칙·상태 변경 없을 때)
+✅ App에서 Model → Info 변환 후 반환
+❌ App → App  (크로스 도메인은 Facade 책임)
+❌ App → Facade
 ```
 
-**App 의존성 규칙**:
+레퍼런스: `application/member/MemberApp.java`, `application/product/ProductApp.java`
+
+### Facade 의존성 규칙
+
 ```
-✅ App → Service (허용)
-✅ App → Repository 직접 의존 (단순 조회 — 비즈니스 로직·상태 변경 없음)
-❌ App → Repository 직접 의존 (비즈니스 로직·검증·상태 변경이 있는 경우 — Service 경유 필수)
-❌ App → App 의존 (금지 — 크로스 도메인은 Facade 책임)
-❌ App → Facade 의존 (금지)
-```
-
-### Facade 예시 (크로스 도메인 — 2개 이상 App 조합 시에만)
-```java
-@Component
-@RequiredArgsConstructor
-public class OrderFacade {
-    private final MemberApp memberApp;
-    private final ProductApp productApp;
-    private final OrderApp orderApp;
-
-    @Transactional
-    public OrderInfo placeOrder(String memberId, String productId, int quantity) {
-        // 1. 회원 확인
-        MemberInfo member = memberApp.getMe(memberId, /* ... */);
-
-        // 2. 상품 재고 확인 및 차감
-        productApp.decreaseStock(productId, quantity);
-
-        // 3. 주문 생성
-        return orderApp.createOrder(member.id(), productId, quantity);
-    }
-}
+✅ Facade → App  (반드시 2개 이상 App 조합 시에만 생성)
+❌ Facade → Service 직접 호출  (반드시 App 경유)
+❌ Facade → Repository 직접 의존
+❌ Facade → Facade
+❌ 단일 App만 쓰는 Facade 생성  (Controller에서 App 직접 사용할 것)
 ```
 
-**Facade 의존성 규칙**:
-```
-✅ Facade → App (허용, 반드시 2개 이상)
-❌ Facade → Service 직접 호출 (금지 — 반드시 App 경유)
-❌ Facade → Repository 직접 의존 (금지)
-❌ Facade → Facade 의존 (금지)
-❌ 단일 도메인만 처리하는 Facade 생성 (금지 — App을 사용할 것)
-```
+레퍼런스: `application/order/OrderFacade.java`, `application/brand/BrandFacade.java`
+
+### 어노테이션 규칙
+- App → `@Component`
+- Facade → `@Component`
+- Service → `@Service`  ← 혼용 금지
 
 ---
 
-## Interfaces Layer (인터페이스 계층)
+## Interfaces Layer
 
-### 책임
-- 외부 요청 수신 및 응답
-- 입력 검증 (형식, 필수값)
-- DTO ↔ Domain 변환
-- HTTP 상태 코드 관리
-
-### Controller 예시
-```java
-@RequiredArgsConstructor
-@RestController
-@RequestMapping("/api/v1/members")
-public class MemberV1Controller implements MemberV1ApiSpec {
-
-    private final MemberApp memberApp;
-
-    @PostMapping("/register")
-    @Override
-    public ApiResponse<MemberV1Dto.MemberResponse> register(
-            @Valid @RequestBody MemberV1Dto.RegisterRequest request) {
-        MemberInfo info = memberApp.register(
-            request.memberId(), request.password(), request.email(),
-            request.birthDate(), request.name(), request.gender()
-        );
-
-        MemberV1Dto.MemberResponse response = MemberV1Dto.MemberResponse.from(info);
-        return ApiResponse.success(response);
-    }
-}
-```
-
-### ApiResponse 구조
-```java
-public record ApiResponse<T>(Metadata meta, T data) {
-    public record Metadata(Result result, String errorCode, String message) {
-        public enum Result { SUCCESS, FAIL }
-
-        public static Metadata success() {
-            return new Metadata(Result.SUCCESS, null, null);
-        }
-
-        public static Metadata fail(String errorCode, String errorMessage) {
-            return new Metadata(Result.FAIL, errorCode, errorMessage);
-        }
-    }
-
-    public static <T> ApiResponse<T> success(T data) {
-        return new ApiResponse<>(Metadata.success(), data);
-    }
-
-    public static ApiResponse<Object> fail(String errorCode, String errorMessage) {
-        return new ApiResponse<>(Metadata.fail(errorCode, errorMessage), null);
-    }
-}
-```
+| 컴포넌트 | 책임 | 레퍼런스 |
+|---------|------|---------|
+| Controller | 요청 수신, 입력 검증, DTO↔Info 변환 | `interfaces/api/member/MemberV1Controller.java` |
+| ApiSpec | OpenAPI 문서화 인터페이스 | `interfaces/api/member/MemberV1ApiSpec.java` |
+| Dto | Request/Response record | `interfaces/api/member/MemberV1Dto.java` |
+| ApiResponse | 공통 응답 포맷 | `interfaces/api/ApiResponse.java` |
+| ApiControllerAdvice | 전역 예외 처리 | `interfaces/api/ApiControllerAdvice.java` |
 
 ---
 
-## Infrastructure Layer (인프라 계층)
+## Infrastructure Layer
 
-### 책임
-- 외부 시스템 연동
-- 기술적 세부사항 구현
-- Domain Repository 구현
-
-### RepositoryImpl
-```java
-@RequiredArgsConstructor
-@Component
-public class MemberRepositoryImpl implements MemberRepository {
-    private final MemberJpaRepository memberJpaRepository;
-
-    @Override
-    public MemberModel save(MemberModel member) {
-        return memberJpaRepository.save(member);
-    }
-
-    @Override
-    public boolean existsByMemberId(MemberId memberId) {
-        return memberJpaRepository.existsByMemberId(memberId);
-    }
-
-    @Override
-    public Optional<MemberModel> findByMemberId(MemberId memberId) {
-        return memberJpaRepository.findByMemberId(memberId);
-    }
-}
-```
+| 컴포넌트 | 책임 | 레퍼런스 |
+|---------|------|---------|
+| RepositoryImpl | Domain Repository 구현, JpaRepository 위임 | `infrastructure/member/MemberRepositoryImpl.java` |
+| JpaRepository | Spring Data JPA, @Query 정의 | `infrastructure/member/MemberJpaRepository.java` |
+| Converter | VO ↔ DB 컬럼 변환 | `infrastructure/jpa/converter/MemberIdConverter.java` |
 
 ---
 
@@ -401,150 +128,45 @@ public class MemberRepositoryImpl implements MemberRepository {
 
 ```
 com.loopers
-├── domain                          # 도메인 계층
-│   ├── member
-│   │   ├── MemberModel.java       # Entity
-│   │   ├── MemberReader.java      # Reader
-│   │   ├── MemberService.java     # Service
-│   │   ├── MemberRepository.java  # Repository Interface
-│   │   ├── MemberId.java          # Value Object
-│   │   ├── Email.java             # Value Object
-│   │   └── PasswordHasher.java    # Interface
-├── application                     # 응용 계층
-│   ├── member
-│   │   ├── MemberApp.java         # App (단일 도메인 유스케이스)
-│   │   └── MemberInfo.java        # Info
-│   ├── order                       # 크로스 도메인 예시
-│   │   ├── OrderApp.java          # App (order 도메인)
-│   │   ├── OrderFacade.java       # Facade (MemberApp + ProductApp + OrderApp 조합)
-│   │   └── OrderInfo.java         # Info
-├── infrastructure                  # 인프라 계층
-│   ├── member
-│   │   ├── MemberRepositoryImpl.java
-│   │   └── MemberJpaRepository.java
-│   ├── security
-│   │   └── BCryptPasswordHasher.java
-│   └── jpa
-│       └── converter
-│           ├── MemberIdConverter.java
-│           └── EmailConverter.java
-├── interfaces                      # 인터페이스 계층
-│   └── api
-│       ├── member
-│       │   ├── MemberV1Controller.java
-│       │   ├── MemberV1ApiSpec.java
-│       │   └── MemberV1Dto.java
-│       ├── ApiResponse.java
-│       └── ApiControllerAdvice.java
-└── support                         # 공통 지원
-    └── error
-        ├── CoreException.java
-        └── ErrorType.java
+├── domain/{domain}/         Model, Service, Repository interface, VO
+│   └── vo/                  Value Objects, RefOOOId
+├── application/{domain}/    App, Facade, Info, Command
+├── infrastructure/{domain}/ RepositoryImpl, JpaRepository
+│   └── jpa/converter/       VO Converters
+├── interfaces/api/{domain}/ Controller, ApiSpec, Dto
+└── support/error/           CoreException, ErrorType
 ```
 
 ---
 
-## 설계 원칙
+## 크로스 도메인 오케스트레이션
 
-### SOLID 원칙 적용
-1. **단일 책임 원칙 (SRP)**: 각 레이어/클래스는 하나의 책임만
-2. **개방-폐쇄 원칙 (OCP)**: 인터페이스 기반 설계로 확장 용이
-3. **리스코프 치환 원칙 (LSP)**: BaseEntity 상속 구조
-4. **인터페이스 분리 원칙 (ISP)**: Repository 인터페이스 최소화
-5. **의존성 역전 원칙 (DIP)**: Domain → Repository Interface, Infrastructure → 구현
+연쇄 처리(cascade delete 등)는 Facade에서 App을 통해 조율한다.
 
-### 모범 사례
-- ✅ 레이어 분리 준수
-- ✅ 인터페이스 기반 설계
-- ✅ Value Object 활용
-- ✅ 불변 객체 선호
-- ✅ 명확한 네이밍
+```
+// ✅ Facade → App 경유
+brandApp.deleteBrand(brandId);
+productApp.deleteProductsByBrandRefId(brandId);
 
-### 금지 사항
-- ❌ 레이어 건너뛰기 (Controller → Repository 직접 호출)
-- ❌ 순환 참조
-- ❌ 도메인 로직 누수 (Controller에 비즈니스 로직)
-- ❌ God Service (하나의 Service에 모든 로직)
+// ❌ Facade → Service 직접 호출 금지
+brandService.deleteBrand(brandId);
+```
+
+레퍼런스: `application/brand/BrandFacade.java`
 
 ---
 
-## Application Layer 규칙 (확정 결정)
+## 도메인 간 의존성 규칙
 
-### 어노테이션
-- App: **`@Component`** 사용 (절대 `@Service` 사용 금지)
-- Facade: **`@Component`** 사용 (절대 `@Service` 사용 금지)
-- Service: **`@Service`** 사용
-
-### App 의존성 규칙
+**Model / Repository — 자기 도메인 VO만 사용**
 ```
-✅ App → Service (허용)
-✅ App → Repository 직접 의존 (단순 조회만 — 비즈니스 로직·상태 변경 없음)
-❌ App → Repository 직접 의존 (비즈니스 로직·검증·상태 변경이 있는 경우 — Service 경유 필수)
-❌ App → App 의존 (금지)
-❌ App → Facade 의존 (금지)
+✅ OrderModel → domain/order/vo/RefMemberId  (order 도메인 소유)
+❌ OrderModel → domain/member/vo/MemberId    (도메인 경계 위반)
 ```
 
-### Facade 사용 조건 및 의존성 규칙
-```
-✅ Facade → App (허용, 반드시 2개 이상의 App 사용 시에만 Facade 생성)
-❌ Facade → Service 직접 호출 (금지 — 반드시 App 경유)
-❌ Facade → Repository 직접 의존 (금지)
-❌ Facade → Facade 의존 (금지)
-❌ 단일 App만 사용하는 Facade 생성 (금지 — App을 직접 사용할 것)
-```
+**Service — 타 도메인 Repository 직접 호출 허용** (트랜잭션 원자성 목적)
+레퍼런스: `domain/like/LikeService.java`
 
-### 크로스 도메인 오케스트레이션은 Facade 책임 (App 경유)
-```java
-// ✅ 올바른 예: BrandFacade에서 cascade delete 처리 (App 경유)
-@Transactional
-public void deleteBrand(String brandId) {
-    brandApp.deleteBrand(brandId);                    // BrandService 호출
-    productApp.deleteProductsByBrandRefId(brandId);   // ProductService 호출
-}
-
-// ❌ 잘못된 예: Facade에서 Service 직접 호출
-@Transactional
-public void deleteBrand(String brandId) {
-    brandService.deleteBrand(brandId);       // 금지: Facade → Service 직접 호출
-    productService.deleteProductsByBrandRefId(brand.getId());  // 금지
-}
-```
-
-도메인 간 연쇄 처리(cascade)가 필요하면 Service에 두지 말고 Facade에서 App을 통해 조율할 것.
-
----
-
-## 도메인 간 의존성 규칙 (확정 결정)
-
-### Model과 Repository 인터페이스: 자기 도메인 VO만 사용
-```java
-// ✅ OrderModel은 order.vo만 import
-import com.loopers.domain.order.vo.OrderId;
-import com.loopers.domain.order.vo.RefMemberId;  // order 도메인 소유
-
-// ❌ OrderModel이 like.vo를 import하는 것은 금지
-import com.loopers.domain.like.vo.RefMemberId;
-```
-
-### Service: 타 도메인 Repository 호출 시 해당 도메인 VO import 허용
-```java
-// ✅ LikeService가 ProductRepository를 호출하기 위해 ProductId VO import
-import com.loopers.domain.product.ProductRepository;
-import com.loopers.domain.product.vo.ProductId;  // 관계가 있으므로 허용
-
-// ✅ ProductService가 BrandRepository를 호출하기 위해 BrandId VO import
-import com.loopers.domain.brand.BrandRepository;
-import com.loopers.domain.brand.vo.BrandId;  // 관계가 있으므로 허용
-```
-
-Service 계층에서 타 도메인 Repository를 직접 사용하는 것은 **트랜잭션 원자성 보장** 목적으로 허용됨.
-단, 이는 의도적 설계 결정이며, 단순 조회 위임이라면 타 도메인 Service를 통하는 것을 검토할 것.
-
-### 참조 VO (RefOOOId) 소유권
-- `RefMemberId`, `RefProductId` 등 타 도메인의 PK를 참조하는 VO는 **사용하는 도메인이 자기 vo 패키지에 별도 정의**
-- 예: `order.vo.RefMemberId`, `like.vo.RefMemberId` — 같은 이름이어도 별개의 독립 VO
-- 한 도메인의 VO를 다른 도메인 Model/Repository가 import하는 것은 도메인 경계 위반
-
-### Converter 소유권
-- 각 도메인의 VO에 대응하는 Converter는 해당 도메인의 VO를 사용하는 Entity 맥락에 맞게 별도 정의
-- 예: `RefMemberIdConverter` (like.vo용), `OrderRefMemberIdConverter` (order.vo용)
+**참조 VO (RefOOOId) 소유권**
+- 사용하는 도메인이 자기 vo 패키지에 별도 정의
+- 공통 참조 VO: `domain/common/vo/` 하위 확인

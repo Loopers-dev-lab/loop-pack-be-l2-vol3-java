@@ -63,9 +63,13 @@ public class OrderModel extends BaseEntity {
         return create(memberId, items, BigDecimal.ZERO, null);
     }
 
+    public void pay() {
+        this.status.validateTransition(OrderStatus.PAID);
+        this.status = OrderStatus.PAID;
+    }
+
     public void cancel() {
         if (this.status == OrderStatus.CANCELED) {
-            // 멱등성: 이미 취소된 주문은 그대로 반환
             return;
         }
         this.status.validateTransition(OrderStatus.CANCELED);

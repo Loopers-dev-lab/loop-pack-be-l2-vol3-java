@@ -5,12 +5,14 @@ import com.loopers.support.error.ErrorType;
 
 public enum OrderStatus {
     PENDING,    // 주문 대기
+    PAID,       // 결제 완료
     CANCELED;   // 주문 취소
 
     public boolean canTransitionTo(OrderStatus newStatus) {
         return switch (this) {
-            case PENDING -> newStatus == CANCELED;
-            case CANCELED -> newStatus == CANCELED; // 멱등성: 이미 취소된 상태에서 취소 허용
+            case PENDING -> newStatus == PAID || newStatus == CANCELED;
+            case PAID -> false;
+            case CANCELED -> newStatus == CANCELED;
         };
     }
 

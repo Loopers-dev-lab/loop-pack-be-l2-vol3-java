@@ -10,6 +10,7 @@ import java.util.Optional;
 
 public interface OrderRepository {
     OrderModel save(OrderModel order);
+    Optional<OrderModel> findById(Long id);
     Optional<OrderModel> findByOrderId(OrderId orderId);
     Page<OrderModel> findByRefMemberId(RefMemberId refMemberId, LocalDateTime startDateTime, LocalDateTime endDateTime, Pageable pageable);
 }

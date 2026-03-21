@@ -7,204 +7,82 @@ allowed-tools: Read, Grep
 
 # 코딩 표준
 
+> 경로 prefix: `apps/commerce-api/src/main/java/com/loopers/`
+
+---
+
 ## 네이밍 규칙
 
-### 클래스 및 인터페이스
+| 타입 | 패턴 | 위치 |
+|------|------|------|
+| Entity | `{Domain}Model` | `domain/{domain}/` |
+| Value Object | `{Concept}` | `domain/{domain}/vo/` |
+| Service | `{Domain}Service` | `domain/{domain}/` |
+| Repository Interface | `{Domain}Repository` | `domain/{domain}/` |
+| Repository Impl | `{Domain}RepositoryImpl` | `infrastructure/{domain}/` |
+| JPA Repository | `{Domain}JpaRepository` | `infrastructure/{domain}/` |
+| Controller | `{Domain}V{n}Controller` | `interfaces/api/{domain}/` |
+| API Spec | `{Domain}V{n}ApiSpec` | `interfaces/api/{domain}/` |
+| DTO | `{Domain}V{n}Dto` | `interfaces/api/{domain}/` |
+| App | `{Domain}App` | `application/{domain}/` |
+| Facade | `{Domain}Facade` | `application/{domain}/` |
+| Info | `{Domain}Info` | `application/{domain}/` |
+| Converter | `{ValueObject}Converter` | `infrastructure/jpa/converter/` |
 
-| 타입 | 패턴 | 예시 | 위치 |
-|------|------|------|------|
-| Entity | `{Domain}Model` | `MemberModel`, `OrderModel` | `domain.{domain}` |
-| Value Object | `{Concept}` | `MemberId`, `Email`, `BirthDate` | `domain.{domain}` |
-| Reader | `{Domain}Reader` | `MemberReader` | `domain.{domain}` |
-| Service | `{Domain}Service` | `MemberService` | `domain.{domain}` |
-| Repository Interface | `{Domain}Repository` | `MemberRepository` | `domain.{domain}` |
-| Repository Impl | `{Domain}RepositoryImpl` | `MemberRepositoryImpl` | `infrastructure.{domain}` |
-| JPA Repository | `{Domain}JpaRepository` | `MemberJpaRepository` | `infrastructure.{domain}` |
-| Controller | `{Domain}V{version}Controller` | `MemberV1Controller` | `interfaces.api.{domain}` |
-| API Spec | `{Domain}V{version}ApiSpec` | `MemberV1ApiSpec` | `interfaces.api.{domain}` |
-| DTO | `{Domain}V{version}Dto` | `MemberV1Dto` | `interfaces.api.{domain}` |
-| **App** | `{Domain}App` | `MemberApp`, `OrderApp` | `application.{domain}` |
-| **Facade** | `{Domain}Facade` | `OrderFacade` | `application.{domain}` |
-| Info | `{Domain}Info` | `MemberInfo` | `application.{domain}` |
-| Exception | `{Concept}Exception` | `CoreException` | `support.error` |
-| Converter | `{ValueObject}Converter` | `MemberIdConverter` | `infrastructure.jpa.converter` |
+> **App vs Facade 기준**: 단일 도메인 → App / 2개 이상 App 조합 → Facade
 
-> **App vs Facade 선택 기준**:
-> - 단일 도메인 유스케이스 → **`{Domain}App`** 사용
-> - 2개 이상의 App을 조합하는 크로스 도메인 → **`{Domain}Facade`** 사용
-> - Facade는 반드시 2개 이상의 App을 호출할 때만 생성 (단일 App만 쓰는 Facade 금지)
+---
 
-### 메서드 네이밍
+## 메서드 네이밍
 
-#### Repository
-- **조회**: `findBy{Condition}`, `findAllBy{Condition}`
-- **존재 확인**: `existsBy{Condition}`
-- **저장**: `save`, `saveAll`
-- **삭제**: `delete`, `deleteBy{Condition}`
-- **카운트**: `countBy{Condition}`
+### Repository
+- 조회: `findBy{Condition}`, `findAllBy{Condition}`
+- 존재 확인: `existsBy{Condition}`
+- 저장: `save`, `saveAll`
+- 삭제: `delete`, `deleteBy{Condition}`
 
-#### Service
-- 도메인 용어 사용: `register`, `getMemberByMemberId`, `updateProfile`, `withdraw`
-- 타 도메인 PK(DB id)를 파라미터로 받는 메서드: **`RefId` 접미사** 사용 (`DbId` 사용 금지)
-  ```java
-  // ✅ 올바름
-  ProductModel getProductByRefId(Long id)
-  void deleteProductsByBrandRefId(Long brandDbId)
-  BrandModel getBrandByRefId(Long id)
-  // ❌ 금지
-  ProductModel getProductByDbId(Long id)
-  ```
+### 타 도메인 PK 파라미터 메서드 — `RefId` 접미사 필수
 
-#### Controller
-- RESTful 원칙: GET (조회), POST (생성), PUT (전체 수정), PATCH (부분 수정), DELETE (삭제)
+```
+// ✅ 올바름
+ProductModel getProductByRefId(Long id)
+void deleteProductsByBrandRefId(Long brandId)
+
+// ❌ 금지
+ProductModel getProductByDbId(Long id)
+```
 
 ### 변수 및 상수
-- **변수**: `camelCase` (예: `memberId`, `rawPassword`)
-- **boolean**: `is`, `has`, `can` 접두사 (예: `isDeleted`, `hasPermission`)
-- **상수**: `UPPER_SNAKE_CASE` + `static final` (예: `MAX_RETRY_COUNT`, `API_VERSION`)
+- 변수: `camelCase`
+- boolean: `is`, `has`, `can` 접두사
+- 상수: `UPPER_SNAKE_CASE` + `static final`
 
 ---
 
 ## 타입 사용 규칙
 
-### Value Object (record)
-```java
-public record MemberId(String value) {
-    private static final Pattern PATTERN = Pattern.compile("^[A-Za-z0-9]{1,10}$");
+| 타입 | Java 타입 | 이유 |
+|------|----------|------|
+| Entity | `class` | 가변 상태 (JPA dirty checking) |
+| Value Object | `record` | 불변, 검증 캡슐화 |
+| DTO (Request/Response) | `record` | 불변 |
+| Info | `record` | 불변 |
+| Command | `record` | 불변 |
 
-    public MemberId {
-        if (value == null || value.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "memberId가 비어 있습니다");
-        }
-        value = value.trim();
-
-        if (!PATTERN.matcher(value).matches()) {
-            throw new CoreException(ErrorType.BAD_REQUEST,
-                "memberId는 영문+숫자, 1~10자로 이루어져야 합니다: " + value);
-        }
-    }
-}
-```
-
-**특징**:
-- `record` 타입 사용 (불변)
-- Compact Constructor에서 유효성 검증
-- 비즈니스 규칙 캡슐화
-- null-safety 보장
-
----
-
-### DTO (record)
-```java
-public class MemberV1Dto {
-    public record RegisterRequest(
-        @NotBlank String memberId,
-        @NotBlank String password,
-        @NotBlank String email,
-        @NotBlank String birthDate,
-        @NotBlank String name,
-        @NotNull Gender gender
-    ) {}
-
-    public record MemberResponse(
-        Long id,
-        String memberId,
-        String email,
-        String birthDate,
-        String name,
-        Gender gender
-    ) {
-        public static MemberResponse from(MemberModel member) {
-            return new MemberResponse(
-                member.getId(),
-                member.getMemberId().value(),
-                member.getEmail().address(),
-                member.getBirthDate().asString(),
-                member.getName().value(),
-                member.getGender()
-            );
-        }
-    }
-}
-```
-
-**특징**:
-- `record` 타입 사용 (불변)
-- Jakarta Validation 어노테이션 활용
-- 정적 팩토리 메서드 (`from`, `of`) 제공
-- 내부 클래스로 Request/Response 그룹화
-
----
-
-### Entity (class)
-```java
-@Entity
-@Table(name = "member")
-public class MemberModel extends BaseEntity {
-
-    @Getter
-    @Convert(converter = MemberIdConverter.class)
-    @Column(nullable = false, unique = true, length = 10)
-    private MemberId memberId;
-
-    @Getter
-    @Column(nullable = false)
-    private String password;
-
-    protected MemberModel() {}
-
-    public MemberModel(String memberId, String password, String email) {
-        this.memberId = new MemberId(memberId);
-        this.password = password;
-        this.email = new Email(email);
-    }
-
-    public static MemberModel create(String memberId, String rawPassword, String email,
-                                      String birthDate, String name, Gender gender,
-                                      PasswordHasher passwordHasher) {
-        validateRawPassword(rawPassword);
-        validatePasswordNotContainsBirthDate(rawPassword, birthDate);
-        validateGender(gender);
-        String hashedPassword = passwordHasher.hash(rawPassword);
-        return new MemberModel(memberId, hashedPassword, email, birthDate, name, gender);
-    }
-}
-```
-
-**특징**:
-- `class` 타입 사용 (가변 상태)
-- `BaseEntity` 상속 (id, createdAt, updatedAt, deletedAt)
-- Value Object를 필드로 사용
-- JPA Converter로 Value Object 매핑
-- `protected` 기본 생성자 (JPA 요구사항)
-- Lombok `@Getter` 사용
-- 정적 팩토리 메서드 `create()`로 생성 시 검증 로직 캡슐화
-- 도메인 행위 메서드 (예: `matchesPassword()`) 제공
+레퍼런스:
+- Entity: `domain/member/MemberModel.java`
+- VO: `domain/member/vo/MemberId.java`, `domain/brand/vo/BrandId.java`
+- DTO: `interfaces/api/member/MemberV1Dto.java`
+- Info: `application/member/MemberInfo.java`
 
 ---
 
 ## 의존성 주입
 
-### 생성자 주입 (권장)
-```java
-@Service
-@RequiredArgsConstructor
-public class MemberService {
-    private final MemberRepository memberRepository;
-    private final PasswordHasher passwordHasher;
+`@RequiredArgsConstructor` + `private final` — 항상 생성자 주입 사용.
 
-    // 비즈니스 로직
-}
 ```
-
-**특징**:
-- `@RequiredArgsConstructor` 사용 (Lombok)
-- `final` 필드로 불변성 보장
-- 테스트 용이성
-
-### 필드 주입 (지양)
-```java
-// ❌ 사용하지 말 것
+// ❌ 필드 주입 금지
 @Autowired
 private MemberRepository memberRepository;
 ```
@@ -213,243 +91,75 @@ private MemberRepository memberRepository;
 
 ## 예외 처리
 
-### CoreException 사용
-```java
-public class MemberService {
-    public MemberModel register(String memberId, String password) {
-        if (memberRepository.existsByMemberId(new MemberId(memberId))) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "이미 가입된 ID 입니다.");
-        }
-        // ...
-    }
-}
-```
+- 비즈니스 예외: `CoreException(ErrorType, message)` 사용
+- 레퍼런스: `support/error/CoreException.java`, `support/error/ErrorType.java`
+- 전역 처리: `interfaces/api/ApiControllerAdvice.java`
 
-### ErrorType 정의
-```java
-@Getter
-@RequiredArgsConstructor
-public enum ErrorType {
-    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "일시적인 오류가 발생했습니다."),
-    BAD_REQUEST(HttpStatus.BAD_REQUEST, "Bad Request", "잘못된 요청입니다."),
-    NOT_FOUND(HttpStatus.NOT_FOUND, "Not Found", "존재하지 않는 요청입니다."),
-    CONFLICT(HttpStatus.CONFLICT, "Conflict", "이미 존재하는 리소스입니다.");
-
-    private final HttpStatus status;
-    private final String code;
-    private final String message;
-}
-```
-
-### 전역 예외 처리
-- `ApiControllerAdvice`에서 일괄 처리
-- `CoreException` → 비즈니스 예외
-- `MethodArgumentNotValidException` → 검증 실패
-- `Throwable` → 예상치 못한 예외
+| 상황 | ErrorType |
+|------|-----------|
+| 입력 검증 실패, 중복, 비밀번호 불일치 | `BAD_REQUEST` |
+| 리소스 없음 | `NOT_FOUND` |
+| 중복 리소스 | `CONFLICT` |
+| 서버 오류 | `INTERNAL_ERROR` |
 
 ---
 
 ## API 응답 구조
 
-### 성공 응답
 ```json
-{
-  "meta": {
-    "result": "SUCCESS",
-    "errorCode": null,
-    "message": null
-  },
-  "data": {
-    "id": 1,
-    "memberId": "testuser1",
-    "email": "test@example.com"
-  }
-}
+// 성공
+{ "meta": { "result": "SUCCESS", "errorCode": null, "message": null }, "data": { ... } }
+
+// 실패
+{ "meta": { "result": "FAIL", "errorCode": "Not Found", "message": "..." }, "data": null }
 ```
 
-### 실패 응답
-```json
-{
-  "meta": {
-    "result": "FAIL",
-    "errorCode": "Bad Request",
-    "message": "이미 가입된 ID 입니다."
-  },
-  "data": null
-}
-```
-
-### ApiResponse 사용
-```java
-@PostMapping("/register")
-public ApiResponse<MemberV1Dto.MemberResponse> register(@Valid @RequestBody MemberV1Dto.RegisterRequest request) {
-    MemberModel member = memberService.register(/* ... */);
-    MemberV1Dto.MemberResponse response = MemberV1Dto.MemberResponse.from(member);
-    return ApiResponse.success(response);
-}
-```
+레퍼런스: `interfaces/api/ApiResponse.java`
 
 ---
 
 ## JPA 관련
 
-### JPA Converter
-```java
-@Converter(autoApply = false)
-public class EmailConverter implements AttributeConverter<Email, String> {
-
-    @Override
-    public String convertToDatabaseColumn(Email attribute) {
-        return attribute == null ? null : attribute.address();
-    }
-
-    @Override
-    public Email convertToEntityAttribute(String dbData) {
-        return dbData == null ? null : new Email(dbData);
-    }
-}
-```
-
-**특징**:
-- Value Object ↔ DB 타입 변환
-- null-safety 보장
-- `autoApply = false` (명시적 사용)
-
-### Entity 사용
-```java
-@Convert(converter = EmailConverter.class)
-@Column(length = 100)
-private Email email;
-```
+JPA 패턴 (BaseEntity, Converter, @Query, Soft Delete, Dirty Checking) → `/jpa-database` 스킬 참조
 
 ---
 
 ## 트랜잭션
 
-### @Transactional 사용
-```java
-@Service
-@RequiredArgsConstructor
-public class MemberService {
-
-    @Transactional
-    public MemberModel register(/* ... */) {
-        // 쓰기 작업
-    }
-
-    @Transactional(readOnly = true)
-    public MemberModel getMemberByMemberId(String memberId) {
-        // 읽기 전용 작업
-    }
-}
-```
-
-**규칙**:
-- Service 계층에 적용
-- 읽기 전용: `@Transactional(readOnly = true)`
+- `@Transactional` 은 Service 계층에 적용 (Controller, App 에는 사용하지 않음)
+- 읽기 전용 작업: `@Transactional(readOnly = true)`
 - 쓰기 작업: `@Transactional`
-- Repository 계층에는 적용하지 않음 (Service에서 관리)
+- Repository 계층에는 적용하지 않음
+
+레퍼런스: `domain/member/MemberService.java`
 
 ---
 
 ## Null Safety
 
-### Optional 사용
-```java
-public interface MemberRepository {
-    Optional<MemberModel> findByMemberId(MemberId memberId);
-}
-
-// Service에서 사용
-public MemberModel getMemberByMemberId(String memberId) {
-    return memberRepository.findByMemberId(new MemberId(memberId))
-            .orElse(null);  // 또는 .orElseThrow()
-}
-```
-
-### Value Object에서 null 검증
-```java
-public record Email(String address) {
-    public Email {
-        if (address == null || address.isBlank()) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "email이 비어 있습니다");
-        }
-        // ...
-    }
-}
-```
+- `null` 반환 금지 → `Optional` 사용 또는 `orElseThrow()` 로 예외 발생
+- 조회 결과를 Optional로 위임: `Optional<T> findBy...`
+- 없으면 예외: `.orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "..."))`
 
 ---
 
 ## 코드 스타일
 
-### Import 순서
-1. Java 표준 라이브러리
-2. 외부 라이브러리
-3. Spring Framework
-4. 프로젝트 내부 패키지
-
-### 줄바꿈
 - 한 줄 최대 120자
-- 메서드 체이닝: 각 메서드마다 줄바꿈
-
-### 주석
-- 코드로 설명 가능한 경우 주석 지양
-- 복잡한 비즈니스 로직: 간단한 설명 추가
-- JavaDoc: public API에만 작성
-
-### Lombok 사용
-- `@Getter`: Entity, DTO
-- `@RequiredArgsConstructor`: Service, Controller
-- `@Slf4j`: 로깅이 필요한 클래스
-- `@Builder`: 복잡한 객체 생성 (선택적)
+- Import 순서: Java 표준 → 외부 라이브러리 → Spring → 프로젝트 내부
+- Lombok: `@Getter`(Entity), `@RequiredArgsConstructor`(Service/Controller), `@Slf4j`(로깅 필요 클래스)
 
 ---
 
-## 금지 사항
+## 핵심 규칙
 
-### ❌ Never Do
-1. **println 사용 금지**: 로거 사용 (`@Slf4j`)
-2. **null 반환 지양**: `Optional` 사용
-3. **Magic Number**: 상수로 정의
-4. **God Class**: 단일 책임 원칙 준수
-5. **Unused Import**: 사용하지 않는 import 제거
-6. **Raw Type**: 제네릭 타입 명시
-7. **Exception Swallowing**: 예외를 무시하지 말 것
-8. **`var` 키워드 사용 금지**: 반드시 명시적 타입 사용
-   ```java
-   // ❌ 금지
-   var product = productRepository.findById(id);
-   // ✅ 허용
-   Optional<ProductModel> product = productRepository.findById(id);
-   ```
-9. **중첩 클래스/레코드 정의 금지**: 클래스나 record 내부에 다른 record/class 정의 금지 → 별도 파일로 분리
-   ```java
-   // ❌ 금지
-   public class OrderApp {
-       public record OrderCommand(String productId, int qty) {}
-   }
-   // ✅ 허용: OrderCommand.java 별도 파일로 생성
-   ```
-10. **단일 도메인에 Facade 생성 금지**: 단일 도메인은 App으로 처리
-    ```java
-    // ❌ 금지: MemberFacade가 MemberApp 하나만 사용하는 경우
-    public class MemberFacade {
-        private final MemberApp memberApp;  // 단일 App만 사용 → Facade 불필요
-    }
-    // ✅ 허용: App 직접 사용
-    public class MemberV1Controller {
-        private final MemberApp memberApp;
-    }
-    ```
-11. **App에서 비즈니스 로직이 있는 경우 Repository 직접 의존 금지**: 반드시 Service 경유. 단순 조회(비즈니스 규칙·상태 변경 없음)는 App → Repository 직접 허용
-12. **Facade에서 Repository 직접 의존 금지**: 반드시 App 경유
-13. **Facade에서 Service 직접 호출 금지**: 반드시 App 경유
+```
+❌ var 사용 금지  →  Optional<ProductModel> product = ...
+❌ class/record 내부 nested 정의 금지  →  별도 파일로 분리 (OrderItemCommand.java)
+❌ System.out.println  →  @Slf4j + log.info/warn/error
+❌ null 반환  →  Optional 또는 orElseThrow
+❌ Magic Number  →  상수로 정의
+❌ Exception Swallowing  →  예외를 무시하지 말 것
+```
 
-### ✅ Best Practices
-1. **불변 객체 선호**: `record`, `final` 활용
-2. **명확한 네이밍**: 의도가 드러나는 이름
-3. **작은 메서드**: 한 가지 일만 수행
-4. **Early Return**: 중첩 if 문 지양
-5. **Stream API**: 컬렉션 처리 시 활용
-6. **정적 팩토리 메서드**: 생성자 대신 사용 고려
+아키텍처 의존성 규칙 (App/Facade/Service 간) → `/architecture` 스킬 참조

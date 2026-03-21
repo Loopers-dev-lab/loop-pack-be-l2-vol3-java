@@ -68,6 +68,54 @@ class OrderModelTest {
         }
     }
 
+    @DisplayName("결제를 완료할 때,")
+    @Nested
+    class Pay {
+
+        @Test
+        @DisplayName("PENDING 상태에서 결제 완료 성공")
+        void pay_fromPending_success() {
+            // given
+            Long memberId = 1L;
+            OrderItemModel item = OrderItemModel.create("prod1", "Product 1", new BigDecimal("10000"), 1);
+            OrderModel order = OrderModel.create(memberId, List.of(item));
+
+            // when
+            order.pay();
+
+            // then
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        }
+
+        @Test
+        @DisplayName("PAID 상태에서 다시 결제 시도 시 예외 발생")
+        void pay_fromPaid_throwsException() {
+            // given
+            Long memberId = 1L;
+            OrderItemModel item = OrderItemModel.create("prod1", "Product 1", new BigDecimal("10000"), 1);
+            OrderModel order = OrderModel.create(memberId, List.of(item));
+            order.pay();
+
+            // when & then
+            assertThatThrownBy(order::pay)
+                    .isInstanceOf(CoreException.class);
+        }
+
+        @Test
+        @DisplayName("CANCELED 상태에서 결제 시도 시 예외 발생")
+        void pay_fromCanceled_throwsException() {
+            // given
+            Long memberId = 1L;
+            OrderItemModel item = OrderItemModel.create("prod1", "Product 1", new BigDecimal("10000"), 1);
+            OrderModel order = OrderModel.create(memberId, List.of(item));
+            order.cancel();
+
+            // when & then
+            assertThatThrownBy(order::pay)
+                    .isInstanceOf(CoreException.class);
+        }
+    }
+
     @DisplayName("주문을 취소할 때,")
     @Nested
     class Cancel {

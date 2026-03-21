@@ -7,506 +7,131 @@ allowed-tools: Read, Grep, Bash
 
 # 테스트 가이드라인
 
-## 테스트 전략
+> 경로 prefix: `apps/commerce-api/src/test/java/com/loopers/`
 
-### 테스트 피라미드
+---
+
+## 테스트 피라미드
+
 ```
         /\
-       /E2E\         (적음 - 느림)
+       /E2E\         (적음 - 전체 흐름)
       /------\
-     /통합테스트\      (중간)
+     /통합테스트\      (중간 - Service + DB)
     /----------\
-   /  단위테스트  \    (많음 - 빠름)
+   /  단위테스트  \    (많음 - 빠름, Model/VO)
   /--------------\
 ```
 
-### 테스트 원칙
-1. **독립성**: 각 테스트는 독립적으로 실행 가능
-2. **반복성**: 동일한 입력에 대해 항상 동일한 결과
-3. **자동화**: 수동 개입 없이 자동 실행
-4. **빠른 피드백**: 테스트는 빠르게 실행
-5. **명확성**: 테스트 이름과 구조로 의도 파악 가능
-6. **격리성**: 테스트 간 상태 공유 금지
+---
 
-### 3A 패턴 (Arrange-Act-Assert)
-```java
-@Test
-void testExample() {
-    // Arrange: 테스트 데이터 및 환경 준비
-    String memberId = "testuser1";
-    String password = "Test1234!";
+## 3A 패턴
 
-    // Act: 테스트 대상 실행
-    MemberModel result = memberService.register(memberId, password, /* ... */);
+**`// given / // when / // then`** — 모든 테스트(단위/통합/E2E)에서 통일
 
-    // Assert: 결과 검증
-    assertThat(result).isNotNull();
-    assertThat(result.getMemberId().value()).isEqualTo(memberId);
-}
+---
+
+## @Nested 구조
+
 ```
-
-**주석 규칙:**
-- 단위/통합 테스트: `// given`, `// when`, `// then`
-- E2E 테스트: `// arrange`, `// act`, `// assert`
-
-### @Nested 테스트 구조 패턴
-
-**목적:** 관련된 테스트를 논리적으로 그룹화하여 가독성 향상
-
-**구조:**
-```java
-@DisplayName("{Entity} 엔티티")
-class EntityTest {
-
+@DisplayName("{레이어 또는 Entity}")
+class XxxTest {
     @DisplayName("{행위}를 할 때,")
     @Nested
     class ContextGroup {
         @Test
         @DisplayName("{조건}이면 {결과}")
-        void test_method_name() {
-            // given: 테스트 데이터 준비
-
-            // when: 테스트 대상 실행
-
-            // then: 결과 검증
-        }
+        void test_method_name() { ... }
     }
 }
 ```
 
-**네이밍 컨벤션:**
-- **테스트 클래스 DisplayName**: `"{Entity} 엔티티"` 또는 `"{Domain} {레이어}"`
-- **@Nested 클래스명**: 영어 명사/동사 (Create, Delete, DecreaseStock 등)
-- **@Nested DisplayName**: 한글 동사구 + 쉼표 (예: `"브랜드를 생성할 때,"`, `"재고를 차감할 때,"`)
-- **테스트 메서드명**: 영어 snake_case (예: `create_brand_model`, `decreaseStock_success`)
-- **테스트 메서드 DisplayName**: 한글 명사구 (예: `"create() 정적 팩토리로 BrandModel 생성 성공"`)
-
-**실제 예시 - Entity 테스트:**
-```java
-@DisplayName("ProductModel Entity")
-class ProductModelTest {
-
-    @DisplayName("상품을 생성할 때,")
-    @Nested
-    class Create {
-        @Test
-        @DisplayName("create() 정적 팩토리로 ProductModel 생성 성공")
-        void create_product_model() {
-            // given
-            String productId = "prod1";
-            String brandId = "nike";
-            String productName = "Nike Air Max";
-            BigDecimal price = new BigDecimal("150000");
-            int stockQuantity = 100;
-
-            // when
-            ProductModel product = ProductModel.create(productId, brandId, productName, price, stockQuantity);
-
-            // then
-            assertThat(product.getProductId()).isEqualTo(new ProductId(productId));
-            assertThat(product.getBrandId()).isEqualTo(new BrandId(brandId));
-            assertThat(product.getStockQuantity().value()).isEqualTo(stockQuantity);
-        }
-    }
-
-    @DisplayName("재고를 차감할 때,")
-    @Nested
-    class DecreaseStock {
-        @Test
-        @DisplayName("재고가 충분하면 차감 성공")
-        void decreaseStock_success() {
-            // given
-            ProductModel product = ProductModel.create("prod1", "nike", "Nike Air", new BigDecimal("100000"), 50);
-
-            // when
-            product.decreaseStock(10);
-
-            // then
-            assertThat(product.getStockQuantity().value()).isEqualTo(40);
-        }
-
-        @Test
-        @DisplayName("재고가 부족하면 예외 발생")
-        void decreaseStock_insufficient_stock_throws_exception() {
-            // given
-            ProductModel product = ProductModel.create("prod1", "nike", "Nike Air", new BigDecimal("100000"), 5);
-
-            // when & then
-            assertThatThrownBy(() -> product.decreaseStock(10))
-                    .isInstanceOf(CoreException.class)
-                    .hasMessageContaining("재고가 부족합니다");
-        }
-    }
-
-    @DisplayName("상품을 삭제할 때,")
-    @Nested
-    class Delete {
-        @Test
-        @DisplayName("markAsDeleted() 호출 시 deletedAt 설정됨")
-        void mark_as_deleted_sets_deletedAt() {
-            // given
-            ProductModel product = ProductModel.create("prod1", "nike", "Nike Air", new BigDecimal("100000"), 50);
-            assertThat(product.isDeleted()).isFalse();
-
-            // when
-            product.markAsDeleted();
-
-            // then
-            assertThat(product.isDeleted()).isTrue();
-            assertThat(product.getDeletedAt()).isNotNull();
-        }
-    }
-}
-```
-
-**@Nested 사용 시기:**
-- ✅ Entity 테스트: 도메인 행위별 그룹화 (Create, Update, Delete 등)
-- ✅ Service/Facade 통합 테스트: 유스케이스별 그룹화 (Register, Login 등)
-- ✅ Controller E2E 테스트: 엔드포인트별 그룹화 (POST /api/v1/members 등)
-- ❌ Value Object 단위 테스트: 단순한 경우 @Nested 불필요
-
-**장점:**
-- 테스트 리포트의 계층 구조로 가독성 향상
-- 관련 테스트끼리 논리적으로 묶어 관리 용이
-- 각 @Nested 클래스에서 공통 setup 가능 (@BeforeEach)
+**네이밍 컨벤션**
+- 클래스 DisplayName: `"{Entity} 엔티티"` 또는 `"{Domain} {레이어}"`
+- @Nested 클래스명: 영어 명사/동사 (`Create`, `Delete`, `DecreaseStock`)
+- @Nested DisplayName: 한글 동사구 + 쉼표 (`"재고를 차감할 때,"`)
+- 메서드명: snake_case (`decreaseStock_success`)
+- 메서드 DisplayName: 한글 명사구 (`"재고가 충분하면 차감 성공"`)
 
 ---
 
 ## 단위 테스트 (Unit Test)
 
-### 대상
-- **Value Object**: 유효성 검증 로직
-- **도메인 로직**: 비즈니스 규칙
-- **유틸리티 메서드**: 순수 함수
+**대상**: Value Object, Model 도메인 로직 (외부 의존성 없음)
 
-### 특징
-- 외부 의존성 없음 (DB, 네트워크 등)
-- 빠른 실행 속도 (< 100ms)
-- 격리된 환경
-
-### Value Object 테스트 예시
-```java
-@DisplayName("회원 모델을 생성할 때, ")
-@Nested
-class Create {
-    @DisplayName("ID 가 영문 및 숫자 10자 이내 형식에 맞지 않으면, User 객체 생성에 실패한다.")
-    @Test
-    void createsMemberModel_whenIdIsInvalid() {
-        // arrange
-        String memberId = "invalid_id!"; // 특수 문자 포함
-
-        // act
-        CoreException result = assertThrows(CoreException.class, () ->
-                new MemberModel(memberId, "password123"));
-
-        // assert
-        assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
-    }
-}
-```
+레퍼런스:
+- `domain/member/MemberModelUnitTest.java`
+- `domain/brand/BrandModelTest.java`
+- `domain/order/OrderModelTest.java`
 
 ---
 
 ## 통합 테스트 (Integration Test)
 
-### 대상
-- **Service**: 비즈니스 로직 + Repository 연동
-- **Repository**: JPA 쿼리 동작 확인
-- **외부 시스템 연동**: Redis, Kafka 등
+**대상**: Service + Repository (실제 DB 환경)
 
-### 특징
-- `@SpringBootTest`: Spring Context 로드
-- **TestContainers**: 실제 DB 환경
-- **DatabaseCleanUp**: 테스트 간 데이터 격리
-- **Spy 검증**: 메서드 호출 확인
+**설정**
+- `@SpringBootTest`
+- TestContainers (실제 MySQL 환경)
+- `@AfterEach` 에서 `databaseCleanUp.truncateAllTables()` + `Mockito.reset(spy)`
 
-### Service 통합 테스트 예시
-```java
-@SpringBootTest
-class MemberServiceIntegrationTest {
-    @Autowired
-    private MemberService memberService;
+**Spy 설정 패턴**
+- `@TestConfiguration`에서 `Mockito.spy(new XxxRepositoryImpl(...))` 등록
+- `@Bean @Primary` 로 실제 Bean 교체
+- `verify(spyRepo, times(1)).save(any(...))` 로 호출 검증
 
-    @Autowired
-    private MemberJpaRepository memberJpaRepository;
-
-    @Autowired
-    private PasswordHasher passwordHasher;
-
-    @Autowired
-    private MemberRepository spyMemberRepository;
-
-    @Autowired
-    private DatabaseCleanUp databaseCleanUp;
-
-    @AfterEach
-    void tearDown() {
-        databaseCleanUp.truncateAllTables();
-        Mockito.reset(spyMemberRepository);
-    }
-
-    @DisplayName("회원 가입 시,")
-    @Nested
-    class Post {
-        private static final String VALID_MEMBER_ID = "testuser1";
-        private static final String VALID_PASSWORD = "Test1234!";
-        private static final String VALID_EMAIL = "test@example.com";
-        private static final String VALID_BIRTH_DATE = "1995-05-20";
-        private static final String VALID_NAME = "테스트유저";
-        private static final Gender VALID_GENDER = Gender.MALE;
-
-        @DisplayName("유저 저장이 정상적으로 이루어진다.")
-        @Test
-        void testUserSave() {
-            // arrange & act
-            MemberModel savedMember = memberService.register(
-                VALID_MEMBER_ID, VALID_PASSWORD, VALID_EMAIL,
-                VALID_BIRTH_DATE, VALID_NAME, VALID_GENDER
-            );
-
-            // assert - spy 객체를 통해 save 메서드 호출 검증
-            verify(spyMemberRepository, times(1)).save(any(MemberModel.class));
-
-            // assert - 저장된 회원 정보 검증
-            assertAll(
-                () -> assertThat(savedMember).isNotNull(),
-                () -> assertThat(savedMember.getId()).isNotNull(),
-                () -> assertThat(savedMember.getMemberId().value()).isEqualTo(VALID_MEMBER_ID),
-                () -> assertThat(savedMember.getEmail().address()).isEqualTo(VALID_EMAIL),
-                () -> assertThat(passwordHasher.matches(VALID_PASSWORD, savedMember.getPassword())).isTrue()
-            );
-
-            // DB에서 직접 조회하여 검증
-            MemberModel foundMember = memberJpaRepository.findById(savedMember.getId()).orElseThrow();
-            assertThat(foundMember.getMemberId().value()).isEqualTo(VALID_MEMBER_ID);
-        }
-    }
-}
-```
-
-### Spy 설정 (TestConfiguration)
-```java
-@TestConfiguration
-static class SpyConfig {
-    @Bean
-    @Primary
-    public MemberRepository spyMemberRepository(MemberJpaRepository memberJpaRepository) {
-        return Mockito.spy(new MemberRepositoryImpl(memberJpaRepository));
-    }
-}
-```
-
-### DatabaseCleanUp 사용
-```java
-@Component
-public class DatabaseCleanUp {
-    @PersistenceContext
-    private EntityManager entityManager;
-
-    @Transactional
-    public void truncateAllTables() {
-        entityManager.flush();
-        entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 0").executeUpdate();
-
-        List<String> tableNames = entityManager.createNativeQuery(
-            "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE()"
-        ).getResultList();
-
-        for (String tableName : tableNames) {
-            entityManager.createNativeQuery("TRUNCATE TABLE " + tableName).executeUpdate();
-        }
-
-        entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 1").executeUpdate();
-    }
-}
-```
+레퍼런스:
+- `domain/member/MemberServiceIntegrationTest.java`
+- `domain/product/ProductServiceIntegrationTest.java`
+- `domain/brand/BrandServiceIntegrationTest.java`
 
 ---
 
 ## E2E 테스트 (End-to-End Test)
 
-### 대상
-- **REST API**: 전체 요청-응답 흐름
-- **실제 시나리오**: 사용자 관점 테스트
+**대상**: Controller → 전체 레이어 (실제 HTTP 요청/응답)
 
-### 특징
-- `@SpringBootTest(webEnvironment = RANDOM_PORT)`: 실제 서버 구동
-- **TestRestTemplate**: HTTP 요청 전송
-- **ParameterizedTypeReference**: 제네릭 타입 응답 처리
-- 전체 레이어 통합 검증
+**설정**
+- `@SpringBootTest(webEnvironment = RANDOM_PORT)`
+- `TestRestTemplate` 으로 HTTP 요청
+- `ParameterizedTypeReference<ApiResponse<XxxDto>>` 로 제네릭 응답 처리
 
-### E2E 테스트 예시
-```java
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class MemberV1ApiE2ETest {
-
-    private static final String ENDPOINT_REGISTER = "/api/v1/members/register";
-
-    @Autowired
-    private TestRestTemplate testRestTemplate;
-
-    @Autowired
-    private DatabaseCleanUp databaseCleanUp;
-
-    @AfterEach
-    void tearDown() {
-        databaseCleanUp.truncateAllTables();
-    }
-
-    @DisplayName("POST /api/v1/members/register")
-    @Nested
-    class Register {
-        @DisplayName("회원 가입이 성공할 경우, 생성된 유저 정보를 응답으로 반환한다.")
-        @Test
-        void successfulRegistration_returnsCreatedUserInfo() {
-            // arrange
-            MemberV1Dto.RegisterRequest request = new MemberV1Dto.RegisterRequest(
-                "testuser1",
-                "Test1234!",
-                "test@example.com",
-                "1995-05-20",
-                "테스트유저",
-                Gender.MALE
-            );
-
-            // act
-            ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>> responseType =
-                new ParameterizedTypeReference<>() {};
-            ResponseEntity<ApiResponse<MemberV1Dto.MemberResponse>> response =
-                testRestTemplate.exchange(
-                    ENDPOINT_REGISTER,
-                    HttpMethod.POST,
-                    new HttpEntity<>(request),
-                    responseType
-                );
-
-            // assert
-            assertAll(
-                () -> assertTrue(response.getStatusCode().is2xxSuccessful()),
-                () -> assertThat(response.getBody()).isNotNull(),
-                () -> assertThat(response.getBody().data().memberId()).isEqualTo("testuser1"),
-                () -> assertThat(response.getBody().data().email()).isEqualTo("test@example.com")
-            );
-        }
-    }
-}
-```
+레퍼런스:
+- `interfaces/api/product/ProductV1ControllerE2ETest.java`
+- `interfaces/api/order/OrderV1ControllerE2ETest.java`
+- `interfaces/api/brand/BrandV1ControllerE2ETest.java`
 
 ---
 
-## Assertion 라이브러리
+## AssertJ 핵심 패턴
 
-### AssertJ (권장)
 ```java
 // 단일 검증
-assertThat(member.getMemberId().value()).isEqualTo("testuser1");
+assertThat(result).isNotNull();
+assertThat(result.getValue()).isEqualTo("expected");
 
-// 다중 검증
+// 다중 검증 (하나 실패해도 나머지 실행)
 assertAll(
-    () -> assertThat(member).isNotNull(),
-    () -> assertThat(member.getId()).isNotNull(),
-    () -> assertThat(member.getMemberId().value()).isEqualTo("testuser1")
+    () -> assertThat(result).isNotNull(),
+    () -> assertThat(result.getId()).isNotNull()
 );
 
 // 예외 검증
-CoreException exception = assertThrows(CoreException.class,
-    () -> new MemberId("invalid!"));
-assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+assertThatThrownBy(() -> new MemberId("invalid!"))
+        .isInstanceOf(CoreException.class);
 
 // 컬렉션 검증
-assertThat(members)
-    .hasSize(3)
-    .extracting(MemberModel::getMemberId)
-    .containsExactly(memberId1, memberId2, memberId3);
+assertThat(list).hasSize(3).extracting(Model::getId).containsExactly(...);
 ```
 
 ---
 
-## Mock 사용
+## Gradle 테스트 명령어
 
-### Mockito
-```java
-@ExtendWith(MockitoExtension.class)
-class ServiceTest {
-    @Mock
-    private MemberRepository memberRepository;
-
-    @InjectMocks
-    private MemberService memberService;
-
-    @Test
-    void testWithMock() {
-        // arrange
-        MemberId memberId = new MemberId("testuser1");
-        when(memberRepository.existsByMemberId(memberId)).thenReturn(false);
-
-        // act
-        memberService.register(/* ... */);
-
-        // assert
-        verify(memberRepository, times(1)).save(any(MemberModel.class));
-    }
-}
-```
-
-### Spy (실제 객체 + 부분 모킹)
-```java
-@Autowired
-private MemberRepository spyMemberRepository;
-
-@Test
-void testWithSpy() {
-    // act
-    memberService.register(/* ... */);
-
-    // assert - 실제 동작 + 호출 검증
-    verify(spyMemberRepository, times(1)).save(any(MemberModel.class));
-}
-```
-
----
-
-## 테스트 격리
-
-### @AfterEach로 데이터 정리
-```java
-@AfterEach
-void tearDown() {
-    databaseCleanUp.truncateAllTables();
-    Mockito.reset(spyMemberRepository);
-}
-```
-
----
-
-## 테스트 실행
-
-### Gradle 명령어
 ```bash
-# 전체 테스트
 ./gradlew test
-
-# 특정 모듈 테스트
 ./gradlew :apps:commerce-api:test
-
-# 특정 테스트 클래스
 ./gradlew test --tests MemberServiceIntegrationTest
-
-# 커버리지 리포트
-./gradlew test jacocoTestReport
-```
-
----
-
-## 테스트 네이밍
-
-### 권장: @DisplayName + 간단한 메서드명
-```java
-@DisplayName("회원 가입이 성공할 경우, 생성된 유저 정보를 응답으로 반환한다.")
-@Test
-void successfulRegistration_returnsCreatedUserInfo() {
-    // ...
-}
 ```
 
 ---
@@ -514,42 +139,31 @@ void successfulRegistration_returnsCreatedUserInfo() {
 ## 테스트 작성 체크리스트
 
 ### 단위 테스트
-- [ ] 3A 패턴 준수
 - [ ] 외부 의존성 없음
-- [ ] 빠른 실행 (< 100ms)
-- [ ] 명확한 @DisplayName
-- [ ] 경계값 테스트 포함
+- [ ] `// given / when / then` 주석
+- [ ] 경계값 포함 (null, 빈값, 최대/최소)
+- [ ] 명확한 `@DisplayName`
 
 ### 통합 테스트
-- [ ] @SpringBootTest 사용
+- [ ] `@SpringBootTest`
 - [ ] TestContainers 설정
-- [ ] DatabaseCleanUp 적용
+- [ ] `@AfterEach` 데이터 정리
 - [ ] Spy 검증 (필요 시)
-- [ ] 실제 DB 동작 확인
 
 ### E2E 테스트
-- [ ] RANDOM_PORT 설정
-- [ ] TestRestTemplate 사용
-- [ ] 전체 시나리오 검증
-- [ ] HTTP 상태 코드 확인
+- [ ] `RANDOM_PORT` 설정
+- [ ] HTTP 상태 코드 검증
 - [ ] 응답 데이터 검증
 
 ---
 
-## 금지 사항
+## 핵심 규칙
 
-### ❌ Never Do
-1. **테스트 간 의존성**: 테스트 실행 순서에 의존 금지
-2. **Thread.sleep()**: 시간 기반 대기 금지
-3. **하드코딩된 포트**: RANDOM_PORT 사용
-4. **프로덕션 DB 사용**: TestContainers 사용
-5. **테스트 무시**: `@Disabled` 남발 금지
-6. **과도한 Mock**: 실제 동작 검증 우선
-
-### ✅ Best Practices
-1. **실패하는 테스트 먼저 작성** (TDD)
-2. **한 테스트는 한 가지만 검증**
-3. **테스트 이름으로 의도 표현**
-4. **Given-When-Then 명확히 구분**
-5. **assertAll로 다중 검증**
-6. **테스트 데이터는 상수로 관리**
+```
+❌ 테스트 간 실행 순서 의존
+❌ Thread.sleep() 사용
+❌ 프로덕션 DB 사용  →  TestContainers
+❌ @Disabled 남발
+❌ 과도한 Mock  →  실제 동작 검증 우선
+❌ assertion 약화 (isNotNull 만으로 검증 종료)
+```
