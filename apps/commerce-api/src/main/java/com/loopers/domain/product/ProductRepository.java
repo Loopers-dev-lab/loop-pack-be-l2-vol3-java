@@ -31,16 +31,6 @@ public interface ProductRepository {
     void increaseStock(Long productId, int quantity);
 
     /**
-     * 상품의 좋아요 수를 1 증가시킵니다.
-     */
-    void incrementLikeCount(Long productId);
-
-    /**
-     * 상품의 좋아요 수를 1 감소시킵니다. (0 이하로 내려가지 않음)
-     */
-    void decrementLikeCount(Long productId);
-
-    /**
      * 브랜드 DB PK로 삭제되지 않은 상품 목록을 조회합니다.
      */
     List<ProductModel> findByRefBrandId(Long brandId);

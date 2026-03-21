@@ -12,7 +12,7 @@ public enum ProductSortCondition {
     LIKES_DESC {
         @Override
         public OrderSpecifier<?>[] toOrderSpecifiers(QProductModel product) {
-            return new OrderSpecifier<?>[] { product.likeCount.desc(), product.updatedAt.desc() };
+            return new OrderSpecifier<?>[] { product.updatedAt.desc() };
         }
     },
 

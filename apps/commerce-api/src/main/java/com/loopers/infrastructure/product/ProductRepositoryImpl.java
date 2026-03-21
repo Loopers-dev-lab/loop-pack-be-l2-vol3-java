@@ -118,16 +118,6 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public void incrementLikeCount(Long productId) {
-        productJpaRepository.incrementLikeCount(productId);
-    }
-
-    @Override
-    public void decrementLikeCount(Long productId) {
-        productJpaRepository.decrementLikeCount(productId);
-    }
-
-    @Override
     public List<ProductModel> findByRefBrandId(Long brandId) {
         return productJpaRepository.findActiveByRefBrandId(brandId);
     }

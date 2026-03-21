@@ -22,11 +22,7 @@ import java.math.BigDecimal;
 @Table(
     name = "products",
     indexes = {
-        // Q1 likes_desc: 브랜드 필터 + 좋아요 내림차순 + 최신순 보조 정렬
-        @Index(name = "idx_products_brand_like",   columnList = "ref_brand_id, like_count DESC, deleted_at"),
-        // Q2 latest: 브랜드 필터 + 최신순
         @Index(name = "idx_products_brand_latest", columnList = "ref_brand_id, updated_at DESC, deleted_at"),
-        // Q3 price_asc: 브랜드 필터 + 가격 오름차순
         @Index(name = "idx_products_brand_price",  columnList = "ref_brand_id, price, deleted_at")
     }
 )
@@ -52,9 +48,6 @@ public class ProductModel extends BaseEntity {
     @Convert(converter = StockQuantityConverter.class)
     @Column(name = "stock_quantity", nullable = false)
     private StockQuantity stockQuantity;
-
-    @Column(name = "like_count", nullable = false)
-    private int likeCount;
 
     protected ProductModel() {}
 
