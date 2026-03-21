@@ -90,13 +90,14 @@ class CouponIssueTest {
             );
         }
 
-        @DisplayName("AVAILABLE 상태이면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("AVAILABLE 상태이면, 멱등하게 무시한다.")
         @Test
-        void throwsBadRequest_whenAlreadyAvailable() {
+        void idempotent_whenAlreadyAvailable() {
             CouponIssue issue = new CouponIssue(1L, 1L);
 
-            CoreException result = assertThrows(CoreException.class, issue::restore);
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            issue.restore(); // 예외 없이 무시
+
+            assertThat(issue.getStatus()).isEqualTo(CouponIssueStatus.AVAILABLE);
         }
     }
 }

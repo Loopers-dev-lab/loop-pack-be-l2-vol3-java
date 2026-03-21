@@ -7,7 +7,6 @@ import com.loopers.domain.PageResult;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.product.ProductSortType;
 import com.loopers.interfaces.api.ApiResponse;
-import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,8 +33,8 @@ public class ProductV1Controller implements ProductV1ApiSpec {
     public ApiResponse<ProductV1Dto.ProductPageResponse> getAll(
         @RequestParam(required = false) Long brandId,
         @RequestParam(defaultValue = "latest") String sort,
-        @RequestParam(defaultValue = "0") @Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다.") int page,
-        @RequestParam(defaultValue = "20") @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.") int size
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size
     ) {
         PageResult<ProductReadModel> products = productQueryService.getAll(
             brandId, ProductSortType.from(sort), page, size

@@ -14,6 +14,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private final AuthUserArgumentResolver authUserArgumentResolver;
     private final AdminAuthInterceptor adminAuthInterceptor;
+    private final PgCallbackAuthInterceptor pgCallbackAuthInterceptor;
 
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
@@ -24,5 +25,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(adminAuthInterceptor)
             .addPathPatterns("/api-admin/**");
+        registry.addInterceptor(pgCallbackAuthInterceptor)
+            .addPathPatterns("/api/v1/payments/callback");
     }
 }

@@ -27,6 +27,11 @@ class FakeOrderRepository implements OrderRepository {
     }
 
     @Override
+    public Optional<Order> findByIdForUpdate(Long id) {
+        return findById(id);
+    }
+
+    @Override
     public Optional<Order> findByIdWithItems(Long id) {
         return findById(id);
     }

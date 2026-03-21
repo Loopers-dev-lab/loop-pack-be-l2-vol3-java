@@ -24,6 +24,51 @@ spring:
       - logging.yml
       - monitoring.yml
 
+pg:
+  base-url: http://localhost:8082
+  callback-url: http://localhost:8080/api/v1/payments/callback
+  connect-timeout: 1000  # 1초: TCP handshake 대기. PG 서버 다운 시 빠른 실패
+  read-timeout: 2000     # 2초: PG 응답 대기. 시뮬레이터 지연(100~500ms) p99 + 여유분
+  callback-secret: ${PG_CALLBACK_SECRET:pg-callback-secret-key}  # 콜백 인증용 shared secret (환경변수 우선)
+  pool:
+    max-connections: 20             # PG 서버 최대 동시 연결 수
+    connection-request-timeout: 1000 # 풀에서 커넥션 얻는 대기 (ms). 풀 포화 시 빠른 실패
+
+resilience4j:
+  circuitbreaker:
+    circuitBreakerAspectOrder: 1  # 바깥: Retry 최종 결과를 CircuitBreaker가 판단
+    instances:
+      pgCircuit:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10           # 최근 10개 요청 기준
+        failure-rate-threshold: 50        # 실패율 50% 초과 시 Open
+        wait-duration-in-open-state: 10s  # Open 유지 시간
+        permitted-number-of-calls-in-half-open-state: 3  # Half-Open 시 테스트 호출 수
+        slow-call-duration-threshold: 1500ms  # 1.5초 이상 → 느린 호출 (read-timeout 2s 미만이어야 실제 감지 가능)
+        slow-call-rate-threshold: 50      # 느린 호출 비율 50% 초과 시 Open
+        register-health-indicator: true   # Actuator health에 서킷 상태 노출
+  retry:
+    retryAspectOrder: 2  # 안쪽: 먼저 재시도 후 최종 결과를 CircuitBreaker에 전달
+    instances:
+      pgRetry:
+        max-attempts: 3                   # 최대 3회 시도 (초기 1회 + 재시도 2회)
+        wait-duration: 1s                 # 기본 대기 시간
+        enable-exponential-backoff: true  # 지수 백오프: 1s → 2s → 4s
+        exponential-backoff-multiplier: 2
+        enable-randomized-wait: true      # Jitter: Thundering Herd 방지
+        randomized-wait-factor: 0.5
+        retry-exceptions:
+          - com.loopers.domain.payment.PaymentGatewayRetryableException
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,circuitbreakers,circuitbreakerevents,retries,retryevents
+  health:
+    circuitbreakers:
+      enabled: true
+
 springdoc:
   use-fqn: true
   swagger-ui:
