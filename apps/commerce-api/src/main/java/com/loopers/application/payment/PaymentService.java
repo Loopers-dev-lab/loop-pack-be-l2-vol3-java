@@ -44,6 +44,24 @@ public class PaymentService {
     }
 
     @Transactional
+    public boolean markSucceededIfRequested(Long paymentId) {
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다"));
+        if (payment.isSucceeded()) return false;
+        payment.markSucceeded();
+        return true;
+    }
+
+    @Transactional
+    public boolean markFailedIfRequested(Long paymentId, String reason) {
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다"));
+        if (payment.isFailed()) return false;
+        payment.markFailed(reason);
+        return true;
+    }
+
+    @Transactional
     public void markCancelRequested(Long paymentId, String reason) {
         Payment payment = paymentRepository.findByIdForUpdate(paymentId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다"));

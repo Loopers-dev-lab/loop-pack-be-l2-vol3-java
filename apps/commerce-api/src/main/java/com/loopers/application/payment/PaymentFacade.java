@@ -31,16 +31,12 @@ public class PaymentFacade {
 
     @Bulkhead(name = "pg-payment", fallbackMethod = "paymentBulkheadFallback")
     public PaymentInfo requestPayment(Long userId, PaymentCommand.Request reqCommand) {
-        // TX1: 주문 검증 + Payment 생성 + 비즈니스 확정
+        // TX1: 주문 검증 + Payment 생성 (재고는 reserve 상태 유지)
         Payment payment = transactionTemplate.execute(status -> {
             Order order = validateAndGetOrder(userId, reqCommand.orderId());
 
             PaymentCommand.Create createCommand = PaymentCommand.Create.from(reqCommand, userId, order.getFinalAmount());
-            Payment created = paymentService.createPayment(createCommand);
-
-            processor.confirm(order);
-
-            return created;
+            return paymentService.createPayment(createCommand);
         });
 
         // PG 호출 (트랜잭션 밖)
@@ -77,13 +73,11 @@ public class PaymentFacade {
         PgResult.Query result = gatewayExecutor.query(payment);
 
         if (result.found() && result.done()) {
-            transactionTemplate.executeWithoutResult(status -> {
-                Payment p = paymentService.getPayment(payment.getId());
-                if (!p.isFinalized()) p.markSucceeded();
-            });
+            transactionTemplate.executeWithoutResult(status ->
+                    processor.confirmAndSettle(payment.getId(), payment.getOrderId()));
         } else {
             transactionTemplate.executeWithoutResult(status ->
-                    processor.failAndCompensate(payment.getId(), payment.getOrderId(), "결제 미완료"));
+                    processor.failAndRelease(payment.getId(), payment.getOrderId(), "결제 미완료"));
         }
 
         return PaymentInfo.from(paymentService.getPayment(payment.getId()));
@@ -133,13 +127,11 @@ public class PaymentFacade {
 
     private void handleConfirmOutcome(Payment payment, PgConfirmOutcome outcome) {
         switch (outcome) {
-            case PgConfirmOutcome.Success() -> transactionTemplate.executeWithoutResult(status -> {
-                Payment p = paymentService.getPayment(payment.getId());
-                if (!p.isFinalized()) p.markSucceeded();
-            });
+            case PgConfirmOutcome.Success() -> transactionTemplate.executeWithoutResult(status ->
+                    processor.confirmAndSettle(payment.getId(), payment.getOrderId()));
             case PgConfirmOutcome.Failed(String reason) -> {
                 transactionTemplate.executeWithoutResult(status ->
-                        processor.failAndCompensate(payment.getId(), payment.getOrderId(), reason));
+                        processor.failAndRelease(payment.getId(), payment.getOrderId(), reason));
                 throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 요청에 실패했습니다. 잠시 후 다시 시도해주세요");
             }
             case PgConfirmOutcome.Timeout() -> {

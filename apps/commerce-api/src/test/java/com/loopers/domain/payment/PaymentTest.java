@@ -231,6 +231,25 @@ class PaymentTest {
     }
 
     @Nested
+    class 실패_여부_확인 {
+
+        @Test
+        void FAILED이면_true를_반환한다() {
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+            payment.markFailed("PG 실패");
+
+            assertThat(payment.isFailed()).isTrue();
+        }
+
+        @Test
+        void REQUESTED이면_false를_반환한다() {
+            Payment payment = Payment.create(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000"));
+
+            assertThat(payment.isFailed()).isFalse();
+        }
+    }
+
+    @Nested
     class 취소_여부_확인 {
 
         @Test

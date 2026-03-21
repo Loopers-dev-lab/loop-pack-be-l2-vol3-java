@@ -71,6 +71,29 @@ class PaymentServiceIntegrationTest {
             Payment updated = paymentService.getPayment(payment.getId());
             assertThat(updated.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
         }
+
+        @Test
+        void REQUESTED에서_멱등하게_SUCCEEDED로_변경된다() {
+            Payment payment = paymentService.createPayment(PaymentCommand.Create.of(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")));
+
+            boolean result = paymentService.markSucceededIfRequested(payment.getId());
+
+            Payment updated = paymentService.getPayment(payment.getId());
+            assertAll(
+                    () -> assertThat(result).isTrue(),
+                    () -> assertThat(updated.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED)
+            );
+        }
+
+        @Test
+        void 이미_SUCCEEDED_상태이면_false를_반환한다() {
+            Payment payment = paymentService.createPayment(PaymentCommand.Create.of(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")));
+            paymentService.markSucceededIfRequested(payment.getId());
+
+            boolean result = paymentService.markSucceededIfRequested(payment.getId());
+
+            assertThat(result).isFalse();
+        }
     }
 
     @Nested
@@ -87,6 +110,30 @@ class PaymentServiceIntegrationTest {
                     () -> assertThat(updated.getStatus()).isEqualTo(PaymentStatus.FAILED),
                     () -> assertThat(updated.getFailReason()).isEqualTo("PG 요청 실패")
             );
+        }
+
+        @Test
+        void REQUESTED에서_멱등하게_FAILED로_변경된다() {
+            Payment payment = paymentService.createPayment(PaymentCommand.Create.of(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")));
+
+            boolean result = paymentService.markFailedIfRequested(payment.getId(), "PG 실패");
+
+            Payment updated = paymentService.getPayment(payment.getId());
+            assertAll(
+                    () -> assertThat(result).isTrue(),
+                    () -> assertThat(updated.getStatus()).isEqualTo(PaymentStatus.FAILED),
+                    () -> assertThat(updated.getFailReason()).isEqualTo("PG 실패")
+            );
+        }
+
+        @Test
+        void 이미_FAILED_상태이면_false를_반환한다() {
+            Payment payment = paymentService.createPayment(PaymentCommand.Create.of(1L, 100L, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", new BigDecimal("50000")));
+            paymentService.markFailedIfRequested(payment.getId(), "PG 실패");
+
+            boolean result = paymentService.markFailedIfRequested(payment.getId(), "PG 실패");
+
+            assertThat(result).isFalse();
         }
     }
 

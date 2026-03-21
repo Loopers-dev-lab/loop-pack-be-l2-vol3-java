@@ -53,11 +53,11 @@ public class PendingPaymentScheduler {
 
             if (result.found() && result.done()) {
                 transactionTemplate.executeWithoutResult(status ->
-                        paymentService.markSucceeded(payment.getId()));
+                        processor.confirmAndSettle(payment.getId(), payment.getOrderId()));
                 log.info("미결 결제 보정 성공: paymentId={}", payment.getId());
             } else {
                 transactionTemplate.executeWithoutResult(status ->
-                        processor.failAndCompensate(payment.getId(), payment.getOrderId(), "PG 확인 불가 — 자동 만료"));
+                        processor.failAndRelease(payment.getId(), payment.getOrderId(), "PG 확인 불가 — 자동 만료"));
                 log.info("미결 결제 보정 실패 처리: paymentId={}", payment.getId());
             }
         } catch (Exception e) {

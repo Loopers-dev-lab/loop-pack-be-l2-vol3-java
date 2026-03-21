@@ -139,6 +139,10 @@ public class Payment {
         return this.status == PaymentStatus.SUCCEEDED;
     }
 
+    public boolean isFailed() {
+        return this.status == PaymentStatus.FAILED;
+    }
+
     public boolean isCanceled() {
         return this.status == PaymentStatus.CANCELED;
     }

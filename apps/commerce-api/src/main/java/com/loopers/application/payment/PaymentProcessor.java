@@ -17,39 +17,44 @@ public class PaymentProcessor {
     private final OrderService orderService;
 
     /**
-     * 결제 성공 시 비즈니스 확정
-     * - 재고 확정, 주문 PAID
+     * PG 승인 성공 → 비즈니스 확정 (원자적)
+     * - Payment SUCCEEDED + 재고 확정 + 주문 PAID
      * 호출 측에서 트랜잭션 보장 필요
      */
-    public void confirm(Order order) {
+    public void confirmAndSettle(Long paymentId, Long orderId) {
+        if (!paymentService.markSucceededIfRequested(paymentId)) return;
+        Order order = orderService.getOrder(orderId);
         stockService.confirm(order.getProductQuantities());
-        orderService.payOrder(order.getId());
+        orderService.payOrder(orderId);
     }
 
     /**
-     * 결제 실패 처리 + 비즈니스 보상 (원자적)
+     * PG 승인 실패 → 예약 해제 (원자적)
+     * - Payment FAILED + 재고 예약 해제 + 쿠폰 복원 + 주문 CANCELED
      * 호출 측에서 트랜잭션 보장 필요
      */
-    public void failAndCompensate(Long paymentId, Long orderId, String reason) {
-        paymentService.markFailed(paymentId, reason);
-        compensate(orderService.getOrder(orderId));
+    public void failAndRelease(Long paymentId, Long orderId, String reason) {
+        if (!paymentService.markFailedIfRequested(paymentId, reason)) return;
+        Order order = orderService.getOrder(orderId);
+        stockService.releaseReserved(order.getProductQuantities());
+        if (order.getIssuedCouponId() != null) {
+            issuedCouponService.restore(order.getIssuedCouponId());
+        }
+        orderService.cancelOrder(orderId);
     }
 
     /**
      * 결제 취소 확정 + 비즈니스 보상 (원자적)
+     * - Payment CANCELED + 확정 재고 복원 + 쿠폰 복원 + 주문 CANCELED
      * 호출 측에서 트랜잭션 보장 필요
      */
     public void cancelAndCompensate(Long paymentId, Long orderId) {
         if (!paymentService.markCanceledIfRequested(paymentId)) return;
-        compensate(orderService.getOrder(orderId));
-    }
-
-    private void compensate(Order order) {
+        Order order = orderService.getOrder(orderId);
         stockService.releaseConfirmed(order.getProductQuantities());
-
         if (order.getIssuedCouponId() != null) {
             issuedCouponService.restore(order.getIssuedCouponId());
         }
-        orderService.cancelOrder(order.getId());
+        orderService.cancelOrder(orderId);
     }
 }
