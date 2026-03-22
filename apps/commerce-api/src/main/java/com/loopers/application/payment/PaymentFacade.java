@@ -161,6 +161,12 @@ public class PaymentFacade {
             case PgConfirmOutcome.Timeout() -> {
                 // REQUESTED 상태 유지, 콜백/verify로 최종 결정
             }
+            case PgConfirmOutcome.Unavailable() -> {
+                // PG에 요청 자체를 못 보냄 (서킷 OPEN 등) — 즉시 정리
+                transactionTemplate.executeWithoutResult(status ->
+                        processor.failAndRelease(payment.getId(), payment.getOrderId(), "PG 서비스 불가"));
+                throw new CoreException(ErrorType.INTERNAL_ERROR, "현재 결제 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해주세요");
+            }
         }
     }
 

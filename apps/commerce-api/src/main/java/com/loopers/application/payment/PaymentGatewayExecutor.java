@@ -7,6 +7,7 @@ import com.loopers.domain.payment.gateway.PgCommand;
 import com.loopers.domain.payment.gateway.PgCommunicationException;
 import com.loopers.domain.payment.gateway.PgResult;
 import com.loopers.domain.payment.gateway.PgTimeoutException;
+import com.loopers.domain.payment.gateway.PgUnavailableException;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,10 @@ public class PaymentGatewayExecutor {
             log.warn("PG 결제 승인 거절: paymentId={}, pgType={}, message={}",
                     payment.getId(), gateway.getType(), e.getMessage());
             return new PgConfirmOutcome.Failed(e.getMessage());
+        } catch (PgUnavailableException e) {
+            log.warn("PG 서비스 불가: paymentId={}, pgType={}, message={}",
+                    payment.getId(), gateway.getType(), e.getMessage());
+            return new PgConfirmOutcome.Unavailable();
         } catch (CoreException e) {
             throw e;
         } catch (PgCommunicationException e) {

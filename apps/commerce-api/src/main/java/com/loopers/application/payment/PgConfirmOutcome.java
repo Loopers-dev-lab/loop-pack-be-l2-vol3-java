@@ -4,4 +4,5 @@ public sealed interface PgConfirmOutcome {
     record Success() implements PgConfirmOutcome {}
     record Failed(String reason) implements PgConfirmOutcome {}
     record Timeout() implements PgConfirmOutcome {}
+    record Unavailable() implements PgConfirmOutcome {}
 }

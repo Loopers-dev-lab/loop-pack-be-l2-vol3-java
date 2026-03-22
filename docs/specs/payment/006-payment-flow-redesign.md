@@ -16,6 +16,7 @@
 - [ ] PG 승인 성공 시 재고 확정(confirm) + 주문 PAID + 결제 SUCCEEDED를 하나의 트랜잭션으로 처리한다
 - [ ] PG 타임아웃 시 결제 상태는 REQUESTED를 유지하고, 재고는 reserve 상태를 유지한다
 - [ ] PG 요청 실패 시 재고 예약 해제(releaseReserved) + 쿠폰 복원 + 주문 CANCELED + 결제 FAILED를 하나의 트랜잭션으로 처리한다
+- [ ] 서킷 OPEN(PG 서비스 불가) 시 PG에 요청을 보내지 않고 즉시 failAndRelease로 정리한다 (PgConfirmOutcome.Unavailable)
 
 ### 수동 확인 흐름 (PM-05)
 - [ ] REQUESTED 상태의 결제를 확인하면 PG에 조회하여 최종 결정한다

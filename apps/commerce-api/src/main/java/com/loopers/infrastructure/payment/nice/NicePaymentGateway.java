@@ -8,6 +8,7 @@ import com.loopers.domain.payment.gateway.PgCommand;
 import com.loopers.domain.payment.gateway.PgCommunicationException;
 import com.loopers.domain.payment.gateway.PgResult;
 import com.loopers.domain.payment.gateway.PgTimeoutException;
+import com.loopers.domain.payment.gateway.PgUnavailableException;
 import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.infrastructure.payment.nice.dto.NiceApproveRequest;
 import com.loopers.infrastructure.payment.nice.dto.NiceCancelRequest;
@@ -187,7 +188,7 @@ public class NicePaymentGateway implements PaymentGateway {
     }
 
     private PgResult.Confirm confirmFallback(PgCommand.Confirm command, Throwable t) {
-        throw new CoreException(ErrorType.INTERNAL_ERROR, "현재 결제 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해주세요");
+        throw new PgUnavailableException("나이스 서킷 OPEN — 결제 승인 불가: paymentKey=" + command.paymentKey(), t);
     }
 
     private PgResult.Query queryFallback(String paymentKey, Throwable t) {

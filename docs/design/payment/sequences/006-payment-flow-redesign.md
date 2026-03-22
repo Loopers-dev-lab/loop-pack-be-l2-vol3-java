@@ -83,12 +83,48 @@ sequenceDiagram
 
         Note over PF: REQUESTED 유지<br/>재고 reserve 유지, 주문 CREATED 유지<br/>수동확인/보정스케줄러로 최종 결정
 
-    else PG 요청 실패 / 서킷 오픈
+    else PG 요청 실패
         GE->>GW: confirm(command) [CB: pg-request]
         activate GW
-        GW--xGE: PgCommunicationException / CoreException
+        GW--xGE: PgCommunicationException
         deactivate GW
         GE-->>PF: PgConfirmOutcome.Failed
+        deactivate GE
+
+        critical @Transactional (예약 해제)
+            PF->>PP: failAndRelease()
+            activate PP
+            PP->>PS: markFailedIfRequested() [비관락]
+            activate PS
+            PS-->>PP: true
+            deactivate PS
+
+            PP->>SS: 재고 예약 해제 (releaseReserved)
+            activate SS
+            SS-->>PP: void
+            deactivate SS
+
+            opt 쿠폰 적용 주문인 경우
+                PP->>ICS: 쿠폰 복원
+                activate ICS
+                ICS-->>PP: void
+                deactivate ICS
+            end
+
+            PP->>OS: 주문 취소 (CANCELED)
+            activate OS
+            OS-->>PP: void
+            deactivate OS
+            PP-->>PF: void
+            deactivate PP
+        end
+
+    else 서킷 OPEN (PG에 요청 자체를 못 보냄)
+        GE->>GW: confirm(command) [CB: pg-request]
+        activate GW
+        GW--xGE: PgUnavailableException (fallback)
+        deactivate GW
+        GE-->>PF: PgConfirmOutcome.Unavailable
         deactivate GE
 
         critical @Transactional (예약 해제)
