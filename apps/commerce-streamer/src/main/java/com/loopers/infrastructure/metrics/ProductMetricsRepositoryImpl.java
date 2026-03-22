@@ -1,7 +1,7 @@
-package com.loopers.infrastructure.product;
+package com.loopers.infrastructure.metrics;
 
-import com.loopers.domain.product.ProductMetricsModel;
-import com.loopers.domain.product.ProductMetricsRepository;
+import com.loopers.domain.metrics.ProductMetricsModel;
+import com.loopers.domain.metrics.ProductMetricsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -16,5 +16,10 @@ public class ProductMetricsRepositoryImpl implements ProductMetricsRepository {
     @Override
     public Optional<ProductMetricsModel> findByRefProductId(Long refProductId) {
         return productMetricsJpaRepository.findByRefProductId(refProductId);
+    }
+
+    @Override
+    public ProductMetricsModel save(ProductMetricsModel model) {
+        return productMetricsJpaRepository.save(model);
     }
 }
