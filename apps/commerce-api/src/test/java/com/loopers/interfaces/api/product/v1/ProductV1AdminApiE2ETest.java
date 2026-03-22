@@ -11,7 +11,9 @@ import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
 import static com.loopers.support.E2ETestHelper.adminAuthHeaders;
 import static com.loopers.support.E2ETestHelper.assertErrorResponse;
 import static com.loopers.support.E2ETestHelper.userAuthHeaders;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.junit.jupiter.api.DisplayName;
@@ -649,8 +651,11 @@ class ProductV1AdminApiE2ETest extends BaseE2ETest {
                     () -> assertThat(response.getBody().meta().errorCode()).isNull()
             );
 
-            var likedResponse = getLikedProducts(testRestTemplate, "/api/v1/users/me/likes", userHeaders);
-            assertThat(likedResponse.getBody().data().content()).isEmpty();
+            // 비동기 이벤트 처리 대기
+            await().atMost(5, SECONDS).untilAsserted(() -> {
+                var likedResponse = getLikedProducts(testRestTemplate, "/api/v1/users/me/likes", userHeaders);
+                assertThat(likedResponse.getBody().data().content()).isEmpty();
+            });
         }
 
         @DisplayName("존재하지 않는 상품을 삭제하면, PRODUCT_NOT_FOUND 에러 응답을 받는다.")

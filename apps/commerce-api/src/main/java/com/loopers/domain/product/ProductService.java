@@ -132,6 +132,7 @@ public class ProductService {
             return false;
         }
         product.delete();
+        productRepository.save(product);
         return true;
     }
 

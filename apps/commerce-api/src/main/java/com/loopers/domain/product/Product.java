@@ -10,6 +10,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 import com.loopers.domain.BaseEntity;
+import com.loopers.domain.product.ProductEvent.ProductDeleted;
 import com.loopers.domain.shared.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -72,6 +73,15 @@ public class Product extends BaseEntity {
 
     public void restoreStock(Long quantity) {
         this.stock.restore(quantity);
+    }
+
+    /**
+     * 상품을 소프트 삭제하고 {@link ProductDeleted} 이벤트를 등록한다.
+     */
+    @Override
+    public void delete() {
+        super.delete();
+        registerEvent(new ProductDeleted(getId()));
     }
 
     public void update(ModifyProduct product) {
