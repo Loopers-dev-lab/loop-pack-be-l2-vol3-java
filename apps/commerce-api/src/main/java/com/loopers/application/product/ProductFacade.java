@@ -53,6 +53,7 @@ public class ProductFacade {
 
     private ProductInfo enrichProductInfo(ProductInfo product) {
         BrandInfo brand = brandApp.getBrandByRefId(product.refBrandId());
-        return product.enrich(brand, product.likesCount());
+        long likesCount = productApp.getLikesCount(product.id());
+        return product.enrich(brand, likesCount);
     }
 }
