@@ -24,6 +24,11 @@ import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -173,6 +178,49 @@ class OrderServiceIntegrationTest {
             List<OrderModel> result = orderService.findOrders(OTHER_USER_ID, start, end, 0, 10);
 
             assertThat(result).isEmpty();
+        }
+    }
+
+    @DisplayName("completePayment 시")
+    @Nested
+    class CompletePayment {
+
+        @Test
+        void completePayment_whenConcurrent_shouldDecreaseStockOnce() throws Exception {
+            Long productId = saveProduct("상품", 100);
+            OrderModel order = orderService.create(USER_ID,
+                    List.of(new ProductValidationRequest(productId, Quantity.of(1), null)));
+
+            int parallelism = 2;
+            CountDownLatch gate = new CountDownLatch(1);
+            CountDownLatch finished = new CountDownLatch(parallelism);
+            AtomicReference<Throwable> error = new AtomicReference<>();
+            ExecutorService pool = Executors.newFixedThreadPool(parallelism);
+            Long orderId = order.getId();
+            for (int i = 0; i < parallelism; i++) {
+                pool.submit(() -> {
+                    try {
+                        gate.await();
+                        orderService.completePayment(orderId);
+                    } catch (Throwable t) {
+                        error.compareAndSet(null, t);
+                    } finally {
+                        finished.countDown();
+                    }
+                });
+            }
+            gate.countDown();
+            assertThat(finished.await(60, TimeUnit.SECONDS)).isTrue();
+            pool.shutdown();
+            assertThat(error.get()).withFailMessage(() -> String.valueOf(error.get())).isNull();
+
+            Optional<ProductModel> productAfter = productRepository.findById(productId);
+            assertThat(productAfter).isPresent();
+            assertThat(productAfter.get().getStockQuantity()).isEqualTo(99);
+
+            Optional<OrderModel> orderAfter = orderRepository.findById(orderId);
+            assertThat(orderAfter).isPresent();
+            assertThat(orderAfter.get().getStatus()).isEqualTo(OrderStatus.PAID);
         }
     }
 

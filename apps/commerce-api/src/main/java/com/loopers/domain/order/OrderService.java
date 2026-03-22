@@ -153,12 +153,13 @@ public class OrderService {
 
     /**
      * 결제 완료 처리 (06 §10.1, Phase 3). 콜백에서만 호출.
+     * 주문 행 비관적 락으로 동시 콜백·복구가 같은 주문에 대해 재고를 이중 차감하지 않도록 직렬화한다.
      * 재고 차감(productId 오름차순 락) 후 주문을 PAID로 전이한다.
      * 이미 PAID면 재고 차감·상태 변경 없이 반환(멱등).
      */
     @Transactional
     public OrderModel completePayment(Long orderId) {
-        OrderModel order = orderRepository.findById(orderId)
+        OrderModel order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
         if (order.getStatus() == OrderStatus.PAID) {
             return order;

@@ -18,7 +18,8 @@ import static lombok.AccessLevel.PROTECTED;
  */
 @Entity
 @Table(name = "payment", indexes = {
-        @Index(name = "idx_payment_order_status", columnList = "order_id, status")
+        @Index(name = "idx_payment_order_status", columnList = "order_id, status"),
+        @Index(name = "idx_payment_status_created", columnList = "status, created_at")
 })
 @Getter
 @NoArgsConstructor(access = PROTECTED)
