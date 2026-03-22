@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -45,7 +46,7 @@ public class OrderApp {
         eventPublisher.publishEvent(new OrderCreatedEvent(
                 order.getId(), order.getOrderId().value(), memberId, order.getFinalAmount(), now));
         outboxAppender.append("order", order.getOrderId().value(), "OrderCreatedEvent", ORDER_EVENTS_TOPIC,
-                new OrderOutboxPayload("OrderCreatedEvent", 1,
+                new OrderOutboxPayload(UUID.randomUUID().toString(), "OrderCreatedEvent", 1,
                         order.getId(), order.getOrderId().value(), memberId, order.getFinalAmount(), now));
         return OrderInfo.from(order);
     }

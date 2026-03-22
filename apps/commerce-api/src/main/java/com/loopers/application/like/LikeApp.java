@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @RequiredArgsConstructor
 @Component
@@ -41,7 +42,7 @@ public class LikeApp {
             Long productDbId = result.likeModel().getRefProductId().value();
             eventPublisher.publishEvent(new LikedEvent(productDbId, memberId, now));
             outboxAppender.append("product", productId, "LikedEvent", CATALOG_EVENTS_TOPIC,
-                    new LikeOutboxPayload("LikedEvent", 1, productDbId, memberId, now, 1));
+                    new LikeOutboxPayload(UUID.randomUUID().toString(), "LikedEvent", 1, productDbId, memberId, now, 1));
         }
         return LikeInfo.from(result.likeModel());
     }
@@ -57,7 +58,7 @@ public class LikeApp {
             Long productDbId = like.getRefProductId().value();
             eventPublisher.publishEvent(new LikeRemovedEvent(productDbId, memberId, now));
             outboxAppender.append("product", productId, "LikeRemovedEvent", CATALOG_EVENTS_TOPIC,
-                    new LikeOutboxPayload("LikeRemovedEvent", 1, productDbId, memberId, now, -1));
+                    new LikeOutboxPayload(UUID.randomUUID().toString(), "LikeRemovedEvent", 1, productDbId, memberId, now, -1));
         });
     }
 

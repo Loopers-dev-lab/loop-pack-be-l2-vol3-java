@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record OrderOutboxPayload(
+        String eventId,
         String eventType,
         int schemaVersion,
         Long orderDbId,
