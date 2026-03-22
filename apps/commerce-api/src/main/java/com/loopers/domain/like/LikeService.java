@@ -27,18 +27,18 @@ public class LikeService {
     /**
      * 상품에 좋아요를 추가한다.
      *
+     * <p>이미 좋아요가 존재하면 아무 동작도 하지 않는다. (멱등성)</p>
+     *
      * @param userId    사용자 ID
      * @param productId 상품 ID
-     * @return 좋아요가 새로 생성되었으면 true, 이미 존재하면 false
      */
     @Transactional
-    public boolean like(Long userId, Long productId) {
+    public void like(Long userId, Long productId) {
         if (likeRepository.existsByUserIdAndProductId(userId, productId)) {
-            return false;
+            return;
         }
         Like like = Like.create(userId, productId);
         likeRepository.save(like);
-        return true;
     }
 
     /**
@@ -87,18 +87,18 @@ public class LikeService {
     /**
      * 상품의 좋아요를 취소한다.
      *
+     * <p>좋아요가 존재하지 않으면 아무 동작도 하지 않는다. (멱등성)</p>
+     *
      * @param userId    사용자 ID
      * @param productId 상품 ID
-     * @return 좋아요가 실제로 삭제되었으면 true, 존재하지 않았으면 false
      */
     @Transactional
-    public boolean unlike(Long userId, Long productId) {
-        return likeRepository.findByUserIdAndProductId(userId, productId)
-                .map(like -> {
+    public void unlike(Long userId, Long productId) {
+        likeRepository.findByUserIdAndProductId(userId, productId)
+                .ifPresent(like -> {
+                    like.unlike();
                     likeRepository.delete(like);
-                    return true;
-                })
-                .orElse(false);
+                });
     }
 
     /**

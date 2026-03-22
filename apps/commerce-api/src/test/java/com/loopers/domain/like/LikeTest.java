@@ -1,6 +1,7 @@
 package com.loopers.domain.like;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -53,6 +54,21 @@ class LikeTest {
             assertThatThrownBy(() -> Like.create(1L, productId))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.REQUIRED_PRODUCT_ID.getMessage());
+        }
+    }
+
+    @DisplayName("좋아요를 취소할 때,")
+    @Nested
+    class Unlike {
+
+        @DisplayName("예외 없이 정상 수행된다.")
+        @Test
+        void success() {
+            // arrange
+            var like = Like.create(1L, 1L);
+
+            // act & assert
+            assertThatCode(like::unlike).doesNotThrowAnyException();
         }
     }
 }

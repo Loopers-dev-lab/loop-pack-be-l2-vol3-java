@@ -6,7 +6,9 @@ import static com.loopers.interfaces.api.product.v1.ProductSteps.getActiveProduc
 import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
 import static com.loopers.support.E2ETestHelper.assertErrorResponse;
 import static com.loopers.support.E2ETestHelper.userAuthHeaders;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -188,21 +190,21 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
             likeProduct(testRestTemplate, product2Id, user2Headers);
             likeProduct(testRestTemplate, productId, user1Headers);
 
-            // act
-            var response = getActiveProducts(testRestTemplate, "sort=LIKE_COUNT_DESC", new HttpHeaders());
-
-            // assert
-            var content = response.getBody().data().content();
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(content).hasSize(3),
-                    () -> assertThat(content.get(0).productId()).isEqualTo(product2Id),
-                    () -> assertThat(content.get(0).likeCount()).isEqualTo(2L),
-                    () -> assertThat(content.get(1).productId()).isEqualTo(productId),
-                    () -> assertThat(content.get(1).likeCount()).isEqualTo(1L),
-                    () -> assertThat(content.get(2).productId()).isEqualTo(product3Id),
-                    () -> assertThat(content.get(2).likeCount()).isZero()
-            );
+            // act & assert — 비동기 이벤트 처리 대기
+            await().atMost(5, SECONDS).untilAsserted(() -> {
+                var response = getActiveProducts(testRestTemplate, "sort=LIKE_COUNT_DESC", new HttpHeaders());
+                var content = response.getBody().data().content();
+                assertAll(
+                        () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                        () -> assertThat(content).hasSize(3),
+                        () -> assertThat(content.get(0).productId()).isEqualTo(product2Id),
+                        () -> assertThat(content.get(0).likeCount()).isEqualTo(2L),
+                        () -> assertThat(content.get(1).productId()).isEqualTo(productId),
+                        () -> assertThat(content.get(1).likeCount()).isEqualTo(1L),
+                        () -> assertThat(content.get(2).productId()).isEqualTo(product3Id),
+                        () -> assertThat(content.get(2).likeCount()).isZero()
+                );
+            });
         }
 
         @DisplayName("sort=PRICE_ASC로 조회하면, 가격 오름차순으로 정렬된 상품을 반환한다.")
@@ -393,15 +395,15 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
             likeProduct(testRestTemplate, productId, user1Headers);
             likeProduct(testRestTemplate, productId, user2Headers);
 
-            // act
-            var response = getActiveProduct(testRestTemplate, productId);
-
-            // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(response.getBody().data().likeCount()).isEqualTo(2L),
-                    () -> assertThat(response.getBody().data().liked()).isFalse()
-            );
+            // act & assert — 비동기 이벤트 처리 대기
+            await().atMost(5, SECONDS).untilAsserted(() -> {
+                var response = getActiveProduct(testRestTemplate, productId);
+                assertAll(
+                        () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                        () -> assertThat(response.getBody().data().likeCount()).isEqualTo(2L),
+                        () -> assertThat(response.getBody().data().liked()).isFalse()
+                );
+            });
         }
 
         @DisplayName("존재하지 않는 상품을 조회하면, 404 PRODUCT_NOT_FOUND를 반환한다.")
