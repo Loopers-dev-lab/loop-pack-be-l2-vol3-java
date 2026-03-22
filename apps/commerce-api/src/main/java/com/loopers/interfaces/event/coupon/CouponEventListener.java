@@ -34,6 +34,7 @@ public class CouponEventListener {
     @Async
     @TransactionalEventListener
     public void handle(OrderEvent.OrderPlaced event) {
+        log.info("[EVENT:OrderPlaced:coupon] orderId={}", event.orderId());
         if (Objects.isNull(event.ownedCouponId())) {
             return;
         }
@@ -54,6 +55,7 @@ public class CouponEventListener {
     @Async
     @TransactionalEventListener
     public void handle(OrderEvent.OrderFailed event) {
+        log.info("[EVENT:OrderFailed:coupon] orderId={}", event.orderId());
         if (Objects.isNull(event.ownedCouponId())) {
             return;
         }

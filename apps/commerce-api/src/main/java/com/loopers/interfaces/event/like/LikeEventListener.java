@@ -32,6 +32,7 @@ public class LikeEventListener {
     @Async
     @TransactionalEventListener
     public void handle(ProductEvent.ProductDeleted event) {
+        log.info("[EVENT:ProductDeleted:like] productId={}", event.productId());
         try {
             likeService.deleteLikesByProductId(event.productId());
         } catch (Exception e) {
