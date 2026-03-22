@@ -12,8 +12,13 @@ public interface OrderRepository {
 
     Optional<OrderModel> findById(Long orderId);
 
-    /** 비관적 락. 동시 PENDING 중복 방지 등에 사용. */
+    /** 비관적 락. 콜백·결제 완료 등 주문 ID만으로 직렬화할 때 사용. */
     Optional<OrderModel> findByIdForUpdate(Long orderId);
+
+    /**
+     * 비관적 락 + 소유자 일치. 타인 주문 행을 잠그지 않도록 userId를 쿼리에 포함한다 (05-transaction-query).
+     */
+    Optional<OrderModel> findByIdAndUserIdForUpdate(Long userId, Long orderId);
 
     OrderModel save(OrderModel order);
 

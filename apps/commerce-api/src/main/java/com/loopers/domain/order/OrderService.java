@@ -112,8 +112,7 @@ public class OrderService {
      */
     @Transactional
     public Optional<OrderModel> findByIdForUpdate(Long userId, Long orderId) {
-        return orderRepository.findByIdForUpdate(orderId)
-                .filter(order -> order.getUserId().equals(userId));
+        return orderRepository.findByIdAndUserIdForUpdate(userId, orderId);
     }
 
     /**
