@@ -75,6 +75,25 @@ class ProductTest {
         }
     }
 
+    @DisplayName("재고를 복원할 때,")
+    @Nested
+    class RestoreStock {
+
+        @DisplayName("복원 수량만큼 재고가 증가한다.")
+        @Test
+        void restoresStockByQuantity() {
+            // arrange
+            var product = Product.create(new ProductSpec(1L, "상품명", "http://example.com/thumbnail.jpg", 10000L, 50L, null));
+            product.deductStock(30L);
+
+            // act
+            product.restoreStock(10L);
+
+            // assert
+            assertThat(product.getStock().getValue()).isEqualTo(30L);
+        }
+    }
+
     @DisplayName("상품 정보를 수정할 때,")
     @Nested
     class Update {

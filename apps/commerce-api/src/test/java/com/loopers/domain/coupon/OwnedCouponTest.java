@@ -138,6 +138,40 @@ class OwnedCouponTest {
         }
     }
 
+    @DisplayName("보유 쿠폰을 복원할 때,")
+    @Nested
+    class Restore {
+
+        @DisplayName("USED 상태이면, AVAILABLE로 변경된다.")
+        @Test
+        void changesStatusToAvailable_whenUsed() {
+            // arrange
+            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+            ownedCoupon.use();
+
+            // act
+            ownedCoupon.restore();
+
+            // assert
+            assertThat(ownedCoupon.getStatus()).isEqualTo("AVAILABLE");
+        }
+
+        @DisplayName("AVAILABLE 상태이면, AVAILABLE 상태가 유지된다.")
+        @Test
+        void keepsAvailable_whenAlreadyAvailable() {
+            // arrange
+            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+
+            // act
+            ownedCoupon.restore();
+
+            // assert
+            assertThat(ownedCoupon.getStatus()).isEqualTo("AVAILABLE");
+        }
+    }
+
     @DisplayName("보유 쿠폰 상태를 조회할 때,")
     @Nested
     class GetStatus {

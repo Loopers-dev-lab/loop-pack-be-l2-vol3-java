@@ -46,13 +46,13 @@ public class OrderSteps {
 
     public static ResponseEntity<ApiResponse<OrderDto.OrderDetailResponse>> getMyOrder(
             TestRestTemplate testRestTemplate,
-            Long orderId,
+            String orderKey,
             HttpHeaders headers
     ) {
         ParameterizedTypeReference<ApiResponse<OrderDto.OrderDetailResponse>> responseType = new ParameterizedTypeReference<>() {
         };
         return testRestTemplate.exchange(
-                ORDER_ENDPOINT + "/" + orderId,
+                ORDER_ENDPOINT + "/" + orderKey,
                 HttpMethod.GET,
                 new HttpEntity<>(headers),
                 responseType

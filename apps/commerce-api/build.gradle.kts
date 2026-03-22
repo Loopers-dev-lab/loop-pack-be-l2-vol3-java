@@ -14,6 +14,9 @@ dependencies {
     // crypto
     implementation("org.springframework.security:spring-security-crypto")
 
+    // circuit breaker
+    implementation("org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j")
+
     // querydsl
     annotationProcessor("com.querydsl:querydsl-apt::jakarta")
     annotationProcessor("jakarta.persistence:jakarta.persistence-api")
@@ -25,6 +28,9 @@ dependencies {
 
     // awaitility
     testImplementation("org.awaitility:awaitility:4.2.2")
+
+    // wiremock
+    testImplementation("org.wiremock:wiremock-standalone:3.13.0")
 
     // archunit
     testImplementation("com.tngtech.archunit:archunit-junit5:${project.properties["archunitVersion"]}")

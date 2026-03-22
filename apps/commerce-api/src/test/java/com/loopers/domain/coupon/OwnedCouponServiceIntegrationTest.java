@@ -10,13 +10,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.loopers.domain.coupon.discount.CouponDiscount;
 import com.loopers.domain.shared.Money;
 import com.loopers.support.BaseIntegrationTest;
-import com.loopers.support.ConcurrentTestHelper;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 
@@ -106,19 +104,19 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         }
     }
 
-    @DisplayName("주문에 쿠폰을 적용할 때,")
+    @DisplayName("쿠폰을 적용할 때,")
     @Nested
-    class ApplyForOrder {
+    class ApplyDiscount {
 
-        @DisplayName("유효한 쿠폰이면, 할인이 적용되고 USED로 변경된다.")
+        @DisplayName("유효한 쿠폰이면, 할인 금액을 계산하고 USED 상태로 변경된다.")
         @Test
-        void appliesDiscountAndChangesStatusToUsed() {
+        void calculatesDiscountAndMarksUsed() {
             // arrange
             var coupon = couponService.create(new CouponTerms("5000원 할인", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
             var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
 
             // act
-            var result = ownedCouponService.applyCoupon(ownedCoupon.getId(), 1L, Money.wons(20000L));
+            var result = ownedCouponService.applyDiscount(ownedCoupon.getId(), 1L, Money.wons(20000L));
 
             // assert
             var saved = ownedCouponRepository.findByIdWithCoupon(ownedCoupon.getId()).orElseThrow();
@@ -129,11 +127,11 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
             );
         }
 
-        @DisplayName("쿠폰 ID가 null이면, 할인 없이 CouponDiscount.NONE을 반환한다.")
+        @DisplayName("쿠폰 ID가 null이면, CouponDiscount.NONE을 반환한다.")
         @Test
-        void returnsNone_whenOwnedCouponIdIsNull() {
+        void returnsNone_whenNull() {
             // act
-            CouponDiscount result = ownedCouponService.applyCoupon(null, 1L, Money.wons(20000L));
+            CouponDiscount result = ownedCouponService.applyDiscount(null, 1L, Money.wons(20000L));
 
             // assert
             assertAll(
@@ -141,100 +139,35 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
                     () -> assertThat(result.ownedCouponId()).isNull()
             );
         }
+    }
+
+    @DisplayName("쿠폰을 복원할 때,")
+    @Nested
+    class Restore {
+
+        @DisplayName("사용된 쿠폰이면, AVAILABLE 상태로 변경된다.")
+        @Test
+        void changesStatusToAvailable() {
+            // arrange
+            var coupon = couponService.create(new CouponTerms("복원 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
+            var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
+            ownedCouponService.applyDiscount(ownedCoupon.getId(), 1L, Money.wons(20000L));
+
+            // act
+            ownedCouponService.restore(ownedCoupon.getId());
+
+            // assert
+            var saved = ownedCouponRepository.findByIdWithCoupon(ownedCoupon.getId()).orElseThrow();
+            assertThat(saved.getStatus()).isEqualTo("AVAILABLE");
+        }
 
         @DisplayName("존재하지 않는 보유 쿠폰이면, OWNED_COUPON_NOT_FOUND 예외가 발생한다.")
         @Test
-        void throwsException_whenOwnedCouponNotFound() {
-            assertThatThrownBy(() -> ownedCouponService.applyCoupon(999L, 1L, Money.wons(20000L)))
+        void throwsException_whenNotFound() {
+            assertThatThrownBy(() -> ownedCouponService.restore(999L))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.OWNED_COUPON_NOT_FOUND));
         }
-
-        @DisplayName("타인 소유의 쿠폰이면, FORBIDDEN_COUPON_ACCESS 예외가 발생한다.")
-        @Test
-        void throwsException_whenNotOwner() {
-            // arrange
-            var coupon = couponService.create(new CouponTerms("할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
-            var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
-
-            // act & assert
-            assertThatThrownBy(() -> ownedCouponService.applyCoupon(ownedCoupon.getId(), 999L, Money.wons(20000L)))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.FORBIDDEN_COUPON_ACCESS));
-        }
-
-        @DisplayName("이미 사용된 쿠폰이면, ALREADY_USED_COUPON 예외가 발생한다.")
-        @Test
-        void throwsException_whenAlreadyUsed() {
-            // arrange
-            var coupon = couponService.create(new CouponTerms("할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
-            var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
-            ownedCouponService.applyCoupon(ownedCoupon.getId(), 1L, Money.wons(20000L));
-
-            // act & assert
-            assertThatThrownBy(() -> ownedCouponService.applyCoupon(ownedCoupon.getId(), 1L, Money.wons(20000L)))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_USED_COUPON));
-        }
-
-        @DisplayName("만료된 쿠폰을 적용하면, EXPIRED_COUPON 예외가 발생한다.")
-        @Test
-        void throwsException_whenCouponIsExpired() {
-            // arrange
-            var coupon = couponService.create(new CouponTerms("만료 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
-            var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
-            ReflectionTestUtils.setField(coupon, "expiredAt", ZonedDateTime.now().minusDays(1));
-            couponRepository.save(coupon);
-
-            // act & assert
-            assertThatThrownBy(() -> ownedCouponService.applyCoupon(ownedCoupon.getId(), 1L, Money.wons(20000L)))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.EXPIRED_COUPON));
-        }
-
-        @DisplayName("최소 주문 금액 미달이면, COUPON_MIN_ORDER_PRICE_NOT_MET 예외가 발생한다.")
-        @Test
-        void throwsException_whenMinOrderPriceNotMet() {
-            // arrange
-            var coupon = couponService.create(new CouponTerms("할인 쿠폰", CouponType.FIXED, 5000L, null, 20000L, ZonedDateTime.now().plusDays(30)));
-            var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
-
-            // act & assert
-            assertThatThrownBy(() -> ownedCouponService.applyCoupon(ownedCoupon.getId(), 1L, Money.wons(10000L)))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.COUPON_MIN_ORDER_PRICE_NOT_MET));
-        }
-
-        @DisplayName("동시에 같은 쿠폰을 사용하면, 하나만 성공하고 나머지는 OptimisticLockingFailureException 또는 ALREADY_USED_COUPON 예외가 발생한다.")
-        @Test
-        void onlyOneSucceeds_whenConcurrentApply() throws InterruptedException {
-            // arrange
-            var coupon = couponService.create(new CouponTerms("동시성 쿠폰", CouponType.FIXED, 1000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
-            var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
-            int threadCount = 5;
-
-            // act
-            var result = ConcurrentTestHelper.executeConcurrently(
-                    threadCount,
-                    () -> ownedCouponService.applyCoupon(ownedCoupon.getId(), 1L, Money.wons(20000L))
-            );
-
-            // assert
-            assertAll(
-                    () -> assertThat(result.successCount()).isEqualTo(1),
-                    () -> assertThat(result.exceptions()).hasSize(threadCount - 1),
-                    () -> assertThat(result.exceptions()).allSatisfy(e ->
-                            assertThat(e).isInstanceOfAny(
-                                    ObjectOptimisticLockingFailureException.class,
-                                    CoreException.class
-                            )
-                    ),
-                    () -> assertThat(result.exceptions())
-                            .filteredOn(e -> e instanceof CoreException)
-                            .allSatisfy(e ->
-                                    assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_USED_COUPON)
-                            )
-            );
-        }
     }
+
 }

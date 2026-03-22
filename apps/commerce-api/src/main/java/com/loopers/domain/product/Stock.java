@@ -43,6 +43,10 @@ public class Stock {
         this.value -= quantity;
     }
 
+    public void restore(Long quantity) {
+        this.value += quantity;
+    }
+
     private static void validate(Long value) {
         if (Objects.isNull(value)) {
             throw new CoreException(ErrorType.REQUIRED_PRODUCT_STOCK);

@@ -12,6 +12,7 @@ public class AdminOrderDto {
 
     public record OrderListResponse(
             Long orderId,
+            String orderKey,
             String name,
             OrderStatus status,
             Long originalTotalPrice,
@@ -23,6 +24,7 @@ public class AdminOrderDto {
         public static OrderListResponse from(OrderResult result) {
             return new OrderListResponse(
                     result.id(),
+                    result.orderKey(),
                     result.name(),
                     result.status(),
                     result.originalTotalPrice(),
@@ -35,6 +37,7 @@ public class AdminOrderDto {
 
     public record OrderDetailResponse(
             Long orderId,
+            String orderKey,
             String name,
             OrderStatus status,
             Long originalTotalPrice,
@@ -48,6 +51,7 @@ public class AdminOrderDto {
         public static OrderDetailResponse from(AdminOrderDetailResult result) {
             return new OrderDetailResponse(
                     result.id(),
+                    result.orderKey(),
                     result.name(),
                     result.status(),
                     result.originalTotalPrice(),

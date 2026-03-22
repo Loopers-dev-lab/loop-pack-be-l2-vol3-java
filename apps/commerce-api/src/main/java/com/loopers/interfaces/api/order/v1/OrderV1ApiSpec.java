@@ -33,5 +33,5 @@ public interface OrderV1ApiSpec {
             summary = "주문 상세 조회 API",
             description = "주문 상세 정보를 조회합니다."
     )
-    ApiResponse<OrderDto.OrderDetailResponse> getOrder(Long userId, Long orderId);
+    ApiResponse<OrderDto.OrderDetailResponse> getOrder(Long userId, String orderKey);
 }

@@ -70,8 +70,8 @@ public class Product extends BaseEntity {
         this.stock.deduct(quantity);
     }
 
-    public void adjustLikeCount(int delta) {
-        this.likeCount = Math.max(0, this.likeCount + delta);
+    public void restoreStock(Long quantity) {
+        this.stock.restore(quantity);
     }
 
     public void update(ModifyProduct product) {

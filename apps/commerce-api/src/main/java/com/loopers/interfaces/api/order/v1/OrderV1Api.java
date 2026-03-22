@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.loopers.application.order.OrderDetailResult;
 import com.loopers.application.order.OrderResult;
+import com.loopers.application.order.PlaceOrderResult;
 import com.loopers.application.order.PlaceOrderUseCase;
 import com.loopers.application.order.ReadMyOrderDetailUseCase;
 import com.loopers.application.order.ReadMyOrdersUseCase;
@@ -44,8 +45,8 @@ public class OrderV1Api implements OrderV1ApiSpec {
             @LoginUser Long userId,
             @RequestBody @Valid OrderDto.CreateOrderRequest request
     ) {
-        Long orderId = placeOrderUseCase.execute(request.toPlaceOrderCommand(userId));
-        return ApiResponse.success(OrderDto.CreateOrderResponse.from(orderId));
+        PlaceOrderResult result = placeOrderUseCase.execute(request.toPlaceOrderCommand(userId));
+        return ApiResponse.success(OrderDto.CreateOrderResponse.from(result));
     }
 
     @GetMapping
@@ -72,13 +73,13 @@ public class OrderV1Api implements OrderV1ApiSpec {
         ));
     }
 
-    @GetMapping("/{orderId}")
+    @GetMapping("/{orderKey}")
     @Override
     public ApiResponse<OrderDto.OrderDetailResponse> getOrder(
             @LoginUser Long userId,
-            @PathVariable Long orderId
+            @PathVariable String orderKey
     ) {
-        OrderDetailResult result = readMyOrderDetailUseCase.execute(userId, orderId);
+        OrderDetailResult result = readMyOrderDetailUseCase.execute(userId, orderKey);
         return ApiResponse.success(OrderDto.OrderDetailResponse.from(result));
     }
 }

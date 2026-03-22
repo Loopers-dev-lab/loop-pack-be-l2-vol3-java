@@ -20,13 +20,13 @@ public class ReadMyOrderDetailUseCase {
     private final OrderService orderService;
 
     /**
-     * @param userId 사용자 ID
-     * @param orderId 주문 ID
+     * @param userId   사용자 ID
+     * @param orderKey 주문 키
      * @return 주문 상세 정보 (주문 항목 포함)
      */
     @Transactional(readOnly = true)
-    public OrderDetailResult execute(Long userId, Long orderId) {
-        Order order = orderService.getMyOrder(userId, orderId);
+    public OrderDetailResult execute(Long userId, String orderKey) {
+        Order order = orderService.getMyOrder(userId, orderKey);
         return OrderDetailResult.from(order);
     }
 }

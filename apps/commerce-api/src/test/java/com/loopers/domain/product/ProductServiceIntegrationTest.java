@@ -348,6 +348,39 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
         }
     }
 
+    @DisplayName("재고를 복원할 때,")
+    @Nested
+    class RestoreStock {
+
+        @DisplayName("유효한 상품이면, 재고가 복원된다.")
+        @Test
+        void restoresStock_whenActiveProductExists() {
+            // arrange
+            var productId = createProduct(brandId, "상품", 10000L, 10L);
+            productService.deductStock(productId, 7L);
+
+            // act
+            productService.restoreStock(productId, 5L);
+
+            // assert
+            var product = productRepository.findById(productId).orElseThrow();
+            assertThat(product.getStock().getValue()).isEqualTo(8L);
+        }
+
+        @DisplayName("삭제된 상품이면, PRODUCT_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenProductIsDeleted() {
+            // arrange
+            var productId = createProduct(brandId);
+            productService.delete(productId);
+
+            // act & assert
+            assertThatThrownBy(() -> productService.restoreStock(productId, 1L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
+        }
+    }
+
     @DisplayName("좋아요 수를 증가시킬 때,")
     @Nested
     class IncreaseLikeCount {

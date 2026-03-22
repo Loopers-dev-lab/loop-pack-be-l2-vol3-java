@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotNull;
 import com.loopers.application.order.OrderDetailResult;
 import com.loopers.application.order.OrderResult;
 import com.loopers.application.order.PlaceOrderCommand;
+import com.loopers.application.order.PlaceOrderResult;
 import com.loopers.domain.order.OrderStatus;
 
 public class OrderDto {
@@ -36,15 +37,16 @@ public class OrderDto {
         }
     }
 
-    public record CreateOrderResponse(Long orderId) {
+    public record CreateOrderResponse(Long orderId, String orderKey) {
 
-        public static CreateOrderResponse from(Long orderId) {
-            return new CreateOrderResponse(orderId);
+        public static CreateOrderResponse from(PlaceOrderResult result) {
+            return new CreateOrderResponse(result.orderId(), result.orderKey());
         }
     }
 
     public record OrderListResponse(
             Long orderId,
+            String orderKey,
             String name,
             OrderStatus status,
             Long originalTotalPrice,
@@ -56,6 +58,7 @@ public class OrderDto {
         public static OrderListResponse from(OrderResult result) {
             return new OrderListResponse(
                     result.id(),
+                    result.orderKey(),
                     result.name(),
                     result.status(),
                     result.originalTotalPrice(),
@@ -68,6 +71,7 @@ public class OrderDto {
 
     public record OrderDetailResponse(
             Long orderId,
+            String orderKey,
             String name,
             OrderStatus status,
             Long originalTotalPrice,
@@ -80,6 +84,7 @@ public class OrderDto {
         public static OrderDetailResponse from(OrderDetailResult result) {
             return new OrderDetailResponse(
                     result.id(),
+                    result.orderKey(),
                     result.name(),
                     result.status(),
                     result.originalTotalPrice(),

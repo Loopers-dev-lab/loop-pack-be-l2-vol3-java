@@ -104,4 +104,37 @@ class StockTest {
                     .hasMessageContaining(ErrorType.INSUFFICIENT_STOCK.getMessage());
         }
     }
+
+    @DisplayName("재고를 복원할 때,")
+    @Nested
+    class Restore {
+
+        @DisplayName("복원 수량만큼 재고가 증가한다.")
+        @Test
+        void restoresStock() {
+            // arrange
+            var stock = Stock.init(10L);
+            stock.deduct(7L);
+
+            // act
+            stock.restore(5L);
+
+            // assert
+            assertThat(stock).isEqualTo(new Stock(8L));
+        }
+
+        @DisplayName("재고가 0인 상태에서도 복원된다.")
+        @Test
+        void restoresFromZero() {
+            // arrange
+            var stock = Stock.init(5L);
+            stock.deduct(5L);
+
+            // act
+            stock.restore(3L);
+
+            // assert
+            assertThat(stock).isEqualTo(new Stock(3L));
+        }
+    }
 }

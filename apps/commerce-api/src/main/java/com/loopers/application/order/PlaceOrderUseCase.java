@@ -38,7 +38,7 @@ public class PlaceOrderUseCase {
      * @return 생성된 주문 ID
      */
     @Transactional
-    public Long execute(PlaceOrderCommand command) {
+    public PlaceOrderResult execute(PlaceOrderCommand command) {
         List<Long> productIds = command.getProductIds();
         Map<Long, Product> products = productService.getActiveProductsByIds(productIds);
         if (products.size() != productIds.size()) {
@@ -51,8 +51,8 @@ public class PlaceOrderUseCase {
         Cart cart = command.toCart(products);
         Money orderTotal = Money.sum(cart.cartItems(), Cart.CartItem::totalPrice);
 
-        CouponDiscount couponResult = ownedCouponService.applyCoupon(command.ownedCouponId(), command.userId(), orderTotal);
+        CouponDiscount couponResult = ownedCouponService.applyDiscount(command.ownedCouponId(), command.userId(), orderTotal);
         Order order = orderService.create(cart, couponResult.discountAmount(), couponResult.ownedCouponId());
-        return order.getId();
+        return PlaceOrderResult.from(order);
     }
 }

@@ -31,7 +31,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // assert
             assertThat(order.getName()).isEqualTo("테스트 상품");
@@ -48,7 +48,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // assert
             assertThat(order.getName()).isEqualTo("첫 번째 상품 외 2건");
@@ -64,7 +64,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // assert
             assertThat(order.getTotalPrice()).isEqualTo(Money.wons(35000L));
@@ -79,7 +79,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // assert
             assertThat(order.getStatus()).isEqualTo(OrderStatus.CREATED);
@@ -94,7 +94,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // assert
             assertThat(order.getOrderedAt()).isNotNull();
@@ -110,7 +110,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // assert
             assertAll(
@@ -128,7 +128,7 @@ class OrderTest {
             var cart = new Cart(1L, Collections.emptyList());
 
             // act & assert
-            assertThatThrownBy(() -> Order.create(cart, Money.ZERO, null))
+            assertThatThrownBy(() -> Order.create("test-order-key", cart, Money.ZERO, null))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.REQUIRED_ORDER_ITEM.getMessage());
         }
@@ -143,7 +143,7 @@ class OrderTest {
             ));
 
             // act & assert
-            assertThatThrownBy(() -> Order.create(cart, Money.ZERO, null))
+            assertThatThrownBy(() -> Order.create("test-order-key", cart, Money.ZERO, null))
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining(ErrorType.DUPLICATE_ORDER_PRODUCT.getMessage());
         }
@@ -157,7 +157,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.wons(5000L), 100L);
+            var order = Order.create("test-order-key", cart, Money.wons(5000L), 100L);
 
             // assert
             assertAll(
@@ -177,7 +177,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.wons(10000L), 100L);
+            var order = Order.create("test-order-key", cart, Money.wons(10000L), 100L);
 
             // assert
             assertAll(
@@ -196,7 +196,7 @@ class OrderTest {
             ));
 
             // act
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // assert
             assertAll(
@@ -205,6 +205,161 @@ class OrderTest {
                     () -> assertThat(order.getTotalPrice()).isEqualTo(Money.wons(20000L)),
                     () -> assertThat(order.getOwnedCouponId()).isNull()
             );
+        }
+    }
+
+    @DisplayName("결제 가능 여부를 검증할 때,")
+    @Nested
+    class ValidatePayable {
+
+        @DisplayName("CREATED 상태이면, 예외가 발생하지 않는다.")
+        @Test
+        void doesNotThrow_whenStatusIsCreated() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
+
+            // act & assert
+            assertThatCode(() -> order.validatePayable()).doesNotThrowAnyException();
+        }
+
+        @DisplayName("PAID 상태이면, ORDER_NOT_PAYABLE 예외가 발생한다.")
+        @Test
+        void throwsException_whenStatusIsPaid() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
+            order.pay();
+
+            // act & assert
+            assertThatThrownBy(() -> order.validatePayable())
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_PAYABLE));
+        }
+    }
+
+    @DisplayName("주문을 결제 완료할 때,")
+    @Nested
+    class Pay {
+
+        @DisplayName("CREATED 상태이면, PAID로 변경된다.")
+        @Test
+        void changesStatusToPaid_whenCreated() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
+
+            // act
+            order.pay();
+
+            // assert
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        }
+
+        @DisplayName("PAID 상태이면, ORDER_NOT_PAYABLE 예외가 발생한다.")
+        @Test
+        void throwsException_whenAlreadyPaid() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
+            order.pay();
+
+            // act & assert
+            assertThatThrownBy(() -> order.pay())
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_PAYABLE));
+        }
+    }
+
+    @DisplayName("주문을 실패 처리할 때,")
+    @Nested
+    class Fail {
+
+        @DisplayName("CREATED 상태이면, FAILED로 변경된다.")
+        @Test
+        void changesStatusToFailed_whenCreated() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
+
+            // act
+            order.fail();
+
+            // assert
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.FAILED);
+        }
+
+        @DisplayName("PAID 상태이면, ORDER_NOT_FAILABLE 예외가 발생한다.")
+        @Test
+        void throwsException_whenAlreadyPaid() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
+            order.pay();
+
+            // act & assert
+            assertThatThrownBy(() -> order.fail())
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_FAILABLE));
+        }
+
+        @DisplayName("FAILED 상태이면, ORDER_NOT_FAILABLE 예외가 발생한다.")
+        @Test
+        void throwsException_whenAlreadyFailed() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
+            order.fail();
+
+            // act & assert
+            assertThatThrownBy(() -> order.fail())
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ORDER_NOT_FAILABLE));
+        }
+    }
+
+    @DisplayName("쿠폰 적용 여부를 확인할 때,")
+    @Nested
+    class HasCoupon {
+
+        @DisplayName("쿠폰이 적용된 주문이면, true를 반환한다.")
+        @Test
+        void returnsTrue_whenCouponApplied() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create("test-order-key", cart, Money.wons(1000L), 100L);
+
+            // act & assert
+            assertThat(order.hasAppliedCoupon()).isTrue();
+        }
+
+        @DisplayName("쿠폰이 적용되지 않은 주문이면, false를 반환한다.")
+        @Test
+        void returnsFalse_whenNoCoupon() {
+            // arrange
+            var cart = new Cart(1L, List.of(
+                    new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
+            ));
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
+
+            // act & assert
+            assertThat(order.hasAppliedCoupon()).isFalse();
         }
     }
 
@@ -219,7 +374,7 @@ class OrderTest {
             var cart = new Cart(1L, List.of(
                     new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
             ));
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // act & assert
             assertThatCode(() -> order.validateOwner(1L)).doesNotThrowAnyException();
@@ -232,7 +387,7 @@ class OrderTest {
             var cart = new Cart(1L, List.of(
                     new Cart.CartItem(1L, "상품", "https://thumb.png", Money.wons(10000L), 1L)
             ));
-            var order = Order.create(cart, Money.ZERO, null);
+            var order = Order.create("test-order-key", cart, Money.ZERO, null);
 
             // act & assert
             assertThatThrownBy(() -> order.validateOwner(999L))

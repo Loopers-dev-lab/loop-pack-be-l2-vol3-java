@@ -419,3 +419,66 @@ ADR: [03-concurrency-control-strategy.md](../adr/03-concurrency-control-strategy
 
 - [x] OwnedCoupon에 `@Version` 필드를 추가하여 낙관적 락을 적용한다
 - [x] 동일 쿠폰으로 동시 주문 시 하나만 성공하고 나머지는 실패한다
+
+---
+
+## Payment (결제) — 결제 도입
+
+### Step 1. 주문 생성 API 변경
+
+- [x] 쿠폰 사용 처리를 제거하고 검증 + 할인 금액 계산만 수행한다 (`applyCoupon` → `validateAndCalculateDiscount`)
+- [x] OrderStatus에 PAID 상태를 추가한다
+- [x] Order에 `validatePayable()`, `pay()` 메서드를 추가한다
+- [x] 기존 테스트를 수정한다
+
+---
+
+### Step 2. 결제 생성 API
+
+`POST /api/v1/orders/{orderId}/payment` · 인증 필요 · 입력: 카드 유형(필수), 카드 번호(필수)
+
+- [x] Payment 엔티티를 생성한다 (orderId, transactionKey, cardType, cardNo, amount, status, reason)
+- [x] PaymentStatus enum을 생성한다 (PENDING, SUCCESS, FAILED)
+- [x] CardType enum을 생성한다
+- [x] PaymentRepository 인터페이스 및 구현체를 생성한다
+- [x] PaymentService 도메인 서비스를 생성한다
+- [x] 결제 생성 UseCase(`CreatePaymentUseCase`)를 구현한다
+- [x] 결제 생성 API, ApiSpec, Dto를 구현한다
+- [x] 존재하지 않는 주문에 대해 결제를 생성할 수 없다
+- [x] 다른 사용자의 주문에 대해 결제를 생성할 수 없다
+- [x] CREATED 상태의 주문에 대해서만 결제를 생성할 수 있다
+- [x] 결제 금액은 주문의 최종 결제 금액(totalPrice)이다
+- [x] PG사에 결제를 요청하고 거래 키와 결제 상태를 반환한다
+- [x] PG 결제 요청 실패 시 결제 생성에 실패한다
+- [x] 결제 생성 시 Payment 상태는 PENDING으로 설정한다
+
+---
+
+### Step 3. 결제 콜백 API (성공)
+
+`POST /api/v1/payments/callback` · 인증 없음 · PG에서 호출
+
+- [x] Payment에 `update(PaymentStatus, String reason)` 메서드를 추가한다 (PENDING 상태가 아니면 예외)
+- [x] PaymentRepository에 `findByTransactionKey()` 메서드를 추가한다
+- [x] PaymentService에 transactionKey로 조회하는 메서드를 추가한다
+- [x] OrderService에 `pay(Long orderId)` 메서드를 추가한다
+- [x] OwnedCouponService에 `use(Long ownedCouponId)` 메서드를 추가한다
+- [x] PaymentRepositoryImpl, PaymentJpaRepository에 findByTransactionKey를 구현한다
+- [x] HandlePaymentCallbackUseCase를 구현한다 (성공 시: Payment 상태 변경 → 주문 완료 → 쿠폰 사용)
+- [x] CallbackV1Api, CallbackV1ApiSpec, DTO를 구현한다
+- [x] WebMvcConfig에 콜백 경로를 인증 제외 처리한다
+- [x] ErrorType에 결제 콜백 관련 에러를 추가한다
+
+---
+
+### Step 4. 결제 상태 폴링 (콜백 유실 대비)
+
+스케줄러가 1분 주기로 PENDING 경과(3분) 결제를 PG에 조회하여 상태를 동기화한다.
+근거: [payment-polling-interval.md](conversations/week6/payment-polling-interval.md)
+
+- [x] PaymentRepository에 `findPendingPaymentsBefore(ZonedDateTime threshold)` 메서드를 추가한다
+- [x] PaymentJpaRepository, PaymentRepositoryImpl에 위 메서드를 구현한다
+- [x] PaymentService에 PENDING 경과 결제 조회 메서드를 추가한다
+- [x] `PendingPaymentSyncScheduler`를 생성한다 (@Scheduled 1분 주기, PENDING 결제 조회 → PG 상태 확인 → HandlePaymentCallbackUseCase 위임)
+- [x] `@EnableScheduling` 설정을 추가한다
+- [x] 테스트를 작성한다

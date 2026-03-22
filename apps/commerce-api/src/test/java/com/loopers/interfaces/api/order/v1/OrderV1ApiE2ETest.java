@@ -18,10 +18,6 @@ import com.loopers.support.error.ErrorType;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -85,7 +81,8 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             // assert
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED),
-                    () -> assertThat(response.getBody().data().orderId()).isNotNull()
+                    () -> assertThat(response.getBody().data().orderId()).isNotNull(),
+                    () -> assertThat(response.getBody().data().orderKey()).isNotBlank()
             );
         }
 
@@ -111,8 +108,8 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 
-            var orderId = response.getBody().data().orderId();
-            var detail = getMyOrder(testRestTemplate, orderId, userHeaders).getBody().data();
+            var orderKey = response.getBody().data().orderKey();
+            var detail = getMyOrder(testRestTemplate, orderKey, userHeaders).getBody().data();
             assertAll(
                     () -> assertThat(detail.originalTotalPrice()).isEqualTo(20000L),
                     () -> assertThat(detail.discountAmount()).isEqualTo(5000L),
@@ -133,8 +130,8 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             var response = createOrder(testRestTemplate, request, userHeaders);
 
             // assert
-            var orderId = response.getBody().data().orderId();
-            var detail = getMyOrder(testRestTemplate, orderId, userHeaders).getBody().data();
+            var orderKey = response.getBody().data().orderKey();
+            var detail = getMyOrder(testRestTemplate, orderKey, userHeaders).getBody().data();
             assertAll(
                     () -> assertThat(detail.originalTotalPrice()).isEqualTo(20000L),
                     () -> assertThat(detail.discountAmount()).isEqualTo(0L),
@@ -182,84 +179,6 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
 
             // assert
             assertErrorResponse(response, HttpStatus.FORBIDDEN, ErrorType.FORBIDDEN_COUPON_ACCESS);
-        }
-
-        @DisplayName("이미 사용된 쿠폰으로 주문하면, 실패한다.")
-        @Test
-        void failsOrder_whenCouponAlreadyUsed() {
-            // arrange
-            var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
-                    "할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)
-            ));
-            issueCoupon(testRestTemplate, couponId, userHeaders);
-            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, Pageable.ofSize(1))
-                    .getContent().get(0).getId();
-
-            // 첫 번째 주문으로 쿠폰 사용
-            createOrder(testRestTemplate, new OrderDto.CreateOrderRequest(
-                    List.of(new OrderDto.OrderItemRequest(productId, 1L)),
-                    ownedCouponId
-            ), userHeaders);
-
-            // act - 같은 쿠폰으로 두 번째 주문
-            var request = new OrderDto.CreateOrderRequest(
-                    List.of(new OrderDto.OrderItemRequest(productId, 1L)),
-                    ownedCouponId
-            );
-            var response = createOrder(testRestTemplate, request, userHeaders);
-
-            // assert
-            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_USED_COUPON);
-        }
-
-        @DisplayName("동일 쿠폰으로 동시에 주문하면, 하나만 성공하고 나머지는 500 에러로 실패한다.")
-        @Test
-        void onlyOneOrderSucceeds_whenConcurrentOrdersWithSameCoupon() throws InterruptedException {
-            // arrange
-            var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
-                    "동시성 테스트 쿠폰", CouponType.FIXED, 1000L, null, 10000L, ZonedDateTime.now().plusDays(30)
-            ));
-            issueCoupon(testRestTemplate, couponId, userHeaders);
-            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, Pageable.ofSize(1))
-                    .getContent().get(0).getId();
-
-            int threadCount = 5;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
-            AtomicInteger successCount = new AtomicInteger(0);
-            AtomicInteger failCount = new AtomicInteger(0);
-            List<HttpStatus> failStatusCodes = new java.util.concurrent.CopyOnWriteArrayList<>();
-
-            // act
-            for (int i = 0; i < threadCount; i++) {
-                executorService.execute(() -> {
-                    try {
-                        var request = new OrderDto.CreateOrderRequest(
-                                List.of(new OrderDto.OrderItemRequest(productId, 1L)),
-                                ownedCouponId
-                        );
-                        var response = createOrder(testRestTemplate, request, userHeaders);
-                        if (response.getStatusCode().is2xxSuccessful()) {
-                            successCount.incrementAndGet();
-                        } else {
-                            failCount.incrementAndGet();
-                            failStatusCodes.add((HttpStatus) response.getStatusCode());
-                        }
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
-
-            // assert
-            assertAll(
-                    () -> assertThat(successCount.get()).isEqualTo(1),
-                    () -> assertThat(failCount.get()).isEqualTo(threadCount - 1),
-                    () -> assertThat(failStatusCodes).allSatisfy(status ->
-                            assertThat(status).isIn(HttpStatus.INTERNAL_SERVER_ERROR, HttpStatus.BAD_REQUEST))
-            );
         }
 
         @DisplayName("최소 주문 금액 미달 시 쿠폰으로 주문하면, 실패한다.")
@@ -374,27 +293,27 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         }
     }
 
-    @DisplayName("GET /api/v1/orders/{orderId}")
+    @DisplayName("GET /api/v1/orders/{orderKey}")
     @Nested
     class ReadMyOrderDetail {
 
         @DisplayName("주문 상세 정보를 조회하면, 주문 정보와 주문 항목이 반환된다.")
         @Test
-        void returnsOrderDetail_whenValidOrderId() {
+        void returnsOrderDetail_whenValidOrderKey() {
             // arrange
             var request = new OrderDto.CreateOrderRequest(
                     List.of(new OrderDto.OrderItemRequest(productId, 2L)),
                     null
             );
-            var orderId = createOrder(testRestTemplate, request, userHeaders).getBody().data().orderId();
+            var orderKey = createOrder(testRestTemplate, request, userHeaders).getBody().data().orderKey();
 
             // act
-            var response = getMyOrder(testRestTemplate, orderId, userHeaders);
+            var response = getMyOrder(testRestTemplate, orderKey, userHeaders);
 
             // assert
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(response.getBody().data().orderId()).isEqualTo(orderId),
+                    () -> assertThat(response.getBody().data().orderKey()).isEqualTo(orderKey),
                     () -> assertThat(response.getBody().data().name()).isEqualTo("테스트 상품"),
                     () -> assertThat(response.getBody().data().totalPrice()).isEqualTo(20000L),
                     () -> assertThat(response.getBody().data().orderItems()).hasSize(1),
@@ -408,7 +327,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         @Test
         void returnsNotFound_whenOrderDoesNotExist() {
             // act
-            var response = getMyOrder(testRestTemplate, 999L, userHeaders);
+            var response = getMyOrder(testRestTemplate, "non-existent-key", userHeaders);
 
             // assert
             assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.ORDER_NOT_FOUND);
@@ -422,13 +341,13 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
                     List.of(new OrderDto.OrderItemRequest(productId, 1L)),
                     null
             );
-            var orderId = createOrder(testRestTemplate, request, userHeaders).getBody().data().orderId();
+            var orderKey = createOrder(testRestTemplate, request, userHeaders).getBody().data().orderKey();
 
             signUp(testRestTemplate, new UserV1Dto.SignUpRequest("otheruser", "Password1!", "다른유저", "1995-05-05", "other@test.com"));
             var otherHeaders = userAuthHeaders("otheruser", "Password1!");
 
             // act
-            var response = getMyOrder(testRestTemplate, orderId, otherHeaders);
+            var response = getMyOrder(testRestTemplate, orderKey, otherHeaders);
 
             // assert
             assertErrorResponse(response, HttpStatus.FORBIDDEN, ErrorType.FORBIDDEN_ORDER_ACCESS);

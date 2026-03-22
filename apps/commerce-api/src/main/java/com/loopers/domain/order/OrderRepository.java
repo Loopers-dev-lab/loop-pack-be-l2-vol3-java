@@ -30,6 +30,16 @@ public interface OrderRepository {
     Optional<Order> findByIdWithItems(Long orderId);
 
     /**
+     * 주문 키로 주문을 주문 항목과 함께 조회한다.
+     *
+     * <p>주문 항목({@link OrderItem})을 페치 조인하여 함께 로딩한다.</p>
+     *
+     * @param orderKey 주문 키
+     * @return 주문 항목을 포함한 주문 (존재하지 않으면 빈 Optional)
+     */
+    Optional<Order> findByOrderKeyWithItems(String orderKey);
+
+    /**
      * 전체 주문을 페이징 조회한다.
      *
      * @param pageable 페이징 조건

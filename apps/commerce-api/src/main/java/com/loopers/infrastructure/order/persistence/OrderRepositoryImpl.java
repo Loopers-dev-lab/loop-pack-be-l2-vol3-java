@@ -34,6 +34,11 @@ public class OrderRepositoryImpl implements OrderRepository {
     }
 
     @Override
+    public Optional<Order> findByOrderKeyWithItems(String orderKey) {
+        return orderJpaRepository.findByOrderKeyWithItems(orderKey);
+    }
+
+    @Override
     public Slice<Order> findAll(Pageable pageable) {
         return orderJpaRepository.findAllBy(pageable);
     }

@@ -1,0 +1,50 @@
+package com.loopers.infrastructure.payment.persistence;
+
+import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.stereotype.Repository;
+
+import com.loopers.domain.payment.Payment;
+import com.loopers.domain.payment.PaymentRepository;
+import com.loopers.domain.payment.PaymentStatus;
+
+import lombok.RequiredArgsConstructor;
+
+/**
+ * {@link PaymentRepository}의 인프라스트럭처 구현체.
+ *
+ * <p>{@link PaymentJpaRepository}에 위임하여 결제 영속성을 처리한다.</p>
+ */
+@Repository
+@RequiredArgsConstructor
+public class PaymentRepositoryImpl implements PaymentRepository {
+
+    private final PaymentJpaRepository paymentJpaRepository;
+
+    @Override
+    public Payment save(Payment payment) {
+        return paymentJpaRepository.save(payment);
+    }
+
+    @Override
+    public Optional<Payment> findById(Long id) {
+        return paymentJpaRepository.findById(id);
+    }
+
+    @Override
+    public Optional<Payment> findByTransactionKey(String transactionKey) {
+        return paymentJpaRepository.findByTransactionKey(transactionKey);
+    }
+
+    @Override
+    public List<Payment> findPendingPaymentsBefore(ZonedDateTime threshold) {
+        return paymentJpaRepository.findByStatusAndUpdatedAtBefore(PaymentStatus.PENDING, threshold);
+    }
+
+    @Override
+    public List<Payment> findReadyPaymentsBefore(ZonedDateTime threshold) {
+        return paymentJpaRepository.findByStatusAndUpdatedAtBefore(PaymentStatus.READY, threshold);
+    }
+}

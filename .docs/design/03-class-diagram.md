@@ -160,10 +160,18 @@ classDiagram
     }
 
     %% ── Order ──
+    class OrderStatus {
+        <<Enum>>
+        CREATED
+        PAID
+        FAILED
+    }
+
     class Order {
         <<Entity>>
         Long id
         Long userId
+        String orderKey
         String name
         LocalDateTime orderedAt
         OrderStatus status
@@ -174,6 +182,8 @@ classDiagram
         List~OrderItem~ orderItems
         +create(...)$ Order
         +validateOwner(Long userId) void
+        +validatePayable() void
+        +pay() void
     }
 
     class OrderItem {
@@ -186,6 +196,44 @@ classDiagram
         Long quantity
         +create(...)$ OrderItem
         +calculateSubtotal() Money
+    }
+
+    %% ── Payment ──
+    class Payment {
+        <<Entity>>
+        Long id
+        Long userId
+        Long orderId
+        String transactionKey
+        CardType cardType
+        String cardNo
+        Money amount
+        PaymentStatus status
+        String reason
+        +create(...)$ Payment
+        +updateResult(PaymentStatus status, String reason) void
+        +isPending() boolean
+    }
+
+    class PaymentStatus {
+        <<Enum>>
+        READY
+        PENDING
+        SUCCESS
+        FAILED
+    }
+
+    class CardType {
+        <<Enum>>
+        SAMSUNG
+        KB
+        HYUNDAI
+        SHINHAN
+        LOTTE
+        HANA
+        WOORI
+        NH
+        BC
     }
 
     %% ── Product 관계 ──
@@ -208,10 +256,41 @@ classDiagram
 
     %% ── Order 관계 ──
     Order *-- OrderItem
+    Order --> OrderStatus
     Order --> Money
     Order ..> OwnedCoupon
     OrderItem --> Money
     OrderItem ..> Product
+
+    %% ── Payment 관계 ──
+    Payment --> PaymentStatus
+    Payment --> CardType
+    Payment --> Money
+    Payment ..> Order
+```
+
+### 주문 상태 머신
+
+```mermaid
+stateDiagram-v2
+    [*] --> CREATED : 주문 생성
+    CREATED --> PAID : 결제 성공
+    CREATED --> FAILED : 결제 실패
+    PAID --> [*]
+    FAILED --> [*]
+```
+
+### 결제 상태 머신
+
+```mermaid
+stateDiagram-v2
+    [*] --> READY : 결제 생성
+    READY --> PENDING : PG 요청 성공
+    READY --> FAILED : 복구 스케줄러
+    PENDING --> SUCCESS : 콜백 성공
+    PENDING --> FAILED : 콜백 실패
+    SUCCESS --> [*]
+    FAILED --> [*]
 ```
 
 ### 주문 처리 흐름도
@@ -224,12 +303,12 @@ flowchart TD
     C -- Yes --> D[재고 차감]
     D --> E{재고 충분?}
     E -- No --> FAIL
-    E -- Yes --> G["쿠폰 사용 처리"]
+    E -- Yes --> F[Cart 생성 및 주문 금액 계산]
+    F --> G[쿠폰 할인 금액 계산]
     G --> G1{검증 통과?}
     G1 -- No --> FAIL
-    G1 -- Yes --> H[주문 생성]
-    H --> I[주문 저장]
-    I --> SUCCESS[성공]
+    G1 -- Yes --> H[주문 생성 및 저장]
+    H --> SUCCESS[성공]
 ```
 
 ### 설계 포인트
@@ -241,3 +320,9 @@ flowchart TD
 **도메인 간 참조**
 - 연관관계는 탐색 가능성을 기준으로 설정한다. 도메인 내부에서 함께 탐색되는 객체만 직접 참조하고, 도메인 경계를 넘는 참조는 ID로 대체한다.
 - 도메인 간 참조를 ID 기반으로 하는 이유는, 직접 객체 참조를 사용하면 JPA가 도메인 간 연관관계를 관리하게 되어 한 도메인의 변경이 다른 도메인에 영향을 미치기 때문이다. ID 참조로 도메인 경계를 명확히 분리한다.
+
+**결제 도메인**
+- Payment는 결제 도메인에 속하며, Order와는 ID 기반으로 참조한다.
+- 주문 생성 시 쿠폰 할인 정보(ownedCouponId, discountAmount)는 Order에 저장하되, 쿠폰 사용 처리는 결제 완료(콜백 SUCCESS) 시점에 수행한다.
+- Payment의 상태 전이: READY → PENDING → SUCCESS / FAILED
+- Order의 상태 전이: CREATED → PAID / FAILED
