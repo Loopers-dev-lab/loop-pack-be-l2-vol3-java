@@ -90,6 +90,6 @@ public class OrderService {
         Order order = orderRepository.findByIdWithItems(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
         order.fail();
-        return order;
+        return orderRepository.save(order);
     }
 }

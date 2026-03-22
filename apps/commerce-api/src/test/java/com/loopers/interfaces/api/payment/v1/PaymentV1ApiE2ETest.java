@@ -7,7 +7,9 @@ import static com.loopers.interfaces.api.payment.v1.PaymentSteps.handlePaymentCa
 import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
 import static com.loopers.support.E2ETestHelper.assertErrorResponse;
 import static com.loopers.support.E2ETestHelper.userAuthHeaders;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.List;
@@ -249,13 +251,17 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
 
         Payment payment = paymentRepository.findByTransactionKey("txn-fail-001").orElseThrow();
         Order order = orderRepository.findByOrderKeyWithItems(orderKey).orElseThrow();
-        Product product = productRepository.findById(productId).orElseThrow();
         assertAll(
                 () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED),
                 () -> assertThat(payment.getReason()).isEqualTo("잔액 부족"),
-                () -> assertThat(order.getStatus()).isEqualTo(OrderStatus.FAILED),
-                () -> assertThat(product.getStock().getValue()).isEqualTo(INITIAL_STOCK)
+                () -> assertThat(order.getStatus()).isEqualTo(OrderStatus.FAILED)
         );
+
+        // 비동기 이벤트 처리 대기 — 재고 복원
+        await().atMost(5, SECONDS).untilAsserted(() -> {
+            Product product = productRepository.findById(productId).orElseThrow();
+            assertThat(product.getStock().getValue()).isEqualTo(INITIAL_STOCK);
+        });
     }
 
     @DisplayName("콜백: 이미 처리된 결제에 중복 콜백이 오면, 상태가 변경되지 않는다.")

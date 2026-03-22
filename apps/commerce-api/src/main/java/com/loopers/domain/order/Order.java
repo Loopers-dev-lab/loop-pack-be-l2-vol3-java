@@ -115,6 +115,7 @@ public class Order extends BaseEntity {
             throw new CoreException(ErrorType.ORDER_NOT_FAILABLE);
         }
         this.status = OrderStatus.FAILED;
+        registerEvent(new OrderEvent.OrderFailed(getId()));
     }
 
     public boolean hasAppliedCoupon() {

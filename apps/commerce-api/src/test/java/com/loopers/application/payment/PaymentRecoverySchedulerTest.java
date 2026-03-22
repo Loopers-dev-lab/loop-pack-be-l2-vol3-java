@@ -44,7 +44,7 @@ class PaymentRecoverySchedulerTest {
     private HandlePaymentCallbackUseCase handlePaymentCallbackUseCase;
 
     @Mock
-    private PaymentProcessor paymentProcessor;
+    private PaymentRecoverer paymentProcessor;
 
     @Mock
     private OrderService orderService;
@@ -171,9 +171,9 @@ class PaymentRecoverySchedulerTest {
     @Nested
     class RecoverReadyPayments {
 
-        @DisplayName("PG에 SUCCESS 거래가 1건이면, PaymentProcessor에 복구를 위임한다.")
+        @DisplayName("PG에 SUCCESS 거래가 1건이면, PaymentRecoverer에 복구를 위임한다.")
         @Test
-        void delegatesToPaymentProcessor_whenSingleSuccessTransaction() {
+        void delegatesToPaymentRecoverer_whenSingleSuccessTransaction() {
             // arrange
             Payment readyPayment = PaymentFixture.createReadyPayment();
             Order order = mock(Order.class);
@@ -196,9 +196,9 @@ class PaymentRecoverySchedulerTest {
             );
         }
 
-        @DisplayName("PG에 거래가 없으면, PaymentProcessor에 실패 복구를 위임한다.")
+        @DisplayName("PG에 거래가 없으면, PaymentRecoverer에 실패 복구를 위임한다.")
         @Test
-        void delegatesToPaymentProcessor_whenNoTransactionInPg() {
+        void delegatesToPaymentRecoverer_whenNoTransactionInPg() {
             // arrange
             Payment readyPayment = PaymentFixture.createReadyPayment();
             Order order = mock(Order.class);
@@ -218,9 +218,9 @@ class PaymentRecoverySchedulerTest {
             );
         }
 
-        @DisplayName("PG에 거래가 모두 FAILED이면, PaymentProcessor에 실패 복구를 위임한다.")
+        @DisplayName("PG에 거래가 모두 FAILED이면, PaymentRecoverer에 실패 복구를 위임한다.")
         @Test
-        void delegatesToPaymentProcessor_whenAllTransactionsFailed() {
+        void delegatesToPaymentRecoverer_whenAllTransactionsFailed() {
             // arrange
             Payment readyPayment = PaymentFixture.createReadyPayment();
             Order order = mock(Order.class);

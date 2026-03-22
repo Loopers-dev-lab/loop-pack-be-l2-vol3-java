@@ -37,7 +37,7 @@ public class PaymentRecoveryScheduler {
     private final PaymentService paymentService;
     private final PaymentGateway paymentGateway;
     private final HandlePaymentCallbackUseCase handlePaymentCallbackUseCase;
-    private final PaymentProcessor paymentProcessor;
+    private final PaymentRecoverer paymentProcessor;
     private final OrderService orderService;
 
     /**
@@ -61,7 +61,7 @@ public class PaymentRecoveryScheduler {
      * READY 상태로 방치된 결제를 PG에 조회하여 복구한다.
      *
      * <p>PG 요청 타임아웃으로 transactionKey가 없는 결제를 orderId 기반으로 PG에 조회하여,
-     * {@link PaymentProcessor}에 복구를 위임한다.</p>
+     * {@link PaymentRecoverer}에 복구를 위임한다.</p>
      */
     @Scheduled(fixedDelay = SYNC_INTERVAL_MS)
     public void recoverReadyPayments() {
