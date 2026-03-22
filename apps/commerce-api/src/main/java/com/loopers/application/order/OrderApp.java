@@ -1,5 +1,6 @@
 package com.loopers.application.order;
 
+import com.loopers.application.outbox.OutboxAppender;
 import com.loopers.domain.common.vo.RefMemberId;
 import com.loopers.domain.order.OrderItemRequest;
 import com.loopers.domain.order.OrderModel;
@@ -21,8 +22,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OrderApp {
 
+    private static final String ORDER_EVENTS_TOPIC = "order-events";
+
     private final OrderService orderService;
     private final OrderRepository orderRepository;
+    private final OutboxAppender outboxAppender;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -37,9 +41,12 @@ public class OrderApp {
                 .map(OrderItemCommand::toOrderItemRequest)
                 .toList();
         OrderModel order = orderService.createOrder(memberId, orderItems, discountAmount, refUserCouponId);
+        LocalDateTime now = LocalDateTime.now();
         eventPublisher.publishEvent(new OrderCreatedEvent(
-                order.getId(), order.getOrderId().value(), memberId,
-                order.getFinalAmount(), LocalDateTime.now()));
+                order.getId(), order.getOrderId().value(), memberId, order.getFinalAmount(), now));
+        outboxAppender.append("order", order.getOrderId().value(), "OrderCreatedEvent", ORDER_EVENTS_TOPIC,
+                new OrderOutboxPayload("OrderCreatedEvent", 1,
+                        order.getId(), order.getOrderId().value(), memberId, order.getFinalAmount(), now));
         return OrderInfo.from(order);
     }
 
