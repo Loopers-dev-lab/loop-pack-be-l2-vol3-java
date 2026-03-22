@@ -11,6 +11,8 @@ import com.loopers.infrastructure.payment.PgSimulatorClient;
 import com.loopers.infrastructure.payment.PgSimulatorRequest;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import feign.FeignException;
+import feign.RetryableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -19,6 +21,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.math.RoundingMode;
 import java.time.ZonedDateTime;
@@ -46,6 +49,7 @@ public class PaymentFacade {
     private final PaymentRepository paymentRepository;
     private final Environment environment;
     private final Duration pendingMinAge;
+    private final int staleBatchSize;
 
     public PaymentFacade(PaymentPersistenceService persistenceService,
                          @Value("${pg.simulator.callback-url}") String callbackUrl,
@@ -57,7 +61,8 @@ public class PaymentFacade {
                          PgSimulatorClient pgSimulatorClient,
                          ObjectProvider<PaymentFacade> paymentFacadeSelf,
                          Environment environment,
-                         @Value("${payment.recovery.pending-min-age:5m}") Duration pendingMinAge) {
+                         @Value("${payment.recovery.pending-min-age:5m}") Duration pendingMinAge,
+                         @Value("${payment.recovery.stale-batch-size:500}") int staleBatchSize) {
         this.persistenceService = persistenceService;
         this.pgPaymentRequester = pgPaymentRequester;
         this.pgSimulatorClient = pgSimulatorClient;
@@ -69,6 +74,7 @@ public class PaymentFacade {
         this.paymentRepository = paymentRepository;
         this.environment = environment;
         this.pendingMinAge = pendingMinAge;
+        this.staleBatchSize = staleBatchSize;
     }
 
     /**
@@ -77,7 +83,8 @@ public class PaymentFacade {
     public void verifyCallbackSecret(String headerSecret) {
         if (callbackSecret.isEmpty()) {
             if (isProductionProfile()) {
-                throw new CoreException(ErrorType.UNAUTHORIZED, "운영 환경 callback secret이 설정되지 않았습니다.");
+                log.error("PG callback secret is not configured in production");
+                throw new CoreException(ErrorType.UNAUTHORIZED, "콜백 인증에 실패했습니다.");
             }
             return;
         }
@@ -105,8 +112,13 @@ public class PaymentFacade {
         try {
             pgPaymentRequester.requestPaymentToPg(request);
         } catch (Exception e) {
-            // PENDING 저장은 이미 커밋됨. PG 타임아웃/5xx 시에도 200 + PENDING으로 응답해 UX·재시도 일관성 유지.
-            log.warn("PG 호출 실패 - PENDING 유지 orderId={} reason={}", orderId, e.toString(), e);
+            // PENDING 저장은 이미 커밋됨. Feign/네트워크 계열만 흡수하고, 그 외는 로깅 후 전파해 장애 탐지.
+            if (isExternalOrNetworkFailure(e)) {
+                log.warn("PG 호출 실패 - PENDING 유지 orderId={} reason={}", orderId, e.toString(), e);
+            } else {
+                log.error("PG 호출 중 예상치 못한 오류 - orderId={}", orderId, e);
+                throw e;
+            }
         }
         return result.paymentInfo();
     }
@@ -166,7 +178,11 @@ public class PaymentFacade {
         try {
             pg = pgSimulatorClient.getPaymentsByOrderId(orderId);
         } catch (Exception e) {
-            log.warn("PG 주문별 조회 실패 orderId={}", orderId, e);
+            if (isExternalOrNetworkFailure(e)) {
+                log.warn("PG 주문별 조회 실패 orderId={}", orderId, e);
+            } else {
+                log.error("PG 주문별 조회 중 예상치 못한 오류 orderId={}", orderId, e);
+            }
             return;
         }
         if (pg == null) {
@@ -181,7 +197,7 @@ public class PaymentFacade {
                     .orElse(null);
         }
         PaymentFacade facade = paymentFacadeSelf.getObject();
-        if (Boolean.TRUE.equals(pg.success())) {
+        if (pg.isSuccessful()) {
             facade.handleCallback(new PaymentCallbackParam(
                     orderId, true, pg.paymentId(), pg.failureReason(), amountForCallback));
         } else if (Boolean.FALSE.equals(pg.success())) {
@@ -201,7 +217,7 @@ public class PaymentFacade {
     public void recoverStalePendingPayments() {
         ZonedDateTime cutoff = ZonedDateTime.now().minus(pendingMinAge);
         List<PaymentModel> stalePayments = paymentRepository
-                .findAllByStatusAndCreatedAtLessThanEqual(PaymentStatus.PENDING, cutoff);
+                .findStalePendingPayments(PaymentStatus.PENDING, cutoff, staleBatchSize);
         if (stalePayments.isEmpty()) {
             return;
         }
@@ -226,6 +242,18 @@ public class PaymentFacade {
     private boolean isProductionProfile() {
         for (String profile : environment.getActiveProfiles()) {
             if ("prd".equalsIgnoreCase(profile)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Feign/HTTP/IO 계열은 PG 장애로 간주하고 PENDING 유지 흐름에 맡긴다. 그 외는 내부 버그 가능성이 있다.
+     */
+    private static boolean isExternalOrNetworkFailure(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof FeignException || t instanceof RetryableException || t instanceof IOException) {
                 return true;
             }
         }

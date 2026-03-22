@@ -13,4 +13,8 @@ public record PgPaymentStatusResponse(
         Long amount,
         String failureReason
 ) {
+    /** PG가 success를 생략하면 null — 자동 언박싱 NPE 방지. */
+    public boolean isSuccessful() {
+        return Boolean.TRUE.equals(success);
+    }
 }

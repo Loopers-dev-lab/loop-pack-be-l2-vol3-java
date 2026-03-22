@@ -66,12 +66,19 @@ resilience4j:
           - feign.FeignException$NotFound
           - feign.FeignException$Conflict
 
+# 결제 복구 배치 (Phase 8). stale-batch-size: 한 번에 조회·동기화하는 PENDING 상한.
+payment:
+  recovery:
+    pending-min-age: 5m
+    stale-batch-size: 500
+
 # PG-Simulator (Phase 2). callback-secret 설정 시 콜백 요청에 X-PG-Callback-Secret 헤더 필요 (06-payment-change-issues §4.1).
+# 운영에서는 PG_CALLBACK_SECRET 환경변수로 주입 권장.
 pg:
   simulator:
     url: http://localhost:8090
     callback-url: http://localhost:8080/api/v1/payments/callback
-    callback-secret: ""
+    callback-secret: ${PG_CALLBACK_SECRET:}
 
 ---
 spring:

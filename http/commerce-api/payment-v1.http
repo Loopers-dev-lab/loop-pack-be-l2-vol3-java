@@ -13,8 +13,10 @@ X-Loopers-LoginId: your-login-id
 ### PG-Simulator 미기동 시: Connection refused 등 Feign 예외
 
 ### 결제 콜백 (PG-Simulator가 호출, Phase 3)
+### pg.simulator.callback-secret 설정 시 아래 헤더 필요 (로컬 기본값 빈 문자열이면 생략 가능)
 POST {{commerce-api}}/api/v1/payments/callback
 Content-Type: application/json
+X-PG-Callback-Secret: {{pg-callback-secret}}
 
 {
   "paymentId": "pg-tx-001",
