@@ -137,6 +137,74 @@ class OrderTest {
     }
 
     @Nested
+    @DisplayName("결제 가능 여부를 검증할 때,")
+    class ValidatePayable {
+
+        @Test
+        @DisplayName("PENDING 상태면 예외가 발생하지 않는다.")
+        void passes_whenPending() {
+            // given
+            Order order = createOrderWithId(1L, 1L,
+                    List.of(createOrderItem(1L, 1L, "상품", "옵션", "브랜드", 10000, 8000, 0, 1)),
+                    10000, 0, null, 0);
+
+            // when & then
+            order.validatePayable();
+        }
+
+        @Test
+        @DisplayName("FAILED 상태면 CONFLICT 예외가 발생한다.")
+        void throwsConflict_whenFailed() {
+            // given
+            Order order = createOrderWithId(1L, 1L,
+                    List.of(createOrderItem(1L, 1L, "상품", "옵션", "브랜드", 10000, 8000, 0, 1)),
+                    10000, 0, null, 0);
+            order.markFailed();
+
+            // when
+            CoreException exception = assertThrows(CoreException.class,
+                    () -> order.validatePayable());
+
+            // then
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.CONFLICT);
+        }
+
+        @Test
+        @DisplayName("PAID 상태면 CONFLICT 예외가 발생한다.")
+        void throwsConflict_whenPaid() {
+            // given
+            Order order = createOrderWithId(1L, 1L,
+                    List.of(createOrderItem(1L, 1L, "상품", "옵션", "브랜드", 10000, 8000, 0, 1)),
+                    10000, 0, null, 0);
+            order.markPaid();
+
+            // when
+            CoreException exception = assertThrows(CoreException.class,
+                    () -> order.validatePayable());
+
+            // then
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.CONFLICT);
+        }
+
+        @Test
+        @DisplayName("CANCELLED 상태면 CONFLICT 예외가 발생한다.")
+        void throwsConflict_whenCancelled() {
+            // given
+            Order order = createOrderWithId(1L, 1L,
+                    List.of(createOrderItem(1L, 1L, "상품", "옵션", "브랜드", 10000, 8000, 0, 1)),
+                    10000, 0, null, 0);
+            order.cancel();
+
+            // when
+            CoreException exception = assertThrows(CoreException.class,
+                    () -> order.validatePayable());
+
+            // then
+            assertThat(exception.getErrorType()).isEqualTo(ErrorType.CONFLICT);
+        }
+    }
+
+    @Nested
     @DisplayName("주문 소유자를 검증할 때,")
     class ValidateOwner {
 
@@ -144,7 +212,8 @@ class OrderTest {
         @DisplayName("일치하는 회원 ID면 예외가 발생하지 않는다.")
         void passes_whenMemberIdMatches() {
             // given
-            Order order = createOrderWithId(1L, 1L, List.of(),
+            Order order = createOrderWithId(1L, 1L,
+                    List.of(createOrderItem(1L, 1L, "상품", "옵션", "브랜드", 100000, 80000, 0, 1)),
                     100000, 0, null, 0);
 
             // when & then
@@ -155,7 +224,8 @@ class OrderTest {
         @DisplayName("일치하지 않는 회원 ID면 NOT_FOUND 예외가 발생한다.")
         void throwsNotFound_whenMemberIdDoesNotMatch() {
             // given
-            Order order = createOrderWithId(1L, 1L, List.of(),
+            Order order = createOrderWithId(1L, 1L,
+                    List.of(createOrderItem(1L, 1L, "상품", "옵션", "브랜드", 100000, 80000, 0, 1)),
                     100000, 0, null, 0);
 
             // when
