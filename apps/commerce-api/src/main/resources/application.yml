@@ -42,7 +42,7 @@ spring.cloud.openfeign:
         connect-timeout: 1000
         read-timeout: 3000
   circuitbreaker:
-    enabled: true
+    enabled: false
 
 # Resilience4j
 resilience4j:
@@ -69,6 +69,7 @@ resilience4j:
       pg-client:
         sliding-window-type: COUNT_BASED
         sliding-window-size: 10
+        minimum-number-of-calls: 5
         failure-rate-threshold: 50
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 3

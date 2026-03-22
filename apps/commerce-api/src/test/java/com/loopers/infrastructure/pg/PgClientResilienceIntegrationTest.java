@@ -13,6 +13,7 @@ import com.loopers.domain.payment.PgPaymentResult;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.retry.RetryRegistry;
 
 import java.math.BigDecimal;
@@ -54,6 +55,8 @@ class PgClientResilienceIntegrationTest {
         if (wireMockServer.isRunning()) {
             wireMockServer.resetAll();
         }
+        circuitBreakerRegistry.getAllCircuitBreakers()
+                .forEach(cb -> cb.reset());
     }
 
     @DynamicPropertySource
@@ -67,6 +70,9 @@ class PgClientResilienceIntegrationTest {
 
     @Autowired
     private RetryRegistry retryRegistry;
+
+    @Autowired
+    private CircuitBreakerRegistry circuitBreakerRegistry;
 
     private PgPaymentCommand createCommand() {
         return new PgPaymentCommand(1L, 100L, "VISA", "4111111111111111", BigDecimal.valueOf(10000), "http://localhost/callback");

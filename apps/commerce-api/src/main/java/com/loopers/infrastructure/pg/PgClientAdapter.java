@@ -4,6 +4,7 @@ import com.loopers.domain.payment.PgClient;
 import com.loopers.domain.payment.PgPaymentCommand;
 import com.loopers.domain.payment.PgPaymentResult;
 import com.loopers.domain.payment.PgPaymentStatusResult;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +17,7 @@ public class PgClientAdapter implements PgClient {
     private final PgFeignClient pgFeignClient;
 
     @Override
+    @CircuitBreaker(name = "pg-client")
     @Retry(name = "pg-payment-request", fallbackMethod = "requestPaymentFallback")
     public PgPaymentResult requestPayment(PgPaymentCommand command) {
         PgFeignPaymentRequest request = new PgFeignPaymentRequest(
@@ -38,6 +40,7 @@ public class PgClientAdapter implements PgClient {
     }
 
     @Override
+    @CircuitBreaker(name = "pg-client")
     @Retry(name = "pg-payment-status", fallbackMethod = "getPaymentStatusFallback")
     public PgPaymentStatusResult getPaymentStatus(Long orderId, Long userId) {
         PgFeignPaymentStatusResponse response = pgFeignClient.getPaymentStatus(userId, orderId);

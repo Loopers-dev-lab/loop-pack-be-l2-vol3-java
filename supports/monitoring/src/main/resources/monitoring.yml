@@ -12,6 +12,8 @@ management:
         include:
           - health
           - prometheus
+          - circuitbreakers
+          - circuitbreakerevents
   endpoint:
     health:
       probes:
