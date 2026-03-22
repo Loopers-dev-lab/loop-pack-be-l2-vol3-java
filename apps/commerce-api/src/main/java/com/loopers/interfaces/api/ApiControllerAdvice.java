@@ -129,6 +129,15 @@ public class ApiControllerAdvice {
         return failureResponse(ErrorType.NOT_FOUND, null);
     }
 
+    /**
+     * 도메인 불변식 위반 등(예: OrderModel). 서비스에서 CoreException으로 감싸지 않고 그대로 올려도 400으로 통일한다.
+     */
+    @ExceptionHandler
+    public ResponseEntity<ApiResponse<?>> handleBadRequest(IllegalStateException e) {
+        log.warn("IllegalStateException : {}", e.getMessage(), e);
+        return failureResponse(ErrorType.BAD_REQUEST, e.getMessage());
+    }
+
     @ExceptionHandler
     public ResponseEntity<ApiResponse<?>> handle(Throwable e) {
         log.error("Exception : {}", e.getMessage(), e);

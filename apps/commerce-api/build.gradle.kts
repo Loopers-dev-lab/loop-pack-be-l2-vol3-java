@@ -10,6 +10,12 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:${project.properties["springDocOpenApiVersion"]}")
+
+    // Feign (PG 연동, 06 Phase 0)
+    implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
+
+    // Resilience4j (Circuit Breaker, Retry, 06 Phase 0)
+    implementation("io.github.resilience4j:resilience4j-spring-boot3:${project.properties["resilience4jVersion"]}")
     
     // security
     implementation("org.springframework.security:spring-security-crypto")
@@ -22,4 +28,7 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+
+    // PG Feign readTimeout 실경로 검증 (WireMock 지연 응답)
+    testImplementation("org.wiremock:wiremock-standalone:3.10.0")
 }

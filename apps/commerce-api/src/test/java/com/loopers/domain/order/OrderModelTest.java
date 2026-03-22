@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 
 import com.loopers.domain.product.Money;
-import com.loopers.domain.product.Quantity;
 import com.loopers.domain.product.StockQuantity;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -94,6 +93,20 @@ class OrderModelTest {
             OrderModel order = OrderModel.create(USER_ID);
             order.addItem(OrderItemModel.of(SNAPSHOT, Quantity.of(1), null));
             order.validateHasItems();
+        }
+    }
+
+    @DisplayName("markPaid 시")
+    @Nested
+    class MarkPaid {
+
+        @DisplayName("ORDERED가 아니면 IllegalStateException이 발생한다.")
+        @Test
+        void markPaid_whenNotOrdered_shouldThrowIllegalStateException() {
+            OrderModel order = OrderModel.create(USER_ID);
+            order.addItem(OrderItemModel.of(SNAPSHOT, Quantity.of(1), null));
+            order.cancel();
+            assertThrows(IllegalStateException.class, order::markPaid);
         }
     }
 

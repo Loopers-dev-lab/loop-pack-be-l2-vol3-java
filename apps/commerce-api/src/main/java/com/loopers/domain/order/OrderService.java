@@ -107,6 +107,15 @@ public class OrderService {
     }
 
     /**
+     * 주문을 비관적 락으로 조회한다. 동시 PENDING 중복 방지용.
+     * 없거나 타인 주문이면 empty. 락 획득을 위해 readOnly=false.
+     */
+    @Transactional
+    public Optional<OrderModel> findByIdForUpdate(Long userId, Long orderId) {
+        return orderRepository.findByIdAndUserIdForUpdate(userId, orderId);
+    }
+
+    /**
      * 사용자별 주문 목록을 기간·페이징으로 조회한다.
      */
     @Transactional(readOnly = true)
@@ -138,6 +147,33 @@ public class OrderService {
         if (!itemsToRestore.isEmpty()) {
             productService.restoreStock(itemsToRestore);
         }
+        return orderRepository.save(order);
+    }
+
+    /**
+     * 결제 완료 처리 (06 §10.1, Phase 3). 콜백에서만 호출.
+     * 주문 행 비관적 락으로 동시 콜백·복구가 같은 주문에 대해 재고를 이중 차감하지 않도록 직렬화한다.
+     * 재고 차감(productId 오름차순 락) 후 주문을 PAID로 전이한다.
+     * 이미 PAID면 재고 차감·상태 변경 없이 반환(멱등).
+     */
+    @Transactional
+    public OrderModel completePayment(Long orderId) {
+        OrderModel order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
+        if (order.getStatus() == OrderStatus.PAID) {
+            return order;
+        }
+        if (order.getStatus() != OrderStatus.ORDERED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "결제 완료할 수 없는 주문 상태입니다: " + order.getStatus());
+        }
+        List<ProductValidationRequest> requests = order.getOrderItems().stream()
+                .map(item -> new ProductValidationRequest(
+                        item.getProductId(),
+                        Quantity.of(item.getQuantity()),
+                        item.getOptionId()))
+                .toList();
+        productService.decreaseStockWithLock(requests);
+        order.markPaid();
         return orderRepository.save(order);
     }
 }
