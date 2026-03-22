@@ -115,7 +115,10 @@ public class Order extends BaseEntity {
             throw new CoreException(ErrorType.ORDER_NOT_FAILABLE);
         }
         this.status = OrderStatus.FAILED;
-        registerEvent(new OrderEvent.OrderFailed(getId()));
+        List<OrderEvent.OrderItemSnapshot> itemSnapshots = orderItems.stream()
+                .map(item -> new OrderEvent.OrderItemSnapshot(item.getProductId(), item.getQuantity()))
+                .toList();
+        registerEvent(new OrderEvent.OrderFailed(getId(), itemSnapshots, ownedCouponId));
     }
 
     public boolean hasAppliedCoupon() {

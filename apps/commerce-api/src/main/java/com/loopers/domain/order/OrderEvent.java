@@ -1,5 +1,7 @@
 package com.loopers.domain.order;
 
+import java.util.List;
+
 /**
  * 주문 도메인에서 발생하는 이벤트.
  *
@@ -11,10 +13,26 @@ public class OrderEvent {
     /**
      * 주문이 실패 처리되었을 때 발행되는 이벤트.
      *
-     * <p>리스너에서 재고 복원, 쿠폰 복원 등 보상 처리를 수행한다.</p>
+     * <p>보상에 필요한 데이터를 포함하여, 리스너가 주문 도메인에 의존하지 않고
+     * 자기 도메인의 보상 처리를 수행할 수 있도록 한다.</p>
      *
      * @param orderId 실패한 주문 ID
+     * @param orderItems 주문 항목 스냅샷 (재고 복원용)
+     * @param ownedCouponId 적용된 쿠폰 ID (nullable, 쿠폰 복원용)
      */
-    public record OrderFailed(Long orderId) {
+    public record OrderFailed(
+            Long orderId,
+            List<OrderItemSnapshot> orderItems,
+            Long ownedCouponId
+    ) {
+    }
+
+    /**
+     * 주문 항목의 스냅샷.
+     *
+     * @param productId 상품 ID
+     * @param quantity 수량
+     */
+    public record OrderItemSnapshot(Long productId, Long quantity) {
     }
 }

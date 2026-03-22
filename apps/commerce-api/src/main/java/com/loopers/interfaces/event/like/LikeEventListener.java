@@ -4,41 +4,38 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-import com.loopers.application.product.cache.ProductCacheWriter;
-import com.loopers.domain.like.LikeEvent;
+import com.loopers.domain.like.LikeService;
+import com.loopers.domain.product.ProductEvent;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * 좋아요 도메인 이벤트를 수신하여 상품의 좋아요 수를 갱신하는 리스너.
+ * 좋아요 도메인의 이벤트 리스너.
  *
- * <p>좋아요 트랜잭션 커밋 후 비동기로 실행되며, 상품의 비정규화된 좋아요 수와 캐시를 갱신한다.</p>
+ * <p>좋아요 도메인에 영향을 주는 이벤트를 수신하여 후속 처리를 수행한다.</p>
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class LikeEventListener {
 
-    private final ProductCacheWriter productCacheWriter;
+    private final LikeService likeService;
 
     /**
-     * 좋아요 생성 이벤트를 처리한다.
+     * 상품 삭제 이벤트를 처리한다.
      *
-     * @param event 좋아요 생성 이벤트
+     * <p>해당 상품의 좋아요를 일괄 삭제한다.</p>
+     *
+     * @param event 상품 삭제 이벤트
      */
     @Async
     @TransactionalEventListener
-    public void handle(LikeEvent.Liked event) {
-        productCacheWriter.increaseLikeCount(event.productId());
-    }
-
-    /**
-     * 좋아요 취소 이벤트를 처리한다.
-     *
-     * @param event 좋아요 취소 이벤트
-     */
-    @Async
-    @TransactionalEventListener
-    public void handle(LikeEvent.Unliked event) {
-        productCacheWriter.decreaseLikeCount(event.productId());
+    public void handle(ProductEvent.ProductDeleted event) {
+        try {
+            likeService.deleteLikesByProductId(event.productId());
+        } catch (Exception e) {
+            log.error("상품 좋아요 삭제 실패 [productId={}]", event.productId(), e);
+        }
     }
 }
