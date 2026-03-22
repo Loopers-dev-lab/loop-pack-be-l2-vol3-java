@@ -33,13 +33,21 @@ public class CouponTemplateModel extends BaseEntity {
     @Column(name = "expired_at", nullable = false)
     private ZonedDateTime expiredAt;
 
+    @Column(name = "total_quantity")
+    private Integer totalQuantity;
+
     private CouponTemplateModel(String name, CouponType type, BigDecimal value,
-                                BigDecimal minOrderAmount, ZonedDateTime expiredAt) {
+                                BigDecimal minOrderAmount, ZonedDateTime expiredAt, Integer totalQuantity) {
         this.name = name;
         this.type = type;
         this.value = value;
         this.minOrderAmount = minOrderAmount;
         this.expiredAt = expiredAt;
+        this.totalQuantity = totalQuantity;
+    }
+
+    public boolean isQuantityLimited() {
+        return totalQuantity != null;
     }
 
     public static CouponTemplateModel create(String name, CouponType type, BigDecimal value,
@@ -56,7 +64,17 @@ public class CouponTemplateModel extends BaseEntity {
         if (expiredAt == null || expiredAt.isBefore(ZonedDateTime.now())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "만료일은 현재 이후여야 합니다.");
         }
-        return new CouponTemplateModel(name, type, value, minOrderAmount, expiredAt);
+        return new CouponTemplateModel(name, type, value, minOrderAmount, expiredAt, null);
+    }
+
+    public static CouponTemplateModel createLimited(String name, CouponType type, BigDecimal value,
+                                                     BigDecimal minOrderAmount, ZonedDateTime expiredAt,
+                                                     int totalQuantity) {
+        if (totalQuantity <= 0) {
+            throw new com.loopers.support.error.CoreException(
+                    com.loopers.support.error.ErrorType.BAD_REQUEST, "수량 제한은 1 이상이어야 합니다.");
+        }
+        return new CouponTemplateModel(name, type, value, minOrderAmount, expiredAt, totalQuantity);
     }
 
     public void update(String name, BigDecimal value, BigDecimal minOrderAmount, ZonedDateTime expiredAt) {
