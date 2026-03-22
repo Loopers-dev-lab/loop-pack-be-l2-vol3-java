@@ -21,6 +21,7 @@ spring:
     import:
       - jpa.yml
       - redis.yml
+      - kafka.yml
       - logging.yml
       - monitoring.yml
   cloud:
@@ -127,6 +128,11 @@ spring:
     init:
       mode: always
       schema-locations: classpath:schema-shedlock.sql
+
+outbox:
+  relay:
+    delay-ms: 86400000
+    initial-delay-ms: 86400000
   jpa:
     defer-datasource-initialization: true
   cloud:
