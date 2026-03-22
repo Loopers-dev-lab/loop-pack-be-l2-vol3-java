@@ -25,8 +25,8 @@ public interface PaymentRepository {
     Optional<PaymentModel> findTopByOrderIdOrderByCreatedAtDesc(Long orderId);
 
     /**
-     * stale PENDING(= createdAt이 임계값 이하) 결제 목록 조회.
-     * Phase 8 배치/수동 복구용.
+     * stale PENDING(= createdAt이 임계값 이하) 결제를 최대 {@code maxResults}건만 조회.
+     * 배치 한 번에 메모리·PG 호출 상한을 두기 위함 (Phase 8).
      */
-    List<PaymentModel> findAllByStatusAndCreatedAtLessThanEqual(PaymentStatus status, ZonedDateTime createdAt);
+    List<PaymentModel> findStalePendingPayments(PaymentStatus status, ZonedDateTime createdAt, int maxResults);
 }

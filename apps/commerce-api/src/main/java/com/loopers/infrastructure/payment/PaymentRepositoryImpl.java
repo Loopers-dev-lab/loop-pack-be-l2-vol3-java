@@ -3,6 +3,7 @@ package com.loopers.infrastructure.payment;
 import com.loopers.domain.payment.PaymentModel;
 import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.payment.PaymentStatus;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import java.time.ZonedDateTime;
@@ -38,11 +39,11 @@ public class PaymentRepositoryImpl implements PaymentRepository {
 
     @Override
     public Optional<PaymentModel> findTopByOrderIdOrderByCreatedAtDesc(Long orderId) {
-        return jpaRepository.findFirstByOrderIdOrderByCreatedAtDesc(orderId);
+        return jpaRepository.findFirstByOrderIdOrderByCreatedAtDescIdDesc(orderId);
     }
 
     @Override
-    public List<PaymentModel> findAllByStatusAndCreatedAtLessThanEqual(PaymentStatus status, ZonedDateTime createdAt) {
-        return jpaRepository.findAllByStatusAndCreatedAtLessThanEqual(status, createdAt);
+    public List<PaymentModel> findStalePendingPayments(PaymentStatus status, ZonedDateTime createdAt, int maxResults) {
+        return jpaRepository.findStalePendingPayments(status, createdAt, PageRequest.of(0, maxResults));
     }
 }
