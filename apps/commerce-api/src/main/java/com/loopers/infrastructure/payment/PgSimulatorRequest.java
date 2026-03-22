@@ -11,4 +11,18 @@ public record PgSimulatorRequest(
         Long amount,
         String callbackUrl
 ) {
+    @Override
+    public String toString() {
+        String maskedCardNo;
+        if (cardNo == null || cardNo.isBlank()) {
+            maskedCardNo = "****";
+        } else if (cardNo.length() <= 4) {
+            maskedCardNo = "****";
+        } else {
+            maskedCardNo = "****" + cardNo.substring(cardNo.length() - 4);
+        }
+
+        return "PgSimulatorRequest[orderId=%s, cardType=%s, cardNo=%s, amount=%d, callbackUrl=%s]"
+                .formatted(orderId, cardType, maskedCardNo, amount, callbackUrl);
+    }
 }

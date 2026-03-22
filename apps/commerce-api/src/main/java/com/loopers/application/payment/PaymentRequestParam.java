@@ -1,5 +1,8 @@
 package com.loopers.application.payment;
 
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
@@ -18,9 +21,14 @@ public record PaymentRequestParam(
     public static PaymentRequestParam of(Long orderId, String cardType, String cardNo,
                                          BigDecimal finalAmount, String callbackUrl) {
         if (finalAmount == null) {
-            throw new IllegalArgumentException("주문 금액은 null일 수 없습니다.");
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문 금액이 유효하지 않습니다.");
         }
-        long amountInWon = finalAmount.setScale(0, RoundingMode.HALF_UP).longValue();
+        final long amountInWon;
+        try {
+            amountInWon = finalAmount.setScale(0, RoundingMode.HALF_UP).longValueExact();
+        } catch (ArithmeticException e) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "주문 금액이 유효하지 않습니다.", e);
+        }
         return new PaymentRequestParam(
                 orderId,
                 cardType,
@@ -28,5 +36,14 @@ public record PaymentRequestParam(
                 amountInWon,
                 callbackUrl
         );
+    }
+
+    /**
+     * 민감정보(cardNo)는 로그/에러 메시지에서 평문 노출되지 않도록 toString에 포함하지 않는다.
+     */
+    @Override
+    public String toString() {
+        return "PaymentRequestParam[orderId=%s, cardType=%s, amount=%d, callbackUrl=%s]"
+                .formatted(orderId, cardType, amount, callbackUrl);
     }
 }

@@ -1,5 +1,7 @@
 package com.loopers.application.payment;
 
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -20,12 +22,13 @@ class PaymentRequestParamTest {
     class Of {
 
         @Test
-        @DisplayName("finalAmount가 null이면 IllegalArgumentException을 던진다.")
-        void of_withNullFinalAmount_shouldThrowIAE() {
+        @DisplayName("finalAmount가 null이면 BAD_REQUEST로 실패한다.")
+        void of_withNullFinalAmount_shouldThrowBadRequest() {
             // given
             // when / then
-            assertThrows(IllegalArgumentException.class,
+            CoreException ex = assertThrows(CoreException.class,
                     () -> PaymentRequestParam.of(1L, "SAMSUNG", "1234", null, "http://cb"));
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
 
         @Test
@@ -51,6 +54,37 @@ class PaymentRequestParamTest {
             // then
             assertThat(high.amount()).isEqualTo(10001L);
             assertThat(low.amount()).isEqualTo(10000L);
+        }
+
+        @Test
+        @DisplayName("finalAmount가 long 범위를 초과하면 BAD_REQUEST로 실패한다.")
+        void of_withOverflowAmount_shouldThrowBadRequest() {
+            // given — Long.MAX_VALUE(9223372036854775807)를 1 초과
+            BigDecimal overflow = new BigDecimal("9223372036854775808");
+
+            // when / then
+            CoreException ex = assertThrows(CoreException.class,
+                    () -> PaymentRequestParam.of(1L, "SAMSUNG", "1234", overflow, "http://cb"));
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(ex.getCause()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("toString에는 카드번호(cardNo)가 노출되지 않는다.")
+        void toString_shouldNotExposeCardNo() {
+            // given
+            String cardNo = "1234-5678-9814-1451";
+
+            PaymentRequestParam p = PaymentRequestParam.of(
+                    1L, "SAMSUNG", cardNo, new BigDecimal("20000"), "http://cb");
+
+            // when
+            String str = p.toString();
+
+            // then
+            assertThat(str).doesNotContain(cardNo);
+            assertThat(str).contains("orderId=1");
+            assertThat(str).contains("cardType=SAMSUNG");
         }
     }
 }
