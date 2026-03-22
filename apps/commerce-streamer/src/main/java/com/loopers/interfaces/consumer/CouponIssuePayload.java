@@ -1,8 +1,8 @@
-package com.loopers.application.coupon;
+package com.loopers.interfaces.consumer;
 
 import java.time.LocalDateTime;
 
-public record CouponIssueOutboxPayload(
+public record CouponIssuePayload(
         String eventId,
         String eventType,
         int schemaVersion,

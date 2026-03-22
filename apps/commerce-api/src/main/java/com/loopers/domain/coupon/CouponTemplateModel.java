@@ -36,6 +36,9 @@ public class CouponTemplateModel extends BaseEntity {
     @Column(name = "total_quantity")
     private Integer totalQuantity;
 
+    @Column(name = "issued_count", nullable = false)
+    private long issuedCount;
+
     private CouponTemplateModel(String name, CouponType type, BigDecimal value,
                                 BigDecimal minOrderAmount, ZonedDateTime expiredAt, Integer totalQuantity) {
         this.name = name;
@@ -44,6 +47,7 @@ public class CouponTemplateModel extends BaseEntity {
         this.minOrderAmount = minOrderAmount;
         this.expiredAt = expiredAt;
         this.totalQuantity = totalQuantity;
+        this.issuedCount = 0L;
     }
 
     public boolean isQuantityLimited() {

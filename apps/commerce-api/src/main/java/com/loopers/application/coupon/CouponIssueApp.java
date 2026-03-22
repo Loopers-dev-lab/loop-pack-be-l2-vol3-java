@@ -6,6 +6,7 @@ import com.loopers.domain.coupon.CouponIssueRequestModel;
 import com.loopers.domain.coupon.CouponIssueRequestRepository;
 import com.loopers.domain.coupon.CouponIssueStatus;
 import com.loopers.domain.coupon.CouponService;
+import com.loopers.domain.coupon.CouponTemplateModel;
 import com.loopers.domain.coupon.vo.RefCouponTemplateId;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -29,7 +30,10 @@ public class CouponIssueApp {
 
     @Transactional
     public CouponIssueRequestInfo requestIssue(Long couponTemplateId, Long memberId) {
-        couponService.findActiveTemplate(couponTemplateId);
+        CouponTemplateModel template = couponService.findActiveTemplate(couponTemplateId);
+        if (!template.isQuantityLimited()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "선착순 쿠폰이 아닙니다.");
+        }
 
         boolean alreadyActive = couponIssueRequestRepository
                 .existsByRefCouponTemplateIdAndRefMemberIdAndStatusIn(
@@ -45,7 +49,7 @@ public class CouponIssueApp {
 
         CouponIssueOutboxPayload payload = new CouponIssueOutboxPayload(
                 UUID.randomUUID().toString(), "CouponIssueRequested", 1,
-                request.getId(), couponTemplateId, memberId, LocalDateTime.now());
+                request.getRequestId(), request.getId(), couponTemplateId, memberId, LocalDateTime.now());
         outboxAppender.append(
                 "coupon_issue_request", String.valueOf(couponTemplateId),
                 "CouponIssueRequested", COUPON_ISSUE_TOPIC, payload);

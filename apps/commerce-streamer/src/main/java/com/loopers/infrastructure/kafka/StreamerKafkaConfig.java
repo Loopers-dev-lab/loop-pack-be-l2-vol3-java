@@ -23,9 +23,10 @@ public class StreamerKafkaConfig {
 
     public static final String DLQ_BATCH_LISTENER = "DLQ_BATCH_LISTENER";
 
-    // 벤치마크 결과: p99=51ms → MAX_POLL_INTERVAL_MS(120s) × 0.7 / 51ms ≈ 1647
-    // KafkaConfig.MAX_POLLING_SIZE(3000) 사용 시 3000 × 51ms = 153s → MAX_POLL_INTERVAL 초과 위험
-    private static final int MAX_POLL_RECORDS = 1600;
+    // 벤치마크 결과(catalog): p99=51ms → 120000 × 0.7 / 51 ≈ 1647
+    // 벤치마크 결과(coupon): p99=70ms → 120000 × 0.7 / 70 = 1200
+    // 두 컨슈머 중 처리 비용이 더 높은 coupon 기준으로 보수적 적용
+    private static final int MAX_POLL_RECORDS = 1200;
 
     @Bean(name = DLQ_BATCH_LISTENER)
     public ConcurrentKafkaListenerContainerFactory<Object, Object> dlqBatchListenerContainerFactory(
