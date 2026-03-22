@@ -104,26 +104,24 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         }
     }
 
-    @DisplayName("쿠폰을 적용할 때,")
+    @DisplayName("할인 금액을 계산할 때,")
     @Nested
-    class ApplyDiscount {
+    class CalculateDiscount {
 
-        @DisplayName("유효한 쿠폰이면, 할인 금액을 계산하고 USED 상태로 변경된다.")
+        @DisplayName("유효한 쿠폰이면, 할인 금액을 계산한다.")
         @Test
-        void calculatesDiscountAndMarksUsed() {
+        void calculatesDiscount_whenValidCoupon() {
             // arrange
             var coupon = couponService.create(new CouponTerms("5000원 할인", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
             var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
 
             // act
-            var result = ownedCouponService.applyDiscount(ownedCoupon.getId(), 1L, Money.wons(20000L));
+            var result = ownedCouponService.calculateDiscount(ownedCoupon.getId(), 1L, Money.wons(20000L));
 
             // assert
-            var saved = ownedCouponRepository.findByIdWithCoupon(ownedCoupon.getId()).orElseThrow();
             assertAll(
                     () -> assertThat(result.discountAmount()).isEqualTo(Money.wons(5000L)),
-                    () -> assertThat(result.ownedCouponId()).isEqualTo(ownedCoupon.getId()),
-                    () -> assertThat(saved.getStatus()).isEqualTo("USED")
+                    () -> assertThat(result.ownedCouponId()).isEqualTo(ownedCoupon.getId())
             );
         }
 
@@ -131,13 +129,33 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void returnsNone_whenNull() {
             // act
-            CouponDiscount result = ownedCouponService.applyDiscount(null, 1L, Money.wons(20000L));
+            CouponDiscount result = ownedCouponService.calculateDiscount(null, 1L, Money.wons(20000L));
 
             // assert
             assertAll(
                     () -> assertThat(result.discountAmount()).isEqualTo(Money.ZERO),
                     () -> assertThat(result.ownedCouponId()).isNull()
             );
+        }
+    }
+
+    @DisplayName("쿠폰을 사용 처리할 때,")
+    @Nested
+    class Use {
+
+        @DisplayName("보유 쿠폰이면, USED 상태로 변경된다.")
+        @Test
+        void changesStatusToUsed() {
+            // arrange
+            var coupon = couponService.create(new CouponTerms("사용 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
+            var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
+
+            // act
+            ownedCouponService.use(ownedCoupon.getId());
+
+            // assert
+            var saved = ownedCouponRepository.findByIdWithCoupon(ownedCoupon.getId()).orElseThrow();
+            assertThat(saved.getStatus()).isEqualTo("USED");
         }
     }
 
@@ -151,7 +169,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
             // arrange
             var coupon = couponService.create(new CouponTerms("복원 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
             var ownedCoupon = ownedCouponService.issue(coupon.getId(), 1L);
-            ownedCouponService.applyDiscount(ownedCoupon.getId(), 1L, Money.wons(20000L));
+            ownedCouponService.use(ownedCoupon.getId());
 
             // act
             ownedCouponService.restore(ownedCoupon.getId());

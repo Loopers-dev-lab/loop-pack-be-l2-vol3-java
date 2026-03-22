@@ -33,6 +33,7 @@ public class OrderService {
     public Order create(Cart cart, Money discountAmount, Long ownedCouponId) {
         String orderKey = orderKeyGenerator.generate();
         Order order = Order.create(orderKey, cart, discountAmount, ownedCouponId);
+        order.place();
         return orderRepository.save(order);
     }
 

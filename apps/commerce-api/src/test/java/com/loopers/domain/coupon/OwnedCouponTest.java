@@ -6,12 +6,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.loopers.domain.coupon.discount.CouponDiscountProvider;
+import com.loopers.domain.coupon.discount.FixedCouponDiscountStrategy;
+import com.loopers.domain.shared.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 
@@ -19,6 +23,8 @@ class OwnedCouponTest {
 
     private static final ZonedDateTime FUTURE = ZonedDateTime.now().plusDays(30);
     private static final ZonedDateTime PAST = ZonedDateTime.now().minusDays(1);
+    private static final CouponDiscountProvider DISCOUNT_PROVIDER =
+            new CouponDiscountProvider(List.of(new FixedCouponDiscountStrategy()));
 
     @DisplayName("보유 쿠폰을 생성할 때,")
     @Nested
@@ -58,34 +64,65 @@ class OwnedCouponTest {
         }
     }
 
-    @DisplayName("보유 쿠폰 소유자를 검증할 때,")
+    @DisplayName("할인 금액을 계산할 때,")
     @Nested
-    class ValidateOwner {
+    class CalculateDiscount {
 
-        @DisplayName("본인 소유의 쿠폰이면, 예외가 발생하지 않는다.")
+        @DisplayName("본인 소유이고 유효한 쿠폰이면, 할인 금액을 반환한다.")
         @Test
-        void doesNotThrow_whenOwner() {
+        void returnsDiscountAmount_whenValid() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("5000원 할인", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
             var ownedCoupon = OwnedCoupon.create(coupon, 1L);
 
-            // act & assert
-            assertThatCode(() -> ownedCoupon.validateOwner(1L))
-                    .doesNotThrowAnyException();
+            // act
+            Money discount = ownedCoupon.calculateDiscount(1L, Money.wons(20000L), DISCOUNT_PROVIDER);
+
+            // assert
+            assertThat(discount).isEqualTo(Money.wons(5000L));
         }
 
         @DisplayName("타인 소유의 쿠폰이면, FORBIDDEN_COUPON_ACCESS 예외가 발생한다.")
         @Test
         void throwsException_whenNotOwner() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("5000원 할인", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
             var ownedCoupon = OwnedCoupon.create(coupon, 1L);
 
             // act & assert
-            assertThatThrownBy(() -> ownedCoupon.validateOwner(999L))
+            assertThatThrownBy(() -> ownedCoupon.calculateDiscount(999L, Money.wons(20000L), DISCOUNT_PROVIDER))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.FORBIDDEN_COUPON_ACCESS);
+        }
+
+        @DisplayName("만료된 쿠폰이면, EXPIRED_COUPON 예외가 발생한다.")
+        @Test
+        void throwsException_whenExpired() {
+            // arrange
+            var coupon = Coupon.create(new CouponTerms("5000원 할인", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+            ReflectionTestUtils.setField(coupon, "expiredAt", PAST);
+
+            // act & assert
+            assertThatThrownBy(() -> ownedCoupon.calculateDiscount(1L, Money.wons(20000L), DISCOUNT_PROVIDER))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.EXPIRED_COUPON);
+        }
+
+        @DisplayName("최소 주문 금액 미달이면, COUPON_MIN_ORDER_PRICE_NOT_MET 예외가 발생한다.")
+        @Test
+        void throwsException_whenBelowMinOrderPrice() {
+            // arrange
+            var coupon = Coupon.create(new CouponTerms("5000원 할인", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+
+            // act & assert
+            assertThatThrownBy(() -> ownedCoupon.calculateDiscount(1L, Money.wons(5000L), DISCOUNT_PROVIDER))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.COUPON_MIN_ORDER_PRICE_NOT_MET);
         }
     }
 

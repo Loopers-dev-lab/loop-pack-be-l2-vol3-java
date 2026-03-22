@@ -82,24 +82,71 @@ class PaymentTest {
         }
     }
 
-    @DisplayName("결제 결과를 반영할 때,")
+    @DisplayName("결제를 성공 처리할 때,")
     @Nested
-    class Update {
+    class Success {
 
-        @DisplayName("PENDING 상태이면, 상태와 사유가 변경된다.")
+        @DisplayName("PENDING 상태이면, SUCCESS로 전이되고 사유가 저장된다.")
         @Test
-        void updatesStatusAndReason_whenPending() {
+        void transitionsToSuccess_whenPending() {
             // arrange
             Payment payment = PaymentFixture.createPendingPayment();
 
             // act
-            payment.update(PaymentStatus.SUCCESS, "결제 승인");
+            payment.success("결제 승인");
 
             // assert
             assertAll(
                     () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS),
                     () -> assertThat(payment.getReason()).isEqualTo("결제 승인")
             );
+        }
+
+        @DisplayName("이미 처리된 결제이면, PAYMENT_ALREADY_PROCESSED 예외가 발생한다.")
+        @Test
+        void throwsException_whenAlreadyProcessed() {
+            // arrange
+            Payment payment = PaymentFixture.createPendingPayment();
+            payment.success("결제 승인");
+
+            // act & assert
+            assertThatThrownBy(() -> payment.success("재처리"))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PAYMENT_ALREADY_PROCESSED));
+        }
+    }
+
+    @DisplayName("결제를 실패 처리할 때,")
+    @Nested
+    class Fail {
+
+        @DisplayName("PENDING 상태이면, FAILED로 전이되고 사유가 저장된다.")
+        @Test
+        void transitionsToFailed_whenPending() {
+            // arrange
+            Payment payment = PaymentFixture.createPendingPayment();
+
+            // act
+            payment.fail("잔액 부족");
+
+            // assert
+            assertAll(
+                    () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED),
+                    () -> assertThat(payment.getReason()).isEqualTo("잔액 부족")
+            );
+        }
+
+        @DisplayName("이미 처리된 결제이면, PAYMENT_ALREADY_PROCESSED 예외가 발생한다.")
+        @Test
+        void throwsException_whenAlreadyProcessed() {
+            // arrange
+            Payment payment = PaymentFixture.createPendingPayment();
+            payment.fail("잔액 부족");
+
+            // act & assert
+            assertThatThrownBy(() -> payment.fail("재처리"))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PAYMENT_ALREADY_PROCESSED));
         }
     }
 

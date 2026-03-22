@@ -35,10 +35,11 @@ public class ProductEventListener {
     @Async
     @TransactionalEventListener
     public void handle(LikeEvent.Liked event) {
+        log.info("[EVENT:Liked:product] productId={}", event.productId());
         try {
             productCacheWriter.increaseLikeCount(event.productId());
         } catch (Exception e) {
-            log.error("좋아요 수 증가 실패 [productId={}]", event.productId(), e);
+            log.error("좋아요 생성 이벤트 처리 실패: 좋아요 수 증가 [productId={}]", event.productId(), e);
         }
     }
 
@@ -52,10 +53,11 @@ public class ProductEventListener {
     @Async
     @TransactionalEventListener
     public void handle(LikeEvent.Unliked event) {
+        log.info("[EVENT:Unliked:product] productId={}", event.productId());
         try {
             productCacheWriter.decreaseLikeCount(event.productId());
         } catch (Exception e) {
-            log.error("좋아요 수 감소 실패 [productId={}]", event.productId(), e);
+            log.error("좋아요 취소 이벤트 처리 실패: 좋아요 수 감소 [productId={}]", event.productId(), e);
         }
     }
 
@@ -69,11 +71,12 @@ public class ProductEventListener {
     @Async
     @TransactionalEventListener
     public void handle(OrderEvent.OrderFailed event) {
+        log.info("[EVENT:OrderFailed:product] orderId={}", event.orderId());
         event.orderItems().forEach(item -> {
             try {
                 productService.restoreStock(item.productId(), item.quantity());
             } catch (Exception e) {
-                log.error("재고 복원 실패 [orderId={}, productId={}, quantity={}]",
+                log.error("주문 실패 이벤트 처리 실패: 재고 복원 [orderId={}, productId={}, quantity={}]",
                         event.orderId(), item.productId(), item.quantity(), e);
             }
         });

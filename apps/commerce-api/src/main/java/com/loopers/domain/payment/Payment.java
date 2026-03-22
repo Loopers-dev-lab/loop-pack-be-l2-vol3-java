@@ -66,15 +66,25 @@ public class Payment extends BaseEntity {
         this.status = PaymentStatus.PENDING;
     }
 
-    public void update(PaymentStatus status, String reason) {
+    public void success(String reason) {
+        update(PaymentStatus.SUCCESS, reason);
+        registerEvent(PaymentEvent.PaymentSucceed.from(this));
+    }
+
+    public void fail(String reason) {
+        update(PaymentStatus.FAILED, reason);
+        registerEvent(PaymentEvent.PaymentFailed.from(this));
+    }
+
+    public boolean isProcessed() {
+        return this.status != PaymentStatus.PENDING && this.status != PaymentStatus.READY;
+    }
+
+    private void update(PaymentStatus status, String reason) {
         if (isProcessed()) {
             throw new CoreException(ErrorType.PAYMENT_ALREADY_PROCESSED);
         }
         this.status = status;
         this.reason = reason;
-    }
-
-    public boolean isProcessed() {
-        return this.status != PaymentStatus.PENDING && this.status != PaymentStatus.READY;
     }
 }

@@ -57,7 +57,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
             var savedOrder = orderRepository.findByIdWithItems(result.getId()).orElseThrow();
             assertAll(
                     () -> assertThat(savedOrder.getUserId()).isEqualTo(1L),
-                    () -> assertThat(savedOrder.getStatus()).isEqualTo(OrderStatus.CREATED),
+                    () -> assertThat(savedOrder.getStatus()).isEqualTo(OrderStatus.ORDERED),
                     () -> assertThat(savedOrder.getOrderItems()).hasSize(1),
                     () -> assertThat(savedOrder.getTotalPrice().getAmount()).isEqualTo(20000L)
             );
@@ -141,7 +141,7 @@ class OrderServiceIntegrationTest extends BaseIntegrationTest {
             assertAll(
                     () -> assertThat(result.getId()).isEqualTo(created.getId()),
                     () -> assertThat(result.getUserId()).isEqualTo(1L),
-                    () -> assertThat(result.getStatus()).isEqualTo(OrderStatus.CREATED),
+                    () -> assertThat(result.getStatus()).isEqualTo(OrderStatus.ORDERED),
                     () -> assertThat(result.getOrderItems()).hasSize(1)
             );
         }

@@ -25,6 +25,26 @@ public class CouponEventListener {
     private final OwnedCouponService ownedCouponService;
 
     /**
+     * 주문 생성 이벤트를 처리한다.
+     *
+     * <p>쿠폰이 적용된 주문이면 쿠폰을 사용 처리한다.</p>
+     *
+     * @param event 주문 생성 이벤트
+     */
+    @Async
+    @TransactionalEventListener
+    public void handle(OrderEvent.OrderPlaced event) {
+        if (Objects.isNull(event.ownedCouponId())) {
+            return;
+        }
+        try {
+            ownedCouponService.use(event.ownedCouponId());
+        } catch (Exception e) {
+            log.error("주문 생성 이벤트 처리 실패: 쿠폰 사용 처리 [orderId={}]", event.orderId(), e);
+        }
+    }
+
+    /**
      * 주문 실패 이벤트를 처리한다.
      *
      * <p>쿠폰이 적용된 주문이면 쿠폰을 복원한다.</p>
@@ -40,7 +60,7 @@ public class CouponEventListener {
         try {
             ownedCouponService.restore(event.ownedCouponId());
         } catch (Exception e) {
-            log.error("쿠폰 복원 실패 [orderId={}, ownedCouponId={}]", event.orderId(), event.ownedCouponId(), e);
+            log.error("주문 실패 이벤트 처리 실패: 쿠폰 복원 [orderId={}, ownedCouponId={}]", event.orderId(), event.ownedCouponId(), e);
         }
     }
 }

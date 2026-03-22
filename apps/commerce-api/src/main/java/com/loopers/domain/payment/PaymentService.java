@@ -89,6 +89,22 @@ public class PaymentService {
     }
 
     /**
+     * 결제를 성공 처리한다.
+     *
+     * @param paymentId 결제 ID
+     * @param reason    성공 사유
+     * @return 성공 처리된 결제
+     * @throws CoreException 결제가 존재하지 않거나 이미 처리된 경우
+     */
+    @Transactional
+    public Payment success(Long paymentId, String reason) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new CoreException(ErrorType.PAYMENT_NOT_FOUND));
+        payment.success(reason);
+        return paymentRepository.save(payment);
+    }
+
+    /**
      * 결제를 실패 처리한다.
      *
      * @param paymentId 결제 ID
@@ -100,7 +116,7 @@ public class PaymentService {
     public Payment fail(Long paymentId, String reason) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new CoreException(ErrorType.PAYMENT_NOT_FOUND));
-        payment.update(PaymentStatus.FAILED, reason);
-        return payment;
+        payment.fail(reason);
+        return paymentRepository.save(payment);
     }
 }

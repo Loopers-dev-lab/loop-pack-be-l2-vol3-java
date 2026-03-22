@@ -35,7 +35,7 @@ public class LikeEventListener {
         try {
             likeService.deleteLikesByProductId(event.productId());
         } catch (Exception e) {
-            log.error("상품 좋아요 삭제 실패 [productId={}]", event.productId(), e);
+            log.error("상품 삭제 이벤트 처리 실패: 좋아요 삭제 [productId={}]", event.productId(), e);
         }
     }
 }

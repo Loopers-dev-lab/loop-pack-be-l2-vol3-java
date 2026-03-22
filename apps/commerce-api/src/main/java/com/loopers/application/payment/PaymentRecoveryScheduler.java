@@ -37,7 +37,6 @@ public class PaymentRecoveryScheduler {
     private final PaymentService paymentService;
     private final PaymentGateway paymentGateway;
     private final HandlePaymentCallbackUseCase handlePaymentCallbackUseCase;
-    private final PaymentRecoverer paymentProcessor;
     private final OrderService orderService;
 
     /**
@@ -60,8 +59,8 @@ public class PaymentRecoveryScheduler {
     /**
      * READY 상태로 방치된 결제를 PG에 조회하여 복구한다.
      *
-     * <p>PG 요청 타임아웃으로 transactionKey가 없는 결제를 orderId 기반으로 PG에 조회하여,
-     * {@link PaymentRecoverer}에 복구를 위임한다.</p>
+     * <p>PG 요청 타임아웃으로 transactionKey가 없는 결제를 orderId 기반으로 PG에 조회하여
+     * 상태를 동기화한다.</p>
      */
     @Scheduled(fixedDelay = SYNC_INTERVAL_MS)
     public void recoverReadyPayments() {
@@ -122,15 +121,11 @@ public class PaymentRecoveryScheduler {
                 .toList();
 
         if (successTransactions.isEmpty()) {
-            paymentProcessor.recoverWithoutTransaction(payment.getId(), "PG 결제 요청 타임아웃으로 거래 없음");
+            paymentService.fail(payment.getId(), "PG 결제 요청 타임아웃으로 거래 없음");
         } else if (successTransactions.size() == 1) {
             TransactionResult txn = successTransactions.get(0);
-            paymentProcessor.recoverWithTransaction(
-                    payment.getId(),
-                    txn.transactionKey(),
-                    PaymentStatus.SUCCESS,
-                    txn.reason()
-            );
+            paymentService.confirmPayment(payment.getId(), txn.transactionKey());
+            paymentService.success(payment.getId(), txn.reason());
         } else {
             log.error("READY 결제 복구 스킵: SUCCESS 거래가 {}건 존재하여 수동 확인 필요 [paymentId={}, orderKey={}]",
                     successTransactions.size(),

@@ -3,7 +3,6 @@ package com.loopers.application.payment;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.application.shared.annotation.UseCase;
-import com.loopers.domain.order.OrderService;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentService;
 import com.loopers.support.error.CoreException;
@@ -23,7 +22,6 @@ import lombok.RequiredArgsConstructor;
 public class HandlePaymentCallbackUseCase {
 
     private final PaymentService paymentService;
-    private final OrderService orderService;
 
     /**
      * @param command 결제 콜백 커맨드 (transactionKey, status, reason)
@@ -37,11 +35,9 @@ public class HandlePaymentCallbackUseCase {
             return;
         }
 
-        payment.update(command.status(), command.reason());
-
         switch (command.status()) {
-            case SUCCESS -> orderService.pay(payment.getOrderId());
-            case FAILED -> orderService.fail(payment.getOrderId());
+            case SUCCESS -> paymentService.success(payment.getId(), command.reason());
+            case FAILED -> paymentService.fail(payment.getId(), command.reason());
         }
     }
 }

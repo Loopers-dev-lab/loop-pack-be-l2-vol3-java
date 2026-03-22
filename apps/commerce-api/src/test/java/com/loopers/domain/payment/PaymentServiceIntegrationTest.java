@@ -12,9 +12,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.loopers.domain.order.Cart;
 import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.shared.Money;
 import com.loopers.infrastructure.order.persistence.OrderJpaRepository;
 import com.loopers.infrastructure.payment.persistence.PaymentJpaRepository;
@@ -40,7 +42,9 @@ class PaymentServiceIntegrationTest extends BaseIntegrationTest {
         Cart cart = new Cart(1L, List.of(
                 new Cart.CartItem(1L, "테스트 상품", "https://thumb.png", Money.wons(50000L), 1L)
         ));
-        savedOrder = orderJpaRepository.save(Order.create("test-order-key", cart, Money.ZERO, null));
+        Order order = Order.create("test-order-key", cart, Money.ZERO, null);
+        ReflectionTestUtils.setField(order, "status", OrderStatus.ORDERED);
+        savedOrder = orderJpaRepository.save(order);
     }
 
     @DisplayName("결제를 생성할 때,")
@@ -173,9 +177,8 @@ class PaymentServiceIntegrationTest extends BaseIntegrationTest {
             // arrange
             PaymentMethod paymentMethod = new PaymentMethod(CardType.SHINHAN, "1234-5678-9012-3456");
             Payment payment = paymentService.create(savedOrder, paymentMethod);
-            Payment confirmed = paymentService.confirmPayment(payment.getId(), "txn-success-test");
-            confirmed.update(PaymentStatus.SUCCESS, null);
-            paymentJpaRepository.save(confirmed);
+            paymentService.confirmPayment(payment.getId(), "txn-success-test");
+            paymentService.success(payment.getId(), null);
 
             ZonedDateTime threshold = ZonedDateTime.now().plusMinutes(1);
 
@@ -239,6 +242,37 @@ class PaymentServiceIntegrationTest extends BaseIntegrationTest {
 
             // assert
             assertThat(result).isEmpty();
+        }
+    }
+
+    @DisplayName("결제를 성공 처리할 때,")
+    @Nested
+    class Success {
+
+        @DisplayName("PENDING 상태의 결제이면, SUCCESS로 전이되고 사유가 저장된다.")
+        @Test
+        void transitionsToSuccess_whenPendingPayment() {
+            // arrange
+            PaymentMethod paymentMethod = new PaymentMethod(CardType.SHINHAN, "1234-5678-9012-3456");
+            Payment payment = paymentService.create(savedOrder, paymentMethod);
+            paymentService.confirmPayment(payment.getId(), "txn-success-test");
+
+            // act
+            Payment result = paymentService.success(payment.getId(), "결제 승인");
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.getStatus()).isEqualTo(PaymentStatus.SUCCESS),
+                    () -> assertThat(result.getReason()).isEqualTo("결제 승인")
+            );
+        }
+
+        @DisplayName("존재하지 않는 결제 ID이면, PAYMENT_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenPaymentNotFound() {
+            assertThatThrownBy(() -> paymentService.success(999L, "결제 승인"))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.PAYMENT_NOT_FOUND));
         }
     }
 

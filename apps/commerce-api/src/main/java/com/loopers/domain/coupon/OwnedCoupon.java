@@ -12,6 +12,8 @@ import java.time.ZonedDateTime;
 import java.util.Objects;
 
 import com.loopers.domain.BaseEntity;
+import com.loopers.domain.coupon.discount.CouponDiscountProvider;
+import com.loopers.domain.shared.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 
@@ -49,10 +51,13 @@ public class OwnedCoupon extends BaseEntity {
         return ownedCoupon;
     }
 
+    public Money calculateDiscount(Long userId, Money orderTotal, CouponDiscountProvider couponDiscountProvider) {
+        validateUsable(userId, orderTotal);
+        return coupon.calculateDiscount(orderTotal, couponDiscountProvider);
+    }
+
     public void use() {
-        if (coupon.isExpired()) {
-            throw new CoreException(ErrorType.EXPIRED_COUPON);
-        }
+        validateCouponIsExpired();
         if (Objects.nonNull(usedAt)) {
             throw new CoreException(ErrorType.ALREADY_USED_COUPON);
         }
@@ -63,12 +68,6 @@ public class OwnedCoupon extends BaseEntity {
         this.usedAt = null;
     }
 
-    public void validateOwner(Long userId) {
-        if (!this.userId.equals(userId)) {
-            throw new CoreException(ErrorType.FORBIDDEN_COUPON_ACCESS);
-        }
-    }
-
     public String getStatus() {
         if (Objects.nonNull(usedAt)) {
             return "USED";
@@ -77,5 +76,23 @@ public class OwnedCoupon extends BaseEntity {
             return "EXPIRED";
         }
         return "AVAILABLE";
+    }
+
+    private void validateUsable(Long userId, Money orderTotal) {
+        validateOwner(userId);
+        validateCouponIsExpired();
+        coupon.validateMinOrderPrice(orderTotal);
+    }
+
+    private void validateOwner(Long userId) {
+        if (!this.userId.equals(userId)) {
+            throw new CoreException(ErrorType.FORBIDDEN_COUPON_ACCESS);
+        }
+    }
+
+    private void validateCouponIsExpired() {
+        if (coupon.isExpired()) {
+            throw new CoreException(ErrorType.EXPIRED_COUPON);
+        }
     }
 }
