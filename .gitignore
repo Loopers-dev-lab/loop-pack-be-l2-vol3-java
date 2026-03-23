@@ -41,3 +41,7 @@ out/
 
 # Claude
 .claude/
+
+# Work logs and local docs (personal, not for version control)
+docs/logs/
+docs/database/

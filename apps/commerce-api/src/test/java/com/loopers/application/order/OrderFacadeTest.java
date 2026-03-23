@@ -1,5 +1,6 @@
 package com.loopers.application.order;
 
+import com.loopers.application.payment.PaymentTxService;
 import com.loopers.domain.coupon.CouponIssueRepository;
 import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.order.Order;
@@ -37,6 +38,7 @@ class OrderFacadeTest {
     private UserRepository userRepository;
     private CouponRepository couponRepository;
     private CouponIssueRepository couponIssueRepository;
+    private PaymentTxService paymentTxService;
     private OrderFacade orderFacade;
 
     private final Long userId = 1L;
@@ -49,6 +51,7 @@ class OrderFacadeTest {
         userRepository = mock(UserRepository.class);
         couponRepository = mock(CouponRepository.class);
         couponIssueRepository = mock(CouponIssueRepository.class);
+        paymentTxService = mock(PaymentTxService.class);
         OrderService orderService = new OrderService();
         OrderPlacementTxService orderPlacementTxService = new OrderPlacementTxService(
             orderRepository,
@@ -64,7 +67,8 @@ class OrderFacadeTest {
             couponRepository,
             couponIssueRepository,
             orderService,
-            orderPlacementTxService
+            orderPlacementTxService,
+            paymentTxService
         );
     }
 
@@ -258,6 +262,39 @@ class OrderFacadeTest {
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.ORDER_NOT_FOUND));
+    }
+
+    @DisplayName("cancelOrder: 주문 취소 시 결제 환불(refundPayment)을 호출한다")
+    @Test
+    void cancelOrder_callsRefundPayment() {
+        Order order = createOrder(userId, productId, 1, BigDecimal.valueOf(5000));
+        Product product = mock(Product.class);
+        when(product.getId()).thenReturn(productId);
+
+        when(orderRepository.findByIdAndUserId(100L, userId)).thenReturn(Optional.of(order));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(orderRepository.save(order)).thenReturn(order);
+        when(productRepository.save(product)).thenReturn(product);
+
+        orderFacade.cancelOrder(userId, 100L);
+
+        verify(paymentTxService).refundPayment(100L);
+    }
+
+    @DisplayName("cancelOrder: 이미 취소된 주문이면 결제 환불을 호출하지 않는다")
+    @Test
+    void cancelOrder_alreadyCancelled_noRefund() {
+        Order order = createOrder(userId, productId, 1, BigDecimal.valueOf(5000));
+        order.cancel();
+        Product product = mock(Product.class);
+        when(product.getId()).thenReturn(productId);
+
+        when(orderRepository.findByIdAndUserId(100L, userId)).thenReturn(Optional.of(order));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+
+        orderFacade.cancelOrder(userId, 100L);
+
+        verify(paymentTxService, never()).refundPayment(anyLong());
     }
 
     private Order createOrder(Long userId, Long productId, Integer quantity, BigDecimal price) {

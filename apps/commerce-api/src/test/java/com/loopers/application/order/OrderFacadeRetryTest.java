@@ -1,5 +1,6 @@
 package com.loopers.application.order;
 
+import com.loopers.application.payment.PaymentTxService;
 import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.CouponIssue;
 import com.loopers.domain.coupon.CouponIssueRepository;
@@ -69,6 +70,11 @@ class OrderFacadeRetryTest {
         }
 
         @Bean
+        PaymentTxService paymentTxService() {
+            return mock(PaymentTxService.class);
+        }
+
+        @Bean
         OrderFacade orderFacade(
             OrderRepository orderRepository,
             ProductRepository productRepository,
@@ -76,7 +82,8 @@ class OrderFacadeRetryTest {
             CouponRepository couponRepository,
             CouponIssueRepository couponIssueRepository,
             OrderService orderService,
-            OrderPlacementTxService orderPlacementTxService
+            OrderPlacementTxService orderPlacementTxService,
+            PaymentTxService paymentTxService
         ) {
             return new OrderFacade(
                 orderRepository,
@@ -85,7 +92,8 @@ class OrderFacadeRetryTest {
                 couponRepository,
                 couponIssueRepository,
                 orderService,
-                orderPlacementTxService
+                orderPlacementTxService,
+                paymentTxService
             );
         }
 

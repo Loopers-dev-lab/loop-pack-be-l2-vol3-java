@@ -8,6 +8,7 @@ dependencies {
     implementation("org.springframework.security:spring-security-crypto")
     implementation("org.springframework.retry:spring-retry")
     implementation("org.springframework.boot:spring-boot-starter-aop")
+    implementation("org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j")
 
     // web
     implementation("org.springframework.boot:spring-boot-starter-web")

@@ -1,5 +1,6 @@
 package com.loopers.application.order;
 
+import com.loopers.application.payment.PaymentTxService;
 import com.loopers.domain.coupon.CouponIssueRepository;
 import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.order.Order;
@@ -37,6 +38,7 @@ public class OrderFacade {
     private final CouponIssueRepository couponIssueRepository;
     private final OrderService orderService;
     private final OrderPlacementTxService orderPlacementTxService;
+    private final PaymentTxService paymentTxService;
 
     @Retryable(
         retryFor = {
@@ -97,6 +99,8 @@ public class OrderFacade {
                 couponIssueRepository.save(issue);
             });
         }
+
+        paymentTxService.refundPayment(orderId);
 
         Order savedOrder = orderRepository.save(order);
         return OrderDto.OrderInfo.from(savedOrder);
