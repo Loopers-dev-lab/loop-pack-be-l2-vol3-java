@@ -664,7 +664,22 @@ await().atMost(Duration.ofSeconds(35))
 - 외부 스레드/스케줄러가 비동기로 상태를 전이 → **Awaitility 필수**
 - 단순 시간 경과 판단 (쿠폰 만료 등 조회 시점에 `expiredAt < now()`) → **Thread.sleep 허용**
 
-### 8. 외부 라이브러리를 단위 테스트에서 직접 사용
+### 8. 외부 서비스 Mock 서버
+
+**규칙:** 별도 Mock 서버가 존재하면 TestContainers로 띄워서 테스트. 존재하지 않으면 사용자에게 보고하여 생성 여부를 결정한다.
+
+```java
+// ✅ Mock 서버가 있는 경우 — TestContainers로 통합 테스트
+static {
+    mockServer = createMockContainer(projectRoot, "mock-xxx", 8090);
+    mockServer.start();
+    System.setProperty("xxx.base-url", "http://localhost:" + mockServer.getMappedPort(8090));
+}
+```
+
+Mock 서버가 chaos 모드(타임아웃, 에러 시뮬레이션)를 지원하면 장애 시뮬레이션 테스트에 활용한다.
+
+### 9. 외부 라이브러리를 단위 테스트에서 직접 사용
 
 **문제:** 의존성 격리 안 됨
 ```java

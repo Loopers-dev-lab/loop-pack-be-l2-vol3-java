@@ -207,6 +207,14 @@ REPORT → AC 매핑 표 + 파일 목록 보고
 - 사용자에게 알리고 `spec-writer` 스킬 사용을 안내한다
 - "해당 기능의 명세서가 없습니다. `/spec-writer`로 먼저 명세서를 작성할까요?"
 
+### 외부 시스템 통합이 포함된 기능
+- `conventions/external-integration.md` 규칙을 반드시 읽고 따른다
+- 트랜잭션 격리, 예외 변환, 결과 표현(sealed interface) 원칙을 확인한다
+
+### 동시성 제어가 필요한 기능
+- `conventions/concurrency.md` 규칙을 반드시 읽고 따른다
+- 전략 선택(Fail-Fast + Atomic Operation / 비관적 락 / 낙관적 락), 연산 순서, 멱등성을 확인한다
+
 ### 기존 코드와 충돌하는 경우
 - 기존 코드의 패턴을 우선한다
 - 차이점을 사용자에게 공유하고 방향을 확인받는다

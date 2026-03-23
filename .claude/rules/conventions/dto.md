@@ -11,6 +11,7 @@
 
 - 모든 DTO는 Java record로 정의한다 (불변 보장)
 - Entity는 application 계층 밖으로 노출하지 않는다
+- record의 compact constructor에서 간단한 불변식 검증을 수행할 수 있다 (예: 중복 항목 검증)
 
 ## 데이터 흐름
 ```
@@ -134,4 +135,32 @@ public class OrderV1Dto {
         public static OrderResponse from(OrderInfo info) { ... }
     }
 }
+```
+
+## Snapshot 패턴
+
+선택적 도메인 값(쿠폰, 할인 등)을 `Optional` 대신 전용 record로 표현한다.
+```java
+public record IssuedCouponSnapshot(Long issuedCouponId, BigDecimal discountAmount) {
+    private static final IssuedCouponSnapshot NONE = new IssuedCouponSnapshot(null, BigDecimal.ZERO);
+
+    public static IssuedCouponSnapshot none() { return NONE; }
+    public boolean isApplied() { return issuedCouponId != null; }
+}
+```
+
+- `NONE` 싱글톤으로 미적용 상태를 표현
+- `isApplied()` 같은 비즈니스 메서드로 조건 판단
+- Command 필드에 포함하여 적용/미적용을 type-safe하게 전달
+
+## Cursor 기반 페이지네이션
+
+대규모 데이터 조회나 무한 스크롤에는 offset/limit 대신 cursor 기반 페이지네이션을 사용한다.
+```java
+public record CursorResponse<T>(
+    List<T> content,
+    Long nextCursor,
+    boolean hasNext,
+    int size
+) {}
 ```

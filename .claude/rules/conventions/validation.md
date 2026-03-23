@@ -39,3 +39,10 @@
 - 글로벌 핸들러(`@RestControllerAdvice`)에서 일괄 처리
 - Controller에서 try-catch 금지
 - ErrorType은 HTTP 상태코드와 매핑되는 enum으로 관리 (`BAD_REQUEST`, `NOT_FOUND`, `FORBIDDEN` 등)
+
+### 외부 시스템 예외
+
+- 외부 시스템의 예외를 그대로 전파하면 도메인이 외부에 결합된다 — 반드시 도메인 수준 예외로 감싸서 전달
+- 외부 통신 실패 유형 구분이 비즈니스 분기에 영향을 줄 때 → 도메인 특화 예외 계층 허용
+- 단순 성공/실패만 판단하면 → CoreException으로 충분
+- 상세 원칙은 `conventions/external-integration.md` 참고
