@@ -6,6 +6,8 @@ argument-hint: "{epic}/{NNN-feature-name}"
 
 # Implement Review
 
+> **빠른 병렬 검증이 필요하면 `/parallel-review`를 사용하세요.** 동일한 체크리스트를 3개 에이전트로 병렬 실행합니다.
+
 구현 코드를 문서(requirements, specs, design)와 규칙(rules) 기준으로 3축 검증합니다.
 
 ## 4-Phase 워크플로우
