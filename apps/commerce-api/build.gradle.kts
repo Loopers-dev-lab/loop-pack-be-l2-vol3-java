@@ -27,6 +27,9 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+
+    // test-utils
+    testImplementation("org.awaitility:awaitility:4.2.2")
 }
 
 tasks.test {

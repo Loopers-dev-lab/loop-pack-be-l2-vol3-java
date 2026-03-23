@@ -47,12 +47,13 @@ sequenceDiagram
     PF->>GE: confirm(payment)
     activate GE
 
-    alt PG 승인 성공
+    alt PG 승인 성공 + 금액 일치
         GE->>GW: confirm(command) [CB: pg-request]
         activate GW
-        GW-->>GE: PgResult.Confirm(success)
+        GW-->>GE: PgResult.Confirm(success, amount)
         deactivate GW
-        GE-->>PF: PgConfirmOutcome.Success
+        Note over GE: Payment.amount == PgResult.amount 검증
+        GE-->>PF: PgConfirmOutcome.Success(pgAmount)
 
         critical @Transactional (비즈니스 확정)
             PF->>PP: confirmAndSettle()
@@ -71,6 +72,60 @@ sequenceDiagram
             deactivate OS
             PP-->>PF: void
             deactivate PP
+        end
+
+    else PG 승인 성공 + 금액 불일치
+        GE->>GW: confirm(command) [CB: pg-request]
+        activate GW
+        GW-->>GE: PgResult.Confirm(success, 다른 금액)
+        deactivate GW
+        Note over GE: Payment.amount ≠ PgResult.amount
+        GE-->>PF: PgConfirmOutcome.AmountMismatch(pgAmount)
+        deactivate GE
+
+        Note over PF: PG는 성공했지만 금액 불일치 — 자동 취소 시도
+
+        alt PG 취소 성공
+            PF->>GE: cancel(payment, "금액 불일치 자동 취소")
+            activate GE
+            GE->>GW: cancel(paymentKey, command)
+            activate GW
+            GW-->>GE: PgResult.Cancel(success)
+            deactivate GW
+            GE-->>PF: true
+            deactivate GE
+
+            critical @Transactional (예약 해제)
+                PF->>PP: failAndRelease(reason="금액 불일치")
+                activate PP
+                PP->>PS: markFailedIfRequested() [비관락]
+                PP->>SS: 재고 예약 해제 (releaseReserved)
+                opt 쿠폰 적용 주문인 경우
+                    PP->>ICS: 쿠폰 복원
+                end
+                PP->>OS: 주문 취소 (CANCELED)
+                PP-->>PF: void
+                deactivate PP
+            end
+
+        else PG 취소 실패
+            PF->>GE: cancel(payment, "금액 불일치 자동 취소")
+            activate GE
+            GE-->>PF: false
+            deactivate GE
+
+            critical @Transactional (형식적 확정)
+                PF->>PP: confirmAndSettle()
+                activate PP
+                PP->>PS: markSucceededIfRequested() [비관락]
+                PP->>SS: 재고 확정 (confirm)
+                PP->>OS: 주문 결제 완료 (PAID)
+                PP-->>PF: void
+                deactivate PP
+            end
+
+            PF->>PS: markCancelRequested("금액 불일치 자동 취소")
+            Note over PF: SUCCEEDED → CANCEL_REQUESTED<br/>스케줄러가 PG 취소 재시도
         end
 
     else PG 타임아웃 (readTimeout 3초 초과)
@@ -170,4 +225,5 @@ sequenceDiagram
 - **멱등성**: API와 스케줄러 경쟁 시 비관락 + 상태 체크로 중복 실행 방지
 - **Bulkhead(pg-payment)**: requestPayment에 동시 PG 호출 제한, 초과 시 즉시 거절
 - **PaymentGatewayExecutor**: PG 예외를 PgConfirmOutcome으로 변환, Facade는 Outcome만 처리
+- **금액 검증**: PG 응답 금액과 Payment 금액을 비교 — 불일치 시 PG 취소 시도 → 실패 시 confirmAndSettle 후 CANCEL_REQUESTED로 전환하여 스케줄러가 수거
 - Facade의 결제 요청 메서드 자체에는 @Transactional을 선언하지 않는다 (TransactionTemplate 사용)

@@ -91,7 +91,8 @@ public class TossPaymentGateway implements PaymentGateway {
 
             boolean success = response != null && response.isDone();
             return PgResult.Confirm.of(success, command.paymentKey(),
-                    success ? null : "PG 승인 실패");
+                    success ? null : "PG 승인 실패",
+                    response != null ? response.totalAmount() : null);
         } catch (HttpClientErrorException e) {
             throw classifyClientError(e, "토스 결제 승인", command.paymentKey());
         } catch (HttpServerErrorException e) {
@@ -150,11 +151,11 @@ public class TossPaymentGateway implements PaymentGateway {
 
             TossPaymentResponse body = response.getBody();
             if (body == null) {
-                return PgResult.Query.of(false, false, null);
+                return PgResult.Query.of(false, false, null, null);
             }
-            return PgResult.Query.of(true, body.isDone(), body.status());
+            return PgResult.Query.of(true, body.isDone(), body.status(), body.totalAmount());
         } catch (HttpClientErrorException.NotFound e) {
-            return PgResult.Query.of(false, false, null);
+            return PgResult.Query.of(false, false, null, null);
         } catch (HttpClientErrorException e) {
             throw classifyClientError(e, "토스 결제 조회", paymentKey);
         } catch (HttpServerErrorException e) {

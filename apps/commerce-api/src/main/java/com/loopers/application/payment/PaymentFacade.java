@@ -4,18 +4,19 @@ import com.loopers.application.order.OrderService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.payment.Payment;
-import com.loopers.domain.payment.gateway.PgResult;
 import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class PaymentFacade {
@@ -70,15 +71,8 @@ public class PaymentFacade {
         }
 
         // REQUESTED: PG에 조회하여 최종 결정
-        PgResult.Query result = gatewayExecutor.query(payment);
-
-        if (result.found() && result.done()) {
-            transactionTemplate.executeWithoutResult(status ->
-                    processor.confirmAndSettle(payment.getId(), payment.getOrderId()));
-        } else {
-            transactionTemplate.executeWithoutResult(status ->
-                    processor.failAndRelease(payment.getId(), payment.getOrderId(), "결제 미완료"));
-        }
+        PgQueryOutcome outcome = gatewayExecutor.queryOutcome(payment);
+        resolveQueryOutcome(payment, outcome);
 
         return PaymentInfo.from(paymentService.getPayment(payment.getId()));
     }
@@ -87,15 +81,8 @@ public class PaymentFacade {
 
     public void reconcilePending(Long paymentId) {
         Payment payment = paymentService.getPayment(paymentId);
-        PgResult.Query result = gatewayExecutor.query(payment);
-
-        if (result.found() && result.done()) {
-            transactionTemplate.executeWithoutResult(status ->
-                    processor.confirmAndSettle(payment.getId(), payment.getOrderId()));
-        } else {
-            transactionTemplate.executeWithoutResult(status ->
-                    processor.failAndRelease(payment.getId(), payment.getOrderId(), "PG 확인 불가 — 자동 만료"));
-        }
+        PgQueryOutcome outcome = gatewayExecutor.queryOutcome(payment);
+        resolveQueryOutcome(payment, outcome);
     }
 
     public void reconcileCancel(Long paymentId) {
@@ -151,7 +138,7 @@ public class PaymentFacade {
 
     private void handleConfirmOutcome(Payment payment, PgConfirmOutcome outcome) {
         switch (outcome) {
-            case PgConfirmOutcome.Success() -> transactionTemplate.executeWithoutResult(status ->
+            case PgConfirmOutcome.Success(Long pgAmount) -> transactionTemplate.executeWithoutResult(status ->
                     processor.confirmAndSettle(payment.getId(), payment.getOrderId()));
             case PgConfirmOutcome.Failed(String reason) -> {
                 transactionTemplate.executeWithoutResult(status ->
@@ -167,6 +154,11 @@ public class PaymentFacade {
                         processor.failAndRelease(payment.getId(), payment.getOrderId(), "PG 서비스 불가"));
                 throw new CoreException(ErrorType.INTERNAL_ERROR, "현재 결제 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해주세요");
             }
+            case PgConfirmOutcome.AmountMismatch(Long pgAmount) -> {
+                // PG는 성공했지만 금액 불일치 — PG 취소 후 정리
+                handleAmountMismatch(payment, pgAmount);
+                throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 금액이 일치하지 않습니다. 결제가 취소되었습니다");
+            }
         }
     }
 
@@ -180,6 +172,34 @@ public class PaymentFacade {
             throw new CoreException(ErrorType.CONFLICT, "이미 결제가 진행 중이거나 완료된 주문입니다");
         }
         return order;
+    }
+
+    private void resolveQueryOutcome(Payment payment, PgQueryOutcome outcome) {
+        switch (outcome) {
+            case PgQueryOutcome.Confirmed(Long pgAmount) -> transactionTemplate.executeWithoutResult(status ->
+                    processor.confirmAndSettle(payment.getId(), payment.getOrderId()));
+            case PgQueryOutcome.NotConfirmed() -> transactionTemplate.executeWithoutResult(status ->
+                    processor.failAndRelease(payment.getId(), payment.getOrderId(), "결제 미완료"));
+            case PgQueryOutcome.AmountMismatch(Long pgAmount) -> handleAmountMismatch(payment, pgAmount);
+        }
+    }
+
+    private void handleAmountMismatch(Payment payment, Long pgAmount) {
+        log.error("PG 결제 금액 불일치 — 자동 취소 시도: paymentId={}, expected={}, pgAmount={}",
+                payment.getId(), payment.getAmount(), pgAmount);
+
+        boolean canceled = gatewayExecutor.cancel(payment, "금액 불일치 자동 취소");
+        if (canceled) {
+            // PG 취소 성공 → REQUESTED → FAILED + 예약 해제
+            transactionTemplate.executeWithoutResult(status ->
+                    processor.failAndRelease(payment.getId(), payment.getOrderId(), "금액 불일치"));
+        } else {
+            // PG 취소 실패 → 일단 확정 후 CANCEL_REQUESTED → 스케줄러가 수거
+            log.error("PG 취소 실패 — confirmAndSettle 후 CANCEL_REQUESTED 전환: paymentId={}", payment.getId());
+            transactionTemplate.executeWithoutResult(status ->
+                    processor.confirmAndSettle(payment.getId(), payment.getOrderId()));
+            paymentService.markCancelRequested(payment.getId(), "금액 불일치 자동 취소");
+        }
     }
 
     private PaymentInfo paymentBulkheadFallback(Long userId, PaymentCommand.Request command, Throwable t) {

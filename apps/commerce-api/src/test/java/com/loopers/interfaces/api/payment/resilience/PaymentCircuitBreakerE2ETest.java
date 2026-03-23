@@ -11,9 +11,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 class PaymentCircuitBreakerE2ETest extends PaymentResilienceTestBase {
@@ -46,8 +48,6 @@ class PaymentCircuitBreakerE2ETest extends PaymentResilienceTestBase {
         void slowCall_누적시_서킷_OPEN으로_전이된다() {
             // slowCallDurationThreshold: 2s, slowCallRateThreshold: 80%
             // TIME_BASED slidingWindowSize: 10초 → 5건이 10초 안에 완료되어야 함
-            // 각 요청 ~2.1s × 5건 ≈ 10.5초 → 경계. mock 처리 포함 여유분 고려하여
-            // slowMin/Max를 threshold 바로 위로 설정
             setChaosToss("SLOW", "slowMinMs=2050&slowMaxMs=2100");
 
             for (int i = 0; i < 5; i++) {
@@ -55,8 +55,12 @@ class PaymentCircuitBreakerE2ETest extends PaymentResilienceTestBase {
             }
 
             // 5건 전부 slow(~2.1s > 2s) → slowCallRate 100% > 80% → OPEN
-            assertThat(getCircuitBreakerState("toss-request"))
-                    .isEqualTo(CircuitBreaker.State.OPEN);
+            // TIME_BASED 윈도우에서 집계 타이밍이 밀릴 수 있으므로 폴링
+            await().atMost(Duration.ofSeconds(5))
+                    .pollInterval(Duration.ofMillis(500))
+                    .untilAsserted(() ->
+                            assertThat(getCircuitBreakerState("toss-request"))
+                                    .isEqualTo(CircuitBreaker.State.OPEN));
         }
     }
 
@@ -65,7 +69,7 @@ class PaymentCircuitBreakerE2ETest extends PaymentResilienceTestBase {
 
         @Test
         @Tag("slow")
-        void 서킷_OPEN에서_HALF_OPEN을_거쳐_CLOSED로_복구된다() throws InterruptedException {
+        void 서킷_OPEN에서_HALF_OPEN을_거쳐_CLOSED로_복구된다() {
             // 1단계: 서킷 OPEN
             setChaosToss("DEAD");
             for (int i = 0; i < 5; i++) {
@@ -74,13 +78,13 @@ class PaymentCircuitBreakerE2ETest extends PaymentResilienceTestBase {
             assertThat(getCircuitBreakerState("toss-request"))
                     .isEqualTo(CircuitBreaker.State.OPEN);
 
-            // 2단계: PG 복구 + waitDurationInOpenState(30s) 대기
+            // 2단계: PG 복구 + waitDurationInOpenState(30s) 경과 후 자동 HALF_OPEN 전이 대기
             setChaosToss("NORMAL");
-            Thread.sleep(31_000);
-
-            // automaticTransitionFromOpenToHalfOpenEnabled: true → 자동 HALF_OPEN
-            assertThat(getCircuitBreakerState("toss-request"))
-                    .isEqualTo(CircuitBreaker.State.HALF_OPEN);
+            await().atMost(Duration.ofSeconds(35))
+                    .pollInterval(Duration.ofMillis(500))
+                    .untilAsserted(() ->
+                            assertThat(getCircuitBreakerState("toss-request"))
+                                    .isEqualTo(CircuitBreaker.State.HALF_OPEN));
 
             // 3단계: HALF_OPEN에서 permittedNumberOfCallsInHalfOpenState(3)만큼 성공 → CLOSED
             for (int i = 0; i < 3; i++) {

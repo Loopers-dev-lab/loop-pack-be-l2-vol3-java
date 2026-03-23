@@ -17,15 +17,18 @@
 - [ ] PG 타임아웃 시 결제 상태는 REQUESTED를 유지하고, 재고는 reserve 상태를 유지한다
 - [ ] PG 요청 실패 시 재고 예약 해제(releaseReserved) + 쿠폰 복원 + 주문 CANCELED + 결제 FAILED를 하나의 트랜잭션으로 처리한다
 - [ ] 서킷 OPEN(PG 서비스 불가) 시 PG에 요청을 보내지 않고 즉시 failAndRelease로 정리한다 (PgConfirmOutcome.Unavailable)
+- [ ] PG 승인 성공 시 PG 응답 금액과 Payment 금액을 비교하여 일치하는 경우에만 confirmAndSettle을 수행한다
+- [ ] PG 승인 성공이지만 금액 불일치 시 PG 취소를 시도하고, 취소 성공이면 failAndRelease, 취소 실패면 confirmAndSettle 후 CANCEL_REQUESTED로 전환하여 스케줄러가 수거한다 (PgConfirmOutcome.AmountMismatch)
 
 ### 수동 확인 흐름 (PM-05)
 - [ ] REQUESTED 상태의 결제를 확인하면 PG에 조회하여 최종 결정한다
-- [ ] PG 조회 결과 결제 완료(found && done)이면 재고 확정 + 주문 PAID + 결제 SUCCEEDED를 처리한다
+- [ ] PG 조회 결과 결제 완료(found && done)이고 금액이 일치하면 재고 확정 + 주문 PAID + 결제 SUCCEEDED를 처리한다
+- [ ] PG 조회 결과 결제 완료이지만 금액 불일치 시 결제 요청 흐름과 동일한 금액 불일치 보상 흐름을 수행한다
 - [ ] PG 조회 결과 결제 미완료이면 재고 예약 해제 + 주문 CANCELED + 결제 FAILED를 처리한다
 
 ### 보정 스케줄러 (미결 결제)
 - [ ] REQUESTED 상태에서 2분 경과한 결제를 PG에 조회하여 최종 결정한다
-- [ ] PG 성공이면 confirmAndSettle, 실패면 failAndRelease를 실행한다
+- [ ] PG 성공이고 금액 일치이면 confirmAndSettle, 금액 불일치이면 금액 불일치 보상 흐름, 실패면 failAndRelease를 실행한다
 - [ ] API 요청과 스케줄러가 동시에 처리해도 멱등하게 동작한다 (비관락 + 상태 체크)
 
 ### 결제 취소 (PM-06)
@@ -49,6 +52,7 @@
 ## 제약
 - Payment 상태는 REQUESTED, SUCCEEDED, FAILED, CANCEL_REQUESTED, CANCELED 5가지이다
 - TX1(Payment 생성)은 가볍게, PG 호출은 트랜잭션 밖, TX2(비즈니스 확정/해제)는 PG 결과에 따라 처리한다
+- PG 응답의 금액(totalAmount/amount)은 반드시 Payment.amount와 비교 검증한다 — confirm 응답, query 응답 모두 해당
 - 재고는 주문 생성 시 reserve, PG 성공 시 confirm, PG 실패 시 releaseReserved로 생명주기를 관리한다
 - 취소 시에는 이미 confirmed된 재고를 releaseConfirmed로 복원한다
 - CANCEL_REQUESTED는 되돌릴 수 없는 상태이다 — 스케줄러가 PG 취소를 재시도하여 CANCELED로 확정한다

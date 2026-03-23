@@ -645,7 +645,26 @@ void confirm_호출시_상태가_CONFIRMED로_변경된다() { ... }
 void 확정하면_상태가_확정됨으로_변경된다() { ... }
 ```
 
-### 7. 외부 라이브러리를 단위 테스트에서 직접 사용
+### 7. 비동기 상태 전이에 Thread.sleep 사용
+
+**문제:** 타이밍에 따라 간헐적 실패 (flaky test)
+```java
+// ❌ Thread.sleep — 타이밍 밀리면 실패
+Thread.sleep(31_000);
+assertThat(circuitBreakerState).isEqualTo(HALF_OPEN);
+
+// ✅ Awaitility 폴링 — 조건 충족 시 즉시 통과
+await().atMost(Duration.ofSeconds(35))
+    .pollInterval(Duration.ofMillis(500))
+    .untilAsserted(() ->
+        assertThat(circuitBreakerState).isEqualTo(HALF_OPEN));
+```
+
+**적용 기준:**
+- 외부 스레드/스케줄러가 비동기로 상태를 전이 → **Awaitility 필수**
+- 단순 시간 경과 판단 (쿠폰 만료 등 조회 시점에 `expiredAt < now()`) → **Thread.sleep 허용**
+
+### 8. 외부 라이브러리를 단위 테스트에서 직접 사용
 
 **문제:** 의존성 격리 안 됨
 ```java
