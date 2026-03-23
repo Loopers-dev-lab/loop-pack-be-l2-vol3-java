@@ -3,7 +3,7 @@ POST {{commerce-api}}/api/v1/brands
 Content-Type: application/json
 
 {
-  "name": "나이키",
+  "name": "아디다스",
   "description": "스포츠 브랜드"
 }
 

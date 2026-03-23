@@ -4,6 +4,7 @@ import com.loopers.domain.BaseEntity;
 import com.loopers.domain.product.Product;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Comment;
@@ -12,7 +13,12 @@ import org.hibernate.annotations.Comment;
  *  Product DB 엔티티
  */
 @Entity
-@Table(name = "product")
+@Table(name = "product", indexes = {
+    @Index(name = "idx_product_brand_like", columnList = "ref_brand_id, like_count DESC"),
+    @Index(name = "idx_product_like", columnList = "like_count DESC"),
+    @Index(name = "idx_product_brand_latest", columnList = "ref_brand_id, created_at DESC"),
+    @Index(name = "idx_product_latest", columnList = "created_at DESC")
+})
 @NoArgsConstructor
 public class ProductEntity extends BaseEntity {
 

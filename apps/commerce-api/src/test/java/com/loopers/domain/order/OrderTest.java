@@ -21,7 +21,7 @@ class OrderTest {
     private static final ZonedDateTime DEFAULT_ORDER_DT = ZonedDateTime.now();
 
     private static Order createOrder(Long refUserId, Integer totalPrice, ZonedDateTime orderDt) {
-        return Order.create(null, refUserId, OrderStatus.ORDERED, totalPrice, orderDt);
+        return Order.create(null, refUserId, OrderStatus.PENDING, totalPrice, orderDt);
     }
 
     private static void assertCoreException(Runnable runnable, String message) {
@@ -41,7 +41,7 @@ class OrderTest {
 
             assertThat(order.getRefUserId()).isEqualTo(DEFAULT_USER_ID);
             assertThat(order.getTotalPrice()).isEqualTo(new Money(DEFAULT_TOTAL_PRICE));
-            assertThat(order.getStatus()).isEqualTo(OrderStatus.ORDERED);
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
             assertThat(order.getOrderDt()).isEqualTo(DEFAULT_ORDER_DT);
         }
 
@@ -97,7 +97,7 @@ class OrderTest {
             Order order = createOrder(DEFAULT_USER_ID, DEFAULT_TOTAL_PRICE, DEFAULT_ORDER_DT);
             order.cancel();
 
-            assertCoreException(() -> order.cancel(), ErrorMessage.Order.CANCEL_ONLY_WHEN_COMPLETED);
+            assertCoreException(() -> order.cancel(), ErrorMessage.Order.ALREADY_CANCELLED);
         }
     }
 }

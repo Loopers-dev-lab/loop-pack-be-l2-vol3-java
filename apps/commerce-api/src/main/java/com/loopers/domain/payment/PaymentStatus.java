@@ -1,14 +1,14 @@
-package com.loopers.domain.order;
+package com.loopers.domain.payment;
 
-public enum OrderStatus {
+public enum PaymentStatus {
 
     PENDING("결제 대기"),
-    CONFIRMED("결제 완료"),
-    CANCELLED("주문 취소");
+    SUCCESS("결제 성공"),
+    FAILED("결제 실패");
 
     private final String description;
 
-    OrderStatus(String description) {
+    PaymentStatus(String description) {
         this.description = description;
     }
 

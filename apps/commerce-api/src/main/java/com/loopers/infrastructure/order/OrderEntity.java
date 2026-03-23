@@ -16,8 +16,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Comment;
 
@@ -60,11 +61,11 @@ public class OrderEntity extends BaseEntity {
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "ref_order_id", nullable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
-    private List<OrderItemEntity> items = new ArrayList<>();
+    private Set<OrderItemEntity> items = new HashSet<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "ref_order_id", nullable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
-    private List<OrderStatusHistoryEntity> histories = new ArrayList<>();
+    private Set<OrderStatusHistoryEntity> histories = new HashSet<>();
 
     private OrderEntity(Long refUserId, Long refCouponId, OrderStatus status,
                         Integer originalPrice, Integer discountAmount, Integer totalPrice, ZonedDateTime orderDt) {
@@ -132,13 +133,5 @@ public class OrderEntity extends BaseEntity {
 
     public OrderStatus getStatus() {
         return status;
-    }
-
-    public Integer getTotalPrice() {
-        return totalPrice;
-    }
-
-    public ZonedDateTime getOrderDt() {
-        return orderDt;
     }
 }

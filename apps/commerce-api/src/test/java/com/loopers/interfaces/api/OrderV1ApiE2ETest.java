@@ -105,7 +105,7 @@ class OrderV1ApiE2ETest {
                 () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                 () -> assertThat(response.getBody().data().id()).isNotNull(),
                 () -> assertThat(response.getBody().data().userId()).isEqualTo(savedUser.getId()),
-                () -> assertThat(response.getBody().data().status()).isEqualTo(OrderStatus.ORDERED),
+                () -> assertThat(response.getBody().data().status()).isEqualTo(OrderStatus.PENDING),
                 () -> assertThat(response.getBody().data().totalPrice()).isEqualTo(40000) // 10000*2 + 20000*1
             );
         }

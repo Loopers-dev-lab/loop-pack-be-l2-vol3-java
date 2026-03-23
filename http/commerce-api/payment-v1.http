@@ -1,0 +1,74 @@
+### 결제 요청
+POST {{commerce-api}}/api/v1/orders/321321/pay
+Content-Type: application/json
+X-Loopers-LoginId: user123
+X-Loopers-LoginPw: Password1!
+
+{
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9012-3456"
+}
+
+### 결제 요청 (KB 카드)
+POST {{commerce-api}}/api/v1/orders/1/pay
+Content-Type: application/json
+X-Loopers-LoginId: user123
+X-Loopers-LoginPw: Password1!
+
+{
+  "cardType": "KB",
+  "cardNo": "1234-5678-9012-3456"
+}
+
+### 결제 요청 (HYUNDAI 카드)
+POST {{commerce-api}}/api/v1/orders/1/pay
+Content-Type: application/json
+X-Loopers-LoginId: user123
+X-Loopers-LoginPw: Password1!
+
+{
+  "cardType": "HYUNDAI",
+  "cardNo": "9876-5432-1098-7654"
+}
+
+### PG 콜백 (결제 성공)
+POST {{commerce-api}}/api/v1/payments/callback
+Content-Type: application/json
+
+{
+  "transactionKey": "20250316:TR:abc123",
+  "orderId": "1",
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9012-3456",
+  "amount": 50000,
+  "status": "SUCCESS",
+  "reason": "정상 승인되었습니다."
+}
+
+### PG 콜백 (결제 실패 - 한도초과)
+POST {{commerce-api}}/api/v1/payments/callback
+Content-Type: application/json
+
+{
+  "transactionKey": "20250316:TR:def456",
+  "orderId": "1",
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9012-3456",
+  "amount": 50000,
+  "status": "FAILED",
+  "reason": "한도초과입니다. 다른 카드를 선택해주세요."
+}
+
+### PG 콜백 (결제 실패 - 유효하지 않은 카드)
+POST {{commerce-api}}/api/v1/payments/callback
+Content-Type: application/json
+
+{
+  "transactionKey": "20250316:TR:ghi789",
+  "orderId": "1",
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9012-3456",
+  "amount": 50000,
+  "status": "FAILED",
+  "reason": "잘못된 카드입니다. 다른 카드를 선택해주세요."
+}

@@ -31,11 +31,11 @@ class OrderStatusHistoryTest {
         @DisplayName("주문 상태 이력 생성에 성공한다")
         void success_create_order_status_history() {
             OrderStatusHistory history = OrderStatusHistory.create(
-                null, DEFAULT_ORDER_ID, OrderStatus.ORDERED, DEFAULT_CHANGED_AT
+                null, DEFAULT_ORDER_ID, OrderStatus.PENDING, DEFAULT_CHANGED_AT
             );
 
             assertThat(history.refOrderId()).isEqualTo(DEFAULT_ORDER_ID);
-            assertThat(history.status()).isEqualTo(OrderStatus.ORDERED);
+            assertThat(history.status()).isEqualTo(OrderStatus.PENDING);
             assertThat(history.changedAt()).isEqualTo(DEFAULT_CHANGED_AT);
         }
 
@@ -44,7 +44,7 @@ class OrderStatusHistoryTest {
         @ValueSource(longs = {-1L, 0L})
         void fail_when_invalid_ref_order_id(Long refOrderId) {
             assertCoreException(
-                () -> OrderStatusHistory.create(null, refOrderId, OrderStatus.ORDERED, DEFAULT_CHANGED_AT),
+                () -> OrderStatusHistory.create(null, refOrderId, OrderStatus.PENDING, DEFAULT_CHANGED_AT),
                 "주문FK는 null이거나 0이하가 될 수 없습니다"
             );
         }
@@ -62,7 +62,7 @@ class OrderStatusHistoryTest {
         @DisplayName("주문 상태 변경 일시가 null이면, 생성시 예외를 던진다")
         void fail_when_changed_at_is_null() {
             assertCoreException(
-                () -> OrderStatusHistory.create(null, DEFAULT_ORDER_ID, OrderStatus.ORDERED, null),
+                () -> OrderStatusHistory.create(null, DEFAULT_ORDER_ID, OrderStatus.PENDING, null),
                 "주문 상태 변경 일시는 필수입니다"
             );
         }

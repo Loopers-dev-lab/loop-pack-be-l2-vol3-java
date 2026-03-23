@@ -96,7 +96,7 @@ public class Order {
             null,
             userId,
             couponId,
-            OrderStatus.ORDERED,
+            OrderStatus.PENDING,
             originalTotal,
             discount,
             finalTotal,
@@ -106,7 +106,7 @@ public class Order {
         itemSpecs.forEach(spec ->
             order.addItem(spec.productId(), spec.price(), spec.quantity())
         );
-        order.recordStatusChange(OrderStatus.ORDERED, now);
+        order.recordStatusChange(OrderStatus.PENDING, now);
 
         return order;
     }
@@ -156,10 +156,17 @@ public class Order {
     }
 
     public void cancel() {
-        if (this.status != OrderStatus.ORDERED) {
-            throw new CoreException(ErrorType.BAD_REQUEST, ErrorMessage.Order.CANCEL_ONLY_WHEN_COMPLETED);
+        if (this.status == OrderStatus.CANCELLED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, ErrorMessage.Order.ALREADY_CANCELLED);
         }
         this.status = OrderStatus.CANCELLED;
+    }
+
+    public void confirm() {
+        if (this.status != OrderStatus.PENDING) {
+            throw new CoreException(ErrorType.BAD_REQUEST, ErrorMessage.Order.CONFIRM_ONLY_WHEN_PENDING);
+        }
+        this.status = OrderStatus.CONFIRMED;
     }
 
     public Long getId() {

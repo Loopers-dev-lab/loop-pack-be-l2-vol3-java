@@ -6,9 +6,15 @@ Content-Type: application/json
   "products": [
     {
       "brandId": 1,
-      "name": "테스트 상품",
+      "name": "에어포스",
       "price": 10000,
       "stock": 100
+    },
+    {
+      "brandId": 2,
+      "name": "스탠스미스",
+      "price": 20000,
+      "stock": 200
     }
   ]
 }
