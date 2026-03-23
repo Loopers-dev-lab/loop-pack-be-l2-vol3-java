@@ -1,5 +1,6 @@
 package com.loopers.domain.order.model;
 
+import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.product.vo.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -8,15 +9,18 @@ import lombok.Getter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Getter
 public class Orders {
 
     private Long id;
+    private String orderNumber;
     private Long memberId;
     private Money totalPrice;
     private Money discountAmount;
     private Long userCouponId;
+    private OrderStatus status;
     private List<OrderProduct> orderProducts;
 
     private Orders(Long memberId) {
@@ -24,8 +28,10 @@ public class Orders {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문자 정보는 필수입니다.");
         }
         this.memberId = memberId;
+        this.orderNumber = generateOrderNumber();
         this.orderProducts = new ArrayList<>();
         this.discountAmount = new Money(0);
+        this.status = OrderStatus.CREATED;
     }
 
     public static Orders create(Long memberId, List<OrderProduct> orderProducts, int discountAmount, Long userCouponId) {
@@ -40,14 +46,28 @@ public class Orders {
         return orders;
     }
 
-    public static Orders reconstruct(Long id, Long memberId, int totalPrice, int discountAmount, Long userCouponId, List<OrderProduct> orderProducts) {
+    public static Orders reconstruct(Long id, String orderNumber, Long memberId, int totalPrice, int discountAmount, Long userCouponId, OrderStatus status, List<OrderProduct> orderProducts) {
         Orders orders = new Orders(memberId);
         orders.id = id;
+        orders.orderNumber = orderNumber;
         orders.totalPrice = new Money(totalPrice);
         orders.discountAmount = new Money(discountAmount);
         orders.userCouponId = userCouponId;
+        orders.status = status;
         orders.orderProducts.addAll(orderProducts);
         return orders;
+    }
+
+    public void markPaymentRequested() {
+        this.status = OrderStatus.PAYMENT_REQUESTED;
+    }
+
+    public void markPaid() {
+        this.status = OrderStatus.PAID;
+    }
+
+    public void markPaymentFailed() {
+        this.status = OrderStatus.PAYMENT_FAILED;
     }
 
     private Money calculateTotalPrice() {
@@ -60,5 +80,10 @@ public class Orders {
 
     public List<OrderProduct> getOrderProducts() {
         return Collections.unmodifiableList(orderProducts);
+    }
+
+    private static String generateOrderNumber() {
+        long number = ThreadLocalRandom.current().nextLong(1_000_000_000L, 9_999_999_999L);
+        return String.valueOf(number);
     }
 }

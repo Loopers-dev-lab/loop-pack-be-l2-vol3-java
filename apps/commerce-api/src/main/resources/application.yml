@@ -24,6 +24,49 @@ spring:
       - logging.yml
       - monitoring.yml
 
+pg:
+  base-url: http://localhost:8082
+
+payment:
+  callback-url: http://localhost:8080/api/v1/payments/callback
+
+resilience4j:
+  circuitbreaker:
+    circuitBreakerAspectOrder: 1
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        failureRateThreshold: 60              # 실험2 도출: 정상 실패율(40%) + 마진(20%)
+        slowCallDurationThreshold: 1s         # 요청 p99(500ms) × 2배
+        slowCallRateThreshold: 60             # failureRate와 동일 기준
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        minimumNumberOfCalls: 5
+    instances:
+      pg-command:
+        baseConfig: default
+      pg-query:
+        baseConfig: default
+
+  retry:
+    retryAspectOrder: 2
+    instances:
+      pg-query:
+        maxAttempts: 3
+        waitDuration: 200ms                   # 실험3 도출: 500ms → 200ms
+        enableExponentialBackoff: true         # 실험3 도출: Exponential Backoff
+        exponentialBackoffMultiplier: 2.0      # 200 → 400 → 800ms
+        enableRandomizedWait: true            # 실험3 도출: Jitter로 부하 분산
+        randomizedWaitFactor: 0.5             # ±50% 변동
+
+  timelimiter:
+    instances:
+      pg-command:
+        timeoutDuration: 2s                   # 실험1 도출: 5s → 2s
+      pg-query:
+        timeoutDuration: 2s                   # 실험1 도출: 3s → 2s
+
 springdoc:
   use-fqn: true
   swagger-ui:

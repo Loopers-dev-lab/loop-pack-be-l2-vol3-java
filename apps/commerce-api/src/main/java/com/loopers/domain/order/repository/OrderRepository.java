@@ -1,5 +1,6 @@
 package com.loopers.domain.order.repository;
 
+import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.order.model.Orders;
 
 import java.time.LocalDateTime;
@@ -13,4 +14,8 @@ public interface OrderRepository {
     Optional<Orders> findById(Long id);
 
     List<Orders> findByMemberIdAndCreatedAtBetween(Long memberId, LocalDateTime startAt, LocalDateTime endAt);
+
+    Optional<Orders> findByOrderNumber(String orderNumber);
+
+    void updateStatus(Long orderId, OrderStatus status);
 }

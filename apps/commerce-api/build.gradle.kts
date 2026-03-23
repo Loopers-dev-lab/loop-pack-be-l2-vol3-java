@@ -14,12 +14,28 @@ dependencies {
     // security (password encoding)
     implementation("org.springframework.security:spring-security-crypto")
 
+    // feign
+    implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
+
+    // resilience4j
+    implementation("io.github.resilience4j:resilience4j-spring-boot3")
+    implementation("org.springframework.boot:spring-boot-starter-aop")
+
     // querydsl
     annotationProcessor("com.querydsl:querydsl-apt::jakarta")
     annotationProcessor("jakarta.persistence:jakarta.persistence-api")
     annotationProcessor("jakarta.annotation:jakarta.annotation-api")
 
+    // wiremock
+    testImplementation("org.springframework.cloud:spring-cloud-contract-wiremock")
+
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+}
+
+tasks.withType<Test> {
+    testLogging {
+        showStandardStreams = true
+    }
 }

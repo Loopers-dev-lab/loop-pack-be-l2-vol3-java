@@ -1,0 +1,30 @@
+resilience4j:
+  circuitbreaker:
+    circuitBreakerAspectOrder: 1
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 2s
+        permittedNumberOfCallsInHalfOpenState: 2
+        minimumNumberOfCalls: 3
+    instances:
+      pg-command:
+        baseConfig: default
+      pg-query:
+        baseConfig: default
+
+  retry:
+    retryAspectOrder: 2
+    instances:
+      pg-query:
+        maxAttempts: 3
+        waitDuration: 100ms
+
+  timelimiter:
+    instances:
+      pg-command:
+        timeoutDuration: 5s
+      pg-query:
+        timeoutDuration: 3s

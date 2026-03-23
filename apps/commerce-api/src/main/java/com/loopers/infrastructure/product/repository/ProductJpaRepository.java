@@ -25,6 +25,10 @@ public interface ProductJpaRepository extends JpaRepository<ProductEntity, Long>
     @Query("UPDATE ProductEntity p SET p.stock = p.stock - :quantity WHERE p.id = :id AND p.stock >= :quantity")
     int decreaseStock(@Param("id") Long id, @Param("quantity") int quantity);
 
+    @Modifying
+    @Query("UPDATE ProductEntity p SET p.stock = p.stock + :quantity WHERE p.id = :id")
+    int increaseStock(@Param("id") Long id, @Param("quantity") int quantity);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM ProductEntity p WHERE p.id = :id")
     Optional<ProductEntity> findByIdWithPessimisticLock(@Param("id") Long id);

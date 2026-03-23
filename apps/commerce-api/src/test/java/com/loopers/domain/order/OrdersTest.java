@@ -104,7 +104,7 @@ class OrdersTest {
 
             // act
             Orders orders = assertDoesNotThrow(
-                () -> Orders.reconstruct(1L, memberId, 35000, 0, null, List.of(orderProduct))
+                () -> Orders.reconstruct(1L, "ORD-001", memberId, 35000, 0, null, OrderStatus.CREATED, List.of(orderProduct))
             );
 
             // assert
