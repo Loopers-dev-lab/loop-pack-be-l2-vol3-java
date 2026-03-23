@@ -13,8 +13,6 @@ import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.infrastructure.payment.nice.dto.NiceApproveRequest;
 import com.loopers.infrastructure.payment.nice.dto.NiceCancelRequest;
 import com.loopers.infrastructure.payment.nice.dto.NicePaymentResponse;
-import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -193,6 +191,6 @@ public class NicePaymentGateway implements PaymentGateway {
     }
 
     private PgResult.Query queryFallback(String paymentKey, Throwable t) {
-        throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 상태를 확인할 수 없습니다. 잠시 후 다시 시도해주세요");
+        throw new PgUnavailableException("나이스 서킷 OPEN — 결제 조회 불가: paymentKey=" + paymentKey, t);
     }
 }

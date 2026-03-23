@@ -13,8 +13,6 @@ import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.infrastructure.payment.toss.dto.TossCancelRequest;
 import com.loopers.infrastructure.payment.toss.dto.TossConfirmRequest;
 import com.loopers.infrastructure.payment.toss.dto.TossPaymentResponse;
-import com.loopers.support.error.CoreException;
-import com.loopers.support.error.ErrorType;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -91,7 +89,7 @@ public class TossPaymentGateway implements PaymentGateway {
 
             boolean success = response != null && response.isDone();
             return PgResult.Confirm.of(success, command.paymentKey(),
-                    success ? null : "PG 승인 실패",
+                    success ? null : (response != null ? "PG 승인 실패: status=" + response.status() : "PG 승인 실패"),
                     response != null ? response.totalAmount() : null);
         } catch (HttpClientErrorException e) {
             throw classifyClientError(e, "토스 결제 승인", command.paymentKey());
@@ -208,6 +206,6 @@ public class TossPaymentGateway implements PaymentGateway {
     }
 
     private PgResult.Query queryFallback(String paymentKey, Throwable t) {
-        throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 상태를 확인할 수 없습니다. 잠시 후 다시 시도해주세요");
+        throw new PgUnavailableException("토스 서킷 OPEN — 결제 조회 불가: paymentKey=" + paymentKey, t);
     }
 }
