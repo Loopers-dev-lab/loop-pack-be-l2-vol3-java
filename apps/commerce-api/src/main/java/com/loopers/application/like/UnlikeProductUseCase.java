@@ -3,7 +3,9 @@ package com.loopers.application.like;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.application.shared.annotation.UseCase;
+import com.loopers.domain.like.LikeEvent;
 import com.loopers.domain.like.LikeService;
+import com.loopers.domain.outbox.OutboxEventWriter;
 import com.loopers.domain.product.ProductService;
 
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ public class UnlikeProductUseCase {
 
     private final LikeService likeService;
     private final ProductService productService;
+    private final OutboxEventWriter outboxEventWriter;
 
     /**
      * @param userId 사용자 ID
@@ -29,5 +32,13 @@ public class UnlikeProductUseCase {
     public void execute(Long userId, Long productId) {
         productService.validateActiveProductExists(productId);
         likeService.unlike(userId, productId);
+        outboxEventWriter.write(
+                productId,
+                "LIKE",
+                "UNLIKED",
+                new LikeEvent.Unliked(productId),
+                "like-unliked-v1",
+                String.valueOf(productId)
+        );
     }
 }
