@@ -1,5 +1,7 @@
 package com.loopers.domain.product.service;
 
+import com.loopers.domain.order.model.OrderCommand;
+import com.loopers.domain.order.model.OrderProduct;
 import com.loopers.domain.product.model.Product;
 import com.loopers.domain.product.model.ProductCommand;
 import com.loopers.domain.product.model.ProductItem;
@@ -15,6 +17,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -117,6 +120,21 @@ public class ProductService {
         productCacheRepository.evictFirstPage();
         return productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
+    }
+
+    public List<OrderProduct> decreaseStockAndCreateOrderProducts(List<OrderCommand.OrderItem> items) {
+        return items.stream()
+                .sorted(Comparator.comparing(OrderCommand.OrderItem::productId))
+                .map(item -> {
+                    Product product = decreaseStockAtomic(item.productId(), item.quantity());
+                    return OrderProduct.create(
+                            product.getId(),
+                            product.getName().value(),
+                            product.getPrice().value(),
+                            item.quantity()
+                    );
+                })
+                .toList();
     }
 
     public void increaseStockAtomic(Long productId, int quantity) {

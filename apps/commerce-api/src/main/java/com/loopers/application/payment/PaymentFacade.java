@@ -14,10 +14,7 @@ import com.loopers.domain.payment.PaymentGateway;
 import com.loopers.domain.payment.PaymentInfo;
 import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.domain.payment.model.Payment;
-import com.loopers.domain.payment.model.PaymentProduct;
-import com.loopers.domain.payment.repository.PaymentProductRepository;
 import com.loopers.domain.payment.service.PaymentService;
-import com.loopers.domain.product.service.ProductService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -37,8 +34,6 @@ public class PaymentFacade {
     private final MemberService memberService;
     private final OrderService orderService;
     private final OrderProductService orderProductService;
-    private final PaymentProductRepository paymentProductRepository;
-    private final ProductService productService;
     private final TransactionTemplate transactionTemplate;
 
     @Value("${payment.callback-url}")
@@ -50,24 +45,12 @@ public class PaymentFacade {
         String amount = String.valueOf(order.getTotalPrice().value());
         List<OrderProduct> orderProducts = orderProductService.findByOrderId(order.getId());
 
-        // Phase 1: Payment PENDING 생성 + 스냅샷 저장 → 커밋 후 DB 커넥션 반납
+        // Phase 1: Payment PENDING 생성 + 스냅샷 저장
         PaymentCommand.Create createCommand = new PaymentCommand.Create(
                 order.getOrderNumber(), member.getId(), dto.cardType(), dto.cardNo(), amount
         );
-        Payment payment = transactionTemplate.execute(status -> {
-            Payment p = paymentService.createPayment(createCommand);
-            List<PaymentProduct> snapshots = orderProducts.stream()
-                    .map(op -> PaymentProduct.create(
-                            p.getId(),
-                            op.getProductId(),
-                            op.getProductName().value(),
-                            op.getPrice().value(),
-                            op.getQuantity().value()
-                    ))
-                    .toList();
-            paymentProductRepository.saveAll(snapshots);
-            return p;
-        });
+        Payment payment = transactionTemplate.execute(status ->
+                paymentService.createPaymentWithSnapshots(createCommand, orderProducts));
 
         // Phase 2: PG 호출 (트랜잭션 없음 — DB 커넥션 미점유)
         PaymentCommand.PgRequest pgCommand = new PaymentCommand.PgRequest(
@@ -76,11 +59,9 @@ public class PaymentFacade {
         PaymentInfo info = paymentGateway.requestPayment(member.getId(), pgCommand);
 
         if (!info.hasTransactionKey()) {
-            // PG 실패 — FAILED 처리 + 재고 복원
             transactionTemplate.executeWithoutResult(status -> {
-                paymentService.markFailedById(payment.getId(), "PG 서비스 장애");
+                paymentService.handlePgFailure(payment.getId());
                 orderService.updateOrderStatus(order.getId(), OrderStatus.PAYMENT_FAILED);
-                restoreStock(payment.getId());
             });
             throw new CoreException(ErrorType.INTERNAL_ERROR, "결제 서비스에 일시적인 문제가 발생했습니다.");
         }
@@ -107,7 +88,7 @@ public class PaymentFacade {
         } else {
             paymentService.markFailed(transactionKey, status);
             orderService.updateOrderStatus(order.getId(), OrderStatus.PAYMENT_FAILED);
-            restoreStock(payment.getId());
+            paymentService.restoreStock(payment.getId());
         }
     }
 
@@ -128,19 +109,12 @@ public class PaymentFacade {
                 } else if (!"PENDING".equals(info.status())) {
                     paymentService.markFailed(payment.getTransactionKey(), info.status());
                     orderService.updateOrderStatus(order.getId(), OrderStatus.PAYMENT_FAILED);
-                    restoreStock(payment.getId());
+                    paymentService.restoreStock(payment.getId());
                     payment.markFailed(info.status());
                 }
             }
         }
 
         return FindPaymentResDto.from(payment);
-    }
-
-    private void restoreStock(Long paymentId) {
-        List<PaymentProduct> snapshots = paymentProductRepository.findByPaymentId(paymentId);
-        for (PaymentProduct snapshot : snapshots) {
-            productService.increaseStockAtomic(snapshot.getProductId(), snapshot.getQuantity());
-        }
     }
 }
