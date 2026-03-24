@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.coupon;
 
 import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.CouponIssue;
+import com.loopers.domain.coupon.CouponIssueRequest;
 import com.loopers.domain.coupon.CouponIssueStatus;
 
 import java.time.ZonedDateTime;
@@ -61,6 +62,38 @@ public class CouponV1Dto {
                 return "EXPIRED";
             }
             return "AVAILABLE";
+        }
+    }
+
+    public record FcfsIssueResponse(
+        String requestId,
+        String status,
+        ZonedDateTime requestedAt
+    ) {
+        public static FcfsIssueResponse from(CouponIssueRequest request) {
+            return new FcfsIssueResponse(
+                request.getRequestId(),
+                request.getStatus().name(),
+                request.getCreatedAt()
+            );
+        }
+    }
+
+    public record FcfsIssueStatusResponse(
+        String requestId,
+        String status,
+        String reason,
+        ZonedDateTime requestedAt,
+        ZonedDateTime updatedAt
+    ) {
+        public static FcfsIssueStatusResponse from(CouponIssueRequest request) {
+            return new FcfsIssueStatusResponse(
+                request.getRequestId(),
+                request.getStatus().name(),
+                request.getReason(),
+                request.getCreatedAt(),
+                request.getUpdatedAt()
+            );
         }
     }
 
