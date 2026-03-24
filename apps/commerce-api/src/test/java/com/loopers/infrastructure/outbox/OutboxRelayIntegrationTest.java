@@ -44,13 +44,13 @@ class OutboxRelayIntegrationTest {
     }
 
     @Test
-    @DisplayName("PENDING 상태의 Outbox를 relay() 호출 시 Kafka에 발행하고 PUBLISHED로 변경한다")
-    void relay_publishesPendingOutbox_andMarksPublished() throws Exception {
+    @DisplayName("PENDING 상태의 Outbox를 compensate() 호출 시 Kafka에 발행하고 PUBLISHED로 변경한다")
+    void compensate_publishesPendingOutbox_andMarksPublished() throws Exception {
         OutboxModel outbox = outboxRepository.save(
                 OutboxModel.create("product", "product-1", "LikedEvent", TEST_TOPIC, "{\"productId\":\"product-1\"}")
         );
 
-        scheduler.relay();
+        scheduler.compensate();
 
         OutboxModel saved = outboxRepository.findPendingWithLimit(10).stream()
                 .filter(o -> o.getId().equals(outbox.getId()))

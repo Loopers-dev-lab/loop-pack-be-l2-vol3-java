@@ -23,9 +23,9 @@ public class OutboxRelayScheduler {
     private final OutboxRepository outboxRepository;
     private final KafkaEventPublisher kafkaEventPublisher;
 
-    @Scheduled(fixedDelayString = "${outbox.relay.delay-ms:1000}", initialDelayString = "${outbox.relay.initial-delay-ms:0}")
+    @Scheduled(fixedDelayString = "${outbox.relay.delay-ms:30000}", initialDelayString = "${outbox.relay.initial-delay-ms:0}")
     @SchedulerLock(name = "outbox-relay", lockAtMostFor = "PT30S", lockAtLeastFor = "PT1S")
-    public void relay() {
+    public void compensate() {
         List<OutboxModel> pending = outboxRepository.findPendingWithLimit(RELAY_LIMIT);
         if (pending.isEmpty()) {
             return;

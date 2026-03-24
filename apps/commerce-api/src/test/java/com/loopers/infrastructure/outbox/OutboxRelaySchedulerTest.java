@@ -49,15 +49,15 @@ class OutboxRelaySchedulerTest {
     }
 
     @Nested
-    @DisplayName("relay()")
-    class Relay {
+    @DisplayName("compensate()")
+    class Compensate {
 
         @Test
         @DisplayName("PENDING 레코드가 없으면 send()를 호출하지 않는다")
         void relay_noPending_noSend() {
             given(outboxRepository.findPendingWithLimit(anyInt())).willReturn(List.of());
 
-            scheduler.relay();
+            scheduler.compensate();
 
             verify(kafkaEventPublisher, never()).send(any());
         }
@@ -69,7 +69,7 @@ class OutboxRelaySchedulerTest {
             given(outboxRepository.findPendingWithLimit(anyInt())).willReturn(List.of(outbox));
             given(kafkaEventPublisher.send(outbox)).willReturn(successFuture());
 
-            scheduler.relay();
+            scheduler.compensate();
 
             assertThat(outbox.getStatus()).isEqualTo(OutboxStatus.PUBLISHED);
             assertThat(outbox.getPublishedAt()).isNotNull();
@@ -82,7 +82,7 @@ class OutboxRelaySchedulerTest {
             given(outboxRepository.findPendingWithLimit(anyInt())).willReturn(List.of(outbox));
             given(kafkaEventPublisher.send(outbox)).willReturn(failedFuture());
 
-            scheduler.relay();
+            scheduler.compensate();
 
             assertThat(outbox.getRetryCount()).isEqualTo(1);
             assertThat(outbox.getStatus()).isEqualTo(OutboxStatus.PENDING);
@@ -96,7 +96,7 @@ class OutboxRelaySchedulerTest {
             given(outboxRepository.findPendingWithLimit(anyInt())).willReturn(List.of(outbox));
             given(kafkaEventPublisher.send(outbox)).willReturn(failedFuture());
 
-            scheduler.relay();
+            scheduler.compensate();
 
             assertThat(outbox.getRetryCount()).isEqualTo(5);
             assertThat(outbox.getStatus()).isEqualTo(OutboxStatus.FAILED);
@@ -111,7 +111,7 @@ class OutboxRelaySchedulerTest {
             given(kafkaEventPublisher.send(first)).willReturn(failedFuture());
             given(kafkaEventPublisher.send(second)).willReturn(successFuture());
 
-            scheduler.relay();
+            scheduler.compensate();
 
             assertThat(first.getStatus()).isEqualTo(OutboxStatus.PENDING);
             assertThat(second.getStatus()).isEqualTo(OutboxStatus.PUBLISHED);
@@ -126,7 +126,7 @@ class OutboxRelaySchedulerTest {
             given(outboxRepository.findPendingWithLimit(anyInt())).willReturn(pending);
             given(kafkaEventPublisher.send(any())).willReturn(successFuture());
 
-            scheduler.relay();
+            scheduler.compensate();
 
             assertThat(pending).allMatch(o -> o.getStatus() == OutboxStatus.PUBLISHED);
         }
