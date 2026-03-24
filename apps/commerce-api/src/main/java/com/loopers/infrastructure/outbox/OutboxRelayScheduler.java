@@ -9,8 +9,6 @@ import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -27,7 +25,6 @@ public class OutboxRelayScheduler {
 
     @Scheduled(fixedDelayString = "${outbox.relay.delay-ms:1000}", initialDelayString = "${outbox.relay.initial-delay-ms:0}")
     @SchedulerLock(name = "outbox-relay", lockAtMostFor = "PT30S", lockAtLeastFor = "PT1S")
-    @Transactional
     public void relay() {
         List<OutboxModel> pending = outboxRepository.findPendingWithLimit(RELAY_LIMIT);
         if (pending.isEmpty()) {
@@ -47,6 +44,7 @@ public class OutboxRelayScheduler {
                 outbox.markFailed();
                 log.error("[OUTBOX_RELAY_FAILED] id={}, retryCount={}", outbox.getId(), outbox.getRetryCount(), e);
             }
+            outboxRepository.save(outbox);
         }
     }
 }
