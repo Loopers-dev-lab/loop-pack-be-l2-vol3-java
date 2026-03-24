@@ -3,6 +3,8 @@ package com.loopers.application.like;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.like.Like;
+import com.loopers.domain.like.LikeEvent;
+import com.loopers.domain.like.LikeEventPublisher;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
@@ -27,8 +29,9 @@ class LikeFacadeTest {
     LikeRepository likeRepository = mock(LikeRepository.class);
     BrandRepository brandRepository = mock(BrandRepository.class);
     LikeAssembler likeAssembler = new LikeAssembler();
+    LikeEventPublisher likeEventPublisher = mock(LikeEventPublisher.class);
 
-    LikeFacade likeFacade = new LikeFacade(userRepository, productRepository, likeRepository, brandRepository, likeAssembler);
+    LikeFacade likeFacade = new LikeFacade(userRepository, productRepository, likeRepository, brandRepository, likeAssembler, likeEventPublisher);
 
     @DisplayName("좋아요 시, ")
     @Nested
@@ -69,7 +72,7 @@ class LikeFacadeTest {
             assertThat(result.getCustomMessage()).isEqualTo("존재하지 않는 상품입니다.");
         }
 
-        @DisplayName("좋아요가 처음 등록되면, likeCount 가 증가한다.")
+        @DisplayName("좋아요가 처음 등록되면, LikeEvent.Created 이벤트가 발행된다.")
         @Test
         void increasesLikeCount_whenLikeInserted() {
             // arrange
@@ -83,10 +86,10 @@ class LikeFacadeTest {
             likeFacade.like(userId, productId);
 
             // assert
-            verify(productRepository).increaseLikeCount(productId);
+            verify(likeEventPublisher).publish(new LikeEvent.Created(userId, productId));
         }
 
-        @DisplayName("이미 좋아요한 이력이 있으면, likeCount 가 증가하지 않는다.")
+        @DisplayName("이미 좋아요한 이력이 있으면, LikeEvent.Created 이벤트가 발행되지 않는다.")
         @Test
         void doesNotIncreaseLikeCount_whenLikeAlreadyExists() {
             // arrange
@@ -100,7 +103,7 @@ class LikeFacadeTest {
             likeFacade.like(userId, productId);
 
             // assert
-            verify(productRepository, never()).increaseLikeCount(productId);
+            verify(likeEventPublisher, never()).publish(new LikeEvent.Created(userId, productId));
         }
     }
 
@@ -108,7 +111,7 @@ class LikeFacadeTest {
     @Nested
     class UnlikeTest {
 
-        @DisplayName("좋아요가 존재해 삭제되면, likeCount 가 감소한다.")
+        @DisplayName("좋아요가 존재해 삭제되면, LikeEvent.Deleted 이벤트 발행된다.")
         @Test
         void decreasesLikeCount_whenLikeDeleted() {
             // arrange
@@ -120,10 +123,10 @@ class LikeFacadeTest {
             likeFacade.unlike(userId, productId);
 
             // assert
-            verify(productRepository).decreaseLikeCount(productId);
+            verify(likeEventPublisher).publish(new LikeEvent.Deleted(userId, productId));
         }
 
-        @DisplayName("좋아요가 존재하지 않으면, likeCount 가 감소하지 않는다.")
+        @DisplayName("좋아요가 존재하지 않으면, LikeEvent.Deleted 이벤트가 발행되지 않는다.")
         @Test
         void doesNotDecreaseLikeCount_whenLikeNotExists() {
             // arrange
@@ -135,7 +138,7 @@ class LikeFacadeTest {
             likeFacade.unlike(userId, productId);
 
             // assert
-            verify(productRepository, never()).decreaseLikeCount(productId);
+            verify(likeEventPublisher, never()).publish(new LikeEvent.Deleted(userId, productId));
         }
     }
 

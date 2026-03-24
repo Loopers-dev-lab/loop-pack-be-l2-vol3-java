@@ -3,6 +3,8 @@ package com.loopers.application.like;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.like.Like;
+import com.loopers.domain.like.LikeEvent;
+import com.loopers.domain.like.LikeEventPublisher;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
@@ -24,6 +26,7 @@ public class LikeFacade {
     private final LikeRepository likeRepository;
     private final BrandRepository brandRepository;
     private final LikeAssembler likeAssembler;
+    private final LikeEventPublisher likeEventPublisher;
 
     @Transactional
     public void like(Long userId, Long productId) {
@@ -32,7 +35,7 @@ public class LikeFacade {
 
         boolean inserted = likeRepository.saveIfAbsent(Like.of(userId, productId));
         if (inserted) {
-            productRepository.increaseLikeCount(productId);
+            likeEventPublisher.publish(new LikeEvent.Created(userId, productId));
         }
     }
 
@@ -40,7 +43,7 @@ public class LikeFacade {
     public void unlike(Long userId, Long productId) {
         int deleted = likeRepository.deleteByUserIdAndProductId(userId, productId);
         if (deleted > 0) {
-            productRepository.decreaseLikeCount(productId);
+            likeEventPublisher.publish(new LikeEvent.Deleted(userId, productId));
         }
     }
 
@@ -57,4 +60,5 @@ public class LikeFacade {
 
         return likeAssembler.toInfos(products, brands);
     }
+
 }
