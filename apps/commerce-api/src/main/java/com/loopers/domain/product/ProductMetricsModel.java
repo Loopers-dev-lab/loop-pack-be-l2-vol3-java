@@ -26,17 +26,4 @@ public class ProductMetricsModel extends BaseEntity {
     private long likeCount;
 
     protected ProductMetricsModel() {}
-
-    private ProductMetricsModel(Long refProductId, long initialLikeCount) {
-        this.refProductId = refProductId;
-        this.likeCount = initialLikeCount;
-    }
-
-    public static ProductMetricsModel create(Long refProductId, int initialDelta) {
-        return new ProductMetricsModel(refProductId, Math.max(0L, initialDelta));
-    }
-
-    public void adjustLikeCount(int delta) {
-        this.likeCount += delta;
-    }
 }

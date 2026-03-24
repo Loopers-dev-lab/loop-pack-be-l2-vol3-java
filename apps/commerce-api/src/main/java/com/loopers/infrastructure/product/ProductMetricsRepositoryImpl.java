@@ -17,9 +17,4 @@ public class ProductMetricsRepositoryImpl implements ProductMetricsRepository {
     public Optional<ProductMetricsModel> findByRefProductId(Long refProductId) {
         return productMetricsJpaRepository.findByRefProductId(refProductId);
     }
-
-    @Override
-    public ProductMetricsModel save(ProductMetricsModel model) {
-        return productMetricsJpaRepository.save(model);
-    }
 }
