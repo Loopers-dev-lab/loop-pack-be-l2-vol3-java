@@ -70,7 +70,6 @@ class CouponIssueConsumerConcurrencyTest {
                     "CouponIssueRequested",
                     1,
                     "req-" + i,
-                    null,
                     templateId,
                     (long) (i + 1),
                     LocalDateTime.now()

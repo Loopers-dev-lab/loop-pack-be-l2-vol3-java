@@ -79,7 +79,6 @@ class CouponIssueServiceConcurrencyTest {
             executor.submit(() -> {
                 try {
                     couponIssueService.processIssue(
-                            UUID.randomUUID().toString(),
                             requestIds.get(idx),
                             templateId,
                             (long) (idx + 1)

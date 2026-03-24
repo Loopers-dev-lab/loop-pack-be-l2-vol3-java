@@ -1,7 +1,7 @@
 package com.loopers.interfaces.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.domain.coupon.CouponIssueService;
+import com.loopers.application.coupon.CouponIssueApp;
 import com.loopers.infrastructure.kafka.StreamerKafkaConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +19,7 @@ public class CouponIssueConsumer {
 
     private static final String TOPIC = "coupon-issue-requests";
 
-    private final CouponIssueService couponIssueService;
+    private final CouponIssueApp couponIssueApp;
     private final ObjectMapper objectMapper;
 
     @KafkaListener(
@@ -30,7 +30,7 @@ public class CouponIssueConsumer {
     public void consume(List<ConsumerRecord<Object, Object>> records, Acknowledgment acknowledgment) {
         for (ConsumerRecord<Object, Object> record : records) {
             CouponIssuePayload payload = parse(record);
-            couponIssueService.processIssue(
+            couponIssueApp.processIssue(
                     payload.eventId(),
                     payload.requestId(),
                     payload.couponTemplateDbId(),

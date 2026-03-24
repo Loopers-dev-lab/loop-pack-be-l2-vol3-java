@@ -69,7 +69,7 @@ class CouponIssueServiceBenchmarkTest {
             long memberId = (long) (i + 1);
 
             long start = System.nanoTime();
-            couponIssueService.processIssue(eventId, requestId, templateId, memberId);
+            couponIssueService.processIssue(requestId, templateId, memberId);
             latencies[i] = System.nanoTime() - start;
         }
 
