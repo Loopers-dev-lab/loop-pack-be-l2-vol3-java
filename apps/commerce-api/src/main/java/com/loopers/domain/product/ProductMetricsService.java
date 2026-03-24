@@ -1,4 +1,4 @@
-package com.loopers.domain.metrics;
+package com.loopers.domain.product;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
