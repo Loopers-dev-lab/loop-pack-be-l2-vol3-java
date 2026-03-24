@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -33,27 +34,31 @@ public class CatalogEventConsumer {
         containerFactory = KafkaConfig.BATCH_LISTENER
     )
     public void consume(List<ConsumerRecord<String, byte[]>> records, Acknowledgment acknowledgment) {
-        for (ConsumerRecord<String, byte[]> record : records) {
-            try {
-                JsonNode envelope = parseEnvelope(record.value());
-                String eventId = envelope.get("eventId").asText();
-                String eventType = envelope.get("eventType").asText();
+        try {
+            for (ConsumerRecord<String, byte[]> record : records) {
+                try {
+                    JsonNode envelope = parseEnvelope(record.value());
+                    String eventId = envelope.get("eventId").asText();
+                    String eventType = envelope.get("eventType").asText();
 
-                if (eventHandledRepository.existsById(eventId)) {
-                    log.debug("[CatalogEvent] 이미 처리된 이벤트 skip: eventId={}", eventId);
-                    continue;
+                    if (eventHandledRepository.existsById(eventId)) {
+                        log.debug("[CatalogEvent] 이미 처리된 이벤트 skip: eventId={}", eventId);
+                        continue;
+                    }
+
+                    JsonNode data = envelope.get("data");
+                    processEvent(eventId, eventType, data);
+                    log.info("[CatalogEvent] 처리 완료: eventId={}, eventType={}", eventId, eventType);
+                } catch (Exception e) {
+                    log.error("[CatalogEvent] 처리 실패 → DLQ 전송: offset={}, error={}",
+                        record.offset(), e.getMessage(), e);
+                    sendToDlq(record);
                 }
-
-                JsonNode data = envelope.get("data");
-                processEvent(eventId, eventType, data);
-                log.info("[CatalogEvent] 처리 완료: eventId={}, eventType={}", eventId, eventType);
-            } catch (Exception e) {
-                log.error("[CatalogEvent] 처리 실패 → DLQ 전송: offset={}, error={}",
-                    record.offset(), e.getMessage(), e);
-                sendToDlq(record);
             }
+            acknowledgment.acknowledge();
+        } catch (Exception e) {
+            log.error("[CatalogEvent] 배치 처리 중단 (DLQ 전송 실패). 전체 재배달 예정. error={}", e.getMessage());
         }
-        acknowledgment.acknowledge();
     }
 
     private void processEvent(String eventId, String eventType, JsonNode data) {
@@ -69,9 +74,11 @@ public class CatalogEventConsumer {
 
     private void sendToDlq(ConsumerRecord<String, byte[]> record) {
         try {
-            kafkaTemplate.send(DLQ_TOPIC, record.key(), record.value());
+            kafkaTemplate.send(DLQ_TOPIC, record.key(), record.value())
+                .get(5, TimeUnit.SECONDS);
         } catch (Exception e) {
-            log.error("[CatalogEvent] DLQ 전송 실패: offset={}, error={}", record.offset(), e.getMessage());
+            throw new RuntimeException(
+                "[CatalogEvent] DLQ 전송 실패: offset=" + record.offset(), e);
         }
     }
 

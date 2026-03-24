@@ -40,6 +40,7 @@ public class OutboxPublisher {
         }
 
         List<OutboxEvent> publishedEvents = new ArrayList<>();
+        int failedCount = 0;
         for (OutboxEvent event : pendingEvents) {
             try {
                 kafkaTemplate.send(event.getTopic(), event.getPartitionKey(), event.getPayload())
@@ -47,16 +48,18 @@ public class OutboxPublisher {
                 event.markPublished();
                 publishedEvents.add(event);
             } catch (Exception e) {
-                log.error("[Outbox 발행 실패] eventId={}, topic={}, error={}. 나머지 이벤트는 다음 폴링에서 재시도합니다.",
+                failedCount++;
+                log.error("[Outbox 발행 실패] eventId={}, topic={}, error={}",
                     event.getEventId(), event.getTopic(), e.getMessage());
-                break;
             }
         }
 
         if (!publishedEvents.isEmpty()) {
             txTemplate.executeWithoutResult(status ->
                 outboxJpaRepository.saveAll(publishedEvents));
-            log.info("[Outbox] {}건 발행 완료", publishedEvents.size());
+        }
+        if (!publishedEvents.isEmpty() || failedCount > 0) {
+            log.info("[Outbox] {}건 발행 완료, {}건 실패 (다음 폴링에서 재시도)", publishedEvents.size(), failedCount);
         }
     }
 }

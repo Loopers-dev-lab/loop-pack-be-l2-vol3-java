@@ -14,6 +14,8 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.TimeUnit;
+
 @Slf4j
 @RequiredArgsConstructor
 @Component
@@ -54,20 +56,26 @@ public class CouponIssueConsumer {
                     envelope.get("data"), CouponIssueRequestPayload.class);
                 fcfsCouponIssueService.processIssueRequest(eventId, payload);
             }
+            ack.acknowledge();
         } catch (Exception e) {
             log.error("[CouponIssueConsumer] 처리 실패 → DLQ 전송: offset={}, error={}",
                 record.offset(), e.getMessage(), e);
-            sendToDlq(record);
+            try {
+                sendToDlq(record);
+                ack.acknowledge();
+            } catch (Exception dlqException) {
+                log.error("[CouponIssueConsumer] DLQ 전송 실패. 재배달 예정. error={}", dlqException.getMessage());
+            }
         }
-
-        ack.acknowledge();
     }
 
     private void sendToDlq(ConsumerRecord<String, Object> record) {
         try {
-            kafkaTemplate.send(DLQ_TOPIC, record.key(), record.value());
+            kafkaTemplate.send(DLQ_TOPIC, record.key(), record.value())
+                .get(5, TimeUnit.SECONDS);
         } catch (Exception e) {
-            log.error("[CouponIssueConsumer] DLQ 전송 실패: offset={}, error={}", record.offset(), e.getMessage());
+            throw new RuntimeException(
+                "[CouponIssueConsumer] DLQ 전송 실패: offset=" + record.offset(), e);
         }
     }
 }
