@@ -49,7 +49,7 @@ public class CouponIssueApp {
 
         CouponIssueOutboxPayload payload = new CouponIssueOutboxPayload(
                 UUID.randomUUID().toString(), "CouponIssueRequested", 1,
-                request.getRequestId(), request.getId(), couponTemplateId, memberId, LocalDateTime.now());
+                request.getRequestId(), couponTemplateId, memberId, LocalDateTime.now());
         outboxAppender.append(
                 "coupon_issue_request", String.valueOf(couponTemplateId),
                 "CouponIssueRequested", COUPON_ISSUE_TOPIC, payload);

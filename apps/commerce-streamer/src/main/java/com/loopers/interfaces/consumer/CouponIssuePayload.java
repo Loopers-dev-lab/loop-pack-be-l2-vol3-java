@@ -7,7 +7,6 @@ public record CouponIssuePayload(
         String eventType,
         int schemaVersion,
         String requestId,
-        Long requestDbId,
         Long couponTemplateDbId,
         Long memberId,
         LocalDateTime requestedAt
