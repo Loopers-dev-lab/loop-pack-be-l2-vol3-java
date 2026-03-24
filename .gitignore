@@ -49,3 +49,6 @@ out/
 *.local.json
 
 exp*
+
+### technical observation tests ###
+**/src/test/java/**/technical/
