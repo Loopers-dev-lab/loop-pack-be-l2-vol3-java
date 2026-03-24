@@ -1,20 +1,21 @@
 package com.loopers.application.order;
 
 import com.loopers.domain.order.event.OrderCreatedEvent;
-import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-@Slf4j
 @Component
+@RequiredArgsConstructor
 public class OrderEventHandler {
+
+    private final OrderEventPublisher orderEventPublisher;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleOrderCreated(OrderCreatedEvent event) {
-        log.info("[ACTION_LOG] orderId={}, memberId={}, totalAmount={}, createdAt={}",
-                event.orderId(), event.memberId(), event.totalAmount(), event.createdAt());
+        orderEventPublisher.publish(event);
     }
 }

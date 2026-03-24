@@ -1,11 +1,14 @@
 package com.loopers.application.order;
 
+import com.loopers.application.outbox.OutboxAppender;
 import com.loopers.domain.common.vo.RefMemberId;
 import com.loopers.domain.order.OrderItemRequest;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.order.event.OrderCreatedEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -14,13 +17,18 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
 public class OrderApp {
 
+    private static final String ORDER_EVENTS_TOPIC = "order-events";
+
     private final OrderService orderService;
     private final OrderRepository orderRepository;
+    private final OutboxAppender outboxAppender;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public OrderInfo createOrder(Long memberId, List<OrderItemCommand> items) {
@@ -34,6 +42,15 @@ public class OrderApp {
                 .map(OrderItemCommand::toOrderItemRequest)
                 .toList();
         OrderModel order = orderService.createOrder(memberId, orderItems, discountAmount, refUserCouponId);
+
+        String eventId = UUID.randomUUID().toString();
+        LocalDateTime now = LocalDateTime.now();
+        OrderOutboxPayload payload = new OrderOutboxPayload(
+                eventId, "OrderCreated", 1,
+                order.getOrderId().value(), memberId, order.getFinalAmount(), now);
+        outboxAppender.append("order", order.getOrderId().value(), "OrderCreated", ORDER_EVENTS_TOPIC, payload);
+        eventPublisher.publishEvent(new OrderCreatedEvent(eventId, order.getOrderId().value(), memberId, order.getFinalAmount(), now));
+
         return OrderInfo.from(order);
     }
 
