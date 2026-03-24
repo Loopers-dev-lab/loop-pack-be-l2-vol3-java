@@ -12,7 +12,9 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import com.loopers.domain.order.event.OrderCreatedEvent;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -56,7 +58,10 @@ public class OrderModel extends BaseEntity {
         if (items == null || items.isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "주문 상품이 비어 있습니다.");
         }
-        return new OrderModel(memberId, items, discountAmount, refUserCouponId);
+        OrderModel order = new OrderModel(memberId, items, discountAmount, refUserCouponId);
+        order.registerEvent(new OrderCreatedEvent(
+                order.getOrderId().value(), memberId, order.getFinalAmount(), LocalDateTime.now()));
+        return order;
     }
 
     public static OrderModel create(Long memberId, List<OrderItemModel> items) {
