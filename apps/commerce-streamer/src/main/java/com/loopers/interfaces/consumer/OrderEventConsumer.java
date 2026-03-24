@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.metrics.MetricsApplicationService;
-import com.loopers.confg.kafka.KafkaConfig;
+import com.loopers.config.kafka.KafkaConfig;
 import com.loopers.domain.event.OrderItemPayload;
 import com.loopers.domain.eventhandled.EventHandled;
 import com.loopers.domain.eventhandled.EventHandledRepository;

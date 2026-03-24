@@ -3,7 +3,7 @@ package com.loopers.interfaces.consumer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.coupon.FcfsCouponIssueService;
-import com.loopers.confg.kafka.KafkaConfig;
+import com.loopers.config.kafka.KafkaConfig;
 import com.loopers.domain.event.CouponIssueRequestPayload;
 import com.loopers.domain.eventhandled.EventHandledRepository;
 import lombok.RequiredArgsConstructor;
