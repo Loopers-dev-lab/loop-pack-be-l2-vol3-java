@@ -14,7 +14,7 @@ spring:
   main:
     web-application-type: servlet
   application:
-    name: commerce-api
+    name: commerce-streamer
   profiles:
     active: local
   config:
@@ -24,10 +24,9 @@ spring:
       - kafka.yml
       - logging.yml
       - monitoring.yml
-
-demo-kafka:
-  test:
-    topic-name: demo.internal.topic-v1
+  kafka:
+    consumer:
+      group-id: commerce-streamer-consumer
 
 ---
 spring:
