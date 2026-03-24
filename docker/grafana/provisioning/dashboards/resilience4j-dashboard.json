@@ -1,0 +1,279 @@
+{
+  "annotations": { "list": [] },
+  "description": "Resilience4j Circuit Breaker & Retry 모니터링 — k6 부하 테스트용",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Circuit Breaker State (requestPayment)",
+      "description": "CLOSED → OPEN → HALF_OPEN 전이 확인",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "stacking": { "mode": "none" },
+            "spanNulls": true,
+            "pointSize": 5,
+            "showPoints": "auto"
+          },
+          "min": -0.5,
+          "max": 2.5
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "CLOSED" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "OPEN" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "HALF_OPEN" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "resilience4j_circuitbreaker_state{name=\"pg-client\", name=\"pg-client\", state=\"closed\"} * 0",
+          "legendFormat": "CLOSED",
+          "refId": "A"
+        },
+        {
+          "expr": "resilience4j_circuitbreaker_state{name=\"pg-client\", name=\"pg-client\", state=\"open\"} * 1",
+          "legendFormat": "OPEN",
+          "refId": "B"
+        },
+        {
+          "expr": "resilience4j_circuitbreaker_state{name=\"pg-client\", name=\"pg-client\", state=\"half_open\"} * 2",
+          "legendFormat": "HALF_OPEN",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "title": "CB Calls — Success / Failed / Not Permitted",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "stacking": { "mode": "normal" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "successful" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "failed" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "not_permitted (CB OPEN)" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(resilience4j_circuitbreaker_calls_seconds_count{name=\"pg-client\", kind=\"successful\"}[30s]))",
+          "legendFormat": "successful",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(resilience4j_circuitbreaker_calls_seconds_count{name=\"pg-client\", kind=\"failed\"}[30s]))",
+          "legendFormat": "failed",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(increase(resilience4j_circuitbreaker_not_permitted_calls_total{name=\"pg-client\"}[30s]))",
+          "legendFormat": "not_permitted (CB OPEN)",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "title": "Payment API — Avg Response Time",
+      "description": "CB OPEN 전: 3s+ (PG 타임아웃) → OPEN 후: ~10ms (즉시 Fallback)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "blue", "mode": "fixed" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_sum{uri=\"/api/v1/payments\", method=\"POST\"}[30s]) / rate(http_server_requests_seconds_count{uri=\"/api/v1/payments\", method=\"POST\"}[30s])",
+          "legendFormat": "avg latency",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Retry Calls (pg-payment-request)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "stacking": { "mode": "normal" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "successful_with_retry" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "failed_with_retry" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "increase(resilience4j_retry_calls_total{name=\"pg-payment-request\", kind=\"successful_without_retry\"}[30s])",
+          "legendFormat": "successful_without_retry",
+          "refId": "A"
+        },
+        {
+          "expr": "increase(resilience4j_retry_calls_total{name=\"pg-payment-request\", kind=\"successful_with_retry\"}[30s])",
+          "legendFormat": "successful_with_retry",
+          "refId": "B"
+        },
+        {
+          "expr": "increase(resilience4j_retry_calls_total{name=\"pg-payment-request\", kind=\"failed_with_retry\"}[30s])",
+          "legendFormat": "failed_with_retry",
+          "refId": "C"
+        },
+        {
+          "expr": "increase(resilience4j_retry_calls_total{name=\"pg-payment-request\", kind=\"failed_without_retry\"}[30s])",
+          "legendFormat": "failed_without_retry",
+          "refId": "D"
+        }
+      ]
+    },
+    {
+      "title": "CB Failure Rate (%)",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 30 },
+              { "color": "red", "value": 50 }
+            ]
+          },
+          "min": 0,
+          "max": 100,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "max(resilience4j_circuitbreaker_failure_rate{name=\"pg-client\"})",
+          "legendFormat": "failure rate",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "CB Not Permitted Calls (total)",
+      "description": "CB OPEN 상태에서 차단된 호출 누적 수",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(resilience4j_circuitbreaker_not_permitted_calls_total{name=\"pg-client\"})",
+          "legendFormat": "not permitted",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "HTTP Request Rate (payments)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "purple", "mode": "fixed" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{uri=\"/api/v1/payments\", method=\"POST\"}[30s])",
+          "legendFormat": "req/s",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["resilience4j", "circuit-breaker", "k6"],
+  "templating": { "list": [] },
+  "time": { "from": "now-5m", "to": "now" },
+  "timepicker": {},
+  "timezone": "Asia/Seoul",
+  "title": "Resilience4j - Circuit Breaker (pg-client)",
+  "uid": "resilience4j-cb-pg-client",
+  "version": 3
+}

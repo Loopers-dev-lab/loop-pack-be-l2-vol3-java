@@ -3,12 +3,12 @@ package com.loopers.infrastructure.example;
 import com.loopers.domain.example.ExampleModel;
 import com.loopers.domain.example.ExampleRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
 @RequiredArgsConstructor
-@Component
+@Repository
 public class ExampleRepositoryImpl implements ExampleRepository {
     private final ExampleJpaRepository exampleJpaRepository;
 
