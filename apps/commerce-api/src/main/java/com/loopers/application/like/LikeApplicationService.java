@@ -1,5 +1,7 @@
 package com.loopers.application.like;
 
+import com.loopers.application.like.event.LikeEvent;
+import com.loopers.application.like.event.LikeEvent.LikeAction;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandDomainService;
 import com.loopers.domain.like.Like;
@@ -7,9 +9,11 @@ import com.loopers.domain.like.LikeDomainService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductDomainService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,29 +26,26 @@ public class LikeApplicationService {
     private final LikeDomainService likeService;
     private final ProductDomainService productService;
     private final BrandDomainService brandService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
-     * 단일 트랜잭션에서 Like aggregate와 Product aggregate를 함께 수정한다.
-     * "하나의 트랜잭션 = 하나의 Aggregate" 원칙의 의도적 예외:
-     * likeCount는 비정규화 카운터이며, Like 엔티티가 source of truth이다.
-     * 일관성과 단순성을 위해 동일 트랜잭션에서 원자적으로 처리한다.
+     * Like 저장(핵심 로직) 후 likeCount 증감은 이벤트로 분리한다.
+     * Like 엔티티가 source of truth이며, likeCount는 eventual consistency로 반영된다.
      */
     @Transactional
     public void like(Long userId, Long productId) {
+        productService.getById(productId);
         likeService.like(userId, productId);
-        productService.incrementLikeCount(productId);
+        eventPublisher.publishEvent(new LikeEvent(userId, productId, LikeAction.LIKED, ZonedDateTime.now()));
     }
 
     /**
-     * 단일 트랜잭션에서 Like aggregate와 Product aggregate를 함께 수정한다.
-     * "하나의 트랜잭션 = 하나의 Aggregate" 원칙의 의도적 예외:
-     * likeCount는 비정규화 카운터이며, Like 엔티티가 source of truth이다.
-     * 일관성과 단순성을 위해 동일 트랜잭션에서 원자적으로 처리한다.
+     * Like 삭제(핵심 로직) 후 likeCount 감소는 이벤트로 분리한다.
      */
     @Transactional
     public void unlike(Long userId, Long productId) {
         likeService.unlike(userId, productId);
-        productService.decrementLikeCount(productId);
+        eventPublisher.publishEvent(new LikeEvent(userId, productId, LikeAction.UNLIKED, ZonedDateTime.now()));
     }
 
     @Transactional(readOnly = true)

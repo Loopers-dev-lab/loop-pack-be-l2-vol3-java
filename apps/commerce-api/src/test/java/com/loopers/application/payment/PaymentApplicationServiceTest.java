@@ -49,7 +49,8 @@ class PaymentApplicationServiceTest {
         ProductStockDomainService stockService = new ProductStockDomainService(null);
         CouponIssueDomainService couponService = new CouponIssueDomainService(null);
         PaymentTransactionHelper txHelper = new PaymentTransactionHelper(
-            paymentDomainService, stubOrderService, stockService, couponService
+            paymentDomainService, stubOrderService, stockService, couponService,
+            event -> {} // no-op event publisher for unit test
         );
 
         paymentApplicationService = new PaymentApplicationService(

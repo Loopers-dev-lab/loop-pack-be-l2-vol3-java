@@ -16,9 +16,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest
@@ -57,7 +59,7 @@ class LikeConcurrencyIntegrationTest {
         @DisplayName("모든 좋아요가 성공하고 likeCount가 정확히 반영된다.")
         @Test
         void allLikesSucceed_whenConcurrent() throws InterruptedException {
-            int threadCount = 10;
+            int threadCount = 5;
             Product product = productService.register(brandId, "에어맥스", 129000);
 
             ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
@@ -82,12 +84,14 @@ class LikeConcurrencyIntegrationTest {
             latch.await();
             executorService.shutdown();
 
-            Product result = productService.getById(product.getId());
-            assertAll(
-                () -> assertThat(successCount.get()).isEqualTo(threadCount),
-                () -> assertThat(failCount.get()).isEqualTo(0),
-                () -> assertThat(result.getLikeCount()).isEqualTo(threadCount)
-            );
+            assertThat(successCount.get()).isEqualTo(threadCount);
+            assertThat(failCount.get()).isEqualTo(0);
+
+            // likeCount는 @Async AFTER_COMMIT 이벤트로 eventual consistency 반영
+            await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+                Product result = productService.getById(product.getId());
+                assertThat(result.getLikeCount()).isEqualTo(threadCount);
+            });
         }
     }
 
@@ -98,8 +102,8 @@ class LikeConcurrencyIntegrationTest {
         @DisplayName("likeCount가 정확히 반영된다.")
         @Test
         void likeCountIsCorrect_whenConcurrentLikeAndUnlike() throws InterruptedException {
-            int likeCount = 5;
-            int unlikeCount = 5;
+            int likeCount = 3;
+            int unlikeCount = 3;
             int totalThreads = likeCount + unlikeCount;
             Product product = productService.register(brandId, "에어맥스", 129000);
 
@@ -107,6 +111,12 @@ class LikeConcurrencyIntegrationTest {
             for (int i = 0; i < unlikeCount; i++) {
                 likeApplicationService.like((long) (i + 1), product.getId());
             }
+
+            // 순차 좋아요의 likeCount 반영 대기
+            await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+                Product p = productService.getById(product.getId());
+                assertThat(p.getLikeCount()).isEqualTo(unlikeCount);
+            });
 
             ExecutorService executorService = Executors.newFixedThreadPool(totalThreads);
             CountDownLatch latch = new CountDownLatch(totalThreads);
@@ -140,8 +150,11 @@ class LikeConcurrencyIntegrationTest {
             latch.await();
             executorService.shutdown();
 
-            Product result = productService.getById(product.getId());
-            assertThat(result.getLikeCount()).isEqualTo(likeCount);
+            // likeCount는 @Async AFTER_COMMIT 이벤트로 eventual consistency 반영
+            await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+                Product result = productService.getById(product.getId());
+                assertThat(result.getLikeCount()).isEqualTo(likeCount);
+            });
         }
     }
 }

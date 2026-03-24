@@ -1,5 +1,6 @@
 package com.loopers.application.product;
 
+import com.loopers.application.product.event.ProductViewedEvent;
 import com.loopers.domain.PageResult;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandDomainService;
@@ -11,8 +12,11 @@ import com.loopers.domain.stock.ProductStockDomainService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.ZonedDateTime;
 
 import java.util.Map;
 import java.util.Set;
@@ -25,6 +29,7 @@ public class ProductApplicationService {
     private final ProductDomainService productService;
     private final BrandDomainService brandService;
     private final ProductStockDomainService productStockService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public ProductWithBrandAndStock registerWithStock(RegisterProductCommand command) {
@@ -80,9 +85,10 @@ public class ProductApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public ProductWithBrand getProductWithBrand(Long id) {
+    public ProductWithBrand getProductWithBrand(Long id, Long userId) {
         Product product = productService.getById(id);
         Brand brand = brandService.getById(product.getBrandId());
+        eventPublisher.publishEvent(new ProductViewedEvent(id, userId, ZonedDateTime.now()));
         return new ProductWithBrand(product, brand);
     }
 
