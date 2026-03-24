@@ -74,4 +74,125 @@ class OutboxEventServiceIntegrationTest extends BaseIntegrationTest {
             assertThat(events.get(1).getVersion()).isEqualTo(2L);
         }
     }
+
+    @DisplayName("발행 대기 이벤트를 조회할 때,")
+    @Nested
+    class FindPendingEvents {
+
+        @DisplayName("INIT과 재시도 가능한 PUBLISH_FAILED만 조회된다.")
+        @Test
+        void returnsInitAndRetryableFail() {
+            // arrange
+            outboxEventService.save(1L, "LIKE", "LIKED", "{}", "like-liked-v1", "1");
+            outboxEventService.save(2L, "LIKE", "LIKED", "{}", "like-liked-v1", "2");
+
+            // 첫 번째 이벤트를 PUBLISHED로 변경
+            OutboxEvent first = outboxEventJpaRepository.findAll().get(0);
+            outboxEventService.publish(first.getId());
+
+            // act
+            List<OutboxEvent> pendingEvents = outboxEventService.findPendingEvents(10);
+
+            // assert
+            assertThat(pendingEvents).hasSize(1);
+            assertThat(pendingEvents.get(0).getAggregateId()).isEqualTo(2L);
+        }
+
+        @DisplayName("PUBLISH_FAILED이면서 재시도 횟수가 상한 이상이면 조회되지 않는다.")
+        @Test
+        void excludesExhaustedRetries() {
+            // arrange
+            outboxEventService.save(1L, "LIKE", "LIKED", "{}", "like-liked-v1", "1");
+            Long eventId = outboxEventJpaRepository.findAll().get(0).getId();
+
+            // 3회 실패
+            outboxEventService.publishFail(eventId);
+            outboxEventService.publishFail(eventId);
+            outboxEventService.publishFail(eventId);
+
+            // act
+            List<OutboxEvent> pendingEvents = outboxEventService.findPendingEvents(10);
+
+            // assert
+            assertThat(pendingEvents).isEmpty();
+        }
+
+        @DisplayName("PUBLISH_FAILED이면서 재시도 횟수가 상한 미만이면 조회된다.")
+        @Test
+        void includesRetryableFail() {
+            // arrange
+            outboxEventService.save(1L, "LIKE", "LIKED", "{}", "like-liked-v1", "1");
+            Long eventId = outboxEventJpaRepository.findAll().get(0).getId();
+
+            // 1회 실패
+            outboxEventService.publishFail(eventId);
+
+            // act
+            List<OutboxEvent> pendingEvents = outboxEventService.findPendingEvents(10);
+
+            // assert
+            assertThat(pendingEvents).hasSize(1);
+        }
+
+        @DisplayName("limit 이하로 조회된다.")
+        @Test
+        void respectsLimit() {
+            // arrange
+            outboxEventService.save(1L, "LIKE", "LIKED", "{}", "like-liked-v1", "1");
+            outboxEventService.save(2L, "LIKE", "LIKED", "{}", "like-liked-v1", "2");
+            outboxEventService.save(3L, "LIKE", "LIKED", "{}", "like-liked-v1", "3");
+
+            // act
+            List<OutboxEvent> pendingEvents = outboxEventService.findPendingEvents(2);
+
+            // assert
+            assertThat(pendingEvents).hasSize(2);
+        }
+    }
+
+    @DisplayName("발행 성공 처리할 때,")
+    @Nested
+    class MarkSuccess {
+
+        @DisplayName("상태가 PUBLISHED로 갱신되고 publishedAt이 설정된다.")
+        @Test
+        void updatesStatusAndPublishedAt() {
+            // arrange
+            outboxEventService.save(1L, "LIKE", "LIKED", "{}", "like-liked-v1", "1");
+            Long eventId = outboxEventJpaRepository.findAll().get(0).getId();
+
+            // act
+            outboxEventService.publish(eventId);
+
+            // assert
+            OutboxEvent event = outboxEventJpaRepository.findById(eventId).orElseThrow();
+            assertAll(
+                    () -> assertThat(event.getStatus()).isEqualTo(OutboxEvent.Status.PUBLISHED),
+                    () -> assertThat(event.getPublishedAt()).isNotNull()
+            );
+        }
+    }
+
+    @DisplayName("발행 실패 처리할 때,")
+    @Nested
+    class MarkFail {
+
+        @DisplayName("상태가 PUBLISH_FAILED로 갱신되고, retryCount가 증가한다.")
+        @Test
+        void updatesStatusToFailAndIncrementsRetryCount() {
+            // arrange
+            outboxEventService.save(1L, "LIKE", "LIKED", "{}", "like-liked-v1", "1");
+            Long eventId = outboxEventJpaRepository.findAll().get(0).getId();
+
+            // act
+            outboxEventService.publishFail(eventId);
+
+            // assert
+            OutboxEvent event = outboxEventJpaRepository.findById(eventId).orElseThrow();
+            assertAll(
+                    () -> assertThat(event.getStatus()).isEqualTo(OutboxEvent.Status.PUBLISH_FAILED),
+                    () -> assertThat(event.getRetryCount()).isEqualTo(1)
+            );
+        }
+    }
 }

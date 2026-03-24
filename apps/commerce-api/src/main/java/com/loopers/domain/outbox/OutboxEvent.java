@@ -9,7 +9,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
@@ -24,13 +24,20 @@ import lombok.NoArgsConstructor;
  * DB 커밋과 메시지 발행의 원자성을 보장한다.</p>
  */
 @Entity
-@Table(name = "outbox_event", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_outbox_aggregate_version",
-                columnNames = {"aggregate_id", "aggregate_type", "version"})
-})
+@Table(name = "outbox_event",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_outbox_aggregate_version",
+                        columnNames = {"aggregate_id", "aggregate_type", "version"})
+        },
+        indexes = {
+                @Index(name = "idx_outbox_event_status_created_at", columnList = "status, created_at")
+        }
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
 public class OutboxEvent {
+
+    private static final int MAX_RETRY_COUNT = 3;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -61,29 +68,18 @@ public class OutboxEvent {
     @Column(nullable = false)
     private String partitionKey;
 
+    @Column(nullable = false)
+    private int retryCount = 0;
+
     @Column
     private ZonedDateTime publishedAt;
+
+    @Column
+    private ZonedDateTime failedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private ZonedDateTime createdAt;
 
-    @PrePersist
-    private void prePersist() {
-        this.createdAt = ZonedDateTime.now();
-    }
-
-    /**
-     * Outbox 이벤트를 생성한다.
-     *
-     * @param aggregateId   대상 엔티티 ID
-     * @param aggregateType 도메인 타입 (예: "LIKE", "ORDER")
-     * @param eventType     이벤트 종류 (예: "LIKED", "ORDER_PLACED")
-     * @param payload       직렬화된 이벤트 데이터 (JSON)
-     * @param topic         발행 대상 Kafka 토픽
-     * @param partitionKey  Kafka 파티션 키
-     * @param version       이벤트 버전 (같은 aggregate 내 발행 순번)
-     * @return 생성된 Outbox 이벤트 (INIT 상태)
-     */
     public static OutboxEvent create(
             Long aggregateId,
             String aggregateType,
@@ -102,7 +98,28 @@ public class OutboxEvent {
         event.partitionKey = partitionKey;
         event.version = version;
         event.status = Status.INIT;
+        event.createdAt = ZonedDateTime.now();
         return event;
+    }
+
+    public void publish() {
+        this.status = Status.PUBLISHED;
+        this.publishedAt = ZonedDateTime.now();
+    }
+
+    public void publishFail() {
+        this.retryCount++;
+        this.failedAt = ZonedDateTime.now();
+        this.status = this.retryCount >= MAX_RETRY_COUNT ? Status.DEAD : Status.PUBLISH_FAILED;
+    }
+
+    public void dead() {
+        this.status = Status.DEAD;
+        this.failedAt = ZonedDateTime.now();
+    }
+
+    public boolean isDead() {
+        return this.status == Status.DEAD;
     }
 
     /**
@@ -111,6 +128,7 @@ public class OutboxEvent {
     public enum Status {
         INIT,
         PUBLISHED,
-        PUBLISH_FAILED
+        PUBLISH_FAILED,
+        DEAD
     }
 }

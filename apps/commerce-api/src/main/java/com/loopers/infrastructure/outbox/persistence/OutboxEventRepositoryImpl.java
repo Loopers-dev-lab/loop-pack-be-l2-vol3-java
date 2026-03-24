@@ -1,5 +1,9 @@
 package com.loopers.infrastructure.outbox.persistence;
 
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import com.loopers.domain.outbox.OutboxEvent;
@@ -24,10 +28,20 @@ public class OutboxEventRepositoryImpl implements OutboxEventRepository {
     }
 
     @Override
+    public Optional<OutboxEvent> findById(Long id) {
+        return outboxEventJpaRepository.findById(id);
+    }
+
+    @Override
     public Long findLatestVersion(Long aggregateId, String aggregateType) {
         return outboxEventJpaRepository
                 .findTopByAggregateIdAndAggregateTypeOrderByVersionDesc(aggregateId, aggregateType)
                 .map(OutboxEvent::getVersion)
                 .orElse(0L);
+    }
+
+    @Override
+    public List<OutboxEvent> findPendingEvents(int limit) {
+        return outboxEventJpaRepository.findPendingEvents(PageRequest.of(0, limit));
     }
 }
