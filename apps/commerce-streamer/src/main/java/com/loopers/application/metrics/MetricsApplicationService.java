@@ -40,26 +40,50 @@ public class MetricsApplicationService {
 
     public void incrementSaleCount(String eventId, List<OrderItemPayload> items) {
         TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
-        txTemplate.executeWithoutResult(status -> {
-            for (OrderItemPayload item : items) {
-                ProductMetrics metrics = getOrCreate(item.productId());
-                metrics.incrementSaleCount(item.quantity());
-                productMetricsRepository.save(metrics);
+        for (int attempt = 0; attempt < MAX_RETRY; attempt++) {
+            try {
+                txTemplate.executeWithoutResult(status -> {
+                    for (OrderItemPayload item : items) {
+                        ProductMetrics metrics = getOrCreate(item.productId());
+                        metrics.incrementSaleCount(item.quantity());
+                        productMetricsRepository.save(metrics);
+                    }
+                    eventHandledRepository.save(new EventHandled(eventId));
+                });
+                return;
+            } catch (OptimisticLockingFailureException e) {
+                if (attempt == MAX_RETRY - 1) {
+                    log.error("[Metrics] OptimisticLock 재시도 초과. eventId={}", eventId);
+                    throw e;
+                }
+                log.debug("[Metrics] OptimisticLock 충돌, 재시도 {}/{}. eventId={}",
+                    attempt + 1, MAX_RETRY, eventId);
             }
-            eventHandledRepository.save(new EventHandled(eventId));
-        });
+        }
     }
 
     public void decrementSaleCount(String eventId, List<OrderItemPayload> items) {
         TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
-        txTemplate.executeWithoutResult(status -> {
-            for (OrderItemPayload item : items) {
-                ProductMetrics metrics = getOrCreate(item.productId());
-                metrics.decrementSaleCount(item.quantity());
-                productMetricsRepository.save(metrics);
+        for (int attempt = 0; attempt < MAX_RETRY; attempt++) {
+            try {
+                txTemplate.executeWithoutResult(status -> {
+                    for (OrderItemPayload item : items) {
+                        ProductMetrics metrics = getOrCreate(item.productId());
+                        metrics.decrementSaleCount(item.quantity());
+                        productMetricsRepository.save(metrics);
+                    }
+                    eventHandledRepository.save(new EventHandled(eventId));
+                });
+                return;
+            } catch (OptimisticLockingFailureException e) {
+                if (attempt == MAX_RETRY - 1) {
+                    log.error("[Metrics] OptimisticLock 재시도 초과. eventId={}", eventId);
+                    throw e;
+                }
+                log.debug("[Metrics] OptimisticLock 충돌, 재시도 {}/{}. eventId={}",
+                    attempt + 1, MAX_RETRY, eventId);
             }
-            eventHandledRepository.save(new EventHandled(eventId));
-        });
+        }
     }
 
     private void executeWithRetry(String eventId, Long productId, Consumer<ProductMetrics> operation) {

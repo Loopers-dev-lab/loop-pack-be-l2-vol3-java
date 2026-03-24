@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -24,7 +23,6 @@ public class LikeCountEventListener {
     public void handleLikeEvent(LikeEvent event) {
         try {
             TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
-            txTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
             txTemplate.executeWithoutResult(status -> {
                 if (event.action() == LikeEvent.LikeAction.LIKED) {
                     productDomainService.incrementLikeCount(event.productId());

@@ -44,10 +44,11 @@ public class FcfsCouponIssueService {
             return;
         }
 
+        int maxQuantity = fcfsCoupon.getMaxQuantity();
         String counterKey = FCFS_COUNTER_KEY_PREFIX + payload.couponId() + ":count";
         Long currentCount = redisTemplate.opsForValue().increment(counterKey);
 
-        if (currentCount == null || currentCount > fcfsCoupon.getMaxQuantity()) {
+        if (currentCount == null || currentCount > maxQuantity) {
             if (currentCount != null) {
                 redisTemplate.opsForValue().decrement(counterKey);
             }
@@ -76,7 +77,7 @@ public class FcfsCouponIssueService {
                 eventHandledRepository.save(new EventHandled(eventId));
             });
             log.info("[쿠폰 발급 성공] couponId={}, userId={}, count={}/{}",
-                payload.couponId(), payload.userId(), currentCount, fcfsCoupon.getMaxQuantity());
+                payload.couponId(), payload.userId(), currentCount, maxQuantity);
         } catch (Exception e) {
             redisTemplate.opsForValue().decrement(counterKey);
             updateRequestFailed(eventId, payload.requestId(), e.getMessage());
