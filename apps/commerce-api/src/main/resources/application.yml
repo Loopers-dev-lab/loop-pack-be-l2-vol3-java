@@ -24,6 +24,35 @@ spring:
       - logging.yml
       - monitoring.yml
 
+pg:
+  base-url: http://localhost:8082
+  connect-timeout: 1000
+  read-timeout: 3000
+  callback-url: http://localhost:8080/api/internal/v1/payments/callback
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      pgCircuit:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-duration-threshold: 2s
+        slow-call-rate-threshold: 50
+  retry:
+    instances:
+      pgRetry:
+        max-attempts: 2          # 최초 1회 시도 + 1회 재시도 = 총 2회 호출
+        wait-duration: 1s        # 재시도 간 대기 시간
+        retry-exceptions:        # 재시도 대상: 일시적 네트워크/서버 오류
+          - java.net.SocketTimeoutException
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpServerErrorException
+        ignore-exceptions:       # 재시도 제외: 비즈니스 로직 예외
+          - com.loopers.support.error.CoreException
+
 springdoc:
   use-fqn: true
   swagger-ui:
