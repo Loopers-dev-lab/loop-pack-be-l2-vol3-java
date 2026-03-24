@@ -5,6 +5,7 @@ import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.coupon.UserCoupon;
 import com.loopers.domain.coupon.UserCouponRepository;
 import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderEventPublisher;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.order.StockPolicy;
 import com.loopers.domain.product.Product;
@@ -43,8 +44,9 @@ class OrderFacadeTest {
     UserCouponRepository userCouponRepository = mock(UserCouponRepository.class);
     StockPolicy stockPolicy = new StockPolicy();
     OrderAssembler orderAssembler = new OrderAssembler();
+    OrderEventPublisher orderEventPublisher = mock(OrderEventPublisher.class);
 
-    OrderFacade orderFacade = new OrderFacade(userRepository, productRepository, brandRepository, orderRepository, userCouponRepository, stockPolicy, orderAssembler);
+    OrderFacade orderFacade = new OrderFacade(userRepository, productRepository, brandRepository, orderRepository, userCouponRepository, stockPolicy, orderAssembler, orderEventPublisher);
 
     @DisplayName("주문 생성 시, ")
     @Nested

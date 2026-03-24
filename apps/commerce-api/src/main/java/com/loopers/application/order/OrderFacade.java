@@ -34,12 +34,14 @@ public class OrderFacade {
     private final UserCouponRepository userCouponRepository;
     private final StockPolicy stockPolicy;
     private final OrderAssembler orderAssembler;
+    private final OrderEventPublisher orderEventPublisher;
 
     @Transactional
     public String createOrder(Long userId, OrderCommand orderCommand) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자 정보를 찾을 수 없습니다."));
+        // 사용자 검증
+        userRepository.findById(userId).orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자 정보를 찾을 수 없습니다."));
 
+        // 상품 검증
         List<Long> productIds = orderCommand.items().stream().map(OrderCommand.Item::productId).toList();
         List<Product> products = productRepository.findAllByIdInWithLock(productIds);
 
@@ -49,13 +51,14 @@ public class OrderFacade {
             throw new CoreException(ErrorType.NOT_FOUND, "등록되지 않은 상품입니다.");
         }
 
-        Map<Long, Product> productMap = products.stream()
-                .collect(Collectors.toMap(Product::getId, p -> p));
-
+        // 브랜드 정보
         List<Long> brandIds = products.stream().map(Product::brandId).toList();
         Map<Long, Brand> brandMap = brandRepository.findAllByIdIn(brandIds).stream()
                 .collect(Collectors.toMap(Brand::getId, b -> b));
 
+        // 재고 검증
+        Map<Long, Product> productMap = products.stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
         List<OrderLine> orderLines = orderCommand.items().stream().map(item -> new OrderLine(item.productId(), item.quantity())).toList();
         stockPolicy.validate(productMap, orderLines);
 
@@ -68,12 +71,10 @@ public class OrderFacade {
         }
 
         // 재고 차감
-        orderCommand.items().forEach(item ->
-                productMap.get(item.productId()).decreaseStock(item.quantity())
-        );
+        orderCommand.items().forEach(item -> productMap.get(item.productId()).decreaseStock(item.quantity()));
 
+        // 쿠폰 적용
         List<OrderItem> orderItems = orderAssembler.toOrderItems(orderCommand, productMap, brandMap);
-
         long discountAmount = 0L;
         if (userCoupon != null) {
             long originalAmount = orderItems.stream()
@@ -84,8 +85,10 @@ public class OrderFacade {
             userCouponRepository.save(userCoupon);
         }
 
-        Order order = Order.of(user.getId(), orderItems, userCouponId, discountAmount);
+        // 주문 저장
+        Order order = Order.of(userId, orderItems, userCouponId, discountAmount);
         orderRepository.save(order);
+        orderEventPublisher.publish(OrderEvent.Created.from(order));
         return order.orderId();
     }
 
