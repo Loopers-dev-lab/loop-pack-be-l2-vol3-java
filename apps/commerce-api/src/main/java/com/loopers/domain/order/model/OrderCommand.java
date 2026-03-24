@@ -26,4 +26,7 @@ public final class OrderCommand {
     public record GetByMember(Long memberId, Long orderId) {
     }
 
+    public record OrderItem(Long productId, int quantity) {
+    }
+
 }

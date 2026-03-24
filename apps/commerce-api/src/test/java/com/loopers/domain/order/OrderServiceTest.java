@@ -4,6 +4,7 @@ import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.order.model.OrderCommand;
 import com.loopers.domain.order.model.OrderProduct;
 import com.loopers.domain.order.model.Orders;
+import com.loopers.domain.order.repository.OrderProductRepository;
 import com.loopers.domain.order.repository.OrderRepository;
 import com.loopers.domain.order.service.OrderService;
 import com.loopers.support.error.CoreException;
@@ -35,6 +36,9 @@ class OrderServiceTest {
     @Mock
     private OrderRepository orderRepository;
 
+    @Mock
+    private OrderProductRepository orderProductRepository;
+
     @DisplayName("주문 생성")
     @Nested
     class CreateOrder {
@@ -62,12 +66,14 @@ class OrderServiceTest {
             OrderCommand.Create command = new OrderCommand.Create(1L, List.of(orderProduct), 0, null);
             Orders savedOrders = Orders.reconstruct(1L, "ORD-001", 1L, 20000, 0, null, OrderStatus.CREATED, List.of(orderProduct));
             when(orderRepository.save(any(Orders.class))).thenReturn(savedOrders);
+            when(orderProductRepository.saveAll(any(), any())).thenReturn(List.of(orderProduct));
 
             // act
             Orders result = orderService.createOrder(command);
 
             // assert
             verify(orderRepository).save(any(Orders.class));
+            verify(orderProductRepository).saveAll(any(), any());
             assertThat(result.getId()).isEqualTo(1L);
             assertThat(result.getMemberId()).isEqualTo(1L);
         }

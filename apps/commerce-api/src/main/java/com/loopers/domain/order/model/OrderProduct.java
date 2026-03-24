@@ -30,6 +30,10 @@ public class OrderProduct {
         );
     }
 
+    public int subtotal() {
+        return price.value() * quantity.value();
+    }
+
     public static OrderProduct reconstruct(Long id, Long productId, String productName, int price, int quantity) {
         OrderProduct orderProduct = new OrderProduct(
                 productId,

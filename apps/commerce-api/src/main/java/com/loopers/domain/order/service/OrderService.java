@@ -2,7 +2,9 @@ package com.loopers.domain.order.service;
 
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.order.model.OrderCommand;
+import com.loopers.domain.order.model.OrderProduct;
 import com.loopers.domain.order.model.Orders;
+import com.loopers.domain.order.repository.OrderProductRepository;
 import com.loopers.domain.order.repository.OrderRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -16,10 +18,17 @@ import java.util.List;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final OrderProductRepository orderProductRepository;
 
     public Orders createOrder(OrderCommand.Create command) {
         Orders orders = Orders.create(command.memberId(), command.orderProducts(), command.discountAmount(), command.userCouponId());
-        return orderRepository.save(orders);
+        Orders savedOrder = orderRepository.save(orders);
+        List<OrderProduct> savedProducts = orderProductRepository.saveAll(savedOrder.getId(), command.orderProducts());
+        return Orders.reconstruct(
+                savedOrder.getId(), savedOrder.getOrderNumber(), savedOrder.getMemberId(),
+                savedOrder.getTotalPrice().value(), savedOrder.getDiscountAmount().value(),
+                savedOrder.getUserCouponId(), savedOrder.getStatus(), savedProducts
+        );
     }
 
     public List<Orders> getOrders(OrderCommand.GetByPeriod command) {

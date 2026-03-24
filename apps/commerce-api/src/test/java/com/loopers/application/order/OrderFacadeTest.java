@@ -7,11 +7,9 @@ import com.loopers.domain.member.service.MemberService;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.order.model.OrderCommand;
 import com.loopers.domain.order.model.OrderProduct;
-import com.loopers.domain.product.vo.DisplayStatus;
 import com.loopers.domain.order.model.Orders;
 import com.loopers.domain.order.service.OrderProductService;
 import com.loopers.domain.order.service.OrderService;
-import com.loopers.domain.product.model.Product;
 import com.loopers.domain.coupon.service.CouponService;
 import com.loopers.domain.product.service.ProductService;
 import com.loopers.support.error.CoreException;
@@ -32,7 +30,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -61,10 +58,6 @@ class OrderFacadeTest {
         return Member.reconstruct(1L, "testuser", "encodedPw", "홍길동", LocalDate.of(1990, 1, 1), "test@test.com");
     }
 
-    private static Product createTestProduct(Long id, Long brandId, String name, int price, int stock) {
-        return Product.reconstruct(id, brandId, name, price, stock, DisplayStatus.DISPLAYING, 0L);
-    }
-
     @DisplayName("주문 생성")
     @Nested
     class CreateOrder {
@@ -74,8 +67,10 @@ class OrderFacadeTest {
         void createsOrder_withMultipleProducts() {
             // arrange
             Member member = createTestMember();
-            Product product1 = createTestProduct(1L, 1L, "상품A", 10000, 98);
-            Product product2 = createTestProduct(2L, 1L, "상품B", 5000, 47);
+            List<OrderProduct> orderProducts = List.of(
+                    OrderProduct.create(1L, "상품A", 10000, 2),
+                    OrderProduct.create(2L, "상품B", 5000, 3)
+            );
 
             CreateOrderReqDto dto = new CreateOrderReqDto(List.of(
                     new CreateOrderReqDto.OrderItemReqDto(1L, 2),
@@ -83,15 +78,10 @@ class OrderFacadeTest {
             ), null);
 
             when(memberService.findMember("testuser", "password")).thenReturn(member);
-            when(productService.decreaseStockAtomic(1L, 2)).thenReturn(product1);
-            when(productService.decreaseStockAtomic(2L, 3)).thenReturn(product2);
+            when(productService.decreaseStockAndCreateOrderProducts(any())).thenReturn(orderProducts);
             when(orderService.createOrder(any(OrderCommand.Create.class))).thenAnswer(invocation -> {
                 OrderCommand.Create command = invocation.getArgument(0);
                 return Orders.reconstruct(1L, "ORD-001", command.memberId(), 35000, 0, null, OrderStatus.CREATED, command.orderProducts());
-            });
-            when(orderProductService.saveAll(eq(1L), any())).thenAnswer(invocation -> {
-                List<OrderProduct> products = invocation.getArgument(1);
-                return products;
             });
 
             // act
@@ -102,8 +92,7 @@ class OrderFacadeTest {
                 () -> assertThat(result.totalPrice()).isEqualTo(35000),
                 () -> assertThat(result.orderProducts()).hasSize(2)
             );
-            verify(productService).decreaseStockAtomic(1L, 2);
-            verify(productService).decreaseStockAtomic(2L, 3);
+            verify(productService).decreaseStockAndCreateOrderProducts(any());
 
             ArgumentCaptor<OrderCommand.Create> captor = ArgumentCaptor.forClass(OrderCommand.Create.class);
             verify(orderService).createOrder(captor.capture());
@@ -123,7 +112,7 @@ class OrderFacadeTest {
             ), null);
 
             when(memberService.findMember("testuser", "password")).thenReturn(member);
-            when(productService.decreaseStockAtomic(999L, 1))
+            when(productService.decreaseStockAndCreateOrderProducts(any()))
                     .thenThrow(new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
 
             // act & assert
@@ -143,7 +132,7 @@ class OrderFacadeTest {
             ), null);
 
             when(memberService.findMember("testuser", "password")).thenReturn(member);
-            when(productService.decreaseStockAtomic(1L, 10))
+            when(productService.decreaseStockAndCreateOrderProducts(any()))
                     .thenThrow(new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다."));
 
             // act & assert
