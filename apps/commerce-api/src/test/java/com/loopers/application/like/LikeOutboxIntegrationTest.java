@@ -76,7 +76,7 @@ class LikeOutboxIntegrationTest {
         assertThat(pending.get(0).getAggregateId()).isEqualTo(PRODUCT_ID);
         assertThat(pending.get(0).getStatus()).isEqualTo(OutboxStatus.PENDING);
 
-        outboxRelayScheduler.relay();
+        outboxRelayScheduler.compensate();
 
         assertThat(outboxRepository.findPendingWithLimit(10)).isEmpty();
 
@@ -97,7 +97,7 @@ class LikeOutboxIntegrationTest {
         assertThat(pending).hasSize(2);
         assertThat(pending.stream().anyMatch(o -> "LikeRemovedEvent".equals(o.getEventType()))).isTrue();
 
-        outboxRelayScheduler.relay();
+        outboxRelayScheduler.compensate();
 
         assertThat(outboxRepository.findPendingWithLimit(10)).isEmpty();
 

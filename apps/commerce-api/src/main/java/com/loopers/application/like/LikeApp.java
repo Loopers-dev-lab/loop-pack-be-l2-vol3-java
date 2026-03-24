@@ -5,9 +5,12 @@ import com.loopers.domain.common.vo.RefMemberId;
 import com.loopers.domain.like.LikeActionResult;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.like.LikeService;
+import com.loopers.domain.like.event.LikeRemovedEvent;
+import com.loopers.domain.like.event.LikedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -25,6 +28,7 @@ public class LikeApp {
     private final LikeService likeService;
     private final LikeRepository likeRepository;
     private final OutboxAppender outboxAppender;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Caching(evict = {
         @CacheEvict(value = "product",  key = "#productId"),
@@ -35,10 +39,11 @@ public class LikeApp {
         LikeActionResult result = likeService.addLike(memberId, productId);
         if (result.added()) {
             Long productDbId = result.likeModel().getRefProductId().value();
-            LikeOutboxPayload payload = new LikeOutboxPayload(
-                    UUID.randomUUID().toString(), "LikedEvent", 1,
-                    productDbId, memberId, 1, LocalDateTime.now());
+            String eventId = UUID.randomUUID().toString();
+            LocalDateTime now = LocalDateTime.now();
+            LikeOutboxPayload payload = new LikeOutboxPayload(eventId, "LikedEvent", 1, productDbId, memberId, 1, now);
             outboxAppender.append("like", productId, "LikedEvent", CATALOG_EVENTS_TOPIC, payload);
+            eventPublisher.publishEvent(new LikedEvent(eventId, productDbId, memberId, now));
         }
         return LikeInfo.from(result.likeModel());
     }
@@ -51,10 +56,11 @@ public class LikeApp {
     public void removeLike(Long memberId, String productId) {
         likeService.removeLike(memberId, productId).ifPresent(like -> {
             Long productDbId = like.getRefProductId().value();
-            LikeOutboxPayload payload = new LikeOutboxPayload(
-                    UUID.randomUUID().toString(), "LikeRemovedEvent", 1,
-                    productDbId, memberId, -1, LocalDateTime.now());
+            String eventId = UUID.randomUUID().toString();
+            LocalDateTime now = LocalDateTime.now();
+            LikeOutboxPayload payload = new LikeOutboxPayload(eventId, "LikeRemovedEvent", 1, productDbId, memberId, -1, now);
             outboxAppender.append("like", productId, "LikeRemovedEvent", CATALOG_EVENTS_TOPIC, payload);
+            eventPublisher.publishEvent(new LikeRemovedEvent(eventId, productDbId, memberId, now));
         });
     }
 
