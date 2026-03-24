@@ -13,6 +13,8 @@ public interface OrderRepository {
 
     Optional<Order> findById(Long orderId);
 
+    Optional<Order> findByOrderId(String orderId);
+
     PageResponse<Order> findAll(Pageable pageable);
 
     List<Order> findAllByUserIdAndCreatedAtBetween(Long userId, ZonedDateTime startAt, ZonedDateTime endAt);

@@ -37,7 +37,7 @@ public class OrderController {
                 request.couponId()
         );
 
-        Long orderId = orderFacade.createOrder(user.id(), orderCommand);
+        String orderId = orderFacade.createOrder(user.id(), orderCommand);
         OrderDto.CreateOrderResponse response = new OrderDto.CreateOrderResponse(orderId);
         return ApiResponse.success(response);
     }
@@ -58,7 +58,7 @@ public class OrderController {
     @LoginRequired
     @GetMapping("/api/v1/orders/{orderId}")
     public ApiResponse<OrderDto.DetailResponse> getDetail(@CurrentUser AuthenticatedUser user,
-                                                          @PathVariable Long orderId) {
+                                                          @PathVariable String orderId) {
         OrderDetail orderDetail = orderFacade.getDetail(user.id(), orderId);
         return ApiResponse.success(OrderDto.DetailResponse.from(orderDetail));
     }

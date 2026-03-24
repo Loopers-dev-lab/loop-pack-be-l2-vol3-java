@@ -42,7 +42,7 @@ class ProductQueryServiceTest {
             // arrange
             Long brandId = 1L;
             Long productId = 10L;
-            ProductInfo cachedInfo = new ProductInfo("나이키 에어맥스", "설명", 10, 150000, "나이키", 0L);
+            ProductInfo cachedInfo = new ProductInfo(productId, "나이키 에어맥스", "설명", 10, 150000, "나이키", 0L);
 
             when(productCacheStore.getList(brandId, "latest", 0, 20))
                     .thenReturn(Optional.of(new ProductCacheStore.ProductListCacheEntry(List.of(productId), 1)));
@@ -66,7 +66,7 @@ class ProductQueryServiceTest {
             Long brandId = 1L;
             Long cachedProductId = 10L;
             Long missingProductId = 20L;
-            ProductInfo cachedInfo = new ProductInfo("나이키 에어맥스", "설명", 10, 150000, "나이키", 0L);
+            ProductInfo cachedInfo = new ProductInfo(cachedProductId, "나이키 에어맥스", "설명", 10, 150000, "나이키", 0L);
 
             Product missingProduct = mock(Product.class);
             when(missingProduct.getId()).thenReturn(missingProductId);
@@ -131,7 +131,7 @@ class ProductQueryServiceTest {
         void returnsCachedProductInfo_whenCacheHit() {
             // arrange
             Long productId = 1L;
-            ProductInfo cached = new ProductInfo("나이키 에어맥스", "설명", 10, 150000, "나이키", 0L);
+            ProductInfo cached = new ProductInfo(productId, "나이키 에어맥스", "설명", 10, 150000, "나이키", 0L);
             when(productCacheStore.get(productId)).thenReturn(Optional.of(cached));
 
             // act

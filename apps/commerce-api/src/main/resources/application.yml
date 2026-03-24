@@ -29,11 +29,51 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+resilience4j:
+  circuitbreaker:
+    circuitBreakerAspectOrder: 1  # outer — CB(outer) → Retry(inner)
+    instances:
+      pg:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50        # 5회 중 50% 실패 시 open
+        wait-duration-in-open-state: 10s  # 10초 후 half-open
+        permitted-number-of-calls-in-half-open-state: 3
+        ignore-exceptions:
+          - com.loopers.application.payment.pg.exception.PgReadTimeoutException   # PG 수신 가능성 있음 → 장애 통계 제외
+          - com.loopers.application.payment.pg.exception.PgBadRequestException    # 요청 오류 → 장애 통계 제외
+          - com.loopers.application.payment.pg.exception.PgCircuitOpenException   # CB 자체 발생 → 장애 통계 제외
+  retry:
+    retryAspectOrder: 2  # inner
+    instances:
+      pg:
+        max-attempts: 3
+        wait-duration: 500ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        exponential-max-wait-duration: 2s
+        retry-exceptions:
+          - com.loopers.application.payment.pg.exception.PgServerException        # PG 5xx → 재시도
+          - com.loopers.application.payment.pg.exception.PgConnectTimeoutException # 연결 타임아웃 → 재시도
+        ignore-exceptions:
+          - com.loopers.application.payment.pg.exception.PgReadTimeoutException   # 읽기 타임아웃 → 중복 결제 방지, 재시도 불가
+          - com.loopers.application.payment.pg.exception.PgBadRequestException    # 요청 오류 → 재시도 불가
+
 ---
 spring:
   config:
     activate:
       on-profile: local, test
+
+payment:
+  pg:
+    callback-url: http://localhost:8080/api/v1/payments/callback
+    base-url: http://localhost:8082
+    merchant-id: loopers
+  reconciliation:
+    interval-ms: 30000
+    pending-threshold-seconds: 30
 
 ---
 spring:

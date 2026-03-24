@@ -36,7 +36,7 @@ public class OrderFacade {
     private final OrderAssembler orderAssembler;
 
     @Transactional
-    public Long createOrder(Long userId, OrderCommand orderCommand) {
+    public String createOrder(Long userId, OrderCommand orderCommand) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자 정보를 찾을 수 없습니다."));
 
@@ -85,12 +85,13 @@ public class OrderFacade {
         }
 
         Order order = Order.of(user.getId(), orderItems, userCouponId, discountAmount);
-        return orderRepository.save(order);
+        orderRepository.save(order);
+        return order.orderId();
     }
 
     @Transactional(readOnly = true)
-    public OrderDetail getDetail(Long userId, Long orderId) {
-        Order order = orderRepository.findById(orderId)
+    public OrderDetail getDetail(Long userId, String orderId) {
+        Order order = orderRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다."));
 
         if (!order.isOwnedBy(userId)) {

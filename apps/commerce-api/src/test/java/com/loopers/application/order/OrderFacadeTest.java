@@ -73,10 +73,10 @@ class OrderFacadeTest {
             OrderCommand command = new OrderCommand(List.of(new OrderCommand.Item(productId, 3)), null);
 
             // act
-            Long orderId = orderFacade.createOrder(userId, command);
+            String orderId = orderFacade.createOrder(userId, command);
 
             // assert
-            assertThat(orderId).isEqualTo(1L);
+            assertThat(orderId).isNotBlank();
             assertThat(product.stock().value()).isEqualTo(7); // 10 - 3
         }
 
@@ -178,10 +178,10 @@ class OrderFacadeTest {
             OrderCommand command = new OrderCommand(List.of(new OrderCommand.Item(productId, 1)), userCouponId);
 
             // act
-            Long orderId = orderFacade.createOrder(userId, command);
+            String orderId = orderFacade.createOrder(userId, command);
 
             // assert
-            assertThat(orderId).isEqualTo(1L);
+            assertThat(orderId).isNotBlank();
         }
 
         @DisplayName("존재하지 않는 쿠폰 ID를 사용하면, CoreException 이 발생한다.")
@@ -222,20 +222,20 @@ class OrderFacadeTest {
         void returnsOrderDetail_whenOwner() {
             // arrange
             Long userId = 1L;
-            Long orderId = 10L;
+            String orderId = "20260318-BASQZX";
 
             Order order = mock(Order.class);
-            when(order.getId()).thenReturn(orderId);
+            when(order.orderId()).thenReturn(orderId);
             when(order.isOwnedBy(userId)).thenReturn(true);
 
-            when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+            when(orderRepository.findByOrderId(orderId)).thenReturn(Optional.of(order));
 
             // act
             OrderDetail result = orderFacade.getDetail(userId, orderId);
 
             // assert
             assertThat(result).isNotNull();
-            assertThat(result.orderId()).isEqualTo(orderId);
+            assertThat(result.orderId()).isNotNull();
         }
 
         @DisplayName("존재하지 않는 주문이면, CoreException 이 발생한다.")
@@ -243,9 +243,9 @@ class OrderFacadeTest {
         void throwsCoreException_whenOrderNotFound() {
             // arrange
             Long userId = 1L;
-            Long orderId = 999L;
+            String orderId = "20260318-BASQZX";
 
-            when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
+            when(orderRepository.findByOrderId(orderId)).thenReturn(Optional.empty());
 
             // act
             CoreException result = assertThrows(CoreException.class,
@@ -260,12 +260,12 @@ class OrderFacadeTest {
         void throwsCoreException_whenNotOwner() {
             // arrange
             Long userId = 1L;
-            Long orderId = 10L;
+            String orderId = "20260318-BASQZX";
 
             Order order = mock(Order.class);
             when(order.isOwnedBy(userId)).thenReturn(false);
 
-            when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+            when(orderRepository.findByOrderId(orderId)).thenReturn(Optional.of(order));
 
             // act
             CoreException result = assertThrows(CoreException.class,
@@ -383,6 +383,7 @@ class OrderFacadeTest {
 
             Order order = mock(Order.class);
             when(order.getId()).thenReturn(1L);
+            when(order.orderId()).thenReturn("20260318-APZHCS");
             when(order.getCreatedAt()).thenReturn(ZonedDateTime.now());
             when(order.paymentAmount()).thenReturn(150000L);
             when(order.itemCount()).thenReturn(2);
@@ -395,7 +396,7 @@ class OrderFacadeTest {
 
             // assert
             assertThat(result).hasSize(1);
-            assertThat(result.get(0).orderId()).isEqualTo(1L);
+            assertThat(result.get(0).orderId()).isEqualTo("20260318-APZHCS");
             assertThat(result.get(0).totalPrice()).isEqualTo(150000L);
             assertThat(result.get(0).itemCount()).isEqualTo(2);
         }

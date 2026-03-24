@@ -3,21 +3,23 @@ package com.loopers.domain.order;
 import com.loopers.domain.BaseEntity;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Entity
 @Table(name = "orders")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Order extends BaseEntity {
+
+    @Column(name = "order_id", nullable = false, unique = true)
+    private String orderId;     // 외부 PG사용 및 고객 노출용
 
     @Column(name = "user_id")
     private Long userId;
@@ -39,6 +41,7 @@ public class Order extends BaseEntity {
     private List<OrderItem> items;
 
     private Order(Long userId, Long issuedCouponId, long originalAmount, long discountAmount, List<OrderItem> items) {
+        this.orderId = generateOrderNumber();
         this.userId = userId;
         this.issuedCouponId = issuedCouponId;
         this.originalAmount = originalAmount;
@@ -67,6 +70,10 @@ public class Order extends BaseEntity {
                 .sum();
 
         return new Order(userId, issuedCouponId, originalAmount, discountAmount, items);
+    }
+
+    public String orderId() {
+        return orderId;
     }
 
     public Long originalAmount() {
@@ -99,5 +106,27 @@ public class Order extends BaseEntity {
 
     public boolean isOwnedBy(Long userId) {
         return this.userId.equals(userId);
+    }
+
+    private String generateOrderNumber() {
+        // 1. 날짜 기반 접두사 (8자리: 20260318)
+        String datePart = LocalDate.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+
+        // 2. 유추 불가능한 랜덤 문자열 (6자리)
+        String randomPart = generateSecureRandomString(6);
+
+        return datePart + "-" + randomPart;
+    }
+
+    private String generateSecureRandomString(int length) {
+        String charSet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        StringBuilder sb = new StringBuilder();
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+
+        for (int i = 0; i < length; i++) {
+            int index = random.nextInt(charSet.length());
+            sb.append(charSet.charAt(index));
+        }
+        return sb.toString();
     }
 }

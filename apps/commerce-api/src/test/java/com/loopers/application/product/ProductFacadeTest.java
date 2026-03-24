@@ -159,7 +159,7 @@ class ProductFacadeTest {
         void delegatesToProductQueryService_whenProductExists() {
             // arrange
             Long productId = 1L;
-            ProductInfo expected = new ProductInfo("나이키 에어맥스", "설명", 10, 150000, "나이키", 0L);
+            ProductInfo expected = new ProductInfo(productId, "나이키 에어맥스", "설명", 10, 150000, "나이키", 0L);
             when(productQueryService.getDetail(productId)).thenReturn(expected);
 
             // act

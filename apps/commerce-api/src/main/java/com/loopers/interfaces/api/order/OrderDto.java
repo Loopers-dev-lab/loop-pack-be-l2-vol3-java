@@ -14,11 +14,11 @@ public class OrderDto {
         }
     }
 
-    public static record CreateOrderResponse(Long orderId) {
+    public static record CreateOrderResponse(String orderId) {
 
     }
 
-    public static record SummaryResponse(Long orderId, ZonedDateTime orderedAt, Long totalPrice, Integer itemCount) {
+    public static record SummaryResponse(String orderId, ZonedDateTime orderedAt, Long totalPrice, Integer itemCount) {
 
         public static SummaryResponse from(OrderSummary orderSummary) {
             return new SummaryResponse(orderSummary.orderId(), orderSummary.orderedAt(), orderSummary.totalPrice(), orderSummary.itemCount());
