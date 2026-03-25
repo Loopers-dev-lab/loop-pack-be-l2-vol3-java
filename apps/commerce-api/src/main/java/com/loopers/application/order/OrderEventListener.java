@@ -2,71 +2,89 @@ package com.loopers.application.order;
 
 import com.loopers.domain.common.event.OrderConfirmedEvent;
 import com.loopers.domain.common.event.OrderItemSoldEvent;
-import com.loopers.domain.common.event.UserActivityEvent;
-import com.loopers.domain.point.PointService;
+import com.loopers.infrastructure.outbox.OutboxEventService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * 주문 이벤트 리스너
+ * 주문 이벤트 리스너 — Step 2 (Kafka 전환)
  *
- * AFTER_COMMIT + @Async 조합:
- *   메인 TX(TX2)가 커밋된 후에, 별도 스레드에서 실행.
- *   → 메인 응답 속도에 영향 없음.
- *   → 실패해도 메인 비즈니스 롤백 없음.
+ * Step 1에서는 @Async + pointService.earn() 직접 호출이었으나,
+ * Step 2에서는 Outbox에 저장 → Relay → Kafka → commerce-streamer Consumer가 처리.
  *
- * 포인트 적립이 여기서 실패하면?
- *   → 현재: 로그만 남김 (CS 보정)
- *   → Step 2(Kafka 전환) 후: Outbox + DLQ로 자동 재처리
+ * AFTER_COMMIT 유지 (TX 커밋 확인 후 Outbox 저장):
+ *   OrderFacade.processPaymentAndConfirm()은 txTemplate.execute()를 사용하므로
+ *   이벤트 발행이 TX 밖에서 일어남. 따라서 AFTER_COMMIT 리스너가 트리거되려면
+ *   이벤트 발행 시점에 활성 TX가 필요 → 별도 @Transactional로 Outbox 저장.
+ *
+ * @Async 제거:
+ *   Outbox 저장은 DB INSERT 1건이라 빠름 (수 ms).
+ *   비동기로 할 필요 없고, 동기로 하면 Outbox 저장 실패를 즉시 감지 가능.
  */
 @Component
 public class OrderEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(OrderEventListener.class);
 
-    private final PointService pointService;
+    private final OutboxEventService outboxEventService;
 
-    public OrderEventListener(PointService pointService) {
-        this.pointService = pointService;
+    public OrderEventListener(OutboxEventService outboxEventService) {
+        this.outboxEventService = outboxEventService;
     }
 
     /**
-     * 주문 확정 → 포인트 적립
+     * 주문 확정 → Outbox에 포인트 적립 이벤트 저장
      *
-     * AFTER_COMMIT: TX2 커밋 확인 후 실행 → 주문 확정이 DB에 반영된 후
-     * @Async: 별도 스레드 → API 응답 지연 없음
+     * Relay가 order-events-v1 토픽으로 발행 → commerce-streamer Consumer가 포인트 적립
      */
-    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleOrderConfirmed(OrderConfirmedEvent event) {
         try {
-            log.info("[OrderEventListener] 포인트 적립 시작 — orderId={}, userId={}, amount={}",
-                    event.orderId(), event.userId(), event.totalAmount());
-
-            pointService.earn(event.userId(), event.totalAmount());
-
-            log.info("[OrderEventListener] 포인트 적립 완료 — orderId={}, userId={}",
-                    event.orderId(), event.userId());
+            outboxEventService.save(
+                    "ORDER",
+                    event.orderId(),
+                    "OrderConfirmedEvent",
+                    event,
+                    "order-events-v1",
+                    String.valueOf(event.orderId())
+            );
+            log.info("[OrderEventListener] Outbox 저장 — orderId={}, topic=order-events-v1",
+                    event.orderId());
         } catch (Exception e) {
-            // 포인트 적립 실패 → 메인 비즈니스에 영향 없음
-            // Step 2에서 Kafka + Outbox + DLQ로 전환하면 자동 재처리
-            log.error("[OrderEventListener] 포인트 적립 실패 — orderId={}, userId={}, error={}",
-                    event.orderId(), event.userId(), e.getMessage(), e);
+            log.error("[OrderEventListener] Outbox 저장 실패 — orderId={}, error={}",
+                    event.orderId(), e.getMessage(), e);
         }
     }
 
     /**
-     * 주문 확정 → 유저 행동 로깅
+     * 상품 판매 → Outbox에 판매량 집계 이벤트 저장
+     *
+     * Relay가 catalog-events-v1 토픽으로 발행 → commerce-streamer Consumer가 집계
      */
-    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handleOrderActivity(OrderConfirmedEvent event) {
-        log.info("[OrderEventListener] 유저 행동 로깅 — userId={}, orderId={}, type=PAYMENT",
-                event.userId(), event.orderId());
-        // Step 2에서 Kafka user-activity-events 토픽으로 전환
+    public void handleOrderItemSold(OrderItemSoldEvent event) {
+        try {
+            for (var entry : event.productQtyMap().entrySet()) {
+                outboxEventService.save(
+                        "PRODUCT",
+                        entry.getKey(),
+                        "OrderItemSoldEvent",
+                        new ProductSoldPayload(event.orderId(), entry.getKey(), entry.getValue()),
+                        "catalog-events-v1",
+                        String.valueOf(entry.getKey())
+                );
+            }
+            log.info("[OrderEventListener] Outbox 저장 (판매 집계) — orderId={}, products={}",
+                    event.orderId(), event.productQtyMap().size());
+        } catch (Exception e) {
+            log.error("[OrderEventListener] Outbox 저장 실패 (판매 집계) — orderId={}, error={}",
+                    event.orderId(), e.getMessage(), e);
+        }
+    }
+
+    public record ProductSoldPayload(Long orderId, Long productId, int quantity) {
     }
 }
