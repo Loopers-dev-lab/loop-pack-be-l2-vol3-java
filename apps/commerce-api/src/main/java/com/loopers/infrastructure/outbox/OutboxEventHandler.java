@@ -34,6 +34,7 @@ public class OutboxEventHandler {
                 "eventType", "LIKE_CREATED",
                 "userId", event.userId(),
                 "productId", event.productId(),
+                "delta", 1,
                 "occurredAt", ZonedDateTime.now().toString()
         ));
         outboxEventJpaRepository.save(OutboxEvent.of(eventId, CATALOG_TOPIC, event.productId().toString(), payload));
@@ -47,6 +48,7 @@ public class OutboxEventHandler {
                 "eventType", "LIKE_DELETED",
                 "userId", event.userId(),
                 "productId", event.productId(),
+                "delta", -1,
                 "occurredAt", ZonedDateTime.now().toString()
         ));
         outboxEventJpaRepository.save(OutboxEvent.of(eventId, CATALOG_TOPIC, event.productId().toString(), payload));
@@ -61,6 +63,7 @@ public class OutboxEventHandler {
         data.put("userId", event.userId());
         data.put("orderId", event.orderId());
         data.put("totalAmount", event.totalAmount());
+        data.put("items", event.items());
         data.put("occurredAt", ZonedDateTime.now().toString());
 
         String payload = toPayload(data);

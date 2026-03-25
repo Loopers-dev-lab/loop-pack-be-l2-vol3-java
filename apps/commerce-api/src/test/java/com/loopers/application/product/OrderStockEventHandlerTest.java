@@ -35,7 +35,7 @@ class OrderStockEventHandlerTest {
         void decreasesStock_whenOrderCreatedEventReceived() {
             // arrange
             Long productId = 0L;
-            OrderEvent.Created event = new OrderEvent.Created(1L, "20260325-ABCDEF", 150000L, null);
+            OrderEvent.Created event = new OrderEvent.Created(1L, "20260325-ABCDEF", 150000L, null, List.of());
 
             OrderItem item = mock(OrderItem.class);
             when(item.productId()).thenReturn(productId);

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.Mockito.*;
@@ -27,7 +28,7 @@ class OrderCouponEventHandlerTest {
             // arrange
             Long userId = 1L;
             Long userCouponId = 10L;
-            OrderEvent.Created event = new OrderEvent.Created(userId, "20260325-ABCDEF", 90000L, userCouponId);
+            OrderEvent.Created event = new OrderEvent.Created(userId, "20260325-ABCDEF", 90000L, userCouponId, List.of());
 
             UserCoupon userCoupon = mock(UserCoupon.class);
             when(userCouponRepository.findById(userCouponId)).thenReturn(Optional.of(userCoupon));
@@ -44,7 +45,7 @@ class OrderCouponEventHandlerTest {
         @Test
         void doesNothing_whenOrderCreatedEventHasNoCoupon() {
             // arrange
-            OrderEvent.Created event = new OrderEvent.Created(1L, "20260325-ABCDEF", 150000L, null);
+            OrderEvent.Created event = new OrderEvent.Created(1L, "20260325-ABCDEF", 150000L, null, List.of());
 
             // act
             handler.handle(event);

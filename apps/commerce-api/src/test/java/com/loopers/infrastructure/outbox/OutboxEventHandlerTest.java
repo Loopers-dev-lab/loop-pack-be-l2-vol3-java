@@ -3,6 +3,7 @@ package com.loopers.infrastructure.outbox;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.like.LikeEvent;
 import com.loopers.domain.order.OrderEvent;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -69,7 +70,7 @@ class OutboxEventHandlerTest {
         @Test
         void savesOutboxEvent_whenOrderCreatedEventReceived() {
             // arrange
-            OrderEvent.Created event = new OrderEvent.Created(1L, "20260325-ABCDEF", 90000L, null);
+            OrderEvent.Created event = new OrderEvent.Created(1L, "20260325-ABCDEF", 90000L, null, List.of());
 
             // act
             handler.handle(event);
