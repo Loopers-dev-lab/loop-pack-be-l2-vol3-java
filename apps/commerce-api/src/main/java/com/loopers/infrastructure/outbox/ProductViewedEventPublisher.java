@@ -10,6 +10,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.UUID;
 
@@ -33,6 +34,7 @@ public class ProductViewedEventPublisher {
             Map<String, Object> envelope = Map.of(
                 "eventId", eventId,
                 "eventType", "PRODUCT_VIEWED",
+                "occurredAt", ZonedDateTime.now().toString(),
                 "data", event
             );
             String payload = objectMapper.writeValueAsString(envelope);

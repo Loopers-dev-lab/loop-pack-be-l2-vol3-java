@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.UUID;
 
@@ -69,6 +70,7 @@ public class OutboxEventListener {
             Map<String, Object> envelope = Map.of(
                 "eventId", eventId,
                 "eventType", eventType,
+                "occurredAt", ZonedDateTime.now().toString(),
                 "data", event
             );
             String payload = objectMapper.writeValueAsString(envelope);
@@ -76,7 +78,7 @@ public class OutboxEventListener {
                 aggregateType, aggregateId, eventType, eventId, topic, partitionKey, payload);
             outboxJpaRepository.save(outboxEvent);
         } catch (JsonProcessingException e) {
-            log.error("[Outbox 직렬화 실패] eventType={}, error={}", eventType, e.getMessage());
+            throw new RuntimeException("[Outbox 직렬화 실패] eventType=" + eventType, e);
         }
     }
 }

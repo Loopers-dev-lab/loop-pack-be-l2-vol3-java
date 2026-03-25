@@ -92,8 +92,9 @@ public class OrderEventConsumer {
             kafkaTemplate.send(DLQ_TOPIC, record.key(), record.value())
                 .get(5, TimeUnit.SECONDS);
         } catch (Exception e) {
-            throw new RuntimeException(
-                "[OrderEvent] DLQ 전송 실패: offset=" + record.offset(), e);
+            log.error("[OrderEvent] DLQ 전송 실패. topic={}, partition={}, offset={}, key={}",
+                record.topic(), record.partition(), record.offset(), record.key(), e);
+            throw new RuntimeException("DLQ 전송 실패 — 전체 배치 재배달 필요", e);
         }
     }
 

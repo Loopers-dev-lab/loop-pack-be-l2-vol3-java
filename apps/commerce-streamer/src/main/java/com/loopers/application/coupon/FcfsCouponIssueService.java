@@ -40,7 +40,7 @@ public class FcfsCouponIssueService {
         FcfsCoupon fcfsCoupon = fcfsCouponRepository.findByCouponId(payload.couponId())
             .orElse(null);
         if (fcfsCoupon == null) {
-            updateRequestFailed(eventId, payload.requestId(), "선착순 쿠폰 정보를 찾을 수 없습니다.");
+            updateRequestFailed(payload.requestId(), "선착순 쿠폰 정보를 찾을 수 없습니다.");
             return;
         }
 
@@ -50,9 +50,14 @@ public class FcfsCouponIssueService {
 
         if (currentCount == null || currentCount > maxQuantity) {
             if (currentCount != null) {
-                redisTemplate.opsForValue().decrement(counterKey);
+                try {
+                    redisTemplate.opsForValue().decrement(counterKey);
+                } catch (Exception e) {
+                    log.error("[Redis DECR 보상 실패] 수동 보정 필요. couponId={}, counterKey={}",
+                        payload.couponId(), counterKey, e);
+                }
             }
-            updateRequestFailed(eventId, payload.requestId(), "선착순 마감");
+            updateRequestFailed(payload.requestId(), "선착순 마감");
             log.info("[선착순 마감] couponId={}, userId={}, count={}",
                 payload.couponId(), payload.userId(), currentCount);
             return;
@@ -79,14 +84,20 @@ public class FcfsCouponIssueService {
             log.info("[쿠폰 발급 성공] couponId={}, userId={}, count={}/{}",
                 payload.couponId(), payload.userId(), currentCount, maxQuantity);
         } catch (Exception e) {
-            redisTemplate.opsForValue().decrement(counterKey);
-            updateRequestFailed(eventId, payload.requestId(), e.getMessage());
+            try {
+                redisTemplate.opsForValue().decrement(counterKey);
+            } catch (Exception redisEx) {
+                log.error("[Redis DECR 보상 실패] 수동 보정 필요. couponId={}, counterKey={}",
+                    payload.couponId(), counterKey, redisEx);
+            }
+            updateRequestFailed(payload.requestId(), e.getMessage());
             log.warn("[쿠폰 발급 실패] couponId={}, userId={}, error={}",
                 payload.couponId(), payload.userId(), e.getMessage());
+            throw e;
         }
     }
 
-    private void updateRequestFailed(String eventId, String requestId, String reason) {
+    private void updateRequestFailed(String requestId, String reason) {
         TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
         txTemplate.executeWithoutResult(status -> {
             CouponIssueRequest request = couponIssueRequestRepository.findByRequestId(requestId)
@@ -95,7 +106,6 @@ public class FcfsCouponIssueService {
                 request.markFailed(reason);
                 couponIssueRequestRepository.save(request);
             }
-            eventHandledRepository.save(new EventHandled(eventId));
         });
     }
 }

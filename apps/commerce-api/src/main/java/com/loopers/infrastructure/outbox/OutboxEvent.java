@@ -2,6 +2,8 @@ package com.loopers.infrastructure.outbox;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -15,7 +17,7 @@ import java.time.ZonedDateTime;
 @Getter
 @Entity
 @Table(name = "outbox_events", indexes = {
-    @Index(name = "idx_outbox_unpublished", columnList = "published, created_at")
+    @Index(name = "idx_outbox_status", columnList = "status, created_at")
 })
 public class OutboxEvent {
 
@@ -44,14 +46,18 @@ public class OutboxEvent {
     @Column(name = "payload", nullable = false, columnDefinition = "JSON")
     private String payload;
 
-    @Column(name = "published", nullable = false)
-    private boolean published;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private OutboxStatus status;
 
     @Column(name = "created_at", nullable = false)
     private ZonedDateTime createdAt;
 
     @Column(name = "published_at")
     private ZonedDateTime publishedAt;
+
+    @Column(name = "retry_count", nullable = false)
+    private int retryCount = 0;
 
     protected OutboxEvent() {}
 
@@ -64,12 +70,24 @@ public class OutboxEvent {
         this.topic = topic;
         this.partitionKey = partitionKey;
         this.payload = payload;
-        this.published = false;
+        this.status = OutboxStatus.PENDING;
         this.createdAt = ZonedDateTime.now();
     }
 
     public void markPublished() {
-        this.published = true;
+        this.status = OutboxStatus.PUBLISHED;
         this.publishedAt = ZonedDateTime.now();
+    }
+
+    public void markFailed() {
+        this.status = OutboxStatus.FAILED;
+    }
+
+    public void incrementRetryCount() {
+        this.retryCount++;
+    }
+
+    public boolean isRetryExhausted(int maxRetry) {
+        return this.retryCount >= maxRetry;
     }
 }
