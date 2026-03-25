@@ -1,17 +1,18 @@
 package com.loopers.application.product;
 
+import com.loopers.application.product.event.ProductDeletedEvent;
+import com.loopers.application.product.event.ProductUpdatedEvent;
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductSortOrder;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -35,26 +36,16 @@ public class ProductFacade {
     private final BrandService brandService;
     private final LikeService likeService;
     private final ProductCacheService productCacheService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ProductFacade(ProductService productService, BrandService brandService, LikeService likeService,
-            ProductCacheService productCacheService) {
+            ProductCacheService productCacheService,
+            ApplicationEventPublisher eventPublisher) {
         this.productService = productService;
         this.brandService = brandService;
         this.likeService = likeService;
         this.productCacheService = productCacheService;
-    }
-
-    private static void runAfterCommit(Runnable task) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            task.run();
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                task.run();
-            }
-        });
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -145,19 +136,13 @@ public class ProductFacade {
     @Transactional
     public ProductInfo updateProduct(Long id, String name, BigDecimal price, int stockQuantity) {
         ProductModel product = productService.updateProduct(id, name, price, stockQuantity);
-        runAfterCommit(() -> {
-            productCacheService.evictDetail(id);
-            productCacheService.evictList();
-        });
+        eventPublisher.publishEvent(new ProductUpdatedEvent(id));
         return ProductInfo.from(product);
     }
 
     @Transactional
     public void deleteProduct(Long id) {
         productService.deleteProduct(id);
-        runAfterCommit(() -> {
-            productCacheService.evictDetail(id);
-            productCacheService.evictList();
-        });
+        eventPublisher.publishEvent(new ProductDeletedEvent(id));
     }
 }

@@ -1,14 +1,13 @@
 package com.loopers.application.like;
 
-import com.loopers.application.product.ProductCacheService;
+import com.loopers.application.product.event.ProductLikeChangedEvent;
 import com.loopers.domain.like.LikeModel;
 import com.loopers.domain.like.LikeService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * 좋아요 유스케이스 조율.
@@ -19,44 +18,24 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class LikeFacade {
 
     private final LikeService likeService;
-    private final ProductCacheService productCacheService;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public LikeFacade(LikeService likeService, ProductCacheService productCacheService) {
+    public LikeFacade(LikeService likeService, ApplicationEventPublisher eventPublisher) {
         this.likeService = likeService;
-        this.productCacheService = productCacheService;
-    }
-
-    private static void runAfterCommit(Runnable task) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            task.run();
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                task.run();
-            }
-        });
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
     public LikeInfo addLike(Long userId, Long productId) {
         LikeModel like = likeService.addLike(userId, productId);
-        // 좋아요 수 변경 시 커밋 이후 PDP + PLP 1페이지 캐시를 무효화해 정렬/카운트 일시 불일치 최소화
-        runAfterCommit(() -> {
-            productCacheService.evictDetail(productId);
-            productCacheService.evictList();
-        });
+        eventPublisher.publishEvent(new ProductLikeChangedEvent(productId));
         return LikeInfo.from(like);
     }
 
     @Transactional
     public void removeLike(Long userId, Long productId) {
         likeService.removeLike(userId, productId);
-        runAfterCommit(() -> {
-            productCacheService.evictDetail(productId);
-            productCacheService.evictList();
-        });
+        eventPublisher.publishEvent(new ProductLikeChangedEvent(productId));
     }
 
     @Transactional(readOnly = true)
