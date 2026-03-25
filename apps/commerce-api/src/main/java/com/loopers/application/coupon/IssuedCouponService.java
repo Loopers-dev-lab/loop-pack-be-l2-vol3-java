@@ -48,4 +48,12 @@ public class IssuedCouponService {
             throw new CoreException(ErrorType.COUPON_ALREADY_USED, "이미 사용된 쿠폰입니다.");
         }
     }
+
+    @Transactional
+    public void restore(Long issuedCouponId, Long userId) {
+        issuedCouponRepository.findByIdAndUserId(issuedCouponId, userId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
+
+        issuedCouponRepository.restoreById(issuedCouponId, userId);
+    }
 }

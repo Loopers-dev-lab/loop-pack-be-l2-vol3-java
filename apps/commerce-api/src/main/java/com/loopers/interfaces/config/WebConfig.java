@@ -21,11 +21,12 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(loginUserInterceptor)
                 .addPathPatterns("/api/v1/**")
                 .excludePathPatterns(
-                    "/api/v1/users",        // POST: 회원가입
-                    "/api/v1/brands/**",    // GET: 브랜드 조회
-                    "/api/v1/products",     // GET: 상품 목록
-                    "/api/v1/products/*",   // GET: 상품 상세 (* 는 '/' 미포함 → /likes 는 여전히 인터셉터 적용)
-                    "/api/v1/examples/**"   // GET: 예시
+                    "/api/v1/users",                    // POST: 회원가입
+                    "/api/v1/brands/**",                // GET: 브랜드 조회
+                    "/api/v1/products",                 // GET: 상품 목록
+                    "/api/v1/products/*",               // GET: 상품 상세 (* 는 '/' 미포함 → /likes 는 여전히 인터셉터 적용)
+                    "/api/v1/examples/**",              // GET: 예시
+                    "/api/v1/payments/callback"         // POST: PG 결제 콜백 (PG → 서버, 사용자 인증 불필요)
                 );
     }
 

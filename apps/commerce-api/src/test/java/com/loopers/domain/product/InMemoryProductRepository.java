@@ -91,6 +91,11 @@ public class InMemoryProductRepository implements ProductRepository {
     }
 
     @Override
+    public int increaseStock(Long productId, Integer quantity) {
+        throw new UnsupportedOperationException("Atomic UPDATE는 DB에 의존하므로 통합테스트에서 커버합니다.");
+    }
+
+    @Override
     public void increaseLikeCount(Long productId) {
         throw new UnsupportedOperationException("Atomic UPDATE는 DB에 의존하므로 통합테스트에서 커버합니다.");
     }

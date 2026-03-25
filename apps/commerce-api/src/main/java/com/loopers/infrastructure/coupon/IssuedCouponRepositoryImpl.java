@@ -43,6 +43,11 @@ public class IssuedCouponRepositoryImpl implements IssuedCouponRepository {
     }
 
     @Override
+    public int restoreById(Long id, Long userId) {
+        return issuedCouponJpaRepository.restoreById(id, userId);
+    }
+
+    @Override
     public Page<IssuedCoupon> findByCouponId(Long couponId, Pageable pageable) {
         return issuedCouponJpaRepository.findByCouponId(couponId, pageable);
     }

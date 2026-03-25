@@ -59,6 +59,26 @@ public class IssuedCouponTest {
         }
     }
 
+    @DisplayName("쿠폰 복원 시,")
+    @Nested
+    class Restore {
+
+        @DisplayName("restore() 호출 후 상태가 AVAILABLE로 변경된다.")
+        @Test
+        void returnsAvailable_afterRestore() {
+            // arrange
+            IssuedCoupon issuedCoupon = IssuedCoupon.create(1L, 1L, LocalDateTime.now().plusDays(30));
+            issuedCoupon.markAsUsed();
+            assertThat(issuedCoupon.getStatus()).isEqualTo(IssuedCoupon.Status.USED);
+
+            // act
+            issuedCoupon.restore();
+
+            // assert
+            assertThat(issuedCoupon.getStatus()).isEqualTo(IssuedCoupon.Status.AVAILABLE);
+        }
+    }
+
     @DisplayName("쿠폰 검증 시,")
     @Nested
     class Validate {
