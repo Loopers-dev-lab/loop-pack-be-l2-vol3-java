@@ -27,7 +27,7 @@ import com.loopers.support.error.OrderErrorType;
 import com.loopers.support.error.PointErrorType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationEventPublisher;
+import com.loopers.infrastructure.outbox.OutboxEventService;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,7 +68,7 @@ public class OrderFacade {
     private final PaymentService paymentService;
     private final TransactionTemplate txTemplate;
     private final OrderCacheManager orderCacheManager;
-    private final ApplicationEventPublisher eventPublisher;
+    private final OutboxEventService outboxEventService;
 
     public OrderFacade(OrderService orderService, UserAddressService userAddressService,
                        ProductService productService, BrandService brandService,
@@ -77,7 +77,7 @@ public class OrderFacade {
                        PaymentService paymentService,
                        PlatformTransactionManager txManager,
                        OrderCacheManager orderCacheManager,
-                       ApplicationEventPublisher eventPublisher) {
+                       OutboxEventService outboxEventService) {
         this.orderService = orderService;
         this.userAddressService = userAddressService;
         this.productService = productService;
@@ -87,7 +87,7 @@ public class OrderFacade {
         this.couponService = couponService;
         this.pointService = pointService;
         this.paymentService = paymentService;
-        this.eventPublisher = eventPublisher;
+        this.outboxEventService = outboxEventService;
         this.txTemplate = new TransactionTemplate(txManager);
         this.txTemplate.setTimeout(30);
         this.orderCacheManager = orderCacheManager;
@@ -243,19 +243,23 @@ public class OrderFacade {
             // PG 결제 (트랜잭션 밖 — 락 미보유 상태에서 외부 호출)
             String pgTxnId = simulatePgPayment();
 
-            // TX2: 결제 확정 + 재고 확정 + 주문 확정 + 이벤트 발행
-            // 이벤트는 TX2 안에서 발행 → BEFORE_COMMIT 리스너가 같은 TX에서 Outbox 저장
+            // TX2: 결제 확정 + 재고 확정 + 주문 확정 + 포인트 적립 + Outbox 저장
+            // 포인트 적립: 같은 앱, 같은 TX에서 직접 처리 (Kafka 안 거침)
+            // Outbox: 같은 TX에서 직접 저장 → 비즈니스 + Outbox 원자성 보장
             return txTemplate.execute(status -> {
                 paymentService.approve(context.paymentId(), pgTxnId, context.totalAmount());
                 inventoryService.commitAll(context.productQtyMap());
                 orderService.confirm(context.orderId(), context.paymentId(), context.paymentMethod());
+                pointService.earn(context.userId(), context.totalAmount());
 
-                // 도메인 이벤트 발행 — Facade는 Outbox를 모름
-                // BEFORE_COMMIT 리스너가 같은 TX 안에서 Outbox에 저장
-                eventPublisher.publishEvent(new com.loopers.domain.common.event.OrderConfirmedEvent(
-                        context.orderId(), context.userId(), context.totalAmount(), context.paymentId()));
-                eventPublisher.publishEvent(new com.loopers.domain.common.event.OrderItemSoldEvent(
-                        context.orderId(), context.productQtyMap()));
+                // Outbox 저장 — 같은 TX (판매량 집계 → catalog-events-v1)
+                for (var entry : context.productQtyMap().entrySet()) {
+                    outboxEventService.save("PRODUCT", entry.getKey(),
+                            "OrderItemSoldEvent",
+                            new com.loopers.domain.common.event.OrderItemSoldEvent(
+                                    context.orderId(), Map.of(entry.getKey(), entry.getValue())),
+                            "catalog-events-v1", String.valueOf(entry.getKey()));
+                }
 
                 Order order = orderService.getById(context.orderId());
                 return new OrderCreateResult(

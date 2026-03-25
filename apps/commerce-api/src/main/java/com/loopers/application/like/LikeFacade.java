@@ -10,7 +10,7 @@ import com.loopers.domain.like.ProductLike;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.common.event.ProductLikedEvent;
-import org.springframework.context.ApplicationEventPublisher;
+import com.loopers.infrastructure.outbox.OutboxEventService;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,18 +34,18 @@ public class LikeFacade {
     private final ProductService productService;
     private final BrandService brandService;
     private final ProductCacheManager productCacheManager;
-    private final ApplicationEventPublisher eventPublisher;
+    private final OutboxEventService outboxEventService;
 
     public LikeFacade(LikeService likeService, BrandLikeService brandLikeService,
                       ProductService productService, BrandService brandService,
                       ProductCacheManager productCacheManager,
-                      ApplicationEventPublisher eventPublisher) {
+                      OutboxEventService outboxEventService) {
         this.likeService = likeService;
         this.brandLikeService = brandLikeService;
         this.productService = productService;
         this.brandService = brandService;
         this.productCacheManager = productCacheManager;
-        this.eventPublisher = eventPublisher;
+        this.outboxEventService = outboxEventService;
     }
 
     /** 상품 좋아요 (상품 검증 → 좋아요 생성 → likeCount 증가 → 상세 캐시만 삭제) */
@@ -56,8 +56,10 @@ public class LikeFacade {
         productService.incrementLikeCount(productId);
         productCacheManager.registerDetailOnlyEvictAfterCommit(productId);
 
-        // 좋아요 이벤트 발행 — product_metrics 집계 + 유저 행동 로깅 (추후 Kafka 전환)
-        eventPublisher.publishEvent(new ProductLikedEvent(userId, productId, true));
+        // Outbox 저장 — 같은 TX (좋아요 집계 → catalog-events-v1)
+        outboxEventService.save("PRODUCT", productId,
+                "ProductLikedEvent", new ProductLikedEvent(userId, productId, true),
+                "catalog-events-v1", String.valueOf(productId));
 
         return new LikeResult(product.getLikeCount() + 1);
     }
@@ -70,8 +72,10 @@ public class LikeFacade {
         productService.decrementLikeCount(productId);
         productCacheManager.registerDetailOnlyEvictAfterCommit(productId);
 
-        // 좋아요 취소 이벤트 발행
-        eventPublisher.publishEvent(new ProductLikedEvent(userId, productId, false));
+        // Outbox 저장 — 같은 TX (좋아요 취소 집계 → catalog-events-v1)
+        outboxEventService.save("PRODUCT", productId,
+                "ProductUnlikedEvent", new ProductLikedEvent(userId, productId, false),
+                "catalog-events-v1", String.valueOf(productId));
 
         return new LikeResult(product.getLikeCount() - 1);
     }

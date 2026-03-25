@@ -20,7 +20,7 @@ import com.loopers.support.error.CouponErrorType;
 import com.loopers.support.error.OrderErrorType;
 import com.loopers.support.error.PaymentErrorType;
 import com.loopers.support.error.PointErrorType;
-import org.springframework.context.ApplicationEventPublisher;
+import com.loopers.infrastructure.outbox.OutboxEventService;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,13 +46,13 @@ public class PaymentFacade {
     private final CouponService couponService;
     private final ProductService productService;
     private final OrderCacheManager orderCacheManager;
-    private final ApplicationEventPublisher eventPublisher;
+    private final OutboxEventService outboxEventService;
 
     public PaymentFacade(OrderService orderService, PaymentService paymentService,
                          InventoryService inventoryService, PointService pointService,
                          CouponService couponService, ProductService productService,
                          OrderCacheManager orderCacheManager,
-                         ApplicationEventPublisher eventPublisher) {
+                         OutboxEventService outboxEventService) {
         this.orderService = orderService;
         this.paymentService = paymentService;
         this.inventoryService = inventoryService;
@@ -60,7 +60,7 @@ public class PaymentFacade {
         this.couponService = couponService;
         this.productService = productService;
         this.orderCacheManager = orderCacheManager;
-        this.eventPublisher = eventPublisher;
+        this.outboxEventService = outboxEventService;
     }
 
     /**
@@ -155,15 +155,20 @@ public class PaymentFacade {
             // Order → PAID
             orderService.confirm(orderId, payment.getId(), paymentMethod);
 
+            // 포인트 적립 — 같은 TX에서 직접 처리 (Kafka 안 거침)
+            pointService.earn(userId, order.getTotalAmount());
+
             // 주문 상태 변경(PENDING → PAID) → afterCommit에서 캐시 삭제
             orderCacheManager.registerEvictAfterCommit(userId);
 
-            // 도메인 이벤트 발행 — 같은 @Transactional 안에서 발행
-            // BEFORE_COMMIT 리스너가 같은 TX에서 Outbox 저장 → 비즈니스 + Outbox 원자성 보장
-            eventPublisher.publishEvent(new com.loopers.domain.common.event.OrderConfirmedEvent(
-                    orderId, userId, order.getTotalAmount(), payment.getId()));
-            eventPublisher.publishEvent(new com.loopers.domain.common.event.OrderItemSoldEvent(
-                    orderId, productQtyMap));
+            // Outbox 저장 — 같은 TX (판매량 집계 → catalog-events-v1)
+            for (var entry : productQtyMap.entrySet()) {
+                outboxEventService.save("PRODUCT", entry.getKey(),
+                        "OrderItemSoldEvent",
+                        new com.loopers.domain.common.event.OrderItemSoldEvent(
+                                orderId, Map.of(entry.getKey(), entry.getValue())),
+                        "catalog-events-v1", String.valueOf(entry.getKey()));
+            }
         } else {
             payment.reject();
 
