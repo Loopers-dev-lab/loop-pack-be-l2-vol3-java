@@ -3,6 +3,9 @@ package com.loopers.application.coupon;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.CouponTemplate;
 import com.loopers.domain.coupon.IssuedCoupon;
+import com.loopers.infrastructure.coupon.CouponIssueRequestEntity;
+import com.loopers.infrastructure.coupon.CouponIssueRequestJpaRepository;
+import com.loopers.infrastructure.outbox.OutboxEventService;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,17 +25,63 @@ import java.util.stream.Collectors;
 public class CouponFacade {
 
     private final CouponService couponService;
+    private final CouponIssueRequestJpaRepository couponIssueRequestRepository;
+    private final OutboxEventService outboxEventService;
 
-    public CouponFacade(CouponService couponService) {
+    public CouponFacade(CouponService couponService,
+                        CouponIssueRequestJpaRepository couponIssueRequestRepository,
+                        OutboxEventService outboxEventService) {
         this.couponService = couponService;
+        this.couponIssueRequestRepository = couponIssueRequestRepository;
+        this.outboxEventService = outboxEventService;
     }
 
-    /** 쿠폰 발급 */
+    /** 쿠폰 발급 (동기 — 기존 방식 유지) */
     @Transactional
     public IssueCouponResult issueCoupon(Long templateId, Long userId) {
         IssuedCoupon issued = couponService.issue(templateId, userId);
         return new IssueCouponResult(issued.getId(), issued.getStatus().name());
     }
+
+    /**
+     * 선착순 쿠폰 발급 요청 (비동기 — Kafka 기반)
+     *
+     * 1. 발급 요청 이력을 DB에 PENDING으로 저장
+     * 2. Outbox에 이벤트 저장 (같은 TX — 원자성)
+     * 3. 즉시 202 응답 → 유저가 결과를 폴링
+     * 4. Relay → Kafka → CouponIssueConsumer가 실제 발급
+     * 5. Consumer가 요청 이력을 ISSUED/FAILED로 업데이트
+     */
+    @Transactional
+    public CouponIssueRequestResult requestCouponIssue(Long templateId, Long userId) {
+        String eventId = java.util.UUID.randomUUID().toString();
+
+        // 발급 요청 이력 저장 — 폴링 대상 + 추적용
+        CouponIssueRequestEntity request = CouponIssueRequestEntity.create(templateId, userId, eventId);
+        couponIssueRequestRepository.save(request);
+
+        // Outbox 저장 — 같은 TX (비즈니스 + Outbox 원자성)
+        outboxEventService.save(
+                "COUPON", templateId,
+                "CouponIssueRequestedEvent",
+                new CouponIssueRequestPayload(request.getId(), templateId, userId, eventId),
+                "coupon-issue-requests-v1",
+                String.valueOf(templateId)  // key=couponTemplateId → 같은 쿠폰은 같은 파티션
+        );
+
+        return new CouponIssueRequestResult(request.getId(), eventId, "PENDING");
+    }
+
+    /** 발급 결과 폴링 */
+    @Transactional(readOnly = true)
+    public CouponIssueRequestResult getCouponIssueResult(Long requestId) {
+        CouponIssueRequestEntity request = couponIssueRequestRepository.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("발급 요청을 찾을 수 없습니다: " + requestId));
+        return new CouponIssueRequestResult(request.getId(), request.getEventId(), request.getStatus().name());
+    }
+
+    public record CouponIssueRequestPayload(Long requestId, Long templateId, Long userId, String eventId) {}
+    public record CouponIssueRequestResult(Long requestId, String eventId, String status) {}
 
     /** 내 쿠폰 목록 조회 */
     @Transactional(readOnly = true)
