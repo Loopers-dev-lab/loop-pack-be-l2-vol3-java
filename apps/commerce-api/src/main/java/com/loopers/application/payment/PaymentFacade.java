@@ -378,6 +378,53 @@ public class PaymentFacade {
         }
     }
 
+    /**
+     * Payment 생성 — OrderFacade의 TX1 안에서 호출된다 (REQUIRED 전파로 기존 트랜잭션 합류)
+     */
+    public Long createPaymentForOrder(Long orderId, int totalAmount, String paymentMethod) {
+        Payment payment = paymentService.create(orderId, totalAmount, paymentMethod, generateIdempotencyKey());
+        return payment.getId();
+    }
+
+    /**
+     * 주문 결제 처리 — OrderFacade에서 TX1 커밋 후 호출
+     *
+     * PG 호출 + 결과 해석 + 확정/보상을 PaymentFacade가 캡슐화한다.
+     * OrderFacade는 PG 관련 로직(PgApproveRequest, PaymentResult 해석)을 알 필요 없다.
+     */
+    public PaymentRequestResult processPaymentForOrder(Long orderId, Long userId,
+                                                        String paymentMethod, String cardNo) {
+        Order order = orderService.getById(orderId);
+        Payment payment = paymentService.getByOrderId(orderId);
+
+        try {
+            PgApproveRequest pgRequest = new PgApproveRequest(
+                    userId, order.getOrderNumber(), paymentMethod,
+                    cardNo, payment.getRequestedAmount(), null);
+            PaymentResult pgResult = paymentService.requestPayment(payment, pgRequest);
+
+            if (pgResult.isApproved()) {
+                confirmPayment(orderId, pgResult.transactionKey());
+            } else if (pgResult.isFailed()) {
+                compensatePayment(orderId);
+            } else if (pgResult.isUnknown()) {
+                txTemplate.executeWithoutResult(s -> paymentService.markUnknown(payment.getId()));
+                log.warn("PG 결제 결과 불확실 — 콜백/대사 배치 대기 (orderId={})", orderId);
+            }
+            // PENDING — 콜백 대기
+        } catch (Exception e) {
+            log.warn("[PG 장애] 주문 결제 실패 — 보상 실행: orderId={}, cause={}", orderId, e.getMessage());
+            compensatePayment(orderId);
+            throw e;
+        }
+
+        Payment updatedPayment = paymentService.getById(payment.getId());
+        return new PaymentRequestResult(
+                updatedPayment.getId(), updatedPayment.getOrderId(), updatedPayment.getStatus().name(),
+                updatedPayment.getPaymentMethod(), updatedPayment.getRequestedAmount(),
+                updatedPayment.getApprovedAmount(), updatedPayment.getPgTxnId(), updatedPayment.getApprovedAt());
+    }
+
     private record PaymentContext(
             Long orderId, String orderNumber, Long userId, Long paymentId, int totalAmount,
             int pointUsedAmount, String paymentMethod, Long issuedCouponId,

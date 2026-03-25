@@ -16,10 +16,6 @@ import com.loopers.domain.common.CursorResult;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderService;
-import com.loopers.domain.payment.Payment;
-import com.loopers.domain.payment.PaymentResult;
-import com.loopers.domain.payment.PaymentService;
-import com.loopers.domain.payment.PgApproveRequest;
 import com.loopers.domain.point.PointAccount;
 import com.loopers.domain.point.PointService;
 import com.loopers.domain.product.Product;
@@ -67,7 +63,6 @@ public class OrderFacade {
     private final CartItemService cartItemService;
     private final CouponService couponService;
     private final PointService pointService;
-    private final PaymentService paymentService;
     private final PaymentFacade paymentFacade;
     private final TransactionTemplate txTemplate;
     private final OrderCacheManager orderCacheManager;
@@ -76,7 +71,7 @@ public class OrderFacade {
                        ProductService productService, BrandService brandService,
                        InventoryService inventoryService, CartItemService cartItemService,
                        CouponService couponService, PointService pointService,
-                       PaymentService paymentService, PaymentFacade paymentFacade,
+                       PaymentFacade paymentFacade,
                        PlatformTransactionManager txManager,
                        OrderCacheManager orderCacheManager) {
         this.orderService = orderService;
@@ -87,7 +82,6 @@ public class OrderFacade {
         this.cartItemService = cartItemService;
         this.couponService = couponService;
         this.pointService = pointService;
-        this.paymentService = paymentService;
         this.paymentFacade = paymentFacade;
         this.txTemplate = new TransactionTemplate(txManager);
         this.txTemplate.setTimeout(30);
@@ -223,63 +217,33 @@ public class OrderFacade {
                 pointService.use(userId, pointAmount);
             }
 
-            // 7. Payment 생성 (REQUESTED)
-            String idempotencyKey = generateIdempotencyKey();
-            Payment payment = paymentService.create(
-                    order.getId(), order.getTotalAmount(), paymentMethod, idempotencyKey);
+            // 7. Payment 생성 (REQUESTED) — PaymentFacade에 위임
+            Long paymentId = paymentFacade.createPaymentForOrder(
+                    order.getId(), order.getTotalAmount(), paymentMethod);
 
             return new OrderPaymentContext(
                     order.getId(), order.getOrderNumber(), order.getTotalAmount(),
-                    payment.getId(), userId, issuedCouponId, pointAmount,
+                    paymentId, userId, issuedCouponId, pointAmount,
                     paymentMethod, productQtyMap);
         });
     }
 
     /**
-     * PG 결제 요청 + 결과에 따른 즉시 처리 또는 콜백 대기
+     * PG 결제 요청 + 결과에 따른 처리 — PaymentFacade에 위임
      *
-     * PG 호출은 트랜잭션 밖에서 수행되어 락 보유 시간을 최소화한다.
-     * - APPROVED: 즉시 TX2 실행 (PaymentFacade.confirmPayment)
-     * - FAILED: 즉시 보상 실행 (PaymentFacade.compensatePayment)
-     * - PENDING: 콜백 대기 (아무것도 안 함)
-     * - UNKNOWN: 보상하지 않고 대기 (콜백 또는 대사 배치에서 처리)
+     * OrderFacade는 PG 관련 세부사항(PgApproveRequest, PaymentResult)을 모른다.
+     * "언제 결제할지"는 OrderFacade가, "어떻게 결제할지"는 PaymentFacade가 담당한다.
      */
     private OrderCreateResult processPaymentAndConfirm(OrderPaymentContext context, String cardNo) {
-        try {
-            // PG 결제 (트랜잭션 밖 — PaymentService가 PG 호출 + 결과 해석을 캡슐화)
-            PgApproveRequest pgRequest = new PgApproveRequest(
-                    context.userId(),
-                    context.orderNumber(),
-                    context.paymentMethod(),
-                    cardNo,
-                    context.totalAmount(),
-                    null
-            );
-            Payment payment = paymentService.getById(context.paymentId());
-            PaymentResult pgResult = paymentService.requestPayment(payment, pgRequest);
+        paymentFacade.processPaymentForOrder(
+                context.orderId(), context.userId(), context.paymentMethod(), cardNo);
 
-            if (pgResult.isApproved()) {
-                paymentFacade.confirmPayment(context.orderId(), pgResult.transactionKey());
-            } else if (pgResult.isFailed()) {
-                paymentFacade.compensatePayment(context.orderId());
-            } else if (pgResult.isUnknown()) {
-                // UNKNOWN — 보상하지 않고 대기 (콜백 또는 대사 배치에서 처리)
-                txTemplate.executeWithoutResult(status ->
-                        paymentService.markUnknown(context.paymentId()));
-                log.warn("PG 결제 결과 불확실 — 콜백/대사 배치 대기 (orderId={})", context.orderId());
-            }
-            // PENDING — 콜백 대기 (아무것도 안 함)
-
-            return txTemplate.execute(status -> {
-                Order order = orderService.getById(context.orderId());
-                return new OrderCreateResult(
-                        order.getId(), order.getOrderNumber(), order.getStatus().name(),
-                        order.getTotalAmount(), order.getPaymentId());
-            });
-        } catch (Exception e) {
-            paymentFacade.compensatePayment(context.orderId());
-            throw e;
-        }
+        return txTemplate.execute(status -> {
+            Order order = orderService.getById(context.orderId());
+            return new OrderCreateResult(
+                    order.getId(), order.getOrderNumber(), order.getStatus().name(),
+                    order.getTotalAmount(), order.getPaymentId());
+        });
     }
 
     /**
@@ -305,10 +269,6 @@ public class OrderFacade {
 
     private String generateOrderNumber() {
         return "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-    }
-
-    private String generateIdempotencyKey() {
-        return "PAY-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase();
     }
 
     /**
