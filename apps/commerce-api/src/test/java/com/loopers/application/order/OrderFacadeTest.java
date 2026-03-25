@@ -52,9 +52,9 @@ class OrderFacadeTest {
     @Nested
     class CreateOrder {
 
-        @DisplayName("유효한 사용자와 상품이면, 재고가 차감되고 orderId 를 반환한다.")
+        @DisplayName("유효한 사용자와 상품이면, orderId 를 반환한다.")
         @Test
-        void returnsOrderId_andDecreasesStock_whenValidUserAndProducts() {
+        void returnsOrderId_whenValidUserAndProducts() {
             // arrange
             Long userId = 1L;
             Long productId = 0L; // BaseEntity id = 0L
@@ -79,7 +79,6 @@ class OrderFacadeTest {
 
             // assert
             assertThat(orderId).isNotBlank();
-            assertThat(product.stock().value()).isEqualTo(7); // 10 - 3
         }
 
         @DisplayName("존재하지 않는 사용자이면, CoreException 이 발생한다.")
@@ -154,7 +153,6 @@ class OrderFacadeTest {
             Long userCouponId = 10L;
 
             User user = mock(User.class);
-            when(user.getId()).thenReturn(userId);
 
             Brand brand = mock(Brand.class);
             when(brand.getId()).thenReturn(brandId);
@@ -163,7 +161,6 @@ class OrderFacadeTest {
             Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(100000), brandId);
 
             UserCoupon userCoupon = mock(UserCoupon.class);
-            when(userCoupon.userId()).thenReturn(userId);
             when(userCoupon.calculateDiscount(100000L)).thenReturn(10000L); // 10% 할인
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(user));

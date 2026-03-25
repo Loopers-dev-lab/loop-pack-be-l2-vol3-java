@@ -44,10 +44,7 @@ public class OrderFacade {
         // 상품 검증
         List<Long> productIds = orderCommand.items().stream().map(OrderCommand.Item::productId).toList();
         List<Product> products = productRepository.findAllByIdInWithLock(productIds);
-
-        Set<Long> foundIds = products.stream().map(Product::getId).collect(Collectors.toSet());
-        boolean hasNotFound = productIds.stream().anyMatch(id -> !foundIds.contains(id));
-        if (hasNotFound) {
+        if (products.size() != productIds.size()) {
             throw new CoreException(ErrorType.NOT_FOUND, "등록되지 않은 상품입니다.");
         }
 
@@ -70,9 +67,6 @@ public class OrderFacade {
                     .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다."));
         }
 
-        // 재고 차감
-        orderCommand.items().forEach(item -> productMap.get(item.productId()).decreaseStock(item.quantity()));
-
         // 쿠폰 적용
         List<OrderItem> orderItems = orderAssembler.toOrderItems(orderCommand, productMap, brandMap);
         long discountAmount = 0L;
@@ -80,9 +74,7 @@ public class OrderFacade {
             long originalAmount = orderItems.stream()
                     .mapToLong(OrderItem::subtotal)
                     .sum();
-            userCoupon.use(userId);
             discountAmount = userCoupon.calculateDiscount(originalAmount);
-            userCouponRepository.save(userCoupon);
         }
 
         // 주문 저장

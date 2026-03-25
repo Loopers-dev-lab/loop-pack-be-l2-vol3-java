@@ -2,10 +2,10 @@ package com.loopers.domain.order;
 
 public class OrderEvent {
 
-    public record Created(Long userId, String orderId, Long totalAmount) {
+    public record Created(Long userId, String orderId, Long totalAmount, Long issuedCouponId) {
 
         public static Created from(Order order) {
-            return new Created(order.userId(), order.orderId(), order.originalAmount() - order.discountAmount());
+            return new Created(order.userId(), order.orderId(), order.originalAmount() - order.discountAmount(), order.issuedCouponId());
         }
     }
 }

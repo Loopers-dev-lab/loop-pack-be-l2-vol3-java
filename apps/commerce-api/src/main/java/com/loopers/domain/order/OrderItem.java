@@ -56,6 +56,10 @@ public class OrderItem extends BaseEntity {
         return quantity;
     }
 
+    public Long productId() {
+        return productId;
+    }
+
     public String productName() {
         return productName;
     }
