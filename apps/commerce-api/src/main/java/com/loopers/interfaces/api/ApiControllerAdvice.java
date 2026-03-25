@@ -8,6 +8,7 @@ import com.loopers.support.error.ErrorType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -105,6 +106,13 @@ public class ApiControllerAdvice {
     @ExceptionHandler
     public ResponseEntity<ApiResponse<?>> handleNotFound(NoResourceFoundException e) {
         return failureResponse(ErrorType.NOT_FOUND, null);
+    }
+
+    // 낙관적 락 충돌: 콜백과 폴링이 동시에 동일 리소스를 수정할 때 발생
+    @ExceptionHandler
+    public ResponseEntity<ApiResponse<?>> handleOptimisticLock(ObjectOptimisticLockingFailureException e) {
+        log.info("낙관적 락 충돌 (이미 다른 경로로 처리됨): {}", e.getMessage());
+        return failureResponse(ErrorType.CONFLICT, "이미 처리된 요청입니다.");
     }
 
     @ExceptionHandler

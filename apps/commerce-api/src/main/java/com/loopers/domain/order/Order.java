@@ -9,6 +9,8 @@ import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
@@ -27,6 +29,11 @@ public class Order extends BaseEntity {
 
     @Column(name = "user_id", nullable = false, updatable = false)
     private Long userId;
+
+    // 주문 상태. 생성 시 PENDING_PAYMENT, 결제 결과에 따라 전이
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private OrderStatus status;
 
     // 적용된 발급 쿠폰 ID. 쿠폰 미적용 시 null (BR-O09)
     @Column(name = "user_coupon_id")
@@ -67,11 +74,37 @@ public class Order extends BaseEntity {
         this.discountAmount = discountAmount;
         // finalAmount는 도메인 규칙으로 계산 (BR-O13)
         this.finalAmount = new Money(originalAmount.getAmount() - discountAmount.getAmount());
+        this.status = OrderStatus.PENDING_PAYMENT;
     }
 
     // BR-O06: 주문 소유자 확인
     public boolean isOwnedBy(Long userId) {
         return this.userId.equals(userId);
+    }
+
+    // 결제 성공 시 상태 전이
+    public void markPaid() {
+        validateTransition(OrderStatus.PAID);
+        this.status = OrderStatus.PAID;
+    }
+
+    // 결제 실패 시 상태 전이
+    public void markPaymentFailed() {
+        validateTransition(OrderStatus.PAYMENT_FAILED);
+        this.status = OrderStatus.PAYMENT_FAILED;
+    }
+
+    // 결제 타임아웃 시 상태 전이
+    public void markPaymentTimeout() {
+        validateTransition(OrderStatus.PAYMENT_TIMEOUT);
+        this.status = OrderStatus.PAYMENT_TIMEOUT;
+    }
+
+    private void validateTransition(OrderStatus target) {
+        if (!this.status.canTransitTo(target)) {
+            throw new CoreException(ErrorType.BAD_REQUEST,
+                    "주문 상태를 변경할 수 없습니다: " + this.status + " → " + target);
+        }
     }
 
     @Override

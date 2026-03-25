@@ -99,6 +99,88 @@ class OrderTest {
         }
     }
 
+    @DisplayName("Order 상태 전이 시")
+    @Nested
+    class StatusTransition {
+
+        @DisplayName("생성 직후 상태는 PENDING_PAYMENT이다.")
+        @Test
+        void initialStatus_isPendingPayment() {
+            // act
+            Order order = validOrder(USER_ID);
+
+            // assert
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING_PAYMENT);
+        }
+
+        @DisplayName("PENDING_PAYMENT 상태에서 markPaid()를 호출하면 PAID로 전이된다.")
+        @Test
+        void markPaid_whenPendingPayment() {
+            // arrange
+            Order order = validOrder(USER_ID);
+
+            // act
+            order.markPaid();
+
+            // assert
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        }
+
+        @DisplayName("PENDING_PAYMENT 상태에서 markPaymentFailed()를 호출하면 PAYMENT_FAILED로 전이된다.")
+        @Test
+        void markPaymentFailed_whenPendingPayment() {
+            // arrange
+            Order order = validOrder(USER_ID);
+
+            // act
+            order.markPaymentFailed();
+
+            // assert
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
+        }
+
+        @DisplayName("PENDING_PAYMENT 상태에서 markPaymentTimeout()를 호출하면 PAYMENT_TIMEOUT으로 전이된다.")
+        @Test
+        void markPaymentTimeout_whenPendingPayment() {
+            // arrange
+            Order order = validOrder(USER_ID);
+
+            // act
+            order.markPaymentTimeout();
+
+            // assert
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PAYMENT_TIMEOUT);
+        }
+
+        @DisplayName("PAID 상태에서 markPaid()를 호출하면 BAD_REQUEST 에러가 발생한다.")
+        @Test
+        void throwsBadRequest_whenAlreadyPaid() {
+            // arrange
+            Order order = validOrder(USER_ID);
+            order.markPaid();
+
+            // act
+            CoreException result = assertThrows(CoreException.class, order::markPaid);
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("PAYMENT_FAILED 상태에서 markPaid()를 호출하면 BAD_REQUEST 에러가 발생한다.")
+        @Test
+        void throwsBadRequest_whenPaymentFailedToMarkPaid() {
+            // arrange
+            Order order = validOrder(USER_ID);
+            order.markPaymentFailed();
+
+            // act
+            CoreException result = assertThrows(CoreException.class, order::markPaid);
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+    }
+
     @DisplayName("OrderItem 생성 시")
     @Nested
     class CreateOrderItem {

@@ -14,6 +14,7 @@ public class OrderAdminV1Dto {
     public record OrderResponse(
             Long orderId,
             Long userId,
+            String status,
             ZonedDateTime createdAt,
             List<OrderItemResponse> items
     ) {
@@ -21,6 +22,7 @@ public class OrderAdminV1Dto {
             return new OrderResponse(
                     info.id(),
                     info.userId(),
+                    info.status(),
                     info.createdAt(),
                     info.items().stream().map(OrderItemResponse::from).toList()
             );

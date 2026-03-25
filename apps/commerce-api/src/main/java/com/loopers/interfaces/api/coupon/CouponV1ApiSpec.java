@@ -14,7 +14,7 @@ public interface CouponV1ApiSpec {
             @LoginUser UserInfo loginUser,
             Long couponId);
 
-    @Operation(summary = "내 쿠폰 목록 조회", description = "인증된 회원이 자신의 발급 쿠폰 목록을 조회합니다.")
+    @Operation(summary = "내 쿠폰 목록 조회", description = "인증된 회원이 자신에게 발급된 쿠폰 목록을 조회합니다.")
     ApiResponse<CouponV1Dto.MyCouponListResponse> getMyIssuedCoupons(
             @LoginUser UserInfo loginUser);
 }

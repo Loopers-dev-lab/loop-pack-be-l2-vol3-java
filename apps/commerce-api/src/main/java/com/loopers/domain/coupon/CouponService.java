@@ -3,6 +3,7 @@ package com.loopers.domain.coupon;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CouponService {
@@ -68,6 +70,19 @@ public class CouponService {
             throw new CoreException(ErrorType.BAD_REQUEST, "이미 사용된 쿠폰입니다.");
         }
         return template.calculateDiscount(originalAmount);
+    }
+
+    /**
+     * 결제 실패 시 쿠폰 사용 취소 (보상 트랜잭션).
+     * 원자적 UPDATE(WHERE used_at IS NOT NULL)로 이미 복구된 건은 무시한다 (멱등성).
+     */
+    @Transactional
+    public void restoreCoupon(Long userCouponId, Long userId) {
+        int updated = userCouponRepository.restoreUsedCoupon(userCouponId, userId);
+        if (updated == 0) {
+            log.warn("쿠폰 복구 실패 (이미 복구됨 또는 존재하지 않음): userCouponId={}, userId={}",
+                    userCouponId, userId);
+        }
     }
 
     // ---- 관리자 ----
