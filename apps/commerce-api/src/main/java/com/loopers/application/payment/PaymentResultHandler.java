@@ -4,6 +4,8 @@ import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderService;
 import com.loopers.domain.payment.Payment;
+import com.loopers.domain.payment.PaymentCompletedEvent;
+import com.loopers.domain.payment.PaymentEventPublisher;
 import com.loopers.domain.payment.PaymentService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
@@ -34,6 +36,7 @@ public class PaymentResultHandler {
     private final OrderService orderService;
     private final ProductService productService;
     private final CouponService couponService;
+    private final PaymentEventPublisher paymentEventPublisher;
 
     // PG 접수 성공: transactionKey만 저장 (최종 결과는 콜백으로 수신)
     @Transactional
@@ -114,6 +117,12 @@ public class PaymentResultHandler {
             }
             Order order = orderService.findById(payment.getOrderId());
             order.markPaid();
+
+            // 결제 완료 이벤트 발행 (AFTER_COMMIT에서 알림/로깅 등 부가 처리)
+            paymentEventPublisher.publish(new PaymentCompletedEvent(
+                    payment.getId(), order.getId(), payment.getUserId(),
+                    payment.getAmount(), transactionKey));
+
             log.info("결제 성공 콜백 처리: transactionKey={}, orderId={}", transactionKey, order.getId());
 
         } else if ("FAILED".equals(status)) {

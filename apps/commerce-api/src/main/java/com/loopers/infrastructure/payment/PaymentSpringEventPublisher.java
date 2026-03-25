@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.payment;
 
+import com.loopers.domain.payment.PaymentCompletedEvent;
 import com.loopers.domain.payment.PaymentEventPublisher;
 import com.loopers.domain.payment.PaymentRequestEvent;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,11 @@ public class PaymentSpringEventPublisher implements PaymentEventPublisher {
 
     @Override
     public void publish(PaymentRequestEvent event) {
+        applicationEventPublisher.publishEvent(event);
+    }
+
+    @Override
+    public void publish(PaymentCompletedEvent event) {
         applicationEventPublisher.publishEvent(event);
     }
 }

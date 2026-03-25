@@ -3,6 +3,8 @@ package com.loopers.application.order;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderCreatedEvent;
+import com.loopers.domain.order.OrderEventPublisher;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderService;
 import com.loopers.domain.product.Money;
@@ -11,6 +13,8 @@ import com.loopers.domain.product.ProductDetailCacheEvictEvent;
 import com.loopers.domain.product.ProductEventPublisher;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.Quantity;
+import com.loopers.domain.useraction.UserActionEvent;
+import com.loopers.domain.useraction.UserActionEventPublisher;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +38,9 @@ public class OrderFacade {
     private final ProductService productService;
     private final BrandService brandService;
     private final CouponService couponService;
-    private final ProductEventPublisher eventPublisher;
+    private final ProductEventPublisher productEventPublisher;
+    private final OrderEventPublisher orderEventPublisher;
+    private final UserActionEventPublisher userActionEventPublisher;
 
     /**
      * 주문 생성 (US-O01)
@@ -94,7 +100,7 @@ public class OrderFacade {
             product.decreaseStock(quantity);
         }
         // 재고 변동 → 주문된 각 상품 상세 캐시 즉시 무효화 (커밋 후 처리)
-        products.forEach(p -> eventPublisher.publish(new ProductDetailCacheEvictEvent(p.getId())));
+        products.forEach(p -> productEventPublisher.publish(new ProductDetailCacheEvictEvent(p.getId())));
 
         // 브랜드명 일괄 조회 (스냅샷용)
         List<Long> brandIds = products.stream().map(Product::getBrandId).distinct().toList();
@@ -117,6 +123,22 @@ public class OrderFacade {
 
         // ⑤ 주문 저장 (금액 스냅샷 포함, BR-O13)
         Order order = orderService.create(userId, orderItems, userCouponId, originalAmount, discountAmount);
+
+        // 주문 생성 이벤트 발행 (AFTER_COMMIT에서 로깅 등 부가 처리)
+        List<OrderCreatedEvent.OrderItemSnapshot> itemSnapshots = orderItems.stream()
+                .map(item -> new OrderCreatedEvent.OrderItemSnapshot(
+                        item.getProductId(),
+                        item.getProductName(),
+                        item.getQuantity().getValue(),
+                        item.getPrice().getAmount()
+                ))
+                .toList();
+        orderEventPublisher.publish(new OrderCreatedEvent(
+                order.getId(), userId, order.getFinalAmount().getAmount(), itemSnapshots));
+        // 유저 행동 로깅
+        userActionEventPublisher.publish(new UserActionEvent(
+                UserActionEvent.ActionType.ORDER_CREATE, userId, "ORDER", order.getId(), null));
+
         return OrderInfo.of(order);
     }
 

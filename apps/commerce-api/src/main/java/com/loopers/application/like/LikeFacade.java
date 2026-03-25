@@ -6,6 +6,8 @@ import com.loopers.domain.like.LikeCancelledEvent;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.like.LikeEventPublisher;
 import com.loopers.domain.like.LikeService;
+import com.loopers.domain.useraction.UserActionEvent;
+import com.loopers.domain.useraction.UserActionEventPublisher;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ public class LikeFacade {
     private final ProductService productService;
     private final BrandService brandService;
     private final LikeEventPublisher eventPublisher;
+    private final UserActionEventPublisher userActionEventPublisher;
 
     /**
      * 좋아요 등록 (US-L01)
@@ -41,6 +44,9 @@ public class LikeFacade {
         Like like = likeService.create(userId, productId);
         // 좋아요 수 증가 이벤트 발행 (AFTER_COMMIT에서 처리)
         eventPublisher.publish(new LikeCreatedEvent(productId, userId));
+        // 유저 행동 로깅
+        userActionEventPublisher.publish(new UserActionEvent(
+                UserActionEvent.ActionType.LIKE_CREATE, userId, "PRODUCT", productId, null));
         String brandName = brandService.findById(product.getBrandId()).getName();
         return LikeInfo.of(like, product, brandName);
     }
@@ -55,6 +61,9 @@ public class LikeFacade {
         likeService.delete(userId, productId);
         // 좋아요 수 감소 이벤트 발행 (AFTER_COMMIT에서 처리)
         eventPublisher.publish(new LikeCancelledEvent(productId, userId));
+        // 유저 행동 로깅
+        userActionEventPublisher.publish(new UserActionEvent(
+                UserActionEvent.ActionType.LIKE_CANCEL, userId, "PRODUCT", productId, null));
     }
 
     /**
