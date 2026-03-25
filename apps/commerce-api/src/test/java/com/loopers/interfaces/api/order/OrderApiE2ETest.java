@@ -122,7 +122,8 @@ class OrderApiE2ETest {
                 "010-1234-5678",
                 null,
                 0,
-                "CARD");
+                "CARD",
+                "0000-0000-0000-0000");
     }
 
     private ResponseEntity<ApiResponse> createOrder(Long productId, Long addressId) {
@@ -157,7 +158,7 @@ class OrderApiE2ETest {
 
             // act
             OrderRequest.CreateOrderRequest request = new OrderRequest.CreateOrderRequest(
-                    List.of(), List.of(), address.getId(), "010-1234-5678", null, 0, "CARD");
+                    List.of(), List.of(), address.getId(), "010-1234-5678", null, 0, "CARD", "0000-0000-0000-0000");
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
                     "/api/v1/orders", HttpMethod.POST,
                     new HttpEntity<>(request, authHeaders()), ApiResponse.class);

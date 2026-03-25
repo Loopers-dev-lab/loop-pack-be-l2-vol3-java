@@ -24,6 +24,55 @@ spring:
       - logging.yml
       - monitoring.yml
 
+pg:
+  simulator:
+    base-url: http://localhost:8082
+    callback-base-url: http://localhost:8080
+
+# ── Resilience4j ──────────────────────────────────────────────
+# 기본 Aspect 순서 (바깥→안쪽): Retry → CircuitBreaker → RateLimiter → TimeLimiter → Bulkhead
+# 현재 사용: CB(Facade) + Bulkhead(Facade) + Retry(Client.query) — 메서드 분리로 순서 충돌 회피
+resilience4j:
+  circuitbreaker:
+    instances:
+      pgPayment:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 3s
+        slow-call-rate-threshold: 80
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        max-wait-duration-in-half-open-state: 60s               # 함정7 방지: 0이면 느린 탐색 요청이 슬롯 점유 시 HALF_OPEN 무한 대기
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - com.loopers.domain.payment.PgServerException
+          - com.loopers.domain.payment.PgTimeoutException
+        ignore-exceptions:
+          - com.loopers.domain.payment.PgClientException
+          - com.loopers.support.error.CoreException
+          - io.github.resilience4j.bulkhead.BulkheadFullException
+
+  bulkhead:
+    instances:
+      pgPayment:
+        max-concurrent-calls: 20
+        max-wait-duration: 0
+
+  retry:
+    instances:
+      pgQuery:
+        max-attempts: 3
+        wait-duration: 1s
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - com.loopers.domain.payment.PgTimeoutException
+          - com.loopers.domain.payment.PgServerException
+        ignore-exceptions:
+          - com.loopers.domain.payment.PgClientException
+
 springdoc:
   use-fqn: true
   swagger-ui:
