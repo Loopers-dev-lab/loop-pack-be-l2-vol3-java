@@ -22,4 +22,22 @@ public class ProductEvent {
             return new ProductDeleted(UUID.randomUUID(), product.getId());
         }
     }
+
+    /**
+     * 상품이 조회되었을 때 발행되는 이벤트.
+     *
+     * <p>조회 API는 쓰기 트랜잭션이 없으므로 {@code AbstractAggregateRoot}가 아닌
+     * {@code ProductEventPublisher}를 통해 직접 발행된다.
+     * {@code @EventListener} + {@code @Transactional}로 Outbox에 저장되며,
+     * Kafka 발행은 Relay 스케줄러에 위임한다.</p>
+     *
+     * @param eventId   이벤트 식별자
+     * @param productId 조회된 상품 ID
+     */
+    public record ProductViewed(UUID eventId, Long productId) {
+
+        public static ProductViewed from(Product product) {
+            return new ProductViewed(UUID.randomUUID(), product.getId());
+        }
+    }
 }

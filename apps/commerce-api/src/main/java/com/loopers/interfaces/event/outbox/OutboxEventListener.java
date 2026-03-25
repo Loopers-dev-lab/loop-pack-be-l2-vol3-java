@@ -121,4 +121,28 @@ public class OutboxEventListener {
                 }
         );
     }
+
+    /**
+     * 상품 조회 이벤트를 Outbox 테이블에 저장한다.
+     *
+     * <p>조회 API는 쓰기 트랜잭션이 없으므로 {@code @TransactionalEventListener}가 아닌
+     * {@code @EventListener} + {@code @Transactional}로 별도 트랜잭션을 생성하여 Outbox에 저장한다.
+     * Kafka 발행은 Relay 스케줄러(1초 주기)에 위임한다.</p>
+     *
+     * @param event 상품 조회 이벤트
+     */
+    @EventListener
+    @Transactional
+    public void saveOutbox(ProductEvent.ProductViewed event) {
+        log.info("[OUTBOX:ProductViewed] productId={}, eventId={}", event.productId(), event.eventId());
+        outboxEventWriter.write(
+                event.eventId(),
+                event.productId(),
+                "PRODUCT",
+                "PRODUCT_VIEWED",
+                event,
+                "product-viewed-v1",
+                String.valueOf(event.productId())
+        );
+    }
 }
