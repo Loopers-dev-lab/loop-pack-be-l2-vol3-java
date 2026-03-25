@@ -15,7 +15,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.time.Duration;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 @SpringBootTest
 public class LikeFacadeIntegrationTest {
@@ -58,9 +61,9 @@ public class LikeFacadeIntegrationTest {
     @Nested
     class CreateLikeWithEvent {
 
-        @DisplayName("좋아요가 등록되고, 이벤트를 통해 상품의 좋아요 수가 증가한다")
+        @DisplayName("좋아요가 등록되고, 비동기 이벤트를 통해 상품의 좋아요 수가 증가한다")
         @Test
-        void likeCountIncreasedViaEvent() {
+        void likeCountIncreasedViaAsyncEvent() {
             // arrange
             Brand brand = savedBrand();
             Product product = savedProduct(brand.getId());
@@ -68,14 +71,16 @@ public class LikeFacadeIntegrationTest {
             // act
             LikeInfo result = likeFacade.create(USER_ID, product.getId());
 
-            // assert - 좋아요 자체는 저장됨
+            // assert - 좋아요 자체는 즉시 저장됨
             assertThat(result).isNotNull();
             assertThat(result.userId()).isEqualTo(USER_ID);
             assertThat(result.productId()).isEqualTo(product.getId());
 
-            // assert - 이벤트 처리 후 likeCount가 증가함
-            Product updated = productJpaRepository.findById(product.getId()).orElseThrow();
-            assertThat(updated.getLikeCount()).isEqualTo(1);
+            // assert - 비동기 이벤트 처리 후 likeCount가 증가함
+            await().atMost(Duration.ofSeconds(3)).untilAsserted(() -> {
+                Product updated = productJpaRepository.findById(product.getId()).orElseThrow();
+                assertThat(updated.getLikeCount()).isEqualTo(1);
+            });
         }
 
         @DisplayName("좋아요 등록이 실패하면 이벤트가 발행되지 않아 좋아요 수가 변하지 않는다")
@@ -85,6 +90,12 @@ public class LikeFacadeIntegrationTest {
             Brand brand = savedBrand();
             Product product = savedProduct(brand.getId());
             likeFacade.create(USER_ID, product.getId()); // 첫 번째 좋아요
+
+            // 첫 번째 좋아요의 비동기 이벤트 완료 대기
+            await().atMost(Duration.ofSeconds(3)).untilAsserted(() -> {
+                Product updated = productJpaRepository.findById(product.getId()).orElseThrow();
+                assertThat(updated.getLikeCount()).isEqualTo(1);
+            });
 
             // act - 중복 좋아요 시도 (CONFLICT 예외)
             try {
@@ -102,20 +113,28 @@ public class LikeFacadeIntegrationTest {
     @Nested
     class DeleteLikeWithEvent {
 
-        @DisplayName("좋아요가 취소되고, 이벤트를 통해 상품의 좋아요 수가 감소한다")
+        @DisplayName("좋아요가 취소되고, 비동기 이벤트를 통해 상품의 좋아요 수가 감소한다")
         @Test
-        void likeCountDecreasedViaEvent() {
+        void likeCountDecreasedViaAsyncEvent() {
             // arrange
             Brand brand = savedBrand();
             Product product = savedProduct(brand.getId());
-            likeFacade.create(USER_ID, product.getId()); // 좋아요 등록 (likeCount=1)
+            likeFacade.create(USER_ID, product.getId()); // 좋아요 등록
+
+            // 등록 이벤트 완료 대기 (likeCount=1)
+            await().atMost(Duration.ofSeconds(3)).untilAsserted(() -> {
+                Product updated = productJpaRepository.findById(product.getId()).orElseThrow();
+                assertThat(updated.getLikeCount()).isEqualTo(1);
+            });
 
             // act
             likeFacade.delete(USER_ID, product.getId());
 
-            // assert - 이벤트 처리 후 likeCount가 감소함
-            Product updated = productJpaRepository.findById(product.getId()).orElseThrow();
-            assertThat(updated.getLikeCount()).isEqualTo(0);
+            // assert - 비동기 이벤트 처리 후 likeCount가 감소함
+            await().atMost(Duration.ofSeconds(3)).untilAsserted(() -> {
+                Product updated = productJpaRepository.findById(product.getId()).orElseThrow();
+                assertThat(updated.getLikeCount()).isEqualTo(0);
+            });
         }
     }
 }
