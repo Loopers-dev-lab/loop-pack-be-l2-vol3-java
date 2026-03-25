@@ -81,8 +81,17 @@ public class OutboxRelayService {
 
     private void publishToKafka(OutboxEventEntity event) {
         try {
+            // Kafka 헤더에 eventType, aggregateType, outboxId를 포함
+            // → Consumer가 payload 파싱 없이 이벤트 타입을 판별할 수 있음
+            var producerRecord = new org.apache.kafka.clients.producer.ProducerRecord<Object, Object>(
+                    event.getTopic(), null, event.getPartitionKey(), event.getPayload());
+            producerRecord.headers()
+                    .add("X-Event-Type", event.getEventType().getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                    .add("X-Aggregate-Type", event.getAggregateType().getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                    .add("X-Outbox-Id", String.valueOf(event.getId()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
             SendResult<Object, Object> result = kafkaTemplate
-                    .send(event.getTopic(), event.getPartitionKey(), event.getPayload())
+                    .send(producerRecord)
                     .get(10, TimeUnit.SECONDS);
 
             var metadata = result.getRecordMetadata();
