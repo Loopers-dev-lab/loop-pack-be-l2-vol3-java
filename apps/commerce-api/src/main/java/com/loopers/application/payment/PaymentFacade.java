@@ -155,14 +155,11 @@ public class PaymentFacade {
             // Order → PAID
             orderService.confirm(orderId, payment.getId(), paymentMethod);
 
-            // 포인트 적립은 TX 커밋 이후 이벤트로 처리 (ApplicationEvent → 추후 Kafka 전환)
-            // pointService.earn()을 직접 호출하지 않고 이벤트로 분리
-            // → @TransactionalEventListener(AFTER_COMMIT)에서 처리
-
             // 주문 상태 변경(PENDING → PAID) → afterCommit에서 캐시 삭제
             orderCacheManager.registerEvictAfterCommit(userId);
 
-            // 이벤트 발행 — TX 커밋 후 리스너에서 포인트 적립 + 유저 행동 로깅
+            // 도메인 이벤트 발행 — 같은 @Transactional 안에서 발행
+            // BEFORE_COMMIT 리스너가 같은 TX에서 Outbox 저장 → 비즈니스 + Outbox 원자성 보장
             eventPublisher.publishEvent(new com.loopers.domain.common.event.OrderConfirmedEvent(
                     orderId, userId, order.getTotalAmount(), payment.getId()));
             eventPublisher.publishEvent(new com.loopers.domain.common.event.OrderItemSoldEvent(

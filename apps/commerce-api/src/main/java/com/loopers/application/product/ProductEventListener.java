@@ -8,36 +8,28 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 /**
- * 상품 이벤트 리스너
+ * 상품 조회 이벤트 리스너
  *
- * 상품 조회는 TX가 없으므로 @TransactionalEventListener 대신 @EventListener 사용.
- * readOnly 조회에서 발행되므로 AFTER_COMMIT이 의미 없음.
+ * 상품 조회(ProductFacade.getProductDetail)는 TX가 없으므로
+ * @TransactionalEventListener 대신 @EventListener를 사용한다.
+ *
+ * Outbox를 사용하지 않는 이유:
+ *   - 조회에는 비즈니스 TX가 없음 → "같은 TX에 저장" 불가
+ *   - 조회 수 유실은 서비스 정합성에 영향 없음
+ *   - 추후 Kafka 직접 발행(user-activity-events-v1)으로 전환
  */
 @Component
 public class ProductEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(ProductEventListener.class);
 
-    /**
-     * 상품 조회 → product_metrics 집계 (조회 수)
-     */
     @Async
     @EventListener
     public void handleProductViewed(ProductViewedEvent event) {
-        log.info("[ProductEventListener] product_metrics 집계 예정 — productId={}, userId={}",
+        log.info("[ProductEventListener] 상품 조회 — productId={}, userId={}",
                 event.productId(), event.userId());
-        // Step 2: Kafka catalog-events-v1 토픽으로 전환
-        // Consumer가 product_metrics.view_count를 upsert
-    }
-
-    /**
-     * 상품 조회 → 유저 행동 로깅
-     */
-    @Async
-    @EventListener
-    public void handleViewActivity(ProductViewedEvent event) {
-        log.info("[ProductEventListener] 유저 행동 로깅 — userId={}, productId={}, type=VIEW",
-                event.userId(), event.productId());
-        // Step 2: Kafka user-activity-events-v1 토픽으로 전환
+        // 추후: Kafka user-activity-events-v1 직접 발행
+        // 또는: catalog-events-v1 직접 발행 (view_count 집계)
+        // Outbox 없이 kafkaTemplate.send() — 유실 허용
     }
 }

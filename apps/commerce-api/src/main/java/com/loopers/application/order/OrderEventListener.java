@@ -10,19 +10,24 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * 주문 이벤트 리스너 — Step 2 (Kafka 전환)
+ * 주문 이벤트 리스너 — Outbox 저장 (BEFORE_COMMIT)
  *
- * Step 1에서는 @Async + pointService.earn() 직접 호출이었으나,
- * Step 2에서는 Outbox에 저장 → Relay → Kafka → commerce-streamer Consumer가 처리.
+ * 설계 근거:
+ *   Facade는 도메인 이벤트만 발행하고, Outbox/Kafka 인프라를 모른다.
+ *   이 리스너가 BEFORE_COMMIT 시점에 Outbox에 저장한다.
  *
- * AFTER_COMMIT 유지 (TX 커밋 확인 후 Outbox 저장):
- *   OrderFacade.processPaymentAndConfirm()은 txTemplate.execute()를 사용하므로
- *   이벤트 발행이 TX 밖에서 일어남. 따라서 AFTER_COMMIT 리스너가 트리거되려면
- *   이벤트 발행 시점에 활성 TX가 필요 → 별도 @Transactional로 Outbox 저장.
+ *   BEFORE_COMMIT = 같은 TX 안:
+ *     → 비즈니스 데이터 + Outbox 이벤트가 원자적으로 커밋/롤백
+ *     → Outbox 패턴의 핵심("같은 TX") 충족
  *
- * @Async 제거:
- *   Outbox 저장은 DB INSERT 1건이라 빠름 (수 ms).
- *   비동기로 할 필요 없고, 동기로 하면 Outbox 저장 실패를 즉시 감지 가능.
+ *   리스너 실패 시:
+ *     → TX 전체 롤백 (비즈니스 포함)
+ *     → Outbox INSERT 실패 = DB 자체 문제 → 비즈니스도 실패했을 가능성 높음
+ *     → 롤백이 오히려 정합성을 보호
+ *
+ *   Facade 결합도:
+ *     → Facade는 OrderConfirmedEvent만 알면 됨
+ *     → Outbox → CDC 전환 시 이 리스너만 수정, Facade 변경 없음
  */
 @Component
 public class OrderEventListener {
@@ -38,51 +43,40 @@ public class OrderEventListener {
     /**
      * 주문 확정 → Outbox에 포인트 적립 이벤트 저장
      *
-     * Relay가 order-events-v1 토픽으로 발행 → commerce-streamer Consumer가 포인트 적립
+     * BEFORE_COMMIT: 비즈니스 TX가 커밋되기 직전에 실행
+     * → 같은 TX 안에서 Outbox INSERT → 원자성 보장
      */
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void handleOrderConfirmed(OrderConfirmedEvent event) {
-        try {
-            outboxEventService.save(
-                    "ORDER",
-                    event.orderId(),
-                    "OrderConfirmedEvent",
-                    event,
-                    "order-events-v1",
-                    String.valueOf(event.orderId())
-            );
-            log.info("[OrderEventListener] Outbox 저장 — orderId={}, topic=order-events-v1",
-                    event.orderId());
-        } catch (Exception e) {
-            log.error("[OrderEventListener] Outbox 저장 실패 — orderId={}, error={}",
-                    event.orderId(), e.getMessage(), e);
-        }
+        outboxEventService.save(
+                "ORDER",
+                event.orderId(),
+                "OrderConfirmedEvent",
+                event,
+                "order-events-v1",
+                String.valueOf(event.orderId())
+        );
+        log.info("[OrderEventListener] Outbox 저장 (BEFORE_COMMIT) — orderId={}, topic=order-events-v1",
+                event.orderId());
     }
 
     /**
      * 상품 판매 → Outbox에 판매량 집계 이벤트 저장
-     *
-     * Relay가 catalog-events-v1 토픽으로 발행 → commerce-streamer Consumer가 집계
      */
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void handleOrderItemSold(OrderItemSoldEvent event) {
-        try {
-            for (var entry : event.productQtyMap().entrySet()) {
-                outboxEventService.save(
-                        "PRODUCT",
-                        entry.getKey(),
-                        "OrderItemSoldEvent",
-                        new ProductSoldPayload(event.orderId(), entry.getKey(), entry.getValue()),
-                        "catalog-events-v1",
-                        String.valueOf(entry.getKey())
-                );
-            }
-            log.info("[OrderEventListener] Outbox 저장 (판매 집계) — orderId={}, products={}",
-                    event.orderId(), event.productQtyMap().size());
-        } catch (Exception e) {
-            log.error("[OrderEventListener] Outbox 저장 실패 (판매 집계) — orderId={}, error={}",
-                    event.orderId(), e.getMessage(), e);
+        for (var entry : event.productQtyMap().entrySet()) {
+            outboxEventService.save(
+                    "PRODUCT",
+                    entry.getKey(),
+                    "OrderItemSoldEvent",
+                    new ProductSoldPayload(event.orderId(), entry.getKey(), entry.getValue()),
+                    "catalog-events-v1",
+                    String.valueOf(entry.getKey())
+            );
         }
+        log.info("[OrderEventListener] Outbox 저장 (판매 집계) — orderId={}, products={}",
+                event.orderId(), event.productQtyMap().size());
     }
 
     public record ProductSoldPayload(Long orderId, Long productId, int quantity) {

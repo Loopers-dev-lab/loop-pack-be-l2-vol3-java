@@ -243,26 +243,25 @@ public class OrderFacade {
             // PG 결제 (트랜잭션 밖 — 락 미보유 상태에서 외부 호출)
             String pgTxnId = simulatePgPayment();
 
-            // TX2: 결제 확정 + 재고 확정 + 주문 확정
-            // 포인트 적립은 TX2 커밋 이후 이벤트로 처리 (ApplicationEvent → 추후 Kafka 전환)
-            OrderCreateResult result = txTemplate.execute(status -> {
+            // TX2: 결제 확정 + 재고 확정 + 주문 확정 + 이벤트 발행
+            // 이벤트는 TX2 안에서 발행 → BEFORE_COMMIT 리스너가 같은 TX에서 Outbox 저장
+            return txTemplate.execute(status -> {
                 paymentService.approve(context.paymentId(), pgTxnId, context.totalAmount());
                 inventoryService.commitAll(context.productQtyMap());
                 orderService.confirm(context.orderId(), context.paymentId(), context.paymentMethod());
+
+                // 도메인 이벤트 발행 — Facade는 Outbox를 모름
+                // BEFORE_COMMIT 리스너가 같은 TX 안에서 Outbox에 저장
+                eventPublisher.publishEvent(new com.loopers.domain.common.event.OrderConfirmedEvent(
+                        context.orderId(), context.userId(), context.totalAmount(), context.paymentId()));
+                eventPublisher.publishEvent(new com.loopers.domain.common.event.OrderItemSoldEvent(
+                        context.orderId(), context.productQtyMap()));
 
                 Order order = orderService.getById(context.orderId());
                 return new OrderCreateResult(
                         order.getId(), order.getOrderNumber(), order.getStatus().name(),
                         order.getTotalAmount(), order.getPaymentId());
             });
-
-            // TX2 커밋 후 이벤트 발행 — 포인트 적립 + 유저 행동 로깅
-            eventPublisher.publishEvent(new com.loopers.domain.common.event.OrderConfirmedEvent(
-                    context.orderId(), context.userId(), context.totalAmount(), context.paymentId()));
-            eventPublisher.publishEvent(new com.loopers.domain.common.event.OrderItemSoldEvent(
-                    context.orderId(), context.productQtyMap()));
-
-            return result;
         } catch (Exception e) {
             compensateOrder(context);
             throw e;
