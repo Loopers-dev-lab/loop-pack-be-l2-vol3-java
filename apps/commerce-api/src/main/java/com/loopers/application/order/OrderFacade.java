@@ -27,6 +27,7 @@ import com.loopers.support.error.OrderErrorType;
 import com.loopers.support.error.PointErrorType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,6 +68,7 @@ public class OrderFacade {
     private final PaymentService paymentService;
     private final TransactionTemplate txTemplate;
     private final OrderCacheManager orderCacheManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     public OrderFacade(OrderService orderService, UserAddressService userAddressService,
                        ProductService productService, BrandService brandService,
@@ -74,7 +76,8 @@ public class OrderFacade {
                        CouponService couponService, PointService pointService,
                        PaymentService paymentService,
                        PlatformTransactionManager txManager,
-                       OrderCacheManager orderCacheManager) {
+                       OrderCacheManager orderCacheManager,
+                       ApplicationEventPublisher eventPublisher) {
         this.orderService = orderService;
         this.userAddressService = userAddressService;
         this.productService = productService;
@@ -84,6 +87,7 @@ public class OrderFacade {
         this.couponService = couponService;
         this.pointService = pointService;
         this.paymentService = paymentService;
+        this.eventPublisher = eventPublisher;
         this.txTemplate = new TransactionTemplate(txManager);
         this.txTemplate.setTimeout(30);
         this.orderCacheManager = orderCacheManager;
@@ -239,18 +243,26 @@ public class OrderFacade {
             // PG 결제 (트랜잭션 밖 — 락 미보유 상태에서 외부 호출)
             String pgTxnId = simulatePgPayment();
 
-            // TX2: 결제 확정 + 재고 확정 + 주문 확정 + 포인트 적립
-            return txTemplate.execute(status -> {
+            // TX2: 결제 확정 + 재고 확정 + 주문 확정
+            // 포인트 적립은 TX2 커밋 이후 이벤트로 처리 (ApplicationEvent → 추후 Kafka 전환)
+            OrderCreateResult result = txTemplate.execute(status -> {
                 paymentService.approve(context.paymentId(), pgTxnId, context.totalAmount());
                 inventoryService.commitAll(context.productQtyMap());
                 orderService.confirm(context.orderId(), context.paymentId(), context.paymentMethod());
-                pointService.earn(context.userId(), context.totalAmount());
 
                 Order order = orderService.getById(context.orderId());
                 return new OrderCreateResult(
                         order.getId(), order.getOrderNumber(), order.getStatus().name(),
                         order.getTotalAmount(), order.getPaymentId());
             });
+
+            // TX2 커밋 후 이벤트 발행 — 포인트 적립 + 유저 행동 로깅
+            eventPublisher.publishEvent(new com.loopers.domain.common.event.OrderConfirmedEvent(
+                    context.orderId(), context.userId(), context.totalAmount(), context.paymentId()));
+            eventPublisher.publishEvent(new com.loopers.domain.common.event.OrderItemSoldEvent(
+                    context.orderId(), context.productQtyMap()));
+
+            return result;
         } catch (Exception e) {
             compensateOrder(context);
             throw e;

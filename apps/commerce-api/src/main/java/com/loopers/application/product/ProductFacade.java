@@ -9,6 +9,8 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductCursor;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductSortType;
+import com.loopers.domain.common.event.ProductViewedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -35,12 +37,15 @@ public class ProductFacade {
     private final ProductService productService;
     private final BrandService brandService;
     private final ProductCacheManager productCacheManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ProductFacade(ProductService productService, BrandService brandService,
-                         ProductCacheManager productCacheManager) {
+                         ProductCacheManager productCacheManager,
+                         ApplicationEventPublisher eventPublisher) {
         this.productService = productService;
         this.brandService = brandService;
         this.productCacheManager = productCacheManager;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -58,6 +63,11 @@ public class ProductFacade {
         ProductDetailResult result = new ProductDetailResult(ProductInfo.from(product), BrandInfo.from(brand));
 
         productCacheManager.putProductDetail(productId, result);
+
+        // 상품 조회 이벤트 발행 — product_metrics 조회 수 집계 + 유저 행동 로깅 (추후 Kafka 전환)
+        // userId는 현재 컨텍스트에서 가져올 수 없으므로 null 허용 (비로그인 조회)
+        eventPublisher.publishEvent(new ProductViewedEvent(null, productId));
+
         return result;
     }
 

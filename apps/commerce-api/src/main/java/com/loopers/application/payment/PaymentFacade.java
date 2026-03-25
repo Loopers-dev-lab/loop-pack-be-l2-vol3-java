@@ -20,6 +20,7 @@ import com.loopers.support.error.CouponErrorType;
 import com.loopers.support.error.OrderErrorType;
 import com.loopers.support.error.PaymentErrorType;
 import com.loopers.support.error.PointErrorType;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,11 +46,13 @@ public class PaymentFacade {
     private final CouponService couponService;
     private final ProductService productService;
     private final OrderCacheManager orderCacheManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     public PaymentFacade(OrderService orderService, PaymentService paymentService,
                          InventoryService inventoryService, PointService pointService,
                          CouponService couponService, ProductService productService,
-                         OrderCacheManager orderCacheManager) {
+                         OrderCacheManager orderCacheManager,
+                         ApplicationEventPublisher eventPublisher) {
         this.orderService = orderService;
         this.paymentService = paymentService;
         this.inventoryService = inventoryService;
@@ -57,6 +60,7 @@ public class PaymentFacade {
         this.couponService = couponService;
         this.productService = productService;
         this.orderCacheManager = orderCacheManager;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -151,11 +155,18 @@ public class PaymentFacade {
             // Order → PAID
             orderService.confirm(orderId, payment.getId(), paymentMethod);
 
-            // 포인트 적립
-            pointService.earn(userId, order.getTotalAmount());
+            // 포인트 적립은 TX 커밋 이후 이벤트로 처리 (ApplicationEvent → 추후 Kafka 전환)
+            // pointService.earn()을 직접 호출하지 않고 이벤트로 분리
+            // → @TransactionalEventListener(AFTER_COMMIT)에서 처리
 
             // 주문 상태 변경(PENDING → PAID) → afterCommit에서 캐시 삭제
             orderCacheManager.registerEvictAfterCommit(userId);
+
+            // 이벤트 발행 — TX 커밋 후 리스너에서 포인트 적립 + 유저 행동 로깅
+            eventPublisher.publishEvent(new com.loopers.domain.common.event.OrderConfirmedEvent(
+                    orderId, userId, order.getTotalAmount(), payment.getId()));
+            eventPublisher.publishEvent(new com.loopers.domain.common.event.OrderItemSoldEvent(
+                    orderId, productQtyMap));
         } else {
             payment.reject();
 

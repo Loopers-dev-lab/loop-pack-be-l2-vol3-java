@@ -9,6 +9,8 @@ import com.loopers.domain.like.LikeService;
 import com.loopers.domain.like.ProductLike;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.common.event.ProductLikedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,15 +34,18 @@ public class LikeFacade {
     private final ProductService productService;
     private final BrandService brandService;
     private final ProductCacheManager productCacheManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     public LikeFacade(LikeService likeService, BrandLikeService brandLikeService,
                       ProductService productService, BrandService brandService,
-                      ProductCacheManager productCacheManager) {
+                      ProductCacheManager productCacheManager,
+                      ApplicationEventPublisher eventPublisher) {
         this.likeService = likeService;
         this.brandLikeService = brandLikeService;
         this.productService = productService;
         this.brandService = brandService;
         this.productCacheManager = productCacheManager;
+        this.eventPublisher = eventPublisher;
     }
 
     /** 상품 좋아요 (상품 검증 → 좋아요 생성 → likeCount 증가 → 상세 캐시만 삭제) */
@@ -50,6 +55,10 @@ public class LikeFacade {
         likeService.like(userId, productId);
         productService.incrementLikeCount(productId);
         productCacheManager.registerDetailOnlyEvictAfterCommit(productId);
+
+        // 좋아요 이벤트 발행 — product_metrics 집계 + 유저 행동 로깅 (추후 Kafka 전환)
+        eventPublisher.publishEvent(new ProductLikedEvent(userId, productId, true));
+
         return new LikeResult(product.getLikeCount() + 1);
     }
 
@@ -60,6 +69,10 @@ public class LikeFacade {
         likeService.unlike(userId, productId);
         productService.decrementLikeCount(productId);
         productCacheManager.registerDetailOnlyEvictAfterCommit(productId);
+
+        // 좋아요 취소 이벤트 발행
+        eventPublisher.publishEvent(new ProductLikedEvent(userId, productId, false));
+
         return new LikeResult(product.getLikeCount() - 1);
     }
 
