@@ -1,6 +1,7 @@
 package com.loopers.domain.outbox;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class OutboxEventService {
      *
      * <p>해당 aggregate의 최신 버전을 조회하여 +1한 버전으로 이벤트를 생성한다.</p>
      *
+     * @param eventId       이벤트 식별자
      * @param aggregateId   대상 엔티티 ID
      * @param aggregateType 도메인 타입 (예: "LIKE", "ORDER")
      * @param eventType     이벤트 종류 (예: "LIKED", "ORDER_PLACED")
@@ -35,6 +37,7 @@ public class OutboxEventService {
      */
     @Transactional
     public void save(
+            UUID eventId,
             Long aggregateId,
             String aggregateType,
             String eventType,
@@ -44,6 +47,7 @@ public class OutboxEventService {
     ) {
         Long latestVersion = outboxEventRepository.findLatestVersion(aggregateId, aggregateType);
         OutboxEvent outboxEvent = OutboxEvent.create(
+                eventId,
                 aggregateId,
                 aggregateType,
                 eventType,
@@ -53,6 +57,18 @@ public class OutboxEventService {
                 latestVersion + 1
         );
         outboxEventRepository.save(outboxEvent);
+    }
+
+    /**
+     * ID로 Outbox 이벤트를 조회한다.
+     *
+     * @param eventId Outbox 이벤트 ID
+     * @return Outbox 이벤트
+     * @throws CoreException 이벤트가 존재하지 않는 경우
+     */
+    public OutboxEvent findById(UUID eventId) {
+        return outboxEventRepository.findById(eventId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND));
     }
 
     /**
@@ -68,15 +84,17 @@ public class OutboxEventService {
     }
 
     /**
-     * Outbox 이벤트를 발행 성공 상태로 갱신한다.
+     * Outbox 이벤트를 원자적으로 발행 완료 상태로 갱신한다.
+     *
+     * <p>INIT 또는 PUBLISH_FAILED 상태일 때만 PUBLISHED로 전이하며,
+     * 이미 다른 프로세스가 처리한 경우 false를 반환한다.</p>
      *
      * @param eventId Outbox 이벤트 ID
+     * @return 발행 성공 여부
      */
     @Transactional
-    public void publish(Long eventId) {
-        OutboxEvent event = outboxEventRepository.findById(eventId)
-                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND));
-        event.publish();
+    public boolean publish(UUID eventId) {
+        return outboxEventRepository.updateStatusToPublished(eventId);
     }
 
     /**
@@ -86,7 +104,7 @@ public class OutboxEventService {
      * @return 상태가 갱신된 Outbox 이벤트
      */
     @Transactional
-    public OutboxEvent publishFail(Long eventId) {
+    public OutboxEvent publishFail(UUID eventId) {
         OutboxEvent event = outboxEventRepository.findById(eventId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND));
         event.publishFail();
@@ -101,7 +119,7 @@ public class OutboxEventService {
      * @param eventId Outbox 이벤트 ID
      */
     @Transactional
-    public void dead(Long eventId) {
+    public void dead(UUID eventId) {
         OutboxEvent event = outboxEventRepository.findById(eventId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND));
         event.dead();

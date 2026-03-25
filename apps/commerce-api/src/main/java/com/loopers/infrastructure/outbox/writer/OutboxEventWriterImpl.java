@@ -1,5 +1,7 @@
 package com.loopers.infrastructure.outbox.writer;
 
+import java.util.UUID;
+
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -28,6 +30,7 @@ public class OutboxEventWriterImpl implements OutboxEventWriter {
 
     @Override
     public void write(
+            UUID eventId,
             Long aggregateId,
             String aggregateType,
             String eventType,
@@ -37,7 +40,7 @@ public class OutboxEventWriterImpl implements OutboxEventWriter {
     ) {
         try {
             String payload = objectMapper.writeValueAsString(event);
-            outboxEventService.save(aggregateId, aggregateType, eventType, payload, topic, partitionKey);
+            outboxEventService.save(eventId, aggregateId, aggregateType, eventType, payload, topic, partitionKey);
             log.debug("[OUTBOX] aggregateType={}, eventType={}, aggregateId={}", aggregateType, eventType, aggregateId);
         } catch (JsonProcessingException e) {
             log.error("[OUTBOX] 직렬화 실패: aggregateType={}, eventType={}, aggregateId={}",

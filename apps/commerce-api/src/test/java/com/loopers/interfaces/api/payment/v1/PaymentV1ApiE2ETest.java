@@ -228,11 +228,12 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         Payment payment = paymentRepository.findByTransactionKey("txn-success-001").orElseThrow();
-        Order order = orderRepository.findByOrderKeyWithItems(orderKey).orElseThrow();
-        assertAll(
-                () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS),
-                () -> assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID)
-        );
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+
+        await().atMost(5, SECONDS).untilAsserted(() -> {
+            Order order = orderRepository.findByOrderKeyWithItems(orderKey).orElseThrow();
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        });
     }
 
     @DisplayName("콜백: 결제 실패 콜백이 오면, Payment는 FAILED, Order는 FAILED가 되고 재고가 복원된다.")
@@ -250,17 +251,19 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         Payment payment = paymentRepository.findByTransactionKey("txn-fail-001").orElseThrow();
-        Order order = orderRepository.findByOrderKeyWithItems(orderKey).orElseThrow();
         assertAll(
                 () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED),
-                () -> assertThat(payment.getReason()).isEqualTo("잔액 부족"),
-                () -> assertThat(order.getStatus()).isEqualTo(OrderStatus.FAILED)
+                () -> assertThat(payment.getReason()).isEqualTo("잔액 부족")
         );
 
-        // 비동기 이벤트 처리 대기 — 재고 복원
+        // 비동기 이벤트 처리 대기 — 주문 실패 + 재고 복원
         await().atMost(5, SECONDS).untilAsserted(() -> {
+            Order order = orderRepository.findByOrderKeyWithItems(orderKey).orElseThrow();
             Product product = productRepository.findById(productId).orElseThrow();
-            assertThat(product.getStock().getValue()).isEqualTo(INITIAL_STOCK);
+            assertAll(
+                    () -> assertThat(order.getStatus()).isEqualTo(OrderStatus.FAILED),
+                    () -> assertThat(product.getStock().getValue()).isEqualTo(INITIAL_STOCK)
+            );
         });
     }
 
@@ -271,6 +274,12 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
         pgStub.willRespondSuccess("txn-dup-001");
         createPayment(testRestTemplate, paymentRequest(), userHeaders);
         handlePaymentCallback(testRestTemplate, new PaymentDto.PaymentCallbackRequest("txn-dup-001", PaymentStatus.SUCCESS, null));
+
+        // 비동기 이벤트 처리 대기
+        await().atMost(5, SECONDS).untilAsserted(() -> {
+            Order order = orderRepository.findByOrderKeyWithItems(orderKey).orElseThrow();
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        });
 
         // act
         var response = handlePaymentCallback(

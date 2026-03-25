@@ -81,7 +81,7 @@ public class Product extends BaseEntity {
     @Override
     public void delete() {
         super.delete();
-        registerEvent(new ProductDeleted(getId()));
+        registerEvent(ProductDeleted.from(this));
     }
 
     public void update(ModifyProduct product) {

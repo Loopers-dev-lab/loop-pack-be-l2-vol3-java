@@ -56,7 +56,7 @@ public class Like extends AbstractAggregateRoot<Like> {
         like.userId = userId;
         like.productId = productId;
         like.likedAt = ZonedDateTime.now();
-        like.registerEvent(new LikeEvent.Liked(productId));
+        like.registerEvent(LikeEvent.Liked.from(like));
         return like;
     }
 
@@ -66,6 +66,6 @@ public class Like extends AbstractAggregateRoot<Like> {
      * <p>{@code repository.delete()} 시점에 {@link LikeEvent.Unliked} 이벤트가 발행된다.</p>
      */
     public void unlike() {
-        registerEvent(new LikeEvent.Unliked(productId));
+        registerEvent(LikeEvent.Unliked.from(this));
     }
 }

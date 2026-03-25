@@ -2,6 +2,7 @@ package com.loopers.domain.outbox;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Outbox 이벤트 도메인 리포지토리 인터페이스.
@@ -22,7 +23,17 @@ public interface OutboxEventRepository {
      * @param id Outbox 이벤트 ID
      * @return Outbox 이벤트 (없으면 empty)
      */
-    Optional<OutboxEvent> findById(Long id);
+    Optional<OutboxEvent> findById(UUID id);
+
+    /**
+     * Outbox 이벤트를 원자적으로 발행 완료 상태로 갱신한다.
+     *
+     * <p>INIT 또는 PUBLISH_FAILED 상태인 경우에만 PUBLISHED로 전이한다.</p>
+     *
+     * @param id Outbox 이벤트 ID
+     * @return 갱신 성공 여부
+     */
+    boolean updateStatusToPublished(UUID id);
 
     /**
      * 해당 aggregate의 최신 이벤트 버전을 조회한다.

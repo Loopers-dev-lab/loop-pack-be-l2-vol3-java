@@ -1,12 +1,13 @@
 package com.loopers.infrastructure.outbox.relay;
 
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
@@ -39,8 +40,9 @@ class OutboxEventRelayTest {
     @Mock
     private SendResult<Object, Object> sendResult;
 
-    private OutboxEvent createEvent(Long id) {
-        OutboxEvent event = OutboxEvent.create(
+    private OutboxEvent createEvent(UUID id) {
+        return OutboxEvent.create(
+                id,
                 1L,
                 "LIKE",
                 "LIKED",
@@ -49,14 +51,6 @@ class OutboxEventRelayTest {
                 "1",
                 1L
         );
-        try {
-            var idField = OutboxEvent.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(event, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        return event;
     }
 
     @DisplayName("Relay를 실행할 때,")
@@ -67,44 +61,49 @@ class OutboxEventRelayTest {
         @Test
         void publishesAndSucceeds() {
             // arrange
-            OutboxEvent event = createEvent(1L);
+            UUID eventId = UUID.randomUUID();
+            OutboxEvent event = createEvent(eventId);
             given(outboxEventService.findPendingEvents(100)).willReturn(List.of(event));
             given(kafkaTemplate.send("like-liked-v1", "1", "{\"productId\":1}"))
                     .willReturn(CompletableFuture.completedFuture(sendResult));
+            given(outboxEventService.publish(eventId)).willReturn(true);
 
             // act
             outboxEventRelay.relay();
 
             // assert
-            then(outboxEventService).should().publish(1L);
+            then(outboxEventService).should().publish(eventId);
         }
 
         @DisplayName("재시도 가능한 실패 시, fail 처리하고 나머지를 계속 처리한다.")
         @Test
         void failsAndContinuesOnRetryableError() {
             // arrange
-            OutboxEvent event1 = createEvent(1L);
-            OutboxEvent event2 = createEvent(2L);
-            OutboxEvent failedEvent = createEvent(1L);
+            UUID eventId1 = UUID.randomUUID();
+            UUID eventId2 = UUID.randomUUID();
+            OutboxEvent event1 = createEvent(eventId1);
+            OutboxEvent event2 = createEvent(eventId2);
+            OutboxEvent failedEvent = createEvent(eventId1);
             given(outboxEventService.findPendingEvents(100)).willReturn(List.of(event1, event2));
             given(kafkaTemplate.send(eq("like-liked-v1"), eq("1"), eq("{\"productId\":1}")))
                     .willReturn(CompletableFuture.failedFuture(new RuntimeException("broker down")));
-            given(outboxEventService.publishFail(anyLong())).willReturn(failedEvent);
+            given(outboxEventService.publishFail(any(UUID.class))).willReturn(failedEvent);
 
             // act
             outboxEventRelay.relay();
 
             // assert
-            then(outboxEventService).should().publishFail(1L);
-            then(outboxEventService).should().publishFail(2L);
-            then(outboxEventService).should(never()).dead(anyLong());
+            then(outboxEventService).should().publishFail(eventId1);
+            then(outboxEventService).should().publishFail(eventId2);
+            then(outboxEventService).should(never()).dead(any(UUID.class));
         }
 
         @DisplayName("재시도 불가능한 실패 시, 즉시 dead 처리한다.")
         @Test
         void deadsOnNonRetryableError() {
             // arrange
-            OutboxEvent event = createEvent(1L);
+            UUID eventId = UUID.randomUUID();
+            OutboxEvent event = createEvent(eventId);
             given(outboxEventService.findPendingEvents(100)).willReturn(List.of(event));
             given(kafkaTemplate.send("like-liked-v1", "1", "{\"productId\":1}"))
                     .willReturn(CompletableFuture.failedFuture(
@@ -114,8 +113,8 @@ class OutboxEventRelayTest {
             outboxEventRelay.relay();
 
             // assert
-            then(outboxEventService).should().dead(1L);
-            then(outboxEventService).should(never()).publishFail(anyLong());
+            then(outboxEventService).should().dead(eventId);
+            then(outboxEventService).should(never()).publishFail(any(UUID.class));
         }
 
         @DisplayName("INIT 이벤트가 없으면, Kafka에 발행하지 않는다.")

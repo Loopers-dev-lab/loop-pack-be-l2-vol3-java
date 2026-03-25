@@ -1,13 +1,12 @@
 package com.loopers.domain.outbox;
 
 import java.time.ZonedDateTime;
+import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
@@ -40,8 +39,8 @@ public class OutboxEvent {
     private static final int MAX_RETRY_COUNT = 3;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(columnDefinition = "BINARY(16)")
+    private UUID id;
 
     @Column(nullable = false)
     private Long aggregateId;
@@ -81,6 +80,7 @@ public class OutboxEvent {
     private ZonedDateTime createdAt;
 
     public static OutboxEvent create(
+            UUID id,
             Long aggregateId,
             String aggregateType,
             String eventType,
@@ -90,6 +90,7 @@ public class OutboxEvent {
             Long version
     ) {
         OutboxEvent event = new OutboxEvent();
+        event.id = id;
         event.aggregateId = aggregateId;
         event.aggregateType = aggregateType;
         event.eventType = eventType;
@@ -100,11 +101,6 @@ public class OutboxEvent {
         event.status = Status.INIT;
         event.createdAt = ZonedDateTime.now();
         return event;
-    }
-
-    public void publish() {
-        this.status = Status.PUBLISHED;
-        this.publishedAt = ZonedDateTime.now();
     }
 
     public void publishFail() {

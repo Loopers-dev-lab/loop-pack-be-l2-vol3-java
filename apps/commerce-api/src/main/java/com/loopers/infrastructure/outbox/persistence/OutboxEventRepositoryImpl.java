@@ -2,6 +2,7 @@ package com.loopers.infrastructure.outbox.persistence;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
@@ -28,8 +29,13 @@ public class OutboxEventRepositoryImpl implements OutboxEventRepository {
     }
 
     @Override
-    public Optional<OutboxEvent> findById(Long id) {
+    public Optional<OutboxEvent> findById(UUID id) {
         return outboxEventJpaRepository.findById(id);
+    }
+
+    @Override
+    public boolean updateStatusToPublished(UUID id) {
+        return outboxEventJpaRepository.publish(id, java.time.ZonedDateTime.now()) > 0;
     }
 
     @Override
@@ -44,4 +50,5 @@ public class OutboxEventRepositoryImpl implements OutboxEventRepository {
     public List<OutboxEvent> findPendingEvents(int limit) {
         return outboxEventJpaRepository.findPendingEvents(PageRequest.of(0, limit));
     }
+
 }

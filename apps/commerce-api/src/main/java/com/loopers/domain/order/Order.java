@@ -92,6 +92,7 @@ public class Order extends BaseEntity {
     public void pay() {
         validatePayable();
         this.status = OrderStatus.PAID;
+        registerEvent(OrderEvent.OrderCompleted.from(this));
     }
 
     public void fail() {

@@ -1,5 +1,7 @@
 package com.loopers.domain.outbox;
 
+import java.util.UUID;
+
 /**
  * 도메인 이벤트를 Outbox에 기록하는 인터페이스.
  *
@@ -11,6 +13,7 @@ public interface OutboxEventWriter {
     /**
      * 도메인 이벤트를 Outbox에 기록한다.
      *
+     * @param eventId       이벤트 식별자
      * @param aggregateId   대상 엔티티 ID
      * @param aggregateType 도메인 타입 (예: "LIKE")
      * @param eventType     이벤트 종류 (예: "LIKED")
@@ -19,6 +22,7 @@ public interface OutboxEventWriter {
      * @param partitionKey  파티션 키
      */
     void write(
+            UUID eventId,
             Long aggregateId,
             String aggregateType,
             String eventType,

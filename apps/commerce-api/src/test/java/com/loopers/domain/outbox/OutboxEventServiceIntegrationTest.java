@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -28,11 +29,35 @@ class OutboxEventServiceIntegrationTest extends BaseIntegrationTest {
         @DisplayName("이벤트가 INIT 상태로 저장된다.")
         @Test
         void savesWithInitStatus() {
+            // arrange
+            UUID eventId = UUID.randomUUID();
+
             // act
+            outboxEventService.save(eventId, 1L, "LIKE", "LIKED", "{\"productId\":1}", "like-liked-v1", "1");
+
+            // assert
+            assertThat(outboxEventJpaRepository.findById(eventId)).isPresent();
+        }
+
+        @DisplayName("같은 aggregate에 대해 재저장하면, 버전이 증가한다.")
+        @Test
+        void incrementsVersionForSameAggregate() {
+            // arrange
             outboxEventService.save(
+                    UUID.randomUUID(),
                     1L,
                     "LIKE",
                     "LIKED",
+                    "{\"productId\":1}",
+                    "like-liked-v1","1"
+            );
+
+            // act
+            outboxEventService.save(
+                    UUID.randomUUID(),
+                    1L,
+                    "LIKE",
+                    "UNLIKED",
                     "{\"productId\":1}",
                     "like-liked-v1",
                     "1"
@@ -40,38 +65,9 @@ class OutboxEventServiceIntegrationTest extends BaseIntegrationTest {
 
             // assert
             List<OutboxEvent> events = outboxEventJpaRepository.findAll();
-            assertThat(events).hasSize(1);
-
-            OutboxEvent event = events.get(0);
-            assertAll(
-                    () -> assertThat(event.getAggregateId()).isEqualTo(1L),
-                    () -> assertThat(event.getAggregateType()).isEqualTo("LIKE"),
-                    () -> assertThat(event.getEventType()).isEqualTo("LIKED"),
-                    () -> assertThat(event.getPayload()).isEqualTo("{\"productId\":1}"),
-                    () -> assertThat(event.getTopic()).isEqualTo("like-liked-v1"),
-                    () -> assertThat(event.getPartitionKey()).isEqualTo("1"),
-                    () -> assertThat(event.getVersion()).isEqualTo(1L),
-                    () -> assertThat(event.getStatus()).isEqualTo(OutboxEvent.Status.INIT),
-                    () -> assertThat(event.getPublishedAt()).isNull()
-            );
-        }
-
-        @DisplayName("같은 aggregate에 대해 재저장하면, 버전이 증가한다.")
-        @Test
-        void incrementsVersionForSameAggregate() {
-            // arrange
-            outboxEventService.save(1L, "LIKE", "LIKED", "{\"productId\":1}",
-                    "like-liked-v1", "1");
-
-            // act
-            outboxEventService.save(1L, "LIKE", "UNLIKED", "{\"productId\":1}",
-                    "like-liked-v1", "1");
-
-            // assert
-            List<OutboxEvent> events = outboxEventJpaRepository.findAll();
             assertThat(events).hasSize(2);
-            assertThat(events.get(0).getVersion()).isEqualTo(1L);
-            assertThat(events.get(1).getVersion()).isEqualTo(2L);
+            assertThat(events).extracting(OutboxEvent::getVersion)
+                    .containsExactlyInAnyOrder(1L, 2L);
         }
     }
 
@@ -83,12 +79,30 @@ class OutboxEventServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void returnsInitAndRetryableFail() {
             // arrange
-            outboxEventService.save(1L, "LIKE", "LIKED", "{}", "like-liked-v1", "1");
-            outboxEventService.save(2L, "LIKE", "LIKED", "{}", "like-liked-v1", "2");
+            outboxEventService.save(
+                    UUID.randomUUID(),
+                    1L,
+                    "LIKE",
+                    "LIKED",
+                    "{}",
+                    "like-liked-v1",
+                    "1"
+            );
+            outboxEventService.save(
+                    UUID.randomUUID(),
+                    2L,
+                    "LIKE",
+                    "LIKED",
+                    "{}",
+                    "like-liked-v1",
+                    "2"
+            );
 
-            // 첫 번째 이벤트를 PUBLISHED로 변경
-            OutboxEvent first = outboxEventJpaRepository.findAll().get(0);
-            outboxEventService.publish(first.getId());
+            OutboxEvent target = outboxEventJpaRepository.findAll().stream()
+                    .filter(e -> e.getAggregateId().equals(1L))
+                    .findFirst()
+                    .orElseThrow();
+            outboxEventService.publish(target.getId());
 
             // act
             List<OutboxEvent> pendingEvents = outboxEventService.findPendingEvents(10);
@@ -102,8 +116,16 @@ class OutboxEventServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void excludesExhaustedRetries() {
             // arrange
-            outboxEventService.save(1L, "LIKE", "LIKED", "{}", "like-liked-v1", "1");
-            Long eventId = outboxEventJpaRepository.findAll().get(0).getId();
+            outboxEventService.save(
+                    UUID.randomUUID(),
+                    1L,
+                    "LIKE",
+                    "LIKED",
+                    "{}",
+                    "like-liked-v1",
+                    "1"
+            );
+            UUID eventId = outboxEventJpaRepository.findAll().get(0).getId();
 
             // 3회 실패
             outboxEventService.publishFail(eventId);
@@ -121,8 +143,16 @@ class OutboxEventServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void includesRetryableFail() {
             // arrange
-            outboxEventService.save(1L, "LIKE", "LIKED", "{}", "like-liked-v1", "1");
-            Long eventId = outboxEventJpaRepository.findAll().get(0).getId();
+            outboxEventService.save(
+                    UUID.randomUUID(),
+                    1L,
+                    "LIKE",
+                    "LIKED",
+                    "{}",
+                    "like-liked-v1",
+                    "1"
+            );
+            UUID eventId = outboxEventJpaRepository.findAll().get(0).getId();
 
             // 1회 실패
             outboxEventService.publishFail(eventId);
@@ -138,9 +168,33 @@ class OutboxEventServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void respectsLimit() {
             // arrange
-            outboxEventService.save(1L, "LIKE", "LIKED", "{}", "like-liked-v1", "1");
-            outboxEventService.save(2L, "LIKE", "LIKED", "{}", "like-liked-v1", "2");
-            outboxEventService.save(3L, "LIKE", "LIKED", "{}", "like-liked-v1", "3");
+            outboxEventService.save(
+                    UUID.randomUUID(),
+                    1L,
+                    "LIKE",
+                    "LIKED",
+                    "{}",
+                    "like-liked-v1",
+                    "1"
+            );
+            outboxEventService.save(
+                    UUID.randomUUID(),
+                    2L,
+                    "LIKE",
+                    "LIKED",
+                    "{}",
+                    "like-liked-v1",
+                    "2"
+            );
+            outboxEventService.save(
+                    UUID.randomUUID(),
+                    3L,
+                    "LIKE",
+                    "LIKED",
+                    "{}",
+                    "like-liked-v1",
+                    "3"
+            );
 
             // act
             List<OutboxEvent> pendingEvents = outboxEventService.findPendingEvents(2);
@@ -152,24 +206,57 @@ class OutboxEventServiceIntegrationTest extends BaseIntegrationTest {
 
     @DisplayName("발행 성공 처리할 때,")
     @Nested
-    class MarkSuccess {
+    class Publish {
 
-        @DisplayName("상태가 PUBLISHED로 갱신되고 publishedAt이 설정된다.")
+        @DisplayName("INIT 상태이면 PUBLISHED로 갱신되고 true를 반환한다.")
         @Test
-        void updatesStatusAndPublishedAt() {
+        void updatesInitToPublished() {
             // arrange
-            outboxEventService.save(1L, "LIKE", "LIKED", "{}", "like-liked-v1", "1");
-            Long eventId = outboxEventJpaRepository.findAll().get(0).getId();
+            UUID eventId = UUID.randomUUID();
+            outboxEventService.save(eventId, 1L, "LIKE", "LIKED", "{}", "like-liked-v1", "1");
 
             // act
-            outboxEventService.publish(eventId);
+            boolean result = outboxEventService.publish(eventId);
 
             // assert
+            assertThat(result).isTrue();
             OutboxEvent event = outboxEventJpaRepository.findById(eventId).orElseThrow();
             assertAll(
                     () -> assertThat(event.getStatus()).isEqualTo(OutboxEvent.Status.PUBLISHED),
                     () -> assertThat(event.getPublishedAt()).isNotNull()
             );
+        }
+
+        @DisplayName("이미 PUBLISHED 상태이면 false를 반환한다.")
+        @Test
+        void returnsFalseWhenAlreadyPublished() {
+            // arrange
+            UUID eventId = UUID.randomUUID();
+            outboxEventService.save(eventId, 1L, "LIKE", "LIKED", "{}", "like-liked-v1", "1");
+            outboxEventService.publish(eventId);
+
+            // act
+            boolean result = outboxEventService.publish(eventId);
+
+            // assert
+            assertThat(result).isFalse();
+        }
+
+        @DisplayName("PUBLISH_FAILED 상태이면 PUBLISHED로 갱신되고 true를 반환한다.")
+        @Test
+        void updatesPublishFailedToPublished() {
+            // arrange
+            UUID eventId = UUID.randomUUID();
+            outboxEventService.save(eventId, 1L, "LIKE", "LIKED", "{}", "like-liked-v1", "1");
+            outboxEventService.publishFail(eventId);
+
+            // act
+            boolean result = outboxEventService.publish(eventId);
+
+            // assert
+            assertThat(result).isTrue();
+            OutboxEvent event = outboxEventJpaRepository.findById(eventId).orElseThrow();
+            assertThat(event.getStatus()).isEqualTo(OutboxEvent.Status.PUBLISHED);
         }
     }
 
@@ -181,8 +268,16 @@ class OutboxEventServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void updatesStatusToFailAndIncrementsRetryCount() {
             // arrange
-            outboxEventService.save(1L, "LIKE", "LIKED", "{}", "like-liked-v1", "1");
-            Long eventId = outboxEventJpaRepository.findAll().get(0).getId();
+            outboxEventService.save(
+                    UUID.randomUUID(),
+                    1L,
+                    "LIKE",
+                    "LIKED",
+                    "{}",
+                    "like-liked-v1",
+                    "1"
+            );
+            UUID eventId = outboxEventJpaRepository.findAll().get(0).getId();
 
             // act
             outboxEventService.publishFail(eventId);

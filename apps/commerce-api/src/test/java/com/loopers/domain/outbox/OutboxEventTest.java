@@ -3,6 +3,8 @@ package com.loopers.domain.outbox;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import java.util.UUID;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -18,6 +20,7 @@ class OutboxEventTest {
         void setsFieldsAndStatusInit() {
             // act
             OutboxEvent event = OutboxEvent.create(
+                    UUID.randomUUID(),
                     1L,
                     "LIKE",
                     "LIKED",
@@ -42,35 +45,6 @@ class OutboxEventTest {
         }
     }
 
-    @DisplayName("발행 성공 처리할 때,")
-    @Nested
-    class MarkSuccess {
-
-        @DisplayName("상태가 PUBLISHED로 변경되고, publishedAt이 설정된다.")
-        @Test
-        void changesStatusAndSetsPublishedAt() {
-            // arrange
-            OutboxEvent event = OutboxEvent.create(
-                    1L,
-                    "LIKE",
-                    "LIKED",
-                    "{}",
-                    "like-liked-v1",
-                    "1",
-                    1L
-            );
-
-            // act
-            event.publish();
-
-            // assert
-            assertAll(
-                    () -> assertThat(event.getStatus()).isEqualTo(OutboxEvent.Status.PUBLISHED),
-                    () -> assertThat(event.getPublishedAt()).isNotNull()
-            );
-        }
-    }
-
     @DisplayName("발행 실패 처리할 때,")
     @Nested
     class Fail {
@@ -80,6 +54,7 @@ class OutboxEventTest {
         void changesStatusToFailAndIncrementsRetryCount() {
             // arrange
             OutboxEvent event = OutboxEvent.create(
+                    UUID.randomUUID(),
                     1L,
                     "LIKE",
                     "LIKED",
@@ -105,6 +80,7 @@ class OutboxEventTest {
         void transitionsToDeadWhenRetryExhausted() {
             // arrange
             OutboxEvent event = OutboxEvent.create(
+                    UUID.randomUUID(),
                     1L,
                     "LIKE",
                     "LIKED",
@@ -137,6 +113,7 @@ class OutboxEventTest {
         void transitionsToDeadImmediately() {
             // arrange
             OutboxEvent event = OutboxEvent.create(
+                    UUID.randomUUID(),
                     1L,
                     "LIKE",
                     "LIKED",
