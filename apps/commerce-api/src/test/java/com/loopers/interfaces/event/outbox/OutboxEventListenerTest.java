@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 
+import java.util.Collections;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -47,7 +48,7 @@ class OutboxEventListenerTest {
         void writesToOutbox() {
             // arrange
             UUID eventId = UUID.randomUUID();
-            OrderEvent.OrderCompleted event = new OrderEvent.OrderCompleted(eventId, 1L);
+            OrderEvent.OrderCompleted event = new OrderEvent.OrderCompleted(eventId, 1L, Collections.emptyList());
 
             // act
             outboxEventListener.saveOutbox(event);
@@ -70,7 +71,7 @@ class OutboxEventListenerTest {
             // arrange
             UUID eventId = UUID.randomUUID();
             OutboxEvent outboxEvent = createOutboxEvent(eventId);
-            OrderEvent.OrderCompleted event = new OrderEvent.OrderCompleted(eventId, 1L);
+            OrderEvent.OrderCompleted event = new OrderEvent.OrderCompleted(eventId, 1L, Collections.emptyList());
 
             given(outboxEventService.publish(eventId)).willReturn(true);
             given(outboxEventService.findById(eventId)).willReturn(outboxEvent);
@@ -87,7 +88,7 @@ class OutboxEventListenerTest {
         void skips_whenClaimFails() {
             // arrange
             UUID eventId = UUID.randomUUID();
-            OrderEvent.OrderCompleted event = new OrderEvent.OrderCompleted(eventId, 1L);
+            OrderEvent.OrderCompleted event = new OrderEvent.OrderCompleted(eventId, 1L, Collections.emptyList());
 
             given(outboxEventService.publish(eventId)).willReturn(false);
 
@@ -105,7 +106,7 @@ class OutboxEventListenerTest {
             UUID eventId = UUID.randomUUID();
             OutboxEvent outboxEvent = createOutboxEvent(eventId);
             OutboxEvent failedEvent = createOutboxEvent(eventId);
-            OrderEvent.OrderCompleted event = new OrderEvent.OrderCompleted(eventId, 1L);
+            OrderEvent.OrderCompleted event = new OrderEvent.OrderCompleted(eventId, 1L, Collections.emptyList());
 
             given(outboxEventService.publish(eventId)).willReturn(true);
             given(outboxEventService.findById(eventId)).willReturn(outboxEvent);
@@ -130,7 +131,7 @@ class OutboxEventListenerTest {
             // arrange
             UUID eventId = UUID.randomUUID();
             OutboxEvent outboxEvent = createOutboxEvent(eventId);
-            OrderEvent.OrderCompleted event = new OrderEvent.OrderCompleted(eventId, 1L);
+            OrderEvent.OrderCompleted event = new OrderEvent.OrderCompleted(eventId, 1L, Collections.emptyList());
 
             given(outboxEventService.publish(eventId)).willReturn(true);
             given(outboxEventService.findById(eventId)).willReturn(outboxEvent);

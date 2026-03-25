@@ -71,15 +71,22 @@ public class OrderEvent {
      * 주문이 결제 완료되었을 때 발행되는 이벤트.
      *
      * <p>Outbox 이벤트가 함께 저장된 후, AFTER_COMMIT 시점에
-     * Kafka 발행을 트리거하기 위해 사용된다.</p>
+     * Kafka 발행을 트리거하기 위해 사용된다.
+     * Consumer(commerce-streamer)가 상품별 판매량을 집계할 수 있도록
+     * 주문 항목 스냅샷을 포함한다.</p>
      *
-     * @param eventId 이벤트 식별자
-     * @param orderId 결제 완료된 주문 ID
+     * @param eventId    이벤트 식별자
+     * @param orderId    결제 완료된 주문 ID
+     * @param orderItems 주문 항목 스냅샷 (상품별 판매량 집계용)
      */
-    public record OrderCompleted(UUID eventId, Long orderId) {
+    public record OrderCompleted(UUID eventId, Long orderId, List<OrderItemSnapshot> orderItems) {
 
         public static OrderCompleted from(Order order) {
-            return new OrderCompleted(UUID.randomUUID(), order.getId());
+            return new OrderCompleted(
+                    UUID.randomUUID(),
+                    order.getId(),
+                    OrderItemSnapshot.from(order.getOrderItems())
+            );
         }
     }
 
