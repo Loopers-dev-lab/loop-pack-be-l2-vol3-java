@@ -93,7 +93,7 @@ public class PaymentRecoveryScheduler {
     // transactionKey 미수신 건: orderId로 PG 조회하여 복구 시도
     private void recoverPaymentWithoutTransactionKey(Payment payment) {
         PgOrderStatusResponse orderStatus = pgClient.getPaymentStatusByOrderId(
-                payment.getUserId(), String.valueOf(payment.getOrderId()));
+                payment.getUserId(), String.format("%06d", payment.getOrderId()));
 
         if (orderStatus.hasTransactions()) {
             // PG에 결제가 존재 → transactionKey를 복구하고 결과 처리

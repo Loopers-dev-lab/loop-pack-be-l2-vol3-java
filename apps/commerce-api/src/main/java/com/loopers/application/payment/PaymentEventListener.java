@@ -37,14 +37,16 @@ public class PaymentEventListener {
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handlePaymentRequest(PaymentRequestEvent event) {
+        boolean pgCalled = false;
         try {
             Payment payment = paymentService.findById(event.paymentId());
 
             // PG 결제 요청 (Resilience4j가 보호: 재시도, 서킷 브레이커, fallback)
+            pgCalled = true;
             PgPaymentResponse pgResponse = pgClient.requestPayment(
                     event.userId(),
                     new PgPaymentRequest(
-                            String.valueOf(payment.getOrderId()),
+                            String.format("%06d", payment.getOrderId()),
                             payment.getCardType(),
                             payment.getCardNo(),
                             (long) payment.getAmount(),
@@ -61,6 +63,17 @@ public class PaymentEventListener {
             }
         } catch (Exception e) {
             log.error("PG 결제 이벤트 처리 실패: paymentId={}, orderId={}", event.paymentId(), event.orderId(), e);
+            if (!pgCalled) {
+                // PG 호출 전 내부 오류 → PG에 도달 불가능하므로 즉시 실패 처리 안전
+                try {
+                    resultHandler.handlePgFailed(event.paymentId(), event.orderId(),
+                            "결제 처리 중 내부 오류: " + e.getMessage());
+                } catch (Exception recoveryEx) {
+                    log.error("결제 실패 처리도 실패 (폴링 스케줄러가 복구 예정): paymentId={}",
+                            event.paymentId(), recoveryEx);
+                }
+            }
+            // PG 호출 후 예외 → PG 상태 불확실 → PENDING 유지, 폴링 스케줄러가 PG 조회 후 확정
         }
     }
 }
