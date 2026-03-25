@@ -1,13 +1,13 @@
 package com.loopers.application.brand;
 
-import com.loopers.application.product.ProductCacheEvictEvent;
-import com.loopers.application.product.ProductDetailCacheEvictEvent;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.like.LikeService;
+import com.loopers.domain.product.ProductCacheEvictEvent;
+import com.loopers.domain.product.ProductDetailCacheEvictEvent;
+import com.loopers.domain.product.ProductEventPublisher;
 import com.loopers.domain.product.ProductService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -21,7 +21,7 @@ public class BrandAdminFacade {
     private final BrandService brandService;
     private final ProductService productService;
     private final LikeService likeService;
-    private final ApplicationEventPublisher eventPublisher;
+    private final ProductEventPublisher eventPublisher;
 
     // 브랜드 등록
     @Transactional
@@ -49,8 +49,8 @@ public class BrandAdminFacade {
     public BrandInfo update(BrandUpdateCommand command){
         Brand brand = brandService.update(command.id(), command.name());
         List<Long> productIds = productService.findIdsByBrandId(command.id());
-        eventPublisher.publishEvent(new ProductCacheEvictEvent());
-        productIds.forEach(pid -> eventPublisher.publishEvent(new ProductDetailCacheEvictEvent(pid)));
+        eventPublisher.publish(new ProductCacheEvictEvent());
+        productIds.forEach(pid -> eventPublisher.publish(new ProductDetailCacheEvictEvent(pid)));
         return BrandInfo.from(brand);
     }
 
@@ -70,7 +70,7 @@ public class BrandAdminFacade {
         // 브랜드 soft delete
         brand.delete();
         // 삭제된 상품들의 목록/상세 캐시 무효화
-        eventPublisher.publishEvent(new ProductCacheEvictEvent());
-        productIds.forEach(pid -> eventPublisher.publishEvent(new ProductDetailCacheEvictEvent(pid)));
+        eventPublisher.publish(new ProductCacheEvictEvent());
+        productIds.forEach(pid -> eventPublisher.publish(new ProductDetailCacheEvictEvent(pid)));
     }
 }

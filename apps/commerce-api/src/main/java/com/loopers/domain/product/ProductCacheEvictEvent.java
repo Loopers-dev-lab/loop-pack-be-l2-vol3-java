@@ -1,4 +1,4 @@
-package com.loopers.application.product;
+package com.loopers.domain.product;
 
 /**
  * 상품 데이터 변경 시 캐시 무효화를 요청하는 이벤트.

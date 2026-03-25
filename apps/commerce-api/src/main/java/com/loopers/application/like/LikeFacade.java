@@ -1,7 +1,10 @@
 package com.loopers.application.like;
 
 import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.like.LikeCreatedEvent;
+import com.loopers.domain.like.LikeCancelledEvent;
 import com.loopers.domain.like.Like;
+import com.loopers.domain.like.LikeEventPublisher;
 import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
@@ -20,35 +23,38 @@ public class LikeFacade {
     private final LikeService likeService;
     private final ProductService productService;
     private final BrandService brandService;
+    private final LikeEventPublisher eventPublisher;
 
     /**
      * 좋아요 등록 (US-L01)
-     * 상품 존재 확인 → 좋아요 등록 → 좋아요 수 증가
+     * 상품 존재 확인 → 좋아요 등록 → 좋아요 수 증가 이벤트 발행
+     *
+     * 좋아요 수 증가는 AFTER_COMMIT 이벤트로 분리:
+     * - 카운트 증가 실패가 좋아요 저장을 롤백시키지 않음 (Eventual Consistency)
+     * - 크로스 도메인 결합도 감소 (LikeFacade → ProductService 직접 호출 제거)
      */
     @Transactional
     public LikeInfo create(Long userId, Long productId) {
         // 상품 존재 확인 (없으면 NOT_FOUND 예외)
-        productService.findById(productId);
+        Product product = productService.findById(productId);
         // 좋아요 등록 (중복이면 CONFLICT 예외)
         Like like = likeService.create(userId, productId);
-        // 원자적 좋아요 수 증가 (DB 레벨 UPDATE - flushAutomatically로 Like INSERT 먼저 flush됨)
-        // clearAutomatically로 캐시가 초기화되므로 아래 findById는 최신 likeCount를 반환함
-        productService.increaseLikeCount(productId);
-        Product product = productService.findById(productId);
+        // 좋아요 수 증가 이벤트 발행 (AFTER_COMMIT에서 처리)
+        eventPublisher.publish(new LikeCreatedEvent(productId, userId));
         String brandName = brandService.findById(product.getBrandId()).getName();
         return LikeInfo.of(like, product, brandName);
     }
 
     /**
      * 좋아요 취소 (US-L02)
-     * 좋아요 취소 → 좋아요 수 감소
+     * 좋아요 취소 → 좋아요 수 감소 이벤트 발행
      */
     @Transactional
     public void delete(Long userId, Long productId) {
         // 좋아요 취소 (없으면 NOT_FOUND 예외)
         likeService.delete(userId, productId);
-        // 좋아요 수 감소
-        productService.decreaseLikeCount(productId);
+        // 좋아요 수 감소 이벤트 발행 (AFTER_COMMIT에서 처리)
+        eventPublisher.publish(new LikeCancelledEvent(productId, userId));
     }
 
     /**

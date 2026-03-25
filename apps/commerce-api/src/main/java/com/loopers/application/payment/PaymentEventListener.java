@@ -1,5 +1,6 @@
 package com.loopers.application.payment;
 
+import com.loopers.domain.payment.PaymentRequestEvent;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentService;
 import com.loopers.domain.payment.PgClient;

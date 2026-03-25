@@ -1,4 +1,4 @@
-package com.loopers.application.product;
+package com.loopers.domain.product;
 
 /**
  * 특정 상품 상세 캐시를 무효화하는 이벤트.
