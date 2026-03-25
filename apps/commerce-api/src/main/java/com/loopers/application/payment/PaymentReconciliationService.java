@@ -28,6 +28,8 @@ public class PaymentReconciliationService {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentReconciliationService.class);
     private static final int STALE_THRESHOLD_MINUTES = 10;
+    private static final int ABANDONED_THRESHOLD_MINUTES = 30;
+    private static final int BATCH_SIZE = 100;
 
     private final PaymentRepository paymentRepository;
     private final PaymentService paymentService;
@@ -69,11 +71,25 @@ public class PaymentReconciliationService {
      */
     private int reconcileStalePayments(PaymentStatus targetStatus) {
         ZonedDateTime threshold = ZonedDateTime.now().minusMinutes(STALE_THRESHOLD_MINUTES);
-        List<Payment> stalePayments = paymentRepository.findAllByStatusAndRequestedBefore(targetStatus, threshold);
+        ZonedDateTime abandonedThreshold = ZonedDateTime.now().minusMinutes(ABANDONED_THRESHOLD_MINUTES);
+        List<Payment> stalePayments = paymentRepository.findAllByStatusAndRequestedBefore(targetStatus, threshold, BATCH_SIZE);
 
         int processed = 0;
         for (Payment payment : stalePayments) {
             try {
+                // PG에 접수되지 않은 건 (pgTxnId null) — 일정 시간 초과 시 보상 처리
+                if (payment.getPgTxnId() == null) {
+                    if (payment.getRequestedAt() != null && payment.getRequestedAt().isBefore(abandonedThreshold)) {
+                        log.warn("대사 배치 — {} PG 미접수 + {}분 초과 → 보상: orderId={}",
+                                targetStatus, ABANDONED_THRESHOLD_MINUTES, payment.getOrderId());
+                        paymentFacade.compensatePayment(payment.getOrderId());
+                        processed++;
+                    } else {
+                        log.debug("대사 배치 — {} PG 미접수, 아직 대기 중: orderId={}", targetStatus, payment.getOrderId());
+                    }
+                    continue;
+                }
+
                 Order order = orderService.getById(payment.getOrderId());
                 PaymentResult result = paymentService.verifyCallback(
                         payment.getPgTxnId(), order.getUserId());
@@ -108,7 +124,7 @@ public class PaymentReconciliationService {
     private int reconcileLatePgSuccess() {
         ZonedDateTime threshold = ZonedDateTime.now().minusMinutes(STALE_THRESHOLD_MINUTES);
         List<Payment> failedPayments = paymentRepository.findAllByStatusAndFailedBefore(
-                PaymentStatus.FAILED, threshold);
+                PaymentStatus.FAILED, threshold, BATCH_SIZE);
 
         int canceled = 0;
         for (Payment payment : failedPayments) {

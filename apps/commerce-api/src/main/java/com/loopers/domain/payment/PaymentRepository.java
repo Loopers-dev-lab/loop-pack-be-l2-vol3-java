@@ -8,6 +8,6 @@ public interface PaymentRepository {
     Optional<Payment> findById(Long id);
     Optional<Payment> findByIdempotencyKey(String idempotencyKey);
     Optional<Payment> findByOrderId(Long orderId);
-    List<Payment> findAllByStatusAndRequestedBefore(PaymentStatus status, java.time.ZonedDateTime before);
-    List<Payment> findAllByStatusAndFailedBefore(PaymentStatus status, java.time.ZonedDateTime before);
+    List<Payment> findAllByStatusAndRequestedBefore(PaymentStatus status, java.time.ZonedDateTime before, int limit);
+    List<Payment> findAllByStatusAndFailedBefore(PaymentStatus status, java.time.ZonedDateTime before, int limit);
 }

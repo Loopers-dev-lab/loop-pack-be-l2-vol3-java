@@ -505,8 +505,9 @@ class CircuitBreakerIntegrationTest {
                 Payment payment = Payment.request(1L, 10000, "CARD", "IDEM-" + UUID.randomUUID());
                 paymentService.requestPayment(payment, createRequest());
             });
-        } catch (Exception ignored) {
-            // CB에 기록된 후 re-throw된 예외를 무시
+        } catch (PgServerException | PgTimeoutException |
+                 io.github.resilience4j.circuitbreaker.CallNotPermittedException ignored) {
+            // CB에 기록된 후 re-throw된 예외만 무시
         }
     }
 

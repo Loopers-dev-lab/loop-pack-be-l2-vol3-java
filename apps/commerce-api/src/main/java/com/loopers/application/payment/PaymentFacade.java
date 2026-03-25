@@ -56,8 +56,6 @@ public class PaymentFacade {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentFacade.class);
 
-    private static final long COMPENSATION_RETRY_INTERVAL_MS = 500;
-
     private final OrderService orderService;
     private final PaymentService paymentService;
     private final InventoryService inventoryService;
@@ -132,7 +130,7 @@ public class PaymentFacade {
     @CircuitBreaker(name = "pgPayment", fallbackMethod = "fallbackRequestPayment")
     @Bulkhead(name = "pgPayment")
     public PaymentRequestResult requestPayment(Long orderId, Long userId, String paymentMethod,
-                                                Long issuedCouponId) {
+                                                Long issuedCouponId, String cardNo) {
         // TX1: 주문 검증 + 선차감 + Payment 생성
         PaymentContext context = txTemplate.execute(status -> {
             Order order = orderService.getOrder(orderId, userId);
@@ -173,7 +171,7 @@ public class PaymentFacade {
         // TX 밖: PG 호출 (PgServerException / PgTimeoutException → fallback으로 전파)
         PgApproveRequest pgRequest = new PgApproveRequest(
                 userId, context.orderNumber(), paymentMethod,
-                "0000-0000-0000-0000", context.totalAmount(), null);
+                cardNo, context.totalAmount(), null);
         Payment payment = paymentService.getById(context.paymentId());
         PaymentResult pgResult = paymentService.requestPayment(payment, pgRequest);
 
@@ -205,7 +203,7 @@ public class PaymentFacade {
      * 4. PgServerException/PgTimeoutException (PG 장애): TX1 커밋됨 → 보상 실행
      */
     private PaymentRequestResult fallbackRequestPayment(Long orderId, Long userId, String paymentMethod,
-                                                         Long issuedCouponId, Throwable t) {
+                                                         Long issuedCouponId, String cardNo, Throwable t) {
         // CB가 ignore한 비즈니스 예외 → 그대로 re-throw (원래 HTTP 상태 코드 유지)
         if (t instanceof CoreException ce) {
             throw ce;
@@ -273,8 +271,14 @@ public class PaymentFacade {
      */
     public void confirmPayment(Long orderId, String pgTxnId) {
         txTemplate.executeWithoutResult(status -> {
-            Order order = orderService.getById(orderId);
             Payment payment = paymentService.getByOrderId(orderId);
+
+            if (payment.getStatus() == PaymentStatus.APPROVED) {
+                log.info("이미 승인된 결제 — 확정 스킵: orderId={}", orderId);
+                return;
+            }
+
+            Order order = orderService.getById(orderId);
 
             Map<Long, Integer> productQtyMap = order.getItems().stream()
                     .collect(Collectors.toMap(OrderItem::getProductId, OrderItem::getQuantity, Integer::sum));
@@ -295,13 +299,7 @@ public class PaymentFacade {
         try {
             executeCompensation(orderId);
         } catch (Exception firstFailure) {
-            log.warn("보상 트랜잭션 1차 실패 — 500ms 후 재시도 (orderId={})", orderId, firstFailure);
-
-            try {
-                Thread.sleep(COMPENSATION_RETRY_INTERVAL_MS);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-            }
+            log.warn("보상 트랜잭션 1차 실패 — 즉시 재시도 (orderId={})", orderId, firstFailure);
 
             try {
                 executeCompensation(orderId);
@@ -314,9 +312,14 @@ public class PaymentFacade {
 
     private void executeCompensation(Long orderId) {
         txTemplate.executeWithoutResult(status -> {
-            Order order = orderService.getById(orderId);
             Payment payment = paymentService.getByOrderId(orderId);
 
+            if (payment.getStatus() == PaymentStatus.FAILED || payment.getStatus() == PaymentStatus.APPROVED) {
+                log.info("이미 처리된 결제 — 보상 스킵: orderId={}, status={}", orderId, payment.getStatus());
+                return;
+            }
+
+            Order order = orderService.getById(orderId);
             paymentService.fail(payment.getId());
 
             if (order.getCouponId() != null) {

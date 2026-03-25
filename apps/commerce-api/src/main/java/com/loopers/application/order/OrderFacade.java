@@ -99,12 +99,13 @@ public class OrderFacade {
      */
     public OrderCreateResult createOrder(Long userId, String userName, String ordererPhone,
                                           List<OrderItemCommand> itemCommands, Long addressId,
-                                          Long issuedCouponId, int pointAmount, String paymentMethod) {
+                                          Long issuedCouponId, int pointAmount, String paymentMethod,
+                                          String cardNo) {
         OrderPaymentContext context = reserveAndCreateOrder(
                 userId, userName, ordererPhone, itemCommands, addressId,
                 issuedCouponId, pointAmount, paymentMethod);
 
-        OrderCreateResult result = processPaymentAndConfirm(context);
+        OrderCreateResult result = processPaymentAndConfirm(context, cardNo);
 
         orderCacheManager.evictOrderList(userId);
         return result;
@@ -115,7 +116,8 @@ public class OrderFacade {
      */
     public OrderCreateResult createOrderFromCart(Long userId, String userName, String ordererPhone,
                                                   List<Long> cartItemIds, Long addressId,
-                                                  Long issuedCouponId, int pointAmount, String paymentMethod) {
+                                                  Long issuedCouponId, int pointAmount, String paymentMethod,
+                                                  String cardNo) {
         if (cartItemIds == null || cartItemIds.isEmpty()) {
             throw new CoreException(OrderErrorType.EMPTY_ORDER_ITEMS);
         }
@@ -129,7 +131,7 @@ public class OrderFacade {
                 userId, userName, ordererPhone, itemCommands, addressId,
                 issuedCouponId, pointAmount, paymentMethod);
 
-        OrderCreateResult result = processPaymentAndConfirm(context);
+        OrderCreateResult result = processPaymentAndConfirm(context, cardNo);
 
         // 장바구니 삭제는 best-effort — 실패해도 주문 성공 응답을 유지한다
         try {
@@ -242,14 +244,14 @@ public class OrderFacade {
      * - PENDING: 콜백 대기 (아무것도 안 함)
      * - UNKNOWN: 보상하지 않고 대기 (콜백 또는 대사 배치에서 처리)
      */
-    private OrderCreateResult processPaymentAndConfirm(OrderPaymentContext context) {
+    private OrderCreateResult processPaymentAndConfirm(OrderPaymentContext context, String cardNo) {
         try {
             // PG 결제 (트랜잭션 밖 — PaymentService가 PG 호출 + 결과 해석을 캡슐화)
             PgApproveRequest pgRequest = new PgApproveRequest(
                     context.userId(),
                     context.orderNumber(),
                     context.paymentMethod(),
-                    "0000-0000-0000-0000",
+                    cardNo,
                     context.totalAmount(),
                     null
             );

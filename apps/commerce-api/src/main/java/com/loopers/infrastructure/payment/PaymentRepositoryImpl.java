@@ -3,6 +3,7 @@ package com.loopers.infrastructure.payment;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.payment.PaymentStatus;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -45,18 +46,18 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     }
 
     @Override
-    public List<Payment> findAllByStatusAndRequestedBefore(PaymentStatus status, java.time.ZonedDateTime before) {
-        return paymentJpaRepository.findAllByStatusAndRequestedAtBefore(status, before)
+    public List<Payment> findAllByStatusAndRequestedBefore(PaymentStatus status, java.time.ZonedDateTime before, int limit) {
+        return paymentJpaRepository.findAllByStatusAndRequestedAtBefore(status, before, PageRequest.of(0, limit))
                 .stream()
                 .map(paymentMapper::toDomain)
-                .collect(java.util.stream.Collectors.toList());
+                .toList();
     }
 
     @Override
-    public List<Payment> findAllByStatusAndFailedBefore(PaymentStatus status, java.time.ZonedDateTime before) {
-        return paymentJpaRepository.findAllByStatusAndFailedAtBefore(status, before)
+    public List<Payment> findAllByStatusAndFailedBefore(PaymentStatus status, java.time.ZonedDateTime before, int limit) {
+        return paymentJpaRepository.findAllByStatusAndFailedAtBefore(status, before, PageRequest.of(0, limit))
                 .stream()
                 .map(paymentMapper::toDomain)
-                .collect(java.util.stream.Collectors.toList());
+                .toList();
     }
 }

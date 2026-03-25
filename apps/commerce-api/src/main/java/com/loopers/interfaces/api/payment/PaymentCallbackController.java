@@ -2,6 +2,8 @@ package com.loopers.interfaces.api.payment;
 
 import com.loopers.application.payment.PaymentFacade;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.PaymentErrorType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,6 +34,11 @@ public class PaymentCallbackController {
     public ApiResponse<Object> handleCallback(
             @RequestBody PaymentRequest.PgCallbackRequest request,
             @RequestHeader(value = "X-USER-ID", required = false) String userIdHeader) {
+        if (request.transactionKey() == null || request.transactionKey().isBlank()
+                || request.orderId() == null || request.orderId().isBlank()) {
+            throw new CoreException(PaymentErrorType.INVALID_CALLBACK_REQUEST);
+        }
+
         log.info("PG 콜백 수신: txnKey={}, orderId={}, status={}, reason={}",
                 request.transactionKey(), request.orderId(), request.status(), request.reason());
 

@@ -48,7 +48,8 @@ public class OrderController implements OrderApiSpec {
             result = orderFacade.createOrderFromCart(
                     user.getId(), user.getName().getValue(), request.ordererPhone(),
                     request.cartItemIds(), request.addressId(),
-                    request.issuedCouponId(), request.pointAmount(), paymentMethod);
+                    request.issuedCouponId(), request.pointAmount(), paymentMethod,
+                    request.cardNo());
         } else if (hasItems) {
             List<OrderFacade.OrderItemCommand> commands = request.items().stream()
                     .map(item -> new OrderFacade.OrderItemCommand(item.productId(), item.quantity()))
@@ -56,7 +57,8 @@ public class OrderController implements OrderApiSpec {
             result = orderFacade.createOrder(
                     user.getId(), user.getName().getValue(), request.ordererPhone(),
                     commands, request.addressId(),
-                    request.issuedCouponId(), request.pointAmount(), paymentMethod);
+                    request.issuedCouponId(), request.pointAmount(), paymentMethod,
+                    request.cardNo());
         } else {
             throw new CoreException(
                     OrderErrorType.EMPTY_ORDER_ITEMS);
