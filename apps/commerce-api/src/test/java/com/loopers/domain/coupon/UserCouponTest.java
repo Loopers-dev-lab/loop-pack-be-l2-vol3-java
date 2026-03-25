@@ -192,6 +192,72 @@ class UserCouponTest {
         }
     }
 
+    @DisplayName("validate() 를 호출할 때, ")
+    @Nested
+    class Validate {
+
+        @DisplayName("본인 소유의 사용 가능한 쿠폰이면, 예외가 발생하지 않는다.")
+        @Test
+        void doesNotThrow_whenValidCoupon() {
+            // arrange
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
+            UserCoupon userCoupon = UserCoupon.of(coupon, 1L);
+
+            // act & assert
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> userCoupon.validate(1L));
+        }
+
+        @DisplayName("본인 소유가 아닌 쿠폰이면, FORBIDDEN 예외가 발생한다.")
+        @Test
+        void throwsForbidden_whenNotOwner() {
+            // arrange
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
+            UserCoupon userCoupon = UserCoupon.of(coupon, 1L);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> userCoupon.validate(999L));
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.FORBIDDEN);
+            assertThat(result.getCustomMessage()).isEqualTo("본인의 쿠폰만 사용할 수 있습니다.");
+        }
+
+        @DisplayName("이미 사용된 쿠폰이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenStatusIsUsed() {
+            // arrange
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
+            UserCoupon userCoupon = UserCoupon.of(coupon, 1L);
+            userCoupon.use(1L);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> userCoupon.validate(1L));
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(result.getCustomMessage()).isEqualTo("이미 사용된 쿠폰입니다.");
+        }
+
+        @DisplayName("만료된 쿠폰이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        void throwsBadRequest_whenStatusIsExpired() throws Exception {
+            // arrange
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, ZonedDateTime.now().plusDays(30));
+            UserCoupon userCoupon = UserCoupon.of(coupon, 1L);
+
+            java.lang.reflect.Field field = UserCoupon.class.getDeclaredField("expiredAt");
+            field.setAccessible(true);
+            field.set(userCoupon, ZonedDateTime.now().minusDays(1));
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () -> userCoupon.validate(1L));
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(result.getCustomMessage()).isEqualTo("만료된 쿠폰입니다.");
+        }
+    }
+
     @DisplayName("status() 를 호출할 때, ")
     @Nested
     class Status {

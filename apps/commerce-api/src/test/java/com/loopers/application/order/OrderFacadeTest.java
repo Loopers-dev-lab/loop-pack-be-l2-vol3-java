@@ -2,6 +2,7 @@ package com.loopers.application.order;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.UserCoupon;
 import com.loopers.domain.coupon.UserCouponRepository;
 import com.loopers.domain.order.Order;
@@ -207,6 +208,67 @@ class OrderFacadeTest {
 
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+        }
+
+        @DisplayName("본인 소유가 아닌 쿠폰을 사용하면, CoreException 이 발생한다.")
+        @Test
+        void throwsCoreException_whenCouponNotOwnedByUser() {
+            // arrange
+            Long userId = 1L;
+            Long productId = 0L;
+            Long userCouponId = 10L;
+
+            User user = mock(User.class);
+            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(100000), 0L);
+
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, java.time.ZonedDateTime.now().plusDays(30));
+            UserCoupon userCoupon = UserCoupon.of(coupon, 999L); // 다른 사용자 소유
+
+            when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+            when(productRepository.findAllByIdInWithLock(List.of(productId))).thenReturn(List.of(product));
+            when(userCouponRepository.findById(userCouponId)).thenReturn(Optional.of(userCoupon));
+
+            OrderCommand command = new OrderCommand(List.of(new OrderCommand.Item(productId, 1)), userCouponId);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                orderFacade.createOrder(userId, command)
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.FORBIDDEN);
+            assertThat(result.getCustomMessage()).isEqualTo("본인의 쿠폰만 사용할 수 있습니다.");
+        }
+
+        @DisplayName("이미 사용된 쿠폰을 사용하면, CoreException 이 발생한다.")
+        @Test
+        void throwsCoreException_whenCouponAlreadyUsed() {
+            // arrange
+            Long userId = 1L;
+            Long productId = 0L;
+            Long userCouponId = 10L;
+
+            User user = mock(User.class);
+            Product product = Product.of("나이키 에어맥스", "설명", Stock.from(10), Price.from(100000), 0L);
+
+            Coupon coupon = Coupon.of("3000원 할인 쿠폰", "FIXED", 3000, java.time.ZonedDateTime.now().plusDays(30));
+            UserCoupon userCoupon = UserCoupon.of(coupon, userId);
+            userCoupon.use(userId);
+
+            when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+            when(productRepository.findAllByIdInWithLock(List.of(productId))).thenReturn(List.of(product));
+            when(userCouponRepository.findById(userCouponId)).thenReturn(Optional.of(userCoupon));
+
+            OrderCommand command = new OrderCommand(List.of(new OrderCommand.Item(productId, 1)), userCouponId);
+
+            // act
+            CoreException result = assertThrows(CoreException.class, () ->
+                orderFacade.createOrder(userId, command)
+            );
+
+            // assert
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+            assertThat(result.getCustomMessage()).isEqualTo("이미 사용된 쿠폰입니다.");
         }
 
 

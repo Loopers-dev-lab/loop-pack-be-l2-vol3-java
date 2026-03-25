@@ -59,12 +59,13 @@ public class OrderFacade {
         List<OrderLine> orderLines = orderCommand.items().stream().map(item -> new OrderLine(item.productId(), item.quantity())).toList();
         stockPolicy.validate(productMap, orderLines);
 
-        // 쿠폰 존재 및 소유권 검증
+        // 쿠폰 존재 및 유효성 검증
         Long userCouponId = orderCommand.userCouponId();
         UserCoupon userCoupon = null;
         if (userCouponId != null) {
             userCoupon = userCouponRepository.findById(userCouponId)
                     .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다."));
+            userCoupon.validate(userId);
         }
 
         // 쿠폰 적용
