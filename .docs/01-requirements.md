@@ -18,6 +18,9 @@
 - **장바구니** — 고객이 관심 있는 상품을 임시로 모아두는 공간. 주문 전 단계에서 상품을 선택·관리한다.
 - **주문** — 고객이 상품을 구매하는 행위. 주문 시점의 상품 정보가 보존된다.
 - **쿠폰** — 주문 시 할인을 적용할 수 있는 수단. 정액/정률 타입이 존재하며 재사용 불가.
+- **결제** — 주문에 대한 대금을 PG사를 통해 처리하는 행위. 비동기 콜백 기반으로 결과를 수신한다.
+- **선착순 쿠폰** — 수량이 제한된 쿠폰을 선착순으로 발급하는 행위. Kafka 비동기 처리 + Redis 원자적 수량 제어로 동시성을 보장한다.
+- **상품 메트릭스** — 좋아요 수, 조회수, 판매수를 Kafka 이벤트 기반으로 비동기 집계한다. (commerce-streamer 모듈)
 
 ### 액터
 
@@ -133,6 +136,46 @@
 - 삭제된 쿠폰 템플릿은 발급할 수 없다.
 - 쿠폰 목록 조회 시 **AVAILABLE/USED/EXPIRED** 상태를 함께 반환한다.
   - EXPIRED는 쿠폰 템플릿의 expiredAt 기준으로 동적으로 판단한다.
+
+---
+
+### 2.8.1 고객 — 선착순 쿠폰 발급
+
+> 고객은 수량이 제한된 선착순 쿠폰을 발급 요청하고, 결과를 조회할 수 있다.
+
+**시나리오**
+
+1. 고객이 선착순 쿠폰 발급을 요청한다.
+2. 고객이 발급 요청의 처리 결과(PENDING/SUCCESS/FAILED)를 조회한다.
+
+**드러나는 행위**
+
+- 선착순 쿠폰 발급은 **로그인한 고객만** 가능하다.
+- 동일 선착순 쿠폰에 대해 **1인 1요청**만 가능하다.
+- 발급 요청 시 즉시 결과가 반환되지 않는다. **비동기 처리** 후 polling으로 결과를 확인한다.
+- API는 발급 요청(CouponIssueRequest)을 DB에 저장하고, **Kafka를 통해 Consumer에게 전달**한다.
+- Consumer는 **Redis INCR**로 원자적 수량 체크 후 발급을 수행한다.
+- 수량 초과 시 발급 실패(FAILED)로 처리한다. Redis 카운터를 DECR 보상한다.
+
+---
+
+### 2.10 고객 — 결제
+
+> 고객은 주문에 대해 결제를 요청하고, PG사 콜백을 통해 결제가 완료된다.
+
+**시나리오**
+
+1. 고객이 주문에 대해 결제를 요청한다 (카드 종류, 카드 번호).
+2. PG사가 결제 결과(성공/실패)를 콜백으로 알려준다.
+3. 결제 성공 시 주문 상태가 PAID로 변경되고, 실패 시 PAYMENT_FAILED로 변경된다.
+
+**드러나는 행위**
+
+- 결제는 **로그인한 고객만** 가능하다.
+- ORDERED 또는 PAYMENT_FAILED 상태의 주문에 대해서만 결제를 시작할 수 있다.
+- PG 요청 시 transactionKey를 수신하면 Payment는 IN_PROGRESS, 주문은 PAYMENT_PENDING 상태로 전환된다.
+- PG 콜백으로 결제 확정 시 **PaymentCompletedEvent** 또는 **PaymentFailedEvent**가 Kafka로 발행된다.
+- 결제 완료 이벤트는 Kafka Consumer에서 **판매수(saleCount) 집계**에 활용된다.
 
 ---
 
@@ -274,6 +317,37 @@
 | 정률 할인 계산 | RATE: 주문 금액 * 쿠폰 값 / 100 |
 | 삭제된 템플릿 | 삭제된 쿠폰 템플릿은 신규 발급 불가. 이미 발급된 쿠폰은 만료 전까지 사용 가능 |
 
+### 3.10 선착순 쿠폰
+
+| 규칙 | 설명 |
+|---|---|
+| 수량 제한 | 선착순 쿠폰은 maxQuantity 이하로만 발급 가능 |
+| 원자적 수량 체크 | Redis INCR로 원자적으로 카운터 증가 후 maxQuantity 초과 여부 판단 |
+| 1인 1요청 | 동일 선착순 쿠폰에 대해 같은 유저는 한 번만 요청 가능 (UNIQUE 제약) |
+| 비동기 발급 | API는 요청만 접수하고, 실제 발급은 Kafka Consumer가 수행 |
+| Redis-DB 보상 | DB 커밋 실패 시 Redis 카운터를 DECR로 보상하여 정합성 유지 |
+| 발급 결과 조회 | polling 기반. CouponIssueRequest의 status(PENDING/SUCCESS/FAILED)로 확인 |
+
+### 3.11 결제
+
+| 규칙 | 설명 |
+|---|---|
+| 결제 대상 | ORDERED 또는 PAYMENT_FAILED 상태의 주문에 대해서만 결제 시작 가능 |
+| PG 연동 | 비동기 콜백 기반. PG 요청 → transactionKey 수신 → 콜백으로 결과 확정 |
+| 상태 정합성 | Payment와 Order의 상태가 동기적으로 전이됨 (같은 트랜잭션) |
+| 낙관적 락 | Payment에 @Version 적용. 콜백 중복 수신 시 충돌 감지 |
+| 이벤트 발행 | 결제 성공/실패 시 PaymentCompletedEvent/PaymentFailedEvent를 Outbox로 발행 |
+
+### 3.12 상품 메트릭스 (비동기 집계)
+
+| 규칙 | 설명 |
+|---|---|
+| 집계 대상 | 좋아요 수(likeCount), 조회수(viewCount), 판매수(saleCount) |
+| 집계 방식 | Kafka Consumer가 이벤트를 수신하여 ProductMetrics 테이블에 반영 |
+| 최종 일관성 | 실시간이 아닌 비동기 집계이므로 eventual consistency |
+| 낙관적 락 | ProductMetrics에 @Version 적용. 충돌 시 최대 3회 재시도 |
+| 멱등성 | EventHandled 테이블로 중복 이벤트 처리 방지 |
+
 ### 3.8 장바구니
 
 | 규칙 | 설명 |
@@ -316,8 +390,33 @@
 ### 4.5 주문 상태 정책
 
 - 주문은 생성 시 ORDERED 상태로 시작한다.
-- 주문 상태: ORDERED(주문 완료), CANCELLED(취소).
-- 상태 전이: ORDERED → CANCELLED (주문 취소). CANCELLED 상태에서는 다른 상태로 전이할 수 없다.
+- 주문 상태: ORDERED(주문 완료), PAYMENT_PENDING(결제 대기), PAID(결제 완료), PAYMENT_FAILED(결제 실패), CANCELLED(취소).
+- 상태 전이:
+  - ORDERED → PAYMENT_PENDING (결제 시작)
+  - PAYMENT_PENDING → PAID (결제 성공)
+  - PAYMENT_PENDING → PAYMENT_FAILED (결제 실패)
+  - PAYMENT_FAILED → PAYMENT_PENDING (결제 재시도)
+  - ORDERED → CANCELLED (주문 취소)
+- PAID, CANCELLED 상태에서는 다른 상태로 전이할 수 없다.
+
+### 4.6 결제 상태 정책
+
+- 결제는 생성 시 PENDING 상태로 시작한다.
+- 결제 상태: PENDING(PG 요청 전), IN_PROGRESS(PG 접수 완료, 콜백 대기), PAID(결제 성공), FAILED(결제 실패).
+- 상태 전이:
+  - PENDING → IN_PROGRESS (PG transactionKey 수신)
+  - IN_PROGRESS → PAID (콜백 성공)
+  - IN_PROGRESS → FAILED (콜백 실패)
+  - PENDING → FAILED (PG 미접수 확정 후 내부 실패 처리)
+
+### 4.7 비동기 이벤트 처리 정책
+
+- 비즈니스 데이터 변경 시 도메인 이벤트를 발행하고, **Transactional Outbox 패턴**으로 Kafka에 전달한다.
+- Outbox 이벤트는 비즈니스 데이터와 **같은 트랜잭션**에 저장되어 원자성을 보장한다.
+- 별도 스케줄러(OutboxPublisher)가 1초 주기로 Outbox를 polling하여 Kafka로 발행한다.
+- Consumer는 **EventHandled 테이블**로 멱등성을 보장한다 (중복 처리 방지).
+- 처리 실패 시 **DLQ(Dead Letter Queue)**로 격리하며, 수동 재처리한다.
+- **ProductViewedEvent만 예외**: 고빈도 + 유실 허용 특성상 Outbox를 거치지 않고 Kafka에 직접 발행한다.
 
 ---
 
@@ -326,6 +425,6 @@
 | 제외 항목 | 사유 |
 |---|---|
 | 유저(Users) 기능 | 회원가입, 내 정보 조회, 비밀번호 변경은 이미 구현 완료 |
-| 결제(Payment) | 향후 별도 단계에서 추가 개발 예정 |
+| ~~결제(Payment)~~ | ~~향후 별도 단계에서 추가 개발 예정~~ (구현 완료) |
 | ~~쿠폰(Coupon)~~ | ~~향후 별도 단계에서 추가 개발 예정~~ (구현 완료) |
-| 주문 상태 전이 (결제 연동) | 결제 기능이 추가되면 PAID 등 추가 상태로 확장. 현재는 ORDERED → CANCELLED 전이만 다룬다 |
+| ~~주문 상태 전이 (결제 연동)~~ | ~~결제 기능이 추가되면 PAID 등 추가 상태로 확장~~ (구현 완료 — ORDERED, PAYMENT_PENDING, PAID, PAYMENT_FAILED, CANCELLED) |

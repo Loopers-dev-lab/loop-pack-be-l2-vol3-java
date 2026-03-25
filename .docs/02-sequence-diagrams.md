@@ -9,7 +9,7 @@
 
 > 시나리오 2.2 — 고객이 마음에 드는 상품에 좋아요를 누른다.
 
-> 취소도 같은 흐름이라고 생각하면 된다. (incrementLikeCount → decrementLikeCount)
+> 취소도 같은 흐름이라고 생각하면 된다. (LIKED → UNLIKED)
 
 ```mermaid
 sequenceDiagram
@@ -19,7 +19,12 @@ sequenceDiagram
     participant LikeDomainService
     participant Like
     participant LikeRepository
-    participant ProductDomainService
+    participant EventPublisher
+    participant OutboxEventListener
+    participant OutboxPublisher
+    participant Kafka
+    participant CatalogEventConsumer
+    participant MetricsApplicationService
 
     Note right of 고객: 인증된 고객
 
@@ -37,15 +42,30 @@ sequenceDiagram
     Like-->>-LikeDomainService: 좋아요
     LikeDomainService->>+LikeRepository: 좋아요 저장
     LikeRepository-->>-LikeDomainService: 완료
-
     LikeDomainService-->>-LikeApplicationService: 결과 반환
 
-    LikeApplicationService->>+ProductDomainService: 좋아요 수 증가 (@Modifying 벌크 UPDATE)
-    Note right of ProductDomainService: 엔티티 락 불필요. JPQL UPDATE로 직접 증감
-    ProductDomainService-->>-LikeApplicationService: 완료
+    LikeApplicationService->>+EventPublisher: LikeEvent(LIKED) 발행
+    EventPublisher->>+OutboxEventListener: @TransactionalEventListener(BEFORE_COMMIT)
+    OutboxEventListener->>OutboxEventListener: outbox_events INSERT (같은 TX)
+    OutboxEventListener-->>-EventPublisher: 완료
+    EventPublisher-->>-LikeApplicationService: 완료
+
+    Note over LikeApplicationService: TX 커밋 (Like + Outbox 원자적 저장)
 
     LikeApplicationService-->>-LikeV1Controller: 결과 반환
     LikeV1Controller-->>-고객: 성공
+
+    Note over OutboxPublisher, Kafka: 비동기 (1초 주기 polling)
+    OutboxPublisher->>+Kafka: catalog-events 토픽 발행
+    Kafka-->>-OutboxPublisher: 완료
+    OutboxPublisher->>OutboxPublisher: markPublished()
+
+    Kafka->>+CatalogEventConsumer: LIKED 이벤트 수신 (batch)
+    CatalogEventConsumer->>+MetricsApplicationService: incrementLikeCount(eventId, productId)
+    Note right of MetricsApplicationService: EventHandled 멱등성 체크 + ProductMetrics 갱신 (같은 TX)
+    MetricsApplicationService-->>-CatalogEventConsumer: 완료
+    CatalogEventConsumer->>CatalogEventConsumer: acknowledgment.acknowledge()
+    deactivate CatalogEventConsumer
 ```
 
 ---
@@ -99,7 +119,7 @@ sequenceDiagram
 
 ---
 
-## 쿠폰 발급
+## 쿠폰 발급 (일반)
 
 > 시나리오 2.8 — 고객이 쿠폰 발급을 요청한다.
 
@@ -142,6 +162,179 @@ sequenceDiagram
     CouponIssueDomainService-->>-CouponApplicationService: 결과 반환
     CouponApplicationService-->>-CouponV1Controller: 결과 반환
     CouponV1Controller-->>-고객: 성공
+```
+
+---
+
+## 선착순 쿠폰 발급 (FCFS)
+
+> 시나리오 2.8.1 — 고객이 선착순 쿠폰 발급을 요청한다.
+
+**다이어그램이 필요한 이유**
+- 비동기 처리: API → Outbox → Kafka → Consumer 파이프라인
+- 동시성 제어: Redis INCR gate + DB 트랜잭션 분리
+- 보상 트랜잭션: DB 실패 시 Redis DECR 보상
+
+```mermaid
+sequenceDiagram
+    actor 고객
+    participant CouponV1Controller
+    participant CouponApplicationService
+    participant FcfsCouponRepository
+    participant CouponIssueRequestRepository
+    participant EventPublisher
+    participant OutboxEventListener
+    participant OutboxPublisher
+    participant Kafka
+    participant CouponIssueConsumer
+    participant FcfsCouponIssueService
+    participant Redis
+
+    Note right of 고객: 인증된 고객
+
+    고객->>+CouponV1Controller: 선착순 쿠폰 발급 요청
+    CouponV1Controller->>+CouponApplicationService: requestFcfsCouponIssue(couponId, userId)
+
+    CouponApplicationService->>+FcfsCouponRepository: 선착순 쿠폰 조회
+    alt 존재하지 않거나 발급 기간 아님
+        FcfsCouponRepository-->>고객: 실패
+    end
+    FcfsCouponRepository-->>-CouponApplicationService: FcfsCoupon
+
+    CouponApplicationService->>+CouponIssueRequestRepository: 중복 요청 확인
+    alt 이미 요청한 쿠폰
+        CouponIssueRequestRepository-->>고객: 실패 (CONFLICT)
+    end
+    CouponIssueRequestRepository-->>-CouponApplicationService: 없음
+
+    CouponApplicationService->>CouponApplicationService: CouponIssueRequest 생성 (PENDING)
+    CouponApplicationService->>+EventPublisher: CouponIssueRequestedEvent 발행
+    EventPublisher->>+OutboxEventListener: @TransactionalEventListener(BEFORE_COMMIT)
+    OutboxEventListener->>OutboxEventListener: outbox_events INSERT
+    OutboxEventListener-->>-EventPublisher: 완료
+    EventPublisher-->>-CouponApplicationService: 완료
+
+    Note over CouponApplicationService: TX 커밋 (Request + Outbox 원자적 저장)
+
+    CouponApplicationService-->>-CouponV1Controller: CouponIssueRequest (PENDING)
+    CouponV1Controller-->>-고객: 202 Accepted (requestId 반환)
+
+    Note over OutboxPublisher, Kafka: 비동기 (1초 주기 polling)
+    OutboxPublisher->>+Kafka: coupon-issue-requests 토픽 발행
+    Kafka-->>-OutboxPublisher: 완료
+
+    Kafka->>+CouponIssueConsumer: COUPON_ISSUE_REQUESTED 수신 (single, 순차)
+    CouponIssueConsumer->>+FcfsCouponIssueService: processIssueRequest(eventId, payload)
+
+    FcfsCouponIssueService->>+Redis: INCR coupon:fcfs:{couponId}:count
+    Redis-->>-FcfsCouponIssueService: currentCount
+
+    alt currentCount > maxQuantity (수량 초과)
+        FcfsCouponIssueService->>+Redis: DECR (보상)
+        Redis-->>-FcfsCouponIssueService: 완료
+        FcfsCouponIssueService->>FcfsCouponIssueService: request.markFailed("선착순 마감")
+        FcfsCouponIssueService-->>CouponIssueConsumer: 완료
+    else currentCount <= maxQuantity (수량 내)
+        FcfsCouponIssueService->>FcfsCouponIssueService: TX { 쿠폰 발급 + issuedCount++ + request.markSuccess() + EventHandled 저장 }
+        alt DB 커밋 실패
+            FcfsCouponIssueService->>+Redis: DECR (보상)
+            Redis-->>-FcfsCouponIssueService: 완료
+            FcfsCouponIssueService-->>CouponIssueConsumer: 예외 → DLQ
+        end
+        FcfsCouponIssueService-->>-CouponIssueConsumer: 완료
+    end
+
+    CouponIssueConsumer->>CouponIssueConsumer: ack.acknowledge()
+    deactivate CouponIssueConsumer
+
+    Note over 고객: polling으로 결과 조회
+    고객->>CouponV1Controller: GET /coupon-issue-requests/{requestId}
+    CouponV1Controller-->>고객: status: SUCCESS / FAILED / PENDING
+```
+
+---
+
+## 결제 (PG 콜백 기반)
+
+> 시나리오 2.10 — 고객이 주문에 대해 결제를 요청한다.
+
+**다이어그램이 필요한 이유**
+- 비동기 콜백: PG 요청 → transactionKey 수신 → 콜백으로 결과 확정
+- 상태 전이: Payment(PENDING → IN_PROGRESS → PAID/FAILED) + Order(ORDERED → PAYMENT_PENDING → PAID/PAYMENT_FAILED)
+- 이벤트 발행: 결제 완료/실패 시 Kafka 이벤트로 Metrics 집계
+
+```mermaid
+sequenceDiagram
+    actor 고객
+    participant PaymentV1Controller
+    participant PaymentApplicationService
+    participant PaymentTransactionHelper
+    participant Payment
+    participant Order
+    participant PGClient
+    participant EventPublisher
+    participant Kafka
+    participant OrderEventConsumer
+    participant MetricsApplicationService
+
+    Note right of 고객: 인증된 고객
+
+    고객->>+PaymentV1Controller: 결제 요청 (orderId, cardType, cardNo)
+    PaymentV1Controller->>+PaymentApplicationService: requestPayment()
+
+    PaymentApplicationService->>+PaymentTransactionHelper: TX { 주문 조회 + Payment 생성 }
+    PaymentTransactionHelper->>+Order: startPayment()
+    Note right of Order: ORDERED → PAYMENT_PENDING
+    Order-->>-PaymentTransactionHelper: 완료
+    PaymentTransactionHelper->>PaymentTransactionHelper: Payment 생성 (PENDING)
+    PaymentTransactionHelper-->>-PaymentApplicationService: Payment
+
+    PaymentApplicationService->>+PGClient: PG 결제 요청 (amount, cardInfo)
+    PGClient-->>-PaymentApplicationService: transactionKey
+
+    PaymentApplicationService->>+PaymentTransactionHelper: TX { markInProgress(transactionKey) }
+    Note right of PaymentTransactionHelper: PENDING → IN_PROGRESS
+    PaymentTransactionHelper-->>-PaymentApplicationService: 완료
+
+    PaymentApplicationService-->>-PaymentV1Controller: Payment (IN_PROGRESS)
+    PaymentV1Controller-->>-고객: 결제 진행 중
+
+    Note over PGClient, PaymentV1Controller: 비동기 콜백
+
+    PGClient->>+PaymentV1Controller: POST /payments/callback (transactionKey, status)
+    PaymentV1Controller->>+PaymentApplicationService: applyPaymentResult()
+    PaymentApplicationService->>+PaymentTransactionHelper: TX { 결제 결과 반영 }
+
+    alt 결제 성공
+        PaymentTransactionHelper->>+Payment: markPaid()
+        Note right of Payment: IN_PROGRESS → PAID
+        Payment-->>-PaymentTransactionHelper: 완료
+        PaymentTransactionHelper->>+Order: completePayment()
+        Note right of Order: PAYMENT_PENDING → PAID
+        Order-->>-PaymentTransactionHelper: 완료
+        PaymentTransactionHelper->>+EventPublisher: PaymentCompletedEvent 발행 → Outbox
+        EventPublisher-->>-PaymentTransactionHelper: 완료
+    else 결제 실패
+        PaymentTransactionHelper->>+Payment: markFailed(reason)
+        Note right of Payment: IN_PROGRESS → FAILED
+        Payment-->>-PaymentTransactionHelper: 완료
+        PaymentTransactionHelper->>+Order: failPayment()
+        Note right of Order: PAYMENT_PENDING → PAYMENT_FAILED
+        Order-->>-PaymentTransactionHelper: 완료
+        PaymentTransactionHelper->>+EventPublisher: PaymentFailedEvent 발행 → Outbox
+        EventPublisher-->>-PaymentTransactionHelper: 완료
+    end
+
+    PaymentTransactionHelper-->>-PaymentApplicationService: 완료
+    PaymentApplicationService-->>-PaymentV1Controller: 완료
+    PaymentV1Controller-->>-PGClient: 200 OK
+
+    Note over Kafka, MetricsApplicationService: 비동기 Metrics 집계
+    Kafka->>+OrderEventConsumer: PAYMENT_COMPLETED 이벤트 수신
+    OrderEventConsumer->>+MetricsApplicationService: incrementSaleCount(eventId, items)
+    MetricsApplicationService-->>-OrderEventConsumer: 완료
+    OrderEventConsumer->>OrderEventConsumer: acknowledgment.acknowledge()
+    deactivate OrderEventConsumer
 ```
 
 ---
@@ -400,6 +593,10 @@ sequenceDiagram
         OrderApplicationService->>+CouponIssueDomainService: 쿠폰 복원
         CouponIssueDomainService-->>-OrderApplicationService: 완료
     end
+
+    OrderApplicationService->>OrderApplicationService: OrderCancelledEvent 발행 → Outbox
+
+    Note over OrderApplicationService: TX 커밋 (취소 + 재고 복원 + 쿠폰 복원 + Outbox 원자적)
 
     OrderApplicationService-->>-OrderV1Controller: 결과 반환
     OrderV1Controller-->>-고객: 성공
