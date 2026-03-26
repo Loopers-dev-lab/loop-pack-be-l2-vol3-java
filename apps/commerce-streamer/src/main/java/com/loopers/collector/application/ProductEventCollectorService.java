@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.infrastructure.collector.EventHandledJpaRepository;
 import com.loopers.infrastructure.collector.EventHandledModel;
 import com.loopers.infrastructure.collector.ProductMetricsJpaRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -20,20 +22,34 @@ public class ProductEventCollectorService {
     private final EventHandledJpaRepository eventHandledJpaRepository;
     private final ProductMetricsJpaRepository productMetricsJpaRepository;
     private final ObjectMapper objectMapper;
+    private final Counter processedCounter;
+    private final Counter duplicateCounter;
+    private final Counter failedCounter;
 
     public ProductEventCollectorService(
             EventHandledJpaRepository eventHandledJpaRepository,
             ProductMetricsJpaRepository productMetricsJpaRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            MeterRegistry meterRegistry) {
         this.eventHandledJpaRepository = eventHandledJpaRepository;
         this.productMetricsJpaRepository = productMetricsJpaRepository;
         this.objectMapper = objectMapper;
+        this.processedCounter = meterRegistry.counter("kafka.collector.events.processed");
+        this.duplicateCounter = meterRegistry.counter("kafka.collector.events.duplicate");
+        this.failedCounter = meterRegistry.counter("kafka.collector.events.failed");
     }
 
     @Transactional
     public void process(ConsumerRecord<Object, Object> record) {
-        ProductEventEnvelope envelope = parseEnvelope(record.value());
+        ProductEventEnvelope envelope;
+        try {
+            envelope = parseEnvelope(record.value());
+        } catch (IllegalArgumentException e) {
+            failedCounter.increment();
+            throw e;
+        }
         if (envelope.eventId() == null || envelope.eventId().isBlank()) {
+            failedCounter.increment();
             throw new IllegalArgumentException("eventId is required");
         }
 
@@ -45,6 +61,7 @@ public class ProductEventCollectorService {
                     record.offset()
             ));
         } catch (DataIntegrityViolationException duplicate) {
+            duplicateCounter.increment();
             return;
         }
 
@@ -56,6 +73,7 @@ public class ProductEventCollectorService {
         String action = envelope.data().path("action").asText();
         long delta = "LIKED".equals(action) ? 1L : -1L;
         productMetricsJpaRepository.applyLikeDeltaIfNewer(productId, delta, envelope.occurredAt());
+        processedCounter.increment();
     }
 
     private ProductEventEnvelope parseEnvelope(Object rawValue) {

@@ -8,6 +8,8 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -24,15 +26,20 @@ public class OutboxDlqRedriveService {
     private final ConsumerFactory<Object, Object> consumerFactory;
     private final KafkaTemplate<Object, Object> kafkaTemplate;
     private final OutboxDlqRedriveProperties properties;
+    private final Counter successCounter;
+    private final Counter failedCounter;
 
     public OutboxDlqRedriveService(
             ConsumerFactory<Object, Object> consumerFactory,
             KafkaTemplate<Object, Object> kafkaTemplate,
-            OutboxDlqRedriveProperties properties
+            OutboxDlqRedriveProperties properties,
+            MeterRegistry meterRegistry
     ) {
         this.consumerFactory = consumerFactory;
         this.kafkaTemplate = kafkaTemplate;
         this.properties = properties;
+        this.successCounter = meterRegistry.counter("kafka.outbox.dlq.redrive.success");
+        this.failedCounter = meterRegistry.counter("kafka.outbox.dlq.redrive.failed");
     }
 
     public int redriveOnce(int batchSize) {
@@ -73,8 +80,10 @@ public class OutboxDlqRedriveService {
                     OffsetAndMetadata offset = new OffsetAndMetadata(record.offset() + 1);
                     consumer.commitSync(Map.of(tp, offset));
                     successCount++;
+                    successCounter.increment();
                 } catch (Exception ignored) {
                     // 재발행 실패 시 오프셋을 커밋하지 않아 다음 주기에 재시도한다.
+                    failedCounter.increment();
                 }
             }
         }

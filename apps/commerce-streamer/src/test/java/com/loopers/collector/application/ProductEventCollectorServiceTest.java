@@ -3,6 +3,7 @@ package com.loopers.collector.application;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.infrastructure.collector.EventHandledJpaRepository;
 import com.loopers.infrastructure.collector.ProductMetricsJpaRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Instant;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -29,14 +31,18 @@ class ProductEventCollectorServiceTest {
     @Mock
     private ProductMetricsJpaRepository productMetricsJpaRepository;
 
+    private SimpleMeterRegistry meterRegistry;
+
     private ProductEventCollectorService collectorService;
 
     @BeforeEach
     void setUp() {
+        meterRegistry = new SimpleMeterRegistry();
         collectorService = new ProductEventCollectorService(
                 eventHandledJpaRepository,
                 productMetricsJpaRepository,
-                new ObjectMapper().findAndRegisterModules()
+                new ObjectMapper().findAndRegisterModules(),
+                meterRegistry
         );
     }
 
@@ -59,6 +65,7 @@ class ProductEventCollectorServiceTest {
                 eq(1L),
                 eq(Instant.parse("2026-03-26T00:00:00Z"))
         );
+        verifyMetricCount("kafka.collector.events.processed", 1.0);
     }
 
     @Test
@@ -77,6 +84,31 @@ class ProductEventCollectorServiceTest {
 
         verify(eventHandledJpaRepository).saveAndFlush(any());
         verify(productMetricsJpaRepository, never()).applyLikeDeltaIfNewer(any(), any(Long.class), any());
+        verifyMetricCount("kafka.collector.events.duplicate", 1.0);
+    }
+
+    @Test
+    @DisplayName("이벤트 파싱 실패 시 실패 메트릭을 증가시킨다.")
+    void process_whenInvalidEnvelope_shouldIncreaseFailedMetric() {
+        ConsumerRecord<Object, Object> record = new ConsumerRecord<>(
+                "product-events",
+                0,
+                1L,
+                "101",
+                "{not-json".getBytes()
+        );
+
+        try {
+            collectorService.process(record);
+        } catch (IllegalArgumentException ignored) {
+        }
+
+        verifyMetricCount("kafka.collector.events.failed", 1.0);
+    }
+
+    private void verifyMetricCount(String metricName, double expected) {
+        assert meterRegistry.find(metricName).counter() != null;
+        assertThat(meterRegistry.find(metricName).counter().count()).isEqualTo(expected);
     }
 
     private static String envelopeJson(String eventId, String eventType, String occurredAt, Long productId, String action) {

@@ -2,6 +2,7 @@ package com.loopers.batch.outbox;
 
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -46,6 +47,9 @@ class OutboxDlqRedriveIntegrationTest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
+    @Autowired
+    private MeterRegistry meterRegistry;
+
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
@@ -66,6 +70,7 @@ class OutboxDlqRedriveIntegrationTest {
 
         int redriven = outboxDlqRedriveService.redriveOnce(10);
         assertThat(redriven).isEqualTo(1);
+        assertThat(counterValue("kafka.outbox.dlq.redrive.success")).isEqualTo(1.0);
 
         Consumer<String, String> consumer = new DefaultKafkaConsumerFactory<>(
                 KafkaTestUtils.consumerProps("redrive-read", "false", embeddedKafkaBroker),
@@ -83,5 +88,12 @@ class OutboxDlqRedriveIntegrationTest {
 
         int secondRun = outboxDlqRedriveService.redriveOnce(10);
         assertThat(secondRun).isEqualTo(0);
+    }
+
+    private double counterValue(String name) {
+        if (meterRegistry.find(name).counter() == null) {
+            return 0.0;
+        }
+        return meterRegistry.find(name).counter().count();
     }
 }
