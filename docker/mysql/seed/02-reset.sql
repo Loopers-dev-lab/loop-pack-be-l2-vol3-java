@@ -1,6 +1,12 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 TRUNCATE TABLE read_model_sync_task;
+TRUNCATE TABLE event_handled;
+TRUNCATE TABLE like_event_handled;
+TRUNCATE TABLE outbox_event;
+TRUNCATE TABLE payment_event_log;
+TRUNCATE TABLE order_event_log;
+TRUNCATE TABLE product_metrics;
 TRUNCATE TABLE likes;
 TRUNCATE TABLE payments;
 TRUNCATE TABLE order_items;
