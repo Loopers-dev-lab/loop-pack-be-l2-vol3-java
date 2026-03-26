@@ -6,6 +6,7 @@ import com.loopers.infrastructure.outbox.OutboxEventModel;
 import com.loopers.infrastructure.outbox.OutboxJpaRepository;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -76,7 +77,18 @@ class OutboxRelayIntegrationTest {
 
         ConsumerRecord<String, String> record = KafkaTestUtils.getSingleRecord(consumer, "catalog-events");
         assertThat(record.key()).isEqualTo("1");
+        assertThat(record.value()).contains("eventId");
+        assertThat(record.value()).contains("event-1");
+        assertThat(record.value()).contains("eventType");
+        assertThat(record.value()).contains("TEST_EVENT");
         assertThat(record.value()).contains("hello");
+
+        Header eventIdHeader = record.headers().lastHeader("eventId");
+        Header eventTypeHeader = record.headers().lastHeader("eventType");
+        assertThat(eventIdHeader).isNotNull();
+        assertThat(eventTypeHeader).isNotNull();
+        assertThat(new String(eventIdHeader.value())).isEqualTo("event-1");
+        assertThat(new String(eventTypeHeader.value())).isEqualTo("TEST_EVENT");
 
         consumer.close();
     }
