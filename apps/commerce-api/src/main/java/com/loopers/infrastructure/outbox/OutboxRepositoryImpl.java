@@ -6,6 +6,7 @@ import com.loopers.domain.outbox.OutboxStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -23,5 +24,13 @@ public class OutboxRepositoryImpl implements OutboxRepository {
     @Override
     public List<OutboxModel> findPendingWithLimit(int limit) {
         return outboxJpaRepository.findByStatusOrderByCreatedAtAsc(OutboxStatus.PENDING, PageRequest.of(0, limit));
+    }
+
+    @Override
+    @Transactional
+    public void markAllPublished(List<Long> ids) {
+        if (!ids.isEmpty()) {
+            outboxJpaRepository.markAllPublished(ids);
+        }
     }
 }

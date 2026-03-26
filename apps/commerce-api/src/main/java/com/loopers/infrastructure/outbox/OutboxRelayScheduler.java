@@ -9,6 +9,7 @@ import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -35,16 +36,23 @@ public class OutboxRelayScheduler {
                 .map(kafkaEventPublisher::send)
                 .toList();
 
+        List<Long> publishedIds = new ArrayList<>();
+        List<OutboxModel> failedOutboxes = new ArrayList<>();
+
         for (int i = 0; i < pending.size(); i++) {
             OutboxModel outbox = pending.get(i);
             try {
                 futures.get(i).get(30, TimeUnit.SECONDS);
                 outbox.markPublished();
+                publishedIds.add(outbox.getId());
             } catch (Exception e) {
                 outbox.markFailed();
+                failedOutboxes.add(outbox);
                 log.error("[OUTBOX_RELAY_FAILED] id={}, retryCount={}", outbox.getId(), outbox.getRetryCount(), e);
             }
-            outboxRepository.save(outbox);
         }
+
+        outboxRepository.markAllPublished(publishedIds);
+        failedOutboxes.forEach(outboxRepository::save);
     }
 }
