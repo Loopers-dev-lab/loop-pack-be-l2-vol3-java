@@ -1,24 +1,23 @@
 package com.loopers.application.metrics;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.BDDMockito.then;
 
-import java.util.Optional;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.loopers.domain.metrics.ProductMetrics;
-import com.loopers.domain.metrics.ProductMetricsRepository;
+import com.loopers.domain.eventhandled.EventHandledRepository;
+import com.loopers.domain.metrics.MetricsEventHandler;
+import com.loopers.domain.metrics.MetricsEventType;
+import com.loopers.domain.metrics.MetricsPayload;
 
 @ExtendWith(MockitoExtension.class)
 class ProductMetricsServiceTest {
@@ -27,99 +26,76 @@ class ProductMetricsServiceTest {
     private ProductMetricsService productMetricsService;
 
     @Mock
-    private ProductMetricsRepository productMetricsRepository;
+    private EventHandledRepository eventHandledRepository;
 
-    @DisplayName("incrementLikeCount를 호출할 때,")
+    @Mock
+    private MetricsEventHandler matchingHandler;
+
+    @Mock
+    private MetricsEventHandler nonMatchingHandler;
+
+    @DisplayName("handleEvent를 호출할 때,")
     @Nested
-    class IncrementLikeCount {
+    class HandleEvent {
 
-        @DisplayName("기존 ProductMetrics가 없으면, 새로 생성하고 likeCount를 1 증가시킨다.")
+        @DisplayName("신규 이벤트이면, 매칭되는 handler에 처리를 위임한다.")
         @Test
-        void createsAndIncrements_whenNotExists() {
+        void delegatesToMatchingHandler_whenNewEvent() {
             // arrange
-            given(productMetricsRepository.findByProductId(1L)).willReturn(Optional.empty());
-            given(productMetricsRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+            productMetricsService = new ProductMetricsService(
+                    eventHandledRepository, List.of(nonMatchingHandler, matchingHandler));
+
+            given(eventHandledRepository.markIfAbsent("event-1")).willReturn(true);
+            given(nonMatchingHandler.supports(MetricsEventType.LIKED)).willReturn(false);
+            given(matchingHandler.supports(MetricsEventType.LIKED)).willReturn(true);
+
+            MetricsPayload.Like payload = new MetricsPayload.Like(1L, true);
+            MetricsEventMeta meta = new MetricsEventMeta("event-1", MetricsEventType.LIKED);
 
             // act
-            productMetricsService.incrementLikeCount(1L);
+            productMetricsService.handleEvent(meta, payload);
 
             // assert
-            ArgumentCaptor<ProductMetrics> captor = ArgumentCaptor.forClass(ProductMetrics.class);
-            verify(productMetricsRepository).save(captor.capture());
-            assertThat(captor.getValue().getLikeCount()).isEqualTo(1L);
+            then(matchingHandler).should().handle(payload);
+            then(nonMatchingHandler).should().supports(MetricsEventType.LIKED);
+            then(nonMatchingHandler).shouldHaveNoMoreInteractions();
         }
 
-        @DisplayName("기존 ProductMetrics가 있으면, likeCount를 1 증가시킨다.")
+        @DisplayName("중복 이벤트이면, handler를 호출하지 않는다.")
         @Test
-        void increments_whenExists() {
+        void skipsHandler_whenDuplicateEvent() {
             // arrange
-            ProductMetrics existing = ProductMetrics.create(1L);
-            given(productMetricsRepository.findByProductId(1L)).willReturn(Optional.of(existing));
+            productMetricsService = new ProductMetricsService(
+                    eventHandledRepository, List.of(matchingHandler));
+
+            given(eventHandledRepository.markIfAbsent("dup-id")).willReturn(false);
+
+            MetricsPayload.Like payload = new MetricsPayload.Like(1L, true);
+            MetricsEventMeta meta = new MetricsEventMeta("dup-id", MetricsEventType.LIKED);
 
             // act
-            productMetricsService.incrementLikeCount(1L);
+            productMetricsService.handleEvent(meta, payload);
 
             // assert
-            assertThat(existing.getLikeCount()).isEqualTo(1L);
-            verify(productMetricsRepository, never()).save(any());
-        }
-    }
-
-    @DisplayName("decrementLikeCount를 호출할 때,")
-    @Nested
-    class DecrementLikeCount {
-
-        @DisplayName("기존 ProductMetrics가 있으면, likeCount를 1 감소시킨다.")
-        @Test
-        void decrements_whenExists() {
-            // arrange
-            ProductMetrics existing = ProductMetrics.create(1L);
-            existing.incrementLikeCount();
-            existing.incrementLikeCount();
-            given(productMetricsRepository.findByProductId(1L)).willReturn(Optional.of(existing));
-
-            // act
-            productMetricsService.decrementLikeCount(1L);
-
-            // assert
-            assertThat(existing.getLikeCount()).isEqualTo(1L);
-        }
-    }
-
-    @DisplayName("addOrderCount를 호출할 때,")
-    @Nested
-    class AddOrderCount {
-
-        @DisplayName("기존 ProductMetrics가 없으면, 새로 생성하고 수량을 추가한다.")
-        @Test
-        void createsAndAdds_whenNotExists() {
-            // arrange
-            given(productMetricsRepository.findByProductId(1L)).willReturn(Optional.empty());
-            given(productMetricsRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
-
-            // act
-            productMetricsService.addOrderCount(1L, 3L);
-
-            // assert
-            ArgumentCaptor<ProductMetrics> captor = ArgumentCaptor.forClass(ProductMetrics.class);
-            verify(productMetricsRepository).save(captor.capture());
-            assertThat(captor.getValue().getOrderCount()).isEqualTo(3L);
+            then(matchingHandler).shouldHaveNoInteractions();
         }
 
-        @DisplayName("기존 ProductMetrics가 있으면, 수량을 누적한다.")
+        @DisplayName("매칭되는 handler가 없으면, 예외가 발생한다.")
         @Test
-        void addsToExisting_whenExists() {
+        void throwsException_whenNoHandlerFound() {
             // arrange
-            ProductMetrics existing = ProductMetrics.create(1L);
-            existing.addOrderCount(2L);
-            given(productMetricsRepository.findByProductId(1L)).willReturn(Optional.of(existing));
+            productMetricsService = new ProductMetricsService(
+                    eventHandledRepository, List.of(nonMatchingHandler));
 
-            // act
-            productMetricsService.addOrderCount(1L, 5L);
+            given(eventHandledRepository.markIfAbsent("event-1")).willReturn(true);
+            given(nonMatchingHandler.supports(MetricsEventType.LIKED)).willReturn(false);
 
-            // assert
-            assertThat(existing.getOrderCount()).isEqualTo(7L);
-            verify(productMetricsRepository, never()).save(any());
+            MetricsPayload.Like payload = new MetricsPayload.Like(1L, true);
+            MetricsEventMeta meta = new MetricsEventMeta("event-1", MetricsEventType.LIKED);
+
+            // act & assert
+            assertThatThrownBy(() -> productMetricsService.handleEvent(meta, payload))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 }

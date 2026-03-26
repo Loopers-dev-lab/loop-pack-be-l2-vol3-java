@@ -1,6 +1,6 @@
 package com.loopers.interfaces.consumer;
 
-import static org.mockito.BDDMockito.given;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.then;
 
 import java.util.List;
@@ -17,8 +17,9 @@ import org.springframework.kafka.support.Acknowledgment;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.application.metrics.MetricsEventMeta;
+import com.loopers.domain.metrics.MetricsPayload;
 import com.loopers.application.metrics.ProductMetricsService;
-import com.loopers.domain.eventhandled.EventHandledRepository;
 
 @ExtendWith(MockitoExtension.class)
 class ProductMetricsConsumerTest {
@@ -30,9 +31,6 @@ class ProductMetricsConsumerTest {
     private ProductMetricsService productMetricsService;
 
     @Mock
-    private EventHandledRepository eventHandledRepository;
-
-    @Mock
     private Acknowledgment acknowledgment;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -41,11 +39,10 @@ class ProductMetricsConsumerTest {
     @Nested
     class ConsumeLikeEvents {
 
-        @DisplayName("like-liked-v1 토픽이면, incrementLikeCount를 호출한다.")
+        @DisplayName("like-liked-v1 토픽이면, LIKED 타입으로 Service에 위임한다.")
         @Test
-        void incrementsLikeCount_whenLikedTopic() throws Exception {
+        void delegatesAsLiked_whenLikedTopic() throws Exception {
             // arrange
-            given(eventHandledRepository.markIfAbsent("uuid")).willReturn(true);
             JsonNode value = objectMapper.readTree("{\"eventId\":\"uuid\",\"productId\":1}");
             ConsumerRecord<String, JsonNode> record = new ConsumerRecord<>("like-liked-v1", 0, 0, "1", value);
 
@@ -53,15 +50,15 @@ class ProductMetricsConsumerTest {
             productMetricsConsumer.consumeLikeEvents(List.of(record), acknowledgment);
 
             // assert
-            then(productMetricsService).should().incrementLikeCount(1L);
+            then(productMetricsService).should().handleEvent(
+                    any(MetricsEventMeta.class), any(MetricsPayload.Like.class));
             then(acknowledgment).should().acknowledge();
         }
 
-        @DisplayName("like-unliked-v1 토픽이면, decrementLikeCount를 호출한다.")
+        @DisplayName("like-unliked-v1 토픽이면, UNLIKED 타입으로 Service에 위임한다.")
         @Test
-        void decrementsLikeCount_whenUnlikedTopic() throws Exception {
+        void delegatesAsUnliked_whenUnlikedTopic() throws Exception {
             // arrange
-            given(eventHandledRepository.markIfAbsent("uuid")).willReturn(true);
             JsonNode value = objectMapper.readTree("{\"eventId\":\"uuid\",\"productId\":1}");
             ConsumerRecord<String, JsonNode> record = new ConsumerRecord<>("like-unliked-v1", 0, 0, "1", value);
 
@@ -69,23 +66,8 @@ class ProductMetricsConsumerTest {
             productMetricsConsumer.consumeLikeEvents(List.of(record), acknowledgment);
 
             // assert
-            then(productMetricsService).should().decrementLikeCount(1L);
-            then(acknowledgment).should().acknowledge();
-        }
-
-        @DisplayName("중복 이벤트이면, service를 호출하지 않는다.")
-        @Test
-        void skipsService_whenDuplicateEvent() throws Exception {
-            // arrange
-            given(eventHandledRepository.markIfAbsent("dup-id")).willReturn(false);
-            JsonNode value = objectMapper.readTree("{\"eventId\":\"dup-id\",\"productId\":1}");
-            ConsumerRecord<String, JsonNode> record = new ConsumerRecord<>("like-liked-v1", 0, 0, "1", value);
-
-            // act
-            productMetricsConsumer.consumeLikeEvents(List.of(record), acknowledgment);
-
-            // assert
-            then(productMetricsService).shouldHaveNoInteractions();
+            then(productMetricsService).should().handleEvent(
+                    any(MetricsEventMeta.class), any(MetricsPayload.Like.class));
             then(acknowledgment).should().acknowledge();
         }
 
@@ -93,7 +75,6 @@ class ProductMetricsConsumerTest {
         @Test
         void skipsFailedRecord_andContinues() throws Exception {
             // arrange
-            given(eventHandledRepository.markIfAbsent("uuid")).willReturn(true);
             JsonNode badValue = objectMapper.readTree("{}");
             JsonNode goodValue = objectMapper.readTree("{\"eventId\":\"uuid\",\"productId\":2}");
             ConsumerRecord<String, JsonNode> badRecord = new ConsumerRecord<>("like-liked-v1", 0, 0, "1", badValue);
@@ -103,7 +84,8 @@ class ProductMetricsConsumerTest {
             productMetricsConsumer.consumeLikeEvents(List.of(badRecord, goodRecord), acknowledgment);
 
             // assert
-            then(productMetricsService).should().incrementLikeCount(2L);
+            then(productMetricsService).should().handleEvent(
+                    any(MetricsEventMeta.class), any(MetricsPayload.Like.class));
             then(acknowledgment).should().acknowledge();
         }
     }
@@ -112,11 +94,10 @@ class ProductMetricsConsumerTest {
     @Nested
     class ConsumeOrderEvents {
 
-        @DisplayName("orderItems의 각 상품에 대해 addOrderCount를 호출한다.")
+        @DisplayName("orderItems를 파싱하여 ORDER_COMPLETED 타입으로 Service에 위임한다.")
         @Test
-        void addsOrderCountPerProduct() throws Exception {
+        void delegatesWithOrderItems() throws Exception {
             // arrange
-            given(eventHandledRepository.markIfAbsent("uuid")).willReturn(true);
             JsonNode value = objectMapper.readTree(
                     "{\"eventId\":\"uuid\",\"orderId\":1,\"orderItems\":[{\"productId\":10,\"quantity\":2},{\"productId\":20,\"quantity\":3}]}");
             ConsumerRecord<String, JsonNode> record = new ConsumerRecord<>("order-completed-v1", 0, 0, "1", value);
@@ -125,25 +106,8 @@ class ProductMetricsConsumerTest {
             productMetricsConsumer.consumeOrderEvents(List.of(record), acknowledgment);
 
             // assert
-            then(productMetricsService).should().addOrderCount(10L, 2L);
-            then(productMetricsService).should().addOrderCount(20L, 3L);
-            then(acknowledgment).should().acknowledge();
-        }
-
-        @DisplayName("중복 이벤트이면, service를 호출하지 않는다.")
-        @Test
-        void skipsService_whenDuplicateEvent() throws Exception {
-            // arrange
-            given(eventHandledRepository.markIfAbsent("dup-id")).willReturn(false);
-            JsonNode value = objectMapper.readTree(
-                    "{\"eventId\":\"dup-id\",\"orderId\":1,\"orderItems\":[{\"productId\":10,\"quantity\":2}]}");
-            ConsumerRecord<String, JsonNode> record = new ConsumerRecord<>("order-completed-v1", 0, 0, "1", value);
-
-            // act
-            productMetricsConsumer.consumeOrderEvents(List.of(record), acknowledgment);
-
-            // assert
-            then(productMetricsService).shouldHaveNoInteractions();
+            then(productMetricsService).should().handleEvent(
+                    any(MetricsEventMeta.class), any(MetricsPayload.Order.class));
             then(acknowledgment).should().acknowledge();
         }
 
@@ -151,7 +115,6 @@ class ProductMetricsConsumerTest {
         @Test
         void skipsFailedRecord() throws Exception {
             // arrange
-            given(eventHandledRepository.markIfAbsent("uuid")).willReturn(true);
             JsonNode badValue = objectMapper.readTree("{\"eventId\":\"uuid\",\"orderId\":1}");
             ConsumerRecord<String, JsonNode> record = new ConsumerRecord<>("order-completed-v1", 0, 0, "1", badValue);
 
@@ -168,11 +131,10 @@ class ProductMetricsConsumerTest {
     @Nested
     class ConsumeViewEvents {
 
-        @DisplayName("incrementViewCount를 호출한다.")
+        @DisplayName("PRODUCT_VIEWED 타입으로 Service에 위임한다.")
         @Test
-        void incrementsViewCount() throws Exception {
+        void delegatesAsProductViewed() throws Exception {
             // arrange
-            given(eventHandledRepository.markIfAbsent("uuid")).willReturn(true);
             JsonNode value = objectMapper.readTree("{\"eventId\":\"uuid\",\"productId\":1}");
             ConsumerRecord<String, JsonNode> record = new ConsumerRecord<>("product-viewed-v1", 0, 0, "1", value);
 
@@ -180,23 +142,8 @@ class ProductMetricsConsumerTest {
             productMetricsConsumer.consumeViewEvents(List.of(record), acknowledgment);
 
             // assert
-            then(productMetricsService).should().incrementViewCount(1L);
-            then(acknowledgment).should().acknowledge();
-        }
-
-        @DisplayName("중복 이벤트이면, service를 호출하지 않는다.")
-        @Test
-        void skipsService_whenDuplicateEvent() throws Exception {
-            // arrange
-            given(eventHandledRepository.markIfAbsent("dup-id")).willReturn(false);
-            JsonNode value = objectMapper.readTree("{\"eventId\":\"dup-id\",\"productId\":1}");
-            ConsumerRecord<String, JsonNode> record = new ConsumerRecord<>("product-viewed-v1", 0, 0, "1", value);
-
-            // act
-            productMetricsConsumer.consumeViewEvents(List.of(record), acknowledgment);
-
-            // assert
-            then(productMetricsService).shouldHaveNoInteractions();
+            then(productMetricsService).should().handleEvent(
+                    any(MetricsEventMeta.class), any(MetricsPayload.View.class));
             then(acknowledgment).should().acknowledge();
         }
 

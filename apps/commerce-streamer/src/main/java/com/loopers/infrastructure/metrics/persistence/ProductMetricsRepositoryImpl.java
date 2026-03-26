@@ -1,10 +1,7 @@
 package com.loopers.infrastructure.metrics.persistence;
 
-import java.util.Optional;
-
 import org.springframework.stereotype.Repository;
 
-import com.loopers.domain.metrics.ProductMetrics;
 import com.loopers.domain.metrics.ProductMetricsRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -16,12 +13,17 @@ public class ProductMetricsRepositoryImpl implements ProductMetricsRepository {
     private final ProductMetricsJpaRepository productMetricsJpaRepository;
 
     @Override
-    public ProductMetrics save(ProductMetrics metrics) {
-        return productMetricsJpaRepository.save(metrics);
+    public void upsertLikeCount(Long productId, Long delta) {
+        productMetricsJpaRepository.upsertLikeCount(productId, delta);
     }
 
     @Override
-    public Optional<ProductMetrics> findByProductId(Long productId) {
-        return productMetricsJpaRepository.findByProductId(productId);
+    public void upsertOrderCount(Long productId, Long quantity) {
+        productMetricsJpaRepository.upsertOrderCount(productId, quantity);
+    }
+
+    @Override
+    public void upsertViewCount(Long productId) {
+        productMetricsJpaRepository.upsertViewCount(productId);
     }
 }
