@@ -11,8 +11,6 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
 @Slf4j
 @RequiredArgsConstructor
 @Component
@@ -21,16 +19,14 @@ public class OrderEventConsumer {
     private final ProductMetricsFacade productMetricsFacade;
     private final ObjectMapper objectMapper;
 
-    @KafkaListener(topics = "order-events", containerFactory = KafkaConfig.BATCH_LISTENER)
-    public void consume(List<ConsumerRecord<Object, Object>> records, Acknowledgment ack) {
-        records.forEach(record -> {
-            try {
-                OrderCreatedEventPayload payload = objectMapper.readValue((byte[]) record.value(), OrderCreatedEventPayload.class);
-                productMetricsFacade.applyOrder(payload);
-            } catch (Exception e) {
-                log.error("order-events 처리 실패, skip. offset={}", record.offset(), e);
-            }
-        });
+    @KafkaListener(topics = "order-events", containerFactory = KafkaConfig.SINGLE_LISTENER)
+    public void consume(ConsumerRecord<Object, Object> record, Acknowledgment ack) {
+        try {
+            OrderCreatedEventPayload payload = objectMapper.readValue((String) record.value(), OrderCreatedEventPayload.class);
+            productMetricsFacade.applyOrder(payload);
+        } catch (Exception e) {
+            log.error("order-events 처리 실패, skip. offset={}", record.offset(), e);
+        }
         ack.acknowledge();
     }
 }

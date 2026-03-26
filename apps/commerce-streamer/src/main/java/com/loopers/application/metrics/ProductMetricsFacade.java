@@ -1,6 +1,5 @@
 package com.loopers.application.metrics;
 
-import com.loopers.domain.metrics.ProductMetrics;
 import com.loopers.domain.metrics.ProductMetricsRepository;
 import com.loopers.infrastructure.eventhandled.EventHandled;
 import com.loopers.infrastructure.eventhandled.EventHandledJpaRepository;
@@ -22,10 +21,7 @@ public class ProductMetricsFacade {
         if (eventHandledJpaRepository.existsById(payload.eventId())) {
             return;
         }
-        ProductMetrics metrics = productMetricsRepository.findByProductId(payload.productId())
-                .orElse(ProductMetrics.of(payload.productId()));
-        metrics.applyLike(payload.delta());
-        productMetricsRepository.save(metrics);
+        productMetricsRepository.upsertLike(payload.productId(), payload.delta());
         eventHandledJpaRepository.save(EventHandled.of(payload.eventId()));
     }
 
@@ -34,12 +30,8 @@ public class ProductMetricsFacade {
         if (eventHandledJpaRepository.existsById(payload.eventId())) {
             return;
         }
-        payload.items().forEach(item -> {
-            ProductMetrics metrics = productMetricsRepository.findByProductId(item.productId())
-                    .orElse(ProductMetrics.of(item.productId()));
-            metrics.applyOrder(item.quantity());
-            productMetricsRepository.save(metrics);
-        });
+        payload.items().forEach(item ->
+                productMetricsRepository.upsertOrder(item.productId(), item.quantity()));
         eventHandledJpaRepository.save(EventHandled.of(payload.eventId()));
     }
 }

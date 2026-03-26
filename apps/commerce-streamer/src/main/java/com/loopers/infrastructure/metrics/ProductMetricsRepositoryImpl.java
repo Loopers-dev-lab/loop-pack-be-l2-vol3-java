@@ -1,11 +1,8 @@
 package com.loopers.infrastructure.metrics;
 
-import com.loopers.domain.metrics.ProductMetrics;
 import com.loopers.domain.metrics.ProductMetricsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-
-import java.util.Optional;
 
 @RequiredArgsConstructor
 @Component
@@ -14,12 +11,12 @@ public class ProductMetricsRepositoryImpl implements ProductMetricsRepository {
     private final ProductMetricsJpaRepository jpaRepository;
 
     @Override
-    public Optional<ProductMetrics> findByProductId(Long productId) {
-        return jpaRepository.findById(productId);
+    public void upsertLike(Long productId, int delta) {
+        jpaRepository.upsertLike(productId, delta);
     }
 
     @Override
-    public ProductMetrics save(ProductMetrics productMetrics) {
-        return jpaRepository.save(productMetrics);
+    public void upsertOrder(Long productId, long quantity) {
+        jpaRepository.upsertOrder(productId, quantity);
     }
 }
