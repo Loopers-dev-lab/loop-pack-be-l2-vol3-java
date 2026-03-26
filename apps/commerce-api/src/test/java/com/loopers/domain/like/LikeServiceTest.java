@@ -1,5 +1,6 @@
 package com.loopers.domain.like;
 
+import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductStatsRepository;
@@ -27,7 +28,10 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,6 +48,9 @@ class LikeServiceTest {
 
     @Mock
     private ProductStatsRepository productStatsRepository;
+
+    @Mock
+    private TransactionalOutboxWriter transactionalOutboxWriter;
 
     @InjectMocks
     private LikeService likeService;
@@ -67,6 +74,7 @@ class LikeServiceTest {
             CoreException exProductId = assertThrows(CoreException.class, () -> likeService.addLike(USER_ID, null));
             assertThat(exProductId.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
             assertThat(exProductId.getMessage()).contains("필수");
+            verifyNoInteractions(transactionalOutboxWriter);
         }
 
         @DisplayName("상품이 없으면 NOT_FOUND 예외가 발생한다.")
@@ -78,6 +86,7 @@ class LikeServiceTest {
             // when & then
             CoreException ex = assertThrows(CoreException.class, () -> likeService.addLike(USER_ID, PRODUCT_ID));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+            verifyNoInteractions(transactionalOutboxWriter);
         }
 
         @DisplayName("이미 좋아요한 상품이면 CONFLICT 예외가 발생한다.")
@@ -91,6 +100,7 @@ class LikeServiceTest {
             // when & then
             CoreException ex = assertThrows(CoreException.class, () -> likeService.addLike(USER_ID, PRODUCT_ID));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.CONFLICT);
+            verifyNoInteractions(transactionalOutboxWriter);
         }
 
         @DisplayName("유효한 요청이면 저장 후 Like를 반환한다.")
@@ -113,6 +123,13 @@ class LikeServiceTest {
             verify(likeRepository).save(any(LikeModel.class));
             verify(productStatsRepository).createIfAbsent(PRODUCT_ID);
             verify(productStatsRepository).incrementLikeCount(PRODUCT_ID);
+            verify(transactionalOutboxWriter).record(
+                    eq("catalog-events"),
+                    eq(String.valueOf(PRODUCT_ID)),
+                    eq("PRODUCT_LIKE_CHANGED"),
+                    argThat(m -> PRODUCT_ID.equals(m.get("productId"))
+                            && USER_ID.equals(m.get("userId"))
+                            && "LIKED".equals(m.get("action"))));
         }
     }
 
@@ -130,6 +147,7 @@ class LikeServiceTest {
             CoreException exProductId = assertThrows(CoreException.class, () -> likeService.removeLike(USER_ID, null));
             assertThat(exProductId.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
             assertThat(exProductId.getMessage()).contains("필수");
+            verifyNoInteractions(transactionalOutboxWriter);
         }
 
         @DisplayName("좋아요가 없으면 NOT_FOUND 예외가 발생한다.")
@@ -141,6 +159,7 @@ class LikeServiceTest {
             // when & then
             CoreException ex = assertThrows(CoreException.class, () -> likeService.removeLike(USER_ID, PRODUCT_ID));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
+            verifyNoInteractions(transactionalOutboxWriter);
         }
 
         @DisplayName("존재하는 좋아요면 삭제한다.")
@@ -156,6 +175,13 @@ class LikeServiceTest {
             // then
             verify(likeRepository).delete(like);
             verify(productStatsRepository).decrementLikeCount(PRODUCT_ID);
+            verify(transactionalOutboxWriter).record(
+                    eq("catalog-events"),
+                    eq(String.valueOf(PRODUCT_ID)),
+                    eq("PRODUCT_LIKE_CHANGED"),
+                    argThat(m -> PRODUCT_ID.equals(m.get("productId"))
+                            && USER_ID.equals(m.get("userId"))
+                            && "UNLIKED".equals(m.get("action"))));
         }
     }
 
