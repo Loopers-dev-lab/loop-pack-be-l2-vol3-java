@@ -1,5 +1,6 @@
 package com.loopers.application.order;
 
+import com.loopers.application.event.ApplicationDomainEventPublisher;
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.coupon.CouponModel;
 import com.loopers.domain.coupon.CouponType;
@@ -59,11 +60,14 @@ class OrderFacadeTest {
     @Mock
     private UserCouponService userCouponService;
 
+    @Mock
+    private ApplicationDomainEventPublisher applicationDomainEventPublisher;
+
     private OrderFacade orderFacade;
 
     @BeforeEach
     void setUp() {
-        orderFacade = new OrderFacade(orderService, productService, userService, userCouponService);
+        orderFacade = new OrderFacade(orderService, productService, userService, userCouponService, applicationDomainEventPublisher);
     }
 
     @DisplayName("주문 요청 시, ")

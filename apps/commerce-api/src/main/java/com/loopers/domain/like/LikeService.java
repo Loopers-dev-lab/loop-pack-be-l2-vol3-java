@@ -1,5 +1,6 @@
 package com.loopers.domain.like;
 
+import com.loopers.application.event.ApplicationDomainEventPublisher;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
@@ -20,6 +21,7 @@ public class LikeService {
 
     private final LikeRepository likeRepository;
     private final ProductRepository productRepository;
+    private final ApplicationDomainEventPublisher applicationDomainEventPublisher;
 
     @Transactional
     @Caching(evict = {
@@ -39,6 +41,7 @@ public class LikeService {
         try {
             LikeModel savedLike = likeRepository.save(like);
             product.increaseLikeCount();
+            applicationDomainEventPublisher.publishProductLikeChanged(productId, userId, 1);
             return savedLike;
         } catch (DataIntegrityViolationException e) {
             throw new CoreException(ErrorType.CONFLICT, "이미 좋아요한 상품입니다.");
@@ -59,6 +62,7 @@ public class LikeService {
 
         likeRepository.delete(like);
         product.decreaseLikeCount();
+        applicationDomainEventPublisher.publishProductLikeChanged(productId, userId, -1);
     }
 
     @Transactional(readOnly = true)

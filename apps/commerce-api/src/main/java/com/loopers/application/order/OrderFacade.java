@@ -1,5 +1,7 @@
 package com.loopers.application.order;
 
+import com.loopers.application.event.AppEvents;
+import com.loopers.application.event.ApplicationDomainEventPublisher;
 import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderService;
@@ -26,6 +28,7 @@ public class OrderFacade {
     private final ProductService productService;
     private final UserService userService;
     private final UserCouponService userCouponService;
+    private final ApplicationDomainEventPublisher applicationDomainEventPublisher;
 
     @Transactional
     public OrderDetailInfo placeOrder(String loginId, String password, List<PlaceOrderItem> items, Long couponId) {
@@ -65,6 +68,15 @@ public class OrderFacade {
         if (userCoupon != null) {
             userCouponService.markUsed(userCoupon, order.getId(), originalAmount);
         }
+
+        applicationDomainEventPublisher.publishOrderPlaced(
+            order.getId(),
+            user.getId(),
+            order.getOrderItems().stream()
+                .map(item -> new AppEvents.OrderItemPayload(item.getProductId(), item.getQuantity()))
+                .toList(),
+            order.getTotalAmount()
+        );
 
         return OrderDetailInfo.from(order);
     }
