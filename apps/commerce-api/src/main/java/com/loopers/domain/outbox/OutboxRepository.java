@@ -7,4 +7,5 @@ public interface OutboxRepository {
     List<OutboxModel> findPendingWithLimit(int limit);
     void markAllPublished(List<Long> ids);
     long countPending();
+    long countFailed();
 }

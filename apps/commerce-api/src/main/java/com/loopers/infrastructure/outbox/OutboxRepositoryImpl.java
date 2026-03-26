@@ -38,4 +38,9 @@ public class OutboxRepositoryImpl implements OutboxRepository {
     public long countPending() {
         return outboxJpaRepository.countByStatus(OutboxStatus.PENDING);
     }
+
+    @Override
+    public long countFailed() {
+        return outboxJpaRepository.countByStatus(OutboxStatus.FAILED);
+    }
 }

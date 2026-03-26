@@ -12,5 +12,9 @@ public class OutboxMetrics {
         Gauge.builder("outbox.pending.count", outboxRepository, OutboxRepository::countPending)
                 .description("Number of PENDING outbox entries awaiting relay")
                 .register(registry);
+
+        Gauge.builder("outbox.failed.count", outboxRepository, OutboxRepository::countFailed)
+                .description("Number of FAILED outbox entries (exhausted 5 retries — permanent loss risk)")
+                .register(registry);
     }
 }

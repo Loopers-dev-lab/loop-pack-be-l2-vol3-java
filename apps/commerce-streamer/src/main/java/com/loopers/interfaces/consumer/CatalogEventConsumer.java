@@ -28,14 +28,21 @@ public class CatalogEventConsumer {
             containerFactory = StreamerKafkaConfig.DLQ_BATCH_LISTENER
     )
     public void consume(List<ConsumerRecord<Object, Object>> records, Acknowledgment acknowledgment) {
-        for (ConsumerRecord<Object, Object> record : records) {
-            CatalogEventPayload payload = parse(record);
-            productMetricsApp.applyLikeDelta(
-                    payload.eventId(),
-                    payload.productDbId(),
-                    payload.delta(),
-                    payload.likedAt()
-            );
+        for (int i = 0; i < records.size(); i++) {
+            ConsumerRecord<Object, Object> record = records.get(i);
+            try {
+                CatalogEventPayload payload = parse(record);
+                productMetricsApp.applyLikeDelta(
+                        payload.eventId(),
+                        payload.productDbId(),
+                        payload.delta(),
+                        payload.likedAt()
+                );
+            } catch (Exception e) {
+                log.error("[CATALOG_EVENT_FAILED] offset={}, key={}", record.offset(), record.key(), e);
+                throw new org.springframework.kafka.listener.BatchListenerFailedException(
+                        "catalog-events processing failed at index " + i, e, i);
+            }
         }
         acknowledgment.acknowledge();
     }

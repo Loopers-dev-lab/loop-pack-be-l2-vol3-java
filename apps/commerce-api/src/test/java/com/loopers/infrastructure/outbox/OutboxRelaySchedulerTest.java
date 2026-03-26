@@ -130,5 +130,70 @@ class OutboxRelaySchedulerTest {
 
             assertThat(pending).allMatch(o -> o.getStatus() == OutboxStatus.PUBLISHED);
         }
+
+        @Test
+        @DisplayName("[At-Least-Once] markAllPublished() DB 실패 시 — Kafka 발행은 성공했지만 PENDING 재처리 → 중복 발행")
+        void relay_markAllPublishedDbFailure_causesAtLeastOnceRedelivery() {
+            /*
+             * 시나리오:
+             *   1. compensate() 실행 → Kafka send() 성공 → markAllPublished() DB 예외
+             *   2. compensate() 재실행 → 같은 레코드가 PENDING 상태로 조회됨 → 다시 Kafka 발행
+             *
+             * 이것이 At-Least-Once 보장의 실제 의미다.
+             * Consumer 측 멱등성(event_handled)이 중복 처리를 막아야 한다.
+             *
+             * markAllPublished() 예외 시:
+             *   - outbox.status in-memory: PUBLISHED (markPublished() 호출됨)
+             *   - DB: 여전히 PENDING (markAllPublished() 실패)
+             *   - 다음 compensate()에서 findPendingWithLimit()가 DB에서 PENDING 조회 → 재발행
+             */
+            OutboxModel outbox = pendingOutbox();
+            given(outboxRepository.findPendingWithLimit(anyInt())).willReturn(List.of(outbox));
+            given(kafkaEventPublisher.send(outbox)).willReturn(successFuture());
+            doThrow(new RuntimeException("DB connection timeout"))
+                    .when(outboxRepository).markAllPublished(anyList());
+
+            // 첫 번째 compensate — Kafka 발행 성공, DB 커밋 실패
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    RuntimeException.class, () -> scheduler.compensate());
+            verify(kafkaEventPublisher, times(1)).send(outbox);
+
+            // DB에서 PENDING 재조회 시뮬레이션 (findPendingWithLimit이 같은 outbox 반환)
+            // 두 번째 compensate — 동일 레코드 재발행 (At-Least-Once)
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    RuntimeException.class, () -> scheduler.compensate());
+            verify(kafkaEventPublisher, times(2)).send(outbox);
+
+            assertThat(outbox.getStatus())
+                    .as("in-memory에서 PUBLISHED이지만 DB는 PENDING → 재처리 대상")
+                    .isEqualTo(OutboxStatus.PUBLISHED);
+        }
+
+        @Test
+        @DisplayName("[At-Least-Once] Kafka send 성공 확정 후 markAllPublished 전 JVM kill 시뮬레이션")
+        void relay_jvmKillAfterSendBeforeDbCommit_pendingRemainsForNextRelay() {
+            /*
+             * JVM kill 시나리오:
+             *   send() future.get() 성공 → outbox.markPublished() 호출 (in-memory)
+             *   → JVM kill → markAllPublished() 미실행
+             *   → 재시작 시 DB에서 여전히 PENDING → 다음 릴레이에서 재발행
+             *
+             * 이 테스트는 markAllPublished 호출 자체가 일어나지 않는 케이스를 모사한다.
+             */
+            OutboxModel outbox = pendingOutbox();
+            given(outboxRepository.findPendingWithLimit(anyInt())).willReturn(List.of(outbox));
+            given(kafkaEventPublisher.send(outbox)).willReturn(successFuture());
+
+            // markAllPublished는 호출되지 않도록 stub (JVM kill 모사)
+            doNothing().when(outboxRepository).markAllPublished(anyList());
+
+            scheduler.compensate();
+
+            // Kafka는 1번 발행됨
+            verify(kafkaEventPublisher, times(1)).send(outbox);
+            // markAllPublished가 호출됨 (in-memory에서 PUBLISHED로 변경)
+            verify(outboxRepository, times(1)).markAllPublished(List.of(outbox.getId()));
+
+        }
     }
 }

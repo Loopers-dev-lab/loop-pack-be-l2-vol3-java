@@ -28,14 +28,21 @@ public class CouponIssueConsumer {
             containerFactory = StreamerKafkaConfig.DLQ_BATCH_LISTENER
     )
     public void consume(List<ConsumerRecord<Object, Object>> records, Acknowledgment acknowledgment) {
-        for (ConsumerRecord<Object, Object> record : records) {
-            CouponIssuePayload payload = parse(record);
-            couponIssueApp.processIssue(
-                    payload.eventId(),
-                    payload.requestId(),
-                    payload.couponTemplateDbId(),
-                    payload.memberId()
-            );
+        for (int i = 0; i < records.size(); i++) {
+            ConsumerRecord<Object, Object> record = records.get(i);
+            try {
+                CouponIssuePayload payload = parse(record);
+                couponIssueApp.processIssue(
+                        payload.eventId(),
+                        payload.requestId(),
+                        payload.couponTemplateDbId(),
+                        payload.memberId()
+                );
+            } catch (Exception e) {
+                log.error("[COUPON_ISSUE_FAILED] offset={}, key={}", record.offset(), record.key(), e);
+                throw new org.springframework.kafka.listener.BatchListenerFailedException(
+                        "coupon-issue-requests processing failed at index " + i, e, i);
+            }
         }
         acknowledgment.acknowledge();
     }
