@@ -26,7 +26,7 @@ public class CouponAdminV1Controller {
     ) {
         CreateCouponCommand command = new CreateCouponCommand(
                 request.name(), request.type(), request.value(),
-                request.minOrderAmount(), request.expiredAt()
+                request.minOrderAmount(), request.expiredAt(), request.totalQuantity()
         );
         CouponInfo couponInfo = couponFacade.createCoupon(command);
         return ApiResponse.success(CouponV1Dto.Response.from(couponInfo));

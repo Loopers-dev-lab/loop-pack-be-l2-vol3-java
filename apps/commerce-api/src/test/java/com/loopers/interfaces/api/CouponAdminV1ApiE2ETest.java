@@ -43,7 +43,7 @@ class CouponAdminV1ApiE2ETest {
             // Given
             CouponV1Dto.CreateRequest request = new CouponV1Dto.CreateRequest(
                     "신규회원 5000원 할인", CouponType.FIXED, new BigDecimal("5000"),
-                    new BigDecimal("10000"), ZonedDateTime.now().plusDays(30)
+                    new BigDecimal("10000"), ZonedDateTime.now().plusDays(30), null
             );
 
             // When
@@ -75,7 +75,7 @@ class CouponAdminV1ApiE2ETest {
             // Given
             CouponV1Dto.CreateRequest request = new CouponV1Dto.CreateRequest(
                     "테스트쿠폰", CouponType.RATE, new BigDecimal("10"),
-                    null, ZonedDateTime.now().plusDays(30)
+                    null, ZonedDateTime.now().plusDays(30), null
             );
 
             ResponseEntity<ApiResponse<CouponV1Dto.Response>> createResponse = restTemplate.exchange(
@@ -126,13 +126,13 @@ class CouponAdminV1ApiE2ETest {
             restTemplate.exchange(
                     "/api-admin/v1/coupons",
                     HttpMethod.POST,
-                    new HttpEntity<>(new CouponV1Dto.CreateRequest("쿠폰1", CouponType.FIXED, new BigDecimal("1000"), null, ZonedDateTime.now().plusDays(30))),
+                    new HttpEntity<>(new CouponV1Dto.CreateRequest("쿠폰1", CouponType.FIXED, new BigDecimal("1000"), null, ZonedDateTime.now().plusDays(30), null)),
                     new ParameterizedTypeReference<ApiResponse<CouponV1Dto.Response>>() {}
             );
             restTemplate.exchange(
                     "/api-admin/v1/coupons",
                     HttpMethod.POST,
-                    new HttpEntity<>(new CouponV1Dto.CreateRequest("쿠폰2", CouponType.RATE, new BigDecimal("10"), null, ZonedDateTime.now().plusDays(30))),
+                    new HttpEntity<>(new CouponV1Dto.CreateRequest("쿠폰2", CouponType.RATE, new BigDecimal("10"), null, ZonedDateTime.now().plusDays(30), null)),
                     new ParameterizedTypeReference<ApiResponse<CouponV1Dto.Response>>() {}
             );
 
@@ -161,7 +161,7 @@ class CouponAdminV1ApiE2ETest {
             ResponseEntity<ApiResponse<CouponV1Dto.Response>> createResponse = restTemplate.exchange(
                     "/api-admin/v1/coupons",
                     HttpMethod.POST,
-                    new HttpEntity<>(new CouponV1Dto.CreateRequest("원래이름", CouponType.FIXED, new BigDecimal("1000"), null, ZonedDateTime.now().plusDays(30))),
+                    new HttpEntity<>(new CouponV1Dto.CreateRequest("원래이름", CouponType.FIXED, new BigDecimal("1000"), null, ZonedDateTime.now().plusDays(30), null)),
                     new ParameterizedTypeReference<>() {}
             );
             Long couponId = createResponse.getBody().data().id();
@@ -196,7 +196,7 @@ class CouponAdminV1ApiE2ETest {
             ResponseEntity<ApiResponse<CouponV1Dto.Response>> createResponse = restTemplate.exchange(
                     "/api-admin/v1/coupons",
                     HttpMethod.POST,
-                    new HttpEntity<>(new CouponV1Dto.CreateRequest("삭제할쿠폰", CouponType.FIXED, new BigDecimal("1000"), null, ZonedDateTime.now().plusDays(30))),
+                    new HttpEntity<>(new CouponV1Dto.CreateRequest("삭제할쿠폰", CouponType.FIXED, new BigDecimal("1000"), null, ZonedDateTime.now().plusDays(30), null)),
                     new ParameterizedTypeReference<>() {}
             );
             Long couponId = createResponse.getBody().data().id();

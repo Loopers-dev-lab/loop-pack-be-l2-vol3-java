@@ -15,7 +15,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
-
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -24,6 +23,7 @@ import static org.instancio.Select.field;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CouponService 단위 테스트")
@@ -34,6 +34,9 @@ class CouponServiceTest {
 
     @Mock
     private UserCouponRepository userCouponRepository;
+
+    @Mock
+    private CouponIssueResultRepository couponIssueResultRepository;
 
     @InjectMocks
     private CouponService couponService;
@@ -54,7 +57,7 @@ class CouponServiceTest {
             given(couponRepository.save(any(Coupon.class))).willAnswer(invocation -> invocation.getArgument(0));
 
             // When
-            Coupon result = couponService.createCoupon(new CreateCouponCommand(name, type, value, null, expiredAt));
+            Coupon result = couponService.createCoupon(new CreateCouponCommand(name, type, value, null, expiredAt, null));
 
             // Then
             assertThat(result.getName()).isEqualTo(name);
@@ -75,7 +78,7 @@ class CouponServiceTest {
             given(couponRepository.save(any(Coupon.class))).willAnswer(invocation -> invocation.getArgument(0));
 
             // When
-            Coupon result = couponService.createCoupon(new CreateCouponCommand(name, type, value, null, expiredAt));
+            Coupon result = couponService.createCoupon(new CreateCouponCommand(name, type, value, null, expiredAt, null));
 
             // Then
             assertThat(result.getType()).isEqualTo(CouponType.RATE);
@@ -86,7 +89,7 @@ class CouponServiceTest {
         @DisplayName("실패: 쿠폰명이 비어있으면 BAD_REQUEST")
         void createCoupon_BlankName() {
             // When & Then
-            assertThatThrownBy(() -> couponService.createCoupon(new CreateCouponCommand("", CouponType.FIXED, new BigDecimal("1000"), null, ZonedDateTime.now().plusDays(1))))
+            assertThatThrownBy(() -> couponService.createCoupon(new CreateCouponCommand("", CouponType.FIXED, new BigDecimal("1000"), null, ZonedDateTime.now().plusDays(1), null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("쿠폰명은 필수입니다.");
@@ -96,7 +99,7 @@ class CouponServiceTest {
         @DisplayName("실패: 할인값이 0 이하면 BAD_REQUEST")
         void createCoupon_InvalidValue() {
             // When & Then
-            assertThatThrownBy(() -> couponService.createCoupon(new CreateCouponCommand("쿠폰", CouponType.FIXED, BigDecimal.ZERO, null, ZonedDateTime.now().plusDays(1))))
+            assertThatThrownBy(() -> couponService.createCoupon(new CreateCouponCommand("쿠폰", CouponType.FIXED, BigDecimal.ZERO, null, ZonedDateTime.now().plusDays(1), null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("할인 값은 0보다 커야 합니다.");
@@ -106,7 +109,7 @@ class CouponServiceTest {
         @DisplayName("실패: RATE 타입 할인값이 100 초과면 BAD_REQUEST")
         void createCoupon_RateExceeds100() {
             // When & Then
-            assertThatThrownBy(() -> couponService.createCoupon(new CreateCouponCommand("쿠폰", CouponType.RATE, new BigDecimal("101"), null, ZonedDateTime.now().plusDays(1))))
+            assertThatThrownBy(() -> couponService.createCoupon(new CreateCouponCommand("쿠폰", CouponType.RATE, new BigDecimal("101"), null, ZonedDateTime.now().plusDays(1), null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("비율 할인은 100을 초과할 수 없습니다.");
@@ -116,7 +119,7 @@ class CouponServiceTest {
         @DisplayName("실패: 만료일이 과거면 BAD_REQUEST")
         void createCoupon_ExpiredAtInPast() {
             // When & Then
-            assertThatThrownBy(() -> couponService.createCoupon(new CreateCouponCommand("쿠폰", CouponType.FIXED, new BigDecimal("1000"), null, ZonedDateTime.now().minusDays(1))))
+            assertThatThrownBy(() -> couponService.createCoupon(new CreateCouponCommand("쿠폰", CouponType.FIXED, new BigDecimal("1000"), null, ZonedDateTime.now().minusDays(1), null)))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                     .hasMessage("만료일은 현재 시간 이후여야 합니다.");
@@ -391,6 +394,106 @@ class CouponServiceTest {
             // Then
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getUserId()).isEqualTo(userId);
+        }
+    }
+
+    @Nested
+    @DisplayName("선착순 쿠폰 발급 (issueCouponWithQuantityControl)")
+    class IssueCouponWithQuantityControl {
+
+        @Test
+        @DisplayName("성공: 수량 제한 내에서 쿠폰을 발급한다")
+        void issueCouponWithQuantityControl_Success() {
+            // Given
+            Long userId = 1L;
+            Long couponId = 10L;
+
+            Coupon coupon = Coupon.create("선착순 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
+                    null, ZonedDateTime.now().plusDays(30), 100);
+
+            CouponIssueResult issueResult = CouponIssueResult.create(userId, couponId);
+
+            given(couponIssueResultRepository.findByUserIdAndCouponId(userId, couponId)).willReturn(Optional.of(issueResult));
+            given(couponRepository.findActiveById(couponId)).willReturn(Optional.of(coupon));
+            given(userCouponRepository.existsByUserIdAndCouponId(userId, couponId)).willReturn(false);
+            given(userCouponRepository.save(any(UserCoupon.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            // When
+            couponService.issueCouponWithQuantityControl(userId, couponId);
+
+            // Then
+            assertThat(issueResult.getStatus()).isEqualTo(CouponIssueResultStatus.SUCCESS);
+            assertThat(coupon.getIssuedQuantity()).isEqualTo(1);
+            then(userCouponRepository).should().save(any(UserCoupon.class));
+        }
+
+        @Test
+        @DisplayName("실패: 수량 초과 시 FAILED 결과를 저장한다")
+        void issueCouponWithQuantityControl_QuantityExceeded() {
+            // Given
+            Long userId = 1L;
+            Long couponId = 10L;
+
+            Coupon coupon = Coupon.create("선착순 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
+                    null, ZonedDateTime.now().plusDays(30), 0);
+
+            CouponIssueResult issueResult = CouponIssueResult.create(userId, couponId);
+
+            given(couponIssueResultRepository.findByUserIdAndCouponId(userId, couponId)).willReturn(Optional.of(issueResult));
+            given(couponRepository.findActiveById(couponId)).willReturn(Optional.of(coupon));
+
+            // When
+            couponService.issueCouponWithQuantityControl(userId, couponId);
+
+            // Then
+            assertThat(issueResult.getStatus()).isEqualTo(CouponIssueResultStatus.FAILED);
+            assertThat(issueResult.getFailureReason()).contains("수량이 초과");
+            then(userCouponRepository).should(never()).save(any(UserCoupon.class));
+        }
+
+        @Test
+        @DisplayName("실패: 이미 발급받은 쿠폰이면 FAILED 결과를 저장한다")
+        void issueCouponWithQuantityControl_Duplicate() {
+            // Given
+            Long userId = 1L;
+            Long couponId = 10L;
+
+            Coupon coupon = Coupon.create("선착순 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
+                    null, ZonedDateTime.now().plusDays(30), 100);
+
+            CouponIssueResult issueResult = CouponIssueResult.create(userId, couponId);
+
+            given(couponIssueResultRepository.findByUserIdAndCouponId(userId, couponId)).willReturn(Optional.of(issueResult));
+            given(couponRepository.findActiveById(couponId)).willReturn(Optional.of(coupon));
+            given(userCouponRepository.existsByUserIdAndCouponId(userId, couponId)).willReturn(true);
+
+            // When
+            couponService.issueCouponWithQuantityControl(userId, couponId);
+
+            // Then
+            assertThat(issueResult.getStatus()).isEqualTo(CouponIssueResultStatus.FAILED);
+            assertThat(issueResult.getFailureReason()).contains("이미 발급받은");
+        }
+
+        @Test
+        @DisplayName("이미 SUCCESS인 결과는 재처리하지 않는다")
+        void issueCouponWithQuantityControl_AlreadySuccess_Skips() {
+            // Given
+            Long userId = 1L;
+            Long couponId = 10L;
+
+            CouponIssueResult issueResult = CouponIssueResult.create(userId, couponId);
+            issueResult.markSuccess();
+
+            given(couponIssueResultRepository.findByUserIdAndCouponId(userId, couponId)).willReturn(Optional.of(issueResult));
+
+            // When
+            couponService.issueCouponWithQuantityControl(userId, couponId);
+
+            // Then
+            assertThat(issueResult.getStatus()).isEqualTo(CouponIssueResultStatus.SUCCESS);
+            then(couponRepository).shouldHaveNoInteractions();
+            then(userCouponRepository).shouldHaveNoInteractions();
         }
     }
 }

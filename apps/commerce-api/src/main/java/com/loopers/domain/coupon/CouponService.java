@@ -17,10 +17,11 @@ public class CouponService {
 
     private final CouponRepository couponRepository;
     private final UserCouponRepository userCouponRepository;
+    private final CouponIssueResultRepository couponIssueResultRepository;
 
     @Transactional
     public Coupon createCoupon(CreateCouponCommand command) {
-        Coupon coupon = Coupon.create(command.name(), command.type(), command.value(), command.minOrderAmount(), command.expiredAt());
+        Coupon coupon = Coupon.create(command.name(), command.type(), command.value(), command.minOrderAmount(), command.expiredAt(), command.totalQuantity());
         return couponRepository.save(coupon);
     }
 
@@ -83,6 +84,42 @@ public class CouponService {
         userCoupon.use();
 
         return coupon.calculateDiscount(orderAmount);
+    }
+
+    @Transactional
+    public void issueCouponWithQuantityControl(Long userId, Long couponId) {
+        CouponIssueResult issueResult = couponIssueResultRepository.findByUserIdAndCouponId(userId, couponId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "발급 요청을 찾을 수 없습니다."));
+
+        if (issueResult.getStatus() != CouponIssueResultStatus.PROCESSING) {
+            return;
+        }
+
+        try {
+            Coupon coupon = getById(couponId);
+
+            coupon.issue();
+
+            if (userCouponRepository.existsByUserIdAndCouponId(userId, couponId)) {
+                throw new CoreException(ErrorType.CONFLICT, "이미 발급받은 쿠폰입니다.");
+            }
+
+            UserCoupon userCoupon = UserCoupon.create(userId, couponId);
+            userCouponRepository.save(userCoupon);
+            issueResult.markSuccess();
+        } catch (CoreException e) {
+            issueResult.markFailed(e.getMessage());
+        }
+    }
+
+    @Transactional
+    public CouponIssueResult createIssueResult(Long userId, Long couponId) {
+        return couponIssueResultRepository.save(CouponIssueResult.create(userId, couponId));
+    }
+
+    public CouponIssueResult getIssueResult(Long userId, Long couponId) {
+        return couponIssueResultRepository.findByUserIdAndCouponId(userId, couponId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "발급 요청을 찾을 수 없습니다."));
     }
 
     @Transactional

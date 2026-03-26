@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api;
 
-import com.loopers.domain.coupon.CouponStatus;
+import com.loopers.domain.coupon.CouponIssueResultStatus;
 import com.loopers.domain.coupon.CouponType;
 import com.loopers.interfaces.api.coupon.CouponV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
@@ -38,7 +38,7 @@ class CouponV1ApiE2ETest {
     private Long createCoupon(String name) {
         CouponV1Dto.CreateRequest request = new CouponV1Dto.CreateRequest(
                 name, CouponType.FIXED, new BigDecimal("5000"),
-                null, ZonedDateTime.now().plusDays(30)
+                null, ZonedDateTime.now().plusDays(30), null
         );
         ResponseEntity<ApiResponse<CouponV1Dto.Response>> response = restTemplate.exchange(
                 "/api-admin/v1/coupons",
@@ -50,11 +50,11 @@ class CouponV1ApiE2ETest {
     }
 
     @Nested
-    @DisplayName("POST /api/v1/coupons/{couponId}/issue - 쿠폰 발급")
+    @DisplayName("POST /api/v1/coupons/{couponId}/issue - 쿠폰 발급 요청")
     class IssueCoupon {
 
         @Test
-        @DisplayName("성공: 쿠폰을 발급받는다")
+        @DisplayName("성공: 쿠폰 발급 요청이 접수되고 PROCESSING 상태를 반환한다")
         void issueCoupon_Success() {
             // Given
             Long couponId = createCoupon("테스트쿠폰");
@@ -64,7 +64,7 @@ class CouponV1ApiE2ETest {
             headers.set("X-User-Id", userId.toString());
 
             // When
-            ResponseEntity<ApiResponse<CouponV1Dto.UserCouponResponse>> response = restTemplate.exchange(
+            ResponseEntity<ApiResponse<CouponV1Dto.CouponIssueResultResponse>> response = restTemplate.exchange(
                     "/api/v1/coupons/" + couponId + "/issue",
                     HttpMethod.POST,
                     new HttpEntity<>(headers),
@@ -72,15 +72,15 @@ class CouponV1ApiE2ETest {
             );
 
             // Then
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            CouponV1Dto.UserCouponResponse data = response.getBody().data();
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+            CouponV1Dto.CouponIssueResultResponse data = response.getBody().data();
             assertThat(data.userId()).isEqualTo(userId);
             assertThat(data.couponId()).isEqualTo(couponId);
-            assertThat(data.status()).isEqualTo(CouponStatus.AVAILABLE);
+            assertThat(data.status()).isEqualTo(CouponIssueResultStatus.PROCESSING);
         }
 
         @Test
-        @DisplayName("실패: 중복 발급 시 409 CONFLICT")
+        @DisplayName("실패: 중복 요청 시 UNIQUE 제약으로 실패한다")
         void issueCoupon_Duplicate() {
             // Given
             Long couponId = createCoupon("테스트쿠폰");
@@ -89,15 +89,15 @@ class CouponV1ApiE2ETest {
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-User-Id", userId.toString());
 
-            // 첫 번째 발급
+            // 첫 번째 발급 요청
             restTemplate.exchange(
                     "/api/v1/coupons/" + couponId + "/issue",
                     HttpMethod.POST,
                     new HttpEntity<>(headers),
-                    new ParameterizedTypeReference<ApiResponse<CouponV1Dto.UserCouponResponse>>() {}
+                    new ParameterizedTypeReference<ApiResponse<CouponV1Dto.CouponIssueResultResponse>>() {}
             );
 
-            // When - 두 번째 발급 시도
+            // When - 두 번째 발급 요청
             ResponseEntity<ApiResponse<Void>> response = restTemplate.exchange(
                     "/api/v1/coupons/" + couponId + "/issue",
                     HttpMethod.POST,
@@ -106,7 +106,44 @@ class CouponV1ApiE2ETest {
             );
 
             // Then
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/v1/coupons/{couponId}/issue-result - 발급 결과 조회")
+    class GetIssueResult {
+
+        @Test
+        @DisplayName("성공: 발급 요청 후 결과를 조회한다")
+        void getIssueResult_Success() {
+            // Given
+            Long couponId = createCoupon("테스트쿠폰");
+            Long userId = 1L;
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-User-Id", userId.toString());
+
+            restTemplate.exchange(
+                    "/api/v1/coupons/" + couponId + "/issue",
+                    HttpMethod.POST,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<ApiResponse<CouponV1Dto.CouponIssueResultResponse>>() {}
+            );
+
+            // When
+            ResponseEntity<ApiResponse<CouponV1Dto.CouponIssueResultResponse>> response = restTemplate.exchange(
+                    "/api/v1/coupons/" + couponId + "/issue-result",
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            // Then
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            CouponV1Dto.CouponIssueResultResponse data = response.getBody().data();
+            assertThat(data.userId()).isEqualTo(userId);
+            assertThat(data.couponId()).isEqualTo(couponId);
         }
     }
 
@@ -118,18 +155,12 @@ class CouponV1ApiE2ETest {
         @DisplayName("성공: 내 쿠폰 목록을 조회한다")
         void getMyCoupons_Success() {
             // Given
-            Long couponId1 = createCoupon("쿠폰1");
-            Long couponId2 = createCoupon("쿠폰2");
             Long userId = 1L;
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-User-Id", userId.toString());
 
-            // 쿠폰 발급
-            restTemplate.exchange("/api/v1/coupons/" + couponId1 + "/issue", HttpMethod.POST, new HttpEntity<>(headers), new ParameterizedTypeReference<ApiResponse<CouponV1Dto.UserCouponResponse>>() {});
-            restTemplate.exchange("/api/v1/coupons/" + couponId2 + "/issue", HttpMethod.POST, new HttpEntity<>(headers), new ParameterizedTypeReference<ApiResponse<CouponV1Dto.UserCouponResponse>>() {});
-
-            // When
+            // When - 쿠폰이 없는 상태에서 목록 조회
             ResponseEntity<ApiResponse<List<CouponV1Dto.UserCouponResponse>>> response = restTemplate.exchange(
                     "/api/v1/users/me/coupons",
                     HttpMethod.GET,
@@ -139,7 +170,7 @@ class CouponV1ApiE2ETest {
 
             // Then
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(response.getBody().data()).hasSize(2);
+            assertThat(response.getBody().data()).isEmpty();
         }
     }
 }

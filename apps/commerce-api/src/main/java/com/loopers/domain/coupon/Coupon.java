@@ -34,17 +34,43 @@ public class Coupon extends BaseEntity {
     @Column(name = "expired_at", nullable = false)
     private ZonedDateTime expiredAt;
 
-    private Coupon(String name, CouponType type, BigDecimal value, BigDecimal minOrderAmount, ZonedDateTime expiredAt) {
+    @Column(name = "total_quantity")
+    private Integer totalQuantity;
+
+    @Column(name = "issued_quantity", nullable = false)
+    private int issuedQuantity = 0;
+
+    private Coupon(String name, CouponType type, BigDecimal value, BigDecimal minOrderAmount, ZonedDateTime expiredAt, Integer totalQuantity) {
         this.name = name;
         this.type = type;
         this.value = value;
         this.minOrderAmount = minOrderAmount;
         this.expiredAt = expiredAt;
+        this.totalQuantity = totalQuantity;
     }
 
     public static Coupon create(String name, CouponType type, BigDecimal value, BigDecimal minOrderAmount, ZonedDateTime expiredAt) {
         validate(name, type, value, expiredAt);
-        return new Coupon(name, type, value, minOrderAmount, expiredAt);
+        return new Coupon(name, type, value, minOrderAmount, expiredAt, null);
+    }
+
+    public static Coupon create(String name, CouponType type, BigDecimal value, BigDecimal minOrderAmount, ZonedDateTime expiredAt, Integer totalQuantity) {
+        validate(name, type, value, expiredAt);
+        return new Coupon(name, type, value, minOrderAmount, expiredAt, totalQuantity);
+    }
+
+    public void issue() {
+        if (isExpired()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰은 발급할 수 없습니다.");
+        }
+        if (totalQuantity != null && issuedQuantity >= totalQuantity) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "쿠폰 발급 수량이 초과되었습니다.");
+        }
+        this.issuedQuantity++;
+    }
+
+    public boolean hasRemainingQuantity() {
+        return totalQuantity == null || issuedQuantity < totalQuantity;
     }
 
     public void update(String name, CouponType type, BigDecimal value, BigDecimal minOrderAmount, ZonedDateTime expiredAt) {
