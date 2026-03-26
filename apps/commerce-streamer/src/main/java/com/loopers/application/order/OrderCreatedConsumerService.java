@@ -1,6 +1,7 @@
 package com.loopers.application.order;
 
 import com.loopers.application.metrics.ProductMetricsAckPublisher;
+import com.loopers.contract.kafka.OrderCreatedOutboxMessage;
 import com.loopers.infrastructure.metrics.EventHandledRepository;
 import com.loopers.infrastructure.order.OrderEventLogRepository;
 import org.springframework.stereotype.Service;
@@ -24,7 +25,7 @@ public class OrderCreatedConsumerService {
     }
 
     @Transactional
-    public void consume(String consumerGroup, OrderCreatedEventMessage message) {
+    public void consume(String consumerGroup, OrderCreatedOutboxMessage message) {
         boolean inserted = eventHandledRepository.markHandledIfAbsent(consumerGroup, message.eventId());
         if (!inserted) {
             return;

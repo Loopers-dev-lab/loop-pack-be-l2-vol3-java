@@ -2,7 +2,7 @@ package com.loopers.interfaces.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.metrics.ProductMetricsConsumerService;
-import com.loopers.application.metrics.ProductMetricsEventMessage;
+import com.loopers.contract.kafka.ProductMetricsEventMessage;
 import com.loopers.confg.kafka.KafkaConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

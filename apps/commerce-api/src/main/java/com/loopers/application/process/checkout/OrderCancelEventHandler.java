@@ -2,9 +2,9 @@ package com.loopers.application.process.checkout;
 
 import com.loopers.application.coupon.CouponApplicationService;
 import com.loopers.application.order.OrderApplicationService;
-import com.loopers.application.outbox.OrderCancelRequestedOutboxMessage;
 import com.loopers.application.outbox.OrderPaymentOutboxService;
 import com.loopers.application.payment.PaymentQueryApplicationService;
+import com.loopers.contract.kafka.OrderCancelRequestedOutboxMessage;
 import com.loopers.application.point.PointApplicationService;
 import com.loopers.application.process.checkout.event.OrderCancelRequestedEvent;
 import com.loopers.application.process.checkout.event.OrderPaymentCancelRequestEvent;

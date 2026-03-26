@@ -1,5 +1,6 @@
 package com.loopers.application.metrics;
 
+import com.loopers.contract.kafka.ProductMetricsEventMessage;
 import com.loopers.infrastructure.metrics.EventHandledRepository;
 import com.loopers.infrastructure.metrics.ProductMetricsRepository;
 import org.junit.jupiter.api.DisplayName;

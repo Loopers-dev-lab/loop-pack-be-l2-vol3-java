@@ -1,5 +1,6 @@
 package com.loopers.application.product;
 
+import com.loopers.contract.kafka.LikeCountChangedMessage;
 import com.loopers.infrastructure.product.LikeEventHandledRepository;
 import com.loopers.infrastructure.product.ProductLikeCountRepository;
 import org.springframework.stereotype.Service;

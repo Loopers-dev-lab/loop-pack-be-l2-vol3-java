@@ -2,12 +2,12 @@ package com.loopers.interfaces.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.order.OrderCancelRequestedConsumerService;
-import com.loopers.application.order.OrderCancelRequestedEventMessage;
 import com.loopers.application.order.OrderCreatedConsumerService;
-import com.loopers.application.order.OrderCreatedEventMessage;
 import com.loopers.application.payment.PaymentStatusChangedConsumerService;
-import com.loopers.application.payment.PaymentStatusChangedEventMessage;
 import com.loopers.confg.kafka.KafkaConfig;
+import com.loopers.contract.kafka.OrderCancelRequestedOutboxMessage;
+import com.loopers.contract.kafka.OrderCreatedOutboxMessage;
+import com.loopers.contract.kafka.PaymentStatusChangedOutboxMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -35,7 +35,7 @@ public class OrderPaymentKafkaConsumer {
     public void orderCreatedListener(List<ConsumerRecord<Object, Object>> messages, Acknowledgment acknowledgment) {
         for (ConsumerRecord<Object, Object> message : messages) {
             try {
-                orderCreatedConsumerService.consume(ORDER_CREATED_GROUP, read(message.value(), OrderCreatedEventMessage.class));
+                orderCreatedConsumerService.consume(ORDER_CREATED_GROUP, read(message.value(), OrderCreatedOutboxMessage.class));
             } catch (Exception e) {
                 log.warn("order_created_consume_failed topic={} partition={} offset={}", message.topic(), message.partition(), message.offset(), e);
                 throw new IllegalStateException("Order created consume failed", e);
@@ -48,7 +48,7 @@ public class OrderPaymentKafkaConsumer {
     public void orderCancelRequestedListener(List<ConsumerRecord<Object, Object>> messages, Acknowledgment acknowledgment) {
         for (ConsumerRecord<Object, Object> message : messages) {
             try {
-                orderCancelRequestedConsumerService.consume(ORDER_CANCEL_REQUESTED_GROUP, read(message.value(), OrderCancelRequestedEventMessage.class));
+                orderCancelRequestedConsumerService.consume(ORDER_CANCEL_REQUESTED_GROUP, read(message.value(), OrderCancelRequestedOutboxMessage.class));
             } catch (Exception e) {
                 log.warn("order_cancel_requested_consume_failed topic={} partition={} offset={}", message.topic(), message.partition(), message.offset(), e);
                 throw new IllegalStateException("Order cancel requested consume failed", e);
@@ -61,7 +61,7 @@ public class OrderPaymentKafkaConsumer {
     public void paymentStatusChangedListener(List<ConsumerRecord<Object, Object>> messages, Acknowledgment acknowledgment) {
         for (ConsumerRecord<Object, Object> message : messages) {
             try {
-                paymentStatusChangedConsumerService.consume(PAYMENT_STATUS_CHANGED_GROUP, read(message.value(), PaymentStatusChangedEventMessage.class));
+                paymentStatusChangedConsumerService.consume(PAYMENT_STATUS_CHANGED_GROUP, read(message.value(), PaymentStatusChangedOutboxMessage.class));
             } catch (Exception e) {
                 log.warn("payment_status_changed_consume_failed topic={} partition={} offset={}", message.topic(), message.partition(), message.offset(), e);
                 throw new IllegalStateException("Payment status changed consume failed", e);

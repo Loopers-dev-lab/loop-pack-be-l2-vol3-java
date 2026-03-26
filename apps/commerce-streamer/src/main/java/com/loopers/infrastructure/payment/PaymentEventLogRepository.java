@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.payment;
 
-import com.loopers.application.payment.PaymentStatusChangedEventMessage;
+import com.loopers.contract.kafka.PaymentStatusChangedOutboxMessage;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Repository;
@@ -13,7 +13,7 @@ public class PaymentEventLogRepository {
     @PersistenceContext
     private EntityManager entityManager;
 
-    public void save(PaymentStatusChangedEventMessage message) {
+    public void save(PaymentStatusChangedOutboxMessage message) {
         entityManager.createNativeQuery(
                         """
                         INSERT INTO payment_event_log (

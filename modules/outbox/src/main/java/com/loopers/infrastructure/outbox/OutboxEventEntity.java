@@ -2,14 +2,7 @@ package com.loopers.infrastructure.outbox;
 
 import com.loopers.domain.outbox.OutboxEvent;
 import com.loopers.domain.outbox.OutboxEventStatus;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 import java.time.ZonedDateTime;
 import java.util.UUID;
@@ -88,22 +81,7 @@ public class OutboxEventEntity {
     }
 
     public OutboxEvent toDomain() {
-        return new OutboxEvent(
-                id,
-                eventId,
-                eventType,
-                aggregateType,
-                aggregateId,
-                topic,
-                partitionKey,
-                payloadJson,
-                status,
-                attemptCount,
-                nextAttemptAt,
-                occurredAt,
-                publishedAt,
-                ackedAt
-        );
+        return new OutboxEvent(id, eventId, eventType, aggregateType, aggregateId, topic, partitionKey, payloadJson, status, attemptCount, nextAttemptAt, occurredAt, publishedAt, ackedAt);
     }
 
     public void markPublished(ZonedDateTime publishedAt) {

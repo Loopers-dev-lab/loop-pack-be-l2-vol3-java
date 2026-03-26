@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.metrics;
 
-import com.loopers.application.metrics.ProductMetricsEventMessage;
+import com.loopers.contract.kafka.ProductMetricsEventMessage;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Repository;

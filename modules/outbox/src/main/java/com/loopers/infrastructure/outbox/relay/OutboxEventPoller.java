@@ -24,8 +24,7 @@ public class OutboxEventPoller {
         List<OutboxEvent> processing = new ArrayList<>();
         ZonedDateTime processingDeadline = ZonedDateTime.now().plusSeconds(30);
         for (OutboxEvent candidate : candidates) {
-            boolean marked = outboxEventRepository.markProcessing(candidate.id(), processingDeadline);
-            if (marked) {
+            if (outboxEventRepository.markProcessing(candidate.id(), processingDeadline)) {
                 processing.add(candidate);
             }
         }

@@ -2,8 +2,8 @@ package com.loopers.application.payment;
 
 import com.loopers.application.payment.command.CompletePaymentCommand;
 import com.loopers.application.outbox.OrderPaymentOutboxService;
-import com.loopers.application.outbox.PaymentStatusChangedOutboxMessage;
 import com.loopers.application.payment.event.PaymentStatusChangedEvent;
+import com.loopers.contract.kafka.PaymentStatusChangedOutboxMessage;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentGateway;
 import com.loopers.domain.payment.PaymentRepository;
@@ -104,8 +104,8 @@ public class PaymentCompletionApplicationService {
                     java.util.UUID.randomUUID(),
                     saved.orderId(),
                     saved.memberId(),
-                    payment.status(),
-                    saved.status(),
+                    payment.status().name(),
+                    saved.status().name(),
                     changedAt
             ));
         }

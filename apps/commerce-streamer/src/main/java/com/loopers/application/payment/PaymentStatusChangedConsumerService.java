@@ -1,6 +1,7 @@
 package com.loopers.application.payment;
 
 import com.loopers.application.metrics.ProductMetricsAckPublisher;
+import com.loopers.contract.kafka.PaymentStatusChangedOutboxMessage;
 import com.loopers.infrastructure.metrics.EventHandledRepository;
 import com.loopers.infrastructure.payment.PaymentEventLogRepository;
 import org.springframework.stereotype.Service;
@@ -24,7 +25,7 @@ public class PaymentStatusChangedConsumerService {
     }
 
     @Transactional
-    public void consume(String consumerGroup, PaymentStatusChangedEventMessage message) {
+    public void consume(String consumerGroup, PaymentStatusChangedOutboxMessage message) {
         boolean inserted = eventHandledRepository.markHandledIfAbsent(consumerGroup, message.eventId());
         if (!inserted) {
             return;

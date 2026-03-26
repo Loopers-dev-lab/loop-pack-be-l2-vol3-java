@@ -1,8 +1,9 @@
 package com.loopers.application.order;
 
+import com.loopers.contract.kafka.OrderCreatedOutboxMessage;
+import com.loopers.contract.kafka.PaymentStatusChangedOutboxMessage;
 import com.loopers.application.metrics.ProductMetricsAckPublisher;
 import com.loopers.application.payment.PaymentStatusChangedConsumerService;
-import com.loopers.application.payment.PaymentStatusChangedEventMessage;
 import com.loopers.infrastructure.metrics.EventHandledRepository;
 import com.loopers.infrastructure.order.OrderEventLogRepository;
 import com.loopers.infrastructure.payment.PaymentEventLogRepository;
@@ -27,7 +28,7 @@ class OrderPaymentConsumerServicesTest {
         OrderEventLogRepository orderEventLogRepository = mock(OrderEventLogRepository.class);
         ProductMetricsAckPublisher ackPublisher = mock(ProductMetricsAckPublisher.class);
         OrderCreatedConsumerService service = new OrderCreatedConsumerService(handledRepository, orderEventLogRepository, ackPublisher);
-        OrderCreatedEventMessage message = new OrderCreatedEventMessage(UUID.randomUUID(), UUID.randomUUID(), "member-1", 1000, Instant.now());
+        OrderCreatedOutboxMessage message = new OrderCreatedOutboxMessage(UUID.randomUUID(), UUID.randomUUID(), "member-1", 1000, Instant.now());
 
         when(handledRepository.markHandledIfAbsent("order-created", message.eventId())).thenReturn(true);
 
@@ -44,7 +45,7 @@ class OrderPaymentConsumerServicesTest {
         PaymentEventLogRepository paymentEventLogRepository = mock(PaymentEventLogRepository.class);
         ProductMetricsAckPublisher ackPublisher = mock(ProductMetricsAckPublisher.class);
         PaymentStatusChangedConsumerService service = new PaymentStatusChangedConsumerService(handledRepository, paymentEventLogRepository, ackPublisher);
-        PaymentStatusChangedEventMessage message = new PaymentStatusChangedEventMessage(
+        PaymentStatusChangedOutboxMessage message = new PaymentStatusChangedOutboxMessage(
                 UUID.randomUUID(), UUID.randomUUID(), "member-1", "REQUESTED", "SUCCEEDED", Instant.now());
 
         when(handledRepository.markHandledIfAbsent("payment-status", message.eventId())).thenReturn(false);

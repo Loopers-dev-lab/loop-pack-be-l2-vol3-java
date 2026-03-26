@@ -1,7 +1,7 @@
 package com.loopers.interfaces.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.application.product.LikeCountChangedMessage;
+import com.loopers.contract.kafka.LikeCountChangedMessage;
 import com.loopers.application.product.ProductLikeCountConsumerService;
 import com.loopers.confg.kafka.KafkaConfig;
 import lombok.RequiredArgsConstructor;

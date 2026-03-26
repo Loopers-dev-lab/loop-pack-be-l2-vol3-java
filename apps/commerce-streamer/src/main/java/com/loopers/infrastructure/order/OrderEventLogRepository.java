@@ -1,7 +1,7 @@
 package com.loopers.infrastructure.order;
 
-import com.loopers.application.order.OrderCancelRequestedEventMessage;
-import com.loopers.application.order.OrderCreatedEventMessage;
+import com.loopers.contract.kafka.OrderCancelRequestedOutboxMessage;
+import com.loopers.contract.kafka.OrderCreatedOutboxMessage;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Repository;
@@ -14,7 +14,7 @@ public class OrderEventLogRepository {
     @PersistenceContext
     private EntityManager entityManager;
 
-    public void saveOrderCreated(OrderCreatedEventMessage message) {
+    public void saveOrderCreated(OrderCreatedOutboxMessage message) {
         entityManager.createNativeQuery(
                         """
                         INSERT INTO order_event_log (
@@ -44,7 +44,7 @@ public class OrderEventLogRepository {
                 .executeUpdate();
     }
 
-    public void saveOrderCancelRequested(OrderCancelRequestedEventMessage message) {
+    public void saveOrderCancelRequested(OrderCancelRequestedOutboxMessage message) {
         entityManager.createNativeQuery(
                         """
                         INSERT INTO order_event_log (

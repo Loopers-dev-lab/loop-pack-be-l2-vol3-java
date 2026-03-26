@@ -1,6 +1,4 @@
-package com.loopers.application.outbox;
-
-import com.loopers.domain.payment.PaymentStatus;
+package com.loopers.contract.kafka;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -9,8 +7,8 @@ public record PaymentStatusChangedOutboxMessage(
         UUID eventId,
         UUID orderId,
         String memberId,
-        PaymentStatus beforeStatus,
-        PaymentStatus afterStatus,
+        String beforeStatus,
+        String afterStatus,
         Instant occurredAt
 ) {
 }

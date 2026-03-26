@@ -1,7 +1,7 @@
 package com.loopers.interfaces.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.application.outbox.OutboxAckMessage;
+import com.loopers.contract.kafka.OutboxAckMessage;
 import com.loopers.domain.outbox.OutboxEventRepository;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.DisplayName;

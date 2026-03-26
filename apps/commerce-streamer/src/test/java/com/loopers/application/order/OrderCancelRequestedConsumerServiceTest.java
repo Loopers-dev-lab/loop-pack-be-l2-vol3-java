@@ -1,5 +1,6 @@
 package com.loopers.application.order;
 
+import com.loopers.contract.kafka.OrderCancelRequestedOutboxMessage;
 import com.loopers.application.metrics.ProductMetricsAckPublisher;
 import com.loopers.infrastructure.metrics.EventHandledRepository;
 import com.loopers.infrastructure.order.OrderEventLogRepository;
@@ -25,7 +26,7 @@ class OrderCancelRequestedConsumerServiceTest {
         OrderCancelRequestedConsumerService service =
                 new OrderCancelRequestedConsumerService(handledRepository, orderEventLogRepository, ackPublisher);
 
-        OrderCancelRequestedEventMessage message = new OrderCancelRequestedEventMessage(
+        OrderCancelRequestedOutboxMessage message = new OrderCancelRequestedOutboxMessage(
                 UUID.randomUUID(), UUID.randomUUID(), "member-1", Instant.now()
         );
 

@@ -1,4 +1,4 @@
-package com.loopers.application.outbox;
+package com.loopers.contract.kafka;
 
 import java.time.Instant;
 import java.util.UUID;

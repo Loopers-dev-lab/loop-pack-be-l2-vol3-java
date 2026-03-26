@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.behavior.event.BehaviorActionType;
 import com.loopers.application.behavior.event.BehaviorLoggedEvent;
+import com.loopers.contract.kafka.ProductMetricsEventMessage;
 import com.loopers.domain.outbox.OutboxEvent;
 import com.loopers.domain.outbox.OutboxEventRepository;
 import com.loopers.support.error.CoreException;

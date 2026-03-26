@@ -1,8 +1,9 @@
 package com.loopers.application.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.contract.kafka.OrderCreatedOutboxMessage;
+import com.loopers.contract.kafka.PaymentStatusChangedOutboxMessage;
 import com.loopers.domain.outbox.OutboxEventRepository;
-import com.loopers.domain.payment.PaymentStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -40,8 +41,8 @@ class OrderPaymentOutboxServiceTest {
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 "member-1",
-                PaymentStatus.REQUESTED,
-                PaymentStatus.SUCCEEDED,
+                "REQUESTED",
+                "SUCCEEDED",
                 Instant.now()
         ));
 

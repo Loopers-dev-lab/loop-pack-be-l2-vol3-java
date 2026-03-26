@@ -2,6 +2,9 @@ package com.loopers.application.outbox;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.contract.kafka.OrderCancelRequestedOutboxMessage;
+import com.loopers.contract.kafka.OrderCreatedOutboxMessage;
+import com.loopers.contract.kafka.PaymentStatusChangedOutboxMessage;
 import com.loopers.domain.outbox.OutboxEvent;
 import com.loopers.domain.outbox.OutboxEventRepository;
 import com.loopers.support.error.CoreException;

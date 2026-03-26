@@ -30,11 +30,7 @@ public class OutboxRelayScheduler {
                 kafkaTemplate.send(event.topic(), event.partitionKey(), event.payloadJson()).get();
                 outboxEventRepository.markPublished(event.id(), ZonedDateTime.now());
             } catch (Exception e) {
-                outboxEventRepository.markFailed(
-                        event.id(),
-                        e.getMessage(),
-                        ZonedDateTime.now().plusSeconds(3)
-                );
+                outboxEventRepository.markFailed(event.id(), e.getMessage(), ZonedDateTime.now().plusSeconds(3));
                 log.warn("outbox_relay_failed eventId={} topic={} partitionKey={}", event.eventId(), event.topic(), event.partitionKey(), e);
             }
         }

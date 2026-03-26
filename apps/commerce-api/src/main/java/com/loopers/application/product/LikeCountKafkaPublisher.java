@@ -2,6 +2,7 @@ package com.loopers.application.product;
 
 import com.loopers.application.like.event.LikeCancelledEvent;
 import com.loopers.application.like.event.LikeRegisteredEvent;
+import com.loopers.contract.kafka.LikeCountChangedMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Async;

@@ -1,4 +1,4 @@
-package com.loopers.application.product;
+package com.loopers.contract.kafka;
 
 import java.time.Instant;
 import java.util.UUID;
