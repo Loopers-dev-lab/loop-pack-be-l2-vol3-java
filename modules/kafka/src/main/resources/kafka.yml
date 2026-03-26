@@ -3,17 +3,17 @@ spring:
     bootstrap-servers: ${BOOTSTRAP_SERVERS}
     client-id: ${spring.application.name}
     properties:
-        spring.json.add.type.headers: false # json serialize off
-        acks: all
-        enable.idempotence: true
-        max.in.flight.requests.per.connection: 5
-        request.timeout.ms: 20000
-        retry.backoff.ms: 500
-        auto:
-          create.topics.enable: false
-          register.schemas: false
-          offset.reset: latest
-        use.latest.version: true
+      spring.json.add.type.headers: false # json serialize off
+      acks: all
+      enable.idempotence: true
+      max.in.flight.requests.per.connection: 5
+      request.timeout.ms: 20000
+      retry.backoff.ms: 500
+      auto:
+        create.topics.enable: false
+        register.schemas: false
+        offset.reset: latest
+      use.latest.version: true
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -28,7 +28,6 @@ spring:
         enable-auto-commit: false
     listener:
       ack-mode: manual
-
 ---
 spring.config.activate.on-profile: local, test
 
@@ -41,9 +40,7 @@ spring:
 
 ---
 spring.config.activate.on-profile: dev
-
 ---
 spring.config.activate.on-profile: qa
-
 ---
 spring.config.activate.on-profile: prd
