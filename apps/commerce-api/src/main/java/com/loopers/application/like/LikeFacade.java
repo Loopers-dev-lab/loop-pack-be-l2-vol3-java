@@ -4,6 +4,8 @@ import com.loopers.application.PagedInfo;
 import com.loopers.domain.PageResult;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.event.LikeToggledEvent;
+import com.loopers.domain.outbox.OutboxEventPublisher;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.like.LikeService;
 import com.loopers.domain.like.LikeTargetType;
@@ -12,6 +14,7 @@ import com.loopers.domain.member.MemberService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +31,8 @@ public class LikeFacade {
     private final ProductService productService;
     private final BrandService brandService;
     private final LikeService likeService;
+    private final ApplicationEventPublisher eventPublisher;
+    private final OutboxEventPublisher outboxEventPublisher;
 
     @Transactional
     public LikeToggleInfo toggleProductLike(String loginId, Long productId) {
@@ -36,6 +41,11 @@ public class LikeFacade {
 
         boolean liked = likeService.toggleLike(memberId, LikeTargetType.PRODUCT, productId);
         int likeCount = likeService.countLikes(LikeTargetType.PRODUCT, productId);
+
+        LikeToggledEvent productLikeEvent = new LikeToggledEvent(memberId, LikeTargetType.PRODUCT, productId, liked);
+        eventPublisher.publishEvent(productLikeEvent);
+        outboxEventPublisher.publish("PRODUCT", productId, "LIKE_TOGGLED",
+            "catalog-events", String.valueOf(productId), productLikeEvent);
 
         return new LikeToggleInfo(liked, likeCount);
     }
@@ -47,6 +57,8 @@ public class LikeFacade {
 
         boolean liked = likeService.toggleLike(memberId, LikeTargetType.BRAND, brandId);
         int likeCount = likeService.countLikes(LikeTargetType.BRAND, brandId);
+
+        eventPublisher.publishEvent(new LikeToggledEvent(memberId, LikeTargetType.BRAND, brandId, liked));
 
         return new LikeToggleInfo(liked, likeCount);
     }

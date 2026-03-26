@@ -12,7 +12,11 @@ import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.event.OrderCancelledEvent;
+import com.loopers.domain.event.OrderCreatedEvent;
+import com.loopers.domain.outbox.OutboxEventPublisher;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +35,8 @@ public class OrderFacade {
     private final OrderService orderService;
     private final AddressService addressService;
     private final CouponService couponService;
+    private final ApplicationEventPublisher eventPublisher;
+    private final OutboxEventPublisher outboxEventPublisher;
 
     @Transactional
     public OrderInfo createOrder(String loginId, Long addressId, Long memberCouponId,
@@ -89,6 +95,17 @@ public class OrderFacade {
         // 5. 주문 항목 생성
         List<OrderItem> items = orderService.createOrderItems(order.getId(), commands);
 
+        // 6. 이벤트 발행
+        List<OrderCreatedEvent.OrderItemSnapshot> itemSnapshots = commands.stream()
+            .map(cmd -> new OrderCreatedEvent.OrderItemSnapshot(
+                cmd.productId(), cmd.productName(), cmd.productPrice(), cmd.quantity()))
+            .toList();
+        OrderCreatedEvent orderCreatedEvent = new OrderCreatedEvent(
+            order.getId(), memberId, order.getTotalAmount(), itemSnapshots);
+        eventPublisher.publishEvent(orderCreatedEvent);
+        outboxEventPublisher.publish("ORDER", order.getId(), "ORDER_CREATED",
+            "order-events", String.valueOf(order.getId()), orderCreatedEvent);
+
         return OrderInfo.of(order, items);
     }
 
@@ -113,6 +130,9 @@ public class OrderFacade {
         if (result.order().getMemberCouponId() != null) {
             couponService.restoreCoupon(result.order().getMemberCouponId());
         }
+
+        // 이벤트 발행
+        eventPublisher.publishEvent(new OrderCancelledEvent(orderId, memberId));
     }
 
     public OrderInfo updateShippingAddress(String loginId, Long orderId,
