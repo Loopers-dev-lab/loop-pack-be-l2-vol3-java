@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.product;
 
+import com.loopers.domain.product.LikeCountMismatch;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.page.PageQuery;
@@ -129,6 +130,21 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public void decrementLikeCount(Long productId) {
         jpaRepository.decrementLikeCount(productId);
+    }
+
+    @Override
+    public List<LikeCountMismatch> findLikeCountMismatches() {
+        return jpaRepository.findLikeCountMismatchesRaw().stream()
+            .map(row -> new LikeCountMismatch(
+                ((Number) row[0]).longValue(),
+                ((Number) row[1]).longValue(),
+                ((Number) row[2]).longValue()))
+            .toList();
+    }
+
+    @Override
+    public void updateLikeCount(Long productId, long likeCount) {
+        jpaRepository.updateLikeCount(productId, likeCount);
     }
 
 }

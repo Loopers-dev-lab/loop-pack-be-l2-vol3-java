@@ -6,12 +6,14 @@ import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductStockModel;
 import com.loopers.domain.product.StockService;
+import com.loopers.domain.product.event.ProductViewedEvent;
 import com.loopers.support.enums.ProductSortType;
 import com.loopers.support.page.PageQuery;
 import com.loopers.support.page.PagedResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,6 +50,7 @@ public class ProductFacade {
     private final ProductService productService;
     private final StockService stockService;
     private final BrandService brandService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 고객용 상품 목록을 정렬 + 페이징하여 조회한다.
@@ -133,6 +136,9 @@ public class ProductFacade {
         ProductModel product = productService.findById(productId);
         ProductStockModel stock = stockService.findByProductId(productId);
         BrandModel brand = brandService.findById(product.getBrandId());
+
+        eventPublisher.publishEvent(new ProductViewedEvent(productId, null));
+
         return ProductInfo.from(product, stock, brand.getBrandName(), product.getLikeCount());
     }
 

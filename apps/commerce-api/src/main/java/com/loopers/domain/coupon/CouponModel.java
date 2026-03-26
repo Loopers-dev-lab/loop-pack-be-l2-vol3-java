@@ -59,6 +59,12 @@ public class CouponModel extends BaseStringIdEntity {
     @Column(name = "expired_at", nullable = false)
     private LocalDateTime expiredAt;
 
+    @Column(name = "max_quantity")
+    private Integer maxQuantity;
+
+    @Column(name = "issued_count", nullable = false)
+    private int issuedCount = 0;
+
     private CouponModel(String name, DiscountType discountType, BigDecimal discountValue,
                         BigDecimal minOrderAmount, LocalDateTime expiredAt) {
         this.name = name;
@@ -74,6 +80,23 @@ public class CouponModel extends BaseStringIdEntity {
     public static CouponModel create(String name, DiscountType discountType, BigDecimal discountValue,
                                       BigDecimal minOrderAmount, LocalDateTime expiredAt) {
         return new CouponModel(name, discountType, discountValue, minOrderAmount, expiredAt);
+    }
+
+    public boolean isRushCoupon() {
+        return maxQuantity != null;
+    }
+
+    public boolean hasRemainingQuantity() {
+        return maxQuantity == null || issuedCount < maxQuantity;
+    }
+
+    public static CouponModel createRush(String name, DiscountType discountType,
+            BigDecimal discountValue, BigDecimal minOrderAmount,
+            LocalDateTime expiredAt, int maxQuantity) {
+        CouponModel coupon = CouponModel.create(name, discountType, discountValue, minOrderAmount, expiredAt);
+        coupon.maxQuantity = maxQuantity;
+        coupon.issuedCount = 0;
+        return coupon;
     }
 
     /**

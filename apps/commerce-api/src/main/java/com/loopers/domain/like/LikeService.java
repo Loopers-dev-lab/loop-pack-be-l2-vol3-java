@@ -1,9 +1,12 @@
 package com.loopers.domain.like;
 
+import com.loopers.domain.like.event.ProductLikedEvent;
+import com.loopers.domain.like.event.ProductUnlikedEvent;
 import com.loopers.domain.product.ProductService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +26,7 @@ public class LikeService {
 
     private final LikeRepository likeRepository;
     private final ProductService productService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 상품에 좋아요를 등록한다. 이미 좋아요한 경우 무시한다 (멱등).
@@ -33,9 +37,8 @@ public class LikeService {
      */
     @Transactional
     public void addLike(Long userId, Long productId) {
-        // 비관적 락으로 상품 조회 → 동일 상품 좋아요 연산 직렬화
         try {
-            productService.findByIdWithLock(productId);
+            productService.findById(productId);
         } catch (CoreException e) {
             throw new CoreException(ErrorType.LIKE_PRODUCT_NOT_FOUND);
         }
@@ -47,7 +50,7 @@ public class LikeService {
 
         LikeModel like = LikeModel.create(userId, productId);
         likeRepository.save(like);
-        productService.incrementLikeCount(productId);
+        eventPublisher.publishEvent(new ProductLikedEvent(userId, productId));
     }
 
     /**
@@ -58,17 +61,10 @@ public class LikeService {
      */
     @Transactional
     public void removeLike(Long userId, Long productId) {
-        // 비관적 락으로 상품 조회 → 동일 상품 좋아요 연산 직렬화
-        try {
-            productService.findByIdWithLock(productId);
-        } catch (CoreException e) {
-            return; // 상품이 없으면 좋아요도 없으므로 무시
-        }
-
         LikeId likeId = new LikeId(userId, productId);
         likeRepository.findById(likeId).ifPresent(like -> {
             likeRepository.delete(like);
-            productService.decrementLikeCount(productId);
+            eventPublisher.publishEvent(new ProductUnlikedEvent(userId, productId));
         });
     }
 

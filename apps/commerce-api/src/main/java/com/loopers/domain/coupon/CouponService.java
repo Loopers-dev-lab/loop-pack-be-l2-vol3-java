@@ -1,6 +1,7 @@
 package com.loopers.domain.coupon;
 
 import com.loopers.support.enums.DiscountType;
+import com.loopers.support.enums.UserCouponStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.support.page.PageQuery;
@@ -205,5 +206,66 @@ public class CouponService {
     public void restoreCoupon(Long orderId) {
         userCouponRepository.findByOrderId(orderId)
                 .ifPresent(UserCouponModel::restoreToAvailable);
+    }
+
+    // ============================
+    // CAS 기반 쿠폰 상태 전이 메서드
+    // ============================
+
+    /**
+     * 쿠폰을 AVAILABLE → RESERVED 로 CAS 선점한다.
+     * 반드시 상위 트랜잭션(주문 생성 TX) 내에서 호출해야 한다.
+     *
+     * @param userCouponId 발급 쿠폰 ID
+     * @throws CoreException CAS 실패 시 COUPON_NOT_AVAILABLE
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void reserveCoupon(Long userCouponId) {
+        int updated = userCouponRepository.updateStatusCas(
+                userCouponId, UserCouponStatus.AVAILABLE, UserCouponStatus.RESERVED);
+        if (updated == 0) {
+            throw new CoreException(ErrorType.COUPON_NOT_AVAILABLE);
+        }
+    }
+
+    /**
+     * 쿠폰을 RESERVED → USED 로 확정한다 (Relay 처리).
+     *
+     * @param userCouponId 발급 쿠폰 ID
+     * @param orderId      사용된 주문 ID
+     * @throws CoreException CAS 실패 시 COUPON_NOT_AVAILABLE
+     */
+    @Transactional
+    public void confirmCouponUsed(Long userCouponId, Long orderId) {
+        int updated = userCouponRepository.updateStatusCas(
+                userCouponId, UserCouponStatus.RESERVED, UserCouponStatus.USED);
+        if (updated == 0) {
+            throw new CoreException(ErrorType.COUPON_NOT_AVAILABLE);
+        }
+        userCouponRepository.findById(userCouponId).ifPresent(uc -> {
+            uc.markAsUsedWithOrder(orderId);
+            userCouponRepository.save(uc);
+        });
+    }
+
+    /**
+     * 쿠폰을 RESERVED → AVAILABLE 로 복원한다 (Relay 처리).
+     * RESERVED 상태가 아닌 경우 USED → AVAILABLE 로도 시도한다.
+     *
+     * @param userCouponId 발급 쿠폰 ID
+     */
+    @Transactional
+    public void restoreCouponByAction(Long userCouponId) {
+        int updated = userCouponRepository.updateStatusCas(
+                userCouponId, UserCouponStatus.RESERVED, UserCouponStatus.AVAILABLE);
+        if (updated == 0) {
+            // RESERVED가 아닌 경우 USED → AVAILABLE 시도
+            userCouponRepository.updateStatusCas(
+                    userCouponId, UserCouponStatus.USED, UserCouponStatus.AVAILABLE);
+        }
+        userCouponRepository.findById(userCouponId).ifPresent(uc -> {
+            uc.clearOrderInfo();
+            userCouponRepository.save(uc);
+        });
     }
 }

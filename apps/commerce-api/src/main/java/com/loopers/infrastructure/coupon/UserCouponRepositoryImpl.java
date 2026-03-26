@@ -2,6 +2,7 @@ package com.loopers.infrastructure.coupon;
 
 import com.loopers.domain.coupon.UserCouponModel;
 import com.loopers.domain.coupon.UserCouponRepository;
+import com.loopers.support.enums.UserCouponStatus;
 import com.loopers.support.page.PageQuery;
 import com.loopers.support.page.PagedResult;
 import lombok.RequiredArgsConstructor;
@@ -71,5 +72,10 @@ public class UserCouponRepositoryImpl implements UserCouponRepository {
     @Override
     public Optional<UserCouponModel> findByOrderId(Long orderId) {
         return userCouponJpaRepository.findByOrderId(orderId);
+    }
+
+    @Override
+    public int updateStatusCas(Long userCouponId, UserCouponStatus expectedStatus, UserCouponStatus newStatus) {
+        return userCouponJpaRepository.updateStatusCas(userCouponId, expectedStatus, newStatus);
     }
 }

@@ -1,5 +1,6 @@
 package com.loopers.domain.coupon;
 
+import com.loopers.support.enums.UserCouponStatus;
 import com.loopers.support.page.PageQuery;
 import com.loopers.support.page.PagedResult;
 
@@ -28,4 +29,9 @@ public interface UserCouponRepository {
     PagedResult<UserCouponModel> findAllByCouponIdPaged(Long couponId, PageQuery query);
 
     Optional<UserCouponModel> findByOrderId(Long orderId);
+
+    /**
+     * CAS 기반 쿠폰 상태 전이.
+     */
+    int updateStatusCas(Long userCouponId, UserCouponStatus expectedStatus, UserCouponStatus newStatus);
 }

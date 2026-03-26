@@ -4,6 +4,7 @@ import com.loopers.domain.coupon.CouponModel;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -26,4 +27,9 @@ public interface CouponJpaRepository extends JpaRepository<CouponModel, Long> {
 
     @Query("SELECT c FROM CouponModel c WHERE c.couponId IN :ids")
     List<CouponModel> findAllByCouponIdIn(@Param("ids") Collection<Long> ids);
+
+    @Modifying
+    @Query("UPDATE CouponModel c SET c.issuedCount = c.issuedCount + 1 "
+            + "WHERE c.couponId = :couponId AND c.issuedCount < c.maxQuantity")
+    int incrementIssuedCountWithCas(@Param("couponId") Long couponId);
 }

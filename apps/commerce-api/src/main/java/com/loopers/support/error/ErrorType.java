@@ -63,6 +63,7 @@ public enum ErrorType {
     COUPON_NOT_APPLICABLE(HttpStatus.BAD_REQUEST, "COUPON_NOT_APPLICABLE", "적용할 수 없는 쿠폰입니다."),
     COUPON_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "COUPON_NOT_AVAILABLE", "사용 불가능한 쿠폰입니다."),
     USER_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_COUPON_NOT_FOUND", "발급된 쿠폰을 찾을 수 없습니다."),
+    COUPON_ALREADY_USED(HttpStatus.CONFLICT, "COUPON_ALREADY_USED", "이미 사용 중인 쿠폰입니다."),
 
     /** Payment */
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND", "결제 정보를 찾을 수 없습니다."),

@@ -1,5 +1,7 @@
 package com.loopers.interfaces.api.coupon;
 
+import com.loopers.application.coupon.CouponIssueFacade;
+import com.loopers.domain.coupon.CouponIssueResultModel;
 import com.loopers.domain.coupon.CouponModel;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.UserCouponModel;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -28,6 +31,7 @@ import java.util.stream.Collectors;
 public class CouponV1Controller {
 
     private final CouponService couponService;
+    private final CouponIssueFacade couponIssueFacade;
 
     /**
      * 쿠폰을 발급한다.
@@ -65,5 +69,34 @@ public class CouponV1Controller {
                 .map(uc -> CouponV1Dto.UserCouponResponse.from(uc, couponMap.get(uc.getCouponId())))
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * 선착순 쿠폰 발급을 요청한다.
+     *
+     * @param user     인증된 사용자
+     * @param couponId 쿠폰 ID
+     * @return 요청 ID (HTTP 200)
+     */
+    @PostMapping("/coupons/{couponId}/rush-issue")
+    public ResponseEntity<ApiResponse<CouponV1Dto.RushIssueResponse>> rushIssue(
+            @AuthUser UserModel user,
+            @PathVariable Long couponId) {
+        String requestId = couponIssueFacade.requestRushIssue(user.getUserId(), couponId);
+        return ResponseEntity.ok(ApiResponse.success(new CouponV1Dto.RushIssueResponse(requestId)));
+    }
+
+    /**
+     * 선착순 쿠폰 발급 결과를 조회한다.
+     *
+     * @param requestId 요청 ID
+     * @return 발급 결과 (HTTP 200, 처리 중이면 null data)
+     */
+    @GetMapping("/coupons/issue-result/{requestId}")
+    public ResponseEntity<ApiResponse<CouponV1Dto.IssueResultResponse>> getIssueResult(
+            @PathVariable String requestId) {
+        Optional<CouponIssueResultModel> result = couponIssueFacade.getIssueResult(requestId);
+        return ResponseEntity.ok(ApiResponse.success(
+                result.map(CouponV1Dto.IssueResultResponse::from).orElse(null)));
     }
 }

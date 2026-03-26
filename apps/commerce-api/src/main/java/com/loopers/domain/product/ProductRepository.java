@@ -104,4 +104,19 @@ public interface ProductRepository {
      * @param productId 상품 ID
      */
     void decrementLikeCount(Long productId);
+
+    /**
+     * 상품의 like_count와 likes 테이블의 실제 좋아요 수가 불일치하는 상품 목록을 조회한다.
+     *
+     * @return 불일치 감지 결과 목록
+     */
+    List<LikeCountMismatch> findLikeCountMismatches();
+
+    /**
+     * 상품의 like_count를 지정된 값으로 갱신한다.
+     *
+     * @param productId 상품 ID
+     * @param likeCount 갱신할 좋아요 수
+     */
+    void updateLikeCount(Long productId, long likeCount);
 }

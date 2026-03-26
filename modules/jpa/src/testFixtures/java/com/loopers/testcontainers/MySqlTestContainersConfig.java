@@ -32,5 +32,11 @@ public class MySqlTestContainersConfig {
         System.setProperty("datasource.mysql-jpa.main.jdbc-url", mySqlJdbcUrl);
         System.setProperty("datasource.mysql-jpa.main.username", mySqlContainer.getUsername());
         System.setProperty("datasource.mysql-jpa.main.password", mySqlContainer.getPassword());
+
+        // @DataJpaTest 슬라이스 테스트에서 DataSourceAutoConfiguration이 사용하는 spring.datasource.* 프로퍼티
+        System.setProperty("spring.datasource.url", mySqlJdbcUrl);
+        System.setProperty("spring.datasource.username", mySqlContainer.getUsername());
+        System.setProperty("spring.datasource.password", mySqlContainer.getPassword());
+        System.setProperty("spring.datasource.driver-class-name", "com.mysql.cj.jdbc.Driver");
     }
 }

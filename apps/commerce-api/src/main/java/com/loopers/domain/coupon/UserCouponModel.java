@@ -109,6 +109,22 @@ public class UserCouponModel {
         this.orderId = null;
     }
 
+    /**
+     * CAS 확정 후 주문 정보를 기록한다 (상태 전이는 CAS 쿼리에서 처리됨).
+     */
+    public void markAsUsedWithOrder(Long orderId) {
+        this.usedAt = LocalDateTime.now();
+        this.orderId = orderId;
+    }
+
+    /**
+     * CAS 복원 후 주문 정보를 초기화한다 (상태 전이는 CAS 쿼리에서 처리됨).
+     */
+    public void clearOrderInfo() {
+        this.usedAt = null;
+        this.orderId = null;
+    }
+
     @PrePersist
     private void prePersist() {
         if (this.issuedAt == null) {
