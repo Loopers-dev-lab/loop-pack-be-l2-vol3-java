@@ -52,3 +52,5 @@ exp*
 
 ### technical observation tests ###
 **/src/test/java/**/technical/
+**/src/test/java/**/benchmark
+**/src/test/java/**/verification
