@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PG 연동 & Resilience 설계 Overview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Pretendard', -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+
+  h1 { font-size: 2rem; text-align: center; margin-bottom: 8px; color: #f8fafc; }
+  .subtitle { text-align: center; color: #94a3b8; margin-bottom: 48px; font-size: 1rem; }
+
+  .section { margin-bottom: 48px; }
+  .section-title {
+    font-size: 1.3rem; font-weight: 700; margin-bottom: 20px; padding-bottom: 8px;
+    border-bottom: 2px solid #334155; color: #38bdf8;
+  }
+  .section-title span { color: #64748b; font-size: 0.85rem; font-weight: 400; margin-left: 8px; }
+
+  /* Cards Grid */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card {
+    background: #1e293b; border-radius: 12px; padding: 20px; border: 1px solid #334155;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: #475569; }
+  .card-label { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .card-value { font-size: 1.8rem; font-weight: 700; }
+  .card-desc { font-size: 0.85rem; color: #64748b; margin-top: 4px; }
+  .green { color: #4ade80; }
+  .red { color: #f87171; }
+  .blue { color: #60a5fa; }
+  .yellow { color: #fbbf24; }
+  .orange { color: #fb923c; }
+  .purple { color: #a78bfa; }
+
+  /* Flow Diagram */
+  .flow-box {
+    background: #1e293b; border-radius: 12px; padding: 28px; border: 1px solid #334155;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.82rem;
+    line-height: 1.8; white-space: pre; overflow-x: auto; color: #cbd5e1;
+  }
+  .flow-box .highlight { color: #38bdf8; font-weight: 600; }
+  .flow-box .success { color: #4ade80; }
+  .flow-box .fail { color: #f87171; }
+  .flow-box .warn { color: #fbbf24; }
+  .flow-box .dim { color: #64748b; }
+  .flow-box .purple { color: #a78bfa; }
+
+  /* Table */
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 12px; overflow: hidden; }
+  th { background: #334155; color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;
+       padding: 12px 16px; text-align: left; }
+  td { padding: 12px 16px; border-top: 1px solid #1e293b; font-size: 0.9rem; }
+  tr:nth-child(even) { background: #1e293b; }
+  tr:nth-child(odd) { background: #172033; }
+  td code { background: #334155; padding: 2px 6px; border-radius: 4px; font-size: 0.82rem; color: #38bdf8; }
+
+  /* Comparison */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .compare-col { background: #1e293b; border-radius: 12px; padding: 20px; border: 1px solid #334155; }
+  .compare-col h4 { margin-bottom: 12px; font-size: 1rem; }
+  .compare-col.bad { border-color: #f8717140; }
+  .compare-col.good { border-color: #4ade8040; }
+  .compare-col.bad h4 { color: #f87171; }
+  .compare-col.good h4 { color: #4ade80; }
+  .compare-col pre { font-size: 0.8rem; line-height: 1.7; color: #94a3b8; white-space: pre-wrap; }
+
+  /* Tag */
+  .tag {
+    display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+    margin-right: 4px;
+  }
+  .tag-green { background: #4ade8020; color: #4ade80; border: 1px solid #4ade8040; }
+  .tag-red { background: #f8717120; color: #f87171; border: 1px solid #f8717140; }
+  .tag-blue { background: #60a5fa20; color: #60a5fa; border: 1px solid #60a5fa40; }
+  .tag-yellow { background: #fbbf2420; color: #fbbf24; border: 1px solid #fbbf2440; }
+  .tag-purple { background: #a78bfa20; color: #a78bfa; border: 1px solid #a78bfa40; }
+
+  /* Timeline */
+  .timeline { position: relative; padding-left: 32px; }
+  .timeline::before { content: ''; position: absolute; left: 11px; top: 4px; bottom: 4px; width: 2px; background: #334155; }
+  .tl-item { position: relative; margin-bottom: 20px; }
+  .tl-item::before {
+    content: ''; position: absolute; left: -25px; top: 6px; width: 10px; height: 10px;
+    border-radius: 50%; border: 2px solid; background: #0f172a;
+  }
+  .tl-item.ok::before { border-color: #4ade80; }
+  .tl-item.err::before { border-color: #f87171; }
+  .tl-item.info::before { border-color: #60a5fa; }
+  .tl-item.warn::before { border-color: #fbbf24; }
+  .tl-item strong { display: block; font-size: 0.95rem; margin-bottom: 2px; }
+  .tl-item p { color: #94a3b8; font-size: 0.85rem; }
+
+  /* Bar chart */
+  .bar-chart { display: flex; flex-direction: column; gap: 8px; }
+  .bar-row { display: flex; align-items: center; gap: 12px; }
+  .bar-label { width: 160px; text-align: right; font-size: 0.85rem; color: #94a3b8; flex-shrink: 0; }
+  .bar-track { flex: 1; height: 28px; background: #334155; border-radius: 6px; overflow: hidden; position: relative; }
+  .bar-fill { height: 100%; border-radius: 6px; display: flex; align-items: center; padding-left: 10px;
+              font-size: 0.8rem; font-weight: 600; min-width: fit-content; transition: width 0.6s; }
+  .bar-fill.green-bar { background: linear-gradient(90deg, #22c55e, #4ade80); color: #052e16; }
+  .bar-fill.red-bar { background: linear-gradient(90deg, #ef4444, #f87171); color: #450a0a; }
+  .bar-fill.blue-bar { background: linear-gradient(90deg, #3b82f6, #60a5fa); color: #172554; }
+  .bar-fill.yellow-bar { background: linear-gradient(90deg, #eab308, #fbbf24); color: #422006; }
+  .bar-fill.purple-bar { background: linear-gradient(90deg, #8b5cf6, #a78bfa); color: #2e1065; }
+
+  .note {
+    background: #1e293b; border-left: 3px solid #38bdf8; padding: 16px 20px; border-radius: 0 8px 8px 0;
+    font-size: 0.9rem; color: #94a3b8; margin-top: 16px;
+  }
+  .note strong { color: #38bdf8; }
+
+  @media (max-width: 768px) {
+    .compare { grid-template-columns: 1fr; }
+    .cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>PG 연동 & Resilience 설계</h1>
+<p class="subtitle">Round 6 - 외부 PG 시스템 연동, 서킷브레이커, Fallback, 쿠폰 복원 전략</p>
+
+<!-- ============================================ -->
+<!-- 1. 전체 아키텍처 -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="section-title">1. 전체 결제 아키텍처 <span>트랜잭션 분리 & 외부 PG 호출</span></div>
+  <div class="flow-box"><span class="dim">/* 핵심 원칙: 외부 PG 호출은 DB 트랜잭션 밖에서 실행 */</span>
+
+<span class="highlight">[ Client ]</span>
+     |
+     |  POST /api/v1/payments
+     v
+<span class="highlight">[ PaymentV1Controller ]</span>
+     |
+     v
+<span class="highlight">[ PaymentFacade ]</span> ─── 결제 흐름 조정 (트랜잭션 분리)
+     |
+     |── <span class="success">TX1</span> ── <span class="highlight">PaymentTransactionService.preparePayment()</span>
+     |         ├─ Order 상태: CREATED → <span class="warn">PAYMENT_PENDING</span>
+     |         ├─ Payment 생성: <span class="warn">REQUESTED → PENDING</span>
+     |         └─ OrderHistory 기록
+     |
+     |── <span class="fail">No TX</span> ── <span class="highlight">PgPaymentGateway.requestPayment()</span>  ← 외부 PG 호출
+     |            ├─ @Retry(3회, 1초 간격)
+     |            ├─ @CircuitBreaker(실패율 50% → OPEN)
+     |            └─ <span class="purple">fallbackMethod</span> → PENDING 응답 반환 (예외 아님!)
+     |
+     |── <span class="success">TX2 (PG 즉시 성공)</span> ── <span class="highlight">PaymentTransactionService.completePayment()</span>
+     |         ├─ Payment: <span class="success">SUCCESS</span>
+     |         └─ Order: <span class="success">PAID</span>
+     |
+     └── <span class="warn">PENDING 유지 (PG 장애/타임아웃)</span>
+               ├─ fallback이 PENDING 응답 반환 → 사용자에게 200 OK
+               ├─ Payment: <span class="warn">PENDING</span> 상태 유지
+               └─ <span class="purple">스케줄러가 PG 조회 후 최종 상태 확정</span>
+</div>
+</div>
+
+<!-- ============================================ -->
+<!-- 2. Resilience 설계 -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="section-title">2. Resilience4j 설계 <span>Retry → CircuitBreaker → Fallback</span></div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-label">Retry</div>
+      <div class="card-value blue">3회</div>
+      <div class="card-desc">maxAttempts: 3, waitDuration: 1s<br>FeignException, IOException 대상</div>
+    </div>
+    <div class="card">
+      <div class="card-label">CircuitBreaker</div>
+      <div class="card-value yellow">50%</div>
+      <div class="card-desc">실패율 50% → OPEN (30초 유지)<br>slidingWindow: 10, HALF_OPEN: 3건 허용</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Feign Timeout</div>
+      <div class="card-value orange">3s / 5s</div>
+      <div class="card-desc">connectTimeout: 3초<br>readTimeout: 5초</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Fallback</div>
+      <div class="card-value purple">PENDING</div>
+      <div class="card-desc">결제 요청: PENDING 응답 반환<br>조회 API: CoreException 변환</div>
+    </div>
+  </div>
+
+  <div class="flow-box"><span class="dim">/* Resilience4j Aspect 실행 순서 (Spring AOP 기본값) */</span>
+
+  요청 → <span class="highlight">@Retry (바깥)</span> → <span class="warn">@CircuitBreaker (안쪽)</span> → <span class="purple">실제 PG 호출</span>
+
+  <span class="dim">─────────────────────────────────────────────────────────────────────</span>
+  <span class="dim">핵심: retry-exceptions 설정으로 Retry 대상 예외를 제한</span>
+  <span class="dim">─────────────────────────────────────────────────────────────────────</span>
+
+  <span class="highlight">retry-exceptions:</span>
+    - feign.<span class="success">FeignException</span>        <span class="dim">← PG 500 에러 → Retry ✅</span>
+    - java.io.<span class="success">IOException</span>          <span class="dim">← 네트워크 에러 → Retry ✅</span>
+    - <span class="fail">CallNotPermittedException</span>    <span class="dim">← 목록에 없음 → Retry 안 함 ❌</span>
+
+  <span class="dim">─────────────────────────────────────────────────────────────────────</span>
+
+  <span class="dim">Case 1: PG 정상 (서킷 CLOSED)</span>
+  요청 → Retry → CB(CLOSED) → PG 호출 → <span class="success">200 OK → 성공 반환</span>
+
+  <span class="dim">Case 2: PG 500 에러 (서킷 CLOSED, Retry 소진)</span>
+  요청 → Retry(1/3) → CB(CLOSED) → PG → <span class="fail">500 FeignException</span> → retry-exceptions에 있음 → <span class="warn">재시도</span>
+       → Retry(2/3) → CB(CLOSED) → PG → <span class="fail">500 FeignException</span> → <span class="warn">재시도</span>
+       → Retry(3/3) → CB(CLOSED) → PG → <span class="fail">500 FeignException</span> → Retry 소진
+       → CB 실패 기록 → <span class="purple">fallbackMethod 실행</span>
+
+  <span class="dim">Case 3: 서킷 OPEN (실패율 50% 초과)</span>
+  요청 → Retry(1/3) → CB(<span class="fail">OPEN</span>) → <span class="warn">CallNotPermittedException</span>
+       → retry-exceptions에 <span class="fail">없음</span> → Retry 재시도 <span class="fail">안 함</span>
+       → <span class="purple">fallbackMethod 즉시 실행</span> → PENDING 응답 반환 (결제 요청)
+       → <span class="success">PG 호출 없이 즉시 PENDING 응답 (fast-fail) ~20ms</span>
+
+  <span class="dim">─────────────────────────────────────────────────────────────────────</span>
+  <span class="dim">왜 이 순서가 중요한가?</span>
+  <span class="dim">─────────────────────────────────────────────────────────────────────</span>
+  <span class="dim">만약 retry-exceptions 제한이 없다면:</span>
+    서킷 OPEN → <span class="fail">CallNotPermittedException</span> → Retry 재시도(무의미)
+    → 또 CallNotPermittedException → Retry 재시도(무의미)
+    → 또 CallNotPermittedException → 3번이나 헛수고 후 최종 실패
+
+  <span class="dim">retry-exceptions로 제한했기 때문에:</span>
+    서킷 OPEN → <span class="fail">CallNotPermittedException</span> → <span class="success">Retry 스킵 → 즉시 fallback (1회만)</span></div>
+</div>
+
+<!-- ============================================ -->
+<!-- 3. Fallback 구현 -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="section-title">3. Fallback 메서드 구현 <span>PgPaymentGateway.java</span></div>
+
+  <div class="compare">
+    <div class="compare-col bad">
+      <h4>Before (fallback 없음)</h4>
+<pre>@CircuitBreaker(name = "pgPayment")
+public PaymentGatewayResponse requestPayment(
+    String userId, PaymentGatewayRequest request) {
+    // PG 호출
+}
+
+// CallNotPermittedException이 그대로 전파
+// → Throwable 핸들러 → "일시적인 오류"
+// → 서킷 차단인지 PG 에러인지 구분 불가</pre>
+    </div>
+    <div class="compare-col good">
+      <h4>After (PENDING 유지 방식)</h4>
+<pre>@CircuitBreaker(name = "pgPayment",
+    fallbackMethod = "requestPaymentFallback")
+public PaymentGatewayResponse requestPayment(
+    String userId, PaymentGatewayRequest request) {
+    // PG 호출
+}
+
+private PaymentGatewayResponse requestPaymentFallback(
+    String userId, PaymentGatewayRequest request,
+    Exception e) {
+    log.warn("PG fallback: orderId={}, error={}",
+        request.orderId(), e.getMessage());
+    return new PaymentGatewayResponse(
+        null, "PENDING",
+        "PG 서비스 불안정으로 결제 처리 대기 중");
+}
+
+// PaymentFacade에서:
+if (pgResponse.transactionKey() != null) {
+    completePayment(payment, txnKey, "결제 완료");
+} else {
+    log.info("결제 처리 대기: orderId={}",
+        orderId);  // PENDING 유지 → 스케줄러 위임
+}</pre>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>핵심 원칙 — "모르면 실패 처리하지 않는다":</strong> PG 타임아웃 ≠ 결제 실패.
+    PG가 실제로 처리했을 수 있으므로, PENDING 상태를 유지하고 스케줄러가 PG 조회 후 최종 상태를 확정합니다.
+    사용자에게는 200 OK + "처리 대기 중" 응답을 반환합니다.
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 4. 쿠폰 복원 전략 -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="section-title">4. 쿠폰 복원 전략 <span>즉시 복원 vs 확정 후 복원</span></div>
+
+  <div class="compare">
+    <div class="compare-col bad">
+      <h4>즉시 복원 (위험)</h4>
+<pre>PG 타임아웃 발생
+  → failPayment()에서 쿠폰 즉시 복원 ❌
+  → 사용자가 복원된 쿠폰으로 다른 주문 생성
+  → 복구 스케줄러: "PG에서는 성공이었네..."
+  → 쿠폰 1장으로 2건 할인 = <span style="color:#f87171">이중 사용 문제</span></pre>
+    </div>
+    <div class="compare-col good">
+      <h4>확정 후 복원 (안전)</h4>
+<pre>PG 타임아웃 발생
+  → failPayment()에서 쿠폰 복원 안 함
+  → PG 콜백 FAILED 수신 시 → 쿠폰 복원 ✅
+  → 복구 스케줄러 FAILED 확정 시 → 쿠폰 복원 ✅
+  → <span style="color:#4ade80">PG가 확정적으로 실패라고 알려준 경우만 복원</span></pre>
+    </div>
+  </div>
+
+  <div class="flow-box"><span class="dim">/* 쿠폰 복원 시점 정리 */</span>
+
+<span class="highlight">시점 1: PG 장애/타임아웃 (Fallback → PENDING 유지)</span>
+  Payment: <span class="warn">PENDING</span> 상태 유지, Order: <span class="warn">PAYMENT_PENDING</span>
+  쿠폰 복원: <span class="fail">❌ 안 함</span>  ← PG에서 실제로 처리됐을 수 있음 (타임아웃 등)
+
+<span class="highlight">시점 1-1: TTL 3분 초과 (스케줄러 handleNoTransactionFound)</span>
+  PG에 거래 내역 없음 + 3분 경과 → Payment: <span class="fail">FAILED</span>, Order: <span class="fail">PAYMENT_FAILED</span>
+  쿠폰 복원: <span class="success">✅ 복원</span>  ← 충분한 대기 후 미처리 확정
+
+<span class="highlight">시점 2: PG 콜백 FAILED 수신 (handleCallback)</span>
+  Payment → FAILED, Order → PAYMENT_FAILED
+  쿠폰 복원: <span class="success">✅ 복원</span>  ← PG가 확정적으로 실패라고 알려줌
+
+<span class="highlight">시점 3: 복구 스케줄러 FAILED 확정 (recoverPayment)</span>
+  PG 조회 → 거래 상태 FAILED 확인
+  Payment → FAILED, Order → PAYMENT_FAILED
+  쿠폰 복원: <span class="success">✅ 복원</span>  ← PG 조회로 실패 확정
+
+<span class="dim">─────────────────────────────────────────────</span>
+<span class="dim">복원 흐름:</span>
+  Order.getUserCouponId() → null이면 skip
+                          → 존재하면 CouponService.restoreUserCoupon()
+                                      → UserCoupon.restore() (USED → AVAILABLE)</div>
+</div>
+
+<!-- ============================================ -->
+<!-- 5. 상태 전이 다이어그램 -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="section-title">5. 상태 전이 다이어그램</div>
+  <div class="flow-box"><span class="highlight">[ Order 상태 ]</span>
+
+  <span class="success">CREATED</span> ──(결제요청)──→ <span class="warn">PAYMENT_PENDING</span> ──(PG 성공/콜백 SUCCESS)──→ <span class="success">PAID</span>
+                                          │
+                                          └──(PG 실패/콜백 FAILED)──→ <span class="fail">PAYMENT_FAILED</span>
+
+
+<span class="highlight">[ Payment 상태 ]</span>
+
+  <span class="success">REQUESTED</span> ──(preparePayment)──→ <span class="warn">PENDING</span> ──(PG 성공)──→ <span class="success">SUCCESS</span>
+                                            │
+                                            └──(PG 실패)──→ <span class="fail">FAILED</span>
+
+
+<span class="highlight">[ UserCoupon 상태 ]</span>
+
+  <span class="success">AVAILABLE</span> ──(주문생성 시 use())──→ <span class="warn">USED</span> ──(결제 확정 실패 시 restore())──→ <span class="success">AVAILABLE</span>
+</div>
+</div>
+
+<!-- ============================================ -->
+<!-- 6. k6 부하 테스트 결과 -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="section-title">6. k6 부하 테스트 결과 <span>서킷브레이커 + Fallback 동작 검증</span></div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-label">Total Requests</div>
+      <div class="card-value" style="color:#e2e8f0">300건</div>
+      <div class="card-desc">5 req/s x 60초</div>
+    </div>
+    <div class="card">
+      <div class="card-label">PG 즉시 성공</div>
+      <div class="card-value green">1건</div>
+      <div class="card-desc">PG 정상 응답 → 즉시 SUCCESS</div>
+    </div>
+    <div class="card">
+      <div class="card-label">PENDING (Fallback)</div>
+      <div class="card-value yellow">204건</div>
+      <div class="card-desc">PG 장애 → Fallback → PENDING 유지<br>사용자에게 200 OK 반환</div>
+    </div>
+    <div class="card">
+      <div class="card-label">비즈니스 에러</div>
+      <div class="card-value red">95건</div>
+      <div class="card-desc">주문 상태 PAYMENT_PENDING (중복 요청)</div>
+    </div>
+  </div>
+
+  <div style="margin-bottom: 24px;">
+    <h4 style="color:#94a3b8; margin-bottom: 12px; font-size: 0.9rem;">요청 분포</h4>
+    <div class="bar-chart">
+      <div class="bar-row">
+        <div class="bar-label">PG 즉시 성공</div>
+        <div class="bar-track">
+          <div class="bar-fill green-bar" style="width: 3%;">1건 (0.3%)</div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">PENDING (Fallback)</div>
+        <div class="bar-track">
+          <div class="bar-fill yellow-bar" style="width: 68%;">204건 (68%) — 사용자 200 OK</div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">비즈니스 에러</div>
+        <div class="bar-track">
+          <div class="bar-fill red-bar" style="width: 31.6%;">95건 (31.6%)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-label">평균 응답 시간</div>
+      <div class="card-value blue">20ms</div>
+      <div class="card-desc">Fallback: PG 호출 없이 즉시 PENDING 응답</div>
+    </div>
+    <div class="card">
+      <div class="card-label">p95 응답 시간</div>
+      <div class="card-value orange">24ms</div>
+      <div class="card-desc">대부분 fast-fail로 빠른 응답</div>
+    </div>
+    <div class="card">
+      <div class="card-label">최대 응답 시간</div>
+      <div class="card-value red">470ms</div>
+      <div class="card-desc">첫 요청 시 PG 호출 시도 포함</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>PENDING Fallback 효과:</strong>
+    PG 장애 시 204건의 요청이 PENDING 응답으로 처리됨.
+    사용자에게 에러 대신 "처리 대기 중" 200 OK를 반환하여 UX를 보호하고,
+    스케줄러가 PG 조회 후 최종 상태(SUCCESS/FAILED)를 확정합니다.
+    서버 리소스(쓰레드, 커넥션)도 보호됩니다.
+  </div>
+
+  <h4 style="color:#94a3b8; margin: 24px 0 12px; font-size: 0.9rem;">k6 실시간 로그 (타임라인)</h4>
+  <div class="flow-box" style="font-size:0.75rem; max-height:400px; overflow-y:auto; line-height:1.6;">
+<span class="dim">/* 서킷브레이커 OPEN 상태 (이전 PG 장애로 서킷 열림) */</span>
+
+22:40:43  <span class="warn">[216ms] ⏳ PENDING (fallback) - orderId: 1116</span>  <span class="dim">← fallback → PENDING 응답 (200 OK)</span>
+22:40:43  <span class="warn">[23ms]  ⏳ PENDING (fallback) - orderId: 1046</span>
+22:40:44  <span class="warn">[23ms]  ⏳ PENDING (fallback) - orderId: 1066</span>
+22:40:44  <span class="warn">[15ms]  ⏳ PENDING (fallback) - orderId: 1076</span>  <span class="dim">← 15~23ms: PG 호출 없이 즉시 응답</span>
+22:40:44  <span class="warn">[18ms]  ⏳ PENDING (fallback) - orderId: 1036</span>
+
+<span class="dim">/* 계속 PENDING fallback 응답 — 사용자에게는 200 OK */</span>
+
+22:40:45  <span class="warn">[22ms]  ⏳ PENDING (fallback) - orderId: 1096</span>
+22:40:45  <span class="warn">[21ms]  ⏳ PENDING (fallback) - orderId: 1056</span>
+22:40:46  <span class="warn">[12ms]  ⏳ PENDING (fallback) - orderId: 1176</span>
+22:40:46  <span class="warn">[16ms]  ⏳ PENDING (fallback) - orderId: 1146</span>
+<span class="dim">  ... (PENDING 응답 지속)</span>
+
+<span class="dim">/* HALF_OPEN 전이 시 테스트 요청 → PG 성공 시 CLOSED로 복귀 가능 */</span>
+
+22:34:09  <span class="success">[12ms]  ✅ SUCCESS - orderId: 1025</span>          <span class="dim">← HALF_OPEN에서 성공</span>
+
+<span class="dim">/* 주문 중복 시 비즈니스 에러 */</span>
+
+22:34:02  <span class="fail">[6ms]   ❌ FAILED - 결제를 시작할 수 없는 주문 상태</span> <span class="dim">← 이미 PAYMENT_PENDING</span></div>
+
+  <h4 style="color:#94a3b8; margin: 24px 0 12px; font-size: 0.9rem;">응답 시간 비교: PENDING Fallback vs PG 실제 호출</h4>
+  <div class="cards" style="grid-template-columns: 1fr 1fr;">
+    <div class="card" style="border-color: #fbbf2440;">
+      <div class="card-label">PENDING Fallback (서킷 OPEN)</div>
+      <div class="card-value yellow">12~23ms</div>
+      <div class="card-desc">평균 ~20ms / PG 호출 없이 즉시 PENDING 반환<br>사용자 200 OK + "처리 대기 중"</div>
+    </div>
+    <div class="card" style="border-color: #4ade8040;">
+      <div class="card-label">PG 실제 호출 (HALF_OPEN 성공)</div>
+      <div class="card-value green">12~470ms</div>
+      <div class="card-desc">PG 정상 시 즉시 SUCCESS<br>HALF_OPEN에서 3건 테스트 후 CLOSED 복귀</div>
+    </div>
+  </div>
+
+  <h4 style="color:#94a3b8; margin: 24px 0 12px; font-size: 0.9rem;">Prometheus 메트릭 (테스트 후 스냅샷)</h4>
+  <div class="tbl-wrap">
+  <table>
+    <thead>
+      <tr><th>메트릭</th><th>값</th><th>설명</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>circuitbreaker_state</code></td>
+        <td><span class="tag tag-red">OPEN</span></td>
+        <td>현재 서킷 상태 - PG 장애 지속으로 OPEN 유지</td>
+      </tr>
+      <tr>
+        <td><code>failure_rate</code></td>
+        <td><span class="yellow">50.0%</span></td>
+        <td>sliding window 내 실패율 (임계값 50% 도달)</td>
+      </tr>
+      <tr>
+        <td><code>not_permitted_calls_total</code></td>
+        <td><span class="yellow">204건</span></td>
+        <td>서킷 OPEN으로 차단된 호출 → Fallback PENDING 응답</td>
+      </tr>
+      <tr>
+        <td><code>calls (successful)</code></td>
+        <td><span class="green">1건</span></td>
+        <td>PG 호출 성공 건수</td>
+      </tr>
+      <tr>
+        <td><code>calls (failed)</code></td>
+        <td><span class="red">10건</span></td>
+        <td>PG 호출 실패 건수 (Retry 소진 후)</td>
+      </tr>
+      <tr>
+        <td><code>buffered_calls (failed)</code></td>
+        <td><span class="red">5</span></td>
+        <td>현재 sliding window 내 실패 건수</td>
+      </tr>
+      <tr>
+        <td><code>buffered_calls (successful)</code></td>
+        <td><span class="green">5</span></td>
+        <td>현재 sliding window 내 성공 건수</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h4 style="color:#94a3b8; margin: 24px 0 12px; font-size: 0.9rem;">k6 터미널 최종 출력</h4>
+  <div class="flow-box" style="font-size:0.78rem; color: #94a3b8;">
+========================================
+  서킷브레이커 부하 테스트 결과
+========================================
+
+📊 요청 결과:
+  <span class="success">✅ PG 즉시 성공:       1건</span>
+  <span class="warn">⏳ PENDING (fallback): 204건</span>  ← PG 장애 시 fallback으로 PENDING 유지
+  <span class="fail">❌ 실패:              95건</span>
+
+📋 실패 상세:
+  ⏱️ PG 타임아웃:        0건
+  🔴 서킷 OPEN 차단:     0건  ← fallback이 PENDING 응답 반환 (에러 아님)
+  🔌 Connection Refused: 0건
+  ❓ 기타 에러:          95건  ← 주문 상태 PAYMENT_PENDING (중복)
+
+⏱️ 응답 시간:
+  평균: <span class="highlight">20ms</span>
+  p95:  <span class="orange">24ms</span>
+  최대: <span class="fail">470ms</span>
+
+💡 서킷브레이커 + Fallback 동작 분석:
+  - PENDING 204건: PG 장애 → Fallback → PENDING 응답 (200 OK)
+  - 사용자에게 에러 대신 "처리 대기 중" 응답 → UX 보호
+  - 스케줄러가 PG 조회 후 최종 상태 확정 (Eventual Consistency)
+========================================
+
+  <span class="dim">scenarios: 1, max VUs: 20, duration: 60s</span>
+  <span class="dim">executor: constant-arrival-rate (5 req/s)</span>
+  <span class="dim">total iterations: 300</span>
+</div>
+</div>
+
+<!-- ============================================ -->
+<!-- 7. 코드 변경 요약 -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="section-title">7. 코드 변경 요약</div>
+  <div class="tbl-wrap">
+  <table>
+    <thead>
+      <tr><th>계층</th><th>파일</th><th>변경 내용</th><th>태그</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Domain</td>
+        <td><code>UserCoupon.java</code></td>
+        <td><code>restore()</code> 메서드 추가 (USED → AVAILABLE)</td>
+        <td><span class="tag tag-green">신규</span></td>
+      </tr>
+      <tr>
+        <td>Domain</td>
+        <td><code>CouponService.java</code></td>
+        <td><code>restoreUserCoupon(Long userCouponId)</code> 메서드 추가</td>
+        <td><span class="tag tag-green">신규</span></td>
+      </tr>
+      <tr>
+        <td>Infra</td>
+        <td><code>PgPaymentGateway.java</code></td>
+        <td><code>requestPaymentFallback</code>: PENDING 응답 반환 (예외 X)<br>
+            <code>getTransaction/getTransactionsByOrderFallback</code>: CoreException 반환</td>
+        <td><span class="tag tag-purple">Resilience</span></td>
+      </tr>
+      <tr>
+        <td>Application</td>
+        <td><code>PaymentFacade.java</code></td>
+        <td>requestPayment: PG fallback 시 PENDING 유지 (try-catch 제거)<br>
+            handleCallback/recoverPayment: 확정 FAILED 시 쿠폰 복원<br>
+            handleNoTransactionFound: TTL 3분 초과 시 FAILED 처리 + 쿠폰 복원</td>
+        <td><span class="tag tag-yellow">변경</span></td>
+      </tr>
+      <tr>
+        <td>Application</td>
+        <td><code>PaymentTransactionService.java</code></td>
+        <td>즉시 쿠폰 복원 로직 <strong>제거</strong> (PG 결과 미확정이므로)</td>
+        <td><span class="tag tag-red">제거</span></td>
+      </tr>
+      <tr>
+        <td>Test</td>
+        <td><code>CouponServiceTest.java</code></td>
+        <td>쿠폰 복원 테스트 3건 (성공/AVAILABLE상태/NOT_FOUND)</td>
+        <td><span class="tag tag-blue">테스트</span></td>
+      </tr>
+      <tr>
+        <td>Test</td>
+        <td><code>PaymentFacadeTest.java</code></td>
+        <td>콜백 FAILED 쿠폰복원, 스케줄러 FAILED 쿠폰복원, 쿠폰없는 주문 테스트</td>
+        <td><span class="tag tag-blue">테스트</span></td>
+      </tr>
+      <tr>
+        <td>Test</td>
+        <td><code>PaymentTransactionServiceTest.java</code></td>
+        <td>결제 실패 상태 변경 테스트 (쿠폰 복원 없이)</td>
+        <td><span class="tag tag-blue">테스트</span></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 8. 설계 판단 근거 -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="section-title">8. 설계 판단 근거</div>
+  <div class="timeline">
+    <div class="tl-item info">
+      <strong>트랜잭션 분리 (TX1 → PG 호출 → TX2)</strong>
+      <p>외부 PG 호출 중 DB 커넥션을 물고 있으면 타임아웃 시 커넥션 풀 고갈 위험.
+         PG 호출은 트랜잭션 밖에서 실행하고, 결과에 따라 별도 트랜잭션으로 상태 업데이트.</p>
+    </div>
+    <div class="tl-item info">
+      <strong>PaymentTransactionService 분리 (Spring Proxy 문제 해결)</strong>
+      <p>같은 Bean 내 메서드 호출 시 @Transactional이 무시됨 (Self-invocation).
+         트랜잭션 메서드를 별도 @Service Bean으로 분리하여 Spring AOP Proxy가 정상 동작하도록 함.</p>
+    </div>
+    <div class="tl-item warn">
+      <strong>Fallback에서 PENDING 응답 반환 ("모르면 실패 처리하지 않는다")</strong>
+      <p>결제는 "대충 성공" 처리할 수 없지만, "모르면 실패 처리"도 위험.
+         PG 타임아웃 ≠ 결제 실패이므로, PENDING 상태를 유지하고 스케줄러가 PG 조회 후 확정.
+         사용자에게는 200 OK + "처리 대기 중"을 반환하여 UX를 보호.</p>
+    </div>
+    <div class="tl-item info">
+      <strong>TTL 기반 PENDING 만료 (3분)</strong>
+      <p>PG에 거래 내역이 없고 3분이 경과한 PENDING 결제건은 FAILED로 처리.
+         PG가 정말로 처리하지 않은 경우를 안전하게 정리하고 쿠폰을 복원.</p>
+    </div>
+    <div class="tl-item ok">
+      <strong>쿠폰 복원은 PG 확정 실패 시점에만</strong>
+      <p>PG 타임아웃 ≠ 결제 실패. PG에서는 성공했는데 응답만 못 받은 경우가 존재.
+         즉시 복원하면 쿠폰 이중 사용 가능. PG 콜백 또는 스케줄러로 확정된 실패만 복원.</p>
+    </div>
+    <div class="tl-item ok">
+      <strong>복구 스케줄러로 최종 정합성 보장</strong>
+      <p>PENDING 상태로 남은 결제건을 주기적으로 PG에 조회하여 실제 결과 확인.
+         성공이면 SUCCESS로, 실패면 FAILED + 쿠폰 복원으로 최종 정합성(Eventual Consistency) 달성.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 9. Resilience4j 설정 -->
+<!-- ============================================ -->
+<div class="section">
+  <div class="section-title">9. Resilience4j 설정값 <span>application.yml</span></div>
+  <div class="flow-box"><span class="highlight">resilience4j:</span>
+  <span class="highlight">  retry:</span>
+    instances:
+      pgPayment:
+        maxAttempts: <span class="success">3</span>
+        waitDuration: <span class="success">1s</span>
+        retryExceptions:
+          - feign.FeignException
+          - java.io.IOException
+
+  <span class="highlight">  circuitbreaker:</span>
+    instances:
+      pgPayment:
+        slidingWindowType: <span class="warn">COUNT_BASED</span>
+        slidingWindowSize: <span class="warn">10</span>
+        failureRateThreshold: <span class="warn">50</span>          <span class="dim"># 50% 실패 시 OPEN</span>
+        waitDurationInOpenState: <span class="warn">30s</span>      <span class="dim"># 30초 후 HALF_OPEN</span>
+        permittedNumberOfCallsInHalfOpenState: <span class="warn">3</span>
+        minimumNumberOfCalls: <span class="warn">5</span>
+
+<span class="highlight">spring.cloud.openfeign:</span>
+  client:
+    config:
+      pg-payment-client:
+        connectTimeout: <span class="orange">3000</span>             <span class="dim"># 3초</span>
+        readTimeout: <span class="orange">5000</span>                <span class="dim"># 5초</span></div>
+</div>
+
+<div style="text-align: center; color: #475569; font-size: 0.8rem; margin-top: 40px; padding-top: 20px; border-top: 1px solid #1e293b;">
+  Generated: 2026-03-19 | commerce-api Round 6 - PG 연동 & Resilience 설계
+</div>
+
+</div>
+</body>
+</html>

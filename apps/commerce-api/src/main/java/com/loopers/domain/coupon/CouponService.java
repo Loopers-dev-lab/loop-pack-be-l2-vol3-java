@@ -84,4 +84,11 @@ public class CouponService {
 
         return coupon.calculateDiscount(orderAmount);
     }
+
+    @Transactional
+    public void restoreUserCoupon(Long userCouponId) {
+        UserCoupon userCoupon = userCouponRepository.findById(userCouponId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "발급된 쿠폰을 찾을 수 없습니다."));
+        userCoupon.restore();
+    }
 }

@@ -125,7 +125,8 @@ class CleanArchitectureTest {
                     .and().areNotInterfaces()
                     .and().areNotRecords()
                     .should().haveSimpleNameEndingWith("Facade")
-                    .orShould().haveSimpleNameEndingWith("Info");
+                    .orShould().haveSimpleNameEndingWith("Info")
+                    .orShould().haveSimpleNameEndingWith("Service");
 
             rule.check(importedClasses);
         }
