@@ -1,15 +1,16 @@
-package com.loopers.application.payment.event;
+package com.loopers.application.outbox;
 
 import com.loopers.domain.payment.PaymentStatus;
 
 import java.time.Instant;
 import java.util.UUID;
 
-public record PaymentStatusChangedEvent(
-        String memberId,
+public record PaymentStatusChangedOutboxMessage(
+        UUID eventId,
         UUID orderId,
+        String memberId,
         PaymentStatus beforeStatus,
         PaymentStatus afterStatus,
-        Instant changedAt
+        Instant occurredAt
 ) {
 }

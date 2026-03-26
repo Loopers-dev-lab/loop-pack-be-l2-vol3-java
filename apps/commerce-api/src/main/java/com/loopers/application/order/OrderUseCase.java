@@ -3,6 +3,9 @@ package com.loopers.application.order;
 import com.loopers.application.brand.BrandApplicationService;
 import com.loopers.application.coupon.CouponApplicationService;
 import com.loopers.application.coupon.command.UseCouponCommand;
+import com.loopers.application.observability.annotation.LogBusinessSuccess;
+import com.loopers.application.outbox.OrderCreatedOutboxMessage;
+import com.loopers.application.outbox.OrderPaymentOutboxService;
 import com.loopers.application.order.command.CreateOrderCommand;
 import com.loopers.application.order.event.OrderPaymentCancelRequestEvent;
 import com.loopers.application.order.event.OrderPaymentRequestEvent;
@@ -25,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -38,6 +42,7 @@ public class OrderUseCase {
     private final PointApplicationService pointApplicationService;
     private final PaymentQueryApplicationService paymentQueryApplicationService;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final OrderPaymentOutboxService orderPaymentOutboxService;
 
     @Transactional
     public Order create(CreateOrderCommand command) {
@@ -99,7 +104,13 @@ public class OrderUseCase {
                         createdOrder.totalAmount()
                 )
         );
-
+        orderPaymentOutboxService.saveOrderCreated(new OrderCreatedOutboxMessage(
+                UUID.randomUUID(),
+                createdOrder.id(),
+                command.memberId(),
+                createdOrder.totalAmount(),
+                Instant.now()
+        ));
         return createdOrder;
     }
 
