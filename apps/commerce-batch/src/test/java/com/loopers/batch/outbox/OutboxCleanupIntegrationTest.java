@@ -43,7 +43,7 @@ class OutboxCleanupIntegrationTest {
     void deletePublishedOlderThan_shouldRemoveOnlyStalePublishedRows() {
         OutboxEventModel stale = outboxJpaRepository.save(OutboxEventModel.pending(
                 "evt-stale",
-                "catalog-events",
+                "product-events",
                 "1",
                 "TEST",
                 Instant.now(),
@@ -53,7 +53,7 @@ class OutboxCleanupIntegrationTest {
 
         OutboxEventModel recent = outboxJpaRepository.save(OutboxEventModel.pending(
                 "evt-recent",
-                "catalog-events",
+                "product-events",
                 "2",
                 "TEST",
                 Instant.now(),

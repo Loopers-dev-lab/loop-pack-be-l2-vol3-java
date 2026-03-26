@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         "outbox.relay.enabled=false"
 })
 @Import(MySqlTestContainersConfig.class)
-@EmbeddedKafka(partitions = 1, topics = {"catalog-events"})
+@EmbeddedKafka(partitions = 1, topics = {"product-events"})
 class OutboxRelayIntegrationTest {
 
     @Autowired
@@ -54,7 +54,7 @@ class OutboxRelayIntegrationTest {
     void relayOnce_shouldSendAndMarkPublished() {
         OutboxEventModel pending = outboxJpaRepository.save(OutboxEventModel.pending(
                 "event-1",
-                "catalog-events",
+                "product-events",
                 "1",
                 "TEST_EVENT",
                 Instant.now(),
@@ -73,9 +73,9 @@ class OutboxRelayIntegrationTest {
                 new StringDeserializer(),
                 new StringDeserializer()
         ).createConsumer();
-        embeddedKafkaBroker.consumeFromAnEmbeddedTopic(consumer, "catalog-events");
+        embeddedKafkaBroker.consumeFromAnEmbeddedTopic(consumer, "product-events");
 
-        ConsumerRecord<String, String> record = KafkaTestUtils.getSingleRecord(consumer, "catalog-events");
+        ConsumerRecord<String, String> record = KafkaTestUtils.getSingleRecord(consumer, "product-events");
         assertThat(record.key()).isEqualTo("1");
         assertThat(record.value()).contains("eventId");
         assertThat(record.value()).contains("event-1");

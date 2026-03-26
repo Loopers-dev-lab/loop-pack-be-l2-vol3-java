@@ -56,7 +56,7 @@ class OutboxAppendIntegrationTest {
 
         assertThat(outboxJpaRepository.count()).isEqualTo(1);
         var saved = outboxJpaRepository.findAll().get(0);
-        assertThat(saved.getTopic()).isEqualTo("catalog-events");
+        assertThat(saved.getTopic()).isEqualTo("product-events");
         assertThat(saved.getPartitionKey()).isEqualTo(String.valueOf(productId));
         assertThat(saved.getEventType()).isEqualTo("PRODUCT_LIKE_CHANGED");
         assertThat(saved.isPublished()).isFalse();

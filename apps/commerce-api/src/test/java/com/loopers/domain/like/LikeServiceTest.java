@@ -124,7 +124,7 @@ class LikeServiceTest {
             verify(productStatsRepository).createIfAbsent(PRODUCT_ID);
             verify(productStatsRepository).incrementLikeCount(PRODUCT_ID);
             verify(transactionalOutboxWriter).record(
-                    eq("catalog-events"),
+                    eq("product-events"),
                     eq(String.valueOf(PRODUCT_ID)),
                     eq("PRODUCT_LIKE_CHANGED"),
                     argThat(m -> PRODUCT_ID.equals(m.get("productId"))
@@ -176,7 +176,7 @@ class LikeServiceTest {
             verify(likeRepository).delete(like);
             verify(productStatsRepository).decrementLikeCount(PRODUCT_ID);
             verify(transactionalOutboxWriter).record(
-                    eq("catalog-events"),
+                    eq("product-events"),
                     eq(String.valueOf(PRODUCT_ID)),
                     eq("PRODUCT_LIKE_CHANGED"),
                     argThat(m -> PRODUCT_ID.equals(m.get("productId"))

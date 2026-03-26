@@ -28,7 +28,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @Service
 public class LikeService {
 
-    private static final String CATALOG_EVENTS_TOPIC = "catalog-events";
+    private static final String PRODUCT_EVENTS_TOPIC = "product-events";
     private static final String PRODUCT_LIKE_CHANGED = "PRODUCT_LIKE_CHANGED";
 
     private final LikeRepository likeRepository;
@@ -115,7 +115,7 @@ public class LikeService {
         LikeModel saved = likeRepository.save(like);
         productStatsRepository.incrementLikeCount(productId);
         transactionalOutboxWriter.record(
-                CATALOG_EVENTS_TOPIC,
+                PRODUCT_EVENTS_TOPIC,
                 String.valueOf(productId),
                 PRODUCT_LIKE_CHANGED,
                 Map.of(
@@ -160,7 +160,7 @@ public class LikeService {
         likeRepository.delete(like);
         productStatsRepository.decrementLikeCount(productId);
         transactionalOutboxWriter.record(
-                CATALOG_EVENTS_TOPIC,
+                PRODUCT_EVENTS_TOPIC,
                 String.valueOf(productId),
                 PRODUCT_LIKE_CHANGED,
                 Map.of(

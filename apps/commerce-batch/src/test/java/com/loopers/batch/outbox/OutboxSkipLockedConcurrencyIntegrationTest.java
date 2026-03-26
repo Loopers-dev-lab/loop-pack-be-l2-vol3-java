@@ -49,7 +49,7 @@ class OutboxSkipLockedConcurrencyIntegrationTest {
         for (int i = 0; i < 10; i++) {
             outboxJpaRepository.save(OutboxEventModel.pending(
                     "event-" + i,
-                    "catalog-events",
+                    "product-events",
                     String.valueOf(i),
                     "TEST",
                     Instant.now(),
