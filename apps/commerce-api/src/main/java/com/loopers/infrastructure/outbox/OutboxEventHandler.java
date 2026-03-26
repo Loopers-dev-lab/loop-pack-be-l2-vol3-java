@@ -2,6 +2,7 @@ package com.loopers.infrastructure.outbox;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.domain.coupon.CouponEvent;
 import com.loopers.domain.like.LikeEvent;
 import com.loopers.domain.order.OrderEvent;
 import com.loopers.support.error.CoreException;
@@ -22,6 +23,7 @@ public class OutboxEventHandler {
 
     private static final String CATALOG_TOPIC = "catalog-events";
     private static final String ORDER_TOPIC = "order-events";
+    private static final String COUPON_ISSUE_TOPIC = "coupon-issue-requests";
 
     private final OutboxEventJpaRepository outboxEventJpaRepository;
     private final ObjectMapper objectMapper;
@@ -68,6 +70,18 @@ public class OutboxEventHandler {
 
         String payload = toPayload(data);
         outboxEventJpaRepository.save(OutboxEvent.of(eventId, ORDER_TOPIC, event.orderId(), payload));
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    public void handle(CouponEvent.IssueRequested event) {
+        String eventId = UUID.randomUUID().toString();
+        String payload = toPayload(Map.of(
+                "eventId", eventId,
+                "requestId", event.requestId(),
+                "couponId", event.couponId(),
+                "userId", event.userId()
+        ));
+        outboxEventJpaRepository.save(OutboxEvent.of(eventId, COUPON_ISSUE_TOPIC, event.couponId().toString(), payload));
     }
 
     private String toPayload(Map<String, Object> data) {

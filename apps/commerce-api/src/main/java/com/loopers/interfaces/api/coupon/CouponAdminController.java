@@ -21,7 +21,7 @@ public class CouponAdminController {
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/api-admin/v1/coupons")
     public ApiResponse<CouponAdminDto.RegisterResponse> register(@RequestBody CouponAdminDto.RegisterRequest request) {
-        Long couponId = couponFacade.register(request.name(), request.type(), request.value(), request.expiredAt());
+        Long couponId = couponFacade.register(request.name(), request.type(), request.value(), request.totalQuantity(), request.expiredAt());
         return ApiResponse.success(new CouponAdminDto.RegisterResponse(couponId));
     }
 
