@@ -63,6 +63,9 @@ subprojects {
         annotationProcessor("org.projectlombok:lombok")
         // 암호화
         implementation ("org.springframework.security:spring-security-crypto")
+        // Resilience4j - Spring Boot 3.x 호환 버전 사용
+        implementation ("io.github.resilience4j:resilience4j-spring-boot3")
+        implementation ("org.springframework.boot:spring-boot-starter-aop")
         // Test
         testRuntimeOnly("org.junit.platform:junit-platform-launcher")
         // testcontainers:mysql 이 jdbc 사용함

@@ -23,7 +23,10 @@ public enum ErrorType {
     COUPON_OWNER_MISMATCH(HttpStatus.BAD_REQUEST, "COUPON_OWNER_MISMATCH", "본인의 쿠폰이 아닙니다."),
     COUPON_MIN_ORDER_AMOUNT_NOT_MET(HttpStatus.BAD_REQUEST, "COUPON_MIN_ORDER_AMOUNT_NOT_MET", "최소 주문 금액을 충족하지 못했습니다."),
     USER_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_COUPON_NOT_FOUND", "존재하지 않는 사용자 쿠폰입니다."),
-    COUPON_TYPE_IMMUTABLE(HttpStatus.BAD_REQUEST, "COUPON_TYPE_IMMUTABLE", "쿠폰 타입과 값은 변경할 수 없습니다.");
+    COUPON_TYPE_IMMUTABLE(HttpStatus.BAD_REQUEST, "COUPON_TYPE_IMMUTABLE", "쿠폰 타입과 값은 변경할 수 없습니다."),
+
+    /** 결제 에러 */
+    ORDER_ALREADY_PAID(HttpStatus.CONFLICT, "ORDER_ALREADY_PAID", "이미 결제된 주문입니다.");
 
     private final HttpStatus status;
     private final String code;

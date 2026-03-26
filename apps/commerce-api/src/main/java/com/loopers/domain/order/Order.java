@@ -80,4 +80,8 @@ public class Order extends BaseEntity {
     public long getFinalPrice() {
         return finalPrice;
     }
+
+    public void confirm() {
+        this.status = OrderStatus.CONFIRMED;
+    }
 }

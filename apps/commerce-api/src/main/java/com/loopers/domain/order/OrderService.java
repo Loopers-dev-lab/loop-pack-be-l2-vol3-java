@@ -79,6 +79,14 @@ public class OrderService {
         return orderRepository.findAllByMemberId(memberId, pageable);
     }
 
+    @Transactional
+    public void confirmOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다."));
+        order.confirm();
+        orderRepository.save(order);
+    }
+
     /**
      * 주문 단건 조회 + 본인 소유 검증.
      * 타인의 주문이거나 존재하지 않으면 보안상 동일하게 NOT_FOUND를 반환한다.

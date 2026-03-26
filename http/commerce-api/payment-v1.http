@@ -1,0 +1,51 @@
+### === 환경 변수 ===
+# commerce-api: http://localhost:8080
+# pg-simulator: http://localhost:18080 (실제 포트 확인 필요)
+
+### ① 결제 요청 (PENDING 응답 확인)
+POST {{commerce-api}}/api/v1/payments
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Test1234!
+Content-Type: application/json
+
+{
+  "orderId": 1,
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9814-1451"
+}
+
+### ② PG 콜백 수동 전송 - 성공 (PENDING → COMPLETED)
+POST {{commerce-api}}/api/v1/payments/callback
+Content-Type: application/json
+
+{
+  "orderId": "1",
+  "transactionId": "20250816:TR:9577c5",
+  "success": true
+}
+
+### ③ PG 콜백 수동 전송 - 실패 (PENDING → FAILED)
+POST {{commerce-api}}/api/v1/payments/callback
+Content-Type: application/json
+
+{
+  "orderId": "1",
+  "transactionId": "20250816:TR:9577c5",
+  "success": false
+}
+
+### ④ 어드민 - 수동 결제 상태 sync (콜백 유실 복구)
+POST {{commerce-api}}/api-admin/v1/payments/1/sync
+X-Loopers-Ldap: loopers.admin
+
+### ⑤ 중복 결제 시도 (409 Conflict)
+POST {{commerce-api}}/api/v1/payments
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Test1234!
+Content-Type: application/json
+
+{
+  "orderId": 1,
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9814-1451"
+}
