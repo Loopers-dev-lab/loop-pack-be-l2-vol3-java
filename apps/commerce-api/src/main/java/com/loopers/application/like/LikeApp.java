@@ -38,7 +38,7 @@ public class LikeApp {
             String eventId = UUID.randomUUID().toString();
             LocalDateTime now = LocalDateTime.now();
             LikeOutboxPayload payload = new LikeOutboxPayload(eventId, "LikedEvent", 1, productDbId, memberId, 1, now);
-            outboxAppender.append("like", productId, "LikedEvent", CATALOG_EVENTS_TOPIC, payload);
+            outboxAppender.append("like", eventId, "LikedEvent", CATALOG_EVENTS_TOPIC, payload);
         }
         return LikeInfo.from(result.likeModel());
     }
@@ -54,7 +54,7 @@ public class LikeApp {
             String eventId = UUID.randomUUID().toString();
             LocalDateTime now = LocalDateTime.now();
             LikeOutboxPayload payload = new LikeOutboxPayload(eventId, "LikeRemovedEvent", 1, productDbId, memberId, -1, now);
-            outboxAppender.append("like", productId, "LikeRemovedEvent", CATALOG_EVENTS_TOPIC, payload);
+            outboxAppender.append("like", eventId, "LikeRemovedEvent", CATALOG_EVENTS_TOPIC, payload);
         });
     }
 

@@ -5,6 +5,7 @@ import com.loopers.domain.outbox.OutboxRepository;
 import com.loopers.domain.outbox.OutboxStatus;
 import com.loopers.testcontainers.KafkaTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
+import net.javacrumbs.shedlock.support.StorageBasedLockProvider;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -38,9 +39,13 @@ class OutboxRelayIntegrationTest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
+    @Autowired
+    private StorageBasedLockProvider lockProvider;
+
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        lockProvider.clearCache();
     }
 
     @Test

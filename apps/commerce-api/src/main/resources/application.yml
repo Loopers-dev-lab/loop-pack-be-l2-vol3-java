@@ -114,6 +114,12 @@ resilience4j:
           - java.io.IOException
           - com.loopers.infrastructure.payment.pg.PgServerException
 
+outbox:
+  relay:
+    delay-ms: 1000
+    initial-delay-ms: 0
+    limit: 100
+
 springdoc:
   use-fqn: true
   swagger-ui:
@@ -128,6 +134,12 @@ spring:
     init:
       mode: always
       schema-locations: classpath:schema-shedlock.sql
+
+outbox:
+  relay:
+    delay-ms: 86400000
+    initial-delay-ms: 86400000
+    lock-at-least-for: PT0S
 
 ---
 spring:

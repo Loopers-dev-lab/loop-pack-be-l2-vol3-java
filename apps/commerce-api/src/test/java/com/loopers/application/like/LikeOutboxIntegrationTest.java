@@ -8,6 +8,7 @@ import com.loopers.domain.product.ProductService;
 import com.loopers.infrastructure.outbox.OutboxRelayScheduler;
 import com.loopers.testcontainers.KafkaTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
+import net.javacrumbs.shedlock.support.StorageBasedLockProvider;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -33,7 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LikeOutboxIntegrationTest {
 
     static final String CATALOG_EVENTS_TOPIC = "catalog-events";
-    static final String PRODUCT_ID = "prod-outbox-1";
+    static final String PRODUCT_ID = "prodoutbox1";
     static final Long MEMBER_ID = 1L;
 
     @Autowired
@@ -54,15 +55,19 @@ class LikeOutboxIntegrationTest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
+    @Autowired
+    private StorageBasedLockProvider lockProvider;
+
     @BeforeEach
     void setUp() {
-        brandService.createBrand("brand-outbox", "Test Brand");
-        productService.createProduct(PRODUCT_ID, "brand-outbox", "Test Product", new BigDecimal("10000"), 100);
+        brandService.createBrand("brandout", "Test Brand");
+        productService.createProduct(PRODUCT_ID, "brandout", "Test Product", new BigDecimal("10000"), 100);
     }
 
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        lockProvider.clearCache();
     }
 
     @Test
@@ -73,7 +78,7 @@ class LikeOutboxIntegrationTest {
         List<OutboxModel> pending = outboxRepository.findPendingWithLimit(10);
         assertThat(pending).hasSize(1);
         assertThat(pending.get(0).getEventType()).isEqualTo("LikedEvent");
-        assertThat(pending.get(0).getAggregateId()).isEqualTo(PRODUCT_ID);
+        assertThat(pending.get(0).getAggregateId()).matches("[0-9a-f-]{36}"); // UUID key → 파티션 분산
         assertThat(pending.get(0).getStatus()).isEqualTo(OutboxStatus.PENDING);
 
         outboxRelayScheduler.compensate();

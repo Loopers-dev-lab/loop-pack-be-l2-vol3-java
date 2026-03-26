@@ -39,7 +39,7 @@ public class CouponIssueApp {
                 .existsByRefCouponTemplateIdAndRefMemberIdAndStatusIn(
                         new RefCouponTemplateId(couponTemplateId),
                         new RefMemberId(memberId),
-                        List.of(CouponIssueStatus.PENDING, CouponIssueStatus.ISSUED));
+                        List.of(CouponIssueStatus.PENDING, CouponIssueStatus.ISSUED, CouponIssueStatus.REJECTED));
         if (alreadyActive) {
             throw new CoreException(ErrorType.CONFLICT, "이미 발급 요청 중이거나 발급된 쿠폰입니다.");
         }
