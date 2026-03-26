@@ -1,10 +1,14 @@
 package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponFacade;
+import com.loopers.application.coupon.CouponIssueFacade;
+import com.loopers.application.coupon.CouponIssueInfo;
 import com.loopers.application.coupon.UserCouponInfo;
 import com.loopers.domain.coupon.CouponType;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -15,6 +19,32 @@ import java.util.List;
 public class CouponV1Controller implements CouponV1ApiSpec {
 
     private final CouponFacade couponFacade;
+    private final CouponIssueFacade couponIssueFacade;
+
+
+    /**
+     * 선착순 쿠폰 발급 요청 (비동기)
+     */
+    @PostMapping("/api/v1/coupons/{couponId}/async-issue")
+    public ResponseEntity<ApiResponse<CouponIssueV1Dto.IssueResponse>> asyncIssueCoupon(
+            @PathVariable Long couponId,
+            @RequestHeader("X-USER-ID") Long memberId
+    ) {
+        String requestId = couponIssueFacade.requestIssue(couponId, memberId);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.success(new CouponIssueV1Dto.IssueResponse(requestId, "PENDING")));
+    }
+
+    /**
+     * 쿠폰 발급 결과 조회 (polling)
+     */
+    @GetMapping("/api/v1/coupons/issue-results/{requestId}")
+    public ApiResponse<CouponIssueV1Dto.IssueResultResponse> getIssueResult(
+            @PathVariable String requestId
+    ) {
+        CouponIssueInfo result = CouponIssueInfo.from(couponIssueFacade.getIssueResult(requestId));
+        return ApiResponse.success(CouponIssueV1Dto.IssueResultResponse.from(result));
+    }
 
     @PostMapping("/api/v1/coupons/{couponId}/issue")
     @Override

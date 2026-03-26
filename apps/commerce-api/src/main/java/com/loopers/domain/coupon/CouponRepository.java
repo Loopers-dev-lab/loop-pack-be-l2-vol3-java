@@ -12,4 +12,5 @@ public interface CouponRepository {
     Page<CouponModel> findAll(Pageable pageable);
     List<CouponModel> findAllByIdIn(List<Long> ids);
     void delete(CouponModel coupon);
+    Optional<CouponModel> findByIdWithLock(Long id);
 }

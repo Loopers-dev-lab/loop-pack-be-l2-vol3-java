@@ -40,4 +40,9 @@ public class CouponRepositoryImpl implements CouponRepository {
     public void delete(CouponModel coupon) {
         couponJpaRepository.delete(coupon);
     }
+
+    @Override
+    public Optional<CouponModel> findByIdWithLock(Long id) {
+        return couponJpaRepository.findByIdWithLock(id);
+    }
 }

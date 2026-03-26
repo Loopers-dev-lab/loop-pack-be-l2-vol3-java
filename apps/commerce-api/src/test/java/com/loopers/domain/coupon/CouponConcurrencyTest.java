@@ -32,7 +32,7 @@ public class CouponConcurrencyTest {
         // given
         CouponModel coupon = couponService.register(new CouponService.RegisterCommand(
                 "3000원 할인", CouponType.FIXED, BigDecimal.valueOf(3000),
-                null, ZonedDateTime.now().plusDays(30)));
+                null, ZonedDateTime.now().plusDays(30), 0));
         UserCouponModel userCoupon = userCouponService.issue(coupon.getId(), 1L);
         Long userCouponId = userCoupon.getId();
 

@@ -20,7 +20,7 @@ public class CouponService {
 
     public record RegisterCommand(
             String name, CouponType type, BigDecimal value,
-            BigDecimal minOrderAmount, ZonedDateTime expiredAt
+            BigDecimal minOrderAmount, ZonedDateTime expiredAt, int totalQuantity
     ) {
     }
 
@@ -31,7 +31,7 @@ public class CouponService {
 
         return couponRepository.save(new CouponModel(
                 command.name(), command.type(), discountAmount,
-                discountRate, command.minOrderAmount(), command.expiredAt()
+                discountRate, command.minOrderAmount(), command.expiredAt(), command.totalQuantity()
         ));
     }
 
@@ -68,5 +68,11 @@ public class CouponService {
     public void delete(Long id) {
         CouponModel coupon = getById(id);
         couponRepository.delete(coupon);
+    }
+
+    @Transactional
+    public CouponModel getByIdWithLock(Long id) {
+        return couponRepository.findByIdWithLock(id)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다."));
     }
 }

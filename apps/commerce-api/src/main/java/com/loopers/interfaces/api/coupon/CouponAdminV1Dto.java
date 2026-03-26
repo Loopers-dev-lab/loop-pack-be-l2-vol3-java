@@ -12,7 +12,8 @@ public class CouponAdminV1Dto {
             CouponType type,
             BigDecimal value,
             BigDecimal minOrderAmount,
-            ZonedDateTime expiredAt
+            ZonedDateTime expiredAt,
+            int totalQuantity
     ) {}
 
     public record ModifyRequest(

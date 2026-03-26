@@ -50,7 +50,7 @@ public class CouponServiceUnitTest {
 
             // when
             CouponModel result = couponService.register(new CouponService.RegisterCommand(
-                    "3000원 할인", CouponType.FIXED, BigDecimal.valueOf(3000), null, expiredAt));
+                    "3000원 할인", CouponType.FIXED, BigDecimal.valueOf(3000), null, expiredAt, 0));
 
             // then
             assertAll(
@@ -67,7 +67,7 @@ public class CouponServiceUnitTest {
             // given & when
             CoreException result = assertThrows(CoreException.class, () ->
                     couponService.register(new CouponService.RegisterCommand(
-                            null, CouponType.FIXED, BigDecimal.valueOf(3000), null, expiredAt))
+                            null, CouponType.FIXED, BigDecimal.valueOf(3000), null, expiredAt, 0))
             );
 
             // then
@@ -85,7 +85,7 @@ public class CouponServiceUnitTest {
         void getByIdSuccess() {
             // given
             CouponModel coupon = new CouponModel("3000원 할인", CouponType.FIXED,
-                    BigDecimal.valueOf(3000), null, null, expiredAt);
+                    BigDecimal.valueOf(3000), null, null, expiredAt, 0);
             when(couponRepository.findById(1L)).thenReturn(Optional.of(coupon));
 
             // when
@@ -120,8 +120,8 @@ public class CouponServiceUnitTest {
             // given
             Pageable pageable = PageRequest.of(0, 20);
             List<CouponModel> coupons = List.of(
-                    new CouponModel("3000원 할인", CouponType.FIXED, BigDecimal.valueOf(3000), null, null, expiredAt),
-                    new CouponModel("10% 할인", CouponType.RATE, null, 10, null, expiredAt)
+                    new CouponModel("3000원 할인", CouponType.FIXED, BigDecimal.valueOf(3000), null, null, expiredAt, 0),
+                    new CouponModel("10% 할인", CouponType.RATE, null, 10, null, expiredAt, 0)
             );
             when(couponRepository.findAll(pageable)).thenReturn(new PageImpl<>(coupons, pageable, coupons.size()));
 
@@ -142,7 +142,7 @@ public class CouponServiceUnitTest {
         void deleteSuccess() {
             // given
             CouponModel coupon = new CouponModel("3000원 할인", CouponType.FIXED,
-                    BigDecimal.valueOf(3000), null, null, expiredAt);
+                    BigDecimal.valueOf(3000), null, null, expiredAt, 0);
             when(couponRepository.findById(1L)).thenReturn(Optional.of(coupon));
 
             // when
