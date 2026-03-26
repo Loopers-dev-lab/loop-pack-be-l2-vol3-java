@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.loopers.application.metrics.ProductMetricsService;
 import com.loopers.confg.kafka.KafkaConfig;
+import com.loopers.domain.eventhandled.EventHandledRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,7 @@ public class ProductMetricsConsumer {
     private static final String TOPIC_PRODUCT_VIEWED = "product-viewed-v1";
 
     private final ProductMetricsService productMetricsService;
+    private final EventHandledRepository eventHandledRepository;
 
     /**
      * 좋아요 이벤트를 소비하여 상품별 좋아요 수를 갱신한다.
@@ -51,6 +53,12 @@ public class ProductMetricsConsumer {
         log.debug("[LikeMetrics] 배치 수신: size={}", messages.size());
         for (ConsumerRecord<String, JsonNode> record : messages) {
             try {
+                String eventId = record.value().get("eventId").asText();
+                if (!eventHandledRepository.markIfAbsent(eventId)) {
+                    log.debug("[LikeMetrics] 중복 이벤트 skip: eventId={}", eventId);
+                    continue;
+                }
+
                 Long productId = record.value().get("productId").asLong();
 
                 if (TOPIC_LIKED.equals(record.topic())) {
@@ -84,6 +92,12 @@ public class ProductMetricsConsumer {
         log.debug("[OrderMetrics] 배치 수신: size={}", messages.size());
         for (ConsumerRecord<String, JsonNode> record : messages) {
             try {
+                String eventId = record.value().get("eventId").asText();
+                if (!eventHandledRepository.markIfAbsent(eventId)) {
+                    log.debug("[OrderMetrics] 중복 이벤트 skip: eventId={}", eventId);
+                    continue;
+                }
+
                 JsonNode orderItems = record.value().get("orderItems");
                 for (JsonNode item : orderItems) {
                     Long productId = item.get("productId").asLong();
@@ -112,6 +126,12 @@ public class ProductMetricsConsumer {
         log.debug("[ViewMetrics] 배치 수신: size={}", messages.size());
         for (ConsumerRecord<String, JsonNode> record : messages) {
             try {
+                String eventId = record.value().get("eventId").asText();
+                if (!eventHandledRepository.markIfAbsent(eventId)) {
+                    log.debug("[ViewMetrics] 중복 이벤트 skip: eventId={}", eventId);
+                    continue;
+                }
+
                 Long productId = record.value().get("productId").asLong();
                 productMetricsService.incrementViewCount(productId);
                 log.debug("[ViewMetrics] 조회 수 증가: productId={}", productId);
