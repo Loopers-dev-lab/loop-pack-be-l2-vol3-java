@@ -1,10 +1,11 @@
-package com.loopers.domain.outbox;
+package com.loopers.infrastructure.outbox;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
@@ -14,15 +15,17 @@ import lombok.NoArgsConstructor;
 import java.time.ZonedDateTime;
 
 /**
- * Transactional Outbox Pattern의 이벤트 엔티티.
+ * Transactional Outbox Pattern의 이벤트 레코드.
  *
  * 도메인 트랜잭션과 같은 TX에서 저장되어 이벤트 발행의 원자성을 보장한다.
- * BaseEntity를 상속하지 않음 — soft delete, updatedAt 불필요 (일시적 버퍼 역할)
+ * 인프라 관심사 — 비즈니스 도메인이 아닌 기술적 안전장치.
  */
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@Table(name = "outbox_events")
+@Table(name = "outbox_events", indexes = {
+        @Index(name = "idx_unpublished", columnList = "published_at, created_at")
+})
 public class OutboxEvent {
 
     @Id
@@ -68,9 +71,6 @@ public class OutboxEvent {
         this.createdAt = ZonedDateTime.now();
     }
 
-    /**
-     * Kafka 발행 성공 시 호출. published_at을 마킹하여 재발행 방지.
-     */
     public void markPublished() {
         this.publishedAt = ZonedDateTime.now();
     }
