@@ -18,23 +18,23 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class OwnedCouponService {
 
-    private final CouponRepository couponRepository;
     private final OwnedCouponRepository ownedCouponRepository;
     private final CouponDiscountProvider couponDiscountProvider;
 
     /**
-     * 사용자에게 쿠폰을 발급한다.
+     * 보유 쿠폰을 생성한다.
      *
-     * @param couponId 발급할 쿠폰 ID
-     * @param userId   발급 대상 사용자 ID
+     * <p>쿠폰 수량 차감 없이 보유 쿠폰만 생성한다.
+     * 수량 차감은 {@link CouponService#issue(Long)}에서 처리한다.</p>
+     *
+     * @param coupon 발급할 쿠폰 엔티티
+     * @param userId 발급 대상 사용자 ID
      * @return 발급된 보유 쿠폰
-     * @throws CoreException 쿠폰이 존재하지 않거나 이미 발급된 경우
+     * @throws CoreException 이미 발급된 경우
      */
     @Transactional
-    public OwnedCoupon issue(Long couponId, Long userId) {
-        Coupon coupon = couponRepository.findByIdAndDeletedAtIsNull(couponId)
-                .orElseThrow(() -> new CoreException(ErrorType.COUPON_NOT_FOUND));
-        if (ownedCouponRepository.existsByCouponIdAndUserId(couponId, userId)) {
+    public OwnedCoupon issue(Coupon coupon, Long userId) {
+        if (ownedCouponRepository.existsByCouponIdAndUserId(coupon.getId(), userId)) {
             throw new CoreException(ErrorType.ALREADY_COUPON_ISSUED);
         }
         OwnedCoupon ownedCoupon = OwnedCoupon.create(coupon, userId);

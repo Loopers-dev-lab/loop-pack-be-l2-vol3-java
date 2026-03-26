@@ -51,7 +51,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void createsFixedCoupon_whenValidInputProvided() {
             // arrange
             var request = new CouponDto.CreateCouponRequest(
-                    "여름 할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+                    "여름 할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000
             );
 
             // act
@@ -70,7 +70,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void createsRateCoupon_whenValidInputProvided() {
             // arrange
             var request = new CouponDto.CreateCouponRequest(
-                    "10% 할인 쿠폰", CouponType.RATE, 10L, 5000L, 10000L, FUTURE
+                    "10% 할인 쿠폰", CouponType.RATE, 10L, 5000L, 10000L, FUTURE, 10000
             );
 
             // act
@@ -89,7 +89,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsUnauthorized_whenNoLdapHeader() {
             // arrange
             var request = new CouponDto.CreateCouponRequest(
-                    "여름 할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+                    "여름 할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000
             );
 
             // act
@@ -104,7 +104,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsUnauthorized_whenLdapHeaderValueIsWrong() {
             // arrange
             var request = new CouponDto.CreateCouponRequest(
-                    "여름 할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+                    "여름 할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000
             );
             var headers = new HttpHeaders();
             headers.set("X-Loopers-Ldap", "wrong.value");
@@ -121,7 +121,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsBadRequest_whenNameIsBlank() {
             // arrange
             var request = new CouponDto.CreateCouponRequest(
-                    "", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+                    "", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000
             );
 
             // act
@@ -138,7 +138,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
             // arrange
             var name = "a".repeat(length);
             var request = new CouponDto.CreateCouponRequest(
-                    name, CouponType.FIXED, 5000L, null, 10000L, FUTURE
+                    name, CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000
             );
 
             // act
@@ -153,7 +153,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsInvalidDiscountValue_whenFixedDiscountValueIsLessThanOne() {
             // arrange
             var request = new CouponDto.CreateCouponRequest(
-                    "쿠폰명입니다", CouponType.FIXED, 0L, null, 10000L, FUTURE
+                    "쿠폰명입니다", CouponType.FIXED, 0L, null, 10000L, FUTURE, 10000
             );
 
             // act
@@ -168,7 +168,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsInvalidDiscountValue_whenRateDiscountValueIsLessThanOne() {
             // arrange
             var request = new CouponDto.CreateCouponRequest(
-                    "쿠폰명입니다", CouponType.RATE, 0L, 5000L, 10000L, FUTURE
+                    "쿠폰명입니다", CouponType.RATE, 0L, 5000L, 10000L, FUTURE, 10000
             );
 
             // act
@@ -183,7 +183,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsInvalidRateDiscountValue_whenDiscountValueExceeds100() {
             // arrange
             var request = new CouponDto.CreateCouponRequest(
-                    "쿠폰명입니다", CouponType.RATE, 101L, 5000L, 10000L, FUTURE
+                    "쿠폰명입니다", CouponType.RATE, 101L, 5000L, 10000L, FUTURE, 10000
             );
 
             // act
@@ -198,7 +198,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsRequiredMaxDiscountAmount_whenRateCouponWithoutMaxDiscount() {
             // arrange
             var request = new CouponDto.CreateCouponRequest(
-                    "쿠폰명입니다", CouponType.RATE, 10L, null, 10000L, FUTURE
+                    "쿠폰명입니다", CouponType.RATE, 10L, null, 10000L, FUTURE, 10000
             );
 
             // act
@@ -214,7 +214,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
             // arrange
             var pastDate = ZonedDateTime.now().minusDays(1);
             var request = new CouponDto.CreateCouponRequest(
-                    "쿠폰명입니다", CouponType.FIXED, 5000L, null, 10000L, pastDate
+                    "쿠폰명입니다", CouponType.FIXED, 5000L, null, 10000L, pastDate, 10000
             );
 
             // act
@@ -234,7 +234,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsCouponList_whenCouponsExist() {
             // arrange
             createCoupon(testRestTemplate,
-                    new CouponDto.CreateCouponRequest("정액 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE),
+                    new CouponDto.CreateCouponRequest("정액 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000),
                     adminAuthHeaders()
             );
             var coupon = couponRepository.findById(1L).orElseThrow();
@@ -242,7 +242,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
             couponRepository.save(coupon);
 
             createCoupon(testRestTemplate,
-                    new CouponDto.CreateCouponRequest("정률 쿠폰", CouponType.RATE, 10L, 5000L, 10000L, FUTURE),
+                    new CouponDto.CreateCouponRequest("정률 쿠폰", CouponType.RATE, 10L, 5000L, 10000L, FUTURE, 10000),
                     adminAuthHeaders()
             );
 
@@ -293,15 +293,15 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsHasNextTrue_whenMoreCouponsExist() {
             // arrange
             createCoupon(testRestTemplate,
-                    new CouponDto.CreateCouponRequest("쿠폰1", CouponType.FIXED, 1000L, null, 5000L, FUTURE),
+                    new CouponDto.CreateCouponRequest("쿠폰1", CouponType.FIXED, 1000L, null, 5000L, FUTURE, 10000),
                     adminAuthHeaders()
             );
             createCoupon(testRestTemplate,
-                    new CouponDto.CreateCouponRequest("쿠폰2", CouponType.FIXED, 2000L, null, 5000L, FUTURE),
+                    new CouponDto.CreateCouponRequest("쿠폰2", CouponType.FIXED, 2000L, null, 5000L, FUTURE, 10000),
                     adminAuthHeaders()
             );
             createCoupon(testRestTemplate,
-                    new CouponDto.CreateCouponRequest("쿠폰3", CouponType.FIXED, 3000L, null, 5000L, FUTURE),
+                    new CouponDto.CreateCouponRequest("쿠폰3", CouponType.FIXED, 3000L, null, 5000L, FUTURE, 10000),
                     adminAuthHeaders()
             );
 
@@ -348,7 +348,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsCouponDetail_whenCouponExists() {
             // arrange
             var request = new CouponDto.CreateCouponRequest(
-                    "여름 할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+                    "여름 할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000
             );
             var createResponse = createCoupon(testRestTemplate, request, adminAuthHeaders());
             var couponId = createResponse.getBody().data().couponId();
@@ -392,7 +392,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void updatesFixedCoupon_whenValidInputProvided() {
             // arrange
             var createRequest = new CouponDto.CreateCouponRequest(
-                    "기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+                    "기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000
             );
             var couponId = createCoupon(testRestTemplate, createRequest, adminAuthHeaders())
                     .getBody().data().couponId();
@@ -422,7 +422,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void updatesRateCoupon_whenValidInputProvided() {
             // arrange
             var createRequest = new CouponDto.CreateCouponRequest(
-                    "기존 쿠폰", CouponType.RATE, 10L, 5000L, 10000L, FUTURE
+                    "기존 쿠폰", CouponType.RATE, 10L, 5000L, 10000L, FUTURE, 10000
             );
             var couponId = createCoupon(testRestTemplate, createRequest, adminAuthHeaders())
                     .getBody().data().couponId();
@@ -482,7 +482,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void updatesDeletedCoupon_whenValidInputProvided() {
             // arrange
             var createRequest = new CouponDto.CreateCouponRequest(
-                    "기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+                    "기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000
             );
             var couponId = createCoupon(testRestTemplate, createRequest, adminAuthHeaders())
                     .getBody().data().couponId();
@@ -510,7 +510,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsBadRequest_whenNameIsBlank() {
             // arrange
             var createRequest = new CouponDto.CreateCouponRequest(
-                    "기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+                    "기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000
             );
             var couponId = createCoupon(testRestTemplate, createRequest, adminAuthHeaders())
                     .getBody().data().couponId();
@@ -536,7 +536,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsOk_whenCouponExists() {
             // arrange
             var request = new CouponDto.CreateCouponRequest(
-                    "삭제 대상 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+                    "삭제 대상 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000
             );
             var couponId = createCoupon(testRestTemplate, request, adminAuthHeaders())
                     .getBody().data().couponId();
@@ -566,7 +566,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsOk_whenCouponAlreadyDeleted() {
             // arrange
             var request = new CouponDto.CreateCouponRequest(
-                    "삭제 대상 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE
+                    "삭제 대상 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000
             );
             var couponId = createCoupon(testRestTemplate, request, adminAuthHeaders())
                     .getBody().data().couponId();
@@ -599,7 +599,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsOwnedCouponsWithUserInfo_whenIssuancesExist() {
             // arrange
             var couponId = createCoupon(testRestTemplate,
-                    new CouponDto.CreateCouponRequest("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+                    new CouponDto.CreateCouponRequest("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
 
             var signUpRequest = new UserV1Dto.SignUpRequest(
                     "testuser1", "Password1!", "홍길동", "1990-01-15", "test@example.com"
@@ -632,7 +632,7 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
         void returnsEmptyPage_whenNoIssuancesExist() {
             // arrange
             var couponId = createCoupon(testRestTemplate,
-                    new CouponDto.CreateCouponRequest("빈 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+                    new CouponDto.CreateCouponRequest("빈 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
 
             var url = UriComponentsBuilder.fromPath(COUPON_ADMIN_ENDPOINT + "/" + couponId + "/issues")
                     .queryParam("page", 0)

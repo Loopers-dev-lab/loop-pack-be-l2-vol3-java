@@ -132,9 +132,9 @@ class CouponEventListenerIntegrationTest extends BaseIntegrationTest {
 
     private Long issueFixedCoupon(Long userId, Long discountValue) {
         var coupon = couponService.create(new CouponTerms(
-                "테스트 쿠폰", CouponType.FIXED, discountValue, null, 1000L, ZonedDateTime.now().plusDays(30)
+                "테스트 쿠폰", CouponType.FIXED, discountValue, null, 1000L, ZonedDateTime.now().plusDays(30), 10000
         ));
-        OwnedCoupon ownedCoupon = ownedCouponService.issue(coupon.getId(), userId);
+        OwnedCoupon ownedCoupon = ownedCouponService.issue(coupon, userId);
         return ownedCoupon.getId();
     }
 }

@@ -20,11 +20,12 @@ public class CouponDto {
             @NotNull(message = "할인값은 필수입니다.") Long discountValue,
             Long maxDiscountPrice,
             @NotNull(message = "최소 주문 금액은 필수입니다.") Long minOrderPrice,
-            @NotNull(message = "만료일은 필수입니다.") ZonedDateTime expiredAt
+            @NotNull(message = "만료일은 필수입니다.") ZonedDateTime expiredAt,
+            @NotNull(message = "총 발급 수량은 필수입니다.") Integer totalQuantity
     ) {
 
         public CreateCouponCommand toCreateCouponCommand() {
-            return new CreateCouponCommand(name, type, discountValue, maxDiscountPrice, minOrderPrice, expiredAt);
+            return new CreateCouponCommand(name, type, discountValue, maxDiscountPrice, minOrderPrice, expiredAt, totalQuantity);
         }
     }
 
@@ -56,6 +57,8 @@ public class CouponDto {
             Long maxDiscountPrice,
             Long minOrderPrice,
             ZonedDateTime expiredAt,
+            int totalQuantity,
+            int issuedCount,
             ZonedDateTime createdAt,
             ZonedDateTime deletedAt
     ) {
@@ -69,6 +72,8 @@ public class CouponDto {
                     result.maxDiscountPrice(),
                     result.minOrderPrice(),
                     result.expiredAt(),
+                    result.totalQuantity(),
+                    result.issuedCount(),
                     result.createdAt(),
                     result.deletedAt()
             );

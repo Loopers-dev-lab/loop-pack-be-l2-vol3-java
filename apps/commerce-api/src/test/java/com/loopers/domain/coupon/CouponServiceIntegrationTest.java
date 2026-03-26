@@ -35,7 +35,7 @@ class CouponServiceIntegrationTest extends BaseIntegrationTest {
             var expiredAt = ZonedDateTime.now().plusDays(30);
 
             // act
-            var result = couponService.create(new CouponTerms("정액 할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, expiredAt));
+            var result = couponService.create(new CouponTerms("정액 할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, expiredAt, 10000));
 
             // assert
             var savedCoupon = couponRepository.findById(result.getId()).orElseThrow();
@@ -56,7 +56,7 @@ class CouponServiceIntegrationTest extends BaseIntegrationTest {
             var expiredAt = ZonedDateTime.now().plusDays(30);
 
             // act
-            var result = couponService.create(new CouponTerms("정률 할인 쿠폰", CouponType.RATE, 10L, 5000L, 20000L, expiredAt));
+            var result = couponService.create(new CouponTerms("정률 할인 쿠폰", CouponType.RATE, 10L, 5000L, 20000L, expiredAt, 10000));
 
             // assert
             var savedCoupon = couponRepository.findById(result.getId()).orElseThrow();
@@ -77,9 +77,61 @@ class CouponServiceIntegrationTest extends BaseIntegrationTest {
             var pastExpiredAt = ZonedDateTime.now().minusDays(1);
 
             // act & assert
-            assertThatThrownBy(() -> couponService.create(new CouponTerms("쿠폰", CouponType.FIXED, 5000L, null, 10000L, pastExpiredAt)))
+            assertThatThrownBy(() -> couponService.create(new CouponTerms("쿠폰", CouponType.FIXED, 5000L, null, 10000L, pastExpiredAt, 10000)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_EXPIRED_AT));
+        }
+    }
+
+    @DisplayName("쿠폰을 발급할 때,")
+    @Nested
+    class Issue {
+
+        @DisplayName("유효한 쿠폰을 발급하면, issuedCount가 1 증가한다.")
+        @Test
+        void incrementsIssuedCount_whenValidCouponProvided() {
+            // arrange
+            var coupon = couponService.create(new CouponTerms("발급 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 100));
+
+            // act
+            var result = couponService.issue(coupon.getId());
+
+            // assert
+            assertThat(result.getIssuedCount()).isEqualTo(1);
+        }
+
+        @DisplayName("존재하지 않는 쿠폰을 발급하면, COUPON_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenCouponNotFound() {
+            assertThatThrownBy(() -> couponService.issue(999L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.COUPON_NOT_FOUND));
+        }
+
+        @DisplayName("삭제된 쿠폰을 발급하면, COUPON_NOT_FOUND 예외가 발생한다.")
+        @Test
+        void throwsException_whenCouponIsDeleted() {
+            // arrange
+            var coupon = couponService.create(new CouponTerms("삭제 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 100));
+            couponService.delete(coupon.getId());
+
+            // act & assert
+            assertThatThrownBy(() -> couponService.issue(coupon.getId()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.COUPON_NOT_FOUND));
+        }
+
+        @DisplayName("수량이 소진되면, COUPON_SOLD_OUT 예외가 발생한다.")
+        @Test
+        void throwsException_whenSoldOut() {
+            // arrange
+            var coupon = couponService.create(new CouponTerms("1장 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 1));
+            couponService.issue(coupon.getId());
+
+            // act & assert
+            assertThatThrownBy(() -> couponService.issue(coupon.getId()))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.COUPON_SOLD_OUT));
         }
     }
 
@@ -92,7 +144,7 @@ class CouponServiceIntegrationTest extends BaseIntegrationTest {
         void updatesCouponInDatabase_whenValidInputProvided() {
             // arrange
             var expiredAt = ZonedDateTime.now().plusDays(30);
-            var coupon = couponService.create(new CouponTerms("기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, expiredAt));
+            var coupon = couponService.create(new CouponTerms("기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, expiredAt, 10000));
             var newExpiredAt = ZonedDateTime.now().plusDays(60);
 
             // act
@@ -126,7 +178,7 @@ class CouponServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void setsDeletedAt_whenCouponExists() {
             // arrange
-            var coupon = couponService.create(new CouponTerms("삭제 대상 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
+            var coupon = couponService.create(new CouponTerms("삭제 대상 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 10000));
 
             // act
             var result = couponService.delete(coupon.getId());
@@ -152,7 +204,7 @@ class CouponServiceIntegrationTest extends BaseIntegrationTest {
         @Test
         void returnsFalse_whenCouponAlreadyDeleted() {
             // arrange
-            var coupon = couponService.create(new CouponTerms("삭제 대상 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)));
+            var coupon = couponService.create(new CouponTerms("삭제 대상 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 10000));
             couponService.delete(coupon.getId());
 
             // act

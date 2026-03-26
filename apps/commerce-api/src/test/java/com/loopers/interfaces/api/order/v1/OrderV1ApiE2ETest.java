@@ -91,7 +91,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         void createsOrderWithCouponDiscount() {
             // arrange
             var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
-                    "5000원 할인", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)
+                    "5000원 할인", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 10000
             ));
             issueCoupon(testRestTemplate, couponId, userHeaders);
             var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, Pageable.ofSize(1))
@@ -160,7 +160,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         void failsOrder_whenCouponBelongsToOtherUser() {
             // arrange
             var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
-                    "할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)
+                    "할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 10000
             ));
 
             signUp(testRestTemplate, new UserV1Dto.SignUpRequest("otheruser2", "Password1!", "다른유저", "1990-01-01", "other2@test.com"));
@@ -186,7 +186,7 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         void failsOrder_whenMinOrderPriceNotMet() {
             // arrange
             var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
-                    "할인 쿠폰", CouponType.FIXED, 5000L, null, 50000L, ZonedDateTime.now().plusDays(30)
+                    "할인 쿠폰", CouponType.FIXED, 5000L, null, 50000L, ZonedDateTime.now().plusDays(30), 10000
             ));
             issueCoupon(testRestTemplate, couponId, userHeaders);
             var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, Pageable.ofSize(1))

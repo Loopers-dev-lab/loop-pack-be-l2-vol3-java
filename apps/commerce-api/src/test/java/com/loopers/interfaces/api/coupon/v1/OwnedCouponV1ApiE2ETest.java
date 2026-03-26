@@ -55,7 +55,8 @@ class OwnedCouponV1ApiE2ETest extends BaseE2ETest {
                     5000L,
                     null,
                     10000L,
-                    ZonedDateTime.now().plusDays(30)
+                    ZonedDateTime.now().plusDays(30),
+                    10000
             ));
             var couponId2 = createCoupon(testRestTemplate, new CreateCouponRequest(
                     "만료된 쿠폰",
@@ -63,7 +64,8 @@ class OwnedCouponV1ApiE2ETest extends BaseE2ETest {
                     10L,
                     5000L,
                     20000L,
-                    ZonedDateTime.now().plusDays(30)
+                    ZonedDateTime.now().plusDays(30),
+                    10000
             ));
             issueCoupon(testRestTemplate, couponId1, userHeaders);
             issueCoupon(testRestTemplate, couponId2, userHeaders);

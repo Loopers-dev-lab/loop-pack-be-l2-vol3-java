@@ -57,7 +57,8 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
                     5000L,
                     null,
                     10000L,
-                    ZonedDateTime.now().plusDays(30)
+                    ZonedDateTime.now().plusDays(30),
+                    10000
             );
             var couponId = createCoupon(testRestTemplate, request);
 
@@ -88,7 +89,8 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
                     5000L,
                     null,
                     10000L,
-                    ZonedDateTime.now().plusDays(30)
+                    ZonedDateTime.now().plusDays(30),
+                    10000
             );
             var couponId = createCoupon(testRestTemplate, request);
             deleteCoupon(testRestTemplate, couponId, adminAuthHeaders());
@@ -110,7 +112,8 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
                     5000L,
                     null,
                     10000L,
-                    ZonedDateTime.now().plusDays(30)
+                    ZonedDateTime.now().plusDays(30),
+                    10000
             );
             var couponId = createCoupon(testRestTemplate, request);
             var coupon = couponRepository.findById(couponId).orElseThrow();
@@ -134,7 +137,8 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
                     5000L,
                     null,
                     10000L,
-                    ZonedDateTime.now().plusDays(30)
+                    ZonedDateTime.now().plusDays(30),
+                    10000
             );
             var couponId = createCoupon(testRestTemplate, request);
             issueCoupon(testRestTemplate, couponId, userHeaders);
@@ -156,7 +160,8 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
                     5000L,
                     null,
                     10000L,
-                    ZonedDateTime.now().plusDays(30)
+                    ZonedDateTime.now().plusDays(30),
+                    10000
             );
             var couponId = createCoupon(testRestTemplate, request);
 

@@ -3,6 +3,8 @@ package com.loopers.application.coupon;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.application.shared.annotation.UseCase;
+import com.loopers.domain.coupon.Coupon;
+import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.OwnedCouponService;
 
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class IssueOwnedCouponUseCase {
 
+    private final CouponService couponService;
     private final OwnedCouponService ownedCouponService;
 
     /**
@@ -22,6 +25,7 @@ public class IssueOwnedCouponUseCase {
      */
     @Transactional
     public void execute(Long couponId, Long userId) {
-        ownedCouponService.issue(couponId, userId);
+        Coupon coupon = couponService.issue(couponId);
+        ownedCouponService.issue(coupon, userId);
     }
 }

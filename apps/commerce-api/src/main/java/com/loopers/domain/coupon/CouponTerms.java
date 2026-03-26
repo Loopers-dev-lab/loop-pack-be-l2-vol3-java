@@ -8,6 +8,7 @@ public record CouponTerms(
         Long discountValue,
         Long maxDiscountPrice,
         Long minOrderPrice,
-        ZonedDateTime expiredAt
+        ZonedDateTime expiredAt,
+        int totalQuantity
 ) {
 }
