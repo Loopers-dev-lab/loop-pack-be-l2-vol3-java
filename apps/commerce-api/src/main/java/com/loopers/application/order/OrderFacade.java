@@ -52,10 +52,9 @@ public class OrderFacade {
      * ④ 재고 차감 (dirty checking)
      * ⑤ 주문 생성 (금액 스냅샷 포함, BR-O13)
      *
-     * 재고 확인 → 쿠폰 처리 → 재고 차감 순서인 이유:
-     * - 재고 부족 시 쿠폰 처리를 건너뛰어야 함
-     * - 쿠폰 minOrderAmount 검증은 originalAmount 기준 (BR-O11)
-     * - 트랜잭션 내 어느 단계 실패해도 전체 롤백 보장
+     * 이벤트 발행 이후의 부가 로직은 Listener에서 처리:
+     * - BEFORE_COMMIT: Outbox 테이블에 기록 (Kafka 발행 보장)
+     * - AFTER_COMMIT: 로깅 등 부가 처리
      */
     @Transactional
     public OrderInfo create(Long userId, OrderCreateCommand command) {
@@ -93,8 +92,6 @@ public class OrderFacade {
         }
 
         // ④ 재고 차감 (dirty checking, 비관적 락 범위 내)
-        // MySQL IN 절은 InnoDB 클러스터드 인덱스 특성상 PK 오름차순으로 락을 획득하지만,
-        // 기술 구현에 의존하지 않도록 ProductService에서 애플리케이션 레벨로 오름차순 정렬 후 전달함 -> 데드락 방지
         for (Product product : products) {
             Quantity quantity = quantityByProductId.get(product.getId());
             product.decreaseStock(quantity);
@@ -124,7 +121,7 @@ public class OrderFacade {
         // ⑤ 주문 저장 (금액 스냅샷 포함, BR-O13)
         Order order = orderService.create(userId, orderItems, userCouponId, originalAmount, discountAmount);
 
-        // 주문 생성 이벤트 발행 (AFTER_COMMIT에서 로깅 등 부가 처리)
+        // 주문 생성 이벤트 발행 (이후 처리는 Listener가 담당)
         List<OrderCreatedEvent.OrderItemSnapshot> itemSnapshots = orderItems.stream()
                 .map(item -> new OrderCreatedEvent.OrderItemSnapshot(
                         item.getProductId(),

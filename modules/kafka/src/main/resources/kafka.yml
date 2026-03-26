@@ -14,7 +14,11 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
       retries: 3
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
     consumer:
       group-id: loopers-default-consumer
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -25,14 +29,21 @@ spring:
       ack-mode: manual
 
 ---
-spring.config.activate.on-profile: local, test
+spring.config.activate.on-profile: local
 
 spring:
   kafka:
     bootstrap-servers: localhost:19092
     admin:
       properties:
-        bootstrap.servers: kafka:9092
+        bootstrap.servers: localhost:19092
+
+---
+spring.config.activate.on-profile: test
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:19092
 
 ---
 spring.config.activate.on-profile: dev

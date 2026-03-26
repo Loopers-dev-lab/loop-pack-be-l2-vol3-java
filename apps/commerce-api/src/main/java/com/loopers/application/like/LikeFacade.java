@@ -30,11 +30,11 @@ public class LikeFacade {
 
     /**
      * 좋아요 등록 (US-L01)
-     * 상품 존재 확인 → 좋아요 등록 → 좋아요 수 증가 이벤트 발행
+     * 상품 존재 확인 → 좋아요 등록 → 이벤트 발행
      *
-     * 좋아요 수 증가는 AFTER_COMMIT 이벤트로 분리:
-     * - 카운트 증가 실패가 좋아요 저장을 롤백시키지 않음 (Eventual Consistency)
-     * - 크로스 도메인 결합도 감소 (LikeFacade → ProductService 직접 호출 제거)
+     * 이벤트 발행 이후의 모든 부가 로직은 Listener에서 처리:
+     * - BEFORE_COMMIT: Outbox 테이블에 기록 (Kafka 발행 보장)
+     * - AFTER_COMMIT: 좋아요 수 증가 (Eventual Consistency)
      */
     @Transactional
     public LikeInfo create(Long userId, Long productId) {
@@ -42,7 +42,7 @@ public class LikeFacade {
         Product product = productService.findById(productId);
         // 좋아요 등록 (중복이면 CONFLICT 예외)
         Like like = likeService.create(userId, productId);
-        // 좋아요 수 증가 이벤트 발행 (AFTER_COMMIT에서 처리)
+        // 이벤트 발행 (이후 처리는 Listener가 담당)
         eventPublisher.publish(new LikeCreatedEvent(productId, userId));
         // 유저 행동 로깅
         userActionEventPublisher.publish(new UserActionEvent(
@@ -53,13 +53,13 @@ public class LikeFacade {
 
     /**
      * 좋아요 취소 (US-L02)
-     * 좋아요 취소 → 좋아요 수 감소 이벤트 발행
+     * 좋아요 취소 → 이벤트 발행
      */
     @Transactional
     public void delete(Long userId, Long productId) {
         // 좋아요 취소 (없으면 NOT_FOUND 예외)
         likeService.delete(userId, productId);
-        // 좋아요 수 감소 이벤트 발행 (AFTER_COMMIT에서 처리)
+        // 이벤트 발행 (이후 처리는 Listener가 담당)
         eventPublisher.publish(new LikeCancelledEvent(productId, userId));
         // 유저 행동 로깅
         userActionEventPublisher.publish(new UserActionEvent(

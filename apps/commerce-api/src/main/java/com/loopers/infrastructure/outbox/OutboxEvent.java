@@ -56,6 +56,12 @@ public class OutboxEvent {
     @Column(name = "published_at")
     private ZonedDateTime publishedAt;
 
+    @Column(name = "retry_count", nullable = false)
+    private int retryCount = 0;
+
+    @Column(name = "failed_at")
+    private ZonedDateTime failedAt;
+
     public OutboxEvent(String aggregateType, Long aggregateId, String eventType,
                        String payload, String topic, String messageKey) {
         this.aggregateType = aggregateType;
@@ -73,5 +79,18 @@ public class OutboxEvent {
 
     public void markPublished() {
         this.publishedAt = ZonedDateTime.now();
+    }
+
+    public void incrementRetryCount() {
+        this.retryCount++;
+    }
+
+    public boolean isRetryExhausted(int maxRetry) {
+        return this.retryCount >= maxRetry;
+    }
+
+    // 재시도 한도 초과 — 수동 확인 필요
+    public void markFailed() {
+        this.failedAt = ZonedDateTime.now();
     }
 }
