@@ -28,6 +28,15 @@ outbox:
     enabled: true
     batch-size: 100
     send-ack-timeout: 5s
+  dlq-redrive:
+    enabled: false
+    source-topic: product-events
+    dlq-topic: product-events.DLQ
+    group-id: outbox-dlq-redrive
+    batch-size: 100
+    poll-timeout: 1s
+    send-ack-timeout: 5s
+    fixed-delay-ms: 5000
   cleanup:
     enabled: true
     retention: 7d
