@@ -16,11 +16,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * DLQ Publisher — 처리 실패한 메시지를 DLQ 토픽으로 격리
+ * DLQ Publisher — 처리 실패한 메시지를 DLQ 토픽으로 격리 (commerce-api용)
  *
- * 동기 전송 (.get()) — DLQ 유실 방지
- * X-Retry-Count 헤더 포함 — 재시도 횟수 추적
- * 전송 결과 메타데이터 로깅 — DLQ 메시지 위치 추적
+ * 동기 전송 (.get()):
+ *   DLQ 전송도 실패하면 메시지가 영원히 유실된다.
+ *   비동기(fire-and-forget)로 하면 DLQ 전송 실패를 감지 못 함.
+ *   금전 가치 이벤트(쿠폰)는 DLQ 전송도 반드시 성공해야 함.
+ *
+ * 헤더:
+ *   X-Original-Topic, X-Original-Partition, X-Original-Offset
+ *   X-Error-Message, X-Error-Timestamp, X-Retry-Count
  */
 @Component
 public class DlqPublisher {
@@ -32,10 +37,6 @@ public class DlqPublisher {
 
     public DlqPublisher(KafkaTemplate<Object, Object> kafkaTemplate) {
         this.kafkaTemplate = kafkaTemplate;
-    }
-
-    public void sendToDlq(ConsumerRecord<Object, Object> record, Exception exception) {
-        sendToDlq(record, exception, 0);
     }
 
     public void sendToDlq(ConsumerRecord<Object, Object> record, Exception exception, int retryCount) {
@@ -66,7 +67,7 @@ public class DlqPublisher {
 
             var metadata = result.getRecordMetadata();
             log.warn("[DLQ] 메시지 격리 완료 — dlqPartition={}, dlqOffset={}, " +
-                            "originalTopic={}, partition={}, offset={}, retryCount={}, error={}",
+                            "originalTopic={}, originalPartition={}, originalOffset={}, retryCount={}, error={}",
                     metadata.partition(), metadata.offset(),
                     record.topic(), record.partition(), record.offset(), retryCount, errorMsg);
 
