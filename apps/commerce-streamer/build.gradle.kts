@@ -10,6 +10,7 @@ dependencies {
     // web
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    testImplementation("org.springframework.kafka:spring-kafka-test")
 
     // querydsl
     annotationProcessor("com.querydsl:querydsl-apt::jakarta")

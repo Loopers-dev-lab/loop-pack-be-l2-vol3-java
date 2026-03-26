@@ -21,7 +21,7 @@ REPLICATION="${KAFKA_TOPIC_REPLICATION:-1}"
 INTERNAL_BOOTSTRAP="${KAFKA_INTERNAL_BOOTSTRAP:-localhost:9092}"
 
 TOPICS=(
-  "catalog-events"
+  "product-events"
   "order-events"
   "coupon-issue-requests"
 )
