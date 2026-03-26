@@ -63,6 +63,21 @@ public record OrderItemSnapshot(Long productId, int quantity, String productName
     }
 
     /**
+     * 할인 금액을 적용한 새 스냅샷을 반환한다.
+     * 기존 스냅샷의 상품/브랜드 정보는 그대로 유지하고 할인 관련 필드만 변경한다.
+     *
+     * @param discountAmount 이 항목에 배분된 할인 금액
+     * @return 할인이 적용된 새 스냅샷
+     */
+    public OrderItemSnapshot withDiscount(BigDecimal discountAmount) {
+        return new OrderItemSnapshot(
+                productId, quantity, productName, unitPrice,
+                brandId, brandName, imageUrl,
+                originalAmount, discountAmount,
+                originalAmount.subtract(discountAmount));
+    }
+
+    /**
      * 항목별 최종 주문 금액을 반환한다.
      *
      * @return finalAmount

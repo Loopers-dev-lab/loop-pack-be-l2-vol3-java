@@ -52,7 +52,7 @@ public enum ErrorType {
     ORDER_NOT_CANCELLABLE(HttpStatus.CONFLICT, "ORDER_NOT_CANCELLABLE", "취소할 수 없는 주문입니다."),
     ORDER_NOT_CREATABLE(HttpStatus.CONFLICT, "ORDER_NOT_CREATABLE", "주문을 생성할 수 없습니다."),
     ORDER_ITEM_EMPTY(HttpStatus.BAD_REQUEST, "ORDER_ITEM_EMPTY", "주문 항목이 비어 있습니다."),
-    ORDER_PENDING_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "ORDER_PENDING_LIMIT_EXCEEDED", "동시 결제 대기 주문은 최대 3건까지 가능합니다."),
+    ORDER_PENDING_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "ORDER_PENDING_LIMIT_EXCEEDED", "동시 결제 대기 주문은 최대 10건까지 가능합니다."),
 
     /** Admin */
     ADMIN_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "ADMIN_UNAUTHORIZED", "관리자 인증에 실패했습니다."),
@@ -62,7 +62,16 @@ public enum ErrorType {
     COUPON_ALREADY_ISSUED(HttpStatus.CONFLICT, "COUPON_ALREADY_ISSUED", "이미 발급된 쿠폰입니다."),
     COUPON_NOT_APPLICABLE(HttpStatus.BAD_REQUEST, "COUPON_NOT_APPLICABLE", "적용할 수 없는 쿠폰입니다."),
     COUPON_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "COUPON_NOT_AVAILABLE", "사용 불가능한 쿠폰입니다."),
-    USER_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_COUPON_NOT_FOUND", "발급된 쿠폰을 찾을 수 없습니다.");
+    USER_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_COUPON_NOT_FOUND", "발급된 쿠폰을 찾을 수 없습니다."),
+
+    /** Payment */
+    PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND", "결제 정보를 찾을 수 없습니다."),
+    PAYMENT_NOT_PAYABLE(HttpStatus.BAD_REQUEST, "PAYMENT_NOT_PAYABLE", "결제할 수 없는 주문 상태입니다."),
+    PAYMENT_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "PAYMENT_ALREADY_IN_PROGRESS", "이미 결제가 진행 중입니다."),
+    PAYMENT_STATUS_INVALID(HttpStatus.BAD_REQUEST, "PAYMENT_STATUS_INVALID", "유효하지 않은 결제 상태 전이입니다."),
+    PAYMENT_PG_ERROR(HttpStatus.BAD_GATEWAY, "PAYMENT_PG_ERROR", "결제 시스템에 문제가 발생했습니다."),
+    PAYMENT_PG_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "PAYMENT_PG_TIMEOUT", "결제 확인 중입니다."),
+    PAYMENT_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "PAYMENT_SERVICE_UNAVAILABLE", "결제 서비스를 이용할 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

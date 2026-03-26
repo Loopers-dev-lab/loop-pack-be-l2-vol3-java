@@ -9,11 +9,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OrderStatusTest {
 
     @Test
-    @DisplayName("PENDING_PAYMENT, CANCELLED, EXPIRED 값이 존재한다")
-    void values_ShouldContain_PENDING_PAYMENT_CANCELLED_EXPIRED() {
+    @DisplayName("PENDING_PAYMENT, PAID, CANCELLED, EXPIRED 값이 존재한다")
+    void values_ShouldContain_AllStatuses() {
         assertThat(OrderStatus.values())
                 .containsExactlyInAnyOrder(
                         OrderStatus.PENDING_PAYMENT,
+                        OrderStatus.PAID,
                         OrderStatus.CANCELLED,
                         OrderStatus.EXPIRED
                 );
@@ -23,6 +24,12 @@ class OrderStatusTest {
     @DisplayName("PENDING_PAYMENT일 때 canCancel()은 true를 반환한다")
     void canCancel_PendingPayment_ShouldReturnTrue() {
         assertThat(OrderStatus.PENDING_PAYMENT.canCancel()).isTrue();
+    }
+
+    @Test
+    @DisplayName("PAID일 때 canCancel()은 false를 반환한다")
+    void canCancel_Paid_ShouldReturnFalse() {
+        assertThat(OrderStatus.PAID.canCancel()).isFalse();
     }
 
     @Test

@@ -58,6 +58,6 @@ public interface ProductStockJpaRepository extends JpaRepository<ProductStockMod
     @Modifying
     @Query("UPDATE ProductStockModel s " +
            "SET s.onHand = s.onHand - :qty, s.reserved = s.reserved - :qty " +
-           "WHERE s.productId = :productId AND s.reserved >= :qty")
+           "WHERE s.productId = :productId AND s.reserved >= :qty AND s.onHand >= :qty")
     int commitStock(@Param("productId") Long productId, @Param("qty") int qty);
 }

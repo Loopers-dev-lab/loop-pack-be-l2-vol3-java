@@ -63,7 +63,7 @@ public class ProductModel extends BaseStringIdEntity {
     @Column(name = "size", length = 50)
     private String size;
 
-    @Column(name = "option", length = 255)
+    @Column(name = "`option`", length = 255)
     private String option;
 
     @Column(name = "image_url")

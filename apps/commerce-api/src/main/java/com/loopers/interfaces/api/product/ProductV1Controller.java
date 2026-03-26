@@ -3,7 +3,7 @@ package com.loopers.interfaces.api.product;
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.api.PageResponse;
+import com.loopers.support.page.PagedResult;
 import com.loopers.support.enums.ProductSortType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -36,14 +36,14 @@ public class ProductV1Controller {
      * @return 페이징된 상품 목록 응답
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<PageResponse<ProductV1Dto.ProductResponse>>> list(
+    public ResponseEntity<ApiResponse<PagedResult<ProductV1Dto.ProductResponse>>> list(
             @RequestParam(value = "q", required = false) String keyword,
             @RequestParam(value = "brandId", required = false) Long brandId,
             @RequestParam(value = "sort", defaultValue = "LATEST") ProductSortType sort,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
-        PageResponse<ProductInfo> products = productFacade.getProductsForCustomer(keyword, brandId, sort, page, size);
-        PageResponse<ProductV1Dto.ProductResponse> response = new PageResponse<>(
+        PagedResult<ProductInfo> products = productFacade.getProductsForCustomer(keyword, brandId, sort, page, size);
+        PagedResult<ProductV1Dto.ProductResponse> response = new PagedResult<>(
                 products.content().stream().map(ProductV1Dto.ProductResponse::from).toList(),
                 products.page(),
                 products.size(),

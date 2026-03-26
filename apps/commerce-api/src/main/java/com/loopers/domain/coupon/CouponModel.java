@@ -16,10 +16,14 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import com.loopers.domain.order.OrderItemSnapshot;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 쿠폰 템플릿 JPA 엔티티.
@@ -101,6 +105,46 @@ public class CouponModel extends BaseStringIdEntity {
         if (totalAmount != null && minOrderAmount != null && totalAmount.compareTo(minOrderAmount) < 0) {
             throw new CoreException(ErrorType.COUPON_NOT_APPLICABLE);
         }
+    }
+
+    /**
+     * 할인 금액을 주문 항목별 originalAmount 비율로 배분한다.
+     * 반올림 오차는 마지막 항목이 흡수한다.
+     *
+     * @param snapshots     할인 전 주문 항목 스냅샷 목록
+     * @param totalDiscount 배분할 총 할인 금액
+     * @return 할인이 적용된 스냅샷 목록
+     */
+    public List<OrderItemSnapshot> distributeDiscount(List<OrderItemSnapshot> snapshots,
+                                                       BigDecimal totalDiscount) {
+        if (totalDiscount.compareTo(BigDecimal.ZERO) == 0) {
+            return snapshots;
+        }
+
+        BigDecimal totalOriginal = snapshots.stream()
+                .map(OrderItemSnapshot::originalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<OrderItemSnapshot> result = new ArrayList<>();
+        BigDecimal allocated = BigDecimal.ZERO;
+
+        for (int i = 0; i < snapshots.size(); i++) {
+            OrderItemSnapshot raw = snapshots.get(i);
+            boolean isLast = (i == snapshots.size() - 1);
+
+            BigDecimal itemDiscount;
+            if (isLast) {
+                itemDiscount = totalDiscount.subtract(allocated);
+            } else {
+                itemDiscount = totalDiscount
+                        .multiply(raw.originalAmount())
+                        .divide(totalOriginal, 0, RoundingMode.FLOOR);
+                allocated = allocated.add(itemDiscount);
+            }
+
+            result.add(raw.withDiscount(itemDiscount));
+        }
+        return result;
     }
 
     /**

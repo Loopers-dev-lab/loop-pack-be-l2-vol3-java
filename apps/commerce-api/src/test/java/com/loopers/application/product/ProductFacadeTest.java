@@ -7,7 +7,7 @@ import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductStockModel;
 import com.loopers.domain.product.StockService;
-import com.loopers.interfaces.api.PageResponse;
+import com.loopers.support.page.PagedResult;
 import com.loopers.support.enums.ProductSortType;
 import com.loopers.support.page.PageQuery;
 import com.loopers.support.page.PagedResult;
@@ -73,7 +73,7 @@ class ProductFacadeTest {
         when(stockService.findAllByProductIds(List.of(1L, 2L))).thenReturn(List.of(stock1, stock2));
         when(brandService.findAllByIds(List.of(1L))).thenReturn(List.of(brand));
 
-        PageResponse<ProductInfo> result = productFacade.getProductsForCustomer(
+        PagedResult<ProductInfo> result = productFacade.getProductsForCustomer(
                 "검색어", null, ProductSortType.LATEST, 0, 20);
 
         assertThat(result.content()).hasSize(2);
@@ -112,7 +112,7 @@ class ProductFacadeTest {
         when(stockService.findAllByProductIds(List.of(1L, 2L))).thenReturn(List.of(stock1, stock2));
         when(brandService.findAllByIds(List.of(1L))).thenReturn(List.of(brand));
 
-        PageResponse<ProductInfo> result = productFacade.getProductsForCustomer(
+        PagedResult<ProductInfo> result = productFacade.getProductsForCustomer(
                 "키워드", null, ProductSortType.LIKES_DESC, 0, 20);
 
         assertThat(result.content()).hasSize(2);
@@ -220,7 +220,7 @@ class ProductFacadeTest {
         when(stockService.findAllByProductIds(List.of(1L))).thenReturn(List.of(stock1));
         when(brandService.findAllByIds(List.of(1L))).thenReturn(List.of(brand));
 
-        PageResponse<ProductInfo> result = productFacade.getProductsForCustomer(
+        PagedResult<ProductInfo> result = productFacade.getProductsForCustomer(
                 null, null, ProductSortType.LATEST, 0, 20);
 
         assertThat(result.content()).hasSize(1);

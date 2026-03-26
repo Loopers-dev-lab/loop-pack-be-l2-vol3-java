@@ -13,6 +13,7 @@ import com.loopers.domain.cart.CartService;
 import com.loopers.domain.user.UserRegisterCommand;
 import com.loopers.domain.user.UserService;
 import com.loopers.infrastructure.cart.CartItemJpaRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,7 @@ class OrderCartRestoreIdempotencyTest {
     @Autowired OrderFacade orderFacade;
     @Autowired CartService cartService;
     @Autowired CartItemJpaRepository cartItemJpaRepository;
+    @Autowired EntityManager entityManager;
 
     private Long userId;
     private Long productId;
@@ -65,6 +67,8 @@ class OrderCartRestoreIdempotencyTest {
 
         // 1회 취소 (복원 수행)
         orderFacade.cancelOrder(userId, order.getOrderId());
+        entityManager.flush();
+        entityManager.clear();
 
         Optional<CartItemModel> afterFirst = cartItemJpaRepository.findById(new CartItemId(userId, productId));
         assertThat(afterFirst).isPresent();
@@ -105,6 +109,8 @@ class OrderCartRestoreIdempotencyTest {
 
         // 수동 취소 (복원 완료)
         orderFacade.cancelOrder(userId, order.getOrderId());
+        entityManager.flush();
+        entityManager.clear();
 
         Optional<CartItemModel> afterCancel = cartItemJpaRepository.findById(new CartItemId(userId, productId));
         assertThat(afterCancel).isPresent();

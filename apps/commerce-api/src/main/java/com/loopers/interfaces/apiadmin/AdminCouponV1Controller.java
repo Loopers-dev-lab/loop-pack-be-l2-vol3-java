@@ -4,7 +4,6 @@ import com.loopers.domain.coupon.CouponModel;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.UserCouponModel;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.api.PageResponse;
 import com.loopers.support.page.PageQuery;
 import com.loopers.support.page.PagedResult;
 import jakarta.validation.Valid;
@@ -48,7 +47,7 @@ public class AdminCouponV1Controller {
      * 쿠폰 목록을 페이징 조회한다 (삭제 포함).
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<PageResponse<AdminCouponV1Dto.CouponResponse>>> getCoupons(
+    public ResponseEntity<ApiResponse<PagedResult<AdminCouponV1Dto.CouponResponse>>> getCoupons(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         PageQuery query = new PageQuery(page, size, "couponId", false);
@@ -56,7 +55,7 @@ public class AdminCouponV1Controller {
         List<AdminCouponV1Dto.CouponResponse> content = pagedResult.content().stream()
                 .map(AdminCouponV1Dto.CouponResponse::from)
                 .toList();
-        PageResponse<AdminCouponV1Dto.CouponResponse> pageResponse = new PageResponse<>(
+        PagedResult<AdminCouponV1Dto.CouponResponse> pageResponse = new PagedResult<>(
                 content, pagedResult.page(), pagedResult.size(),
                 pagedResult.totalElements(), pagedResult.totalPages());
         return ResponseEntity.ok(ApiResponse.success(pageResponse));
@@ -98,7 +97,7 @@ public class AdminCouponV1Controller {
      * 특정 쿠폰의 발급 내역을 페이징 조회한다.
      */
     @GetMapping("/{couponId}/issues")
-    public ResponseEntity<ApiResponse<PageResponse<AdminCouponV1Dto.IssueHistoryResponse>>> getIssueHistory(
+    public ResponseEntity<ApiResponse<PagedResult<AdminCouponV1Dto.IssueHistoryResponse>>> getIssueHistory(
             @PathVariable Long couponId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -107,7 +106,7 @@ public class AdminCouponV1Controller {
         List<AdminCouponV1Dto.IssueHistoryResponse> content = pagedResult.content().stream()
                 .map(AdminCouponV1Dto.IssueHistoryResponse::from)
                 .toList();
-        PageResponse<AdminCouponV1Dto.IssueHistoryResponse> pageResponse = new PageResponse<>(
+        PagedResult<AdminCouponV1Dto.IssueHistoryResponse> pageResponse = new PagedResult<>(
                 content, pagedResult.page(), pagedResult.size(),
                 pagedResult.totalElements(), pagedResult.totalPages());
         return ResponseEntity.ok(ApiResponse.success(pageResponse));

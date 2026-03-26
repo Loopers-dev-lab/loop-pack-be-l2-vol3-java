@@ -69,6 +69,15 @@ subprojects {
         testImplementation("org.testcontainers:junit-jupiter")
     }
 
+    // Docker 29+ 호환: Testcontainers 1.21.4 + docker-java API version override
+    configurations.configureEach {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "org.testcontainers") {
+                useVersion("1.21.4")
+            }
+        }
+    }
+
     tasks.withType(Jar::class) { enabled = true }
     tasks.withType(BootJar::class) { enabled = false }
 
@@ -89,6 +98,9 @@ subprojects {
             environment("DOCKER_HOST", dockerHost)
             environment("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", dockerHost.removePrefix("unix://"))
         }
+        // Docker Engine API 최소 버전 호환 (docker-java 기본값 1.32 → 서버 최소 1.40)
+        environment("DOCKER_API_VERSION", "1.44")
+        systemProperty("com.github.dockerjava.api.model.RemoteApiVersion.defaultVersion", "1.44")
     }
 
     tasks.withType<JacocoReport> {
