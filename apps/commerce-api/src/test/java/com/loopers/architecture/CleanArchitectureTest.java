@@ -126,7 +126,9 @@ class CleanArchitectureTest {
                     .and().areNotRecords()
                     .should().haveSimpleNameEndingWith("Facade")
                     .orShould().haveSimpleNameEndingWith("Info")
-                    .orShould().haveSimpleNameEndingWith("Service");
+                    .orShould().haveSimpleNameEndingWith("Service")
+                    .orShould().haveSimpleNameEndingWith("Listener")
+                    .orShould().haveSimpleNameEndingWith("Scheduler");
 
             rule.check(importedClasses);
         }

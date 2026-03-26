@@ -1,5 +1,6 @@
 package com.loopers.application.payment;
 
+import com.loopers.domain.event.PaymentFailedEvent;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderHistoryService;
 import com.loopers.domain.order.OrderItem;
@@ -12,15 +13,18 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("PaymentTransactionService 단위 테스트")
@@ -35,6 +39,9 @@ class PaymentTransactionServiceTest {
     @Mock
     private PaymentService paymentService;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     @InjectMocks
     private PaymentTransactionService paymentTransactionService;
 
@@ -43,7 +50,7 @@ class PaymentTransactionServiceTest {
     class FailPayment {
 
         @Test
-        @DisplayName("성공: 결제 실패 시 Payment와 Order 상태를 변경한다")
+        @DisplayName("성공: 결제 실패 시 Payment와 Order 상태를 변경하고 이벤트를 발행한다")
         void failPayment_updatesStatus() {
             // Given
             Long orderId = 1L;
@@ -63,6 +70,10 @@ class PaymentTransactionServiceTest {
 
             // Then
             assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
+
+            ArgumentCaptor<PaymentFailedEvent> captor = ArgumentCaptor.forClass(PaymentFailedEvent.class);
+            then(eventPublisher).should().publishEvent(captor.capture());
+            assertThat(captor.getValue().orderId()).isEqualTo(orderId);
         }
     }
 }

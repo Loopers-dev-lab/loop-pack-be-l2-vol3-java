@@ -1,10 +1,9 @@
 package com.loopers.application.payment;
 
-import com.loopers.domain.coupon.CouponService;
+import com.loopers.domain.event.PaymentCompletedEvent;
+import com.loopers.domain.event.PaymentFailedEvent;
 import com.loopers.domain.order.Order;
-import com.loopers.domain.order.OrderHistoryService;
 import com.loopers.domain.order.OrderService;
-import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentGateway;
@@ -16,6 +15,7 @@ import com.loopers.domain.payment.PaymentStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,11 +27,10 @@ import java.util.List;
 public class PaymentFacade {
 
     private final OrderService orderService;
-    private final OrderHistoryService orderHistoryService;
     private final PaymentService paymentService;
     private final PaymentGateway paymentGateway;
     private final PaymentTransactionService paymentTransactionService;
-    private final CouponService couponService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${pg.callback-url:http://localhost:8080/api/v1/payments/callback}")
     private String callbackUrl;
@@ -79,16 +78,15 @@ public class PaymentFacade {
         if ("SUCCESS".equals(status)) {
             payment.markSuccess(transactionKey);
             order.completePayment();
-            orderHistoryService.recordHistory(
-                    orderId, OrderStatus.PAYMENT_PENDING, OrderStatus.PAID, "콜백: 결제 완료"
-            );
+            eventPublisher.publishEvent(new PaymentCompletedEvent(
+                    orderId, payment.getUserId(), transactionKey, "콜백: 결제 완료"
+            ));
         } else {
             payment.markFailed(reason);
             order.failPayment();
-            restoreCouponIfExists(order);
-            orderHistoryService.recordHistory(
-                    orderId, OrderStatus.PAYMENT_PENDING, OrderStatus.PAYMENT_FAILED, "콜백: 결제 실패 - " + reason
-            );
+            eventPublisher.publishEvent(new PaymentFailedEvent(
+                    orderId, payment.getUserId(), order.getUserCouponId(), "콜백: 결제 실패 - " + reason
+            ));
         }
     }
 
@@ -144,18 +142,16 @@ public class PaymentFacade {
         if ("SUCCESS".equals(latestTxn.status()) && payment.getStatus() != PaymentStatus.SUCCESS) {
             payment.markSuccess(latestTxn.transactionKey());
             order.completePayment();
-            orderHistoryService.recordHistory(
-                    payment.getOrderId(), OrderStatus.PAYMENT_PENDING, OrderStatus.PAID, "스케줄러: 결제 복구 완료"
-            );
+            eventPublisher.publishEvent(new PaymentCompletedEvent(
+                    payment.getOrderId(), payment.getUserId(), latestTxn.transactionKey(), "스케줄러: 결제 복구 완료"
+            ));
             log.info("결제 복구 성공: orderId={}", payment.getOrderId());
         } else if ("FAILED".equals(latestTxn.status()) && payment.getStatus() != PaymentStatus.FAILED) {
             payment.markFailed(latestTxn.reason());
             order.failPayment();
-            restoreCouponIfExists(order);
-            orderHistoryService.recordHistory(
-                    payment.getOrderId(), OrderStatus.PAYMENT_PENDING, OrderStatus.PAYMENT_FAILED,
-                    "스케줄러: 결제 실패 확인 - " + latestTxn.reason()
-            );
+            eventPublisher.publishEvent(new PaymentFailedEvent(
+                    payment.getOrderId(), payment.getUserId(), order.getUserCouponId(), "스케줄러: 결제 실패 확인 - " + latestTxn.reason()
+            ));
             log.info("결제 실패 확인: orderId={}", payment.getOrderId());
         }
     }
@@ -169,21 +165,14 @@ public class PaymentFacade {
         if (minutesSinceCreated >= PENDING_TTL_MINUTES) {
             log.info("PENDING TTL 초과 → FAILED 처리: orderId={}, 경과={}분", payment.getOrderId(), minutesSinceCreated);
             Order order = orderService.getById(payment.getOrderId());
-            payment.markFailed("결제 처리 시간 초과 (TTL " + PENDING_TTL_MINUTES + "분)");
+            String failReason = "결제 처리 시간 초과 (TTL " + PENDING_TTL_MINUTES + "분)";
+            payment.markFailed(failReason);
             order.failPayment();
-            restoreCouponIfExists(order);
-            orderHistoryService.recordHistory(
-                    payment.getOrderId(), OrderStatus.PAYMENT_PENDING, OrderStatus.PAYMENT_FAILED,
-                    "스케줄러: TTL 초과 실패 처리"
-            );
+            eventPublisher.publishEvent(new PaymentFailedEvent(
+                    payment.getOrderId(), payment.getUserId(), order.getUserCouponId(), "스케줄러: TTL 초과 실패 처리"
+            ));
         } else {
             log.info("PG에 거래 내역 없음, TTL 대기 중: orderId={}, 경과={}분", payment.getOrderId(), minutesSinceCreated);
-        }
-    }
-
-    private void restoreCouponIfExists(Order order) {
-        if (order.getUserCouponId() != null) {
-            couponService.restoreUserCoupon(order.getUserCouponId());
         }
     }
 }
