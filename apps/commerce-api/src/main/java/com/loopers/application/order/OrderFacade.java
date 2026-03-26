@@ -5,19 +5,24 @@ import com.loopers.domain.common.Quantity;
 import com.loopers.domain.coupon.CouponDiscount;
 import com.loopers.domain.coupon.UserCouponService;
 import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderCreatedEvent;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderItemRepository;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.payment.CardType;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.users.UserService;
 import com.loopers.domain.users.Users;
 import com.loopers.interfaces.api.order.OrderV1Dto;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
@@ -32,9 +37,14 @@ public class OrderFacade {
     private final OrderService orderService;
     private final OrderItemRepository orderItemRepository;
     private final UserCouponService userCouponService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public OrderInfo createOrder(String loginId, String password, List<OrderV1Dto.OrderItemRequest> items, Long userCouponId) {
+    public OrderInfo createOrder(String loginId, String password, List<OrderV1Dto.OrderItemRequest> items, Long userCouponId, CardType cardType, String cardNo, boolean updateDefaultCard) {
+        if (cardType == null || cardNo == null || cardNo.isBlank()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "카드 정보는 필수입니다.");
+        }
+
         Users user = userService.authenticate(loginId, password);
 
         List<Long> productIds = items.stream().map(OrderV1Dto.OrderItemRequest::productId).toList();
@@ -59,6 +69,10 @@ public class OrderFacade {
         }
 
         Order order = orderService.createOrder(user.getId(), products, brandMap, deductionMap, userCouponId, couponDiscount);
+
+        eventPublisher.publishEvent(new OrderCreatedEvent(
+            order.getId(), user.getId(), order.getFinalPrice(), cardType, cardNo, updateDefaultCard
+        ));
 
         return OrderInfo.from(order);
     }
