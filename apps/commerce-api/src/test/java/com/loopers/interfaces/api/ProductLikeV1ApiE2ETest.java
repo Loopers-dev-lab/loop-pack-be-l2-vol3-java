@@ -73,10 +73,6 @@ class ProductLikeV1ApiE2ETest {
             assertThat(data.userId()).isEqualTo(userId);
             assertThat(data.productId()).isEqualTo(product.getId());
             assertThat(data.createdAt()).isNotNull();
-
-            // 상품의 likesCount 확인
-            Product updatedProduct = productRepository.findActiveById(product.getId()).get();
-            assertThat(updatedProduct.getLikesCount()).isEqualTo(1);
         }
 
         @Test
@@ -101,7 +97,7 @@ class ProductLikeV1ApiE2ETest {
         }
 
         @Test
-        @DisplayName("실패: 삭제된 상품에 좋아요하면 400 BAD_REQUEST를 반환한다")
+        @DisplayName("실패: 삭제된 상품에 좋아요하면 404 NOT_FOUND를 반환한다")
         void registerLike_DeletedProduct() {
             // Given
             Brand brand = brandRepository.save(Brand.create("샤넬", null, null));
@@ -123,7 +119,7 @@ class ProductLikeV1ApiE2ETest {
             );
 
             // Then
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         }
 
         @Test
@@ -191,10 +187,6 @@ class ProductLikeV1ApiE2ETest {
 
             // Then
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-
-            // 상품의 likesCount 확인
-            Product updatedProduct = productRepository.findActiveById(product.getId()).get();
-            assertThat(updatedProduct.getLikesCount()).isEqualTo(0);
         }
 
         @Test
@@ -219,7 +211,7 @@ class ProductLikeV1ApiE2ETest {
         }
 
         @Test
-        @DisplayName("실패: 삭제된 상품의 좋아요를 취소하면 400 BAD_REQUEST를 반환한다")
+        @DisplayName("실패: 삭제된 상품의 좋아요를 취소하면 404 NOT_FOUND를 반환한다")
         void cancelLike_DeletedProduct() {
             // Given
             Brand brand = brandRepository.save(Brand.create("샤넬", null, null));
@@ -250,7 +242,7 @@ class ProductLikeV1ApiE2ETest {
             );
 
             // Then
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         }
 
         @Test

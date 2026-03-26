@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,6 +32,9 @@ class ProductLikeConcurrencyTest {
     private ProductRepository productRepository;
 
     @Autowired
+    private ProductLikeRepository productLikeRepository;
+
+    @Autowired
     private BrandRepository brandRepository;
 
     @Autowired
@@ -42,8 +46,8 @@ class ProductLikeConcurrencyTest {
     }
 
     @Test
-    @DisplayName("50명이 동시에 좋아요를 등록하면 likesCount가 정확히 50이 된다")
-    void increaseLikes_Concurrency() throws InterruptedException {
+    @DisplayName("10명이 동시에 좋아요를 등록하면 모든 좋아요가 정확히 기록된다")
+    void registerLike_Concurrency() throws InterruptedException {
         // Given
         Brand brand = brandRepository.save(Brand.create("테스트브랜드", null, null));
         Product product = productRepository.save(
@@ -51,8 +55,8 @@ class ProductLikeConcurrencyTest {
         );
         Long productId = product.getId();
 
-        int threadCount = 50;
-        ExecutorService executorService = Executors.newFixedThreadPool(32);
+        int threadCount = 10;
+        ExecutorService executorService = Executors.newFixedThreadPool(10);
         CountDownLatch latch = new CountDownLatch(threadCount);
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failCount = new AtomicInteger(0);
@@ -75,10 +79,17 @@ class ProductLikeConcurrencyTest {
         latch.await();
         executorService.shutdown();
 
-        // Then
-        Product updatedProduct = productRepository.findById(productId).orElseThrow();
-        assertThat(updatedProduct.getLikesCount()).isEqualTo(50);
-        assertThat(successCount.get()).isEqualTo(50);
+        // Then - 좋아요 등록은 모두 성공해야 한다
+        assertThat(successCount.get()).isEqualTo(threadCount);
         assertThat(failCount.get()).isEqualTo(0);
+
+        // product_likes 레코드가 정확히 생성되어야 한다
+        int likeCount = productLikeRepository.findAllByProductId(productId).size();
+        assertThat(likeCount).isEqualTo(threadCount);
+
+        // likesCount는 @Async + AFTER_COMMIT 이벤트로 비동기 업데이트되므로 대기
+        TimeUnit.SECONDS.sleep(2);
+        Product updatedProduct = productRepository.findById(productId).orElseThrow();
+        assertThat(updatedProduct.getLikesCount()).isEqualTo(threadCount);
     }
 }

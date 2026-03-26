@@ -8,5 +8,6 @@ public record CreateCouponCommand(
         CouponType type,
         BigDecimal value,
         BigDecimal minOrderAmount,
-        ZonedDateTime expiredAt
+        ZonedDateTime expiredAt,
+        Integer totalQuantity
 ) {}

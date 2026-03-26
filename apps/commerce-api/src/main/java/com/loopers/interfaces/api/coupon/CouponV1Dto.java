@@ -1,7 +1,9 @@
 package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponInfo;
+import com.loopers.application.coupon.CouponIssueResultInfo;
 import com.loopers.application.coupon.UserCouponInfo;
+import com.loopers.domain.coupon.CouponIssueResultStatus;
 import com.loopers.domain.coupon.CouponStatus;
 import com.loopers.domain.coupon.CouponType;
 
@@ -16,7 +18,8 @@ public class CouponV1Dto {
             CouponType type,
             BigDecimal value,
             BigDecimal minOrderAmount,
-            ZonedDateTime expiredAt
+            ZonedDateTime expiredAt,
+            Integer totalQuantity
     ) {}
 
     public record UpdateRequest(
@@ -49,6 +52,26 @@ public class CouponV1Dto {
                     info.expired(),
                     info.createdAt(),
                     info.updatedAt()
+            );
+        }
+    }
+
+    public record CouponIssueResultResponse(
+            Long id,
+            Long userId,
+            Long couponId,
+            CouponIssueResultStatus status,
+            String failureReason,
+            ZonedDateTime createdAt
+    ) {
+        public static CouponIssueResultResponse from(CouponIssueResultInfo info) {
+            return new CouponIssueResultResponse(
+                    info.id(),
+                    info.userId(),
+                    info.couponId(),
+                    info.status(),
+                    info.failureReason(),
+                    info.createdAt()
             );
         }
     }

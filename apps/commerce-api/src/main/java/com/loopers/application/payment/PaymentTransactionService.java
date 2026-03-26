@@ -1,5 +1,7 @@
 package com.loopers.application.payment;
 
+import com.loopers.domain.event.PaymentCompletedEvent;
+import com.loopers.domain.event.PaymentFailedEvent;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderHistoryService;
 import com.loopers.domain.order.OrderService;
@@ -8,6 +10,7 @@ import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +21,7 @@ public class PaymentTransactionService {
     private final OrderService orderService;
     private final OrderHistoryService orderHistoryService;
     private final PaymentService paymentService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Payment preparePayment(Long orderId, Long userId, CardType cardType, String cardNo) {
@@ -40,9 +44,9 @@ public class PaymentTransactionService {
         Order order = orderService.getById(payment.getOrderId());
         order.completePayment();
 
-        orderHistoryService.recordHistory(
-                payment.getOrderId(), OrderStatus.PAYMENT_PENDING, OrderStatus.PAID, historyMessage
-        );
+        eventPublisher.publishEvent(new PaymentCompletedEvent(
+                payment.getOrderId(), payment.getUserId(), transactionKey, historyMessage
+        ));
     }
 
     @Transactional
@@ -52,8 +56,8 @@ public class PaymentTransactionService {
         Order order = orderService.getById(orderId);
         order.failPayment();
 
-        orderHistoryService.recordHistory(
-                orderId, OrderStatus.PAYMENT_PENDING, OrderStatus.PAYMENT_FAILED, historyMessage
-        );
+        eventPublisher.publishEvent(new PaymentFailedEvent(
+                orderId, payment.getUserId(), order.getUserCouponId(), reason
+        ));
     }
 }

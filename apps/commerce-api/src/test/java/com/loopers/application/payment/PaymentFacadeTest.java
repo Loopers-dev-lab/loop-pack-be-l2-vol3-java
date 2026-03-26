@@ -1,8 +1,8 @@
 package com.loopers.application.payment;
 
-import com.loopers.domain.coupon.CouponService;
+import com.loopers.domain.event.PaymentCompletedEvent;
+import com.loopers.domain.event.PaymentFailedEvent;
 import com.loopers.domain.order.Order;
-import com.loopers.domain.order.OrderHistoryService;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderService;
 import com.loopers.domain.order.OrderStatus;
@@ -14,9 +14,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
@@ -37,9 +39,6 @@ class PaymentFacadeTest {
     private OrderService orderService;
 
     @Mock
-    private OrderHistoryService orderHistoryService;
-
-    @Mock
     private PaymentService paymentService;
 
     @Mock
@@ -49,7 +48,7 @@ class PaymentFacadeTest {
     private PaymentTransactionService paymentTransactionService;
 
     @Mock
-    private CouponService couponService;
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private PaymentFacade paymentFacade;
@@ -134,7 +133,7 @@ class PaymentFacadeTest {
     class HandleCallback {
 
         @Test
-        @DisplayName("성공: SUCCESS 콜백을 받으면 Payment와 Order를 성공 상태로 변경한다")
+        @DisplayName("성공: SUCCESS 콜백을 받으면 Payment와 Order를 성공 상태로 변경하고 이벤트를 발행한다")
         void handleCallback_success() {
             // Given
             Long orderId = 1L;
@@ -153,10 +152,16 @@ class PaymentFacadeTest {
             assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
             assertThat(payment.getTransactionKey()).isEqualTo("txn-abc-123");
             assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+
+            ArgumentCaptor<PaymentCompletedEvent> captor = ArgumentCaptor.forClass(PaymentCompletedEvent.class);
+            then(eventPublisher).should().publishEvent(captor.capture());
+            PaymentCompletedEvent event = captor.getValue();
+            assertThat(event.orderId()).isEqualTo(orderId);
+            assertThat(event.transactionKey()).isEqualTo("txn-abc-123");
         }
 
         @Test
-        @DisplayName("성공: FAILED 콜백을 받으면 Payment와 Order를 실패 상태로 변경한다")
+        @DisplayName("성공: FAILED 콜백을 받으면 Payment와 Order를 실패 상태로 변경하고 이벤트를 발행한다")
         void handleCallback_failed() {
             // Given
             Long orderId = 1L;
@@ -175,11 +180,17 @@ class PaymentFacadeTest {
             assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
             assertThat(payment.getFailureReason()).isEqualTo("잔액 부족");
             assertThat(order.getStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
+
+            ArgumentCaptor<PaymentFailedEvent> captor = ArgumentCaptor.forClass(PaymentFailedEvent.class);
+            then(eventPublisher).should().publishEvent(captor.capture());
+            PaymentFailedEvent event = captor.getValue();
+            assertThat(event.orderId()).isEqualTo(orderId);
+            assertThat(event.userCouponId()).isNull();
         }
 
         @Test
-        @DisplayName("성공: FAILED 콜백 시 쿠폰이 있으면 복원한다")
-        void handleCallback_failed_restoresCoupon() {
+        @DisplayName("성공: FAILED 콜백 시 쿠폰이 있으면 이벤트에 userCouponId가 포함된다")
+        void handleCallback_failed_includesCouponIdInEvent() {
             // Given
             Long orderId = 1L;
             Long userCouponId = 100L;
@@ -196,27 +207,10 @@ class PaymentFacadeTest {
 
             // Then
             assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
-            then(couponService).should().restoreUserCoupon(userCouponId);
-        }
 
-        @Test
-        @DisplayName("성공: FAILED 콜백 시 쿠폰이 없으면 복원하지 않는다")
-        void handleCallback_failed_noCoupon() {
-            // Given
-            Long orderId = 1L;
-            Order order = createTestOrder();
-            order.startPayment();
-            Payment payment = Payment.create(orderId, 1L, new BigDecimal("50000"), CardType.SAMSUNG, "1234");
-            payment.markPending();
-
-            given(paymentService.getByOrderId(orderId)).willReturn(payment);
-            given(orderService.getById(orderId)).willReturn(order);
-
-            // When
-            paymentFacade.handleCallback(orderId, "txn-abc-123", "FAILED", "잔액 부족");
-
-            // Then
-            then(couponService).should(never()).restoreUserCoupon(anyLong());
+            ArgumentCaptor<PaymentFailedEvent> captor = ArgumentCaptor.forClass(PaymentFailedEvent.class);
+            then(eventPublisher).should().publishEvent(captor.capture());
+            assertThat(captor.getValue().userCouponId()).isEqualTo(userCouponId);
         }
     }
 
@@ -308,8 +302,8 @@ class PaymentFacadeTest {
         }
 
         @Test
-        @DisplayName("성공: PG 조회 후 FAILED 확정 시 쿠폰을 복원한다")
-        void recoverPendingPayments_failed_restoresCoupon() {
+        @DisplayName("성공: PG 조회 후 FAILED 확정 시 PaymentFailedEvent를 발행한다")
+        void recoverPendingPayments_failed_publishesEvent() {
             // Given
             Long userCouponId = 100L;
             Payment payment = Payment.create(1L, 1L, new BigDecimal("45000"), CardType.SAMSUNG, "1234");
@@ -331,7 +325,10 @@ class PaymentFacadeTest {
 
             // Then
             assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
-            then(couponService).should().restoreUserCoupon(userCouponId);
+
+            ArgumentCaptor<PaymentFailedEvent> captor = ArgumentCaptor.forClass(PaymentFailedEvent.class);
+            then(eventPublisher).should().publishEvent(captor.capture());
+            assertThat(captor.getValue().userCouponId()).isEqualTo(userCouponId);
         }
 
         @Test
@@ -356,7 +353,7 @@ class PaymentFacadeTest {
         }
 
         @Test
-        @DisplayName("성공: PG에 거래 내역이 없고 TTL 초과 시 FAILED 처리한다")
+        @DisplayName("성공: PG에 거래 내역이 없고 TTL 초과 시 FAILED 처리하고 이벤트를 발행한다")
         void recoverPendingPayments_noTransactions_ttlExpired() throws Exception {
             // Given
             Long userCouponId = 100L;
@@ -379,7 +376,10 @@ class PaymentFacadeTest {
             // Then
             assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
             assertThat(order.getStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
-            then(couponService).should().restoreUserCoupon(userCouponId);
+
+            ArgumentCaptor<PaymentFailedEvent> captor = ArgumentCaptor.forClass(PaymentFailedEvent.class);
+            then(eventPublisher).should().publishEvent(captor.capture());
+            assertThat(captor.getValue().userCouponId()).isEqualTo(userCouponId);
         }
     }
 
