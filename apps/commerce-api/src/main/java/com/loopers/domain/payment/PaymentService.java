@@ -3,6 +3,7 @@ package com.loopers.domain.payment;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Payment createPending(Long orderId, Long memberId, CardType cardType, String cardNo, long amount) {
@@ -27,6 +29,7 @@ public class PaymentService {
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다."));
         if (success) {
             payment.complete(transactionId);
+            eventPublisher.publishEvent(new PaymentCompletedEvent(orderId, payment.getMemberId(), payment.getAmount()));
         } else {
             payment.fail();
         }
