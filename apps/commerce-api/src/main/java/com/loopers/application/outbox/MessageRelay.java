@@ -2,9 +2,9 @@ package com.loopers.application.outbox;
 
 import com.loopers.domain.outbox.Outbox;
 import com.loopers.domain.outbox.OutboxEvent;
-import com.loopers.domain.outbox.OutboxRepository;
-import lombok.RequiredArgsConstructor;
+import com.loopers.infrastructure.outbox.OutboxRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Pageable;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -19,11 +19,16 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class MessageRelay {
 
     private final OutboxRepository outboxRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
+
+    public MessageRelay(OutboxRepository outboxRepository,
+                        @Qualifier("outboxKafkaTemplate") KafkaTemplate<String, String> kafkaTemplate) {
+        this.outboxRepository = outboxRepository;
+        this.kafkaTemplate = kafkaTemplate;
+    }
 
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void createOutbox(OutboxEvent event) {

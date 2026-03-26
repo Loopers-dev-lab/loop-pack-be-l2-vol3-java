@@ -31,8 +31,8 @@ public class OutboxConfig {
         return new DefaultKafkaProducerFactory<>(props);
     }
 
-    @Bean
-    public KafkaTemplate<String, String> kafkaTemplate(ProducerFactory<String, String> outboxProducerFactory) {
+    @Bean("outboxKafkaTemplate")
+    public KafkaTemplate<String, String> outboxKafkaTemplate(ProducerFactory<String, String> outboxProducerFactory) {
         return new KafkaTemplate<>(outboxProducerFactory);
     }
 

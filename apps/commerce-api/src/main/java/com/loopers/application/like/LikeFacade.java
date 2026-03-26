@@ -23,6 +23,7 @@ public class LikeFacade {
 
     @Transactional
     public LikeInfo register(Long userId, Long productId) {
+        productService.getActiveProduct(productId);
         LikeInfo like = likeService.register(userId, productId);
         outboxEventPublisher.publish(
                 EventType.PRODUCT_LIKED,

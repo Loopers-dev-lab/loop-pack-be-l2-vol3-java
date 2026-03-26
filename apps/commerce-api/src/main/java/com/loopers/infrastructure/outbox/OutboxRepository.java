@@ -1,5 +1,6 @@
-package com.loopers.domain.outbox;
+package com.loopers.infrastructure.outbox;
 
+import com.loopers.domain.outbox.Outbox;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 

@@ -2,6 +2,7 @@ package com.loopers.application.payment;
 
 import com.loopers.application.order.OrderCompensationService;
 import com.loopers.application.order.OrderInfo;
+import com.loopers.application.order.OrderItemInfo;
 import com.loopers.application.order.OrderService;
 import com.loopers.application.outbox.OutboxEventPublisher;
 import com.loopers.domain.order.Order;
@@ -17,6 +18,8 @@ import com.loopers.infrastructure.client.PgPaymentGateway;
 import com.loopers.infrastructure.client.PgTransactionStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -128,9 +131,13 @@ public class PaymentFacade {
                 int affected = paymentRepository.completeIfPending(payment.getId());
                 if (affected > 0) {
                     orderService.markOrderPaid(payment.getOrderId());
+                    List<Long> productIds = orderService.getOrderItems(payment.getOrderId()).stream()
+                                                        .map(OrderItemInfo::productId)
+                                                        .toList();
+
                     outboxEventPublisher.publish(
                             EventType.PAYMENT_COMPLETED,
-                            PaymentCompletedEventPayload.of(payment.getId(), payment.getOrderId(), null),
+                            PaymentCompletedEventPayload.of(payment.getId(), payment.getOrderId(), null, productIds),
                             payment.getOrderId()
                     );
                 }
