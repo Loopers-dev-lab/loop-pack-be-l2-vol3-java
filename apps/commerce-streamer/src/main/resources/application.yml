@@ -32,6 +32,7 @@ demo-kafka:
 collector:
   product:
     topic-name: product-events
+    dlq-suffix: .DLQ
 
 ---
 spring:

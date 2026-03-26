@@ -22,6 +22,7 @@ INTERNAL_BOOTSTRAP="${KAFKA_INTERNAL_BOOTSTRAP:-localhost:9092}"
 
 TOPICS=(
   "product-events"
+  "product-events.DLQ"
   "order-events"
   "coupon-issue-requests"
 )
