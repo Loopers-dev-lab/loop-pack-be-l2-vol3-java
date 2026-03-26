@@ -9,6 +9,7 @@ spring:
     import:
       - jpa.yml
       - redis.yml
+      - kafka.yml
       - logging.yml
       - monitoring.yml
   batch:
@@ -22,6 +23,18 @@ management:
     defaults:
       enabled: false
 
+outbox:
+  relay:
+    enabled: true
+    batch-size: 100
+    send-ack-timeout: 5s
+  cleanup:
+    enabled: true
+    retention: 7d
+    batch-size: 500
+    max-deletes-per-run: 10000
+    fixed-delay-ms: 3600000
+
 ---
 spring:
   config:
@@ -30,6 +43,15 @@ spring:
   batch:
     jdbc:
       initialize-schema: always
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+outbox:
+  cleanup:
+    enabled: false
 
 ---
 spring:
