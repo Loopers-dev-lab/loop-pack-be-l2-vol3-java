@@ -5,19 +5,16 @@ import com.loopers.event.EventType;
 import com.loopers.event.Snowflake;
 import com.loopers.event.Topic;
 import com.loopers.event.payload.ProductViewedEventPayload;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class ProductViewEventPublisher {
     private final KafkaTemplate<String, String> kafkaTemplate;
-
-    public ProductViewEventPublisher(@Qualifier("outboxKafkaTemplate") KafkaTemplate<String, String> kafkaTemplate) {
-        this.kafkaTemplate = kafkaTemplate;
-    }
     private final Snowflake eventIdSnowflake = new Snowflake();
 
     public void publish(Long productId) {
