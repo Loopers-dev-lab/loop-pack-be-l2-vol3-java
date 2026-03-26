@@ -7,6 +7,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.header.internals.RecordHeader;
 import org.apache.kafka.common.TopicPartition;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -14,6 +16,7 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Collections;
@@ -22,12 +25,16 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class OutboxDlqRedriveService {
+    private static final String HEADER_REDRIVE_ATTEMPT = "x-redrive-attempt";
+    private static final String HEADER_REDRIVE_RESULT = "x-redrive-result";
+    private static final String RESULT_PARKED = "parked";
 
     private final ConsumerFactory<Object, Object> consumerFactory;
     private final KafkaTemplate<Object, Object> kafkaTemplate;
     private final OutboxDlqRedriveProperties properties;
     private final Counter successCounter;
     private final Counter failedCounter;
+    private final Counter parkedCounter;
 
     public OutboxDlqRedriveService(
             ConsumerFactory<Object, Object> consumerFactory,
@@ -40,6 +47,7 @@ public class OutboxDlqRedriveService {
         this.properties = properties;
         this.successCounter = meterRegistry.counter("kafka.outbox.dlq.redrive.success");
         this.failedCounter = meterRegistry.counter("kafka.outbox.dlq.redrive.failed");
+        this.parkedCounter = meterRegistry.counter("kafka.outbox.dlq.redrive.parked");
     }
 
     public int redriveOnce(int batchSize) {
@@ -64,6 +72,11 @@ public class OutboxDlqRedriveService {
                 if (successCount >= maxBatchSize) {
                     break;
                 }
+                int currentAttempt = extractAttempt(record.headers().lastHeader(HEADER_REDRIVE_ATTEMPT));
+                if (currentAttempt >= properties.maxAttempts()) {
+                    parkAndCommit(record, consumer, currentAttempt);
+                    continue;
+                }
                 try {
                     ProducerRecord<Object, Object> producerRecord = new ProducerRecord<>(
                             properties.sourceTopic(),
@@ -72,6 +85,11 @@ public class OutboxDlqRedriveService {
                             record.value()
                     );
                     record.headers().forEach(h -> producerRecord.headers().add(h));
+                    producerRecord.headers().remove(HEADER_REDRIVE_ATTEMPT);
+                    producerRecord.headers().add(new RecordHeader(
+                            HEADER_REDRIVE_ATTEMPT,
+                            String.valueOf(currentAttempt + 1).getBytes(StandardCharsets.UTF_8)
+                    ));
 
                     kafkaTemplate.send(producerRecord)
                             .get(sendAckTimeoutMs, TimeUnit.MILLISECONDS);
@@ -89,5 +107,46 @@ public class OutboxDlqRedriveService {
         }
 
         return successCount;
+    }
+
+    private void parkAndCommit(ConsumerRecord<Object, Object> record, Consumer<Object, Object> consumer, int attempt) {
+        try {
+            ProducerRecord<Object, Object> parkRecord = new ProducerRecord<>(
+                    properties.parkingTopic(),
+                    null,
+                    record.key(),
+                    record.value()
+            );
+            record.headers().forEach(h -> parkRecord.headers().add(h));
+            parkRecord.headers().remove(HEADER_REDRIVE_RESULT);
+            parkRecord.headers().add(new RecordHeader(
+                    HEADER_REDRIVE_RESULT,
+                    RESULT_PARKED.getBytes(StandardCharsets.UTF_8)
+            ));
+            parkRecord.headers().remove(HEADER_REDRIVE_ATTEMPT);
+            parkRecord.headers().add(new RecordHeader(
+                    HEADER_REDRIVE_ATTEMPT,
+                    String.valueOf(attempt).getBytes(StandardCharsets.UTF_8)
+            ));
+
+            kafkaTemplate.send(parkRecord).get(properties.sendAckTimeout().toMillis(), TimeUnit.MILLISECONDS);
+            TopicPartition tp = new TopicPartition(record.topic(), record.partition());
+            OffsetAndMetadata offset = new OffsetAndMetadata(record.offset() + 1);
+            consumer.commitSync(Map.of(tp, offset));
+            parkedCounter.increment();
+        } catch (Exception e) {
+            failedCounter.increment();
+        }
+    }
+
+    private static int extractAttempt(Header attemptHeader) {
+        if (attemptHeader == null || attemptHeader.value() == null) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(new String(attemptHeader.value(), StandardCharsets.UTF_8));
+        } catch (Exception ignored) {
+            return 0;
+        }
     }
 }

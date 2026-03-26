@@ -29,10 +29,11 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.batch.job.enabled=false",
         "outbox.relay.enabled=false",
         "outbox.dlq-redrive.enabled=false",
-        "outbox.dlq-redrive.group-id=dlq-redrive-it"
+        "outbox.dlq-redrive.group-id=dlq-redrive-it",
+        "outbox.dlq-redrive.max-attempts=3"
 })
 @Import(MySqlTestContainersConfig.class)
-@EmbeddedKafka(partitions = 1, topics = {"product-events", "product-events.DLQ"})
+@EmbeddedKafka(partitions = 1, topics = {"product-events", "product-events.DLQ", "product-events.DLQ.PARK"})
 class OutboxDlqRedriveIntegrationTest {
 
     @Autowired
@@ -88,6 +89,36 @@ class OutboxDlqRedriveIntegrationTest {
 
         int secondRun = outboxDlqRedriveService.redriveOnce(10);
         assertThat(secondRun).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("재처리 한도에 도달한 메시지는 PARK 토픽으로 격리한다.")
+    void redriveOnce_whenMaxAttemptReached_shouldParkMessage() {
+        ProducerRecord<Object, Object> dlqRecord = new ProducerRecord<>(
+                "product-events.DLQ",
+                "1",
+                "{\"eventId\":\"evt-redrive-park\",\"eventType\":\"PRODUCT_LIKE_CHANGED\"}"
+        );
+        dlqRecord.headers().add("eventId", "evt-redrive-park".getBytes(StandardCharsets.UTF_8));
+        dlqRecord.headers().add("x-redrive-attempt", "3".getBytes(StandardCharsets.UTF_8));
+        kafkaTemplate.send(dlqRecord);
+        kafkaTemplate.flush();
+
+        int redriven = outboxDlqRedriveService.redriveOnce(10);
+        assertThat(redriven).isEqualTo(0);
+        assertThat(counterValue("kafka.outbox.dlq.redrive.parked")).isEqualTo(1.0);
+
+        Consumer<String, String> parkConsumer = new DefaultKafkaConsumerFactory<>(
+                KafkaTestUtils.consumerProps("redrive-park-read", "false", embeddedKafkaBroker),
+                new StringDeserializer(),
+                new StringDeserializer()
+        ).createConsumer();
+        embeddedKafkaBroker.consumeFromAnEmbeddedTopic(parkConsumer, "product-events.DLQ.PARK");
+        ConsumerRecord<String, String> parked = KafkaTestUtils.getSingleRecord(parkConsumer, "product-events.DLQ.PARK");
+        Header resultHeader = parked.headers().lastHeader("x-redrive-result");
+        assertThat(resultHeader).isNotNull();
+        assertThat(new String(resultHeader.value(), StandardCharsets.UTF_8)).isEqualTo("parked");
+        parkConsumer.close();
     }
 
     private double counterValue(String name) {

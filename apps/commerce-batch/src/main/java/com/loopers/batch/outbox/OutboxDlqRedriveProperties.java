@@ -9,8 +9,10 @@ public record OutboxDlqRedriveProperties(
         boolean enabled,
         String sourceTopic,
         String dlqTopic,
+        String parkingTopic,
         String groupId,
         int batchSize,
+        int maxAttempts,
         Duration pollTimeout,
         Duration sendAckTimeout,
         long fixedDelayMs
@@ -22,11 +24,17 @@ public record OutboxDlqRedriveProperties(
         if (dlqTopic == null || dlqTopic.isBlank()) {
             dlqTopic = sourceTopic + ".DLQ";
         }
+        if (parkingTopic == null || parkingTopic.isBlank()) {
+            parkingTopic = dlqTopic + ".PARK";
+        }
         if (groupId == null || groupId.isBlank()) {
             groupId = "outbox-dlq-redrive";
         }
         if (batchSize <= 0) {
             batchSize = 100;
+        }
+        if (maxAttempts <= 0) {
+            maxAttempts = 5;
         }
         if (pollTimeout == null || pollTimeout.isZero() || pollTimeout.isNegative()) {
             pollTimeout = Duration.ofSeconds(1);

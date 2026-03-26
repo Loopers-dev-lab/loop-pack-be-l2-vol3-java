@@ -32,8 +32,10 @@ outbox:
     enabled: false
     source-topic: product-events
     dlq-topic: product-events.DLQ
+    parking-topic: product-events.DLQ.PARK
     group-id: outbox-dlq-redrive
     batch-size: 100
+    max-attempts: 5
     poll-timeout: 1s
     send-ack-timeout: 5s
     fixed-delay-ms: 5000
