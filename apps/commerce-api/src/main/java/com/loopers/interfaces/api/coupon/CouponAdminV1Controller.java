@@ -49,7 +49,8 @@ public class CouponAdminV1Controller implements CouponAdminV1ApiSpec {
             request.type(),
             request.value(),
             request.minOrderAmount(),
-            request.expiredAt()
+            request.expiredAt(),
+            request.issueLimit()
         );
         return ApiResponse.success(CouponAdminV1Dto.CouponResponse.from(info));
     }
@@ -66,7 +67,8 @@ public class CouponAdminV1Controller implements CouponAdminV1ApiSpec {
             request.type(),
             request.value(),
             request.minOrderAmount(),
-            request.expiredAt()
+            request.expiredAt(),
+            request.issueLimit()
         );
         return ApiResponse.success(CouponAdminV1Dto.CouponResponse.from(info));
     }

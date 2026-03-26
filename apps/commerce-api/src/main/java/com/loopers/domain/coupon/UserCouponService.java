@@ -20,7 +20,7 @@ public class UserCouponService {
 
     @Transactional
     public UserCouponModel issue(Long userId, Long couponId) {
-        CouponModel coupon = couponService.getCoupon(couponId);
+        CouponModel coupon = couponService.getCouponForUpdate(couponId);
 
         if (coupon.isExpired()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰은 발급할 수 없습니다.");
@@ -30,6 +30,7 @@ public class UserCouponService {
             throw new CoreException(ErrorType.CONFLICT, "이미 발급된 쿠폰입니다.");
         }
 
+        coupon.reserveIssue();
         UserCouponModel userCoupon = new UserCouponModel(userId, coupon);
         try {
             return userCouponRepository.save(userCoupon);

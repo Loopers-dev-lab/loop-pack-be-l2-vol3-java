@@ -27,6 +27,9 @@ public class CouponAdminV1Dto {
         @Min(value = 0, message = "최소 주문 금액은 0 이상이어야 합니다.")
         Long minOrderAmount,
 
+        @Min(value = 1, message = "발급 수량 제한은 1 이상이어야 합니다.")
+        Long issueLimit,
+
         @NotNull(message = "만료 시각은 필수입니다.")
         @Future(message = "만료 시각은 미래여야 합니다.")
         ZonedDateTime expiredAt
@@ -46,6 +49,9 @@ public class CouponAdminV1Dto {
         @Min(value = 0, message = "최소 주문 금액은 0 이상이어야 합니다.")
         Long minOrderAmount,
 
+        @Min(value = 1, message = "발급 수량 제한은 1 이상이어야 합니다.")
+        Long issueLimit,
+
         @NotNull(message = "만료 시각은 필수입니다.")
         @Future(message = "만료 시각은 미래여야 합니다.")
         ZonedDateTime expiredAt
@@ -58,6 +64,8 @@ public class CouponAdminV1Dto {
         Long value,
         Long minOrderAmount,
         ZonedDateTime expiredAt,
+        Long issueLimit,
+        Long issuedCount,
         ZonedDateTime createdAt,
         ZonedDateTime updatedAt
     ) {
@@ -69,6 +77,8 @@ public class CouponAdminV1Dto {
                 info.value(),
                 info.minOrderAmount(),
                 info.expiredAt(),
+                info.issueLimit(),
+                info.issuedCount(),
                 info.createdAt(),
                 info.updatedAt()
             );
