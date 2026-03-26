@@ -5,22 +5,24 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
+import org.hibernate.annotations.Immutable;
 
 @Getter
 @Entity
+@Immutable
 @Table(name = "product_metrics")
-public class ProductMetrics {
+public class ProductMetricsReadModel {
     @Id
     private Long productId;
 
     @Column(nullable = false)
-    private Long likeCount = 0L;
+    private Long likeCount;
 
     @Column(nullable = false)
-    private Long viewCount = 0L;
+    private Long viewCount;
 
     @Column(nullable = false)
-    private Long orderCount = 0L;
+    private Long orderCount;
 
-    protected ProductMetrics() {}
+    protected ProductMetricsReadModel() {}
 }

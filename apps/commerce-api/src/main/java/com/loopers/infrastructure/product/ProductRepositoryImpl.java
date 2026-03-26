@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.product;
 
+import com.loopers.domain.metrics.QProductMetricsReadModel;
 import com.loopers.domain.product.ProductOrder;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
@@ -7,9 +8,6 @@ import com.loopers.domain.product.QProduct;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.Query;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -24,8 +22,6 @@ import java.util.Optional;
 public class ProductRepositoryImpl implements ProductRepository {
     private final ProductJpaRepository productJpaRepository;
     private final JPAQueryFactory queryFactory;
-    @PersistenceContext
-    private EntityManager entityManager;
 
     @Override
     public Product save(Product product) {
@@ -39,11 +35,8 @@ public class ProductRepositoryImpl implements ProductRepository {
 
     @Override
     public Page<Product> findActiveProducts(Long brandId, ProductOrder order, Pageable pageable) {
-        if (order == ProductOrder.LIKES_DESC) {
-            return findActiveProductsOrderByLikes(brandId, pageable);
-        }
-
         QProduct product = QProduct.product;
+        QProductMetricsReadModel metrics = QProductMetricsReadModel.productMetricsReadModel;
 
         BooleanBuilder builder = new BooleanBuilder();
         builder.and(product.deletedAt.isNull());
@@ -56,11 +49,12 @@ public class ProductRepositoryImpl implements ProductRepository {
         OrderSpecifier<?> orderSpecifier = switch (order) {
             case PRICE_ASC -> product.price.asc();
             case LATEST -> product.id.desc();
-        case LIKES_DESC -> throw new IllegalStateException("LIKES_DESC는 별도 메서드로 처리");
+            case LIKES_DESC -> metrics.likeCount.coalesce(0L).desc();
         };
 
         List<Product> content = queryFactory
                 .selectFrom(product)
+                .leftJoin(metrics).on(metrics.productId.eq(product.id))
                 .where(builder)
                 .orderBy(orderSpecifier)
                 .offset(pageable.getOffset())
@@ -74,40 +68,6 @@ public class ProductRepositoryImpl implements ProductRepository {
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, total != null ? total : 0);
-    }
-
-    private Page<Product> findActiveProductsOrderByLikes(Long brandId, Pageable pageable) {
-        String where = "WHERE p.deleted_at IS NULL AND p.visibility = 'VISIBLE'";
-        if (brandId != null) {
-            where += " AND p.brand_id = :brandId";
-        }
-
-        String sql = """
-                SELECT p.* FROM product p
-                LEFT JOIN product_metrics pm ON pm.product_id = p.id
-                %s
-                ORDER BY COALESCE(pm.like_count, 0) DESC
-                LIMIT :limit OFFSET :offset
-                """.formatted(where);
-
-        String countSql = "SELECT COUNT(*) FROM product p " + where;
-
-        Query query = entityManager.createNativeQuery(sql, Product.class)
-                .setParameter("limit", pageable.getPageSize())
-                .setParameter("offset", (int) pageable.getOffset());
-
-        Query countQuery = entityManager.createNativeQuery(countSql);
-
-        if (brandId != null) {
-            query.setParameter("brandId", brandId);
-            countQuery.setParameter("brandId", brandId);
-        }
-
-        @SuppressWarnings("unchecked")
-        List<Product> content = query.getResultList();
-        long total = ((Number) countQuery.getSingleResult()).longValue();
-
-        return new PageImpl<>(content, pageable, total);
     }
 
     @Override
