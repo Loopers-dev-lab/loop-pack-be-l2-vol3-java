@@ -199,9 +199,14 @@ ProductCachePort (application, interface)
 
 ### Grafana에서 읽은 것
 
-![P95 Response Time + P50/RPS](../docs/images/grafana-dashboard-top.png)
-![P50 + RPS + Error Rate + HikariCP](../docs/images/grafana-dashboard-middle.png)
-![Error Rate + HikariCP + JVM Heap + Total Requests](../docs/images/grafana-dashboard-bottom.png)
+![](blob:https://velog.io/aed83a2a-5306-4f43-a971-1f887d09dc39)
+*P95 Response Time + P50/RPS*
+
+![](https://velog.velcdn.com/images/sukhee/post/97a9acb2-04c2-4f57-8aac-de800887b6ab/image.png)
+*P50 + RPS + Error Rate + HikariCP*
+
+![](https://velog.velcdn.com/images/sukhee/post/2630fb37-9da0-4bc2-a871-815c6f9181e9/image.png)
+*Error Rate + HikariCP + JVM Heap + Total Requests*
 
 숫자 테이블보다 Grafana가 더 직관적으로 보여주는 것들이 있었다.
 

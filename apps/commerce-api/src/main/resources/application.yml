@@ -29,6 +29,67 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+# PG 설정
+pg:
+  simulator:
+    url: http://localhost:8081
+    connect-timeout: 500
+    read-timeout: 1000
+  toss:
+    url: http://localhost:8082
+    connect-timeout: 500
+    read-timeout: 2000
+
+# 결제 콜백
+payment:
+  callback-url: http://localhost:8080/api/v1/payments/callback
+  retry:
+    max-attempts: 3
+    initial-wait-ms: 500
+    backoff-multiplier: 2
+
+# Resilience4j 설정
+# CB 3개 (쓰기만) — 읽기 CB 제거 근거: 06 §18
+# 읽기(상태 조회)는 "복구 행위"이므로 CB가 차단하면 복구가 멈춤 → Timeout만으로 보호
+resilience4j:
+  circuitbreaker:
+    instances:
+      # PG Simulator 결제 요청 (POST) — 쓰기
+      pgSimulator-request:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50       # PG 정상 실패율(40%) + 여유 10%p
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 2
+        slow-call-duration-threshold: 2s
+        slow-call-rate-threshold: 50
+        register-health-indicator: true
+      # Toss 결제 승인 (POST) — 쓰기
+      pgToss-request:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 15s # Toss는 안정적, 복구 여유 더 줌
+        permitted-number-of-calls-in-half-open-state: 2
+        slow-call-duration-threshold: 3s
+        slow-call-rate-threshold: 50
+        register-health-indicator: true
+      # Redis 가주문 쓰기 (Master) — 쓰기
+      redis-write:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 5s  # Redis 복구가 빠르므로 짧게
+        permitted-number-of-calls-in-half-open-state: 3
+        register-health-indicator: true
+  ratelimiter:
+    instances:
+      # 배치 PG 상태 조회 Rate Limiter — Fixed Window (배치는 순차 호출이므로 경계 돌파 불가)
+      pgStatusBatch:
+        limit-for-period: 10
+        limit-refresh-period: 1s
+        timeout-duration: 0              # 초과 시 즉시 실패 (대기 안 함)
+
 ---
 spring:
   config:

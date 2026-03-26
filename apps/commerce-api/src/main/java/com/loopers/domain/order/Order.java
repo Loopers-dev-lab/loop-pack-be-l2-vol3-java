@@ -84,6 +84,16 @@ public class Order extends BaseEntity {
         return Collections.unmodifiableList(items);
     }
 
+    public void pay() {
+        if (this.status == OrderStatus.PAID) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "이미 결제된 주문입니다.");
+        }
+        if (this.status == OrderStatus.CANCELLED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "취소된 주문은 결제할 수 없습니다.");
+        }
+        this.status = OrderStatus.PAID;
+    }
+
     public void cancel() {
         if (this.status == OrderStatus.CANCELLED) {
             throw new CoreException(ErrorType.BAD_REQUEST, "이미 취소된 주문입니다.");
