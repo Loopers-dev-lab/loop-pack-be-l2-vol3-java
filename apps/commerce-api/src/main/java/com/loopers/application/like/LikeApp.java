@@ -5,12 +5,9 @@ import com.loopers.domain.common.vo.RefMemberId;
 import com.loopers.domain.like.LikeActionResult;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.like.LikeService;
-import com.loopers.domain.like.event.LikeRemovedEvent;
-import com.loopers.domain.like.event.LikedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -28,7 +25,6 @@ public class LikeApp {
     private final LikeService likeService;
     private final LikeRepository likeRepository;
     private final OutboxAppender outboxAppender;
-    private final ApplicationEventPublisher eventPublisher;
 
     @Caching(evict = {
         @CacheEvict(value = "product",  key = "#productId"),
@@ -43,7 +39,6 @@ public class LikeApp {
             LocalDateTime now = LocalDateTime.now();
             LikeOutboxPayload payload = new LikeOutboxPayload(eventId, "LikedEvent", 1, productDbId, memberId, 1, now);
             outboxAppender.append("like", productId, "LikedEvent", CATALOG_EVENTS_TOPIC, payload);
-            eventPublisher.publishEvent(new LikedEvent(eventId, productDbId, memberId, now));
         }
         return LikeInfo.from(result.likeModel());
     }
@@ -60,7 +55,6 @@ public class LikeApp {
             LocalDateTime now = LocalDateTime.now();
             LikeOutboxPayload payload = new LikeOutboxPayload(eventId, "LikeRemovedEvent", 1, productDbId, memberId, -1, now);
             outboxAppender.append("like", productId, "LikeRemovedEvent", CATALOG_EVENTS_TOPIC, payload);
-            eventPublisher.publishEvent(new LikeRemovedEvent(eventId, productDbId, memberId, now));
         });
     }
 

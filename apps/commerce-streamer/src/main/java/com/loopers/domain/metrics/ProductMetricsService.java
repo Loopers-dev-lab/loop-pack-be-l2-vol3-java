@@ -16,11 +16,7 @@ public class ProductMetricsService {
     public void applyLikeDelta(Long productDbId, int delta, LocalDateTime eventAt) {
         productMetricsRepository.findByRefProductId(productDbId)
                 .ifPresentOrElse(
-                        metrics -> {
-                            if (!metrics.isStale(eventAt)) {
-                                metrics.applyDelta(delta, eventAt);
-                            }
-                        },
+                        metrics -> metrics.applyDelta(delta, eventAt),
                         () -> productMetricsRepository.save(ProductMetricsModel.create(productDbId, delta, eventAt))
                 );
     }

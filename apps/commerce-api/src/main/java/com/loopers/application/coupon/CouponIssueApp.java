@@ -7,12 +7,10 @@ import com.loopers.domain.coupon.CouponIssueRequestRepository;
 import com.loopers.domain.coupon.CouponIssueStatus;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.CouponTemplateModel;
-import com.loopers.domain.coupon.event.CouponIssueRequestedEvent;
 import com.loopers.domain.coupon.vo.RefCouponTemplateId;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +27,6 @@ public class CouponIssueApp {
     private final CouponService couponService;
     private final CouponIssueRequestRepository couponIssueRequestRepository;
     private final OutboxAppender outboxAppender;
-    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public CouponIssueRequestInfo requestIssue(Long couponTemplateId, Long memberId) {
@@ -56,9 +53,8 @@ public class CouponIssueApp {
                 eventId, "CouponIssueRequested", 1,
                 request.getRequestId(), couponTemplateId, memberId, now);
         outboxAppender.append(
-                "coupon_issue_request", String.valueOf(couponTemplateId),
+                "coupon_issue_request", request.getRequestId(),
                 "CouponIssueRequested", COUPON_ISSUE_TOPIC, payload);
-        eventPublisher.publishEvent(new CouponIssueRequestedEvent(eventId, request.getRequestId(), couponTemplateId, memberId, now));
 
         return CouponIssueRequestInfo.from(request);
     }
