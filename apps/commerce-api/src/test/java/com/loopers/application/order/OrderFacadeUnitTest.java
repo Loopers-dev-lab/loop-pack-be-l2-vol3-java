@@ -2,13 +2,14 @@ package com.loopers.application.order;
 
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.coupon.CouponService;
+import com.loopers.domain.coupon.UserCouponService;
 import com.loopers.domain.member.MemberModel;
 import com.loopers.domain.member.MemberService;
 import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderService;
-import com.loopers.domain.coupon.CouponService;
-import com.loopers.domain.coupon.UserCouponService;
+import com.loopers.domain.order.event.OrderCreatedEvent;
 import com.loopers.domain.point.PointService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
@@ -19,9 +20,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -32,9 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OrderFacadeUnitTest {
@@ -59,6 +60,9 @@ class OrderFacadeUnitTest {
 
     @Mock
     private UserCouponService userCouponService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private OrderFacade orderFacade;
@@ -173,6 +177,43 @@ class OrderFacadeUnitTest {
 
             // then
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("정상 흐름이면, 주문이 생성되고 OrderCreatedEvent가 발행된다.")
+        @Test
+        void createOrderPublishesEvent() {
+            // given
+            MemberModel member = new MemberModel("testuser", "password1!@", "홍길동",
+                    LocalDate.of(2000, 6, 5), "test@example.com");
+            ReflectionTestUtils.setField(member, "id", 1L);
+
+            ProductModel product = new ProductModel(1L, "에어맥스", "러닝화", 129000, 100, null);
+            ReflectionTestUtils.setField(product, "id", 10L);
+
+            BrandModel brand = new BrandModel("나이키", "스포츠 브랜드", "https://example.com/nike.png");
+            OrderItemModel savedItem = new OrderItemModel(10L, "에어맥스", "나이키", 129000, 2);
+            OrderModel order = new OrderModel(1L, List.of(savedItem), null, 0);
+            ReflectionTestUtils.setField(order, "id", 100L);
+
+            when(memberService.getMyInfo("testuser", "password1!@")).thenReturn(member);
+            when(productService.getById(10L)).thenReturn(product);
+            when(brandService.getById(1L)).thenReturn(brand);
+            when(orderService.createOrder(eq(1L), any(), any(), eq(0))).thenReturn(order);
+            when(orderService.getOrderItems(100L)).thenReturn(List.of(savedItem));
+
+            List<OrderFacade.OrderItemRequest> requests = List.of(
+                    new OrderFacade.OrderItemRequest(10L, 2)
+            );
+
+            // when
+            orderFacade.createOrder("testuser", "password1!@", requests, null);
+
+            // then
+            ArgumentCaptor<OrderCreatedEvent> captor =
+                    ArgumentCaptor.forClass(OrderCreatedEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().orderId()).isEqualTo(100L);
+            assertThat(captor.getValue().memberId()).isEqualTo(1L);
         }
     }
 

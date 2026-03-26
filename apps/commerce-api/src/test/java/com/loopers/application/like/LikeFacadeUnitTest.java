@@ -1,20 +1,23 @@
 package com.loopers.application.like;
 
 import com.loopers.domain.like.ProductLikeService;
+import com.loopers.domain.like.event.ProductLikedEvent;
+import com.loopers.domain.like.event.ProductUnlikedEvent;
 import com.loopers.domain.member.MemberModel;
 import com.loopers.domain.member.MemberService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
-import com.loopers.infrastructure.product.ProductCacheService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -35,11 +38,11 @@ class LikeFacadeUnitTest {
     @Mock
     private ProductService productService;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     @InjectMocks
     private LikeFacade likeFacade;
-
-    @Mock
-    private ProductCacheService productCacheService;
 
     private MemberModel createMember() {
         MemberModel member = new MemberModel("testuser", "password1!@", "홍길동",
@@ -58,7 +61,7 @@ class LikeFacadeUnitTest {
     @Nested
     class AddLike {
 
-        @DisplayName("정상 흐름이면, 회원 인증 + 상품 검증 후 좋아요가 등록되고 likeCount가 증가한다.")
+        @DisplayName("정상 흐름이면, 회원 인증 + 상품 검증 후 좋아요가 등록되고 이벤트가 발행된다.")
         @Test
         void addLikeSuccess() {
             // given
@@ -72,14 +75,14 @@ class LikeFacadeUnitTest {
 
             // then
             verify(productLikeService).addLike(1L, 10L);
-            verify(productService).increaseLikeCount(10L);
 
-            // 캐시 무효화 검증
-            verify(productCacheService).evictProductDetail(10L);
-            verify(productCacheService).evictProductList();
+            ArgumentCaptor<ProductLikedEvent> captor = ArgumentCaptor.forClass(ProductLikedEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().memberId()).isEqualTo(1L);
+            assertThat(captor.getValue().productId()).isEqualTo(10L);
         }
 
-        @DisplayName("이미 좋아요한 상품이면, CONFLICT 예외가 발생하고 likeCount는 증가하지 않는다.")
+        @DisplayName("이미 좋아요한 상품이면, CONFLICT 예외가 발생하고 이벤트는 발행되지 않는다.")
         @Test
         void failWithAlreadyLiked() {
             // given
@@ -97,11 +100,7 @@ class LikeFacadeUnitTest {
 
             // then
             assertThat(result.getErrorType()).isEqualTo(ErrorType.CONFLICT);
-            verify(productService, never()).increaseLikeCount(10L);
-
-            // 실패 시 캐시 무효화도 호출되면 안 됨
-            verify(productCacheService, never()).evictProductDetail(10L);
-            verify(productCacheService, never()).evictProductList();
+            verify(eventPublisher, never()).publishEvent(any());
         }
 
         @DisplayName("존재하지 않는 상품이면, NOT_FOUND 예외가 발생한다.")
@@ -121,13 +120,14 @@ class LikeFacadeUnitTest {
             // then
             assertThat(result.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
         }
+
     }
 
     @DisplayName("좋아요를 취소할 때,")
     @Nested
     class RemoveLike {
 
-        @DisplayName("정상 흐름이면, 좋아요가 제거되고 likeCount가 감소한다.")
+        @DisplayName("정상 흐름이면, 좋아요가 제거되고 이벤트가 발행된다.")
         @Test
         void removeLikeSuccess() {
             // given
@@ -141,11 +141,11 @@ class LikeFacadeUnitTest {
 
             // then
             verify(productLikeService).removeLike(1L, 10L);
-            verify(productService).decreaseLikeCount(10L);
 
-            // 캐시 무효화 검증
-            verify(productCacheService).evictProductDetail(10L);
-            verify(productCacheService).evictProductList();
+            ArgumentCaptor<ProductUnlikedEvent> captor = ArgumentCaptor.forClass(ProductUnlikedEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().memberId()).isEqualTo(1L);
+            assertThat(captor.getValue().productId()).isEqualTo(10L);
         }
 
         @DisplayName("좋아요하지 않은 상품이면, NOT_FOUND 예외가 발생한다.")

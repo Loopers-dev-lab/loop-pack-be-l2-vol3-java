@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -42,11 +43,14 @@ class ProductFacadeUnitTest {
     @Mock
     private ProductLikeService productLikeService;
 
-    @InjectMocks
-    private ProductFacade productFacade;
-
     @Mock
     private ProductCacheService productCacheService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
+    @InjectMocks
+    private ProductFacade productFacade;
 
     @DisplayName("상품 상세를 조회할 때,")
     @Nested
