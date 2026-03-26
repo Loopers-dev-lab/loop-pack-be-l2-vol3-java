@@ -45,13 +45,10 @@ public class DataInitializer {
         for (int i = 0; i < brandIds.size(); i++) {
             Long brandId = brandIds.get(i);
 
-            boolean isTopBrand = i < 10; // 앞 10개 브랜드만 top
+            boolean isTopBrand = i < 10;
             int productCount = isTopBrand ? 10_000 : 2_500;
-            int likeMin = isTopBrand ? 300 : 0;
-            int likeMax = isTopBrand ? 3_000 : 2_000;
 
             insertProducts(brandId, productCount);
-            updateLikeCount(brandId, likeMin, likeMax);
         }
     }
 
@@ -84,13 +81,4 @@ public class DataInitializer {
         });
     }
 
-    void updateLikeCount(Long brandId, int min, int max) {
-        transactionTemplate.executeWithoutResult(status ->
-            entityManager.createNativeQuery("UPDATE products SET like_count = FLOOR(:min + RAND() * (:max - :min + 1)) WHERE brand_id = :brandId")
-                .setParameter("min", min)
-                .setParameter("max", max)
-                .setParameter("brandId", brandId)
-                .executeUpdate()
-        );
-    }
 }

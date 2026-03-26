@@ -9,7 +9,6 @@ import com.loopers.domain.user.UserFixture;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
 import com.loopers.infrastructure.coupon.CouponJpaRepository;
 import com.loopers.infrastructure.coupon.IssuedCouponJpaRepository;
-import com.loopers.infrastructure.like.LikeJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.infrastructure.user.UserJpaRepository;
 import com.loopers.interfaces.api.order.OrderV1Dto;
@@ -44,7 +43,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ConcurrencyE2ETest {
 
     private static final String ORDERS_ENDPOINT = "/api/v1/orders";
-    private static final String PRODUCTS_ENDPOINT = "/api/v1/products";
     private static final String RAW_PASSWORD = "TestPass1!";
 
     private final TestRestTemplate testRestTemplate;
@@ -53,7 +51,6 @@ class ConcurrencyE2ETest {
     private final ProductJpaRepository productJpaRepository;
     private final CouponJpaRepository couponJpaRepository;
     private final IssuedCouponJpaRepository issuedCouponJpaRepository;
-    private final LikeJpaRepository likeJpaRepository;
     private final DatabaseCleanUp databaseCleanUp;
     private final BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
 
@@ -65,7 +62,6 @@ class ConcurrencyE2ETest {
             ProductJpaRepository productJpaRepository,
             CouponJpaRepository couponJpaRepository,
             IssuedCouponJpaRepository issuedCouponJpaRepository,
-            LikeJpaRepository likeJpaRepository,
             DatabaseCleanUp databaseCleanUp
     ) {
         this.testRestTemplate = testRestTemplate;
@@ -74,7 +70,6 @@ class ConcurrencyE2ETest {
         this.productJpaRepository = productJpaRepository;
         this.couponJpaRepository = couponJpaRepository;
         this.issuedCouponJpaRepository = issuedCouponJpaRepository;
-        this.likeJpaRepository = likeJpaRepository;
         this.databaseCleanUp = databaseCleanUp;
     }
 
@@ -210,61 +205,4 @@ class ConcurrencyE2ETest {
         assertThat(usedCoupon.getUsedAt()).isNotNull();
     }
 
-    @DisplayName("N명이 동시에 좋아요를 등록하면, likeCount는 정확히 N이 된다.")
-    @Test
-    void likeCount_동시성_테스트() throws InterruptedException {
-        // arrange
-        int threadCount = 10;
-
-        String encodedPassword = bCryptPasswordEncoder.encode(RAW_PASSWORD);
-        Brand brand = brandJpaRepository.save(Brand.create("나이키", "스포츠"));
-        Product product = productJpaRepository.save(Product.create(brand.getId(), "에어맥스", null, 10000, 100));
-        String likeUrl = PRODUCTS_ENDPOINT + "/" + product.getId() + "/likes";
-
-        List<User> users = new ArrayList<>();
-        for (int i = 0; i < threadCount; i++) {
-            users.add(userJpaRepository.save(
-                    UserFixture.builder()
-                               .loginId("likeUser" + i)
-                               .password(encodedPassword)
-                               .build()));
-        }
-
-        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
-        CountDownLatch startLatch = new CountDownLatch(1);
-        CountDownLatch doneLatch = new CountDownLatch(threadCount);
-        AtomicInteger successCount = new AtomicInteger(0);
-
-        for (int i = 0; i < threadCount; i++) {
-            final User user = users.get(i);
-            executor.submit(() -> {
-                try {
-                    startLatch.await();
-                    ResponseEntity<ApiResponse<?>> response = testRestTemplate.exchange(
-                            likeUrl, HttpMethod.POST,
-                            new HttpEntity<>(headersFor(user.getLoginId())),
-                            new ParameterizedTypeReference<>() {});
-                    if (response.getStatusCode() == HttpStatus.CREATED) {
-                        successCount.incrementAndGet();
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                } finally {
-                    doneLatch.countDown();
-                }
-            });
-        }
-
-        // act
-        startLatch.countDown();
-        boolean completed = doneLatch.await(30, TimeUnit.SECONDS);
-        executor.shutdown();
-
-        // assert
-        Product finalProduct = productJpaRepository.findById(product.getId()).orElseThrow();
-        assertThat(completed).isTrue();
-        assertThat(successCount.get()).isEqualTo(threadCount);
-        assertThat(finalProduct.getLikeCount()).isEqualTo(threadCount);
-        assertThat(likeJpaRepository.findAll()).hasSize(threadCount);
-    }
 }

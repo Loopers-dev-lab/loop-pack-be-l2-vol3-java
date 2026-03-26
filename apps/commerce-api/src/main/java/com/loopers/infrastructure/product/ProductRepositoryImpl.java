@@ -46,7 +46,7 @@ public class ProductRepositoryImpl implements ProductRepository {
 
         OrderSpecifier<?> orderSpecifier = switch (order) {
             case PRICE_ASC -> product.price.asc();
-            case LIKES_DESC -> product.likeCount.desc();
+            case LIKES_DESC -> product.id.desc(); // TODO: Phase 3에서 product_metrics LEFT JOIN으로 교체
             case LATEST -> product.id.desc();
         };
 
@@ -115,13 +115,4 @@ public class ProductRepositoryImpl implements ProductRepository {
         return productJpaRepository.increaseStock(productId, quantity);
     }
 
-    @Override
-    public void increaseLikeCount(Long productId) {
-        productJpaRepository.increaseLikeCount(productId);
-    }
-
-    @Override
-    public void decreaseLikeCount(Long productId) {
-        productJpaRepository.decreaseLikeCount(productId);
-    }
 }

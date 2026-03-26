@@ -52,10 +52,10 @@ public class MessageRelay {
     @Scheduled(fixedDelay = 10, timeUnit = TimeUnit.SECONDS)
     public void publishPendingEvents() {
         List<Outbox> pending = outboxRepository
-                .findAllByCreatedAtLessThanEqualOrderByCreatedAtAsc(
-                        LocalDateTime.now().minusSeconds(10),
-                        Pageable.ofSize(100)
-                );
+                                .findAllByCreatedAtLessThanEqualOrderByCreatedAtAsc(
+                                        LocalDateTime.now().minusSeconds(10),
+                                        Pageable.ofSize(100)
+                                );
 
         for (Outbox outbox : pending) {
             publishToKafka(outbox);

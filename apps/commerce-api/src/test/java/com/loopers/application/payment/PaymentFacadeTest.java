@@ -1,5 +1,6 @@
 package com.loopers.application.payment;
 
+import com.loopers.application.outbox.OutboxEventPublisher;
 import com.loopers.domain.order.InMemoryOrderItemRepository;
 import com.loopers.domain.order.InMemoryOrderRepository;
 import com.loopers.application.order.OrderCompensationService;
@@ -38,6 +39,7 @@ class PaymentFacadeTest {
     private InMemoryOrderRepository orderRepository;
     private OrderService orderService;
     private OrderCompensationService orderCompensationService;
+    private OutboxEventPublisher outboxEventPublisher;
     private PgPaymentGateway pgPaymentGateway;
     private PaymentFacade paymentFacade;
 
@@ -47,8 +49,9 @@ class PaymentFacadeTest {
         orderRepository = new InMemoryOrderRepository();
         orderService = new OrderService(orderRepository, new InMemoryOrderItemRepository());
         orderCompensationService = mock(OrderCompensationService.class);
+        outboxEventPublisher = mock(OutboxEventPublisher.class);
         pgPaymentGateway = mock(PgPaymentGateway.class);
-        paymentFacade = new PaymentFacade(paymentRepository, orderService, orderCompensationService, pgPaymentGateway, "http://localhost:8080/api/v1/payments/callback");
+        paymentFacade = new PaymentFacade(paymentRepository, orderService, orderCompensationService, outboxEventPublisher, pgPaymentGateway, "http://localhost:8080/api/v1/payments/callback");
     }
 
     @DisplayName("결제 요청 시, ")

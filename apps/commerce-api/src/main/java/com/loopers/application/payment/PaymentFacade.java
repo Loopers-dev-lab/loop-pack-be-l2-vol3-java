@@ -3,10 +3,13 @@ package com.loopers.application.payment;
 import com.loopers.application.order.OrderCompensationService;
 import com.loopers.application.order.OrderInfo;
 import com.loopers.application.order.OrderService;
+import com.loopers.application.outbox.OutboxEventPublisher;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.payment.PaymentStatus;
+import com.loopers.event.EventType;
+import com.loopers.event.payload.PaymentCompletedEventPayload;
 import com.loopers.infrastructure.client.PgDeclinedException;
 import com.loopers.infrastructure.client.PgPaymentDto;
 import com.loopers.infrastructure.client.PgPaymentException;
@@ -27,6 +30,7 @@ public class PaymentFacade {
     private final PaymentRepository paymentRepository;
     private final OrderService orderService;
     private final OrderCompensationService orderCompensationService;
+    private final OutboxEventPublisher outboxEventPublisher;
     private final PgPaymentGateway pgPaymentGateway;
     private final String callbackUrl;
 
@@ -34,12 +38,14 @@ public class PaymentFacade {
             PaymentRepository paymentRepository,
             OrderService orderService,
             OrderCompensationService orderCompensationService,
+            OutboxEventPublisher outboxEventPublisher,
             PgPaymentGateway pgPaymentGateway,
             @Value("${payment.callback-url}") String callbackUrl
     ) {
         this.paymentRepository = paymentRepository;
         this.orderService = orderService;
         this.orderCompensationService = orderCompensationService;
+        this.outboxEventPublisher = outboxEventPublisher;
         this.pgPaymentGateway = pgPaymentGateway;
         this.callbackUrl = callbackUrl;
     }
@@ -122,8 +128,14 @@ public class PaymentFacade {
                 int affected = paymentRepository.completeIfPending(payment.getId());
                 if (affected > 0) {
                     orderService.markOrderPaid(payment.getOrderId());
+                    outboxEventPublisher.publish(
+                            EventType.PAYMENT_COMPLETED,
+                            PaymentCompletedEventPayload.of(payment.getId(), payment.getOrderId(), null),
+                            payment.getOrderId()
+                    );
                 }
             }
+
             case FAILED -> {
                 int affected = paymentRepository.failIfPending(payment.getId(), reason);
                 if (affected > 0) {

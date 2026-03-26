@@ -29,9 +29,6 @@ public class Product extends BaseEntity {
     @Column(nullable = false)
     private Integer stockQuantity;
 
-    @Column(nullable = false)
-    private Integer likeCount = 0;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Visibility visibility;

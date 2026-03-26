@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api;
 
-import com.loopers.application.product.ProductService;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.product.Product;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
@@ -33,7 +32,6 @@ class ProductV1ApiE2ETest {
     private final TestRestTemplate testRestTemplate;
     private final BrandJpaRepository brandJpaRepository;
     private final ProductJpaRepository productJpaRepository;
-    private final ProductService productService;
     private final DatabaseCleanUp databaseCleanUp;
     private final RedisCleanUp redisCleanUp;
 
@@ -42,14 +40,12 @@ class ProductV1ApiE2ETest {
             TestRestTemplate testRestTemplate,
             BrandJpaRepository brandJpaRepository,
             ProductJpaRepository productJpaRepository,
-            ProductService productService,
             DatabaseCleanUp databaseCleanUp,
             RedisCleanUp redisCleanUp
     ) {
         this.testRestTemplate = testRestTemplate;
         this.brandJpaRepository = brandJpaRepository;
         this.productJpaRepository = productJpaRepository;
-        this.productService = productService;
         this.databaseCleanUp = databaseCleanUp;
         this.redisCleanUp = redisCleanUp;
     }
@@ -301,41 +297,6 @@ class ProductV1ApiE2ETest {
                     () -> assertThat(ids.indexOf(cheapProduct.getId()))
                             .isLessThan(ids.indexOf(middleProduct.getId()))
                             .isLessThan(ids.indexOf(expensiveProduct.getId()))
-            );
-        }
-
-        @DisplayName("sort=LIKES_DESC로 조회하면, 좋아요 많은순으로 반환한다.")
-        @Test
-        void returnsSortedByLikesDesc() {
-            // arrange
-            Brand brand = saveBrand("TEST_BRAND");
-            Product lowLikes = saveProduct(brand.getId(), "좋아요적은상품", 100000, 10);
-            Product middleLikes = saveProduct(brand.getId(), "좋아요중간상품", 120000, 10);
-            Product highLikes = saveProduct(brand.getId(), "좋아요많은상품", 140000, 10);
-
-            productService.increaseLikeCount(lowLikes.getId());
-            productService.increaseLikeCount(middleLikes.getId());
-            productService.increaseLikeCount(middleLikes.getId());
-            productService.increaseLikeCount(highLikes.getId());
-            productService.increaseLikeCount(highLikes.getId());
-            productService.increaseLikeCount(highLikes.getId());
-
-            // act
-            ResponseEntity<ApiResponse<PageResponse<ProductV1Dto.ProductResponse>>> response =
-                    testRestTemplate.exchange(
-                            ENDPOINT + "?sort=LIKES_DESC",
-                            HttpMethod.GET, null, new ParameterizedTypeReference<>() {}
-                    );
-
-            List<Long> ids = response.getBody().data().content().stream()
-                                     .map(ProductV1Dto.ProductResponse::id)
-                                     .toList();
-            // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(ids.indexOf(highLikes.getId()))
-                            .isLessThan(ids.indexOf(middleLikes.getId()))
-                            .isLessThan(ids.indexOf(lowLikes.getId()))
             );
         }
 

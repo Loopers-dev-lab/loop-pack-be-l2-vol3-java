@@ -1,5 +1,6 @@
 package com.loopers.application.like;
 
+import com.loopers.application.outbox.OutboxEventPublisher;
 import com.loopers.application.product.ProductCreateCommand;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.application.product.ProductService;
@@ -7,6 +8,9 @@ import com.loopers.application.product.ProductUpdateCommand;
 import com.loopers.domain.like.InMemoryLikeRepository;
 import com.loopers.domain.product.InMemoryProductRepository;
 import com.loopers.domain.product.Product;
+import com.loopers.event.EventType;
+import com.loopers.event.payload.ProductLikedEventPayload;
+import com.loopers.event.payload.ProductUnlikedEventPayload;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +22,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.*;
 
 public class LikeFacadeTest {
 
@@ -25,6 +30,7 @@ public class LikeFacadeTest {
     private InMemoryProductRepository productRepository;
     private LikeService likeService;
     private ProductService productService;
+    private OutboxEventPublisher outboxEventPublisher;
     private LikeFacade likeFacade;
 
     @BeforeEach
@@ -33,7 +39,8 @@ public class LikeFacadeTest {
         productRepository = new InMemoryProductRepository();
         likeService = new LikeService(likeRepository);
         productService = new ProductService(productRepository);
-        likeFacade = new LikeFacade(likeService, productService);
+        outboxEventPublisher = mock(OutboxEventPublisher.class);
+        likeFacade = new LikeFacade(likeService, productService, outboxEventPublisher);
     }
 
     @DisplayName("좋아요 등록 시, ")
@@ -56,13 +63,31 @@ public class LikeFacadeTest {
             // assert
             assertThat(result.getErrorType()).isEqualTo(ErrorType.ALREADY_LIKED);
         }
+
+        @DisplayName("좋아요 등록 시 PRODUCT_LIKED 이벤트가 발행된다.")
+        @Test
+        void publishes_product_liked_event() {
+            // arrange
+            long userId = 1L;
+            ProductInfo product = productService.register(new ProductCreateCommand(1L, "에어맥스", "신발", 150000, 10));
+
+            // act
+            likeFacade.register(userId, product.id());
+
+            // assert
+            verify(outboxEventPublisher).publish(
+                    eq(EventType.PRODUCT_LIKED),
+                    any(ProductLikedEventPayload.class),
+                    eq(product.id())
+            );
+        }
     }
 
     @DisplayName("좋아요 취소 시, ")
     @Nested
     class Cancel {
 
-        @DisplayName("좋아요가 없을 때 취소하면 예외 없이 처리되고 likeCount는 감소하지 않는다.")
+        @DisplayName("좋아요가 없을 때 취소하면 예외 없이 처리되고 이벤트가 발행되지 않는다.")
         @Test
         void noop_when_like_does_not_exist() {
             // arrange
@@ -71,15 +96,32 @@ public class LikeFacadeTest {
                     new ProductCreateCommand(1L, "에어맥스", "신발", 150000, 10)
             );
 
-            long productId = product.id();
-            int before = productService.getProduct(productId).likeCount();
-
             // act
-            likeFacade.cancel(userId, productId);
+            likeFacade.cancel(userId, product.id());
 
             // assert
-            int after = productService.getProduct(productId).likeCount();
-            assertThat(after).isEqualTo(before);
+            verify(outboxEventPublisher, never()).publish(any(), any(), any());
+        }
+
+        @DisplayName("좋아요 취소 시 PRODUCT_UNLIKED 이벤트가 발행된다.")
+        @Test
+        void publishes_product_unliked_event() {
+            // arrange
+            long userId = 1L;
+            ProductInfo product = productService.register(
+                    new ProductCreateCommand(1L, "에어맥스", "신발", 150000, 10)
+            );
+            likeService.register(userId, product.id());
+
+            // act
+            likeFacade.cancel(userId, product.id());
+
+            // assert
+            verify(outboxEventPublisher).publish(
+                    eq(EventType.PRODUCT_UNLIKED),
+                    any(ProductUnlikedEventPayload.class),
+                    eq(product.id())
+            );
         }
     }
 

@@ -99,26 +99,6 @@ public class ProductService {
     }
 
     @Transactional
-    public void increaseLikeCount(Long productId) {
-        Product product = findById(productId);
-        if (!product.isActive()) {
-            throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + productId + "] 를 찾을 수 없습니다.");
-        }
-
-        productRepository.increaseLikeCount(productId);
-    }
-
-    @Transactional
-    public void decreaseLikeCount(Long productId) {
-        Product product = findById(productId);
-        if (!product.isActive()) {
-            throw new CoreException(ErrorType.NOT_FOUND, "[productId = " + productId + "] 를 찾을 수 없습니다.");
-        }
-
-        productRepository.decreaseLikeCount(productId);
-    }
-
-    @Transactional
     public void decreaseStock(List<OrderItemCommand> items) {
         List<OrderItemCommand> sorted = items.stream()
                                              .sorted(Comparator.comparing(OrderItemCommand::productId))
