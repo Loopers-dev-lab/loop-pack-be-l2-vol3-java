@@ -1,7 +1,9 @@
 package com.loopers.confg.kafka;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -9,13 +11,18 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
+import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.converter.BatchMessagingMessageConverter;
 import org.springframework.kafka.support.converter.ByteArrayJsonMessageConverter;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @EnableKafka
 @Configuration
 @EnableConfigurationProperties(KafkaProperties.class)
@@ -51,10 +58,27 @@ public class KafkaConfig {
         return new ByteArrayJsonMessageConverter(objectMapper);
     }
 
+    @Bean
+    public DeadLetterPublishingRecoverer deadLetterPublishingRecoverer(KafkaTemplate<Object, Object> kafkaTemplate) {
+        return new DeadLetterPublishingRecoverer(kafkaTemplate,
+                (ConsumerRecord<?, ?> record, Exception ex) -> {
+                    String dlqTopic = record.topic() + ".DLQ";
+                    log.error("DLQ 전송: topic={}, offset={}, key={}", dlqTopic, record.offset(), record.key(), ex);
+                    return new org.apache.kafka.common.TopicPartition(dlqTopic, record.partition());
+                });
+    }
+
+    @Bean
+    public CommonErrorHandler kafkaErrorHandler(DeadLetterPublishingRecoverer recoverer) {
+        // 3회 재시도 후 DLQ로 전송 (재시도 간격 1초)
+        return new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 2L));
+    }
+
     @Bean(name = BATCH_LISTENER)
     public ConcurrentKafkaListenerContainerFactory<Object, Object> defaultBatchListenerContainerFactory(
             KafkaProperties kafkaProperties,
-            ByteArrayJsonMessageConverter converter
+            ByteArrayJsonMessageConverter converter,
+            CommonErrorHandler kafkaErrorHandler
     ) {
         Map<String, Object> consumerConfig = new HashMap<>(kafkaProperties.buildConsumerProperties());
         consumerConfig.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, MAX_POLLING_SIZE);
@@ -68,6 +92,7 @@ public class KafkaConfig {
         factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(consumerConfig));
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL); // 수동 커밋
         factory.setBatchMessageConverter(new BatchMessagingMessageConverter(converter));
+        factory.setCommonErrorHandler(kafkaErrorHandler);
         factory.setConcurrency(3);
         factory.setBatchListener(true);
         return factory;
