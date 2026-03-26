@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponFacade;
-import com.loopers.application.coupon.UserCouponInfo;
+import com.loopers.application.coupon.CouponIssueRequestInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,13 +24,24 @@ public class CouponV1Controller implements CouponV1ApiSpec {
 
     @PostMapping("/api/v1/coupons/{couponId}/issue")
     @Override
-    public ApiResponse<CouponV1Dto.UserCouponResponse> issue(
+    public ApiResponse<CouponV1Dto.CouponIssueRequestResponse> issue(
         @RequestHeader(HEADER_LOGIN_ID) String loginId,
         @RequestHeader(HEADER_LOGIN_PW) String password,
         @PathVariable Long couponId
     ) {
-        UserCouponInfo info = couponFacade.issue(loginId, password, couponId);
-        return ApiResponse.success(CouponV1Dto.UserCouponResponse.from(info));
+        CouponIssueRequestInfo info = couponFacade.requestIssue(loginId, password, couponId);
+        return ApiResponse.success(CouponV1Dto.CouponIssueRequestResponse.from(info));
+    }
+
+    @GetMapping("/api/v1/coupon-issue-requests/{requestId}")
+    @Override
+    public ApiResponse<CouponV1Dto.CouponIssueRequestResponse> getIssueRequest(
+        @RequestHeader(HEADER_LOGIN_ID) String loginId,
+        @RequestHeader(HEADER_LOGIN_PW) String password,
+        @PathVariable Long requestId
+    ) {
+        CouponIssueRequestInfo info = couponFacade.getIssueRequest(loginId, password, requestId);
+        return ApiResponse.success(CouponV1Dto.CouponIssueRequestResponse.from(info));
     }
 
     @GetMapping("/api/v1/users/me/coupons")

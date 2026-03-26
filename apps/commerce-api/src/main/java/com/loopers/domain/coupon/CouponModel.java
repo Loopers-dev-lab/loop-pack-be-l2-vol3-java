@@ -37,13 +37,28 @@ public class CouponModel extends BaseEntity {
     @Column(name = "expired_at", nullable = false)
     private ZonedDateTime expiredAt;
 
+    @Column(name = "issue_limit")
+    private Long issueLimit;
+
+    @Column(name = "issued_count", nullable = false)
+    private Long issuedCount;
+
     public CouponModel(String name, CouponType type, Long value, Long minOrderAmount, ZonedDateTime expiredAt) {
+        this(name, type, value, minOrderAmount, expiredAt, null);
+    }
+
+    public CouponModel(String name, CouponType type, Long value, Long minOrderAmount, ZonedDateTime expiredAt, Long issueLimit) {
         validate(name, type, value, minOrderAmount, expiredAt);
+        if (issueLimit != null && issueLimit < 1) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "발급 수량 제한은 1 이상이어야 합니다.");
+        }
         this.name = name;
         this.type = type;
         this.value = value;
         this.minOrderAmount = minOrderAmount;
         this.expiredAt = expiredAt;
+        this.issueLimit = issueLimit;
+        this.issuedCount = 0L;
     }
 
     public void update(String name, CouponType type, Long value, Long minOrderAmount, ZonedDateTime expiredAt) {
@@ -53,6 +68,17 @@ public class CouponModel extends BaseEntity {
         this.value = value;
         this.minOrderAmount = minOrderAmount;
         this.expiredAt = expiredAt;
+    }
+
+    public void update(String name, CouponType type, Long value, Long minOrderAmount, ZonedDateTime expiredAt, Long issueLimit) {
+        update(name, type, value, minOrderAmount, expiredAt);
+        if (issueLimit != null && issueLimit < 1) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "발급 수량 제한은 1 이상이어야 합니다.");
+        }
+        if (issueLimit != null && issueLimit < this.issuedCount) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "이미 발급된 수량보다 작게 설정할 수 없습니다.");
+        }
+        this.issueLimit = issueLimit;
     }
 
     public boolean isExpired() {
@@ -76,6 +102,16 @@ public class CouponModel extends BaseEntity {
         };
 
         return Math.min(discount, orderAmount);
+    }
+
+    public void reserveIssue() {
+        if (isExpired()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰은 발급할 수 없습니다.");
+        }
+        if (issueLimit != null && issuedCount >= issueLimit) {
+            throw new CoreException(ErrorType.CONFLICT, "쿠폰 수량이 모두 소진되었습니다.");
+        }
+        issuedCount += 1;
     }
 
     private void validate(String name, CouponType type, Long value, Long minOrderAmount, ZonedDateTime expiredAt) {
