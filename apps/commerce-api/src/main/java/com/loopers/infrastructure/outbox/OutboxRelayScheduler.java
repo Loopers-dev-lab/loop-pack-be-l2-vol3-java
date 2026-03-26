@@ -6,6 +6,7 @@ import com.loopers.infrastructure.kafka.KafkaEventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -19,7 +20,8 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class OutboxRelayScheduler {
 
-    private static final int RELAY_LIMIT = 100;
+    @Value("${outbox.relay.limit:100}")
+    private int relayLimit;
 
     private final OutboxRepository outboxRepository;
     private final KafkaEventPublisher kafkaEventPublisher;
@@ -27,7 +29,7 @@ public class OutboxRelayScheduler {
     @Scheduled(fixedDelayString = "${outbox.relay.delay-ms:30000}", initialDelayString = "${outbox.relay.initial-delay-ms:0}")
     @SchedulerLock(name = "outbox-relay", lockAtMostFor = "PT30S", lockAtLeastFor = "PT1S")
     public void compensate() {
-        List<OutboxModel> pending = outboxRepository.findPendingWithLimit(RELAY_LIMIT);
+        List<OutboxModel> pending = outboxRepository.findPendingWithLimit(relayLimit);
         if (pending.isEmpty()) {
             return;
         }

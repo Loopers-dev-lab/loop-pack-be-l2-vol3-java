@@ -33,4 +33,9 @@ public class OutboxRepositoryImpl implements OutboxRepository {
             outboxJpaRepository.markAllPublished(ids);
         }
     }
+
+    @Override
+    public long countPending() {
+        return outboxJpaRepository.countByStatus(OutboxStatus.PENDING);
+    }
 }

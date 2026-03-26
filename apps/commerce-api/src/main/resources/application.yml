@@ -129,10 +129,20 @@ spring:
       mode: always
       schema-locations: classpath:schema-shedlock.sql
 
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  sql:
+    init:
+      data-locations: classpath:data-local.sql
+
 outbox:
   relay:
     delay-ms: 86400000
     initial-delay-ms: 86400000
+    limit: 100
   jpa:
     defer-datasource-initialization: true
   cloud:
