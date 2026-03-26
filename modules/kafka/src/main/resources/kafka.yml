@@ -14,7 +14,11 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all                    # 모든 ISR 복제 확인 후 ACK — 데이터 유실 방지
       retries: 3
+      properties:
+        enable.idempotence: true   # 멱등성 프로듀서 — PID+Seq로 브로커 중복 적재 방지
+        max.in.flight.requests.per.connection: 5  # idempotence 호환 최대값
     consumer:
       group-id: loopers-default-consumer
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer

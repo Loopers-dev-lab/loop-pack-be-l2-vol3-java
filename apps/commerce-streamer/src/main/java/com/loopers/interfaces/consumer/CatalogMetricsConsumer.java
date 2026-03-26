@@ -2,6 +2,9 @@ package com.loopers.interfaces.consumer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.infrastructure.dlq.DlqPublisher;
+import com.loopers.infrastructure.event.EventHandledEntity;
+import com.loopers.infrastructure.event.EventHandledJpaRepository;
 import com.loopers.infrastructure.product.ProductMetricsEntity;
 import com.loopers.infrastructure.product.ProductMetricsJpaRepository;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -19,14 +22,14 @@ import java.util.List;
 /**
  * 카탈로그 메트릭 Consumer — product_metrics upsert
  *
- * catalog-events-v1 토픽에서 좋아요/판매량 이벤트를 소비하여
- * product_metrics 테이블에 집계한다.
+ * 멱등성 보장:
+ *   increment 연산(+1)은 멱등하지 않다. 같은 이벤트를 2번 처리하면 +2.
+ *   → event_handled 테이블에 Outbox ID를 기록하여 중복 처리 방지.
+ *   → increment + event_handled INSERT를 같은 @Transactional로 묶어 원자성 보장.
  *
- * Relay가 Kafka 헤더에 X-Event-Type을 포함하므로
- * payload 파싱 없이 이벤트 타입을 판별한다.
- *
- * key=productId → 같은 상품의 이벤트는 같은 파티션 → 순차 처리
- * → product_metrics 동시 UPDATE 방지
+ * 중복 시나리오:
+ *   DB 적재 성공 → ACK 전송 중 네트워크 장애 → Consumer 재시작 → 같은 레코드 재수신
+ *   → event_handled에 이미 있으면 스킵 → 중복 increment 방지
  */
 @Component
 public class CatalogMetricsConsumer {
@@ -35,11 +38,17 @@ public class CatalogMetricsConsumer {
 
     private final ObjectMapper objectMapper;
     private final ProductMetricsJpaRepository productMetricsRepository;
+    private final EventHandledJpaRepository eventHandledRepository;
+    private final DlqPublisher dlqPublisher;
 
     public CatalogMetricsConsumer(ObjectMapper objectMapper,
-                                   ProductMetricsJpaRepository productMetricsRepository) {
+                                   ProductMetricsJpaRepository productMetricsRepository,
+                                   EventHandledJpaRepository eventHandledRepository,
+                                   DlqPublisher dlqPublisher) {
         this.objectMapper = objectMapper;
         this.productMetricsRepository = productMetricsRepository;
+        this.eventHandledRepository = eventHandledRepository;
+        this.dlqPublisher = dlqPublisher;
     }
 
     @KafkaListener(
@@ -52,8 +61,9 @@ public class CatalogMetricsConsumer {
             try {
                 processRecord(record);
             } catch (Exception e) {
-                log.error("[CatalogMetrics] 처리 실패 — partition={}, offset={}, error={}",
+                log.error("[CatalogMetrics] 처리 실패 → DLQ — partition={}, offset={}, error={}",
                         record.partition(), record.offset(), e.getMessage(), e);
+                dlqPublisher.sendToDlq(record, e);
             }
         }
         ack.acknowledge();
@@ -62,11 +72,19 @@ public class CatalogMetricsConsumer {
     @Transactional
     protected void processRecord(ConsumerRecord<Object, Object> record) {
         String eventType = getHeader(record, "X-Event-Type");
+        String outboxId = getHeader(record, "X-Outbox-Id");
         String payload = record.value().toString();
 
         if (eventType == null) {
             log.warn("[CatalogMetrics] X-Event-Type 헤더 없음 — partition={}, offset={}",
                     record.partition(), record.offset());
+            return;
+        }
+
+        // 멱등성 체크 — increment는 멱등하지 않으므로 반드시 중복 방지
+        if (outboxId != null && eventHandledRepository.existsByEventId(outboxId)) {
+            log.warn("[CatalogMetrics] 중복 스킵 — outboxId={}, partition={}, offset={}",
+                    outboxId, record.partition(), record.offset());
             return;
         }
 
@@ -83,6 +101,11 @@ public class CatalogMetricsConsumer {
             case "ProductUnlikedEvent" -> handleProductUnliked(node);
             case "OrderItemSoldEvent" -> handleOrderItemSold(node);
             default -> log.warn("[CatalogMetrics] 알 수 없는 eventType={}", eventType);
+        }
+
+        // 멱등성 기록 — increment와 같은 TX
+        if (outboxId != null) {
+            eventHandledRepository.save(EventHandledEntity.of(outboxId, "catalog-events-v1"));
         }
     }
 
