@@ -1,11 +1,11 @@
 package com.loopers.domain.coupon;
 
 import com.loopers.domain.BaseEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Table;
+import com.loopers.domain.common.vo.RefMemberId;
+import com.loopers.domain.coupon.vo.RefCouponTemplateId;
+import com.loopers.infrastructure.jpa.converter.RefCouponTemplateIdConverter;
+import com.loopers.infrastructure.jpa.converter.RefMemberIdConverter;
+import jakarta.persistence.*;
 import lombok.Getter;
 
 @Entity
@@ -16,11 +16,13 @@ public class CouponIssueRequestModel extends BaseEntity {
     @Column(name = "request_id", nullable = false, length = 36)
     private String requestId;
 
+    @Convert(converter = RefCouponTemplateIdConverter.class)
     @Column(name = "ref_coupon_template_id", nullable = false)
-    private Long refCouponTemplateId;
+    private RefCouponTemplateId refCouponTemplateId;
 
+    @Convert(converter = RefMemberIdConverter.class)
     @Column(name = "ref_member_id", nullable = false)
-    private Long refMemberId;
+    private RefMemberId refMemberId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 10)

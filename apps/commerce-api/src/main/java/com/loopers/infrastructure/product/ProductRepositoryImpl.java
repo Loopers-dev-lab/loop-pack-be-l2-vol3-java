@@ -4,11 +4,13 @@ import com.loopers.domain.common.cursor.CursorPageResult;
 import com.loopers.domain.common.vo.RefBrandId;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.product.QProductMetricsModel;
 import com.loopers.domain.product.QProductModel;
 import com.loopers.domain.product.vo.ProductId;
 import com.loopers.infrastructure.common.cursor.CursorEncoder;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
@@ -46,18 +48,22 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public Page<ProductModel> findProducts(Long refBrandId, String sortBy, Pageable pageable) {
         QProductModel product = QProductModel.productModel;
+        QProductMetricsModel metrics = QProductMetricsModel.productMetricsModel;
 
         BooleanExpression condition = product.deletedAt.isNull();
         if (refBrandId != null) {
             condition = condition.and(product.refBrandId.eq(new RefBrandId(refBrandId)));
         }
 
-        ProductSortCondition sortCondition = ProductSortCondition.from(sortBy);
+        OrderSpecifier<?>[] orderSpecifiers = "likes_desc".equals(sortBy)
+                ? new OrderSpecifier<?>[] { metrics.likeCount.desc().nullsLast(), product.updatedAt.desc() }
+                : ProductSortCondition.from(sortBy).toOrderSpecifiers(product);
 
         List<ProductModel> content = queryFactory
                 .selectFrom(product)
+                .leftJoin(metrics).on(metrics.refProductId.eq(product.id))
                 .where(condition)
-                .orderBy(sortCondition.toOrderSpecifiers(product))
+                .orderBy(orderSpecifiers)
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();

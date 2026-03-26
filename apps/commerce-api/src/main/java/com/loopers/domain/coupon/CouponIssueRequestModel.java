@@ -13,7 +13,15 @@ import lombok.NoArgsConstructor;
 import java.util.UUID;
 
 @Entity
-@Table(name = "coupon_issue_requests")
+@Table(
+    name = "coupon_issue_requests",
+    uniqueConstraints = {
+        @UniqueConstraint(
+            name = "uk_coupon_issue_member_template",
+            columnNames = {"ref_coupon_template_id", "ref_member_id"}
+        )
+    }
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CouponIssueRequestModel extends BaseEntity {

@@ -10,6 +10,7 @@ public interface CouponIssueRequestRepository {
     boolean existsByRefCouponTemplateIdAndRefMemberIdAndStatusIn(
             RefCouponTemplateId refCouponTemplateId, RefMemberId refMemberId, List<CouponIssueStatus> statuses);
     CouponIssueRequestModel save(CouponIssueRequestModel model);
+    CouponIssueRequestModel saveAndFlush(CouponIssueRequestModel model);
     Optional<CouponIssueRequestModel> findByRequestId(String requestId);
     List<CouponIssueRequestModel> findByRequestIdInAndStatusIn(List<String> requestIds, List<CouponIssueStatus> statuses);
 }

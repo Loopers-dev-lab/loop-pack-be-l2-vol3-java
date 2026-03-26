@@ -30,6 +30,11 @@ public class CouponIssueRequestRepositoryImpl implements CouponIssueRequestRepos
     }
 
     @Override
+    public CouponIssueRequestModel saveAndFlush(CouponIssueRequestModel model) {
+        return couponIssueRequestJpaRepository.saveAndFlush(model);
+    }
+
+    @Override
     public Optional<CouponIssueRequestModel> findByRequestId(String requestId) {
         return couponIssueRequestJpaRepository.findByRequestId(requestId);
     }

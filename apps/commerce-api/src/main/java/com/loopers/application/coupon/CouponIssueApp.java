@@ -11,6 +11,7 @@ import com.loopers.domain.coupon.vo.RefCouponTemplateId;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,7 +46,11 @@ public class CouponIssueApp {
         }
 
         CouponIssueRequestModel request = CouponIssueRequestModel.create(couponTemplateId, memberId);
-        couponIssueRequestRepository.save(request);
+        try {
+            couponIssueRequestRepository.saveAndFlush(request);
+        } catch (DataIntegrityViolationException e) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 발급 요청 중이거나 발급된 쿠폰입니다.");
+        }
 
         String eventId = UUID.randomUUID().toString();
         LocalDateTime now = LocalDateTime.now();
