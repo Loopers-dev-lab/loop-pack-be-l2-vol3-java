@@ -6,7 +6,9 @@ import com.loopers.domain.order.OrderItemRequest;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.order.event.OrderCreatedEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -26,6 +28,7 @@ public class OrderApp {
     private final OrderService orderService;
     private final OrderRepository orderRepository;
     private final OutboxAppender outboxAppender;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public OrderInfo createOrder(Long memberId, List<OrderItemCommand> items) {
@@ -46,6 +49,7 @@ public class OrderApp {
                 eventId, "OrderCreated", 1,
                 order.getOrderId().value(), memberId, order.getFinalAmount(), now);
         outboxAppender.append("order", order.getOrderId().value(), "OrderCreated", ORDER_EVENTS_TOPIC, payload);
+        eventPublisher.publishEvent(new OrderCreatedEvent(eventId, order.getOrderId().value(), memberId, order.getFinalAmount(), now));
 
         return OrderInfo.from(order);
     }
