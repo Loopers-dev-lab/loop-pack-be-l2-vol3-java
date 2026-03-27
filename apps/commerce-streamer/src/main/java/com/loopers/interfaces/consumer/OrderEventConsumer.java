@@ -6,7 +6,6 @@ import com.loopers.application.idempotent.IdempotentProcessor;
 import com.loopers.application.metrics.MetricsService;
 import com.loopers.confg.kafka.KafkaConfig;
 import com.loopers.confg.kafka.KafkaTopics;
-import com.loopers.infrastructure.outbox.OutboxMarkRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -25,7 +24,6 @@ public class OrderEventConsumer {
 
     private final IdempotentProcessor idempotentProcessor;
     private final MetricsService metricsService;
-    private final OutboxMarkRepository outboxMarkRepository;
     private final ObjectMapper objectMapper;
     @KafkaListener(topics = KafkaTopics.ORDER_EVENTS, groupId = "metrics-aggregation",
             containerFactory = KafkaConfig.BATCH_LISTENER)
@@ -66,7 +64,5 @@ public class OrderEventConsumer {
             case "payment.failed" -> log.info("결제 실패 이벤트 수신: eventId={}", eventId);
             default -> log.warn("미지원 order 이벤트: eventType={}", eventType);
         }
-
-        outboxMarkRepository.markPublished(eventId);
     }
 }
