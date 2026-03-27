@@ -29,6 +29,7 @@ spring:
       properties:
         enable-auto-commit: false
         isolation.level: read_committed
+        partition.assignment.strategy: org.apache.kafka.clients.consumer.CooperativeStickyAssignor
     listener:
       ack-mode: manual
 
