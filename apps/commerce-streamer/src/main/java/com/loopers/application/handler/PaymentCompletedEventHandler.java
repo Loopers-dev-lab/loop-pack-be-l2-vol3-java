@@ -1,7 +1,7 @@
 package com.loopers.application.handler;
 
 import com.loopers.application.EventHandler;
-import com.loopers.domain.ProductMetricsRepository;
+import com.loopers.infrastructure.ProductMetricsRepository;
 import com.loopers.event.Event;
 import com.loopers.event.EventPayload;
 import com.loopers.event.EventType;

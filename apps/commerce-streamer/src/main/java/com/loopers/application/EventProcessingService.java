@@ -1,7 +1,7 @@
 package com.loopers.application;
 
 import com.loopers.domain.EventHandled;
-import com.loopers.domain.EventHandledRepository;
+import com.loopers.infrastructure.EventHandledRepository;
 import com.loopers.event.Event;
 import com.loopers.event.EventPayload;
 import lombok.RequiredArgsConstructor;

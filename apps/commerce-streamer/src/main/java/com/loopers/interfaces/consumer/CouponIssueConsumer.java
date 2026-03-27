@@ -16,19 +16,19 @@ import java.time.Duration;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class MetricsEventConsumer {
+public class CouponIssueConsumer {
     private final EventProcessingService eventProcessingService;
 
     @KafkaListener(
-            topics = {Topic.CATALOG_EVENTS, Topic.ORDER_EVENTS},
-            groupId = "commerce-streamer-metrics",
+            topics = Topic.COUPON_ISSUE_REQUESTS,
+            groupId = "commerce-streamer-coupon-issue",
             containerFactory = KafkaConfig.SINGLE_LISTENER
     )
     public void consume(String message, Acknowledgment ack) {
         try {
             Event<EventPayload> event = Event.fromJson(message);
             if (event == null) {
-                log.warn("[MetricsEventConsumer] 이벤트 파싱 실패, message={}", message);
+                log.warn("[CouponIssueConsumer] 이벤트 파싱 실패, message={}", message);
                 ack.acknowledge();
                 return;
             }
@@ -36,7 +36,7 @@ public class MetricsEventConsumer {
             eventProcessingService.process(event);
             ack.acknowledge();
         } catch (Exception e) {
-            log.error("[MetricsEventConsumer] 이벤트 처리 실패 — nack 후 재처리 대기, message={}", message, e);
+            log.error("[CouponIssueConsumer] 이벤트 처리 실패 — nack 후 재처리 대기, message={}", message, e);
             ack.nack(Duration.ofSeconds(1));
         }
     }
