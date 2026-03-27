@@ -5,7 +5,6 @@ import com.loopers.application.event.ProductLikedEvent;
 import com.loopers.application.event.ProductUnlikedEvent;
 import com.loopers.application.product.ProductService;
 import com.loopers.domain.brand.Brand;
-import com.loopers.infrastructure.outbox.OutboxEventService;
 import com.loopers.infrastructure.product.ProductCacheManager;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.product.Product;
@@ -31,7 +30,6 @@ public class LikeFacade {
     private final BrandService brandService;
     private final ProductCacheManager productCacheManager;
     private final ApplicationEventPublisher eventPublisher;
-    private final OutboxEventService outboxEventService;
 
     // Command
 
@@ -42,9 +40,6 @@ public class LikeFacade {
         boolean created = likeService.like(userId, productId);
         if (created) {
             eventPublisher.publishEvent(new ProductLikedEvent(userId, productId));
-            outboxEventService.saveAndPublish("product.liked", "Product",
-                    String.valueOf(productId), "catalog-events",
-                    new ProductLikedEvent(userId, productId));
         }
     }
 
@@ -53,9 +48,6 @@ public class LikeFacade {
         boolean deleted = likeService.unlike(userId, productId);
         if (deleted) {
             eventPublisher.publishEvent(new ProductUnlikedEvent(userId, productId));
-            outboxEventService.saveAndPublish("product.unliked", "Product",
-                    String.valueOf(productId), "catalog-events",
-                    new ProductUnlikedEvent(userId, productId));
         }
     }
 

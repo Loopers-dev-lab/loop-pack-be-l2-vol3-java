@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.coupon.CouponIssueProcessor;
 import com.loopers.application.idempotent.IdempotentProcessor;
 import com.loopers.confg.kafka.KafkaConfig;
+import com.loopers.confg.kafka.KafkaTopics;
 import com.loopers.infrastructure.outbox.OutboxMarkRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +27,7 @@ public class CouponIssueConsumer {
     private final OutboxMarkRepository outboxMarkRepository;
     private final ObjectMapper objectMapper;
 
-    @KafkaListener(topics = "coupon-issue-requests", groupId = "coupon-processing",
+    @KafkaListener(topics = KafkaTopics.COUPON_ISSUE_REQUESTS, groupId = "coupon-processing",
             containerFactory = KafkaConfig.BATCH_LISTENER)
     public void consume(List<ConsumerRecord<String, byte[]>> records, Acknowledgment ack) {
         for (int i = 0; i < records.size(); i++) {
@@ -39,7 +40,7 @@ public class CouponIssueConsumer {
         ack.acknowledge();
     }
 
-    private static final String TOPIC = "coupon-issue-requests";
+    private static final String TOPIC = KafkaTopics.COUPON_ISSUE_REQUESTS;
     private static final String GROUP_ID = "coupon-processing";
 
     private void processRecord(ConsumerRecord<String, byte[]> record) throws Exception {

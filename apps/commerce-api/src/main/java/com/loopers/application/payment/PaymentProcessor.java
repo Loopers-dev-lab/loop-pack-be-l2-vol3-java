@@ -1,6 +1,7 @@
 package com.loopers.application.payment;
 
 import com.loopers.application.coupon.IssuedCouponService;
+import com.loopers.confg.kafka.KafkaTopics;
 import com.loopers.application.event.PaymentCanceledEvent;
 import com.loopers.application.event.PaymentCompletedEvent;
 import com.loopers.application.event.PaymentFailedEvent;
@@ -39,7 +40,7 @@ public class PaymentProcessor {
         eventPublisher.publishEvent(new PaymentCompletedEvent(
                 paymentId, orderId, payment.getUserId(), payment.getAmount()));
         outboxEventService.saveAndPublish("payment.completed", "Order",
-                String.valueOf(orderId), "order-events",
+                String.valueOf(orderId), KafkaTopics.ORDER_EVENTS,
                 new PaymentCompletedEvent(paymentId, orderId, payment.getUserId(), payment.getAmount()));
     }
 
@@ -61,7 +62,7 @@ public class PaymentProcessor {
         eventPublisher.publishEvent(new PaymentFailedEvent(
                 paymentId, orderId, payment.getUserId(), reason));
         outboxEventService.saveAndPublish("payment.failed", "Order",
-                String.valueOf(orderId), "order-events",
+                String.valueOf(orderId), KafkaTopics.ORDER_EVENTS,
                 new PaymentFailedEvent(paymentId, orderId, payment.getUserId(), reason));
     }
 
@@ -83,7 +84,7 @@ public class PaymentProcessor {
         eventPublisher.publishEvent(new PaymentCanceledEvent(
                 paymentId, orderId, payment.getUserId()));
         outboxEventService.saveAndPublish("payment.canceled", "Order",
-                String.valueOf(orderId), "order-events",
+                String.valueOf(orderId), KafkaTopics.ORDER_EVENTS,
                 new PaymentCanceledEvent(paymentId, orderId, payment.getUserId()));
     }
 }

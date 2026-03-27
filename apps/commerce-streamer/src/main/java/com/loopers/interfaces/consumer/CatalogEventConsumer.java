@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.idempotent.IdempotentProcessor;
 import com.loopers.application.metrics.MetricsService;
 import com.loopers.confg.kafka.KafkaConfig;
+import com.loopers.confg.kafka.KafkaTopics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -24,7 +25,7 @@ public class CatalogEventConsumer {
     private final MetricsService metricsService;
     private final ObjectMapper objectMapper;
 
-    @KafkaListener(topics = "catalog-events", groupId = "metrics-aggregation",
+    @KafkaListener(topics = KafkaTopics.CATALOG_EVENTS, groupId = "metrics-aggregation",
             containerFactory = KafkaConfig.BATCH_LISTENER)
     public void consume(List<ConsumerRecord<String, byte[]>> records, Acknowledgment ack) {
         for (int i = 0; i < records.size(); i++) {
@@ -37,7 +38,7 @@ public class CatalogEventConsumer {
         ack.acknowledge();
     }
 
-    private static final String TOPIC = "catalog-events";
+    private static final String TOPIC = KafkaTopics.CATALOG_EVENTS;
     private static final String GROUP_ID = "metrics-aggregation";
 
     private void processRecord(ConsumerRecord<String, byte[]> record) throws Exception {

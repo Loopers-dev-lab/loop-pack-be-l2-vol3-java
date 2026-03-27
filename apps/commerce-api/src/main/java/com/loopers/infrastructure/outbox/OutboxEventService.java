@@ -6,8 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import static com.loopers.support.transaction.TransactionHelper.afterCommit;
 
 /**
  * Outbox INSERT + 즉시 발행을 한 번에 처리.
@@ -36,17 +36,13 @@ public class OutboxEventService {
         OutboxEvent outboxEvent = outboxEventFactory.create(eventType, aggregateType, aggregateId, topic, eventPayload);
         outboxEventRepository.save(outboxEvent);
 
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
+        afterCommit(() ->
                 kafkaTemplate.send(outboxEvent.getTopic(), outboxEvent.getAggregateId(), outboxEvent.getPayload())
                         .whenComplete((result, ex) -> {
                             if (ex != null) {
                                 log.warn("즉시 발행 실패, @Scheduled가 보완 예정: eventId={}",
                                         outboxEvent.getEventId(), ex);
                             }
-                        });
-            }
-        });
+                        }));
     }
 }

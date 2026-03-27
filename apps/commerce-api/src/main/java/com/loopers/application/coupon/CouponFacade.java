@@ -1,6 +1,7 @@
 package com.loopers.application.coupon;
 
 import com.loopers.application.event.CouponIssueRequestedEvent;
+import com.loopers.confg.kafka.KafkaTopics;
 import com.loopers.application.user.UserService;
 import com.loopers.infrastructure.outbox.OutboxEventService;
 import com.loopers.domain.coupon.Coupon;
@@ -74,7 +75,7 @@ public class CouponFacade {
         CouponIssueRequest request = couponIssueRequestRepository.save(
                 CouponIssueRequest.create(eventId, couponId, userId));
         outboxEventService.saveAndPublish("coupon.issue.requested", "Coupon",
-                String.valueOf(couponId), "coupon-issue-requests",
+                String.valueOf(couponId), KafkaTopics.COUPON_ISSUE_REQUESTS,
                 new CouponIssueRequestedEvent(eventId, couponId, userId));
         return CouponIssueRequestInfo.from(request);
     }

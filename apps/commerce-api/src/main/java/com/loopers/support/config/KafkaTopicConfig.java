@@ -1,5 +1,6 @@
 package com.loopers.support.config;
 
+import com.loopers.confg.kafka.KafkaTopics;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,33 +11,33 @@ public class KafkaTopicConfig {
 
     @Bean
     public NewTopic catalogEvents() {
-        return TopicBuilder.name("catalog-events").partitions(3).build();
+        return TopicBuilder.name(KafkaTopics.CATALOG_EVENTS).partitions(3).build();
     }
 
     @Bean
     public NewTopic orderEvents() {
-        return TopicBuilder.name("order-events").partitions(3).build();
+        return TopicBuilder.name(KafkaTopics.ORDER_EVENTS).partitions(3).build();
     }
 
     @Bean
     public NewTopic couponIssueRequests() {
-        return TopicBuilder.name("coupon-issue-requests").partitions(3).build();
+        return TopicBuilder.name(KafkaTopics.COUPON_ISSUE_REQUESTS).partitions(3).build();
     }
 
     // DLT (Dead Letter Topic)
 
     @Bean
     public NewTopic catalogEventsDlt() {
-        return TopicBuilder.name("catalog-events.DLT").partitions(1).build();
+        return TopicBuilder.name(KafkaTopics.CATALOG_EVENTS + ".DLT").partitions(1).build();
     }
 
     @Bean
     public NewTopic orderEventsDlt() {
-        return TopicBuilder.name("order-events.DLT").partitions(1).build();
+        return TopicBuilder.name(KafkaTopics.ORDER_EVENTS + ".DLT").partitions(1).build();
     }
 
     @Bean
     public NewTopic couponIssueRequestsDlt() {
-        return TopicBuilder.name("coupon-issue-requests.DLT").partitions(1).build();
+        return TopicBuilder.name(KafkaTopics.COUPON_ISSUE_REQUESTS + ".DLT").partitions(1).build();
     }
 }
