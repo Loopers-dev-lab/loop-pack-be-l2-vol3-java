@@ -52,7 +52,7 @@ class AdminCouponV1ApiE2ETest {
     @BeforeEach
     void setUp() throws Exception {
         CouponModel coupon = couponService.createCoupon("기본쿠폰", DiscountType.FIXED,
-                BigDecimal.valueOf(1000), null, LocalDateTime.now().plusDays(30));
+                BigDecimal.valueOf(1000), null, LocalDateTime.now().plusDays(30), null);
         couponId = coupon.getCouponId();
     }
 

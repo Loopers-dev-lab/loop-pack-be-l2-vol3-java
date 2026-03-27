@@ -51,8 +51,8 @@ export default function () {
     if (Math.random() < 0.7) {
         const start = Date.now();
         const res = http.post(
-            `${BASE}/api/v1/likes`,
-            JSON.stringify({ productId }),
+            `${BASE}/api/v1/products/${productId}/likes`,
+            null,
             { headers: HEADERS }
         );
         likeDuration.add(Date.now() - start);
@@ -64,7 +64,7 @@ export default function () {
         }
     } else {
         const res = http.del(
-            `${BASE}/api/v1/likes/${productId}`,
+            `${BASE}/api/v1/products/${productId}/likes`,
             null,
             { headers: HEADERS }
         );

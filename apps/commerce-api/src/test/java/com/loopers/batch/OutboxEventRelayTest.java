@@ -64,4 +64,21 @@ class OutboxEventRelayTest {
 
         verify(outboxEventProcessor, never()).publishAndMark(any());
     }
+
+    @Test
+    @DisplayName("폴링 쿼리 실패 시 다음 호출은 백오프로 스킵된다")
+    void relay_WhenQueryFails_ShouldApplyBackoff() {
+        Timer.Sample sample = Timer.start(new SimpleMeterRegistry());
+        when(outboxMetrics.startRelayTimer()).thenReturn(sample);
+        when(outboxRepository.findPendingEvents(100))
+                .thenThrow(new RuntimeException("DB connection failed"));
+
+        // 첫 번째 호출: 에러 발생 → 백오프 설정
+        outboxEventRelay.relay();
+
+        // 두 번째 호출: 백오프 기간이므로 폴링 쿼리 호출하지 않음
+        outboxEventRelay.relay();
+
+        verify(outboxRepository, times(1)).findPendingEvents(100);
+    }
 }

@@ -20,6 +20,9 @@ import java.util.List;
  * {@link OutboxEventProcessor}를 통해 Kafka로 발행한다.</p>
  *
  * <p>실행 시간 상한(60초)을 두어 단일 폴링이 다음 주기를 침범하지 않도록 한다.</p>
+ *
+ * <p>폴링 쿼리 자체가 실패하면 연속 에러 횟수에 비례하여 지수 백오프(5→10→20→40→60초)를
+ * 적용하여 DB/앱 자원 소진을 방지한다.</p>
  */
 @Component
 @RequiredArgsConstructor
@@ -28,15 +31,40 @@ public class OutboxEventRelay {
 
     private static final int BATCH_SIZE = 100;
     private static final Duration MAX_EXECUTION_TIME = Duration.ofSeconds(60);
+    private static final long BASE_BACKOFF_MS = 5_000L;
+    private static final long MAX_BACKOFF_MS = 60_000L;
 
     private final OutboxEventRepository outboxRepository;
     private final OutboxEventProcessor outboxEventProcessor;
     private final OutboxMetrics outboxMetrics;
 
+    private int consecutiveErrors = 0;
+    private Instant backoffUntil = Instant.MIN;
+
     @Scheduled(fixedDelay = 5000)
     public void relay() {
+        if (Instant.now().isBefore(backoffUntil)) {
+            log.debug("[OutboxRelay] 백오프 대기 중, 다음 시도: {}", backoffUntil);
+            return;
+        }
+
         Timer.Sample sample = outboxMetrics.startRelayTimer();
-        List<OutboxEventModel> events = outboxRepository.findPendingEvents(BATCH_SIZE);
+        List<OutboxEventModel> events;
+        try {
+            events = outboxRepository.findPendingEvents(BATCH_SIZE);
+        } catch (Exception e) {
+            consecutiveErrors++;
+            long backoffMs = Math.min(BASE_BACKOFF_MS * (1L << consecutiveErrors), MAX_BACKOFF_MS);
+            backoffUntil = Instant.now().plusMillis(backoffMs);
+            outboxMetrics.stopRelayTimer(sample);
+            log.error("[OutboxRelay] 폴링 쿼리 실패 (연속 {}회), {}ms 백오프 적용",
+                consecutiveErrors, backoffMs, e);
+            return;
+        }
+
+        consecutiveErrors = 0;
+        backoffUntil = Instant.MIN;
+
         if (events.isEmpty()) {
             outboxMetrics.stopRelayTimer(sample);
             return;

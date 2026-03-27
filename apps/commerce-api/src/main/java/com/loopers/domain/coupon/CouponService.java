@@ -37,11 +37,15 @@ public class CouponService {
 
     /**
      * 쿠폰 템플릿을 생성한다.
+     * maxQuantity가 null이 아니면 선착순 쿠폰으로 생성한다.
      */
     @Transactional
     public CouponModel createCoupon(String name, DiscountType discountType, BigDecimal discountValue,
-                                     BigDecimal minOrderAmount, LocalDateTime expiredAt) {
-        CouponModel coupon = CouponModel.create(name, discountType, discountValue, minOrderAmount, expiredAt);
+                                     BigDecimal minOrderAmount, LocalDateTime expiredAt,
+                                     Integer maxQuantity) {
+        CouponModel coupon = maxQuantity != null
+                ? CouponModel.createRush(name, discountType, discountValue, minOrderAmount, expiredAt, maxQuantity)
+                : CouponModel.create(name, discountType, discountValue, minOrderAmount, expiredAt);
         return couponRepository.save(coupon);
     }
 

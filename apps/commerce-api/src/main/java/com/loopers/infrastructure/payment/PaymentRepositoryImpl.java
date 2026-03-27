@@ -50,7 +50,7 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     }
 
     @Override
-    public List<PaymentModel> findAllRequestedBefore(LocalDateTime before) {
-        return jpaRepository.findAllRequestedBefore(before);
+    public List<PaymentModel> findAllRequestedBeforeMinutesAgo(int minutesAgo) {
+        return jpaRepository.findAllRequestedBeforeMinutesAgo(minutesAgo);
     }
 }

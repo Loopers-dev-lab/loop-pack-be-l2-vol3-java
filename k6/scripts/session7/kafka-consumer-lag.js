@@ -53,8 +53,8 @@ export default function () {
     } else if (rand < 0.7) {
         // 30% — 좋아요 (ProductLikedEvent → catalog-events)
         const productId = Math.floor(Math.random() * 100) + 1;
-        http.post(`${BASE}/api/v1/likes`,
-            JSON.stringify({ productId }),
+        http.post(`${BASE}/api/v1/products/${productId}/likes`,
+            null,
             { headers: HEADERS });
         likeEvents.add(1);
 
@@ -62,9 +62,9 @@ export default function () {
         // 30% — 주문 생성 (OrderCreatedEvent → order-events via Outbox)
         const productId = Math.floor(Math.random() * 100) + 1;
         const res = http.post(`${BASE}/api/v1/orders`,
-            JSON.stringify({ orderType: 'DIRECT', items: [{ productId, quantity: 1 }] }),
+            JSON.stringify({ items: [{ productId, quantity: 1 }] }),
             { headers: HEADERS });
-        if (res.status === 200) orderEvents.add(1);
+        if (res.status === 201) orderEvents.add(1);
     }
 
     sleep(0.1);

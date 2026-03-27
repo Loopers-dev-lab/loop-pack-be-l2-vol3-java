@@ -66,7 +66,7 @@ class OrderCouponConcurrencyTest {
 
         // 쿠폰 생성 및 발급
         CouponModel coupon = couponService.createCoupon("테스트쿠폰", DiscountType.FIXED,
-                BigDecimal.valueOf(5000), null, LocalDateTime.now().plusDays(30));
+                BigDecimal.valueOf(5000), null, LocalDateTime.now().plusDays(30), null);
         UserCouponModel userCoupon = couponService.issueCoupon(userId, coupon.getCouponId());
         userCouponId = userCoupon.getUserCouponId();
     }

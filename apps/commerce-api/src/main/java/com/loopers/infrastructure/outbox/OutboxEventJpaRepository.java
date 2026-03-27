@@ -11,10 +11,15 @@ import java.util.List;
 
 public interface OutboxEventJpaRepository extends JpaRepository<OutboxEventModel, Long> {
 
+    /**
+     * PENDING/FAILED 상태이고 next_retry_at이 현재 UTC 시각 이하인 이벤트를 조회한다.
+     * UTC_TIMESTAMP()를 사용하여 hibernate.jdbc.time_zone=UTC 설정과 일치시킨다.
+     * Java datetime 파라미터를 사용하지 않아 NORMALIZE_UTC 타입 불일치를 회피한다.
+     */
     @Query(value = """
         SELECT * FROM outbox_event
         WHERE status IN ('PENDING', 'FAILED')
-          AND (next_retry_at IS NULL OR next_retry_at <= NOW())
+          AND (next_retry_at IS NULL OR next_retry_at <= UTC_TIMESTAMP())
         ORDER BY created_at ASC
         LIMIT :limit
         """, nativeQuery = true)

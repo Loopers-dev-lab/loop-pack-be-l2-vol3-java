@@ -83,8 +83,8 @@ COUPON_RESULT=$(curl -s -X POST "${BASE}/api-admin/v1/coupons" \
   -H "${ADMIN_HEADER}" \
   -d "{
     \"name\": \"선착순100장쿠폰\",
-    \"discountType\": \"FIXED\",
-    \"discountValue\": 5000,
+    \"type\": \"FIXED\",
+    \"value\": 5000,
     \"minOrderAmount\": 10000,
     \"expiredAt\": \"2026-12-31T23:59:59\",
     \"maxQuantity\": 100

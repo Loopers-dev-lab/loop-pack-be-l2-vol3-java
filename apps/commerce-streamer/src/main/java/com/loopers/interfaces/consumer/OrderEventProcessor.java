@@ -1,5 +1,6 @@
 package com.loopers.interfaces.consumer;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.idempotency.EventHandledModel;
 import com.loopers.domain.idempotency.EventHandledRepository;
 import com.loopers.domain.idempotency.EventLogModel;
@@ -34,17 +35,27 @@ public class OrderEventProcessor {
     private final EventLogRepository eventLogRepository;
     private final ProductMetricsService productMetricsService;
     private final ConsumerMetrics consumerMetrics;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     @SuppressWarnings("unchecked")
     public void process(ConsumerRecord<Object, Object> record) {
         Object value = record.value();
-        if (!(value instanceof Map)) {
+
+        Map<String, Object> envelope;
+        if (value instanceof String str) {
+            try {
+                envelope = objectMapper.readValue(str, Map.class);
+            } catch (Exception e) {
+                log.warn("[OrderProcessor] JSON 파싱 실패: {}", str, e);
+                return;
+            }
+        } else if (value instanceof Map) {
+            envelope = (Map<String, Object>) value;
+        } else {
             log.warn("[OrderProcessor] 예상치 못한 메시지 타입: {}", value != null ? value.getClass() : "null");
             return;
         }
-
-        Map<String, Object> envelope = (Map<String, Object>) value;
         Number eventIdNum = (Number) envelope.get("eventId");
         String eventType = (String) envelope.get("eventType");
         String topic = record.topic();

@@ -39,7 +39,7 @@ public class AdminCouponV1Controller {
             @Valid @RequestBody AdminCouponV1Dto.CouponRequest request) {
         CouponModel coupon = couponService.createCoupon(
                 request.getName(), request.getType(), request.getValue(),
-                request.getMinOrderAmount(), request.getExpiredAt());
+                request.getMinOrderAmount(), request.getExpiredAt(), request.getMaxQuantity());
         return ResponseEntity.ok(ApiResponse.success(AdminCouponV1Dto.CouponResponse.from(coupon)));
     }
 

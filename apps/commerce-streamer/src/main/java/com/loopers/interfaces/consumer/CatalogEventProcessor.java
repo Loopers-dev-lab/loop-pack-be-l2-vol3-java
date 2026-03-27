@@ -1,5 +1,6 @@
 package com.loopers.interfaces.consumer;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.metrics.ProductMetricsService;
 import com.loopers.infrastructure.monitoring.ConsumerMetrics;
 import lombok.RequiredArgsConstructor;
@@ -24,17 +25,27 @@ public class CatalogEventProcessor {
 
     private final ProductMetricsService productMetricsService;
     private final ConsumerMetrics consumerMetrics;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     @SuppressWarnings("unchecked")
     public void process(ConsumerRecord<Object, Object> record) {
         Object value = record.value();
-        if (!(value instanceof Map)) {
+
+        Map<String, Object> message;
+        if (value instanceof String str) {
+            try {
+                message = objectMapper.readValue(str, Map.class);
+            } catch (Exception e) {
+                log.warn("[CatalogProcessor] JSON 파싱 실패: {}", str, e);
+                return;
+            }
+        } else if (value instanceof Map) {
+            message = (Map<String, Object>) value;
+        } else {
             log.warn("[CatalogProcessor] 예상치 못한 메시지 타입: {}", value != null ? value.getClass() : "null");
             return;
         }
-
-        Map<String, Object> message = (Map<String, Object>) value;
         String eventType = (String) message.get("eventType");
         Number productIdNum = (Number) message.get("productId");
 

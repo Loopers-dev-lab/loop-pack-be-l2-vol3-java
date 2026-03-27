@@ -56,10 +56,11 @@ public class OutboxEventProcessor {
                 "payload", payload
             );
 
+            String jsonMessage = objectMapper.writeValueAsString(envelope);
             kafkaTemplate.send(
                 event.getTopic(),
                 event.getPartitionKey(),
-                envelope
+                jsonMessage
             ).get(10, TimeUnit.SECONDS);
 
             event.markAsPublished();

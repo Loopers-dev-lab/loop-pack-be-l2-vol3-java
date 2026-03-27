@@ -49,7 +49,7 @@ class CouponV1ApiE2ETest {
     void setUp() throws Exception {
         registerUser(LOGIN_ID, LOGIN_PW, "쿠폰테스트유저");
         CouponModel coupon = couponService.createCoupon("테스트쿠폰", DiscountType.FIXED,
-                BigDecimal.valueOf(5000), null, LocalDateTime.now().plusDays(30));
+                BigDecimal.valueOf(5000), null, LocalDateTime.now().plusDays(30), null);
         couponId = coupon.getCouponId();
     }
 
@@ -104,7 +104,7 @@ class CouponV1ApiE2ETest {
         @DisplayName("만료된 쿠폰 발급 시 400 반환")
         void issueCoupon_ExpiredCoupon_ShouldReturn400() throws Exception {
             CouponModel expiredCoupon = couponService.createCoupon("만료쿠폰", DiscountType.FIXED,
-                    BigDecimal.valueOf(1000), null, LocalDateTime.now().minusDays(1));
+                    BigDecimal.valueOf(1000), null, LocalDateTime.now().minusDays(1), null);
 
             mockMvc.perform(post("/api/v1/coupons/{couponId}/issue", expiredCoupon.getCouponId())
                             .header("X-Loopers-LoginId", LOGIN_ID)

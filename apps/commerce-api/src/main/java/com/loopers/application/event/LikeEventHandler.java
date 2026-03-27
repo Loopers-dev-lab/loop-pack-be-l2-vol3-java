@@ -1,5 +1,6 @@
 package com.loopers.application.event;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.like.event.ProductLikedEvent;
 import com.loopers.domain.like.event.ProductUnlikedEvent;
 import com.loopers.domain.product.ProductService;
@@ -29,6 +30,7 @@ public class LikeEventHandler {
 
     private final ProductService productService;
     private final KafkaTemplate<Object, Object> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
     /**
      * 좋아요 등록 이벤트를 처리한다 (좋아요 수 증가).
@@ -76,7 +78,8 @@ public class LikeEventHandler {
                 "userId", userId,
                 "occurredAt", LocalDateTime.now().toString()
             );
-            kafkaTemplate.send("catalog-events", String.valueOf(productId), message)
+            String jsonMessage = objectMapper.writeValueAsString(message);
+            kafkaTemplate.send("catalog-events", String.valueOf(productId), jsonMessage)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
                         log.error("[CatalogEvent] Kafka 발행 실패 — eventType={}, productId={}",

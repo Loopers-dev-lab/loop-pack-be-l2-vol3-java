@@ -109,12 +109,12 @@ class PaymentServiceTest {
         LocalDateTime before = LocalDateTime.of(2026, 3, 18, 12, 0);
         PaymentModel payment = PaymentModel.create(1L, 100L, CardType.SAMSUNG, "1234-5678-9012-3456", BigDecimal.valueOf(10000));
 
-        when(paymentRepository.findAllRequestedBefore(before))
+        when(paymentRepository.findAllRequestedBeforeMinutesAgo(1))
                 .thenReturn(List.of(payment));
 
-        List<PaymentModel> result = paymentService.findRequestedBefore(before);
+        List<PaymentModel> result = paymentService.findRequestedBeforeMinutesAgo(1);
 
         assertThat(result).hasSize(1);
-        verify(paymentRepository).findAllRequestedBefore(before);
+        verify(paymentRepository).findAllRequestedBeforeMinutesAgo(1);
     }
 }

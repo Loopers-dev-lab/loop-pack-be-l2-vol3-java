@@ -42,7 +42,7 @@ class CouponIssuanceConcurrencyTest {
     void setUp() {
         CouponModel coupon = couponService.createCoupon(
                 "동시성테스트쿠폰", DiscountType.FIXED, BigDecimal.valueOf(1000),
-                null, LocalDateTime.now().plusDays(30));
+                null, LocalDateTime.now().plusDays(30), null);
         couponId = coupon.getCouponId();
     }
 

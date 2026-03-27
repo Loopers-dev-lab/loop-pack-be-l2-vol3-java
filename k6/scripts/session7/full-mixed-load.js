@@ -101,8 +101,8 @@ function doProductView(headers) {
 function doLike(headers) {
     const productId = Math.floor(Math.random() * 100) + 1;
     const start = Date.now();
-    const res = http.post(`${BASE}/api/v1/likes`,
-        JSON.stringify({ productId }), { headers });
+    const res = http.post(`${BASE}/api/v1/products/${productId}/likes`,
+        null, { headers });
     likeDuration.add(Date.now() - start);
 
     if (res.status === 200) {
@@ -116,11 +116,11 @@ function doOrder(headers) {
     const productId = Math.floor(Math.random() * 100) + 1;
     const start = Date.now();
     const res = http.post(`${BASE}/api/v1/orders`,
-        JSON.stringify({ orderType: 'DIRECT', items: [{ productId, quantity: 1 }] }),
+        JSON.stringify({ items: [{ productId, quantity: 1 }] }),
         { headers });
     orderDuration.add(Date.now() - start);
 
-    if (res.status === 200) {
+    if (res.status === 201) {
         orderCount.add(1);
     } else {
         errorCount.add(1);

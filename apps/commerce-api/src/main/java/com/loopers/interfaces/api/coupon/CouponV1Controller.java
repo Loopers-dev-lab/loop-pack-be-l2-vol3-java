@@ -95,8 +95,7 @@ public class CouponV1Controller {
     @GetMapping("/coupons/issue-result/{requestId}")
     public ResponseEntity<ApiResponse<CouponV1Dto.IssueResultResponse>> getIssueResult(
             @PathVariable String requestId) {
-        Optional<CouponIssueResultModel> result = couponIssueFacade.getIssueResult(requestId);
-        return ResponseEntity.ok(ApiResponse.success(
-                result.map(CouponV1Dto.IssueResultResponse::from).orElse(null)));
+        CouponIssueResultModel result = couponIssueFacade.getIssueResult(requestId);
+        return ResponseEntity.ok(ApiResponse.success(CouponV1Dto.IssueResultResponse.from(result)));
     }
 }

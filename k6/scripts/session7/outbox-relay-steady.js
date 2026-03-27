@@ -45,7 +45,6 @@ export default function () {
     const productId = Math.floor(Math.random() * 100) + 1;
 
     const payload = JSON.stringify({
-        orderType: 'DIRECT',
         items: [{ productId, quantity: 1 }],
     });
 
@@ -53,7 +52,7 @@ export default function () {
     const res = http.post(`${BASE}/api/v1/orders`, payload, { headers: HEADERS });
     orderDuration.add(Date.now() - start);
 
-    if (res.status === 200) {
+    if (res.status === 201) {
         orderSuccess.add(1);
 
         // 30% 확률로 주문 취소 (ORDER_CANCELLED 이벤트 발생)
@@ -61,7 +60,7 @@ export default function () {
             try {
                 const orderId = JSON.parse(res.body).data.orderId;
                 sleep(0.5);
-                http.del(`${BASE}/api/v1/orders/${orderId}`, null, { headers: HEADERS });
+                http.post(`${BASE}/api/v1/orders/${orderId}/cancel`, null, { headers: HEADERS });
             } catch (e) { /* ignore */ }
         }
     } else {

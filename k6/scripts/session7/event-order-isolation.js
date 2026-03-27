@@ -46,7 +46,6 @@ export default function () {
     const productId = Math.floor(Math.random() * 100) + 1;
 
     const payload = JSON.stringify({
-        orderType: 'DIRECT',
         items: [{ productId, quantity: 1 }],
     });
 
@@ -55,7 +54,7 @@ export default function () {
     orderDuration.add(Date.now() - start);
 
     const success = check(res, {
-        'order status 200': (r) => r.status === 200,
+        'order status 201': (r) => r.status === 201,
         'order has orderId': (r) => {
             try {
                 return JSON.parse(r.body).data.orderId > 0;

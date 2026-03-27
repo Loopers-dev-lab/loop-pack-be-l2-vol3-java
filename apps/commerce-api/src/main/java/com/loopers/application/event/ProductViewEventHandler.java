@@ -1,5 +1,6 @@
 package com.loopers.application.event;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.product.event.ProductViewedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ import java.util.Map;
 public class ProductViewEventHandler {
 
     private final KafkaTemplate<Object, Object> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
     /**
      * 상품 조회 이벤트를 처리한다 (로깅 + Kafka 전송).
@@ -40,7 +42,8 @@ public class ProductViewEventHandler {
                 "userId", event.userId(),
                 "occurredAt", LocalDateTime.now().toString()
             );
-            kafkaTemplate.send("catalog-events", String.valueOf(event.productId()), message)
+            String jsonMessage = objectMapper.writeValueAsString(message);
+            kafkaTemplate.send("catalog-events", String.valueOf(event.productId()), jsonMessage)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
                         log.error("[CatalogEvent] Kafka 발행 실패 — PRODUCT_VIEWED, productId={}",
