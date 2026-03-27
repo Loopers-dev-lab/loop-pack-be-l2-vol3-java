@@ -36,14 +36,28 @@ public class ProductMetrics {
         return m;
     }
 
-    public void increaseLikes() {
+    /**
+     * occurredAt 기준으로 최신 이벤트만 반영한다.
+     * 오래된 이벤트가 늦게 도착해 최신 상태를 덮어쓰는 것을 방지한다.
+     */
+    public boolean increaseLikes(long occurredAtMillis) {
+        if (!isNewer(occurredAtMillis)) return false;
         this.likesCount++;
-        this.updatedAt = ZonedDateTime.now();
+        this.updatedAt = ZonedDateTime.ofInstant(
+            java.time.Instant.ofEpochMilli(occurredAtMillis), java.time.ZoneId.systemDefault());
+        return true;
     }
 
-    public void decreaseLikes() {
+    public boolean decreaseLikes(long occurredAtMillis) {
+        if (!isNewer(occurredAtMillis)) return false;
         if (this.likesCount > 0) this.likesCount--;
-        this.updatedAt = ZonedDateTime.now();
+        this.updatedAt = ZonedDateTime.ofInstant(
+            java.time.Instant.ofEpochMilli(occurredAtMillis), java.time.ZoneId.systemDefault());
+        return true;
+    }
+
+    private boolean isNewer(long occurredAtMillis) {
+        return occurredAtMillis > this.updatedAt.toInstant().toEpochMilli();
     }
 
     public Long getProductId() { return productId; }

@@ -56,8 +56,8 @@ public class CatalogEventConsumer {
             .orElseGet(() -> productMetricsRepository.save(ProductMetrics.init(event.productId())));
 
         switch (CatalogEvent.Type.valueOf(event.eventType())) {
-            case LIKED -> metrics.increaseLikes();
-            case UNLIKED -> metrics.decreaseLikes();
+            case LIKED -> metrics.increaseLikes(event.occurredAt());
+            case UNLIKED -> metrics.decreaseLikes(event.occurredAt());
             default -> log.debug("[CatalogEvent] unhandled type={}", event.eventType());
         }
     }
