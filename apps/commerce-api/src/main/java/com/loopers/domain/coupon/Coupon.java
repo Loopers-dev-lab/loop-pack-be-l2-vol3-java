@@ -30,11 +30,15 @@ public class Coupon extends BaseEntity {
     @Column(name = "total_quantity")
     private Integer totalQuantity;
 
+    @Column(name = "remaining_quantity")
+    private Integer remainingQuantity;
+
     private Coupon(String name, CouponType couponType, int value, Integer totalQuantity, ZonedDateTime expiredAt) {
         this.name = name;
         this.couponType = couponType;
         this.value = value;
         this.totalQuantity = totalQuantity;
+        this.remainingQuantity = totalQuantity;
         this.expiredAt = expiredAt;
     }
 

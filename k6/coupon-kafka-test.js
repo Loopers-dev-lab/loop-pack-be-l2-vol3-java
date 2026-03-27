@@ -19,12 +19,10 @@ export const options = {
   setupTimeout: '120s',
   scenarios: {
     coupon_issue: {
-      executor: 'constant-arrival-rate',
-      rate: RATE,
-      timeUnit: '1s',
-      duration: DURATION,
-      preAllocatedVUs: 30,
-      maxVUs: 50,           // 로컬 HikariCP pool(40) 이하로 유지
+      executor: 'per-vu-iterations',
+      vus: 200,        // VU 200개 동시 실행
+      iterations: 1,   // 각 VU가 딱 1번만 요청
+      maxDuration: '2m',
       exec: 'issueAsync',
     },
   },
@@ -105,7 +103,7 @@ export function issueAsync(data) {
   if (!requestId) return;
 
   let finalStatus = 'PENDING';
-  for (let i = 0; i < 30 && finalStatus === 'PENDING'; i++) {
+  for (let i = 0; i < 10 && finalStatus === 'PENDING'; i++) {
     sleep(1);
     const statusRes = http.get(
       `${BASE_URL}/api/v1/coupons/issue-requests/${requestId}`,

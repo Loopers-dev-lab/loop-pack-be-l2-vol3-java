@@ -53,7 +53,7 @@ class CouponIssueFacadeTest {
             verify(couponIssueRequestRepository, never()).findByRequestId(any());
         }
 
-        @DisplayName("수량 제한 쿠폰인데 발급 수량이 초과됐으면, 요청 상태가 FAILED 로 변경된다.")
+        @DisplayName("수량 제한 쿠폰인데 잔여 수량이 없으면, 요청 상태가 FAILED 로 변경된다.")
         @Test
         void marksFailed_whenQuantityExceeded() {
             // arrange
@@ -65,8 +65,7 @@ class CouponIssueFacadeTest {
             when(couponRepository.findById(1L)).thenReturn(Optional.of(coupon));
             when(couponIssueRequestRepository.findByRequestId("req-1")).thenReturn(Optional.of(request));
             when(coupon.isLimited()).thenReturn(true);
-            when(coupon.totalQuantity()).thenReturn(100);
-            when(userCouponRepository.countByCouponTemplateId(1L)).thenReturn(100L);
+            when(coupon.hasRemainingQuantity()).thenReturn(false);
 
             // act
             facade.processIssue(payload);
@@ -89,8 +88,7 @@ class CouponIssueFacadeTest {
             when(couponRepository.findById(1L)).thenReturn(Optional.of(coupon));
             when(couponIssueRequestRepository.findByRequestId("req-1")).thenReturn(Optional.of(request));
             when(coupon.isLimited()).thenReturn(true);
-            when(coupon.totalQuantity()).thenReturn(100);
-            when(userCouponRepository.countByCouponTemplateId(1L)).thenReturn(50L);
+            when(coupon.hasRemainingQuantity()).thenReturn(true);
             when(userCouponRepository.existsByUserIdAndCouponTemplateId(2L, 1L)).thenReturn(true);
 
             // act
@@ -114,14 +112,14 @@ class CouponIssueFacadeTest {
             when(couponRepository.findById(1L)).thenReturn(Optional.of(coupon));
             when(couponIssueRequestRepository.findByRequestId("req-1")).thenReturn(Optional.of(request));
             when(coupon.isLimited()).thenReturn(true);
-            when(coupon.totalQuantity()).thenReturn(100);
-            when(userCouponRepository.countByCouponTemplateId(1L)).thenReturn(50L);
+            when(coupon.hasRemainingQuantity()).thenReturn(true);
             when(userCouponRepository.existsByUserIdAndCouponTemplateId(2L, 1L)).thenReturn(false);
 
             // act
             facade.processIssue(payload);
 
             // assert
+            verify(coupon).decreaseRemainingQuantity();
             verify(userCouponRepository).save(any());
             verify(request).markSuccess();
             verify(eventHandledJpaRepository).save(any(EventHandled.class));
@@ -145,7 +143,8 @@ class CouponIssueFacadeTest {
             facade.processIssue(payload);
 
             // assert
-            verify(userCouponRepository, never()).countByCouponTemplateId(any());
+            verify(coupon, never()).hasRemainingQuantity();
+            verify(coupon, never()).decreaseRemainingQuantity();
             verify(userCouponRepository).save(any());
             verify(request).markSuccess();
         }

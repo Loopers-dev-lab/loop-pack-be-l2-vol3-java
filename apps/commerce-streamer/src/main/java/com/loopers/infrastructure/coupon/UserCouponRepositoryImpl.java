@@ -17,11 +17,6 @@ public class UserCouponRepositoryImpl implements UserCouponRepository {
     }
 
     @Override
-    public long countByCouponTemplateId(Long couponTemplateId) {
-        return jpaRepository.countByCouponTemplateId(couponTemplateId);
-    }
-
-    @Override
     public boolean existsByUserIdAndCouponTemplateId(Long userId, Long couponTemplateId) {
         return jpaRepository.existsByUserIdAndCouponTemplateId(userId, couponTemplateId);
     }

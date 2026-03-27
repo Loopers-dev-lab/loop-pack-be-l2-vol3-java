@@ -31,19 +31,20 @@ public class CouponIssueFacade {
         Coupon coupon = couponRepository.findById(payload.couponId()).orElseThrow();
         CouponIssueRequest request = couponIssueRequestRepository.findByRequestId(payload.requestId()).orElseThrow();
 
-        if (coupon.isLimited()) {
-            long issuedCount = userCouponRepository.countByCouponTemplateId(payload.couponId());
-            if (issuedCount >= coupon.totalQuantity()) {
-                request.markFailed("수량 초과");
-                eventHandledJpaRepository.save(EventHandled.of(payload.eventId()));
-                return;
-            }
+        if (coupon.isLimited() && !coupon.hasRemainingQuantity()) {
+            request.markFailed("수량 초과");
+            eventHandledJpaRepository.save(EventHandled.of(payload.eventId()));
+            return;
         }
 
         if (userCouponRepository.existsByUserIdAndCouponTemplateId(payload.userId(), payload.couponId())) {
             request.markFailed("중복 발급");
             eventHandledJpaRepository.save(EventHandled.of(payload.eventId()));
             return;
+        }
+
+        if (coupon.isLimited()) {
+            coupon.decreaseRemainingQuantity();
         }
 
         userCouponRepository.save(UserCoupon.of(payload.userId(), coupon));
