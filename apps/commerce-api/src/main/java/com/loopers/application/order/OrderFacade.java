@@ -1,13 +1,10 @@
 package com.loopers.application.order;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.coupon.CouponApplyResult;
 import com.loopers.application.coupon.CouponFacade;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
-import com.loopers.domain.event.EventOutbox;
-import com.loopers.domain.event.EventOutboxRepository;
+import com.loopers.domain.event.DomainEventPublisher;
 import com.loopers.domain.event.OrderCancelledEvent;
 import com.loopers.domain.event.OrderCreatedEvent;
 import com.loopers.domain.event.OrderItemSnapshot;
@@ -19,7 +16,6 @@ import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,9 +36,7 @@ public class OrderFacade {
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
     private final CouponFacade couponFacade;
-    private final EventOutboxRepository eventOutboxRepository;
-    private final ApplicationEventPublisher applicationEventPublisher;
-    private final ObjectMapper objectMapper;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Transactional
     public Order createOrder(Long memberId, List<OrderItemRequest> itemRequests) {
@@ -125,11 +119,10 @@ public class OrderFacade {
             .map(item -> new OrderItemSnapshot(item.getProductId(), item.getQuantity(), item.getProductPrice()))
             .toList();
 
-        EventOutbox outbox = EventOutbox.create("order", String.valueOf(order.getId()),
-            "ORDER_CREATED", buildOrderPayload(order.getId(), memberId, eventItems));
-        eventOutboxRepository.save(outbox);
-
-        applicationEventPublisher.publishEvent(new OrderCreatedEvent(order.getId(), memberId, eventItems));
+        domainEventPublisher.publish("order", String.valueOf(order.getId()),
+            "ORDER_CREATED",
+            Map.of("orderId", order.getId(), "memberId", memberId, "items", eventItems),
+            new OrderCreatedEvent(order.getId(), memberId, eventItems));
 
         return order;
     }
@@ -180,11 +173,10 @@ public class OrderFacade {
             .map(item -> new OrderItemSnapshot(item.getProductId(), item.getQuantity(), item.getProductPrice()))
             .toList();
 
-        EventOutbox outbox = EventOutbox.create("order", String.valueOf(orderId),
-            "ORDER_CANCELLED", buildOrderPayload(orderId, memberId, eventItems));
-        eventOutboxRepository.save(outbox);
-
-        applicationEventPublisher.publishEvent(new OrderCancelledEvent(orderId, memberId, eventItems));
+        domainEventPublisher.publish("order", String.valueOf(orderId),
+            "ORDER_CANCELLED",
+            Map.of("orderId", orderId, "memberId", memberId, "items", eventItems),
+            new OrderCancelledEvent(orderId, memberId, eventItems));
     }
 
     public List<Order> getOrdersByMemberId(Long memberId, ZonedDateTime startAt, ZonedDateTime endAt) {
@@ -199,16 +191,4 @@ public class OrderFacade {
     }
 
     public record OrderItemRequest(Long productId, int quantity) {}
-
-    private String buildOrderPayload(Long orderId, Long memberId, List<OrderItemSnapshot> items) {
-        try {
-            return objectMapper.writeValueAsString(Map.of(
-                "orderId", orderId,
-                "memberId", memberId,
-                "items", items
-            ));
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("주문 이벤트 페이로드 직렬화 실패", e);
-        }
-    }
 }

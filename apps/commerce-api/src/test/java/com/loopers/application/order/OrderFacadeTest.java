@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.coupon.CouponFacade;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.coupon.*;
-import com.loopers.domain.event.EventOutboxRepository;
+import com.loopers.domain.event.DomainEventPublisher;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderStatus;
@@ -54,9 +54,9 @@ class OrderFacadeTest {
         KafkaTemplate<Object, Object> kafkaTemplate = mock(KafkaTemplate.class);
         couponFacade = new CouponFacade(couponRepository, couponIssueRepository,
             issueRequestRepository, kafkaTemplate, new ObjectMapper(), Clock.systemDefaultZone());
-        EventOutboxRepository eventOutboxRepository = outbox -> outbox;
+        DomainEventPublisher domainEventPublisher = (aggregateType, aggregateId, eventType, payload, event) -> {};
         orderFacade = new OrderFacade(orderRepository, productRepository, brandRepository,
-            couponFacade, eventOutboxRepository, event -> {}, new ObjectMapper());
+            couponFacade, domainEventPublisher);
     }
 
     @Nested
