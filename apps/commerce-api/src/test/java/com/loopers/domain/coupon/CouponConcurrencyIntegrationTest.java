@@ -58,7 +58,7 @@ class CouponConcurrencyIntegrationTest {
         productId = productService.registerProduct(brandId, "상품", new BigDecimal("50000"), 100).getId();
         CouponTemplateInfo template = couponFacade.registerTemplate(
                 "동시성테스트 쿠폰", "FIXED", 1000, BigDecimal.valueOf(10000),
-                ZonedDateTime.now().plusDays(30));
+                ZonedDateTime.now().plusDays(30), null);
         userId = 1L;
         issuedCouponId = couponFacade.issueCoupon(userId, template.id()).id();
     }

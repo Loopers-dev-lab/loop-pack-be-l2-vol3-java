@@ -20,4 +20,8 @@ public interface CouponTemplateProjection {
     BigDecimal getMinOrderAmount();
 
     ZonedDateTime getExpiredAt();
+
+    Integer getMaxIssueCount();
+
+    int getIssuedCount();
 }

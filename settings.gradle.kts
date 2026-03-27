@@ -7,9 +7,11 @@ include(
     ":modules:jpa",
     ":modules:redis",
     ":modules:kafka",
+    ":modules:coupon",
     ":supports:jackson",
     ":supports:logging",
     ":supports:monitoring",
+    ":supports:error",
 )
 
 // configurations

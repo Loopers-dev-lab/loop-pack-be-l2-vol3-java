@@ -13,6 +13,7 @@ public final class DomainEventTypes {
     public static final String USER_REGISTERED = "USER_REGISTERED";
     public static final String BRAND_REGISTERED = "BRAND_REGISTERED";
     public static final String CART_ITEM_ADDED = "CART_ITEM_ADDED";
+    public static final String COUPON_ISSUE_REQUESTED = "COUPON_ISSUE_REQUESTED";
 
     private DomainEventTypes() {
     }

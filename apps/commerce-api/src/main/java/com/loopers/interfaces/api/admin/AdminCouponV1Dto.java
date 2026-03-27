@@ -23,7 +23,9 @@ public final class AdminCouponV1Dto {
         Integer value,
         BigDecimal minOrderAmount,
         @NotNull(message = "만료일은 필수입니다.")
-        ZonedDateTime expiredAt
+        ZonedDateTime expiredAt,
+        /** null이면 전역 발급 상한 없음 */
+        Integer maxIssueCount
     ) {}
 
     public record UpdateCouponRequest(
@@ -35,7 +37,9 @@ public final class AdminCouponV1Dto {
         Integer value,
         BigDecimal minOrderAmount,
         @NotNull(message = "만료일은 필수입니다.")
-        ZonedDateTime expiredAt
+        ZonedDateTime expiredAt,
+        /** null이면 전역 발급 상한 없음 */
+        Integer maxIssueCount
     ) {}
 
     public record CouponResponse(
@@ -44,7 +48,9 @@ public final class AdminCouponV1Dto {
         String type,
         int value,
         BigDecimal minOrderAmount,
-        ZonedDateTime expiredAt
+        ZonedDateTime expiredAt,
+        Integer maxIssueCount,
+        int issuedCount
     ) {}
 
     public record IssuedCouponResponse(

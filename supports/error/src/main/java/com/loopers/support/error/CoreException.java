@@ -17,9 +17,6 @@ public class CoreException extends RuntimeException {
         this.customMessage = customMessage;
     }
 
-    /**
-     * 원인 예외를 보존하여 스택트레이스 추적이 가능하도록 한다.
-     */
     public CoreException(ErrorType errorType, String customMessage, Throwable cause) {
         super(customMessage != null ? customMessage : errorType.getMessage(), cause);
         this.errorType = errorType;

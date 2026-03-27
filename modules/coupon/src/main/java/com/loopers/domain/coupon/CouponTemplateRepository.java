@@ -14,6 +14,9 @@ public interface CouponTemplateRepository {
 
     Optional<CouponTemplateModel> findByIdAndNotDeleted(Long id);
 
+    /** 선착순·발급 직렬화용 비관적 락 */
+    Optional<CouponTemplateModel> findByIdAndNotDeletedForUpdate(Long id);
+
     Page<CouponTemplateModel> findNotDeleted(Pageable pageable);
 
     /** 조회 전용 프로젝션. 트래픽·연관관계 고려 시 사용. */

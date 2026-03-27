@@ -48,7 +48,7 @@ class AdminCouponV1ApiE2ETest {
     void setUp() {
         AdminCouponV1Dto.CreateCouponRequest body = new AdminCouponV1Dto.CreateCouponRequest(
                 "E2E어드민쿠폰", "FIXED", 2000, BigDecimal.valueOf(10000),
-                ZonedDateTime.now().plusDays(7));
+                ZonedDateTime.now().plusDays(7), null);
         ResponseEntity<ApiResponse<AdminCouponV1Dto.CouponResponse>> res = testRestTemplate.exchange(
                 ENDPOINT, HttpMethod.POST, new HttpEntity<>(body, adminHeaders()),
                 new ParameterizedTypeReference<>() {});
@@ -124,7 +124,7 @@ class AdminCouponV1ApiE2ETest {
         @Test
         void createCoupon_withValidRequest_shouldReturn201() {
             AdminCouponV1Dto.CreateCouponRequest body = new AdminCouponV1Dto.CreateCouponRequest(
-                    "새정률쿠폰", "RATE", 10, null, ZonedDateTime.now().plusDays(30));
+                    "새정률쿠폰", "RATE", 10, null, ZonedDateTime.now().plusDays(30), null);
 
             ResponseEntity<ApiResponse<AdminCouponV1Dto.CouponResponse>> response = testRestTemplate.exchange(
                     ENDPOINT, HttpMethod.POST, new HttpEntity<>(body, adminHeaders()),
@@ -146,7 +146,7 @@ class AdminCouponV1ApiE2ETest {
         @Test
         void updateCoupon_withValidRequest_shouldReturn200() {
             AdminCouponV1Dto.UpdateCouponRequest body = new AdminCouponV1Dto.UpdateCouponRequest(
-                    "수정된이름", "FIXED", 3000, BigDecimal.valueOf(15000), ZonedDateTime.now().plusDays(14));
+                    "수정된이름", "FIXED", 3000, BigDecimal.valueOf(15000), ZonedDateTime.now().plusDays(14), null);
 
             ResponseEntity<ApiResponse<AdminCouponV1Dto.CouponResponse>> response = testRestTemplate.exchange(
                     ENDPOINT + "/" + createdCouponId, HttpMethod.PUT, new HttpEntity<>(body, adminHeaders()),

@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -24,6 +25,7 @@ public class CouponService {
 
     private final CouponTemplateRepository couponTemplateRepository;
     private final IssuedCouponRepository issuedCouponRepository;
+    private final CouponIssueRequestRepository couponIssueRequestRepository;
     /**
      * REQUIRES_NEW 전파가 적용된 프록시 자신.
      * validateAndUse → selfProxy().validateAndUseInNewTransaction(...) 호출로 트랜잭션 경계를 분리한다.
@@ -34,9 +36,11 @@ public class CouponService {
     private CouponService self;
 
     public CouponService(CouponTemplateRepository couponTemplateRepository,
-                         IssuedCouponRepository issuedCouponRepository) {
+                         IssuedCouponRepository issuedCouponRepository,
+                         CouponIssueRequestRepository couponIssueRequestRepository) {
         this.couponTemplateRepository = couponTemplateRepository;
         this.issuedCouponRepository = issuedCouponRepository;
+        this.couponIssueRequestRepository = couponIssueRequestRepository;
     }
 
     private CouponService selfProxy() {
@@ -44,18 +48,99 @@ public class CouponService {
     }
 
     /**
-     * 쿠폰을 발급한다. 동일 사용자·동일 템플릿 중복 발급은 허용한다(요구사항에 1인 1장 제한 없음).
-     * 템플릿이 없거나 삭제/만료 시 예외.
+     * 쿠폰을 동기 발급한다. 동일 사용자·동일 템플릿 중복 발급은 불가.
+     * 템플릿이 없거나 삭제/만료·선착순 소진 시 예외.
      */
     @Transactional
     public IssuedCouponModel issue(Long userId, Long couponTemplateId) {
-        CouponTemplateModel template = couponTemplateRepository.findByIdAndNotDeleted(couponTemplateId)
+        CouponTemplateModel template = couponTemplateRepository.findByIdAndNotDeletedForUpdate(couponTemplateId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
-        if (template.isExpired(ZonedDateTime.now())) {
+        ZonedDateTime now = ZonedDateTime.now();
+        if (template.isExpired(now)) {
             throw new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰은 발급할 수 없습니다.");
         }
+        if (issuedCouponRepository.existsByUserIdAndCouponId(userId, couponTemplateId)) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 발급받은 쿠폰입니다.");
+        }
+        if (template.isSoldOut()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "쿠폰이 모두 소진되었습니다.");
+        }
         IssuedCouponModel issued = IssuedCouponModel.issue(userId, couponTemplateId, template.getExpiredAt());
-        return issuedCouponRepository.save(issued);
+        IssuedCouponModel saved = saveIssuedCouponOrConflict(issued);
+        template.incrementIssuedCountAfterSuccessfulIssue();
+        couponTemplateRepository.save(template);
+        return saved;
+    }
+
+    /**
+     * 비동기 쿠폰 발급: 요청 행이 있으면 상태를 갱신하고, 없으면 레거시 메시지로 간주해 {@link #issueIfAbsent}만 수행한다.
+     */
+    @Transactional
+    public void processCouponIssueRequest(String requestId, Long userId, Long couponTemplateId) {
+        Optional<CouponIssueRequestModel> row = couponIssueRequestRepository.findByRequestId(requestId);
+        if (row.isEmpty()) {
+            issueIfAbsent(userId, couponTemplateId);
+            return;
+        }
+        CouponIssueRequestModel req = row.get();
+        if (!req.isPending()) {
+            return;
+        }
+        CouponTemplateModel template = couponTemplateRepository.findByIdAndNotDeletedForUpdate(couponTemplateId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
+        ZonedDateTime now = ZonedDateTime.now();
+        if (template.isExpired(now)) {
+            req.markRejected(CouponIssueRequestStatus.REJECTED_EXPIRED);
+            couponIssueRequestRepository.save(req);
+            return;
+        }
+        if (issuedCouponRepository.existsByUserIdAndCouponId(userId, couponTemplateId)) {
+            req.markRejected(CouponIssueRequestStatus.REJECTED_DUPLICATE);
+            couponIssueRequestRepository.save(req);
+            return;
+        }
+        if (template.isSoldOut()) {
+            req.markRejected(CouponIssueRequestStatus.REJECTED_SOLD_OUT);
+            couponIssueRequestRepository.save(req);
+            return;
+        }
+        IssuedCouponModel issued = IssuedCouponModel.issue(userId, couponTemplateId, template.getExpiredAt());
+        IssuedCouponModel saved = saveIssuedCouponOrConflict(issued);
+        template.incrementIssuedCountAfterSuccessfulIssue();
+        couponTemplateRepository.save(template);
+        req.markIssued(saved.getId());
+        couponIssueRequestRepository.save(req);
+    }
+
+    /**
+     * 레거시 Kafka 페이로드(요청 행 없음)용. 락·중복·선착순을 반영한다.
+     */
+    @Transactional
+    public void issueIfAbsent(Long userId, Long couponTemplateId) {
+        CouponTemplateModel template = couponTemplateRepository.findByIdAndNotDeletedForUpdate(couponTemplateId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
+        ZonedDateTime now = ZonedDateTime.now();
+        if (template.isExpired(now)) {
+            return;
+        }
+        if (issuedCouponRepository.existsByUserIdAndCouponId(userId, couponTemplateId)) {
+            return;
+        }
+        if (template.isSoldOut()) {
+            return;
+        }
+        IssuedCouponModel issued = IssuedCouponModel.issue(userId, couponTemplateId, template.getExpiredAt());
+        saveIssuedCouponOrConflict(issued);
+        template.incrementIssuedCountAfterSuccessfulIssue();
+        couponTemplateRepository.save(template);
+    }
+
+    private IssuedCouponModel saveIssuedCouponOrConflict(IssuedCouponModel issued) {
+        try {
+            return issuedCouponRepository.save(issued);
+        } catch (DataIntegrityViolationException e) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 발급받은 쿠폰입니다.", e);
+        }
     }
 
     /**

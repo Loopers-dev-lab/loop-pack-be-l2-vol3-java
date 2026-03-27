@@ -12,6 +12,8 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import com.loopers.collector.metrics.KafkaCollectorDlqMetrics;
+import org.springframework.kafka.listener.ConsumerRecordRecoverer;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.util.backoff.FixedBackOff;
 
@@ -27,6 +29,7 @@ public class ProductEventConsumerConfig {
     public ConcurrentKafkaListenerContainerFactory<Object, Object> productEventListenerContainerFactory(
             KafkaProperties kafkaProperties,
             KafkaTemplate<Object, Object> kafkaTemplate,
+            KafkaCollectorDlqMetrics dlqMetrics,
             @Value("${collector.product.dlq-suffix:.DLQ}") String dlqSuffix
     ) {
         Map<String, Object> consumerConfig = new HashMap<>(kafkaProperties.buildConsumerProperties());
@@ -39,10 +42,14 @@ public class ProductEventConsumerConfig {
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
         factory.setBatchListener(false);
 
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+        DeadLetterPublishingRecoverer delegate = new DeadLetterPublishingRecoverer(
                 kafkaTemplate,
                 (record, ex) -> new TopicPartition(record.topic() + dlqSuffix, record.partition())
         );
+        ConsumerRecordRecoverer recoverer = (record, ex) -> {
+            dlqMetrics.recordDlqSend(record.topic());
+            delegate.accept(record, ex);
+        };
         // Redis/DB 일시 장애 등은 재시도 후 DLQ; 경량 멱등은 Redis 폴백 없음(복구 후 DLQ 재처리).
         // 파싱/검증 같은 비복구성 오류는 즉시 DLQ로 보낸다.
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, new FixedBackOff(500L, 2L));

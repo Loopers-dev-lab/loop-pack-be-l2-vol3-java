@@ -1,0 +1,30 @@
+# commerce-streamer / commerce-batch Prometheus 알림 규칙 (로드맵 3단계)
+# 사용: prometheus.yml 의 rule_files 에 추가 후 docker compose 재기동
+groups:
+  - name: kafka-collector
+    rules:
+      - alert: CollectorTopicLagHigh
+        expr: kafka_consumer_topic_lag_sum > 10000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "컨슈머 토픽 lag 합계가 임계값을 초과했습니다"
+          description: "group={{ $labels.group }} topic={{ $labels.topic }} lag={{ $value }}"
+
+      # Micrometer 네이밍은 /actuator/prometheus 에서 확인 후 조정
+      - alert: CollectorEventsFailedSpike
+        expr: rate(kafka_collector_events_failed_total[5m]) > 1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "collector 처리 실패율이 높습니다 (메트릭명 없으면 규칙 비활성화)"
+
+      - alert: OutboxDlqRedriveFailed
+        expr: rate(kafka_outbox_dlq_redrive_failed_total[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Outbox DLQ 재주입 실패가 반복됩니다 (메트릭명 없으면 규칙 비활성화)"
