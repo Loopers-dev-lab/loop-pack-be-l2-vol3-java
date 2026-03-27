@@ -2,14 +2,17 @@ package com.loopers;
 
 import jakarta.annotation.PostConstruct;
 import org.springframework.boot.SpringApplication;
+import com.loopers.collector.metrics.CollectorLagProperties;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.TimeZone;
 
 @EnableScheduling
 @ConfigurationPropertiesScan
+@EnableConfigurationProperties(CollectorLagProperties.class)
 @SpringBootApplication
 public class CommerceStreamerApplication {
     @PostConstruct

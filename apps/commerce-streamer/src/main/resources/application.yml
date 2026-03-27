@@ -39,6 +39,19 @@ coupon:
     consumer-group: loopers-coupon-issue-consumer
 
 collector:
+  metrics:
+    lag:
+      enabled: true
+      poll-interval-ms: 60000
+      groups:
+        - group-id: ${spring.kafka.consumer.group-id}
+          topics:
+            - ${collector.product.topic-name}
+            - ${collector.order.topic-name}
+            - ${collector.user.topic-name}
+        - group-id: ${coupon.issue.consumer-group}
+          topics:
+            - ${coupon.issue.topic-name}
   product:
     topic-name: product-events
     dlq-suffix: .DLQ
@@ -64,7 +77,12 @@ collector:
 spring:
   config:
     activate:
-      on-profile: local, test
+      on-profile: test
+
+collector:
+  metrics:
+    lag:
+      enabled: false
 
 ---
 spring:
