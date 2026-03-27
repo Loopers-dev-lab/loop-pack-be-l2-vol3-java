@@ -1,5 +1,6 @@
 package com.loopers.collector.application;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.collector.idempotency.LightweightEventIdempotency;
@@ -82,7 +83,9 @@ public class ProductEventCollectorService {
             if (node.isTextual()) {
                 node = objectMapper.readTree(node.asText());
             }
-            return objectMapper.treeToValue(node, ProductEventEnvelope.class);
+            return objectMapper.readerFor(ProductEventEnvelope.class)
+                    .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                    .readValue(node);
         } catch (Exception e) {
             throw new IllegalArgumentException("invalid product domain event envelope", e);
         }
