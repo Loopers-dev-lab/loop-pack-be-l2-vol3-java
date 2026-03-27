@@ -41,8 +41,8 @@ public class OrderEventConsumer {
             for (ConsumerRecord<String, byte[]> record : records) {
                 try {
                     JsonNode envelope = parseEnvelope(record.value());
-                    String eventId = envelope.get("eventId").asText();
-                    String eventType = envelope.get("eventType").asText();
+                    String eventId = requireText(envelope, "eventId");
+                    String eventType = requireText(envelope, "eventType");
 
                     if (eventHandledRepository.existsById(eventId)) {
                         log.debug("[OrderEvent] 이미 처리된 이벤트 skip: eventId={}", eventId);
@@ -71,18 +71,22 @@ public class OrderEventConsumer {
                 metricsApplicationService.incrementSaleCount(eventId, items);
             }
             case "ORDER_CANCELLED" ->
-                log.info("[OrderEvent] 주문 취소 이벤트 수신: orderId={}", data.get("orderId").asLong());
+                log.info("[OrderEvent] 주문 취소 이벤트 수신: orderId={}", requireLong(data, "orderId"));
             case "ORDER_CREATED" ->
-                log.info("[OrderEvent] 주문 생성 이벤트 수신: orderId={}", data.get("orderId").asLong());
+                log.info("[OrderEvent] 주문 생성 이벤트 수신: orderId={}", requireLong(data, "orderId"));
             case "PAYMENT_FAILED" ->
-                log.info("[OrderEvent] 결제 실패 이벤트 수신: orderId={}", data.get("orderId").asLong());
+                log.info("[OrderEvent] 결제 실패 이벤트 수신: orderId={}", requireLong(data, "orderId"));
             default -> log.warn("[OrderEvent] 알 수 없는 이벤트 타입: {}", eventType);
         }
     }
 
     private List<OrderItemPayload> parseItems(JsonNode data) throws JsonProcessingException {
+        JsonNode itemsNode = data.get("items");
+        if (itemsNode == null || itemsNode.isNull()) {
+            throw new IllegalArgumentException("필수 필드 누락: items");
+        }
         return objectMapper.readValue(
-            data.get("items").toString(),
+            itemsNode.toString(),
             objectMapper.getTypeFactory().constructCollectionType(List.class, OrderItemPayload.class)
         );
     }
@@ -96,6 +100,22 @@ public class OrderEventConsumer {
                 record.topic(), record.partition(), record.offset(), record.key(), e);
             throw new RuntimeException("DLQ 전송 실패 — 전체 배치 재배달 필요", e);
         }
+    }
+
+    private String requireText(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        if (value == null || value.isNull()) {
+            throw new IllegalArgumentException("필수 필드 누락: " + field);
+        }
+        return value.asText();
+    }
+
+    private Long requireLong(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        if (value == null || value.isNull()) {
+            throw new IllegalArgumentException("필수 필드 누락: " + field);
+        }
+        return value.asLong();
     }
 
     private JsonNode parseEnvelope(byte[] value) throws IOException {

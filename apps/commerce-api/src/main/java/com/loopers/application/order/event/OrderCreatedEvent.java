@@ -9,4 +9,7 @@ public record OrderCreatedEvent(
     List<OrderItemSnapshot> items,
     ZonedDateTime occurredAt
 ) {
+    public OrderCreatedEvent {
+        items = List.copyOf(items);
+    }
 }

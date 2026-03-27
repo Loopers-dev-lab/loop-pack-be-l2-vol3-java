@@ -38,8 +38,8 @@ public class CatalogEventConsumer {
             for (ConsumerRecord<String, byte[]> record : records) {
                 try {
                     JsonNode envelope = parseEnvelope(record.value());
-                    String eventId = envelope.get("eventId").asText();
-                    String eventType = envelope.get("eventType").asText();
+                    String eventId = requireText(envelope, "eventId");
+                    String eventType = requireText(envelope, "eventType");
 
                     if (eventHandledRepository.existsById(eventId)) {
                         log.debug("[CatalogEvent] 이미 처리된 이벤트 skip: eventId={}", eventId);
@@ -62,7 +62,7 @@ public class CatalogEventConsumer {
     }
 
     private void processEvent(String eventId, String eventType, JsonNode data) {
-        Long productId = data.get("productId").asLong();
+        Long productId = requireLong(data, "productId");
 
         switch (eventType) {
             case "LIKED" -> metricsApplicationService.incrementLikeCount(eventId, productId);
@@ -81,6 +81,22 @@ public class CatalogEventConsumer {
                 record.topic(), record.partition(), record.offset(), record.key(), e);
             throw new RuntimeException("DLQ 전송 실패 — 전체 배치 재배달 필요", e);
         }
+    }
+
+    private String requireText(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        if (value == null || value.isNull()) {
+            throw new IllegalArgumentException("필수 필드 누락: " + field);
+        }
+        return value.asText();
+    }
+
+    private Long requireLong(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        if (value == null || value.isNull()) {
+            throw new IllegalArgumentException("필수 필드 누락: " + field);
+        }
+        return value.asLong();
     }
 
     private JsonNode parseEnvelope(byte[] value) throws IOException {

@@ -7,6 +7,7 @@ import com.loopers.domain.metrics.ProductMetrics;
 import com.loopers.domain.metrics.ProductMetricsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -110,6 +111,13 @@ public class MetricsApplicationService {
 
     private ProductMetrics getOrCreate(Long productId) {
         return productMetricsRepository.findByProductId(productId)
-            .orElseGet(() -> productMetricsRepository.save(new ProductMetrics(productId)));
+            .orElseGet(() -> {
+                try {
+                    return productMetricsRepository.save(new ProductMetrics(productId));
+                } catch (DataIntegrityViolationException e) {
+                    return productMetricsRepository.findByProductId(productId)
+                        .orElseThrow(() -> e);
+                }
+            });
     }
 }

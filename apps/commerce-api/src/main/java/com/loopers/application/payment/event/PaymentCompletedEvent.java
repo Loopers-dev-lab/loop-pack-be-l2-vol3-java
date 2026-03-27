@@ -13,4 +13,7 @@ public record PaymentCompletedEvent(
     List<OrderItemSnapshot> items,
     ZonedDateTime occurredAt
 ) {
+    public PaymentCompletedEvent {
+        items = List.copyOf(items);
+    }
 }

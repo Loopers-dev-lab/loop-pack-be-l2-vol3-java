@@ -44,8 +44,8 @@ public class CouponIssueConsumer {
                 envelope = objectMapper.readTree(envelope.asText());
             }
 
-            String eventId = envelope.get("eventId").asText();
-            String eventType = envelope.get("eventType").asText();
+            String eventId = requireText(envelope, "eventId");
+            String eventType = requireText(envelope, "eventType");
 
             if (!"COUPON_ISSUE_REQUESTED".equals(eventType)) {
                 log.warn("[CouponIssueConsumer] 알 수 없는 이벤트 타입: {}", eventType);
@@ -67,6 +67,14 @@ public class CouponIssueConsumer {
                 log.error("[CouponIssueConsumer] DLQ 전송 실패. 재배달 예정. error={}", dlqException.getMessage());
             }
         }
+    }
+
+    private String requireText(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        if (value == null || value.isNull()) {
+            throw new IllegalArgumentException("필수 필드 누락: " + field);
+        }
+        return value.asText();
     }
 
     private void sendToDlq(ConsumerRecord<String, Object> record) {
