@@ -9,6 +9,7 @@ import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.infrastructure.redis.StockReservationRedisRepository;
 import com.loopers.interfaces.api.product.ProductDto;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -34,6 +35,7 @@ public class ProductFacade {
     private final LikeRepository likeRepository;
     private final ProductCachePort productCachePort;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final StockReservationRedisRepository stockRedisRepository;
 
     // ── 상품 상세 (캐시 적용) ──
 
@@ -118,6 +120,17 @@ public class ProductFacade {
                 .toList();
         }
         return results;
+    }
+
+    // ── 재고 복원 (결제 실패/취소 시 호출) ──
+
+    @Transactional
+    public void restoreStock(Long productId, int quantity) {
+        stockRedisRepository.increase(productId, quantity);
+        productRepository.findById(productId).ifPresent(product -> {
+            product.increaseStock(quantity);
+            productRepository.save(product);
+        });
     }
 
     // ── 상품 CUD (캐시 무효화 포함) ──
