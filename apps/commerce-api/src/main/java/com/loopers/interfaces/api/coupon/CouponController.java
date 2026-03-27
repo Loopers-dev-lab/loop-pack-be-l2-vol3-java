@@ -33,4 +33,19 @@ public class CouponController {
         List<IssuedCouponInfo> infos = couponFacade.getMyIssuedCoupons(member.getId());
         return ApiResponse.success(CouponDto.IssuedCouponListResponse.from(infos));
     }
+
+    @PostMapping("/api/v1/coupons/{couponId}/async-issue")
+    public ApiResponse<CouponDto.AsyncIssueResponse> requestAsyncIssue(
+            @LoginUser Member member,
+            @PathVariable Long couponId
+    ) {
+        String requestId = couponFacade.requestAsyncIssue(couponId, member.getId());
+        return ApiResponse.success(new CouponDto.AsyncIssueResponse(requestId));
+    }
+
+    @GetMapping("/api/v1/coupons/issue-status/{requestId}")
+    public ApiResponse<CouponDto.IssueStatusResponse> getIssueStatus(@PathVariable String requestId) {
+        String status = couponFacade.getIssueRequestStatus(requestId).orElse("NOT_FOUND");
+        return ApiResponse.success(new CouponDto.IssueStatusResponse(requestId, status));
+    }
 }

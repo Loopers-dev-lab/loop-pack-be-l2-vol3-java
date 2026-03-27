@@ -35,4 +35,10 @@ public class CouponDto {
             return new IssuedCouponListResponse(infoList.stream().map(IssuedCouponResponse::from).toList());
         }
     }
+
+    public record AsyncIssueResponse(String requestId) {
+    }
+
+    public record IssueStatusResponse(String requestId, String status) {
+    }
 }
