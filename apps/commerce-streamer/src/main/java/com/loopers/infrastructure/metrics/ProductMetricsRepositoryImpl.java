@@ -5,6 +5,7 @@ import com.loopers.domain.metrics.ProductMetricsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Repository
@@ -21,5 +22,10 @@ public class ProductMetricsRepositoryImpl implements ProductMetricsRepository {
     @Override
     public ProductMetricsModel save(ProductMetricsModel model) {
         return productMetricsJpaRepository.save(model);
+    }
+
+    @Override
+    public void upsertLikeDelta(Long refProductId, int delta, LocalDateTime eventAt) {
+        productMetricsJpaRepository.upsertLikeDelta(refProductId, delta, eventAt);
     }
 }

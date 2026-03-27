@@ -14,10 +14,6 @@ public class ProductMetricsService {
 
     @Transactional
     public void applyLikeDelta(Long productDbId, int delta, LocalDateTime eventAt) {
-        productMetricsRepository.findByRefProductId(productDbId)
-                .ifPresentOrElse(
-                        metrics -> metrics.applyDelta(delta, eventAt),
-                        () -> productMetricsRepository.save(ProductMetricsModel.create(productDbId, delta, eventAt))
-                );
+        productMetricsRepository.upsertLikeDelta(productDbId, delta, eventAt);
     }
 }

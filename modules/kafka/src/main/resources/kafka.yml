@@ -33,7 +33,6 @@ spring:
       auto-offset-reset: earliest
       enable-auto-commit: false
       properties:
-        isolation.level: read_committed
         spring.deserializer.value.delegate.class: org.apache.kafka.common.serialization.ByteArrayDeserializer
         spring.json.trusted.packages: "com.loopers.*"
     listener:

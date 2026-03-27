@@ -1,19 +1,32 @@
 package com.loopers.infrastructure.metrics;
 
 import com.loopers.domain.metrics.ProductMetricsModel;
-import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface ProductMetricsJpaRepository extends JpaRepository<ProductMetricsModel, Long> {
 
-    // PESSIMISTIC_WRITE: productId key ordering으로 같은 파티션 내 순차 처리가 보장되지만,
-    // 멀티 인스턴스 streamer 배포 시 파티션 리밸런싱 과도기에 동일 row 동시 접근이 가능하므로 방어적 락 적용.
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT m FROM ProductMetricsModel m WHERE m.refProductId = :refProductId")
-    Optional<ProductMetricsModel> findByRefProductId(@Param("refProductId") Long refProductId);
+    Optional<ProductMetricsModel> findByRefProductId(Long refProductId);
+
+    @Modifying
+    @Query(value = """
+        INSERT INTO product_metrics (ref_product_id, like_count, last_event_at, created_at, updated_at)
+        VALUES (:refProductId, GREATEST(0, :delta), :eventAt, NOW(6), NOW(6))
+        ON DUPLICATE KEY UPDATE
+            like_count    = IF(:eventAt > last_event_at OR last_event_at IS NULL,
+                               GREATEST(0, like_count + :delta),
+                               like_count),
+            last_event_at = IF(:eventAt > last_event_at OR last_event_at IS NULL,
+                               :eventAt,
+                               last_event_at),
+            updated_at    = NOW(6)
+        """, nativeQuery = true)
+    void upsertLikeDelta(@Param("refProductId") Long refProductId,
+                         @Param("delta") int delta,
+                         @Param("eventAt") LocalDateTime eventAt);
 }
