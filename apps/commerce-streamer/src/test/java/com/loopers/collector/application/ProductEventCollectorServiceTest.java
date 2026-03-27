@@ -53,7 +53,7 @@ class ProductEventCollectorServiceTest {
 
         collectorService.process(record);
 
-        verify(databaseService).processDb(any(ConsumerRecord.class), any());
+        verify(databaseService).processDb(org.mockito.ArgumentMatchers.<ConsumerRecord<Object, Object>>any(), any());
         verify(lightweightEventIdempotency, never()).tryClaimFirstDelivery(any());
     }
 
@@ -111,6 +111,30 @@ class ProductEventCollectorServiceTest {
         }
 
         assertThat(meterRegistry.find("kafka.collector.events.failed").counter().count()).isEqualTo(1.0);
+    }
+
+    @Test
+    @DisplayName("envelope에 알 수 없는 필드가 있어도 이벤트를 처리한다.")
+    void process_whenEnvelopeHasUnknownFields_shouldStillProcess() {
+        String json = "{"
+                + "\"eventId\":\"evt-unknown-1\","
+                + "\"eventType\":\"PRODUCT_LIKE_CHANGED\","
+                + "\"occurredAt\":\"2026-03-26T00:00:00Z\","
+                + "\"partitionKey\":\"101\","
+                + "\"unknownRootField\":\"ignored\","
+                + "\"data\":{\"productId\":101,\"action\":\"LIKED\"}"
+                + "}";
+        ConsumerRecord<Object, Object> record = new ConsumerRecord<>(
+                "product-events",
+                0,
+                10L,
+                "101",
+                json.getBytes()
+        );
+
+        collectorService.process(record);
+
+        verify(databaseService).processDb(org.mockito.ArgumentMatchers.<ConsumerRecord<Object, Object>>any(), any());
     }
 
     private static String envelopeJson(String eventId, String eventType, String occurredAt, Long productId, String action) {
