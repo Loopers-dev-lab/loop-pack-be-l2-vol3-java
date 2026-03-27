@@ -38,6 +38,11 @@ coupon:
     topic-name: coupon-issue-requests
     consumer-group: loopers-coupon-issue-consumer
 
+cdc:
+  connect:
+    topic-pattern: ^cdc-connect-.*$
+    consumer-group: loopers-cdc-connect-consumer
+
 collector:
   metrics:
     lag:
