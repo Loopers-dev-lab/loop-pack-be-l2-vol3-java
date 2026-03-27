@@ -9,13 +9,6 @@ import java.math.BigDecimal;
 
 public enum ProductSortCondition {
 
-    LIKES_DESC {
-        @Override
-        public OrderSpecifier<?>[] toOrderSpecifiers(QProductModel product) {
-            return new OrderSpecifier<?>[] { product.updatedAt.desc() };
-        }
-    },
-
     PRICE_ASC {
         @Override
         public OrderSpecifier<?>[] toOrderSpecifiers(QProductModel product) {
@@ -35,9 +28,8 @@ public enum ProductSortCondition {
 
     public static ProductSortCondition from(String sortBy) {
         return switch (sortBy) {
-            case "likes_desc" -> LIKES_DESC;
-            case "price_asc"  -> PRICE_ASC;
-            default           -> LATEST;
+            case "price_asc" -> PRICE_ASC;
+            default          -> LATEST;
         };
     }
 }

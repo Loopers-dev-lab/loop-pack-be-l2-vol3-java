@@ -47,7 +47,7 @@ public class ProductApp {
     }
 
     @Caching(evict = {
-        @CacheEvict(value = "product",   key = "#productId"),
+        @CacheEvict(value = "product",  key = "#productId"),
         @CacheEvict(value = "products", allEntries = true)
     })
     @Transactional
