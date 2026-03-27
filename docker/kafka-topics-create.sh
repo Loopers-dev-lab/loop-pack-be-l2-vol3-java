@@ -24,6 +24,9 @@ TOPICS=(
   "product-events"
   "product-events.DLQ"
   "order-events"
+  "order-events.DLQ"
+  "user-events"
+  "user-events.DLQ"
   "coupon-issue-requests"
 )
 

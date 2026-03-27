@@ -12,6 +12,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     testImplementation("org.springframework.kafka:spring-kafka-test")
 
+    runtimeOnly("org.flywaydb:flyway-core")
+    runtimeOnly("org.flywaydb:flyway-mysql")
+
     // querydsl
     annotationProcessor("com.querydsl:querydsl-apt::jakarta")
     annotationProcessor("jakarta.persistence:jakarta.persistence-api")

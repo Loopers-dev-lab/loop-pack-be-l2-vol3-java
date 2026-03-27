@@ -24,6 +24,9 @@ spring:
       - kafka.yml
       - logging.yml
       - monitoring.yml
+  # 운영(ddl-auto: none)에서 collector 스키마는 classpath:db/migration (Flyway). local/test는 Hibernate create + Flyway 비활성.
+  flyway:
+    enabled: false
 
 demo-kafka:
   test:
@@ -33,6 +36,23 @@ collector:
   product:
     topic-name: product-events
     dlq-suffix: .DLQ
+  order:
+    topic-name: order-events
+  user:
+    topic-name: user-events
+  # 경량 이벤트(USER_REGISTERED / BRAND_REGISTERED / CART_ITEM_ADDED): DB event_handled 없이 Redis SETNX 멱등.
+  # Redis 장애 시: DB 폴백 없음 → 예외는 재시도/DLQ 정책으로 처리, Redis 복구 후 DLQ 재처리.
+  # redis-ttl-days: 브로커 보존·consumer 최대 중단 허용 시간·lag보다 짧으면 TTL 이후 재전달 시 processed 지표가 중복될 수 있음.
+  lightweight-idempotency:
+    redis-ttl-days: 14
+  # DB event_handled 행 보관: 멱등용 기술 로그(비즈니스 감사 아님). retention 이후 영구 삭제.
+  event-handled-cleanup:
+    enabled: true
+    fixed-delay-ms: 3600000
+    retention-days: 14
+    batch-size: 500
+    max-loops-per-run: 10
+    max-rows-per-run: 100000
 
 ---
 spring:
@@ -44,13 +64,12 @@ spring:
 spring:
   config:
     activate:
-      on-profile: dev
-
----
-spring:
-  config:
-    activate:
-      on-profile: qa
+      on-profile: dev, qa, prd
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    table: flyway_schema_history_streamer
 
 ---
 spring:
