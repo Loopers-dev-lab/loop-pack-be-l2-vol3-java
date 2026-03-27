@@ -1,4 +1,6 @@
 dependencies {
+    implementation(project(":modules:coupon"))
+    implementation(project(":supports:error"))
     // add-ons
     implementation(project(":modules:jpa"))
     implementation(project(":modules:redis"))

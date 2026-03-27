@@ -32,6 +32,12 @@ demo-kafka:
   test:
     topic-name: demo.internal.topic-v1
 
+# 쿠폰 비동기 발급: API 기본 consumer group 과 분리해 중복 처리 방지 (commerce-api 에는 동 토픽 리스너 없음)
+coupon:
+  issue:
+    topic-name: coupon-issue-requests
+    consumer-group: loopers-coupon-issue-consumer
+
 collector:
   product:
     topic-name: product-events
