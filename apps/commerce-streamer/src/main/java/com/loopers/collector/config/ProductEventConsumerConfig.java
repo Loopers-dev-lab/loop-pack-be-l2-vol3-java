@@ -43,7 +43,8 @@ public class ProductEventConsumerConfig {
                 kafkaTemplate,
                 (record, ex) -> new TopicPartition(record.topic() + dlqSuffix, record.partition())
         );
-        // 일시적 장애는 재시도하고, 파싱/검증 같은 비복구성 오류는 즉시 DLQ로 보낸다.
+        // Redis/DB 일시 장애 등은 재시도 후 DLQ; 경량 멱등은 Redis 폴백 없음(복구 후 DLQ 재처리).
+        // 파싱/검증 같은 비복구성 오류는 즉시 DLQ로 보낸다.
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, new FixedBackOff(500L, 2L));
         errorHandler.addNotRetryableExceptions(IllegalArgumentException.class);
         factory.setCommonErrorHandler(errorHandler);
