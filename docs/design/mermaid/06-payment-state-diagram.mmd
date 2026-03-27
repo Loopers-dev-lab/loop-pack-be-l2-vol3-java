@@ -1,0 +1,44 @@
+%% 결제 도메인 상태 전이 다이어그램
+%% OrderStatus와 PaymentStatus의 연동 관계 + Resilience4j Fallback + Polling 복구
+
+stateDiagram-v2
+    state "Order 상태" as OrderState {
+        [*] --> CREATED : 주문 생성
+        CREATED --> PAYMENT_PENDING : startPayment() [TX-1]
+        PAYMENT_PENDING --> CONFIRMED : confirmPayment() [콜백/Polling]
+        PAYMENT_PENDING --> PAYMENT_FAILED : failPayment() [콜백/Polling]
+        PAYMENT_FAILED --> PAYMENT_PENDING : startPayment() [재결제]
+        PAYMENT_FAILED --> CANCELLED : cancel()
+        CONFIRMED --> SHIPPING : ship()
+        SHIPPING --> DELIVERED : deliver()
+    }
+
+    state "Payment 상태" as PaymentState {
+        [*] --> PENDING : TX-1 커밋 (preparePayment)
+        PENDING --> SUCCESS : markSuccess() [콜백/Polling]
+        PENDING --> FAILED : markFailed() [콜백/Polling]
+        SUCCESS --> SUCCESS : markSuccess() [멱등]
+        FAILED --> FAILED : markFailed() [멱등]
+    }
+
+    note right of OrderState
+        TX 분리 패턴 + Resilience4j 연동:
+        ─────────────────────────────────
+        정상 플로우:
+        TX-1: CREATED→PAYMENT_PENDING + PENDING 생성
+        NO TX: PG 호출 (@Retry 3회 + @Bulkhead 20)
+        TX-2: transactionKey 저장
+        콜백: SUCCESS→CONFIRMED / FAILED→PAYMENT_FAILED
+
+        PG 실패 플로우 (Fallback):
+        TX-1: 이미 커밋됨 (PAYMENT_PENDING + PENDING)
+        Fallback: PG_FAILED 응답 반환 (txKey=null 고아 발생)
+        → 3-Tier 복구 안전망:
+          1차: PG 콜백 (정상 도착 시)
+          2차: Polling 60초 주기 자동 복구
+          3차: /payments/{id}/sync 수동 복구
+
+        서킷브레이커 OPEN 시:
+        PG 호출 없이 즉시 Fallback 실행
+        주문/결제는 TX-1 커밋 상태로 유지
+    end note

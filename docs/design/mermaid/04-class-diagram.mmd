@@ -59,6 +59,8 @@ classDiagram
         class OrderStatus {
             <<enumeration>>
             CREATED
+            PAYMENT_PENDING
+            PAYMENT_FAILED
             CONFIRMED
             SHIPPING
             DELIVERED
@@ -68,6 +70,9 @@ classDiagram
             -Long userId
             -OrderStatus status
             -Money totalAmount
+            +startPayment()
+            +confirmPayment()
+            +failPayment()
         }
         class OrderItemModel {
             -Long orderId
@@ -82,11 +87,65 @@ classDiagram
         }
     }
 
+    namespace Payment {
+        class PaymentStatus {
+            <<enumeration>>
+            PENDING
+            SUCCESS
+            FAILED
+            CANCELLED
+        }
+        class CardType {
+            <<enumeration>>
+            SAMSUNG
+            KB
+            HYUNDAI
+        }
+        class PaymentModel {
+            -Long orderId
+            -Long userId
+            -CardType cardType
+            -String maskedCardNo
+            -Money amount
+            -PaymentStatus status
+            -String transactionKey
+            -String failureReason
+            +assignTransactionKey(String)
+            +markSuccess()
+            +markFailed(String)
+        }
+        class PgClient {
+            <<infrastructure>>
+            +requestPayment(PgPaymentRequest, userId) PgPaymentResponse
+            +getPaymentStatus(txKey, userId) PgPaymentResponse
+        }
+        class PgPaymentGateway {
+            <<infrastructure>>
+            +requestPayment(PgPaymentRequest, userId) PgPaymentResponse
+            +getPaymentStatus(txKey, userId) PgPaymentResponse
+            Note: @Bulkhead + @Retry
+        }
+        class PaymentFacade {
+            TX 분리 패턴 + @CircuitBreaker + Fallback
+            +requestPayment() PaymentInfo
+            +handleCallback() void
+            +syncPaymentStatus() PaymentInfo
+        }
+        class PaymentPollingScheduler {
+            <<scheduler>>
+            +pollPendingPayments()
+            Note: 60초 주기 + fail-fast(3건)
+        }
+    }
+
     BrandModel *-- BrandName
     ProductModel *-- Money
     OrderModel *-- OrderStatus
     OrderModel *-- Money
     OrderItemModel *-- Money
+    PaymentModel *-- PaymentStatus
+    PaymentModel *-- CardType
+    PaymentModel *-- Money
 
     BrandFacade --> BrandService
     BrandService --> BrandModel
@@ -105,3 +164,10 @@ classDiagram
     OrderFacade --> StockService
     OrderService --> OrderModel
     OrderService --> OrderItemModel
+    PaymentFacade --> PaymentService
+    PaymentFacade --> OrderService
+    PaymentFacade --> PgPaymentGateway
+    PgPaymentGateway --> PgClient
+    PaymentPollingScheduler --> PaymentService
+    PaymentPollingScheduler --> PaymentFacade
+    PaymentService --> PaymentModel

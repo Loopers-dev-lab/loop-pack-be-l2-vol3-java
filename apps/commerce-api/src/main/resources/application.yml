@@ -24,6 +24,52 @@ spring:
       - logging.yml
       - monitoring.yml
 
+pg:
+  base-url: http://localhost:8082
+  callback-url: http://localhost:8080/api/v1/payments/callback
+  timeout:
+    connect: 1000
+    read: 3000
+
+resilience4j:
+  retry:
+    instances:
+      pg:
+        max-attempts: 3
+        wait-duration: 500ms
+        enable-exponential-backoff: true       # 지수적 백오프 (500ms → 1s → 2s)
+        exponential-backoff-multiplier: 2      # 매 재시도마다 2배
+        exponential-max-wait-duration: 3s      # 최대 대기 시간
+        retry-exceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpServerErrorException
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
+        fail-after-max-attempts: true
+  circuitbreaker:
+    instances:
+      pg:
+        sliding-window-size: 10
+        minimum-number-of-calls: 10                          # 최소 10번 호출 후 실패율 계산 (기본값 100 함정 방지)
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        max-wait-duration-in-half-open-state: 5s             # HALF-OPEN 상태 최대 대기 (무한 대기 방지)
+        automatic-transition-from-open-to-half-open-enabled: true  # 트래픽 없어도 자동 전환
+        slow-call-duration-threshold: 2s
+        slow-call-rate-threshold: 50
+        record-exceptions:                                   # 이것만 실패로 카운트
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpServerErrorException
+        ignore-exceptions:                                   # 비즈니스 에러는 실패로 안 침
+          - org.springframework.web.client.HttpClientErrorException
+          - com.loopers.support.error.CoreException
+  bulkhead:
+    instances:
+      pg:
+        max-concurrent-calls: 20                             # PG 동시 호출 최대 20개 (스레드 고갈 방지)
+        max-wait-duration: 0                                 # 대기 없이 즉시 실패
+
 springdoc:
   use-fqn: true
   swagger-ui:

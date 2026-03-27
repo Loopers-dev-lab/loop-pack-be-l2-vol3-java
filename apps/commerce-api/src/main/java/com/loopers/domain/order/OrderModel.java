@@ -65,6 +65,27 @@ public class OrderModel extends BaseEntity {
     public Money finalAmount() { return finalAmount; }
     public Long couponIssueId() { return couponIssueId; }
 
+    public void startPayment() {
+        if (this.status != OrderStatus.CREATED && this.status != OrderStatus.PAYMENT_FAILED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "결제를 시작할 수 없는 주문 상태입니다.");
+        }
+        this.status = OrderStatus.PAYMENT_PENDING;
+    }
+
+    public void confirmPayment() {
+        if (this.status != OrderStatus.PAYMENT_PENDING) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "결제 확인을 처리할 수 없는 주문 상태입니다.");
+        }
+        this.status = OrderStatus.CONFIRMED;
+    }
+
+    public void failPayment() {
+        if (this.status != OrderStatus.PAYMENT_PENDING) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "결제 실패를 처리할 수 없는 주문 상태입니다.");
+        }
+        this.status = OrderStatus.PAYMENT_FAILED;
+    }
+
     public void validateOwner(Long userId) {
         if (!this.userId.equals(userId)) {
             throw new CoreException(ErrorType.BAD_REQUEST, "본인의 주문만 조회할 수 있습니다.");

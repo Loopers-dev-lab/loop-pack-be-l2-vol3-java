@@ -67,4 +67,54 @@ class OrderModelTest {
             assertThat(result.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
+
+    @DisplayName("결제 상태 전이")
+    @Nested
+    class PaymentStatusTransition {
+
+        @DisplayName("CREATED → PAYMENT_PENDING 전이가 가능하다")
+        @Test
+        void transitionsToPaymentPending() {
+            OrderModel order = new OrderModel(1L, new Money(10000), Money.ZERO, null);
+            order.startPayment();
+            assertThat(order.status()).isEqualTo(OrderStatus.PAYMENT_PENDING);
+        }
+
+        @DisplayName("PAYMENT_PENDING → CONFIRMED 전이가 가능하다 (결제 성공)")
+        @Test
+        void transitionsToConfirmed() {
+            OrderModel order = new OrderModel(1L, new Money(10000), Money.ZERO, null);
+            order.startPayment();
+            order.confirmPayment();
+            assertThat(order.status()).isEqualTo(OrderStatus.CONFIRMED);
+        }
+
+        @DisplayName("PAYMENT_PENDING → PAYMENT_FAILED 전이가 가능하다")
+        @Test
+        void transitionsToPaymentFailed() {
+            OrderModel order = new OrderModel(1L, new Money(10000), Money.ZERO, null);
+            order.startPayment();
+            order.failPayment();
+            assertThat(order.status()).isEqualTo(OrderStatus.PAYMENT_FAILED);
+        }
+
+        @DisplayName("PAYMENT_FAILED → PAYMENT_PENDING 전이가 가능하다 (재결제)")
+        @Test
+        void retriesPaymentFromFailed() {
+            OrderModel order = new OrderModel(1L, new Money(10000), Money.ZERO, null);
+            order.startPayment();
+            order.failPayment();
+            order.startPayment();
+            assertThat(order.status()).isEqualTo(OrderStatus.PAYMENT_PENDING);
+        }
+
+        @DisplayName("CONFIRMED 상태에서 startPayment를 호출하면 예외가 발생한다")
+        @Test
+        void throwsWhenAlreadyConfirmed() {
+            OrderModel order = new OrderModel(1L, new Money(10000), Money.ZERO, null);
+            order.startPayment();
+            order.confirmPayment();
+            assertThrows(CoreException.class, () -> order.startPayment());
+        }
+    }
 }

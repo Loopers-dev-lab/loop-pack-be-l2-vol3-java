@@ -59,6 +59,16 @@ public class OrderService {
         return orderItemRepository.findAllByOrderId(orderId);
     }
 
+    @Transactional
+    public void failOrderPayment(Long orderId) {
+        OrderModel order = findById(orderId);
+        if (order.status() == com.loopers.domain.order.OrderStatus.CREATED
+            || order.status() == com.loopers.domain.order.OrderStatus.PAYMENT_FAILED) {
+            return;
+        }
+        order.failPayment();
+    }
+
     private OrderModel findById(Long orderId) {
         return orderRepository.findById(orderId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));

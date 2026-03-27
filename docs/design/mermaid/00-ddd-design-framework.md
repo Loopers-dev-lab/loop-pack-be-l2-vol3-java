@@ -132,6 +132,7 @@ infrastructure/  → 기술 구현 (JpaRepository)
 |-----------|------|------|
 | **카탈로그** (상품 + 브랜드) | Core | 고객에게 보여줄 상품을 관리. 비즈니스 전시의 핵심 |
 | **주문** | Core | 거래를 기록하고 관리. 매출의 직접적 근간 |
+| **결제** | Core | 주문에 대한 대금 수납. 외부 PG 시스템과 연동, 비동기 상태 관리 |
 | **재고** | Supporting | 주문과 카탈로그를 보조. 중요하지만 독자적 경쟁력은 아님 |
 | **좋아요** | Supporting | 고객 선호 추적. 카탈로그 정렬(인기순)에 활용 |
 | **회원/인증** | Generic | 어디서나 비슷한 범용 기능. 외부 솔루션 대체 가능 |
@@ -194,6 +195,9 @@ graph LR
         Order["Order (어그리게이트)"]
         OrderItem["OrderItem (엔티티)"]
     end
+    subgraph "결제 BC"
+        Payment["Payment (어그리게이트)"]
+    end
     subgraph "회원/인증 BC"
         Member["Member"]
     end
@@ -204,6 +208,8 @@ graph LR
     Like -- "userId (ID 참조)" --> Member
     Order -- "userId (ID 참조)" --> Member
     OrderItem -- "productId + 스냅샷" --> Product
+    Payment -- "orderId (ID 참조)" --> Order
+    Payment -- "userId (ID 참조)" --> Member
 ```
 
 **브랜드와 상품이 같은 BC인 근거:**
@@ -222,15 +228,19 @@ graph TD
     Inventory["재고 BC<br/>(Supporting)"]
     LikeCtx["좋아요 BC<br/>(Supporting)"]
     OrderCtx["주문 BC<br/>(Core)"]
+    PaymentCtx["결제 BC<br/>(Core)"]
 
     LikeCtx -- "userId" --> Auth
     OrderCtx -- "userId" --> Auth
+    PaymentCtx -- "userId" --> Auth
     Catalog -- "brandId → Product" --> Catalog
     Inventory -- "productId" --> Catalog
     LikeCtx -- "productId" --> Catalog
     OrderCtx -- "productId + 스냅샷" --> Catalog
     OrderCtx -- "재고 차감" --> Inventory
     LikeCtx -. "likeCount 갱신" .-> Catalog
+    PaymentCtx -- "orderId + 상태 연동" --> OrderCtx
+    PaymentCtx -. "PG 결제 요청/콜백" .-> PaymentCtx
 ```
 
 ### 통신 방식 (현재 모놀리스)
@@ -241,6 +251,8 @@ graph TD
 | `ProductFacade` | `StockService` | 직접 호출 | 상품 + 재고 동시 생성 | API 호출 또는 이벤트 |
 | `LikeFacade` | `ProductService` | 직접 호출 | 삭제된 상품 체크 + likeCount 갱신 | **도메인 이벤트** |
 | `OrderFacade` | `ProductService` + `StockService` | 직접 호출 | 상품 확인 → 재고 차감 → 주문 생성 | Saga 패턴 |
+| `PaymentFacade` | `OrderService` | 직접 호출 | 주문 조회 + 상태 전이 (PAYMENT_PENDING/CONFIRMED/FAILED) | API 호출 |
+| `PaymentFacade` | `PgClient` (외부) | HTTP (RestTemplate) | PG 결제 요청 + 콜백 수신 | 동일 (이미 HTTP) |
 
 ### 설계적 주의 지점: `product.incrementLikeCount()`
 
@@ -337,6 +349,8 @@ public ProductModel register(..., Long brandId, int initialStock) {
 | `ProductFacade` | application | 상품 + Stock 동시 생성, 브랜드 존재 확인 |
 | `LikeFacade` | application | 데이터 조회 → LikeToggleService에 판단 위임 → 결과 저장 |
 | `OrderFacade` | application | 재고 차감 + 스냅샷 + 주문 생성, 주문 조회 |
+| `PaymentService` | application | 결제 CRUD (save, getById, getByTransactionKey, getByOrderId) |
+| `PaymentFacade` | application | 결제 요청(PG 연동) + 콜백 처리 + 주문 상태 연동 |
 | `MemberFacade` | application | 회원 유스케이스 조율 (가입, 인증, 비밀번호 변경) |
 
 ---

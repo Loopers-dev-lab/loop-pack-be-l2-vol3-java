@@ -6,6 +6,7 @@ erDiagram
     product ||--o{ member_like : "receives"
     product ||--o{ order_item : "ordered_as"
     orders ||--|{ order_item : "contains"
+    orders ||--o{ payments : "paid_by"
 
     member {
         bigint id PK
@@ -56,4 +57,18 @@ erDiagram
         varchar product_name "snapshot"
         int product_price "snapshot"
         int quantity
+    }
+    payments {
+        bigint id PK
+        bigint order_id "refs orders, 1:N"
+        bigint user_id "refs member"
+        varchar card_type "CardType enum"
+        varchar masked_card_no "1234-****-****-1451"
+        int amount "Money VO"
+        varchar status "PaymentStatus"
+        varchar transaction_key UK "PG 거래 키"
+        varchar failure_reason "nullable"
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at "soft delete"
     }

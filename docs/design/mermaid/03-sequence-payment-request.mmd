@@ -1,0 +1,79 @@
+sequenceDiagram
+    participant C as Customer
+    participant Ctrl as PaymentV1Controller
+    participant PF as PaymentFacade
+    participant PS as PaymentService
+    participant OS as OrderService
+    participant GW as PgPaymentGateway
+    participant PG as PgClient (RestTemplate)
+    participant Sim as pg-simulator (외부)
+
+    C->>Ctrl: 결제 요청 (POST /api/v1/payments)
+    Note over Ctrl: @LoginMember 인증
+
+    activate PF
+    Note right of PF: @CircuitBreaker(name="pg")
+
+    %% TX-1: DB 작업만, 커밋 후 커넥션 즉시 반환
+    rect rgb(230, 240, 255)
+        Note right of PS: TX-1 @Transactional (~15ms)
+        PF->>PS: preparePayment(userId, command)
+        PS->>OS: getOrder(orderId, userId)
+        OS-->>PS: OrderModel (상태: CREATED)
+        PS->>PS: order.startPayment()
+        Note over PS: 주문 상태 → PAYMENT_PENDING
+        PS->>PS: PaymentModel 생성 (PENDING)
+        PS-->>PF: PaymentModel (id 채번)
+        Note over PF: DB 커넥션 반환 ✅
+    end
+
+    %% NO TX: PG 호출 — DB 커넥션 미점유
+    rect rgb(255, 245, 230)
+        Note right of GW: NO TX — DB 커넥션 안 잡음
+        PF->>GW: requestPayment(pgRequest, userId)
+        Note over GW: @Bulkhead(max=20) + @Retry(max=3)
+
+        loop Retry (최대 3회, exponential backoff)
+            GW->>PG: requestPayment(request, userId)
+            Note over PG: X-USER-ID 헤더 설정
+            PG->>Sim: POST /api/v1/payments
+            Note over Sim: 요청 지연: 100ms~500ms<br/>성공률: 60%
+
+            alt PG 요청 성공
+                Sim-->>PG: {transactionKey, status: PENDING}
+                PG-->>GW: PgPaymentResponse
+                Note over GW: Retry 종료
+            else PG 5xx / 타임아웃 (재시도 대상)
+                Sim-->>PG: 500 또는 타임아웃
+                Note over GW: 500ms → 1s → 2s 후 재시도
+            end
+        end
+    end
+
+    alt PG 최종 성공
+        GW-->>PF: PgPaymentResponse
+
+        %% TX-2: transactionKey 저장
+        rect rgb(230, 240, 255)
+            Note right of PS: TX-2 @Transactional (~5ms)
+            PF->>PS: assignTransactionKey(paymentId, txKey)
+            Note over PF: DB 커넥션 반환 ✅
+        end
+
+        PF-->>C: 200 OK {paymentId, transactionKey, status: PENDING}
+
+    else PG 최종 실패 (3회 재시도 후) 또는 서킷 오픈
+        GW-->>PF: Exception
+        Note over PF: fallbackMethod 실행
+
+        rect rgb(255, 230, 230)
+            Note right of PF: Fallback (TX 없음)
+            Note over PF: TX-1은 이미 커밋됨<br/>주문: PAYMENT_PENDING<br/>결제: PENDING (txKey=null)
+            PF-->>C: 200 OK {status: PG_FAILED, message: "잠시 후 다시 시도해주세요"}
+            Note over PF: → Polling 스케줄러가 60초 후 복구 시도
+        end
+    end
+    deactivate PF
+
+    Note over Sim: 비동기 처리 (1s~5s)
+    Note over Sim: 성공 70% / 한도초과 20% / 잘못된카드 10%

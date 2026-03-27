@@ -24,7 +24,11 @@ public enum ErrorType {
     PASSWORD_SAME_AS_OLD(HttpStatus.BAD_REQUEST, "Password Same As Old", "현재 비밀번호는 사용할 수 없습니다."),
     PASSWORD_CONTAINS_BIRTH_DATE(HttpStatus.BAD_REQUEST, "Password Contains Birth Date", "비밀번호에 생년월일을 포함할 수 없습니다."),
     MEMBER_NOT_FOUND(HttpStatus.UNAUTHORIZED, "Member Not Found", "회원을 찾을 수 없습니다."),
-    AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "Authentication Failed", "비밀번호가 일치하지 않습니다.");
+    AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "Authentication Failed", "비밀번호가 일치하지 않습니다."),
+
+    /** Payment 도메인 에러 */
+    PG_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "PG Request Failed", "결제 시스템 요청에 실패했습니다."),
+    PG_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "PG Timeout", "결제 시스템 응답 시간이 초과되었습니다.");
 
     private final HttpStatus status;
     private final String code;

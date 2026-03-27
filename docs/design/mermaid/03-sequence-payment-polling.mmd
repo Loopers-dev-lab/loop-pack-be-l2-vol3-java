@@ -1,0 +1,62 @@
+sequenceDiagram
+    participant Sched as PaymentPollingScheduler
+    participant PF as PaymentFacade
+    participant PS as PaymentService
+    participant OS as OrderService
+    participant GW as PgPaymentGateway
+    participant PG as PgClient
+    participant Sim as pg-simulator (외부)
+
+    Note over Sched: 60초 주기 실행 (@Scheduled)
+    Note over Sched: ThreadPoolTaskScheduler (poolSize=3)
+
+    Sched->>PS: getPendingPayments()
+    PS-->>Sched: List<PaymentModel> (PENDING 상태)
+
+    loop 각 PENDING 결제 처리 (fail-fast: 연속 3건 실패 시 중단)
+        Sched->>PF: syncPaymentStatus(paymentId)
+
+        activate PF
+        rect rgb(230, 240, 255)
+            Note right of PF: @Transactional
+
+            alt Phase A: transactionKey 있음
+                PF->>GW: getPaymentStatus(txKey, userId)
+                GW->>PG: GET /api/v1/payments/{txKey}
+                PG->>Sim: GET /api/v1/payments/{txKey}
+                Sim-->>PG: {status, failureReason}
+                PG-->>GW: PgPaymentResponse
+                GW-->>PF: PgPaymentResponse
+
+            else Phase C: transactionKey 없음 (고아 Payment)
+                Note over PF: TX-1 커밋 후 PG 호출 실패한 레코드
+                PF->>GW: getPaymentStatus(orderId, userId)
+                GW->>PG: GET /api/v1/payments/{orderId}
+                PG->>Sim: orderId로 조회
+                Sim-->>PG: {transactionKey, status, failureReason}
+                PG-->>GW: PgPaymentResponse
+                GW-->>PF: PgPaymentResponse
+                PF->>PF: payment.assignTransactionKey(txKey)
+            end
+
+            alt status == "SUCCESS"
+                PF->>PF: payment.markSuccess()
+                PF->>PF: order.confirmPayment()
+            else status == "FAILED"
+                PF->>PF: payment.markFailed(reason)
+                PF->>PF: order.failPayment()
+            else status == "PENDING"
+                Note over PF: 아직 PG 처리 중 — 다음 사이클에서 재조회
+            end
+        end
+        deactivate PF
+
+        alt PG 조회 실패
+            Note over Sched: consecutiveFailures++
+            alt consecutiveFailures >= 3
+                Note over Sched: PG 장애 판단 → 사이클 조기 종료<br/>다음 60초 후 재시도
+            end
+        else PG 조회 성공
+            Note over Sched: consecutiveFailures = 0
+        end
+    end

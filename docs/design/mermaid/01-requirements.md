@@ -257,7 +257,78 @@
 
 ---
 
-## 5. 공통
+## 5. Payment (결제)
+
+### 유저 스토리
+
+- 고객은 주문에 대한 결제를 요청할 수 있다.
+- 결제는 외부 PG 시스템(pg-simulator)을 통해 비동기로 처리된다.
+- PG 시스템이 결제를 처리하면 콜백으로 결과를 수신한다.
+- 고객은 결제 상태를 조회할 수 있다.
+- 고객은 주문에 대한 결제 내역을 조회할 수 있다.
+- 결제 실패 시 재결제가 가능하다.
+
+### 기능 흐름
+
+**결제 요청**
+
+1. 로그인 사용자만 가능 (@LoginMember)
+2. 주문 존재 여부 및 소유권 확인
+3. 주문 상태를 PAYMENT_PENDING으로 변경
+4. PaymentModel 생성 (status: PENDING, 카드번호 마스킹 저장)
+5. 결제 금액은 Order.finalAmount에서 가져옴 (서버 산출)
+6. PG 시스템에 결제 요청 (RestTemplate, 타임아웃 설정)
+7. PG 응답의 transactionKey를 PaymentModel에 저장
+8. PG 요청 실패 시 트랜잭션 롤백 (주문 상태 CREATED로 복원)
+
+**PG 콜백 수신**
+
+1. PG 시스템에서 비동기 처리 완료 후 콜백 (1s~5s)
+2. transactionKey로 PaymentModel 조회
+3. SUCCESS → payment.markSuccess() + order.confirmPayment()
+4. FAILED → payment.markFailed(reason) + order.failPayment()
+5. 멱등성 보장: 동일 상태 재진입 시 무시
+
+**재결제**
+
+1. 결제 실패(PAYMENT_FAILED) 상태의 주문만 재결제 가능
+2. 새로운 PaymentModel 생성 (1주문:N결제)
+3. 이전 결제 기록은 이력으로 보존
+
+### 비즈니스 규칙
+
+- Payment는 Order와 별도 엔티티 (1주문:N결제, ID 참조)
+- 결제 금액은 Order.finalAmount 사용 (단일 진실 공급원)
+- 카드번호는 마스킹 저장: "1234-****-****-1451"
+- PG 호출은 트랜잭션 내에서 수행 (1단계), 실패 시 전체 롤백
+- PaymentStatus: PENDING → SUCCESS | FAILED (멱등 전이)
+- OrderStatus 확장: CREATED → PAYMENT_PENDING → CONFIRMED | PAYMENT_FAILED
+- PAYMENT_FAILED → PAYMENT_PENDING 재전이 허용 (재결제)
+- PG 타임아웃: connect 1s, read 3s
+
+### PG 시스템 특성
+
+| 항목 | 값 |
+|------|-----|
+| 요청 성공 확률 | 60% |
+| 요청 지연 | 100ms ~ 500ms |
+| 처리 지연 | 1s ~ 5s (비동기, 콜백 수신) |
+| 처리 결과 - 성공 | 70% |
+| 처리 결과 - 한도 초과 | 20% |
+| 처리 결과 - 잘못된 카드 | 10% |
+
+### API
+
+| Method | Endpoint | 설명 | 인증 |
+|--------|----------|------|------|
+| POST | `/api/v1/payments` | 결제 요청 | @LoginMember |
+| GET | `/api/v1/payments/{paymentId}` | 결제 상태 조회 | @LoginMember |
+| GET | `/api/v1/payments?orderId={orderId}` | 주문별 결제 내역 조회 | @LoginMember |
+| POST | `/api/v1/payments/callback` | PG 콜백 수신 | 없음 (PG→서버) |
+
+---
+
+## 6. 공통
 
 ### 인증 (Q13: ArgumentResolver)
 
@@ -285,19 +356,20 @@
 
 ---
 
-## 6. API 엔드포인트 요약
+## 7. API 엔드포인트 요약
 
-| 구분 | Customer | Admin | 합계 |
-|------|----------|-------|------|
-| Brand | 1 | 5 | 6 |
-| Product | 2 | 5 | 7 |
-| Like | 3 | 0 | 3 |
-| Order | 3 | 2 | 5 |
-| **합계** | **9** | **12** | **21** |
+| 구분 | Customer | Admin | PG 내부 | 합계 |
+|------|----------|-------|---------|------|
+| Brand | 1 | 5 | 0 | 6 |
+| Product | 2 | 5 | 0 | 7 |
+| Like | 3 | 0 | 0 | 3 |
+| Order | 3 | 2 | 0 | 5 |
+| Payment | 3 | 0 | 1 | 4 |
+| **합계** | **12** | **12** | **1** | **25** |
 
 ---
 
-## 7. Q&A 트레이드오프 추적표
+## 8. Q&A 트레이드오프 추적표
 
 | Q# | 결정 사항 | 반영 위치 |
 |----|-----------|-----------|

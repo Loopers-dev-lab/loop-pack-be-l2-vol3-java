@@ -1,0 +1,64 @@
+### 결제 요청
+POST http://localhost:8080/api/v1/payments
+X-Loopers-LoginId: user1
+X-Loopers-LoginPw: password1
+Content-Type: application/json
+
+{
+  "orderId": 1,
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9814-1451"
+}
+
+### 결제 상태 조회
+GET http://localhost:8080/api/v1/payments/1
+X-Loopers-LoginId: user1
+X-Loopers-LoginPw: password1
+
+### 주문별 결제 내역 조회
+GET http://localhost:8080/api/v1/payments?orderId=1
+X-Loopers-LoginId: user1
+X-Loopers-LoginPw: password1
+
+### PG 콜백 (수동 테스트용)
+POST http://localhost:8080/api/v1/payments/callback
+Content-Type: application/json
+
+{
+  "transactionKey": "20250816:TR:9577c5",
+  "orderId": "1",
+  "status": "SUCCESS",
+  "failureReason": null
+}
+
+### 결제 상태 동기화 (콜백 미수신 시 PG에 직접 조회)
+POST http://localhost:8080/api/v1/payments/1/sync
+X-Loopers-LoginId: user1
+X-Loopers-LoginPw: password1
+
+###########################################################
+# PG Simulator 직접 요청 (localhost:8082)
+# pg-simulator 레포: loopback-be-l2-kotlin-additionals
+# 실행: ./gradlew :apps:pg-simulator:bootRun
+###########################################################
+
+### [PG] 결제 요청
+POST http://localhost:8082/api/v1/payments
+X-USER-ID: 1
+Content-Type: application/json
+
+{
+  "orderId": "1351039135",
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9814-1451",
+  "amount": "50000",
+  "callbackUrl": "http://localhost:8080/api/v1/payments/callback"
+}
+
+### [PG] 결제 상태 조회 (transactionKey를 위 응답에서 복사)
+GET http://localhost:8082/api/v1/payments/20260320:TR:5ffc99
+X-USER-ID: 1
+
+### [PG] 주문별 결제 내역 조회
+GET http://localhost:8082/api/v1/payments?orderId=1351039135
+X-USER-ID: 1

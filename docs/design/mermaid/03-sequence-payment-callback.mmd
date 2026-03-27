@@ -1,0 +1,35 @@
+sequenceDiagram
+    participant Sim as pg-simulator (외부)
+    participant Ctrl as PaymentV1Controller
+    participant PF as PaymentFacade
+    participant PS as PaymentService
+    participant OS as OrderService
+
+    %% 경로 1: PG 콜백 (정상)
+    Note over Sim: 비동기 처리 완료 (1s~5s 후)
+    Sim->>Ctrl: POST /api/v1/payments/callback
+    Note over Ctrl: 인증 없음 (PG→서버 내부 통신)
+
+    activate PF
+    rect rgb(230, 240, 255)
+        Note right of PF: @Transactional
+        PF->>PS: getByTransactionKey(txKey)
+        PS-->>PF: PaymentModel (PENDING)
+        PF->>OS: getOrderForAdmin(orderId)
+        OS-->>PF: OrderModel (PAYMENT_PENDING)
+
+        alt status == "SUCCESS"
+            PF->>PF: payment.markSuccess()
+            Note over PF: 결제 상태 → SUCCESS
+            PF->>PF: order.confirmPayment()
+            Note over PF: 주문 상태 → CONFIRMED
+        else status == "FAILED"
+            PF->>PF: payment.markFailed(reason)
+            Note over PF: 결제 상태 → FAILED + 실패 사유 기록
+            PF->>PF: order.failPayment()
+            Note over PF: 주문 상태 → PAYMENT_FAILED<br/>재결제 가능 (startPayment 허용)
+        end
+    end
+    deactivate PF
+
+    PF-->>Sim: 200 OK

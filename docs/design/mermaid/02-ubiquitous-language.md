@@ -71,7 +71,7 @@
 |------|------|------|
 | **OrderModel** | Entity | 주문 엔티티. userId, status(OrderStatus), totalAmount(Money) |
 | **OrderItemModel** | Entity | 주문 상세 엔티티. orderId, productId, 스냅샷(productName, productPrice), quantity. `subtotal()` 행위 메서드 |
-| **OrderStatus** | Enum | 주문 상태. CREATED(현재 사용) → CONFIRMED → SHIPPING → DELIVERED → CANCELLED (미래 확장용) |
+| **OrderStatus** | Enum | 주문 상태. CREATED → PAYMENT_PENDING → CONFIRMED → SHIPPING → DELIVERED → CANCELLED. PAYMENT_FAILED에서 재결제 가능 |
 | **스냅샷 (Snapshot)** | 비즈니스 개념 | 주문 시점의 상품명, 가격을 OrderItem에 복사 저장. 상품 삭제/변경 후에도 주문 내역 조회 가능 (Q9) |
 | **All or Nothing** | 비즈니스 규칙 | 재고 부족 또는 삭제된 상품 포함 시 주문 전체 실패. 부분 성공 없음 (Q19) |
 | **OrderService** | Domain Service | 주문 생성(총액 계산 포함), 조회 |
@@ -79,7 +79,55 @@
 
 ---
 
-## 5. 공통 패턴
+## 5. 결제 BC (Payment)
+
+> 비즈니스 관심사: "주문에 대한 대금을 외부 PG 시스템을 통해 수납한다"
+> Order와 별도 어그리게이트 — 1주문:N결제 구조 (재결제 이력 보존)
+
+### Payment (어그리게이트)
+
+| 용어 | 타입 | 설명 |
+|------|------|------|
+| **PaymentModel** | Entity | 결제 엔티티. BaseEntity 상속. orderId(ID 참조), userId, cardType, maskedCardNo, amount(Money), status, transactionKey, failureReason |
+| **PaymentStatus** | Enum | 결제 상태. PENDING(요청 접수) → SUCCESS(성공) \| FAILED(실패) \| CANCELLED(취소) |
+| **CardType** | Enum | 카드사. SAMSUNG, KB, HYUNDAI |
+| **transactionKey** | 외부 식별자 | PG 시스템이 발급한 거래 고유 키. unique 제약. 콜백 수신 시 조회 기준 |
+| **maskedCardNo** | String | 마스킹된 카드번호. "1234-\*\*\*\*-\*\*\*\*-1451" 형태로 DB 저장 |
+| **PaymentService** | Application Service | 결제 CRUD (save, getById, getByTransactionKey, getByOrderId) |
+
+### PG 연동
+
+| 용어 | 타입 | 설명 |
+|------|------|------|
+| **PgClient** | Infrastructure | RestTemplate 기반 PG HTTP 클라이언트. requestPayment, getPaymentStatus |
+| **PgPaymentRequest** | DTO | PG 요청 DTO. orderId, cardType, cardNo(원본), amount, callbackUrl |
+| **PgPaymentResponse** | DTO | PG 응답 DTO. transactionKey, orderId, status, failureReason |
+| **callbackUrl** | 설정값 | PG가 결제 결과를 전송할 엔드포인트 URL. application.yml에서 관리 |
+| **비동기 결제** | 비즈니스 개념 | 요청과 처리가 분리됨. 요청 시 PENDING 상태, 1~5초 후 콜백으로 최종 결과 수신 |
+
+### Application Layer
+
+| 용어 | 타입 | 설명 |
+|------|------|------|
+| **PaymentFacade** | Application Facade | 결제 유스케이스 조합. 주문 검증 → PG 호출 → 상태 관리. 콜백 처리 시 결제+주문 상태 동시 변경 |
+| **PaymentCommand** | Command DTO | 결제 요청 입력. orderId, cardType, cardNo. `maskedCardNo()` 마스킹 메서드 포함 |
+| **PaymentInfo** | Info DTO | 결제 조회 출력. `from(PaymentModel)` 팩토리 |
+
+### 상태 전이 규칙
+
+| 전이 | 조건 | 트리거 |
+|------|------|--------|
+| Payment: PENDING → SUCCESS | PG 콜백 status=SUCCESS | handleCallback |
+| Payment: PENDING → FAILED | PG 콜백 status=FAILED | handleCallback |
+| Payment: SUCCESS → SUCCESS | 중복 콜백 | 멱등 — 무시 |
+| Order: CREATED → PAYMENT_PENDING | 결제 요청 시 | requestPayment |
+| Order: PAYMENT_PENDING → CONFIRMED | 결제 성공 시 | handleCallback (SUCCESS) |
+| Order: PAYMENT_PENDING → PAYMENT_FAILED | 결제 실패 시 | handleCallback (FAILED) |
+| Order: PAYMENT_FAILED → PAYMENT_PENDING | 재결제 시 | requestPayment |
+
+---
+
+## 6. 공통 패턴
 
 ### 6.1 엔티티 기반
 
