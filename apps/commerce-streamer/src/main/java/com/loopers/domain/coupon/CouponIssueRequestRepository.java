@@ -7,6 +7,4 @@ public interface CouponIssueRequestRepository {
     Optional<CouponIssueRequest> findByEventId(String eventId);
 
     CouponIssueRequest save(CouponIssueRequest request);
-
-    int issueIfAvailable(Long couponId);
 }

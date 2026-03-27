@@ -22,9 +22,4 @@ public class CouponIssueRequestRepositoryImpl implements CouponIssueRequestRepos
     public CouponIssueRequest save(CouponIssueRequest request) {
         return jpaRepository.save(request);
     }
-
-    @Override
-    public int issueIfAvailable(Long couponId) {
-        return jpaRepository.issueIfAvailable(couponId);
-    }
 }
