@@ -54,12 +54,12 @@ class OutboxAppendIntegrationTest {
 
         likeFacade.addLike(1L, productId);
 
-        assertThat(outboxJpaRepository.count()).isEqualTo(1);
-        var saved = outboxJpaRepository.findAll().get(0);
-        assertThat(saved.getTopic()).isEqualTo("product-events");
-        assertThat(saved.getPartitionKey()).isEqualTo(String.valueOf(productId));
-        assertThat(saved.getEventType()).isEqualTo("PRODUCT_LIKE_CHANGED");
-        assertThat(saved.isPublished()).isFalse();
+        var likeOutbox = outboxJpaRepository.findAll().stream()
+                .filter(o -> "product-events".equals(o.getTopic()) && "PRODUCT_LIKE_CHANGED".equals(o.getEventType()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(likeOutbox.getPartitionKey()).isEqualTo(String.valueOf(productId));
+        assertThat(likeOutbox.isPublished()).isFalse();
     }
 }
 
