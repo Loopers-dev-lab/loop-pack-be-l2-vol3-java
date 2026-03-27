@@ -12,6 +12,29 @@ import org.springframework.data.domain.Page;
  */
 public class CouponV1Dto {
 
+    public record CouponIssueRequestResponse(
+            String requestId,
+            Long couponId,
+            Long userId,
+            String status,
+            ZonedDateTime requestedAt,
+            Long issuedCouponId
+    ) {
+        public static CouponIssueRequestResponse from(com.loopers.application.coupon.CouponIssueRequestInfo info) {
+            if (info == null) {
+                return null;
+            }
+            return new CouponIssueRequestResponse(
+                    info.requestId(),
+                    info.couponId(),
+                    info.userId(),
+                    info.status(),
+                    info.requestedAt(),
+                    info.issuedCouponId()
+            );
+        }
+    }
+
     /** 발급 쿠폰 응답 (내 쿠폰 목록·발급 결과) */
     public record IssuedCouponResponse(
         Long id,

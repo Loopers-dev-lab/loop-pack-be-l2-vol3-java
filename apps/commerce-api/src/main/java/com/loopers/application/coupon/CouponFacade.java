@@ -1,5 +1,6 @@
 package com.loopers.application.coupon;
 
+import com.loopers.domain.coupon.CouponIssueRequestRepository;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.CouponTemplateModel;
 import com.loopers.domain.coupon.CouponType;
@@ -21,9 +22,27 @@ import java.time.ZonedDateTime;
 public class CouponFacade {
 
     private final CouponService couponService;
+    private final CouponIssueRequestOutboxService couponIssueRequestOutboxService;
+    private final CouponIssueRequestRepository couponIssueRequestRepository;
 
-    public CouponFacade(CouponService couponService) {
+    public CouponFacade(CouponService couponService,
+                        CouponIssueRequestOutboxService couponIssueRequestOutboxService,
+                        CouponIssueRequestRepository couponIssueRequestRepository) {
         this.couponService = couponService;
+        this.couponIssueRequestOutboxService = couponIssueRequestOutboxService;
+        this.couponIssueRequestRepository = couponIssueRequestRepository;
+    }
+
+    @Transactional
+    public CouponIssueRequestInfo requestIssueCoupon(Long userId, Long couponTemplateId) {
+        return couponIssueRequestOutboxService.request(userId, couponTemplateId);
+    }
+
+    @Transactional(readOnly = true)
+    public CouponIssueRequestInfo getIssueRequest(Long userId, String requestId) {
+        return couponIssueRequestRepository.findByRequestIdAndUserId(requestId, userId)
+                .map(CouponIssueRequestInfo::from)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "발급 요청을 찾을 수 없습니다."));
     }
 
     @Transactional
@@ -51,20 +70,22 @@ public class CouponFacade {
 
     @Transactional
     public CouponTemplateInfo registerTemplate(String name, String typeValue, int value,
-                                            BigDecimal minOrderAmount, ZonedDateTime expiredAt) {
+                                            BigDecimal minOrderAmount, ZonedDateTime expiredAt,
+                                            Integer maxIssueCount) {
         CouponType type = CouponType.from(typeValue);
-        var template = CouponTemplateModel.create(name, type, value, minOrderAmount, expiredAt);
+        var template = CouponTemplateModel.create(name, type, value, minOrderAmount, expiredAt, maxIssueCount);
         var saved = couponService.persistTemplate(template);
         return CouponTemplateInfo.from(saved);
     }
 
     @Transactional
     public CouponTemplateInfo updateTemplate(Long couponId, String name, String typeValue, int value,
-                                            BigDecimal minOrderAmount, ZonedDateTime expiredAt) {
+                                            BigDecimal minOrderAmount, ZonedDateTime expiredAt,
+                                            Integer maxIssueCount) {
         CouponTemplateModel template = couponService.findTemplateByIdAndNotDeleted(couponId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
         CouponType type = CouponType.from(typeValue);
-        template.update(name, type, value, minOrderAmount, expiredAt);
+        template.update(name, type, value, minOrderAmount, expiredAt, maxIssueCount);
         var saved = couponService.persistTemplate(template);
         return CouponTemplateInfo.from(saved);
     }

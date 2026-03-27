@@ -60,7 +60,8 @@ public class AdminCouponV1Controller implements AdminCouponV1ApiSpec {
             request.type(),
             request.value(),
             request.minOrderAmount(),
-            request.expiredAt()
+            request.expiredAt(),
+            request.maxIssueCount()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(toCouponResponse(info)));
     }
@@ -77,7 +78,8 @@ public class AdminCouponV1Controller implements AdminCouponV1ApiSpec {
             request.type(),
             request.value(),
             request.minOrderAmount(),
-            request.expiredAt()
+            request.expiredAt(),
+            request.maxIssueCount()
         );
         return ResponseEntity.ok(ApiResponse.success(toCouponResponse(info)));
     }
@@ -114,7 +116,9 @@ public class AdminCouponV1Controller implements AdminCouponV1ApiSpec {
             info.type(),
             info.value(),
             info.minOrderAmount(),
-            info.expiredAt()
+            info.expiredAt(),
+            info.maxIssueCount(),
+            info.issuedCount()
         );
     }
 
