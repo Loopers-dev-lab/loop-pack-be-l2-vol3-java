@@ -32,6 +32,14 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
     @Query("UPDATE Product p SET p.deletedAt = CURRENT_TIMESTAMP WHERE p.id IN :ids")
     int softDeleteByIds(@Param("ids") List<Long> ids);
 
+    @Modifying
+    @Query(value = "UPDATE products p " +
+            "INNER JOIN product_metrics pm ON p.id = pm.product_id " +
+            "SET p.like_count = pm.like_count " +
+            "WHERE p.like_count != pm.like_count AND p.deleted_at IS NULL",
+            nativeQuery = true)
+    int reconcileLikeCountFromMetrics();
+
     // Query
     @Query("SELECT p FROM Product p WHERE p.id = :id AND p.deletedAt IS NULL")
     Optional<Product> findActiveById(@Param("id") Long id);

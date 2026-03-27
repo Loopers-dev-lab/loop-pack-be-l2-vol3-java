@@ -15,6 +15,7 @@ public interface ProductRepository {
     int decrementLikeCountIfPositive(Long productId);
     List<Long> findIdsByBrandIdForCleanup(Long brandId, int batchSize);
     int softDeleteByIds(List<Long> ids);
+    int reconcileLikeCountFromMetrics();
 
     // Query
     Optional<Product> findById(Long id);
