@@ -7,7 +7,7 @@
 
 ## 전체 구현 로드맵 (단계·내용·산출물·PR)
 
-이 절은 **프로젝트 전체를 어떤 순서로 구현할지** 한눈에 정리한다. 세부 설계·도메인 규칙·다이어그램은 **§0~§7** 및 `skills/kafka/SKILL.md`를 따른다.
+이 절은 **프로젝트 전체를 어떤 순서로 구현할지** 한눈에 정리한다. 세부 설계·도메인 규칙·다이어그램은 **§0~§8** 및 `skills/kafka/SKILL.md`를 따른다.
 
 ### 단계 요약표
 
@@ -16,11 +16,22 @@
 | ----- | ---------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | **0** | 준비                     | 의존성·로컬 Kafka·토픽             | `commerce-api`(또는 릴레이 앱)에 `modules:kafka` 의존, 로컬 compose, 토픽 생성 스크립트·문서                                                                                                      | `feat/week7-kafka-applicationevent`     |
 | **1** | 경계 분리                  | 주요/부가·커밋 후 부가               | `ApplicationEvent`, `@TransactionalEventListener(AFTER_COMMIT)`, Facade·도메인과의 정렬(§0.1)                                                                                       | `feat/week7-kafka-applicationevent`     |
-| **2** | Kafka 이벤트 파이프라인 (§0.2) | 시스템 간 전파 + At Least Once 발행 | `commerce-api` 동일 TX Outbox, `commerce-batch` 릴레이 → Kafka, `**commerce-streamer`(collector 패키지)** 에서 `product_metrics` upsert·`event_handled`·수동 ack (`SKILL.md` 1·2·3·4·9절) | `**feature/kafka-outbox-polling`** (메인) |
-| **3** | Consumer 고도화·추가 도메인    | DLQ·모니터링·추가 토픽              | 기존 `commerce-streamer` 확장, 실패 격리·재처리, 선착순 등 별도 유스케이스(§0.3·§0.5)                                                                                                              | 부분 완료(재처리 배치 구현)                        |
-| **4** | 선착순 쿠폰                 | Kafka 실전 시나리오               | 발급 요청 토픽, Consumer에서 발급·수량·멱등(`SKILL.md` §8, §0.3)                                                                                                                           | `feat/week7-kafka-applicationevent`     |
-| **5** | CDC (학습)               | binlog 기반 전파                | 경로 A(Connect+Debezium) 또는 경로 B(Spring+binlog), **Polling과 토픽 분리**(§5)                                                                                                        | `**feature/kafka-cdc`** (부가)            |
+| **2** | Kafka 이벤트 파이프라인 (§0.2) | 시스템 간 전파 + At Least Once 발행 | `commerce-api` 동일 TX Outbox → `commerce-batch` 릴레이 → Kafka → `commerce-streamer`(collector)에서 `product_metrics` upsert·`event_handled`·수동 ack (`SKILL.md` 1·2·3·4·9절) | `feature/kafka-outbox-polling` (메인) |
+| **3** | Consumer 고도화·추가 도메인    | DLQ·모니터링·추가 토픽              | DLQ·lag 게이지·DLQ 카운터·Prometheus 알림·Runbook·dev에서 redrive 활성화                                                                                                              | **완료** — 알림 채널(Slack 등) 연결은 인프라 후속                        |
+| **4** | 선착순·비동기 쿠폰                 | Kafka 실전 시나리오               | `coupon-issue-requests`, `modules/coupon`, API 발급 요청·상태, streamer 수집기(`SKILL.md` §8, §0.3)                                                                                                                           | **완료** (브랜치·PR별로 세부 상이)     |
+| **5** | CDC (학습)               | binlog 기반 전파                | 경로 A(Connect+Debezium) 또는 경로 B(Spring+binlog), **Polling과 토픽 분리**(§5)                                                                                                        | **미착수** — `feature/kafka-cdc` 등 별도 PR            |
 
+
+### 실행 현황 요약 (이 레포 기준)
+
+| 구간 | 상태 | 한 줄 |
+| --- | --- | --- |
+| **0~2** Outbox → 릴레이 → streamer 집계 | 완료 | `DomainKafkaTopics`, `commerce-batch` 릴레이, `product_metrics`·`event_handled`·수동 ack |
+| **3** DLQ·관측 | 부분 | DLQ 전송·redrive·메트릭은 있음. lag 알람·운영 Runbook은 후속 |
+| **4** 쿠폰 비동기 발급 | 완료 | `supports:error`·`modules/coupon` 분리, `coupon-issue-requests`, streamer `CouponIssueRequestCollectorListener` |
+| **5** CDC | 미착수 | §5 참고, Polling과 토픽·환경 분리 전제 |
+
+> **변경사항 반영**: 위 표는 `§8` 상세와 동일 시점을 기준으로 한다. 코드 이동만 하고 문서를 안 고친 경우 §8의 “근거 경로”를 우선한다.
 
 ### 단계별 상세
 
@@ -560,8 +571,8 @@ CDC는 SKILL에 전용 절은 없으나, **중복 전달·순서(파티션 내)*
 
 ## 7. 참고 문서
 
-- **본 문서 §「전체 구현 로드맵」** — 단계 요약표(0~5), 단계별 목표·산출물·완료 기준, PR 순서, §0과의 대응표  
-- **§8.2·§8.3** — Collector 멱등( DB vs Redis )·보관·메트릭, **의사결정 보류** 항목(Redis 폴백·감사 아카이브 등)  
+- **본 문서 §「전체 구현 로드맵」·「실행 현황 요약」** — 단계 요약표(0~5), 현재 완료/부분/미착수, PR 순서, §0과의 대응표  
+- **§8.3·§8.4·§8.6** — 3단계 완료 요약·Collector 멱등·**의사결정 보류** 항목 · `kafka-step3-runbook.md`  
 - `skills/kafka/SKILL.md` — Kafka 코드 리뷰 시 확인할 Producer/Outbox/Consumer/DLQ 체크리스트  
 - **§0 (본 문서)** — §0.1~0.3 학습 로드맵(상단 로드맵 **1·2·4단계**와 대응), **§0.2** `commerce-api`→Kafka→`commerce-streamer`, **§0.1.1 본 프로젝트 적용**, 토픽 예시, `event_handled` vs 로그 테이블 분리  
 - **§2.3** — Polling(Outbox+릴레이) vs CDC(binlog+Connect) **시퀀스 다이어그램**  
@@ -572,62 +583,66 @@ CDC는 SKILL에 전용 절은 없으나, **중복 전달·순서(파티션 내)*
 
 ---
 
-## 8. 현재 구현 상태 (2026-03-27 기준)
+## 8. 현재 구현 상태 · 남은 단계
 
-Step 2(`commerce-api` → `commerce-batch` → `commerce-streamer`) 관점의 현재 상태를 명시한다.
+`commerce-api` → `commerce-batch` → `commerce-streamer` 흐름과, 이후 반영된 **모듈 분리·쿠폰 파이프라인**을 함께 적는다.
 
+### 8.1 핵심 파이프라인 (완료)
 
-| 항목                  | 상태    | 근거                                                                                         |
-| ------------------- | ----- | ------------------------------------------------------------------------------------------ |
-| API Outbox 적재       | 완료    | `LikeService`가 `product-events`로 Outbox 기록                                                 |
-| Outbox 릴레이          | 완료    | `OutboxRelayService`의 SKIP LOCKED 폴링 + Kafka 전송                                            |
-| 릴레이 envelope/header | 완료    | value envelope(`eventId`,`eventType`,`occurredAt`,`data`) + header(`eventId`,`eventType`)  |
-| 전송 타임아웃/재시도         | 완료    | `send-ack-timeout` + 실패 시 미마킹(`published=false`)                                           |
-| Consumer 멱등         | 완료    | 메트릭 이벤트: `event_handled` PK · 경량(USER/BRAND/CART): **Redis SETNX** (`§8.2`)                |
-| Consumer 수동 커밋      | 완료    | 처리 후 manual `acknowledge()`                                                                |
-| 순서 역전 방어            | 완료    | `product_metrics` upsert 시 `occurredAt` 기반 LWW 조건                                          |
-| 단위/통합 테스트           | 완료    | streamer 서비스/통합 테스트, relay 통합 테스트 통과                                                       |
-| DLQ/재처리 정책          | 부분 완료 | `commerce-streamer` DLQ 전송 + `commerce-batch` DLQ redrive/park 구현 (`outbox.dlq-redrive.`*) |
-| 운영 메트릭/알람           | 부분 완료 | 소비/중복/실패 + redrive 성공/실패/격리 카운터 구현, lag/알람 룰은 후속                                           |
+| 항목 | 근거 |
+| --- | --- |
+| API Outbox 적재 | Facade·도메인 동일 TX에서 `TransactionalOutboxWriter` 등으로 적재 (예: `product-events`, `order-events`, `user-events`) |
+| 릴레이 | `commerce-batch` `OutboxRelayService` — SKIP LOCKED, `KafkaTemplate` 전송 |
+| envelope | value: `eventId`, `eventType`, `occurredAt`, `data` 등 — 릴레이·Consumer 정합 |
+| 전송 실패 시 재시도 안전 | `send-ack-timeout`, 실패 시 `published=false` 유지 |
+| Consumer 멱등 | 메트릭: DB `event_handled` PK. 경량(USER/BRAND/CART): Redis SETNX |
+| 수동 커밋 | 처리 성공 후 `acknowledge()` |
+| 순서 역전 | `product_metrics` upsert 시 `occurredAt` LWW |
+| 스키마 호환 (SKILL Step 7) | `ProductEventCollectorService`에서 envelope unknown field 무시, `ProductEventEnvelope`에 `@JsonIgnoreProperties(ignoreUnknown = true)` |
 
+### 8.2 쿠폰·모듈 (완료)
 
-### 8.1 Step 3 운영 Runbook (요약)
+| 항목 | 내용 |
+| --- | --- |
+| `supports:error` | `CoreException`, `ErrorType` — 앱·모듈이 의존 |
+| `modules:coupon` | 쿠폰 도메인·JPA·발급 요청 등 |
+| 토픽·소비 | `coupon-issue-requests` / `COUPON_ISSUE_REQUESTED` — `commerce-streamer` `CouponIssueRequestCollectorListener` + 테스트 |
 
-- **Poison pill 판정**: `outbox.dlq-redrive.max-attempts` 이상이면 재주입을 중단한다.
-- **격리 토픽**: 한도 초과 메시지는 `outbox.dlq-redrive.parking-topic`(기본 `product-events.DLQ.PARK`)으로 이동한다.
-- **처리 규칙**:
-  - 성공: 원본 토픽 재발행 후 offset commit
-  - 실패: offset 미커밋으로 다음 주기 재시도
-  - 한도 초과: PARK 발행 후 offset commit
-- **운영 메트릭**:
-  - `kafka.collector.events.processed|duplicate|failed`
-  - `kafka.collector.event_handled.cleanup.deleted` (정리 스케줄이 실제 삭제한 행 수)
-  - `kafka.outbox.dlq.redrive.success|failed|parked`
+### 8.3 로드맵 3단계 (완료) · 5단계 (미착수)
 
-### 8.2 `commerce-streamer` Collector — 멱등·보관·관측 (적용됨)
+| 구분 | 상태 | 내용 |
+| --- | --- | --- |
+| DLQ / redrive | 완료 | streamer DLQ 전송·`kafka_collector_events_dlq` 카운터·쿠폰 리스너 동일 DLQ 팩토리·batch redrive(dev 활성화) |
+| lag·관측 | 완료 | `CollectorConsumerLagMetrics` → `kafka_consumer_topic_lag_sum`(group·topic)·`collector.metrics.lag` 설정 |
+| 알람 | 완료 | `docker/grafana/rules/kafka-collector-alerts.yml` + `prometheus.yml` `rule_files` |
+| Runbook | 완료 | `skills/kafka/kafka-step3-runbook.md` |
+| 로드맵 5단계 CDC | 미착수 | §5 — **Polling과 동일 토픽 이중 발행 금지** |
 
+### 8.4 `commerce-streamer` Collector — 멱등·보관·관측
 
-| 구분          | 내용                                                                                                                                                                                                                                                                                    |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **멱등 이원화**  | `PRODUCT_`* / `PAYMENT_COMPLETED` 등 **메트릭 갱신이 있는 이벤트**는 `**event_handled` + `product_metrics`를 한 트랜잭션** (`ProductEventCollectorDatabaseService`). **USER_REGISTERED / BRAND_REGISTERED / CART_ITEM_ADDED**는 **DB `event_handled` 없이 Redis** `collector:idemp:light:{eventId}` 멱등만 수행. |
-| **TTL·재전달** | `collector.lightweight-idempotency.redis-ttl-days`는 **Kafka 보존·consumer lag·재처리 지연의 최악치보다 짧지 않게** 두는 것이 안전. TTL 이후 동일 메시지가 다시 오면 경량 이벤트는 **처리 이력이 없어** 지표 중복 가능.                                                                                                                      |
-| **DB 보관**   | `collector.event-handled-cleanup`로 `handled_at` 기준 오래된 `event_handled` 행 삭제. 엔티티에 `handled_at` **보조 인덱스**(`idx_event_handled_handled_at`). **prd**에서 `ddl-auto: none`이면 **인덱스는 마이그레이션으로 반영**해야 함(엔티티만으로는 스키마 변경이 자동 적용되지 않을 수 있음).                                                    |
-| **기동 로그**   | `CollectorStartupLogger`가 **Redis TTL·retention·정리 스케줄**을 INFO 한 줄로 남김.                                                                                                                                                                                                               |
+| 구분 | 내용 |
+| --- | --- |
+| 멱등 이원화 | 메트릭 갱신 이벤트: `event_handled` + `product_metrics` 한 트랜잭션 (`ProductEventCollectorDatabaseService`). USER/BRAND/CART: Redis `collector:idemp:light:{eventId}` 만 |
+| TTL | `collector.lightweight-idempotency.redis-ttl-days`는 Kafka 보존·lag 최악치보다 짧지 않게 |
+| DB 정리 | `collector.event-handled-cleanup`, `handled_at` 인덱스 — prd는 Flyway 등으로 스키마 반영 |
+| 기동 로그 | `CollectorStartupLogger` — TTL·retention·정리 스케줄 요약 |
 
+### 8.5 Step 3 운영 Runbook (요약)
 
-### 8.3 의사결정 보류 (코드 미적용 — 팀·요구사항 확인 후)
+- **Poison pill**: `outbox.dlq-redrive.max-attempts` 이상이면 재주입 중단
+- **격리**: `outbox.dlq-redrive.parking-topic`(기본 `product-events.DLQ.PARK`)
+- **규칙**: 성공 시 재발행+commit / 실패 시 미commit 재시도 / 한도 초과 시 PARK 후 commit
+- **메트릭**: `kafka.collector.events.processed|duplicate|failed`, `kafka.collector.event_handled.cleanup.deleted`, `kafka.outbox.dlq.redrive.success|failed|parked`
 
-아래는 **효과 대비 비용·정책 선택**이 커서, 별도 합의 없이 구현하지 않았다.
+### 8.6 의사결정 보류 (합의 전 코드 미적용)
 
-
-| 항목                                    | 이유                                                            |
-| ------------------------------------- | ------------------------------------------------------------- |
-| **Redis 장애 시 DB `event_handled`로 폴백** | 코드 분기·트랜잭션 경계·운영 복잡도 증가. 필요 여부·트리거 조건을 먼저 정하는 편이 낫다.          |
-| **삭제 전 감사 아카이브 (S3·별도 테이블)**          | 규제·분쟁 대응 요구가 있을 때만 도입. 보존 기간·PII 범위 결정 필요.                    |
-| **정리 스케줄에서 다중 배치 루프 (한 틱에 대량 삭제)**    | 적체 해소에는 유리하나 **한 스케줄 실행이 길어질 수 있음**. 한도·루프 상한을 두고 도입할지 결정 필요. |
-| **DB 이식 시 `DELETE … LIMIT` 대체**       | 현재 MySQL 전제. 다른 엔진으로 옮길 때 네이티브 쿼리 분리 검토.                      |
-
+| 항목 | 이유 |
+| --- | --- |
+| Redis 장애 시 DB `event_handled` 폴백 | 분기·운영 복잡도 |
+| 삭제 전 감사 아카이브 | 규제·요구 시만 |
+| 정리 스케줄 대량 루프 | 한 틱 장시간 점유 — 상한 합의 후 |
+| DB 이식 시 `DELETE … LIMIT` | 엔진별 분리 검토 |
 
 ---
 
-**다음에 진행하기 전에 알려주면 좋은 것**: 위 **§8.3** 중 **지금 레포에 반드시 필요한 것**(예: prd용 Flyway로 인덱스만 추가, Redis 폴백 여부)이 있으면 우선순위를 알려주면 그에 맞춰 구현한다.
+**우선순위 확인이 필요할 때**: prd용 인덱스(Flyway), Redis 폴백 여부 등 **§8.6** 항목 중 “지금 꼭 넣을 것”이 있으면 팀에 알려 구현 순서를 맞춘다.
