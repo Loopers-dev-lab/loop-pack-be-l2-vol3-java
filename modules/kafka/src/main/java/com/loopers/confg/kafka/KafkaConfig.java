@@ -2,6 +2,7 @@ package com.loopers.confg.kafka;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -47,10 +48,8 @@ public class KafkaConfig {
             KafkaProperties kafkaProperties
     ) {
         Map<String, Object> consumerConfig = new HashMap<>(kafkaProperties.buildConsumerProperties());
-        consumerConfig.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                org.apache.kafka.common.serialization.StringDeserializer.class);
-        consumerConfig.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                org.apache.kafka.common.serialization.StringDeserializer.class);
+        consumerConfig.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        consumerConfig.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
 
         ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(consumerConfig));
