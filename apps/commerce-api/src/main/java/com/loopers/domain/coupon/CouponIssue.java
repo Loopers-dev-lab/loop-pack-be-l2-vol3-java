@@ -13,6 +13,8 @@ import java.time.ZonedDateTime;
 @Table(name = "coupon_issue", indexes = {
     @Index(name = "idx_coupon_issue_member_id", columnList = "member_id"),
     @Index(name = "idx_coupon_issue_coupon_id", columnList = "coupon_id")
+}, uniqueConstraints = {
+    @UniqueConstraint(name = "uk_coupon_issue_coupon_member", columnNames = {"coupon_id", "member_id"})
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
