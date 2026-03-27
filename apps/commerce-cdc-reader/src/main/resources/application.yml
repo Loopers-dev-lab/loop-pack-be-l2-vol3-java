@@ -1,0 +1,27 @@
+server:
+  port: 8092
+
+spring:
+  application:
+    name: commerce-cdc-reader
+  profiles:
+    active: local
+  config:
+    import:
+      - kafka.yml
+      - logging.yml
+      - monitoring.yml
+
+cdc:
+  reader:
+    mysql-host: localhost
+    mysql-port: 3307
+    username: root
+    password: root
+    server-id: 223346
+    topic-prefix: cdc-app
+    include-databases:
+      - loopers
+    include-tables:
+      - loopers.product_metrics
+      - loopers.outbox_event
