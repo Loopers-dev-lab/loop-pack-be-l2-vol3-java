@@ -285,3 +285,31 @@ CREATE TABLE IF NOT EXISTS payment_event_log (
     KEY idx_payment_event_log_order_id (order_id),
     KEY idx_payment_event_log_occurred_at (occurred_at)
 );
+
+CREATE TABLE IF NOT EXISTS order_cancel_saga_progress (
+    order_id BINARY(16) NOT NULL,
+    coupon_done BIT(1) NOT NULL,
+    point_done BIT(1) NOT NULL,
+    stock_done BIT(1) NOT NULL,
+    last_error VARCHAR(1000) NULL,
+    retry_count INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (order_id)
+);
+
+CREATE TABLE IF NOT EXISTS order_create_saga_progress (
+    order_id BINARY(16) NOT NULL,
+    member_id VARCHAR(255) NOT NULL,
+    coupon_id BINARY(16) NULL,
+    order_amount INT NOT NULL,
+    requested_point_amount INT NOT NULL,
+    payment_amount INT NOT NULL,
+    card_type VARCHAR(50) NOT NULL,
+    card_no VARCHAR(255) NOT NULL,
+    coupon_done BIT(1) NOT NULL,
+    point_done BIT(1) NOT NULL,
+    payment_requested BIT(1) NOT NULL,
+    completed BIT(1) NOT NULL,
+    compensated BIT(1) NOT NULL,
+    last_error VARCHAR(1000) NULL,
+    PRIMARY KEY (order_id)
+);

@@ -1,15 +1,13 @@
 package com.loopers.application.process.checkout;
 
-import com.loopers.application.coupon.CouponApplicationService;
 import com.loopers.application.order.OrderApplicationService;
 import com.loopers.application.outbox.OrderPaymentOutboxService;
 import com.loopers.application.payment.PaymentQueryApplicationService;
-import com.loopers.contract.kafka.OrderCancelRequestedOutboxMessage;
-import com.loopers.application.point.PointApplicationService;
-import com.loopers.application.process.checkout.event.OrderCancelRequestedEvent;
+import com.loopers.application.process.checkout.event.OrderCancelCompensationStepCompletedEvent;
+import com.loopers.application.process.checkout.event.OrderCancelledConfirmedEvent;
 import com.loopers.application.process.checkout.event.OrderPaymentCancelRequestEvent;
-import com.loopers.application.product.ProductStockApplicationService;
-import com.loopers.domain.order.Order;
+import com.loopers.contract.kafka.OrderCancelRequestedOutboxMessage;
+import com.loopers.domain.order.OrderCancelSagaProgressRepository;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentStatus;
 import lombok.RequiredArgsConstructor;
@@ -24,57 +22,43 @@ import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
-public class OrderCancelEventHandler {
+public class OrderCancelCompletionHandler {
 
+    private final OrderCancelSagaProgressRepository progressRepository;
     private final OrderApplicationService orderApplicationService;
-    private final CouponApplicationService couponApplicationService;
-    private final PointApplicationService pointApplicationService;
-    private final ProductStockApplicationService productStockApplicationService;
     private final PaymentQueryApplicationService paymentQueryApplicationService;
-    private final ApplicationEventPublisher applicationEventPublisher;
     private final OrderPaymentOutboxService orderPaymentOutboxService;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handle(OrderCancelRequestedEvent event) {
-        Order order = orderApplicationService.getByIdForSystem(event.orderId());
-        if (!order.isCancelPending()) {
+    public void handle(OrderCancelCompensationStepCompletedEvent event) {
+        var progress = progressRepository.findByOrderId(event.orderId()).orElseThrow();
+        progress = switch (event.stepType()) {
+            case COUPON -> progress.markCouponDone();
+            case POINT -> progress.markPointDone();
+            case STOCK -> progress.markStockDone();
+        };
+        progressRepository.save(progress);
+        if (!progress.isCompleted()) {
             return;
         }
 
-        boolean stockWasDeducted = order.isStockDeducted();
-        if (order.couponId() != null) {
-            couponApplicationService.cancelUse(order.couponId(), order.memberId());
-        }
-
-        if (order.usedPointAmount() > 0) {
-            pointApplicationService.restore(order.memberId(), order.usedPointAmount());
-        }
-
-        if (stockWasDeducted) {
-            productStockApplicationService.restoreForOrder(order.items());
-        }
-
-        Order cancelled = orderApplicationService.confirmCancelForSystem(order.id());
+        var cancelled = orderApplicationService.confirmCancelForSystem(event.orderId());
         orderPaymentOutboxService.saveOrderCancelRequested(new OrderCancelRequestedOutboxMessage(
                 UUID.randomUUID(),
                 cancelled.id(),
                 cancelled.memberId(),
                 Instant.now()
         ));
-        if (!stockWasDeducted && cancelled.isStockDeducted()) {
-            productStockApplicationService.restoreForOrder(cancelled.items());
-        }
+        applicationEventPublisher.publishEvent(new OrderCancelledConfirmedEvent(cancelled.id(), cancelled.memberId()));
 
         PaymentStatus paymentStatus = paymentQueryApplicationService
                 .getPaymentByOrder(cancelled.memberId(), cancelled.id())
                 .map(Payment::status)
                 .orElse(null);
-
         if (paymentStatus == PaymentStatus.SUCCEEDED || paymentStatus == PaymentStatus.CANCEL_FAILED) {
-            applicationEventPublisher.publishEvent(
-                    new OrderPaymentCancelRequestEvent(cancelled.memberId(), cancelled.id())
-            );
+            applicationEventPublisher.publishEvent(new OrderPaymentCancelRequestEvent(cancelled.memberId(), cancelled.id()));
         }
     }
 }

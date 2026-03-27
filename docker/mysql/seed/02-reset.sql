@@ -6,6 +6,8 @@ TRUNCATE TABLE like_event_handled;
 TRUNCATE TABLE outbox_event;
 TRUNCATE TABLE payment_event_log;
 TRUNCATE TABLE order_event_log;
+TRUNCATE TABLE order_cancel_saga_progress;
+TRUNCATE TABLE order_create_saga_progress;
 TRUNCATE TABLE product_metrics;
 TRUNCATE TABLE likes;
 TRUNCATE TABLE payments;

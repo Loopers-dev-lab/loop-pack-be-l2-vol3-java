@@ -5,6 +5,7 @@ import com.loopers.application.brand.command.CreateBrandCommand;
 import com.loopers.application.coupon.CouponAdminApplicationService;
 import com.loopers.application.coupon.command.CreateCouponCommand;
 import com.loopers.application.order.command.CreateOrderCommand;
+import com.loopers.application.order.OrderApplicationService;
 import com.loopers.application.order.query.OrderAccessRequest;
 import com.loopers.application.product.ProductApplicationService;
 import com.loopers.application.product.command.CreateProductCommand;
@@ -60,6 +61,9 @@ class OrderUseCaseIntegrationTest {
 
     @Autowired
     private ProductApplicationService productApplicationService;
+
+    @Autowired
+    private OrderApplicationService orderApplicationService;
 
     @Autowired
     private BrandApplicationService brandApplicationService;
@@ -317,8 +321,8 @@ class OrderUseCaseIntegrationTest {
         Payment requested = awaitPaymentByOrder(memberId, order.id());
         paymentRepository.save(requested.markFailed("결제 실패"));
 
-        Order cancelled = orderUseCase.cancel(new OrderAccessRequest(order.id(), memberId, false));
-        assertThat(cancelled.status().name()).isEqualTo("CANCELLED");
+        orderUseCase.cancel(new OrderAccessRequest(order.id(), memberId, false));
+        Order cancelled = awaitOrderStatus(order.id(), "CANCELLED");
 
         IssuedCoupon restoredCoupon = issuedCouponRepository.findByMemberIdAndCouponId(memberId, coupon.id())
                 .orElseThrow();
@@ -377,8 +381,8 @@ class OrderUseCaseIntegrationTest {
         Payment cancelRequested = succeeded.requestCancel();
         paymentRepository.save(cancelRequested.markCancelFailed("PG 취소 실패"));
 
-        Order cancelled = orderUseCase.cancel(new OrderAccessRequest(order.id(), memberId, false));
-        assertThat(cancelled.status().name()).isEqualTo("CANCELLED");
+        orderUseCase.cancel(new OrderAccessRequest(order.id(), memberId, false));
+        Order cancelled = awaitOrderStatus(order.id(), "CANCELLED");
 
         IssuedCoupon restoredCoupon = issuedCouponRepository.findByMemberIdAndCouponId(memberId, coupon.id())
                 .orElseThrow();
@@ -405,6 +409,22 @@ class OrderUseCaseIntegrationTest {
             }
         }
         throw new AssertionError("결제 데이터가 생성되지 않았습니다.");
+    }
+
+    private Order awaitOrderStatus(UUID orderId, String status) {
+        for (int i = 0; i < 40; i++) {
+            Order found = orderApplicationService.getById(new OrderAccessRequest(orderId, null, true));
+            if (found.status().name().equals(status)) {
+                return found;
+            }
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError("주문 상태 대기 중 인터럽트가 발생했습니다.", e);
+            }
+        }
+        throw new AssertionError("주문 상태가 기대치에 도달하지 못했습니다. expected=" + status);
     }
 
     private void assertCancelNotCalledWithin(long millis) {
