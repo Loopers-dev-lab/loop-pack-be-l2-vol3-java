@@ -3,6 +3,7 @@ package com.loopers.infrastructure.collector;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,7 +13,10 @@ import java.time.Instant;
 import static lombok.AccessLevel.PROTECTED;
 
 @Entity
-@Table(name = "event_handled")
+@Table(
+        name = "event_handled",
+        indexes = @Index(name = "idx_event_handled_handled_at", columnList = "handled_at")
+)
 @Getter
 @NoArgsConstructor(access = PROTECTED)
 public class EventHandledModel {
