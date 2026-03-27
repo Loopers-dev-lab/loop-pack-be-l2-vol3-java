@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.payment;
 
 import com.loopers.application.payment.PaymentFacade;
+import com.loopers.domain.payment.PgPaymentStatus;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.payment.dto.CreatePaymentApiReqDto;
 import com.loopers.interfaces.api.payment.dto.FindPaymentApiResDto;
@@ -36,7 +37,7 @@ public class PaymentV1Controller implements PaymentV1ApiSpec {
     @Override
     @PostMapping("/callback")
     public ApiResponse<Void> handleCallback(@RequestBody PaymentCallbackApiReqDto request) {
-        paymentFacade.handleCallback(request.transactionKey(), request.status());
+        paymentFacade.handleCallback(request.transactionKey(), PgPaymentStatus.valueOf(request.status()));
         return ApiResponse.successNoContent();
     }
 

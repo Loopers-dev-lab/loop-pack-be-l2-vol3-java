@@ -3,6 +3,7 @@ package com.loopers.infrastructure.pg;
 import com.loopers.domain.payment.PaymentCommand;
 import com.loopers.domain.payment.PaymentGateway;
 import com.loopers.domain.payment.PaymentInfo;
+import com.loopers.domain.payment.PgPaymentStatus;
 import com.loopers.infrastructure.pg.dto.PgApiResponse;
 import com.loopers.infrastructure.pg.dto.PgPaymentRequest;
 import com.loopers.infrastructure.pg.dto.PgPaymentResponse;
@@ -67,13 +68,21 @@ public class PgPaymentAdapter implements PaymentGateway {
     }
 
     private PaymentInfo toInfo(PgPaymentResponse response) {
+        PgPaymentStatus pgStatus = null;
+        if (response.status() != null) {
+            try {
+                pgStatus = PgPaymentStatus.valueOf(response.status());
+            } catch (IllegalArgumentException e) {
+                pgStatus = PgPaymentStatus.FAILED;
+            }
+        }
         return new PaymentInfo(
                 response.transactionKey(),
                 response.orderId(),
                 response.cardType(),
                 response.cardNo(),
                 response.amount(),
-                response.status()
+                pgStatus
         );
     }
 }

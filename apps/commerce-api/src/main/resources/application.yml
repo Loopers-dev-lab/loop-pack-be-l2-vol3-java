@@ -21,6 +21,7 @@ spring:
     import:
       - jpa.yml
       - redis.yml
+      - kafka.yml
       - logging.yml
       - monitoring.yml
 
@@ -77,6 +78,8 @@ spring:
   config:
     activate:
       on-profile: local, test
+  main:
+    allow-bean-definition-overriding: true
 
 ---
 spring:

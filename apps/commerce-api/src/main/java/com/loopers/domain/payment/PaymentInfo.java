@@ -6,7 +6,7 @@ public record PaymentInfo(
         String cardType,
         String cardNo,
         String amount,
-        String status
+        PgPaymentStatus status
 ) {
     public static PaymentInfo empty() {
         return new PaymentInfo(null, null, null, null, null, null);

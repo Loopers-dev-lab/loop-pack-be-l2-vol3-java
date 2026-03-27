@@ -83,6 +83,13 @@ public class CouponService {
         return userCouponRepository.findByCouponTemplateId(couponTemplateId, pageable);
     }
 
+    public void restoreUserCoupon(Long userCouponId) {
+        UserCoupon userCoupon = userCouponRepository.findById(userCouponId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다."));
+        userCoupon.restore();
+        userCouponRepository.update(userCoupon);
+    }
+
     public CouponTemplate useUserCoupon(Long userCouponId, Long memberId, int orderAmount) {
         UserCoupon userCoupon = userCouponRepository.findById(userCouponId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다."));

@@ -22,6 +22,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -53,6 +54,9 @@ class OrderFacadeTest {
 
     @Mock
     private CouponService couponService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private static Member createTestMember() {
         return Member.reconstruct(1L, "testuser", "encodedPw", "홍길동", LocalDate.of(1990, 1, 1), "test@test.com");

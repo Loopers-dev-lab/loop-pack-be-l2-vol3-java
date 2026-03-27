@@ -18,4 +18,6 @@ public interface OrderRepository {
     Optional<Orders> findByOrderNumber(String orderNumber);
 
     void updateStatus(Long orderId, OrderStatus status);
+
+    List<Orders> findExpiredOrders(OrderStatus status, LocalDateTime expireBefore);
 }

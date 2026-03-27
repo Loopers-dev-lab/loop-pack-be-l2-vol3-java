@@ -44,6 +44,14 @@ public class UserCoupon {
         this.usedAt = LocalDateTime.now();
     }
 
+    public void restore() {
+        if (this.status != CouponEnums.Status.USED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "사용된 쿠폰만 복원할 수 있습니다.");
+        }
+        this.status = CouponEnums.Status.AVAILABLE;
+        this.usedAt = null;
+    }
+
     public void validateOwnership(Long requestMemberId) {
         if (!this.memberId.equals(requestMemberId)) {
             throw new CoreException(ErrorType.BAD_REQUEST, "본인 소유의 쿠폰만 사용할 수 있습니다.");

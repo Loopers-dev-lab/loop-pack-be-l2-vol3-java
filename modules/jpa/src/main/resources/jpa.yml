@@ -58,6 +58,9 @@ spring:
 datasource:
   mysql-jpa:
     main:
+      jdbc-url: ${datasource.mysql-jpa.main.jdbc-url:jdbc:mysql://localhost:3306/loopers}
+      username: ${datasource.mysql-jpa.main.username:test}
+      password: ${datasource.mysql-jpa.main.password:test}
       maximum-pool-size: 10
       minimum-idle: 5
 
