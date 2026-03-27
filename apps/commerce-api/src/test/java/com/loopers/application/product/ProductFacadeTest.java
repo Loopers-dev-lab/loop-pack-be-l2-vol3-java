@@ -38,7 +38,7 @@ class ProductFacadeTest {
         brandRepository = new FakeBrandRepository();
         likeRepository = new FakeLikeRepository();
         productRepository.setBrandRepository(brandRepository);
-        productFacade = new ProductFacade(productRepository, brandRepository, likeRepository, new FakeProductCachePort());
+        productFacade = new ProductFacade(productRepository, brandRepository, likeRepository, new FakeProductCachePort(), event -> {});
     }
 
     @Nested

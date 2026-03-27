@@ -42,7 +42,7 @@ class SlidingWindowRateLimiterTest {
         @DisplayName("U2-3: 윈도우 경계에서 이전 윈도우 가중치가 적용된다 (Boundary Burst 방지)")
         @Test
         void windowBoundary_prevWindowWeightApplied() throws InterruptedException {
-            var rateLimiter = new SlidingWindowRateLimiter(10, 200);
+            var rateLimiter = new SlidingWindowRateLimiter(10, 1000);
 
             // 현재 윈도우에서 10건 소진
             for (int i = 0; i < 10; i++) {
@@ -50,8 +50,8 @@ class SlidingWindowRateLimiterTest {
             }
             assertThat(rateLimiter.tryAcquire()).isFalse();
 
-            // 윈도우 경계를 넘어감 (새 윈도우 시작 직후)
-            Thread.sleep(220);
+            // 윈도우 경계를 넘어감 (새 윈도우 시작 직후, 충분한 마진 확보)
+            Thread.sleep(1100);
 
             // Sliding Window: 이전 윈도우 10건이 가중치로 반영되어
             // Fixed Window와 달리 10건 전부 허용되지 않는다 (Boundary Burst 방지)

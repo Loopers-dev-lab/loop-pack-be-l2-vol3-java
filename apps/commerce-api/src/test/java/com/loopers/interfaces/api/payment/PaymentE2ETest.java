@@ -1,7 +1,14 @@
 package com.loopers.interfaces.api.payment;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import com.loopers.domain.brand.Brand;
+import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderRepository;
+import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.product.vo.Price;
+import com.loopers.domain.product.vo.Stock;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.*;
@@ -13,6 +20,7 @@ import org.springframework.http.*;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+import java.util.List;
 import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
@@ -37,6 +45,15 @@ class PaymentE2ETest {
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
+
+    @Autowired
+    private BrandRepository brandRepository;
+
+    @Autowired
+    private ProductRepository productRepository;
+
+    @Autowired
+    private OrderRepository orderRepository;
 
     @DynamicPropertySource
     static void pgProperties(DynamicPropertyRegistry registry) {
@@ -71,9 +88,19 @@ class PaymentE2ETest {
     }
 
     /**
-     * 테스트 전: DB에 주문 데이터를 미리 삽입해야 함.
-     * 이 E2E 테스트는 전체 인프라(MySQL + Redis)가 필요합니다.
+     * 테스트용 주문 데이터를 생성한다.
+     * Brand → Product → Order(CREATED) 순서로 저장.
      */
+    private Order createTestOrder(int amount) {
+        Brand brand = brandRepository.save(new Brand("테스트브랜드", "E2E 테스트"));
+        Product product = productRepository.save(
+            new Product(brand.getId(), "테스트상품", new Price(amount), new Stock(100)));
+        Order order = Order.create(1L, List.of(
+            new Order.ItemSnapshot(product.getId(), product.getName(),
+                amount, brand.getName(), 1)
+        ));
+        return orderRepository.save(order);
+    }
 
     @Nested
     @DisplayName("결제 요청")
@@ -94,11 +121,11 @@ class PaymentE2ETest {
                 .willReturn(aResponse()
                     .withStatus(500))); // 기록 없음
 
-            // TODO: DB에 주문 데이터 삽입 필요 (Order, Product, etc.)
-            // 이 테스트는 Docker + Testcontainers 환경에서 실행해야 합니다.
+            // DB에 주문 데이터 삽입
+            Order order = createTestOrder(5000);
 
             Map<String, Object> paymentRequest = Map.of(
-                "orderId", 1L,
+                "orderId", order.getId(),
                 "cardType", "SAMSUNG",
                 "cardNo", "1234-5678-9012-3456",
                 "amount", 5000
@@ -168,8 +195,6 @@ class PaymentE2ETest {
         @DisplayName("E7-3: POST /{id}/confirm → PG 조회 → 상태 갱신")
         @Test
         void manualConfirm_pgQuery_statusUpdated() {
-            // TODO: 사전에 PENDING Payment를 DB에 삽입 필요
-
             ResponseEntity<ApiResponse<String>> response = testRestTemplate.exchange(
                 "/api/v1/payments/1/confirm",
                 HttpMethod.POST,

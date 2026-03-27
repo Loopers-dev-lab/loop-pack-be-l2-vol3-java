@@ -1,8 +1,10 @@
 package com.loopers.application.order;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.coupon.CouponFacade;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.coupon.*;
+import com.loopers.domain.event.EventOutboxRepository;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderStatus;
@@ -16,13 +18,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 class OrderFacadeTest {
 
@@ -34,6 +39,7 @@ class OrderFacadeTest {
     private FakeCouponIssueRepository couponIssueRepository;
     private CouponFacade couponFacade;
 
+    @SuppressWarnings("unchecked")
     @BeforeEach
     void setUp() {
         orderRepository = new FakeOrderRepository();
@@ -41,10 +47,16 @@ class OrderFacadeTest {
         brandRepository = new FakeBrandRepository();
         couponRepository = new FakeCouponRepository();
         couponIssueRepository = new FakeCouponIssueRepository();
+        CouponIssueRequestRepository issueRequestRepository = new CouponIssueRequestRepository() {
+            @Override public CouponIssueRequest save(CouponIssueRequest request) { return request; }
+            @Override public Optional<CouponIssueRequest> findById(Long id) { return Optional.empty(); }
+        };
+        KafkaTemplate<Object, Object> kafkaTemplate = mock(KafkaTemplate.class);
         couponFacade = new CouponFacade(couponRepository, couponIssueRepository,
-            Clock.systemDefaultZone());
+            issueRequestRepository, kafkaTemplate, new ObjectMapper(), Clock.systemDefaultZone());
+        EventOutboxRepository eventOutboxRepository = outbox -> outbox;
         orderFacade = new OrderFacade(orderRepository, productRepository, brandRepository,
-            couponFacade);
+            couponFacade, eventOutboxRepository, event -> {}, new ObjectMapper());
     }
 
     @Nested

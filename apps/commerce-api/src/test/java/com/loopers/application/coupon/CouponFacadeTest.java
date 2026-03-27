@@ -1,7 +1,9 @@
 package com.loopers.application.coupon;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.coupon.*;
 import com.loopers.fake.FakeCouponIssueRepository;
+import com.loopers.fake.FakeCouponIssueRequestRepository;
 import com.loopers.fake.FakeCouponRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -9,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.time.Clock;
 import java.time.ZonedDateTime;
@@ -16,19 +19,29 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 class CouponFacadeTest {
 
     private CouponFacade couponFacade;
     private FakeCouponRepository couponRepository;
     private FakeCouponIssueRepository couponIssueRepository;
+    private FakeCouponIssueRequestRepository issueRequestRepository;
+    private KafkaTemplate<Object, Object> kafkaTemplate;
     private final Clock clock = Clock.systemDefaultZone();
 
+    @SuppressWarnings("unchecked")
     @BeforeEach
     void setUp() {
         couponRepository = new FakeCouponRepository();
         couponIssueRepository = new FakeCouponIssueRepository();
-        couponFacade = new CouponFacade(couponRepository, couponIssueRepository, clock);
+        issueRequestRepository = new FakeCouponIssueRequestRepository();
+        kafkaTemplate = mock(KafkaTemplate.class);
+        couponFacade = new CouponFacade(couponRepository, couponIssueRepository,
+            issueRequestRepository, kafkaTemplate, new ObjectMapper(), clock);
     }
 
     @Nested
@@ -255,6 +268,89 @@ class CouponFacadeTest {
                 .isInstanceOf(CoreException.class)
                 .extracting(e -> ((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.FORBIDDEN);
+        }
+    }
+
+    @Nested
+    @DisplayName("선착순 쿠폰 발급 요청")
+    class RequestCouponIssue {
+
+        @DisplayName("유효한 쿠폰에 발급 요청하면 PENDING 상태의 CouponIssueRequest가 생성된다")
+        @Test
+        void requestCouponIssue_createsPendingRequest() {
+            Coupon coupon = couponFacade.createCoupon(
+                "선착순 할인", DiscountType.FIXED, 5000, 0,
+                ZonedDateTime.now().plusDays(30));
+
+            CouponIssueRequest result = couponFacade.requestCouponIssue(coupon.getId(), 1L);
+
+            assertThat(result.getId()).isNotNull();
+            assertThat(result.getCouponId()).isEqualTo(coupon.getId());
+            assertThat(result.getMemberId()).isEqualTo(1L);
+            assertThat(result.getStatus()).isEqualTo(CouponIssueRequestStatus.PENDING);
+        }
+
+        @DisplayName("발급 요청 시 Kafka에 메시지가 발행된다")
+        @Test
+        void requestCouponIssue_sendsKafkaMessage() {
+            Coupon coupon = couponFacade.createCoupon(
+                "선착순 할인", DiscountType.FIXED, 5000, 0,
+                ZonedDateTime.now().plusDays(30));
+
+            couponFacade.requestCouponIssue(coupon.getId(), 1L);
+
+            verify(kafkaTemplate).send(eq("coupon-issue-requests"),
+                eq(String.valueOf(coupon.getId())), anyString());
+        }
+
+        @DisplayName("만료된 쿠폰은 발급 요청할 수 없다")
+        @Test
+        void requestCouponIssue_whenExpired_throwsException() {
+            Coupon coupon = couponFacade.createCoupon(
+                "할인", DiscountType.FIXED, 5000, 0,
+                ZonedDateTime.now().minusDays(1));
+
+            assertThatThrownBy(() -> couponFacade.requestCouponIssue(coupon.getId(), 1L))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.BAD_REQUEST);
+        }
+
+        @DisplayName("존재하지 않는 쿠폰은 발급 요청할 수 없다")
+        @Test
+        void requestCouponIssue_whenNotExists_throwsException() {
+            assertThatThrownBy(() -> couponFacade.requestCouponIssue(999L, 1L))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("발급 요청 상태 조회")
+    class GetIssueRequest {
+
+        @DisplayName("저장된 발급 요청을 조회하면 반환된다")
+        @Test
+        void getIssueRequest_whenExists_returnsRequest() {
+            Coupon coupon = couponFacade.createCoupon(
+                "선착순 할인", DiscountType.FIXED, 5000, 0,
+                ZonedDateTime.now().plusDays(30));
+            CouponIssueRequest saved = couponFacade.requestCouponIssue(coupon.getId(), 1L);
+
+            CouponIssueRequest result = couponFacade.getIssueRequest(saved.getId());
+
+            assertThat(result.getId()).isEqualTo(saved.getId());
+            assertThat(result.getStatus()).isEqualTo(CouponIssueRequestStatus.PENDING);
+        }
+
+        @DisplayName("존재하지 않는 발급 요청을 조회하면 예외가 발생한다")
+        @Test
+        void getIssueRequest_whenNotExists_throwsException() {
+            assertThatThrownBy(() -> couponFacade.getIssueRequest(999L))
+                .isInstanceOf(CoreException.class)
+                .extracting(e -> ((CoreException) e).getErrorType())
+                .isEqualTo(ErrorType.NOT_FOUND);
         }
     }
 }
