@@ -19,8 +19,18 @@
 - TestContainers: 실제 MySQL, Redis, Kafka 인스턴스 제공
 - 테스트 픽스처: `supports/` 모듈
 
+## 비동기 테스트 원칙
+- **Thread.sleep 금지** — 비동기 상태 전이 대기에 Thread.sleep을 사용하지 않는다
+- 외부 스레드/스케줄러가 상태를 전이시키는 경우 **Awaitility 폴링**으로 조건 기반 대기한다
+- 단순 시간 경과 테스트(쿠폰 만료 등 조회 시점 판단)는 Thread.sleep 허용
+
 ## E2ETestFixture
 - 위치: `apps/commerce-api/src/test/java/com/loopers/support/E2ETestFixture.java`
 - 새 도메인 API를 추가하면 `registerXxx()` 메서드를 fixture에 추가한다
 - setup 메서드는 생성된 엔티티 ID를 반환하여 다른 테스트에서 재사용 가능하게 한다
 - E2E 테스트에서 선행 데이터 생성은 fixture 메서드를 사용한다 (인라인 HTTP 호출 금지)
+
+## 외부 서비스 Mock 테스트
+- 별도 Mock 서버가 존재하면 TestContainers로 띄워서 통합 테스트 수행
+- Mock 서버가 존재하지 않으면 보고하여 생성 여부를 결정
+- Mock 서버가 chaos 모드(타임아웃, 에러 시뮬레이션)를 지원하면 장애 시뮬레이션 테스트에 활용

@@ -11,7 +11,6 @@ public interface ProductRepository {
 
     // Command
     Product save(Product product);
-    int decreaseStockIfEnough(Long productId, int quantity);
     int incrementLikeCount(Long productId);
     int decrementLikeCountIfPositive(Long productId);
     List<Long> findIdsByBrandIdForCleanup(Long brandId, int batchSize);

@@ -37,6 +37,13 @@ public class IssuedCouponService {
     }
 
     @Transactional
+    public void restore(Long issuedCouponId) {
+        IssuedCoupon issuedCoupon = issuedCouponRepository.findById(issuedCouponId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다"));
+        issuedCoupon.restore();
+    }
+
+    @Transactional
     public void markUsedIfAvailable(Long issuedCouponId, Long userId) {
         int updated = issuedCouponRepository.markUsedIfAvailable(issuedCouponId, userId);
         if (updated == 0) {

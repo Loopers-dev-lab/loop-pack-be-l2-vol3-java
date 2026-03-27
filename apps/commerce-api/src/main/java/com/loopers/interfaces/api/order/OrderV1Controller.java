@@ -2,10 +2,13 @@ package com.loopers.interfaces.api.order;
 
 import com.loopers.application.order.OrderFacade;
 import com.loopers.application.order.OrderInfo;
+import com.loopers.application.payment.PaymentFacade;
+import com.loopers.application.payment.PaymentInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.auth.AuthUser;
 import com.loopers.interfaces.api.auth.AuthenticatedUser;
+import com.loopers.interfaces.api.payment.PaymentV1Dto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -22,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderV1Controller implements OrderApiV1Spec {
 
     private final OrderFacade orderFacade;
+    private final PaymentFacade paymentFacade;
 
     // Command
 
@@ -34,6 +38,15 @@ public class OrderV1Controller implements OrderApiV1Spec {
         return ApiResponse.success(OrderV1Dto.OrderResponse.from(info));
     }
 
+    @PostMapping("/{orderId}/cancel")
+    @Override
+    public ApiResponse<Void> cancelOrder(
+            @AuthUser AuthenticatedUser user,
+            @PathVariable Long orderId) {
+        orderFacade.cancelOrder(user.id(), orderId);
+        return ApiResponse.success(null);
+    }
+
     // Query
 
     @GetMapping("/{orderId}")
@@ -43,6 +56,15 @@ public class OrderV1Controller implements OrderApiV1Spec {
             @PathVariable Long orderId) {
         OrderInfo info = orderFacade.getOrderDetail(user.id(), orderId);
         return ApiResponse.success(OrderV1Dto.OrderResponse.from(info));
+    }
+
+    @GetMapping("/{orderId}/payment")
+    @Override
+    public ApiResponse<PaymentV1Dto.PaymentResponse> getPaymentByOrder(
+            @AuthUser AuthenticatedUser user,
+            @PathVariable Long orderId) {
+        PaymentInfo info = paymentFacade.getPaymentByOrder(user.id(), orderId);
+        return ApiResponse.success(PaymentV1Dto.PaymentResponse.from(info));
     }
 
     @GetMapping

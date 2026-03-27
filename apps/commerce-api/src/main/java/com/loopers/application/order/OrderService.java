@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -44,6 +45,20 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
+    @Transactional
+    public void payOrder(Long orderId) {
+        Order order = orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다"));
+        order.pay();
+    }
+
+    @Transactional
+    public void cancelOrder(Long orderId) {
+        Order order = orderRepository.findByIdWithItems(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다"));
+        order.cancel();
+    }
+
     // Query
 
     @Transactional(readOnly = true)
@@ -70,5 +85,10 @@ public class OrderService {
     @Transactional(readOnly = true)
     public Page<Order> findOrdersByProductId(Long productId, Pageable pageable) {
         return orderRepository.findAllByProductId(productId, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Order> findOrdersByStatusWithItems(OrderStatus status) {
+        return orderRepository.findAllByStatusWithItems(status);
     }
 }

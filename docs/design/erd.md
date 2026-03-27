@@ -75,14 +75,26 @@ erDiagram
         datetime created_at
     }
 
+    STOCK {
+        bigint id PK
+        bigint product_id FK "상품 ID"
+        int quantity "총 재고 수량"
+        int reserved_quantity "점유 수량"
+        int confirmed_quantity "확정 차감 수량"
+        datetime created_at
+        datetime updated_at
+    }
+
     ORDERS {
         bigint id PK
         bigint user_id FK "주문자"
+        varchar status "CREATED / PAID / CANCELED"
         decimal total_amount "쿠폰 적용 전 금액"
         decimal discount_amount "할인 금액"
         decimal final_amount "최종 결제 금액"
         bigint issued_coupon_id "적용된 발급 쿠폰"
         datetime created_at
+        datetime updated_at
     }
 
     ORDER_ITEM {
@@ -95,6 +107,24 @@ erDiagram
         datetime created_at
     }
 
+    PAYMENT {
+        bigint id PK
+        bigint order_id FK "주문 ID"
+        bigint user_id FK "결제 요청자"
+        varchar payment_key UK "결제 키 (UUID)"
+        varchar pg_type "TOSS / NICE"
+        varchar card_type "SAMSUNG / KB / HYUNDAI"
+        varchar card_no "카드 번호"
+        decimal amount "결제 금액"
+        varchar status "REQUESTED / SUCCEEDED / FAILED / CANCELED"
+        varchar fail_reason "실패 사유 (nullable)"
+        varchar cancel_reason "취소 사유 (nullable)"
+        datetime canceled_at "취소 일시 (nullable)"
+        datetime created_at
+        datetime updated_at
+    }
+
+    PRODUCT ||--|| STOCK : ""
     BRAND ||--o{ PRODUCT : ""
     USER ||--o{ LIKES : ""
     PRODUCT ||--o{ LIKES : ""
@@ -103,6 +133,8 @@ erDiagram
     USER ||--o{ ORDERS : ""
     ORDERS ||--|{ ORDER_ITEM : ""
     ORDER_ITEM }o--|| PRODUCT : ""
+    ORDERS ||--o| PAYMENT : ""
+    PAYMENT }o--|| USER : ""
 ```
 
 ## 테이블 설명
@@ -115,8 +147,10 @@ erDiagram
 | LIKES | Like | 사용자-상품 간 좋아요 | Hard Delete |
 | COUPON | Coupon | 할인 쿠폰 템플릿 | Soft Delete |
 | ISSUED_COUPON | Coupon | 사용자에게 발급된 쿠폰 | 삭제 불가 |
+| STOCK | Stock | 상품별 재고 (점유/확정 관리) | 삭제 불가 |
 | ORDERS | Order | 사용자의 주문 | 삭제 불가 |
 | ORDER_ITEM | Order | 주문 시점 상품 스냅샷 | 삭제 불가 |
+| PAYMENT | Payment | PG 연동 카드 결제 | 삭제 불가 |
 
 ## 제약 조건
 
@@ -126,3 +160,8 @@ erDiagram
 | BRAND | UNIQUE | name | 브랜드명 유일성 (삭제 포함) |
 | LIKES | UNIQUE | user_id, product_id | 1인 1좋아요 보장 |
 | ISSUED_COUPON | UNIQUE | coupon_id, user_id | 1인 1매 보장 (활성 데이터 기준) |
+| PAYMENT | INDEX | order_id, status | 주문별 결제 조회 + 중복 결제 방지 |
+| PAYMENT | INDEX | user_id | 사용자별 결제 조회 |
+| PAYMENT | UNIQUE | payment_key | PG 통신 시 결제 키로 조회 |
+| STOCK | UNIQUE | product_id | 상품당 1개 재고 레코드 |
+| ORDERS | INDEX | user_id, status | 사용자별 주문 조회 + 상태 필터 |

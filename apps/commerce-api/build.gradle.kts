@@ -9,6 +9,10 @@ dependencies {
     // cache
     implementation("com.github.ben-manes.caffeine:caffeine")
 
+    // resilience4j
+    implementation("io.github.resilience4j:resilience4j-spring-boot3")
+    implementation("org.springframework.boot:spring-boot-starter-aop")
+
     // web
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.security:spring-security-crypto")
@@ -23,4 +27,11 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+
+    // test-utils
+    testImplementation("org.awaitility:awaitility:4.2.2")
+}
+
+tasks.test {
+    dependsOn(":mocks:mock-toss:bootJar", ":mocks:mock-nice:bootJar")
 }

@@ -28,6 +28,98 @@ auth:
   admin:
     ldap-credential: admin-ldap
 
+payment:
+  toss:
+    base-url: http://localhost:8090
+    secret-key: test_sk_xxxx
+    connect-timeout: 3000
+    read-timeout: 3000
+  nice:
+    base-url: http://localhost:8091
+    client-key: test_client_xxxx
+    secret-key: test_sk_nice_xxxx
+    connect-timeout: 3000
+    read-timeout: 3000
+
+resilience4j:
+  circuitbreaker:
+    circuitBreakerAspectOrder: 0
+    configs:
+      default-request:
+        slidingWindowType: TIME_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        failureRateThreshold: 30
+        slowCallDurationThreshold: 2s
+        slowCallRateThreshold: 80
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
+        maxWaitDurationInHalfOpenState: 10s
+        ignoreExceptions:
+          - com.loopers.support.error.CoreException
+          - com.loopers.domain.payment.gateway.PgBusinessException
+      default-query:
+        slidingWindowType: TIME_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        failureRateThreshold: 30
+        slowCallDurationThreshold: 1500ms
+        slowCallRateThreshold: 80
+        waitDurationInOpenState: 15s
+        permittedNumberOfCallsInHalfOpenState: 3
+        maxWaitDurationInHalfOpenState: 10s
+        ignoreExceptions:
+          - com.loopers.support.error.CoreException
+          - com.loopers.domain.payment.gateway.PgBusinessException
+    instances:
+      toss-request:
+        baseConfig: default-request
+      nice-request:
+        baseConfig: default-request
+      toss-query:
+        baseConfig: default-query
+      nice-query:
+        baseConfig: default-query
+  retry:
+    retryAspectOrder: 1
+    configs:
+      default-query-retry:
+        maxAttempts: 3
+        waitDuration: 500ms
+        retryExceptions:
+          - com.loopers.domain.payment.gateway.PgTimeoutException
+      default-confirm-retry:
+        maxAttempts: 2
+        waitDuration: 1s
+        retryExceptions:
+          - com.loopers.domain.payment.gateway.PgCommunicationException
+      default-cancel-retry:
+        maxAttempts: 3
+        waitDuration: 1s
+        retryExceptions:
+          - com.loopers.domain.payment.gateway.PgTimeoutException
+          - com.loopers.domain.payment.gateway.PgCommunicationException
+    instances:
+      toss-confirm:
+        baseConfig: default-confirm-retry
+      nice-confirm:
+        baseConfig: default-confirm-retry
+      toss-query:
+        baseConfig: default-query-retry
+      nice-query:
+        baseConfig: default-query-retry
+      toss-cancel:
+        baseConfig: default-cancel-retry
+      nice-cancel:
+        baseConfig: default-cancel-retry
+  bulkhead:
+    instances:
+      pg-payment:
+        maxConcurrentCalls: 18
+        maxWaitDuration: 0
+
 springdoc:
   use-fqn: true
   swagger-ui:
@@ -38,6 +130,10 @@ spring:
   config:
     activate:
       on-profile: local, test
+
+logging:
+  level:
+    io.github.resilience4j: DEBUG
 
 ---
 spring:

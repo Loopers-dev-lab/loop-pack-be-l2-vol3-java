@@ -84,6 +84,10 @@ public class IssuedCoupon {
         this.usedAt = LocalDateTime.now();
     }
 
+    public void restore() {
+        this.usedAt = null;
+    }
+
     public boolean isUsed() {
         return usedAt != null;
     }

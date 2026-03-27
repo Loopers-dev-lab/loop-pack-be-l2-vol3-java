@@ -24,14 +24,14 @@ public record ProductInfo(
         ACTIVE, DELETED
     }
 
-    public static ProductInfo from(Product product, String brandName) {
+    public static ProductInfo from(Product product, String brandName, int stockQuantity) {
         return new ProductInfo(
                 product.getId(),
                 product.getBrandId(),
                 brandName,
                 product.getName(),
                 product.getPrice(),
-                product.getStockQuantity(),
+                stockQuantity,
                 product.getDescription(),
                 product.getLikeCount(),
                 product.isDeleted() ? Status.DELETED : Status.ACTIVE,

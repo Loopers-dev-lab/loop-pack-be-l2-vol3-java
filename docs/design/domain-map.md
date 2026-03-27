@@ -7,9 +7,15 @@
 
 ```mermaid
 graph LR
+    Payment --> Order
+    Payment --> User
+    Payment --> Stock
+    Payment --> Coupon
     Order --> Product
+    Order --> Stock
     Order --> User
     Order --> Coupon
+    Stock --> Product
     Coupon --> User
     Like --> Product
     Like --> User
@@ -26,3 +32,5 @@ graph LR
 | Like | 사용자가 상품에 표시하는 관심 표현 |
 | Coupon | 할인 혜택을 제공하는 쿠폰 템플릿과 발급 인스턴스 |
 | Order | 사용자의 상품 구매 요청 |
+| Stock | 상품별 재고의 점유/확정/해제 생명주기 관리 |
+| Payment | 주문에 대한 PG 연동 카드 결제 |

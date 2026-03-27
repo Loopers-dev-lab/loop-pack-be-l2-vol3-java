@@ -1,5 +1,7 @@
 package com.loopers.interfaces.api.order;
 
+import com.loopers.domain.stock.Stock;
+import com.loopers.domain.stock.StockRepository;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.product.ProductAdminV1Dto;
@@ -51,6 +53,9 @@ class OrderApiE2ETest {
 
     @Autowired
     private E2ETestFixture fixture;
+
+    @Autowired
+    private StockRepository stockRepository;
 
     @BeforeEach
     void setUp() {
@@ -123,13 +128,9 @@ class OrderApiE2ETest {
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
-            List<ProductAdminV1Dto.ProductResponse> products = getProductList();
-            ProductAdminV1Dto.ProductResponse product = products.stream()
-                    .filter(p -> p.id().equals(productId))
-                    .findFirst()
-                    .orElseThrow();
-
-            assertThat(product.stockQuantity()).isEqualTo(97);
+            Stock stock = stockRepository.findByProductId(productId).orElseThrow();
+            assertThat(stock.getReservedQuantity()).isEqualTo(3);
+            assertThat(stock.getAvailableQuantity()).isEqualTo(97);
         }
 
         @Test
@@ -193,7 +194,7 @@ class OrderApiE2ETest {
 
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST),
-                    () -> assertThat(response.getBody().meta().message()).contains("재고가 부족합니다")
+                    () -> assertThat(response.getBody().meta().message()).contains("재고가 부족하거나 존재하지 않는 상품입니다")
             );
         }
 
@@ -217,19 +218,12 @@ class OrderApiE2ETest {
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 
-            List<ProductAdminV1Dto.ProductResponse> products = getProductList();
-            ProductAdminV1Dto.ProductResponse product1 = products.stream()
-                    .filter(p -> p.id().equals(productId1))
-                    .findFirst()
-                    .orElseThrow();
-            ProductAdminV1Dto.ProductResponse product2 = products.stream()
-                    .filter(p -> p.id().equals(productId2))
-                    .findFirst()
-                    .orElseThrow();
+            Stock stock1 = stockRepository.findByProductId(productId1).orElseThrow();
+            Stock stock2 = stockRepository.findByProductId(productId2).orElseThrow();
 
             assertAll(
-                    () -> assertThat(product1.stockQuantity()).isEqualTo(100),
-                    () -> assertThat(product2.stockQuantity()).isEqualTo(3)
+                    () -> assertThat(stock1.getReservedQuantity()).isEqualTo(0),
+                    () -> assertThat(stock2.getReservedQuantity()).isEqualTo(0)
             );
         }
 

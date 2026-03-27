@@ -20,6 +20,8 @@ import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "orders", indexes = {
@@ -68,7 +70,7 @@ public class Order {
         validateUserId(userId);
         Order order = new Order();
         order.userId = userId;
-        order.status = OrderStatus.PENDING;
+        order.status = OrderStatus.CREATED;
         order.totalAmount = BigDecimal.ZERO;
         order.discountAmount = BigDecimal.ZERO;
         order.finalAmount = BigDecimal.ZERO;
@@ -94,31 +96,26 @@ public class Order {
     }
 
     public void pay() {
-        if (this.status != OrderStatus.PENDING) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "결제는 PENDING 상태에서만 가능합니다");
+        if (this.status != OrderStatus.CREATED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "결제할 수 없는 주문 상태입니다");
         }
         this.status = OrderStatus.PAID;
     }
 
-    public void ship() {
-        if (this.status != OrderStatus.PAID) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "배송은 PAID 상태에서만 가능합니다");
-        }
-        this.status = OrderStatus.SHIPPING;
-    }
-
-    public void deliver() {
-        if (this.status != OrderStatus.SHIPPING) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "배송완료는 SHIPPING 상태에서만 가능합니다");
-        }
-        this.status = OrderStatus.DELIVERED;
-    }
-
     public void cancel() {
-        if (this.status == OrderStatus.DELIVERED) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "배송완료된 주문은 취소할 수 없습니다");
+        if (this.status != OrderStatus.PAID && this.status != OrderStatus.CREATED) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다");
         }
-        this.status = OrderStatus.CANCELLED;
+        this.status = OrderStatus.CANCELED;
+    }
+
+    public Map<Long, Integer> getProductQuantities() {
+        return orderItems.stream()
+                .collect(Collectors.toMap(OrderItem::getProductId, OrderItem::getQuantity));
+    }
+
+    public boolean isPaid() {
+        return this.status == OrderStatus.PAID;
     }
 
     @PrePersist
@@ -128,6 +125,12 @@ public class Order {
 
     public boolean isOwnedBy(Long userId) {
         return this.userId.equals(userId);
+    }
+
+    public void validateOwnership(Long userId) {
+        if (!isOwnedBy(userId)) {
+            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다");
+        }
     }
 
     private void validateMaxSize() {

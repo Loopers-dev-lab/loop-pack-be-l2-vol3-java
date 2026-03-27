@@ -1,5 +1,13 @@
 package com.loopers.support;
 
+import com.loopers.application.order.OrderService;
+import com.loopers.application.payment.PaymentCommand;
+import com.loopers.application.payment.PaymentService;
+import com.loopers.application.stock.StockService;
+import com.loopers.domain.order.Order;
+import com.loopers.domain.payment.CardType;
+import com.loopers.domain.payment.Payment;
+import com.loopers.domain.payment.gateway.PgType;
 import com.loopers.interfaces.api.brand.BrandRequest;
 import com.loopers.interfaces.api.coupon.CouponAdminV1Dto;
 import com.loopers.interfaces.api.coupon.CouponRequest;
@@ -19,11 +27,14 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
 public class E2ETestFixture {
 
@@ -37,6 +48,15 @@ public class E2ETestFixture {
 
     @Autowired
     private TestRestTemplate restTemplate;
+
+    @Autowired
+    private PaymentService paymentService;
+
+    @Autowired
+    private OrderService orderService;
+
+    @Autowired
+    private StockService stockService;
 
     // Auth
 
@@ -154,6 +174,45 @@ public class E2ETestFixture {
     public Long placeOrder(List<OrderRequest.PlaceItem> orderItems,
                            String loginId, String password) {
         return placeOrder(orderItems, null, loginId, password);
+    }
+
+    public Payment createRequestedPayment(Long orderId, Long userId, BigDecimal amount) {
+        return paymentService.createPayment(PaymentCommand.Create.of(orderId, userId, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", amount));
+    }
+
+    public Payment createSucceededPayment(Long orderId, Long userId, BigDecimal amount) {
+        Payment payment = paymentService.createPayment(PaymentCommand.Create.of(orderId, userId, PgType.TOSS, CardType.SAMSUNG, "1234-5678-9012-3456", amount));
+        confirmStockAndPayOrder(orderId);
+        paymentService.markSucceeded(payment.getId());
+        seedMockTossPayment(payment.getPaymentKey(), orderId, amount);
+        return paymentService.getPayment(payment.getId());
+    }
+
+    private void confirmStockAndPayOrder(Long orderId) {
+        Order order = orderService.getOrder(orderId);
+        stockService.confirm(order.getProductQuantities());
+        orderService.payOrder(orderId);
+    }
+
+    private void seedMockTossPayment(String paymentKey, Long orderId, BigDecimal amount) {
+        String tossBaseUrl = System.getProperty("payment.toss.base-url");
+        if (tossBaseUrl == null) return;
+
+        String auth = Base64.getEncoder().encodeToString("test_sk_xxxx:".getBytes());
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Basic " + auth);
+
+        Map<String, Object> body = Map.of(
+                "paymentKey", paymentKey,
+                "orderId", String.valueOf(orderId),
+                "amount", amount.longValue()
+        );
+
+        new RestTemplate().postForEntity(
+                tossBaseUrl + "/v1/payments/confirm",
+                new HttpEntity<>(body, headers),
+                String.class
+        );
     }
 
     // Teardown

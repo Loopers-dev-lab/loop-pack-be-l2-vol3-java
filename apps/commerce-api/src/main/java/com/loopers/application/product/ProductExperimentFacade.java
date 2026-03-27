@@ -2,8 +2,10 @@ package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandService;
 import com.loopers.application.like.LikeService;
+import com.loopers.application.stock.StockService;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.product.Product;
+import com.loopers.domain.stock.Stock;
 import com.loopers.infrastructure.product.ProductCacheManager;
 import com.loopers.infrastructure.product.ProductCacheManager.CachedPage;
 import com.loopers.infrastructure.product.ProductLocalCacheManager;
@@ -30,6 +32,7 @@ public class ProductExperimentFacade {
     private final ProductService productService;
     private final BrandService brandService;
     private final LikeService likeService;
+    private final StockService stockService;
     private final ProductCacheManager productCacheManager;
     private final ProductLocalCacheManager localCacheManager;
 
@@ -40,7 +43,8 @@ public class ProductExperimentFacade {
     public ProductExperimentInfo getDetailV1(Long productId, Long userId) {
         Product product = productService.getActiveProduct(productId);
         Brand brand = brandService.getBrand(product.getBrandId());
-        ProductInfo info = ProductInfo.from(product, brand.getName());
+        Stock stock = stockService.getStock(productId);
+        ProductInfo info = ProductInfo.from(product, brand.getName(), stock.getQuantity());
         boolean liked = userId != null && likeService.isLiked(userId, productId);
         return ProductExperimentInfo.from(info, liked);
     }
@@ -55,7 +59,8 @@ public class ProductExperimentFacade {
         } else {
             Product product = productService.getActiveProduct(productId);
             Brand brand = brandService.getBrand(product.getBrandId());
-            info = ProductInfo.from(product, brand.getName());
+            Stock stock = stockService.getStock(productId);
+            info = ProductInfo.from(product, brand.getName(), stock.getQuantity());
             productCacheManager.putDetail(productId, info);
         }
         boolean liked = userId != null && likeService.isLiked(userId, productId);
@@ -78,7 +83,8 @@ public class ProductExperimentFacade {
         } else {
             Product product = productService.getActiveProduct(productId);
             Brand brand = brandService.getBrand(product.getBrandId());
-            info = ProductInfo.from(product, brand.getName());
+            Stock stock = stockService.getStock(productId);
+            info = ProductInfo.from(product, brand.getName(), stock.getQuantity());
             productCacheManager.putDetail(productId, info);
         }
 
@@ -224,8 +230,14 @@ public class ProductExperimentFacade {
         Set<Long> brandIds = products.getContent().stream()
                 .map(Product::getBrandId)
                 .collect(Collectors.toSet());
+        Set<Long> productIds = products.getContent().stream()
+                .map(Product::getId)
+                .collect(Collectors.toSet());
 
         Map<Long, Brand> brandMap = brandService.getBrandsMapByIds(brandIds);
+        Map<Long, Stock> stockMap = productIds.isEmpty()
+                ? Map.of()
+                : stockService.getStocksMapByProductIds(productIds);
 
         for (Product product : products.getContent()) {
             if (!brandMap.containsKey(product.getBrandId())) {
@@ -234,7 +246,11 @@ public class ProductExperimentFacade {
             }
         }
 
-        return products.map(product -> ProductInfo.from(product, brandMap.get(product.getBrandId()).getName()));
+        return products.map(product -> {
+            Stock stock = stockMap.get(product.getId());
+            int stockQuantity = stock != null ? stock.getQuantity() : 0;
+            return ProductInfo.from(product, brandMap.get(product.getBrandId()).getName(), stockQuantity);
+        });
     }
 
     private CursorResult toCursorResult(List<Product> products, int size) {
@@ -244,11 +260,21 @@ public class ProductExperimentFacade {
         Set<Long> brandIds = content.stream()
                 .map(Product::getBrandId)
                 .collect(Collectors.toSet());
+        Set<Long> productIds = content.stream()
+                .map(Product::getId)
+                .collect(Collectors.toSet());
 
         Map<Long, Brand> brandMap = brandService.getBrandsMapByIds(brandIds);
+        Map<Long, Stock> stockMap = productIds.isEmpty()
+                ? Map.of()
+                : stockService.getStocksMapByProductIds(productIds);
 
         List<ProductInfo> infoList = content.stream()
-                .map(product -> ProductInfo.from(product, brandMap.get(product.getBrandId()).getName()))
+                .map(product -> {
+                    Stock stock = stockMap.get(product.getId());
+                    int stockQuantity = stock != null ? stock.getQuantity() : 0;
+                    return ProductInfo.from(product, brandMap.get(product.getBrandId()).getName(), stockQuantity);
+                })
                 .toList();
 
         Long nextCursor = hasNext && !infoList.isEmpty()

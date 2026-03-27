@@ -12,7 +12,7 @@
 | 계층 | 순서 | 비고 |
 |------|------|------|
 | Controller | `// Command` → `// Query` | POST/PATCH/DELETE → GET |
-| ApiSpec | `// Command` → `// Query` | Controller와 동일 순서 |
+| ApiSpec | `// Command` → `// Query` | Controller가 구현하는 Swagger 인터페이스. `@Tag`, `@Operation` 포함 |
 | Facade | `// Command` → `// Query` | |
 | ApplicationService | `// Command` → `// Query` | |
 | Repository (interface) | `// Command` → `// Query` | save → find, exists |

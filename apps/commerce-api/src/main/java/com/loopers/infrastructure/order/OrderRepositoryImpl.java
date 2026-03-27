@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -47,5 +48,10 @@ public class OrderRepositoryImpl implements OrderRepository {
     @Override
     public Page<Order> findAllByProductId(Long productId, Pageable pageable) {
         return orderJpaRepository.findAllByProductId(productId, pageable);
+    }
+
+    @Override
+    public List<Order> findAllByStatusWithItems(OrderStatus status) {
+        return orderJpaRepository.findAllByStatusWithItems(status);
     }
 }

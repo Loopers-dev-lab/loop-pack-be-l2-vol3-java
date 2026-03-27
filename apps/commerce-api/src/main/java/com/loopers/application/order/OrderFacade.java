@@ -2,7 +2,10 @@ package com.loopers.application.order;
 
 import com.loopers.application.coupon.IssuedCouponService;
 import com.loopers.application.coupon.IssuedCouponSnapshot;
+import com.loopers.application.payment.PaymentCommand;
+import com.loopers.application.payment.PaymentFacade;
 import com.loopers.application.product.ProductService;
+import com.loopers.application.stock.StockService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.order.OrderStatus;
@@ -25,7 +28,9 @@ public class OrderFacade {
 
     private final OrderService orderService;
     private final ProductService productService;
+    private final StockService stockService;
     private final IssuedCouponService issuedCouponService;
+    private final PaymentFacade paymentFacade;
 
     // Command
 
@@ -35,9 +40,6 @@ public class OrderFacade {
         // -- 1단계: 검증 + 계산 (읽기/순수 연산, 상태 변경 없음) --
         Map<Long, Integer> productQuantities = command.toQuantityMap();
         List<Product> products = productService.getActiveProducts(productQuantities.keySet());
-        for (Product product : products) {
-            product.validateStockSufficient(productQuantities.get(product.getId()));
-        }
 
         List<OrderCommand.CreateItem> orderItems = command.toCreateItems(products);
         BigDecimal totalAmount = OrderCommand.CreateItem.calculateTotalAmount(orderItems);
@@ -46,7 +48,9 @@ public class OrderFacade {
                 ? issuedCouponService.createDiscountSnapshot(command.issuedCouponId(), userId, totalAmount)
                 : IssuedCouponSnapshot.none();
 
-        // -- 2단계: 상태 변경 (원자적 UPDATE) --
+        // -- 2단계: 상태 변경 (원자적) --
+        stockService.reserve(productQuantities);
+
         if (couponSnapshot.isApplied()) {
             issuedCouponService.markUsedIfAvailable(command.issuedCouponId(), userId);
         }
@@ -56,9 +60,17 @@ public class OrderFacade {
 
         Order order = orderService.createOrder(OrderCommand.Create.of(userId, orderItems, orderCoupon));
 
-        productService.decreaseStocks(productQuantities);
-
         return OrderInfo.from(order);
+    }
+
+    public void cancelOrder(Long userId, Long orderId) {
+        Order order = orderService.getOrder(orderId);
+        order.validateOwnership(userId);
+        if (!order.isPaid()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "취소할 수 없는 주문 상태입니다");
+        }
+
+        paymentFacade.cancelPayment(userId, orderId);
     }
 
     // Query
@@ -66,9 +78,7 @@ public class OrderFacade {
     @Transactional(readOnly = true)
     public OrderInfo getOrderDetail(Long userId, Long orderId) {
         Order order = orderService.getOrder(orderId);
-        if (!order.isOwnedBy(userId)) {
-            throw new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다");
-        }
+        order.validateOwnership(userId);
         return OrderInfo.from(order);
     }
 

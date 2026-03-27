@@ -34,6 +34,8 @@ allprojects {
 }
 
 subprojects {
+    if (parent?.name == "mocks") return@subprojects
+
     apply(plugin = "java")
     apply(plugin = "org.springframework.boot")
     apply(plugin = "io.spring.dependency-management")
@@ -82,6 +84,7 @@ subprojects {
         useJUnitPlatform()
         systemProperty("user.timezone", "Asia/Seoul")
         systemProperty("spring.profiles.active", "test")
+        systemProperty("project.root", rootProject.projectDir.absolutePath)
         jvmArgs("-Xshare:off")
     }
 
@@ -109,3 +112,4 @@ subprojects {
 project("apps") { tasks.configureEach { enabled = false } }
 project("modules") { tasks.configureEach { enabled = false } }
 project("supports") { tasks.configureEach { enabled = false } }
+project("mocks") { tasks.configureEach { enabled = false } }

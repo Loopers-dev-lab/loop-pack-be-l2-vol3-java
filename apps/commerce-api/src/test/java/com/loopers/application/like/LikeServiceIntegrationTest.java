@@ -92,8 +92,8 @@ class LikeServiceIntegrationTest {
 
         @Test
         void 좋아요한_상품을_최신순으로_조회한다() {
-            Product product1 = productRepository.save(Product.create(1L, "상품1", new BigDecimal("10000"), 10, "설명1"));
-            Product product2 = productRepository.save(Product.create(1L, "상품2", new BigDecimal("20000"), 20, "설명2"));
+            Product product1 = productRepository.save(Product.create(1L, "상품1", new BigDecimal("10000"), "설명1"));
+            Product product2 = productRepository.save(Product.create(1L, "상품2", new BigDecimal("20000"), "설명2"));
             likeService.like(1L, product1.getId());
             likeService.like(1L, product2.getId());
 
@@ -106,8 +106,8 @@ class LikeServiceIntegrationTest {
 
         @Test
         void 삭제된_상품은_조회되지_않는다() {
-            Product product1 = productRepository.save(Product.create(1L, "상품1", new BigDecimal("10000"), 10, "설명1"));
-            Product product2 = productRepository.save(Product.create(1L, "상품2", new BigDecimal("20000"), 20, "설명2"));
+            Product product1 = productRepository.save(Product.create(1L, "상품1", new BigDecimal("10000"), "설명1"));
+            Product product2 = productRepository.save(Product.create(1L, "상품2", new BigDecimal("20000"), "설명2"));
             likeService.like(1L, product1.getId());
             likeService.like(1L, product2.getId());
             product2.delete();

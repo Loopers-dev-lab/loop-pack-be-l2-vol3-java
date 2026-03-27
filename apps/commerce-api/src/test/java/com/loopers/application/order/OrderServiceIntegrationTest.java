@@ -60,14 +60,14 @@ class OrderServiceIntegrationTest {
         @Test
         void 원본_상품이_수정되어도_주문_스냅샷은_영향받지_않는다() {
             Product product = productRepository.save(
-                    Product.create(1L, "운동화", new BigDecimal("50000"), 100, "편한 운동화")
+                    Product.create(1L, "운동화", new BigDecimal("50000"), "편한 운동화")
             );
             OrderCommand.Create command = OrderCommand.Create.of(1L, List.of(
                     OrderCommand.CreateItem.of(product.getId(), "운동화", new BigDecimal("50000"), 2)
             ));
             Order order = orderService.createOrder(command);
 
-            product.updateInfo("런닝화", new BigDecimal("70000"), null, null);
+            product.updateInfo("런닝화", new BigDecimal("70000"), null);
             productRepository.save(product);
 
             Product updatedProduct = productRepository.findById(product.getId()).orElseThrow();
