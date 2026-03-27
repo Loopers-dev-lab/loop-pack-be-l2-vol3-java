@@ -144,6 +144,7 @@ class OrderUseCaseIntegrationTest {
                 CouponType.FIXED,
                 1000,
                 0,
+                100,
                 LocalDateTime.now().plusDays(3)
         ));
 
@@ -195,6 +196,7 @@ class OrderUseCaseIntegrationTest {
                 CouponType.FIXED,
                 1000,
                 0,
+                100,
                 LocalDateTime.now().plusDays(3)
         ));
 
@@ -255,6 +257,7 @@ class OrderUseCaseIntegrationTest {
                 CouponType.FIXED,
                 1000,
                 6000,
+                100,
                 LocalDateTime.now().plusDays(3)
         ));
 
@@ -297,6 +300,7 @@ class OrderUseCaseIntegrationTest {
                 CouponType.FIXED,
                 1000,
                 0,
+                100,
                 LocalDateTime.now().plusDays(3)
         ));
         issuedCouponRepository.save(new IssuedCoupon(
@@ -355,6 +359,7 @@ class OrderUseCaseIntegrationTest {
                 CouponType.FIXED,
                 1000,
                 0,
+                100,
                 LocalDateTime.now().plusDays(3)
         ));
         issuedCouponRepository.save(new IssuedCoupon(

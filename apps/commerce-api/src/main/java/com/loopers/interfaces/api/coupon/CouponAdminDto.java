@@ -26,11 +26,13 @@ public class CouponAdminDto {
             int value,
             @Min(value = 0, message = "최소 주문 금액은 0 이상이어야 합니다")
             int minOrderAmount,
+            @Min(value = 1, message = "쿠폰 수량은 1 이상이어야 합니다")
+            int totalQuantity,
             @NotNull(message = "만료 일시는 필수입니다")
             LocalDateTime expiredAt
     ) {
         public CreateCouponCommand toCommand() {
-            return new CreateCouponCommand(name, type, value, minOrderAmount, expiredAt);
+            return new CreateCouponCommand(name, type, value, minOrderAmount, totalQuantity, expiredAt);
         }
     }
 
@@ -43,11 +45,13 @@ public class CouponAdminDto {
             int value,
             @Min(value = 0, message = "최소 주문 금액은 0 이상이어야 합니다")
             int minOrderAmount,
+            @Min(value = 1, message = "쿠폰 수량은 1 이상이어야 합니다")
+            int totalQuantity,
             @NotNull(message = "만료 일시는 필수입니다")
             LocalDateTime expiredAt
     ) {
         public UpdateCouponCommand toCommand() {
-            return new UpdateCouponCommand(name, type, value, minOrderAmount, expiredAt);
+            return new UpdateCouponCommand(name, type, value, minOrderAmount, totalQuantity, expiredAt);
         }
     }
 
@@ -57,6 +61,8 @@ public class CouponAdminDto {
             CouponType type,
             int value,
             int minOrderAmount,
+            int totalQuantity,
+            int remainingQuantity,
             LocalDateTime expiredAt
     ) {
         public static CouponResponse from(Coupon coupon) {
@@ -66,6 +72,8 @@ public class CouponAdminDto {
                     coupon.type(),
                     coupon.value(),
                     coupon.minOrderAmount(),
+                    coupon.totalQuantity(),
+                    coupon.remainingQuantity(),
                     coupon.expiredAt()
             );
         }

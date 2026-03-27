@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponApplicationService;
+import com.loopers.application.coupon.view.CouponIssueRequestView;
 import com.loopers.application.coupon.view.MyCouponView;
 import com.loopers.domain.member.Member;
 import com.loopers.interfaces.api.ApiResponse;
@@ -25,10 +26,16 @@ public class CouponController {
     private final CouponApplicationService couponApplicationService;
 
     @PostMapping("/coupons/{couponId}/issue")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Void> issue(@PathVariable UUID couponId, @AuthMember Member member) {
-        couponApplicationService.issue(couponId, member.id().value());
-        return ApiResponse.success();
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public ApiResponse<CouponDto.CouponIssueRequestResponse> issue(@PathVariable UUID couponId, @AuthMember Member member) {
+        CouponIssueRequestView requestView = couponApplicationService.requestIssue(couponId, member.id().value());
+        return ApiResponse.success(CouponDto.CouponIssueRequestResponse.from(requestView));
+    }
+
+    @GetMapping("/coupons/issue-requests/{requestId}")
+    public ApiResponse<CouponDto.CouponIssueRequestResponse> getIssueRequest(@PathVariable UUID requestId, @AuthMember Member member) {
+        CouponIssueRequestView requestView = couponApplicationService.getIssueRequest(requestId, member.id().value());
+        return ApiResponse.success(CouponDto.CouponIssueRequestResponse.from(requestView));
     }
 
     @GetMapping("/users/me/coupons")

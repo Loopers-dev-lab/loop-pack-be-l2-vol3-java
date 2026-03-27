@@ -34,6 +34,7 @@ loopers:
       order-created: commerce.order.created.v1
       order-cancel-requested: commerce.order.cancel-requested.v1
       payment-status-changed: commerce.payment.status-changed.v1
+      coupon-issue-requested: commerce.coupon.issue-requested.v1
 
 ---
 spring:

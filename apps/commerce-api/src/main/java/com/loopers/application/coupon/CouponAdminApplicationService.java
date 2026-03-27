@@ -41,6 +41,7 @@ public class CouponAdminApplicationService {
                 command.type(),
                 command.value(),
                 command.minOrderAmount(),
+                command.totalQuantity(),
                 command.expiredAt()
         );
         return couponRepository.save(coupon);
@@ -55,6 +56,7 @@ public class CouponAdminApplicationService {
                 command.type(),
                 command.value(),
                 command.minOrderAmount(),
+                command.totalQuantity(),
                 command.expiredAt()
         );
         return couponRepository.save(updated);

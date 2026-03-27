@@ -79,11 +79,31 @@ CREATE TABLE IF NOT EXISTS coupons (
     type VARCHAR(255) NOT NULL,
     value INT NOT NULL,
     min_order_amount INT NOT NULL,
+    total_quantity INT NOT NULL DEFAULT 1,
+    remaining_quantity INT NOT NULL DEFAULT 1,
     expired_at DATETIME(6) NOT NULL,
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
     deleted_at DATETIME(6) NULL,
     PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS coupon_issue_requests (
+    id BINARY(16) NOT NULL,
+    request_id BINARY(16) NOT NULL,
+    member_id VARCHAR(255) NOT NULL,
+    coupon_id BINARY(16) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    failure_reason VARCHAR(255) NULL,
+    requested_at DATETIME(6) NOT NULL,
+    processed_at DATETIME(6) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    deleted_at DATETIME(6) NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_coupon_issue_requests_request_id (request_id),
+    KEY idx_coupon_issue_requests_member_requested (member_id, requested_at DESC),
+    KEY idx_coupon_issue_requests_coupon_requested (coupon_id, requested_at DESC)
 );
 
 CREATE TABLE IF NOT EXISTS issued_coupons (

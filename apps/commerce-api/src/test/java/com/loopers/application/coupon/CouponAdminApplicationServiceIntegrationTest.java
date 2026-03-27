@@ -42,6 +42,7 @@ class CouponAdminApplicationServiceIntegrationTest {
                 CouponType.FIXED,
                 3000,
                 10000,
+                100,
                 LocalDateTime.now().plusDays(5)
         ));
 

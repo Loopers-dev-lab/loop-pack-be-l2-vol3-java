@@ -14,6 +14,7 @@ TRUNCATE TABLE payments;
 TRUNCATE TABLE order_items;
 TRUNCATE TABLE orders;
 TRUNCATE TABLE issued_coupons;
+TRUNCATE TABLE coupon_issue_requests;
 TRUNCATE TABLE coupons;
 TRUNCATE TABLE point_balances;
 TRUNCATE TABLE members;

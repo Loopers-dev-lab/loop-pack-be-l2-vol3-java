@@ -12,10 +12,12 @@ public record Coupon(
         CouponType type,
         int value,
         int minOrderAmount,
+        int totalQuantity,
+        int remainingQuantity,
         LocalDateTime expiredAt
 ) {
-    public Coupon(String name, CouponType type, int value, int minOrderAmount, LocalDateTime expiredAt) {
-        this(null, name, type, value, minOrderAmount, expiredAt);
+    public Coupon(String name, CouponType type, int value, int minOrderAmount, int totalQuantity, LocalDateTime expiredAt) {
+        this(null, name, type, value, minOrderAmount, totalQuantity, totalQuantity, expiredAt);
     }
 
     public Coupon {
@@ -33,6 +35,15 @@ public record Coupon(
         }
         if (minOrderAmount < 0) {
             throw new CoreException(ErrorType.BAD_REQUEST, "최소 주문 금액은 0 이상이어야 합니다.");
+        }
+        if (totalQuantity <= 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "쿠폰 수량은 1 이상이어야 합니다.");
+        }
+        if (remainingQuantity < 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "남은 쿠폰 수량은 0 이상이어야 합니다.");
+        }
+        if (remainingQuantity > totalQuantity) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "남은 쿠폰 수량은 총 수량보다 클 수 없습니다.");
         }
         if (expiredAt == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "만료 시각은 필수입니다.");
@@ -53,7 +64,9 @@ public record Coupon(
         return !now.isAfter(expiredAt);
     }
 
-    public Coupon update(String name, CouponType type, int value, int minOrderAmount, LocalDateTime expiredAt) {
-        return new Coupon(id, name, type, value, minOrderAmount, expiredAt);
+    public Coupon update(String name, CouponType type, int value, int minOrderAmount, int totalQuantity, LocalDateTime expiredAt) {
+        int issuedCount = this.totalQuantity - this.remainingQuantity;
+        int recalculatedRemainingQuantity = Math.max(0, totalQuantity - issuedCount);
+        return new Coupon(id, name, type, value, minOrderAmount, totalQuantity, recalculatedRemainingQuantity, expiredAt);
     }
 }
