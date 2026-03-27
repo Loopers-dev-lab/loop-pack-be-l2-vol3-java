@@ -25,10 +25,28 @@ PY
 )"
 
 echo "[2/2] Connector status: ${CONNECTOR_NAME}"
-STATUS_JSON="$(curl -sS "${CONNECT_URL}/connectors/${CONNECTOR_NAME}/status")"
+STATUS_JSON=""
+for i in {1..15}; do
+  STATUS_JSON="$(curl -sS "${CONNECT_URL}/connectors/${CONNECTOR_NAME}/status")"
+  export STATUS_JSON
+  if python3 - <<'PY'
+import json
+import os
+import sys
+s = json.loads(os.environ["STATUS_JSON"])
+tasks = s.get("tasks", [])
+if tasks and all(t.get("state") == "RUNNING" for t in tasks):
+    sys.exit(0)
+sys.exit(1)
+PY
+  then
+    break
+  fi
+  sleep 2
+done
+
 echo "${STATUS_JSON}"
 echo
-export STATUS_JSON
 
 python3 - <<'PY'
 import json

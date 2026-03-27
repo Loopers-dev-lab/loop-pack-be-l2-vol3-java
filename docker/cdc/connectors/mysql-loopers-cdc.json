@@ -9,6 +9,8 @@
     "database.user": "root",
     "database.password": "root",
     "database.server.id": "223344",
+    "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
+    "schema.history.internal.kafka.topic": "schemahistory.loopers-cdc",
     "database.include.list": "loopers",
     "include.schema.changes": "false",
     "tombstones.on.delete": "false",

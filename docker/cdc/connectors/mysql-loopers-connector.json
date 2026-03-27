@@ -8,6 +8,8 @@
     "database.user": "root",
     "database.password": "root",
     "database.server.id": "223345",
+    "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
+    "schema.history.internal.kafka.topic": "schemahistory.loopers-cdc",
     "topic.prefix": "loopers-cdc",
     "database.include.list": "loopers",
     "table.include.list": "loopers.product_metrics,loopers.outbox_event",
