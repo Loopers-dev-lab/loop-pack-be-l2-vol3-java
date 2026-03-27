@@ -153,4 +153,65 @@ class PaymentModelTest {
                 .isEqualTo(ErrorType.BAD_REQUEST);
         }
     }
+
+    @Nested
+    @DisplayName("상태 전이 이력 추적")
+    class TransitionTracking {
+
+        @DisplayName("markPending → pendingTransitions에 REQUESTED→PENDING 기록")
+        @Test
+        void markPending_recordsTransition() {
+            PaymentModel payment = PaymentModel.create(1L, 5000, "SAMSUNG", "1234-5678-9012-3456");
+
+            payment.markPending("TX-001", "SIMULATOR");
+
+            assertThat(payment.getPendingTransitions()).hasSize(1);
+            PaymentModel.StatusTransition t = payment.getPendingTransitions().get(0);
+            assertThat(t.from()).isEqualTo(PaymentStatus.REQUESTED);
+            assertThat(t.to()).isEqualTo(PaymentStatus.PENDING);
+            assertThat(t.reason()).isEqualTo("PG_RESPONSE");
+        }
+
+        @DisplayName("markPending → markPaid 연속 호출 시 2개 전이 기록")
+        @Test
+        void markPending_thenMarkPaid_recordsTwoTransitions() {
+            PaymentModel payment = PaymentModel.create(1L, 5000, "SAMSUNG", "1234-5678-9012-3456");
+
+            payment.markPending("TX-001", "SIMULATOR");
+            payment.markPaid();
+
+            assertThat(payment.getPendingTransitions()).hasSize(2);
+            assertThat(payment.getPendingTransitions().get(0).from()).isEqualTo(PaymentStatus.REQUESTED);
+            assertThat(payment.getPendingTransitions().get(0).to()).isEqualTo(PaymentStatus.PENDING);
+            assertThat(payment.getPendingTransitions().get(1).from()).isEqualTo(PaymentStatus.PENDING);
+            assertThat(payment.getPendingTransitions().get(1).to()).isEqualTo(PaymentStatus.PAID);
+        }
+
+        @DisplayName("markFailed — detail에 실패 사유 포함")
+        @Test
+        void markFailed_recordsDetailWithReason() {
+            PaymentModel payment = PaymentModel.create(1L, 5000, "SAMSUNG", "1234-5678-9012-3456");
+            payment.markPending("TX-001", "SIMULATOR");
+
+            payment.markFailed("한도초과");
+
+            PaymentModel.StatusTransition t = payment.getPendingTransitions().get(1);
+            assertThat(t.from()).isEqualTo(PaymentStatus.PENDING);
+            assertThat(t.to()).isEqualTo(PaymentStatus.FAILED);
+            assertThat(t.detail()).isEqualTo("한도초과");
+        }
+
+        @DisplayName("clearPendingTransitions — 전이 리스트 초기화")
+        @Test
+        void clearPendingTransitions_clearsAll() {
+            PaymentModel payment = PaymentModel.create(1L, 5000, "SAMSUNG", "1234-5678-9012-3456");
+            payment.markPending("TX-001", "SIMULATOR");
+            payment.markPaid();
+            assertThat(payment.getPendingTransitions()).hasSize(2);
+
+            payment.clearPendingTransitions();
+
+            assertThat(payment.getPendingTransitions()).isEmpty();
+        }
+    }
 }
