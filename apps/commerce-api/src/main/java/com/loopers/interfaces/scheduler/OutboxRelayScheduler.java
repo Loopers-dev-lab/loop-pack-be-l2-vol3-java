@@ -16,7 +16,7 @@ import java.util.List;
 /**
  * Outbox 보완 Relay — 즉시 발행(afterCommit)이 실패한 이벤트만 수거.
  *
- * 메인 발행: OutboxEventListener의 afterCommit 비동기 send (99.x%)
+ * 메인 발행: OutboxEventService의 afterCommit 비동기 send (99.x%)
  * 보완 발행: 이 스케줄러가 stale PENDING 수거 (0.x%)
  *
  * Exponential Backoff: 1분 → 2분 → 4분 → 8분 → 16분 (최대 30분 cap)

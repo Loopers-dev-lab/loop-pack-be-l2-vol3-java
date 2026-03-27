@@ -15,6 +15,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  *
  * 1. 같은 TX에서 Outbox INSERT (원자성)
  * 2. afterCommit에서 비동기 Kafka send (논블로킹, 실패 시 PENDING 유지)
+ * 3. SENT 마킹은 Consumer(commerce-streamer)가 처리 완료 후 수행 (셀프컨슘)
  */
 @Slf4j
 @Service
@@ -28,6 +29,7 @@ public class OutboxEventService {
     /**
      * Outbox에 저장하고 TX 커밋 후 즉시 비동기 발행.
      * 발행 실패해도 PENDING 유지 → @Scheduled 보완이 수거.
+     * SENT 마킹은 Consumer가 처리 완료 후 셀프컨슘으로 수행.
      */
     public void saveAndPublish(String eventType, String aggregateType, String aggregateId,
                                String topic, Object eventPayload) {

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.coupon.CouponIssueProcessor;
 import com.loopers.application.idempotent.IdempotentProcessor;
 import com.loopers.confg.kafka.KafkaConfig;
+import com.loopers.infrastructure.outbox.OutboxMarkRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -22,6 +23,7 @@ public class CouponIssueConsumer {
 
     private final IdempotentProcessor idempotentProcessor;
     private final CouponIssueProcessor couponIssueProcessor;
+    private final OutboxMarkRepository outboxMarkRepository;
     private final ObjectMapper objectMapper;
 
     @KafkaListener(topics = "coupon-issue-requests", groupId = "coupon-processing",
@@ -52,5 +54,7 @@ public class CouponIssueConsumer {
 
         idempotentProcessor.process(idempotencyKey, eventType, TOPIC, GROUP_ID,
                 () -> couponIssueProcessor.process(eventId, couponId, userId));
+
+        outboxMarkRepository.markPublished(eventId);
     }
 }
