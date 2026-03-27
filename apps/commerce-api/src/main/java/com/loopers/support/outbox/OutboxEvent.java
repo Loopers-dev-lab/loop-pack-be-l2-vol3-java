@@ -49,12 +49,6 @@ public class OutboxEvent {
     @Column(name = "retry_count", nullable = false)
     private int retryCount;
 
-    @Column(name = "max_retries", nullable = false)
-    private int maxRetries;
-
-    @Column(name = "next_retry_at")
-    private ZonedDateTime nextRetryAt;
-
     @Column(name = "created_at", nullable = false)
     private ZonedDateTime createdAt;
 
@@ -74,8 +68,6 @@ public class OutboxEvent {
         this.topic = topic;
         this.status = OutboxEventStatus.PENDING;
         this.retryCount = 0;
-        this.maxRetries = 5;
-        this.nextRetryAt = null;
         this.createdAt = ZonedDateTime.now();
     }
 
@@ -93,17 +85,7 @@ public class OutboxEvent {
         this.status = OutboxEventStatus.FAILED;
     }
 
-    public void scheduleNextRetry() {
+    public void incrementRetryCount() {
         this.retryCount++;
-        long delayMinutes = Math.min((long) Math.pow(2, retryCount - 1), 30);
-        this.nextRetryAt = ZonedDateTime.now().plusMinutes(delayMinutes);
-    }
-
-    public boolean isMaxRetriesExceeded() {
-        return retryCount >= maxRetries;
-    }
-
-    public boolean isRetryable() {
-        return nextRetryAt == null || !nextRetryAt.isAfter(ZonedDateTime.now());
     }
 }

@@ -9,10 +9,6 @@ public interface OutboxEventRepository {
 
     List<OutboxEvent> findPending(int limit);
 
-    List<OutboxEvent> findStalePending(long staleMinutes, int limit);
-
-    List<OutboxEvent> findRetryableEvents(int limit);
-
     void markPublishedByEventId(String eventId);
 
     void deleteSentBefore(ZonedDateTime before);
