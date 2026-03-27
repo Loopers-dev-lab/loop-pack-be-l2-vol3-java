@@ -17,7 +17,7 @@ import java.util.Map;
 @EnableConfigurationProperties(KafkaProperties.class)
 public class KafkaConfig {
     public static final int FETCH_MIN_BYTES = (1024 * 1024); // 1mb
-    public static final int FETCH_MAX_WAIT_MS = 5 * 1000; // broker waiting time = 5s
+    public static final int FETCH_MAX_WAIT_MS = 500; // broker waiting time = 500ms
     public static final int SESSION_TIMEOUT_MS = 60 * 1000; // session timeout = 1m
     public static final int HEARTBEAT_INTERVAL_MS = 20 * 1000; // heartbeat interval = 20s ( 1/3 of session_timeout )
     public static final int MAX_POLL_INTERVAL_MS = 2 * 60 * 1000; // max poll interval = 2m

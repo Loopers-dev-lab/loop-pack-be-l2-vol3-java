@@ -43,6 +43,9 @@ public class ProductMetricsModel extends BaseEntity {
     }
 
     public void applyDelta(int delta, LocalDateTime eventAt) {
+        if (this.lastEventAt != null && !eventAt.isAfter(this.lastEventAt)) {
+            return;
+        }
         this.likeCount = Math.max(0, this.likeCount + delta);
         this.lastEventAt = eventAt;
     }

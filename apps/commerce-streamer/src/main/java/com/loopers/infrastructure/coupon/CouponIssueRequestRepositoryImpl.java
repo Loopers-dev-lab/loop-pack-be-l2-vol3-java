@@ -22,4 +22,9 @@ public class CouponIssueRequestRepositoryImpl implements CouponIssueRequestRepos
     public CouponIssueRequestModel save(CouponIssueRequestModel model) {
         return couponIssueRequestJpaRepository.save(model);
     }
+
+    @Override
+    public void delete(CouponIssueRequestModel model) {
+        couponIssueRequestJpaRepository.delete(model);
+    }
 }
