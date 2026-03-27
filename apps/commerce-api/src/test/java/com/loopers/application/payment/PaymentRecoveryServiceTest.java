@@ -1,6 +1,11 @@
 package com.loopers.application.payment;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.application.coupon.CouponFacade;
+import com.loopers.application.product.ProductFacade;
 import com.loopers.domain.BaseEntity;
+import com.loopers.domain.coupon.CouponIssueRequest;
+import com.loopers.domain.coupon.CouponIssueRequestRepository;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.payment.*;
 import com.loopers.domain.product.Product;
@@ -12,12 +17,16 @@ import com.loopers.infrastructure.pg.PgRouter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 class PaymentRecoveryServiceTest {
 
@@ -26,25 +35,36 @@ class PaymentRecoveryServiceTest {
     private FakeCallbackInboxRepository callbackInboxRepository;
     private FakeOrderRepository orderRepository;
     private FakeProductRepository productRepository;
-    private FakeCouponIssueRepository couponIssueRepository;
     private FakeStockReservationRedisRepository stockRedisRepository;
     private FakePgClient pgClient;
 
+    @SuppressWarnings("unchecked")
     @BeforeEach
     void setUp() {
         paymentRepository = new FakePaymentRepository();
         callbackInboxRepository = new FakeCallbackInboxRepository();
         orderRepository = new FakeOrderRepository();
         productRepository = new FakeProductRepository();
-        couponIssueRepository = new FakeCouponIssueRepository();
         stockRedisRepository = new FakeStockReservationRedisRepository();
         pgClient = new FakePgClient("SIMULATOR");
 
         PgRouter pgRouter = new PgRouter(List.of(pgClient));
 
+        ProductFacade productFacade = new ProductFacade(
+            productRepository, new FakeBrandRepository(), new FakeLikeRepository(),
+            new FakeProductCachePort(), event -> {}, stockRedisRepository);
+
+        CouponIssueRequestRepository issueRequestRepository = new CouponIssueRequestRepository() {
+            @Override public CouponIssueRequest save(CouponIssueRequest request) { return request; }
+            @Override public Optional<CouponIssueRequest> findById(Long id) { return Optional.empty(); }
+        };
+        CouponFacade couponFacade = new CouponFacade(new FakeCouponRepository(), new FakeCouponIssueRepository(),
+            issueRequestRepository, mock(KafkaTemplate.class), new ObjectMapper(), Clock.systemDefaultZone());
+
         recoveryService = new PaymentRecoveryService(
-            paymentRepository, callbackInboxRepository, orderRepository,
-            productRepository, couponIssueRepository, stockRedisRepository, pgRouter);
+            paymentRepository, new FakePaymentStatusHistoryRepository(),
+            callbackInboxRepository, orderRepository,
+            productFacade, couponFacade, pgRouter);
     }
 
     @DisplayName("U4-5: Polling — PG SUCCESS → PAID 전이")

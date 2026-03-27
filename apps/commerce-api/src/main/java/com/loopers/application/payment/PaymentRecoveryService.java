@@ -1,16 +1,13 @@
 package com.loopers.application.payment;
 
-import com.loopers.domain.coupon.CouponIssue;
-import com.loopers.domain.coupon.CouponIssueRepository;
+import com.loopers.application.coupon.CouponFacade;
+import com.loopers.application.product.ProductFacade;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.payment.*;
-import com.loopers.domain.product.Product;
-import com.loopers.domain.product.ProductRepository;
 import com.loopers.infrastructure.pg.PgPaymentStatusResponse;
 import com.loopers.infrastructure.pg.PgRouter;
-import com.loopers.infrastructure.redis.StockReservationRedisRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +27,7 @@ import java.util.List;
  *   <li>CallbackInbox에 원본 저장 (RECEIVED)</li>
  *   <li>조건부 UPDATE로 Payment 상태 전이</li>
  *   <li>SUCCESS → Order.pay() + Inbox PROCESSED</li>
- *   <li>FAILED → 재고 복원(Redis INCR + DB) + 쿠폰 복원 + Inbox PROCESSED</li>
+ *   <li>FAILED → 재고 복원(ProductFacade) + 쿠폰 복원(CouponFacade) + Inbox PROCESSED</li>
  * </ol>
  *
  * <p>Polling Hybrid: PENDING/UNKNOWN 상태 결제건을 주기적으로 PG 확인</p>
@@ -44,11 +41,11 @@ import java.util.List;
 public class PaymentRecoveryService {
 
     private final PaymentRepository paymentRepository;
+    private final PaymentStatusHistoryRepository historyRepository;
     private final CallbackInboxRepository callbackInboxRepository;
     private final OrderRepository orderRepository;
-    private final ProductRepository productRepository;
-    private final CouponIssueRepository couponIssueRepository;
-    private final StockReservationRedisRepository stockRedisRepository;
+    private final ProductFacade productFacade;
+    private final CouponFacade couponFacade;
     private final PgRouter pgRouter;
 
     /**
@@ -102,6 +99,10 @@ public class PaymentRecoveryService {
             return;
         }
 
+        // 상태 전이 이력 기록
+        historyRepository.save(PaymentStatusHistory.create(
+            payment.getId(), payment.getStatus(), targetStatus, "CALLBACK", null));
+
         // 상태 전이 성공
         if (targetStatus == PaymentStatus.PAID) {
             handlePaymentSuccess(payment);
@@ -127,23 +128,16 @@ public class PaymentRecoveryService {
         Order order = orderRepository.findById(payment.getOrderId()).orElse(null);
         if (order == null) return;
 
-        // 재고 복원 (Redis INCR + DB)
+        // 재고 복원 → ProductFacade 위임
         for (OrderItem item : order.getItems()) {
-            stockRedisRepository.increase(item.getProductId(), item.getQuantity());
-            productRepository.findById(item.getProductId()).ifPresent(product -> {
-                product.increaseStock(item.getQuantity());
-                productRepository.save(product);
-            });
+            productFacade.restoreStock(item.getProductId(), item.getQuantity());
         }
         log.info("재고 복원 완료: orderId={}", order.getId());
 
-        // 쿠폰 복원
+        // 쿠폰 복원 → CouponFacade 위임
         if (order.getCouponIssueId() != null) {
-            couponIssueRepository.findById(order.getCouponIssueId()).ifPresent(couponIssue -> {
-                couponIssue.cancelUse(ZonedDateTime.now());
-                couponIssueRepository.save(couponIssue);
-                log.info("쿠폰 복원 완료: couponIssueId={}", couponIssue.getId());
-            });
+            couponFacade.restoreCoupon(order.getCouponIssueId());
+            log.info("쿠폰 복원 완료: couponIssueId={}", order.getCouponIssueId());
         }
     }
 
@@ -219,6 +213,8 @@ public class PaymentRecoveryService {
                     int affected = paymentRepository.updateStatusConditionally(
                         payment.getId(), PaymentStatus.PAID, allowedStatuses);
                     if (affected > 0) {
+                        historyRepository.save(PaymentStatusHistory.create(
+                            payment.getId(), payment.getStatus(), PaymentStatus.PAID, "POLLING", null));
                         handlePaymentSuccess(payment);
                         log.info("Polling 복구 성공: paymentId={}, → PAID", payment.getId());
                     }
@@ -227,6 +223,9 @@ public class PaymentRecoveryService {
                     int affected = paymentRepository.updateStatusConditionally(
                         payment.getId(), PaymentStatus.FAILED, allowedStatuses);
                     if (affected > 0) {
+                        historyRepository.save(PaymentStatusHistory.create(
+                            payment.getId(), payment.getStatus(), PaymentStatus.FAILED,
+                            "POLLING", pgStatus.reason()));
                         handlePaymentFailure(payment);
                         log.info("Polling 복구: paymentId={}, → FAILED (reason={})",
                             payment.getId(), pgStatus.reason());

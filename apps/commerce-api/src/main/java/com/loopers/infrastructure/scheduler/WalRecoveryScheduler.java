@@ -3,6 +3,8 @@ package com.loopers.infrastructure.scheduler;
 import com.loopers.domain.payment.PaymentModel;
 import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.payment.PaymentStatus;
+import com.loopers.domain.payment.PaymentStatusHistory;
+import com.loopers.domain.payment.PaymentStatusHistoryRepository;
 import com.loopers.infrastructure.payment.PaymentWalWriter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +29,7 @@ public class WalRecoveryScheduler {
 
     private final PaymentWalWriter walWriter;
     private final PaymentRepository paymentRepository;
+    private final PaymentStatusHistoryRepository historyRepository;
 
     @Scheduled(fixedRate = 10_000)
     public void recoverFromWal() {
@@ -78,6 +81,8 @@ public class WalRecoveryScheduler {
 
         int affected = paymentRepository.updateStatusConditionally(payment.getId(), targetStatus, allowedStatuses);
         if (affected > 0) {
+            historyRepository.save(PaymentStatusHistory.create(
+                payment.getId(), payment.getStatus(), targetStatus, "WAL_RECOVERY", null));
             log.info("WAL Recovery 성공: paymentId={}, newStatus={}", payment.getId(), targetStatus);
         }
 

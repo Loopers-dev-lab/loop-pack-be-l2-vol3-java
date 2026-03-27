@@ -1,6 +1,11 @@
 package com.loopers.application.payment;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.application.coupon.CouponFacade;
+import com.loopers.application.product.ProductFacade;
 import com.loopers.domain.coupon.CouponIssue;
+import com.loopers.domain.coupon.CouponIssueRequest;
+import com.loopers.domain.coupon.CouponIssueRequestRepository;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.payment.*;
@@ -12,11 +17,15 @@ import com.loopers.infrastructure.pg.PgRouter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.kafka.core.KafkaTemplate;
 
+import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 class PaymentCallbackTest {
 
@@ -29,6 +38,7 @@ class PaymentCallbackTest {
     private FakeStockReservationRedisRepository stockRedisRepository;
     private FakePgClient pgClient;
 
+    @SuppressWarnings("unchecked")
     @BeforeEach
     void setUp() {
         paymentRepository = new FakePaymentRepository();
@@ -41,9 +51,21 @@ class PaymentCallbackTest {
 
         PgRouter pgRouter = new PgRouter(List.of(pgClient));
 
+        ProductFacade productFacade = new ProductFacade(
+            productRepository, new FakeBrandRepository(), new FakeLikeRepository(),
+            new FakeProductCachePort(), event -> {}, stockRedisRepository);
+
+        CouponIssueRequestRepository issueRequestRepository = new CouponIssueRequestRepository() {
+            @Override public CouponIssueRequest save(CouponIssueRequest request) { return request; }
+            @Override public Optional<CouponIssueRequest> findById(Long id) { return Optional.empty(); }
+        };
+        CouponFacade couponFacade = new CouponFacade(new FakeCouponRepository(), couponIssueRepository,
+            issueRequestRepository, mock(KafkaTemplate.class), new ObjectMapper(), Clock.systemDefaultZone());
+
         recoveryService = new PaymentRecoveryService(
-            paymentRepository, callbackInboxRepository, orderRepository,
-            productRepository, couponIssueRepository, stockRedisRepository, pgRouter);
+            paymentRepository, new FakePaymentStatusHistoryRepository(),
+            callbackInboxRepository, orderRepository,
+            productFacade, couponFacade, pgRouter);
     }
 
     private Order createOrderWithProduct() {
