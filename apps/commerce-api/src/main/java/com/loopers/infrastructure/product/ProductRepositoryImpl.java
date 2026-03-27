@@ -45,8 +45,8 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
-    public int reconcileLikeCountFromMetrics() {
-        return productJpaRepository.reconcileLikeCountFromMetrics();
+    public int reconcileLikeCountFromLikes() {
+        return productJpaRepository.reconcileLikeCountFromLikes();
     }
 
     // Query

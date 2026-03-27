@@ -34,11 +34,14 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
 
     @Modifying
     @Query(value = "UPDATE products p " +
-            "INNER JOIN product_metrics pm ON p.id = pm.product_id " +
-            "SET p.like_count = pm.like_count " +
-            "WHERE p.like_count != pm.like_count AND p.deleted_at IS NULL",
+            "SET p.like_count = (" +
+            "  SELECT COUNT(*) FROM likes l WHERE l.product_id = p.id" +
+            ") WHERE p.deleted_at IS NULL " +
+            "AND p.like_count != (" +
+            "  SELECT COUNT(*) FROM likes l2 WHERE l2.product_id = p.id" +
+            ")",
             nativeQuery = true)
-    int reconcileLikeCountFromMetrics();
+    int reconcileLikeCountFromLikes();
 
     // Query
     @Query("SELECT p FROM Product p WHERE p.id = :id AND p.deletedAt IS NULL")

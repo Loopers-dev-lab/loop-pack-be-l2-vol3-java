@@ -19,7 +19,7 @@ public class LikeCountReconciliationScheduler {
     @Scheduled(cron = "0 0 2 * * *")
     @Transactional
     public void reconcile() {
-        int updated = productRepository.reconcileLikeCountFromMetrics();
+        int updated = productRepository.reconcileLikeCountFromLikes();
         if (updated > 0) {
             productCacheManager.evictAllLists();
             log.info("likeCount reconciliation 완료: {}건 동기화", updated);
