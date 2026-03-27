@@ -70,6 +70,10 @@ spring:
     activate:
       on-profile: dev
 
+outbox:
+  dlq-redrive:
+    enabled: true
+
 ---
 spring:
   config:

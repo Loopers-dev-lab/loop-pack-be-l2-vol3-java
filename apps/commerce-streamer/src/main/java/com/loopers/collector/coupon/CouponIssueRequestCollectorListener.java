@@ -2,6 +2,7 @@ package com.loopers.collector.coupon;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.collector.config.CouponIssueConsumerConfig;
 import com.loopers.domain.coupon.CouponService;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -30,7 +31,8 @@ public class CouponIssueRequestCollectorListener {
 
     @KafkaListener(
             topics = "${coupon.issue.topic-name:coupon-issue-requests}",
-            groupId = "${coupon.issue.consumer-group:loopers-coupon-issue-consumer}"
+            groupId = "${coupon.issue.consumer-group:loopers-coupon-issue-consumer}",
+            containerFactory = CouponIssueConsumerConfig.COUPON_ISSUE_LISTENER
     )
     public void onMessage(ConsumerRecord<Object, Object> record, Acknowledgment acknowledgment) {
         Envelope envelope = parse(record.value());

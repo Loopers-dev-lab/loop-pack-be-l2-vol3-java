@@ -1,5 +1,6 @@
 package com.loopers.collector.config;
 
+import com.loopers.collector.metrics.KafkaCollectorDlqMetrics;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,22 +12,24 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.ContainerProperties;
-import org.springframework.kafka.listener.DefaultErrorHandler;
-import com.loopers.collector.metrics.KafkaCollectorDlqMetrics;
 import org.springframework.kafka.listener.ConsumerRecordRecoverer;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 쿠폰 발급 요청 토픽 전용: 도메인 이벤트와 동일한 DLQ·재시도 정책.
+ */
 @Configuration
-public class ProductEventConsumerConfig {
+public class CouponIssueConsumerConfig {
 
-    public static final String PRODUCT_EVENT_LISTENER = "PRODUCT_EVENT_LISTENER";
+    public static final String COUPON_ISSUE_LISTENER = "COUPON_ISSUE_LISTENER";
 
-    @Bean(name = PRODUCT_EVENT_LISTENER)
-    public ConcurrentKafkaListenerContainerFactory<Object, Object> productEventListenerContainerFactory(
+    @Bean(name = COUPON_ISSUE_LISTENER)
+    public ConcurrentKafkaListenerContainerFactory<Object, Object> couponIssueListenerContainerFactory(
             KafkaProperties kafkaProperties,
             KafkaTemplate<Object, Object> kafkaTemplate,
             KafkaCollectorDlqMetrics dlqMetrics,
@@ -50,8 +53,6 @@ public class ProductEventConsumerConfig {
             dlqMetrics.recordDlqSend(record.topic());
             delegate.accept(record, ex);
         };
-        // Redis/DB 일시 장애 등은 재시도 후 DLQ; 경량 멱등은 Redis 폴백 없음(복구 후 DLQ 재처리).
-        // 파싱/검증 같은 비복구성 오류는 즉시 DLQ로 보낸다.
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, new FixedBackOff(500L, 2L));
         errorHandler.addNotRetryableExceptions(IllegalArgumentException.class);
         factory.setCommonErrorHandler(errorHandler);
