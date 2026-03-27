@@ -529,6 +529,12 @@ CDC는 SKILL에 전용 절은 없으나, **중복 전달·순서(파티션 내)*
 7. **Consumer**: 경로 A와 **동일 Consumer 코드**를 쓸 수 있음 — **토픽만** 경로 B 전용으로 구독.
 8. **장애 시나리오**: DB 장애·Kafka 장애·앱 크래시 시 **재처리·중복**을 전제로 **Consumer 멱등**을 반드시 검증.
 
+**브랜치 구현 산출물 (경로 B)**:
+
+- `apps/commerce-cdc-reader` (binlog client + `KafkaTemplate` 전송)
+- `docs/cdc/README-app-binlog.md`
+- `settings.gradle.kts`에 `:apps:commerce-cdc-reader` 등록
+
 ---
 
 ### 5.6 경로 A vs B — 비교 요약
