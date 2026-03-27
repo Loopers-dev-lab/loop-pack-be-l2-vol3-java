@@ -17,6 +17,11 @@ import java.time.ZonedDateTime;
 @RequiredArgsConstructor
 public class EventHandledCleanupScheduler {
 
+    /**
+     * event_handled 보존 기간.
+     * 이 기간이 지나면 멱등성 체크(existsByEventId)를 통과하므로,
+     * Outbox FAILED 레코드의 수동 재발행은 반드시 이 기간 이내에 처리해야 한다.
+     */
     private static final int RETENTION_DAYS = 7;
 
     private final EventHandledRepository eventHandledRepository;

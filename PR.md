@@ -112,6 +112,8 @@ sequenceDiagram
     Kafka->>DB: product_metrics.like_count +1 (집계/분석용, 별도 테이블)
 ```
 
+`product_metrics`는 fire-and-forget 경로의 INCREMENT 기반 집계이므로 메시지 유실·중복 시 drift가 누적된다. 별도 Reconciliation을 두지 않은 이유는 분석/대시보드용 근사치 지표이며, 비즈니스 의사결정에 사용되는 정확한 좋아요 수는 `products.like_count`(Reconciliation 대상)를 참조하기 때문이다.
+
 #### D2. 핵심 내 분리 여부 — "모놀리식에서 안 한다"
 
 결제 성공 후 재고 확정, 주문 상태 전이, 쿠폰 사용 확정 등 후속 작업들을 이벤트로 분리할 수 있는지 검토했다.
