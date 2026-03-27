@@ -1,7 +1,15 @@
 package com.loopers.application.payment;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderItem;
+import com.loopers.domain.order.OrderItemRepository;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.outbox.OutboxEvent;
+import com.loopers.domain.outbox.OutboxEventRepository;
+import com.loopers.domain.outbox.OutboxEventTopics;
+import com.loopers.domain.outbox.ProductSoldPayload;
 import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.ExternalPaymentClient;
 import com.loopers.domain.payment.Payment;
@@ -12,6 +20,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -22,6 +33,9 @@ public class PaymentFacade {
     private final OrderService orderService;
     private final PaymentService paymentService;
     private final ExternalPaymentClient externalPaymentClient;
+    private final OutboxEventRepository outboxEventRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final ObjectMapper objectMapper;
 
     @Value("${payment.callback-url}")
     private String callbackUrl;
@@ -43,10 +57,20 @@ public class PaymentFacade {
         return PaymentInfo.from(payment);
     }
 
+    @Transactional
     public void handleCallback(Long orderId, String transactionId, boolean success) {
         paymentService.handleCallback(orderId, transactionId, success);
         if (success) {
             orderService.confirmOrder(orderId);
+            List<OrderItem> orderItems = orderItemRepository.findAllByOrderId(orderId);
+            for (OrderItem item : orderItems) {
+                outboxEventRepository.save(OutboxEvent.create(
+                    "PRODUCT_SOLD",
+                    OutboxEventTopics.PRODUCT_PAYMENT,
+                    serializePayload(new ProductSoldPayload(item.getProductId(), orderId)),
+                    item.getProductId().toString()
+                ));
+            }
         }
     }
 
@@ -55,6 +79,14 @@ public class PaymentFacade {
         paymentService.handleCallback(orderId, response.transactionId(), response.success());
         if (response.success()) {
             orderService.confirmOrder(orderId);
+        }
+    }
+
+    private String serializePayload(Object payload) {
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("이벤트 직렬화 실패", e);
         }
     }
 }
