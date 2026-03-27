@@ -52,8 +52,28 @@ public class Order extends BaseTimeEntity {
         return new Order(memberId, status, issuedCouponId, originalAmount, discountAmount, finalAmount);
     }
 
+    public void pay() {
+        if (!isAccepted()) {
+            throw new CoreException(ErrorType.CONFLICT,
+                    OrderExceptionMessage.Order.NOT_ACCEPTED.message());
+        }
+        this.status = OrderStatus.PAID;
+    }
+
+    public void cancel() {
+        if (!isAccepted()) {
+            throw new CoreException(ErrorType.CONFLICT,
+                    OrderExceptionMessage.Order.NOT_CANCELLABLE.message());
+        }
+        this.status = OrderStatus.CANCELLED;
+    }
+
     public boolean isAccepted() {
         return this.status == OrderStatus.ACCEPTED;
+    }
+
+    public boolean isCancelled() {
+        return this.status == OrderStatus.CANCELLED;
     }
 
     public boolean isOwnedBy(Long memberId) {
