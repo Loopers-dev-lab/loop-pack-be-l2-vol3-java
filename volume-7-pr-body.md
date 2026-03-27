@@ -1,3 +1,58 @@
+## 📌 리뷰 포인트
+
+> 구현 과정에서 확신이 없었던 부분 4가지입니다. 각 항목마다 **설계 의도 → 불확실한 부분 → 질문** 순으로 정리했습니다.
+
+---
+
+### 1. 릴레이 재시도 — 계속 실패하는 메시지를 어떻게 격리해야 할까요?
+
+**설계 의도**: PENDING 상태의 row를 5초마다 폴링해 Kafka로 발행하고, 성공하면 SENT로 마킹하도록 만들었습니다.
+
+**불확실한 부분**: `send().get(5s)`가 타임아웃 나도 해당 row는 PENDING 그대로 남아서 다음 주기에 다시 시도됩니다. 특정 메시지가 계속 실패할 경우 재시도 횟수를 제한하거나 별도 상태(DEAD)로 분리하는 처리가 없는 상태입니다.
+
+**질문**: 이 규모에서 DEAD 상태 분리가 필요한 시점인지, 아니면 운영 모니터링(로그 + 알림)으로 충분한 수준인지 조언을 듣고 싶습니다.
+
+→ [`KafkaOutboxRelay.java:44`](https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-7/apps/commerce-batch/src/main/java/com/loopers/batch/relay/KafkaOutboxRelay.java#L44)
+
+---
+
+### 2. 배치 ACK 처리 — 스킵된 메시지 유실이 허용되는 구조인지 확인이 필요합니다
+
+**설계 의도**: 배치 내 메시지를 하나씩 처리하면서 예외가 나면 해당 메시지를 스킵하고, 배치 전체를 ACK 하도록 만들었습니다. 메시지 하나의 실패가 배치 전체를 막지 않도록 하기 위해 이 방식을 선택했습니다.
+
+**불확실한 부분**: 스킵된 메시지는 재처리 기회 없이 유실됩니다. 쿠폰 발급처럼 유실이 허용되지 않는 이벤트에는 Dead Letter Topic 분리가 필요하다고 생각했는데, 지금 구조에서 그 판단이 맞는지 확신이 없습니다.
+
+**질문**: 지금 ACK 전략이 이 도메인에서 적절한지, Dead Letter Topic 분리가 필요한 시점이라면 어떤 기준으로 판단해야 할까요?
+
+→ [`CouponIssueConsumer.java:40`](https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-7/apps/commerce-api/src/main/java/com/loopers/interfaces/consumer/CouponIssueConsumer.java#L40)
+
+---
+
+### 3. 파티션 직렬화 보장 범위 — `concurrency=3`이 직렬화를 깨뜨리는지 확인이 필요합니다
+
+**설계 의도**: `couponId`를 파티션 키로 잡아서, 같은 쿠폰에 대한 요청은 항상 같은 파티션으로 가도록 했습니다. 같은 파티션을 컨슈머 스레드 1개가 순차적으로 처리하는 것이 DB 락 없이 동시성을 보장하는 핵심입니다.
+
+**불확실한 부분**: `KafkaConfig`에 `concurrency=3`이 설정돼 있는데, 파티션과 스레드가 1:1로 매핑되는 건지 확신이 없습니다. 만약 같은 파티션이 다른 스레드에 배정될 수 있다면, 직렬화 보장 자체가 깨지는 구조가 됩니다.
+
+**질문**: `concurrency` 설정이 파티션 직렬화 보장에 영향을 주는지, 현재 설정에서 제가 놓친 부분이 있을까요?
+
+→ [`CouponFacade.java:106`](https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-7/apps/commerce-api/src/main/java/com/loopers/application/coupon/CouponFacade.java#L106) · [`KafkaConfig.java:71`](https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-7/modules/kafka/src/main/java/com/loopers/confg/kafka/KafkaConfig.java#L71)
+
+---
+
+### 4. 스레드풀 포화 — 큐가 꽉 찼을 때 이벤트가 어떻게 되는지 정의가 없습니다
+
+**설계 의도**: `@Async` 이벤트 처리를 위해 `corePoolSize=4, maxPoolSize=10, queueCapacity=500`으로 스레드풀을 설정했습니다. 이벤트 리스너가 메인 트랜잭션에 영향을 주지 않도록 비동기로 분리하는 것이 목적이었습니다.
+
+**불확실한 부분**: 큐가 500개를 초과했을 때 이후 이벤트가 어떻게 처리되는지 명시적으로 정의하지 않았습니다. Spring의 기본 정책(`AbortPolicy`)이면 조용히 예외가 나고 이벤트가 버려질 수 있다는 건 알고 있는데, 이 상황에 맞는 `RejectionHandler` 전략을 어떻게 잡아야 할지 판단이 서지 않습니다.
+
+**질문**: 이 규모와 이벤트 유형에서 적합한 RejectionHandler 전략이 무엇인지 조언을 듣고 싶습니다.
+
+→ [`AsyncConfig.java:17`](https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-7/apps/commerce-api/src/main/java/com/loopers/config/AsyncConfig.java#L17)
+
+
+
+
 ## 📌 Summary
 
 - **배경**: 주문-결제 플로우, 좋아요 집계, 유저 행동 로깅이 단일 트랜잭션 안에 혼재되어 있어, 부가 로직의 실패가 핵심 흐름에 영향을 주는 구조였다.
@@ -163,6 +218,62 @@ sequenceDiagram
 - Outbox 릴레이 주기(5초)만큼 집계 지연이 발생한다. 실시간 카운트가 필요한 경우 직접 발행 방식(ProductsV1Controller의 view 이벤트 처럼)으로 병행 가능.
 - `occurredAt >= updated_at` 버전 체크는 같은 밀리초 내 동시 이벤트 처리에서 마지막 write가 이기는(Last Write Wins) 특성이 있다.
 
+#### 주요 설계 결정 Q&A
+
+**Q1. Outbox 릴레이 — 계속 실패하는 메시지를 어떻게 격리할 것인가**
+
+**문제**: PENDING 행을 5초마다 폴링해 Kafka로 발행하고, 실패 시 PENDING을 유지해 다음 주기에 재시도합니다. 역직렬화 불가·스키마 불일치 같은 영구 실패 메시지는 재시도 횟수 제한 없이 폴링을 점유하게 됩니다.
+
+**고려한 대안**:
+- A: DEAD 상태 분리 + `retry_count >= 5` 임계치 — 격리 명확, `OutboxEvent` 스키마 변경 + 모니터링 추가 필요
+- B: 재시도 횟수 제한 + 알림 발송 (`retry_count >= 5 → Slack`) — 중간 복잡도, 단 격리는 수동
+- C: 무한 재시도 (현재) — 구현 단순, 일시 장애(Kafka/네트워크) 복구 시 자동 재처리
+
+**최종 결정**: C. 일시적 장애에 강하며 초기 구조에서 단순성 우선. Kafka/DB 장애 복구 후 자동 재처리가 더 중요한 시나리오로 판단.
+
+**트레이드오프**: 영구 실패 메시지 발생 시 격리 수단이 없어 폴링 노이즈 증가. 메시지 유형이 늘어나거나 SLA가 생기면 A 방식으로 전환 필요.
+
+```java
+// KafkaOutboxRelay.java:44
+for (OutboxEvent event : pendingEvents) {
+    try {
+        kafkaTemplate.send(...).get(5, TimeUnit.SECONDS);
+        event.markSent();
+    } catch (Exception e) {
+        log.error("Kafka 발행 실패 - eventId: {}", event.getEventId(), e);
+        // PENDING 유지 → 다음 주기에 재시도 (횟수 제한 없음)
+    }
+}
+```
+
+---
+
+**Q2. Consumer 배치 ACK — 스킵된 메시지의 유실을 어디까지 허용하는가**
+
+**문제**: 배치 내 메시지를 하나씩 처리하다 예외 발생 시 해당 메시지를 스킵하고 배치 전체를 ACK합니다. 스킵된 메시지는 재처리 기회 없이 유실됩니다.
+
+**고려한 대안**:
+- A: 메시지 단위 ACK (`AckMode.RECORD`) — 정밀 제어 가능, 처리량 감소
+- B: 실패 메시지 Dead Letter Topic 분리 — 유실 방지, DLT 컨슈머 추가 및 운영 비용 증가
+- C: 배치 단위 ACK + 실패 로깅 (현재) — 구현 단순, 스킵 메시지는 유실
+
+**최종 결정**: C. 집계 카운트(좋아요·판매량·조회수)는 1~2건 누락되어도 UX 영향이 낮다고 판단. 쿠폰 발급처럼 유실이 불가한 도메인은 별도 전략이 필요.
+
+**트레이드오프**: 동일 토픽에 유실 허용 여부가 다른 이벤트가 혼재하면(좋아요 vs 쿠폰) 토픽 분리 또는 DLT 도입이 불가피. 현재는 집계 전용 토픽으로 분리되어 있어 허용 범위 내로 판단.
+
+```java
+// CouponIssueConsumer.java:40
+for (ConsumerRecord<String, String> record : records) {
+    try {
+        processor.process(parseMessage(record.value()));
+    } catch (Exception e) {
+        log.error("메시지 처리 실패 - 스킵", e);
+        // DLT 미구현 → 유실 허용
+    }
+}
+acknowledgment.acknowledge();  // 배치 전체 ACK
+```
+
 ### 🏗️ Design Overview
 
 #### 아키텍처
@@ -299,6 +410,58 @@ Kafka 파티션 직렬화 해결:
   couponId=42 → 항상 파티션 7 → Consumer 1개가 순차 처리
   메시지 A: count() = 99 → 통과 → 저장 (100개)
   메시지 B: count() = 100 → 거절 (FAILED: 선착순 마감)
+```
+
+#### 주요 설계 결정 Q&A
+
+**Q3. 선착순 동시성 제어 — DB 락 없이 수량 초과를 막을 수 있는가**
+
+**문제**: `count() + 저장` 사이에 다른 스레드가 끼어들면 수량 초과 발급이 발생합니다. DB 락을 쓰면 정확하지만 TPS가 떨어지고, 락 없이 처리하면 동시성 보장이 어렵습니다.
+
+**고려한 대안**:
+- A: DB 비관적 락 (`SELECT FOR UPDATE`) — 정확, 쿠폰 단위 락 경합으로 TPS 저하
+- B: Kafka 파티션 직렬화 (`key=couponId → 같은 파티션 → 순차 처리`) — 락 없음, 처리량은 파티션 수에 비례 (현재)
+- C: Redis `DECR` 원자 연산 — 처리량 최고, Redis 의존성 추가 + 장애 시 발급 불가
+
+**최종 결정**: B. 파티션 직렬화. 초기 규모에서 DB 락 없이 동시성 보장 가능. P99 > 100ms 또는 TPS > 1,000 시 C로 전환 예정.
+
+**트레이드오프**: 파티션 수가 컨슈머 병렬도 상한. 인기 쿠폰이 많을수록 같은 파티션에 메시지가 몰려 처리 대기 증가. `concurrency` 설정이 파티션-스레드 1:1 매핑을 보장하는지 검증 필요(리뷰 포인트 3번 참고).
+
+```java
+// CouponFacade.java:106 — partitionKey = couponId → 항상 같은 파티션
+kafkaTemplate.send("coupon.issue.requests", couponId.toString(), message);
+
+// CouponIssueRequestProcessor.java — COUNT 기반 체크 (파티션 직렬화 전제)
+long issued = userCouponRepository.countByCouponId(couponId);
+if (coupon.getMaxIssuable() != null && issued >= coupon.getMaxIssuable()) {
+    request.fail("선착순 마감");
+    return;
+}
+```
+
+---
+
+**Q4. @Async 스레드풀 — 큐 포화 시 이벤트를 어떻게 처리할 것인가**
+
+**문제**: `queueCapacity=500` 초과 시 이후 이벤트의 처리 방식이 명시되어 있지 않습니다. Spring 기본값(`AbortPolicy`)은 `RejectedExecutionException`을 발생시키고 이벤트를 버립니다.
+
+**고려한 대안**:
+- A: `AbortPolicy` (기본값) — 포화 즉시 예외 발생, 이벤트 유실 + 빠른 이상 감지 (현재)
+- B: `CallerRunsPolicy` — 발행 스레드(메인 TX 스레드)가 직접 실행, 응답 지연 발생 가능
+- C: `DiscardOldestPolicy` — 오래된 이벤트 제거 후 신규 수용, 오래된 이벤트 유실
+
+**최종 결정**: A (기본값 유지). 큐 포화 자체가 비정상 신호이며, 이 경우 명시적 예외 + 알림이 올바른 대응. 현재 `@Async` 이벤트는 집계·로깅 용도라 일부 유실 허용 범위 내.
+
+**트레이드오프**: 포인트 적립·쿠폰 발급 같은 유실 불가 이벤트가 `@Async`로 처리될 경우 AbortPolicy는 위험. 현재는 집계/로깅 한정이지만, 이벤트 유형이 추가될 경우 RejectionHandler를 명시적으로 교체해야 함.
+
+```java
+// AsyncConfig.java:17
+executor.setCorePoolSize(4);
+executor.setMaxPoolSize(10);
+executor.setQueueCapacity(500);
+// RejectionHandler 미설정 → Spring 기본 AbortPolicy
+// 개선 여지: 포화 시 Slack 알림 연동 또는 CallerRunsPolicy 전환 검토
+executor.initialize();
 ```
 
 ### 🏗️ Design Overview
