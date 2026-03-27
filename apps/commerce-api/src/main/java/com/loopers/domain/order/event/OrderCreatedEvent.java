@@ -1,6 +1,7 @@
 package com.loopers.domain.order.event;
 
-import com.loopers.application.order.OrderInfo;
+import com.loopers.domain.order.OrderItemModel;
+import com.loopers.domain.order.OrderModel;
 import com.loopers.support.enums.OrderType;
 
 import java.math.BigDecimal;
@@ -26,26 +27,26 @@ public record OrderCreatedEvent(
             int quantity,
             BigDecimal finalAmount
     ) {
-        public static OrderItemEvent from(OrderInfo.OrderItemInfo itemInfo) {
+        public static OrderItemEvent from(OrderItemModel item) {
             return new OrderItemEvent(
-                    itemInfo.getOrderId(),
-                    itemInfo.getOrderItemSeq(),
-                    itemInfo.getProductId(),
-                    itemInfo.getQuantity(),
-                    itemInfo.getFinalAmount()
+                    item.getOrderId(),
+                    item.getOrderItemSeq(),
+                    item.getProductId(),
+                    item.getQuantity(),
+                    item.getFinalAmount()
             );
         }
     }
 
-    public static OrderCreatedEvent from(OrderInfo orderInfo) {
+    public static OrderCreatedEvent from(OrderModel order, List<OrderItemModel> items) {
         return new OrderCreatedEvent(
-                orderInfo.getOrderId(),
-                orderInfo.getUserId(),
-                orderInfo.getOrderType(),
-                orderInfo.getTotalAmount(),
-                orderInfo.getExpiresAt(),
-                orderInfo.getItems() != null
-                        ? orderInfo.getItems().stream().map(OrderItemEvent::from).toList()
+                order.getOrderId(),
+                order.getUserId(),
+                order.getOrderType(),
+                order.getTotalAmount(),
+                order.getExpiresAt(),
+                items != null
+                        ? items.stream().map(OrderItemEvent::from).toList()
                         : List.of()
         );
     }

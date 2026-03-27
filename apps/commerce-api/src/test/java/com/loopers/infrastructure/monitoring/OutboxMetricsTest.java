@@ -35,8 +35,8 @@ class OutboxMetricsTest {
     @Test
     @DisplayName("Relay 타이머 기록")
     void relayTimer_ShouldRecord() {
-        Timer.Sample sample = metrics.startRelayTimer();
-        metrics.stopRelayTimer(sample);
+        Object timerToken = metrics.startRelayTimer();
+        metrics.stopRelayTimer(timerToken);
 
         assertThat(registry.timer("outbox.relay.duration").count()).isEqualTo(1);
     }

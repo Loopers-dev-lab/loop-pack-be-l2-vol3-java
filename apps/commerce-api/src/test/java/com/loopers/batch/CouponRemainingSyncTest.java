@@ -1,6 +1,7 @@
 package com.loopers.batch;
 
 import com.loopers.domain.coupon.CouponModel;
+import com.loopers.domain.coupon.CouponRemainingCache;
 import com.loopers.domain.coupon.CouponRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -9,13 +10,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,10 +25,7 @@ class CouponRemainingSyncTest {
     CouponRepository couponRepository;
 
     @Mock
-    StringRedisTemplate stringRedisTemplate;
-
-    @Mock
-    ValueOperations<String, String> valueOps;
+    CouponRemainingCache couponRemainingCache;
 
     @InjectMocks
     CouponRemainingSync couponRemainingSync;
@@ -51,14 +47,13 @@ class CouponRemainingSyncTest {
     void syncRemainingFromDb_Mismatch_ShouldSetRedisValue() {
         // given
         when(couponRepository.findAll()).thenReturn(List.of(rushCoupon));
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOps);
-        when(valueOps.get("coupon:remaining:1")).thenReturn("40");
+        when(couponRemainingCache.getRemaining(1L)).thenReturn("40");
 
         // when
         couponRemainingSync.syncRemainingFromDb();
 
         // then
-        verify(valueOps).set("coupon:remaining:1", "50");
+        verify(couponRemainingCache).setRemaining(1L, "50");
     }
 
     @Test
@@ -66,13 +61,12 @@ class CouponRemainingSyncTest {
     void syncRemainingFromDb_Match_ShouldNeverSet() {
         // given
         when(couponRepository.findAll()).thenReturn(List.of(rushCoupon));
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOps);
-        when(valueOps.get("coupon:remaining:1")).thenReturn("50");
+        when(couponRemainingCache.getRemaining(1L)).thenReturn("50");
 
         // when
         couponRemainingSync.syncRemainingFromDb();
 
         // then
-        verify(valueOps, never()).set(anyString(), anyString());
+        verify(couponRemainingCache, never()).setRemaining(anyLong(), anyString());
     }
 }

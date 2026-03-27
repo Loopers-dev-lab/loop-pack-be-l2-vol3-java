@@ -1,15 +1,16 @@
 package com.loopers.application.coupon;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.domain.coupon.CouponDeduplicationCache;
+import com.loopers.domain.coupon.CouponIssueMetrics;
 import com.loopers.domain.coupon.CouponIssueRequestMessage;
 import com.loopers.domain.coupon.CouponIssueResultModel;
 import com.loopers.domain.coupon.CouponIssueResultRepository;
-import com.loopers.infrastructure.monitoring.EventMetrics;
+import com.loopers.domain.coupon.CouponRemainingCache;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
@@ -32,9 +33,10 @@ public class CouponIssueFacade {
 
     private final KafkaTemplate<Object, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
-    private final StringRedisTemplate redisTemplate;
+    private final CouponRemainingCache couponRemainingCache;
+    private final CouponDeduplicationCache couponDeduplicationCache;
     private final CouponIssueResultRepository resultRepository;
-    private final EventMetrics eventMetrics;
+    private final CouponIssueMetrics couponIssueMetrics;
 
     public String requestRushIssue(Long userId, Long couponId) {
         String requestId = UUID.randomUUID().toString();
@@ -72,10 +74,7 @@ public class CouponIssueFacade {
 
     private boolean tryDeduplication(Long userId, Long couponId) {
         try {
-            String key = "coupon:issue:dedup:" + userId + ":" + couponId;
-            Boolean firstTime = redisTemplate.opsForValue()
-                .setIfAbsent(key, "1", Duration.ofHours(24));
-            return Boolean.TRUE.equals(firstTime);
+            return couponDeduplicationCache.trySetIfAbsent(userId, couponId, Duration.ofHours(24));
         } catch (Exception e) {
             log.warn("[Redis장애] 중복 확인 실패, Consumer에서 방어", e);
             return true;
@@ -84,7 +83,7 @@ public class CouponIssueFacade {
 
     private void removeDeduplication(Long userId, Long couponId) {
         try {
-            redisTemplate.delete("coupon:issue:dedup:" + userId + ":" + couponId);
+            couponDeduplicationCache.delete(userId, couponId);
         } catch (Exception e) {
             log.warn("[Redis장애] dedup key 삭제 실패, TTL(24h) 후 자동 만료", e);
         }
@@ -92,8 +91,7 @@ public class CouponIssueFacade {
 
     private boolean tryDecrementRemaining(Long couponId) {
         try {
-            String key = "coupon:" + couponId + ":remaining";
-            Long remaining = redisTemplate.opsForValue().decrement(key);
+            Long remaining = couponRemainingCache.decrementAndGet(couponId);
             if (remaining == null || remaining < 0) {
                 restoreRemaining(couponId);
                 return false;
@@ -101,17 +99,17 @@ public class CouponIssueFacade {
             return true;
         } catch (Exception e) {
             log.warn("[Redis장애] DECR 실패, DB CAS fallback", e);
-            eventMetrics.incrementRedisFallback();
+            couponIssueMetrics.incrementRedisFallback();
             return true;
         }
     }
 
     private void restoreRemaining(Long couponId) {
         try {
-            redisTemplate.opsForValue().increment("coupon:" + couponId + ":remaining");
+            couponRemainingCache.increment(couponId);
         } catch (Exception e) {
             log.warn("[Redis장애] INCR 복원 실패, 동기화 배치에서 보정", e);
-            eventMetrics.incrementIncrRestoreFail();
+            couponIssueMetrics.incrementIncrRestoreFail();
         }
     }
 }

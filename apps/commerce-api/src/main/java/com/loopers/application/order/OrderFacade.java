@@ -187,18 +187,20 @@ public class OrderFacade {
             couponPendingActionService.saveConfirm(userCoupon.getUserCouponId(), order.getOrderId());
         }
 
-        OrderInfo info = OrderInfo.from(order, orderService.findOrderItems(order.getOrderId()));
+        List<OrderItemModel> orderItems = orderService.findOrderItems(order.getOrderId());
+        OrderInfo info = OrderInfo.from(order, orderItems);
 
         // Step 2: Outbox 기록 (같은 TX — 주문과 원자적 저장)
+        OrderCreatedEvent createdEvent = OrderCreatedEvent.from(order, orderItems);
         outboxEventService.save(
             "ORDER", String.valueOf(info.getOrderId()),
             "ORDER_CREATED", "order-events",
             String.valueOf(info.getOrderId()),
-            toJson(OrderCreatedEvent.from(info))
+            toJson(createdEvent)
         );
 
         // 이벤트 발행
-        eventPublisher.publishEvent(OrderCreatedEvent.from(info));
+        eventPublisher.publishEvent(createdEvent);
 
         return info;
     }

@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @RequiredArgsConstructor
-public class OutboxMetrics {
+public class OutboxMetrics implements com.loopers.domain.outbox.OutboxRelayMetrics {
 
     private final MeterRegistry meterRegistry;
 
@@ -37,19 +37,23 @@ public class OutboxMetrics {
             .register(meterRegistry);
     }
 
+    @Override
     public void recordPublishSuccess() {
         publishSuccessCounter.increment();
     }
 
+    @Override
     public void recordPublishFail() {
         publishFailCounter.increment();
     }
 
-    public Timer.Sample startRelayTimer() {
+    @Override
+    public Object startRelayTimer() {
         return Timer.start(meterRegistry);
     }
 
-    public void stopRelayTimer(Timer.Sample sample) {
-        sample.stop(relayTimer);
+    @Override
+    public void stopRelayTimer(Object timerToken) {
+        ((Timer.Sample) timerToken).stop(relayTimer);
     }
 }

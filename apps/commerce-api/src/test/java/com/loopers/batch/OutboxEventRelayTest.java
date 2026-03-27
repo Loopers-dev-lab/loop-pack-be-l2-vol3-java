@@ -2,9 +2,7 @@ package com.loopers.batch;
 
 import com.loopers.domain.outbox.OutboxEventModel;
 import com.loopers.domain.outbox.OutboxEventRepository;
-import com.loopers.infrastructure.monitoring.OutboxMetrics;
-import io.micrometer.core.instrument.Timer;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import com.loopers.domain.outbox.OutboxRelayMetrics;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,7 +27,7 @@ class OutboxEventRelayTest {
     OutboxEventProcessor outboxEventProcessor;
 
     @Mock
-    OutboxMetrics outboxMetrics;
+    OutboxRelayMetrics outboxRelayMetrics;
 
     @InjectMocks
     OutboxEventRelay outboxEventRelay;
@@ -42,22 +40,22 @@ class OutboxEventRelayTest {
                 "order-events", "order-1",
                 "{\"orderId\":1}"
         );
-        Timer.Sample sample = Timer.start(new SimpleMeterRegistry());
-        when(outboxMetrics.startRelayTimer()).thenReturn(sample);
+        Object timerToken = new Object();
+        when(outboxRelayMetrics.startRelayTimer()).thenReturn(timerToken);
         when(outboxRepository.findPendingEvents(100)).thenReturn(List.of(event));
         when(outboxEventProcessor.publishAndMark(event)).thenReturn(true);
 
         outboxEventRelay.relay();
 
         verify(outboxEventProcessor).publishAndMark(event);
-        verify(outboxMetrics).recordPublishSuccess();
+        verify(outboxRelayMetrics).recordPublishSuccess();
     }
 
     @Test
     @DisplayName("PENDING 이벤트가 없으면 processor를 호출하지 않는다")
     void relay_WithEmptyList_ShouldNotCallProcessor() {
-        Timer.Sample sample = Timer.start(new SimpleMeterRegistry());
-        when(outboxMetrics.startRelayTimer()).thenReturn(sample);
+        Object timerToken = new Object();
+        when(outboxRelayMetrics.startRelayTimer()).thenReturn(timerToken);
         when(outboxRepository.findPendingEvents(100)).thenReturn(Collections.emptyList());
 
         outboxEventRelay.relay();
@@ -68,8 +66,8 @@ class OutboxEventRelayTest {
     @Test
     @DisplayName("폴링 쿼리 실패 시 다음 호출은 백오프로 스킵된다")
     void relay_WhenQueryFails_ShouldApplyBackoff() {
-        Timer.Sample sample = Timer.start(new SimpleMeterRegistry());
-        when(outboxMetrics.startRelayTimer()).thenReturn(sample);
+        Object timerToken = new Object();
+        when(outboxRelayMetrics.startRelayTimer()).thenReturn(timerToken);
         when(outboxRepository.findPendingEvents(100))
                 .thenThrow(new RuntimeException("DB connection failed"));
 

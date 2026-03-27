@@ -1,9 +1,11 @@
 package com.loopers.application.coupon;
 
+import com.loopers.domain.coupon.CouponDeduplicationCache;
+import com.loopers.domain.coupon.CouponIssueMetrics;
 import com.loopers.domain.coupon.CouponIssueResultRepository;
 import com.loopers.domain.coupon.CouponModel;
+import com.loopers.domain.coupon.CouponRemainingCache;
 import com.loopers.domain.coupon.CouponService;
-import com.loopers.infrastructure.monitoring.EventMetrics;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,10 +16,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.kafka.core.KafkaTemplate;
 
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,10 +36,10 @@ class CouponIssueFacadeTest {
     KafkaTemplate<Object, Object> kafkaTemplate;
 
     @Mock
-    StringRedisTemplate stringRedisTemplate;
+    CouponRemainingCache couponRemainingCache;
 
     @Mock
-    ValueOperations<String, String> valueOps;
+    CouponDeduplicationCache couponDeduplicationCache;
 
     @Mock
     CouponIssueResultRepository couponIssueResultRepository;
@@ -50,7 +51,7 @@ class CouponIssueFacadeTest {
     ObjectMapper objectMapper;
 
     @Mock
-    EventMetrics eventMetrics;
+    CouponIssueMetrics couponIssueMetrics;
 
     @InjectMocks
     CouponIssueFacade couponIssueFacade;
@@ -73,10 +74,9 @@ class CouponIssueFacadeTest {
     @DisplayName("성공: SETNX=true, DECR=99, kafka 성공 시 requestId를 반환한다")
     void requestRushIssue_Success_ShouldReturnRequestId() throws Exception {
         // given
-        when(couponService.findByIdForAdmin(100L)).thenReturn(rushCoupon);
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOps);
-        when(valueOps.setIfAbsent(anyString(), eq("1"))).thenReturn(true);
-        when(valueOps.decrement(anyString())).thenReturn(99L);
+        when(couponDeduplicationCache.trySetIfAbsent(eq(1L), eq(100L), any(Duration.class)))
+                .thenReturn(true);
+        when(couponRemainingCache.decrementAndGet(100L)).thenReturn(99L);
         when(objectMapper.writeValueAsString(any())).thenReturn("{}");
         when(kafkaTemplate.send(anyString(), anyString(), anyString()))
                 .thenReturn(CompletableFuture.completedFuture(null));
@@ -90,47 +90,44 @@ class CouponIssueFacadeTest {
     }
 
     @Test
-    @DisplayName("중복 요청: SETNX=false 시 COUPON_ALREADY_ISSUED 예외가 발생한다")
-    void requestRushIssue_Duplicate_ShouldThrowCouponAlreadyIssued() {
+    @DisplayName("중복 요청: SETNX=false 시 CONFLICT 예외가 발생한다")
+    void requestRushIssue_Duplicate_ShouldThrowConflict() {
         // given
-        when(couponService.findByIdForAdmin(100L)).thenReturn(rushCoupon);
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOps);
-        when(valueOps.setIfAbsent(anyString(), eq("1"))).thenReturn(false);
+        when(couponDeduplicationCache.trySetIfAbsent(eq(1L), eq(100L), any(Duration.class)))
+                .thenReturn(false);
 
         // when & then
         assertThatThrownBy(() -> couponIssueFacade.requestRushIssue(1L, 100L))
                 .isInstanceOf(CoreException.class)
                 .satisfies(e -> assertThat(((CoreException) e).getErrorType())
-                        .isEqualTo(ErrorType.COUPON_ALREADY_ISSUED));
+                        .isEqualTo(ErrorType.CONFLICT));
     }
 
     @Test
     @DisplayName("수량 소진: SETNX=true, DECR=-1 시 예외 발생 및 increment 복원된다")
     void requestRushIssue_SoldOut_ShouldThrowAndRestoreIncrement() {
         // given
-        when(couponService.findByIdForAdmin(100L)).thenReturn(rushCoupon);
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOps);
-        when(valueOps.setIfAbsent(anyString(), eq("1"))).thenReturn(true);
-        when(valueOps.decrement(anyString())).thenReturn(-1L);
+        when(couponDeduplicationCache.trySetIfAbsent(eq(1L), eq(100L), any(Duration.class)))
+                .thenReturn(true);
+        when(couponRemainingCache.decrementAndGet(100L)).thenReturn(-1L);
 
         // when & then
         assertThatThrownBy(() -> couponIssueFacade.requestRushIssue(1L, 100L))
                 .isInstanceOf(CoreException.class)
                 .satisfies(e -> assertThat(((CoreException) e).getErrorType())
-                        .isEqualTo(ErrorType.COUPON_NOT_AVAILABLE));
+                        .isEqualTo(ErrorType.BAD_REQUEST));
 
-        verify(valueOps).increment(anyString());
-        verify(stringRedisTemplate).delete(anyString());
+        verify(couponRemainingCache).increment(100L);
+        verify(couponDeduplicationCache).delete(1L, 100L);
     }
 
     @Test
     @DisplayName("Kafka 실패: SETNX=true, DECR=50, kafka 예외 시 increment + delete 복원된다")
     void requestRushIssue_KafkaFail_ShouldRestoreIncrementAndDelete() throws Exception {
         // given
-        when(couponService.findByIdForAdmin(100L)).thenReturn(rushCoupon);
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOps);
-        when(valueOps.setIfAbsent(anyString(), eq("1"))).thenReturn(true);
-        when(valueOps.decrement(anyString())).thenReturn(50L);
+        when(couponDeduplicationCache.trySetIfAbsent(eq(1L), eq(100L), any(Duration.class)))
+                .thenReturn(true);
+        when(couponRemainingCache.decrementAndGet(100L)).thenReturn(50L);
         when(objectMapper.writeValueAsString(any())).thenThrow(new RuntimeException("Kafka send failed"));
 
         // when & then
@@ -139,7 +136,7 @@ class CouponIssueFacadeTest {
                 .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                         .isEqualTo(ErrorType.INTERNAL_ERROR));
 
-        verify(valueOps).increment(anyString());
-        verify(stringRedisTemplate).delete(anyString());
+        verify(couponRemainingCache).increment(100L);
+        verify(couponDeduplicationCache).delete(1L, 100L);
     }
 }

@@ -1,10 +1,10 @@
 package com.loopers.batch;
 
 import com.loopers.domain.coupon.CouponModel;
+import com.loopers.domain.coupon.CouponRemainingCache;
 import com.loopers.domain.coupon.CouponRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -24,10 +24,8 @@ import java.util.List;
 @Slf4j
 public class CouponRemainingSync {
 
-    private static final String REMAINING_KEY_PREFIX = "coupon:remaining:";
-
     private final CouponRepository couponRepository;
-    private final StringRedisTemplate stringRedisTemplate;
+    private final CouponRemainingCache couponRemainingCache;
 
     /**
      * DB 기준으로 Redis 잔여 수량을 동기화한다 (1시간 간격).
@@ -49,11 +47,10 @@ public class CouponRemainingSync {
             try {
                 int remaining = coupon.getMaxQuantity() - coupon.getIssuedCount();
                 String expectedValue = String.valueOf(Math.max(remaining, 0));
-                String key = REMAINING_KEY_PREFIX + coupon.getCouponId();
-                String currentValue = stringRedisTemplate.opsForValue().get(key);
+                String currentValue = couponRemainingCache.getRemaining(coupon.getCouponId());
 
                 if (!expectedValue.equals(currentValue)) {
-                    stringRedisTemplate.opsForValue().set(key, expectedValue);
+                    couponRemainingCache.setRemaining(coupon.getCouponId(), expectedValue);
                     syncCount++;
                 }
             } catch (Exception e) {

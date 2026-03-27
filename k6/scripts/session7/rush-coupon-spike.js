@@ -60,7 +60,7 @@ export default function () {
     );
     rushDuration.add(Date.now() - start);
 
-    if (res.status === 202) {
+    if (res.status === 200 || res.status === 202) {
         rushSuccess.add(1);
     } else if (res.status === 409) {
         rushConflict.add(1);

@@ -62,7 +62,7 @@ export default function () {
     const elapsed = Date.now() - start;
     gateDuration.add(elapsed);
 
-    if (res.status === 202) {
+    if (res.status === 200 || res.status === 202) {
         gateAccepted.add(1);
     } else if (res.status === 400) {
         gateSoldOut.add(1);

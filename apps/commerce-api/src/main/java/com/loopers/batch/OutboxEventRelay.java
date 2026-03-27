@@ -2,8 +2,7 @@ package com.loopers.batch;
 
 import com.loopers.domain.outbox.OutboxEventModel;
 import com.loopers.domain.outbox.OutboxEventRepository;
-import com.loopers.infrastructure.monitoring.OutboxMetrics;
-import io.micrometer.core.instrument.Timer;
+import com.loopers.domain.outbox.OutboxRelayMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -36,7 +35,7 @@ public class OutboxEventRelay {
 
     private final OutboxEventRepository outboxRepository;
     private final OutboxEventProcessor outboxEventProcessor;
-    private final OutboxMetrics outboxMetrics;
+    private final OutboxRelayMetrics outboxRelayMetrics;
 
     private int consecutiveErrors = 0;
     private Instant backoffUntil = Instant.MIN;
@@ -48,7 +47,7 @@ public class OutboxEventRelay {
             return;
         }
 
-        Timer.Sample sample = outboxMetrics.startRelayTimer();
+        Object timerToken = outboxRelayMetrics.startRelayTimer();
         List<OutboxEventModel> events;
         try {
             events = outboxRepository.findPendingEvents(BATCH_SIZE);
@@ -56,7 +55,7 @@ public class OutboxEventRelay {
             consecutiveErrors++;
             long backoffMs = Math.min(BASE_BACKOFF_MS * (1L << consecutiveErrors), MAX_BACKOFF_MS);
             backoffUntil = Instant.now().plusMillis(backoffMs);
-            outboxMetrics.stopRelayTimer(sample);
+            outboxRelayMetrics.stopRelayTimer(timerToken);
             log.error("[OutboxRelay] 폴링 쿼리 실패 (연속 {}회), {}ms 백오프 적용",
                 consecutiveErrors, backoffMs, e);
             return;
@@ -66,7 +65,7 @@ public class OutboxEventRelay {
         backoffUntil = Instant.MIN;
 
         if (events.isEmpty()) {
-            outboxMetrics.stopRelayTimer(sample);
+            outboxRelayMetrics.stopRelayTimer(timerToken);
             return;
         }
 
@@ -83,19 +82,19 @@ public class OutboxEventRelay {
                 boolean ok = outboxEventProcessor.publishAndMark(event);
                 if (ok) {
                     success++;
-                    outboxMetrics.recordPublishSuccess();
+                    outboxRelayMetrics.recordPublishSuccess();
                 } else {
                     failed++;
-                    outboxMetrics.recordPublishFail();
+                    outboxRelayMetrics.recordPublishFail();
                 }
             } catch (Exception e) {
                 failed++;
-                outboxMetrics.recordPublishFail();
+                outboxRelayMetrics.recordPublishFail();
                 log.error("[OutboxRelay] eventId={} 처리 중 예외", event.getEventId(), e);
             }
         }
 
-        outboxMetrics.stopRelayTimer(sample);
+        outboxRelayMetrics.stopRelayTimer(timerToken);
 
         if (success > 0 || failed > 0) {
             log.info("[OutboxRelay] 성공={}, 실패={}, 전체={}", success, failed, events.size());

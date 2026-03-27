@@ -135,7 +135,7 @@ function doRushCoupon(headers, vuId) {
     couponDuration.add(Date.now() - start);
 
     // 202, 400, 409 모두 정상 응답
-    if (res.status === 202 || res.status === 400 || res.status === 409) {
+    if (res.status === 200 || res.status === 202 || res.status === 400 || res.status === 409) {
         couponCount.add(1);
     } else {
         errorCount.add(1);

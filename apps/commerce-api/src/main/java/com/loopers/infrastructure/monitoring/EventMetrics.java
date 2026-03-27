@@ -19,7 +19,7 @@ import java.util.concurrent.Executor;
  * Micrometer에 등록한다. Prometheus가 {@code /actuator/prometheus}에서 자동으로 수집한다.</p>
  */
 @Component
-public class EventMetrics {
+public class EventMetrics implements com.loopers.domain.coupon.CouponIssueMetrics {
 
     private final MeterRegistry meterRegistry;
     private final OutboxEventRepository outboxRepository;
@@ -71,10 +71,12 @@ public class EventMetrics {
             .register(meterRegistry);
     }
 
+    @Override
     public void incrementRedisFallback() {
         redisFallbackCounter.increment();
     }
 
+    @Override
     public void incrementIncrRestoreFail() {
         redisIncrRestoreFailCounter.increment();
     }
