@@ -7,9 +7,10 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.loopers.application.coupon.CouponIssueService;
 import com.loopers.confg.kafka.KafkaConfig;
+import com.loopers.interfaces.consumer.dto.CouponIssueMessageDto.CouponIssueMessage;
+import com.loopers.interfaces.consumer.support.KafkaMessageParser;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,20 +30,20 @@ public class CouponIssueConsumer {
     private static final String TOPIC = "coupon-issue-v1";
 
     private final CouponIssueService couponIssueService;
+    private final KafkaMessageParser kafkaMessageParser;
 
     @KafkaListener(
             topics = TOPIC,
             containerFactory = KafkaConfig.BATCH_LISTENER
     )
-    public void consume(List<ConsumerRecord<String, JsonNode>> messages, Acknowledgment ack) {
+    public void consume(List<ConsumerRecord<String, Object>> messages, Acknowledgment ack) {
         log.debug("[CouponIssue] 배치 수신: size={}", messages.size());
-        for (ConsumerRecord<String, JsonNode> record : messages) {
+        for (ConsumerRecord<String, Object> record : messages) {
             try {
-                Long couponId = record.value().get("couponId").asLong();
-                Long userId = record.value().get("userId").asLong();
-                String eventId = "coupon-issue:" + couponId + ":" + userId;
+                CouponIssueMessage msg = kafkaMessageParser.parse(record.value(), CouponIssueMessage.class);
+                String eventId = "coupon-issue:" + msg.couponId() + ":" + msg.userId();
 
-                couponIssueService.issue(eventId, couponId, userId);
+                couponIssueService.issue(eventId, msg.couponId(), msg.userId());
             } catch (Exception e) {
                 log.error("[CouponIssue] 처리 실패: topic={}, offset={}, partition={}",
                         record.topic(), record.offset(), record.partition(), e);
