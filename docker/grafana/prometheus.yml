@@ -3,6 +3,7 @@ global:
 
 rule_files:
   - /etc/prometheus/rules/kafka-collector-alerts.yml
+  - /etc/prometheus/rules/cdc-connect-alerts.yml
 
 scrape_configs:
   - job_name: 'spring-boot-app'
