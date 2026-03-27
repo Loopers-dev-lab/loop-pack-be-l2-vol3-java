@@ -38,7 +38,7 @@ public record ProductInfo(
                 product.getPrice().value(),
                 product.getStockQuantity().value(),
                 null,
-                product.getLikeCount()
+                0L
         );
     }
 

@@ -30,20 +30,6 @@ public interface ProductJpaRepository extends JpaRepository<ProductModel, Long> 
     )
     void increaseStock(@Param("productId") Long productId, @Param("quantity") int quantity);
 
-    @Modifying(clearAutomatically = true)
-    @Query(
-            value = "UPDATE products SET like_count = like_count + 1 WHERE id = :productId",
-            nativeQuery = true
-    )
-    void incrementLikeCount(@Param("productId") Long productId);
-
-    @Modifying(clearAutomatically = true)
-    @Query(
-            value = "UPDATE products SET like_count = like_count - 1 WHERE id = :productId AND like_count > 0",
-            nativeQuery = true
-    )
-    void decrementLikeCount(@Param("productId") Long productId);
-
     @Query(
             value = "SELECT * FROM products WHERE ref_brand_id = :brandId AND deleted_at IS NULL",
             nativeQuery = true

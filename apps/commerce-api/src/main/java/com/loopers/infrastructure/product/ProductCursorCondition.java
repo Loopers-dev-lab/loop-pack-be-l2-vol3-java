@@ -29,16 +29,12 @@ public enum ProductCursorCondition {
     LIKES_DESC {
         @Override
         public BooleanExpression toCursorPredicate(QProductModel p, ProductCursor c) {
-            return p.likeCount.lt(c.likeCount())
-                    .or(p.likeCount.eq(c.likeCount()).and(p.updatedAt.lt(c.updatedAt())))
-                    .or(p.likeCount.eq(c.likeCount())
-                            .and(p.updatedAt.eq(c.updatedAt()))
-                            .and(p.id.lt(c.id())));
+            return LATEST.toCursorPredicate(p, c);
         }
 
         @Override
         public OrderSpecifier<?>[] toOrderSpecifiers(QProductModel p) {
-            return new OrderSpecifier<?>[] { p.likeCount.desc(), p.updatedAt.desc(), p.id.desc() };
+            return LATEST.toOrderSpecifiers(p);
         }
     },
 

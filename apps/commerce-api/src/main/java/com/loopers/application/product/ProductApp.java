@@ -1,6 +1,8 @@
 package com.loopers.application.product;
 
 import com.loopers.domain.common.cursor.CursorPageResult;
+import com.loopers.domain.product.ProductMetricsModel;
+import com.loopers.domain.product.ProductMetricsRepository;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.ProductService;
@@ -25,6 +27,7 @@ public class ProductApp {
     private final ProductService productService;
     private final ProductRepository productRepository;
     private final ProductCacheStore productCacheStore;
+    private final ProductMetricsRepository productMetricsRepository;
 
     @Transactional
     public ProductInfo createProduct(String productId, String brandId, String productName, BigDecimal price, int stockQuantity) {
@@ -43,13 +46,14 @@ public class ProductApp {
         });
     }
 
-    @CacheEvict(value = "products", allEntries = true)
+    @Caching(evict = {
+        @CacheEvict(value = "product",  key = "#productId"),
+        @CacheEvict(value = "products", allEntries = true)
+    })
     @Transactional
     public ProductInfo updateProduct(String productId, String productName, BigDecimal price, int stockQuantity) {
         ProductModel product = productService.updateProduct(productId, productName, price, stockQuantity);
-        ProductInfo info = ProductInfo.from(product);
-        productCacheStore.put(productId, info);
-        return info;
+        return ProductInfo.from(product);
     }
 
     @Caching(evict = {
@@ -83,5 +87,12 @@ public class ProductApp {
     @Transactional
     public void deleteProductsByBrandRefId(Long brandId) {
         productService.deleteProductsByBrandRefId(brandId);
+    }
+
+    @Transactional(readOnly = true)
+    public long getLikesCount(Long refProductId) {
+        return productMetricsRepository.findByRefProductId(refProductId)
+                .map(ProductMetricsModel::getLikeCount)
+                .orElse(0L);
     }
 }
