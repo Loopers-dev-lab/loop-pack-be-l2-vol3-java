@@ -1,6 +1,7 @@
 package com.loopers.application.outbox;
 
 import com.loopers.domain.brand.BrandService;
+import com.loopers.application.coupon.CouponFacade;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.infrastructure.outbox.OutboxJpaRepository;
@@ -14,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
+import java.time.ZonedDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,6 +31,9 @@ class OutboxAppendIntegrationTest {
 
     @Autowired
     private BrandService brandService;
+
+    @Autowired
+    private CouponFacade couponFacade;
 
     @Autowired
     private OutboxJpaRepository outboxJpaRepository;
@@ -60,6 +65,27 @@ class OutboxAppendIntegrationTest {
                 .orElseThrow();
         assertThat(likeOutbox.getPartitionKey()).isEqualTo(String.valueOf(productId));
         assertThat(likeOutbox.isPublished()).isFalse();
+    }
+
+    @Test
+    @DisplayName("쿠폰 비동기 발급 요청이 성공하면 coupon-issue-requests Outbox 이벤트가 적재된다.")
+    void requestCouponIssue_whenSuccess_shouldAppendCouponOutbox() {
+        var template = couponFacade.registerTemplate(
+                "선착순 쿠폰", "FIXED", 1000,
+                BigDecimal.ZERO, ZonedDateTime.now().plusDays(7), null
+        );
+
+        var accepted = couponFacade.requestIssueCoupon(1L, template.id());
+
+        var couponOutbox = outboxJpaRepository.findAll().stream()
+                .filter(o -> "coupon-issue-requests".equals(o.getTopic())
+                        && "COUPON_ISSUE_REQUESTED".equals(o.getEventType()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(accepted.requestId()).isNotBlank();
+        assertThat(couponOutbox.getEventId()).isEqualTo(accepted.requestId());
+        assertThat(couponOutbox.getPartitionKey()).isEqualTo(String.valueOf(template.id()));
+        assertThat(couponOutbox.isPublished()).isFalse();
     }
 }
 

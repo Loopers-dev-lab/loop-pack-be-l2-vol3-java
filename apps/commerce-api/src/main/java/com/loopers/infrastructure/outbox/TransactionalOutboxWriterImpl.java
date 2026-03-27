@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Map;
-import java.util.UUID;
 
 @Component
 public class TransactionalOutboxWriterImpl implements TransactionalOutboxWriter {
@@ -22,10 +21,10 @@ public class TransactionalOutboxWriterImpl implements TransactionalOutboxWriter 
     }
 
     @Override
-    public void record(String topic, String partitionKey, String eventType, Map<String, ?> payload) {
+    public void record(String eventId, String topic, String partitionKey, String eventType, Map<String, ?> payload) {
         try {
             outboxRepository.append(new OutboxEvent(
-                    UUID.randomUUID().toString(),
+                    eventId,
                     topic,
                     partitionKey,
                     eventType,
