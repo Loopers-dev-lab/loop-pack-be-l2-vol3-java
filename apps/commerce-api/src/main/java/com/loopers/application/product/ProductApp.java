@@ -40,10 +40,7 @@ public class ProductApp {
         return productCacheStore.get(productId).orElseGet(() -> {
             ProductModel product = productRepository.findByProductId(new ProductId(productId))
                     .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "해당 ID의 상품이 존재하지 않습니다."));
-            long likesCount = productMetricsRepository.findByRefProductId(product.getId())
-                    .map(ProductMetricsModel::getLikeCount)
-                    .orElse(0L);
-            ProductInfo info = ProductInfo.from(product).enrich(null, likesCount);
+            ProductInfo info = ProductInfo.from(product);
             productCacheStore.put(productId, info);
             return info;
         });

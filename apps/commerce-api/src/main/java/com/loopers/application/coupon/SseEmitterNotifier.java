@@ -18,18 +18,21 @@ public class SseEmitterNotifier {
     private final SseEmitterRegistry sseEmitterRegistry;
     private final CouponIssueRequestRepository couponIssueRequestRepository;
 
+    private static final int BATCH_SIZE = 500;
+
     @Scheduled(fixedDelay = 500)
     public void notifyCompleted() {
-        Set<String> pendingIds = sseEmitterRegistry.getPendingRequestIds();
-        if (pendingIds.isEmpty()) {
+        List<String> pendingIdList = new ArrayList<>(sseEmitterRegistry.getPendingRequestIds());
+        if (pendingIdList.isEmpty()) {
             return;
         }
-        List<CouponIssueRequestModel> completed = couponIssueRequestRepository
-                .findByRequestIdInAndStatusIn(
-                        new ArrayList<>(pendingIds),
-                        List.of(CouponIssueStatus.ISSUED, CouponIssueStatus.REJECTED));
-        for (CouponIssueRequestModel model : completed) {
-            sseEmitterRegistry.complete(model.getRequestId(), model.getStatus());
+        for (int i = 0; i < pendingIdList.size(); i += BATCH_SIZE) {
+            List<String> batch = pendingIdList.subList(i, Math.min(i + BATCH_SIZE, pendingIdList.size()));
+            List<CouponIssueRequestModel> completed = couponIssueRequestRepository
+                    .findByRequestIdInAndStatusIn(batch, List.of(CouponIssueStatus.ISSUED, CouponIssueStatus.REJECTED));
+            for (CouponIssueRequestModel model : completed) {
+                sseEmitterRegistry.complete(model.getRequestId(), model.getStatus());
+            }
         }
     }
 }

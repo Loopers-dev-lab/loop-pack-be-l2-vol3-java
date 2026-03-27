@@ -7,7 +7,6 @@ import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.like.LikeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -26,10 +25,7 @@ public class LikeApp {
     private final LikeRepository likeRepository;
     private final OutboxAppender outboxAppender;
 
-    @Caching(evict = {
-        @CacheEvict(value = "product",  key = "#productId"),
-        @CacheEvict(value = "products", allEntries = true)
-    })
+    @CacheEvict(value = "products", allEntries = true)
     @Transactional
     public LikeInfo addLike(Long memberId, String productId) {
         LikeActionResult result = likeService.addLike(memberId, productId);
@@ -46,10 +42,7 @@ public class LikeApp {
         return LikeInfo.from(result.likeModel());
     }
 
-    @Caching(evict = {
-        @CacheEvict(value = "product",  key = "#productId"),
-        @CacheEvict(value = "products", allEntries = true)
-    })
+    @CacheEvict(value = "products", allEntries = true)
     @Transactional
     public void removeLike(Long memberId, String productId) {
         likeService.removeLike(memberId, productId).ifPresent(like -> {

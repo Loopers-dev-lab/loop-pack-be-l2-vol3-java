@@ -9,6 +9,13 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * 인메모리 SSE 에미터 레지스트리.
+ * <p>
+ * 단일 인스턴스 전제로 동작한다. 다중 인스턴스 배포 시 로드밸런서에서
+ * SSE 구독 요청을 동일 인스턴스로 고정(sticky session)해야 알림이 정상 전달된다.
+ * 분산 알림이 필요한 경우 Redis Pub/Sub 기반으로 교체 필요.
+ */
 @Slf4j
 @Component
 public class SseEmitterRegistry {
