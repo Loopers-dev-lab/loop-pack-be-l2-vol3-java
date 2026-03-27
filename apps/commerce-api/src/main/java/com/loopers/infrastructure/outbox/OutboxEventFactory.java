@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.application.event.CouponIssueRequestedEvent;
 import com.loopers.application.event.PaymentCanceledEvent;
 import com.loopers.application.event.PaymentCompletedEvent;
 import com.loopers.application.event.PaymentFailedEvent;
@@ -57,6 +58,8 @@ public class OutboxEventFactory {
                     "payment.failed", "Order", String.valueOf(e.orderId()), "order-events");
             case PaymentCanceledEvent e -> new EventMetadata(
                     "payment.canceled", "Order", String.valueOf(e.orderId()), "order-events");
+            case CouponIssueRequestedEvent e -> new EventMetadata(
+                    "coupon.issue.requested", "Coupon", String.valueOf(e.couponId()), "coupon-issue-requests");
             default -> {
                 log.warn("미지원 이벤트 타입: {}", event.getClass().getSimpleName());
                 yield null;

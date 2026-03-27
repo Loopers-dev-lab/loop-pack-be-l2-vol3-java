@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponFacade;
+import com.loopers.application.coupon.CouponIssueRequestInfo;
 import com.loopers.application.coupon.IssuedCouponInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
@@ -31,7 +32,23 @@ public class CouponV1Controller implements CouponApiV1Spec {
         return ApiResponse.success(CouponV1Dto.IssuedCouponResponse.from(info));
     }
 
+    @PostMapping("/api/v1/coupons/{couponId}/issue-async")
+    public ApiResponse<CouponV1Dto.CouponIssueRequestResponse> issueAsync(
+            @AuthUser AuthenticatedUser user,
+            @PathVariable Long couponId) {
+        CouponIssueRequestInfo info = couponFacade.issueAsync(couponId, user.id());
+        return ApiResponse.success(CouponV1Dto.CouponIssueRequestResponse.from(info));
+    }
+
     // Query
+
+    @GetMapping("/api/v1/coupons/{couponId}/issue-status")
+    public ApiResponse<CouponV1Dto.CouponIssueRequestResponse> issueStatus(
+            @AuthUser AuthenticatedUser user,
+            @PathVariable Long couponId) {
+        CouponIssueRequestInfo info = couponFacade.getIssueStatus(couponId, user.id());
+        return ApiResponse.success(CouponV1Dto.CouponIssueRequestResponse.from(info));
+    }
 
     @GetMapping("/api/v1/users/me/coupons")
     @Override
