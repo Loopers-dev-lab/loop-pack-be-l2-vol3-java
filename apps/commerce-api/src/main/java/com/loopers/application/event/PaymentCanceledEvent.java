@@ -1,4 +1,6 @@
 package com.loopers.application.event;
 
-public record PaymentCanceledEvent(Long paymentId, Long orderId, Long userId) {
+import com.loopers.support.outbox.DomainEvent;
+
+public record PaymentCanceledEvent(Long paymentId, Long orderId, Long userId) implements DomainEvent {
 }

@@ -1,4 +1,6 @@
 package com.loopers.application.event;
 
-public record ProductLikedEvent(Long userId, Long productId) {
+import com.loopers.support.outbox.DomainEvent;
+
+public record ProductLikedEvent(Long userId, Long productId) implements DomainEvent {
 }
