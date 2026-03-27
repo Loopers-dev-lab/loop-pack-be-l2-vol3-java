@@ -14,7 +14,10 @@ import java.util.List;
 
 public interface OutboxEventJpaRepository extends JpaRepository<OutboxEvent, Long> {
 
-    List<OutboxEvent> findByStatusOrderByIdAsc(OutboxEventStatus status, Pageable pageable);
+    @Query("SELECT o FROM OutboxEvent o WHERE o.status = :status AND o.createdAt < :before ORDER BY o.id ASC")
+    List<OutboxEvent> findStalePending(@Param("status") OutboxEventStatus status,
+                                       @Param("before") ZonedDateTime before,
+                                       Pageable pageable);
 
     @Modifying
     @Transactional

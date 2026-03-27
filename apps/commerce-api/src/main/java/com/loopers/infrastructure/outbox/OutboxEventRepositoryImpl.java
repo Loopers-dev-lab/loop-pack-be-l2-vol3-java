@@ -23,7 +23,8 @@ public class OutboxEventRepositoryImpl implements OutboxEventRepository {
 
     @Override
     public List<OutboxEvent> findPending(int limit) {
-        return jpaRepository.findByStatusOrderByIdAsc(OutboxEventStatus.PENDING, PageRequest.of(0, limit));
+        ZonedDateTime staleBefore = ZonedDateTime.now().minusSeconds(10);
+        return jpaRepository.findStalePending(OutboxEventStatus.PENDING, staleBefore, PageRequest.of(0, limit));
     }
 
     @Override
