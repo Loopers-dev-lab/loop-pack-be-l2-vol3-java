@@ -1,5 +1,6 @@
 package com.loopers.application.outbox;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.outbox.OutboxEvent;
 import com.loopers.domain.outbox.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class OutboxPublisher {
 
     private final OutboxEventRepository outboxEventRepository;
     private final KafkaTemplate<Object, Object> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
     @Scheduled(fixedDelay = 1000)
     @Transactional
@@ -36,7 +38,7 @@ public class OutboxPublisher {
 
         for (OutboxEvent event : pending) {
             try {
-                kafkaTemplate.send(event.getTopic(), event.getPartitionKey(), event.getPayload());
+                kafkaTemplate.send(event.getTopic(), event.getPartitionKey(), objectMapper.readTree(event.getPayload()));
                 event.markPublished();
                 log.debug("[Outbox] published eventId={} topic={}", event.getEventId(), event.getTopic());
             } catch (Exception e) {
