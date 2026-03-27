@@ -13,6 +13,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Outbox 보완 Relay — 즉시 발행(afterCommit)이 실패한 이벤트만 수거.
+ *
+ * 메인 발행: OutboxEventListener의 afterCommit 비동기 send (99.x%)
+ * 보완 발행: 이 스케줄러가 stale PENDING 수거 (0.x%)
+ *
+ * Exponential Backoff: 1분 → 2분 → 4분 → 8분 → 16분 (최대 30분 cap)
+ * 최대 5회 재시도 후 FAILED → 운영자 개입.
+ */
 @Slf4j
 @Component
 @EnableScheduling
@@ -21,52 +30,46 @@ import java.util.List;
 public class OutboxRelayScheduler {
 
     private static final int BATCH_SIZE = 200;
-    private static final int MAX_RETRY_COUNT = 5;
-    private static final long MAX_AGE_MINUTES = 5;
 
     private final OutboxEventRepository outboxEventRepository;
     private final KafkaTemplate<Object, Object> kafkaTemplate;
 
-    @Scheduled(fixedDelay = 1000)
+    @Scheduled(fixedDelay = 60000)
     @Transactional
-    public void relay() {
-        List<OutboxEvent> pendingEvents = outboxEventRepository.findPending(BATCH_SIZE);
-        if (pendingEvents.isEmpty()) {
+    public void compensatePendingEvents() {
+        List<OutboxEvent> retryableEvents = outboxEventRepository.findRetryableEvents(BATCH_SIZE);
+        if (retryableEvents.isEmpty()) {
             return;
         }
 
-        int successCount = 0;
-        int failedCount = 0;
+        int retryCount = 0;
+        int deadCount = 0;
 
-        for (OutboxEvent event : pendingEvents) {
-            if (event.isExpired(MAX_AGE_MINUTES)) {
+        for (OutboxEvent event : retryableEvents) {
+            if (event.isMaxRetriesExceeded()) {
                 event.markFailed();
                 outboxEventRepository.save(event);
-                failedCount++;
-                log.error("Outbox 이벤트 만료 → FAILED: eventId={}, eventType={}", event.getEventId(), event.getEventType());
+                deadCount++;
+                log.error("Outbox 최대 재시도 초과 → FAILED: eventId={}, retryCount={}",
+                        event.getEventId(), event.getRetryCount());
                 continue;
             }
 
-            try {
-                kafkaTemplate.send(event.getTopic(), event.getAggregateId(), event.getPayload()).get();
-                event.markSent();
-                outboxEventRepository.save(event);
-                successCount++;
-            } catch (Exception e) {
-                event.incrementRetryCount();
-                if (event.getRetryCount() >= MAX_RETRY_COUNT) {
-                    event.markFailed();
-                    log.error("Outbox 재시도 초과 → FAILED: eventId={}, retryCount={}", event.getEventId(), event.getRetryCount(), e);
-                } else {
-                    log.warn("Outbox 발행 실패, 재시도 예정: eventId={}, retryCount={}", event.getEventId(), event.getRetryCount(), e);
-                }
-                outboxEventRepository.save(event);
-                failedCount++;
-            }
+            kafkaTemplate.send(event.getTopic(), event.getAggregateId(), event.getPayload())
+                    .whenComplete((result, ex) -> {
+                        if (ex != null) {
+                            log.warn("보완 발행 실패: eventId={}, retry={}/{}",
+                                    event.getEventId(), event.getRetryCount(), event.getMaxRetries(), ex);
+                        }
+                    });
+
+            event.scheduleNextRetry();
+            outboxEventRepository.save(event);
+            retryCount++;
         }
 
-        if (successCount > 0 || failedCount > 0) {
-            log.info("Outbox relay 완료: success={}, failed={}", successCount, failedCount);
+        if (retryCount > 0 || deadCount > 0) {
+            log.info("Outbox 보완 relay: 재시도={}, FAILED={}", retryCount, deadCount);
         }
     }
 }
