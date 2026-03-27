@@ -35,6 +35,15 @@ public class KafkaTopicConfig {
                 .build();
     }
 
+    // 선착순 쿠폰 발급 요청 — templateId 파티션 키로 같은 쿠폰 순차 처리 보장
+    @Bean
+    public NewTopic couponIssueRequestsTopic() {
+        return TopicBuilder.name(OutboxTopics.COUPON_ISSUE_REQUESTS)
+                .partitions(PARTITION_COUNT)
+                .replicas(REPLICATION_FACTOR)
+                .build();
+    }
+
     // DLQ 토픽 — 컨슈머 처리 실패 메시지 보관 (파티션 1개: 순서 무관, 수동 확인용)
     @Bean
     public NewTopic catalogEventsDlqTopic() {
@@ -47,6 +56,14 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic orderEventsDlqTopic() {
         return TopicBuilder.name(OutboxTopics.ORDER_EVENTS + ".dlq")
+                .partitions(1)
+                .replicas(REPLICATION_FACTOR)
+                .build();
+    }
+
+    @Bean
+    public NewTopic couponIssueRequestsDlqTopic() {
+        return TopicBuilder.name(OutboxTopics.COUPON_ISSUE_REQUESTS + ".dlq")
                 .partitions(1)
                 .replicas(REPLICATION_FACTOR)
                 .build();

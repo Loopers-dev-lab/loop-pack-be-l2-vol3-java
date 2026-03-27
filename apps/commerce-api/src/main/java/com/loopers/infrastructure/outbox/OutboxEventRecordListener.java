@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.outbox;
 
+import com.loopers.domain.coupon.CouponIssueRequestEvent;
 import com.loopers.domain.like.LikeCancelledEvent;
 import com.loopers.domain.like.LikeCreatedEvent;
 import com.loopers.domain.order.OrderCreatedEvent;
@@ -47,5 +48,16 @@ public class OutboxEventRecordListener {
                         "totalAmount", event.totalAmount(), "itemCount", event.items().size()),
                 OutboxTopics.ORDER_EVENTS, String.valueOf(event.orderId()));
         log.debug("[Outbox 기록] ORDER_CREATED: orderId={}", event.orderId());
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    public void onCouponIssueRequested(CouponIssueRequestEvent event) {
+        outboxRecorder.record("COUPON_TEMPLATE", event.couponTemplateId(), "COUPON_ISSUE_REQUESTED",
+                Map.of("couponIssueResultId", event.couponIssueResultId(),
+                        "couponTemplateId", event.couponTemplateId(),
+                        "userId", event.userId()),
+                OutboxTopics.COUPON_ISSUE_REQUESTS, String.valueOf(event.couponTemplateId()));
+        log.debug("[Outbox 기록] COUPON_ISSUE_REQUESTED: templateId={}, userId={}",
+                event.couponTemplateId(), event.userId());
     }
 }

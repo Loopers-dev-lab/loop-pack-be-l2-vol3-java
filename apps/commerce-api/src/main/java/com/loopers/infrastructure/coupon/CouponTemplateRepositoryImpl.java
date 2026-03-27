@@ -37,4 +37,9 @@ public class CouponTemplateRepositoryImpl implements CouponTemplateRepository {
     public List<CouponTemplate> findAllByIds(Collection<Long> ids) {
         return couponTemplateJpaRepository.findAllByIdInAndDeletedAtIsNull(ids);
     }
+
+    @Override
+    public List<CouponTemplate> findAllWithMaxIssueCount() {
+        return couponTemplateJpaRepository.findAllByMaxIssueCountIsNotNullAndDeletedAtIsNull();
+    }
 }
