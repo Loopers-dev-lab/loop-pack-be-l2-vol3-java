@@ -22,4 +22,21 @@ public class KafkaTopicConfig {
     public NewTopic couponIssueRequests() {
         return TopicBuilder.name("coupon-issue-requests").partitions(3).build();
     }
+
+    // DLT (Dead Letter Topic)
+
+    @Bean
+    public NewTopic catalogEventsDlt() {
+        return TopicBuilder.name("catalog-events.DLT").partitions(1).build();
+    }
+
+    @Bean
+    public NewTopic orderEventsDlt() {
+        return TopicBuilder.name("order-events.DLT").partitions(1).build();
+    }
+
+    @Bean
+    public NewTopic couponIssueRequestsDlt() {
+        return TopicBuilder.name("coupon-issue-requests.DLT").partitions(1).build();
+    }
 }

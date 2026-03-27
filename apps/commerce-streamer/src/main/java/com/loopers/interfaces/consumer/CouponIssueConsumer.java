@@ -4,12 +4,16 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.coupon.CouponIssueProcessor;
 import com.loopers.application.idempotent.IdempotentProcessor;
+import com.loopers.confg.kafka.KafkaConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.listener.BatchListenerFailedException;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 @Slf4j
 @Component
@@ -20,24 +24,30 @@ public class CouponIssueConsumer {
     private final CouponIssueProcessor couponIssueProcessor;
     private final ObjectMapper objectMapper;
 
-    @KafkaListener(topics = "coupon-issue-requests", groupId = "commerce-streamer")
-    public void consume(ConsumerRecord<String, byte[]> record, Acknowledgment ack) {
-        try {
-            JsonNode node = objectMapper.readTree(record.value());
-            String eventId = node.path("eventId").asText();
-            String eventType = node.path("eventType").asText();
-            JsonNode payload = objectMapper.readTree(node.path("payload").asText());
-
-            Long couponId = payload.path("couponId").asLong();
-            Long userId = payload.path("userId").asLong();
-
-            idempotentProcessor.process(eventId, eventType,
-                    () -> couponIssueProcessor.process(eventId, couponId, userId));
-
-            ack.acknowledge();
-        } catch (Exception e) {
-            log.error("쿠폰 발급 이벤트 처리 실패: offset={}", record.offset(), e);
-            throw new RuntimeException(e);
+    @KafkaListener(topics = "coupon-issue-requests", groupId = "coupon-processing",
+            containerFactory = KafkaConfig.BATCH_LISTENER)
+    public void consume(List<ConsumerRecord<String, byte[]>> records, Acknowledgment ack) {
+        for (int i = 0; i < records.size(); i++) {
+            try {
+                processRecord(records.get(i));
+            } catch (Exception e) {
+                throw new BatchListenerFailedException("쿠폰 발급 이벤트 처리 실패", e, i);
+            }
         }
+        ack.acknowledge();
+    }
+
+    private void processRecord(ConsumerRecord<String, byte[]> record) throws Exception {
+        JsonNode node = objectMapper.readTree(record.value());
+        String eventId = node.path("eventId").asText();
+        String eventType = node.path("eventType").asText();
+        JsonNode payload = objectMapper.readTree(node.path("payload").asText());
+
+        Long couponId = payload.path("couponId").asLong();
+        Long userId = payload.path("userId").asLong();
+        String idempotencyKey = "coupon-processing:" + eventId;
+
+        idempotentProcessor.process(idempotencyKey, eventType,
+                () -> couponIssueProcessor.process(eventId, couponId, userId));
     }
 }

@@ -20,7 +20,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OutboxRelayScheduler {
 
-    private static final int BATCH_SIZE = 100;
+    private static final int BATCH_SIZE = 200;
     private static final int MAX_RETRY_COUNT = 5;
     private static final long MAX_AGE_MINUTES = 5;
 
