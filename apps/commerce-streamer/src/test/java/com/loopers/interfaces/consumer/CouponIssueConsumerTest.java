@@ -19,6 +19,7 @@ import org.springframework.kafka.support.Acknowledgment;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.coupon.CouponIssueService;
+import com.loopers.domain.coupon.CouponIssueStatusManager;
 import com.loopers.interfaces.consumer.support.KafkaMessageParser;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,12 +31,15 @@ class CouponIssueConsumerTest {
     private CouponIssueService couponIssueService;
 
     @Mock
+    private CouponIssueStatusManager couponIssueStatusManager;
+
+    @Mock
     private Acknowledgment acknowledgment;
 
     @BeforeEach
     void setUp() {
         KafkaMessageParser kafkaMessageParser = new KafkaMessageParser(new ObjectMapper());
-        couponIssueConsumer = new CouponIssueConsumer(couponIssueService, kafkaMessageParser);
+        couponIssueConsumer = new CouponIssueConsumer(couponIssueService, couponIssueStatusManager, kafkaMessageParser);
     }
 
     @DisplayName("쿠폰 발급 이벤트를 소비할 때,")
@@ -55,6 +59,7 @@ class CouponIssueConsumerTest {
 
             // assert
             then(couponIssueService).should().issue("coupon-issue:1:100", 1L, 100L);
+            then(couponIssueStatusManager).should().markCompleted(1L, 100L);
             then(acknowledgment).should().acknowledge();
         }
 
@@ -76,9 +81,9 @@ class CouponIssueConsumerTest {
             then(acknowledgment).should().acknowledge();
         }
 
-        @DisplayName("Service에서 예외가 발생하면, skip하고 ACK한다.")
+        @DisplayName("Service에서 예외가 발생하면, FAILED 상태로 업데이트하고 ACK한다.")
         @Test
-        void skipsAndAcks_whenServiceThrows() {
+        void marksFailedAndAcks_whenServiceThrows() {
             // arrange
             ConsumerRecord<String, Object> record = new ConsumerRecord<>(
                     "coupon-issue-v1", 0, 0, "1",
@@ -90,6 +95,22 @@ class CouponIssueConsumerTest {
             couponIssueConsumer.consume(List.of(record), acknowledgment);
 
             // assert
+            then(couponIssueStatusManager).should().markFailed(1L, 100L);
+            then(acknowledgment).should().acknowledge();
+        }
+
+        @DisplayName("파싱 실패 시, markFailed를 호출하지 않고 ACK한다.")
+        @Test
+        void doesNotMarkFailed_whenParsingFails() {
+            // arrange
+            ConsumerRecord<String, Object> badRecord = new ConsumerRecord<>(
+                    "coupon-issue-v1", 0, 0, "1", "invalid-json");
+
+            // act
+            couponIssueConsumer.consume(List.of(badRecord), acknowledgment);
+
+            // assert
+            then(couponIssueStatusManager).shouldHaveNoInteractions();
             then(acknowledgment).should().acknowledge();
         }
     }

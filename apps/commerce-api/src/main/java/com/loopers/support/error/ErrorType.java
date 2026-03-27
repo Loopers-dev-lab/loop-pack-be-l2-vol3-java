@@ -89,6 +89,7 @@ public enum ErrorType {
     FORBIDDEN_COUPON_ACCESS(HttpStatus.FORBIDDEN, "FORBIDDEN_COUPON_ACCESS", "접근 권한이 없는 쿠폰입니다."),
     COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND", "쿠폰을 찾을 수 없습니다."),
     OWNED_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "OWNED_COUPON_NOT_FOUND", "보유 쿠폰을 찾을 수 없습니다."),
+    COUPON_ISSUE_STATUS_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_ISSUE_STATUS_NOT_FOUND", "쿠폰 발급 상태를 찾을 수 없습니다."),
 
     /** Payment 도메인 에러 */
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND", "결제를 찾을 수 없습니다."),

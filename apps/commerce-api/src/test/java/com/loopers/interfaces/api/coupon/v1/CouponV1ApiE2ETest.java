@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.coupon.v1;
 
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.createCoupon;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.deleteCoupon;
+import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getCouponIssueStatus;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.issueCoupon;
 import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
 import static com.loopers.support.E2ETestHelper.adminAuthHeaders;
@@ -136,6 +137,55 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
 
             // act
             var response = issueCoupon(testRestTemplate, couponId, new HttpHeaders());
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+    }
+
+    @DisplayName("GET /api/v1/coupons/{couponId}/issue-status")
+    @Nested
+    class GetCouponIssueStatus {
+
+        @DisplayName("쿠폰 발급 후 상태를 조회하면, PENDING 상태를 반환한다.")
+        @Test
+        void returnsPending_afterCouponIssued() {
+            // arrange
+            var request = new CreateCouponRequest(
+                    "테스트 쿠폰",
+                    CouponType.FIXED,
+                    5000L,
+                    null,
+                    10000L,
+                    ZonedDateTime.now().plusDays(30),
+                    10000
+            );
+            var couponId = createCoupon(testRestTemplate, request);
+            issueCoupon(testRestTemplate, couponId, userHeaders);
+
+            // act
+            var response = getCouponIssueStatus(testRestTemplate, couponId, userHeaders);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody().data().status()).isEqualTo("PENDING");
+        }
+
+        @DisplayName("발급 요청 없이 상태를 조회하면, 404 응답을 받는다.")
+        @Test
+        void returns404_whenNoIssueRequest() {
+            // act
+            var response = getCouponIssueStatus(testRestTemplate, 999L, userHeaders);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.COUPON_ISSUE_STATUS_NOT_FOUND);
+        }
+
+        @DisplayName("인증되지 않은 사용자가 조회하면, 401 응답을 받는다.")
+        @Test
+        void returns401_whenNotAuthenticated() {
+            // act
+            var response = getCouponIssueStatus(testRestTemplate, 1L, new HttpHeaders());
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);

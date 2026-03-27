@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import com.loopers.application.coupon.CouponIssueService;
 import com.loopers.confg.kafka.KafkaConfig;
+import com.loopers.domain.coupon.CouponIssueStatusManager;
 import com.loopers.interfaces.consumer.dto.CouponIssueMessageDto.CouponIssueMessage;
 import com.loopers.interfaces.consumer.support.KafkaMessageParser;
 
@@ -30,6 +31,7 @@ public class CouponIssueConsumer {
     private static final String TOPIC = "coupon-issue-v1";
 
     private final CouponIssueService couponIssueService;
+    private final CouponIssueStatusManager couponIssueStatusManager;
     private final KafkaMessageParser kafkaMessageParser;
 
     @KafkaListener(
@@ -39,16 +41,30 @@ public class CouponIssueConsumer {
     public void consume(List<ConsumerRecord<String, Object>> messages, Acknowledgment ack) {
         log.debug("[CouponIssue] 배치 수신: size={}", messages.size());
         for (ConsumerRecord<String, Object> record : messages) {
+            CouponIssueMessage msg = null;
             try {
-                CouponIssueMessage msg = kafkaMessageParser.parse(record.value(), CouponIssueMessage.class);
+                msg = kafkaMessageParser.parse(record.value(), CouponIssueMessage.class);
                 String eventId = "coupon-issue:" + msg.couponId() + ":" + msg.userId();
 
                 couponIssueService.issue(eventId, msg.couponId(), msg.userId());
+                couponIssueStatusManager.markCompleted(msg.couponId(), msg.userId());
             } catch (Exception e) {
                 log.error("[CouponIssue] 처리 실패: topic={}, offset={}, partition={}",
                         record.topic(), record.offset(), record.partition(), e);
+                markFailedSafely(msg);
             }
         }
         ack.acknowledge();
+    }
+
+    private void markFailedSafely(CouponIssueMessage msg) {
+        if (msg == null) {
+            return;
+        }
+        try {
+            couponIssueStatusManager.markFailed(msg.couponId(), msg.userId());
+        } catch (Exception e) {
+            log.warn("[CouponIssue] 상태 업데이트 실패: couponId={}, userId={}", msg.couponId(), msg.userId(), e);
+        }
     }
 }

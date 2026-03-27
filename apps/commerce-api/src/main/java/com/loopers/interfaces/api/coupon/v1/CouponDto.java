@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotNull;
 import com.loopers.application.coupon.CouponCommand.CreateCouponCommand;
 import com.loopers.application.coupon.CouponCommand.UpdateCouponCommand;
 import com.loopers.application.coupon.CouponResult;
+import com.loopers.application.coupon.ReadCouponIssueStatusUseCase;
 import com.loopers.application.coupon.ReadOwnedCouponsUseCase;
 import com.loopers.domain.coupon.CouponType;
 
@@ -83,6 +84,13 @@ public class CouponDto {
             return results.stream()
                     .map(CouponResponse::from)
                     .toList();
+        }
+    }
+
+    public record CouponIssueStatusResponse(String status) {
+
+        public static CouponIssueStatusResponse from(ReadCouponIssueStatusUseCase.Result result) {
+            return new CouponIssueStatusResponse(result.status());
         }
     }
 }

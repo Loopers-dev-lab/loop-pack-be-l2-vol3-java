@@ -3,6 +3,7 @@ package com.loopers.application.coupon;
 import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.domain.coupon.CouponIssueEventPublisher;
 import com.loopers.domain.coupon.CouponIssueStatus;
+import com.loopers.domain.coupon.CouponIssueStatusManager;
 import com.loopers.domain.coupon.CouponStockManager;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -20,6 +21,7 @@ public class IssueOwnedCouponUseCase {
 
     private final CouponStockManager couponStockManager;
     private final CouponIssueEventPublisher couponIssueEventPublisher;
+    private final CouponIssueStatusManager couponIssueStatusManager;
 
     /**
      * 쿠폰 발급을 실행한다.
@@ -40,7 +42,10 @@ public class IssueOwnedCouponUseCase {
             case UNAVAILABLE -> throw new CoreException(ErrorType.SERVICE_UNAVAILABLE);
             case DUPLICATE -> throw new CoreException(ErrorType.ALREADY_COUPON_ISSUED);
             case SOLD_OUT -> throw new CoreException(ErrorType.COUPON_SOLD_OUT);
-            case SUCCESS -> couponIssueEventPublisher.publishEvent(couponId, userId);
+            case SUCCESS -> {
+                couponIssueEventPublisher.publishEvent(couponId, userId);
+                couponIssueStatusManager.markPending(couponId, userId);
+            }
         }
     }
 }
