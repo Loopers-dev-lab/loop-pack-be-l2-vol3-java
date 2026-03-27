@@ -7,6 +7,7 @@ import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PgClient;
 import com.loopers.domain.payment.PgPaymentCommand;
 import com.loopers.domain.payment.PgPaymentResult;
+import com.loopers.domain.event.PaymentCompletedEvent;
 import com.loopers.domain.payment.PgPaymentStatusResult;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -15,8 +16,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -29,6 +32,7 @@ public class PaymentFacade {
     private final OrderAppService orderAppService;
     private final PgClient pgClient;
     private final RedissonClient redissonClient;
+    private final ApplicationEventPublisher eventPublisher;
 
     private static final String PAYMENT_LOCK_PREFIX = "payment:lock:order:";
     private static final long LOCK_LEASE_TIME_SECONDS = 15;
@@ -102,6 +106,9 @@ public class PaymentFacade {
                 payment = paymentAppService.completePayment(payment.getId(), transactionId, message);
                 // TX3: Order → PAID
                 orderAppService.pay(payment.getOrderId());
+                // 결제 완료 이벤트 발행
+                eventPublisher.publishEvent(new PaymentCompletedEvent(
+                        payment.getId(), payment.getOrderId(), payment.getUserId(), ZonedDateTime.now()));
             } else {
                 // TX2: Payment → FAIL
                 payment = paymentAppService.failPayment(payment.getId(), message);
