@@ -5,6 +5,7 @@ import com.loopers.application.payment.command.CompletePaymentCommand;
 import com.loopers.application.payment.command.StartPaymentCommand;
 import com.loopers.application.order.OrderApplicationService;
 import com.loopers.application.order.query.OrderAccessRequest;
+import com.loopers.application.observability.annotation.LogBusinessSuccess;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
@@ -26,12 +27,12 @@ public class PaymentUseCase {
 
     private final PaymentStartApplicationService paymentStartApplicationService;
     private final PaymentCancelApplicationService paymentCancelApplicationService;
-    private final PaymentCompletionApplicationService paymentCompletionApplicationService;
+    private final PaymentCompleteService paymentCompleteService;
     private final PaymentRepository paymentRepository;
     private final PaymentGateway paymentGateway;
     private final OrderApplicationService orderApplicationService;
 
-    @Transactional
+    @LogBusinessSuccess(action = "PAYMENT_START", domain = "payment", memberIdArg = "memberId", aggregateIdArg = "orderId")
     public Payment start(String memberId, UUID orderId, CardType cardType, String cardNo, String callbackUrl) {
         Order order = orderApplicationService.getById(new OrderAccessRequest(orderId, memberId, false));
         if (order.isCancelled()) {
@@ -50,16 +51,19 @@ public class PaymentUseCase {
     }
 
     @Transactional
+    @LogBusinessSuccess(action = "PAYMENT_CANCEL", domain = "payment", memberIdArg = "command", aggregateIdArg = "command")
     public Payment cancel(CancelPaymentCommand command) {
         return paymentCancelApplicationService.cancel(command);
     }
 
     @Transactional
+    @LogBusinessSuccess(action = "PAYMENT_COMPLETE", domain = "payment", memberIdArg = "command", aggregateIdArg = "command")
     public Payment complete(CompletePaymentCommand command) {
-        return paymentCompletionApplicationService.complete(command);
+        return paymentCompleteService.complete(command);
     }
 
     @Transactional
+    @LogBusinessSuccess(action = "PAYMENT_RECONCILE", domain = "payment", memberIdArg = "memberId", aggregateIdArg = "orderId")
     public Payment reconcile(String memberId, UUID orderId) {
         Payment payment = paymentRepository.findByMemberIdAndOrderId(memberId, orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "결제 내역을 찾을 수 없습니다."));
@@ -171,7 +175,7 @@ public class PaymentUseCase {
 
         Payment completed;
         try {
-            completed = paymentCompletionApplicationService.complete(
+            completed = paymentCompleteService.complete(
                     new CompletePaymentCommand(memberId, target.pgTransactionKey())
             );
         } catch (CoreException e) {

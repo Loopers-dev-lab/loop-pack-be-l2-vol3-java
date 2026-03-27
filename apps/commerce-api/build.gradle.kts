@@ -1,3 +1,7 @@
+tasks.bootJar {
+    archiveFileName.set("app.jar")
+}
+
 dependencies {
     // add-ons
     implementation(project(":modules:jpa"))

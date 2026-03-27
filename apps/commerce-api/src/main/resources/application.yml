@@ -70,8 +70,10 @@ loopers:
     brand-category:
       enabled: true
   payment:
+    gateway:
+      mode: ${PAYMENT_GATEWAY_MODE:pg-simulator}
     pg-simulator:
-      url: http://localhost:8082
+      url: ${PG_SIMULATOR_URL:http://localhost:8082}
     completion:
       polling:
         enabled: true
