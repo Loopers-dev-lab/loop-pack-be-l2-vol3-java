@@ -9,18 +9,11 @@ UPDATE outbox_event
 SET updated_at = created_at
 WHERE updated_at IS NULL;
 
--- 인덱스 최적화
--- PROCESSING 복구용 (updated_at 기준)
-CREATE INDEX idx_outbox_processing_updated ON outbox_event (updated_at)
-WHERE status = 'PROCESSING';
+-- 인덱스 최적화 (MySQL 호환 — Partial Index는 PostgreSQL 전용이므로 복합 인덱스로 대체)
+-- status가 선두 컬럼이면 PENDING/PROCESSING 조회 모두 커버
+CREATE INDEX IF NOT EXISTS idx_outbox_status_updated ON outbox_event (status, updated_at);
+CREATE INDEX IF NOT EXISTS idx_outbox_status_created ON outbox_event (status, created_at);
 
--- PENDING 조회 최적화 (Partial Index)
-CREATE INDEX idx_outbox_pending_created ON outbox_event (created_at)
-WHERE status = 'PENDING';
-
--- PROCESSING 조회 최적화 (Partial Index)
-CREATE INDEX idx_outbox_processing_created ON outbox_event (created_at)
-WHERE status = 'PROCESSING';
-
--- 기존 복합 인덱스는 유지 (status, created_at)
--- 기존 복합 인덱스는 유지 (status, updated_at)
+-- 참고: PostgreSQL이면 WHERE 조건부 Partial Index가 더 효율적이지만
+-- 이 프로젝트는 MySQL 사용이므로 복합 인덱스로 대체.
+-- JPA @Table 어노테이션의 인덱스와 중복될 수 있으나, Flyway 도입 시 정리 예정.
