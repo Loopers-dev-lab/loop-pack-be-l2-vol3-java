@@ -1,0 +1,22 @@
+### PG Simulator API Test
+
+### 결제 요청 (POST)
+POST http://localhost:8081/api/v1/payments
+Content-Type: application/json
+X-USER-ID: 1
+
+{
+  "orderId": "ORDER-001",
+  "cardType": "VISA",
+  "cardNo": "4111111111111111",
+  "amount": 50000,
+  "callbackUrl": "http://localhost:8080/api/v1/payments/callback"
+}
+
+### 결제 조회 - transactionId로 조회 (GET)
+GET http://localhost:8081/api/v1/payments/{{transactionId}}
+X-USER-ID: 1
+
+### 결제 조회 - orderId로 조회 (GET)
+GET http://localhost:8081/api/v1/payments?orderId=ORDER-001
+X-USER-ID: 1

@@ -21,6 +21,8 @@ spring:
     import:
       - jpa.yml
       - redis.yml
+      - pg.yml
+      - resilience4j.yml
       - logging.yml
       - monitoring.yml
 

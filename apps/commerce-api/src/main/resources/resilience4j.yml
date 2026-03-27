@@ -1,0 +1,31 @@
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - com.loopers.infrastructure.pg.exception.PgClientException
+          - java.util.concurrent.TimeoutException
+          - java.io.IOException
+    instances:
+      pgPayment:
+        base-config: default
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 10s
+        cancel-running-future: true
+    instances:
+      pgPayment:
+        base-config: default
+        timeout-duration: 10s

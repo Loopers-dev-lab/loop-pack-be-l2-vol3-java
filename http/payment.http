@@ -1,0 +1,68 @@
+### 결제 API 테스트
+
+### 결제 요청
+POST http://localhost:8080/api/v1/payments
+Content-Type: application/json
+X-Loopers-LoginId: user1
+X-Loopers-LoginPw: password123
+
+{
+  "orderId": 1,
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9814-1451"
+}
+
+### 결제 콜백 (성공) - PG에서 호출
+POST http://localhost:8080/api/v1/payments/callback
+Content-Type: application/json
+
+{
+  "transactionId": "TXN-001",
+  "orderId": "1",
+  "status": "APPROVED",
+  "amount": 50000,
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9814-1451",
+  "createdAt": "2024-03-20T10:00:00+09:00",
+  "updatedAt": "2024-03-20T10:00:01+09:00",
+  "failureReason": null
+}
+
+### 결제 콜백 (실패) - PG에서 호출
+POST http://localhost:8080/api/v1/payments/callback
+Content-Type: application/json
+
+{
+  "transactionId": "TXN-002",
+  "orderId": "2",
+  "status": "REJECTED",
+  "amount": 50000,
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9814-1451",
+  "createdAt": "2024-03-20T10:00:00+09:00",
+  "updatedAt": "2024-03-20T10:00:01+09:00",
+  "failureReason": "잔액 부족"
+}
+
+### 결제 조회
+GET http://localhost:8080/api/v1/payments/1
+
+### 주문으로 결제 조회
+GET http://localhost:8080/api/v1/payments/orders/1
+
+###
+### 결제 상태 동기화 API
+###
+
+### 단건 결제 상태 동기화 (paymentId로)
+POST http://localhost:8080/api/v1/payments/1/sync
+X-Loopers-LoginId: user1
+X-Loopers-LoginPw: password123
+
+### 주문으로 결제 상태 동기화 (orderId로)
+POST http://localhost:8080/api/v1/payments/orders/1/sync
+X-Loopers-LoginId: user1
+X-Loopers-LoginPw: password123
+
+### 모든 PENDING 상태 결제 동기화 (관리자용 배치)
+POST http://localhost:8080/api/v1/payments/sync-all

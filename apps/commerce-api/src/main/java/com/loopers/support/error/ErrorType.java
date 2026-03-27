@@ -49,7 +49,12 @@ public enum ErrorType {
 
     /** 포인트 관련 에러 */
     POINT_NOT_FOUND(HttpStatus.NOT_FOUND, "POINT_NOT_FOUND", "포인트 정보를 찾을 수 없습니다."),
-    INSUFFICIENT_POINT(HttpStatus.BAD_REQUEST, "INSUFFICIENT_POINT", "포인트가 부족합니다.");
+    INSUFFICIENT_POINT(HttpStatus.BAD_REQUEST, "INSUFFICIENT_POINT", "포인트가 부족합니다."),
+
+    /** 결제 관련 에러 */
+    PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND", "결제 정보를 찾을 수 없습니다."),
+    PAYMENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "PAYMENT_ALREADY_EXISTS", "이미 결제가 존재합니다."),
+    PAYMENT_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "PAYMENT_REQUEST_FAILED", "결제 요청에 실패했습니다.");
 
     private final HttpStatus status;
     private final String code;
