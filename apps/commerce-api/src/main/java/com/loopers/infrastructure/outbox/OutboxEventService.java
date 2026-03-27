@@ -1,45 +1,47 @@
 package com.loopers.infrastructure.outbox;
 
-import com.loopers.support.outbox.DomainEvent;
 import com.loopers.support.outbox.OutboxEvent;
 import com.loopers.support.outbox.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+/**
+ * Outbox INSERT + 즉시 발행을 한 번에 처리.
+ * Facade에서 이 메서드 하나만 호출하면 됨.
+ *
+ * 1. 같은 TX에서 Outbox INSERT (원자성)
+ * 2. afterCommit에서 비동기 Kafka send (논블로킹, 실패 시 PENDING 유지)
+ */
 @Slf4j
-@Component
+@Service
 @RequiredArgsConstructor
-public class OutboxEventListener {
+public class OutboxEventService {
 
-    private final OutboxEventFactory outboxEventFactory;
     private final OutboxEventRepository outboxEventRepository;
+    private final OutboxEventFactory outboxEventFactory;
     private final KafkaTemplate<Object, Object> kafkaTemplate;
 
-    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
-    public void onDomainEvent(DomainEvent event) {
-        OutboxEvent outboxEvent = outboxEventFactory.create(event);
-        if (outboxEvent == null) {
-            return;
-        }
-
-        // BEFORE_COMMIT: 같은 TX에서 Outbox INSERT (원자성 보장)
+    /**
+     * Outbox에 저장하고 TX 커밋 후 즉시 비동기 발행.
+     * 발행 실패해도 PENDING 유지 → @Scheduled 보완이 수거.
+     */
+    public void saveAndPublish(String eventType, String aggregateType, String aggregateId,
+                               String topic, Object eventPayload) {
+        OutboxEvent outboxEvent = outboxEventFactory.create(eventType, aggregateType, aggregateId, topic, eventPayload);
         outboxEventRepository.save(outboxEvent);
 
-        // afterCommit: TX 커밋 후 즉시 발행 (비동기, 논블로킹)
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
                 kafkaTemplate.send(outboxEvent.getTopic(), outboxEvent.getAggregateId(), outboxEvent.getPayload())
                         .whenComplete((result, ex) -> {
                             if (ex != null) {
-                                log.warn("즉시 발행 실패, @Scheduled가 보완 예정: eventId={}", outboxEvent.getEventId(), ex);
-                                // PENDING 상태 유지. 발행 쪽에서 DB 상태를 건드리지 않음.
+                                log.warn("즉시 발행 실패, @Scheduled가 보완 예정: eventId={}",
+                                        outboxEvent.getEventId(), ex);
                             }
                         });
             }

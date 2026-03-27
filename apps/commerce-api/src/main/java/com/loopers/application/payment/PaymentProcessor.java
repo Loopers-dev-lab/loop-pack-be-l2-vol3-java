@@ -8,6 +8,7 @@ import com.loopers.application.order.OrderService;
 import com.loopers.application.stock.StockService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.payment.Payment;
+import com.loopers.infrastructure.outbox.OutboxEventService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,7 @@ public class PaymentProcessor {
     private final IssuedCouponService issuedCouponService;
     private final OrderService orderService;
     private final ApplicationEventPublisher eventPublisher;
+    private final OutboxEventService outboxEventService;
 
     /**
      * PG 승인 성공 → 비즈니스 확정 (원자적)
@@ -36,6 +38,9 @@ public class PaymentProcessor {
         Payment payment = paymentService.getPayment(paymentId);
         eventPublisher.publishEvent(new PaymentCompletedEvent(
                 paymentId, orderId, payment.getUserId(), payment.getAmount()));
+        outboxEventService.saveAndPublish("payment.completed", "Order",
+                String.valueOf(orderId), "order-events",
+                new PaymentCompletedEvent(paymentId, orderId, payment.getUserId(), payment.getAmount()));
     }
 
     /**
@@ -55,6 +60,9 @@ public class PaymentProcessor {
         Payment payment = paymentService.getPayment(paymentId);
         eventPublisher.publishEvent(new PaymentFailedEvent(
                 paymentId, orderId, payment.getUserId(), reason));
+        outboxEventService.saveAndPublish("payment.failed", "Order",
+                String.valueOf(orderId), "order-events",
+                new PaymentFailedEvent(paymentId, orderId, payment.getUserId(), reason));
     }
 
     /**
@@ -74,5 +82,8 @@ public class PaymentProcessor {
         Payment payment = paymentService.getPayment(paymentId);
         eventPublisher.publishEvent(new PaymentCanceledEvent(
                 paymentId, orderId, payment.getUserId()));
+        outboxEventService.saveAndPublish("payment.canceled", "Order",
+                String.valueOf(orderId), "order-events",
+                new PaymentCanceledEvent(paymentId, orderId, payment.getUserId()));
     }
 }

@@ -2,6 +2,7 @@ package com.loopers.application.coupon;
 
 import com.loopers.application.event.CouponIssueRequestedEvent;
 import com.loopers.application.user.UserService;
+import com.loopers.infrastructure.outbox.OutboxEventService;
 import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.CouponIssueRequest;
 import com.loopers.domain.coupon.CouponIssueRequestRepository;
@@ -32,6 +33,7 @@ public class CouponFacade {
     private final UserService userService;
     private final CouponIssueRequestRepository couponIssueRequestRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final OutboxEventService outboxEventService;
 
     // Command
 
@@ -71,7 +73,9 @@ public class CouponFacade {
         String eventId = UUID.randomUUID().toString();
         CouponIssueRequest request = couponIssueRequestRepository.save(
                 CouponIssueRequest.create(eventId, couponId, userId));
-        eventPublisher.publishEvent(new CouponIssueRequestedEvent(eventId, couponId, userId));
+        outboxEventService.saveAndPublish("coupon.issue.requested", "Coupon",
+                String.valueOf(couponId), "coupon-issue-requests",
+                new CouponIssueRequestedEvent(eventId, couponId, userId));
         return CouponIssueRequestInfo.from(request);
     }
 
