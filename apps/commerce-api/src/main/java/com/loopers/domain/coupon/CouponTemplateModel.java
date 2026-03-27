@@ -40,17 +40,33 @@ public class CouponTemplateModel extends BaseEntity {
     @Column(name = "expired_at", nullable = false)
     private ZonedDateTime expiredAt;
 
+    /** null이면 전역 발급 상한 없음 */
+    @Column(name = "max_issue_count")
+    private Integer maxIssueCount;
+
+    @Column(name = "issued_count", nullable = false)
+    private int issuedCount;
+
     private CouponTemplateModel(String name, CouponType type, int value,
-                                 BigDecimal minOrderAmount, ZonedDateTime expiredAt) {
+                                 BigDecimal minOrderAmount, ZonedDateTime expiredAt,
+                                 Integer maxIssueCount, int issuedCount) {
         this.name = name;
         this.type = type;
         this.value = value;
         this.minOrderAmount = minOrderAmount;
         this.expiredAt = expiredAt;
+        this.maxIssueCount = maxIssueCount;
+        this.issuedCount = issuedCount;
     }
 
     public static CouponTemplateModel create(String name, CouponType type, int value,
                                             BigDecimal minOrderAmount, ZonedDateTime expiredAt) {
+        return create(name, type, value, minOrderAmount, expiredAt, null);
+    }
+
+    public static CouponTemplateModel create(String name, CouponType type, int value,
+                                            BigDecimal minOrderAmount, ZonedDateTime expiredAt,
+                                            Integer maxIssueCount) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("쿠폰 이름은 null이거나 비어 있을 수 없습니다.");
         }
@@ -66,19 +82,33 @@ public class CouponTemplateModel extends BaseEntity {
         if (type == CouponType.FIXED && value < 0) {
             throw new IllegalArgumentException("정액 쿠폰의 value는 0 이상이어야 합니다.");
         }
-        return new CouponTemplateModel(name.trim(), type, value, minOrderAmount, expiredAt);
+        if (maxIssueCount != null && maxIssueCount < 1) {
+            throw new IllegalArgumentException("발급 상한은 1 이상이거나 비워야 합니다.");
+        }
+        return new CouponTemplateModel(name.trim(), type, value, minOrderAmount, expiredAt, maxIssueCount, 0);
     }
 
     public boolean isExpired(ZonedDateTime now) {
         return now != null && !now.isBefore(expiredAt);
     }
 
+    /**
+     * 선착순 전역 상한이 설정되어 있고, 이미 그만큼 발급된 경우.
+     */
+    public boolean isSoldOut() {
+        return maxIssueCount != null && issuedCount >= maxIssueCount;
+    }
+
     public boolean isDeleted() {
         return getDeletedAt() != null;
     }
 
+    public void incrementIssuedCountAfterSuccessfulIssue() {
+        this.issuedCount = this.issuedCount + 1;
+    }
+
     public void update(String name, CouponType type, int value,
-                      BigDecimal minOrderAmount, ZonedDateTime expiredAt) {
+                      BigDecimal minOrderAmount, ZonedDateTime expiredAt, Integer maxIssueCount) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("쿠폰 이름은 null이거나 비어 있을 수 없습니다.");
         }
@@ -94,10 +124,17 @@ public class CouponTemplateModel extends BaseEntity {
         if (type == CouponType.FIXED && value < 0) {
             throw new IllegalArgumentException("정액 쿠폰의 value는 0 이상이어야 합니다.");
         }
+        if (maxIssueCount != null && maxIssueCount < 1) {
+            throw new IllegalArgumentException("발급 상한은 1 이상이거나 비워야 합니다.");
+        }
+        if (maxIssueCount != null && maxIssueCount < this.issuedCount) {
+            throw new IllegalArgumentException("발급 상한은 이미 발급된 수보다 작을 수 없습니다.");
+        }
         this.name = name.trim();
         this.type = type;
         this.value = value;
         this.minOrderAmount = minOrderAmount;
         this.expiredAt = expiredAt;
+        this.maxIssueCount = maxIssueCount;
     }
 }

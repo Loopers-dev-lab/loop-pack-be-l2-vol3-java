@@ -25,4 +25,6 @@ public interface IssuedCouponJpaRepository extends JpaRepository<IssuedCouponMod
     Page<IssuedCouponModel> findByCouponIdOrderByCreatedAtDesc(Long couponId, Pageable pageable);
 
     Page<IssuedCouponProjection> findProjectionByCouponIdOrderByCreatedAtDesc(Long couponId, Pageable pageable);
+
+    boolean existsByUserIdAndCouponId(Long userId, Long couponId);
 }

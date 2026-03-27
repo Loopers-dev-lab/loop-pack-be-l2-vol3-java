@@ -25,7 +25,15 @@ import static lombok.AccessLevel.PROTECTED;
  * JPA는 UPDATE 시 {@code WHERE id = ? AND version = ?}를 사용하며, 버전 불일치 시 수정 행 0 → OptimisticLockException. (05-transaction-query §3.1)
  */
 @Entity
-@Table(name = "issued_coupon")
+@Table(
+        name = "issued_coupon",
+        uniqueConstraints = {
+                @jakarta.persistence.UniqueConstraint(
+                        name = "uk_issued_coupon_user_coupon",
+                        columnNames = {"user_id", "coupon_id"}
+                )
+        }
+)
 @Getter
 @NoArgsConstructor(access = PROTECTED)
 public class IssuedCouponModel extends BaseEntity {

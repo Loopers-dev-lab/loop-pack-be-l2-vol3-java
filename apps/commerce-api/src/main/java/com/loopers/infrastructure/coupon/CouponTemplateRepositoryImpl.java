@@ -29,6 +29,11 @@ public class CouponTemplateRepositoryImpl implements CouponTemplateRepository {
     }
 
     @Override
+    public Optional<CouponTemplateModel> findByIdAndNotDeletedForUpdate(Long id) {
+        return jpaRepository.findByIdAndDeletedAtIsNullForUpdate(id);
+    }
+
+    @Override
     public Page<CouponTemplateModel> findNotDeleted(Pageable pageable) {
         return jpaRepository.findByDeletedAtIsNull(pageable);
     }

@@ -27,5 +27,7 @@ public interface IssuedCouponRepository {
     /** 조회 전용 프로젝션. */
     Page<IssuedCouponProjection> findByCouponIdAsProjection(Long couponId, Pageable pageable);
 
+    boolean existsByUserIdAndCouponId(Long userId, Long couponId);
+
     IssuedCouponModel save(IssuedCouponModel issuedCoupon);
 }
