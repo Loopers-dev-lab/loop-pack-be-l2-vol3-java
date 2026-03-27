@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.coupon;
 
+import com.loopers.application.coupon.CouponIssueRequestInfo;
 import com.loopers.application.coupon.UserCouponInfo;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -39,6 +40,29 @@ public class UserCouponV1Dto {
                 info.status(),
                 info.issuedAt(),
                 info.usedAt()
+            );
+        }
+    }
+
+    public record IssueAsyncResponse(
+        String requestId,
+        Long couponId,
+        String status
+    ) {
+        public static IssueAsyncResponse from(CouponIssueRequestInfo info) {
+            return new IssueAsyncResponse(info.requestId(), info.couponId(), info.status());
+        }
+    }
+
+    public record IssueRequestStatusResponse(
+        String requestId,
+        Long couponId,
+        String status,
+        String failureReason
+    ) {
+        public static IssueRequestStatusResponse from(CouponIssueRequestInfo info) {
+            return new IssueRequestStatusResponse(
+                info.requestId(), info.couponId(), info.status(), info.failureReason()
             );
         }
     }

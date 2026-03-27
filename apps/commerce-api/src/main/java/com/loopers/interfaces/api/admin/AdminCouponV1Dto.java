@@ -13,7 +13,8 @@ public class AdminCouponV1Dto {
         String type,
         Integer value,
         Integer minOrderAmount,
-        ZonedDateTime expiredAt
+        ZonedDateTime expiredAt,
+        Integer maxIssuable
     ) {}
 
     public record UpdateCouponRequest(

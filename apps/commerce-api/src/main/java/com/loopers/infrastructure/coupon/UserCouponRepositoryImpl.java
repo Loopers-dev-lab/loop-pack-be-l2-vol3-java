@@ -32,6 +32,11 @@ public class UserCouponRepositoryImpl implements UserCouponRepository {
     }
 
     @Override
+    public long countByCouponId(Long couponId) {
+        return userCouponJpaRepository.countByCouponId(couponId);
+    }
+
+    @Override
     public Page<UserCoupon> findAllByCouponId(Long couponId, Pageable pageable) {
         Pageable sorted = PageRequest.of(
             pageable.getPageNumber(), pageable.getPageSize(),

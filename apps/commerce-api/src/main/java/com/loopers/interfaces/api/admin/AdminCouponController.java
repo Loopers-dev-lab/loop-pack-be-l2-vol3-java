@@ -37,7 +37,8 @@ public class AdminCouponController implements AdminCouponApiSpec {
                 request.type(),
                 request.value() != null ? request.value() : 0,
                 request.minOrderAmount() != null ? request.minOrderAmount() : 0,
-                request.expiredAt()
+                request.expiredAt(),
+                request.maxIssuable()
             )
         ));
     }
