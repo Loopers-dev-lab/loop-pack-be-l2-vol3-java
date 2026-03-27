@@ -1,5 +1,6 @@
 package com.loopers.domain.brand;
 
+import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import com.loopers.domain.product.ProductService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -28,6 +29,9 @@ class BrandServiceTest {
 
     @Mock
     private ProductService productService;
+
+    @Mock
+    private TransactionalOutboxWriter transactionalOutboxWriter;
 
     @InjectMocks
     private BrandService brandService;
