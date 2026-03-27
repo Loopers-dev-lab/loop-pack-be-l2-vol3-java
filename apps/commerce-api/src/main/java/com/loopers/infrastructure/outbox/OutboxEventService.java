@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import static com.loopers.support.transaction.TransactionHelper.afterCommit;
 
@@ -30,7 +32,9 @@ public class OutboxEventService {
     /**
      * Outbox에 저장하고 TX 커밋 후 즉시 비동기 발행.
      * Kafka ACK 성공 시 SENT 마킹, 실패 시 PENDING 유지 → @Scheduled 보완이 수거.
+     * MANDATORY: TX 없는 컨텍스트에서 호출하면 즉시 예외 — Outbox가 비즈니스 TX 밖에서 호출되는 실수 방지.
      */
+    @Transactional(propagation = Propagation.MANDATORY)
     public void saveAndPublish(String eventType, String aggregateType, String aggregateId,
                                String topic, Object eventPayload) {
         OutboxEvent outboxEvent = outboxEventFactory.create(eventType, aggregateType, aggregateId, topic, eventPayload);
