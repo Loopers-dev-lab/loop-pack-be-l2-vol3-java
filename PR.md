@@ -57,6 +57,16 @@ graph TB
 
 ## 의사결정 기록
 
+### 이 문서의 구조
+
+1. **왜 분리하는가** (D1~D3) — 핵심/부가 판별, 모놀리식에서의 분리 여부, 내부/외부 전달 기준
+2. **어떻게 발행하는가** (D4~D7) — Outbox INSERT 위치, 발행 전략 v1→v3 진화, AFTER_COMMIT, 토픽 설계
+3. **어떻게 중복을 막는가** (D8~D10) — Kafka/발행/소비 3계층 멱등성
+4. **실패하면 어떻게 되는가** (D11~D13) — DLT + 재시도, 결과적 일관성, 관측성
+5. **설정값 근거** — Consumer/Producer/스레드풀/서버/리소스 풀
+
+---
+
 ### 1. 왜 분리하는가
 
 #### D1. 핵심 vs 부가 분리 근거
@@ -86,6 +96,8 @@ private void publishToKafka(String eventType, Long productId, Object event) {
             outboxEventFactory.createPayload(eventType, event));
 }
 ```
+
+좋아요 요청 시 핵심(likes INSERT)과 부가(집계, Kafka 발행)가 분리되는 전체 흐름:
 
 ```mermaid
 sequenceDiagram
@@ -155,6 +167,8 @@ graph LR
 | 사용자 활동 로깅 | 같은 JVM 내 핸들러가 처리 | **ApplicationEvent** |
 | 결제 완료 → 메트릭 집계 | commerce-streamer(외부 앱)가 소비 | **Outbox → Kafka** |
 | 쿠폰 발급 요청 | commerce-streamer(외부 앱)가 소비 | **Outbox → Kafka** |
+
+두 경로가 Facade에서 어떻게 갈라지는지 시각화하면:
 
 ```mermaid
 graph LR
@@ -226,7 +240,7 @@ public void saveAndPublish(String eventType, String aggregateType, String aggreg
 
 3단계 진화를 거쳤다.
 
-**v1. 스케줄러 단독 (폴링)**
+**v1. 스케줄러 단독 (폴링)** — 스케줄러가 주기적으로 PENDING을 수거하여 발행. 구현은 단순하지만 폴링 주기만큼 지연이 발생한다.
 
 ```mermaid
 sequenceDiagram
@@ -253,9 +267,6 @@ sequenceDiagram
     end
 ```
 
-- 장점: 구현 단순, Kafka 장애 시에도 API는 정상
-- **단점: 최소 1초 지연 (폴링 주기)**
-
 ```java
 // OutboxRelayScheduler.java (v1 시절)
 @Scheduled(fixedDelay = 1000)
@@ -279,7 +290,7 @@ TX 커밋 직후 비동기로 즉시 발행하고, Producer가 발행한 메시�
 - SENT 마킹을 위해 Kafka를 한 번 더 경유 — 불필요한 네트워크 홉
 - v3의 `whenComplete` 콜백이면 Kafka ACK 시점에 바로 SENT 마킹 가능 — 더 단순하고 빠름
 
-**v3. 즉시 발행 + Scheduled 보완 (최종)**
+**v3. 즉시 발행 + Scheduled 보완 (최종)** — TX 커밋 직후 `afterCommit`에서 비동기로 즉시 발행하고, `whenComplete` 콜백으로 SENT 마킹. 즉시 발행이 실패하면 PENDING 유지 → 스케줄러가 1분마다 수거.
 
 ```mermaid
 sequenceDiagram
@@ -341,8 +352,12 @@ public void compensatePendingEvents() {
 - 정상 케이스 지연: **~0초** (v1 대비 1초 → 0초)
 - 즉시 발행 실패 시 PENDING 유지 → 스케줄러가 1분 내 수거
 - `@Transactional(MANDATORY)`: TX 없는 컨텍스트에서 호출 시 즉시 예외 → Outbox가 비즈니스 TX 밖에서 저장되는 실수 방지
-- **whenComplete 콜백 트레이드오프**: 콜백이 `kafka-producer-network-thread`에서 실행되므로, `markPublishedByEventId()`의 Hikari 커넥션 대기 시 모든 send() 콜백이 밀릴 수 있다. 현재 규모에서 SENT 마킹은 Hikari 30개 중 1개를 수 ms 점유 후 반환하므로 풀 고갈 가능성이 없고, 실패해도 PENDING 유지 → 스케줄러 보완으로 유실 불가능하므로 의도적으로 단순하게 유지했다. 중규모 전환 시 별도 비동기 스레드로 분리하거나 `BlockingQueue` + 배치 마킹으로 전환한다.
-- **findPending 타이밍 윈도우 방지**: 즉시 발행 ACK 대기 중에 스케줄러가 같은 PENDING을 수거하는 중복 발행을 줄이기 위해, `findPending` 쿼리에 `WHERE created_at < NOW() - 10초` 조건을 추가했다. 방금 생성된 이벤트는 즉시 발행이 진행 중일 수 있으므로 스킵한다.
+
+**인지하고 있는 트레이드오프:**
+
+> **whenComplete 콜백**: 콜백이 `kafka-producer-network-thread`에서 실행되므로, `markPublishedByEventId()`의 Hikari 커넥션 대기 시 모든 send() 콜백이 밀릴 수 있다. 현재 규모에서 SENT 마킹은 Hikari 30개 중 1개를 수 ms 점유 후 반환하므로 풀 고갈 가능성이 없고, 실패해도 PENDING 유지 → 스케줄러 보완으로 유실 불가능하므로 의도적으로 단순하게 유지했다. 중규모 전환 시 별도 비동기 스레드로 분리하거나 `BlockingQueue` + 배치 마킹으로 전환한다.
+
+> **findPending 타이밍 윈도우**: 즉시 발행 ACK 대기 중에 스케줄러가 같은 PENDING을 수거하면 불필요한 중복 발행이 발생한다. `findPending` 쿼리에 `WHERE created_at < NOW() - 10초` 조건을 추가하여, 즉시 발행이 진행 중일 수 있는 이벤트는 스킵하도록 개선했다.
 
 **현재 트래픽(~132 rps)에서는 이 방식이 적합하지만, 스케일 한계가 존재한다:**
 
@@ -499,6 +514,8 @@ public void consume(List<ConsumerRecord<String, Map<String, Object>>> records, A
 }
 ```
 
+최초 수신 시 비즈니스 로직을 실행하고, 같은 eventId가 재수신되면 SKIP하는 흐름:
+
 ```mermaid
 sequenceDiagram
     participant Kafka
@@ -527,7 +544,9 @@ sequenceDiagram
 - 비즈니스 로직 실행 + `event_handled` INSERT가 **같은 TX** → 원자적 보장
 - 처리 성공했는데 기록이 안 남는 경우가 없다 (둘 다 커밋되거나, 둘 다 롤백)
 - **At-Least-Once 발행 + 멱등 소비 = Exactly-Once 의미론**
-- **클린업**: `event_handled` 레코드는 7일 후 자동 삭제 (`EventHandledCleanupScheduler`, 매일 04:00). 테이블이 커져도 `eventId(PK)` 조회이므로 성능 영향 없음. Outbox FAILED의 수동 재발행은 반드시 7일 이내에 처리해야 하며, 초과 시 `event_handled`에서 삭제되어 멱등성 체크를 통과할 수 있다
+- **클린업**: `event_handled` 레코드는 7일 후 자동 삭제 (`EventHandledCleanupScheduler`, 매일 04:00)
+
+> **주의**: Outbox FAILED의 수동 재발행은 반드시 7일 이내에 처리해야 한다. 초과 시 `event_handled`에서 삭제되어 멱등성 체크를 통과할 수 있다.
 
 ---
 
@@ -581,7 +600,14 @@ sequenceDiagram
     end
 ```
 
-**배치 처리 중 부분 실패 흐름**: 배치 내 i번째 레코드에서 실패하면 `BatchListenerFailedException(i)`를 던지고, `ack.acknowledge()`에 도달하지 않는다. ErrorHandler가 실패한 i번째만 재시도하고 최종 실패 시 DLT로 이동시킨다. 이후 다음 poll에서 0번째부터 다시 가져오지만, 0~(i-1)번째는 이미 `event_handled`에 기록되어 있으므로 SKIP된다. i+1 이후 레코드는 아직 처리되지 않았으므로 정상 처리된다.
+**배치 처리 중 부분 실패 흐름**:
+
+1. 배치 내 i번째 레코드에서 실패 → `BatchListenerFailedException(i)` throw
+2. `ack.acknowledge()`에 도달하지 않음 → 오프셋 커밋 안 됨
+3. ErrorHandler가 i번째만 재시도 → 최종 실패 시 DLT로 이동
+4. 다음 poll에서 0번째부터 다시 수신
+5. 0~(i-1)번째: 이미 `event_handled`에 기록 → **SKIP**
+6. i+1 이후: 아직 미처리 → **정상 처리**
 
 **Outbox 측 발행 실패 흐름:**
 
