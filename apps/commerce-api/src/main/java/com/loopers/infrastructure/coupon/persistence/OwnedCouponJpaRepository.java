@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.coupon.persistence;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
@@ -21,5 +22,8 @@ public interface OwnedCouponJpaRepository extends JpaRepository<OwnedCoupon, Lon
     @Query("SELECT oc FROM OwnedCoupon oc JOIN FETCH oc.coupon WHERE oc.userId = :userId")
     Slice<OwnedCoupon> findAllByUserId(Long userId, Pageable pageable);
 
-    boolean existsByCouponIdAndUserId(Long couponId, Long userId);
+    long countByCouponId(Long couponId);
+
+    @Query("SELECT oc.userId FROM OwnedCoupon oc WHERE oc.coupon.id = :couponId")
+    List<Long> findUserIdsByCouponId(@Param("couponId") Long couponId);
 }

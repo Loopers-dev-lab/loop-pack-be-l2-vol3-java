@@ -32,8 +32,8 @@ public class OutboxEventService {
      * @param aggregateType 도메인 타입 (예: "LIKE", "ORDER")
      * @param eventType     이벤트 종류 (예: "LIKED", "ORDER_PLACED")
      * @param payload       직렬화된 이벤트 데이터 (JSON)
-     * @param topic         발행 대상 Kafka 토픽
-     * @param partitionKey  Kafka 파티션 키
+     * @param topic         발행 대상 토픽
+     * @param partitionKey  파티션 키
      */
     @Transactional
     public void save(

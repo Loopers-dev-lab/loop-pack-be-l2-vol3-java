@@ -27,42 +27,6 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
     @Autowired
     private OwnedCouponRepository ownedCouponRepository;
 
-    @DisplayName("보유 쿠폰을 생성할 때,")
-    @Nested
-    class Issue {
-
-        @DisplayName("유효한 쿠폰으로 생성하면, 보유 쿠폰이 DB에 저장된다.")
-        @Test
-        void savesOwnedCouponToDatabase_whenValidCouponProvided() {
-            // arrange
-            var coupon = couponService.create(new CouponTerms("발급 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 10000));
-            var userId = 1L;
-
-            // act
-            var result = ownedCouponService.issue(coupon, userId);
-
-            // assert
-            assertAll(
-                    () -> assertThat(result.getCoupon().getId()).isEqualTo(coupon.getId()),
-                    () -> assertThat(result.getUserId()).isEqualTo(userId),
-                    () -> assertThat(result.getStatus()).isEqualTo("AVAILABLE")
-            );
-        }
-
-        @DisplayName("이미 발급받은 쿠폰을 중복 생성하면, ALREADY_COUPON_ISSUED 예외가 발생한다.")
-        @Test
-        void throwsException_whenDuplicateIssue() {
-            // arrange
-            var coupon = couponService.create(new CouponTerms("중복 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 10000));
-            ownedCouponService.issue(coupon, 1L);
-
-            // act & assert
-            assertThatThrownBy(() -> ownedCouponService.issue(coupon, 1L))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.ALREADY_COUPON_ISSUED));
-        }
-    }
-
     @DisplayName("할인 금액을 계산할 때,")
     @Nested
     class CalculateDiscount {
@@ -72,7 +36,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         void calculatesDiscount_whenValidCoupon() {
             // arrange
             var coupon = couponService.create(new CouponTerms("5000원 할인", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 10000));
-            var ownedCoupon = ownedCouponService.issue(coupon, 1L);
+            var ownedCoupon = ownedCouponRepository.save(OwnedCouponFixture.createOwnedCoupon(coupon, 1L));
 
             // act
             var result = ownedCouponService.calculateDiscount(ownedCoupon.getId(), 1L, Money.wons(20000L));
@@ -107,7 +71,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         void changesStatusToUsed() {
             // arrange
             var coupon = couponService.create(new CouponTerms("사용 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 10000));
-            var ownedCoupon = ownedCouponService.issue(coupon, 1L);
+            var ownedCoupon = ownedCouponRepository.save(OwnedCouponFixture.createOwnedCoupon(coupon, 1L));
 
             // act
             ownedCouponService.use(ownedCoupon.getId());
@@ -127,7 +91,7 @@ class OwnedCouponServiceIntegrationTest extends BaseIntegrationTest {
         void changesStatusToAvailable() {
             // arrange
             var coupon = couponService.create(new CouponTerms("복원 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 10000));
-            var ownedCoupon = ownedCouponService.issue(coupon, 1L);
+            var ownedCoupon = ownedCouponRepository.save(OwnedCouponFixture.createOwnedCoupon(coupon, 1L));
             ownedCouponService.use(ownedCoupon.getId());
 
             // act

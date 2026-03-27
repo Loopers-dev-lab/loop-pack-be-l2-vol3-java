@@ -71,8 +71,8 @@ public class OrderEvent {
      * 주문이 결제 완료되었을 때 발행되는 이벤트.
      *
      * <p>Outbox 이벤트가 함께 저장된 후, AFTER_COMMIT 시점에
-     * Kafka 발행을 트리거하기 위해 사용된다.
-     * Consumer(commerce-streamer)가 상품별 판매량을 집계할 수 있도록
+     * 외부 발행을 트리거하기 위해 사용된다.
+     * 외부 Consumer가 상품별 판매량을 집계할 수 있도록
      * 주문 항목 스냅샷을 포함한다.</p>
      *
      * @param eventId    이벤트 식별자

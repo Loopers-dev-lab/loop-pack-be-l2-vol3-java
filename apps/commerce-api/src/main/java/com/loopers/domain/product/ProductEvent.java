@@ -29,7 +29,7 @@ public class ProductEvent {
      * <p>조회 API는 쓰기 트랜잭션이 없으므로 {@code AbstractAggregateRoot}가 아닌
      * {@code ProductEventPublisher}를 통해 직접 발행된다.
      * {@code @EventListener} + {@code @Transactional}로 Outbox에 저장되며,
-     * Kafka 발행은 Relay 스케줄러에 위임한다.</p>
+     * 외부 발행은 Relay 스케줄러에 위임한다.</p>
      *
      * @param eventId   이벤트 식별자
      * @param productId 조회된 상품 ID

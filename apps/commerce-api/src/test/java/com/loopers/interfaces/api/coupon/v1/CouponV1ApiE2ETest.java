@@ -15,12 +15,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.test.util.ReflectionTestUtils;
 
-import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.coupon.CouponType;
 import com.loopers.interfaces.api.coupon.v1.CouponDto.CreateCouponRequest;
 import com.loopers.interfaces.api.user.v1.UserV1Dto;
@@ -28,9 +25,6 @@ import com.loopers.support.BaseE2ETest;
 import com.loopers.support.error.ErrorType;
 
 class CouponV1ApiE2ETest extends BaseE2ETest {
-
-    @Autowired
-    private CouponRepository couponRepository;
 
     private HttpHeaders userHeaders;
 
@@ -47,9 +41,9 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
     @Nested
     class IssueCoupon {
 
-        @DisplayName("유효한 쿠폰을 발급하면, 201 응답을 받는다.")
+        @DisplayName("유효한 쿠폰을 발급하면, 202 응답을 받는다.")
         @Test
-        void returns201_whenValidCouponIssued() {
+        void returns202_whenValidCouponIssued() {
             // arrange
             var request = new CreateCouponRequest(
                     "테스트 쿠폰",
@@ -66,22 +60,22 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
             var response = issueCoupon(testRestTemplate, couponId, userHeaders);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
         }
 
-        @DisplayName("존재하지 않는 쿠폰을 발급하면, 404 응답을 받는다.")
+        @DisplayName("존재하지 않는 쿠폰을 발급하면, 503 응답을 받는다.")
         @Test
-        void returns404_whenCouponNotFound() {
+        void returns503_whenCouponNotInitialized() {
             // act
             var response = issueCoupon(testRestTemplate, 999L, userHeaders);
 
             // assert
-            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.COUPON_NOT_FOUND);
+            assertErrorResponse(response, HttpStatus.SERVICE_UNAVAILABLE, ErrorType.SERVICE_UNAVAILABLE);
         }
 
-        @DisplayName("삭제된 쿠폰을 발급하면, 404 응답을 받는다.")
+        @DisplayName("삭제된 쿠폰을 발급하면, Redis에 재고가 남아있으므로 202 응답을 받는다. (삭제 검증은 Consumer에서 처리)")
         @Test
-        void returns404_whenCouponIsDeleted() {
+        void returns202_whenCouponIsDeleted() {
             // arrange
             var request = new CreateCouponRequest(
                     "테스트 쿠폰",
@@ -98,33 +92,8 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
             // act
             var response = issueCoupon(testRestTemplate, couponId, userHeaders);
 
-            // assert
-            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.COUPON_NOT_FOUND);
-        }
-
-        @DisplayName("만료된 쿠폰을 발급하면, 400 응답을 받는다.")
-        @Test
-        void returns400_whenCouponIsExpired() {
-            // arrange
-            var request = new CreateCouponRequest(
-                    "테스트 쿠폰",
-                    CouponType.FIXED,
-                    5000L,
-                    null,
-                    10000L,
-                    ZonedDateTime.now().plusDays(30),
-                    10000
-            );
-            var couponId = createCoupon(testRestTemplate, request);
-            var coupon = couponRepository.findById(couponId).orElseThrow();
-            ReflectionTestUtils.setField(coupon, "expiredAt", ZonedDateTime.now().minusDays(1));
-            couponRepository.save(coupon);
-
-            // act
-            var response = issueCoupon(testRestTemplate, couponId, userHeaders);
-
-            // assert
-            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.EXPIRED_COUPON);
+            // assert — Phase 4에서는 Redis만 검증하므로 삭제된 쿠폰도 발급 수락됨
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
         }
 
         @DisplayName("이미 발급받은 쿠폰을 중복 발급하면, 400 응답을 받는다.")

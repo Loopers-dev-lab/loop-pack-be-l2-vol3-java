@@ -10,7 +10,7 @@ public interface CouponV1ApiSpec {
 
     @Operation(
             summary = "쿠폰 발급",
-            description = "사용자에게 쿠폰을 발급합니다."
+            description = "사용자에게 쿠폰을 발급합니다. 202 Accepted 응답 후 비동기로 처리됩니다."
     )
     ApiResponse<Void> issueCoupon(Long userId, Long couponId);
 }

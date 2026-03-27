@@ -42,6 +42,9 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
     @Autowired
     private CouponRepository couponRepository;
 
+    @Autowired
+    private com.loopers.domain.coupon.OwnedCouponRepository ownedCouponRepository;
+
     @DisplayName("POST /api-admin/v1/coupons")
     @Nested
     class RegisterCoupon {
@@ -605,7 +608,9 @@ class CouponV1AdminApiE2ETest extends BaseE2ETest {
                     "testuser1", "Password1!", "홍길동", "1990-01-15", "test@example.com"
             );
             signUp(testRestTemplate, signUpRequest);
-            issueCoupon(testRestTemplate, couponId, userAuthHeaders(signUpRequest.loginId(), signUpRequest.password()));
+            // Phase 4: 쿠폰 발급이 비동기(Kafka)로 전환되어, 테스트 데이터 셋업은 서비스 직접 호출
+            var coupon = couponRepository.findById(couponId).orElseThrow();
+            ownedCouponRepository.save(com.loopers.domain.coupon.OwnedCouponFixture.createOwnedCoupon(coupon, 1L));
 
             var url = UriComponentsBuilder.fromPath(COUPON_ADMIN_ENDPOINT + "/" + couponId + "/issues")
                     .queryParam("page", 0)

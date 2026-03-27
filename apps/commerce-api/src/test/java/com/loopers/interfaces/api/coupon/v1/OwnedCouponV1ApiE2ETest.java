@@ -21,6 +21,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.coupon.CouponType;
+import com.loopers.domain.coupon.OwnedCoupon;
+import com.loopers.domain.coupon.OwnedCouponFixture;
+import com.loopers.domain.coupon.OwnedCouponRepository;
 import com.loopers.interfaces.api.coupon.v1.CouponDto.CreateCouponRequest;
 import com.loopers.interfaces.api.user.v1.UserV1Dto;
 import com.loopers.support.BaseE2ETest;
@@ -29,6 +32,9 @@ class OwnedCouponV1ApiE2ETest extends BaseE2ETest {
 
     @Autowired
     private CouponRepository couponRepository;
+
+    @Autowired
+    private OwnedCouponRepository ownedCouponRepository;
 
     private HttpHeaders userHeaders;
 
@@ -67,8 +73,11 @@ class OwnedCouponV1ApiE2ETest extends BaseE2ETest {
                     ZonedDateTime.now().plusDays(30),
                     10000
             ));
-            issueCoupon(testRestTemplate, couponId1, userHeaders);
-            issueCoupon(testRestTemplate, couponId2, userHeaders);
+            // Phase 4: 쿠폰 발급이 비동기(Kafka)로 전환되어, 테스트 데이터 셋업은 서비스 직접 호출
+            var coupon1 = couponRepository.findById(couponId1).orElseThrow();
+            var coupon2Entity = couponRepository.findById(couponId2).orElseThrow();
+            ownedCouponRepository.save(OwnedCouponFixture.createOwnedCoupon(coupon1, 1L));
+            ownedCouponRepository.save(OwnedCouponFixture.createOwnedCoupon(coupon2Entity, 1L));
 
             var coupon2 = couponRepository.findById(couponId2).orElseThrow();
             ReflectionTestUtils.setField(coupon2, "expiredAt", ZonedDateTime.now().minusDays(1));

@@ -21,6 +21,7 @@ import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.CouponTerms;
 import com.loopers.domain.coupon.CouponType;
 import com.loopers.domain.coupon.OwnedCoupon;
+import com.loopers.domain.coupon.OwnedCouponFixture;
 import com.loopers.domain.coupon.OwnedCouponRepository;
 import com.loopers.domain.coupon.OwnedCouponService;
 import com.loopers.domain.order.OrderService;
@@ -36,9 +37,6 @@ class CouponEventListenerIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private CouponService couponService;
-
-    @Autowired
-    private OwnedCouponService ownedCouponService;
 
     @Autowired
     private OwnedCouponRepository ownedCouponRepository;
@@ -134,7 +132,7 @@ class CouponEventListenerIntegrationTest extends BaseIntegrationTest {
         var coupon = couponService.create(new CouponTerms(
                 "테스트 쿠폰", CouponType.FIXED, discountValue, null, 1000L, ZonedDateTime.now().plusDays(30), 10000
         ));
-        OwnedCoupon ownedCoupon = ownedCouponService.issue(coupon, userId);
+        OwnedCoupon ownedCoupon = ownedCouponRepository.save(OwnedCouponFixture.createOwnedCoupon(coupon, userId));
         return ownedCoupon.getId();
     }
 }

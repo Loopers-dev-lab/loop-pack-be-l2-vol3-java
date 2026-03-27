@@ -30,21 +30,6 @@ public class CouponService {
     }
 
     /**
-     * 쿠폰 발급 수량을 차감한다.
-     *
-     * @param couponId 발급할 쿠폰 ID
-     * @return 수량이 차감된 쿠폰
-     * @throws CoreException 쿠폰이 존재하지 않거나 수량이 소진된 경우
-     */
-    @Transactional
-    public Coupon issue(Long couponId) {
-        Coupon coupon = couponRepository.findByIdAndDeletedAtIsNull(couponId)
-                .orElseThrow(() -> new CoreException(ErrorType.COUPON_NOT_FOUND));
-        coupon.issue();
-        return coupon;
-    }
-
-    /**
      * 쿠폰 정보를 수정한다.
      *
      * @param coupon 쿠폰 수정 정보 (couponId 포함)

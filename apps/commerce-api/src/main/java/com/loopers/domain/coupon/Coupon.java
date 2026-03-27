@@ -86,11 +86,8 @@ public class Coupon extends BaseEntity {
         this.expiredAt = coupon.expiredAt();
     }
 
-    public void issue() {
-        if (issuedCount >= totalQuantity) {
-            throw new CoreException(ErrorType.COUPON_SOLD_OUT);
-        }
-        this.issuedCount++;
+    public int remainingStock(long issuedCount) {
+        return Math.max(0, totalQuantity - (int) issuedCount);
     }
 
     public Money calculateDiscount(Money orderTotal, CouponDiscountProvider couponDiscountProvider) {

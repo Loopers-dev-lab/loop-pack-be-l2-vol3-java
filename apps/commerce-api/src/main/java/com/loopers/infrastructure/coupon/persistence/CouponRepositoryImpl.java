@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.coupon.persistence;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
@@ -40,5 +41,10 @@ public class CouponRepositoryImpl implements CouponRepository {
     @Override
     public Slice<Coupon> findAllBy(Pageable pageable) {
         return couponJpaRepository.findAllBy(pageable);
+    }
+
+    @Override
+    public List<Coupon> findAllActive() {
+        return couponJpaRepository.findAllActive();
     }
 }

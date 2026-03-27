@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.coupon.persistence;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
@@ -43,7 +44,12 @@ public class OwnedCouponRepositoryImpl implements OwnedCouponRepository {
     }
 
     @Override
-    public boolean existsByCouponIdAndUserId(Long couponId, Long userId) {
-        return ownedCouponJpaRepository.existsByCouponIdAndUserId(couponId, userId);
+    public long countByCouponId(Long couponId) {
+        return ownedCouponJpaRepository.countByCouponId(couponId);
+    }
+
+    @Override
+    public List<Long> findUserIdsByCouponId(Long couponId) {
+        return ownedCouponJpaRepository.findUserIdsByCouponId(couponId);
     }
 }

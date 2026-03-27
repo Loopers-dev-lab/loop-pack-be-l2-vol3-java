@@ -41,16 +41,6 @@ public class OwnedCoupon extends BaseEntity {
     @Version
     private Long version;
 
-    public static OwnedCoupon create(Coupon coupon, Long userId) {
-        if (coupon.isExpired()) {
-            throw new CoreException(ErrorType.EXPIRED_COUPON);
-        }
-        OwnedCoupon ownedCoupon = new OwnedCoupon();
-        ownedCoupon.coupon = coupon;
-        ownedCoupon.userId = userId;
-        return ownedCoupon;
-    }
-
     public Money calculateDiscount(Long userId, Money orderTotal, CouponDiscountProvider couponDiscountProvider) {
         validateUsable(userId, orderTotal);
         return coupon.calculateDiscount(orderTotal, couponDiscountProvider);

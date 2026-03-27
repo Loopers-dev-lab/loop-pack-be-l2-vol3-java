@@ -22,26 +22,6 @@ public class OwnedCouponService {
     private final CouponDiscountProvider couponDiscountProvider;
 
     /**
-     * 보유 쿠폰을 생성한다.
-     *
-     * <p>쿠폰 수량 차감 없이 보유 쿠폰만 생성한다.
-     * 수량 차감은 {@link CouponService#issue(Long)}에서 처리한다.</p>
-     *
-     * @param coupon 발급할 쿠폰 엔티티
-     * @param userId 발급 대상 사용자 ID
-     * @return 발급된 보유 쿠폰
-     * @throws CoreException 이미 발급된 경우
-     */
-    @Transactional
-    public OwnedCoupon issue(Coupon coupon, Long userId) {
-        if (ownedCouponRepository.existsByCouponIdAndUserId(coupon.getId(), userId)) {
-            throw new CoreException(ErrorType.ALREADY_COUPON_ISSUED);
-        }
-        OwnedCoupon ownedCoupon = OwnedCoupon.create(coupon, userId);
-        return ownedCouponRepository.save(ownedCoupon);
-    }
-
-    /**
      * 보유 쿠폰의 할인 금액을 계산한다.
      *
      * <p>쿠폰 소유자 검증, 최소 주문 금액 검증을 수행한 뒤 할인 금액을 반환한다.

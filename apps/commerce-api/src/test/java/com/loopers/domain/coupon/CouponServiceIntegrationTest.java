@@ -83,58 +83,6 @@ class CouponServiceIntegrationTest extends BaseIntegrationTest {
         }
     }
 
-    @DisplayName("쿠폰을 발급할 때,")
-    @Nested
-    class Issue {
-
-        @DisplayName("유효한 쿠폰을 발급하면, issuedCount가 1 증가한다.")
-        @Test
-        void incrementsIssuedCount_whenValidCouponProvided() {
-            // arrange
-            var coupon = couponService.create(new CouponTerms("발급 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 100));
-
-            // act
-            var result = couponService.issue(coupon.getId());
-
-            // assert
-            assertThat(result.getIssuedCount()).isEqualTo(1);
-        }
-
-        @DisplayName("존재하지 않는 쿠폰을 발급하면, COUPON_NOT_FOUND 예외가 발생한다.")
-        @Test
-        void throwsException_whenCouponNotFound() {
-            assertThatThrownBy(() -> couponService.issue(999L))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.COUPON_NOT_FOUND));
-        }
-
-        @DisplayName("삭제된 쿠폰을 발급하면, COUPON_NOT_FOUND 예외가 발생한다.")
-        @Test
-        void throwsException_whenCouponIsDeleted() {
-            // arrange
-            var coupon = couponService.create(new CouponTerms("삭제 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 100));
-            couponService.delete(coupon.getId());
-
-            // act & assert
-            assertThatThrownBy(() -> couponService.issue(coupon.getId()))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.COUPON_NOT_FOUND));
-        }
-
-        @DisplayName("수량이 소진되면, COUPON_SOLD_OUT 예외가 발생한다.")
-        @Test
-        void throwsException_whenSoldOut() {
-            // arrange
-            var coupon = couponService.create(new CouponTerms("1장 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 1));
-            couponService.issue(coupon.getId());
-
-            // act & assert
-            assertThatThrownBy(() -> couponService.issue(coupon.getId()))
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.COUPON_SOLD_OUT));
-        }
-    }
-
     @DisplayName("쿠폰을 수정할 때,")
     @Nested
     class Update {

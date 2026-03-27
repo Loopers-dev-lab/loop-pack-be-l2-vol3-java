@@ -171,34 +171,38 @@ class CouponTest {
         }
     }
 
-    @DisplayName("쿠폰을 발급할 때,")
+    @DisplayName("잔여 수량을 계산할 때,")
     @Nested
-    class Issue {
+    class RemainingStock {
 
-        @DisplayName("발급 수량이 남아있으면, issuedCount가 1 증가한다.")
+        @DisplayName("발급 수가 총 수량보다 적으면, 차이를 반환한다.")
         @Test
-        void incrementsIssuedCount_whenQuantityRemains() {
+        void returnsRemaining_whenNotFullyIssued() {
             // arrange
             var coupon = Coupon.create(new CouponTerms("쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 100));
 
-            // act
-            coupon.issue();
-
-            // assert
-            assertThat(coupon.getIssuedCount()).isEqualTo(1);
+            // act & assert
+            assertThat(coupon.remainingStock(30)).isEqualTo(70);
         }
 
-        @DisplayName("발급 수량이 소진되면, COUPON_SOLD_OUT 예외가 발생한다.")
+        @DisplayName("발급 수가 총 수량과 같으면, 0을 반환한다.")
         @Test
-        void throwsException_whenSoldOut() {
+        void returnsZero_whenFullyIssued() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 1));
-            coupon.issue();
+            var coupon = Coupon.create(new CouponTerms("쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 100));
 
             // act & assert
-            assertThatThrownBy(coupon::issue)
-                    .isInstanceOf(CoreException.class)
-                    .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.COUPON_SOLD_OUT));
+            assertThat(coupon.remainingStock(100)).isEqualTo(0);
+        }
+
+        @DisplayName("발급 수가 총 수량을 초과하면, 0을 반환한다.")
+        @Test
+        void returnsZero_whenOverIssued() {
+            // arrange
+            var coupon = Coupon.create(new CouponTerms("쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 100));
+
+            // act & assert
+            assertThat(coupon.remainingStock(110)).isEqualTo(0);
         }
     }
 

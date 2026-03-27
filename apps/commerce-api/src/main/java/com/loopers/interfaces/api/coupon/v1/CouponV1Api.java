@@ -19,7 +19,7 @@ public class CouponV1Api implements CouponV1ApiSpec {
     private final IssueOwnedCouponUseCase issueCouponUseCase;
 
     @PostMapping("/api/v1/coupons/{couponId}/issue")
-    @ResponseStatus(code = HttpStatus.CREATED)
+    @ResponseStatus(code = HttpStatus.ACCEPTED)
     @Override
     public ApiResponse<Void> issueCoupon(@LoginUser Long userId, @PathVariable Long couponId) {
         issueCouponUseCase.execute(couponId, userId);

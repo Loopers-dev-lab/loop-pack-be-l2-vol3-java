@@ -9,12 +9,13 @@ import com.loopers.domain.brand.NewBrand;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductSpec;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
 
 /**
  * 통합 테스트의 공통 설정을 제공한다.
  *
  * <p>테스트 데이터 생성 헬퍼 메서드를 제공하며,
- * 각 테스트 종료 후 데이터베이스를 자동으로 초기화한다.
+ * 각 테스트 종료 후 데이터베이스와 Redis를 자동으로 초기화한다.</p>
  */
 @SpringBootTest
 public abstract class BaseIntegrationTest {
@@ -27,6 +28,9 @@ public abstract class BaseIntegrationTest {
 
     @Autowired
     protected DatabaseCleanUp databaseCleanUp;
+
+    @Autowired
+    protected RedisCleanUp redisCleanUp;
 
     /**
      * 기본 브랜드를 생성하고 ID를 반환한다.
@@ -63,5 +67,6 @@ public abstract class BaseIntegrationTest {
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
     }
 }
