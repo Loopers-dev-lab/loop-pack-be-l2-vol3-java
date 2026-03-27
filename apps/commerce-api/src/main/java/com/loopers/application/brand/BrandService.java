@@ -1,7 +1,6 @@
 package com.loopers.application.brand;
 
 import com.loopers.domain.brand.BrandModel;
-import com.loopers.domain.brand.BrandName;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -10,6 +9,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Component
@@ -42,15 +46,14 @@ public class BrandService {
     @Transactional
     public BrandModel update(Long brandId, String name, String description) {
         BrandModel brand = findById(brandId);
-        BrandName newName = new BrandName(name);
 
-        if (!brand.name().equals(newName)) {
+        if (!brand.getName().equals(name)) {
             brandRepository.findByName(name).ifPresent(existing -> {
                 throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 브랜드 이름입니다.");
             });
         }
 
-        brand.update(newName, description);
+        brand.update(name, description);
         return brand;
     }
 
@@ -65,21 +68,15 @@ public class BrandService {
         return brandRepository.findAll(pageable);
     }
 
-    @Transactional
-    public BrandModel update(Long id, String name, String description) {
-        BrandModel brand = getById(id);
-        brandRepository.findByName(name)
-            .filter(existing -> !existing.getId().equals(brand.getId()))
-            .ifPresent(existing -> {
-                throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 브랜드 이름입니다: " + name);
-            });
-        brand.update(name, description);
-        return brand;
+    @Transactional(readOnly = true)
+    public Map<Long, BrandModel> getByIds(List<Long> ids) {
+        return brandRepository.findAllByIdIn(ids)
+            .stream()
+            .collect(Collectors.toMap(BrandModel::getId, Function.identity()));
     }
 
-    @Transactional
-    public void delete(Long id) {
-        BrandModel brand = getById(id);
-        brand.delete();
+    private BrandModel findById(Long brandId) {
+        return brandRepository.findById(brandId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다. [id = " + brandId + "]"));
     }
 }

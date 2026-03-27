@@ -34,7 +34,7 @@ class LikeFacadeIntegrationTest {
 
     private Long createBrand(String name) { return brandService.register(name, "설명").getId(); }
     private Long createProduct(String name, int price, Long brandId) {
-        return productFacade.register(name, "설명", new Money(price), brandId, 10).getId();
+        return productFacade.register(name, "설명", new Money(price), brandId, 10).id();
     }
 
     @DisplayName("좋아요 등록")
@@ -52,8 +52,8 @@ class LikeFacadeIntegrationTest {
             likeFacade.like(1L, productId);
 
             // then
-            ProductModel product = productService.getProduct(productId);
-            assertThat(product.likeCount()).isEqualTo(1);
+            ProductModel product = productService.getById(productId);
+            assertThat(product.getLikeCount()).isEqualTo(1);
         }
 
         @DisplayName("같은 상품에 두 번 좋아요해도 likeCount는 1이다 (멱등성)")
@@ -68,8 +68,8 @@ class LikeFacadeIntegrationTest {
             likeFacade.like(1L, productId);
 
             // then
-            ProductModel product = productService.getProduct(productId);
-            assertThat(product.likeCount()).isEqualTo(1);
+            ProductModel product = productService.getById(productId);
+            assertThat(product.getLikeCount()).isEqualTo(1);
         }
 
         @DisplayName("좋아요 취소 후 다시 좋아요하면 복원된다")
@@ -85,8 +85,8 @@ class LikeFacadeIntegrationTest {
             likeFacade.like(1L, productId);
 
             // then
-            ProductModel product = productService.getProduct(productId);
-            assertThat(product.likeCount()).isEqualTo(1);
+            ProductModel product = productService.getById(productId);
+            assertThat(product.getLikeCount()).isEqualTo(1);
         }
     }
 
@@ -106,8 +106,8 @@ class LikeFacadeIntegrationTest {
             likeFacade.unlike(1L, productId);
 
             // then
-            ProductModel product = productService.getProduct(productId);
-            assertThat(product.likeCount()).isEqualTo(0);
+            ProductModel product = productService.getById(productId);
+            assertThat(product.getLikeCount()).isEqualTo(0);
         }
 
         @DisplayName("좋아요하지 않은 상품을 취소해도 예외가 발생하지 않는다 (멱등성)")
@@ -133,8 +133,8 @@ class LikeFacadeIntegrationTest {
             // when & then — 예외 없이 정상 완료
             likeFacade.unlike(1L, productId);
 
-            ProductModel product = productService.getProduct(productId);
-            assertThat(product.likeCount()).isEqualTo(0);
+            ProductModel product = productService.getById(productId);
+            assertThat(product.getLikeCount()).isEqualTo(0);
         }
     }
 

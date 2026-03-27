@@ -6,6 +6,7 @@ import com.loopers.domain.product.ProductSortType;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,19 +22,20 @@ public class ProductV1Controller implements ProductV1ApiSpec {
     private final ProductFacade productFacade;
 
     @GetMapping
-    public ApiResponse<Page<ProductV1Dto.ProductResponse>> getProducts(
-        @RequestParam(required = false) Long brandId,
-        @RequestParam(defaultValue = "LATEST") ProductSortType sort,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size
+    @Override
+    public ApiResponse<Page<ProductV1Dto.ProductSummaryResponse>> getAll(
+        Pageable pageable,
+        @RequestParam(defaultValue = "CREATED_DESC") String sortType
     ) {
-        Page<ProductDetail> products = productFacade.getProducts(brandId, sort, PageRequest.of(page, size));
-        return ApiResponse.success(products.map(ProductV1Dto.ProductResponse::from));
+        ProductSortType sort = ProductSortType.valueOf(sortType);
+        Page<ProductDetail> products = productFacade.getProducts(null, sort, pageable);
+        return ApiResponse.success(products.map(ProductV1Dto.ProductSummaryResponse::from));
     }
 
     @GetMapping("/{productId}")
-    public ApiResponse<ProductV1Dto.ProductResponse> getProduct(@PathVariable Long productId) {
+    @Override
+    public ApiResponse<ProductV1Dto.ProductDetailResponse> getById(@PathVariable Long productId) {
         ProductDetail detail = productFacade.getProduct(productId);
-        return ApiResponse.success(ProductV1Dto.ProductResponse.from(detail));
+        return ApiResponse.success(ProductV1Dto.ProductDetailResponse.from(detail));
     }
 }

@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.product;
 
-import com.loopers.application.product.ProductInfo;
+import com.loopers.application.product.ProductDetail;
 
 public class ProductAdminV1Dto {
 
@@ -13,9 +13,9 @@ public class ProductAdminV1Dto {
     public record ProductAdminSummaryResponse(
         Long id, String name, int price, String brandName, int stockQuantity
     ) {
-        public static ProductAdminSummaryResponse from(ProductInfo.AdminSummary info) {
+        public static ProductAdminSummaryResponse from(ProductDetail detail) {
             return new ProductAdminSummaryResponse(
-                info.id(), info.name(), info.price(), info.brandName(), info.stockQuantity()
+                detail.id(), detail.name(), detail.price(), detail.brandName(), detail.stockQuantity()
             );
         }
     }
@@ -24,10 +24,10 @@ public class ProductAdminV1Dto {
         Long id, String name, String description, int price,
         Long brandId, String brandName, int likeCount, int stockQuantity
     ) {
-        public static ProductAdminDetailResponse from(ProductInfo.AdminDetail info) {
+        public static ProductAdminDetailResponse from(ProductDetail detail) {
             return new ProductAdminDetailResponse(
-                info.id(), info.name(), info.description(), info.price(),
-                info.brandId(), info.brandName(), info.likeCount(), info.stockQuantity()
+                detail.id(), detail.name(), detail.description(), detail.price(),
+                detail.brandId(), detail.brandName(), detail.likeCount(), detail.stockQuantity()
             );
         }
     }

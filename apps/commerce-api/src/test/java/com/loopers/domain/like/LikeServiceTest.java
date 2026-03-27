@@ -1,5 +1,6 @@
 package com.loopers.domain.like;
 
+import com.loopers.application.like.LikeService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -29,70 +30,44 @@ class LikeServiceTest {
     @Mock
     private LikeRepository likeRepository;
 
-    @DisplayName("좋아요 등록")
+    @DisplayName("좋아요 저장")
     @Nested
-    class Register {
+    class Save {
 
-        @DisplayName("좋아요가 없으면 새로 생성하고 true를 반환한다")
+        @DisplayName("좋아요를 저장하고 반환한다")
         @Test
-        void returnsTrueWhenNewLike() {
+        void savesAndReturns() {
             // arrange
-            Long memberId = 1L;
+            Long userId = 1L;
             Long productId = 100L;
-            given(likeRepository.findByMemberIdAndProductId(memberId, productId)).willReturn(Optional.empty());
-            given(likeRepository.save(any(LikeModel.class))).willReturn(new LikeModel(memberId, productId));
+            LikeModel like = new LikeModel(userId, productId);
+            given(likeRepository.save(any(LikeModel.class))).willReturn(like);
             // act
-            boolean result = likeService.register(memberId, productId);
+            LikeModel result = likeService.save(like);
             // assert
-            assertThat(result).isTrue();
-            then(likeRepository).should().save(any(LikeModel.class));
-        }
-
-        @DisplayName("이미 좋아요가 존재하면 false를 반환한다")
-        @Test
-        void returnsFalseWhenAlreadyExists() {
-            // arrange
-            Long memberId = 1L;
-            Long productId = 100L;
-            given(likeRepository.findByMemberIdAndProductId(memberId, productId))
-                .willReturn(Optional.of(new LikeModel(memberId, productId)));
-            // act
-            boolean result = likeService.register(memberId, productId);
-            // assert
-            assertThat(result).isFalse();
+            assertThat(result.userId()).isEqualTo(userId);
+            then(likeRepository).should().save(like);
         }
     }
 
-    @DisplayName("좋아요 취소")
+    @DisplayName("좋아요 조회")
     @Nested
-    class Cancel {
+    class Find {
 
-        @DisplayName("좋아요가 존재하면 삭제하고 true를 반환한다")
+        @DisplayName("userId와 productId로 좋아요를 조회한다")
         @Test
-        void returnsTrueWhenCancelled() {
+        void findsByUserIdAndProductId() {
             // arrange
-            Long memberId = 1L;
+            Long userId = 1L;
             Long productId = 100L;
-            LikeModel like = new LikeModel(memberId, productId);
-            given(likeRepository.findByMemberIdAndProductId(memberId, productId)).willReturn(Optional.of(like));
+            LikeModel like = new LikeModel(userId, productId);
+            given(likeRepository.findByUserIdAndProductId(userId, productId))
+                .willReturn(Optional.of(like));
             // act
-            boolean result = likeService.cancel(memberId, productId);
+            Optional<LikeModel> result = likeService.findByUserIdAndProductId(userId, productId);
             // assert
-            assertThat(result).isTrue();
-            then(likeRepository).should().delete(like);
-        }
-
-        @DisplayName("좋아요가 없으면 false를 반환한다")
-        @Test
-        void returnsFalseWhenNotExists() {
-            // arrange
-            Long memberId = 1L;
-            Long productId = 100L;
-            given(likeRepository.findByMemberIdAndProductId(memberId, productId)).willReturn(Optional.empty());
-            // act
-            boolean result = likeService.cancel(memberId, productId);
-            // assert
-            assertThat(result).isFalse();
+            assertThat(result).isPresent();
+            assertThat(result.get().productId()).isEqualTo(productId);
         }
     }
 
@@ -104,12 +79,12 @@ class LikeServiceTest {
         @Test
         void returnsPagedLikes() {
             // arrange
-            Long memberId = 1L;
+            Long userId = 1L;
             Pageable pageable = PageRequest.of(0, 10);
-            List<LikeModel> likes = List.of(new LikeModel(memberId, 1L), new LikeModel(memberId, 2L));
-            given(likeRepository.findAllByMemberId(memberId, pageable)).willReturn(new PageImpl<>(likes));
+            List<LikeModel> likes = List.of(new LikeModel(userId, 1L), new LikeModel(userId, 2L));
+            given(likeRepository.findActiveLikesWithActiveProduct(userId, pageable)).willReturn(new PageImpl<>(likes));
             // act
-            Page<LikeModel> result = likeService.getMyLikes(memberId, pageable);
+            Page<LikeModel> result = likeService.getMyLikes(userId, pageable);
             // assert
             assertThat(result.getContent()).hasSize(2);
         }

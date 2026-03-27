@@ -16,8 +16,8 @@ public record BrandInfo(
     public static BrandInfo from(BrandModel model) {
         return new BrandInfo(
             model.getId(),
-            model.name().value(),
-            model.description(),
+            model.getName(),
+            model.getDescription(),
             model.getCreatedAt(),
             model.getUpdatedAt(),
             model.getDeletedAt()

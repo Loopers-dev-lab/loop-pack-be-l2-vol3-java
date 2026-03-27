@@ -2,9 +2,9 @@ package com.loopers.interfaces.api.order;
 
 import com.loopers.infrastructure.member.MemberJpaRepository;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.api.brand.admin.BrandAdminV1Dto;
+import com.loopers.interfaces.api.brand.BrandAdminV1Dto;
 import com.loopers.interfaces.api.member.MemberV1Dto;
-import com.loopers.interfaces.api.product.admin.ProductAdminV1Dto;
+import com.loopers.interfaces.api.product.ProductAdminV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -59,7 +59,7 @@ class OrderV1ApiE2ETest {
         var req = new ProductAdminV1Dto.CreateRequest(name, "설명", price, brandId, stock);
         return testRestTemplate.exchange("/api-admin/v1/products", HttpMethod.POST,
             new HttpEntity<>(req, adminHeaders()),
-            new ParameterizedTypeReference<ApiResponse<ProductAdminV1Dto.ProductResponse>>() {}).getBody().data().id();
+            new ParameterizedTypeReference<ApiResponse<ProductAdminV1Dto.ProductAdminDetailResponse>>() {}).getBody().data().id();
     }
 
     private void signupMember() {

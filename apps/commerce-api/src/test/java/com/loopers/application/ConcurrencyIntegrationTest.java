@@ -48,7 +48,7 @@ class ConcurrencyIntegrationTest {
 
     private Long createBrand() { return brandService.register("테스트브랜드", "설명").getId(); }
     private Long createProduct(Long brandId, int stock) {
-        return productFacade.register("테스트상품", "설명", new Money(10000), brandId, stock).getId();
+        return productFacade.register("테스트상품", "설명", new Money(10000), brandId, stock).id();
     }
 
     @DisplayName("재고 동시성")
@@ -86,7 +86,7 @@ class ConcurrencyIntegrationTest {
 
             // then
             assertThat(successCount.get()).isEqualTo(10);
-            assertThat(stockService.getByProductId(productId).quantity()).isEqualTo(90);
+            assertThat(stockService.getByProductId(productId).getQuantity()).isEqualTo(90);
         }
 
         @DisplayName("재고 5개인 상품에 10명이 동시 주문하면 5명만 성공한다")
@@ -120,7 +120,7 @@ class ConcurrencyIntegrationTest {
 
             // then
             assertThat(successCount.get()).isEqualTo(5);
-            assertThat(stockService.getByProductId(productId).quantity()).isEqualTo(0);
+            assertThat(stockService.getByProductId(productId).getQuantity()).isEqualTo(0);
         }
     }
 
@@ -199,7 +199,7 @@ class ConcurrencyIntegrationTest {
 
             // then
             assertThat(successCount.get()).isEqualTo(10);
-            assertThat(productService.getProduct(productId).likeCount()).isEqualTo(10);
+            assertThat(productService.getById(productId).getLikeCount()).isEqualTo(10);
         }
     }
 }

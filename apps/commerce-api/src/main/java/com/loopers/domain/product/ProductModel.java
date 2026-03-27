@@ -7,10 +7,16 @@ import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "product")
+@Table(name = "product", indexes = {
+    @Index(name = "idx_product_brand_deleted_like", columnList = "brand_id, deleted_at, like_count"),
+    @Index(name = "idx_product_deleted_like", columnList = "deleted_at, like_count"),
+    @Index(name = "idx_product_deleted_created", columnList = "deleted_at, created_at"),
+    @Index(name = "idx_product_deleted_price", columnList = "deleted_at, price")
+})
 public class ProductModel extends BaseEntity {
 
     @Column(nullable = false)

@@ -3,7 +3,6 @@ package com.loopers.application.order;
 import com.loopers.application.brand.BrandService;
 import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
-import com.loopers.application.order.OrderService;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.application.product.ProductFacade;
 import com.loopers.domain.product.Money;
@@ -41,7 +40,7 @@ class OrderFacadeIntegrationTest {
 
     private Long createBrand(String name) { return brandService.register(name, "설명").getId(); }
     private Long createProduct(String name, int price, Long brandId, int stock) {
-        return productFacade.register(name, "설명", new Money(price), brandId, stock).getId();
+        return productFacade.register(name, "설명", new Money(price), brandId, stock).id();
     }
 
     @DisplayName("주문 생성")
@@ -84,7 +83,7 @@ class OrderFacadeIntegrationTest {
             Long brandId = createBrand("나이키");
             Long productId = createProduct("에어맥스", 129000, brandId, 10);
             orderFacade.placeOrder(1L, List.of(new OrderItemCommand(productId, 3)), null);
-            assertThat(stockService.getByProductId(productId).quantity()).isEqualTo(7);
+            assertThat(stockService.getByProductId(productId).getQuantity()).isEqualTo(7);
         }
 
         @DisplayName("재고 부족 시 BAD_REQUEST 예외가 발생한다")
@@ -105,8 +104,8 @@ class OrderFacadeIntegrationTest {
             Long p2 = createProduct("조던", 159000, brandId, 1);
             assertThrows(CoreException.class, () -> orderFacade.placeOrder(1L, List.of(
                 new OrderItemCommand(p1, 3), new OrderItemCommand(p2, 5)), null));
-            assertThat(stockService.getByProductId(p1).quantity()).isEqualTo(10);
-            assertThat(stockService.getByProductId(p2).quantity()).isEqualTo(1);
+            assertThat(stockService.getByProductId(p1).getQuantity()).isEqualTo(10);
+            assertThat(stockService.getByProductId(p2).getQuantity()).isEqualTo(1);
         }
 
         @DisplayName("삭제된 상품 주문 시 NOT_FOUND 예외가 발생한다")

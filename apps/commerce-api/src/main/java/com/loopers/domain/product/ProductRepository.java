@@ -17,5 +17,7 @@ public interface ProductRepository {
     Optional<ProductModel> findById(Long id);
     List<ProductModel> findAllByBrandId(Long brandId);
 
+    Page<ProductModel> findAll(Long brandId, Pageable pageable, ProductSortType sortType);
+
     List<ProductModel> findAllByIdInAndDeletedAtIsNull(List<Long> ids);
 }

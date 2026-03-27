@@ -34,12 +34,12 @@ public class LikeFacade {
     public Page<LikeWithProduct> getMyLikesWithProducts(Long userId, Pageable pageable) {
         Page<LikeModel> likes = likeService.getMyLikes(userId, pageable);
         return likes.map(like -> {
-            ProductModel product = productService.getProduct(like.productId());
+            ProductModel product = productService.getById(like.productId());
             return new LikeWithProduct(
                 like.getId(),
                 product.getId(),
-                product.name(),
-                product.price().value(),
+                product.getName(),
+                product.getPrice().value(),
                 like.getCreatedAt()
             );
         });

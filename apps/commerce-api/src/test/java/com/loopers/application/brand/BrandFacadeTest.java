@@ -1,6 +1,5 @@
 package com.loopers.application.brand;
 
-import com.loopers.application.brand.BrandService;
 import com.loopers.application.product.ProductService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,7 +42,7 @@ class BrandFacadeTest {
 
             // then
             verify(brandService).delete(brandId);
-            verify(productService).deleteAllByBrandId(brandId);
+            verify(productService).softDeleteByBrandId(brandId);
         }
     }
 }

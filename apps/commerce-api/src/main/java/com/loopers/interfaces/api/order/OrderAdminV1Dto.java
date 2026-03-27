@@ -10,9 +10,9 @@ public class OrderAdminV1Dto {
     public record OrderAdminSummaryResponse(
         Long id, int totalAmount, String status, int itemCount, ZonedDateTime createdAt
     ) {
-        public static OrderAdminSummaryResponse from(OrderInfo.Summary info) {
+        public static OrderAdminSummaryResponse from(OrderInfo info) {
             return new OrderAdminSummaryResponse(
-                info.id(), info.totalAmount(), info.status(), info.itemCount(), info.createdAt()
+                info.orderId(), info.totalAmount(), info.status(), info.items().size(), info.createdAt()
             );
         }
     }
@@ -21,12 +21,12 @@ public class OrderAdminV1Dto {
         Long id, Long memberId, int totalAmount, String status,
         List<OrderV1Dto.OrderItemResponse> orderItems, ZonedDateTime createdAt
     ) {
-        public static OrderAdminDetailResponse from(OrderInfo.Detail info) {
-            List<OrderV1Dto.OrderItemResponse> items = info.orderItems().stream()
+        public static OrderAdminDetailResponse from(OrderInfo info) {
+            List<OrderV1Dto.OrderItemResponse> items = info.items().stream()
                 .map(OrderV1Dto.OrderItemResponse::from)
                 .toList();
             return new OrderAdminDetailResponse(
-                info.id(), info.memberId(), info.totalAmount(), info.status(), items, info.createdAt()
+                info.orderId(), info.userId(), info.totalAmount(), info.status(), items, info.createdAt()
             );
         }
     }

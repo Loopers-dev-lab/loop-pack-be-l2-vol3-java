@@ -21,7 +21,11 @@ public interface ProductJpaRepository extends JpaRepository<ProductModel, Long> 
     @Query("UPDATE ProductModel p SET p.likeCount = p.likeCount - 1 WHERE p.id = :id AND p.likeCount > 0")
     int decrementLikeCount(@Param("id") Long id);
 
+    Optional<ProductModel> findByIdAndDeletedAtIsNull(Long id);
+
     Page<ProductModel> findAllByDeletedAtIsNull(Pageable pageable);
+
+    List<ProductModel> findAllByBrandIdAndDeletedAtIsNull(Long brandId);
 
     Page<ProductModel> findAllByBrandIdAndDeletedAtIsNull(Long brandId, Pageable pageable);
 

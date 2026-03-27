@@ -1,0 +1,25 @@
+### 캐시 미스 — 상품 상세 첫 번째 조회
+GET http://localhost:8080/api/v1/products/1
+
+### 캐시 히트 — 상품 상세 두 번째 조회 (응답시간 비교)
+GET http://localhost:8080/api/v1/products/1
+
+### 상품 목록 — 캐시 미스
+GET http://localhost:8080/api/v1/products?brandId=1&sort=LIKES_DESC&page=0&size=20
+
+### 상품 목록 — 캐시 히트
+GET http://localhost:8080/api/v1/products?brandId=1&sort=LIKES_DESC&page=0&size=20
+
+### 상품 수정 (캐시 무효화 트리거)
+PUT http://localhost:8080/api-admin/v1/products/1
+Content-Type: application/json
+X-Admin-Id: admin
+
+{
+  "name": "수정된 상품",
+  "description": "수정된 설명",
+  "price": 99999
+}
+
+### 수정 후 재조회 — 캐시 미스 (변경된 데이터)
+GET http://localhost:8080/api/v1/products/1

@@ -1,15 +1,29 @@
 package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductDetail;
-import com.loopers.domain.stock.StockStatus;
 
 public class ProductV1Dto {
 
     public record ProductSummaryResponse(
         Long id, String name, int price, String brandName, String stockStatus
     ) {
-        public static ProductResponse from(ProductDetail detail) {
-            return new ProductResponse(
+        public static ProductSummaryResponse from(ProductDetail detail) {
+            return new ProductSummaryResponse(
+                detail.id(),
+                detail.name(),
+                detail.price(),
+                detail.brandName(),
+                detail.stockStatus() != null ? detail.stockStatus().name() : null
+            );
+        }
+    }
+
+    public record ProductDetailResponse(
+        Long id, String name, String description, int price,
+        Long brandId, String brandName, int likeCount, String stockStatus
+    ) {
+        public static ProductDetailResponse from(ProductDetail detail) {
+            return new ProductDetailResponse(
                 detail.id(),
                 detail.name(),
                 detail.description(),
@@ -17,7 +31,7 @@ public class ProductV1Dto {
                 detail.brandId(),
                 detail.brandName(),
                 detail.likeCount(),
-                detail.stockStatus()
+                detail.stockStatus() != null ? detail.stockStatus().name() : null
             );
         }
     }

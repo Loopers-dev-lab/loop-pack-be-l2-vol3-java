@@ -4,7 +4,7 @@ import com.loopers.application.like.LikeFacade;
 import com.loopers.application.like.LikeWithProduct;
 import com.loopers.domain.member.MemberModel;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.auth.LoginMember;
+import com.loopers.interfaces.api.auth.LoginMember;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;

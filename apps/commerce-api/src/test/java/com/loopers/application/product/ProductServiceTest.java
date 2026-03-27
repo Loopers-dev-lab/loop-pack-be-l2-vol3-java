@@ -6,11 +6,11 @@ import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.ProductSortType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -60,7 +61,7 @@ class ProductServiceTest {
 
             // then
             assertAll(
-                () -> assertThat(result.getName()).isEqualTo("에어맥스"),
+                () -> assertThat(result.getName()).isEqualTo("에어맥스 90"),
                 () -> assertThat(result.getPrice().value()).isEqualTo(129000)
             );
             verify(productRepository).save(any(ProductModel.class));
@@ -176,8 +177,8 @@ class ProductServiceTest {
             // then
             assertAll(
                 () -> assertThat(result).hasSize(2),
-                () -> assertThat(result.get(1L).name()).isEqualTo("에어맥스"),
-                () -> assertThat(result.get(2L).name()).isEqualTo("조던")
+                () -> assertThat(result.get(1L).getName()).isEqualTo("에어맥스"),
+                () -> assertThat(result.get(2L).getName()).isEqualTo("조던")
             );
         }
 
@@ -231,29 +232,24 @@ class ProductServiceTest {
 
         @DisplayName("좋아요 수를 증가시킨다")
         @Test
-        void increasesLikeCount() {
+        void incrementsLikeCount() {
             // arrange
             Long id = 1L;
-            ProductModel product = new ProductModel("에어맥스", "러닝화", new Money(129000), 1L);
-            given(productRepository.findById(id)).willReturn(Optional.of(product));
             // act
-            productService.increaseLikeCount(id);
+            productService.incrementLikeCount(id);
             // assert
-            assertThat(product.getLikeCount()).isEqualTo(1);
+            verify(productRepository).incrementLikeCount(id);
         }
 
         @DisplayName("좋아요 수를 감소시킨다")
         @Test
-        void decreasesLikeCount() {
+        void decrementsLikeCount() {
             // arrange
             Long id = 1L;
-            ProductModel product = new ProductModel("에어맥스", "러닝화", new Money(129000), 1L);
-            product.increaseLikeCount();
-            given(productRepository.findById(id)).willReturn(Optional.of(product));
             // act
-            productService.decreaseLikeCount(id);
+            productService.decrementLikeCount(id);
             // assert
-            assertThat(product.getLikeCount()).isEqualTo(0);
+            verify(productRepository).decrementLikeCount(id);
         }
     }
 }

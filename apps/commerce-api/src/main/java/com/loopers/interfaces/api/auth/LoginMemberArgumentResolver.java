@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.auth;
 
-import com.loopers.domain.member.MemberAuthService;
+import com.loopers.application.member.MemberAuthService;
 import com.loopers.domain.member.MemberModel;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;

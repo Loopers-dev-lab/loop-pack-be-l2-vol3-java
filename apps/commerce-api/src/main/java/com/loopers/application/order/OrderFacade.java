@@ -43,11 +43,11 @@ public class OrderFacade {
         List<SnapshotHolder> snapshots = new ArrayList<>();
 
         for (OrderItemCommand cmd : sorted) {
-            ProductModel product = productService.getProduct(cmd.productId());
-            Money subtotal = product.price().multiply(cmd.quantity());
+            ProductModel product = productService.getById(cmd.productId());
+            Money subtotal = product.getPrice().multiply(cmd.quantity());
             totalAmount = totalAmount.add(subtotal);
             snapshots.add(new SnapshotHolder(
-                product.getId(), product.name(), product.price(), cmd.quantity()
+                product.getId(), product.getName(), product.getPrice(), cmd.quantity()
             ));
         }
 

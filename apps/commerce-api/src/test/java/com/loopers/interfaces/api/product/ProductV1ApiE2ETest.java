@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.product;
 
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.api.brand.admin.BrandAdminV1Dto;
-import com.loopers.interfaces.api.product.admin.ProductAdminV1Dto;
+import com.loopers.interfaces.api.brand.BrandAdminV1Dto;
+import com.loopers.interfaces.api.product.ProductAdminV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -60,7 +60,7 @@ class ProductV1ApiE2ETest {
 
     private Long createProduct(String name, int price, Long brandId, int initialStock) {
         ProductAdminV1Dto.CreateRequest request = new ProductAdminV1Dto.CreateRequest(name, "설명", price, brandId, initialStock);
-        ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> response = testRestTemplate.exchange(
+        ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductAdminDetailResponse>> response = testRestTemplate.exchange(
             ADMIN_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request, adminHeaders()),
             new ParameterizedTypeReference<>() {}
         );
@@ -136,7 +136,7 @@ class ProductV1ApiE2ETest {
             Long productId = createProduct("에어맥스 90", 129000, brandId, 100);
 
             // when
-            ResponseEntity<ApiResponse<ProductV1Dto.ProductResponse>> response = testRestTemplate.exchange(
+            ResponseEntity<ApiResponse<ProductV1Dto.ProductDetailResponse>> response = testRestTemplate.exchange(
                 CUSTOMER_ENDPOINT + "/" + productId, HttpMethod.GET, null,
                 new ParameterizedTypeReference<>() {}
             );
@@ -200,7 +200,7 @@ class ProductV1ApiE2ETest {
             );
 
             // when
-            ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> response = testRestTemplate.exchange(
+            ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductAdminDetailResponse>> response = testRestTemplate.exchange(
                 ADMIN_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request, adminHeaders()),
                 new ParameterizedTypeReference<>() {}
             );
@@ -273,7 +273,7 @@ class ProductV1ApiE2ETest {
             Long productId = createProduct("에어맥스 90", 129000, brandId, 100);
 
             // when
-            ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> response = testRestTemplate.exchange(
+            ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductAdminDetailResponse>> response = testRestTemplate.exchange(
                 ADMIN_ENDPOINT + "/" + productId, HttpMethod.GET, new HttpEntity<>(null, adminHeaders()),
                 new ParameterizedTypeReference<>() {}
             );
@@ -302,7 +302,7 @@ class ProductV1ApiE2ETest {
             );
 
             // when
-            ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductResponse>> response = testRestTemplate.exchange(
+            ResponseEntity<ApiResponse<ProductAdminV1Dto.ProductAdminDetailResponse>> response = testRestTemplate.exchange(
                 ADMIN_ENDPOINT + "/" + productId, HttpMethod.PUT, new HttpEntity<>(request, adminHeaders()),
                 new ParameterizedTypeReference<>() {}
             );

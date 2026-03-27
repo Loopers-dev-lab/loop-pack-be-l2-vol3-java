@@ -25,7 +25,7 @@ public class OrderAdminV1Controller implements OrderAdminV1ApiSpec {
         @AdminUser String adminLdap,
         Pageable pageable
     ) {
-        Page<OrderAdminV1Dto.OrderAdminSummaryResponse> response = orderFacade.getAllOrders(pageable)
+        Page<OrderAdminV1Dto.OrderAdminSummaryResponse> response = orderFacade.getAllForAdmin(pageable)
             .map(OrderAdminV1Dto.OrderAdminSummaryResponse::from);
         return ApiResponse.success(response);
     }
@@ -36,7 +36,7 @@ public class OrderAdminV1Controller implements OrderAdminV1ApiSpec {
         @AdminUser String adminLdap,
         @PathVariable(value = "orderId") Long orderId
     ) {
-        OrderInfo.Detail info = orderFacade.getDetailForAdmin(orderId);
+        OrderInfo info = orderFacade.getOrderForAdmin(orderId);
         return ApiResponse.success(OrderAdminV1Dto.OrderAdminDetailResponse.from(info));
     }
 }

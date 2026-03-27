@@ -5,7 +5,7 @@ import com.loopers.application.order.OrderInfo;
 import com.loopers.application.order.OrderResult;
 import com.loopers.domain.member.MemberModel;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.auth.LoginMember;
+import com.loopers.interfaces.api.auth.LoginMember;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;

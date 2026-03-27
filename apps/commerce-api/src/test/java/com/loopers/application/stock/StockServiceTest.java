@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class StockServiceTest {
@@ -105,8 +106,8 @@ class StockServiceTest {
             // then
             assertAll(
                 () -> assertThat(result).hasSize(2),
-                () -> assertThat(result.get(1L).quantity()).isEqualTo(100),
-                () -> assertThat(result.get(2L).quantity()).isEqualTo(50)
+                () -> assertThat(result.get(1L).getQuantity()).isEqualTo(100),
+                () -> assertThat(result.get(2L).getQuantity()).isEqualTo(50)
             );
         }
     }

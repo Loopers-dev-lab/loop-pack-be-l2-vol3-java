@@ -38,6 +38,6 @@ public class StockService {
     public Map<Long, StockModel> getByProductIds(List<Long> productIds) {
         return stockRepository.findAllByProductIdIn(productIds)
             .stream()
-            .collect(Collectors.toMap(StockModel::productId, stock -> stock));
+            .collect(Collectors.toMap(StockModel::getProductId, stock -> stock));
     }
 }

@@ -1,11 +1,9 @@
 package com.loopers.application.product;
 
 import com.loopers.domain.brand.BrandModel;
-import com.loopers.domain.brand.BrandName;
 import com.loopers.application.brand.BrandService;
 import com.loopers.domain.product.Money;
 import com.loopers.domain.product.ProductModel;
-import com.loopers.application.product.ProductService;
 import com.loopers.domain.stock.StockModel;
 import com.loopers.application.stock.StockService;
 import com.loopers.domain.stock.StockStatus;
@@ -18,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -55,21 +54,26 @@ class ProductFacadeTest {
         void orchestratesRegistration() {
             // given
             Long brandId = 1L;
-            BrandModel brand = new BrandModel(new BrandName("나이키"), "스포츠");
+            BrandModel brand = new BrandModel("나이키", "스포츠");
             ProductModel product = new ProductModel("에어맥스", "러닝화", new Money(129000), brandId);
+            ReflectionTestUtils.setField(product, "id", 1L);
+            StockModel stock = new StockModel(1L, 100);
 
             when(brandService.getBrand(brandId)).thenReturn(brand);
             when(productService.register("에어맥스", "러닝화", new Money(129000), brandId)).thenReturn(product);
+            when(stockService.save(1L, 100)).thenReturn(stock);
+            when(brandService.getBrandForAdmin(brandId)).thenReturn(brand);
+            when(stockService.getByProductId(1L)).thenReturn(stock);
 
             // when
-            ProductModel result = productFacade.register("에어맥스", "러닝화", new Money(129000), brandId, 100);
+            ProductDetail result = productFacade.register("에어맥스", "러닝화", new Money(129000), brandId, 100);
 
             // then
             assertAll(
                 () -> assertThat(result.name()).isEqualTo("에어맥스"),
                 () -> verify(brandService).getBrand(brandId),
                 () -> verify(productService).register("에어맥스", "러닝화", new Money(129000), brandId),
-                () -> verify(stockService).create(any(), eq(100))
+                () -> verify(stockService).save(1L, 100)
             );
         }
 
@@ -98,10 +102,10 @@ class ProductFacadeTest {
             Long productId = 1L;
             Long brandId = 1L;
             ProductModel product = new ProductModel("에어맥스", "러닝화", new Money(129000), brandId);
-            BrandModel brand = new BrandModel(new BrandName("나이키"), "스포츠");
+            BrandModel brand = new BrandModel("나이키", "스포츠");
             StockModel stock = new StockModel(productId, 100);
 
-            when(productService.getProduct(productId)).thenReturn(product);
+            when(productService.getById(productId)).thenReturn(product);
             when(brandService.getBrandForAdmin(brandId)).thenReturn(brand);
             when(stockService.getByProductId(productId)).thenReturn(stock);
 

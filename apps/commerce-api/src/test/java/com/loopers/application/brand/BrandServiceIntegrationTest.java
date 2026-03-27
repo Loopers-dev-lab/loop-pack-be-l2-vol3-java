@@ -44,8 +44,8 @@ class BrandServiceIntegrationTest {
             // then
             assertAll(
                 () -> assertThat(result.getId()).isNotNull(),
-                () -> assertThat(result.name().value()).isEqualTo("나이키"),
-                () -> assertThat(result.description()).isEqualTo("스포츠 브랜드")
+                () -> assertThat(result.getName()).isEqualTo("나이키"),
+                () -> assertThat(result.getDescription()).isEqualTo("스포츠 브랜드")
             );
         }
 
@@ -78,7 +78,7 @@ class BrandServiceIntegrationTest {
             BrandModel result = brandService.getBrand(saved.getId());
 
             // then
-            assertThat(result.name().value()).isEqualTo("나이키");
+            assertThat(result.getName()).isEqualTo("나이키");
         }
 
         @DisplayName("삭제된 브랜드면 NOT_FOUND 예외가 발생한다")
@@ -112,8 +112,8 @@ class BrandServiceIntegrationTest {
 
             // then
             assertAll(
-                () -> assertThat(result.name().value()).isEqualTo("뉴발란스"),
-                () -> assertThat(result.description()).isEqualTo("라이프스타일 브랜드")
+                () -> assertThat(result.getName()).isEqualTo("뉴발란스"),
+                () -> assertThat(result.getDescription()).isEqualTo("라이프스타일 브랜드")
             );
         }
 
@@ -128,8 +128,8 @@ class BrandServiceIntegrationTest {
 
             // then
             assertAll(
-                () -> assertThat(result.name().value()).isEqualTo("나이키"),
-                () -> assertThat(result.description()).isEqualTo("설명만 변경")
+                () -> assertThat(result.getName()).isEqualTo("나이키"),
+                () -> assertThat(result.getDescription()).isEqualTo("설명만 변경")
             );
         }
 

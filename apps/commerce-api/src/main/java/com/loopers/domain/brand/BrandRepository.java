@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface BrandRepository {
+    BrandModel save(BrandModel brand);
     Optional<BrandModel> findById(Long id);
     Optional<BrandModel> findByName(String name);
     Page<BrandModel> findAll(Pageable pageable);

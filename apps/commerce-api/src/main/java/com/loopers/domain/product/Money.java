@@ -14,7 +14,6 @@ public class Money {
 
     public static final Money ZERO = new Money(0);
 
-    @Column(name = "price", nullable = false)
     private int value;
 
     public Money(int value) {

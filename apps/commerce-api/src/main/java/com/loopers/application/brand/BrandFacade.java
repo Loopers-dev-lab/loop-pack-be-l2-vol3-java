@@ -33,7 +33,7 @@ public class BrandFacade {
     @Transactional
     public void delete(Long brandId) {
         brandService.delete(brandId);
-        productService.deleteAllByBrandId(brandId);
+        productService.softDeleteByBrandId(brandId);
     }
 
     public Page<BrandInfo> getAll(Pageable pageable) {

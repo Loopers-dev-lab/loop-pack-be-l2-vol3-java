@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.brand;
 
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.api.brand.admin.BrandAdminV1Dto;
+import com.loopers.interfaces.api.brand.BrandAdminV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;

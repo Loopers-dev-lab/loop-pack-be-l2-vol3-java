@@ -1,20 +1,24 @@
 package com.loopers.application.brand;
 
 import com.loopers.domain.brand.BrandModel;
-import com.loopers.domain.brand.BrandName;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -24,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class BrandServiceTest {
@@ -79,7 +84,7 @@ class BrandServiceTest {
 
     @DisplayName("브랜드 조회")
     @Nested
-    class GetById {
+    class GetBrand {
 
         @DisplayName("존재하는 ID면 브랜드를 반환한다")
         @Test
@@ -89,7 +94,7 @@ class BrandServiceTest {
             BrandModel brand = new BrandModel("나이키", "스포츠");
             given(brandRepository.findById(id)).willReturn(Optional.of(brand));
             // act
-            BrandModel result = brandService.getById(id);
+            BrandModel result = brandService.getBrand(id);
             // assert
             assertThat(result.getName()).isEqualTo("나이키");
         }
@@ -102,7 +107,7 @@ class BrandServiceTest {
             given(brandRepository.findById(id)).willReturn(Optional.empty());
             // act
             CoreException exception = assertThrows(CoreException.class, () -> {
-                brandService.getById(id);
+                brandService.getBrand(id);
             });
             // assert
             assertThat(exception.getErrorType()).isEqualTo(ErrorType.NOT_FOUND);
@@ -157,7 +162,7 @@ class BrandServiceTest {
         void softDeletesSuccessfully() {
             // given
             Long brandId = 1L;
-            BrandModel brand = new BrandModel(new BrandName("나이키"), "스포츠 브랜드");
+            BrandModel brand = new BrandModel("나이키", "스포츠 브랜드");
             when(brandRepository.findById(brandId)).thenReturn(Optional.of(brand));
 
             // when
@@ -193,8 +198,8 @@ class BrandServiceTest {
             // given
             Pageable pageable = PageRequest.of(0, 10);
             List<BrandModel> brands = List.of(
-                new BrandModel(new BrandName("나이키"), "스포츠"),
-                new BrandModel(new BrandName("아디다스"), "스포츠")
+                new BrandModel("나이키", "스포츠"),
+                new BrandModel("아디다스", "스포츠")
             );
             Page<BrandModel> page = new PageImpl<>(brands, pageable, brands.size());
             when(brandRepository.findAll(pageable)).thenReturn(page);

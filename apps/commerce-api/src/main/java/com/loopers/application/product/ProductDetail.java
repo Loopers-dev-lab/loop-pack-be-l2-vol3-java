@@ -22,18 +22,18 @@ public record ProductDetail(
 
     public static ProductDetail ofCustomer(ProductModel product, String brandName, StockStatus stockStatus) {
         return new ProductDetail(
-            product.getId(), product.name(), product.description(),
-            product.price().value(), product.brandId(), brandName,
-            product.likeCount(), stockStatus, 0,
+            product.getId(), product.getName(), product.getDescription(),
+            product.getPrice().value(), product.getBrandId(), brandName,
+            product.getLikeCount(), stockStatus, 0,
             product.getCreatedAt(), product.getUpdatedAt(), product.getDeletedAt()
         );
     }
 
     public static ProductDetail ofAdmin(ProductModel product, String brandName, int stockQuantity) {
         return new ProductDetail(
-            product.getId(), product.name(), product.description(),
-            product.price().value(), product.brandId(), brandName,
-            product.likeCount(), null, stockQuantity,
+            product.getId(), product.getName(), product.getDescription(),
+            product.getPrice().value(), product.getBrandId(), brandName,
+            product.getLikeCount(), null, stockQuantity,
             product.getCreatedAt(), product.getUpdatedAt(), product.getDeletedAt()
         );
     }

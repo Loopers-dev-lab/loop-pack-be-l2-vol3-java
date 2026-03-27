@@ -50,7 +50,7 @@ public class BrandAdminV1Controller implements BrandAdminV1ApiSpec {
         @AdminUser String adminLdap,
         @PathVariable(value = "brandId") Long brandId
     ) {
-        BrandInfo info = brandFacade.getById(brandId);
+        BrandInfo info = brandFacade.getBrandForAdmin(brandId);
         return ApiResponse.success(BrandAdminV1Dto.BrandResponse.from(info));
     }
 

@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.product;
 
+import com.loopers.application.product.ProductDetail;
 import com.loopers.application.product.ProductFacade;
-import com.loopers.application.product.ProductInfo;
 import com.loopers.domain.product.Money;
 import com.loopers.domain.product.ProductSortType;
 import com.loopers.interfaces.api.ApiResponse;
@@ -33,11 +33,11 @@ public class ProductAdminV1Controller implements ProductAdminV1ApiSpec {
         @AdminUser String adminLdap,
         @RequestBody ProductAdminV1Dto.CreateRequest request
     ) {
-        ProductInfo.AdminDetail info = productFacade.register(
+        ProductDetail detail = productFacade.register(
             request.name(), request.description(), new Money(request.price()),
             request.brandId(), request.stockQuantity()
         );
-        return ApiResponse.success(ProductAdminV1Dto.ProductAdminDetailResponse.from(info));
+        return ApiResponse.success(ProductAdminV1Dto.ProductAdminDetailResponse.from(detail));
     }
 
     @GetMapping
@@ -48,7 +48,7 @@ public class ProductAdminV1Controller implements ProductAdminV1ApiSpec {
         @RequestParam(value = "sortType", defaultValue = "CREATED_DESC") String sortType
     ) {
         ProductSortType sort = ProductSortType.valueOf(sortType);
-        Page<ProductAdminV1Dto.ProductAdminSummaryResponse> response = productFacade.getAllForAdmin(pageable, sort)
+        Page<ProductAdminV1Dto.ProductAdminSummaryResponse> response = productFacade.getProductsForAdmin(null, pageable)
             .map(ProductAdminV1Dto.ProductAdminSummaryResponse::from);
         return ApiResponse.success(response);
     }
@@ -59,8 +59,8 @@ public class ProductAdminV1Controller implements ProductAdminV1ApiSpec {
         @AdminUser String adminLdap,
         @PathVariable(value = "productId") Long productId
     ) {
-        ProductInfo.AdminDetail info = productFacade.getDetailForAdmin(productId);
-        return ApiResponse.success(ProductAdminV1Dto.ProductAdminDetailResponse.from(info));
+        ProductDetail detail = productFacade.getProductForAdmin(productId);
+        return ApiResponse.success(ProductAdminV1Dto.ProductAdminDetailResponse.from(detail));
     }
 
     @PutMapping("/{productId}")
@@ -70,10 +70,10 @@ public class ProductAdminV1Controller implements ProductAdminV1ApiSpec {
         @PathVariable(value = "productId") Long productId,
         @RequestBody ProductAdminV1Dto.UpdateRequest request
     ) {
-        ProductInfo.AdminDetail info = productFacade.update(
+        ProductDetail detail = productFacade.update(
             productId, request.name(), request.description(), new Money(request.price())
         );
-        return ApiResponse.success(ProductAdminV1Dto.ProductAdminDetailResponse.from(info));
+        return ApiResponse.success(ProductAdminV1Dto.ProductAdminDetailResponse.from(detail));
     }
 
     @DeleteMapping("/{productId}")
@@ -93,7 +93,7 @@ public class ProductAdminV1Controller implements ProductAdminV1ApiSpec {
         @PathVariable(value = "productId") Long productId,
         @RequestBody ProductAdminV1Dto.UpdateStockRequest request
     ) {
-        ProductInfo.AdminDetail info = productFacade.updateStock(productId, request.quantity());
-        return ApiResponse.success(ProductAdminV1Dto.ProductAdminDetailResponse.from(info));
+        ProductDetail detail = productFacade.updateStock(productId, request.quantity());
+        return ApiResponse.success(ProductAdminV1Dto.ProductAdminDetailResponse.from(detail));
     }
 }

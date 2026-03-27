@@ -6,7 +6,7 @@ import com.loopers.domain.coupon.CouponIssueModel;
 import com.loopers.domain.coupon.CouponModel;
 import com.loopers.domain.member.MemberModel;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.auth.LoginMember;
+import com.loopers.interfaces.api.auth.LoginMember;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 

@@ -40,8 +40,13 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ProductModel> getAll(Pageable pageable, ProductSortType sortType) {
-        return productRepository.findAll(pageable, sortType);
+    public Page<ProductModel> getProducts(Long brandId, ProductSortType sortType, Pageable pageable) {
+        return productRepository.findAll(brandId, pageable, sortType);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ProductModel> getProductsForAdmin(Long brandId, Pageable pageable) {
+        return productRepository.findAll(brandId, pageable, ProductSortType.CREATED_DESC);
     }
 
     @Transactional
