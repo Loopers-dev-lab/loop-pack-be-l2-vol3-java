@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.idempotent.IdempotentProcessor;
 import com.loopers.application.metrics.MetricsService;
 import com.loopers.confg.kafka.KafkaConfig;
-import com.loopers.infrastructure.outbox.OutboxMarkRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -24,7 +23,6 @@ public class CatalogEventConsumer {
     private final IdempotentProcessor idempotentProcessor;
     private final MetricsService metricsService;
     private final ObjectMapper objectMapper;
-    private final OutboxMarkRepository outboxMarkRepository;
 
     @KafkaListener(topics = "catalog-events", groupId = "metrics-aggregation",
             containerFactory = KafkaConfig.BATCH_LISTENER)
@@ -39,25 +37,25 @@ public class CatalogEventConsumer {
         ack.acknowledge();
     }
 
+    private static final String TOPIC = "catalog-events";
+    private static final String GROUP_ID = "metrics-aggregation";
+
     private void processRecord(ConsumerRecord<String, byte[]> record) throws Exception {
         JsonNode node = objectMapper.readTree(record.value());
         String eventId = node.path("eventId").asText();
         String eventType = node.path("eventType").asText();
         JsonNode payload = objectMapper.readTree(node.path("payload").asText());
 
-        String idempotencyKey = "metrics-aggregation:" + eventId;
+        String idempotencyKey = GROUP_ID + ":" + eventId;
 
         switch (eventType) {
-            case "product.liked" -> idempotentProcessor.process(idempotencyKey, eventType,
+            case "product.liked" -> idempotentProcessor.process(idempotencyKey, eventType, TOPIC, GROUP_ID,
                     () -> metricsService.incrementLikeCount(payload.path("productId").asLong(), 1));
-            case "product.unliked" -> idempotentProcessor.process(idempotencyKey, eventType,
+            case "product.unliked" -> idempotentProcessor.process(idempotencyKey, eventType, TOPIC, GROUP_ID,
                     () -> metricsService.incrementLikeCount(payload.path("productId").asLong(), -1));
-            case "product.viewed" -> idempotentProcessor.process(idempotencyKey, eventType,
+            case "product.viewed" -> idempotentProcessor.process(idempotencyKey, eventType, TOPIC, GROUP_ID,
                     () -> metricsService.incrementViewCount(payload.path("productId").asLong(), 1));
             default -> log.warn("미지원 catalog 이벤트: eventType={}", eventType);
         }
-
-        // 셀프컨슘: 처리 완료 후 Outbox SENT 갱신
-        outboxMarkRepository.markPublished(eventId);
     }
 }

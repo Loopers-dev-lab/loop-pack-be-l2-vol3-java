@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.idempotent.IdempotentProcessor;
 import com.loopers.application.metrics.MetricsService;
 import com.loopers.confg.kafka.KafkaConfig;
-import com.loopers.infrastructure.outbox.OutboxMarkRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -25,8 +24,6 @@ public class OrderEventConsumer {
     private final IdempotentProcessor idempotentProcessor;
     private final MetricsService metricsService;
     private final ObjectMapper objectMapper;
-    private final OutboxMarkRepository outboxMarkRepository;
-
     @KafkaListener(topics = "order-events", groupId = "metrics-aggregation",
             containerFactory = KafkaConfig.BATCH_LISTENER)
     public void consume(List<ConsumerRecord<String, byte[]>> records, Acknowledgment ack) {
@@ -40,30 +37,31 @@ public class OrderEventConsumer {
         ack.acknowledge();
     }
 
+    private static final String TOPIC = "order-events";
+    private static final String GROUP_ID = "metrics-aggregation";
+
     private void processRecord(ConsumerRecord<String, byte[]> record) throws Exception {
         JsonNode node = objectMapper.readTree(record.value());
         String eventId = node.path("eventId").asText();
         String eventType = node.path("eventType").asText();
         JsonNode payload = objectMapper.readTree(node.path("payload").asText());
 
-        String idempotencyKey = "metrics-aggregation:" + eventId;
+        String idempotencyKey = GROUP_ID + ":" + eventId;
 
         switch (eventType) {
             case "payment.completed" -> {
                 Long productId = payload.path("orderId").asLong();
                 BigDecimal amount = new BigDecimal(payload.path("amount").asText());
-                idempotentProcessor.process(idempotencyKey, eventType,
+                idempotentProcessor.process(idempotencyKey, eventType, TOPIC, GROUP_ID,
                         () -> metricsService.incrementSales(productId, 1, amount));
             }
             case "payment.canceled" -> {
                 Long productId = payload.path("orderId").asLong();
-                idempotentProcessor.process(idempotencyKey, eventType,
+                idempotentProcessor.process(idempotencyKey, eventType, TOPIC, GROUP_ID,
                         () -> metricsService.incrementSales(productId, -1, BigDecimal.ZERO));
             }
             case "payment.failed" -> log.info("결제 실패 이벤트 수신: eventId={}", eventId);
             default -> log.warn("미지원 order 이벤트: eventType={}", eventType);
         }
-
-        outboxMarkRepository.markPublished(eventId);
     }
 }

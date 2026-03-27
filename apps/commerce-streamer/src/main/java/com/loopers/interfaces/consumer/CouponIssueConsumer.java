@@ -37,6 +37,9 @@ public class CouponIssueConsumer {
         ack.acknowledge();
     }
 
+    private static final String TOPIC = "coupon-issue-requests";
+    private static final String GROUP_ID = "coupon-processing";
+
     private void processRecord(ConsumerRecord<String, byte[]> record) throws Exception {
         JsonNode node = objectMapper.readTree(record.value());
         String eventId = node.path("eventId").asText();
@@ -45,9 +48,9 @@ public class CouponIssueConsumer {
 
         Long couponId = payload.path("couponId").asLong();
         Long userId = payload.path("userId").asLong();
-        String idempotencyKey = "coupon-processing:" + eventId;
+        String idempotencyKey = GROUP_ID + ":" + eventId;
 
-        idempotentProcessor.process(idempotencyKey, eventType,
+        idempotentProcessor.process(idempotencyKey, eventType, TOPIC, GROUP_ID,
                 () -> couponIssueProcessor.process(eventId, couponId, userId));
     }
 }
