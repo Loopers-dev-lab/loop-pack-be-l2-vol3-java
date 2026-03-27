@@ -1,20 +1,27 @@
 package com.loopers.domain.user;
 
+import com.loopers.domain.outbox.DomainEventTypes;
+import com.loopers.domain.outbox.DomainKafkaTopics;
+import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
+    private final TransactionalOutboxWriter transactionalOutboxWriter;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, TransactionalOutboxWriter transactionalOutboxWriter) {
         this.userRepository = userRepository;
+        this.transactionalOutboxWriter = transactionalOutboxWriter;
     }
 
     @Transactional
@@ -32,7 +39,16 @@ public class UserService {
 
         try {
             UserModel user = UserModel.create(userId, email, birthDate, password, gender);
-            return userRepository.save(user);
+            UserModel saved = userRepository.save(user);
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("userId", saved.getId());
+            payload.put("loginId", saved.getUserId());
+            transactionalOutboxWriter.record(
+                    DomainKafkaTopics.USER_EVENTS,
+                    String.valueOf(saved.getId()),
+                    DomainEventTypes.USER_REGISTERED,
+                    payload);
+            return saved;
         } catch (DataIntegrityViolationException e) {
             throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 사용자 ID입니다: " + value);
         }
