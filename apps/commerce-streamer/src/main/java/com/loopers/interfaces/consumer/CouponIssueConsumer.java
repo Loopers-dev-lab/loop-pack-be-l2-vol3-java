@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 선착순 쿠폰 발급 Consumer
@@ -32,6 +33,16 @@ import java.util.List;
 public class CouponIssueConsumer {
 
     private static final long MAX_ISSUE_COUNT = 100;
+
+    /**
+     * 실험용 플래그
+     * USE_ATOMIC_LONG=true  → AtomicLong (재시작 시 카운트 리셋 → 초과발급 재현)
+     * USE_ATOMIC_LONG=false → DB 카운터 (재시작 후에도 유지 → 정확히 100장)
+     */
+    private static final boolean USE_ATOMIC_LONG =
+        Boolean.parseBoolean(System.getenv().getOrDefault("USE_ATOMIC_LONG", "false"));
+
+    private final AtomicLong atomicCount = new AtomicLong(0);
 
     private final EventHandledJpaRepository eventHandledRepository;
     private final CouponIssueCountJpaRepository couponIssueCountRepository;
@@ -50,21 +61,32 @@ public class CouponIssueConsumer {
                     continue;
                 }
 
-                // 2. 수량 제한 — DB 기반 (재시작 후에도 카운트 유지)
-                CouponIssueCount count = couponIssueCountRepository
-                    .findById(event.couponTemplateId())
-                    .orElseGet(() -> couponIssueCountRepository.save(CouponIssueCount.init(event.couponTemplateId())));
-
-                if (!count.tryIncrement(MAX_ISSUE_COUNT)) {
-                    log.info("[CouponIssue] exhausted eventId={} issuedCount={}", event.eventId(), count.getIssuedCount());
+                // 2. 수량 제한
+                if (USE_ATOMIC_LONG) {
+                    // [실험 1] AtomicLong — 재시작 시 카운트 리셋
+                    long current = atomicCount.get();
+                    if (current >= MAX_ISSUE_COUNT) {
+                        log.info("[CouponIssue][AtomicLong] exhausted issuedCount={}", current);
+                        eventHandledRepository.save(EventHandled.of(event.eventId()));
+                        continue;
+                    }
+                    atomicCount.incrementAndGet();
                     eventHandledRepository.save(EventHandled.of(event.eventId()));
-                    continue;
-                }
+                    log.info("[CouponIssue][AtomicLong] issued eventId={} total={}", event.eventId(), atomicCount.get());
+                } else {
+                    // [정상] DB 카운터 — 재시작 후에도 카운트 유지
+                    CouponIssueCount count = couponIssueCountRepository
+                        .findById(event.couponTemplateId())
+                        .orElseGet(() -> couponIssueCountRepository.save(CouponIssueCount.init(event.couponTemplateId())));
 
-                // 3. 발급 처리 완료 기록
-                eventHandledRepository.save(EventHandled.of(event.eventId()));
-                log.info("[CouponIssue] issued eventId={} memberId={} couponTemplateId={} total={}",
-                    event.eventId(), event.memberId(), event.couponTemplateId(), count.getIssuedCount());
+                    if (!count.tryIncrement(MAX_ISSUE_COUNT)) {
+                        log.info("[CouponIssue][DB] exhausted issuedCount={}", count.getIssuedCount());
+                        eventHandledRepository.save(EventHandled.of(event.eventId()));
+                        continue;
+                    }
+                    eventHandledRepository.save(EventHandled.of(event.eventId()));
+                    log.info("[CouponIssue][DB] issued eventId={} total={}", event.eventId(), count.getIssuedCount());
+                }
 
             } catch (Exception e) {
                 log.error("[CouponIssue] failed record={} cause={}", record, e.getMessage());
