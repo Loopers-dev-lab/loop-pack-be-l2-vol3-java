@@ -38,7 +38,10 @@ public class LikeApp {
             String eventId = UUID.randomUUID().toString();
             LocalDateTime now = LocalDateTime.now();
             LikeOutboxPayload payload = new LikeOutboxPayload(eventId, "LikedEvent", 1, productDbId, memberId, 1, now);
-            outboxAppender.append("like", eventId, "LikedEvent", CATALOG_EVENTS_TOPIC, payload);
+            // aggregateId = productDbId: 같은 상품의 이벤트가 동일 파티션에 순서대로 전달됨.
+            // 핫스팟(인기 상품 1개 파티션 집중)을 감수하고 ordering을 선택.
+            // lastEventAt 기반 가드와 product_metrics 단일 Consumer 순차 처리를 위해 필수.
+            outboxAppender.append("like", String.valueOf(productDbId), "LikedEvent", CATALOG_EVENTS_TOPIC, payload);
         }
         return LikeInfo.from(result.likeModel());
     }
@@ -54,7 +57,7 @@ public class LikeApp {
             String eventId = UUID.randomUUID().toString();
             LocalDateTime now = LocalDateTime.now();
             LikeOutboxPayload payload = new LikeOutboxPayload(eventId, "LikeRemovedEvent", 1, productDbId, memberId, -1, now);
-            outboxAppender.append("like", eventId, "LikeRemovedEvent", CATALOG_EVENTS_TOPIC, payload);
+            outboxAppender.append("like", String.valueOf(productDbId), "LikeRemovedEvent", CATALOG_EVENTS_TOPIC, payload);
         });
     }
 

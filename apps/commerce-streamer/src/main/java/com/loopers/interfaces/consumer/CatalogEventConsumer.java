@@ -22,6 +22,9 @@ public class CatalogEventConsumer {
     private final ProductMetricsApp productMetricsApp;
     private final ObjectMapper objectMapper;
 
+    private static final java.util.Set<String> SUPPORTED_EVENT_TYPES =
+            java.util.Set.of("LikedEvent", "LikeRemovedEvent");
+
     @KafkaListener(
             topics = TOPIC,
             groupId = "commerce-streamer-catalog",
@@ -32,6 +35,11 @@ public class CatalogEventConsumer {
             ConsumerRecord<Object, Object> record = records.get(i);
             try {
                 CatalogEventPayload payload = parse(record);
+                if (!SUPPORTED_EVENT_TYPES.contains(payload.eventType())) {
+                    log.warn("[CATALOG_EVENT] 미지원 eventType={}, offset={} — 건너뜀",
+                            payload.eventType(), record.offset());
+                    continue;
+                }
                 productMetricsApp.applyLikeDelta(
                         payload.eventId(),
                         payload.productDbId(),

@@ -31,10 +31,16 @@ public class CouponIssueRequestModel extends BaseEntity {
     protected CouponIssueRequestModel() {}
 
     public void markAsIssued() {
+        if (this.status != CouponIssueStatus.PENDING) {
+            throw new IllegalStateException("PENDING 상태에서만 ISSUED로 전이 가능합니다: " + this.status);
+        }
         this.status = CouponIssueStatus.ISSUED;
     }
 
     public void markAsRejected() {
+        if (this.status != CouponIssueStatus.PENDING) {
+            throw new IllegalStateException("PENDING 상태에서만 REJECTED로 전이 가능합니다: " + this.status);
+        }
         this.status = CouponIssueStatus.REJECTED;
     }
 }
