@@ -71,6 +71,21 @@ public class OrderModel extends BaseEntity {
         return order;
     }
 
+    public static OrderModel createPendingPayment(Long userId, List<OrderItemModel> items) {
+        return createPendingPayment(userId, items, 0);
+    }
+
+    public static OrderModel createPendingPayment(Long userId, List<OrderItemModel> items,
+                                                   int discountAmount) {
+        validateUserId(userId);
+        validateItems(items);
+        OrderModel order = new OrderModel(
+                userId, OrderItemModel.calculateTotalPrice(items),
+                discountAmount, OrderStatus.PENDING_PAYMENT);
+        items.forEach(order::addItem);
+        return order;
+    }
+
     public void addItem(OrderItemModel item) {
         items.add(item);
         item.assignOrder(this);
@@ -95,6 +110,24 @@ public class OrderModel extends BaseEntity {
     private boolean isAllItemsCancelled() {
         return items.stream()
                 .allMatch(item -> item.getStatus() == OrderItemStatus.CANCELLED);
+    }
+
+    public void completePayment() {
+        if (this.status != OrderStatus.PENDING_PAYMENT) {
+            throw new CoreException(OrderErrorCode.INVALID_STATUS_TRANSITION);
+        }
+        this.status = OrderStatus.ORDERED;
+    }
+
+    public void cancelByPaymentFailure() {
+        if (this.status != OrderStatus.PENDING_PAYMENT) {
+            throw new CoreException(OrderErrorCode.INVALID_STATUS_TRANSITION);
+        }
+        this.status = OrderStatus.CANCELLED;
+    }
+
+    public boolean isPendingPayment() {
+        return this.status == OrderStatus.PENDING_PAYMENT;
     }
 
     public boolean isCancelled() {

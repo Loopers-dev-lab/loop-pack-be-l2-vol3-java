@@ -92,7 +92,6 @@ class OrderFacadeTest {
                     () -> verify(productService).validateAndDeductStock(anyList()),
                     () -> verify(brandService).getNameMapByIds(List.of(brandId)),
                     () -> verify(orderService).createOrder(anyLong(), anyList()),
-                    () -> verify(userService).deductPoint(1L, 25000),
                     () -> assertThat(result.totalPrice()).isEqualTo(25000));
         }
 
@@ -140,6 +139,7 @@ class OrderFacadeTest {
             assertThatThrownBy(() -> orderFacade.createOrder(1L, criteria))
                     .isInstanceOf(CoreException.class);
         }
+
     }
 
     @DisplayName("회원 주문 목록을 조회할 때 (UC-O02), ")

@@ -49,6 +49,11 @@ public class FakeOrderRepository implements OrderRepository {
     }
 
     @Override
+    public Optional<OrderModel> findByIdWithLock(Long id) {
+        return findById(id);
+    }
+
+    @Override
     public Page<OrderModel> findAll(Pageable pageable) {
         List<OrderModel> all = new ArrayList<>(store.values());
 
@@ -60,5 +65,12 @@ public class FakeOrderRepository implements OrderRepository {
             : all.subList(start, end);
 
         return new PageImpl<>(pageContent, pageable, all.size());
+    }
+
+    @Override
+    public boolean existsByUserIdAndStatus(Long userId, OrderStatus status) {
+        return store.values().stream()
+                .anyMatch(order -> order.getUserId().equals(userId)
+                        && order.getStatus() == status);
     }
 }

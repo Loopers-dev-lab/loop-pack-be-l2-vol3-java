@@ -84,11 +84,13 @@ class NamingConventionTest {
         classes()
             .that().areAnnotatedWith(
                 org.springframework.stereotype.Repository.class)
+            .and().resideOutsideOfPackage("..infrastructure.datagenerator..")
             .should().haveSimpleNameEndingWith("RepositoryImpl")
             .orShould().haveSimpleNameEndingWith("QueryRepository")
             .because("@Repository는 RepositoryImpl 또는 QueryRepository에만 붙인다. " +
                      "domain Repository 인터페이스는 순수 Java로 유지한다. " +
-                     "(infrastructure-convention.md § 1)");
+                     "(infrastructure-convention.md § 1) " +
+                     "[예외: datagenerator — 테스트 데이터 유틸리티]");
 
     // ========================================================================
     // ErrorCode는 domain 패키지에 배치

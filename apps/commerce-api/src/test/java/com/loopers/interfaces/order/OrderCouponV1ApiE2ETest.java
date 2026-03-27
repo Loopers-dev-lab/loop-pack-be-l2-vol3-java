@@ -174,12 +174,10 @@ class OrderCouponV1ApiE2ETest {
         @DisplayName("★ 이미 사용된 쿠폰으로 주문하면, 400 응답을 반환한다.")
         @Test
         void alreadyUsedCoupon_returnsBadRequest() {
-            // arrange — 주문 API로 쿠폰을 사용시킨 뒤, 같은 쿠폰으로 재주문
+            // arrange — DB에 직접 쿠폰을 USED 상태로 설정 (pending order 없이)
             OwnedCouponModel owned = issueOwnedCoupon(CouponDiscountType.FIXED, 5000, null);
-            testRestTemplate.exchange(
-                    ORDER_ENDPOINT, HttpMethod.POST,
-                    new HttpEntity<>(orderRequest(owned.getId()), authHeaders()),
-                    new ParameterizedTypeReference<ApiResponse<OrderResponse.OrderSummary>>() {});
+            owned.use(userId, 999999L);
+            ownedCouponJpaRepository.save(owned);
 
             // act
             ResponseEntity<ApiResponse<Object>> response =

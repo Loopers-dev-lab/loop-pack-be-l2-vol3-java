@@ -73,13 +73,19 @@ async function loadOrders(el) {
                         <td>${o.discountAmount.toLocaleString()}원</td>
                         <td><span class="badge ${statusBadge(o.status)}">${statusLabel(o.status)}</span></td>
                         <td>${formatDate(o.createdAt)}</td>
-                        <td><button class="btn btn-sm btn-outline" data-order-id="${o.orderId}">상세</button></td>
+                        <td>
+                            ${o.status === 'PENDING_PAYMENT' ? `<button class="btn btn-sm btn-primary pay-btn" data-order-id="${o.orderId}" data-amount="${o.totalPrice}">결제</button>` : ''}
+                            <button class="btn btn-sm btn-outline" data-order-id="${o.orderId}" data-action="detail">상세</button>
+                        </td>
                     </tr>`).join('')}
                 </tbody>
             </table></div>`;
 
-        el.querySelectorAll('[data-order-id]').forEach(btn => {
+        el.querySelectorAll('[data-action="detail"]').forEach(btn => {
             btn.addEventListener('click', () => showOrderDetail(+btn.dataset.orderId));
+        });
+        el.querySelectorAll('.pay-btn').forEach(btn => {
+            btn.addEventListener('click', () => showPaymentModal(+btn.dataset.orderId, +btn.dataset.amount));
         });
     } catch (e) { el.innerHTML = `<h2>주문 내역</h2><p style="color:#dc2626">${esc(e.message)}</p>`; }
 }
@@ -93,8 +99,12 @@ async function showOrderDetail(orderId) {
                 <td>${esc(i.brandName)}</td>
                 <td>${i.orderPrice.toLocaleString()}원</td>
                 <td>${i.quantity}개</td>
-                <td>${o.status !== 'CANCELLED' ? `<button class="btn btn-sm btn-danger cancel-item-btn" data-oid="${o.orderId}" data-iid="${i.orderItemId}">취소</button>` : '-'}</td>
+                <td>${o.status === 'ORDERED' ? `<button class="btn btn-sm btn-danger cancel-item-btn" data-oid="${o.orderId}" data-iid="${i.orderItemId}">취소</button>` : '-'}</td>
             </tr>`).join('');
+
+        const paymentBtn = o.status === 'PENDING_PAYMENT'
+            ? `<button class="btn btn-primary modal-pay-btn" data-oid="${o.orderId}" data-amount="${o.totalPrice}" style="margin-top:16px;width:100%">결제하기</button>`
+            : '';
 
         Modal.open(`주문 #${o.orderId} 상세`, `
             <div style="margin-bottom:16px">
@@ -104,8 +114,15 @@ async function showOrderDetail(orderId) {
             <div class="table-wrap"><table>
                 <thead><tr><th>상품</th><th>브랜드</th><th>가격</th><th>수량</th><th></th></tr></thead>
                 <tbody>${itemRows}</tbody>
-            </table></div>`);
+            </table></div>
+            ${paymentBtn}`);
 
+        document.querySelectorAll('.modal-pay-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                Modal.close();
+                showPaymentModal(+btn.dataset.oid, +btn.dataset.amount);
+            });
+        });
         document.querySelectorAll('.cancel-item-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
                 try {
@@ -297,14 +314,27 @@ async function loadProfile(el) {
     } catch (e) { el.innerHTML = `<h2>계정 설정</h2><p style="color:#dc2626">${esc(e.message)}</p>`; }
 }
 
+// === Payment (PG Checkout Page) ===
+function showPaymentModal(orderId, amount) {
+    location.href = `/shop/pg-checkout.html?orderId=${orderId}&amount=${amount}&returnUrl=${encodeURIComponent('/shop/index.html#mypage')}`;
+}
+
 // === Helpers ===
 function statusBadge(s) {
-    if (s === 'COMPLETED' || s === 'CONFIRMED') return 'badge-green';
+    if (s === 'ORDERED') return 'badge-green';
     if (s === 'CANCELLED') return 'badge-red';
+    if (s === 'PENDING_PAYMENT') return 'badge-yellow';
     return 'badge-gray';
 }
 function statusLabel(s) {
-    const map = { CREATED: '주문완료', COMPLETED: '처리완료', CONFIRMED: '확정', CANCELLED: '취소됨' };
+    const map = {
+        PENDING_PAYMENT: '결제 대기',
+        ORDERED: '결제 완료',
+        CANCELLED: '취소됨',
+        CREATED: '주문완료',
+        COMPLETED: '처리완료',
+        CONFIRMED: '확정',
+    };
     return map[s] || s;
 }
 function couponStatusLabel(s) {

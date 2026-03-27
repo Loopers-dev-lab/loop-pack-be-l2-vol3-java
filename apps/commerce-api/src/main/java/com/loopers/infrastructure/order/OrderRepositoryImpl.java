@@ -2,6 +2,7 @@ package com.loopers.infrastructure.order;
 
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderRepository;
+import com.loopers.domain.order.OrderStatus;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -32,7 +33,17 @@ public class OrderRepositoryImpl implements OrderRepository {
     }
 
     @Override
+    public Optional<OrderModel> findByIdWithLock(Long id) {
+        return orderJpaRepository.findByIdWithLockAndDeletedAtIsNull(id);
+    }
+
+    @Override
     public Page<OrderModel> findAll(Pageable pageable) {
         return orderJpaRepository.findAll(pageable);
+    }
+
+    @Override
+    public boolean existsByUserIdAndStatus(Long userId, OrderStatus status) {
+        return orderJpaRepository.existsByUserIdAndStatus(userId, status);
     }
 }

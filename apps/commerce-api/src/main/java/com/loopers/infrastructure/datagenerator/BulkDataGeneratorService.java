@@ -9,6 +9,7 @@ import java.util.Random;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -19,6 +20,7 @@ public class BulkDataGeneratorService {
     private final DataGeneratorRepository dataGeneratorRepository;
     private final PasswordEncoder passwordEncoder;
     private final BulkDataGeneratorProperties properties;
+    private final CacheManager cacheManager;
 
     private volatile boolean running = false;
 
@@ -117,6 +119,9 @@ public class BulkDataGeneratorService {
 
             // Phase 6: Sync like_count
             syncLikeCounts();
+
+            // Phase 7: Clear all caches (Redis에 이전 세션 캐시 제거)
+            evictAllCaches();
 
             Map<String, Long> finalStats = dataGeneratorRepository.getStats();
             log.info("=== BulkDataGenerator DONE === elapsed={}s | brands={}, products={}, users={}, likes={}, orders={}",
@@ -459,6 +464,15 @@ public class BulkDataGeneratorService {
         orderBatch.clear();
         itemsPerOrder.clear();
         return size;
+    }
+
+    private void evictAllCaches() {
+        long start = System.currentTimeMillis();
+        cacheManager.getCacheNames().forEach(name -> {
+            var cache = cacheManager.getCache(name);
+            if (cache != null) cache.clear();
+        });
+        log.info("  Phase 7: All caches evicted ({}s)", elapsed(start));
     }
 
     private String elapsed(long startMs) {

@@ -13,6 +13,15 @@ services:
       - MYSQL_COLLATE=utf8mb4_general_ci
     volumes:
       - mysql-8-data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # pg-simulator: 로컬에서 자동 실행됨 (PgSimulatorProcessManager)
+  # Docker에서는 콜백 URL(localhost:8080)이 호스트에 도달 불가하여 제외
 
   redis-master:
     image: redis:7.0

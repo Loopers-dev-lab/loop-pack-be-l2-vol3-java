@@ -81,10 +81,19 @@ subprojects {
 
     tasks.test {
         maxParallelForks = 1
-        useJUnitPlatform()
+        useJUnitPlatform {
+            excludeTags("external")
+        }
         systemProperty("user.timezone", "Asia/Seoul")
         systemProperty("spring.profiles.active", "test")
         jvmArgs("-Xshare:off")
+    }
+
+    tasks.register<Test>("externalTest") {
+        useJUnitPlatform {
+            includeTags("external")
+        }
+        systemProperty("user.timezone", "Asia/Seoul")
     }
 
     tasks.withType<JacocoReport> {

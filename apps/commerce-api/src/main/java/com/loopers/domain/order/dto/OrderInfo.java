@@ -2,6 +2,7 @@ package com.loopers.domain.order.dto;
 
 import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
+import java.util.List;
 
 public class OrderInfo {
 
@@ -11,5 +12,13 @@ public class OrderInfo {
             return new CancelledItem(
                     item.getProductId(), item.getQuantity(), order.isCancelled());
         }
+    }
+
+    public record PaymentFailureCancellation(
+            Long userId,
+            int totalPrice,
+            List<CancelledItem> items) {
+
+        public record CancelledItem(Long productId, int quantity) {}
     }
 }

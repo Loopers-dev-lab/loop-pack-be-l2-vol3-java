@@ -33,6 +33,7 @@ public class AuthFilter extends OncePerRequestFilter {
     );
     private static final String AUTH_REQUIRED_SUFFIX = "/likes";
     private static final String AUTH_REQUIRED_PREFIX_ORDERS = "/api/v1/orders";
+    private static final String AUTH_REQUIRED_PREFIX_PAYMENTS = "/api/v1/payments";
     private static final String AUTH_REQUIRED_PREFIX_COUPONS = "/api/v1/coupons/";
 
     private final AuthenticationService authenticationService;
@@ -67,9 +68,13 @@ public class AuthFilter extends OncePerRequestFilter {
     }
 
     private boolean requiresAuth(String uri) {
+        if (uri.equals("/api/v1/payments/callback")) {
+            return false;
+        }
         return AUTH_REQUIRED_URLS.contains(uri)
             || (uri.startsWith("/api/v1/products/") && uri.endsWith(AUTH_REQUIRED_SUFFIX))
             || uri.startsWith(AUTH_REQUIRED_PREFIX_ORDERS)
+            || uri.startsWith(AUTH_REQUIRED_PREFIX_PAYMENTS)
             || uri.startsWith(AUTH_REQUIRED_PREFIX_COUPONS);
     }
 

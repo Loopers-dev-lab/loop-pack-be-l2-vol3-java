@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORDER / PAYMENT</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #fff;
+            color: #000;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Header */
+        .header {
+            position: sticky; top: 0; z-index: 100;
+            background: #fff;
+            border-bottom: 1px solid #000;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 32px; height: 52px;
+        }
+        .header-back {
+            background: none; border: none; font-size: 20px;
+            cursor: pointer; color: #000; padding: 8px 0;
+        }
+        .header-title {
+            font-size: 11px; font-weight: 500;
+            letter-spacing: 2px; text-transform: uppercase;
+        }
+        .header-spacer { width: 30px; }
+
+        /* Two-Column Layout */
+        .checkout-layout {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            min-height: calc(100vh - 52px);
+        }
+        .checkout-left {
+            border-right: 1px solid #e5e5e5;
+        }
+        .checkout-right {
+            position: sticky; top: 52px;
+            align-self: start;
+            height: calc(100vh - 52px);
+            display: flex; flex-direction: column;
+        }
+
+        /* Section */
+        .section { border-bottom: 1px solid #e5e5e5; }
+        .section-head {
+            padding: 20px 32px;
+            display: flex; align-items: center; justify-content: space-between;
+            cursor: default;
+        }
+        .section-title {
+            font-size: 11px; font-weight: 600;
+            letter-spacing: 1.5px; text-transform: uppercase;
+        }
+        .section-num {
+            font-size: 10px; color: #bbb; letter-spacing: 1px;
+        }
+        .section-body { padding: 0 32px 28px; }
+
+        /* Shipping Info */
+        .info-grid {
+            display: grid; grid-template-columns: 80px 1fr;
+            gap: 12px 16px; font-size: 13px;
+        }
+        .info-label { color: #999; font-weight: 400; }
+        .info-value { color: #000; font-weight: 400; }
+
+        /* Product List */
+        .product-item {
+            display: flex; gap: 16px; padding: 16px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .product-item:last-child { border-bottom: none; }
+        .product-thumb {
+            width: 72px; height: 72px;
+            background: #f5f5f5; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; color: #ccc;
+        }
+        .product-info { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+        .product-brand {
+            font-size: 10px; color: #999;
+            letter-spacing: 0.5px; text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .product-name { font-size: 13px; font-weight: 400; margin-bottom: 4px; }
+        .product-meta {
+            font-size: 12px; color: #999;
+            display: flex; gap: 12px;
+        }
+        .product-price { font-size: 13px; font-weight: 500; white-space: nowrap; align-self: center; }
+
+        /* Coupon / Point */
+        .benefit-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .benefit-row:last-child { border-bottom: none; }
+        .benefit-label { font-size: 13px; color: #000; }
+        .benefit-value {
+            font-size: 13px; font-weight: 500; color: #000;
+        }
+        .benefit-sub { font-size: 11px; color: #999; margin-top: 2px; }
+
+        /* Payment Method */
+        .method-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 8px; margin-bottom: 20px;
+        }
+        .method-btn {
+            border: 1px solid #ddd; padding: 14px 8px;
+            text-align: center; font-size: 12px; font-weight: 400;
+            cursor: pointer; transition: all 0.15s;
+            background: #fff; color: #666;
+            font-family: 'Inter', sans-serif;
+        }
+        .method-btn:hover { border-color: #999; }
+        .method-btn.selected {
+            border-color: #000; background: #000;
+            color: #fff; font-weight: 500;
+        }
+        .card-input-wrap { margin-top: 4px; }
+        .card-label {
+            font-size: 10px; color: #999; letter-spacing: 0.5px;
+            text-transform: uppercase; margin-bottom: 8px; display: block;
+        }
+        .card-input {
+            width: 100%; padding: 14px 0;
+            border: none; border-bottom: 1px solid #ddd;
+            font-size: 16px; font-family: 'Inter', sans-serif;
+            letter-spacing: 3px; outline: none;
+            background: transparent; transition: border-color 0.2s;
+        }
+        .card-input:focus { border-bottom-color: #000; }
+        .card-input::placeholder { color: #ddd; }
+
+        /* Right Panel - Payment Summary */
+        .summary-content { flex: 1; padding: 32px; }
+        .summary-title {
+            font-size: 11px; font-weight: 600;
+            letter-spacing: 1.5px; text-transform: uppercase;
+            margin-bottom: 28px; padding-bottom: 16px;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        .summary-row {
+            display: flex; justify-content: space-between;
+            padding: 8px 0; font-size: 13px;
+        }
+        .summary-label { color: #999; }
+        .summary-value { font-weight: 400; }
+        .summary-divider {
+            border: none; border-top: 1px solid #e5e5e5;
+            margin: 16px 0;
+        }
+        .summary-total {
+            display: flex; justify-content: space-between;
+            padding: 4px 0; font-size: 16px;
+        }
+        .summary-total-label { font-weight: 500; }
+        .summary-total-value { font-weight: 700; font-size: 20px; }
+
+        /* Pay Button */
+        .pay-wrap {
+            padding: 24px 32px;
+            border-top: 1px solid #e5e5e5;
+        }
+        .btn-pay {
+            width: 100%; padding: 18px;
+            background: #000; color: #fff; border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px; font-weight: 500;
+            letter-spacing: 2px; text-transform: uppercase;
+            cursor: pointer; transition: opacity 0.2s;
+        }
+        .btn-pay:hover { opacity: 0.85; }
+        .btn-pay:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* Status */
+        .status-area {
+            margin-top: 16px; padding: 24px;
+            text-align: center; font-size: 13px; display: none;
+        }
+        .status-processing { background: #fafafa; }
+        .status-success { background: #fafafa; }
+        .status-fail { background: #fafafa; }
+        .spinner {
+            display: inline-block; width: 20px; height: 20px;
+            border: 1.5px solid #ddd; border-top: 1.5px solid #000;
+            border-radius: 50%; animation: spin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .status-icon { font-size: 28px; margin-bottom: 12px; font-weight: 300; }
+        .status-msg { font-size: 14px; font-weight: 400; margin-bottom: 4px; }
+        .status-sub { font-size: 12px; color: #999; }
+        .btn-link {
+            display: inline-block; margin-top: 16px; padding: 12px 32px;
+            background: #000; color: #fff; text-decoration: none;
+            font-size: 11px; font-weight: 500; letter-spacing: 1px;
+            text-transform: uppercase; transition: opacity 0.2s;
+        }
+        .btn-link:hover { opacity: 0.85; }
+        .btn-link.outline {
+            background: #fff; color: #000; border: 1px solid #000;
+        }
+
+        /* Loading skeleton */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            height: 14px; border-radius: 2px;
+        }
+        @keyframes shimmer { to { background-position: -200% 0; } }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .checkout-layout {
+                grid-template-columns: 1fr;
+            }
+            .checkout-right {
+                position: static;
+                height: auto;
+                border-top: 8px solid #f5f5f5;
+            }
+            .checkout-left { border-right: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <button class="header-back" id="btn-back">&larr;</button>
+        <span class="header-title">Order / Payment</span>
+        <span class="header-spacer"></span>
+    </div>
+
+    <div class="checkout-layout">
+        <!-- LEFT COLUMN -->
+        <div class="checkout-left" id="checkout-left">
+            <!-- 01 배송 정보 -->
+            <div class="section">
+                <div class="section-head">
+                    <span class="section-title">Shipping Information</span>
+                    <span class="section-num">01</span>
+                </div>
+                <div class="section-body" id="shipping-info">
+                    <div class="info-grid">
+                        <span class="info-label">수령인</span>
+                        <span class="info-value" id="ship-name"><span class="skeleton" style="width:80px;display:inline-block">&nbsp;</span></span>
+                        <span class="info-label">연락처</span>
+                        <span class="info-value" id="ship-phone">010-****-****</span>
+                        <span class="info-label">배송지</span>
+                        <span class="info-value" id="ship-addr">서울특별시 강남구 테헤란로 123</span>
+                        <span class="info-label">배송 메모</span>
+                        <span class="info-value">부재 시 문 앞에 놓아주세요</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 02 주문 제품 -->
+            <div class="section">
+                <div class="section-head">
+                    <span class="section-title">Order Items</span>
+                    <span class="section-num">02</span>
+                </div>
+                <div class="section-body" id="order-items">
+                    <div class="product-item">
+                        <div class="product-thumb"><span class="skeleton" style="width:100%;height:100%"></span></div>
+                        <div class="product-info">
+                            <div class="skeleton" style="width:120px;margin-bottom:8px">&nbsp;</div>
+                            <div class="skeleton" style="width:200px">&nbsp;</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 03 할인 적용 -->
+            <div class="section">
+                <div class="section-head">
+                    <span class="section-title">Discount</span>
+                    <span class="section-num">03</span>
+                </div>
+                <div class="section-body" id="discount-info">
+                    <div class="benefit-row">
+                        <div>
+                            <div class="benefit-label">포인트</div>
+                            <div class="benefit-sub" id="point-balance">보유: -P</div>
+                        </div>
+                        <span class="benefit-value" id="point-used">0P</span>
+                    </div>
+                    <div class="benefit-row">
+                        <div>
+                            <div class="benefit-label">쿠폰 할인</div>
+                            <div class="benefit-sub">결제 시 적용됨</div>
+                        </div>
+                        <span class="benefit-value" id="coupon-discount">-0원</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 04 결제 수단 -->
+            <div class="section">
+                <div class="section-head">
+                    <span class="section-title">Payment Method</span>
+                    <span class="section-num">04</span>
+                </div>
+                <div class="section-body">
+                    <div class="method-grid" id="card-options">
+                        <div class="method-btn selected" data-value="SAMSUNG">Samsung</div>
+                        <div class="method-btn" data-value="KB">KB</div>
+                        <div class="method-btn" data-value="HYUNDAI">Hyundai</div>
+                        <div class="method-btn" data-value="LOTTE">Lotte</div>
+                    </div>
+                    <div class="card-input-wrap">
+                        <label class="card-label">Card Number</label>
+                        <input class="card-input" id="card-no" type="text"
+                               value="1234-5678-9012-3456" maxlength="19">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="checkout-right">
+            <div class="summary-content">
+                <div class="summary-title">Payment Summary</div>
+
+                <div class="summary-row">
+                    <span class="summary-label">상품 금액</span>
+                    <span class="summary-value" id="sum-original">0원</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">할인</span>
+                    <span class="summary-value" id="sum-discount">-0원</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">배송비</span>
+                    <span class="summary-value">무료</span>
+                </div>
+
+                <hr class="summary-divider">
+
+                <div class="summary-total">
+                    <span class="summary-total-label">Total</span>
+                    <span class="summary-total-value" id="sum-total">0원</span>
+                </div>
+
+                <div style="margin-top:20px;font-size:11px;color:#bbb;line-height:1.8">
+                    <div id="sum-order-id"></div>
+                </div>
+            </div>
+
+            <div class="pay-wrap">
+                <button class="btn-pay" id="btn-pay">Pay Now</button>
+                <div class="status-area" id="status-area"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { PaymentApi, OrderApi, UserApi, ProductApi } from './js/api.js';
+
+        const params = new URLSearchParams(location.search);
+        const mode = params.get('mode'); // 'new' = 새 주문, null = 기존 주문 재시도
+        const retryOrderId = Number(params.get('orderId')) || null;
+        const retryAmount = Number(params.get('amount')) || null;
+        const returnUrl = params.get('returnUrl') || '/shop/index.html#mypage';
+
+        // 결제 완료 후 폴링에 사용할 orderId (새 주문 시 결제 응답에서 받음)
+        let activeOrderId = retryOrderId;
+
+        document.getElementById('btn-back').addEventListener('click', () => {
+            location.href = returnUrl;
+        });
+
+        if (mode === 'new') {
+            // 새 주문 모드: sessionStorage에서 주문 정보 로드
+            const checkoutData = JSON.parse(sessionStorage.getItem('checkoutData') || 'null');
+            if (!checkoutData || !checkoutData.items || !checkoutData.items.length) {
+                document.getElementById('checkout-left').innerHTML =
+                    '<div style="padding:80px 32px;text-align:center;font-size:13px;color:#999">잘못된 접근입니다.</div>';
+            } else {
+                loadNewOrderData(checkoutData);
+            }
+        } else if (retryOrderId) {
+            // 재시도 모드: 기존 주문 정보 로드
+            loadRetryOrderData(retryOrderId);
+        } else {
+            document.getElementById('checkout-left').innerHTML =
+                '<div style="padding:80px 32px;text-align:center;font-size:13px;color:#999">잘못된 접근입니다.</div>';
+        }
+
+        // === 새 주문 모드 ===
+        async function loadNewOrderData(checkoutData) {
+            const [user, pointData] = await Promise.all([
+                UserApi.me().catch(() => null),
+                UserApi.getPoint().catch(() => null),
+            ]);
+
+            if (user) {
+                document.getElementById('ship-name').textContent = user.name || '-';
+            }
+
+            // 상품 정보 표시 (sessionStorage의 product 데이터 사용)
+            const product = checkoutData.product;
+            const item = checkoutData.items[0];
+            const originalTotal = product.price * item.quantity;
+
+            const itemsHtml = `
+                <div class="product-item">
+                    <div class="product-thumb">IMG</div>
+                    <div class="product-info">
+                        <div class="product-brand">${esc(product.brandName)}</div>
+                        <div class="product-name">${esc(product.name)}</div>
+                        <div class="product-meta">
+                            <span>Qty: ${item.quantity}</span>
+                        </div>
+                    </div>
+                    <div class="product-price">${originalTotal.toLocaleString()}원</div>
+                </div>`;
+            document.getElementById('order-items').innerHTML = itemsHtml;
+
+            // Summary
+            document.getElementById('sum-original').textContent = originalTotal.toLocaleString() + '원';
+            document.getElementById('sum-discount').textContent = '0원';
+            document.getElementById('sum-total').textContent = originalTotal.toLocaleString() + '원';
+            document.getElementById('sum-order-id').textContent = 'NEW ORDER';
+
+            if (pointData) {
+                document.getElementById('point-balance').textContent =
+                    '보유: ' + pointData.point.toLocaleString() + 'P';
+            }
+
+            initPaymentForm({ mode: 'new', checkoutData, amount: originalTotal });
+        }
+
+        // === 재시도 모드 ===
+        async function loadRetryOrderData(orderId) {
+            const [order, user, pointData] = await Promise.all([
+                OrderApi.get(orderId).catch(() => null),
+                UserApi.me().catch(() => null),
+                UserApi.getPoint().catch(() => null),
+            ]);
+
+            if (user) {
+                document.getElementById('ship-name').textContent = user.name || '-';
+            }
+
+            if (order && order.items) {
+                const itemsHtml = order.items.map(item => `
+                    <div class="product-item">
+                        <div class="product-thumb">IMG</div>
+                        <div class="product-info">
+                            <div class="product-brand">${esc(item.brandName)}</div>
+                            <div class="product-name">${esc(item.productName)}</div>
+                            <div class="product-meta">
+                                <span>Qty: ${item.quantity}</span>
+                            </div>
+                        </div>
+                        <div class="product-price">${(item.orderPrice * item.quantity).toLocaleString()}원</div>
+                    </div>`).join('');
+                document.getElementById('order-items').innerHTML = itemsHtml;
+
+                const originalTotal = order.items.reduce(
+                    (sum, i) => sum + i.orderPrice * i.quantity, 0);
+                const discount = originalTotal - order.totalPrice;
+
+                document.getElementById('sum-original').textContent = originalTotal.toLocaleString() + '원';
+                document.getElementById('sum-discount').textContent =
+                    discount > 0 ? '-' + discount.toLocaleString() + '원' : '0원';
+                document.getElementById('sum-total').textContent = order.totalPrice.toLocaleString() + '원';
+                document.getElementById('sum-order-id').textContent =
+                    'ORDER #' + String(orderId).padStart(6, '0');
+
+                if (discount > 0) {
+                    document.getElementById('coupon-discount').textContent =
+                        '-' + discount.toLocaleString() + '원';
+                }
+            }
+
+            if (pointData) {
+                document.getElementById('point-balance').textContent =
+                    '보유: ' + pointData.point.toLocaleString() + 'P';
+            }
+
+            initPaymentForm({ mode: 'retry', orderId, amount: order ? order.totalPrice : retryAmount });
+        }
+
+        function initPaymentForm(config) {
+            let selectedCard = 'SAMSUNG';
+            const btnPay = document.getElementById('btn-pay');
+            const statusArea = document.getElementById('status-area');
+            const cardNoInput = document.getElementById('card-no');
+
+            document.querySelectorAll('.method-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.method-btn')
+                        .forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    selectedCard = btn.dataset.value;
+                });
+            });
+
+            cardNoInput.addEventListener('input', (e) => {
+                let v = e.target.value.replace(/\D/g, '').substring(0, 16);
+                e.target.value = v.match(/.{1,4}/g)?.join('-') || v;
+            });
+
+            btnPay.addEventListener('click', async () => {
+                const cardNo = cardNoInput.value.trim();
+                if (!cardNo || cardNo.replace(/-/g, '').length < 16) {
+                    showStatus('fail',
+                        '<div class="status-msg">카드 번호 16자리를 입력해주세요.</div>');
+                    return;
+                }
+
+                btnPay.disabled = true;
+                btnPay.textContent = 'PROCESSING...';
+                showStatus('processing',
+                    '<div class="spinner"></div>' +
+                    '<div class="status-msg">결제를 요청하고 있습니다</div>' +
+                    '<div class="status-sub">Please wait...</div>');
+
+                try {
+                    let requestBody;
+                    if (config.mode === 'new') {
+                        // 새 주문: items + 결제 정보 전송 (Order 생성은 서버에서 처리)
+                        requestBody = {
+                            items: config.checkoutData.items,
+                            cardType: selectedCard,
+                            cardNo,
+                        };
+                    } else {
+                        // 재시도: 기존 orderId + 결제 정보
+                        requestBody = {
+                            orderId: config.orderId,
+                            cardType: selectedCard,
+                            cardNo,
+                        };
+                    }
+
+                    const result = await PaymentApi.request(requestBody);
+
+                    // 결제 응답에서 orderId 획득 (새 주문 시 서버가 생성한 orderId)
+                    activeOrderId = result.orderId;
+
+                    // Summary 갱신
+                    if (activeOrderId) {
+                        document.getElementById('sum-order-id').textContent =
+                            'ORDER #' + String(activeOrderId).padStart(6, '0');
+                    }
+
+                    // sessionStorage 정리 (주문 생성 완료)
+                    sessionStorage.removeItem('checkoutData');
+
+                    showStatus('processing',
+                        '<div class="spinner"></div>' +
+                        '<div class="status-msg">결제 승인 처리 중</div>' +
+                        '<div class="status-sub">Approving payment...</div>');
+                    pollPaymentResult();
+                } catch (e) {
+                    if (config.mode === 'new') {
+                        // 새 주문 모드에서 PG 실패 시: 주문이 이미 생성됐을 수 있으므로 마이페이지에서 재시도 안내
+                        showStatus('fail',
+                            '<div class="status-icon">&times;</div>' +
+                            '<div class="status-msg">' + e.message + '</div>' +
+                            '<a class="btn-link" href="/shop/index.html#mypage">주문 내역에서 재시도</a>');
+                    } else {
+                        // 재시도 모드: 같은 orderId로 다시 시도 가능
+                        showStatus('fail',
+                            '<div class="status-icon">&times;</div>' +
+                            '<div class="status-msg">' + e.message + '</div>' +
+                            '<button class="btn-link outline" id="btn-retry">Retry</button>');
+                        document.getElementById('btn-retry').addEventListener('click', () => {
+                            btnPay.disabled = false;
+                            btnPay.textContent = 'PAY NOW';
+                            statusArea.style.display = 'none';
+                        });
+                    }
+                }
+            });
+
+            function pollPaymentResult() {
+                let attempts = 0;
+                const interval = setInterval(async () => {
+                    attempts++;
+                    try {
+                        const [order, paymentStatus] = await Promise.all([
+                            OrderApi.get(activeOrderId).catch(() => null),
+                            PaymentApi.status(activeOrderId).catch(() => null),
+                        ]);
+
+                        if (order && order.status === 'ORDERED') {
+                            clearInterval(interval);
+                            onComplete('SUCCESS');
+                            return;
+                        }
+
+                        if (paymentStatus && paymentStatus.paymentStatus === 'FAILED') {
+                            clearInterval(interval);
+                            onComplete('FAILED', paymentStatus.failureMessage);
+                            return;
+                        }
+
+                        if (attempts >= 15) {
+                            clearInterval(interval);
+                            onComplete('TIMEOUT');
+                        }
+                    } catch {
+                        if (attempts >= 15) {
+                            clearInterval(interval);
+                            onComplete('TIMEOUT');
+                        }
+                    }
+                }, 2000);
+            }
+
+            function onComplete(status, failureMessage) {
+                sessionStorage.removeItem('checkoutData');
+
+                if (status === 'SUCCESS') {
+                    showStatus('success',
+                        '<div class="status-icon">&#10003;</div>' +
+                        '<div class="status-msg">결제가 완료되었습니다</div>' +
+                        '<div class="status-sub">Payment completed</div>' +
+                        '<a class="btn-link" href="/shop/index.html#mypage">View Orders</a>');
+                } else if (status === 'FAILED') {
+                    showStatus('fail',
+                        '<div class="status-icon">&times;</div>' +
+                        '<div class="status-msg">' + (failureMessage || '결제에 실패했습니다.') + '</div>' +
+                        '<button class="btn-link outline" id="btn-retry-after-fail" style="margin-right:8px">다시 시도</button>' +
+                        '<a class="btn-link" href="/shop/index.html#mypage">주문 내역</a>');
+                    document.getElementById('btn-retry-after-fail')?.addEventListener('click', () => {
+                        btnPay.disabled = false;
+                        btnPay.textContent = 'PAY NOW';
+                        btnPay.style.display = '';
+                        statusArea.style.display = 'none';
+                    });
+                } else {
+                    showStatus('fail',
+                        '<div class="status-icon">!</div>' +
+                        '<div class="status-msg">처리 중입니다</div>' +
+                        '<div class="status-sub">주문 내역에서 확인해주세요</div>' +
+                        '<a class="btn-link" href="/shop/index.html#mypage">View Orders</a>');
+                }
+                if (status !== 'FAILED') {
+                    btnPay.style.display = 'none';
+                }
+            }
+
+            function showStatus(type, html) {
+                statusArea.className = 'status-area status-' + type;
+                statusArea.innerHTML = html;
+                statusArea.style.display = 'block';
+            }
+        }
+
+        function esc(s) {
+            return (s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+    </script>
+</body>
+</html>

@@ -25,7 +25,7 @@ public class OrderService {
                         cmd.productId(), cmd.price(), cmd.quantity(),
                         cmd.productName(), cmd.brandName()))
                 .toList();
-        return orderRepository.save(OrderModel.create(userId, items));
+        return orderRepository.save(OrderModel.createPendingPayment(userId, items));
     }
 
     @Transactional
@@ -65,5 +65,37 @@ public class OrderService {
     @Transactional(readOnly = true)
     public Page<OrderModel> getAllOrders(Pageable pageable) {
         return orderRepository.findAll(pageable);
+    }
+
+    @Transactional
+    public OrderModel getByIdWithLock(Long id) {
+        return orderRepository.findByIdWithLock(id)
+                .orElseThrow(() -> new CoreException(OrderErrorCode.NOT_FOUND));
+    }
+
+    @Transactional(readOnly = true)
+    public void validateNoPendingPayment(Long userId) {
+        if (orderRepository.existsByUserIdAndStatus(userId, OrderStatus.PENDING_PAYMENT)) {
+            throw new CoreException(OrderErrorCode.PENDING_PAYMENT_EXISTS);
+        }
+    }
+
+    @Transactional
+    public void completeOrder(Long orderId) {
+        OrderModel order = getById(orderId);
+        order.completePayment();
+    }
+
+    @Transactional
+    public OrderInfo.PaymentFailureCancellation cancelByPaymentFailure(Long orderId) {
+        OrderModel order = getById(orderId);
+        order.cancelByPaymentFailure();
+        return new OrderInfo.PaymentFailureCancellation(
+                order.getUserId(),
+                order.getTotalPrice(),
+                order.getItems().stream()
+                        .map(item -> new OrderInfo.PaymentFailureCancellation.CancelledItem(
+                                item.getProductId(), item.getQuantity()))
+                        .toList());
     }
 }

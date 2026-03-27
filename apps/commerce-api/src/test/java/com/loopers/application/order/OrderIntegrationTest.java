@@ -116,41 +116,6 @@ class OrderIntegrationTest {
                             .isFalse());
         }
 
-        @DisplayName("포인트 부족 시 재고, 쿠폰 모두 원복된다")
-        @Test
-        void pointInsufficient_fullRollback() {
-            // arrange
-            BrandModel brand = brandJpaRepository.save(BrandModel.create("브랜드B"));
-            ProductModel product = createProduct(brand.getId(), 50000, 10);
-            UserModel user = createUserWithPoint(10000); // 포인트 부족 (50000*2=100000 필요)
-            OwnedCouponModel ownedCoupon = createOwnedCoupon(
-                    user.getId(), CouponDiscountType.FIXED, 5000, null);
-
-            // act — 포인트 부족으로 실패 예상
-            assertThatThrownBy(() -> orderFacade.createOrder(user.getId(),
-                    new OrderCriteria.Create(List.of(
-                            new OrderCriteria.Create.CreateItem(
-                                    product.getId(), 2, 50000)),
-                            ownedCoupon.getId())))
-                    .isInstanceOf(CoreException.class);
-
-            // assert — 재고, 쿠폰 모두 원복
-            ProductModel updatedProduct = productJpaRepository.findById(
-                    product.getId()).orElseThrow();
-            OwnedCouponModel updatedCoupon = ownedCouponJpaRepository.findById(
-                    ownedCoupon.getId()).orElseThrow();
-            UserModel updatedUser = userJpaRepository.findById(user.getId()).orElseThrow();
-            assertAll(
-                    () -> assertThat(updatedProduct.getStock())
-                            .as("재고가 원래대로 복구되어야 한다")
-                            .isEqualTo(10),
-                    () -> assertThat(updatedCoupon.isUsed())
-                            .as("쿠폰은 사용되지 않은 상태여야 한다")
-                            .isFalse(),
-                    () -> assertThat(updatedUser.getPoint())
-                            .as("포인트가 차감되지 않아야 한다")
-                            .isEqualTo(10000));
-        }
     }
 
     @DisplayName("통합 테스트:")
@@ -179,7 +144,6 @@ class OrderIntegrationTest {
                     product.getId()).orElseThrow();
             OwnedCouponModel updatedCoupon = ownedCouponJpaRepository.findById(
                     ownedCoupon.getId()).orElseThrow();
-            UserModel updatedUser = userJpaRepository.findById(user.getId()).orElseThrow();
             assertAll(
                     () -> assertThat(result.totalPrice())
                             .as("주문 총액은 할인 적용된 95000이어야 한다")
@@ -192,10 +156,7 @@ class OrderIntegrationTest {
                             .isEqualTo(8),
                     () -> assertThat(updatedCoupon.isUsed())
                             .as("쿠폰이 사용 상태여야 한다")
-                            .isTrue(),
-                    () -> assertThat(updatedUser.getPoint())
-                            .as("포인트가 95000 차감되어야 한다 (1000000 - 95000 = 905000)")
-                            .isEqualTo(905000));
+                            .isTrue());
         }
     }
 }

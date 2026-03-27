@@ -59,11 +59,13 @@ class LayeredArchitectureTest {
     static final ArchRule interfaces는_infrastructure를_직접_의존하지_않는다 =
         noClasses()
             .that().resideInAPackage("..interfaces..")
+            .and().resideOutsideOfPackage("..interfaces.datagenerator..")
             .should().dependOnClassesThat()
             .resideInAPackage("..infrastructure..")
             .because("Controller는 Facade를 통해 접근한다. " +
                      "Repository 직접 접근 금지. " +
-                     "(package-convention.md § 5)");
+                     "(package-convention.md § 5) " +
+                     "[예외: datagenerator는 테스트 데이터 유틸리티]");
 
     @ArchTest
     static final ArchRule application은_interfaces를_의존하지_않는다 =

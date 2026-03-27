@@ -51,3 +51,4 @@ claude/*
 ### Documentation ###
 docs/*
 !docs/design/
+docker/pg-simulator/*.jar

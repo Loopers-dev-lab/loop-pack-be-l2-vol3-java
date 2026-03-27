@@ -62,6 +62,12 @@ export const CouponApi = {
     myList: () => request('GET', '/api/v1/users/me/coupons', null, true),
 };
 
+// === Payments ===
+export const PaymentApi = {
+    request: (data) => request('POST', '/api/v1/payments', data, true),
+    status: (orderId) => request('GET', `/api/v1/payments/status?orderId=${orderId}`, null, true),
+};
+
 // === Users ===
 export const UserApi = {
     signup: (data) => request('POST', '/api/v1/users/signup', data),

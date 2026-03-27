@@ -15,6 +15,16 @@ spring:
     web-application-type: servlet
   application:
     name: commerce-api
+  cloud:
+    openfeign:
+      client:
+        config:
+          pg-payment:
+            connect-timeout: 1000
+            read-timeout: 1450
+          pg-payment2:
+            connect-timeout: 1000
+            read-timeout: 5000
   profiles:
     active: local
   config:
@@ -23,6 +33,103 @@ spring:
       - redis.yml
       - logging.yml
       - monitoring.yml
+
+resilience4j:
+  circuitbreaker:
+    circuit-breaker-aspect-order: 1
+    configs:
+      pg1-default:
+        sliding-window-type: TIME_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 30
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 1000ms
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        record-exceptions:
+          - java.io.IOException
+          - feign.RetryableException
+          - feign.FeignException.InternalServerError
+          - feign.FeignException.ServiceUnavailable
+          - feign.FeignException.BadGateway
+          - feign.FeignException.GatewayTimeout
+        ignore-exceptions:
+          - feign.FeignException.BadRequest
+      pg2-default:
+        sliding-window-type: TIME_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 60
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 3000ms
+        wait-duration-in-open-state: 60s
+        permitted-number-of-calls-in-half-open-state: 3
+        record-exceptions:
+          - java.io.IOException
+          - feign.RetryableException
+          - feign.FeignException.InternalServerError
+          - feign.FeignException.ServiceUnavailable
+          - feign.FeignException.BadGateway
+          - feign.FeignException.GatewayTimeout
+        ignore-exceptions:
+          - feign.FeignException.BadRequest
+    instances:
+      pg1-SAMSUNG:
+        base-config: pg1-default
+      pg1-KB:
+        base-config: pg1-default
+      pg1-HYUNDAI:
+        base-config: pg1-default
+      pg1-LOTTE:
+        base-config: pg1-default
+      pg2-SAMSUNG:
+        base-config: pg2-default
+      pg2-KB:
+        base-config: pg2-default
+      pg2-HYUNDAI:
+        base-config: pg2-default
+      pg2-LOTTE:
+        base-config: pg2-default
+  retry:
+    retry-aspect-order: 2
+    instances:
+      pg1:
+        max-attempts: 3
+        wait-duration: 200ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2.0
+        enable-randomized-wait: true
+        randomized-wait-factor: 0.5
+        fail-after-max-attempts: false
+        retry-exceptions:
+          - java.io.IOException
+          - feign.RetryableException
+          - feign.FeignException.InternalServerError
+          - feign.FeignException.ServiceUnavailable
+        ignore-exceptions:
+          - feign.FeignException.BadRequest
+      pg2:
+        max-attempts: 2
+        wait-duration: 200ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2.0
+        enable-randomized-wait: true
+        randomized-wait-factor: 0.5
+        fail-after-max-attempts: false
+        retry-exceptions:
+          - java.io.IOException
+          - feign.RetryableException
+          - feign.FeignException.InternalServerError
+          - feign.FeignException.ServiceUnavailable
+        ignore-exceptions:
+          - feign.FeignException.BadRequest
+
+maintenance:
+  windows:
+    - start: "23:30"
+      end: "00:30"
+      description: "은행/카드사 정산 배치 처리"
 
 springdoc:
   use-fqn: true
@@ -40,9 +147,16 @@ spring:
         - file:apps/commerce-api/src/main/resources/static/
         - classpath:/static/
 
+pg-simulator:
+  base-url: http://localhost:8082
+  jar-path: docker/pg-simulator/pg-simulator.jar
+
+pg2-simulator:
+  base-url: http://localhost:8082
+
 app:
   data-generator:
-    enabled: false
+    enabled: true
     brand-count: 100
     product-count: 100000
     user-count: 10000

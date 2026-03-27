@@ -254,4 +254,71 @@ class OrderModelTest {
             assertThat(order.getTotalPrice()).isZero();
         }
     }
+
+    @DisplayName("결제를 완료할 때, ")
+    @Nested
+    class CompletePayment {
+
+        @DisplayName("PENDING_PAYMENT 상태에서 ORDERED로 전이된다.")
+        @Test
+        void completePayment_fromPendingPayment_toOrdered() {
+            // arrange
+            OrderItemModel item = createItemWithId(10L, 25000, 2, "상품A", "브랜드A");
+            OrderModel order = OrderModel.createPendingPayment(1L, List.of(item));
+
+            // act
+            order.completePayment();
+
+            // assert
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.ORDERED);
+        }
+
+        @DisplayName("ORDERED 상태에서 호출하면 예외가 발생한다.")
+        @Test
+        void completePayment_whenAlreadyOrdered_throwsException() {
+            // arrange
+            OrderItemModel item = createItemWithId(10L, 25000, 2, "상품A", "브랜드A");
+            OrderModel order = OrderModel.createPendingPayment(1L, List.of(item));
+            order.completePayment();
+
+            // act & assert
+            assertThatThrownBy(order::completePayment)
+                    .isInstanceOf(CoreException.class);
+        }
+    }
+
+    @DisplayName("결제 실패로 취소할 때, ")
+    @Nested
+    class CancelByPaymentFailure {
+
+        @DisplayName("PENDING_PAYMENT 상태에서 CANCELLED로 전이된다.")
+        @Test
+        void cancelByPaymentFailure_fromPendingPayment_toCancelled() {
+            // arrange
+            OrderItemModel item = createItemWithId(10L, 25000, 2, "상품A", "브랜드A");
+            OrderModel order = OrderModel.createPendingPayment(1L, List.of(item));
+
+            // act
+            order.cancelByPaymentFailure();
+
+            // assert
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        }
+    }
+
+    @DisplayName("결제 대기 주문인지 확인할 때, ")
+    @Nested
+    class IsPendingPayment {
+
+        @DisplayName("PENDING_PAYMENT 상태면 true이다.")
+        @Test
+        void isPendingPayment_whenPendingPayment_returnsTrue() {
+            // arrange
+            OrderItemModel item = createItemWithId(10L, 25000, 2, "상품A", "브랜드A");
+            OrderModel order = OrderModel.createPendingPayment(1L, List.of(item));
+
+            // assert
+            assertThat(order.isPendingPayment()).isTrue();
+        }
+    }
 }

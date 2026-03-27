@@ -1,4 +1,5 @@
-import { ProductApi, LikeApi, OrderApi, CouponApi } from '../api.js';
+
+import { ProductApi, LikeApi } from '../api.js';
 import { Auth } from '../auth.js';
 
 export async function initProduct(params) {
@@ -109,106 +110,61 @@ export async function initProduct(params) {
     }
 }
 
-async function showOrderForm(product) {
+function showOrderForm(product) {
     const section = document.getElementById('order-section');
+    const orderBtn = document.getElementById('order-btn');
     let quantity = 1;
-    let coupons = [];
 
-    try {
-        const data = await CouponApi.myList();
-        coupons = (data.items || []).filter(c => c.status === 'AVAILABLE' || c.status === 'ISSUED');
-    } catch { /* ignore */ }
-
-    const couponOptions = coupons.length
-        ? coupons.map(c => `<option value="${c.ownedCouponId}" data-type="${c.discountType}" data-value="${c.discountValue}" data-min="${c.minOrderAmount}">${esc(c.couponName)} (${c.discountType === 'RATE' ? c.discountValue + '%' : c.discountValue.toLocaleString() + '원'} 할인)</option>`).join('')
-        : '';
-
-    function render() {
-        const total = product.price * quantity;
-        const sel = section.querySelector('#order-coupon');
-        let discount = 0;
-        let couponId = null;
-
-        if (sel && sel.value) {
-            const opt = sel.selectedOptions[0];
-            couponId = +sel.value;
-            const type = opt.dataset.type;
-            const value = +opt.dataset.value;
-            const min = +opt.dataset.min;
-            if (total >= min) {
-                discount = type === 'RATE' ? Math.floor(total * value / 100) : value;
-                discount = Math.min(discount, total);
-            }
-        }
-
-        section.querySelector('#qty-display').textContent = quantity;
-        section.querySelector('#price-original').textContent = total.toLocaleString() + '원';
-        section.querySelector('#price-discount').textContent = '-' + discount.toLocaleString() + '원';
-        section.querySelector('#price-total').textContent = (total - discount).toLocaleString() + '원';
-    }
+    // 원래 "주문하기" 버튼 숨김
+    orderBtn.style.display = 'none';
 
     section.innerHTML = `
         <div class="order-form">
-            <h3>주문 정보</h3>
             <div class="quantity-control">
-                <span style="font-size:14px;color:#64748b">수량</span>
+                <span style="font-size:13px;color:#999;letter-spacing:0.5px">QTY</span>
                 <button id="qty-minus">-</button>
                 <span id="qty-display">${quantity}</span>
                 <button id="qty-plus">+</button>
-            </div>
-            ${coupons.length ? `
-            <div class="coupon-select">
-                <label style="font-size:13px;font-weight:600;color:#475569;margin-bottom:6px;display:block">쿠폰 적용</label>
-                <select id="order-coupon">
-                    <option value="">쿠폰 미적용</option>
-                    ${couponOptions}
-                </select>
-            </div>` : ''}
-            <div class="price-summary">
-                <div class="price-row"><span>상품 금액</span><span id="price-original">${(product.price * quantity).toLocaleString()}원</span></div>
-                <div class="price-row"><span>할인 금액</span><span id="price-discount">-0원</span></div>
-                <div class="price-row total"><span>결제 금액</span><span id="price-total">${(product.price * quantity).toLocaleString()}원</span></div>
             </div>
             <button class="btn btn-primary btn-lg" style="width:100%" id="place-order-btn">주문하기</button>
         </div>`;
 
     section.querySelector('#qty-minus').addEventListener('click', () => {
-        if (quantity > 1) { quantity--; render(); }
+        if (quantity > 1) {
+            quantity--;
+            section.querySelector('#qty-display').textContent = quantity;
+        }
     });
     section.querySelector('#qty-plus').addEventListener('click', () => {
         quantity++;
-        render();
+        section.querySelector('#qty-display').textContent = quantity;
     });
-    if (section.querySelector('#order-coupon')) {
-        section.querySelector('#order-coupon').addEventListener('change', render);
-    }
 
-    section.querySelector('#place-order-btn').addEventListener('click', async () => {
-        const btn = section.querySelector('#place-order-btn');
-        btn.disabled = true;
-        btn.textContent = '주문 처리 중...';
-        try {
-            const body = {
-                items: [{ productId: product.id, quantity, expectedPrice: product.price }],
-            };
-            const couponSel = section.querySelector('#order-coupon');
-            if (couponSel && couponSel.value) {
-                body.couponId = +couponSel.value;
-            }
-            await OrderApi.create(body);
-            Toast.success('주문이 완료되었습니다!');
-            section.innerHTML = `
-                <div style="margin-top:24px;padding:24px;background:#ecfdf5;border-radius:12px;text-align:center">
-                    <div style="font-size:32px;margin-bottom:8px">✓</div>
-                    <p style="font-weight:600;color:#059669">주문이 완료되었습니다</p>
-                    <a href="#mypage" class="btn btn-sm btn-primary" style="margin-top:12px">주문 내역 보기</a>
-                </div>`;
-        } catch (e) {
-            Toast.error(e.message);
-            btn.disabled = false;
-            btn.textContent = '주문하기';
-        }
+    section.querySelector('#place-order-btn').addEventListener('click', () => {
+        // Order를 DB에 생성하지 않고, 주문 정보를 sessionStorage에 저장 후 결제 페이지로 이동
+        const checkoutData = {
+            items: [{ productId: product.id, quantity, expectedPrice: product.price }],
+            product: {
+                id: product.id,
+                name: product.name,
+                brandName: product.brandName,
+                price: product.price,
+            },
+        };
+        sessionStorage.setItem('checkoutData', JSON.stringify(checkoutData));
+        location.href = `/shop/pg-checkout.html?mode=new&returnUrl=${encodeURIComponent('/shop/index.html#product/' + product.id)}`;
     });
 }
+
+// bfcache 복원 시 UI 정리
+window.addEventListener('pageshow', (e) => {
+    if (e.persisted) {
+        const section = document.getElementById('order-section');
+        const orderBtn = document.getElementById('order-btn');
+        if (orderBtn) orderBtn.style.display = '';
+        if (section) section.innerHTML = '';
+    }
+});
+
 
 function esc(s) { return (s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
