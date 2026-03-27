@@ -19,7 +19,7 @@
 | 상품 조회 | ~100 | X | Kafka fire-and-forget (readOnly TX 유지) |
 | 좋아요 | ~15 | X | Kafka fire-and-forget (일시적 부정확, reconciliation) |
 | 결제 승인 | ~4 | **O** | Outbox INSERT (TX2 안) |
-| 쿠폰 발급 | 스파이크 | **O** | Outbox INSERT (API는 DB INSERT만, Kafka는 스케줄러) |
+| 쿠폰 발급 | 스파이크 | **O** | Outbox INSERT (같은 TX) + afterCommit 즉시 발행 + 스케줄러 보완 |
 | **합계** | **~132** | | |
 
 ### 전체 아키텍처
@@ -97,16 +97,19 @@ sequenceDiagram
 
     Client->>Facade: 좋아요 요청
     activate Facade
-    Facade->>DB: 좋아요 INSERT
-    Facade->>DB: likeCount +1 (Atomic UPDATE)
+    Facade->>DB: likes 테이블 INSERT (원본 데이터)
     Note over Facade: TX 커밋
     Facade-->>Client: 200 OK
     deactivate Facade
 
     Note over Facade,EventHandler: AFTER_COMMIT + @Async (별도 스레드)
+    EventHandler->>DB: products.like_count +1 (Atomic UPDATE, API 서빙용)
     EventHandler->>DB: 캐시 evict
     EventHandler-)Kafka: fire-and-forget (product.liked)
-    Note over EventHandler: 실패해도 핵심 로직에 영향 없음
+    Note over EventHandler: 실패해도 likes 원본은 이미 저장됨
+
+    Note over Kafka: commerce-streamer가 수신
+    Kafka->>DB: product_metrics.like_count +1 (집계/분석용, 별도 테이블)
 ```
 
 #### D2. 핵심 내 분리 여부 — "모놀리식에서 안 한다"
@@ -146,7 +149,7 @@ graph LR
 
 | 경로 | 전달 범위 | 선택 |
 |------|----------|------|
-| 좋아요/조회수 집계 | 같은 JVM 내 핸들러가 처리 | **ApplicationEvent** (유실 시 reconciliation 배치로 복구) |
+| 좋아요/조회수 집계 | 같은 JVM 내 핸들러가 처리 | **ApplicationEvent** (유실 시 reconciliation 배치로 복구, 매일 02:00 실행, 최대 24시간 부정확 허용) |
 | 사용자 활동 로깅 | 같은 JVM 내 핸들러가 처리 | **ApplicationEvent** |
 | 결제 완료 → 메트릭 집계 | commerce-streamer(외부 앱)가 소비 | **Outbox → Kafka** |
 | 쿠폰 발급 요청 | commerce-streamer(외부 앱)가 소비 | **Outbox → Kafka** |
@@ -336,7 +339,7 @@ public void compensatePendingEvents() {
 - 정상 케이스 지연: **~0초** (v1 대비 1초 → 0초)
 - 즉시 발행 실패 시 PENDING 유지 → 스케줄러가 1분 내 수거
 - `@Transactional(MANDATORY)`: TX 없는 컨텍스트에서 호출 시 즉시 예외 → Outbox가 비즈니스 TX 밖에서 저장되는 실수 방지
-- **whenComplete 콜백 트레이드오프**: 콜백이 `kafka-producer-network-thread`에서 실행되므로, `markPublishedByEventId()`의 Hikari 커넥션 대기 시 모든 send() 콜백이 밀릴 수 있다. 현재 규모에서 SENT 마킹은 수 ms 내 완료되고, 실패해도 PENDING 유지 → 스케줄러 보완으로 유실 불가능하므로 의도적으로 단순하게 유지했다. 중규모 전환 시 별도 비동기 스레드로 분리하거나 `BlockingQueue` + 배치 마킹으로 전환한다.
+- **whenComplete 콜백 트레이드오프**: 콜백이 `kafka-producer-network-thread`에서 실행되므로, `markPublishedByEventId()`의 Hikari 커넥션 대기 시 모든 send() 콜백이 밀릴 수 있다. 현재 규모에서 SENT 마킹은 Hikari 30개 중 1개를 수 ms 점유 후 반환하므로 풀 고갈 가능성이 없고, 실패해도 PENDING 유지 → 스케줄러 보완으로 유실 불가능하므로 의도적으로 단순하게 유지했다. 중규모 전환 시 별도 비동기 스레드로 분리하거나 `BlockingQueue` + 배치 마킹으로 전환한다.
 - **findPending 타이밍 윈도우 방지**: 즉시 발행 ACK 대기 중에 스케줄러가 같은 PENDING을 수거하는 중복 발행을 줄이기 위해, `findPending` 쿼리에 `WHERE created_at < NOW() - 10초` 조건을 추가했다. 방금 생성된 이벤트는 즉시 발행이 진행 중일 수 있으므로 스킵한다.
 
 **현재 트래픽(~132 rps)에서는 이 방식이 적합하지만, 스케일 한계가 존재한다:**
@@ -522,7 +525,7 @@ sequenceDiagram
 - 비즈니스 로직 실행 + `event_handled` INSERT가 **같은 TX** → 원자적 보장
 - 처리 성공했는데 기록이 안 남는 경우가 없다 (둘 다 커밋되거나, 둘 다 롤백)
 - **At-Least-Once 발행 + 멱등 소비 = Exactly-Once 의미론**
-- **클린업**: `event_handled` 레코드는 7일 후 자동 삭제 (`EventHandledCleanupScheduler`). 테이블이 커져도 `eventId(PK)` 조회이므로 성능 영향 없음
+- **클린업**: `event_handled` 레코드는 7일 후 자동 삭제 (`EventHandledCleanupScheduler`, 매일 04:00). 테이블이 커져도 `eventId(PK)` 조회이므로 성능 영향 없음. Outbox FAILED의 수동 재발행은 반드시 7일 이내에 처리해야 하며, 초과 시 `event_handled`에서 삭제되어 멱등성 체크를 통과할 수 있다
 
 ---
 
@@ -576,7 +579,7 @@ sequenceDiagram
     end
 ```
 
-**배치 처리 중 부분 실패 흐름**: 배치 내 i번째 레코드에서 실패하면 `BatchListenerFailedException(i)`를 던진다. 0~(i-1)번째는 이미 `IdempotentProcessor`를 통해 `event_handled`에 기록되었으므로, 재폴링 시 `existsByEventId()`가 true를 반환하여 SKIP된다. ErrorHandler는 실패한 i번째만 재시도하고, 최종 실패 시 DLT로 이동시킨다.
+**배치 처리 중 부분 실패 흐름**: 배치 내 i번째 레코드에서 실패하면 `BatchListenerFailedException(i)`를 던지고, `ack.acknowledge()`에 도달하지 않는다. ErrorHandler가 실패한 i번째만 재시도하고 최종 실패 시 DLT로 이동시킨다. 이후 다음 poll에서 0번째부터 다시 가져오지만, 0~(i-1)번째는 이미 `event_handled`에 기록되어 있으므로 SKIP된다. i+1 이후 레코드는 아직 처리되지 않았으므로 정상 처리된다.
 
 **Outbox 측 발행 실패 흐름:**
 
@@ -709,12 +712,12 @@ sequenceDiagram
 
 ```java
 // KafkaConfig.java
-public static final int MAX_POLLING_SIZE = 3000;
-public static final int FETCH_MIN_BYTES = (1024 * 1024);      // 1MB
-public static final int FETCH_MAX_WAIT_MS = 5 * 1000;         // 5초
-public static final int SESSION_TIMEOUT_MS = 60 * 1000;       // 1분
-public static final int HEARTBEAT_INTERVAL_MS = 20 * 1000;    // 20초 (1/3 of session_timeout)
-public static final int MAX_POLL_INTERVAL_MS = 2 * 60 * 1000; // 2분
+public static final int MAX_POLLING_SIZE = 500;                // ~132 rps 기준 적정 배치
+public static final int FETCH_MIN_BYTES = 1;                   // 메시지 도착 즉시 반환
+public static final int FETCH_MAX_WAIT_MS = 1000;              // 1초 대기 후 반환
+public static final int SESSION_TIMEOUT_MS = 60 * 1000;        // 1분
+public static final int HEARTBEAT_INTERVAL_MS = 20 * 1000;     // 20초 (1/3 of session_timeout)
+public static final int MAX_POLL_INTERVAL_MS = 2 * 60 * 1000;  // 2분
 
 // 배치 리스너 팩토리
 factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
@@ -724,14 +727,14 @@ factory.setBatchListener(true);
 
 | 설정 | 값 | 근거 |
 |------|-----|------|
-| `max.poll.records` | 3000 | 배치 처리 단위. 네트워크 왕복 줄이면서 메모리 부담 적정선 |
-| `fetch.min.bytes` | 1MB | 브로커가 1MB 채울 때까지 대기 → 작은 메시지 다수일 때 효율적 |
-| `fetch.max.wait.ms` | 5초 | 1MB 안 채워져도 5초 후 반환 → 지연 상한 |
+| `max.poll.records` | 500 | ~132 rps 기준 적정 배치. 3000에서 축소 — DB 부하 시 레코드당 40ms면 3000 x 40ms = 120초로 `max.poll.interval.ms`와 일치하여 리밸런싱 위험. 500이면 20초로 충분한 마진 확보 |
+| `fetch.min.bytes` | 1 (byte) | 메시지 도착 즉시 반환. 기존 1MB 설정 시 현재 트래픽에서 거의 항상 `fetch.max.wait.ms` 타임아웃에 걸려 **모든 배치에 불필요한 지연이 추가**됨. 배치 효율은 트래픽이 올라가면 자연스럽게 좋아짐 |
+| `fetch.max.wait.ms` | 1초 | 메시지 없을 때 최대 대기 시간. 기존 5초에서 축소 — 즉시 발행으로 발행 지연 ~0초를 달성했는데 Consumer에서 5초를 다시 추가하는 건 비효율 |
 | `session.timeout.ms` | 60초 | 리밸런싱 민감도. 너무 짧으면 GC pause로 불필요한 리밸런싱 |
 | `heartbeat.interval.ms` | 20초 | session.timeout의 1/3 (Kafka 권장) |
-| `max.poll.interval.ms` | 2분 | 3000개 배치 처리 최대 허용 시간 |
+| `max.poll.interval.ms` | 2분 | 500개 배치 처리 최대 허용 시간. 레코드당 40ms(DB 부하)여도 20초 → 충분한 마진 |
 | `ack-mode` | MANUAL | 처리 완료 후 명시적 커밋 → 메시지 유실 방지 |
-| `concurrency` | 3 | 토픽당 파티션 3개와 1:1 매칭 |
+| `concurrency` | 3 | 토픽당 파티션 3개(KafkaTopicConfig)와 1:1 매칭 |
 
 #### Kafka Producer 설정
 

@@ -29,9 +29,9 @@ import java.util.Map;
 public class KafkaConfig {
     public static final String BATCH_LISTENER = "BATCH_LISTENER_DEFAULT";
 
-    public static final int MAX_POLLING_SIZE = 3000; // read 3000 msg
-    public static final int FETCH_MIN_BYTES = (1024 * 1024); // 1mb
-    public static final int FETCH_MAX_WAIT_MS = 5 * 1000; // broker waiting time = 5s
+    public static final int MAX_POLLING_SIZE = 500; // ~132 rps 기준 적정 배치. 리밸런싱 마진 확보
+    public static final int FETCH_MIN_BYTES = 1; // 메시지 도착 즉시 반환. 현재 트래픽에서 1MB 대기 시 항상 타임아웃
+    public static final int FETCH_MAX_WAIT_MS = 1000; // 1초 대기 후 반환. 소비 지연 최소화
     public static final int SESSION_TIMEOUT_MS = 60 * 1000; // session timeout = 1m
     public static final int HEARTBEAT_INTERVAL_MS = 20 * 1000; // heartbeat interval = 20s ( 1/3 of session_timeout )
     public static final int MAX_POLL_INTERVAL_MS = 2 * 60 * 1000; // max poll interval = 2m
