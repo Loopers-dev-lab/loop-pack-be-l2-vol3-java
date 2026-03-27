@@ -14,7 +14,11 @@ spring:
   main:
     web-application-type: servlet
   application:
-    name: commerce-api
+    name: commerce-streamer
+  kafka:
+    consumer:
+      group-id: commerce-streamer
+      auto-offset-reset: earliest
   profiles:
     active: local
   config:
