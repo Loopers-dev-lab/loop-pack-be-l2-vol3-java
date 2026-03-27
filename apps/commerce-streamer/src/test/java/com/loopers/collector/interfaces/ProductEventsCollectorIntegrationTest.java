@@ -35,11 +35,22 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
         "spring.kafka.consumer.auto-offset-reset=earliest",
         "collector.product.topic-name=product-events",
+        "collector.order.topic-name=order-events",
+        "collector.user.topic-name=user-events",
         "collector.product.dlq-suffix=.DLQ",
+        "collector.lightweight-idempotency.redis-ttl-days=14",
+        "collector.event-handled-cleanup.enabled=false",
+        "collector.event-handled-cleanup.fixed-delay-ms=3600000",
+        "collector.event-handled-cleanup.retention-days=14",
+        "collector.event-handled-cleanup.batch-size=500",
         "spring.batch.job.enabled=false"
 })
 @Import(MySqlTestContainersConfig.class)
-@EmbeddedKafka(partitions = 1, topics = {"product-events", "product-events.DLQ"})
+@EmbeddedKafka(partitions = 1, topics = {
+        "product-events", "product-events.DLQ",
+        "order-events", "order-events.DLQ",
+        "user-events", "user-events.DLQ"
+})
 class ProductEventsCollectorIntegrationTest {
 
     @Autowired

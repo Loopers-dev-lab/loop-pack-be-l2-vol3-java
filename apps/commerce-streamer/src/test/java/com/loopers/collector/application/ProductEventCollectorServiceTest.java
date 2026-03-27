@@ -1,54 +1,48 @@
 package com.loopers.collector.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.infrastructure.collector.EventHandledJpaRepository;
-import com.loopers.infrastructure.collector.ProductMetricsJpaRepository;
+import com.loopers.collector.idempotency.LightweightEventIdempotency;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
-
-import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ProductEventCollectorServiceTest {
 
     @Mock
-    private EventHandledJpaRepository eventHandledJpaRepository;
+    private ProductEventCollectorDatabaseService databaseService;
 
     @Mock
-    private ProductMetricsJpaRepository productMetricsJpaRepository;
+    private LightweightEventIdempotency lightweightEventIdempotency;
 
     private SimpleMeterRegistry meterRegistry;
-
     private ProductEventCollectorService collectorService;
 
     @BeforeEach
     void setUp() {
         meterRegistry = new SimpleMeterRegistry();
         collectorService = new ProductEventCollectorService(
-                eventHandledJpaRepository,
-                productMetricsJpaRepository,
+                databaseService,
+                lightweightEventIdempotency,
                 new ObjectMapper().findAndRegisterModules(),
                 meterRegistry
         );
     }
 
     @Test
-    @DisplayName("신규 PRODUCT_LIKE_CHANGED 이벤트는 event_handled 저장 후 like delta를 반영한다.")
-    void process_whenNewLikeEvent_shouldRecordHandledAndUpdateMetrics() {
+    @DisplayName("PRODUCT_LIKE_CHANGED는 DB 트랜잭션 경로로 위임한다.")
+    void process_whenLikeEvent_shouldDelegateToDatabaseService() {
         ConsumerRecord<Object, Object> record = new ConsumerRecord<>(
                 "product-events",
                 0,
@@ -59,32 +53,45 @@ class ProductEventCollectorServiceTest {
 
         collectorService.process(record);
 
-        verify(eventHandledJpaRepository).saveAndFlush(any());
-        verify(productMetricsJpaRepository).applyLikeDeltaIfNewer(
-                eq(101L),
-                eq(1L),
-                eq(Instant.parse("2026-03-26T00:00:00Z"))
-        );
-        verifyMetricCount("kafka.collector.events.processed", 1.0);
+        verify(databaseService).processDb(any(ConsumerRecord.class), any());
+        verify(lightweightEventIdempotency, never()).tryClaimFirstDelivery(any());
     }
 
     @Test
-    @DisplayName("이미 처리된 event_id(PK 충돌)면 metrics 갱신 없이 스킵한다.")
-    void process_whenDuplicateEvent_shouldSkipMetricsUpdate() {
+    @DisplayName("USER_REGISTERED는 Redis 멱등만 사용하고 DB event_handled 경로는 호출하지 않는다.")
+    void process_whenUserRegistered_shouldUseLightweightIdempotencyOnly() {
+        when(lightweightEventIdempotency.tryClaimFirstDelivery("evt-user-1")).thenReturn(true);
+        String json = "{\"eventId\":\"evt-user-1\",\"eventType\":\"USER_REGISTERED\","
+                + "\"occurredAt\":\"2026-03-26T00:00:00Z\",\"partitionKey\":\"1\","
+                + "\"data\":{\"userId\":1,\"loginId\":\"u1\"}}";
         ConsumerRecord<Object, Object> record = new ConsumerRecord<>(
-                "product-events",
-                1,
-                10L,
-                "101",
-                envelopeJson("evt-dup", "PRODUCT_LIKE_CHANGED", "2026-03-26T00:00:00Z", 101L, "UNLIKED").getBytes()
+                "user-events",
+                0,
+                1L,
+                "1",
+                json.getBytes()
         );
-        doThrow(new DataIntegrityViolationException("duplicate")).when(eventHandledJpaRepository).saveAndFlush(any());
 
         collectorService.process(record);
 
-        verify(eventHandledJpaRepository).saveAndFlush(any());
-        verify(productMetricsJpaRepository, never()).applyLikeDeltaIfNewer(any(), any(Long.class), any());
-        verifyMetricCount("kafka.collector.events.duplicate", 1.0);
+        verify(lightweightEventIdempotency).tryClaimFirstDelivery("evt-user-1");
+        verify(databaseService, never()).processDb(any(), any());
+        assertThat(meterRegistry.find("kafka.collector.events.processed").counter().count()).isEqualTo(1.0);
+    }
+
+    @Test
+    @DisplayName("USER_REGISTERED 중복 수신 시 Redis 멱등 실패로 DB 없이 종료한다.")
+    void process_whenUserRegisteredDuplicate_shouldSkipWithoutDb() {
+        when(lightweightEventIdempotency.tryClaimFirstDelivery("evt-user-dup")).thenReturn(false);
+        String json = "{\"eventId\":\"evt-user-dup\",\"eventType\":\"USER_REGISTERED\","
+                + "\"occurredAt\":\"2026-03-26T00:00:00Z\",\"partitionKey\":\"1\","
+                + "\"data\":{\"userId\":1}}";
+        ConsumerRecord<Object, Object> record = new ConsumerRecord<>("user-events", 0, 2L, "1", json.getBytes());
+
+        collectorService.process(record);
+
+        verify(databaseService, never()).processDb(any(), any());
+        assertThat(meterRegistry.find("kafka.collector.events.duplicate").counter().count()).isEqualTo(1.0);
     }
 
     @Test
@@ -103,12 +110,7 @@ class ProductEventCollectorServiceTest {
         } catch (IllegalArgumentException ignored) {
         }
 
-        verifyMetricCount("kafka.collector.events.failed", 1.0);
-    }
-
-    private void verifyMetricCount(String metricName, double expected) {
-        assert meterRegistry.find(metricName).counter() != null;
-        assertThat(meterRegistry.find(metricName).counter().count()).isEqualTo(expected);
+        assertThat(meterRegistry.find("kafka.collector.events.failed").counter().count()).isEqualTo(1.0);
     }
 
     private static String envelopeJson(String eventId, String eventType, String occurredAt, Long productId, String action) {
