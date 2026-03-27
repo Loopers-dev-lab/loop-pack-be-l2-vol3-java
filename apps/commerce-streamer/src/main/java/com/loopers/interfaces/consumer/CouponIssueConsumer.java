@@ -29,13 +29,7 @@ public class CouponIssueConsumer {
     )
     public void consume(ConsumerRecord<String, byte[]> record, Acknowledgment ack) {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
-
-        try {
-            tx.executeWithoutResult(status -> processRecord(record));
-        } catch (Exception e) {
-            log.error("CouponIssueConsumer 처리 실패 — offset={}", record.offset(), e);
-        }
-
+        tx.executeWithoutResult(status -> processRecord(record));
         ack.acknowledge();
     }
 
