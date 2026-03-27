@@ -111,10 +111,10 @@ class OutboxPerformanceTest {
         log.info("총 소요 시간: {}ms ({}초)", totalDuration, totalDuration / 1000.0);
         log.info("총 반복 횟수: {}", iteration);
         log.info("평균 반복 시간: {}ms", avgIterationTime);
-        log.info("실측 처리량: {:.2f} 건/초", throughputPerSecond);
+        log.info("실측 처리량: {} 건/초", throughputPerSecond);
         log.info("이론 처리량: 500건/초 (1초 × 500건 배치)");
 
-        assertThat(processingCount).isGreaterThanOrEqualTo(totalEvents * 0.9); // 90% 이상 처리
+        assertThat(processingCount).isGreaterThanOrEqualTo((long) (totalEvents * 0.9)); // 90% 이상 처리
     }
 
     @Test
@@ -142,7 +142,7 @@ class OutboxPerformanceTest {
         // then: 평균 시간 계산
         double avgDuration = (double) totalDuration / iterations;
         log.info("=== Phase 1 평균 처리 시간 ===");
-        log.info("평균: {:.2f}ms", avgDuration);
+        log.info("평균: {}ms", avgDuration);
         log.info("최대: {}ms (단일 측정)", totalDuration / iterations);
 
         assertThat(avgDuration).isLessThan(1000); // 1초 이내
