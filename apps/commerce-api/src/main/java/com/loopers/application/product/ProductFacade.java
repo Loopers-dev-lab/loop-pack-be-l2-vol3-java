@@ -1,6 +1,7 @@
 package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandService;
+import com.loopers.application.event.ProductViewedEvent;
 import com.loopers.application.stock.StockService;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.stock.Stock;
@@ -10,6 +11,7 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.domain.product.Product;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -31,6 +33,7 @@ public class ProductFacade {
     private final BrandService brandService;
     private final StockService stockService;
     private final ProductCacheManager productCacheManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     // Command
 
@@ -91,6 +94,7 @@ public class ProductFacade {
         Stock stock = stockService.getStock(productId);
         ProductInfo info = ProductInfo.from(product, brand.getName(), stock.getQuantity());
         productCacheManager.putDetail(productId, info);
+        eventPublisher.publishEvent(new ProductViewedEvent(null, productId));
         return info;
     }
 

@@ -1,10 +1,15 @@
 package com.loopers.application.payment;
 
 import com.loopers.application.coupon.IssuedCouponService;
+import com.loopers.application.event.PaymentCanceledEvent;
+import com.loopers.application.event.PaymentCompletedEvent;
+import com.loopers.application.event.PaymentFailedEvent;
 import com.loopers.application.order.OrderService;
 import com.loopers.application.stock.StockService;
 import com.loopers.domain.order.Order;
+import com.loopers.domain.payment.Payment;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -15,6 +20,7 @@ public class PaymentProcessor {
     private final StockService stockService;
     private final IssuedCouponService issuedCouponService;
     private final OrderService orderService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * PG 승인 성공 → 비즈니스 확정 (원자적)
@@ -26,6 +32,10 @@ public class PaymentProcessor {
         Order order = orderService.getOrder(orderId);
         stockService.confirm(order.getProductQuantities());
         orderService.payOrder(orderId);
+
+        Payment payment = paymentService.getPayment(paymentId);
+        eventPublisher.publishEvent(new PaymentCompletedEvent(
+                paymentId, orderId, payment.getUserId(), payment.getAmount()));
     }
 
     /**
@@ -41,6 +51,10 @@ public class PaymentProcessor {
             issuedCouponService.restore(order.getIssuedCouponId());
         }
         orderService.cancelOrder(orderId);
+
+        Payment payment = paymentService.getPayment(paymentId);
+        eventPublisher.publishEvent(new PaymentFailedEvent(
+                paymentId, orderId, payment.getUserId(), reason));
     }
 
     /**
@@ -56,5 +70,9 @@ public class PaymentProcessor {
             issuedCouponService.restore(order.getIssuedCouponId());
         }
         orderService.cancelOrder(orderId);
+
+        Payment payment = paymentService.getPayment(paymentId);
+        eventPublisher.publishEvent(new PaymentCanceledEvent(
+                paymentId, orderId, payment.getUserId()));
     }
 }
