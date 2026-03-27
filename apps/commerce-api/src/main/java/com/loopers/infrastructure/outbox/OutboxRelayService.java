@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.outbox;
 
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -10,9 +11,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Outbox Relay — 2단계 Polling 방식 (PROCESSING 상태 + 동기 .get())
@@ -41,17 +44,24 @@ public class OutboxRelayService {
     private static final Logger log = LoggerFactory.getLogger(OutboxRelayService.class);
     private static final int BATCH_SIZE = 500;  // 50 → 500 (10배 증가)
     private static final int MAX_RETRY = 5;
+    private static final int SHUTDOWN_TIMEOUT_SECONDS = 30;
 
     private final OutboxEventJpaRepository outboxEventJpaRepository;
     private final KafkaTemplate<Object, Object> kafkaTemplate;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+    private final OutboxMetrics metrics;
+
+    private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
+    private volatile CountDownLatch phase2Latch;
 
     public OutboxRelayService(OutboxEventJpaRepository outboxEventJpaRepository,
                                KafkaTemplate<Object, Object> kafkaTemplate,
-                               org.springframework.transaction.PlatformTransactionManager transactionManager) {
+                               org.springframework.transaction.PlatformTransactionManager transactionManager,
+                               OutboxMetrics metrics) {
         this.outboxEventJpaRepository = outboxEventJpaRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.transactionTemplate = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        this.metrics = metrics;
     }
 
     /**
@@ -64,6 +74,8 @@ public class OutboxRelayService {
     @Scheduled(fixedDelay = 1000)  // 5초 → 1초 (5배 빠른 폴링)
     @Transactional
     public void markPendingAsProcessing() {
+        long startTime = System.currentTimeMillis();
+
         List<OutboxEventEntity> pendingEvents = outboxEventJpaRepository.findPendingEventsForUpdate(BATCH_SIZE);
 
         if (pendingEvents.isEmpty()) {
@@ -75,7 +87,10 @@ public class OutboxRelayService {
         }
         outboxEventJpaRepository.saveAll(pendingEvents);
 
-        log.info("[Relay Phase 1] PROCESSING 전환 {}건", pendingEvents.size());
+        long duration = System.currentTimeMillis() - startTime;
+        metrics.recordPhase1Duration(duration);
+
+        log.info("[Relay Phase 1] PROCESSING 전환 {}건 ({}ms)", pendingEvents.size(), duration);
     }
 
     /**
@@ -87,6 +102,22 @@ public class OutboxRelayService {
      */
     @Scheduled(fixedDelay = 1000)
     public void publishProcessingEvents() {
+        if (shuttingDown.get()) {
+            log.info("[Relay Phase 2] Shutting down, skipping this cycle");
+            return;
+        }
+
+        phase2Latch = new CountDownLatch(1);
+        try {
+            executePhase2();
+        } finally {
+            phase2Latch.countDown();
+        }
+    }
+
+    private void executePhase2() {
+        long startTime = System.currentTimeMillis();
+
         List<OutboxEventEntity> processingEvents = outboxEventJpaRepository.findProcessingEvents(BATCH_SIZE);
 
         if (processingEvents.isEmpty()) {
@@ -106,15 +137,49 @@ public class OutboxRelayService {
         // Partition Key별 병렬 발행 (다른 Key는 병렬, 같은 Key는 순차)
         groupedByPartitionKey.values().parallelStream().forEach(events -> {
             for (OutboxEventEntity event : events) {
-                publishToKafka(event);
+                try {
+                    publishToKafka(event);
+                } catch (Exception e) {
+                    // 개별 이벤트 실패해도 다른 이벤트 계속 처리
+                    log.error("[Relay Phase 2] Unexpected error processing event {}: {}",
+                            event.getId(), e.getMessage(), e);
+                    event.markFailed("Unexpected error: " + e.getMessage());
+                    metrics.recordPublishFailure();
+                }
             }
         });
 
         // 상태 업데이트 (PUBLISHED or FAILED)
         transactionTemplate.executeWithoutResult(status -> {
             outboxEventJpaRepository.saveAll(processingEvents);
-            log.info("[Relay Phase 2] 상태 업데이트 완료 {}건", processingEvents.size());
         });
+
+        long duration = System.currentTimeMillis() - startTime;
+        metrics.recordPhase2Duration(duration);
+
+        log.info("[Relay Phase 2] 상태 업데이트 완료 {}건 ({}ms)", processingEvents.size(), duration);
+    }
+
+    /**
+     * PROCESSING 복구 로직 (5분 간격)
+     *
+     * 5분 이상 PROCESSING 상태인 이벤트를 PENDING으로 복원
+     * - Phase 2 실패 시 복구
+     * - 앱 크래시 후 재시작 시 복구
+     */
+    @Scheduled(fixedDelay = 300000) // 5분
+    @Transactional
+    public void recoverStalledProcessingEvents() {
+        ZonedDateTime threshold = ZonedDateTime.now().minusMinutes(5);
+        List<OutboxEventEntity> stalledEvents = outboxEventJpaRepository.findStalledProcessingEvents(threshold);
+
+        if (stalledEvents.isEmpty()) {
+            return;
+        }
+
+        log.warn("[Relay] PROCESSING 5분 이상 경과 {}건 → PENDING 복원", stalledEvents.size());
+        stalledEvents.forEach(OutboxEventEntity::markRetry);
+        outboxEventJpaRepository.saveAll(stalledEvents);
     }
 
     @Scheduled(fixedDelay = 30000)
@@ -162,16 +227,70 @@ public class OutboxRelayService {
             log.info("[Relay] 발행 성공 — outboxId={}, topic={}, partition={}, offset={}",
                     event.getId(), event.getTopic(), metadata.partition(), metadata.offset());
             event.markPublished();
+            metrics.recordPublishSuccess();
 
         } catch (ExecutionException e) {
             log.error("[Relay] 발행 실패 — outboxId={}, error={}", event.getId(), e.getCause().getMessage());
             event.markFailed(e.getCause().getMessage());
+            metrics.recordPublishFailure();
         } catch (TimeoutException e) {
             log.error("[Relay] 발행 타임아웃 — outboxId={}", event.getId());
             event.markFailed("Kafka send timeout (10s)");
+            metrics.recordPublishFailure();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             event.markFailed("Interrupted");
+            metrics.recordPublishFailure();
+        }
+    }
+
+    /**
+     * Graceful Shutdown
+     *
+     * 앱 종료 시:
+     * 1. 새로운 Phase 2 실행 중단
+     * 2. 현재 실행 중인 Phase 2 완료 대기 (최대 30초)
+     * 3. 미완료 PROCESSING → PENDING 복원
+     */
+    @PreDestroy
+    public void onShutdown() {
+        log.info("[Relay] Graceful shutdown started");
+        shuttingDown.set(true);
+
+        // 현재 실행 중인 Phase 2 완료 대기
+        CountDownLatch currentLatch = phase2Latch;
+        if (currentLatch != null) {
+            try {
+                boolean completed = currentLatch.await(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                if (completed) {
+                    log.info("[Relay] Phase 2 completed gracefully");
+                } else {
+                    log.warn("[Relay] Phase 2 did not complete within {}s, proceeding with recovery",
+                            SHUTDOWN_TIMEOUT_SECONDS);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.warn("[Relay] Shutdown interrupted");
+            }
+        }
+
+        // 미완료 PROCESSING → PENDING 복원
+        recoverProcessingOnShutdown();
+
+        log.info("[Relay] Graceful shutdown completed");
+    }
+
+    @Transactional
+    protected void recoverProcessingOnShutdown() {
+        List<OutboxEventEntity> processingEvents = outboxEventJpaRepository
+                .findProcessingEvents(Integer.MAX_VALUE);
+
+        if (!processingEvents.isEmpty()) {
+            log.info("[Relay] Recovering {} PROCESSING events to PENDING on shutdown",
+                    processingEvents.size());
+
+            processingEvents.forEach(event -> event.markRetry());
+            outboxEventJpaRepository.saveAll(processingEvents);
         }
     }
 }

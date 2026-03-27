@@ -8,6 +8,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 import java.time.ZonedDateTime;
@@ -21,8 +23,13 @@ import java.time.ZonedDateTime;
 @Entity
 @Table(name = "outbox_event", indexes = {
         @Index(name = "idx_outbox_status_created", columnList = "status, created_at"),
-        @Index(name = "idx_outbox_pending", columnList = "status, created_at",
-               unique = false) // PENDING 조회 최적화
+        @Index(name = "idx_outbox_status_updated", columnList = "status, updated_at"),
+        // PENDING 조회 최적화 (Phase 1)
+        @Index(name = "idx_outbox_pending_created", columnList = "created_at"),
+        // PROCESSING 조회 최적화 (Phase 2)
+        @Index(name = "idx_outbox_processing_created", columnList = "created_at"),
+        // PROCESSING 복구 최적화 (updated_at 기준)
+        @Index(name = "idx_outbox_processing_updated", columnList = "updated_at")
 })
 public class OutboxEventEntity {
 
@@ -58,6 +65,9 @@ public class OutboxEventEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private ZonedDateTime createdAt;
 
+    @Column(name = "updated_at", nullable = false)
+    private ZonedDateTime updatedAt;
+
     @Column(name = "published_at")
     private ZonedDateTime publishedAt;
 
@@ -65,6 +75,20 @@ public class OutboxEventEntity {
     private String errorMessage;
 
     protected OutboxEventEntity() {
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        ZonedDateTime now = ZonedDateTime.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = ZonedDateTime.now();
     }
 
     public static OutboxEventEntity create(String aggregateType, Long aggregateId,
@@ -80,6 +104,7 @@ public class OutboxEventEntity {
         entity.status = OutboxStatus.PENDING;
         entity.retryCount = 0;
         entity.createdAt = ZonedDateTime.now();
+        entity.updatedAt = ZonedDateTime.now();
         return entity;
     }
 
@@ -113,6 +138,7 @@ public class OutboxEventEntity {
     public OutboxStatus getStatus() { return status; }
     public int getRetryCount() { return retryCount; }
     public ZonedDateTime getCreatedAt() { return createdAt; }
+    public ZonedDateTime getUpdatedAt() { return updatedAt; }
     public ZonedDateTime getPublishedAt() { return publishedAt; }
     public String getErrorMessage() { return errorMessage; }
 }

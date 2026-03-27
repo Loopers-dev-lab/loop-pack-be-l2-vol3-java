@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface OutboxEventJpaRepository extends JpaRepository<OutboxEventEntity, Long> {
 
@@ -35,6 +36,12 @@ public interface OutboxEventJpaRepository extends JpaRepository<OutboxEventEntit
 
     @Query("SELECT o FROM OutboxEventEntity o WHERE o.status = 'PUBLISHED' AND o.publishedAt < :before")
     List<OutboxEventEntity> findPublishedBefore(@Param("before") ZonedDateTime before);
+
+    @Query("SELECT o FROM OutboxEventEntity o WHERE o.status = 'PENDING' ORDER BY o.createdAt ASC LIMIT 1")
+    Optional<OutboxEventEntity> findOldestPendingEvent();
+
+    @Query("SELECT o FROM OutboxEventEntity o WHERE o.status = 'PROCESSING' AND o.updatedAt < :threshold ORDER BY o.updatedAt ASC")
+    List<OutboxEventEntity> findStalledProcessingEvents(@Param("threshold") ZonedDateTime threshold);
 
     long countByStatus(OutboxStatus status);
 }
