@@ -3,11 +3,11 @@ package com.loopers.domain.product;
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.common.cursor.CursorPageResult;
-import com.loopers.domain.like.LikeService;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.utils.DatabaseCleanUp;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -46,7 +46,7 @@ class ProductServiceIntegrationTest {
     private ProductRepository productRepository;
 
     @Autowired
-    private LikeService likeService;
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -279,15 +279,18 @@ class ProductServiceIntegrationTest {
             ProductModel product2 = productService.createProduct("prod2", brand.getBrandId().value(), "Product 2", new BigDecimal("20000"), 20);
             ProductModel product3 = productService.createProduct("prod3", brand.getBrandId().value(), "Product 3", new BigDecimal("30000"), 30);
 
-            // product2: 좋아요 3개
-            likeService.addLike(1L, "prod2");
-            likeService.addLike(2L, "prod2");
-            likeService.addLike(3L, "prod2");
-
-            // product1: 좋아요 1개
-            likeService.addLike(1L, "prod1");
-
-            // product3: 좋아요 0개
+            jdbcTemplate.update(
+                "INSERT INTO product_metrics (ref_product_id, like_count, created_at, updated_at) VALUES (?, ?, NOW(), NOW())",
+                product2.getId(), 3
+            );
+            jdbcTemplate.update(
+                "INSERT INTO product_metrics (ref_product_id, like_count, created_at, updated_at) VALUES (?, ?, NOW(), NOW())",
+                product1.getId(), 1
+            );
+            jdbcTemplate.update(
+                "INSERT INTO product_metrics (ref_product_id, like_count, created_at, updated_at) VALUES (?, ?, NOW(), NOW())",
+                product3.getId(), 0
+            );
 
             Pageable pageable = PageRequest.of(0, 10);
 

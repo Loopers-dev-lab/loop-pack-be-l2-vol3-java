@@ -69,30 +69,31 @@ class LayeredArchitectureTest {
                         )
                 )
 
-                // 예외 2: Infrastructure → Domain.Repository 구현 허용 (DIP 패턴)
+                // 예외 2: Infrastructure → Domain interface 구현 허용 (DIP 패턴)
+                //        RepositoryImpl → Repository 외에도 Gateway, Scheduler, Metrics 등 포함
                 .ignoreDependency(
                         DescribedPredicate.describe(
-                                "Infrastructure repository implementations",
+                                "Infrastructure classes implementing Domain interfaces (DIP pattern)",
                                 javaClass -> javaClass.getPackageName().startsWith("com.loopers.infrastructure")
-                                        && javaClass.getSimpleName().endsWith("RepositoryImpl")
                         ),
                         DescribedPredicate.describe(
-                                "Domain repository interfaces",
+                                "Domain interfaces (DIP targets)",
                                 javaClass -> javaClass.getPackageName().startsWith("com.loopers.domain")
                                         && javaClass.isInterface()
-                                        && javaClass.getSimpleName().endsWith("Repository")
                         )
                 )
 
-                // 예외 3: 데이터 타입(VO, Enum, Entity)은 모든 레이어에서 사용 가능
+                // 예외 3: 데이터 타입(VO, Enum, Entity, Record, domain.common 유틸)은 모든 레이어에서 사용 가능
                 //        컴포넌트(Service, Repository, Facade 등) 간 의존성만 검증
                 .ignoreDependency(
                         DescribedPredicate.alwaysTrue(),
                         DescribedPredicate.describe(
-                                "Data types (VO, Enum, Entity)",
+                                "Data types (VO, Enum, Entity, Record, domain.common utilities)",
                                 javaClass -> javaClass.getPackageName().contains(".vo")
                                         || javaClass.isEnum()
                                         || javaClass.isAnnotatedWith("jakarta.persistence.Entity")
+                                        || javaClass.getPackageName().contains("domain.common")
+                                        || javaClass.isRecord()
                         )
                 )
 
