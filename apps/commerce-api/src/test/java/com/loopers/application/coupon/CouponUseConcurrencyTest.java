@@ -109,7 +109,7 @@ class CouponUseConcurrencyTest {
         productId = productRepository.save(new Product("쿠폰동시성상품", 10000, 100, "desc", categoryId, brandId)).id();
 
         CouponEntity couponEntity = couponJpaRepository.saveAndFlush(
-                new CouponEntity("동시성쿠폰", CouponType.FIXED, 1000, 0, LocalDateTime.now().plusDays(1))
+                new CouponEntity("동시성쿠폰", CouponType.FIXED, 1000, 0, 100, 100, LocalDateTime.now().plusDays(1))
         );
         couponId = couponEntity.getId();
         assertThat(couponId).isNotNull();
