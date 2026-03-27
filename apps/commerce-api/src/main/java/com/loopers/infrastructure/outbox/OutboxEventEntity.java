@@ -20,7 +20,9 @@ import java.time.ZonedDateTime;
  */
 @Entity
 @Table(name = "outbox_event", indexes = {
-        @Index(name = "idx_outbox_status_created", columnList = "status, created_at")
+        @Index(name = "idx_outbox_status_created", columnList = "status, created_at"),
+        @Index(name = "idx_outbox_pending", columnList = "status, created_at",
+               unique = false) // PENDING 조회 최적화
 })
 public class OutboxEventEntity {
 
@@ -79,6 +81,10 @@ public class OutboxEventEntity {
         entity.retryCount = 0;
         entity.createdAt = ZonedDateTime.now();
         return entity;
+    }
+
+    public void markProcessing() {
+        this.status = OutboxStatus.PROCESSING;
     }
 
     public void markPublished() {

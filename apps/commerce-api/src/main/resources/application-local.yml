@@ -1,0 +1,36 @@
+# 로컬 환경 Kafka 토픽 설정
+# 단일 브로커 환경 (docker/infra-compose.yml)
+
+kafka:
+  topic:
+    catalog-events:
+      name: catalog-events-v1
+      partitions: 3
+      replicas: 1              # 로컬 단일 브로커
+      min-insync-replicas: 1   # ISR 최소 1개 (Leader만)
+
+    order-events:
+      name: order-events-v1
+      partitions: 3
+      replicas: 1
+      min-insync-replicas: 1
+
+    coupon-issue-requests:
+      name: coupon-issue-requests-v1
+      partitions: 3
+      replicas: 1
+      min-insync-replicas: 1
+
+    user-activity-events:
+      name: user-activity-events-v1
+      partitions: 3
+      replicas: 1
+      min-insync-replicas: 1
+      retention-ms: 259200000  # 3일 (3 * 24 * 60 * 60 * 1000)
+
+    pipeline-dlq:
+      name: pipeline-dlq-v1
+      partitions: 1
+      replicas: 1
+      min-insync-replicas: 1
+      retention-ms: 2592000000  # 30일 (30 * 24 * 60 * 60 * 1000)

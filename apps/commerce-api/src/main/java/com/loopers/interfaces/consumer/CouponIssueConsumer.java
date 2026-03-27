@@ -20,22 +20,26 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * 선착순 쿠폰 발급 Consumer — 재시도 + 지수 백오프 + DLQ
+ * 선착순 쿠폰 발급 Consumer — Spring ErrorHandler 기반 DLQ 처리
  *
- * kafka-pipeline-lab에서 배운 패턴 적용:
- *   1. 재시도 3회 + 지수 백오프 (1초→2초→4초) — 일시적 장애 복구
- *   2. 3회 실패 → DLQ 격리 (동기 전송) — 영구 실패 메시지 보존
+ * 재시도 로직 제거 + Spring Kafka ErrorHandler 위임:
+ *   1. 재시도 없음 (MAX_RETRY = 0) — 배치 블로킹 방지
+ *   2. Spring ErrorHandler가 즉시 DLQ 격리 (동기 전송)
  *   3. 멱등성 (event_handled) — 중복 처리 방지
  *
  * 비즈니스 실패(재고 소진, 중복 발급)는 재시도 대상이 아님:
  *   → 재시도해도 결과가 같으므로 즉시 FAILED 처리
- *   → 재시도 대상: 인프라 장애 (DB 커넥션, 네트워크 순단)
+ *   → 인프라 장애도 ErrorHandler가 DLQ로 즉시 격리
+ *
+ * 배치 블로킹 방지:
+ *   - 기존: 한 레코드 실패 시 7초 재시도 → 나머지 배치 블로킹
+ *   - 개선: 한 레코드 실패 시 즉시 DLQ → 나머지 배치 정상 처리
  */
 @Component
 public class CouponIssueConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(CouponIssueConsumer.class);
-    private static final int MAX_RETRY = 3;
+    private static final int MAX_RETRY = 0;  // 재시도 제거 (ErrorHandler가 처리)
 
     private final ObjectMapper objectMapper;
     private final CouponService couponService;
@@ -63,54 +67,19 @@ public class CouponIssueConsumer {
     public void consume(List<ConsumerRecord<Object, Object>> records, Acknowledgment ack) {
         for (ConsumerRecord<Object, Object> record : records) {
             try {
-                processWithRetry(record);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.error("[CouponIssue] 처리 중단 — partition={}, offset={}",
-                        record.partition(), record.offset());
-            } catch (Exception e) {
-                log.error("[CouponIssue] 예외 → DLQ — partition={}, offset={}, error={}",
-                        record.partition(), record.offset(), e.getMessage(), e);
-                dlqPublisher.sendToDlq(record, e, 0);
-            }
-        }
-        ack.acknowledge();
-    }
-
-    /**
-     * 재시도 + 지수 백오프
-     *
-     * 비즈니스 실패(재고 소진 등)는 재시도하지 않음 — 결과가 같으므로
-     * 인프라 장애(DB, 네트워크)만 재시도 대상
-     */
-    private void processWithRetry(ConsumerRecord<Object, Object> record) throws InterruptedException {
-        Exception lastException = null;
-
-        for (int attempt = 1; attempt <= MAX_RETRY; attempt++) {
-            try {
                 processRecord(record);
-                return;  // 성공 → 종료
             } catch (BusinessFailureException e) {
                 // 비즈니스 실패 → 재시도 불필요 (재고 소진, 중복 발급 등)
                 log.warn("[CouponIssue] 비즈니스 실패 (재시도 불필요) — error={}", e.getMessage());
-                return;  // 재시도 없이 종료 (이미 FAILED로 기록됨)
+                // 이미 FAILED로 기록됨, ACK 진행
             } catch (Exception e) {
-                lastException = e;
-                log.warn("[CouponIssue] 재시도 {}/{} 실패 — partition={}, offset={}, error={}",
-                        attempt, MAX_RETRY, record.partition(), record.offset(), e.getMessage());
-
-                if (attempt < MAX_RETRY) {
-                    long backoffMs = (long) Math.pow(2, attempt - 1) * 1000;  // 1초→2초→4초
-                    log.info("[CouponIssue] {}ms 후 재시도...", backoffMs);
-                    Thread.sleep(backoffMs);
-                }
+                // 인프라 장애 → Spring ErrorHandler가 DLQ로 전송
+                log.error("[CouponIssue] 인프라 실패 → ErrorHandler 위임 — partition={}, offset={}, error={}",
+                        record.partition(), record.offset(), e.getMessage());
+                throw e;  // ErrorHandler에게 위임
             }
         }
-
-        // 3회 모두 실패 → DLQ
-        log.error("[CouponIssue] {}회 재시도 모두 실패 → DLQ — partition={}, offset={}",
-                MAX_RETRY, record.partition(), record.offset());
-        dlqPublisher.sendToDlq(record, lastException, MAX_RETRY);
+        ack.acknowledge();
     }
 
     @Transactional

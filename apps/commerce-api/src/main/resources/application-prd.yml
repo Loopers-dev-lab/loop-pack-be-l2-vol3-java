@@ -1,0 +1,36 @@
+# 프로덕션 환경 Kafka 토픽 설정
+# 3-브로커 클러스터 환경
+
+kafka:
+  topic:
+    catalog-events:
+      name: catalog-events-v1
+      partitions: 3
+      replicas: 3                # 3-브로커 클러스터
+      min-insync-replicas: 2     # ISR 최소 2개 (안전성)
+
+    order-events:
+      name: order-events-v1
+      partitions: 3
+      replicas: 3
+      min-insync-replicas: 2
+
+    coupon-issue-requests:
+      name: coupon-issue-requests-v1
+      partitions: 3
+      replicas: 3
+      min-insync-replicas: 2
+
+    user-activity-events:
+      name: user-activity-events-v1
+      partitions: 3
+      replicas: 3
+      min-insync-replicas: 1     # 로깅용이므로 낮은 안전성 허용
+      retention-ms: 259200000    # 3일
+
+    pipeline-dlq:
+      name: pipeline-dlq-v1
+      partitions: 1
+      replicas: 3
+      min-insync-replicas: 2
+      retention-ms: 2592000000   # 30일

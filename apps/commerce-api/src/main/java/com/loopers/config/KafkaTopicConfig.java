@@ -1,20 +1,33 @@
 package com.loopers.config;
 
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.common.config.TopicConfig;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
 
 /**
- * Kafka Topic 설계
+ * Kafka Topic 설계 — 환경별 설정 외부화
  *
  * 토픽 분리 기준:
  * 1. 발행 방식이 다르면 토픽 분리 (Outbox vs 직접 발행)
  * 2. Consumer 처리 로직이 다르면 토픽 분리
  * 3. 운영 모니터링 기준이 다르면 토픽 분리
+ *
+ * 환경별 설정:
+ * - application-local.yml: replicas=1, min-insync=1 (단일 브로커)
+ * - application-prd.yml: replicas=3, min-insync=2 (3-브로커 클러스터)
  */
 @Configuration
+@EnableConfigurationProperties(TopicProperties.class)
 public class KafkaTopicConfig {
+
+    private final TopicProperties topicProperties;
+
+    public KafkaTopicConfig(TopicProperties topicProperties) {
+        this.topicProperties = topicProperties;
+    }
 
     /**
      * 상품 카탈로그 이벤트 — 좋아요/조회/판매량 집계
@@ -22,9 +35,11 @@ public class KafkaTopicConfig {
      */
     @Bean
     public NewTopic catalogEventsTopic() {
-        return TopicBuilder.name("catalog-events-v1")
-                .partitions(3)
-                .replicas(1)  // 로컬 단일 Broker
+        var config = topicProperties.catalogEvents();
+        return TopicBuilder.name(config.name())
+                .partitions(config.partitions())
+                .replicas(config.replicas())
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, String.valueOf(config.minInsyncReplicas()))
                 .build();
     }
 
@@ -34,9 +49,11 @@ public class KafkaTopicConfig {
      */
     @Bean
     public NewTopic orderEventsTopic() {
-        return TopicBuilder.name("order-events-v1")
-                .partitions(3)
-                .replicas(1)
+        var config = topicProperties.orderEvents();
+        return TopicBuilder.name(config.name())
+                .partitions(config.partitions())
+                .replicas(config.replicas())
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, String.valueOf(config.minInsyncReplicas()))
                 .build();
     }
 
@@ -46,9 +63,11 @@ public class KafkaTopicConfig {
      */
     @Bean
     public NewTopic couponIssueRequestsTopic() {
-        return TopicBuilder.name("coupon-issue-requests-v1")
-                .partitions(3)
-                .replicas(1)
+        var config = topicProperties.couponIssueRequests();
+        return TopicBuilder.name(config.name())
+                .partitions(config.partitions())
+                .replicas(config.replicas())
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, String.valueOf(config.minInsyncReplicas()))
                 .build();
     }
 
@@ -59,10 +78,12 @@ public class KafkaTopicConfig {
      */
     @Bean
     public NewTopic userActivityEventsTopic() {
-        return TopicBuilder.name("user-activity-events-v1")
-                .partitions(3)
-                .replicas(1)
-                .config("retention.ms", String.valueOf(3L * 24 * 60 * 60 * 1000))  // 3일
+        var config = topicProperties.userActivityEvents();
+        return TopicBuilder.name(config.name())
+                .partitions(config.partitions())
+                .replicas(config.replicas())
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, String.valueOf(config.minInsyncReplicas()))
+                .config(TopicConfig.RETENTION_MS_CONFIG, String.valueOf(config.retentionMs()))
                 .build();
     }
 
@@ -71,10 +92,12 @@ public class KafkaTopicConfig {
      */
     @Bean
     public NewTopic dlqTopic() {
-        return TopicBuilder.name("pipeline-dlq-v1")
-                .partitions(1)
-                .replicas(1)
-                .config("retention.ms", String.valueOf(30L * 24 * 60 * 60 * 1000))  // 30일
+        var config = topicProperties.pipelineDlq();
+        return TopicBuilder.name(config.name())
+                .partitions(config.partitions())
+                .replicas(config.replicas())
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, String.valueOf(config.minInsyncReplicas()))
+                .config(TopicConfig.RETENTION_MS_CONFIG, String.valueOf(config.retentionMs()))
                 .build();
     }
 }

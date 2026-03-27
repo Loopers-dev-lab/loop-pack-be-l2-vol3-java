@@ -161,4 +161,82 @@ class OutboxEventServiceTest {
         assertThat(saved.getPayload()).contains("\"orderId\":1");
         assertThat(saved.getPayload()).contains("\"totalAmount\":29900");
     }
+
+    @Test
+    @DisplayName("markProcessing 호출 시 상태가 PROCESSING으로 변경된다")
+    void mark_processing_changes_status() {
+        // given
+        OutboxEventEntity event = outboxEventService.save("ORDER", 1L, "OrderConfirmedEvent",
+                Map.of("orderId", 1L), "order-events-v1", "1");
+        assertThat(event.getStatus()).isEqualTo(OutboxStatus.PENDING);
+
+        // when
+        event.markProcessing();
+        outboxEventJpaRepository.save(event);
+
+        // then
+        OutboxEventEntity found = outboxEventJpaRepository.findById(event.getId()).orElseThrow();
+        assertThat(found.getStatus()).isEqualTo(OutboxStatus.PROCESSING);
+    }
+
+    @Test
+    @DisplayName("PROCESSING 상태 이벤트를 조회할 수 있다")
+    void find_processing_events() {
+        // given
+        OutboxEventEntity event1 = outboxEventService.save("ORDER", 1L, "OrderConfirmedEvent",
+                Map.of("orderId", 1L), "order-events-v1", "1");
+        OutboxEventEntity event2 = outboxEventService.save("PRODUCT", 100L, "ProductLikedEvent",
+                Map.of("productId", 100L), "catalog-events-v1", "100");
+
+        event1.markProcessing();
+        outboxEventJpaRepository.save(event1);
+
+        // when
+        List<OutboxEventEntity> processingEvents = outboxEventJpaRepository.findProcessingEvents(50);
+
+        // then
+        assertThat(processingEvents).hasSize(1);
+        assertThat(processingEvents.get(0).getId()).isEqualTo(event1.getId());
+        assertThat(processingEvents.get(0).getStatus()).isEqualTo(OutboxStatus.PROCESSING);
+    }
+
+    @Test
+    @DisplayName("PROCESSING 상태는 PENDING 조회에서 제외된다")
+    void processing_excluded_from_pending_query() {
+        // given
+        OutboxEventEntity event1 = outboxEventService.save("ORDER", 1L, "OrderConfirmedEvent",
+                Map.of("orderId", 1L), "order-events-v1", "1");
+        OutboxEventEntity event2 = outboxEventService.save("PRODUCT", 100L, "ProductLikedEvent",
+                Map.of("productId", 100L), "catalog-events-v1", "100");
+
+        event1.markProcessing();
+        outboxEventJpaRepository.save(event1);
+
+        // when
+        List<OutboxEventEntity> pendingEvents = outboxEventJpaRepository.findPendingEvents(50);
+
+        // then
+        assertThat(pendingEvents).hasSize(1);
+        assertThat(pendingEvents.get(0).getId()).isEqualTo(event2.getId());
+    }
+
+    @Test
+    @DisplayName("findPendingEventsForUpdate는 PENDING 상태만 조회한다")
+    void find_pending_events_for_update() {
+        // given
+        OutboxEventEntity pending = outboxEventService.save("ORDER", 1L, "OrderConfirmedEvent",
+                Map.of("orderId", 1L), "order-events-v1", "1");
+        OutboxEventEntity processing = outboxEventService.save("ORDER", 2L, "OrderConfirmedEvent",
+                Map.of("orderId", 2L), "order-events-v1", "2");
+        processing.markProcessing();
+        outboxEventJpaRepository.save(processing);
+
+        // when
+        List<OutboxEventEntity> result = outboxEventJpaRepository.findPendingEventsForUpdate(50);
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getId()).isEqualTo(pending.getId());
+        assertThat(result.get(0).getStatus()).isEqualTo(OutboxStatus.PENDING);
+    }
 }
