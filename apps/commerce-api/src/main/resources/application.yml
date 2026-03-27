@@ -21,6 +21,7 @@ spring:
     import:
       - jpa.yml
       - redis.yml
+      - kafka.yml
       - logging.yml
       - monitoring.yml
   cloud:
@@ -36,6 +37,15 @@ spring:
           pg-client:
             connect-timeout: 1000
             read-timeout: 2000
+
+  task:
+    execution:
+      pool:
+        core-size: 10
+        max-size: 30
+        queue-capacity: 100
+        keep-alive: 60s
+      thread-name-prefix: event-handler-
 
 commerce-api:
   callback-base-url: http://localhost:8080
@@ -104,6 +114,12 @@ resilience4j:
           - java.io.IOException
           - com.loopers.infrastructure.payment.pg.PgServerException
 
+outbox:
+  relay:
+    delay-ms: 1000
+    initial-delay-ms: 0
+    limit: 100
+
 springdoc:
   use-fqn: true
   swagger-ui:
@@ -118,6 +134,27 @@ spring:
     init:
       mode: always
       schema-locations: classpath:schema-shedlock.sql
+
+outbox:
+  relay:
+    delay-ms: 86400000
+    initial-delay-ms: 86400000
+    lock-at-least-for: PT0S
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  sql:
+    init:
+      data-locations: classpath:data-local.sql
+
+outbox:
+  relay:
+    delay-ms: 86400000
+    initial-delay-ms: 86400000
+    limit: 100
   jpa:
     defer-datasource-initialization: true
   cloud:
