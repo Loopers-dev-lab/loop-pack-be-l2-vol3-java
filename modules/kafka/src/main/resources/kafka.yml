@@ -12,9 +12,12 @@ spring:
           offset.reset: latest
         use.latest.version: true
     producer:
+      acks: all                 # ISR 전체 복제 확인 후 응답 → 브로커 장애 시 유실 방지
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       retries: 3
+      properties:
+        enable.idempotence: true  # 재시도 시 중복 메시지 방지 (exactly-once producer)
     consumer:
       group-id: loopers-default-consumer
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -33,6 +36,16 @@ spring:
     admin:
       properties:
         bootstrap.servers: kafka:9092
+
+---
+spring.config.activate.on-profile: cluster
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:19092,localhost:29092,localhost:39092
+    admin:
+      properties:
+        bootstrap.servers: kafka-1:9092,kafka-2:9092,kafka-3:9092
 
 ---
 spring.config.activate.on-profile: dev
