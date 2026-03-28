@@ -1,5 +1,8 @@
 package com.loopers.application.order;
 
+import com.loopers.application.order.event.OrderCancelledEvent;
+import com.loopers.application.order.event.OrderCreatedEvent;
+import com.loopers.application.order.event.OrderItemSnapshot;
 import com.loopers.domain.PageResult;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandDomainService;
@@ -22,10 +25,12 @@ import com.loopers.domain.stock.ProductStockDomainService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -44,10 +49,13 @@ public class OrderApplicationService {
     private final CartDomainService cartService;
     private final CouponDomainService couponDomainService;
     private final CouponIssueDomainService couponIssueDomainService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Order createOrder(CreateOrderCommand command) {
-        return processOrder(command.userId(), command.items(), command.couponId());
+        Order order = processOrder(command.userId(), command.items(), command.couponId());
+        publishOrderCreatedEvent(order);
+        return order;
     }
 
     /**
@@ -88,6 +96,7 @@ public class OrderApplicationService {
 
         Order order = processOrder(userId, lineItems, null);
         cartService.clearCart(userId);
+        publishOrderCreatedEvent(order);
         return order;
     }
 
@@ -115,6 +124,7 @@ public class OrderApplicationService {
             couponIssueDomainService.restoreCoupon(order.getCouponIssueId());
         }
 
+        eventPublisher.publishEvent(new OrderCancelledEvent(order.getId(), userId, ZonedDateTime.now()));
         return order;
     }
 
@@ -211,6 +221,14 @@ public class OrderApplicationService {
 
         // 9. 주문 생성 (쿠폰 없음)
         return orderService.createOrder(userId, itemCommands);
+    }
+
+    private void publishOrderCreatedEvent(Order order) {
+        List<OrderItemSnapshot> itemSnapshots = order.getItems().stream()
+            .map(item -> new OrderItemSnapshot(item.getProductId(), item.getQuantity().value()))
+            .toList();
+        eventPublisher.publishEvent(new OrderCreatedEvent(
+            order.getId(), order.getUserId(), itemSnapshots, ZonedDateTime.now()));
     }
 
     private Money calculateOriginalPrice(List<OrderItemCommand> itemCommands) {

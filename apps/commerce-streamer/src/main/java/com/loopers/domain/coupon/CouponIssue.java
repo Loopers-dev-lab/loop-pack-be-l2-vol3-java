@@ -1,0 +1,52 @@
+package com.loopers.domain.coupon;
+
+import com.loopers.domain.BaseEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
+
+import java.time.ZonedDateTime;
+import java.util.Objects;
+
+@Entity
+@Table(name = "coupon_issues", uniqueConstraints = {
+    @UniqueConstraint(name = "uk_coupon_issues_coupon_user", columnNames = {"coupon_id", "user_id"})
+})
+public class CouponIssue extends BaseEntity {
+
+    @Column(name = "coupon_id", nullable = false)
+    private Long couponId;
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private CouponIssueStatus status;
+
+    @Column(name = "used_at")
+    private ZonedDateTime usedAt;
+
+    @Version
+    @Column(name = "version")
+    private Long version;
+
+    protected CouponIssue() {}
+
+    public CouponIssue(Long couponId, Long userId) {
+        Objects.requireNonNull(couponId, "쿠폰 ID는 필수입니다.");
+        Objects.requireNonNull(userId, "유저 ID는 필수입니다.");
+        this.couponId = couponId;
+        this.userId = userId;
+        this.status = CouponIssueStatus.AVAILABLE;
+    }
+
+    public Long getCouponId() { return couponId; }
+    public Long getUserId() { return userId; }
+    public CouponIssueStatus getStatus() { return status; }
+    public ZonedDateTime getUsedAt() { return usedAt; }
+}

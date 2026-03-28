@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.coupon;
 import com.loopers.application.coupon.CouponApplicationService;
 import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.CouponIssue;
+import com.loopers.domain.coupon.CouponIssueRequest;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.AuthUser;
 import com.loopers.interfaces.api.auth.AuthenticatedUser;
@@ -47,5 +48,23 @@ public class CouponV1Controller implements CouponV1ApiSpec {
             .toList();
 
         return ApiResponse.success(CouponV1Dto.MyCouponListResponse.from(issues, coupons));
+    }
+
+    @PostMapping("/api/v1/coupons/{couponId}/fcfs-issue")
+    public ApiResponse<CouponV1Dto.FcfsIssueResponse> requestFcfsCouponIssue(
+        @AuthUser AuthenticatedUser authUser,
+        @PathVariable Long couponId
+    ) {
+        CouponIssueRequest request = couponApplicationService.requestFcfsCouponIssue(couponId, authUser.userId());
+        return ApiResponse.success(CouponV1Dto.FcfsIssueResponse.from(request));
+    }
+
+    @GetMapping("/api/v1/coupons/issue-requests/{requestId}")
+    public ApiResponse<CouponV1Dto.FcfsIssueStatusResponse> getCouponIssueRequestStatus(
+        @AuthUser AuthenticatedUser authUser,
+        @PathVariable String requestId
+    ) {
+        CouponIssueRequest request = couponApplicationService.getCouponIssueRequestStatus(requestId, authUser.userId());
+        return ApiResponse.success(CouponV1Dto.FcfsIssueStatusResponse.from(request));
     }
 }

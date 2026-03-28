@@ -1,5 +1,8 @@
 package com.loopers.application.payment;
 
+import com.loopers.application.order.event.OrderItemSnapshot;
+import com.loopers.application.payment.event.PaymentCompletedEvent;
+import com.loopers.application.payment.event.PaymentFailedEvent;
 import com.loopers.domain.coupon.CouponIssueDomainService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderDomainService;
@@ -14,11 +17,13 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.Comparator;
-import java.util.List;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.ZonedDateTime;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * 트랜잭션 경계가 필요한 결제 로직을 분리.
@@ -34,6 +39,7 @@ public class PaymentTransactionHelper {
     private final OrderDomainService orderDomainService;
     private final ProductStockDomainService productStockDomainService;
     private final CouponIssueDomainService couponIssueDomainService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * TX1: Payment(PENDING) 생성 + Order(PAYMENT_PENDING) 전환.
@@ -105,10 +111,18 @@ public class PaymentTransactionHelper {
         if ("SUCCESS".equals(status)) {
             payment.markPaid();
             order.completePayment();
+            List<OrderItemSnapshot> itemSnapshots = order.getItems().stream()
+                .map(item -> new OrderItemSnapshot(item.getProductId(), item.getQuantity().value()))
+                .toList();
+            eventPublisher.publishEvent(new PaymentCompletedEvent(
+                payment.getId(), order.getId(), payment.getUserId(),
+                payment.getAmount(), itemSnapshots, ZonedDateTime.now()));
         } else if ("FAILED".equals(status)) {
             payment.markFailed(reason);
             order.failPayment();
             restoreStockAndCoupon(order);
+            eventPublisher.publishEvent(new PaymentFailedEvent(
+                payment.getId(), order.getId(), payment.getUserId(), ZonedDateTime.now()));
         } else {
             log.warn("[콜백 상태 미인식] transactionKey={}, status={}, 상태 전이 없이 유지합니다.",
                 transactionKey, status);
