@@ -25,7 +25,7 @@ public class CouponModelTest {
         void createFixedCoupon() {
             // given & when
             CouponModel coupon = new CouponModel("3000원 할인", CouponType.FIXED,
-                    BigDecimal.valueOf(3000), null, null, expiredAt);
+                    BigDecimal.valueOf(3000), null, null, expiredAt, 0);
 
             // then
             assertThat(coupon.getName()).isEqualTo("3000원 할인");
@@ -38,7 +38,7 @@ public class CouponModelTest {
         void createRateCoupon() {
             // given & when
             CouponModel coupon = new CouponModel("10% 할인", CouponType.RATE,
-                    null, 10, null, expiredAt);
+                    null, 10, null, expiredAt, 0);
 
             // then
             assertThat(coupon.getName()).isEqualTo("10% 할인");
@@ -50,7 +50,7 @@ public class CouponModelTest {
         @Test
         void failWithoutName() {
             assertThatThrownBy(() -> new CouponModel(null, CouponType.FIXED,
-                    BigDecimal.valueOf(3000), null, null, expiredAt))
+                    BigDecimal.valueOf(3000), null, null, expiredAt, 0))
                     .isInstanceOf(CoreException.class);
         }
 
@@ -58,7 +58,7 @@ public class CouponModelTest {
         @Test
         void failFixedWithZeroAmount() {
             assertThatThrownBy(() -> new CouponModel("할인", CouponType.FIXED,
-                    BigDecimal.ZERO, null, null, expiredAt))
+                    BigDecimal.ZERO, null, null, expiredAt, 0))
                     .isInstanceOf(CoreException.class);
         }
 
@@ -66,7 +66,7 @@ public class CouponModelTest {
         @Test
         void failRateOver100() {
             assertThatThrownBy(() -> new CouponModel("할인", CouponType.RATE,
-                    null, 101, null, expiredAt))
+                    null, 101, null, expiredAt, 0))
                     .isInstanceOf(CoreException.class);
         }
     }
@@ -80,7 +80,7 @@ public class CouponModelTest {
         void fixedDiscount() {
             // given
             CouponModel coupon = new CouponModel("할인", CouponType.FIXED,
-                    BigDecimal.valueOf(3000), null, null, expiredAt);
+                    BigDecimal.valueOf(3000), null, null, expiredAt, 0);
 
             // when
             Money discount = coupon.calculateDiscount(Money.of(10000));
@@ -94,7 +94,7 @@ public class CouponModelTest {
         void fixedDiscountCapped() {
             // given
             CouponModel coupon = new CouponModel("할인", CouponType.FIXED,
-                    BigDecimal.valueOf(15000), null, null, expiredAt);
+                    BigDecimal.valueOf(15000), null, null, expiredAt, 0);
 
             // when
             Money discount = coupon.calculateDiscount(Money.of(10000));
@@ -108,7 +108,7 @@ public class CouponModelTest {
         void rateDiscount10() {
             // given
             CouponModel coupon = new CouponModel("할인", CouponType.RATE,
-                    null, 10, null, expiredAt);
+                    null, 10, null, expiredAt, 0);
 
             // when
             Money discount = coupon.calculateDiscount(Money.of(30000));
@@ -122,7 +122,7 @@ public class CouponModelTest {
         void rateDiscount50() {
             // given
             CouponModel coupon = new CouponModel("할인", CouponType.RATE,
-                    null, 50, null, expiredAt);
+                    null, 50, null, expiredAt, 0);
 
             // when
             Money discount = coupon.calculateDiscount(Money.of(10000));
@@ -141,7 +141,7 @@ public class CouponModelTest {
         void passWhenMet() {
             // given
             CouponModel coupon = new CouponModel("할인", CouponType.FIXED,
-                    BigDecimal.valueOf(3000), null, BigDecimal.valueOf(10000), expiredAt);
+                    BigDecimal.valueOf(3000), null, BigDecimal.valueOf(10000), expiredAt, 0);
 
             // when & then (예외 없음)
             coupon.validateMinOrderAmount(Money.of(10000));
@@ -152,7 +152,7 @@ public class CouponModelTest {
         void failWhenNotMet() {
             // given
             CouponModel coupon = new CouponModel("할인", CouponType.FIXED,
-                    BigDecimal.valueOf(3000), null, BigDecimal.valueOf(10000), expiredAt);
+                    BigDecimal.valueOf(3000), null, BigDecimal.valueOf(10000), expiredAt, 0);
 
             // when & then
             assertThatThrownBy(() -> coupon.validateMinOrderAmount(Money.of(9999)))
@@ -164,7 +164,7 @@ public class CouponModelTest {
         void passWhenNull() {
             // given
             CouponModel coupon = new CouponModel("할인", CouponType.FIXED,
-                    BigDecimal.valueOf(3000), null, null, expiredAt);
+                    BigDecimal.valueOf(3000), null, null, expiredAt, 0);
 
             // when & then (예외 없음)
             coupon.validateMinOrderAmount(Money.of(1));

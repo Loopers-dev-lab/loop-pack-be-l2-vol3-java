@@ -27,7 +27,7 @@ public class CouponAdminV1Controller implements CouponAdminV1ApiSpec {
         CouponInfo info = couponAdminFacade.register(
                 new CouponService.RegisterCommand(
                         request.name(), request.type(), request.value(),
-                        request.minOrderAmount(), request.expiredAt()
+                        request.minOrderAmount(), request.expiredAt(), request.totalQuantity()
                 )
         );
         return ApiResponse.success(toCouponResponse(info));

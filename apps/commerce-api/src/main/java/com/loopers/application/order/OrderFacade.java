@@ -10,11 +10,13 @@ import com.loopers.domain.member.MemberService;
 import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.order.event.OrderCreatedEvent;
 import com.loopers.domain.point.PointService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.vo.Money;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,7 @@ public class OrderFacade {
     private final PointService pointService;
     private final CouponService couponService;
     private final UserCouponService userCouponService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public OrderInfo createOrder(String loginId, String password,
@@ -84,10 +87,13 @@ public class OrderFacade {
         OrderModel order = orderService.createOrder(
                 member.getId(), orderItems, userCouponId, discountAmount);
 
-        // 5. 포인트 차감 (최종 결제 금액 기준)
+        // 5. 포인트 차감 - 돈이 걸린 핵심 로직이므로 같은 TX에 유지
         pointService.use(member.getId(), Money.of(order.getTotalAmount()));
-
         List<OrderItemModel> savedItems = orderService.getOrderItems(order.getId());
+
+        // 6. 이벤트 발행 - TX 커밋 후 비동기로 부가 처리 (로깅, 향후 Kafka 발행)
+        eventPublisher.publishEvent(OrderCreatedEvent.from(order, savedItems));
+
         return OrderInfo.from(order, savedItems);
     }
 

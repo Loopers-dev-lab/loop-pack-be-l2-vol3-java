@@ -5,8 +5,10 @@ import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.like.ProductLikeService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.event.ProductViewedEvent;
 import com.loopers.infrastructure.product.ProductCacheService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +26,7 @@ public class ProductFacade {
     private final BrandService brandService;
     private final ProductLikeService productLikeService;
     private final ProductCacheService productCacheService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public ProductInfo register(Long brandId, String name, String description, int price, int stockQuantity, String imageUrl) {
@@ -34,21 +37,26 @@ public class ProductFacade {
 
     @Transactional(readOnly = true)
     public ProductDetailInfo getById(Long id) {
+        ProductDetailInfo result;
+
         // 1. 캐시 조회
         Optional<ProductDetailInfo> cached = productCacheService.getProductDetail(id);
         if (cached.isPresent()) {
-            return cached.get();   // 캐시 히트 → DB 안 가고 바로 반환
+            result = cached.get();
+        } else {
+            // 2. 캐시 미스 → DB 조회
+            ProductModel product = productService.getById(id);
+            BrandModel brand = brandService.getById(product.getBrandId());
+            result = ProductDetailInfo.of(product, brand, product.getLikeCount());
+
+            // 3. 다음을 위해 캐시에 저장
+            productCacheService.setProductDetail(id, result);
         }
 
-        // 2. 캐시 미스 → DB 조회
-        ProductModel product = productService.getById(id);
-        BrandModel brand = brandService.getById(product.getBrandId());
-        ProductDetailInfo info = ProductDetailInfo.of(product, brand, product.getLikeCount());
+        // 4. 상품 조회 이벤트 발행 (캐시 히트/미스 무관하게 매번)
+        eventPublisher.publishEvent(ProductViewedEvent.from(id));
 
-        // 3. 다음을 위해 캐시에 저장
-        productCacheService.setProductDetail(id, info);
-
-        return info;
+        return result;
     }
 
     @Transactional(readOnly = true)

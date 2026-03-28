@@ -30,11 +30,17 @@ public class CouponModel extends BaseEntity {
     @Column(nullable = false)
     private ZonedDateTime expiredAt;
 
+    @Column(nullable = false)
+    private int totalQuantity;
+
+    @Column(nullable = false)
+    private int issuedQuantity;
+
     protected CouponModel() {
     }
 
     public CouponModel(String name, CouponType type, BigDecimal discountAmount,
-                       Integer discountRate, BigDecimal minOrderAmount, ZonedDateTime expiredAt) {
+                       Integer discountRate, BigDecimal minOrderAmount, ZonedDateTime expiredAt, int totalQuantity) {
         if (name == null || name.isBlank()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "쿠폰명은 필수입니다.");
         }
@@ -57,6 +63,8 @@ public class CouponModel extends BaseEntity {
         this.discountRate = discountRate;
         this.minOrderAmount = minOrderAmount != null ? new Money(minOrderAmount) : null;
         this.expiredAt = expiredAt;
+        this.totalQuantity = totalQuantity;
+        this.issuedQuantity = 0;
     }
 
     public void modifyInfo(String name, BigDecimal value,
@@ -101,5 +109,17 @@ public class CouponModel extends BaseEntity {
         if (this.minOrderAmount != null && !orderAmount.isGreaterThanOrEqual(this.minOrderAmount)) {
             throw new CoreException(ErrorType.BAD_REQUEST, "최소 주문 금액 조건을 충족하지 않습니다.");
         }
+    }
+
+    public int getRemainingQuantity() {
+        if (totalQuantity == 0) return Integer.MAX_VALUE;
+        return totalQuantity - issuedQuantity;
+    }
+
+    public void increaseIssuedQuantity() {
+        if (totalQuantity > 0 && getRemainingQuantity() <= 0) {
+            throw new CoreException(ErrorType.CONFLICT, "쿠폰이 모두 소진되었습니다.");
+        }
+        this.issuedQuantity++;
     }
 }
