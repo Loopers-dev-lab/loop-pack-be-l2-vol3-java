@@ -11,7 +11,9 @@ import com.loopers.domain.product.ProductModel;
 import com.loopers.application.product.ProductService;
 import com.loopers.application.stock.StockService;
 import com.loopers.domain.stock.StockModel;
+import com.loopers.domain.order.event.OrderPlacedEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -31,6 +33,7 @@ public class OrderFacade {
     private final StockService stockService;
     private final CouponIssueService couponIssueService;
     private final CouponService couponService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public OrderResult placeOrder(Long userId, List<OrderItemCommand> commands, Long couponIssueId) {
@@ -84,6 +87,10 @@ public class OrderFacade {
             .toList();
 
         List<OrderItemModel> savedItems = orderService.saveAllItems(items);
+
+        eventPublisher.publishEvent(new OrderPlacedEvent(
+            order.getId(), userId, (long) totalAmount.value()
+        ));
 
         return OrderResult.of(order, savedItems);
     }
