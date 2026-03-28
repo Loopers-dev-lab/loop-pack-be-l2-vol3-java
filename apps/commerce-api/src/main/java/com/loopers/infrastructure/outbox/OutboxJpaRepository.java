@@ -11,9 +11,6 @@ import java.util.List;
 
 public interface OutboxJpaRepository extends JpaRepository<Outbox, Long> {
 
-    @Query("SELECT o FROM Outbox o WHERE o.published = false ORDER BY o.createdAt ASC")
-    List<Outbox> findUnpublished(Pageable pageable);
-
     @Query("SELECT o FROM Outbox o WHERE o.published = false AND o.createdAt < :cutoff ORDER BY o.createdAt ASC")
     List<Outbox> findUnpublishedBefore(@Param("cutoff") ZonedDateTime cutoff, Pageable pageable);
 

@@ -44,32 +44,4 @@ public class ProductMetrics {
         return new ProductMetrics(productId);
     }
 
-    public void incrementLikeCount() {
-        this.likeCount++;
-        this.updatedAt = ZonedDateTime.now();
-    }
-
-    public void decrementLikeCount() {
-        if (this.likeCount > 0) {
-            this.likeCount--;
-        }
-        this.updatedAt = ZonedDateTime.now();
-    }
-
-    public void incrementViewCount() {
-        this.viewCount++;
-        this.updatedAt = ZonedDateTime.now();
-    }
-
-    public void incrementSalesCount() {
-        this.salesCount++;
-        this.updatedAt = ZonedDateTime.now();
-    }
-
-    public void decrementSalesCount() {
-        if (this.salesCount > 0) {
-            this.salesCount--;
-        }
-        this.updatedAt = ZonedDateTime.now();
-    }
 }

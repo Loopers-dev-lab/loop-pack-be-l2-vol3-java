@@ -41,10 +41,10 @@ public class OrderEventConsumer {
                     List<Long> productIds = new ArrayList<>();
                     node.get("productIds").forEach(n -> productIds.add(n.asLong()));
 
-                    if ("OrderCanceled".equals(eventType)) {
-                        productMetricsAppService.handleOrderCanceled(eventId, productIds, occurredAt);
-                    } else {
-                        productMetricsAppService.handleOrderCreated(eventId, productIds, occurredAt);
+                    switch (eventType) {
+                        case "OrderCreated" -> productMetricsAppService.handleOrderCreated(eventId, productIds, occurredAt);
+                        case "OrderCanceled" -> productMetricsAppService.handleOrderCanceled(eventId, productIds, occurredAt);
+                        default -> log.warn("알 수 없는 order 이벤트: eventType={}", eventType);
                     }
                 }
             } catch (JsonProcessingException e) {

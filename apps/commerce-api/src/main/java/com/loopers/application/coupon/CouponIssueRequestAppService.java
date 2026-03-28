@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
@@ -12,7 +13,6 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-@Transactional
 @RequiredArgsConstructor
 public class CouponIssueRequestAppService {
     private final CouponIssueMessagePublisher messagePublisher;
@@ -21,6 +21,7 @@ public class CouponIssueRequestAppService {
     private static final String STATUS_KEY_PREFIX = "coupon:issue:status:";
     private static final Duration STATUS_TTL = Duration.ofMinutes(10);
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String requestCouponIssue(Long couponId, Long userId) {
         String requestId = UUID.randomUUID().toString();
 
@@ -33,6 +34,7 @@ public class CouponIssueRequestAppService {
         return requestId;
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public Optional<String> getIssueRequestStatus(String requestId) {
         return Optional.ofNullable(redisTemplate.opsForValue().get(STATUS_KEY_PREFIX + requestId));
     }
