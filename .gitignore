@@ -43,8 +43,14 @@ out/
 /docs/plan
 /docs/test
 /docs/technical_writing
+/docs/guides
 
 ### claude settings ###
 *.local.json
 
 exp*
+
+### technical observation tests ###
+**/src/test/java/**/technical/
+**/src/test/java/**/benchmark
+**/src/test/java/**/verification

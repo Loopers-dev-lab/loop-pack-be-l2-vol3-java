@@ -1,6 +1,6 @@
 ---
 name: commit-plan
-description: 현재 브랜치의 구현 방향, 설계 결정, 진행 상태를 docs/plan/{브랜치명}-plan.md로 정리. 구현 시작 전 or 중간 점검 시 사용
+description: 현재 브랜치의 구현 방향, 설계 결정, 진행 상태를 docs/plan/{주차}/{브랜치명}-plan.md로 정리. 구현 시작 전 or 중간 점검 시 사용
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash, Write, Edit
 ---
@@ -9,7 +9,7 @@ allowed-tools: Read, Grep, Glob, Bash, Write, Edit
 
 ## 목적
 
-현재 브랜치에서 진행 중인 구현의 **방향, 설계 결정, 진행 상태**를 `docs/plan/{브랜치명}-plan.md`에 기록한다.
+현재 브랜치에서 진행 중인 구현의 **방향, 설계 결정, 진행 상태**를 `docs/plan/{주차}/{브랜치명}-plan.md`에 기록한다.
 
 - 구현 시작 전: 방향 합의 문서로 활용
 - 구현 중: 변경된 결정 사항 업데이트
@@ -39,9 +39,13 @@ git diff main..HEAD --name-only
 git status --short
 ```
 
-### 2. 코드 분석
+### 2. 코드 및 discussion 분석
 
-변경된 파일들을 읽어 아래 관점으로 분석한다.
+변경된 파일과 discussion 파일을 읽어 아래 관점으로 분석한다.
+
+- **discussion 파일 경로**: `docs/discussion/{주차}/{브랜치명}-discussion.md`
+  - 예: `feat/week7-event-driven` → `docs/discussion/week7/feat-week7-event-driven-discussion.md`
+  - 학습 배경 문서도 동일 폴더에 위치 (예: `docs/discussion/week7/feat-week7-event-driven.md`)
 
 | 관점 | 확인 사항 |
 |------|----------|
@@ -53,7 +57,7 @@ git status --short
 
 ### 3. 문서 생성/업데이트
 
-`docs/plan/{브랜치명}-plan.md` 경로에 아래 템플릿으로 작성한다.
+`docs/plan/{주차}/{브랜치명}-plan.md` 경로에 아래 템플릿으로 작성한다.
 
 ---
 
@@ -133,8 +137,23 @@ git status --short
 - **간결함**: 각 항목은 1~2줄. 장황한 설명 지양
 - **상태 최신화**: 실행할 때마다 진행 상태(✅/🔧/⬜)를 현재 코드 기준으로 갱신
 
+---
+
 ## 파일 경로 규칙
 
-- 저장 위치: `docs/plan/{브랜치명}-plan.md`
-- 브랜치명에서 `/` → `-` 치환 (예: `feat/week6-failure-ready` → `feat-week6-failure-ready-plan.md`)
-- `docs/plan/` 디렉터리가 없으면 생성
+### Plan 파일
+- 저장 위치: `docs/plan/{주차}/{브랜치명}-plan.md`
+  - 주차는 브랜치명에서 추출 (예: `feat/week7-event-driven` → `week7`)
+  - 브랜치명에서 `/` → `-` 치환 (예: `feat/week7-event-driven` → `feat-week7-event-driven-plan.md`)
+  - 최종 경로 예시: `docs/plan/week7/feat-week7-event-driven-plan.md`
+- 주차를 식별할 수 없는 브랜치의 경우 `docs/plan/misc/{브랜치명}-plan.md`
+
+### Discussion 파일
+- 저장 위치: `docs/discussion/{주차}/{브랜치명}-discussion.md`
+  - 주차 추출 방식은 plan과 동일
+  - 최종 경로 예시: `docs/discussion/week7/feat-week7-event-driven-discussion.md`
+- 학습 배경 문서(Round N 소개 자료 등)도 동일 주차 폴더에 위치
+- 주차를 식별할 수 없는 브랜치의 경우 `docs/discussion/misc/{브랜치명}-discussion.md`
+
+### 디렉터리
+- 필요한 디렉터리가 없으면 생성

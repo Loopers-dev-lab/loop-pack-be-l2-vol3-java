@@ -55,17 +55,16 @@ class LikeServiceTest {
             when(likeRepository.save(any(LikeModel.class))).thenReturn(mockLike);
 
             // when
-            LikeModel result = likeService.addLike(memberId, productId);
+            LikeActionResult result = likeService.addLike(memberId, productId);
 
             // then
-            assertThat(result).isNotNull();
-            verify(likeRepository, times(1)).findByRefMemberIdAndRefProductId(any(RefMemberId.class), any(RefProductId.class));
+            assertThat(result.likeModel()).isNotNull();
+            assertThat(result.added()).isTrue();
             verify(likeRepository, times(1)).save(any(LikeModel.class));
-            verify(productRepository, times(1)).incrementLikeCount(100L);
         }
 
         @Test
-        @DisplayName("이미 좋아요가 있으면 기존 좋아요 반환 (멱등성)")
+        @DisplayName("이미 active 상태인 좋아요를 중복 추가해도 added는 false다")
         void addLike_alreadyExists_returnsExisting() {
             // given
             Long memberId = 1L;
@@ -79,12 +78,12 @@ class LikeServiceTest {
                     .thenReturn(Optional.of(existingLike));
 
             // when
-            LikeModel result = likeService.addLike(memberId, productId);
+            LikeActionResult result = likeService.addLike(memberId, productId);
 
             // then
-            assertThat(result).isEqualTo(existingLike);
+            assertThat(result.likeModel()).isEqualTo(existingLike);
+            assertThat(result.added()).isFalse();
             verify(likeRepository, never()).save(any(LikeModel.class));
-            verify(productRepository, never()).incrementLikeCount(any());
         }
 
         @Test
@@ -110,7 +109,7 @@ class LikeServiceTest {
     class RemoveLike {
 
         @Test
-        @DisplayName("좋아요 취소 성공")
+        @DisplayName("좋아요 취소 성공 시 LikeModel을 반환한다")
         void removeLike_success() {
             // given
             Long memberId = 1L;
@@ -125,16 +124,16 @@ class LikeServiceTest {
             when(likeRepository.softDeleteIfActive(any())).thenReturn(1);
 
             // when
-            likeService.removeLike(memberId, productId);
+            Optional<LikeModel> result = likeService.removeLike(memberId, productId);
 
             // then
+            assertThat(result).isPresent();
             verify(likeRepository, times(1)).softDeleteIfActive(existingLike.getId());
-            verify(productRepository, times(1)).decrementLikeCount(100L);
         }
 
         @Test
-        @DisplayName("좋아요가 없어도 예외 발생하지 않음 (멱등성)")
-        void removeLike_notExists_noException() {
+        @DisplayName("좋아요가 없으면 빈 Optional을 반환한다 (멱등성)")
+        void removeLike_notExists_returnsEmpty() {
             // given
             Long memberId = 1L;
             String productId = "prod1";
@@ -146,11 +145,11 @@ class LikeServiceTest {
                     .thenReturn(Optional.empty());
 
             // when
-            likeService.removeLike(memberId, productId);
+            Optional<LikeModel> result = likeService.removeLike(memberId, productId);
 
             // then
+            assertThat(result).isEmpty();
             verify(likeRepository, never()).softDeleteIfActive(any());
-            verify(productRepository, never()).decrementLikeCount(any());
         }
 
         @Test

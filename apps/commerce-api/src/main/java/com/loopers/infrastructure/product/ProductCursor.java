@@ -8,16 +8,14 @@ import java.time.ZonedDateTime;
 public record ProductCursor(
         String type,
         ZonedDateTime updatedAt,
-        Integer likeCount,
         BigDecimal price,
         Long id
 ) {
     public static ProductCursor from(ProductModel last, String sortBy) {
         ProductCursorCondition condition = ProductCursorCondition.from(sortBy);
         return switch (condition) {
-            case LATEST -> new ProductCursor("LATEST", last.getUpdatedAt(), null, null, last.getId());
-            case LIKES_DESC -> new ProductCursor("LIKES_DESC", last.getUpdatedAt(), last.getLikeCount(), null, last.getId());
-            case PRICE_ASC -> new ProductCursor("PRICE_ASC", null, null, last.getPrice().value(), last.getId());
+            case LATEST, LIKES_DESC -> new ProductCursor(condition.name(), last.getUpdatedAt(), null, last.getId());
+            case PRICE_ASC -> new ProductCursor("PRICE_ASC", null, last.getPrice().value(), last.getId());
         };
     }
 }

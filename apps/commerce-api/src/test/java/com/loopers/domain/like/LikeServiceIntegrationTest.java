@@ -64,7 +64,7 @@ class LikeServiceIntegrationTest {
             Long memberId = 1L;
 
             // when
-            LikeModel like = likeService.addLike(memberId, "prod1");
+            LikeModel like = likeService.addLike(memberId, "prod1").likeModel();
 
             // then
             assertThat(like).isNotNull();
@@ -81,8 +81,8 @@ class LikeServiceIntegrationTest {
             Long memberId = 1L;
 
             // when
-            LikeModel firstLike = likeService.addLike(memberId, "prod1");
-            LikeModel secondLike = likeService.addLike(memberId, "prod1");
+            LikeModel firstLike = likeService.addLike(memberId, "prod1").likeModel();
+            LikeModel secondLike = likeService.addLike(memberId, "prod1").likeModel();
 
             // then
             assertThat(firstLike.getId()).isEqualTo(secondLike.getId());
