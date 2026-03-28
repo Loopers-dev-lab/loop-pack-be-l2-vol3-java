@@ -68,12 +68,18 @@ public class CouponIssueRequestEntity {
     }
 
     public void markIssued(Long issuedCouponId) {
+        if (this.status != CouponIssueRequestStatus.PENDING) {
+            return;
+        }
         this.status = CouponIssueRequestStatus.ISSUED;
         this.issuedCouponId = issuedCouponId;
         this.processedAt = ZonedDateTime.now();
     }
 
     public void markFailed(String reason) {
+        if (this.status != CouponIssueRequestStatus.PENDING) {
+            return;
+        }
         this.status = CouponIssueRequestStatus.FAILED;
         this.failureReason = reason;
         this.processedAt = ZonedDateTime.now();

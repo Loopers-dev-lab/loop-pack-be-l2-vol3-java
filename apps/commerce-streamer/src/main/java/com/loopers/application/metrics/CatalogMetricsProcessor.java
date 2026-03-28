@@ -99,13 +99,21 @@ public class CatalogMetricsProcessor {
     }
 
     private void handleOrderItemSold(JsonNode node) {
-        Long productId = node.path("productId").asLong();
-        int quantity = node.path("quantity").asInt(1);
-        ProductMetricsEntity metrics = getOrCreateMetrics(productId);
-        metrics.addSalesCount(quantity);
-        productMetricsRepository.save(metrics);
-        log.info("[MetricsProcessor] 판매량 집계 완료 — productId={}, salesCount={}",
-                productId, metrics.getSalesCount());
+        JsonNode productQtyMap = node.path("productQtyMap");
+        if (productQtyMap.isMissingNode() || !productQtyMap.isObject()) {
+            log.warn("[MetricsProcessor] OrderItemSoldEvent에 productQtyMap 없음 — node={}", node);
+            return;
+        }
+
+        productQtyMap.fields().forEachRemaining(entry -> {
+            Long productId = Long.parseLong(entry.getKey());
+            int quantity = entry.getValue().asInt(1);
+            ProductMetricsEntity metrics = getOrCreateMetrics(productId);
+            metrics.addSalesCount(quantity);
+            productMetricsRepository.save(metrics);
+            log.info("[MetricsProcessor] 판매량 집계 완료 — productId={}, quantity={}, salesCount={}",
+                    productId, quantity, metrics.getSalesCount());
+        });
     }
 
     private ProductMetricsEntity getOrCreateMetrics(Long productId) {
