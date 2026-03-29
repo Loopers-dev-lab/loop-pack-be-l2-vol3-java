@@ -11,16 +11,21 @@ public interface ProductMetricsJpaRepository extends JpaRepository<ProductMetric
 
     @Modifying(clearAutomatically = true)
     @Query(value = """
-            INSERT INTO product_metrics (product_id, like_count, view_count, sold_quantity, last_event_occurred_at, updated_at)
-            VALUES (:productId, :delta, 0, 0, :occurredAt, NOW(6))
+            INSERT INTO product_metrics (product_id, like_count, view_count, sold_quantity,
+                last_like_event_occurred_at, last_view_event_occurred_at, last_sold_event_occurred_at,
+                last_event_occurred_at, updated_at)
+            VALUES (:productId, :delta, 0, 0, :occurredAt, NULL, NULL, :occurredAt, NOW(6))
             ON DUPLICATE KEY UPDATE
-                like_count = IF(last_event_occurred_at IS NULL OR last_event_occurred_at < VALUES(last_event_occurred_at),
+                like_count = IF(last_like_event_occurred_at IS NULL OR last_like_event_occurred_at < VALUES(last_like_event_occurred_at),
                                 like_count + VALUES(like_count),
                                 like_count),
-                last_event_occurred_at = IF(last_event_occurred_at IS NULL OR last_event_occurred_at < VALUES(last_event_occurred_at),
+                last_like_event_occurred_at = IF(last_like_event_occurred_at IS NULL OR last_like_event_occurred_at < VALUES(last_like_event_occurred_at),
+                                                VALUES(last_like_event_occurred_at),
+                                                last_like_event_occurred_at),
+                last_event_occurred_at = IF(last_like_event_occurred_at IS NULL OR last_like_event_occurred_at < VALUES(last_like_event_occurred_at),
                                             VALUES(last_event_occurred_at),
                                             last_event_occurred_at),
-                updated_at = IF(last_event_occurred_at IS NULL OR last_event_occurred_at < VALUES(last_event_occurred_at),
+                updated_at = IF(last_like_event_occurred_at IS NULL OR last_like_event_occurred_at < VALUES(last_like_event_occurred_at),
                                 NOW(6),
                                 updated_at)
             """, nativeQuery = true)
@@ -28,16 +33,21 @@ public interface ProductMetricsJpaRepository extends JpaRepository<ProductMetric
 
     @Modifying(clearAutomatically = true)
     @Query(value = """
-            INSERT INTO product_metrics (product_id, like_count, view_count, sold_quantity, last_event_occurred_at, updated_at)
-            VALUES (:productId, 0, :delta, 0, :occurredAt, NOW(6))
+            INSERT INTO product_metrics (product_id, like_count, view_count, sold_quantity,
+                last_like_event_occurred_at, last_view_event_occurred_at, last_sold_event_occurred_at,
+                last_event_occurred_at, updated_at)
+            VALUES (:productId, 0, :delta, 0, NULL, :occurredAt, NULL, :occurredAt, NOW(6))
             ON DUPLICATE KEY UPDATE
-                view_count = IF(last_event_occurred_at IS NULL OR last_event_occurred_at < VALUES(last_event_occurred_at),
+                view_count = IF(last_view_event_occurred_at IS NULL OR last_view_event_occurred_at < VALUES(last_view_event_occurred_at),
                                 view_count + VALUES(view_count),
                                 view_count),
-                last_event_occurred_at = IF(last_event_occurred_at IS NULL OR last_event_occurred_at < VALUES(last_event_occurred_at),
+                last_view_event_occurred_at = IF(last_view_event_occurred_at IS NULL OR last_view_event_occurred_at < VALUES(last_view_event_occurred_at),
+                                                VALUES(last_view_event_occurred_at),
+                                                last_view_event_occurred_at),
+                last_event_occurred_at = IF(last_view_event_occurred_at IS NULL OR last_view_event_occurred_at < VALUES(last_view_event_occurred_at),
                                             VALUES(last_event_occurred_at),
                                             last_event_occurred_at),
-                updated_at = IF(last_event_occurred_at IS NULL OR last_event_occurred_at < VALUES(last_event_occurred_at),
+                updated_at = IF(last_view_event_occurred_at IS NULL OR last_view_event_occurred_at < VALUES(last_view_event_occurred_at),
                                 NOW(6),
                                 updated_at)
             """, nativeQuery = true)
@@ -45,16 +55,21 @@ public interface ProductMetricsJpaRepository extends JpaRepository<ProductMetric
 
     @Modifying(clearAutomatically = true)
     @Query(value = """
-            INSERT INTO product_metrics (product_id, like_count, view_count, sold_quantity, last_event_occurred_at, updated_at)
-            VALUES (:productId, 0, 0, :delta, :occurredAt, NOW(6))
+            INSERT INTO product_metrics (product_id, like_count, view_count, sold_quantity,
+                last_like_event_occurred_at, last_view_event_occurred_at, last_sold_event_occurred_at,
+                last_event_occurred_at, updated_at)
+            VALUES (:productId, 0, 0, :delta, NULL, NULL, :occurredAt, :occurredAt, NOW(6))
             ON DUPLICATE KEY UPDATE
-                sold_quantity = IF(last_event_occurred_at IS NULL OR last_event_occurred_at < VALUES(last_event_occurred_at),
+                sold_quantity = IF(last_sold_event_occurred_at IS NULL OR last_sold_event_occurred_at < VALUES(last_sold_event_occurred_at),
                                 sold_quantity + VALUES(sold_quantity),
                                 sold_quantity),
-                last_event_occurred_at = IF(last_event_occurred_at IS NULL OR last_event_occurred_at < VALUES(last_event_occurred_at),
+                last_sold_event_occurred_at = IF(last_sold_event_occurred_at IS NULL OR last_sold_event_occurred_at < VALUES(last_sold_event_occurred_at),
+                                                VALUES(last_sold_event_occurred_at),
+                                                last_sold_event_occurred_at),
+                last_event_occurred_at = IF(last_sold_event_occurred_at IS NULL OR last_sold_event_occurred_at < VALUES(last_sold_event_occurred_at),
                                             VALUES(last_event_occurred_at),
                                             last_event_occurred_at),
-                updated_at = IF(last_event_occurred_at IS NULL OR last_event_occurred_at < VALUES(last_event_occurred_at),
+                updated_at = IF(last_sold_event_occurred_at IS NULL OR last_sold_event_occurred_at < VALUES(last_sold_event_occurred_at),
                                 NOW(6),
                                 updated_at)
             """, nativeQuery = true)

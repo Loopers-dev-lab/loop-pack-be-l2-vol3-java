@@ -33,6 +33,15 @@ public class ProductMetricsModel {
     @Column(name = "last_event_occurred_at")
     private Instant lastEventOccurredAt;
 
+    @Column(name = "last_like_event_occurred_at")
+    private Instant lastLikeEventOccurredAt;
+
+    @Column(name = "last_view_event_occurred_at")
+    private Instant lastViewEventOccurredAt;
+
+    @Column(name = "last_sold_event_occurred_at")
+    private Instant lastSoldEventOccurredAt;
+
     @Column(name = "updated_at")
     private Instant updatedAt;
 
