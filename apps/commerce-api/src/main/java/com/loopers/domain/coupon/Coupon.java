@@ -29,18 +29,30 @@ public class Coupon extends BaseEntity {
     @Column(name = "expired_at", nullable = false)
     private ZonedDateTime expiredAt;
 
+    @Column(name = "max_quantity")
+    private Integer maxQuantity;
+
+    @Column(name = "issued_quantity", nullable = false)
+    private int issuedQuantity;
+
     protected Coupon() {
     }
 
-    private Coupon(String name, String description, CouponType type, BigDecimal discountValue, ZonedDateTime expiredAt) {
+    private Coupon(String name, String description, CouponType type, BigDecimal discountValue, ZonedDateTime expiredAt, Integer maxQuantity) {
         this.name = name;
         this.description = description;
         this.type = type;
         this.discountValue = discountValue;
         this.expiredAt = expiredAt;
+        this.maxQuantity = maxQuantity;
+        this.issuedQuantity = 0;
     }
 
     public static Coupon create(String name, String description, CouponType type, BigDecimal discountValue, ZonedDateTime expiredAt) {
+        return create(name, description, type, discountValue, expiredAt, null);
+    }
+
+    public static Coupon create(String name, String description, CouponType type, BigDecimal discountValue, ZonedDateTime expiredAt, Integer maxQuantity) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("쿠폰 이름은 필수입니다.");
         }
@@ -56,7 +68,14 @@ public class Coupon extends BaseEntity {
         if (expiredAt == null || !expiredAt.isAfter(ZonedDateTime.now())) {
             throw new IllegalArgumentException("만료일은 현재 시각 이후여야 합니다.");
         }
-        return new Coupon(name, description, type, discountValue, expiredAt);
+        return new Coupon(name, description, type, discountValue, expiredAt, maxQuantity);
+    }
+
+    public boolean isIssuable() {
+        if (maxQuantity == null) {
+            return true;
+        }
+        return issuedQuantity < maxQuantity;
     }
 
     public void update(String name, String description, CouponType type, BigDecimal discountValue, ZonedDateTime expiredAt) {

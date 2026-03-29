@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponFacade;
+import com.loopers.application.coupon.CouponIssueFacade;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 public class CouponV1Controller {
 
     private final CouponFacade couponFacade;
+    private final CouponIssueFacade couponIssueFacade;
 
     // ─────────────────────────────────────────
     // Admin APIs
@@ -110,6 +112,25 @@ public class CouponV1Controller {
     ) {
         return ApiResponse.success(
             CouponV1Dto.MyCouponPageResponse.from(couponFacade.getMyCoupons(userId, pageable))
+        );
+    }
+
+    @PostMapping("/api/v1/coupons/{couponId}/issue-async")
+    public ApiResponse<CouponV1Dto.CouponIssueRequestResponse> requestIssue(
+        @RequestHeader("X-Loopers-User-Id") Long userId,
+        @PathVariable Long couponId
+    ) {
+        return ApiResponse.success(
+            CouponV1Dto.CouponIssueRequestResponse.from(couponIssueFacade.requestIssue(userId, couponId))
+        );
+    }
+
+    @GetMapping("/api/v1/coupons/issue-requests/{requestId}")
+    public ApiResponse<CouponV1Dto.CouponIssueRequestResponse> getIssueRequestStatus(
+        @PathVariable Long requestId
+    ) {
+        return ApiResponse.success(
+            CouponV1Dto.CouponIssueRequestResponse.from(couponIssueFacade.getIssueRequestStatus(requestId))
         );
     }
 }

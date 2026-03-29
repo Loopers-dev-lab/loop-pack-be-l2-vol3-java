@@ -1,6 +1,5 @@
 package com.loopers.application.order;
 
-import com.loopers.application.payment.PaymentTxService;
 import com.loopers.domain.coupon.CouponIssueRepository;
 import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.order.Order;
@@ -17,6 +16,7 @@ import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -38,7 +38,7 @@ class OrderFacadeTest {
     private UserRepository userRepository;
     private CouponRepository couponRepository;
     private CouponIssueRepository couponIssueRepository;
-    private PaymentTxService paymentTxService;
+    private ApplicationEventPublisher eventPublisher;
     private OrderFacade orderFacade;
 
     private final Long userId = 1L;
@@ -51,14 +51,15 @@ class OrderFacadeTest {
         userRepository = mock(UserRepository.class);
         couponRepository = mock(CouponRepository.class);
         couponIssueRepository = mock(CouponIssueRepository.class);
-        paymentTxService = mock(PaymentTxService.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
         OrderService orderService = new OrderService();
         OrderPlacementTxService orderPlacementTxService = new OrderPlacementTxService(
             orderRepository,
             productRepository,
             couponRepository,
             couponIssueRepository,
-            orderService
+            orderService,
+            eventPublisher
         );
         orderFacade = new OrderFacade(
             orderRepository,
@@ -68,7 +69,7 @@ class OrderFacadeTest {
             couponIssueRepository,
             orderService,
             orderPlacementTxService,
-            paymentTxService
+            eventPublisher
         );
     }
 
@@ -264,9 +265,9 @@ class OrderFacadeTest {
                 .isEqualTo(ErrorType.ORDER_NOT_FOUND));
     }
 
-    @DisplayName("cancelOrder: 주문 취소 시 결제 환불(refundPayment)을 호출한다")
+    @DisplayName("cancelOrder: 주문 취소 시 OrderCancelledEvent를 발행한다")
     @Test
-    void cancelOrder_callsRefundPayment() {
+    void cancelOrder_publishesOrderCancelledEvent() {
         Order order = createOrder(userId, productId, 1, BigDecimal.valueOf(5000));
         Product product = mock(Product.class);
         when(product.getId()).thenReturn(productId);
@@ -278,12 +279,12 @@ class OrderFacadeTest {
 
         orderFacade.cancelOrder(userId, 100L);
 
-        verify(paymentTxService).refundPayment(100L);
+        verify(eventPublisher).publishEvent(any(com.loopers.application.order.event.OrderCancelledEvent.class));
     }
 
-    @DisplayName("cancelOrder: 이미 취소된 주문이면 결제 환불을 호출하지 않는다")
+    @DisplayName("cancelOrder: 이미 취소된 주문이면 이벤트를 발행하지 않는다")
     @Test
-    void cancelOrder_alreadyCancelled_noRefund() {
+    void cancelOrder_alreadyCancelled_noEvent() {
         Order order = createOrder(userId, productId, 1, BigDecimal.valueOf(5000));
         order.cancel();
         Product product = mock(Product.class);
@@ -294,7 +295,7 @@ class OrderFacadeTest {
 
         orderFacade.cancelOrder(userId, 100L);
 
-        verify(paymentTxService, never()).refundPayment(anyLong());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     private Order createOrder(Long userId, Long productId, Integer quantity, BigDecimal price) {

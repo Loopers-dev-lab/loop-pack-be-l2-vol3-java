@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponDto;
+import com.loopers.domain.coupon.CouponIssueRequestStatus;
 import com.loopers.domain.coupon.CouponIssueStatus;
 import com.loopers.domain.coupon.CouponType;
 import jakarta.validation.constraints.DecimalMin;
@@ -182,6 +183,24 @@ public class CouponV1Dto {
                 page.getSize(),
                 page.getTotalElements(),
                 page.getTotalPages()
+            );
+        }
+    }
+
+    public record CouponIssueRequestResponse(
+        Long requestId,
+        Long couponId,
+        Long userId,
+        CouponIssueRequestStatus status,
+        String failReason
+    ) {
+        public static CouponIssueRequestResponse from(CouponDto.CouponIssueRequestInfo info) {
+            return new CouponIssueRequestResponse(
+                info.id(),
+                info.couponId(),
+                info.userId(),
+                info.status(),
+                info.failReason()
             );
         }
     }

@@ -1,18 +1,20 @@
 package com.loopers.application.like;
 
+import com.loopers.application.like.event.ProductLikedEvent;
+import com.loopers.application.like.event.ProductUnlikedEvent;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.like.Like;
-import com.loopers.domain.like.LikeService;
 import com.loopers.domain.like.LikeRepository;
+import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.user.UserRepository;
-import com.loopers.infrastructure.product.ProductCacheStore;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -37,7 +39,7 @@ public class LikeFacade {
     private final UserRepository userRepository;
     private final BrandRepository brandRepository;
     private final LikeService likeService;
-    private final ProductCacheStore productCacheStore;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     @Retryable(
@@ -67,7 +69,7 @@ public class LikeFacade {
         userRepository.findById(userId)
             .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
 
-        Product product = productRepository.findById(productId)
+        productRepository.findById(productId)
             .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
 
         Like existing = likeRepository.findByUserIdAndProductIdIncludingDeleted(userId, productId)
@@ -79,10 +81,8 @@ public class LikeFacade {
             return new LikeDto.LikeResult(LikeDto.LikeInfo.from(result.like()), true);
         }
 
-        product.increaseLikeCount();
         Like saved = likeRepository.save(result.like());
-        productRepository.save(product);
-        productCacheStore.evictProduct(productId);
+        eventPublisher.publishEvent(new ProductLikedEvent(productId));
         return new LikeDto.LikeResult(LikeDto.LikeInfo.from(saved), false);
     }
 
@@ -99,7 +99,7 @@ public class LikeFacade {
         userRepository.findById(userId)
             .orElseThrow(() -> new CoreException(ErrorType.USER_NOT_FOUND));
 
-        Product product = productRepository.findById(productId)
+        productRepository.findById(productId)
             .orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
 
         Like like = likeRepository.findByUserIdAndProductId(userId, productId)
@@ -109,10 +109,8 @@ public class LikeFacade {
             return;
         }
 
-        product.decreaseLikeCount();
         likeRepository.save(like);
-        productRepository.save(product);
-        productCacheStore.evictProduct(productId);
+        eventPublisher.publishEvent(new ProductUnlikedEvent(productId));
     }
 
     @Transactional(readOnly = true)

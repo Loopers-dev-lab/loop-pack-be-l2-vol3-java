@@ -64,6 +64,7 @@ subprojects {
         testImplementation("com.ninja-squad:springmockk:${project.properties["springMockkVersion"]}")
         testImplementation("org.mockito:mockito-core:${project.properties["mockitoVersion"]}")
         testImplementation("org.instancio:instancio-junit:${project.properties["instancioJUnitVersion"]}")
+        testImplementation("org.awaitility:awaitility:4.2.1")
         // Testcontainers
         testImplementation("org.springframework.boot:spring-boot-testcontainers")
         testImplementation("org.testcontainers:testcontainers")

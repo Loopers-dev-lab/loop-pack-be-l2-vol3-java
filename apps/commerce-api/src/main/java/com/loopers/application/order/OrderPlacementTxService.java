@@ -13,9 +13,11 @@ import com.loopers.domain.order.exception.EmptyOrderItemException;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.exception.ProductInsufficientStockException;
+import com.loopers.application.order.event.OrderPlacedEvent;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +40,7 @@ public class OrderPlacementTxService {
     private final CouponRepository couponRepository;
     private final CouponIssueRepository couponIssueRepository;
     private final OrderService orderService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public OrderDto.OrderInfo placeOrder(Long userId, List<OrderDto.OrderLineCommand> items, Long couponIssueId) {
@@ -99,6 +102,8 @@ public class OrderPlacementTxService {
         if (couponIssue != null) {
             couponIssueRepository.save(couponIssue);
         }
+
+        eventPublisher.publishEvent(OrderPlacedEvent.from(savedOrder));
 
         return OrderDto.OrderInfo.from(savedOrder);
     }

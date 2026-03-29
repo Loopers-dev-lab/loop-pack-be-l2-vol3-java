@@ -2,6 +2,8 @@ package com.loopers.application.coupon;
 
 import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.CouponIssue;
+import com.loopers.domain.coupon.CouponIssueRequest;
+import com.loopers.domain.coupon.CouponIssueRequestStatus;
 import com.loopers.domain.coupon.CouponIssueStatus;
 import com.loopers.domain.coupon.CouponType;
 
@@ -74,6 +76,24 @@ public class CouponDto {
                 issue.getStatus(),
                 issue.getExpiredAt(),
                 issue.getUsedAt()
+            );
+        }
+    }
+
+    public record CouponIssueRequestInfo(
+        Long id,
+        Long couponId,
+        Long userId,
+        CouponIssueRequestStatus status,
+        String failReason
+    ) {
+        public static CouponIssueRequestInfo from(CouponIssueRequest request) {
+            return new CouponIssueRequestInfo(
+                request.getId(),
+                request.getCouponId(),
+                request.getUserId(),
+                request.getStatus(),
+                request.getFailReason()
             );
         }
     }

@@ -42,6 +42,12 @@ public class CouponFacade {
         return CouponDto.CouponInfo.from(couponRepository.save(coupon));
     }
 
+    @Transactional
+    public CouponDto.CouponInfo registerTemplate(String name, String description, CouponType type, BigDecimal discountValue, ZonedDateTime expiredAt, Integer maxQuantity) {
+        Coupon coupon = Coupon.create(name, description, type, discountValue, expiredAt, maxQuantity);
+        return CouponDto.CouponInfo.from(couponRepository.save(coupon));
+    }
+
     @Transactional(readOnly = true)
     public Page<CouponDto.CouponInfo> getTemplates(Pageable pageable) {
         return couponRepository.findAll(pageable)

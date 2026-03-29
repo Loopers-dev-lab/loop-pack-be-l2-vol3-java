@@ -27,10 +27,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.*;
 
+import org.springframework.context.ApplicationEventPublisher;
+
 class ProductFacadeTest {
 
     private ProductRepository productRepository;
     private BrandRepository brandRepository;
+    private ApplicationEventPublisher eventPublisher;
     private ProductFacade productFacade;
 
     private Brand brand;
@@ -39,11 +42,13 @@ class ProductFacadeTest {
     void setUp() {
         productRepository = mock(ProductRepository.class);
         brandRepository = mock(BrandRepository.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
         productFacade = new ProductFacade(
             productRepository,
             brandRepository,
             new ProductService(),
-            mock(ProductCacheStore.class)
+            mock(ProductCacheStore.class),
+            eventPublisher
         );
 
         brand = Brand.create(new BrandName("LOOPERS"), new BrandDescription("루퍼스 브랜드"));
@@ -348,5 +353,35 @@ class ProductFacadeTest {
             .isInstanceOf(CoreException.class)
             .satisfies(e -> assertThat(((CoreException) e).getErrorType())
                 .isEqualTo(ErrorType.PRODUCT_NOT_DELETED));
+    }
+
+    // ── update: 가격 변경 이벤트 ─────────────────────────────────────────────
+
+    @DisplayName("update: 가격이 변경되면 ProductPriceChangedEvent를 발행한다")
+    @Test
+    void update_priceChanged_publishesEvent() {
+        Long productId = 1L;
+        Product product = Product.create(1L, "신발", "설명", BigDecimal.valueOf(50000), 10);
+        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenReturn(product);
+        when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
+
+        productFacade.update(productId, "신발", "설명", BigDecimal.valueOf(60000), 10);
+
+        verify(eventPublisher).publishEvent(any(com.loopers.application.product.event.ProductPriceChangedEvent.class));
+    }
+
+    @DisplayName("update: 가격이 동일하면 ProductPriceChangedEvent를 발행하지 않는다")
+    @Test
+    void update_samePrice_doesNotPublishEvent() {
+        Long productId = 1L;
+        Product product = Product.create(1L, "신발", "설명", BigDecimal.valueOf(50000), 10);
+        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenReturn(product);
+        when(brandRepository.findById(1L)).thenReturn(Optional.of(brand));
+
+        productFacade.update(productId, "신발 수정", "설명 수정", BigDecimal.valueOf(50000), 10);
+
+        verify(eventPublisher, never()).publishEvent(any(com.loopers.application.product.event.ProductPriceChangedEvent.class));
     }
 }

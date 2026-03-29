@@ -1,6 +1,6 @@
 package com.loopers.application.order;
 
-import com.loopers.application.payment.PaymentTxService;
+import com.loopers.application.order.event.OrderCancelledEvent;
 import com.loopers.domain.coupon.CouponIssueRepository;
 import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.order.Order;
@@ -13,6 +13,7 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -38,7 +39,7 @@ public class OrderFacade {
     private final CouponIssueRepository couponIssueRepository;
     private final OrderService orderService;
     private final OrderPlacementTxService orderPlacementTxService;
-    private final PaymentTxService paymentTxService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Retryable(
         retryFor = {
@@ -100,9 +101,10 @@ public class OrderFacade {
             });
         }
 
-        paymentTxService.refundPayment(orderId);
-
         Order savedOrder = orderRepository.save(order);
+
+        eventPublisher.publishEvent(OrderCancelledEvent.from(savedOrder));
+
         return OrderDto.OrderInfo.from(savedOrder);
     }
 

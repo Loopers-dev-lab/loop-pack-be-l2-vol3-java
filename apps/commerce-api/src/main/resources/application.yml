@@ -21,6 +21,7 @@ spring:
     import:
       - jpa.yml
       - redis.yml
+      - kafka.yml
       - logging.yml
       - monitoring.yml
 
@@ -41,6 +42,10 @@ payment:
     fixed-delay-ms: 300000       # 스케줄러 실행 주기: 5분 (이전 실행 완료 후 기준)
     pending-threshold-minutes: 10 # N분 이상 PENDING인 건만 복구 대상으로 포함
     batch-size: 50               # 1회 실행당 최대 처리 건수
+
+outbox:
+  relay:
+    fixed-delay-ms: 1000          # Outbox 릴레이 실행 주기: 1초
 
 ---
 spring:

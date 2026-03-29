@@ -91,6 +91,43 @@ class CouponTest {
         assertThat(discount).isEqualByComparingTo("3000");
     }
 
+    @DisplayName("create: maxQuantity를 지정하면 선착순 쿠폰이 생성된다")
+    @Test
+    void create_withMaxQuantity() {
+        Coupon coupon = Coupon.create("선착순 쿠폰", "설명", CouponType.FIXED,
+            BigDecimal.valueOf(5000), ZonedDateTime.now().plusDays(30), 100);
+
+        assertThat(coupon.getMaxQuantity()).isEqualTo(100);
+        assertThat(coupon.getIssuedQuantity()).isZero();
+    }
+
+    @DisplayName("create: maxQuantity를 지정하지 않으면 무제한 쿠폰이 된다")
+    @Test
+    void create_withoutMaxQuantity_unlimited() {
+        Coupon coupon = Coupon.create("일반 쿠폰", "설명", CouponType.FIXED,
+            BigDecimal.valueOf(5000), ZonedDateTime.now().plusDays(30));
+
+        assertThat(coupon.getMaxQuantity()).isNull();
+    }
+
+    @DisplayName("isIssuable: 발급 가능한 수량이 남아있으면 true를 반환한다")
+    @Test
+    void isIssuable_true() {
+        Coupon coupon = Coupon.create("선착순 쿠폰", "설명", CouponType.FIXED,
+            BigDecimal.valueOf(5000), ZonedDateTime.now().plusDays(30), 100);
+
+        assertThat(coupon.isIssuable()).isTrue();
+    }
+
+    @DisplayName("isIssuable: maxQuantity가 null이면 항상 true를 반환한다")
+    @Test
+    void isIssuable_unlimited() {
+        Coupon coupon = Coupon.create("일반 쿠폰", "설명", CouponType.FIXED,
+            BigDecimal.valueOf(5000), ZonedDateTime.now().plusDays(30));
+
+        assertThat(coupon.isIssuable()).isTrue();
+    }
+
     @DisplayName("update: 쿠폰 템플릿 정보를 수정할 수 있다")
     @Test
     void update_success() {

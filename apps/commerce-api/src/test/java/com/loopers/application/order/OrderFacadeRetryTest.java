@@ -1,6 +1,5 @@
 package com.loopers.application.order;
 
-import com.loopers.application.payment.PaymentTxService;
 import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.CouponIssue;
 import com.loopers.domain.coupon.CouponIssueRepository;
@@ -32,6 +31,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+
+import org.springframework.context.ApplicationEventPublisher;
 
 @SpringJUnitConfig(classes = OrderFacadeRetryTest.TestConfig.class)
 class OrderFacadeRetryTest {
@@ -70,11 +71,6 @@ class OrderFacadeRetryTest {
         }
 
         @Bean
-        PaymentTxService paymentTxService() {
-            return mock(PaymentTxService.class);
-        }
-
-        @Bean
         OrderFacade orderFacade(
             OrderRepository orderRepository,
             ProductRepository productRepository,
@@ -83,7 +79,7 @@ class OrderFacadeRetryTest {
             CouponIssueRepository couponIssueRepository,
             OrderService orderService,
             OrderPlacementTxService orderPlacementTxService,
-            PaymentTxService paymentTxService
+            ApplicationEventPublisher eventPublisher
         ) {
             return new OrderFacade(
                 orderRepository,
@@ -93,8 +89,13 @@ class OrderFacadeRetryTest {
                 couponIssueRepository,
                 orderService,
                 orderPlacementTxService,
-                paymentTxService
+                eventPublisher
             );
+        }
+
+        @Bean
+        ApplicationEventPublisher eventPublisher() {
+            return mock(ApplicationEventPublisher.class);
         }
 
         @Bean
@@ -103,14 +104,16 @@ class OrderFacadeRetryTest {
             ProductRepository productRepository,
             CouponRepository couponRepository,
             CouponIssueRepository couponIssueRepository,
-            OrderService orderService
+            OrderService orderService,
+            ApplicationEventPublisher eventPublisher
         ) {
             return new OrderPlacementTxService(
                 orderRepository,
                 productRepository,
                 couponRepository,
                 couponIssueRepository,
-                orderService
+                orderService,
+                eventPublisher
             );
         }
     }

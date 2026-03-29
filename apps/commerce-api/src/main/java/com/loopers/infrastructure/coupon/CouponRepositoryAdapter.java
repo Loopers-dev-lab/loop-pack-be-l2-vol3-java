@@ -36,4 +36,9 @@ public class CouponRepositoryAdapter implements CouponRepository {
     public List<Coupon> findAllByIds(List<Long> ids) {
         return couponJpaRepository.findAllByIdIn(ids);
     }
+
+    @Override
+    public int incrementIssuedQuantity(Long couponId, int maxQuantity) {
+        return couponJpaRepository.incrementIssuedQuantity(couponId, maxQuantity);
+    }
 }

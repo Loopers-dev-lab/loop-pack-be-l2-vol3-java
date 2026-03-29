@@ -15,4 +15,6 @@ public interface CouponRepository {
     Page<Coupon> findAll(Pageable pageable);
 
     List<Coupon> findAllByIds(List<Long> ids);
+
+    int incrementIssuedQuantity(Long couponId, int maxQuantity);
 }

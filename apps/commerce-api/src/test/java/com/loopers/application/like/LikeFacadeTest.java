@@ -1,5 +1,7 @@
 package com.loopers.application.like;
 
+import com.loopers.application.like.event.ProductLikedEvent;
+import com.loopers.application.like.event.ProductUnlikedEvent;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.like.LikeService;
 import com.loopers.domain.like.LikeRepository;
@@ -8,12 +10,12 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserRepository;
-import com.loopers.infrastructure.product.ProductCacheStore;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -29,6 +31,7 @@ class LikeFacadeTest {
     private ProductRepository productRepository;
     private UserRepository userRepository;
     private BrandRepository brandRepository;
+    private ApplicationEventPublisher eventPublisher;
     private LikeFacade likeFacade;
 
     private final Long userId = 1L;
@@ -40,13 +43,14 @@ class LikeFacadeTest {
         productRepository = mock(ProductRepository.class);
         userRepository = mock(UserRepository.class);
         brandRepository = mock(BrandRepository.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
         likeFacade = new LikeFacade(
             likeRepository,
             productRepository,
             userRepository,
             brandRepository,
             new LikeService(),
-            mock(ProductCacheStore.class)
+            eventPublisher
         );
     }
 
@@ -63,15 +67,13 @@ class LikeFacadeTest {
         when(productRepository.findById(productId)).thenReturn(Optional.of(product));
         when(likeRepository.findByUserIdAndProductIdIncludingDeleted(userId, productId)).thenReturn(Optional.empty());
         when(likeRepository.save(any(Like.class))).thenReturn(like);
-        when(productRepository.save(product)).thenReturn(product);
 
         LikeDto.LikeInfo result = likeFacade.like(userId, productId);
 
         assertThat(result.userId()).isEqualTo(userId);
         assertThat(result.productId()).isEqualTo(productId);
-        assertThat(product.getLikeCount()).isEqualTo(1);
         verify(likeRepository).save(any(Like.class));
-        verify(productRepository).save(product);
+        verify(eventPublisher).publishEvent(any(ProductLikedEvent.class));
     }
 
     @DisplayName("like: 존재하지 않는 유저면 예외가 발생한다")
@@ -85,7 +87,7 @@ class LikeFacadeTest {
                 .isEqualTo(ErrorType.USER_NOT_FOUND));
 
         verify(likeRepository, never()).save(any());
-        verify(productRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @DisplayName("like: 존재하지 않는 상품이면 예외가 발생한다")
@@ -101,6 +103,7 @@ class LikeFacadeTest {
                 .isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
 
         verify(likeRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @DisplayName("like: 이미 좋아요한 상품이면 멱등하게 성공한다")
@@ -119,12 +122,11 @@ class LikeFacadeTest {
 
         assertThat(result.userId()).isEqualTo(userId);
         assertThat(result.productId()).isEqualTo(productId);
-        assertThat(product.getLikeCount()).isZero();
         verify(likeRepository, never()).save(any());
-        verify(productRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
-    @DisplayName("like: soft-delete 된 좋아요가 있으면 복구 후 likeCount를 증가시킨다")
+    @DisplayName("like: soft-delete 된 좋아요가 있으면 복구하고 이벤트를 발행한다")
     @Test
     void like_restore_deletedLike() {
         User user = mock(User.class);
@@ -137,40 +139,35 @@ class LikeFacadeTest {
         when(likeRepository.findByUserIdAndProductIdIncludingDeleted(userId, productId))
             .thenReturn(Optional.of(deletedLike));
         when(likeRepository.save(deletedLike)).thenReturn(deletedLike);
-        when(productRepository.save(product)).thenReturn(product);
 
         LikeDto.LikeInfo result = likeFacade.like(userId, productId);
 
         assertThat(result.userId()).isEqualTo(userId);
         assertThat(result.productId()).isEqualTo(productId);
         assertThat(deletedLike.isDeleted()).isFalse();
-        assertThat(product.getLikeCount()).isEqualTo(1);
         verify(likeRepository).save(deletedLike);
-        verify(productRepository).save(product);
+        verify(eventPublisher).publishEvent(any(ProductLikedEvent.class));
     }
 
     // ── unlike ────────────────────────────────────────────────────────────────
 
-    @DisplayName("unlike: 좋아요가 존재하면 취소에 성공하고 상품의 likeCount가 감소한다")
+    @DisplayName("unlike: 좋아요가 존재하면 취소에 성공하고 이벤트를 발행한다")
     @Test
     void unlike_success() {
         User user = mock(User.class);
         Product product = Product.create(1L, "신발", "설명", BigDecimal.valueOf(50000), 10);
-        product.increaseLikeCount(); // likeCount = 1
         Like like = Like.create(userId, productId);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(productRepository.findById(productId)).thenReturn(Optional.of(product));
         when(likeRepository.findByUserIdAndProductId(userId, productId)).thenReturn(Optional.of(like));
         when(likeRepository.save(like)).thenReturn(like);
-        when(productRepository.save(product)).thenReturn(product);
 
         likeFacade.unlike(userId, productId);
 
         assertThat(like.isDeleted()).isTrue();
-        assertThat(product.getLikeCount()).isZero();
         verify(likeRepository).save(like);
-        verify(productRepository).save(product);
+        verify(eventPublisher).publishEvent(any(ProductUnlikedEvent.class));
     }
 
     @DisplayName("unlike: 존재하지 않는 유저면 예외가 발생한다")
@@ -184,7 +181,7 @@ class LikeFacadeTest {
                 .isEqualTo(ErrorType.USER_NOT_FOUND));
 
         verify(likeRepository, never()).save(any());
-        verify(productRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @DisplayName("unlike: 존재하지 않는 상품이면 예외가 발생한다")
@@ -200,6 +197,7 @@ class LikeFacadeTest {
                 .isEqualTo(ErrorType.PRODUCT_NOT_FOUND));
 
         verify(likeRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @DisplayName("unlike: 좋아요 기록이 없으면 멱등하게 성공한다")
@@ -215,25 +213,6 @@ class LikeFacadeTest {
         likeFacade.unlike(userId, productId);
 
         verify(likeRepository, never()).save(any());
-        verify(productRepository, never()).save(any());
-    }
-
-    @DisplayName("unlike: likeCount는 0 미만으로 내려가지 않는다")
-    @Test
-    void unlike_likeCount_neverNegative() {
-        User user = mock(User.class);
-        Product product = Product.create(1L, "신발", "설명", BigDecimal.valueOf(50000), 10);
-        // likeCount = 0 인 상태에서 unlike
-        Like like = Like.create(userId, productId);
-
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
-        when(likeRepository.findByUserIdAndProductId(userId, productId)).thenReturn(Optional.of(like));
-        when(likeRepository.save(like)).thenReturn(like);
-        when(productRepository.save(product)).thenReturn(product);
-
-        likeFacade.unlike(userId, productId);
-
-        assertThat(product.getLikeCount()).isZero();
+        verify(eventPublisher, never()).publishEvent(any());
     }
 }
