@@ -34,26 +34,44 @@ public class CouponEntity extends BaseEntity {
     private int minOrderAmount;
 
     @Getter
+    @Column(name = "total_quantity", nullable = false)
+    private int totalQuantity;
+
+    @Getter
+    @Column(name = "remaining_quantity", nullable = false)
+    private int remainingQuantity;
+
+    @Getter
     @Column(name = "expired_at", nullable = false)
     private LocalDateTime expiredAt;
 
     protected CouponEntity() {
     }
 
-    public CouponEntity(String name, CouponType type, int value, int minOrderAmount, LocalDateTime expiredAt) {
+    public CouponEntity(String name, CouponType type, int value, int minOrderAmount, int totalQuantity, int remainingQuantity, LocalDateTime expiredAt) {
         this.name = name;
         this.type = type;
         this.value = value;
         this.minOrderAmount = minOrderAmount;
+        this.totalQuantity = totalQuantity;
+        this.remainingQuantity = remainingQuantity;
         this.expiredAt = expiredAt;
     }
 
     public static CouponEntity from(Coupon coupon) {
-        return new CouponEntity(coupon.name(), coupon.type(), coupon.value(), coupon.minOrderAmount(), coupon.expiredAt());
+        return new CouponEntity(
+                coupon.name(),
+                coupon.type(),
+                coupon.value(),
+                coupon.minOrderAmount(),
+                coupon.totalQuantity(),
+                coupon.remainingQuantity(),
+                coupon.expiredAt()
+        );
     }
 
     public Coupon toDomain() {
-        return new Coupon(getId(), name, type, value, minOrderAmount, expiredAt);
+        return new Coupon(getId(), name, type, value, minOrderAmount, totalQuantity, remainingQuantity, expiredAt);
     }
 
     public void updateFrom(Coupon coupon) {
@@ -61,6 +79,8 @@ public class CouponEntity extends BaseEntity {
         this.type = coupon.type();
         this.value = coupon.value();
         this.minOrderAmount = coupon.minOrderAmount();
+        this.totalQuantity = coupon.totalQuantity();
+        this.remainingQuantity = coupon.remainingQuantity();
         this.expiredAt = coupon.expiredAt();
     }
 }

@@ -3,6 +3,8 @@ package com.loopers.interfaces.api.product;
 import com.loopers.application.product.ProductApplicationService;
 import com.loopers.application.product.PublicProductListQueryApplicationService;
 import com.loopers.application.product.ProductQueryFacade;
+import com.loopers.application.behavior.BehaviorEventPublisher;
+import com.loopers.application.behavior.event.BehaviorActionType;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.query.ProductListCriteria;
 import com.loopers.domain.product.query.ProductListQuery;
@@ -27,6 +29,7 @@ public class ProductController {
     private final ProductApplicationService productApplicationService;
     private final ProductQueryFacade productQueryFacade;
     private final PublicProductListQueryApplicationService publicProductListQueryApplicationService;
+    private final BehaviorEventPublisher behaviorEventPublisher;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -39,13 +42,17 @@ public class ProductController {
 
     @GetMapping("/{productId}")
     public ApiResponse<ProductDto.ProductResponse> getProduct(@PathVariable UUID productId) {
-        return ApiResponse.success(ProductDto.ProductResponse.from(productQueryFacade.get(productId)));
+        ApiResponse<ProductDto.ProductResponse> response = ApiResponse.success(ProductDto.ProductResponse.from(productQueryFacade.get(productId)));
+        behaviorEventPublisher.publish(BehaviorActionType.PRODUCT_DETAIL_REQUESTED, "", productId.toString(), "");
+        return response;
     }
 
     @GetMapping
     public ApiResponse<ProductDto.PublicProductListResponse> getProducts(ProductListQuery query) {
-        return ApiResponse.success(ProductDto.PublicProductListResponse.from(
+        ApiResponse<ProductDto.PublicProductListResponse> response = ApiResponse.success(ProductDto.PublicProductListResponse.from(
                 publicProductListQueryApplicationService.list(ProductListCriteria.fromPublic(query))
         ));
+        behaviorEventPublisher.publish(BehaviorActionType.PRODUCT_LIST_SERVED, "", "", "");
+        return response;
     }
 }

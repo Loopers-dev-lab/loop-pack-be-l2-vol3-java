@@ -94,14 +94,13 @@ services:
       retries: 10
 
   commerce-api:
-    image: gradle:8.10.2-jdk21
+    build:
+      context: .
+      dockerfile: apps/commerce-api/Dockerfile.perf
     container_name: loopers-commerce-api
-    working_dir: /workspace
     depends_on:
       mysql:
         condition: service_healthy
-      mysql-seed:
-        condition: service_completed_successfully
       redis-master:
         condition: service_healthy
       redis-readonly:
@@ -115,19 +114,12 @@ services:
       DATASOURCE_REDIS_MASTER_PORT: 6379
       DATASOURCE_REDIS_REPLICAS_0_HOST: redis-readonly
       DATASOURCE_REDIS_REPLICAS_0_PORT: 6379
-    command:
-      - ./gradlew
-      - :apps:commerce-api:bootRun
-      - --no-daemon
+      PAYMENT_GATEWAY_MODE: fake-success
     ports:
       - "8080:8080"
       - "8081:8081"
-    volumes:
-      - .:/workspace
-      - gradle-cache:/home/gradle/.gradle
 
 volumes:
   mysql-data:
   redis-master-data:
   redis-readonly-data:
-  gradle-cache:

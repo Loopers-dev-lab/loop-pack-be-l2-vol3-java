@@ -20,7 +20,6 @@ public class LikeFacade {
         String memberId = member.id().value();
         productLikeAplicationService.validateLikeable(productId);
         likeApplicationService.register(memberId, productId);
-        productLikeAplicationService.increaseLikeCount(productId);
     }
 
     public void cancel(UUID productId, Member member) {
@@ -28,7 +27,6 @@ public class LikeFacade {
         likeApplicationService.assertLiked(memberId, productId);
         productLikeAplicationService.validateCancelable(productId);
         likeApplicationService.cancel(memberId, productId);
-        productLikeAplicationService.decreaseLikeCount(productId);
     }
 
     public Page<Product> getMyLikes(String memberId, Pageable pageable) {

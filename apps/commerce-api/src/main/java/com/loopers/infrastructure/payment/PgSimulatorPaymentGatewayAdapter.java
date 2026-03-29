@@ -19,6 +19,7 @@ import feign.FeignException;
 import feign.RetryableException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.net.ConnectException;
@@ -29,6 +30,7 @@ import java.util.Locale;
 
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(prefix = "loopers.payment.gateway", name = "mode", havingValue = "pg-simulator", matchIfMissing = true)
 public class PgSimulatorPaymentGatewayAdapter implements ProviderPaymentGateway {
 
     private final PgSimulatorPayClient pgSimulatorPayClient;

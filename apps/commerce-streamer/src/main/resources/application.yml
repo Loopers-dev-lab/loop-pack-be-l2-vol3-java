@@ -14,7 +14,7 @@ spring:
   main:
     web-application-type: servlet
   application:
-    name: commerce-api
+    name: commerce-collector
   profiles:
     active: local
   config:
@@ -25,9 +25,16 @@ spring:
       - logging.yml
       - monitoring.yml
 
-demo-kafka:
-  test:
-    topic-name: demo.internal.topic-v1
+loopers:
+  kafka:
+    topic:
+      product-metrics: commerce.product.metrics.v1
+      product-like-count: commerce.product.like-count.v1
+      outbox-ack: commerce.outbox.ack.v1
+      order-created: commerce.order.created.v1
+      order-cancel-requested: commerce.order.cancel-requested.v1
+      payment-status-changed: commerce.payment.status-changed.v1
+      coupon-issue-requested: commerce.coupon.issue-requested.v1
 
 ---
 spring:

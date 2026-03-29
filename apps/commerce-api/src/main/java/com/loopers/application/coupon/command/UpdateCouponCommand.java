@@ -9,6 +9,7 @@ public record UpdateCouponCommand(
         CouponType type,
         int value,
         int minOrderAmount,
+        int totalQuantity,
         LocalDateTime expiredAt
 ) {
 }

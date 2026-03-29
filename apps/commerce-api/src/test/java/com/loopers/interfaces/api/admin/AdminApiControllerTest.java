@@ -274,6 +274,7 @@ class AdminApiControllerTest {
                     CouponType.RATE,
                     10,
                     10000,
+                    100,
                     LocalDateTime.now().plusDays(30)
             );
 
@@ -308,6 +309,7 @@ class AdminApiControllerTest {
                     CouponType.FIXED,
                     3000,
                     15000,
+                    120,
                     LocalDateTime.now().plusDays(40)
             );
 
@@ -334,7 +336,7 @@ class AdminApiControllerTest {
         @DisplayName("특정 쿠폰 발급 내역 조회 성공")
         void listCouponIssuesSuccess() throws Exception {
             CouponEntity couponEntity = couponJpaRepository.saveAndFlush(
-                    new CouponEntity("이슈 조회 쿠폰", CouponType.FIXED, 1000, 0, LocalDateTime.now().plusDays(10))
+                    new CouponEntity("이슈 조회 쿠폰", CouponType.FIXED, 1000, 0, 100, 100, LocalDateTime.now().plusDays(10))
             );
             UUID couponId = couponEntity.getId();
 
