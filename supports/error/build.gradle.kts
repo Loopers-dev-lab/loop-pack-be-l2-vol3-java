@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    implementation("org.springframework:spring-web")
+    api("org.springframework:spring-web")
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
 }
