@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -37,6 +38,7 @@ class PaymentFacadeTest {
     private OrderAppService orderAppService;
     private PgClient pgClient;
     private RedissonClient redissonClient;
+    private ApplicationEventPublisher eventPublisher;
 
     @BeforeEach
     void setUp() throws InterruptedException {
@@ -44,13 +46,14 @@ class PaymentFacadeTest {
         orderAppService = mock(OrderAppService.class);
         pgClient = mock(PgClient.class);
         redissonClient = mock(RedissonClient.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
 
         RLock rLock = mock(RLock.class);
         given(redissonClient.getLock(anyString())).willReturn(rLock);
         given(rLock.tryLock(eq(0L), eq(15L), eq(TimeUnit.SECONDS))).willReturn(true);
         given(rLock.isHeldByCurrentThread()).willReturn(true);
 
-        paymentFacade = new PaymentFacade(paymentAppService, orderAppService, pgClient, redissonClient);
+        paymentFacade = new PaymentFacade(paymentAppService, orderAppService, pgClient, redissonClient, eventPublisher);
         ReflectionTestUtils.setField(paymentFacade, "callbackUrl", "http://localhost:8080/api/v1/payments/callback");
     }
 

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.List;
 import java.util.Map;
@@ -30,13 +31,15 @@ class ProductFacadeTest {
     private ProductAppService productAppService;
     private BrandAppService brandAppService;
     private LikeAppService likeAppService;
+    private ApplicationEventPublisher eventPublisher;
 
     @BeforeEach
     void setUp() {
         productAppService = mock(ProductAppService.class);
         brandAppService = mock(BrandAppService.class);
         likeAppService = mock(LikeAppService.class);
-        productFacade = new ProductFacade(productAppService, brandAppService, likeAppService);
+        eventPublisher = mock(ApplicationEventPublisher.class);
+        productFacade = new ProductFacade(productAppService, brandAppService, likeAppService, eventPublisher);
     }
 
     @Nested

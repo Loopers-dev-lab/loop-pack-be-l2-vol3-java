@@ -11,14 +11,18 @@ import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.product.Option;
 import com.loopers.domain.product.Product;
+import com.loopers.domain.event.OrderCanceledEvent;
+import com.loopers.domain.event.OrderCreatedEvent;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -30,6 +34,7 @@ public class OrderAppService {
     private final ProductAppService productAppService;
     private final CouponAppService couponAppService;
     private final CartAppService cartAppService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Order createOrder(OrderCreateCommand command) {
@@ -45,11 +50,15 @@ public class OrderAppService {
                 .toList();
 
         List<OrderItem> orderItems = new ArrayList<>();
+        List<Long> productIds = new ArrayList<>();
         for (OrderCreateCommand.OrderItemCommand itemCommand : sortedItems) {
             Option option = productAppService.getOptionByIdWithLock(itemCommand.getOptionId());
             option.decreaseStock(itemCommand.getQuantity());
 
             Product product = productAppService.getById(option.getProductId());
+            for (int q = 0; q < itemCommand.getQuantity(); q++) {
+                productIds.add(product.getId());
+            }
             Money totalPrice = product.getBasePrice().add(option.getAdditionalPrice());
 
             OrderItem orderItem = OrderItem.of(
@@ -82,6 +91,10 @@ public class OrderAppService {
         if (issuedCoupon != null) {
             issuedCoupon.use(order.getId());
         }
+
+        // 6. 주문 생성 이벤트 발행
+        eventPublisher.publishEvent(new OrderCreatedEvent(
+                order.getId(), command.getUserId(), productIds, ZonedDateTime.now()));
 
         return order;
     }
@@ -170,6 +183,16 @@ public class OrderAppService {
         for (int i = 0; i < sortedItems.size(); i++) {
             lockedOptions.get(i).increaseStock(sortedItems.get(i).getQuantity());
         }
+
+        // 6. 주문 취소 이벤트 발행
+        List<Long> productIds = new ArrayList<>();
+        for (int i = 0; i < sortedItems.size(); i++) {
+            for (int q = 0; q < sortedItems.get(i).getQuantity(); q++) {
+                productIds.add(lockedOptions.get(i).getProductId());
+            }
+        }
+        eventPublisher.publishEvent(new OrderCanceledEvent(
+                order.getId(), order.getUserId(), productIds, ZonedDateTime.now()));
 
         return order;
     }

@@ -12,6 +12,7 @@ import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.product.Option;
 import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,7 @@ class OrderAppServiceTest {
     private ProductAppService productAppService;
     private CouponAppService couponAppService;
     private CartAppService cartAppService;
+    private ApplicationEventPublisher eventPublisher;
 
     @BeforeEach
     void setUp() {
@@ -40,7 +42,8 @@ class OrderAppServiceTest {
         productAppService = mock(ProductAppService.class);
         couponAppService = mock(CouponAppService.class);
         cartAppService = mock(CartAppService.class);
-        orderAppService = new OrderAppService(orderRepository, productAppService, couponAppService, cartAppService);
+        eventPublisher = mock(ApplicationEventPublisher.class);
+        orderAppService = new OrderAppService(orderRepository, productAppService, couponAppService, cartAppService, eventPublisher);
     }
 
     private OrderItem createTestOrderItem() {

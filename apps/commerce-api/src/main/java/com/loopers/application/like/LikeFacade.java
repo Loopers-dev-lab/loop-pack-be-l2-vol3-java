@@ -1,12 +1,15 @@
 package com.loopers.application.like;
 
 import com.loopers.application.product.ProductAppService;
+import com.loopers.domain.event.LikeToggledEvent;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.product.Product;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -15,17 +18,14 @@ import java.util.Map;
 public class LikeFacade {
     private final LikeAppService likeAppService;
     private final ProductAppService productAppService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public boolean toggleLike(Long userId, Long productId) {
         productAppService.getById(productId);
 
         boolean liked = likeAppService.toggleLike(userId, productId);
-        if (liked) {
-            productAppService.increaseLikeCount(productId);
-        } else {
-            productAppService.decreaseLikeCount(productId);
-        }
+        eventPublisher.publishEvent(new LikeToggledEvent(productId, userId, liked, ZonedDateTime.now()));
         return liked;
     }
 

@@ -3,15 +3,18 @@ package com.loopers.application.product;
 import com.loopers.application.brand.BrandAppService;
 import com.loopers.application.like.LikeAppService;
 import com.loopers.domain.brand.Brand;
+import com.loopers.domain.event.ProductViewedEvent;
 import com.loopers.domain.product.Option;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductSortCondition;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,11 +25,15 @@ public class ProductFacade {
     private final ProductAppService productAppService;
     private final BrandAppService brandAppService;
     private final LikeAppService likeAppService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ProductInfo getProductDetail(Long productId, Long userId) {
         CachedProductDetail detail = productAppService.getProductDetailCached(productId);
         Brand brand = brandAppService.getById(detail.getBrandId());
         boolean likedByUser = userId != null && likeAppService.isLikedByUser(userId, productId);
+
+        eventPublisher.publishEvent(new ProductViewedEvent(productId, userId, ZonedDateTime.now()));
+
         return toProductInfo(detail, brand, likedByUser);
     }
 

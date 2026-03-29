@@ -122,6 +122,26 @@ class ArchitectureTest {
                     .andShould().beAnnotatedWith("org.springframework.stereotype.Component")
                     .because("*Facade 클래스는 application 패키지에 위치하고 @Component를 사용해야 합니다");
 
+    @ArchTest
+    static final ArchRule event_listeners_naming_convention =
+            classes().that().haveSimpleNameEndingWith("EventListener")
+                    .should().resideInAnyPackage("com.loopers.application..", "com.loopers.infrastructure..")
+                    .andShould().beAnnotatedWith("org.springframework.stereotype.Component")
+                    .because("*EventListener 클래스는 application 또는 infrastructure 패키지에 위치하고 @Component를 사용해야 합니다");
+
+    @ArchTest
+    static final ArchRule event_records_should_reside_in_domain =
+            classes().that().haveSimpleNameEndingWith("Event")
+                    .and().resideInAPackage("com.loopers..")
+                    .should().resideInAPackage("com.loopers.domain.event..")
+                    .because("*Event 클래스는 domain.event 패키지에 위치해야 합니다");
+
+    @ArchTest
+    static final ArchRule schedulers_should_reside_in_infrastructure =
+            classes().that().haveSimpleNameEndingWith("Scheduler")
+                    .should().resideInAPackage("com.loopers.infrastructure..")
+                    .because("*Scheduler 클래스는 infrastructure 패키지에 위치해야 합니다");
+
     // ========== 접근 제어 룰 (3개) ==========
 
     @ArchTest
@@ -136,6 +156,26 @@ class ArchitectureTest {
             noClasses().that().haveSimpleNameEndingWith("Facade")
                     .should().dependOnClassesThat().haveSimpleNameEndingWith("Repository")
                     .because("Facade에서 Repository 직접 사용 금지. AppService만 사용해야 합니다");
+
+    @ArchTest
+    static final ArchRule application_event_listeners_should_not_access_repositories =
+            noClasses().that().haveSimpleNameEndingWith("EventListener")
+                    .and().resideInAPackage("com.loopers.application..")
+                    .should().dependOnClassesThat().haveSimpleNameEndingWith("Repository")
+                    .because("Application EventListener에서 Repository 직접 사용 금지. AppService를 통해 접근해야 합니다");
+
+    @ArchTest
+    static final ArchRule outbox_should_be_isolated_to_infrastructure =
+            noClasses().that().resideInAnyPackage("com.loopers.application..", "com.loopers.domain..", "com.loopers.interfaces..")
+                    .should().dependOnClassesThat().haveSimpleName("Outbox")
+                    .because("Outbox 엔티티는 infrastructure 내부에서만 사용 가능합니다");
+
+    @ArchTest
+    static final ArchRule kafka_should_be_isolated_to_infrastructure =
+            noClasses().that().resideInAnyPackage("com.loopers.application..", "com.loopers.domain..")
+                    .should().dependOnClassesThat().resideInAPackage("org.springframework.kafka..")
+                    .orShould().dependOnClassesThat().resideInAPackage("org.apache.kafka..")
+                    .because("Kafka 의존은 infrastructure 계층에만 허용됩니다 (기술 격리)");
 
     @ArchTest
     static final ArchRule controller_methods_should_return_api_response =
