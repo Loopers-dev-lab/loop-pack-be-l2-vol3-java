@@ -20,7 +20,7 @@ import java.util.concurrent.Executors;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@TestPropertySource(properties = "queue.enabled=true")
+@TestPropertySource(properties = {"queue.enabled=true", "queue.interval-ms=999999"})
 @DisplayName("대기열 동시성 통합 테스트")
 class WaitingQueueConcurrencyTest {
 
@@ -35,6 +35,9 @@ class WaitingQueueConcurrencyTest {
 
     @Autowired
     private QueueProperties queueProperties;
+
+    @Autowired
+    private ThroughputTracker throughputTracker;
 
     @Autowired
     private RedisCleanUp redisCleanUp;
@@ -84,7 +87,7 @@ class WaitingQueueConcurrencyTest {
         assertThat(waitingQueueService.getTotalCount()).isEqualTo(userCount);
 
         // when — 스케줄러 직접 호출 (타이밍 의존성 제거)
-        QueueScheduler scheduler = new QueueScheduler(waitingQueueService, entryTokenService, queueProperties);
+        QueueScheduler scheduler = new QueueScheduler(waitingQueueService, entryTokenService, queueProperties, throughputTracker);
         scheduler.issueTokens();
 
         // then
