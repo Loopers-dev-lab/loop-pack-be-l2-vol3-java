@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.IssuedCoupon;
+import com.loopers.support.error.CoreException;
 import com.loopers.infrastructure.coupon.CouponIssueRequestEntity;
 import com.loopers.infrastructure.coupon.CouponIssueRequestJpaRepository;
 import com.loopers.infrastructure.event.EventHandledEntity;
@@ -94,19 +95,43 @@ public class CouponIssueProcessor {
             log.info("[CouponProcessor] 발급 성공 — templateId={}, userId={}, issuedCouponId={}",
                     templateId, userId, issued.getId());
 
-        } catch (Exception e) {
-            // 비즈니스 실패 → FAILED 기록 + 멱등성 기록 (같은 TX)
-            request.markFailed(e.getMessage());
-            couponIssueRequestRepository.save(request);
-            eventHandledRepository.save(EventHandledEntity.of(eventId, "coupon-issue-requests-v1"));
-
-            throw new BusinessFailureException(e.getMessage(), e);
+        } catch (CoreException e) {
+            // 비즈니스 실패 (재고 소진, 발급 한도 초과 등)
+            // CouponService.issue()가 같은 TX에 참여하므로, CoreException throw 시
+            // TX가 rollback-only로 마킹된다. 여기서 markFailed()를 해도 커밋 시 롤백된다.
+            // → Consumer에서 별도 TX로 FAILED 기록을 위임한다.
+            throw new BusinessFailureException(
+                    e.getMessage(), e, requestId, eventId);
         }
     }
 
-    public static class BusinessFailureException extends RuntimeException {
-        public BusinessFailureException(String message, Throwable cause) {
-            super(message, cause);
+    /**
+     * 비즈니스 실패 시 FAILED 기록 — 별도 TX (REQUIRES_NEW)
+     *
+     * process()의 TX가 rollback-only 상태이므로, 새 TX에서 FAILED + event_handled를 저장한다.
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void markFailedInNewTx(Long requestId, String eventId, String reason) {
+        CouponIssueRequestEntity request = couponIssueRequestRepository.findById(requestId)
+                .orElse(null);
+        if (request != null) {
+            request.markFailed(reason);
+            couponIssueRequestRepository.save(request);
         }
+        eventHandledRepository.save(EventHandledEntity.of(eventId, "coupon-issue-requests-v1"));
+    }
+
+    public static class BusinessFailureException extends RuntimeException {
+        private final Long requestId;
+        private final String eventId;
+
+        public BusinessFailureException(String message, Throwable cause, Long requestId, String eventId) {
+            super(message, cause);
+            this.requestId = requestId;
+            this.eventId = eventId;
+        }
+
+        public Long getRequestId() { return requestId; }
+        public String getEventId() { return eventId; }
     }
 }

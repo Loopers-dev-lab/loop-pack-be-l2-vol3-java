@@ -49,8 +49,9 @@ public class CouponIssueConsumer {
                 processor.process(payload);
 
             } catch (BusinessFailureException e) {
-                // 비즈니스 실패 → 재시도 불필요 (재고 소진, 중복 발급 등)
-                // Processor에서 이미 FAILED 기록 + 멱등성 기록 완료
+                // 비즈니스 실패 → process()의 TX는 rollback-only 상태.
+                // 별도 TX(REQUIRES_NEW)로 FAILED + event_handled 기록.
+                processor.markFailedInNewTx(e.getRequestId(), e.getEventId(), e.getMessage());
                 log.warn("[CouponIssue] 비즈니스 실패 — error={}", e.getMessage());
 
             } catch (Exception e) {

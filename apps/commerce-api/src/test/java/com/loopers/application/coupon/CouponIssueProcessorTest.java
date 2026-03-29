@@ -104,12 +104,16 @@ class CouponIssueProcessorTest {
         String eventId2 = UUID.randomUUID().toString();
         CouponIssueRequestEntity request2 = createRequest(template.getId(), 2L, eventId2);
 
-        // act — BusinessFailureException 발생
-        assertThatThrownBy(() ->
-                processor.process(buildPayload(request2.getId(), template.getId(), 2L, eventId2))
-        ).isInstanceOf(CouponIssueProcessor.BusinessFailureException.class);
+        // act — 비즈니스 실패 → BusinessFailureException throw (TX rollback-only)
+        // Consumer에서 catch → markFailedInNewTx() 호출 흐름을 테스트에서 재현
+        try {
+            processor.process(buildPayload(request2.getId(), template.getId(), 2L, eventId2));
+        } catch (CouponIssueProcessor.BusinessFailureException e) {
+            // Consumer가 하는 것과 동일: 별도 TX로 FAILED 기록
+            processor.markFailedInNewTx(e.getRequestId(), e.getEventId(), e.getMessage());
+        }
 
-        // assert — FAILED + event_handled 모두 반영 (같은 TX)
+        // assert — FAILED + event_handled 모두 반영 (별도 TX에서 커밋)
         CouponIssueRequestEntity updated = couponIssueRequestRepository.findById(request2.getId()).orElseThrow();
         assertThat(updated.getStatus()).isEqualTo(CouponIssueRequestStatus.FAILED);
         assertThat(updated.getFailureReason()).isNotNull();
