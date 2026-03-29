@@ -33,6 +33,7 @@ public class OrderService {
     public Order create(Cart cart, Money discountAmount, Long ownedCouponId) {
         String orderKey = orderKeyGenerator.generate();
         Order order = Order.create(orderKey, cart, discountAmount, ownedCouponId);
+        order.place();
         return orderRepository.save(order);
     }
 
@@ -75,7 +76,7 @@ public class OrderService {
         Order order = orderRepository.findByIdWithItems(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
         order.pay();
-        return order;
+        return orderRepository.save(order);
     }
 
     /**
@@ -90,6 +91,6 @@ public class OrderService {
         Order order = orderRepository.findByIdWithItems(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
         order.fail();
-        return order;
+        return orderRepository.save(order);
     }
 }

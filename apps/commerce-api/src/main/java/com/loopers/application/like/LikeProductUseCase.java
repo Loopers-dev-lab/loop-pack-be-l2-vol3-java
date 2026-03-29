@@ -2,17 +2,17 @@ package com.loopers.application.like;
 
 import org.springframework.transaction.annotation.Transactional;
 
-import com.loopers.domain.product.ProductService;
-import com.loopers.application.product.cache.ProductCacheWriter;
 import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.domain.like.LikeService;
+import com.loopers.domain.product.ProductService;
 
 import lombok.RequiredArgsConstructor;
 
 /**
  * 사용자가 상품에 좋아요를 추가합니다.
  *
- * <p>상품 존재 여부를 검증한 뒤 좋아요를 등록하고, 신규 등록인 경우 상품의 좋아요 수를 증가시킵니다.</p>
+ * <p>상품 존재 여부를 검증한 뒤 좋아요를 등록한다.
+ * 좋아요 수 갱신은 {@link com.loopers.domain.like.LikeEvent.Liked} 이벤트를 통해 비동기로 처리된다.</p>
  */
 @UseCase
 @RequiredArgsConstructor
@@ -20,7 +20,6 @@ public class LikeProductUseCase {
 
     private final LikeService likeService;
     private final ProductService productService;
-    private final ProductCacheWriter productCacheWriter;
 
     /**
      * @param userId 사용자 ID
@@ -29,9 +28,6 @@ public class LikeProductUseCase {
     @Transactional
     public void execute(Long userId, Long productId) {
         productService.validateActiveProductExists(productId);
-        boolean created = likeService.like(userId, productId);
-        if (created) {
-            productCacheWriter.increaseLikeCount(productId);
-        }
+        likeService.like(userId, productId);
     }
 }

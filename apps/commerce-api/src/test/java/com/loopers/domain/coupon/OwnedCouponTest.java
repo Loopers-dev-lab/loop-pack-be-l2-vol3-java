@@ -6,12 +6,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.loopers.domain.coupon.discount.CouponDiscountProvider;
+import com.loopers.domain.coupon.discount.FixedCouponDiscountStrategy;
+import com.loopers.domain.shared.Money;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 
@@ -19,73 +23,68 @@ class OwnedCouponTest {
 
     private static final ZonedDateTime FUTURE = ZonedDateTime.now().plusDays(30);
     private static final ZonedDateTime PAST = ZonedDateTime.now().minusDays(1);
+    private static final CouponDiscountProvider DISCOUNT_PROVIDER =
+            new CouponDiscountProvider(List.of(new FixedCouponDiscountStrategy()));
 
-    @DisplayName("보유 쿠폰을 생성할 때,")
+    @DisplayName("할인 금액을 계산할 때,")
     @Nested
-    class Create {
+    class CalculateDiscount {
 
-        @DisplayName("유효한 쿠폰과 사용자 ID를 입력하면, AVAILABLE 상태로 생성된다.")
+        @DisplayName("본인 소유이고 유효한 쿠폰이면, 할인 금액을 반환한다.")
         @Test
-        void createsWithAvailableStatus_whenValidInput() {
+        void returnsDiscountAmount_whenValid() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
-            var userId = 1L;
+            var coupon = Coupon.create(new CouponTerms("5000원 할인", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
+            var ownedCoupon = OwnedCouponFixture.createOwnedCoupon(coupon, 1L);
 
             // act
-            var ownedCoupon = OwnedCoupon.create(coupon, userId);
+            Money discount = ownedCoupon.calculateDiscount(1L, Money.wons(20000L), DISCOUNT_PROVIDER);
 
             // assert
-            assertAll(
-                    () -> assertThat(ownedCoupon.getCoupon()).isEqualTo(coupon),
-                    () -> assertThat(ownedCoupon.getUserId()).isEqualTo(userId),
-                    () -> assertThat(ownedCoupon.getStatus()).isEqualTo("AVAILABLE")
-            );
-        }
-
-        @DisplayName("만료된 쿠폰을 입력하면, EXPIRED_COUPON 예외가 발생한다.")
-        @Test
-        void throwsException_whenCouponIsExpired() {
-            // arrange
-            var expiredCoupon = Coupon.create(new CouponTerms("만료 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
-            ReflectionTestUtils.setField(expiredCoupon, "expiredAt", ZonedDateTime.now().minusDays(1));
-            var userId = 1L;
-
-            // act & assert
-            assertThatThrownBy(() -> OwnedCoupon.create(expiredCoupon, userId))
-                    .isInstanceOf(CoreException.class)
-                    .extracting(e -> ((CoreException) e).getErrorType())
-                    .isEqualTo(ErrorType.EXPIRED_COUPON);
-        }
-    }
-
-    @DisplayName("보유 쿠폰 소유자를 검증할 때,")
-    @Nested
-    class ValidateOwner {
-
-        @DisplayName("본인 소유의 쿠폰이면, 예외가 발생하지 않는다.")
-        @Test
-        void doesNotThrow_whenOwner() {
-            // arrange
-            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
-            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
-
-            // act & assert
-            assertThatCode(() -> ownedCoupon.validateOwner(1L))
-                    .doesNotThrowAnyException();
+            assertThat(discount).isEqualTo(Money.wons(5000L));
         }
 
         @DisplayName("타인 소유의 쿠폰이면, FORBIDDEN_COUPON_ACCESS 예외가 발생한다.")
         @Test
         void throwsException_whenNotOwner() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
-            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+            var coupon = Coupon.create(new CouponTerms("5000원 할인", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
+            var ownedCoupon = OwnedCouponFixture.createOwnedCoupon(coupon, 1L);
 
             // act & assert
-            assertThatThrownBy(() -> ownedCoupon.validateOwner(999L))
+            assertThatThrownBy(() -> ownedCoupon.calculateDiscount(999L, Money.wons(20000L), DISCOUNT_PROVIDER))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.FORBIDDEN_COUPON_ACCESS);
+        }
+
+        @DisplayName("만료된 쿠폰이면, EXPIRED_COUPON 예외가 발생한다.")
+        @Test
+        void throwsException_whenExpired() {
+            // arrange
+            var coupon = Coupon.create(new CouponTerms("5000원 할인", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
+            var ownedCoupon = OwnedCouponFixture.createOwnedCoupon(coupon, 1L);
+            ReflectionTestUtils.setField(coupon, "expiredAt", PAST);
+
+            // act & assert
+            assertThatThrownBy(() -> ownedCoupon.calculateDiscount(1L, Money.wons(20000L), DISCOUNT_PROVIDER))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.EXPIRED_COUPON);
+        }
+
+        @DisplayName("최소 주문 금액 미달이면, COUPON_MIN_ORDER_PRICE_NOT_MET 예외가 발생한다.")
+        @Test
+        void throwsException_whenBelowMinOrderPrice() {
+            // arrange
+            var coupon = Coupon.create(new CouponTerms("5000원 할인", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
+            var ownedCoupon = OwnedCouponFixture.createOwnedCoupon(coupon, 1L);
+
+            // act & assert
+            assertThatThrownBy(() -> ownedCoupon.calculateDiscount(1L, Money.wons(5000L), DISCOUNT_PROVIDER))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.COUPON_MIN_ORDER_PRICE_NOT_MET);
         }
     }
 
@@ -97,8 +96,8 @@ class OwnedCouponTest {
         @Test
         void changesStatusToUsed_whenAvailable() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
-            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
+            var ownedCoupon = OwnedCouponFixture.createOwnedCoupon(coupon, 1L);
 
             // act
             ownedCoupon.use();
@@ -111,8 +110,8 @@ class OwnedCouponTest {
         @Test
         void throwsException_whenAlreadyUsed() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
-            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
+            var ownedCoupon = OwnedCouponFixture.createOwnedCoupon(coupon, 1L);
             ownedCoupon.use();
 
             // act & assert
@@ -126,8 +125,8 @@ class OwnedCouponTest {
         @Test
         void throwsException_whenExpired() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
-            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
+            var ownedCoupon = OwnedCouponFixture.createOwnedCoupon(coupon, 1L);
             ReflectionTestUtils.setField(ownedCoupon.getCoupon(), "expiredAt", PAST);
 
             // act & assert
@@ -146,8 +145,8 @@ class OwnedCouponTest {
         @Test
         void changesStatusToAvailable_whenUsed() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
-            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
+            var ownedCoupon = OwnedCouponFixture.createOwnedCoupon(coupon, 1L);
             ownedCoupon.use();
 
             // act
@@ -161,8 +160,8 @@ class OwnedCouponTest {
         @Test
         void keepsAvailable_whenAlreadyAvailable() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
-            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
+            var ownedCoupon = OwnedCouponFixture.createOwnedCoupon(coupon, 1L);
 
             // act
             ownedCoupon.restore();
@@ -180,8 +179,8 @@ class OwnedCouponTest {
         @Test
         void returnsAvailable_whenNotUsedAndNotExpired() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
-            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
+            var ownedCoupon = OwnedCouponFixture.createOwnedCoupon(coupon, 1L);
 
             // assert
             assertThat(ownedCoupon.getStatus()).isEqualTo("AVAILABLE");
@@ -191,8 +190,8 @@ class OwnedCouponTest {
         @Test
         void returnsUsed_whenUsed() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
-            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
+            var ownedCoupon = OwnedCouponFixture.createOwnedCoupon(coupon, 1L);
             ownedCoupon.use();
 
             // assert
@@ -203,8 +202,8 @@ class OwnedCouponTest {
         @Test
         void returnsExpired_whenNotUsedButCouponExpired() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
-            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
+            var ownedCoupon = OwnedCouponFixture.createOwnedCoupon(coupon, 1L);
             ReflectionTestUtils.setField(coupon, "expiredAt", PAST);
 
             // assert
@@ -215,8 +214,8 @@ class OwnedCouponTest {
         @Test
         void returnsUsed_whenUsedAndExpired() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
-            var ownedCoupon = OwnedCoupon.create(coupon, 1L);
+            var coupon = Coupon.create(new CouponTerms("테스트 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
+            var ownedCoupon = OwnedCouponFixture.createOwnedCoupon(coupon, 1L);
             ownedCoupon.use();
             ReflectionTestUtils.setField(coupon, "expiredAt", PAST);
 

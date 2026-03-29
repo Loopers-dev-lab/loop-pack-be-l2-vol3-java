@@ -75,7 +75,6 @@ public class Order extends BaseEntity {
         order.userId = cart.userId();
         order.orderKey = orderKey;
         order.orderedAt = LocalDateTime.now();
-        order.status = OrderStatus.CREATED;
         orderItems.forEach(order::addItem);
         order.name = generateOrderName(order.orderItems);
         order.originalTotalPrice = Money.sum(order.orderItems, OrderItem::calculateSubtotal);
@@ -83,6 +82,45 @@ public class Order extends BaseEntity {
         order.totalPrice = order.originalTotalPrice.minus(order.discountAmount);
         order.ownedCouponId = ownedCouponId;
         return order;
+    }
+
+    public void place() {
+        this.status = OrderStatus.ORDERED;
+        registerEvent(OrderEvent.OrderPlaced.from(this));
+    }
+
+    public void pay() {
+        validatePayable();
+        this.status = OrderStatus.PAID;
+        registerEvent(OrderEvent.OrderCompleted.from(this));
+    }
+
+    public void fail() {
+        if (this.status != OrderStatus.ORDERED) {
+            throw new CoreException(ErrorType.ORDER_NOT_FAILABLE);
+        }
+        this.status = OrderStatus.FAILED;
+        registerEvent(OrderEvent.OrderFailed.from(this));
+    }
+
+    public void validateOwner(Long userId) {
+        if (!this.userId.equals(userId)) {
+            throw new CoreException(ErrorType.FORBIDDEN_ORDER_ACCESS);
+        }
+    }
+
+    public void validatePayable() {
+        if (this.status != OrderStatus.ORDERED) {
+            throw new CoreException(ErrorType.ORDER_NOT_PAYABLE);
+        }
+    }
+
+    private static String generateOrderName(List<OrderItem> orderItems) {
+        String firstName = orderItems.get(0).getProductName();
+        if (orderItems.size() == 1) {
+            return firstName;
+        }
+        return firstName + " 외 " + (orderItems.size() - 1) + "건";
     }
 
     private static void validateNoDuplicateProducts(List<OrderItem> orderItems) {
@@ -97,41 +135,5 @@ public class Order extends BaseEntity {
     private void addItem(OrderItem item) {
         orderItems.add(item);
         item.setOrder(this);
-    }
-
-    public void validatePayable() {
-        if (this.status != OrderStatus.CREATED) {
-            throw new CoreException(ErrorType.ORDER_NOT_PAYABLE);
-        }
-    }
-
-    public void pay() {
-        validatePayable();
-        this.status = OrderStatus.PAID;
-    }
-
-    public void fail() {
-        if (this.status != OrderStatus.CREATED) {
-            throw new CoreException(ErrorType.ORDER_NOT_FAILABLE);
-        }
-        this.status = OrderStatus.FAILED;
-    }
-
-    public boolean hasAppliedCoupon() {
-        return ownedCouponId != null;
-    }
-
-    public void validateOwner(Long userId) {
-        if (!this.userId.equals(userId)) {
-            throw new CoreException(ErrorType.FORBIDDEN_ORDER_ACCESS);
-        }
-    }
-
-    private static String generateOrderName(List<OrderItem> orderItems) {
-        String firstName = orderItems.get(0).getProductName();
-        if (orderItems.size() == 1) {
-            return firstName;
-        }
-        return firstName + " 외 " + (orderItems.size() - 1) + "건";
     }
 }

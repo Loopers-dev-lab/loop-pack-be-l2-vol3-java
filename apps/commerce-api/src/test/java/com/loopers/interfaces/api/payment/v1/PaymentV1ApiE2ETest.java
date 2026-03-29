@@ -7,7 +7,9 @@ import static com.loopers.interfaces.api.payment.v1.PaymentSteps.handlePaymentCa
 import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
 import static com.loopers.support.E2ETestHelper.assertErrorResponse;
 import static com.loopers.support.E2ETestHelper.userAuthHeaders;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.List;
@@ -226,11 +228,12 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         Payment payment = paymentRepository.findByTransactionKey("txn-success-001").orElseThrow();
-        Order order = orderRepository.findByOrderKeyWithItems(orderKey).orElseThrow();
-        assertAll(
-                () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS),
-                () -> assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID)
-        );
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+
+        await().atMost(5, SECONDS).untilAsserted(() -> {
+            Order order = orderRepository.findByOrderKeyWithItems(orderKey).orElseThrow();
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        });
     }
 
     @DisplayName("콜백: 결제 실패 콜백이 오면, Payment는 FAILED, Order는 FAILED가 되고 재고가 복원된다.")
@@ -248,14 +251,20 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         Payment payment = paymentRepository.findByTransactionKey("txn-fail-001").orElseThrow();
-        Order order = orderRepository.findByOrderKeyWithItems(orderKey).orElseThrow();
-        Product product = productRepository.findById(productId).orElseThrow();
         assertAll(
                 () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED),
-                () -> assertThat(payment.getReason()).isEqualTo("잔액 부족"),
-                () -> assertThat(order.getStatus()).isEqualTo(OrderStatus.FAILED),
-                () -> assertThat(product.getStock().getValue()).isEqualTo(INITIAL_STOCK)
+                () -> assertThat(payment.getReason()).isEqualTo("잔액 부족")
         );
+
+        // 비동기 이벤트 처리 대기 — 주문 실패 + 재고 복원
+        await().atMost(5, SECONDS).untilAsserted(() -> {
+            Order order = orderRepository.findByOrderKeyWithItems(orderKey).orElseThrow();
+            Product product = productRepository.findById(productId).orElseThrow();
+            assertAll(
+                    () -> assertThat(order.getStatus()).isEqualTo(OrderStatus.FAILED),
+                    () -> assertThat(product.getStock().getValue()).isEqualTo(INITIAL_STOCK)
+            );
+        });
     }
 
     @DisplayName("콜백: 이미 처리된 결제에 중복 콜백이 오면, 상태가 변경되지 않는다.")
@@ -265,6 +274,12 @@ class PaymentV1ApiE2ETest extends BaseE2ETest {
         pgStub.willRespondSuccess("txn-dup-001");
         createPayment(testRestTemplate, paymentRequest(), userHeaders);
         handlePaymentCallback(testRestTemplate, new PaymentDto.PaymentCallbackRequest("txn-dup-001", PaymentStatus.SUCCESS, null));
+
+        // 비동기 이벤트 처리 대기
+        await().atMost(5, SECONDS).untilAsserted(() -> {
+            Order order = orderRepository.findByOrderKeyWithItems(orderKey).orElseThrow();
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        });
 
         // act
         var response = handlePaymentCallback(

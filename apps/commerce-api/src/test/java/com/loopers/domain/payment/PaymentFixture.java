@@ -10,10 +10,16 @@ public class PaymentFixture {
                 return createReadyPayment();
             case PENDING:
                 return createPendingPayment();
+            case SUCCESS:
+                Payment successPayment = createPendingPayment();
+                successPayment.success("처리 완료");
+                return successPayment;
+            case FAILED:
+                Payment failedPayment = createPendingPayment();
+                failedPayment.fail("처리 완료");
+                return failedPayment;
             default:
-                Payment payment = createPendingPayment();
-                payment.update(status, "처리 완료");
-                return payment;
+                throw new IllegalArgumentException("지원하지 않는 결제 상태: " + status);
         }
     }
 

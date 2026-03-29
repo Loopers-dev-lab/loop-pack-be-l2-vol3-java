@@ -1,5 +1,9 @@
 package com.loopers.domain;
 
+import java.time.ZonedDateTime;
+
+import org.springframework.data.domain.AbstractAggregateRoot;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -8,7 +12,6 @@ import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import lombok.Getter;
-import java.time.ZonedDateTime;
 
 /**
  * 생성/수정/삭제 정보를 자동으로 관리해준다.
@@ -16,7 +19,7 @@ import java.time.ZonedDateTime;
  */
 @MappedSuperclass
 @Getter
-public abstract class BaseEntity {
+public abstract class BaseEntity extends AbstractAggregateRoot<BaseEntity> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

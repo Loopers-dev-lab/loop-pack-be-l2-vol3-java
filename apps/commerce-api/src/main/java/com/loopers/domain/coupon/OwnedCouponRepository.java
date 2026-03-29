@@ -1,5 +1,6 @@
 package com.loopers.domain.coupon;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
@@ -10,12 +11,6 @@ import org.springframework.data.domain.Slice;
  */
 public interface OwnedCouponRepository {
 
-    /**
-     * 보유 쿠폰을 저장한다.
-     *
-     * @param ownedCoupon 저장할 보유 쿠폰
-     * @return 저장된 보유 쿠폰
-     */
     OwnedCoupon save(OwnedCoupon ownedCoupon);
 
     /**
@@ -47,11 +42,18 @@ public interface OwnedCouponRepository {
     Slice<OwnedCoupon> findAllByUserId(Long userId, Pageable pageable);
 
     /**
-     * 특정 쿠폰이 사용자에게 이미 발급되었는지 확인한다.
+     * 특정 쿠폰의 발급 수를 조회한다.
      *
      * @param couponId 쿠폰 ID
-     * @param userId   사용자 ID
-     * @return 이미 발급되었으면 true
+     * @return 발급 수
      */
-    boolean existsByCouponIdAndUserId(Long couponId, Long userId);
+    long countByCouponId(Long couponId);
+
+    /**
+     * 특정 쿠폰을 발급받은 사용자 ID 목록을 조회한다.
+     *
+     * @param couponId 쿠폰 ID
+     * @return 사용자 ID 목록
+     */
+    List<Long> findUserIdsByCouponId(Long couponId);
 }

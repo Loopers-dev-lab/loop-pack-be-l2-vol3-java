@@ -49,6 +49,12 @@ public class Coupon extends BaseEntity {
     @Column(name = "expired_at", nullable = false)
     private ZonedDateTime expiredAt;
 
+    @Column(name = "total_quantity", nullable = false)
+    private int totalQuantity;
+
+    @Column(name = "issued_count", nullable = false)
+    private int issuedCount;
+
     public static Coupon create(CouponTerms terms) {
         validateType(terms.type());
         validateDiscountValue(terms.type(), terms.discountValue());
@@ -63,6 +69,7 @@ public class Coupon extends BaseEntity {
         coupon.maxDiscountPrice = Money.wonsOrNull(terms.maxDiscountPrice());
         coupon.minOrderPrice = Money.wons(terms.minOrderPrice());
         coupon.expiredAt = terms.expiredAt();
+        coupon.totalQuantity = terms.totalQuantity();
         return coupon;
     }
 
@@ -77,6 +84,10 @@ public class Coupon extends BaseEntity {
         this.maxDiscountPrice = Money.wonsOrNull(coupon.maxDiscountPrice());
         this.minOrderPrice = Money.wons(coupon.minOrderPrice());
         this.expiredAt = coupon.expiredAt();
+    }
+
+    public int remainingStock(long issuedCount) {
+        return Math.max(0, totalQuantity - (int) issuedCount);
     }
 
     public Money calculateDiscount(Money orderTotal, CouponDiscountProvider couponDiscountProvider) {

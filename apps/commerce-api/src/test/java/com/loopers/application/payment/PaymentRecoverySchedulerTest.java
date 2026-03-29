@@ -1,7 +1,6 @@
 package com.loopers.application.payment;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
@@ -42,9 +41,6 @@ class PaymentRecoverySchedulerTest {
 
     @Mock
     private HandlePaymentCallbackUseCase handlePaymentCallbackUseCase;
-
-    @Mock
-    private PaymentProcessor paymentProcessor;
 
     @Mock
     private OrderService orderService;
@@ -171,9 +167,9 @@ class PaymentRecoverySchedulerTest {
     @Nested
     class RecoverReadyPayments {
 
-        @DisplayName("PG에 SUCCESS 거래가 1건이면, PaymentProcessor에 복구를 위임한다.")
+        @DisplayName("PG에 SUCCESS 거래가 1건이면, 결제를 확정하고 성공 처리한다.")
         @Test
-        void delegatesToPaymentProcessor_whenSingleSuccessTransaction() {
+        void confirmsAndSucceeds_whenSingleSuccessTransaction() {
             // arrange
             Payment readyPayment = PaymentFixture.createReadyPayment();
             Order order = mock(Order.class);
@@ -191,14 +187,13 @@ class PaymentRecoverySchedulerTest {
             scheduler.recoverReadyPayments();
 
             // assert
-            then(paymentProcessor).should().recoverWithTransaction(
-                    readyPayment.getId(), "txn-recovered", PaymentStatus.SUCCESS, null
-            );
+            then(paymentService).should().confirmPayment(readyPayment.getId(), "txn-recovered");
+            then(paymentService).should().success(readyPayment.getId(), null);
         }
 
-        @DisplayName("PG에 거래가 없으면, PaymentProcessor에 실패 복구를 위임한다.")
+        @DisplayName("PG에 거래가 없으면, 결제를 실패 처리한다.")
         @Test
-        void delegatesToPaymentProcessor_whenNoTransactionInPg() {
+        void failsPayment_whenNoTransactionInPg() {
             // arrange
             Payment readyPayment = PaymentFixture.createReadyPayment();
             Order order = mock(Order.class);
@@ -213,14 +208,12 @@ class PaymentRecoverySchedulerTest {
             scheduler.recoverReadyPayments();
 
             // assert
-            then(paymentProcessor).should().recoverWithoutTransaction(
-                    readyPayment.getId(), "PG 결제 요청 타임아웃으로 거래 없음"
-            );
+            then(paymentService).should().fail(readyPayment.getId(), "PG 결제 요청 타임아웃으로 거래 없음");
         }
 
-        @DisplayName("PG에 거래가 모두 FAILED이면, PaymentProcessor에 실패 복구를 위임한다.")
+        @DisplayName("PG에 거래가 모두 FAILED이면, 결제를 실패 처리한다.")
         @Test
-        void delegatesToPaymentProcessor_whenAllTransactionsFailed() {
+        void failsPayment_whenAllTransactionsFailed() {
             // arrange
             Payment readyPayment = PaymentFixture.createReadyPayment();
             Order order = mock(Order.class);
@@ -238,9 +231,7 @@ class PaymentRecoverySchedulerTest {
             scheduler.recoverReadyPayments();
 
             // assert
-            then(paymentProcessor).should().recoverWithoutTransaction(
-                    readyPayment.getId(), "PG 결제 요청 타임아웃으로 거래 없음"
-            );
+            then(paymentService).should().fail(readyPayment.getId(), "PG 결제 요청 타임아웃으로 거래 없음");
         }
 
         @DisplayName("PG에 SUCCESS 거래가 2건 이상이면, 복구하지 않고 스킵한다.")
@@ -263,8 +254,9 @@ class PaymentRecoverySchedulerTest {
             scheduler.recoverReadyPayments();
 
             // assert
-            then(paymentProcessor).should(never()).recoverWithTransaction(any(), any(), any(), any());
-            then(paymentProcessor).should(never()).recoverWithoutTransaction(any(), any());
+            then(paymentService).should(never()).confirmPayment(any(), any());
+            then(paymentService).should(never()).success(any(), any());
+            then(paymentService).should(never()).fail(any(), any());
         }
 
         @DisplayName("PG 조회 중 예외가 발생하면, 해당 건을 스킵하고 나머지를 처리한다.")
@@ -287,7 +279,7 @@ class PaymentRecoverySchedulerTest {
             scheduler.recoverReadyPayments();
 
             // assert
-            then(paymentProcessor).should().recoverWithoutTransaction(
+            then(paymentService).should().fail(
                     successPayment.getId(), "PG 결제 요청 타임아웃으로 거래 없음"
             );
         }
@@ -303,8 +295,9 @@ class PaymentRecoverySchedulerTest {
 
             // assert
             then(paymentGateway).should(never()).getTransactionsByOrder(any(), any());
-            then(paymentProcessor).should(never()).recoverWithTransaction(any(), any(), any(), any());
-            then(paymentProcessor).should(never()).recoverWithoutTransaction(any(), any());
+            then(paymentService).should(never()).confirmPayment(any(), any());
+            then(paymentService).should(never()).success(any(), any());
+            then(paymentService).should(never()).fail(any(), any());
         }
     }
 }

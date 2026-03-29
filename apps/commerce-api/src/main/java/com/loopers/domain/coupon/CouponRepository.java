@@ -1,5 +1,6 @@
 package com.loopers.domain.coupon;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
@@ -41,4 +42,11 @@ public interface CouponRepository {
      * @return 쿠폰 슬라이스
      */
     Slice<Coupon> findAllBy(Pageable pageable);
+
+    /**
+     * 삭제되지 않고 만료되지 않은 활성 쿠폰 목록을 조회한다.
+     *
+     * @return 활성 쿠폰 목록
+     */
+    List<Coupon> findAllActive();
 }

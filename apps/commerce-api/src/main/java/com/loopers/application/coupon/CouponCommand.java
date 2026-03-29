@@ -14,11 +14,12 @@ public class CouponCommand {
             Long discountValue,
             Long maxDiscountPrice,
             Long minOrderPrice,
-            ZonedDateTime expiredAt
+            ZonedDateTime expiredAt,
+            int totalQuantity
     ) {
 
         public CouponTerms toCouponTerms() {
-            return new CouponTerms(name, type, discountValue, maxDiscountPrice, minOrderPrice, expiredAt);
+            return new CouponTerms(name, type, discountValue, maxDiscountPrice, minOrderPrice, expiredAt, totalQuantity);
         }
     }
 

@@ -18,6 +18,21 @@ public class CouponSteps {
     private static final String COUPON_ENDPOINT = "/api/v1/coupons";
     private static final String OWNED_COUPON_ENDPOINT = "/api/v1/owned-coupons";
 
+    public static ResponseEntity<ApiResponse<CouponDto.CouponIssueStatusResponse>> getCouponIssueStatus(
+            TestRestTemplate testRestTemplate,
+            Long couponId,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<CouponDto.CouponIssueStatusResponse>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                COUPON_ENDPOINT + "/" + couponId + "/issue-status",
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                responseType
+        );
+    }
+
     public static ResponseEntity<ApiResponse<Void>> issueCoupon(
             TestRestTemplate testRestTemplate,
             Long couponId,

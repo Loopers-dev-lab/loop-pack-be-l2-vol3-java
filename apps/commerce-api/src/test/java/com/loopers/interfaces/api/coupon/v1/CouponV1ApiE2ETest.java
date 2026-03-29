@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.coupon.v1;
 
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.createCoupon;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.deleteCoupon;
+import static com.loopers.interfaces.api.coupon.v1.CouponSteps.getCouponIssueStatus;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.issueCoupon;
 import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
 import static com.loopers.support.E2ETestHelper.adminAuthHeaders;
@@ -15,12 +16,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.test.util.ReflectionTestUtils;
 
-import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.coupon.CouponType;
 import com.loopers.interfaces.api.coupon.v1.CouponDto.CreateCouponRequest;
 import com.loopers.interfaces.api.user.v1.UserV1Dto;
@@ -28,9 +26,6 @@ import com.loopers.support.BaseE2ETest;
 import com.loopers.support.error.ErrorType;
 
 class CouponV1ApiE2ETest extends BaseE2ETest {
-
-    @Autowired
-    private CouponRepository couponRepository;
 
     private HttpHeaders userHeaders;
 
@@ -47,9 +42,9 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
     @Nested
     class IssueCoupon {
 
-        @DisplayName("유효한 쿠폰을 발급하면, 201 응답을 받는다.")
+        @DisplayName("유효한 쿠폰을 발급하면, 202 응답을 받는다.")
         @Test
-        void returns201_whenValidCouponIssued() {
+        void returns202_whenValidCouponIssued() {
             // arrange
             var request = new CreateCouponRequest(
                     "테스트 쿠폰",
@@ -57,7 +52,8 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
                     5000L,
                     null,
                     10000L,
-                    ZonedDateTime.now().plusDays(30)
+                    ZonedDateTime.now().plusDays(30),
+                    10000
             );
             var couponId = createCoupon(testRestTemplate, request);
 
@@ -65,22 +61,22 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
             var response = issueCoupon(testRestTemplate, couponId, userHeaders);
 
             // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
         }
 
-        @DisplayName("존재하지 않는 쿠폰을 발급하면, 404 응답을 받는다.")
+        @DisplayName("존재하지 않는 쿠폰을 발급하면, 503 응답을 받는다.")
         @Test
-        void returns404_whenCouponNotFound() {
+        void returns503_whenCouponNotInitialized() {
             // act
             var response = issueCoupon(testRestTemplate, 999L, userHeaders);
 
             // assert
-            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.COUPON_NOT_FOUND);
+            assertErrorResponse(response, HttpStatus.SERVICE_UNAVAILABLE, ErrorType.SERVICE_UNAVAILABLE);
         }
 
-        @DisplayName("삭제된 쿠폰을 발급하면, 404 응답을 받는다.")
+        @DisplayName("삭제된 쿠폰을 발급하면, Redis에 재고가 남아있으므로 202 응답을 받는다. (삭제 검증은 Consumer에서 처리)")
         @Test
-        void returns404_whenCouponIsDeleted() {
+        void returns202_whenCouponIsDeleted() {
             // arrange
             var request = new CreateCouponRequest(
                     "테스트 쿠폰",
@@ -88,7 +84,8 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
                     5000L,
                     null,
                     10000L,
-                    ZonedDateTime.now().plusDays(30)
+                    ZonedDateTime.now().plusDays(30),
+                    10000
             );
             var couponId = createCoupon(testRestTemplate, request);
             deleteCoupon(testRestTemplate, couponId, adminAuthHeaders());
@@ -96,32 +93,8 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
             // act
             var response = issueCoupon(testRestTemplate, couponId, userHeaders);
 
-            // assert
-            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.COUPON_NOT_FOUND);
-        }
-
-        @DisplayName("만료된 쿠폰을 발급하면, 400 응답을 받는다.")
-        @Test
-        void returns400_whenCouponIsExpired() {
-            // arrange
-            var request = new CreateCouponRequest(
-                    "테스트 쿠폰",
-                    CouponType.FIXED,
-                    5000L,
-                    null,
-                    10000L,
-                    ZonedDateTime.now().plusDays(30)
-            );
-            var couponId = createCoupon(testRestTemplate, request);
-            var coupon = couponRepository.findById(couponId).orElseThrow();
-            ReflectionTestUtils.setField(coupon, "expiredAt", ZonedDateTime.now().minusDays(1));
-            couponRepository.save(coupon);
-
-            // act
-            var response = issueCoupon(testRestTemplate, couponId, userHeaders);
-
-            // assert
-            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.EXPIRED_COUPON);
+            // assert — Phase 4에서는 Redis만 검증하므로 삭제된 쿠폰도 발급 수락됨
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
         }
 
         @DisplayName("이미 발급받은 쿠폰을 중복 발급하면, 400 응답을 받는다.")
@@ -134,7 +107,8 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
                     5000L,
                     null,
                     10000L,
-                    ZonedDateTime.now().plusDays(30)
+                    ZonedDateTime.now().plusDays(30),
+                    10000
             );
             var couponId = createCoupon(testRestTemplate, request);
             issueCoupon(testRestTemplate, couponId, userHeaders);
@@ -156,12 +130,62 @@ class CouponV1ApiE2ETest extends BaseE2ETest {
                     5000L,
                     null,
                     10000L,
-                    ZonedDateTime.now().plusDays(30)
+                    ZonedDateTime.now().plusDays(30),
+                    10000
             );
             var couponId = createCoupon(testRestTemplate, request);
 
             // act
             var response = issueCoupon(testRestTemplate, couponId, new HttpHeaders());
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+    }
+
+    @DisplayName("GET /api/v1/coupons/{couponId}/issue-status")
+    @Nested
+    class GetCouponIssueStatus {
+
+        @DisplayName("쿠폰 발급 후 상태를 조회하면, PENDING 상태를 반환한다.")
+        @Test
+        void returnsPending_afterCouponIssued() {
+            // arrange
+            var request = new CreateCouponRequest(
+                    "테스트 쿠폰",
+                    CouponType.FIXED,
+                    5000L,
+                    null,
+                    10000L,
+                    ZonedDateTime.now().plusDays(30),
+                    10000
+            );
+            var couponId = createCoupon(testRestTemplate, request);
+            issueCoupon(testRestTemplate, couponId, userHeaders);
+
+            // act
+            var response = getCouponIssueStatus(testRestTemplate, couponId, userHeaders);
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody().data().status()).isEqualTo("PENDING");
+        }
+
+        @DisplayName("발급 요청 없이 상태를 조회하면, 404 응답을 받는다.")
+        @Test
+        void returns404_whenNoIssueRequest() {
+            // act
+            var response = getCouponIssueStatus(testRestTemplate, 999L, userHeaders);
+
+            // assert
+            assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.COUPON_ISSUE_STATUS_NOT_FOUND);
+        }
+
+        @DisplayName("인증되지 않은 사용자가 조회하면, 401 응답을 받는다.")
+        @Test
+        void returns401_whenNotAuthenticated() {
+            // act
+            var response = getCouponIssueStatus(testRestTemplate, 1L, new HttpHeaders());
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);

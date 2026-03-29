@@ -12,7 +12,9 @@ import lombok.RequiredArgsConstructor;
 /**
  * PG로부터 수신한 결제 콜백을 처리한다.
  *
- * <p>결제 성공 시 결제 상태 변경, 주문 완료, 쿠폰 사용 처리를 하나의 트랜잭션으로 수행한다.
+ * <p>결제 상태를 변경하고, 결제 결과에 따라 주문 상태를 변경한다.
+ * 결제 실패 시 재고/쿠폰 복원은 {@link com.loopers.domain.order.OrderEvent.OrderFailed}
+ * 이벤트를 통해 비동기로 처리된다.
  * 이미 처리된 결제는 멱등성을 위해 무시한다.</p>
  */
 @UseCase
@@ -20,7 +22,6 @@ import lombok.RequiredArgsConstructor;
 public class HandlePaymentCallbackUseCase {
 
     private final PaymentService paymentService;
-    private final PaymentProcessor paymentProcessor;
 
     /**
      * @param command 결제 콜백 커맨드 (transactionKey, status, reason)
@@ -34,11 +35,9 @@ public class HandlePaymentCallbackUseCase {
             return;
         }
 
-        payment.update(command.status(), command.reason());
-
         switch (command.status()) {
-            case SUCCESS -> paymentProcessor.handleSuccess(payment.getOrderId());
-            case FAILED -> paymentProcessor.handleFailure(payment.getOrderId());
+            case SUCCESS -> paymentService.success(payment.getId(), command.reason());
+            case FAILED -> paymentService.fail(payment.getId(), command.reason());
         }
     }
 }

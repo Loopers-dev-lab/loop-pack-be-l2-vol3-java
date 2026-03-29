@@ -13,6 +13,8 @@ public record CouponResult(
         Long maxDiscountPrice,
         Long minOrderPrice,
         ZonedDateTime expiredAt,
+        int totalQuantity,
+        int issuedCount,
         ZonedDateTime createdAt,
         ZonedDateTime deletedAt
 ) {
@@ -26,6 +28,8 @@ public record CouponResult(
                 coupon.getMaxDiscountPriceAmount(),
                 coupon.getMinOrderPrice().getAmount(),
                 coupon.getExpiredAt(),
+                coupon.getTotalQuantity(),
+                coupon.getIssuedCount(),
                 coupon.getCreatedAt(),
                 coupon.getDeletedAt()
         );

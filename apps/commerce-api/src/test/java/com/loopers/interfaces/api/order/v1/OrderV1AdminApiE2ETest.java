@@ -172,7 +172,7 @@ class OrderV1AdminApiE2ETest extends BaseE2ETest {
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().content()).hasSize(1),
-                    () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo(OrderStatus.CREATED)
+                    () -> assertThat(response.getBody().data().content().get(0).status()).isEqualTo(OrderStatus.ORDERED)
             );
         }
     }

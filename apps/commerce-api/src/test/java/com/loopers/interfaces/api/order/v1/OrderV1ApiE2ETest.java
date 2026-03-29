@@ -29,6 +29,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import com.loopers.domain.coupon.CouponRepository;
+import com.loopers.domain.coupon.OwnedCoupon;
+import com.loopers.domain.coupon.OwnedCouponFixture;
 import com.loopers.domain.coupon.OwnedCouponRepository;
 import com.loopers.interfaces.api.brand.v1.BrandDto;
 import com.loopers.interfaces.api.brand.v1.BrandSteps;
@@ -41,6 +44,9 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
 
     @Autowired
     private OwnedCouponRepository ownedCouponRepository;
+
+    @Autowired
+    private CouponRepository couponRepository;
 
     private HttpHeaders userHeaders;
     private Long productId;
@@ -91,11 +97,11 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         void createsOrderWithCouponDiscount() {
             // arrange
             var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
-                    "5000원 할인", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)
+                    "5000원 할인", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 10000
             ));
-            issueCoupon(testRestTemplate, couponId, userHeaders);
-            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, Pageable.ofSize(1))
-                    .getContent().get(0).getId();
+            // Phase 4: 쿠폰 발급이 비동기(Kafka)로 전환되어, 테스트 데이터 셋업은 서비스 직접 호출
+            var coupon = couponRepository.findById(couponId).orElseThrow();
+            var ownedCouponId = ownedCouponRepository.save(OwnedCouponFixture.createOwnedCoupon(coupon, 1L)).getId();
 
             var request = new OrderDto.CreateOrderRequest(
                     List.of(new OrderDto.OrderItemRequest(productId, 2L)),
@@ -160,14 +166,13 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         void failsOrder_whenCouponBelongsToOtherUser() {
             // arrange
             var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
-                    "할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30)
+                    "할인 쿠폰", CouponType.FIXED, 5000L, null, 10000L, ZonedDateTime.now().plusDays(30), 10000
             ));
 
             signUp(testRestTemplate, new UserV1Dto.SignUpRequest("otheruser2", "Password1!", "다른유저", "1990-01-01", "other2@test.com"));
-            var otherHeaders = userAuthHeaders("otheruser2", "Password1!");
-            issueCoupon(testRestTemplate, couponId, otherHeaders);
-            var otherOwnedCouponId = ownedCouponRepository.findAllByUserId(2L, Pageable.ofSize(1))
-                    .getContent().get(0).getId();
+            // Phase 4: 쿠폰 발급이 비동기(Kafka)로 전환되어, 테스트 데이터 셋업은 서비스 직접 호출
+            var coupon = couponRepository.findById(couponId).orElseThrow();
+            var otherOwnedCouponId = ownedCouponRepository.save(OwnedCouponFixture.createOwnedCoupon(coupon, 2L)).getId();
 
             var request = new OrderDto.CreateOrderRequest(
                     List.of(new OrderDto.OrderItemRequest(productId, 2L)),
@@ -186,11 +191,11 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
         void failsOrder_whenMinOrderPriceNotMet() {
             // arrange
             var couponId = createCoupon(testRestTemplate, new CouponDto.CreateCouponRequest(
-                    "할인 쿠폰", CouponType.FIXED, 5000L, null, 50000L, ZonedDateTime.now().plusDays(30)
+                    "할인 쿠폰", CouponType.FIXED, 5000L, null, 50000L, ZonedDateTime.now().plusDays(30), 10000
             ));
-            issueCoupon(testRestTemplate, couponId, userHeaders);
-            var ownedCouponId = ownedCouponRepository.findAllByUserId(1L, Pageable.ofSize(1))
-                    .getContent().get(0).getId();
+            // Phase 4: 쿠폰 발급이 비동기(Kafka)로 전환되어, 테스트 데이터 셋업은 서비스 직접 호출
+            var coupon = couponRepository.findById(couponId).orElseThrow();
+            var ownedCouponId = ownedCouponRepository.save(OwnedCouponFixture.createOwnedCoupon(coupon, 1L)).getId();
 
             // 상품 10000원 × 2 = 20000원 < 50000원
             var request = new OrderDto.CreateOrderRequest(

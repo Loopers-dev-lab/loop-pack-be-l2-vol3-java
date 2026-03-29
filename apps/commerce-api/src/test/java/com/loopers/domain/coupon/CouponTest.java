@@ -33,7 +33,7 @@ class CouponTest {
         @Test
         void createsFixedCoupon_whenAllValuesAreValid() {
             // arrange & act
-            var coupon = Coupon.create(new CouponTerms("여름 할인", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("여름 할인", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
 
             // assert
             assertAll(
@@ -50,7 +50,7 @@ class CouponTest {
         @Test
         void createsRateCoupon_whenAllValuesAreValid() {
             // arrange & act
-            var coupon = Coupon.create(new CouponTerms("10% 할인", CouponType.RATE, 10L, 5000L, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("10% 할인", CouponType.RATE, 10L, 5000L, 10000L, FUTURE, 10000));
 
             // assert
             assertAll(
@@ -67,7 +67,7 @@ class CouponTest {
         @Test
         void createsFixedCoupon_whenDiscountValueIsMinBoundary() {
             // arrange & act
-            var coupon = Coupon.create(new CouponTerms("쿠폰명입니다", CouponType.FIXED, 1L, null, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("쿠폰명입니다", CouponType.FIXED, 1L, null, 10000L, FUTURE, 10000));
 
             // assert
             assertThat(coupon.getDiscountValue()).isEqualTo(1L);
@@ -78,7 +78,7 @@ class CouponTest {
         @ValueSource(longs = {1, 100})
         void createsRateCoupon_whenDiscountValueIsAtBoundary(long discountValue) {
             // arrange & act
-            var coupon = Coupon.create(new CouponTerms("쿠폰명입니다", CouponType.RATE, discountValue, 5000L, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("쿠폰명입니다", CouponType.RATE, discountValue, 5000L, 10000L, FUTURE, 10000));
 
             // assert
             assertThat(coupon.getDiscountValue()).isEqualTo(discountValue);
@@ -88,7 +88,7 @@ class CouponTest {
         @Test
         void createsCoupon_whenMinOrderAmountIsZero() {
             // arrange & act
-            var coupon = Coupon.create(new CouponTerms("쿠폰명입니다", CouponType.FIXED, 5000L, null, 0L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("쿠폰명입니다", CouponType.FIXED, 5000L, null, 0L, FUTURE, 10000));
 
             // assert
             assertThat(coupon.getMinOrderPrice()).isEqualTo(Money.ZERO);
@@ -97,7 +97,7 @@ class CouponTest {
         @DisplayName("쿠폰 유형이 null이면, REQUIRED_COUPON_TYPE 예외가 발생한다.")
         @Test
         void throwsException_whenTypeIsNull() {
-            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", null, 5000L, null, 10000L, FUTURE)))
+            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", null, 5000L, null, 10000L, FUTURE, 10000)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.REQUIRED_COUPON_TYPE));
         }
@@ -105,7 +105,7 @@ class CouponTest {
         @DisplayName("할인값이 null이면, REQUIRED_DISCOUNT_VALUE 예외가 발생한다.")
         @Test
         void throwsException_whenDiscountValueIsNull() {
-            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, null, null, 10000L, FUTURE)))
+            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, null, null, 10000L, FUTURE, 10000)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.REQUIRED_DISCOUNT_VALUE));
         }
@@ -113,7 +113,7 @@ class CouponTest {
         @DisplayName("정액 할인값이 1 미만이면, INVALID_DISCOUNT_VALUE 예외가 발생한다.")
         @Test
         void throwsException_whenFixedDiscountValueIsLessThanOne() {
-            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 0L, null, 10000L, FUTURE)))
+            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 0L, null, 10000L, FUTURE, 10000)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_DISCOUNT_VALUE));
         }
@@ -121,7 +121,7 @@ class CouponTest {
         @DisplayName("정률 할인값이 1 미만이면, INVALID_DISCOUNT_VALUE 예외가 발생한다.")
         @Test
         void throwsException_whenRateDiscountValueIsLessThanOne() {
-            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.RATE, 0L, 5000L, 10000L, FUTURE)))
+            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.RATE, 0L, 5000L, 10000L, FUTURE, 10000)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_DISCOUNT_VALUE));
         }
@@ -129,7 +129,7 @@ class CouponTest {
         @DisplayName("정률 할인값이 100 초과이면, INVALID_RATE_DISCOUNT_VALUE 예외가 발생한다.")
         @Test
         void throwsException_whenRateDiscountValueIsGreaterThan100() {
-            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.RATE, 101L, 5000L, 10000L, FUTURE)))
+            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.RATE, 101L, 5000L, 10000L, FUTURE, 10000)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_RATE_DISCOUNT_VALUE));
         }
@@ -137,7 +137,7 @@ class CouponTest {
         @DisplayName("정률 쿠폰의 최대 할인 금액이 null이면, REQUIRED_MAX_DISCOUNT_AMOUNT 예외가 발생한다.")
         @Test
         void throwsException_whenRateCouponMaxDiscountAmountIsNull() {
-            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.RATE, 10L, null, 10000L, FUTURE)))
+            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.RATE, 10L, null, 10000L, FUTURE, 10000)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.REQUIRED_MAX_DISCOUNT_AMOUNT));
         }
@@ -145,7 +145,7 @@ class CouponTest {
         @DisplayName("최소 주문 금액이 null이면, REQUIRED_MIN_ORDER_PRICE 예외가 발생한다.")
         @Test
         void throwsException_whenMinOrderPriceIsNull() {
-            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, null, FUTURE)))
+            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, null, FUTURE, 10000)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.REQUIRED_MIN_ORDER_PRICE));
         }
@@ -153,7 +153,7 @@ class CouponTest {
         @DisplayName("만료일이 null이면, REQUIRED_EXPIRED_AT 예외가 발생한다.")
         @Test
         void throwsException_whenExpiredAtIsNull() {
-            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, null)))
+            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, null, 10000)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.REQUIRED_EXPIRED_AT));
         }
@@ -165,9 +165,44 @@ class CouponTest {
             var pastDate = ZonedDateTime.now().minusDays(1);
 
             // act & assert
-            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, pastDate)))
+            assertThatThrownBy(() -> Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, pastDate, 10000)))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.INVALID_EXPIRED_AT));
+        }
+    }
+
+    @DisplayName("잔여 수량을 계산할 때,")
+    @Nested
+    class RemainingStock {
+
+        @DisplayName("발급 수가 총 수량보다 적으면, 차이를 반환한다.")
+        @Test
+        void returnsRemaining_whenNotFullyIssued() {
+            // arrange
+            var coupon = Coupon.create(new CouponTerms("쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 100));
+
+            // act & assert
+            assertThat(coupon.remainingStock(30)).isEqualTo(70);
+        }
+
+        @DisplayName("발급 수가 총 수량과 같으면, 0을 반환한다.")
+        @Test
+        void returnsZero_whenFullyIssued() {
+            // arrange
+            var coupon = Coupon.create(new CouponTerms("쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 100));
+
+            // act & assert
+            assertThat(coupon.remainingStock(100)).isEqualTo(0);
+        }
+
+        @DisplayName("발급 수가 총 수량을 초과하면, 0을 반환한다.")
+        @Test
+        void returnsZero_whenOverIssued() {
+            // arrange
+            var coupon = Coupon.create(new CouponTerms("쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 100));
+
+            // act & assert
+            assertThat(coupon.remainingStock(110)).isEqualTo(0);
         }
     }
 
@@ -179,7 +214,7 @@ class CouponTest {
         @Test
         void returnsFalse_whenNotExpired() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
 
             // act & assert
             assertThat(coupon.isExpired()).isFalse();
@@ -189,7 +224,7 @@ class CouponTest {
         @Test
         void returnsTrue_whenExpired() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
             ReflectionTestUtils.setField(coupon, "expiredAt", ZonedDateTime.now().minusDays(1));
 
             // act & assert
@@ -205,7 +240,7 @@ class CouponTest {
         @Test
         void doesNotThrow_whenOrderTotalMeetsMinPrice() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
 
             // act & assert
             assertThatCode(() -> coupon.validateMinOrderPrice(Money.wons(10000L)))
@@ -216,7 +251,7 @@ class CouponTest {
         @Test
         void throwsException_whenOrderTotalIsLessThanMinPrice() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
 
             // act & assert
             assertThatThrownBy(() -> coupon.validateMinOrderPrice(Money.wons(9999L)))
@@ -233,7 +268,7 @@ class CouponTest {
         @Test
         void updatesFixedCoupon_whenAllValuesAreValid() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
             var newExpiredAt = ZonedDateTime.now().plusDays(60);
 
             // act
@@ -254,7 +289,7 @@ class CouponTest {
         @Test
         void updatesRateCoupon_whenAllValuesAreValid() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("기존 쿠폰", CouponType.RATE, 10L, 5000L, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("기존 쿠폰", CouponType.RATE, 10L, 5000L, 10000L, FUTURE, 10000));
             var newExpiredAt = ZonedDateTime.now().plusDays(60);
 
             // act
@@ -275,7 +310,7 @@ class CouponTest {
         @Test
         void updatesDeletedCoupon_whenAllValuesAreValid() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("기존 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
             coupon.delete();
             var newExpiredAt = ZonedDateTime.now().plusDays(60);
 
@@ -294,7 +329,7 @@ class CouponTest {
         @Test
         void throwsException_whenDiscountValueIsLessThanOne() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
 
             // act & assert
             assertThatThrownBy(() -> coupon.update(new ModifyCoupon(null,"수정 쿠폰", 0L, null, 10000L, FUTURE)))
@@ -306,7 +341,7 @@ class CouponTest {
         @Test
         void throwsException_whenRateCouponMaxDiscountAmountIsNull() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("쿠폰명", CouponType.RATE, 10L, 5000L, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("쿠폰명", CouponType.RATE, 10L, 5000L, 10000L, FUTURE, 10000));
 
             // act & assert
             assertThatThrownBy(() -> coupon.update(new ModifyCoupon(null,"수정 쿠폰", 20L, null, 10000L, FUTURE)))
@@ -318,7 +353,7 @@ class CouponTest {
         @Test
         void throwsException_whenExpiredAtIsInThePast() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("쿠폰명", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
             var pastDate = ZonedDateTime.now().minusDays(1);
 
             // act & assert
@@ -339,7 +374,7 @@ class CouponTest {
         @Test
         void returnsFixedDiscount() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("정액 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("정액 쿠폰", CouponType.FIXED, 5000L, null, 10000L, FUTURE, 10000));
 
             // act
             var discount = coupon.calculateDiscount(Money.wons(20000L), couponDiscountProvider);
@@ -352,7 +387,7 @@ class CouponTest {
         @Test
         void returnsRateDiscount() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("정률 쿠폰", CouponType.RATE, 10L, 5000L, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("정률 쿠폰", CouponType.RATE, 10L, 5000L, 10000L, FUTURE, 10000));
 
             // act
             var discount = coupon.calculateDiscount(Money.wons(30000L), couponDiscountProvider);
@@ -365,7 +400,7 @@ class CouponTest {
         @Test
         void returnsMaxDiscountPrice_whenRateDiscountExceeds() {
             // arrange
-            var coupon = Coupon.create(new CouponTerms("정률 쿠폰", CouponType.RATE, 50L, 10000L, 10000L, FUTURE));
+            var coupon = Coupon.create(new CouponTerms("정률 쿠폰", CouponType.RATE, 50L, 10000L, 10000L, FUTURE, 10000));
 
             // act
             var discount = coupon.calculateDiscount(Money.wons(100000L), couponDiscountProvider);

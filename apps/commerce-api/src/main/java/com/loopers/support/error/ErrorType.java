@@ -13,6 +13,7 @@ public enum ErrorType {
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, HttpStatus.UNAUTHORIZED.getReasonPhrase(), "로그인을 해주세요."),
     NOT_FOUND(HttpStatus.NOT_FOUND, HttpStatus.NOT_FOUND.getReasonPhrase(), "존재하지 않는 요청입니다."),
     CONFLICT(HttpStatus.CONFLICT, HttpStatus.CONFLICT.getReasonPhrase(), "이미 존재하는 리소스입니다."),
+    SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(), "일시적으로 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해주세요."),
 
     /** 공용 도메인 에러 */
     REQUIRED_MONEY_AMOUNT(HttpStatus.BAD_REQUEST, "REQUIRED_MONEY_AMOUNT", "금액은 필수 값입니다."),
@@ -81,12 +82,14 @@ public enum ErrorType {
     REQUIRED_EXPIRED_AT(HttpStatus.BAD_REQUEST, "REQUIRED_EXPIRED_AT", "만료일은 필수 값입니다."),
     INVALID_EXPIRED_AT(HttpStatus.BAD_REQUEST, "INVALID_EXPIRED_AT", "만료일은 현재 시점 이후여야 합니다."),
     EXPIRED_COUPON(HttpStatus.BAD_REQUEST, "EXPIRED_COUPON", "만료된 쿠폰은 발급할 수 없습니다."),
+    COUPON_SOLD_OUT(HttpStatus.BAD_REQUEST, "COUPON_SOLD_OUT", "쿠폰이 모두 소진되었습니다."),
     ALREADY_COUPON_ISSUED(HttpStatus.BAD_REQUEST, "ALREADY_COUPON_ISSUED", "이미 발급받은 쿠폰입니다."),
     ALREADY_USED_COUPON(HttpStatus.BAD_REQUEST, "ALREADY_USED_COUPON", "이미 사용된 쿠폰입니다."),
     COUPON_MIN_ORDER_PRICE_NOT_MET(HttpStatus.BAD_REQUEST, "COUPON_MIN_ORDER_PRICE_NOT_MET", "쿠폰의 최소 주문 금액을 충족하지 못했습니다."),
     FORBIDDEN_COUPON_ACCESS(HttpStatus.FORBIDDEN, "FORBIDDEN_COUPON_ACCESS", "접근 권한이 없는 쿠폰입니다."),
     COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND", "쿠폰을 찾을 수 없습니다."),
     OWNED_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "OWNED_COUPON_NOT_FOUND", "보유 쿠폰을 찾을 수 없습니다."),
+    COUPON_ISSUE_STATUS_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_ISSUE_STATUS_NOT_FOUND", "쿠폰 발급 상태를 찾을 수 없습니다."),
 
     /** Payment 도메인 에러 */
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND", "결제를 찾을 수 없습니다."),

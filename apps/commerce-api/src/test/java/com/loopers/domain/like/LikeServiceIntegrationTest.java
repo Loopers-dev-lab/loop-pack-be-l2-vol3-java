@@ -38,7 +38,7 @@ class LikeServiceIntegrationTest extends BaseIntegrationTest {
     @Nested
     class LikeMethod {
 
-        @DisplayName("유효한 요청이면, 좋아요가 저장되고 true를 반환한다.")
+        @DisplayName("유효한 요청이면, 좋아요가 저장된다.")
         @Test
         void savesLikeToDatabase_whenValidInputProvided() {
             // arrange
@@ -46,31 +46,25 @@ class LikeServiceIntegrationTest extends BaseIntegrationTest {
             var userId = 1L;
 
             // act
-            boolean result = likeService.like(userId, productId);
+            likeService.like(userId, productId);
 
             // assert
-            assertAll(
-                    () -> assertThat(result).isTrue(),
-                    () -> assertThat(likeJpaRepository.count()).isEqualTo(1)
-            );
+            assertThat(likeJpaRepository.count()).isEqualTo(1);
         }
 
-        @DisplayName("이미 좋아요가 존재하면, false를 반환하고 좋아요는 1개만 유지된다. (멱등성)")
+        @DisplayName("이미 좋아요가 존재하면, 좋아요는 1개만 유지된다. (멱등성)")
         @Test
-        void returnsFalse_whenLikeAlreadyExists() {
+        void keepsOnlyOneLike_whenLikeAlreadyExists() {
             // arrange
             var productId = createProduct(brandId);
             var userId = 1L;
             likeService.like(userId, productId);
 
             // act
-            boolean result = likeService.like(userId, productId);
+            likeService.like(userId, productId);
 
             // assert
-            assertAll(
-                    () -> assertThat(result).isFalse(),
-                    () -> assertThat(likeJpaRepository.count()).isEqualTo(1)
-            );
+            assertThat(likeJpaRepository.count()).isEqualTo(1);
         }
 
         @DisplayName("동일한 사용자가 동시에 좋아요를 요청하면, 하나만 성공하고 좋아요는 1개만 생성된다.")
@@ -221,7 +215,7 @@ class LikeServiceIntegrationTest extends BaseIntegrationTest {
     @Nested
     class UnlikeMethod {
 
-        @DisplayName("유효한 요청이면, 좋아요가 삭제되고 true를 반환한다.")
+        @DisplayName("유효한 요청이면, 좋아요가 삭제된다.")
         @Test
         void deletesLikeFromDatabase_whenValidInputProvided() {
             // arrange
@@ -230,27 +224,22 @@ class LikeServiceIntegrationTest extends BaseIntegrationTest {
             likeService.like(userId, productId);
 
             // act
-            boolean result = likeService.unlike(userId, productId);
+            likeService.unlike(userId, productId);
 
             // assert
-            assertAll(
-                    () -> assertThat(result).isTrue(),
-                    () -> assertThat(likeJpaRepository.count()).isZero()
-            );
+            assertThat(likeJpaRepository.count()).isZero();
         }
 
-        @DisplayName("좋아요가 존재하지 않으면, false를 반환한다. (멱등성)")
+        @DisplayName("좋아요가 존재하지 않으면, 아무 동작도 하지 않는다. (멱등성)")
         @Test
-        void returnsFalse_whenLikeDoesNotExist() {
+        void doesNothing_whenLikeDoesNotExist() {
             // arrange
             var productId = createProduct(brandId);
             var userId = 1L;
 
-            // act
-            boolean result = likeService.unlike(userId, productId);
-
-            // assert
-            assertThat(result).isFalse();
+            // act & assert
+            assertThatCode(() -> likeService.unlike(userId, productId))
+                    .doesNotThrowAnyException();
         }
     }
 

@@ -7,7 +7,9 @@ import static com.loopers.interfaces.api.product.v1.ProductSteps.getActiveProduc
 import static com.loopers.interfaces.api.user.v1.UserSteps.signUp;
 import static com.loopers.support.E2ETestHelper.assertErrorResponse;
 import static com.loopers.support.E2ETestHelper.userAuthHeaders;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -76,9 +78,11 @@ class LikeV1ApiE2ETest extends BaseE2ETest {
             // act
             likeProduct(testRestTemplate, productId, userHeaders);
 
-            // assert
-            var productResponse = getActiveProduct(testRestTemplate, productId, userHeaders);
-            assertThat(productResponse.getBody().data().likeCount()).isEqualTo(1L);
+            // assert — 비동기 이벤트 처리 대기
+            await().atMost(5, SECONDS).untilAsserted(() -> {
+                var productResponse = getActiveProduct(testRestTemplate, productId, userHeaders);
+                assertThat(productResponse.getBody().data().likeCount()).isEqualTo(1L);
+            });
         }
 
         @DisplayName("존재하지 않는 상품이면, 404 PRODUCT_NOT_FOUND 에러 응답을 받는다.")
