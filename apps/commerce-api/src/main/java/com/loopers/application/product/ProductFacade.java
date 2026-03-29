@@ -12,6 +12,8 @@ import com.loopers.domain.product.ProductSortOrder;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class ProductFacade {
+
+    private static final Logger log = LoggerFactory.getLogger(ProductFacade.class);
 
     private final ProductService productService;
     private final BrandService brandService;
@@ -72,7 +76,7 @@ public class ProductFacade {
     public Optional<ProductDetailInfo> getProductDetail(Long productId) {
         Optional<ProductDetailInfo> cached = productCacheService.getDetail(productId);
         if (cached.isPresent()) {
-            productViewOutboxRecorder.recordProductViewed(productId);
+            recordProductViewOutboxSafely(productId);
             return cached;
         }
         Optional<ProductModel> productOpt = productService.findByIdAndNotDeleted(productId);
@@ -94,8 +98,16 @@ public class ProductFacade {
                 product.getStockQuantity(),
                 likeCount);
         productCacheService.putDetail(productId, info);
-        productViewOutboxRecorder.recordProductViewed(productId);
+        recordProductViewOutboxSafely(productId);
         return Optional.of(info);
+    }
+
+    private void recordProductViewOutboxSafely(Long productId) {
+        try {
+            productViewOutboxRecorder.recordProductViewed(productId);
+        } catch (Exception e) {
+            log.warn("상품 조회 Outbox 기록 실패 productId={}", productId, e);
+        }
     }
 
     @Transactional(readOnly = true)

@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -116,6 +117,25 @@ class ProductFacadeTest {
             verify(productService).findByIdAndNotDeleted(PRODUCT_ID);
             verify(brandService).findByIdAndNotDeleted(BRAND_ID);
             verify(likeService).getLikeCountFromStats(PRODUCT_ID);
+            verify(productViewOutboxRecorder).recordProductViewed(PRODUCT_ID);
+        }
+
+        @Test
+        @DisplayName("조회 Outbox 기록이 실패해도 상세 응답은 유지한다.")
+        void getProductDetail_whenOutboxRecordFails_shouldStillReturnDetail() {
+            when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.empty());
+            ProductModel product = ProductModel.create(BRAND_ID, PRODUCT_NAME, Money.of(PRICE),
+                    StockQuantity.of(STOCK_QUANTITY));
+            BrandModel brand = BrandModel.create(BRAND_NAME);
+            when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.of(product));
+            when(brandService.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.of(brand));
+            when(likeService.getLikeCountFromStats(PRODUCT_ID)).thenReturn(LIKE_COUNT);
+            doThrow(new RuntimeException("outbox unavailable")).when(productViewOutboxRecorder)
+                    .recordProductViewed(PRODUCT_ID);
+
+            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID);
+
+            assertThat(result).isPresent();
             verify(productViewOutboxRecorder).recordProductViewed(PRODUCT_ID);
         }
 
