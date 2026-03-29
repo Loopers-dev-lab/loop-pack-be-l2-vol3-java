@@ -9,8 +9,12 @@ import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.outbox.DomainEventTypes;
 import com.loopers.domain.product.ProductValidationRequest;
 import com.loopers.domain.product.Quantity;
+import com.loopers.infrastructure.outbox.OutboxJpaRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -22,8 +26,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -52,6 +62,10 @@ class PaymentFacadeCallbackIntegrationTest {
     @Autowired
     private PaymentRepository paymentRepository;
     @Autowired
+    private OutboxJpaRepository outboxJpaRepository;
+    @Autowired
+    private ObjectMapper objectMapper;
+    @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
     @AfterEach
@@ -72,6 +86,19 @@ class PaymentFacadeCallbackIntegrationTest {
 
     private long expectedAmountWon(OrderModel order) {
         return order.getFinalAmount().setScale(0, java.math.RoundingMode.HALF_UP).longValue();
+    }
+
+    private boolean payloadOrderIdEquals(String payload, Long orderId) {
+        try {
+            JsonNode root = objectMapper.readTree(payload);
+            JsonNode idNode = root.get("orderId");
+            if (idNode == null || idNode.isNull()) {
+                return false;
+            }
+            return orderId.equals(idNode.asLong());
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /** {@link PaymentFacade#handleCallback} 단위 시나리오 모음. */
@@ -205,6 +232,52 @@ class PaymentFacadeCallbackIntegrationTest {
             OrderModel after = orderService.findById(USER_ID, orderId).orElseThrow();
             assertThat(after.getStatus()).isEqualTo(OrderStatus.ORDERED);
             assertThat(paymentRepository.findTopByOrderIdOrderByCreatedAtDesc(orderId)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("동시 성공 콜백이어도 주문·재고·Outbox는 1회만 반영된다.")
+        void handleCallback_whenConcurrentSuccess_shouldApplyOnceAndSinglePaymentCompletedOutbox() throws Exception {
+            OrderAndProduct ctx = createOrderedOrderWithStock(10);
+            persistenceService.savePendingAndGetRequestParam(
+                    USER_ID, ctx.order().getId(), "SAMSUNG", "1", CB);
+            long amount = expectedAmountWon(ctx.order());
+            Long orderId = ctx.order().getId();
+
+            int threads = 8;
+            ExecutorService executor = Executors.newFixedThreadPool(threads);
+            CountDownLatch start = new CountDownLatch(1);
+            CountDownLatch done = new CountDownLatch(threads);
+            List<Exception> errors = Collections.synchronizedList(new ArrayList<>());
+            for (int i = 0; i < threads; i++) {
+                executor.submit(() -> {
+                    try {
+                        start.await();
+                        paymentFacade.handleCallback(new PaymentCallbackParam(
+                                orderId, true, "pg-concurrent", null, amount));
+                    } catch (Exception e) {
+                        errors.add(e);
+                    } finally {
+                        done.countDown();
+                    }
+                });
+            }
+            start.countDown();
+            assertThat(done.await(60, TimeUnit.SECONDS)).isTrue();
+            executor.shutdown();
+            assertThat(executor.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+
+            assertThat(errors).isEmpty();
+            OrderModel after = orderService.findById(USER_ID, orderId).orElseThrow();
+            assertThat(after.getStatus()).isEqualTo(OrderStatus.PAID);
+            assertThat(productService.findById(ctx.productId()).orElseThrow().getStockQuantity()).isEqualTo(9);
+            var pay = paymentRepository.findTopByOrderIdOrderByCreatedAtDesc(orderId).orElseThrow();
+            assertThat(pay.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+
+            long paymentCompletedForOrder = outboxJpaRepository.findAll().stream()
+                    .filter(e -> DomainEventTypes.PAYMENT_COMPLETED.equals(e.getEventType()))
+                    .filter(e -> payloadOrderIdEquals(e.getPayload(), orderId))
+                    .count();
+            assertThat(paymentCompletedForOrder).isEqualTo(1);
         }
     }
 }
