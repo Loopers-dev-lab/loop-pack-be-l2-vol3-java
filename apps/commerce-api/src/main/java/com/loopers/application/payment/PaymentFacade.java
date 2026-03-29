@@ -162,12 +162,21 @@ public class PaymentFacade {
                 }
             }
             OrderModel paidOrder = orderService.completePayment(param.orderId());
-            payment.markSuccess(param.pgTransactionId());
-            paymentRepository.save(payment);
+            try {
+                payment.markSuccess(param.pgTransactionId());
+                paymentRepository.save(payment);
+            } catch (IllegalStateException ex) {
+                log.info("결제 SUCCESS 전이 스킵(멱등) orderId={} message={}", param.orderId(), ex.getMessage());
+                return;
+            }
             appendPaymentCompletedOutbox(paidOrder);
         } else {
-            payment.markFailed();
-            paymentRepository.save(payment);
+            try {
+                payment.markFailed();
+                paymentRepository.save(payment);
+            } catch (IllegalStateException ex) {
+                log.info("결제 FAILED 전이 스킵(멱등) orderId={} message={}", param.orderId(), ex.getMessage());
+            }
         }
     }
 
