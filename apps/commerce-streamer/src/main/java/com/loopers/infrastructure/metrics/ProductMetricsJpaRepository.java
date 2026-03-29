@@ -18,26 +18,26 @@ public interface ProductMetricsJpaRepository extends JpaRepository<ProductMetric
 
     @Modifying
     @Query("UPDATE ProductMetrics m SET m.likeCount = m.likeCount + 1, m.updatedAt = :occurredAt " +
-            "WHERE m.productId = :productId AND m.updatedAt < :occurredAt")
+            "WHERE m.productId = :productId AND m.updatedAt <= :occurredAt")
     int incrementLikeCount(@Param("productId") Long productId, @Param("occurredAt") ZonedDateTime occurredAt);
 
     @Modifying
     @Query("UPDATE ProductMetrics m SET m.likeCount = CASE WHEN m.likeCount > 0 THEN m.likeCount - 1 ELSE 0 END, m.updatedAt = :occurredAt " +
-            "WHERE m.productId = :productId AND m.updatedAt < :occurredAt")
+            "WHERE m.productId = :productId AND m.updatedAt <= :occurredAt")
     int decrementLikeCount(@Param("productId") Long productId, @Param("occurredAt") ZonedDateTime occurredAt);
 
     @Modifying
     @Query("UPDATE ProductMetrics m SET m.viewCount = m.viewCount + 1, m.updatedAt = :occurredAt " +
-            "WHERE m.productId = :productId AND m.updatedAt < :occurredAt")
+            "WHERE m.productId = :productId AND m.updatedAt <= :occurredAt")
     int incrementViewCount(@Param("productId") Long productId, @Param("occurredAt") ZonedDateTime occurredAt);
 
     @Modifying
     @Query("UPDATE ProductMetrics m SET m.salesCount = m.salesCount + 1, m.updatedAt = :occurredAt " +
-            "WHERE m.productId = :productId AND m.updatedAt < :occurredAt")
+            "WHERE m.productId = :productId AND m.updatedAt <= :occurredAt")
     int incrementSalesCount(@Param("productId") Long productId, @Param("occurredAt") ZonedDateTime occurredAt);
 
     @Modifying
     @Query("UPDATE ProductMetrics m SET m.salesCount = CASE WHEN m.salesCount > 0 THEN m.salesCount - 1 ELSE 0 END, m.updatedAt = :occurredAt " +
-            "WHERE m.productId = :productId AND m.updatedAt < :occurredAt")
+            "WHERE m.productId = :productId AND m.updatedAt <= :occurredAt")
     int decrementSalesCount(@Param("productId") Long productId, @Param("occurredAt") ZonedDateTime occurredAt);
 }

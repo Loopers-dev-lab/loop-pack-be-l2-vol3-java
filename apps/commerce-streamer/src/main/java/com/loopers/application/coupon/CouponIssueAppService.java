@@ -48,7 +48,10 @@ public class CouponIssueAppService {
             updateStatus(requestId, "SUCCESS");
             log.info("쿠폰 발급 성공: requestId={}, couponId={}, userId={}", requestId, couponId, userId);
         } catch (Exception e) {
-            updateStatus(requestId, "FAILED:" + e.getMessage());
+            String failureMessage = (e instanceof IllegalStateException || e instanceof NoSuchElementException)
+                    ? "FAILED:" + e.getMessage()
+                    : "FAILED:INTERNAL_ERROR";
+            updateStatus(requestId, failureMessage);
             log.error("쿠폰 발급 실패: requestId={}, couponId={}, userId={}", requestId, couponId, userId, e);
         }
     }

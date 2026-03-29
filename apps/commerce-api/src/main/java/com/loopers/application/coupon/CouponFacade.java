@@ -22,6 +22,7 @@ public class CouponFacade {
     }
 
     public String requestAsyncIssue(Long couponId, Long userId) {
+        couponAppService.getById(couponId);
         return couponIssueRequestAppService.requestCouponIssue(couponId, userId);
     }
 

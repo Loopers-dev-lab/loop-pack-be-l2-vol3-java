@@ -56,7 +56,9 @@ public class OrderAppService {
             option.decreaseStock(itemCommand.getQuantity());
 
             Product product = productAppService.getById(option.getProductId());
-            productIds.add(product.getId());
+            for (int q = 0; q < itemCommand.getQuantity(); q++) {
+                productIds.add(product.getId());
+            }
             Money totalPrice = product.getBasePrice().add(option.getAdditionalPrice());
 
             OrderItem orderItem = OrderItem.of(
@@ -183,7 +185,12 @@ public class OrderAppService {
         }
 
         // 6. 주문 취소 이벤트 발행
-        List<Long> productIds = lockedOptions.stream().map(Option::getProductId).toList();
+        List<Long> productIds = new ArrayList<>();
+        for (int i = 0; i < sortedItems.size(); i++) {
+            for (int q = 0; q < sortedItems.get(i).getQuantity(); q++) {
+                productIds.add(lockedOptions.get(i).getProductId());
+            }
+        }
         eventPublisher.publishEvent(new OrderCanceledEvent(
                 order.getId(), order.getUserId(), productIds, ZonedDateTime.now()));
 

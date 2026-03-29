@@ -17,6 +17,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.concurrent.RejectedExecutionException;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -76,7 +78,11 @@ public class InfraOutboxEventListener {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                asyncOutboxPublisher.publishAsync(outbox.getId(), topic, partitionKey, payload);
+                try {
+                    asyncOutboxPublisher.publishAsync(outbox.getId(), topic, partitionKey, payload);
+                } catch (RejectedExecutionException e) {
+                    log.warn("asyncExecutor 포화로 즉시 발행 건너뜀, relay 스케줄러가 재시도: outboxId={}", outbox.getId());
+                }
             }
         });
     }
@@ -89,7 +95,11 @@ public class InfraOutboxEventListener {
         });
         log.info("Outbox 저장: {} {}={}", eventType, aggregateType.toLowerCase() + "Id", aggregateId);
 
-        asyncOutboxPublisher.publishAsync(outbox.getId(), topic, partitionKey, payload);
+        try {
+            asyncOutboxPublisher.publishAsync(outbox.getId(), topic, partitionKey, payload);
+        } catch (RejectedExecutionException e) {
+            log.warn("asyncExecutor 포화로 즉시 발행 건너뜀, relay 스케줄러가 재시도: outboxId={}", outbox.getId());
+        }
     }
 
     private String toPayload(String eventType, Object event) {
