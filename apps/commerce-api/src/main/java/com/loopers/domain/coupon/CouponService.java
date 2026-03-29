@@ -20,6 +20,11 @@ public class CouponService {
         return couponRepository.save(new Coupon(name, type, value, minOrderAmount, expiredAt));
     }
 
+    @Transactional
+    public Coupon createCoupon(String name, CouponType type, int value, int minOrderAmount, ZonedDateTime expiredAt, Integer maxIssuable) {
+        return couponRepository.save(new Coupon(name, type, value, minOrderAmount, expiredAt, maxIssuable));
+    }
+
     /**
      * name, minOrderAmount, expiredAt만 수정 가능.
      * requestedType 또는 requestedValue가 non-null이면 불변 위반으로 에러.

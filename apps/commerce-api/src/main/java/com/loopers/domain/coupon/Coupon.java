@@ -30,9 +30,16 @@ public class Coupon extends BaseEntity {
     @Column(name = "expired_at", nullable = false)
     private ZonedDateTime expiredAt;
 
+    @Column(name = "max_issuable")
+    private Integer maxIssuable;
+
     protected Coupon() {}
 
     public Coupon(String name, CouponType type, int value, int minOrderAmount, ZonedDateTime expiredAt) {
+        this(name, type, value, minOrderAmount, expiredAt, null);
+    }
+
+    public Coupon(String name, CouponType type, int value, int minOrderAmount, ZonedDateTime expiredAt, Integer maxIssuable) {
         if (name == null || name.isBlank()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "쿠폰명은 비어있을 수 없습니다.");
         }
@@ -56,6 +63,7 @@ public class Coupon extends BaseEntity {
         this.value = value;
         this.minOrderAmount = minOrderAmount;
         this.expiredAt = expiredAt;
+        this.maxIssuable = maxIssuable;
     }
 
     public void update(String name, int minOrderAmount, ZonedDateTime expiredAt) {
@@ -79,4 +87,5 @@ public class Coupon extends BaseEntity {
     public int getValue() { return value; }
     public int getMinOrderAmount() { return minOrderAmount; }
     public ZonedDateTime getExpiredAt() { return expiredAt; }
+    public Integer getMaxIssuable() { return maxIssuable; }
 }

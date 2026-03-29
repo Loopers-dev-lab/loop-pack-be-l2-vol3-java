@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "Products", description = "상품 API")
@@ -22,6 +23,8 @@ public interface ProductsV1ApiSpec {
     @Operation(summary = "상품 상세 조회", description = "상품 ID로 상품 상세 정보를 조회합니다.")
     @GetMapping("/{productId}")
     ApiResponse<ProductV1Dto.ProductDetailResponse> getProduct(
-        @PathVariable(value = "productId") Long productId
+        @PathVariable(value = "productId") Long productId,
+        @RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
+        @RequestHeader(value = "User-Agent", required = false) String userAgent
     );
 }

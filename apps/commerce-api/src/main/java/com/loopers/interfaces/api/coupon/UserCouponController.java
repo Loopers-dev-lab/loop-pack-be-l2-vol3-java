@@ -2,6 +2,8 @@ package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponFacade;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.coupon.UserCouponV1Dto.IssueAsyncResponse;
+import com.loopers.interfaces.api.coupon.UserCouponV1Dto.IssueRequestStatusResponse;
 import com.loopers.interfaces.api.coupon.UserCouponV1Dto.IssueCouponResponse;
 import com.loopers.interfaces.api.coupon.UserCouponV1Dto.MyCouponResponse;
 import com.loopers.interfaces.api.coupon.UserCouponV1Dto.PageResponse;
@@ -31,6 +33,31 @@ public class UserCouponController implements UserCouponApiSpec {
     ) {
         return ApiResponse.success(IssueCouponResponse.from(
             couponFacade.issueCoupon(loginId, password, couponId)
+        ));
+    }
+
+    @PostMapping("/api/v1/coupons/{couponId}/issue-async")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @Override
+    public ApiResponse<IssueAsyncResponse> issueAsync(
+        @RequestHeader("X-Loopers-LoginId") String loginId,
+        @RequestHeader("X-Loopers-LoginPw") String password,
+        @PathVariable Long couponId
+    ) {
+        return ApiResponse.success(IssueAsyncResponse.from(
+            couponFacade.requestIssueAsync(loginId, password, couponId)
+        ));
+    }
+
+    @GetMapping("/api/v1/coupons/issue-requests/{requestId}")
+    @Override
+    public ApiResponse<IssueRequestStatusResponse> getIssueRequestStatus(
+        @RequestHeader("X-Loopers-LoginId") String loginId,
+        @RequestHeader("X-Loopers-LoginPw") String password,
+        @PathVariable String requestId
+    ) {
+        return ApiResponse.success(IssueRequestStatusResponse.from(
+            couponFacade.getIssueRequestStatus(loginId, password, requestId)
         ));
     }
 

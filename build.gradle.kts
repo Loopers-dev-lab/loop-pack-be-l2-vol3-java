@@ -61,6 +61,7 @@ subprojects {
         // Lombok
         implementation("org.projectlombok:lombok")
         annotationProcessor("org.projectlombok:lombok")
+        testAnnotationProcessor("org.projectlombok:lombok")
         // 암호화
         implementation ("org.springframework.security:spring-security-crypto")
         // Resilience4j - Spring Boot 3.x 호환 버전 사용

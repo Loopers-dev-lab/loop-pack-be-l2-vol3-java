@@ -102,7 +102,10 @@ class OrderV1ApiE2ETest {
                 "items", List.of(
                     Map.of("productId", productA.getId(), "quantity", 2),
                     Map.of("productId", productB.getId(), "quantity", 3)
-                )
+                ),
+                "cardType", "SAMSUNG",
+                "cardNo", "1234-5678-9012-3456",
+                "updateDefaultCard", false
             );
 
             // act
@@ -142,9 +145,10 @@ class OrderV1ApiE2ETest {
             headers.set("Content-Type", "application/json");
 
             Map<String, Object> request = Map.of(
-                "items", List.of(
-                    Map.of("productId", product.getId(), "quantity", 10) // 재고 초과
-                )
+                "items", List.of(Map.of("productId", product.getId(), "quantity", 10)),
+                "cardType", "SAMSUNG",
+                "cardNo", "1234-5678-9012-3456",
+                "updateDefaultCard", false
             );
 
             // act
@@ -169,7 +173,10 @@ class OrderV1ApiE2ETest {
             headers.set("Content-Type", "application/json");
 
             Map<String, Object> request = Map.of(
-                "items", List.of(Map.of("productId", 1L, "quantity", 1))
+                "items", List.of(Map.of("productId", 1L, "quantity", 1)),
+                "cardType", "SAMSUNG",
+                "cardNo", "1234-5678-9012-3456",
+                "updateDefaultCard", false
             );
 
             // act
@@ -194,7 +201,10 @@ class OrderV1ApiE2ETest {
             headers.set("Content-Type", "application/json");
 
             Map<String, Object> request = Map.of(
-                "items", List.of(Map.of("productId", 999999L, "quantity", 1))
+                "items", List.of(Map.of("productId", 999999L, "quantity", 1)),
+                "cardType", "SAMSUNG",
+                "cardNo", "1234-5678-9012-3456",
+                "updateDefaultCard", false
             );
 
             // act
@@ -227,7 +237,10 @@ class OrderV1ApiE2ETest {
             headers.set("X-Loopers-LoginPw", PASSWORD);
             headers.set("Content-Type", "application/json");
 
-            Map<String, Object> orderRequest = Map.of("items", List.of(Map.of("productId", product.getId(), "quantity", 1)));
+            Map<String, Object> orderRequest = Map.of(
+                "items", List.of(Map.of("productId", product.getId(), "quantity", 1)),
+                "cardType", "SAMSUNG", "cardNo", "1234-5678-9012-3456", "updateDefaultCard", false
+            );
             testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(orderRequest, headers), new ParameterizedTypeReference<ApiResponse<Map<String, Object>>>() {});
             testRestTemplate.exchange(ENDPOINT, HttpMethod.POST, new HttpEntity<>(orderRequest, headers), new ParameterizedTypeReference<ApiResponse<Map<String, Object>>>() {});
 
@@ -315,7 +328,10 @@ class OrderV1ApiE2ETest {
             headers.set("X-Loopers-LoginPw", PASSWORD);
             headers.set("Content-Type", "application/json");
 
-            Map<String, Object> orderRequest = Map.of("items", List.of(Map.of("productId", product.getId(), "quantity", 2)));
+            Map<String, Object> orderRequest = Map.of(
+                "items", List.of(Map.of("productId", product.getId(), "quantity", 2)),
+                "cardType", "SAMSUNG", "cardNo", "1234-5678-9012-3456", "updateDefaultCard", false
+            );
             ResponseEntity<ApiResponse<Map<String, Object>>> createResponse = testRestTemplate.exchange(
                 ENDPOINT, HttpMethod.POST, new HttpEntity<>(orderRequest, headers), new ParameterizedTypeReference<>() {}
             );

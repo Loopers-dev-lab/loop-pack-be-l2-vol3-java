@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.order;
 import com.loopers.application.order.OrderDetailInfo;
 import com.loopers.application.order.OrderInfo;
 import com.loopers.application.order.OrderItemInfo;
+import com.loopers.domain.payment.CardType;
 import java.time.ZonedDateTime;
 import java.util.List;
 import org.springframework.data.domain.Page;
@@ -11,7 +12,10 @@ public class OrderV1Dto {
 
     public record CreateOrderRequest(
         List<OrderItemRequest> items,
-        Long userCouponId
+        Long userCouponId,
+        CardType cardType,
+        String cardNo,
+        boolean updateDefaultCard
     ) {}
 
     public record OrderItemRequest(

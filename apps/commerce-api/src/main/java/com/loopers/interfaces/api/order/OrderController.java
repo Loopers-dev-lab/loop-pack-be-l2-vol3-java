@@ -30,7 +30,7 @@ public class OrderController implements OrderV1ApiSpec {
         @RequestHeader("X-Loopers-LoginPw") String password,
         @RequestBody OrderV1Dto.CreateOrderRequest request
     ) {
-        OrderInfo info = orderFacade.createOrder(loginId, password, request.items(), request.userCouponId());
+        OrderInfo info = orderFacade.createOrder(loginId, password, request.items(), request.userCouponId(), request.cardType(), request.cardNo(), request.updateDefaultCard());
 
         return ApiResponse.success(OrderV1Dto.CreateOrderResponse.from(info));
     }

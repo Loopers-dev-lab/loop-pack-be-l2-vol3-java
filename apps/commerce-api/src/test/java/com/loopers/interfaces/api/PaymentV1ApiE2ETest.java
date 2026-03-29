@@ -96,7 +96,10 @@ class PaymentV1ApiE2ETest {
         headers.set("Content-Type", "application/json");
 
         Map<String, Object> request = Map.of(
-            "items", List.of(Map.of("productId", product.getId(), "quantity", 2))
+            "items", List.of(Map.of("productId", product.getId(), "quantity", 2)),
+            "cardType", "SAMSUNG",
+            "cardNo", "1234-5678-9012-3456",
+            "updateDefaultCard", false
         );
 
         ResponseEntity<ApiResponse<Map<String, Object>>> response = testRestTemplate.exchange(

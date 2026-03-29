@@ -1,6 +1,10 @@
 package com.loopers.domain.like;
 
-import com.loopers.domain.product.Product;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.domain.outbox.OutboxEvent;
+import com.loopers.domain.outbox.OutboxEventRepository;
+import com.loopers.domain.outbox.OutboxEventTopics;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -13,6 +17,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
+
 @Slf4j
 @RequiredArgsConstructor
 @Component
@@ -21,6 +27,8 @@ public class LikeService {
     private final LikeRepository likeRepository;
     private final ProductRepository productRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ObjectMapper objectMapper;
 
     /**
      * 좋아요 등록.
@@ -40,6 +48,12 @@ public class LikeService {
         try {
             Like like = likeRepository.save(new Like(userId, productId));
             eventPublisher.publishEvent(new LikeCreatedEvent(userId, productId));
+            outboxEventRepository.save(OutboxEvent.create(
+                "LIKE_CREATED",
+                OutboxEventTopics.PRODUCT_LIKE,
+                serializePayload(Map.of("userId", userId, "productId", productId)),
+                productId.toString()
+            ));
             return like;
         } catch (DataIntegrityViolationException e) {
             // 동시 요청으로 unique constraint 위반 시 409 반환
@@ -60,6 +74,20 @@ public class LikeService {
         }
         likeRepository.deleteByUserIdAndProductId(userId, productId);
         eventPublisher.publishEvent(new LikeDeletedEvent(userId, productId));
+        outboxEventRepository.save(OutboxEvent.create(
+            "LIKE_DELETED",
+            OutboxEventTopics.PRODUCT_LIKE,
+            serializePayload(Map.of("userId", userId, "productId", productId)),
+            productId.toString()
+        ));
+    }
+
+    private String serializePayload(Object payload) {
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("이벤트 직렬화 실패", e);
+        }
     }
 
     @Transactional(readOnly = true)

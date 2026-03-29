@@ -1,6 +1,8 @@
 package com.loopers.interfaces.api.coupon;
 
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.coupon.UserCouponV1Dto.IssueAsyncResponse;
+import com.loopers.interfaces.api.coupon.UserCouponV1Dto.IssueRequestStatusResponse;
 import com.loopers.interfaces.api.coupon.UserCouponV1Dto.IssueCouponResponse;
 import com.loopers.interfaces.api.coupon.UserCouponV1Dto.MyCouponResponse;
 import com.loopers.interfaces.api.coupon.UserCouponV1Dto.PageResponse;
@@ -30,5 +32,21 @@ public interface UserCouponApiSpec {
         @RequestHeader("X-Loopers-LoginPw") String password,
         @RequestParam(required = false, defaultValue = "0") int page,
         @RequestParam(required = false, defaultValue = "20") int size
+    );
+
+    @Operation(summary = "선착순 쿠폰 비동기 발급 요청", description = "Kafka를 통해 비동기로 쿠폰 발급을 요청한다. requestId로 상태를 폴링한다.")
+    @PostMapping("/api/v1/coupons/{couponId}/issue-async")
+    ApiResponse<IssueAsyncResponse> issueAsync(
+        @RequestHeader("X-Loopers-LoginId") String loginId,
+        @RequestHeader("X-Loopers-LoginPw") String password,
+        @PathVariable Long couponId
+    );
+
+    @Operation(summary = "발급 요청 상태 조회", description = "requestId로 발급 처리 결과를 폴링한다. (PENDING/SUCCESS/FAILED)")
+    @GetMapping("/api/v1/coupons/issue-requests/{requestId}")
+    ApiResponse<IssueRequestStatusResponse> getIssueRequestStatus(
+        @RequestHeader("X-Loopers-LoginId") String loginId,
+        @RequestHeader("X-Loopers-LoginPw") String password,
+        @PathVariable String requestId
     );
 }
