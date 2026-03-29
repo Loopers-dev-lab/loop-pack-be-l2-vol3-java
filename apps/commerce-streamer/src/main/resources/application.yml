@@ -40,7 +40,8 @@ coupon:
 
 cdc:
   connect:
-    topic-pattern: ^cdc-connect-.*$
+    # Debezium DLQ(errors.deadletterqueue.topic.name)인 cdc-connect-errors는 제외
+    topic-pattern: ^cdc-connect-(?!errors$).+$
     consumer-group: loopers-cdc-connect-consumer
 
 collector:
