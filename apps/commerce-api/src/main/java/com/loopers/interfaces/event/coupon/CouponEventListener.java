@@ -2,6 +2,8 @@ package com.loopers.interfaces.event.coupon;
 
 import java.util.Objects;
 
+import static com.loopers.support.config.AsyncConfig.EVENT_EXECUTOR;
+
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -31,7 +33,7 @@ public class CouponEventListener {
      *
      * @param event 주문 생성 이벤트
      */
-    @Async
+    @Async(EVENT_EXECUTOR)
     @TransactionalEventListener
     public void handle(OrderEvent.OrderPlaced event) {
         log.info("[EVENT:OrderPlaced:coupon] orderId={}", event.orderId());
@@ -52,7 +54,7 @@ public class CouponEventListener {
      *
      * @param event 주문 실패 이벤트
      */
-    @Async
+    @Async(EVENT_EXECUTOR)
     @TransactionalEventListener
     public void handle(OrderEvent.OrderFailed event) {
         log.info("[EVENT:OrderFailed:coupon] orderId={}", event.orderId());

@@ -1,5 +1,7 @@
 package com.loopers.interfaces.event.like;
 
+import static com.loopers.support.config.AsyncConfig.EVENT_EXECUTOR;
+
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -29,7 +31,7 @@ public class LikeEventListener {
      *
      * @param event 상품 삭제 이벤트
      */
-    @Async
+    @Async(EVENT_EXECUTOR)
     @TransactionalEventListener
     public void handle(ProductEvent.ProductDeleted event) {
         log.info("[EVENT:ProductDeleted:like] productId={}", event.productId());

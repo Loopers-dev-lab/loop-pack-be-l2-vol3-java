@@ -1,5 +1,7 @@
 package com.loopers.interfaces.event.order;
 
+import static com.loopers.support.config.AsyncConfig.EVENT_EXECUTOR;
+
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -29,7 +31,7 @@ public class OrderEventListener {
      *
      * @param event 결제 성공 이벤트
      */
-    @Async
+    @Async(EVENT_EXECUTOR)
     @TransactionalEventListener
     public void handle(PaymentEvent.PaymentSucceed event) {
         log.info("[EVENT:PaymentSucceed:order] paymentId={}, orderId={}", event.paymentId(), event.orderId());
@@ -47,7 +49,7 @@ public class OrderEventListener {
      *
      * @param event 결제 실패 이벤트
      */
-    @Async
+    @Async(EVENT_EXECUTOR)
     @TransactionalEventListener
     public void handle(PaymentEvent.PaymentFailed event) {
         log.info("[EVENT:PaymentFailed:order] paymentId={}, orderId={}", event.paymentId(), event.orderId());

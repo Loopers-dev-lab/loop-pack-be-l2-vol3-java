@@ -1,5 +1,7 @@
 package com.loopers.interfaces.event.useractivity;
 
+import static com.loopers.support.config.AsyncConfig.LOGGING_EXECUTOR;
+
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -22,25 +24,25 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class UserActivityEventListener {
 
-    @Async
+    @Async(LOGGING_EXECUTOR)
     @EventListener
     public void handle(ProductEvent.ProductViewed event) {
         log.info("[USER_ACTIVITY] type=PRODUCT_VIEWED, productId={}", event.productId());
     }
 
-    @Async
+    @Async(LOGGING_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(LikeEvent.Liked event) {
         log.info("[USER_ACTIVITY] type=LIKED, productId={}", event.productId());
     }
 
-    @Async
+    @Async(LOGGING_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(LikeEvent.Unliked event) {
         log.info("[USER_ACTIVITY] type=UNLIKED, productId={}", event.productId());
     }
 
-    @Async
+    @Async(LOGGING_EXECUTOR)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(OrderEvent.OrderCompleted event) {
         log.info("[USER_ACTIVITY] type=ORDER_COMPLETED, orderId={}", event.orderId());
