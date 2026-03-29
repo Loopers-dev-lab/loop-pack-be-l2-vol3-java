@@ -1,6 +1,6 @@
 package com.loopers.application.product;
 
-import com.loopers.application.observability.ProductViewOutboxRecorder;
+import com.loopers.application.observability.ProductViewOutboxAsyncPublisher;
 import com.loopers.application.product.event.ProductDeletedEvent;
 import com.loopers.application.product.event.ProductUpdatedEvent;
 import com.loopers.domain.brand.BrandModel;
@@ -12,8 +12,6 @@ import com.loopers.domain.product.ProductSortOrder;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,25 +33,23 @@ import java.util.stream.Collectors;
 @Service
 public class ProductFacade {
 
-    private static final Logger log = LoggerFactory.getLogger(ProductFacade.class);
-
     private final ProductService productService;
     private final BrandService brandService;
     private final LikeService likeService;
     private final ProductCacheService productCacheService;
     private final ApplicationEventPublisher eventPublisher;
-    private final ProductViewOutboxRecorder productViewOutboxRecorder;
+    private final ProductViewOutboxAsyncPublisher productViewOutboxAsyncPublisher;
 
     public ProductFacade(ProductService productService, BrandService brandService, LikeService likeService,
             ProductCacheService productCacheService,
             ApplicationEventPublisher eventPublisher,
-            ProductViewOutboxRecorder productViewOutboxRecorder) {
+            ProductViewOutboxAsyncPublisher productViewOutboxAsyncPublisher) {
         this.productService = productService;
         this.brandService = brandService;
         this.likeService = likeService;
         this.productCacheService = productCacheService;
         this.eventPublisher = eventPublisher;
-        this.productViewOutboxRecorder = productViewOutboxRecorder;
+        this.productViewOutboxAsyncPublisher = productViewOutboxAsyncPublisher;
     }
 
     @Transactional
@@ -76,7 +72,7 @@ public class ProductFacade {
     public Optional<ProductDetailInfo> getProductDetail(Long productId) {
         Optional<ProductDetailInfo> cached = productCacheService.getDetail(productId);
         if (cached.isPresent()) {
-            recordProductViewOutboxSafely(productId);
+            productViewOutboxAsyncPublisher.scheduleRecordProductViewed(productId);
             return cached;
         }
         Optional<ProductModel> productOpt = productService.findByIdAndNotDeleted(productId);
@@ -98,16 +94,8 @@ public class ProductFacade {
                 product.getStockQuantity(),
                 likeCount);
         productCacheService.putDetail(productId, info);
-        recordProductViewOutboxSafely(productId);
+        productViewOutboxAsyncPublisher.scheduleRecordProductViewed(productId);
         return Optional.of(info);
-    }
-
-    private void recordProductViewOutboxSafely(Long productId) {
-        try {
-            productViewOutboxRecorder.recordProductViewed(productId);
-        } catch (Exception e) {
-            log.warn("상품 조회 Outbox 기록 실패 productId={}", productId, e);
-        }
     }
 
     @Transactional(readOnly = true)
