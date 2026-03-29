@@ -4,15 +4,15 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.loopers.application.queue.QueueInfo;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record EnterResponse(
+public record PositionResponse(
         String status,
         long position,
         long estimatedWaitSeconds,
         long totalInQueue,
         String token
 ) {
-    public static EnterResponse from(QueueInfo info) {
-        return new EnterResponse(
+    public static PositionResponse from(QueueInfo info) {
+        return new PositionResponse(
                 info.status().name(),
                 info.position(),
                 info.estimatedWaitSeconds(),
