@@ -6,8 +6,10 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Repository;
 
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -61,6 +63,24 @@ public class WaitingQueueRedisRepository implements WaitingQueueRepository {
             memberIds.add(Long.parseLong(tuple.getValue()));
         }
         return memberIds;
+    }
+
+    @Override
+    public List<Map.Entry<Long, Double>> popNWithScore(int count) {
+        Set<ZSetOperations.TypedTuple<String>> tuples =
+                redisTemplate.opsForZSet().popMin(KEY, count);
+        if (tuples == null || tuples.isEmpty()) {
+            return List.of();
+        }
+
+        List<Map.Entry<Long, Double>> result = new ArrayList<>(tuples.size());
+        for (ZSetOperations.TypedTuple<String> tuple : tuples) {
+            result.add(new AbstractMap.SimpleEntry<>(
+                    Long.parseLong(tuple.getValue()),
+                    tuple.getScore()
+            ));
+        }
+        return result;
     }
 
     @Override

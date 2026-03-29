@@ -9,7 +9,10 @@ public record PositionResponse(
         long position,
         long estimatedWaitSeconds,
         long totalInQueue,
-        String token
+        String token,
+        Long estimateA,
+        Long estimateB,
+        Long estimateC
 ) {
     public static PositionResponse from(QueueInfo info) {
         return new PositionResponse(
@@ -17,7 +20,10 @@ public record PositionResponse(
                 info.position(),
                 info.estimatedWaitSeconds(),
                 info.totalInQueue(),
-                info.token()
+                info.token(),
+                info.estimateA(),
+                info.estimateB(),
+                info.estimateC()
         );
     }
 }

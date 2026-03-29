@@ -9,7 +9,10 @@ public record EnterResponse(
         long position,
         long estimatedWaitSeconds,
         long totalInQueue,
-        String token
+        String token,
+        Long estimateA,
+        Long estimateB,
+        Long estimateC
 ) {
     public static EnterResponse from(QueueInfo info) {
         return new EnterResponse(
@@ -17,7 +20,10 @@ public record EnterResponse(
                 info.position(),
                 info.estimatedWaitSeconds(),
                 info.totalInQueue(),
-                info.token()
+                info.token(),
+                info.estimateA(),
+                info.estimateB(),
+                info.estimateC()
         );
     }
 }

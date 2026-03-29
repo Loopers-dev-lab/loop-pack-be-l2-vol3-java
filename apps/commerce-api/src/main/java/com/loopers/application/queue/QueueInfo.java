@@ -5,6 +5,12 @@ public record QueueInfo(
         long position,
         long estimatedWaitSeconds,
         long totalInQueue,
-        String token
+        String token,
+        Long estimateA,
+        Long estimateB,
+        Long estimateC
 ) {
+    public QueueInfo(QueueStatus status, long position, long estimatedWaitSeconds, long totalInQueue, String token) {
+        this(status, position, estimatedWaitSeconds, totalInQueue, token, null, null, null);
+    }
 }

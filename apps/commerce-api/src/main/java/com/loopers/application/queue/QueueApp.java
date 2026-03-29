@@ -17,6 +17,7 @@ public class QueueApp {
     private final WaitingQueueService waitingQueueService;
     private final EntryTokenService entryTokenService;
     private final QueueProperties queueProperties;
+    private final ThroughputTracker throughputTracker;
 
     public QueueInfo enterQueue(Long memberId) {
         Optional<String> existingToken = entryTokenService.findToken(memberId);
@@ -28,10 +29,13 @@ public class QueueApp {
 
         Optional<Long> position = waitingQueueService.getPosition(memberId);
         long pos = position.orElse(0L);
-        long estimatedWaitSeconds = calculateEstimatedWaitSeconds(pos);
         long totalInQueue = waitingQueueService.getTotalCount();
 
-        return new QueueInfo(QueueStatus.WAITING, pos, estimatedWaitSeconds, totalInQueue, null);
+        long estA = throughputTracker.estimateWaitA(pos);
+        long estB = throughputTracker.estimateWaitB(pos);
+        long estC = throughputTracker.estimateWaitC(pos);
+
+        return new QueueInfo(QueueStatus.WAITING, pos, estB, totalInQueue, null, estA, estB, estC);
     }
 
     public QueueInfo getQueueStatus(Long memberId) {
@@ -46,10 +50,13 @@ public class QueueApp {
         }
 
         long pos = position.get();
-        long estimatedWaitSeconds = calculateEstimatedWaitSeconds(pos);
         long totalInQueue = waitingQueueService.getTotalCount();
 
-        return new QueueInfo(QueueStatus.WAITING, pos, estimatedWaitSeconds, totalInQueue, null);
+        long estA = throughputTracker.estimateWaitA(pos);
+        long estB = throughputTracker.estimateWaitB(pos);
+        long estC = throughputTracker.estimateWaitC(pos);
+
+        return new QueueInfo(QueueStatus.WAITING, pos, estB, totalInQueue, null, estA, estB, estC);
     }
 
     public void validateToken(Long memberId, String token) {
@@ -58,12 +65,5 @@ public class QueueApp {
 
     public void consumeToken(Long memberId) {
         entryTokenService.consume(memberId);
-    }
-
-    private long calculateEstimatedWaitSeconds(long position) {
-        if (position <= 0) {
-            return 0;
-        }
-        return (long) Math.ceil((double) position / queueProperties.throughputPerSecond());
     }
 }

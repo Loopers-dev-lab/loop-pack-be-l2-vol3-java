@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -37,6 +38,10 @@ public class WaitingQueueService {
 
     public List<Long> popN(int count) {
         return waitingQueueRepository.popN(count);
+    }
+
+    public List<Map.Entry<Long, Double>> popNWithScore(int count) {
+        return waitingQueueRepository.popNWithScore(count);
     }
 
     public void clear() {
