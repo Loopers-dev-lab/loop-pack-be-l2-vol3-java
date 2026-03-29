@@ -143,6 +143,12 @@ spring:
       mode: always
       schema-locations: classpath:schema-shedlock.sql
 
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+
 queue:
   enabled: false
 
