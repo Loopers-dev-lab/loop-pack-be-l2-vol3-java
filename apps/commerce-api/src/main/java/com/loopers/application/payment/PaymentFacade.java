@@ -140,8 +140,7 @@ public class PaymentFacade {
      */
     @Transactional
     public void handleCallback(PaymentCallbackParam param) {
-        var pendingOpt = paymentRepository.findTopByOrderIdOrderByCreatedAtDesc(param.orderId())
-                .filter(PaymentModel::isPending);
+        var pendingOpt = paymentRepository.findTopPendingByOrderIdForUpdate(param.orderId());
 
         if (pendingOpt.isEmpty()) {
             return;
