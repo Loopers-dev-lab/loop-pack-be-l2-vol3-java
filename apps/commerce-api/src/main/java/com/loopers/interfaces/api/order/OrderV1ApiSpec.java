@@ -10,6 +10,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.LocalDate;
@@ -39,14 +40,16 @@ public interface OrderV1ApiSpec {
             @Parameter(description = "회원 DB PK") @RequestParam Long memberId
     );
 
-    @Operation(summary = "주문 생성", description = "여러 상품을 포함한 주문을 생성합니다. 재고 차감과 스냅샷 저장이 단일 트랜잭션으로 처리됩니다.")
+    @Operation(summary = "주문 생성", description = "여러 상품을 포함한 주문을 생성합니다. 대기열 활성화 시 X-Entry-Token 헤더가 필요합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "주문 생성 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청 (빈 주문, 수량 < 1)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "대기열 토큰 없음 또는 유효하지 않음"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "상품을 찾을 수 없음"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "재고 부족")
     })
     ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> createOrder(
+            @Parameter(description = "대기열 입장 토큰") @RequestHeader(value = "X-Entry-Token", required = false) String entryToken,
             @RequestBody OrderV1Dto.CreateOrderRequest request
     );
 

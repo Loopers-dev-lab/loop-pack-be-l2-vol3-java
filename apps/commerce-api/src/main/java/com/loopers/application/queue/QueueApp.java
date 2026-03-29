@@ -52,6 +52,14 @@ public class QueueApp {
         return new QueueInfo(QueueStatus.WAITING, pos, estimatedWaitSeconds, totalInQueue, null);
     }
 
+    public void validateToken(Long memberId, String token) {
+        entryTokenService.validate(memberId, token);
+    }
+
+    public void consumeToken(Long memberId) {
+        entryTokenService.consume(memberId);
+    }
+
     private long calculateEstimatedWaitSeconds(long position) {
         if (position <= 0) {
             return 0;

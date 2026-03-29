@@ -15,7 +15,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-
 import java.util.List;
 
 @RestController
@@ -29,13 +28,14 @@ public class OrderV1Controller implements OrderV1ApiSpec {
     @PostMapping
     @Override
     public ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> createOrder(
+            @RequestHeader(value = "X-Entry-Token", required = false) String entryToken,
             @Valid @RequestBody OrderV1Dto.CreateOrderRequest request
     ) {
         List<OrderItemCommand> items = request.items().stream()
                 .map(OrderV1Dto.OrderItemRequest::toCommand)
                 .toList();
 
-        OrderInfo info = orderFacade.createOrder(request.memberId(), items, request.userCouponId());
+        OrderInfo info = orderFacade.createOrder(request.memberId(), items, request.userCouponId(), entryToken);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(OrderV1Dto.OrderResponse.from(info)));
     }

@@ -1,6 +1,8 @@
 package com.loopers.application.order;
 
 import com.loopers.application.coupon.CouponApp;
+import com.loopers.application.queue.QueueApp;
+import com.loopers.config.QueueProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,28 +16,36 @@ public class OrderFacade {
 
     private final OrderApp orderApp;
     private final CouponApp couponApp;
+    private final QueueApp queueApp;
+    private final QueueProperties queueProperties;
 
     @Transactional
-    public OrderInfo createOrder(Long memberId, List<OrderItemCommand> items, Long userCouponId) {
+    public OrderInfo createOrder(Long memberId, List<OrderItemCommand> items, Long userCouponId, String entryToken) {
+        if (queueProperties.enabled()) {
+            queueApp.validateToken(memberId, entryToken);
+        }
+
         BigDecimal discountAmount = BigDecimal.ZERO;
         Long refUserCouponId = null;
 
         if (userCouponId != null) {
-            // 원래 주문금액 계산 (재고 차감 전 조회)
             BigDecimal originalAmount = orderApp.calculateOriginalAmount(items);
-            // 할인 금액 계산 (소유권 포함 검증)
             discountAmount = couponApp.calculateDiscount(userCouponId, memberId, originalAmount);
-            // 쿠폰 사용 처리 → PK 반환
             refUserCouponId = couponApp.useUserCoupon(userCouponId);
         }
 
-        return orderApp.createOrder(memberId, items, discountAmount, refUserCouponId);
+        OrderInfo orderInfo = orderApp.createOrder(memberId, items, discountAmount, refUserCouponId);
+
+        if (queueProperties.enabled()) {
+            queueApp.consumeToken(memberId);
+        }
+
+        return orderInfo;
     }
 
     @Transactional
     public OrderInfo cancelOrder(Long memberId, String orderId) {
         OrderInfo info = orderApp.cancelOrder(memberId, orderId);
-        // 쿠폰이 있었던 경우 복원
         if (info.refUserCouponId() != null) {
             couponApp.restoreUserCoupon(info.refUserCouponId());
         }
