@@ -1,5 +1,6 @@
 package com.loopers.application.product;
 
+import com.loopers.application.observability.ProductViewOutboxRecorder;
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.like.LikeService;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -47,6 +50,10 @@ class ProductFacadeTest {
     private LikeService likeService;
     @Mock
     private ProductCacheService productCacheService;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private ProductViewOutboxRecorder productViewOutboxRecorder;
 
     @InjectMocks
     private ProductFacade productFacade;
@@ -65,6 +72,7 @@ class ProductFacadeTest {
 
             assertThat(result).isEmpty();
             verify(productService).findByIdAndNotDeleted(PRODUCT_ID);
+            verify(productViewOutboxRecorder, never()).recordProductViewed(PRODUCT_ID);
         }
 
         @Test
@@ -81,6 +89,7 @@ class ProductFacadeTest {
             assertThat(result).isEmpty();
             verify(productService).findByIdAndNotDeleted(PRODUCT_ID);
             verify(brandService).findByIdAndNotDeleted(BRAND_ID);
+            verify(productViewOutboxRecorder, never()).recordProductViewed(PRODUCT_ID);
         }
 
         @Test
@@ -107,6 +116,21 @@ class ProductFacadeTest {
             verify(productService).findByIdAndNotDeleted(PRODUCT_ID);
             verify(brandService).findByIdAndNotDeleted(BRAND_ID);
             verify(likeService).getLikeCountFromStats(PRODUCT_ID);
+            verify(productViewOutboxRecorder).recordProductViewed(PRODUCT_ID);
+        }
+
+        @Test
+        @DisplayName("캐시 히트 시에도 상품 조회 Outbox를 기록한다.")
+        void getProductDetail_whenCached_shouldRecordViewOutbox() {
+            ProductDetailInfo cached = new ProductDetailInfo(
+                    PRODUCT_ID, BRAND_ID, BRAND_NAME, PRODUCT_NAME, PRICE, STOCK_QUANTITY, LIKE_COUNT);
+            when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.of(cached));
+
+            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID);
+
+            assertThat(result).contains(cached);
+            verify(productService, never()).findByIdAndNotDeleted(PRODUCT_ID);
+            verify(productViewOutboxRecorder).recordProductViewed(PRODUCT_ID);
         }
     }
 

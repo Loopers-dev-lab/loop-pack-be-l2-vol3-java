@@ -1,4 +1,6 @@
 dependencies {
+    implementation(project(":modules:coupon"))
+    implementation(project(":supports:error"))
     // add-ons
     implementation(project(":modules:jpa"))
     implementation(project(":modules:redis"))
@@ -10,6 +12,10 @@ dependencies {
     // web
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    testImplementation("org.springframework.kafka:spring-kafka-test")
+
+    runtimeOnly("org.flywaydb:flyway-core")
+    runtimeOnly("org.flywaydb:flyway-mysql")
 
     // querydsl
     annotationProcessor("com.querydsl:querydsl-apt::jakarta")

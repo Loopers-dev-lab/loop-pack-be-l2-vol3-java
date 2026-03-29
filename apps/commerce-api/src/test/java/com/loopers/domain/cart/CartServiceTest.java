@@ -1,5 +1,6 @@
 package com.loopers.domain.cart;
 
+import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import com.loopers.domain.product.Quantity;
 import com.loopers.domain.cart.CartItemModel;
 import com.loopers.domain.cart.CartRepository;
@@ -40,6 +41,9 @@ class CartServiceTest {
 
     @Mock
     private ProductService productService;
+
+    @Mock
+    private TransactionalOutboxWriter transactionalOutboxWriter;
 
     @InjectMocks
     private CartService cartService;

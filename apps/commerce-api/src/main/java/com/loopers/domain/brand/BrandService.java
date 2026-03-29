@@ -1,5 +1,8 @@
 package com.loopers.domain.brand;
 
+import com.loopers.domain.outbox.DomainEventTypes;
+import com.loopers.domain.outbox.DomainKafkaTopics;
+import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import com.loopers.domain.product.ProductService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -7,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -17,16 +21,28 @@ public class BrandService {
 
     private final BrandRepository brandRepository;
     private final ProductService productService;
+    private final TransactionalOutboxWriter transactionalOutboxWriter;
 
-    public BrandService(BrandRepository brandRepository, ProductService productService) {
+    public BrandService(BrandRepository brandRepository, ProductService productService,
+            TransactionalOutboxWriter transactionalOutboxWriter) {
         this.brandRepository = brandRepository;
         this.productService = productService;
+        this.transactionalOutboxWriter = transactionalOutboxWriter;
     }
 
     @Transactional
     public BrandModel registerBrand(String name) {
         BrandModel brand = BrandModel.create(name);
-        return brandRepository.save(brand);
+        BrandModel saved = brandRepository.save(brand);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("brandId", saved.getId());
+        payload.put("name", saved.getName());
+        transactionalOutboxWriter.record(
+                DomainKafkaTopics.USER_EVENTS,
+                String.valueOf(saved.getId()),
+                DomainEventTypes.BRAND_REGISTERED,
+                payload);
+        return saved;
     }
 
     @Transactional(readOnly = true)

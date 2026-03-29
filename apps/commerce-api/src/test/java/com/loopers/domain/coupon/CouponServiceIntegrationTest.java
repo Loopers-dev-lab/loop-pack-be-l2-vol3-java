@@ -69,6 +69,30 @@ class CouponServiceIntegrationTest {
             CoreException ex = assertThrows(CoreException.class, () -> couponService.issue(1L, template.getId()));
             assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
         }
+
+        @Test
+        void issue_whenSameUserAlreadyIssued_shouldThrowConflict() {
+            CouponTemplateModel template = couponService.persistTemplate(
+                    CouponTemplateModel.create("중복검증", CouponType.FIXED, 100,
+                            null, ZonedDateTime.now().plusDays(30)));
+            couponService.issue(1L, template.getId());
+
+            CoreException ex = assertThrows(CoreException.class, () -> couponService.issue(1L, template.getId()));
+
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.CONFLICT);
+        }
+
+        @Test
+        void issue_whenMaxIssueCountReached_shouldThrowBadRequest() {
+            CouponTemplateModel template = couponService.persistTemplate(
+                    CouponTemplateModel.create("선착순1장", CouponType.FIXED, 100,
+                            null, ZonedDateTime.now().plusDays(30), 1));
+            couponService.issue(1L, template.getId());
+
+            CoreException ex = assertThrows(CoreException.class, () -> couponService.issue(2L, template.getId()));
+
+            assertThat(ex.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        }
     }
 
     @DisplayName("findByUserIdAsProjection 시")

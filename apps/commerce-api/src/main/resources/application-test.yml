@@ -3,3 +3,10 @@ payment:
   recovery:
     scheduler:
       enabled: false
+
+# Kafka 로드맵 0단계: TC는 로컬 브로커 없이 기동한다. KafkaAdmin이 호스트명 kafka 로 붙지 않도록 클라이언트와 동일 부트스트랩 사용.
+spring:
+  kafka:
+    admin:
+      properties:
+        bootstrap.servers: ${spring.kafka.bootstrap-servers}

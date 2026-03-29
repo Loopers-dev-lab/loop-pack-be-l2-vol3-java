@@ -60,7 +60,7 @@ class CouponPropagationIntegrationTest {
         productId = productService.registerProduct(brandId, "쿠폰전파-상품", new BigDecimal("50000"), 10).getId();
         CouponTemplateInfo template = couponFacade.registerTemplate(
                 "전파테스트 쿠폰", "FIXED", 1000, BigDecimal.valueOf(10000),
-                ZonedDateTime.now().plusDays(30));
+                ZonedDateTime.now().plusDays(30), null);
         userId = 999L;
         issuedCouponId = couponFacade.issueCoupon(userId, template.id()).id();
     }

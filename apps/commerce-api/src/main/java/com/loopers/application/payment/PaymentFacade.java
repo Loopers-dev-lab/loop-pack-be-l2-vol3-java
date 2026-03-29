@@ -1,7 +1,11 @@
 package com.loopers.application.payment;
 
+import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.outbox.DomainEventTypes;
+import com.loopers.domain.outbox.DomainKafkaTopics;
+import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.payment.PaymentModel;
 import com.loopers.domain.payment.PaymentRepository;
@@ -24,8 +28,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.time.Duration;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 결제 유스케이스 조율 (06 §10.2).
@@ -50,6 +58,7 @@ public class PaymentFacade {
     private final Environment environment;
     private final Duration pendingMinAge;
     private final int staleBatchSize;
+    private final TransactionalOutboxWriter transactionalOutboxWriter;
 
     public PaymentFacade(PaymentPersistenceService persistenceService,
                          @Value("${pg.simulator.callback-url}") String callbackUrl,
@@ -62,7 +71,8 @@ public class PaymentFacade {
                          ObjectProvider<PaymentFacade> paymentFacadeSelf,
                          Environment environment,
                          @Value("${payment.recovery.pending-min-age:5m}") Duration pendingMinAge,
-                         @Value("${payment.recovery.stale-batch-size:500}") int staleBatchSize) {
+                         @Value("${payment.recovery.stale-batch-size:500}") int staleBatchSize,
+                         TransactionalOutboxWriter transactionalOutboxWriter) {
         this.persistenceService = persistenceService;
         this.pgPaymentRequester = pgPaymentRequester;
         this.pgSimulatorClient = pgSimulatorClient;
@@ -75,6 +85,7 @@ public class PaymentFacade {
         this.environment = environment;
         this.pendingMinAge = pendingMinAge;
         this.staleBatchSize = staleBatchSize;
+        this.transactionalOutboxWriter = transactionalOutboxWriter;
     }
 
     /**
@@ -151,13 +162,33 @@ public class PaymentFacade {
                     }
                 }
             }
-            orderService.completePayment(param.orderId());
+            OrderModel paidOrder = orderService.completePayment(param.orderId());
             payment.markSuccess(param.pgTransactionId());
             paymentRepository.save(payment);
+            appendPaymentCompletedOutbox(paidOrder);
         } else {
             payment.markFailed();
             paymentRepository.save(payment);
         }
+    }
+
+    private void appendPaymentCompletedOutbox(OrderModel order) {
+        List<Map<String, Object>> lines = new ArrayList<>();
+        for (OrderItemModel item : order.getOrderItems()) {
+            Map<String, Object> line = new LinkedHashMap<>();
+            line.put("productId", item.getProductId());
+            line.put("quantity", item.getQuantity());
+            lines.add(line);
+        }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("orderId", order.getId());
+        payload.put("occurredAt", Instant.now().toString());
+        payload.put("lines", lines);
+        transactionalOutboxWriter.record(
+                DomainKafkaTopics.ORDER_EVENTS,
+                String.valueOf(order.getId()),
+                DomainEventTypes.PAYMENT_COMPLETED,
+                payload);
     }
 
     /**

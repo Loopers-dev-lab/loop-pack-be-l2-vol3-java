@@ -1,6 +1,7 @@
 dependencies {
     // add-ons
     implementation(project(":modules:jpa"))
+    implementation(project(":modules:kafka"))
     implementation(project(":modules:redis"))
     implementation(project(":supports:jackson"))
     implementation(project(":supports:logging"))
@@ -9,6 +10,7 @@ dependencies {
     // batch
     implementation("org.springframework.boot:spring-boot-starter-batch")
     testImplementation("org.springframework.batch:spring-batch-test")
+    testImplementation("org.springframework.kafka:spring-kafka-test")
 
     // querydsl
     annotationProcessor("com.querydsl:querydsl-apt::jakarta")

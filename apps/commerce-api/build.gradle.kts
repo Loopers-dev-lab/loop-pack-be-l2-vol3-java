@@ -1,6 +1,9 @@
 dependencies {
+    implementation(project(":modules:coupon"))
+    implementation(project(":supports:error"))
     // add-ons
     implementation(project(":modules:jpa"))
+    implementation(project(":modules:kafka"))
     implementation(project(":modules:redis"))
     implementation(project(":supports:jackson"))
     implementation(project(":supports:logging"))
@@ -17,6 +20,10 @@ dependencies {
     // Resilience4j (Circuit Breaker, Retry, 06 Phase 0)
     implementation("io.github.resilience4j:resilience4j-spring-boot3:${project.properties["resilience4jVersion"]}")
     
+    // DB 스키마 (운영 dev/qa/prd: Flyway, local/test는 jpa.yml ddl-auto + Flyway 비활성)
+    runtimeOnly("org.flywaydb:flyway-core")
+    runtimeOnly("org.flywaydb:flyway-mysql")
+
     // security
     implementation("org.springframework.security:spring-security-crypto")
 

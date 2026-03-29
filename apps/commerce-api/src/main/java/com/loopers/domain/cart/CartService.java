@@ -1,5 +1,8 @@
 package com.loopers.domain.cart;
 
+import com.loopers.domain.outbox.DomainEventTypes;
+import com.loopers.domain.outbox.DomainKafkaTopics;
+import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.Quantity;
 import com.loopers.support.error.CoreException;
@@ -7,7 +10,9 @@ import com.loopers.support.error.ErrorType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class CartService {
@@ -17,10 +22,13 @@ public class CartService {
 
     private final CartRepository cartRepository;
     private final ProductService productService;
+    private final TransactionalOutboxWriter transactionalOutboxWriter;
 
-    public CartService(CartRepository cartRepository, ProductService productService) {
+    public CartService(CartRepository cartRepository, ProductService productService,
+            TransactionalOutboxWriter transactionalOutboxWriter) {
         this.cartRepository = cartRepository;
         this.productService = productService;
+        this.transactionalOutboxWriter = transactionalOutboxWriter;
     }
 
     /**
@@ -38,11 +46,29 @@ public class CartService {
             Quantity newQ = Quantity.of(existing.getQuantity() + quantity);
             productService.validateProductAvailability(productId, newQ, optionId);
             existing.updateQuantity(newQ);
-            return cartRepository.save(existing);
+            CartItemModel saved = cartRepository.save(existing);
+            appendCartItemAddedOutbox(saved);
+            return saved;
         }
 
         CartItemModel newItem = CartItemModel.create(userId, productId, optionId, q);
-        return cartRepository.save(newItem);
+        CartItemModel saved = cartRepository.save(newItem);
+        appendCartItemAddedOutbox(saved);
+        return saved;
+    }
+
+    private void appendCartItemAddedOutbox(CartItemModel item) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("userId", item.getUserId());
+        payload.put("productId", item.getProductId());
+        payload.put("optionId", item.getOptionId());
+        payload.put("quantity", item.getQuantity());
+        payload.put("cartItemId", item.getId());
+        transactionalOutboxWriter.record(
+                DomainKafkaTopics.USER_EVENTS,
+                String.valueOf(item.getUserId()),
+                DomainEventTypes.CART_ITEM_ADDED,
+                payload);
     }
 
     private CartItemModel findExistingSameProduct(List<CartItemModel> items, Long productId, Long optionId) {

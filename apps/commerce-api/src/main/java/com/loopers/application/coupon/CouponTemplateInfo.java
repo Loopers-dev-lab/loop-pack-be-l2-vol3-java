@@ -16,7 +16,9 @@ public record CouponTemplateInfo(
     String type,
     int value,
     BigDecimal minOrderAmount,
-    ZonedDateTime expiredAt
+    ZonedDateTime expiredAt,
+    Integer maxIssueCount,
+    int issuedCount
 ) {
     public static CouponTemplateInfo from(CouponTemplateModel model) {
         if (model == null) {
@@ -28,7 +30,9 @@ public record CouponTemplateInfo(
             model.getType().name(),
             model.getValue(),
             model.getMinOrderAmount(),
-            model.getExpiredAt()
+            model.getExpiredAt(),
+            model.getMaxIssueCount(),
+            model.getIssuedCount()
         );
     }
 
@@ -43,7 +47,9 @@ public record CouponTemplateInfo(
             projection.getType().name(),
             projection.getValue(),
             projection.getMinOrderAmount(),
-            projection.getExpiredAt()
+            projection.getExpiredAt(),
+            projection.getMaxIssueCount(),
+            projection.getIssuedCount()
         );
     }
 }

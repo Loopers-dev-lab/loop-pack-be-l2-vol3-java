@@ -4,6 +4,8 @@ import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
+import com.loopers.infrastructure.outbox.OutboxEventModel;
+import com.loopers.infrastructure.outbox.OutboxJpaRepository;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.user.UserV1Dto;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
@@ -41,6 +43,8 @@ class LikeV1ApiE2ETest {
     private BrandService brandService;
     @Autowired
     private ProductService productService;
+    @Autowired
+    private OutboxJpaRepository outboxJpaRepository;
 
     private Long productId;
 
@@ -104,6 +108,31 @@ class LikeV1ApiE2ETest {
         }
 
         @Test
+        @DisplayName("좋아요 추가 시 Outbox에 product-events 도메인 이벤트가 적재된다.")
+        void addLike_withValidRequest_shouldAppendOutboxEvent() {
+            LikeV1Dto.AddLikeRequest request = new LikeV1Dto.AddLikeRequest(productId);
+
+            testRestTemplate.exchange(
+                ENDPOINT_LIKES, HttpMethod.POST, new HttpEntity<>(request, authHeaders()),
+                new ParameterizedTypeReference<ApiResponse<LikeV1Dto.LikeResponse>>() {});
+
+            var events = outboxJpaRepository.findAll();
+            OutboxEventModel event = events.stream()
+                .filter(e -> "product-events".equals(e.getTopic()))
+                .filter(e -> "PRODUCT_LIKE_CHANGED".equals(e.getEventType()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("product-events / PRODUCT_LIKE_CHANGED Outbox 이벤트가 존재하지 않습니다."));
+
+            assertThat(event.getPartitionKey()).isEqualTo(String.valueOf(productId));
+            String payload = event.getPayload();
+            assertThat(payload).contains("\"productId\"");
+            assertThat(payload).contains(String.valueOf(productId));
+            assertThat(payload).contains("\"userId\"");
+            assertThat(payload).contains("\"action\"");
+            assertThat(payload).contains("LIKED");
+        }
+
+        @Test
         void addLike_withoutLogin_shouldReturn401() {
             LikeV1Dto.AddLikeRequest request = new LikeV1Dto.AddLikeRequest(productId);
 
@@ -111,6 +140,21 @@ class LikeV1ApiE2ETest {
                 ENDPOINT_LIKES, HttpMethod.POST, new HttpEntity<>(request), new ParameterizedTypeReference<>() {});
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        @DisplayName("동일 상품에 연속 좋아요 시 409 Conflict를 반환한다.")
+        void addLike_whenAlreadyLiked_shouldReturn409() {
+            LikeV1Dto.AddLikeRequest request = new LikeV1Dto.AddLikeRequest(productId);
+            testRestTemplate.exchange(
+                ENDPOINT_LIKES, HttpMethod.POST, new HttpEntity<>(request, authHeaders()),
+                new ParameterizedTypeReference<ApiResponse<LikeV1Dto.LikeResponse>>() {});
+
+            ResponseEntity<ApiResponse<LikeV1Dto.LikeResponse>> second = testRestTemplate.exchange(
+                ENDPOINT_LIKES, HttpMethod.POST, new HttpEntity<>(request, authHeaders()),
+                new ParameterizedTypeReference<>() {});
+
+            assertThat(second.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         }
     }
 
@@ -129,6 +173,43 @@ class LikeV1ApiE2ETest {
                 new ParameterizedTypeReference<>() {});
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        }
+
+        @Test
+        @DisplayName("좋아요 취소 시 Outbox에 UNLIKED 도메인 이벤트가 적재된다.")
+        void removeLike_withValidRequest_shouldAppendOutboxEventWithUnliked() {
+            LikeV1Dto.AddLikeRequest addReq = new LikeV1Dto.AddLikeRequest(productId);
+            testRestTemplate.exchange(ENDPOINT_LIKES, HttpMethod.POST, new HttpEntity<>(addReq, authHeaders()),
+                new ParameterizedTypeReference<ApiResponse<LikeV1Dto.LikeResponse>>() {});
+
+            testRestTemplate.exchange(
+                ENDPOINT_LIKES + "/" + productId, HttpMethod.DELETE, new HttpEntity<>(authHeaders()),
+                new ParameterizedTypeReference<ApiResponse<Void>>() {});
+
+            OutboxEventModel unliked = outboxJpaRepository.findAll().stream()
+                .filter(e -> "product-events".equals(e.getTopic()))
+                .filter(e -> "PRODUCT_LIKE_CHANGED".equals(e.getEventType()))
+                .filter(e -> e.getPayload() != null && e.getPayload().contains("UNLIKED"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("UNLIKED PRODUCT_LIKE_CHANGED Outbox 이벤트가 존재하지 않습니다."));
+
+            assertThat(unliked.getPartitionKey()).isEqualTo(String.valueOf(productId));
+            String payload = unliked.getPayload();
+            assertThat(payload).contains("\"productId\"");
+            assertThat(payload).contains(String.valueOf(productId));
+            assertThat(payload).contains("\"userId\"");
+            assertThat(payload).contains("\"action\"");
+            assertThat(payload).contains("UNLIKED");
+        }
+
+        @Test
+        @DisplayName("좋아요하지 않은 상품 취소 시 404 Not Found를 반환한다.")
+        void removeLike_whenNotLiked_shouldReturn404() {
+            ResponseEntity<ApiResponse<Void>> response = testRestTemplate.exchange(
+                ENDPOINT_LIKES + "/" + productId, HttpMethod.DELETE, new HttpEntity<>(authHeaders()),
+                new ParameterizedTypeReference<>() {});
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         }
     }
 

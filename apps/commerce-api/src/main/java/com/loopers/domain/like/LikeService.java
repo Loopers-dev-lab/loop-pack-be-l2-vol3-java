@@ -1,5 +1,8 @@
 package com.loopers.domain.like;
 
+import com.loopers.domain.outbox.DomainEventTypes;
+import com.loopers.domain.outbox.DomainKafkaTopics;
+import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductStatsModel;
 import com.loopers.domain.product.ProductStatsRepository;
@@ -17,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -29,14 +33,17 @@ public class LikeService {
     private final LikeRepository likeRepository;
     private final ProductService productService;
     private final ProductStatsRepository productStatsRepository;
+    private final TransactionalOutboxWriter transactionalOutboxWriter;
     private final LikeService self;
 
     public LikeService(LikeRepository likeRepository, ProductService productService,
             ProductStatsRepository productStatsRepository,
+            TransactionalOutboxWriter transactionalOutboxWriter,
             @Lazy LikeService self) {
         this.likeRepository = likeRepository;
         this.productService = productService;
         this.productStatsRepository = productStatsRepository;
+        this.transactionalOutboxWriter = Objects.requireNonNull(transactionalOutboxWriter);
         this.self = self;
     }
 
@@ -106,6 +113,14 @@ public class LikeService {
         LikeModel like = LikeModel.create(userId, productId);
         LikeModel saved = likeRepository.save(like);
         productStatsRepository.incrementLikeCount(productId);
+        transactionalOutboxWriter.record(
+                DomainKafkaTopics.PRODUCT_EVENTS,
+                String.valueOf(productId),
+                DomainEventTypes.PRODUCT_LIKE_CHANGED,
+                Map.of(
+                        "productId", productId,
+                        "userId", userId,
+                        "action", "LIKED"));
         return saved;
     }
 
@@ -143,6 +158,14 @@ public class LikeService {
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "좋아요를 찾을 수 없습니다."));
         likeRepository.delete(like);
         productStatsRepository.decrementLikeCount(productId);
+        transactionalOutboxWriter.record(
+                DomainKafkaTopics.PRODUCT_EVENTS,
+                String.valueOf(productId),
+                DomainEventTypes.PRODUCT_LIKE_CHANGED,
+                Map.of(
+                        "productId", productId,
+                        "userId", userId,
+                        "action", "UNLIKED"));
     }
 
     /**

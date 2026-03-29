@@ -29,24 +29,45 @@ public class CouponV1Controller implements CouponV1ApiSpec {
     @ResponseStatus(HttpStatus.CREATED)
     @Override
     public ApiResponse<CouponV1Dto.IssuedCouponResponse> issueCoupon(
-        @RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
-        @PathVariable Long couponId
-    ) {
+            @RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
+            @PathVariable Long couponId) {
         Long userId = userFacade.findUserIdByLoginId(loginId)
-            .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "로그인이 필요합니다."));
+                .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "로그인이 필요합니다."));
         var info = couponFacade.issueCoupon(userId, couponId);
         return ApiResponse.success(CouponV1Dto.IssuedCouponResponse.from(info));
+    }
+
+    @PostMapping("/coupons/{couponId}/issue-requests")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @Override
+    public ApiResponse<CouponV1Dto.CouponIssueRequestResponse> requestIssueCoupon(
+            @RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
+            @PathVariable Long couponId) {
+        Long userId = userFacade.findUserIdByLoginId(loginId)
+                .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "로그인이 필요합니다."));
+        var info = couponFacade.requestIssueCoupon(userId, couponId);
+        return ApiResponse.success(CouponV1Dto.CouponIssueRequestResponse.from(info));
+    }
+
+    @GetMapping("/coupons/issue-requests/{requestId}")
+    @Override
+    public ApiResponse<CouponV1Dto.CouponIssueRequestResponse> getIssueRequest(
+            @RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
+            @PathVariable String requestId) {
+        Long userId = userFacade.findUserIdByLoginId(loginId)
+                .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "로그인이 필요합니다."));
+        var info = couponFacade.getIssueRequest(userId, requestId);
+        return ApiResponse.success(CouponV1Dto.CouponIssueRequestResponse.from(info));
     }
 
     @GetMapping("/users/me/coupons")
     @Override
     public ApiResponse<CouponV1Dto.PagedIssuedCouponsResponse> getMyCoupons(
-        @RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size
-    ) {
+            @RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
         Long userId = userFacade.findUserIdByLoginId(loginId)
-            .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "로그인이 필요합니다."));
+                .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, "로그인이 필요합니다."));
         int safePage = Math.max(DEFAULT_PAGE, page);
         int safeSize = size <= 0 ? DEFAULT_SIZE : Math.min(size, 100);
         Pageable pageable = PageRequest.of(safePage, safeSize);
