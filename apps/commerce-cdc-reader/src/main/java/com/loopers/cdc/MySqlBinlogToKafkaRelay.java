@@ -19,6 +19,9 @@ import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Component
 public class MySqlBinlogToKafkaRelay {
@@ -114,7 +117,19 @@ public class MySqlBinlogToKafkaRelay {
     private void publish(TableMapEventData table, String op, Event event, Object rows) {
         String topic = properties.getTopicPrefix() + "-" + table.getDatabase() + "-" + table.getTable();
         String payload = toJson(buildEnvelope(table, op, event, rows));
-        kafkaTemplate.send(topic, table.getTable(), payload);
+        long timeoutMs = properties.getSendTimeout().toMillis();
+        try {
+            kafkaTemplate.send(topic, table.getTable(), payload).get(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("interrupted while sending cdc event topic=" + topic, e);
+        } catch (ExecutionException e) {
+            log.error("Kafka 전송 실패 topic={} db={} table={} op={}", topic, table.getDatabase(), table.getTable(), op, e.getCause());
+            throw new IllegalStateException("kafka send failed topic=" + topic, e.getCause());
+        } catch (TimeoutException e) {
+            log.error("Kafka 전송 타임아웃 topic={} db={} table={} op={} timeoutMs={}", topic, table.getDatabase(), table.getTable(), op, timeoutMs);
+            throw new IllegalStateException("kafka send timeout topic=" + topic, e);
+        }
     }
 
     private Map<String, Object> buildEnvelope(

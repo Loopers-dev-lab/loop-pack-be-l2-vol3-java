@@ -2,6 +2,7 @@ package com.loopers.cdc;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,6 +20,8 @@ public class CdcReaderProperties {
     private String topicPrefix = "cdc-app";
     private List<String> includeDatabases = new ArrayList<>();
     private List<String> includeTables = new ArrayList<>();
+    /** Kafka 전송 완료 대기 (미확인 전송 시 binlog 진행으로 유실 방지) */
+    private Duration sendTimeout = Duration.ofSeconds(30);
 
     public String getMysqlHost() {
         return mysqlHost;
@@ -98,6 +101,14 @@ public class CdcReaderProperties {
 
     public void setIncludeTables(List<String> includeTables) {
         this.includeTables = includeTables;
+    }
+
+    public Duration getSendTimeout() {
+        return sendTimeout;
+    }
+
+    public void setSendTimeout(Duration sendTimeout) {
+        this.sendTimeout = sendTimeout;
     }
 
     public boolean shouldInclude(String db, String table) {

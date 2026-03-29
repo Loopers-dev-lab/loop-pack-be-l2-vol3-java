@@ -20,6 +20,7 @@ cdc:
     password: root
     server-id: 223346
     topic-prefix: cdc-app
+    send-timeout: 30s
     include-databases:
       - loopers
     include-tables:
