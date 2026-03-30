@@ -2,6 +2,8 @@ package com.loopers.application.queue;
 
 import com.loopers.config.QueueProperties;
 import com.loopers.domain.queue.EntryTokenService;
+import com.loopers.domain.queue.QueueMode;
+import com.loopers.domain.queue.QueueModeRepository;
 import com.loopers.domain.queue.WaitingQueueService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -18,8 +20,20 @@ public class QueueApp {
     private final EntryTokenService entryTokenService;
     private final QueueProperties queueProperties;
     private final ThroughputTracker throughputTracker;
+    private final QueueModeRepository queueModeRepository;
 
     public QueueInfo enterQueue(Long memberId) {
+        QueueMode mode = queueModeRepository.getCurrentMode();
+
+        if (mode == QueueMode.CLOSED) {
+            throw new CoreException(ErrorType.QUEUE_FULL);
+        }
+
+        if (mode == QueueMode.BYPASS) {
+            String token = entryTokenService.issue(memberId);
+            return new QueueInfo(QueueStatus.TOKEN_ISSUED, 0, 0, 0, token);
+        }
+
         Optional<String> existingToken = entryTokenService.findToken(memberId);
         if (existingToken.isPresent()) {
             return new QueueInfo(QueueStatus.TOKEN_ISSUED, 0, 0, waitingQueueService.getTotalCount(), existingToken.get());

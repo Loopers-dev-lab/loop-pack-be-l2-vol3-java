@@ -16,7 +16,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
-@TestPropertySource(properties = {"queue.enabled=true", "queue.token-ttl-seconds=1"})
+@TestPropertySource(properties = {
+        "queue.enabled=true",
+        "queue.token-ttl-seconds=1",
+        "queue.dynamic.enabled=false",
+        "queue.dynamic.metric=hikari-pool-usage",
+        "queue.dynamic.open-threshold=0.8",
+        "queue.dynamic.close-threshold=0.5",
+        "queue.dynamic.cooldown-seconds=30",
+        "queue.dynamic.evaluation-interval-ms=999999"
+})
 @DisplayName("토큰 TTL 만료 통합 테스트")
 class EntryTokenTtlTest {
 

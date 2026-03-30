@@ -26,7 +26,15 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@TestPropertySource(properties = "queue.enabled=true")
+@TestPropertySource(properties = {
+        "queue.enabled=true",
+        "queue.dynamic.enabled=false",
+        "queue.dynamic.metric=hikari-pool-usage",
+        "queue.dynamic.open-threshold=0.8",
+        "queue.dynamic.close-threshold=0.5",
+        "queue.dynamic.cooldown-seconds=30",
+        "queue.dynamic.evaluation-interval-ms=999999"
+})
 @DisplayName("대기열 → 주문 E2E 테스트")
 class QueueE2ETest {
 

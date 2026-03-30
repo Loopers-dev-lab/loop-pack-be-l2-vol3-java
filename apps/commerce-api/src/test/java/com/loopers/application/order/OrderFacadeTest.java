@@ -2,6 +2,7 @@ package com.loopers.application.order;
 
 import com.loopers.application.coupon.CouponApp;
 import com.loopers.application.queue.QueueApp;
+import com.loopers.application.queue.QueueFallbackProducer;
 import com.loopers.config.QueueProperties;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -33,12 +34,15 @@ class OrderFacadeTest {
     @Mock
     private QueueApp queueApp;
 
+    @Mock
+    private QueueFallbackProducer queueFallbackProducer;
+
     private OrderFacade orderFacade;
 
     @BeforeEach
     void setUp() {
-        QueueProperties queueProperties = new QueueProperties(false, 14, 100, 300, 140, 100000);
-        orderFacade = new OrderFacade(orderApp, couponApp, queueApp, queueProperties);
+        QueueProperties queueProperties = new QueueProperties(false, 14, 100, 300, 140, 100000, "LOCAL_QUEUE");
+        orderFacade = new OrderFacade(orderApp, couponApp, queueApp, queueProperties, queueFallbackProducer);
     }
 
     @Nested
@@ -114,8 +118,8 @@ class OrderFacadeTest {
         @DisplayName("대기열 활성화 시 토큰 검증 및 소비")
         void createOrder_queueEnabled_validatesAndConsumesToken() {
             // given
-            QueueProperties enabledProperties = new QueueProperties(true, 14, 100, 300, 140, 100000);
-            OrderFacade enabledFacade = new OrderFacade(orderApp, couponApp, queueApp, enabledProperties);
+            QueueProperties enabledProperties = new QueueProperties(true, 14, 100, 300, 140, 100000, "LOCAL_QUEUE");
+            OrderFacade enabledFacade = new OrderFacade(orderApp, couponApp, queueApp, enabledProperties, queueFallbackProducer);
 
             Long memberId = 1L;
             String entryToken = "valid-token";
@@ -135,8 +139,8 @@ class OrderFacadeTest {
         @DisplayName("대기열 활성화 + 주문 실패 시 토큰 소비하지 않음")
         void createOrder_queueEnabled_orderFails_tokenNotConsumed() {
             // given
-            QueueProperties enabledProperties = new QueueProperties(true, 14, 100, 300, 140, 100000);
-            OrderFacade enabledFacade = new OrderFacade(orderApp, couponApp, queueApp, enabledProperties);
+            QueueProperties enabledProperties = new QueueProperties(true, 14, 100, 300, 140, 100000, "LOCAL_QUEUE");
+            OrderFacade enabledFacade = new OrderFacade(orderApp, couponApp, queueApp, enabledProperties, queueFallbackProducer);
 
             Long memberId = 1L;
             String entryToken = "valid-token";

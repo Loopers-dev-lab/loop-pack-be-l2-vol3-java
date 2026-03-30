@@ -20,7 +20,16 @@ import java.util.concurrent.Executors;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@TestPropertySource(properties = {"queue.enabled=true", "queue.interval-ms=999999"})
+@TestPropertySource(properties = {
+        "queue.enabled=true",
+        "queue.interval-ms=999999",
+        "queue.dynamic.enabled=false",
+        "queue.dynamic.metric=hikari-pool-usage",
+        "queue.dynamic.open-threshold=0.8",
+        "queue.dynamic.close-threshold=0.5",
+        "queue.dynamic.cooldown-seconds=30",
+        "queue.dynamic.evaluation-interval-ms=999999"
+})
 @DisplayName("대기열 동시성 통합 테스트")
 class WaitingQueueConcurrencyTest {
 

@@ -55,6 +55,13 @@ queue:
   throughput-per-second: 140
   max-size: 100000
   fallback-strategy: LOCAL_QUEUE
+  dynamic:
+    enabled: false
+    metric: hikari-pool-usage
+    open-threshold: 0.8
+    close-threshold: 0.5
+    cooldown-seconds: 30
+    evaluation-interval-ms: 5000
 
 commerce-api:
   callback-base-url: http://localhost:8080
