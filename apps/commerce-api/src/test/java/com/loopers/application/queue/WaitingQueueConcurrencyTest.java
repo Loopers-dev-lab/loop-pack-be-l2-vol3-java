@@ -49,6 +49,9 @@ class WaitingQueueConcurrencyTest {
     private ThroughputTracker throughputTracker;
 
     @Autowired
+    private SchedulerHealthChecker schedulerHealthChecker;
+
+    @Autowired
     private RedisCleanUp redisCleanUp;
 
     @AfterEach
@@ -96,7 +99,7 @@ class WaitingQueueConcurrencyTest {
         assertThat(waitingQueueService.getTotalCount()).isEqualTo(userCount);
 
         // when — 스케줄러 직접 호출 (타이밍 의존성 제거)
-        QueueScheduler scheduler = new QueueScheduler(waitingQueueService, entryTokenService, queueProperties, throughputTracker);
+        QueueScheduler scheduler = new QueueScheduler(waitingQueueService, entryTokenService, queueProperties, throughputTracker, schedulerHealthChecker);
         scheduler.issueTokens();
 
         // then

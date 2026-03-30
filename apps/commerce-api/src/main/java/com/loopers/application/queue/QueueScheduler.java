@@ -17,10 +17,13 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class QueueScheduler {
 
+    private static final int HEARTBEAT_TTL_SECONDS = 5;
+
     private final WaitingQueueService waitingQueueService;
     private final EntryTokenService entryTokenService;
     private final QueueProperties queueProperties;
     private final ThroughputTracker throughputTracker;
+    private final SchedulerHealthChecker schedulerHealthChecker;
 
     @Scheduled(fixedDelayString = "${queue.interval-ms}")
     @SchedulerLock(name = "queue_token_issuer", lockAtMostFor = "PT1S", lockAtLeastFor = "PT0S")
@@ -28,6 +31,8 @@ public class QueueScheduler {
         if (!queueProperties.enabled()) {
             return;
         }
+
+        schedulerHealthChecker.recordTick(HEARTBEAT_TTL_SECONDS);
 
         List<Map.Entry<Long, Double>> entries = waitingQueueService.popNWithScore(queueProperties.batchSize());
         if (entries.isEmpty()) {

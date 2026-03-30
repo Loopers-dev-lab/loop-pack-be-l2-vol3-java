@@ -8,9 +8,10 @@ public record QueueInfo(
         String token,
         Long estimateA,
         Long estimateB,
-        Long estimateC
+        Long estimateC,
+        Boolean schedulerHealthy
 ) {
     public QueueInfo(QueueStatus status, long position, long estimatedWaitSeconds, long totalInQueue, String token) {
-        this(status, position, estimatedWaitSeconds, totalInQueue, token, null, null, null);
+        this(status, position, estimatedWaitSeconds, totalInQueue, token, null, null, null, null);
     }
 }

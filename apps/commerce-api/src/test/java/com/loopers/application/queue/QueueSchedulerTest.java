@@ -25,15 +25,17 @@ class QueueSchedulerTest {
     private WaitingQueueService waitingQueueService;
     private EntryTokenService entryTokenService;
     private ThroughputTracker throughputTracker;
+    private SchedulerHealthChecker schedulerHealthChecker;
     private QueueScheduler queueScheduler;
 
     @BeforeEach
     void setUp() {
         waitingQueueService = mock(WaitingQueueService.class);
         entryTokenService = mock(EntryTokenService.class);
+        schedulerHealthChecker = mock(SchedulerHealthChecker.class);
         QueueProperties queueProperties = new QueueProperties(true, 14, 100, 300, 140, 100000, "LOCAL_QUEUE");
         throughputTracker = new ThroughputTracker(queueProperties);
-        queueScheduler = new QueueScheduler(waitingQueueService, entryTokenService, queueProperties, throughputTracker);
+        queueScheduler = new QueueScheduler(waitingQueueService, entryTokenService, queueProperties, throughputTracker, schedulerHealthChecker);
     }
 
     private List<Map.Entry<Long, Double>> withScores(Long... memberIds) {
@@ -82,7 +84,7 @@ class QueueSchedulerTest {
         // given
         QueueProperties disabledProperties = new QueueProperties(false, 14, 100, 300, 140, 100000, "LOCAL_QUEUE");
         ThroughputTracker disabledTracker = new ThroughputTracker(disabledProperties);
-        QueueScheduler disabledScheduler = new QueueScheduler(waitingQueueService, entryTokenService, disabledProperties, disabledTracker);
+        QueueScheduler disabledScheduler = new QueueScheduler(waitingQueueService, entryTokenService, disabledProperties, disabledTracker, schedulerHealthChecker);
 
         // when
         disabledScheduler.issueTokens();

@@ -21,6 +21,7 @@ public class QueueApp {
     private final QueueProperties queueProperties;
     private final ThroughputTracker throughputTracker;
     private final QueueModeRepository queueModeRepository;
+    private final SchedulerHealthChecker schedulerHealthChecker;
 
     public QueueInfo enterQueue(Long memberId) {
         QueueMode mode = queueModeRepository.getCurrentMode();
@@ -49,13 +50,16 @@ public class QueueApp {
         long estB = throughputTracker.estimateWaitB(pos);
         long estC = throughputTracker.estimateWaitC(pos);
 
-        return new QueueInfo(QueueStatus.WAITING, pos, estB, totalInQueue, null, estA, estB, estC);
+        return new QueueInfo(QueueStatus.WAITING, pos, estB, totalInQueue, null, estA, estB, estC, true);
     }
 
     public QueueInfo getQueueStatus(Long memberId) {
+        boolean healthy = schedulerHealthChecker.isAliveByHeartbeat();
+
         Optional<String> token = entryTokenService.findToken(memberId);
         if (token.isPresent()) {
-            return new QueueInfo(QueueStatus.TOKEN_ISSUED, 0, 0, waitingQueueService.getTotalCount(), token.get());
+            return new QueueInfo(QueueStatus.TOKEN_ISSUED, 0, 0, waitingQueueService.getTotalCount(), token.get(),
+                    null, null, null, healthy);
         }
 
         Optional<Long> position = waitingQueueService.getPosition(memberId);
@@ -70,7 +74,7 @@ public class QueueApp {
         long estB = throughputTracker.estimateWaitB(pos);
         long estC = throughputTracker.estimateWaitC(pos);
 
-        return new QueueInfo(QueueStatus.WAITING, pos, estB, totalInQueue, null, estA, estB, estC);
+        return new QueueInfo(QueueStatus.WAITING, pos, estB, totalInQueue, null, estA, estB, estC, healthy);
     }
 
     public void validateToken(Long memberId, String token) {
