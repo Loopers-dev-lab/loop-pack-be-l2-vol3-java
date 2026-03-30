@@ -54,7 +54,6 @@ queue:
   token-ttl-seconds: 300
   throughput-per-second: 140
   max-size: 100000
-  fallback-strategy: LOCAL_QUEUE
   dynamic:
     enabled: false
     metric: hikari-pool-usage

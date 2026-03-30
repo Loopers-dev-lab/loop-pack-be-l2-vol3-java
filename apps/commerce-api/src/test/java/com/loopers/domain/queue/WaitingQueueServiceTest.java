@@ -29,7 +29,7 @@ class WaitingQueueServiceTest {
     @BeforeEach
     void setUp() {
         waitingQueueRepository = mock(WaitingQueueRepository.class);
-        QueueProperties queueProperties = new QueueProperties(true, 14, 100, 300, 140, 100, "LOCAL_QUEUE");
+        QueueProperties queueProperties = new QueueProperties(true, 14, 100, 300, 140, 100);
         waitingQueueService = new WaitingQueueService(waitingQueueRepository, queueProperties);
     }
 
